@@ -11,6 +11,30 @@ $originalLocation = Get-Location
 try {
     Set-Location $DevDbPath
 
+    # Verificar si existe .env, si no, crearlo desde .env.example
+    $envFile = Join-Path $DevDbPath ".env"
+    $envExampleFile = Join-Path $DevDbPath ".env.example"
+
+    if (-not (Test-Path $envFile)) {
+        if (Test-Path $envExampleFile) {
+            Write-Host "📝 Archivo .env no encontrado. Creando desde .env.example..." -ForegroundColor Yellow
+            Copy-Item $envExampleFile $envFile
+            Write-Host "✅ Archivo .env creado. Por favor, configura los valores necesarios." -ForegroundColor Green
+            Write-Host "⚠️  Edita $envFile antes de continuar." -ForegroundColor Yellow
+            Write-Host ""
+            
+            # Preguntar si desea continuar o editar primero
+            $response = Read-Host "¿Deseas continuar de todas formas? (s/N)"
+            if ($response -notmatch '^[sS]$') {
+                Write-Host "Operación cancelada. Edita el archivo .env y vuelve a ejecutar el script." -ForegroundColor Cyan
+                exit 0
+            }
+        } else {
+            Write-Host "❌ No se encontró .env ni .env.example" -ForegroundColor Red
+            exit 1
+        }
+    }
+
     Write-Host "🚀 Iniciando PostgreSQL 17.7 con Docker..." -ForegroundColor Green
 
     if ($Build) {
