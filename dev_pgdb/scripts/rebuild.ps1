@@ -7,6 +7,21 @@ $originalLocation = Get-Location
 try {
     Set-Location $DevDbPath
 
+    # Verificar si existe .env, si no, crearlo desde .env.example
+    $envFile = Join-Path $DevDbPath ".env"
+    $envExampleFile = Join-Path $DevDbPath ".env.example"
+
+    if (-not (Test-Path $envFile)) {
+        if (Test-Path $envExampleFile) {
+            Write-Host "📝 Archivo .env no encontrado. Creando desde .env.example..." -ForegroundColor Yellow
+            Copy-Item $envExampleFile $envFile
+            Write-Host "✅ Archivo .env creado." -ForegroundColor Green
+        } else {
+            Write-Host "❌ No se encontró .env ni .env.example" -ForegroundColor Red
+            exit 1
+        }
+    }
+
     Write-Host "🔄 Reconstruyendo PostgreSQL sin cache..." -ForegroundColor Magenta
     Write-Host ""
 
