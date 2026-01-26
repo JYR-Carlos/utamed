@@ -1,6 +1,0 @@
-# Datos de PostgreSQL
-data/
-
-# Variables de entorno locales
-.env.local
-.env.*.local
