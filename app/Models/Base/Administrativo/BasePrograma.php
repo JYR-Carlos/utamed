@@ -3,6 +3,7 @@
 namespace App\Models\Base\Administrativo;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Clase Base generada automáticamente
@@ -10,31 +11,30 @@ use Illuminate\Database\Eloquent\Model;
  */
 abstract class BasePrograma extends Model
 {
+    use SoftDeletes;
     protected $connection = 'pgsql';
     protected $table = 'Programa';
     protected $primaryKey = 'id_programa';
     public $incrementing = true;
+    const DELETED_AT = 'fecha_eliminacion';
 
     const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = null;
+    const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
+        'version',
         'unc_programa',
-        'es_actual',
-        'id_usuario',
         'id_curso',
-        'es_plantilla'
-    ];
-
-    protected $casts = [
-        'esta_activo' => 'boolean',
+        'es_plantilla',
+        'id_usuario_autor',
+        'es_actual'
     ];
 
     // Relaciones
 
     public function usuario()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario', 'id_usuario');
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario_autor', 'id_usuario');
     }
 
     public function curso()
@@ -42,9 +42,4 @@ abstract class BasePrograma extends Model
         return $this->belongsTo(\App\Models\Curso\Curso::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

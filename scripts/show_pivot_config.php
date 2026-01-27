@@ -7,11 +7,33 @@ echo "==================================================\n\n";
 // Leer configuración del generador
 $generatorContent = file_get_contents(__DIR__ . '/generate_models.php');
 
-// Extraer configuración manual de pivots
-preg_match('/\$manualPivotTables = \[(.*?)\];/s', $generatorContent, $matches);
+// Mostrar configuración de relaciones
+echo "\n\n🔄 RENOMBRADO DE RELACIONES (belongsTo + hasMany/hasOne):\n";
+echo "-----------------------------------------------------------\n";
+
+preg_match('/\$relationNames = \[(.*?)\];/s', $generatorContent, $relationMatches);
+if (isset($relationMatches[1])) {
+  $relationConfig = $relationMatches[1];
+  preg_match_all("/'utamed\.([^']+)'/", $relationConfig, $relationTableMatches);
+
+  if (!empty($relationTableMatches[1])) {
+    foreach (array_unique($relationTableMatches[1]) as $table) {
+      echo "  ✓ " . str_replace('.', '\\', $table) . "\n";
+    }
+    echo "\n📊 Total: " . count(array_unique($relationTableMatches[1])) . " tabla(s) con renombrado\n";
+    echo "   ℹ️  Usa '_self' para belongsTo, nombre de tabla para hasMany/hasOne\n";
+  } else {
+    echo "  (ninguna configurada)\n";
+  }
+} else {
+  echo "  (ninguna configurada)\n";
+}
 
 echo "🔧 TABLAS PIVOT MANUALES CONFIGURADAS:\n";
 echo "--------------------------------------\n";
+
+// Extraer configuración manual de pivots
+preg_match('/\$manualPivotTables = \[(.*?)\];/s', $generatorContent, $matches);
 
 if (isset($matches[1])) {
   $config = $matches[1];
@@ -61,27 +83,7 @@ if (isset($matches[1])) {
   echo "  Error: No se pudo leer la configuración\n";
 }
 
-// Mostrar configuración de relaciones
-echo "\n\n🔄 RENOMBRADO DE RELACIONES (belongsTo + hasMany/hasOne):\n";
-echo "-----------------------------------------------------------\n";
 
-preg_match('/\$relationNames = \[(.*?)\];/s', $generatorContent, $relationMatches);
-if (isset($relationMatches[1])) {
-  $relationConfig = $relationMatches[1];
-  preg_match_all("/'utamed\.([^']+)'/", $relationConfig, $relationTableMatches);
-
-  if (!empty($relationTableMatches[1])) {
-    foreach (array_unique($relationTableMatches[1]) as $table) {
-      echo "  ✓ " . str_replace('.', '\\', $table) . "\n";
-    }
-    echo "\n📊 Total: " . count(array_unique($relationTableMatches[1])) . " tabla(s) con renombrado\n";
-    echo "   ℹ️  Usa '_self' para belongsTo, nombre de tabla para hasMany/hasOne\n";
-  } else {
-    echo "  (ninguna configurada)\n";
-  }
-} else {
-  echo "  (ninguna configurada)\n";
-}
 
 echo "✅ Configuración unificada en \$relationNames\n";
 echo "✅ Nombres de método pluralizados en español\n";

@@ -12,31 +12,29 @@ abstract class BaseUsuarioPermisoEspecial extends Model
 {
     protected $connection = 'pgsql';
     protected $table = 'Usuario_Permiso_Especial';
-    protected $primaryKey = 'id_usuario';
+    protected $primaryKey = 'id_permiso';
     public $incrementing = true;
 
     const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = null;
+    const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
-        'fecha_inicio',
-        'fecha_fin',
+        'fecha_inicio_planificada',
+        'fecha_fin_planificada',
         'esta_permitido',
-        'duracion_dias',
         'puede_delegar',
-        'id_permiso',
-        'id_contexto'
-    ];
-
-    protected $casts = [
-        'esta_activo' => 'boolean',
+        'fecha_fin_real',
+        'fue_borrado',
+        'id_contexto',
+        'id_usuario_recipiente',
+        'id_usuario_asignador'
     ];
 
     // Relaciones
 
     public function usuario()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario', 'id_usuario');
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario_recipiente', 'id_usuario');
     }
 
     public function permiso()
@@ -49,9 +47,9 @@ abstract class BaseUsuarioPermisoEspecial extends Model
         return $this->belongsTo(\App\Models\Usuario\Contexto::class, 'id_contexto', 'id_contexto');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
+    public function usuario1()
     {
-        return $query->whereRaw('esta_activo IS NOT NULL');
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario_asignador', 'id_usuario');
     }
+
 }

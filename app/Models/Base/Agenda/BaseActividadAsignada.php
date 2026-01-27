@@ -23,10 +23,6 @@ abstract class BaseActividadAsignada extends Model
         'id_estado'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
     // Relaciones
 
     public function actividad()
@@ -59,9 +55,4 @@ abstract class BaseActividadAsignada extends Model
         ->withPivot('nota_individual', 'diferencia_decimas');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

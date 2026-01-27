@@ -16,7 +16,7 @@ abstract class BaseVwUsuariosCompleto extends Model
     public $incrementing = true;
 
     const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = null;
+    const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
         'id_usuario',
@@ -35,13 +35,4 @@ abstract class BaseVwUsuariosCompleto extends Model
         'cargo'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

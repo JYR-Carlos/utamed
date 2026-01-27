@@ -21,10 +21,6 @@ abstract class BaseTipoSeccion extends Model
         'tipo'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
     // Relaciones
 
     // Relaciones inversas
@@ -34,9 +30,4 @@ abstract class BaseTipoSeccion extends Model
         return $this->hasMany(\App\Models\Curso\Seccion::class, 'id_tipo_seccion', 'id_tipo_seccion');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

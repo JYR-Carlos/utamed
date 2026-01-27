@@ -24,10 +24,6 @@ abstract class BaseDocente extends Model
         'id_usuario'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
     // Relaciones
 
     public function usuario()
@@ -42,9 +38,4 @@ abstract class BaseDocente extends Model
         return $this->hasMany(\App\Models\Curso\Seccion::class, 'id_docente', 'id_docente');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

@@ -16,26 +16,24 @@ abstract class BaseUsuarioRolAsignación extends Model
     public $incrementing = true;
 
     const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = null;
+    const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
         'asignado_por',
-        'fecha_inicio',
-        'fecha_fin',
-        'duracion',
+        'fecha_inicio_planificada',
+        'fecha_fin_planificada',
+        'fecha_fin_real',
+        'fue_eliminado',
         'id_rol',
-        'id_usuario'
-    ];
-
-    protected $casts = [
-        'esta_activo' => 'boolean',
+        'id_usuario_recipiente',
+        'id_usuario_asignador'
     ];
 
     // Relaciones
 
     public function usuario()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario', 'id_usuario');
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario_recipiente', 'id_usuario');
     }
 
     public function contexto()
@@ -48,14 +46,9 @@ abstract class BaseUsuarioRolAsignación extends Model
         return $this->belongsTo(\App\Models\Usuario\Rol::class, 'id_rol', 'id_rol');
     }
 
-    public function asignadoPor()
+    public function usuario1()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'asignado_por', 'id_usuario');
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario_asignador', 'id_usuario');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

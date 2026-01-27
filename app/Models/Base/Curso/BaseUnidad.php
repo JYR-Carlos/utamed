@@ -25,10 +25,6 @@ abstract class BaseUnidad extends Model
         'es_plantilla'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
     // Relaciones
 
     public function curso()
@@ -43,9 +39,4 @@ abstract class BaseUnidad extends Model
         return $this->hasMany(\App\Models\Agenda\Actividad::class, ['id_unidad', 'id_curso', 'es_plantilla'], ['id_unidad', 'id_curso', 'es_plantilla']);
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

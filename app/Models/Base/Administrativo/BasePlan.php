@@ -3,6 +3,7 @@
 namespace App\Models\Base\Administrativo;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Clase Base generada automáticamente
@@ -10,23 +11,21 @@ use Illuminate\Database\Eloquent\Model;
  */
 abstract class BasePlan extends Model
 {
+    use SoftDeletes;
     protected $connection = 'pgsql';
     protected $table = 'Plan';
     protected $primaryKey = 'id_plan';
     public $incrementing = true;
+    const DELETED_AT = 'fecha_eliminacion';
 
     const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = null;
+    const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
         'id_carrera',
         'agno',
         'version',
         'creditos_sct_totales'
-    ];
-
-    protected $casts = [
-        'esta_activo' => 'boolean',
     ];
 
     // Relaciones
@@ -56,9 +55,4 @@ abstract class BasePlan extends Model
         ->withPivot('agno_planificado', 'semestre_planificado', 'tipo_ramo');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

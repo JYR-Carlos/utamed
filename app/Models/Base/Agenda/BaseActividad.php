@@ -31,10 +31,6 @@ abstract class BaseActividad extends Model
         'id_unidad'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
     // Relaciones
 
     public function seccion()
@@ -67,9 +63,4 @@ abstract class BaseActividad extends Model
         ->withPivot('grupo', 'nota');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

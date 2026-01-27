@@ -23,10 +23,6 @@ abstract class BasePermiso extends Model
         'descripcion'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
     // Relaciones
 
     // Relaciones inversas
@@ -60,9 +56,9 @@ abstract class BasePermiso extends Model
             \App\Models\Usuario\Usuario::class,
             '\"utamed.Usuario\".\"Usuario_Permiso_Especial\"',
             'id_permiso',
-            'id_usuario'
+            'id_usuario_recipiente'
         )
-        ->withPivot('fecha_inicio', 'fecha_fin', 'esta_permitido', 'duracion_dias', 'puede_delegar');
+        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function contextosUPE()
@@ -73,12 +69,18 @@ abstract class BasePermiso extends Model
             'id_permiso',
             'id_contexto'
         )
-        ->withPivot('fecha_inicio', 'fecha_fin', 'esta_permitido', 'duracion_dias', 'puede_delegar');
+        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
+    public function usuariosUPE1()
     {
-        return $query->whereRaw('esta_activo IS NOT NULL');
+        return $this->belongsToMany(
+            \App\Models\Usuario\Usuario::class,
+            '\"utamed.Usuario\".\"Usuario_Permiso_Especial\"',
+            'id_permiso',
+            'id_usuario_asignador'
+        )
+        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
+
 }

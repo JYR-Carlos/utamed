@@ -3,6 +3,7 @@
 namespace App\Models\Base\Curso;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Clase Base generada automáticamente
@@ -10,18 +11,22 @@ use Illuminate\Database\Eloquent\Model;
  */
 abstract class BaseCurso extends Model
 {
+    use SoftDeletes;
     protected $connection = 'pgsql';
     protected $table = 'Curso';
     protected $primaryKey = 'id_curso';
     public $incrementing = true;
+    const DELETED_AT = 'fecha_eliminacion';
 
-    public $timestamps = false;
+    const CREATED_AT = 'fecha_creacion';
+    const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
         'cod_curso',
         'nombre',
         'grupo_indice',
         'fecha_inicio',
+        'fecha_fin',
         'agno_real',
         'semestre_real',
         'estado_interno',
@@ -31,10 +36,6 @@ abstract class BaseCurso extends Model
         'id_asignatura',
         'id_plan',
         'grupo_letra'
-    ];
-
-    protected $casts = [
-        'esta_activo' => 'boolean',
     ];
 
     // Relaciones
@@ -84,9 +85,4 @@ abstract class BaseCurso extends Model
         ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

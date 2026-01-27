@@ -22,10 +22,6 @@ abstract class BaseEstadoActividad extends Model
         'descripcion'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
     // Relaciones
 
     // Relaciones inversas
@@ -48,9 +44,4 @@ abstract class BaseEstadoActividad extends Model
         ->withPivot('grupo', 'nota');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

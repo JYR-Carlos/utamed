@@ -21,13 +21,4 @@ abstract class BaseAgenda extends Model
         'wip'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

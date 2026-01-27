@@ -19,13 +19,8 @@ abstract class BaseInscripcionSeccion extends Model
 
     protected $fillable = [
         'nota_seccion',
-        'AQUI AGREGAR ASISTENCIA',
         'id_seccion',
         'id_curso'
-    ];
-
-    protected $casts = [
-        'esta_activo' => 'boolean',
     ];
 
     // Relaciones
@@ -40,9 +35,11 @@ abstract class BaseInscripcionSeccion extends Model
         return $this->belongsTo(\App\Models\Curso\Seccion::class, ['id_seccion', 'id_curso'], ['id_seccion', 'id_curso']);
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
+    // Relaciones inversas
+
+    public function asistencias()
     {
-        return $query->whereRaw('esta_activo IS NOT NULL');
+        return $this->hasMany(\App\Models\Curso\Asistencia::class, ['id_estudiante', 'id_seccion', 'id_curso'], ['id_estudiante', 'id_seccion', 'id_curso']);
     }
+
 }

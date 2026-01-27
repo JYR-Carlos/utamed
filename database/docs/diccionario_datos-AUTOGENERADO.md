@@ -16,6 +16,7 @@
 * [utamed.Agenda.Agenda](#utamed.Agenda.Agenda)
 * [utamed.Agenda.Asignado_Actividad](#utamed.Agenda.Asignado_Actividad)
 * [utamed.Agenda.Estado_Actividad](#utamed.Agenda.Estado_Actividad)
+* [utamed.Curso.Asistencia](#utamed.Curso.Asistencia)
 * [utamed.Curso.Curso](#utamed.Curso.Curso)
 * [utamed.Curso.Inscripcion_Curso](#utamed.Curso.Inscripcion_Curso)
 * [utamed.Curso.Inscripcion_Seccion](#utamed.Curso.Inscripcion_Seccion)
@@ -45,7 +46,7 @@
 | semestre_planificado | smallint |  |  |  | &#10003; |  |  |
 | tipo_ramo | smallint |  |  |  |  |  |  |
 | fecha_creacion | timestamp |  |  |  | &#10003; | now() |  |
-| esta_activo | boolean |  |  |  | &#10003; | TRUE |  |
+| fecha_eliminacion | timestamp |  |  |  |  |  |  |
 
 #### Constraints
 | Name | Type | Column(s) | References | On Update | On Delete | Expression | Description |
@@ -76,7 +77,8 @@ Asignatura
 | horas_dirigidas | smallint |  |  |  | &#10003; |  |  |
 | horas_autonomas | smallint |  |  |  | &#10003; |  |  |
 | fecha_creacion | timestamp |  |  |  | &#10003; | now() |  |
-| esta_activo | boolean |  |  |  | &#10003; | TRUE |  |
+| fecha_modificacion | timestamp |  |  |  | &#10003; | now() |  |
+| fecha_eliminacion | timestamp |  |  |  |  |  |  |
 
 #### Constraints
 | Name | Type | Column(s) | References | On Update | On Delete | Expression | Description |
@@ -98,7 +100,8 @@ Asignatura
 | sede | text |  |  |  |  |  |  |
 | modalidad | text |  |  |  |  |  |  |
 | fecha_creacion | timestamp |  |  |  | &#10003; | now() |  |
-| esta_activo | boolean |  |  |  | &#10003; | TRUE |  |
+| fecha_modificacion | timestamp |  |  |  | &#10003; | now() |  |
+| fecha_eliminacion | timestamp |  |  |  |  |  |  |
 | id_departamento | smallint |  | &#10003; |  | &#10003; |  |  |
 | id_facultad | smallint |  | &#10003; |  | &#10003; |  |  |
 
@@ -122,7 +125,8 @@ departamento/escuela de facultad
 | id_departamento | smallint | &#10003; |  |  | &#10003; |  | primary key |
 | nombre | text |  |  |  | &#10003; |  | nombre del departamento/escuela |
 | fecha_creacion | timestamp |  |  |  | &#10003; | now() |  |
-| esta_activo | boolean |  |  |  | &#10003; | TRUE |  |
+| fecha_modificacion | timestamp |  |  |  | &#10003; | now() |  |
+| fecha_eliminacion | timestamp |  |  |  |  |  |  |
 | id_facultad | smallint | &#10003; | &#10003; |  | &#10003; |  |  |
 
 #### Constraints
@@ -142,7 +146,8 @@ departamento/escuela de facultad
 | id_facultad | smallint | &#10003; |  |  | &#10003; |  | primary key |
 | nombre | text |  |  |  | &#10003; |  | nombre de la facultad |
 | fecha_creacion | timestamp |  |  |  | &#10003; | now() |  |
-| esta_activo | boolean |  |  |  | &#10003; | TRUE |  |
+| fecha_modificacion | timestamp |  |  |  | &#10003; | now() |  |
+| fecha_eliminacion | timestamp |  |  |  |  |  |  |
 | id_contexto | integer |  | &#10003; | &#10003; | &#10003; |  |  |
 
 #### Constraints
@@ -166,7 +171,8 @@ departamento/escuela de facultad
 | version | smallint |  |  |  |  |  |  |
 | creditos_sct_totales | smallint |  |  |  |  |  |  |
 | fecha_creacion | timestamp |  |  |  | &#10003; | now() |  |
-| esta_activo | boolean |  |  |  | &#10003; | TRUE |  |
+| fecha_modificacion | timestamp |  |  |  | &#10003; | now() |  |
+| fecha_eliminacion | timestamp |  |  |  |  |  |  |
 
 #### Constraints
 | Name | Type | Column(s) | References | On Update | On Delete | Expression | Description |
@@ -183,20 +189,21 @@ departamento/escuela de facultad
 | Name | Data type  | PK | FK | UQ  | Not null | Default value | Description |
 | --- | --- | :---: | :---: | :---: | :---: | --- | --- |
 | id_programa | integer | &#10003; |  |  | &#10003; |  |  |
+| version | smallint |  |  |  | &#10003; |  |  |
 | unc_programa | smallint |  |  |  | &#10003; |  |  |
+| id_curso | integer | &#10003; | &#10003; |  | &#10003; |  |  |
+| es_plantilla | boolean | &#10003; | &#10003; |  | &#10003; | FALSE |  |
+| id_usuario_autor | integer |  | &#10003; |  | &#10003; |  |  |
+| es_actual | boolean | &#10003; |  |  | &#10003; | TRUE |  |
 | fecha_creacion | timestamp |  |  |  | &#10003; | now() |  |
-| es_actual | boolean |  |  |  | &#10003; | TRUE |  |
-| id_usuario | integer |  | &#10003; | &#10003; | &#10003; |  |  |
-| id_curso | integer |  | &#10003; |  | &#10003; |  |  |
-| es_plantilla | boolean |  | &#10003; |  | &#10003; | FALSE |  |
+| fecha_eliminacion | timestamp |  |  |  |  |  |  |
 
 #### Constraints
 | Name | Type | Column(s) | References | On Update | On Delete | Expression | Description |
 |  --- | --- | --- | --- | --- | --- | --- | --- |
-| Programa_pk | PRIMARY KEY | id_programa |  |  |  |  |  |
-| Usuario_fk | FOREIGN KEY | id_usuario | [utamed.Usuario.Usuario](#utamed.Usuario.Usuario) | CASCADE | RESTRICT |  |  |
-| Programa_uq | UNIQUE | id_usuario | [utamed.Usuario.Usuario](#utamed.Usuario.Usuario) |  |  |  |  |
+| Programa_pk | PRIMARY KEY | id_programa, es_actual, id_curso, es_plantilla |  |  |  |  |  |
 | Curso_Plantilla_fk | FOREIGN KEY | id_curso, es_plantilla | [utamed.Curso.Curso](#utamed.Curso.Curso) | NO ACTION | NO ACTION |  | Un Curso puede tener varios Programas |
+| Usuario_fk | FOREIGN KEY | id_usuario_autor | [utamed.Usuario.Usuario](#utamed.Usuario.Usuario) | CASCADE | RESTRICT |  |  |
 
 [&uarr; Index](#index)
 
@@ -298,6 +305,29 @@ departamento/escuela de facultad
 
 ---
 
+<a name="utamed.Curso.Asistencia"></a>
+### _utamed.Curso_.**Asistencia** `Table`
+| Name | Data type  | PK | FK | UQ  | Not null | Default value | Description |
+| --- | --- | :---: | :---: | :---: | :---: | --- | --- |
+| id_asistencia | integer | &#10003; |  |  | &#10003; |  |  |
+| dia | date |  |  |  | &#10003; |  |  |
+| hora_inicio | time |  |  |  | &#10003; |  |  |
+| hora_fin | time |  |  |  | &#10003; |  |  |
+| esta_presente | boolean |  |  |  |  | TRUE |  |
+| id_estudiante | integer | &#10003; | &#10003; |  | &#10003; |  |  |
+| id_seccion | smallint | &#10003; | &#10003; |  | &#10003; |  |  |
+| id_curso | integer | &#10003; | &#10003; |  | &#10003; |  |  |
+
+#### Constraints
+| Name | Type | Column(s) | References | On Update | On Delete | Expression | Description |
+|  --- | --- | --- | --- | --- | --- | --- | --- |
+| Asistencia_pk | PRIMARY KEY | id_asistencia, id_estudiante, id_seccion, id_curso |  |  |  |  |  |
+| Inscripcion_Seccion_fk | FOREIGN KEY | id_estudiante, id_seccion, id_curso | [utamed.Curso.Inscripcion_Seccion](#utamed.Curso.Inscripcion_Seccion) | CASCADE | RESTRICT |  |  |
+
+[&uarr; Index](#index)
+
+---
+
 <a name="utamed.Curso.Curso"></a>
 ### _utamed.Curso_.**Curso** `Table`
 
@@ -306,10 +336,11 @@ instancia de asignatura por año
 | Name | Data type  | PK | FK | UQ  | Not null | Default value | Description |
 | --- | --- | :---: | :---: | :---: | :---: | --- | --- |
 | id_curso | integer | &#10003; |  | &#10003; | &#10003; |  |  |
-| cod_curso | numeric(9,0) |  |  | &#10003; |  |  |  |
+| cod_curso | numeric(9,0) |  |  | &#10003; |  |  | Código interno de la intranet |
 | nombre | text |  |  |  |  |  |  |
 | grupo_indice | smallint |  |  | &#10003; | &#10003; |  |  |
-| fecha_inicio | date |  |  |  |  |  |  |
+| fecha_inicio | date |  |  |  | &#10003; |  |  |
+| fecha_fin | date |  |  |  | &#10003; |  |  |
 | agno_real | smallint |  |  | &#10003; |  |  |  |
 | semestre_real | smallint |  |  | &#10003; |  |  |  |
 | estado_interno | varchar(20) |  |  |  |  | 'ABIERTO' |  |
@@ -318,6 +349,9 @@ instancia de asignatura por año
 | id_contexto | integer |  | &#10003; | &#10003; | &#10003; |  |  |
 | id_asignatura | integer |  | &#10003; | &#10003; |  |  |  |
 | id_plan | smallint |  | &#10003; | &#10003; |  |  |  |
+| fecha_creacion | timestamp |  |  |  | &#10003; | now() |  |
+| fecha_modificacion | timestamp |  |  |  | &#10003; | now() |  |
+| fecha_eliminacion | timestamp |  |  |  |  |  |  |
 
 #### Constraints
 | Name | Type | Column(s) | References | On Update | On Delete | Expression | Description |
@@ -363,7 +397,6 @@ instancia de asignatura por año
 | Name | Data type  | PK | FK | UQ  | Not null | Default value | Description |
 | --- | --- | :---: | :---: | :---: | :---: | --- | --- |
 | nota_seccion | smallint |  |  |  |  |  |  |
-| AQUI AGREGAR ASISTENCIA | smallint |  |  |  |  |  |  |
 | id_estudiante | integer | &#10003; | &#10003; |  | &#10003; |  |  |
 | id_seccion | smallint | &#10003; | &#10003; |  | &#10003; |  |  |
 | id_curso | integer | &#10003; | &#10003; |  | &#10003; |  |  |
@@ -602,24 +635,27 @@ instancia de asignatura por año
 ### _utamed.Usuario_.**Usuario_Permiso_Especial** `Table`
 | Name | Data type  | PK | FK | UQ  | Not null | Default value | Description |
 | --- | --- | :---: | :---: | :---: | :---: | --- | --- |
-| fecha_inicio | timestamp |  |  |  | &#10003; | now() |  |
-| fecha_fin | timestamp |  |  |  | &#10003; |  |  |
+| fecha_inicio_planificada | timestamp |  |  |  | &#10003; | now() |  |
+| fecha_fin_planificada | timestamp |  |  |  | &#10003; |  |  |
 | esta_permitido | boolean |  |  |  | &#10003; | TRUE | Determina si se le asigna o se le revoca el permiso (al poseer un rol previo) |
-| duracion_dias | interval DAY  |  |  |  | &#10003; |  |  |
 | puede_delegar | boolean |  |  |  | &#10003; |  |  |
-| fecha_creacion | timestamp |  |  |  | &#10003; | now() |  |
-| esta_activo | boolean |  |  |  | &#10003; | TRUE |  |
-| id_usuario | integer | &#10003; | &#10003; |  | &#10003; |  |  |
+| fecha_fin_real | timestamp |  |  |  |  |  |  |
+| fue_borrado | boolean |  |  |  |  |  |  |
 | id_permiso | smallint | &#10003; | &#10003; |  | &#10003; |  |  |
 | id_contexto | integer | &#10003; | &#10003; |  | &#10003; |  |  |
+| id_usuario_recipiente | integer | &#10003; | &#10003; |  | &#10003; |  |  |
+| id_usuario_asignador | integer | &#10003; | &#10003; |  | &#10003; |  |  |
+| fecha_creacion | timestamp |  |  |  | &#10003; | now() |  |
+| esta_activo | boolean |  |  |  | &#10003; | TRUE |  |
 
 #### Constraints
 | Name | Type | Column(s) | References | On Update | On Delete | Expression | Description |
 |  --- | --- | --- | --- | --- | --- | --- | --- |
-| Usuario_fk | FOREIGN KEY | id_usuario | [utamed.Usuario.Usuario](#utamed.Usuario.Usuario) | CASCADE | RESTRICT |  |  |
+| Usuario_fk | FOREIGN KEY | id_usuario_recipiente | [utamed.Usuario.Usuario](#utamed.Usuario.Usuario) | CASCADE | RESTRICT |  |  |
 | Permiso_fk | FOREIGN KEY | id_permiso | [utamed.Usuario.Permiso](#utamed.Usuario.Permiso) | CASCADE | RESTRICT |  |  |
-| Usuario_Permiso_Especial_pk | PRIMARY KEY | id_usuario, id_permiso, id_contexto |  |  |  |  |  |
+| Usuario_Permiso_Especial_pk | PRIMARY KEY | id_usuario_recipiente, id_permiso, id_contexto, id_usuario_asignador | [utamed.Usuario.Usuario](#utamed.Usuario.Usuario) |  |  |  |  |
 | Contexto_fk | FOREIGN KEY | id_contexto | [utamed.Usuario.Contexto](#utamed.Usuario.Contexto) | CASCADE | SET NULL |  |  |
+| Usuario_fk1 | FOREIGN KEY | id_usuario_asignador | [utamed.Usuario.Usuario](#utamed.Usuario.Usuario) | CASCADE | RESTRICT |  |  |
 
 [&uarr; Index](#index)
 
@@ -629,29 +665,31 @@ instancia de asignatura por año
 ### _utamed.Usuario_.**Usuario_Rol_Asignación** `Table`
 | Name | Data type  | PK | FK | UQ  | Not null | Default value | Description |
 | --- | --- | :---: | :---: | :---: | :---: | --- | --- |
-| asignado_por | integer |  | &#10003; |  | &#10003; |  |  |
-| fecha_inicio | timestamp |  |  |  | &#10003; | now() |  |
-| fecha_fin | timestamp |  |  |  | &#10003; |  |  |
-| duracion | interval DAY  |  |  |  | &#10003; |  |  |
-| fecha_creacion | timestamp |  |  |  | &#10003; | now() |  |
-| esta_activo | boolean |  |  |  | &#10003; | TRUE |  |
+| asignado_por | integer |  |  |  | &#10003; |  |  |
+| fecha_inicio_planificada | timestamp |  |  |  | &#10003; |  |  |
+| fecha_fin_planificada | timestamp |  |  |  | &#10003; |  |  |
+| fecha_fin_real | timestamp |  |  |  |  |  |  |
+| fue_eliminado | boolean |  |  |  |  |  |  |
 | id_contexto | integer | &#10003; | &#10003; |  | &#10003; |  |  |
 | id_rol | smallint | &#10003; | &#10003; |  | &#10003; |  |  |
-| id_usuario | integer | &#10003; | &#10003; |  | &#10003; |  |  |
+| id_usuario_recipiente | integer | &#10003; | &#10003; |  | &#10003; |  |  |
+| id_usuario_asignador | integer | &#10003; | &#10003; |  | &#10003; |  |  |
+| fecha_creacion | timestamp |  |  |  | &#10003; | now() |  |
+| esta_activo | boolean |  |  |  | &#10003; | TRUE |  |
 
 #### Constraints
 | Name | Type | Column(s) | References | On Update | On Delete | Expression | Description |
 |  --- | --- | --- | --- | --- | --- | --- | --- |
-| Usuario_fk | FOREIGN KEY | id_usuario | [utamed.Usuario.Usuario](#utamed.Usuario.Usuario) | CASCADE | RESTRICT |  |  |
+| Usuario_fk | FOREIGN KEY | id_usuario_recipiente | [utamed.Usuario.Usuario](#utamed.Usuario.Usuario) | CASCADE | RESTRICT |  |  |
 | Contexto_fk | FOREIGN KEY | id_contexto | [utamed.Usuario.Contexto](#utamed.Usuario.Contexto) | CASCADE | SET NULL |  |  |
-| Usuario_Rol_Asignación_pk | PRIMARY KEY | id_usuario, id_contexto, id_rol |  |  |  |  |  |
+| Usuario_Rol_Asignación_pk | PRIMARY KEY | id_usuario_recipiente, id_contexto, id_rol, id_usuario_asignador | [utamed.Usuario.Usuario](#utamed.Usuario.Usuario) |  |  |  |  |
 | Rol_fk | FOREIGN KEY | id_rol | [utamed.Usuario.Rol](#utamed.Usuario.Rol) | CASCADE | RESTRICT |  |  |
-| usuario_referenciado | FOREIGN KEY | asignado_por | [utamed.Usuario.Usuario](#utamed.Usuario.Usuario) | NO ACTION | NO ACTION |  |  |
+| Usuario_fk1 | FOREIGN KEY | id_usuario_asignador | [utamed.Usuario.Usuario](#utamed.Usuario.Usuario) | CASCADE | RESTRICT |  |  |
 
 [&uarr; Index](#index)
 
 ---
 
-Generated at _2026-01-26T09:05:40_ by **pgModeler 2.0.0**
+Generated at _2026-01-27T10:50:35_ by **pgModeler 2.0.0**
 [PostgreSQL Database Modeler - pgmodeler.io ](https://pgmodeler.io)
 Copyright © 2006 - 2026 Raphael Araújo e Silva 

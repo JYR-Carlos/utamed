@@ -3,6 +3,7 @@
 namespace App\Models\Base\Administrativo;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Clase Base generada automáticamente
@@ -10,13 +11,15 @@ use Illuminate\Database\Eloquent\Model;
  */
 abstract class BaseCarrera extends Model
 {
+    use SoftDeletes;
     protected $connection = 'pgsql';
     protected $table = 'Carrera';
     protected $primaryKey = 'id_carrera';
     public $incrementing = true;
+    const DELETED_AT = 'fecha_eliminacion';
 
     const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = null;
+    const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
         'nombre',
@@ -25,10 +28,6 @@ abstract class BaseCarrera extends Model
         'modalidad',
         'id_departamento',
         'id_facultad'
-    ];
-
-    protected $casts = [
-        'esta_activo' => 'boolean',
     ];
 
     // Relaciones
@@ -50,9 +49,4 @@ abstract class BaseCarrera extends Model
         return $this->hasMany(\App\Models\Usuario\Estudiante::class, 'id_carrera', 'id_carrera');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

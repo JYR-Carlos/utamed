@@ -21,7 +21,7 @@
  * 3. DETECCIÓN DE COLUMNAS Y TIPOS
  *    - Extrae todas las columnas con sus tipos de datos
  *    - Genera automáticamente $fillable excluyendo PK y timestamps (configurable)
- *    - Detecta y configura campos booleanos (esta_activo)
+ *    - Detecta y configura soft deletes (fecha_eliminacion)
  * 
  * 4. DETECCIÓN DE CLAVES PRIMARIAS
  *    - Usa catálogo pg_index de PostgreSQL para detectar PKs
@@ -45,10 +45,10 @@
  *    - Desactiva UPDATED_AT (no existe en el esquema)
  * 
  * 8. MANEJO DE SOFT DELETES
- *    - Permite la configuración automática de soft deletes
- *    - Actualmente NO usa SoftDeletes trait (atributo esta_activo es boolean)
- *    - Genera scope active() para filtrar registros activos
- *    - Trata esta_activo como flag booleano
+ *    - Usa SoftDeletes trait de Laravel para marcar registros como eliminados
+ *    - Columna fecha_eliminacion (timestamp nullable) detectada automáticamente
+ *    - Filtra automáticamente registros eliminados en queries
+ *    - Soporta restore() para recuperar registros eliminados
  * 
  * 9. ORGANIZACIÓN DE ARCHIVOS
  *    - Base Models en: app/Models/Base/{Schema}/Base{ClassName}.php
@@ -65,24 +65,29 @@
  * ==================================================================================
  */
 
-require __DIR__ . '/vendor/autoload.php';
 
-$app = require_once __DIR__ . '/bootstrap/app.php';
+// Cargar autoload y bootstrap de Laravel
+require __DIR__ . '/../vendor/autoload.php';
+
+$app = require_once __DIR__ . '/../bootstrap/app.php';
 $app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
 
+// Usar clases de Laravel para hacerlo idiomático
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-// ==================================================================================
-// FUNCIÓN: pluralizeSpanish - Pluralización en español
-// ==================================================================================
-// Convierte palabras singulares al plural en español
-// Reglas aplicadas:
-// - Terminación en vocal (a, e, i, o, u): agregar -s
-// - Terminación con tilde en ó/í: normalizar y aplicar regla
-// - Terminación en -ción: cambiar a -ciones
-// - Terminación en -sión: cambiar a -siones
-// - Terminación en consonante: agregar -es
+/**
+ * FUNCIÓN: pluralizeSpanish - Pluralización en español
+ * ==================================================================================
+ * Convierte palabras singulares al plural en español.
+ * 
+ * Reglas aplicadas:
+ * - Terminación en vocal (a, e, i, o, u): agregar -s
+ * - Terminación con tilde en ó/í: normalizar y aplicar regla
+ * - Terminación en -ción: cambiar a -ciones
+ * - Terminación en -sión: cambiar a -siones
+ * - Terminación en consonante: agregar -es
+ */
 function pluralizeSpanish($word)
 {
   // Normalizar: remover acentos para la lógica
@@ -127,6 +132,92 @@ function pluralizeSpanish($word)
   // Consonantes → agregar -es
   return $word . 'es';
 }
+
+// ==================================================================================
+// CONFIGURACIÓN DE RENOMBRADO DE RELACIONES (belongsTo + hasMany/hasOne)
+// ==================================================================================
+//
+// UNIFICA EL RENOMBRADO DE TODOS LOS TIPOS DE RELACIONES EN UN SOLO LUGAR
+//
+// FORMATO:
+// 'utamed.{Schema}.{Tabla}' => [
+//   '_self' => [                           ← belongsTo: Relaciones EN esta tabla
+//     '{columna_fk}' => '{nuevo_nombre}',
+//   ],
+//   '{OtraTabla}' => [                     ← hasMany/hasOne: Relaciones DESDE otra tabla
+//     '{columna_fk}' => '{nuevo_nombre}',
+//   ],
+// ]
+//
+// CLAVE ESPECIAL '_self':
+// - Renombra métodos belongsTo en la MISMA tabla que tiene las FKs
+// - Útil cuando tienes múltiples FKs a la misma tabla (usuario(), usuario1(), etc.)
+//
+// EJEMPLO COMPLETO - Usuario_Rol_Asignación:
+//
+// Problema:
+//   BaseUsuarioRolAsignación.php (belongsTo):
+//     - usuario()   (FK: id_usuario)              ← OK
+//     - usuario1()  (FK: asignado_por)            ← ❌ Confuso
+//
+//   BaseUsuario.php (hasMany):
+//     - usuarioRolAsignaciones()  (FK: id_usuario)      ← ❌ No descriptivo
+//     - usuarioRolAsignaciones1() (FK: asignado_por)    ← ❌ Duplicado y con otro significado
+//
+// Solución:
+//   'utamed.Usuario.Usuario_Rol_Asignación' => [
+//     '_self' => [
+//       'asignado_por' => 'asignadoPor',  // belongsTo: usuario1() → asignadoPor()
+//     ],
+//     'Usuario' => [
+//       'id_usuario' => 'asignacionesRolRecibidas',      // hasMany en Usuario
+//       'asignado_por' => 'asignacionesRolRealizadas',   // hasMany en Usuario
+//     ],
+//   ],
+//
+// Resultado:
+//   BaseUsuarioRolAsignación.php:
+//     - usuario()      (FK: id_usuario)     ← Sin cambios
+//     - asignadoPor()  (FK: asignado_por)   ← ✅ belongsTo renombrado
+//
+//   BaseUsuario.php:
+//     - asignacionesRolRecibidas()    ← ✅ hasMany renombrado
+//     - asignacionesRolRealizadas()   ← ✅ hasMany renombrado
+//
+// TODO: REVISAR
+// 🔍 Ver configuración actual: php scripts/show_pivot_config.php 
+
+$relationNames = [
+  // Usuario crea Roles (evitar conflicto con belongsToMany)
+  'utamed.Usuario.Rol' => [
+    'Usuario' => [
+      // 'id_usuario' => 'roles',  // Conflicto con fk a la misma tabla
+      'id_usuario_autor' => 'rolesCreados', // Cambia de 'roles1()' a 'rolesCreados()'
+    ],
+  ],
+
+  // Usuario_Rol_Asignación: belongsTo + hasMany combinados
+  'utamed.Usuario.Usuario_Rol_Asignación' => [
+    '_self' => [
+      'asignado_por' => 'asignadoPor',
+      // URA.usuarios1() -> URA.asignadoPor()
+    ],
+    'Usuario' => [
+      'id_usuario' => 'asignacionesRolRecibidas',      // hasMany en Usuario
+      'asignado_por' => 'asignacionesRolRealizadas',   // hasMany en Usuario
+      // Usuario.asignacionesRolRecibidas()
+      // Usuario.asignacionesRolRealizadas()
+    ],
+  ],
+
+  // Usuario_Permiso_Especial
+  'utamed.Usuario.Usuario_Permiso_Especial' => [
+    'Usuario' => [
+      'id_usuario' => 'permisosEspecialesAsignados',
+      // Usuario.permisosEspecialesAsignados()
+    ],
+  ],
+];
 
 // ==================================================================================
 // CONFIGURACIÓN MANUAL DE TABLAS PIVOT
@@ -209,107 +300,7 @@ $manualPivotTables = [
   'utamed.Usuario.Asignación_Rol_Permiso' => true,
 ];
 
-// ==================================================================================
-// CONFIGURACIÓN DE RENOMBRADO DE RELACIONES (belongsTo + hasMany/hasOne)
-// ==================================================================================
-//
-// UNIFICA EL RENOMBRADO DE TODOS LOS TIPOS DE RELACIONES EN UN SOLO LUGAR
-//
-// FORMATO:
-// 'utamed.{Schema}.{Tabla}' => [
-//   '_self' => [                           ← belongsTo: Relaciones EN esta tabla
-//     '{columna_fk}' => '{nuevo_nombre}',
-//   ],
-//   '{OtraTabla}' => [                     ← hasMany/hasOne: Relaciones DESDE otra tabla
-//     '{columna_fk}' => '{nuevo_nombre}',
-//   ],
-// ]
-//
-// CLAVE ESPECIAL '_self':
-// - Renombra métodos belongsTo en la MISMA tabla que tiene las FKs
-// - Útil cuando tienes múltiples FKs a la misma tabla (usuario(), usuario1(), etc.)
-//
-// EJEMPLO COMPLETO - Usuario_Rol_Asignación:
-//
-// Problema:
-//   BaseUsuarioRolAsignación.php (belongsTo):
-//     - usuario()   (FK: id_usuario)              ← OK
-//     - usuario1()  (FK: asignado_por)            ← ❌ Confuso
-//
-//   BaseUsuario.php (hasMany):
-//     - usuarioRolAsignaciónes()  (FK: id_usuario)      ← ❌ Tilde mal procesada
-//     - usuarioRolAsignaciónes1() (FK: asignado_por)    ← ❌ Duplicado
-//
-// Solución:
-//   'utamed.Usuario.Usuario_Rol_Asignación' => [
-//     '_self' => [
-//       'asignado_por' => 'asignadoPor',  // belongsTo: usuario1() → asignadoPor()
-//     ],
-//     'Usuario' => [
-//       'id_usuario' => 'asignacionesRolRecibidas',      // hasMany en Usuario
-//       'asignado_por' => 'asignacionesRolRealizadas',   // hasMany en Usuario
-//     ],
-//   ],
-//
-// Resultado:
-//   BaseUsuarioRolAsignación.php:
-//     - usuario()      (FK: id_usuario)     ← Sin cambios
-//     - asignadoPor()  (FK: asignado_por)   ← ✅ belongsTo renombrado
-//
-//   BaseUsuario.php:
-//     - asignacionesRolRecibidas()    ← ✅ hasMany renombrado
-//     - asignacionesRolRealizadas()   ← ✅ hasMany renombrado
-//
-// MÁS EJEMPLOS:
-//
-// // Rol creado por Usuario
-// 'utamed.Usuario.Rol' => [
-//   'Usuario' => [
-//     'id_usuario_autor' => 'rolesCreados',  // hasMany: evita conflicto con belongsToMany
-//   ],
-// ],
-//
-// // Mensaje con remitente y destinatario
-// 'utamed.Sistema.Mensaje' => [
-//   '_self' => [
-//     'id_usuario_remitente' => 'remitente',      // belongsTo
-//     'id_usuario_destinatario' => 'destinatario', // belongsTo
-//   ],
-//   'Usuario' => [
-//     'id_usuario_remitente' => 'mensajesEnviados',    // hasMany
-//     'id_usuario_destinatario' => 'mensajesRecibidos', // hasMany
-//   ],
-// ],
-//
-// 📖 Ver guía completa: GUIA_RELACIONES_INVERSAS.md
-// 🔍 Ver configuración actual: php show_pivot_config.php
-//
-$relationNames = [
-  // Usuario crea Roles (evitar conflicto con belongsToMany)
-  'utamed.Usuario.Rol' => [
-    'Usuario' => [
-      'id_usuario_autor' => 'rolesCreados',  // hasMany en Usuario
-    ],
-  ],
 
-  // Usuario_Rol_Asignación: belongsTo + hasMany combinados
-  'utamed.Usuario.Usuario_Rol_Asignación' => [
-    '_self' => [
-      'asignado_por' => 'asignadoPor',  // belongsTo: usuario1() → asignadoPor()
-    ],
-    'Usuario' => [
-      'id_usuario' => 'asignacionesRolRecibidas',      // hasMany en Usuario
-      'asignado_por' => 'asignacionesRolRealizadas',   // hasMany en Usuario
-    ],
-  ],
-
-  // Usuario_Permiso_Especial
-  'utamed.Usuario.Usuario_Permiso_Especial' => [
-    'Usuario' => [
-      'id_usuario' => 'permisosEspecialesAsignados',
-    ],
-  ],
-];
 
 echo "🚀 Generando modelos desde PostgreSQL...\n\n";
 
@@ -321,18 +312,24 @@ echo "🚀 Generando modelos desde PostgreSQL...\n\n";
 // 
 // FUNCIONAMIENTO:
 // - Consulta information_schema.tables del catálogo 'utamed_1ra_fase'
-// - Filtra solo esquemas que empiezan con 'utamed.' (esquemas anidados con puntos)
-// - Ordena por schema y nombre de tabla para procesamiento consistente
-// - Retorna: table_schema (ej: 'utamed.Administrativo'), table_name (ej: 'facultad')
+// - Filtra solo esquemas que empiezan con 'utamed.'
+// - Ordena por schema y nombre de tabla
+// - Retorna: 
+//    - table_schema (ej: 'utamed.Administrativo'),
+//    - table_name (ej: 'Facultad')
 //
-// NOTA: Esquemas con puntos en PostgreSQL requieren comillas dobles al referenciarlos
+// NOTA: PostgreSQL es case sensitive y requiere comillas dobles al referenciar
+// tablas y esquemas.
 // ==================================================================================
 
-// Obtener tablas
+// Obtener tablas de la bd utamed_1ra_fase 
+// pertenecientes al esquema utamed.*
 $tables = DB::select("
-    SELECT table_schema, table_name
+    SELECT 
+      table_schema, 
+      table_name
     FROM information_schema.tables
-    WHERE table_catalog = 'utamed_1ra_fase'
+    WHERE table_catalog = 'utamed_1ra_fase' 
     AND table_schema LIKE 'utamed.%'
     ORDER BY table_schema, table_name
 ");
@@ -359,6 +356,8 @@ echo "Encontradas " . count($tables) . " tablas\n\n";
 // - pg_attribute: Catálogo de columnas
 // - contype = 'f': Solo Foreign Keys
 // - conkey/confkey: Arrays de columnas locales/remotas
+//
+// https://www.postgresql.org/docs/current/catalog-pg-constraint.html
 //
 // RESULTADO: $allForeignKeys['utamed.Administrativo.facultad'] = [
 //   ['source_table' => 'departamento', 'source_column' => 'id_facultad', ...]
@@ -597,8 +596,8 @@ foreach ($tables as $tableInfo) {
   // ==================================================================================
 
   // Crear directorios
-  $baseModelDir = __DIR__ . "/app/Models/Base/{$schemaName}";
-  $modelDir = __DIR__ . "/app/Models/{$schemaName}";
+  $baseModelDir = __DIR__ . "/../app/Models/Base/{$schemaName}";
+  $modelDir = __DIR__ . "/../app/Models/{$schemaName}";
 
   if (!is_dir($baseModelDir)) {
     mkdir($baseModelDir, 0755, true);
@@ -734,7 +733,7 @@ foreach ($tables as $tableInfo) {
   // 2. EXCLUYE:
   //    - Clave primaria (no debe ser asignable)
   //    - fecha_creacion (timestamp, manejado por Eloquent)
-  //    - esta_activo (flag de estado, no asignable directamente)
+  //    - fecha_eliminacion (soft delete, manejado por SoftDeletes trait)
   // 3. Formatea cada columna con indentación
   //
   // EJEMPLO RESULTADO:
@@ -750,7 +749,7 @@ foreach ($tables as $tableInfo) {
   // Generar fillable
   $fillable = collect($columns)
     ->pluck('column_name')
-    ->reject(fn($col) => in_array($col, [$primaryKey, 'fecha_creacion', 'esta_activo']))
+    ->reject(fn($col) => in_array($col, [$primaryKey, 'fecha_creacion', 'fecha_modificacion', 'fecha_eliminacion', 'esta_activo']))
     ->map(fn($col) => "        '{$col}'")
     ->implode(",\n");
 
@@ -767,51 +766,54 @@ foreach ($tables as $tableInfo) {
   // CONFIGURACIÓN ELOQUENT:
   // Si existe fecha_creacion:
   //   const CREATED_AT = 'fecha_creacion';  ← Mapea created_at a esta columna
-  //   const UPDATED_AT = null;              ← Desactiva updated_at
+  //   const UPDATED_AT = 'fecha_modificacion';
   //
   // Si NO existe:
   //   public $timestamps = false;           ← Desactiva completamente timestamps
   //
   // EFECTO:
   // - Model::create() automáticamente setea fecha_creacion
-  // - No intenta actualizar updated_at (evita errores de columna no existente)
+  // - Al actualizar el registrio modifica 'updated_at' (fecha_modificacion) 
   // ==================================================================================
 
   // Detectar timestamps
   $hasTimestamps = collect($columns)->contains('column_name', 'fecha_creacion');
   $timestampsConfig = $hasTimestamps ? "
     const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = null;" : "
+    const UPDATED_AT = 'fecha_modificacion';" : "
     public \$timestamps = false;";
 
   // ==================================================================================
-  // PASO 3.7: CONFIGURAR SOFT DELETES (NO USADO EN ESTE ESQUEMA)
+  // PASO 3.7: CONFIGURAR SOFT DELETES (USANDO fecha_eliminacion)
   // ==================================================================================
   //
-  // DECISIÓN: NO usar trait SoftDeletes de Laravel
+  // DECISIÓN: Usar trait SoftDeletes de Laravel
   //
   // RAZÓN:
-  // - SoftDeletes espera una columna TIMESTAMP (deleted_at)
-  // - Esta BD usa 'esta_activo' BOOLEAN (1 = activo, 0 = inactivo)
-  // - No es un soft delete, es un flag de estado
+  // - SoftDeletes espera una columna TIMESTAMP (deleted_at o similar)
+  // - Esta BD usa 'fecha_eliminacion' TIMESTAMP NULLABLE
+  // - Es el patrón estándar para soft deletes en Laravel
   //
   // SOLUCIÓN IMPLEMENTADA:
-  // - Tratar esta_activo como boolean cast
-  // - Crear scope active() para filtrar: whereRaw('esta_activo IS NOT NULL')
-  // - NO agregar SoftDeletes trait
+  // - Mapear fecha_eliminacion como columna de soft delete
+  // - Agregar trait SoftDeletes
+  // - Configurar const DELETED_AT = 'fecha_eliminacion'
+  // - Laravel filtra automáticamente registros con fecha_eliminacion no nula
   //
   // USO:
-  // - Modelo::active()->get()           ← Solo activos
-  // - Modelo::where('esta_activo', 1)   ← Forma alternativa
-  //
-  // NOTA: Si en el futuro se necesita soft delete real, agregar columna deleted_at
-  //       tipo timestamp y descomentar líneas siguientes
+  // - Modelo::all()                     ← Solo activos (excluye eliminados)
+  // - Modelo::withTrashed()->get()      ← Incluye eliminados
+  // - Modelo::onlyTrashed()->get()      ← Solo eliminados
+  // - $modelo->delete()                 ← Soft delete (setea fecha_eliminacion)
+  // - $modelo->restore()                ← Recupera (limpia fecha_eliminacion)
+  // - $modelo->forceDelete()            ← Elimina permanentemente
   // ==================================================================================
 
-  // NO usar soft deletes - esta_activo es un flag booleano, no un timestamp
-  $softDeleteImport = "";
-  $softDeleteTrait = "";
-  $softDeleteConst = "";
+  // Detectar si la tabla tiene fecha_eliminacion
+  $hasSoftDeletes = collect($columns)->contains('column_name', 'fecha_eliminacion');
+  $softDeleteImport = $hasSoftDeletes ? "use Illuminate\\Database\\Eloquent\\SoftDeletes;\n" : "";
+  $softDeleteTrait = $hasSoftDeletes ? "    use SoftDeletes;\n" : "";
+  $softDeleteConst = $hasSoftDeletes ? "\n    const DELETED_AT = 'fecha_eliminacion';" : "";
 
   // ==================================================================================
   // PASO 3.8: GENERAR RELACIONES belongsTo (FK → Modelo padre)
@@ -1121,7 +1123,7 @@ foreach ($tables as $tableInfo) {
       }
       $allFkCols = array_unique($allFkCols);
 
-      $excludeCols = array_merge($allFkCols, ['created_at', 'updated_at', 'fecha_creacion', 'fecha_actualizacion', 'esta_activo']);
+      $excludeCols = array_merge($allFkCols, ['created_at', 'updated_at', 'fecha_creacion', 'fecha_modificacion', 'fecha_eliminacion']);
       $additionalCols = array_diff($allPivotCols, $excludeCols);
 
       // Obtener sufijo automático si está configurado
@@ -1239,11 +1241,11 @@ foreach ($tables as $tableInfo) {
   // CONTENIDO:
   // 1. Configuración de conexión y tabla
   // 2. Clave primaria y auto-incremento
-  // 3. Configuración de timestamps
-  // 4. Array $fillable
-  // 5. Array $casts (esta_activo → boolean)
+  // 3. Trait SoftDeletes (si tiene fecha_eliminacion)
+  // 4. Configuración de timestamps
+  // 5. Array $fillable
   // 6. Métodos de relaciones (belongsTo, hasMany)
-  // 7. Scope active() para filtrar activos
+  // 7. Const DELETED_AT (si tiene soft deletes)
   //
   // REGENERACIÓN:
   // - Este archivo SE SOBRESCRIBE en cada ejecución
@@ -1253,12 +1255,12 @@ foreach ($tables as $tableInfo) {
   // RAZÓN DE SER ABSTRACTA:
   // - Fuerza a usar la clase extendida (Facultad.php)
   // - Evita instanciación accidental de la clase base
-  // - Patron de diseño Template Method
+  // - Patrón de diseño Template Method
   //
-  // SCOPE active():
-  // - Filtra registros donde esta_activo IS NOT NULL
-  // - Uso: Facultad::active()->get()
-  // - Necesario porque esta_activo es boolean (no soft delete)
+  // SOFT DELETES (si la tabla tiene fecha_eliminacion):
+  // - Usa trait SoftDeletes de Laravel
+  // - Mapea DELETED_AT a fecha_eliminacion
+  // - Filtrado automático de registros eliminados en queries
   // ==================================================================================
 
   // Generar Base Model
@@ -1267,33 +1269,24 @@ foreach ($tables as $tableInfo) {
 
 namespace App\\Models\\Base\\{$schemaName};
 
-use Illuminate\Database\Eloquent\Model;
-
+use Illuminate\\Database\\Eloquent\\Model;
+{$softDeleteImport}
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
 abstract class Base{$className} extends Model
 {
-    protected \$connection = 'pgsql';
+{$softDeleteTrait}    protected \$connection = 'pgsql';
     protected \$table = '{$tableName}';
     protected \$primaryKey = '{$primaryKey}';
-    public \$incrementing = true;
+    public \$incrementing = true;{$softDeleteConst}
 {$timestampsConfig}
 
     protected \$fillable = [
 {$fillable}
     ];
-
-    protected \$casts = [
-        'esta_activo' => 'boolean',
-    ];
 {$relations}
-    // Scope para filtrar solo registros activos
-    public function scopeActive(\$query)
-    {
-        return \$query->whereRaw('esta_activo IS NOT NULL');
-    }
 }
 PHP;
 

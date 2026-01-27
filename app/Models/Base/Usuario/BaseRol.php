@@ -22,10 +22,6 @@ abstract class BaseRol extends Model
         'id_usuario_autor'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
     // Relaciones
 
     public function usuario()
@@ -64,9 +60,9 @@ abstract class BaseRol extends Model
             \App\Models\Usuario\Usuario::class,
             '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
             'id_rol',
-            'id_usuario'
+            'id_usuario_recipiente'
         )
-        ->withPivot('fecha_inicio', 'fecha_fin', 'duracion');
+        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function contextosURA()
@@ -77,7 +73,7 @@ abstract class BaseRol extends Model
             'id_rol',
             'id_contexto'
         )
-        ->withPivot('fecha_inicio', 'fecha_fin', 'duracion');
+        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function usuariosURA1()
@@ -86,14 +82,9 @@ abstract class BaseRol extends Model
             \App\Models\Usuario\Usuario::class,
             '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
             'id_rol',
-            'asignado_por'
+            'id_usuario_asignador'
         )
-        ->withPivot('fecha_inicio', 'fecha_fin', 'duracion');
+        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

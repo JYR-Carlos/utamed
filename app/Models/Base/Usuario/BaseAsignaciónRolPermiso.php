@@ -22,10 +22,6 @@ abstract class BaseAsignaciónRolPermiso extends Model
         'id_permiso'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
     // Relaciones
 
     public function rol()
@@ -38,9 +34,4 @@ abstract class BaseAsignaciónRolPermiso extends Model
         return $this->belongsTo(\App\Models\Usuario\Permiso::class, 'id_permiso', 'id_permiso');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

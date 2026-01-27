@@ -23,10 +23,6 @@ abstract class BaseTipoContexto extends Model
         'id_contexto'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
     // Relaciones
 
     public function contexto()
@@ -34,9 +30,4 @@ abstract class BaseTipoContexto extends Model
         return $this->belongsTo(\App\Models\Usuario\Contexto::class, 'id_contexto', 'id_contexto');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

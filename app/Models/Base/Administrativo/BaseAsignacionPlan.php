@@ -3,6 +3,7 @@
 namespace App\Models\Base\Administrativo;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Clase Base generada automáticamente
@@ -10,23 +11,21 @@ use Illuminate\Database\Eloquent\Model;
  */
 abstract class BaseAsignacionPlan extends Model
 {
+    use SoftDeletes;
     protected $connection = 'pgsql';
     protected $table = 'Asignacion_Plan';
     protected $primaryKey = 'id_asignatura';
     public $incrementing = true;
+    const DELETED_AT = 'fecha_eliminacion';
 
     const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = null;
+    const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
         'id_plan',
         'agno_planificado',
         'semestre_planificado',
         'tipo_ramo'
-    ];
-
-    protected $casts = [
-        'esta_activo' => 'boolean',
     ];
 
     // Relaciones
@@ -48,9 +47,4 @@ abstract class BaseAsignacionPlan extends Model
         return $this->hasMany(\App\Models\Curso\Curso::class, ['id_asignatura', 'id_plan'], ['id_asignatura', 'id_plan']);
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

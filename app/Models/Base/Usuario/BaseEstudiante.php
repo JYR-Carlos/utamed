@@ -23,10 +23,6 @@ abstract class BaseEstudiante extends Model
         'id_usuario'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
     // Relaciones
 
     public function carrera()
@@ -88,12 +84,7 @@ abstract class BaseEstudiante extends Model
             'id_estudiante',
             'id_seccion,id_curso'
         )
-        ->withPivot('nota_seccion', 'AQUI AGREGAR ASISTENCIA');
+        ->withPivot('nota_seccion');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

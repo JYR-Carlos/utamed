@@ -24,10 +24,6 @@ abstract class BaseAsignadoActividad extends Model
         'id_estudiante'
     ];
 
-    protected $casts = [
-        'esta_activo' => 'boolean',
-    ];
-
     // Relaciones
 
     public function actividadAsignada()
@@ -40,9 +36,4 @@ abstract class BaseAsignadoActividad extends Model
         return $this->belongsTo(\App\Models\Usuario\Estudiante::class, 'id_estudiante', 'id_estudiante');
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }

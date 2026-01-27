@@ -3,6 +3,7 @@
 namespace App\Models\Base\Administrativo;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Clase Base generada automáticamente
@@ -10,21 +11,19 @@ use Illuminate\Database\Eloquent\Model;
  */
 abstract class BaseDepartamento extends Model
 {
+    use SoftDeletes;
     protected $connection = 'pgsql';
     protected $table = 'Departamento';
     protected $primaryKey = 'id_departamento';
     public $incrementing = true;
+    const DELETED_AT = 'fecha_eliminacion';
 
     const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = null;
+    const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
         'nombre',
         'id_facultad'
-    ];
-
-    protected $casts = [
-        'esta_activo' => 'boolean',
     ];
 
     // Relaciones
@@ -41,9 +40,4 @@ abstract class BaseDepartamento extends Model
         return $this->hasMany(\App\Models\Administrativo\Carrera::class, ['id_departamento', 'id_facultad'], ['id_departamento', 'id_facultad']);
     }
 
-    // Scope para filtrar solo registros activos
-    public function scopeActive($query)
-    {
-        return $query->whereRaw('esta_activo IS NOT NULL');
-    }
 }
