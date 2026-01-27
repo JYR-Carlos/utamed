@@ -1,0 +1,78 @@
+<?php
+
+namespace App\Models\Base\Curso;
+
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * Clase Base generada automáticamente
+ * NO EDITAR - Se sobrescribe al regenerar
+ */
+abstract class BaseSeccion extends Model
+{
+    protected $connection = 'pgsql';
+    protected $table = 'Seccion';
+    protected $primaryKey = 'id_seccion';
+    public $incrementing = true;
+
+    public $timestamps = false;
+
+    protected $fillable = [
+        'id_curso',
+        'es_plantilla',
+        'id_tipo_seccion',
+        'id_docente'
+    ];
+
+    protected $casts = [
+        'esta_activo' => 'boolean',
+    ];
+
+    // Relaciones
+
+    public function tipoSeccion()
+    {
+        return $this->belongsTo(\App\Models\Curso\TipoSeccion::class, 'id_tipo_seccion', 'id_tipo_seccion');
+    }
+
+    public function docente()
+    {
+        return $this->belongsTo(\App\Models\Usuario\Docente::class, 'id_docente', 'id_docente');
+    }
+
+    public function curso()
+    {
+        return $this->belongsTo(\App\Models\Curso\Curso::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
+    }
+
+    // Relaciones inversas
+
+    public function actividades()
+    {
+        return $this->hasMany(\App\Models\Agenda\Actividad::class, ['id_seccion', 'id_curso', 'es_plantilla'], ['id_seccion', 'id_curso', 'es_plantilla']);
+    }
+
+    public function inscripcionSecciones()
+    {
+        return $this->hasMany(\App\Models\Curso\InscripcionSeccion::class, ['id_seccion', 'id_curso'], ['id_seccion', 'id_curso']);
+    }
+
+    // Relaciones muchos-a-muchos
+
+    public function estudiantes()
+    {
+        return $this->belongsToMany(
+            \App\Models\Usuario\Estudiante::class,
+            '\"utamed.Curso\".\"Inscripcion_Seccion\"',
+            'id_seccion,id_curso',
+            'id_estudiante'
+        )
+        ->withPivot('nota_seccion', 'AQUI AGREGAR ASISTENCIA');
+    }
+
+    // Scope para filtrar solo registros activos
+    public function scopeActive($query)
+    {
+        return $query->whereRaw('esta_activo IS NOT NULL');
+    }
+}
