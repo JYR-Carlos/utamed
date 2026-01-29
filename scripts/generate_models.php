@@ -831,16 +831,29 @@ foreach ($tables as $tableInfo) {
   // FALLBACK: Si no se encuentra, usa 'id' por defecto
   // ==================================================================================
 
-  // Obtener PK
+  // Obtener PK (soporta PK compuesta)
   $pkResult = DB::select("
-        SELECT a.attname as column_name
+        SELECT
+            string_agg(a.attname, ',' ORDER BY a.attnum) AS column_names,
+            count(*) as column_count
         FROM pg_index i
         JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
         WHERE i.indrelid = ('\"' || ? || '\".\"' || ? || '\"')::regclass AND i.indisprimary
-        LIMIT 1
+        GROUP BY i.indexrelid
     ", [$schema, $tableName]);
 
-  $primaryKey = !empty($pkResult) ? $pkResult[0]->column_name : 'id';
+  if (!empty($pkResult)) {
+    $pkColumns = explode(',', $pkResult[0]->column_names);
+    $primaryKey = (count($pkColumns) > 1) ? $pkColumns : $pkColumns[0];
+  } else {
+    $primaryKey = 'id';
+  }
+
+  $isCompositePK = is_array($primaryKey);
+  $primaryKeyDefinition = $isCompositePK
+    ? "['" . implode("', '", $primaryKey) . "']"
+    : "'{$primaryKey}'";
+  $incrementingValue = $isCompositePK ? 'false' : 'true';
 
   // ==================================================================================
   // PASO 4.4: OBTENER FOREIGN KEYS (Para relaciones belongsTo)
@@ -921,7 +934,12 @@ foreach ($tables as $tableInfo) {
   // ==================================================================================
 
  
-  array_push($notFillableColumns, $primaryKey); // Excluir PK
+  // Excluir PK (simple o compuesta)
+  if (is_array($primaryKey)) {
+    $notFillableColumns = array_merge($notFillableColumns, $primaryKey);
+  } else {
+    $notFillableColumns[] = $primaryKey;
+  }
 
   // Generar fillable
   $fillable = collect($columns)
@@ -960,12 +978,12 @@ foreach ($tables as $tableInfo) {
   // Solo activa si AMBAS existen
   if ($hasCreatedAt && $hasUpdatedAt) {
     $timestampsConfig = "
-      const CREATED_AT = '$createdAtColumn';
-      const UPDATED_AT = '$updatedAtColumn';";
+    const CREATED_AT = '$createdAtColumn';
+    const UPDATED_AT = '$updatedAtColumn';";
   } else {
     // Si falta cualquiera, desactiva completamente
     $timestampsConfig = "
-      public \$timestamps = false;";
+    public \$timestamps = false;";
   }
 
   // ==================================================================================
@@ -1425,11 +1443,34 @@ foreach ($tables as $tableInfo) {
         $autoSuffix = strtoupper(implode('', array_map(fn($w) => substr($w, 0, 1), $pivotWords)));
       }
 
-      // Generar relaciones belongsToMany según configuración
+      // ==================================================================================
+      // AGRUPAR FKs POR TABLA DE DESTINO para evitar duplicados
+      // ==================================================================================
+      // Cuando hay múltiples FKs a la misma tabla (ej: id_usuario_recipiente, id_usuario_asignador),
+      // solo debemos generar relaciones una vez por tabla única.
+      // Agrupamos por schema.table y usamos la primera FK encontrada como default.
+      
+      $fksByTable = [];
       foreach ($allFks as $otherIdx => $otherFk) {
         if ($otherIdx === $thisFkIndex) {
           continue; // Saltar la FK que apunta a esta misma tabla
         }
+        
+        $tableKey = $otherFk['schema'] . '.' . $otherFk['table'];
+        
+        // Solo guardar la primera FK para cada tabla de destino
+        if (!isset($fksByTable[$tableKey])) {
+          $fksByTable[$tableKey] = [
+            'fk' => $otherFk,
+            'index' => $otherIdx,
+          ];
+        }
+      }
+      
+      // Generar relaciones belongsToMany según configuración (una por tabla única)
+      foreach ($fksByTable as $tableKey => $fkData) {
+        $otherFk = $fkData['fk'];
+        $otherIdx = $fkData['index'];
 
         $relatedSchema = str_replace('utamed.', '', $otherFk['schema']);
         $relatedTable = $otherFk['table'];
@@ -1616,7 +1657,7 @@ foreach ($tables as $tableInfo) {
 
 namespace {$baseModelNamespace}\\{$schemaName};
 
-use Illuminate\\Database\\Eloquent\\Model;
+use Awobaz\\Compoships\\Database\\Eloquent\\Model;
 {$softDeleteImport}
 /**
  * Clase Base generada automáticamente
@@ -1626,8 +1667,8 @@ abstract class Base{$className} extends Model
 {
 {$softDeleteTrait}    protected \$connection = 'pgsql';
     protected \$table = '{$tableName}';
-    protected \$primaryKey = '{$primaryKey}';
-    public \$incrementing = true;{$softDeleteConst}
+    protected \$primaryKey = {$primaryKeyDefinition};
+    public \$incrementing = {$incrementingValue};{$softDeleteConst}
 {$timestampsConfig}
 
     protected \$fillable = [

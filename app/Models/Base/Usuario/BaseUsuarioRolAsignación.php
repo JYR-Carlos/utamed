@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Usuario;
 
-use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Database\Eloquent\Model;
 
 /**
  * Clase Base generada automáticamente
@@ -11,20 +11,18 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseUsuarioRolAsignación extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Usuario_Rol_Asignación';
-    protected $primaryKey = 'id_contexto';
-    public $incrementing = true;
+    protected $table = 'Usuario_Rol_Asignación';
+    protected $primaryKey = ['id_contexto', 'id_rol', 'id_usuario_recipiente', 'id_usuario_asignador'];
+    public $incrementing = false;
 
-      public $timestamps = false;
+    public $timestamps = false;
 
     protected $fillable = [
         'asignado_por',
         'fecha_inicio_planificada',
         'fecha_fin_planificada',
         'fecha_fin_real',
-        'fue_eliminado',
-        'id_usuario_recipiente',
-        'id_usuario_asignador'
+        'fue_eliminado'
     ];
 
     // Relaciones

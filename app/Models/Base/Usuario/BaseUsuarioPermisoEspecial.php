@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Usuario;
 
-use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Database\Eloquent\Model;
 
 /**
  * Clase Base generada automáticamente
@@ -11,11 +11,11 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseUsuarioPermisoEspecial extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Usuario_Permiso_Especial';
-    protected $primaryKey = 'id_permiso';
-    public $incrementing = true;
+    protected $table = 'Usuario_Permiso_Especial';
+    protected $primaryKey = ['id_permiso', 'id_contexto', 'id_usuario_recipiente', 'id_usuario_asignador'];
+    public $incrementing = false;
 
-      public $timestamps = false;
+    public $timestamps = false;
 
     protected $fillable = [
         'fecha_inicio_planificada',
@@ -23,9 +23,7 @@ abstract class BaseUsuarioPermisoEspecial extends Model
         'esta_permitido',
         'puede_delegar',
         'fecha_fin_real',
-        'fue_borrado',
-        'id_usuario_recipiente',
-        'id_usuario_asignador'
+        'fue_borrado'
     ];
 
     // Relaciones

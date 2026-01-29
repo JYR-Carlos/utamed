@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Curso;
 
-use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -18,8 +18,8 @@ abstract class BaseCurso extends Model
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';
 
-      const CREATED_AT = 'fecha_creacion';
-      const UPDATED_AT = 'fecha_modificacion';
+    const CREATED_AT = 'fecha_creacion';
+    const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
         'cod_curso',
@@ -31,7 +31,6 @@ abstract class BaseCurso extends Model
         'semestre_real',
         'estado_interno',
         'estado_acta',
-        'es_plantilla',
         'id_contexto',
         'grupo_letra'
     ];

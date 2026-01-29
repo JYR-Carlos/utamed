@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Agenda;
 
-use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Database\Eloquent\Model;
 
 /**
  * Clase Base generada automáticamente
@@ -11,16 +11,15 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseAsignadoActividad extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Asignado_Actividad';
-    protected $primaryKey = 'grupo';
-    public $incrementing = true;
+    protected $table = 'Asignado_Actividad';
+    protected $primaryKey = ['grupo', 'id_actividad', 'id_estudiante'];
+    public $incrementing = false;
 
-      public $timestamps = false;
+    public $timestamps = false;
 
     protected $fillable = [
         'nota_individual',
-        'diferencia_decimas',
-        'id_estudiante'
+        'diferencia_decimas'
     ];
 
     // Relaciones

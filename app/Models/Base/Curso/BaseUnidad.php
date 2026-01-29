@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Curso;
 
-use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Database\Eloquent\Model;
 
 /**
  * Clase Base generada automáticamente
@@ -11,17 +11,16 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseUnidad extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Unidad';
-    protected $primaryKey = 'id_unidad';
-    public $incrementing = true;
+    protected $table = 'Unidad';
+    protected $primaryKey = ['id_unidad', 'id_curso'];
+    public $incrementing = false;
 
-      public $timestamps = false;
+    public $timestamps = false;
 
     protected $fillable = [
         'num_unidad',
         'nombre',
-        'descripcion',
-        'es_plantilla'
+        'descripcion'
     ];
 
     // Relaciones

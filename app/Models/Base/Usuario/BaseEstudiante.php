@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Usuario;
 
-use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Database\Eloquent\Model;
 
 /**
  * Clase Base generada automáticamente
@@ -15,7 +15,7 @@ abstract class BaseEstudiante extends Model
     protected $primaryKey = 'id_estudiante';
     public $incrementing = true;
 
-      public $timestamps = false;
+    public $timestamps = false;
 
     protected $fillable = [
         'agno_ingreso',

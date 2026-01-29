@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Administrativo;
 
-use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -13,15 +13,17 @@ abstract class BaseDepartamento extends Model
 {
     use SoftDeletes;
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Departamento';
-    protected $primaryKey = 'id_departamento';
-    public $incrementing = true;
+    protected $table = 'Departamento';
+    protected $primaryKey = ['id_departamento', 'id_facultad'];
+    public $incrementing = false;
     const DELETED_AT = 'fecha_eliminacion';
 
-      const CREATED_AT = 'fecha_creacion';
-      const UPDATED_AT = 'fecha_modificacion';
+    const CREATED_AT = 'fecha_creacion';
+    const UPDATED_AT = 'fecha_modificacion';
 
-    protected $fillable = ['nombre'];
+    protected $fillable = [
+        'nombre'
+    ];
 
     // Relaciones
 

@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Curso;
 
-use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Database\Eloquent\Model;
 
 /**
  * Clase Base generada automáticamente
@@ -11,15 +11,14 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseInscripcionSeccion extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Inscripcion_Seccion';
-    protected $primaryKey = 'id_estudiante';
-    public $incrementing = true;
+    protected $table = 'Inscripcion_Seccion';
+    protected $primaryKey = ['id_estudiante', 'id_seccion', 'id_curso'];
+    public $incrementing = false;
 
-      public $timestamps = false;
+    public $timestamps = false;
 
     protected $fillable = [
-        'nota_seccion',
-        'id_seccion'
+        'nota_seccion'
     ];
 
     // Relaciones

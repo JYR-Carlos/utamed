@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Curso;
 
-use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Database\Eloquent\Model;
 
 /**
  * Clase Base generada automáticamente
@@ -15,7 +15,7 @@ abstract class BaseTipoSeccion extends Model
     protected $primaryKey = 'id_tipo_seccion';
     public $incrementing = true;
 
-      public $timestamps = false;
+    public $timestamps = false;
 
     protected $fillable = [
         'tipo'

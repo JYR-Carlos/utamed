@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Administrativo;
 
-use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -13,20 +13,17 @@ abstract class BasePrograma extends Model
 {
     use SoftDeletes;
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Programa';
-    protected $primaryKey = 'id_programa';
-    public $incrementing = true;
+    protected $table = 'Programa';
+    protected $primaryKey = ['id_programa', 'id_curso', 'es_plantilla', 'es_actual'];
+    public $incrementing = false;
     const DELETED_AT = 'fecha_eliminacion';
 
-      public $timestamps = false;
+    public $timestamps = false;
 
     protected $fillable = [
         'version',
         'unc_programa',
-        'id_curso',
-        'es_plantilla',
-        'id_usuario_autor',
-        'es_actual'
+        'id_usuario_autor'
     ];
 
     // Relaciones

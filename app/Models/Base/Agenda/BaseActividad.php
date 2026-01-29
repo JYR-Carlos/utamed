@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Agenda;
 
-use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Database\Eloquent\Model;
 
 /**
  * Clase Base generada automáticamente
@@ -15,7 +15,7 @@ abstract class BaseActividad extends Model
     protected $primaryKey = 'id_actividad';
     public $incrementing = true;
 
-      public $timestamps = false;
+    public $timestamps = false;
 
     protected $fillable = [
         'nombre',
@@ -25,8 +25,6 @@ abstract class BaseActividad extends Model
         'tipo_entrega',
         'es_grupal',
         'max_integrantes',
-        'es_plantilla',
-        'id_curso',
         'id_seccion',
         'id_unidad'
     ];
