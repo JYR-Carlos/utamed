@@ -15,11 +15,9 @@ abstract class BaseVwPermisosUsuario extends Model
     protected $primaryKey = 'id';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
-        'id_usuario',
-        'id_contexto',
         'slug',
         'tipo_asignacion'
     ];

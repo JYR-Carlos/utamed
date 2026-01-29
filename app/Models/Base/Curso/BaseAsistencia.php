@@ -15,7 +15,7 @@ abstract class BaseAsistencia extends Model
     protected $primaryKey = 'id_asistencia';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'dia',

@@ -18,11 +18,10 @@ abstract class BasePlan extends Model
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';
 
-    const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = 'fecha_modificacion';
+      const CREATED_AT = 'fecha_creacion';
+      const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
-        'id_carrera',
         'agno',
         'version',
         'creditos_sct_totales'

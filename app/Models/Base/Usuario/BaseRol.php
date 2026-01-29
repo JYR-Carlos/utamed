@@ -15,7 +15,7 @@ abstract class BaseRol extends Model
     protected $primaryKey = 'id_rol';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'nombre',
@@ -54,7 +54,7 @@ abstract class BaseRol extends Model
         ->withPivot('puede_delegar_permisos');
     }
 
-    public function usuariosURA()
+    public function usuariosConRolAsignado()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
@@ -65,24 +65,13 @@ abstract class BaseRol extends Model
         ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
-    public function contextosURA()
+    public function contextosConEsteRol()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Contexto::class,
             '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
             'id_rol',
             'id_contexto'
-        )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
-    }
-
-    public function usuariosURA1()
-    {
-        return $this->belongsToMany(
-            \App\Models\Usuario\Usuario::class,
-            '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
-            'id_rol',
-            'id_usuario_asignador'
         )
         ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }

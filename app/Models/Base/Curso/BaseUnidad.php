@@ -15,13 +15,12 @@ abstract class BaseUnidad extends Model
     protected $primaryKey = 'id_unidad';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'num_unidad',
         'nombre',
         'descripcion',
-        'id_curso',
         'es_plantilla'
     ];
 

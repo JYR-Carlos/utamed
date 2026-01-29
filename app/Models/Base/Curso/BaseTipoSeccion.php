@@ -15,7 +15,7 @@ abstract class BaseTipoSeccion extends Model
     protected $primaryKey = 'id_tipo_seccion';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'tipo'

@@ -15,11 +15,10 @@ abstract class BaseEstudiante extends Model
     protected $primaryKey = 'id_estudiante';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'agno_ingreso',
-        'id_carrera',
         'id_usuario'
     ];
 
@@ -54,7 +53,7 @@ abstract class BaseEstudiante extends Model
 
     // Relaciones muchos-a-muchos
 
-    public function actividadAsignadas()
+    public function actividadesAsignadas()
     {
         return $this->belongsToMany(
             \App\Models\Agenda\ActividadAsignada::class,
@@ -65,7 +64,7 @@ abstract class BaseEstudiante extends Model
         ->withPivot('nota_individual', 'diferencia_decimas');
     }
 
-    public function cursos()
+    public function cursosInscritos()
     {
         return $this->belongsToMany(
             \App\Models\Curso\Curso::class,
@@ -76,7 +75,7 @@ abstract class BaseEstudiante extends Model
         ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
     }
 
-    public function secciones()
+    public function seccionesInscritas()
     {
         return $this->belongsToMany(
             \App\Models\Curso\Seccion::class,

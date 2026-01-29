@@ -15,10 +15,9 @@ abstract class BaseSeccion extends Model
     protected $primaryKey = 'id_seccion';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
-        'id_curso',
         'es_plantilla',
         'id_tipo_seccion',
         'id_docente'
@@ -55,7 +54,7 @@ abstract class BaseSeccion extends Model
 
     // Relaciones muchos-a-muchos
 
-    public function estudiantes()
+    public function estudiantesInscritos()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Estudiante::class,

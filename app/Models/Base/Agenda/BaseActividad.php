@@ -15,7 +15,7 @@ abstract class BaseActividad extends Model
     protected $primaryKey = 'id_actividad';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'nombre',
@@ -48,19 +48,6 @@ abstract class BaseActividad extends Model
     public function actividadAsignadas()
     {
         return $this->hasMany(\App\Models\Agenda\ActividadAsignada::class, 'id_actividad', 'id_actividad');
-    }
-
-    // Relaciones muchos-a-muchos
-
-    public function estadoActividades()
-    {
-        return $this->belongsToMany(
-            \App\Models\Agenda\EstadoActividad::class,
-            '\"utamed.Agenda\".\"Actividad_Asignada\"',
-            'id_actividad',
-            'id_estado'
-        )
-        ->withPivot('grupo', 'nota');
     }
 
 }

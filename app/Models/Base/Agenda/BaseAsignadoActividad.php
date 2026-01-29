@@ -15,12 +15,11 @@ abstract class BaseAsignadoActividad extends Model
     protected $primaryKey = 'grupo';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'nota_individual',
         'diferencia_decimas',
-        'id_actividad',
         'id_estudiante'
     ];
 

@@ -15,7 +15,7 @@ abstract class BaseEstadoActividad extends Model
     protected $primaryKey = 'id_estado';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'titulo',
@@ -33,7 +33,7 @@ abstract class BaseEstadoActividad extends Model
 
     // Relaciones muchos-a-muchos
 
-    public function actividades()
+    public function actividadesConEstado()
     {
         return $this->belongsToMany(
             \App\Models\Agenda\Actividad::class,

@@ -15,11 +15,10 @@ abstract class BaseActividadAsignada extends Model
     protected $primaryKey = 'grupo';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'nota',
-        'id_actividad',
         'id_estado'
     ];
 
@@ -44,7 +43,7 @@ abstract class BaseActividadAsignada extends Model
 
     // Relaciones muchos-a-muchos
 
-    public function estudiantes()
+    public function estudiantesAsignados()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Estudiante::class,

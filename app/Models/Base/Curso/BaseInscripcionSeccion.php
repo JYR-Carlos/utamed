@@ -15,12 +15,11 @@ abstract class BaseInscripcionSeccion extends Model
     protected $primaryKey = 'id_estudiante';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'nota_seccion',
-        'id_seccion',
-        'id_curso'
+        'id_seccion'
     ];
 
     // Relaciones
