@@ -11,16 +11,13 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseEstadoActividad extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Estado_Actividad';
+    protected $table = 'utamed.Estado_Actividad';
     protected $primaryKey = 'id_estado';
     public $incrementing = true;
 
       public $timestamps = false;
 
-    protected $fillable = [
-        'titulo',
-        'descripcion'
-    ];
+    protected $fillable = ['titulo'];
 
     // Relaciones
 
@@ -41,7 +38,7 @@ abstract class BaseEstadoActividad extends Model
             'id_estado',
             'id_actividad'
         )
-        ->withPivot('grupo', 'nota');
+            ->withPivot('grupo', 'nota');
     }
 
 }

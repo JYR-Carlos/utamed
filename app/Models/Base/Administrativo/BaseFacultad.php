@@ -13,7 +13,7 @@ abstract class BaseFacultad extends Model
 {
     use SoftDeletes;
     protected $connection = 'pgsql';
-    protected $table = 'Facultad';
+    protected $table = 'utamed.Facultad';
     protected $primaryKey = 'id_facultad';
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';
@@ -21,10 +21,7 @@ abstract class BaseFacultad extends Model
       const CREATED_AT = 'fecha_creacion';
       const UPDATED_AT = 'fecha_modificacion';
 
-    protected $fillable = [
-        'nombre',
-        'id_contexto'
-    ];
+    protected $fillable = ['nombre'];
 
     // Relaciones
 

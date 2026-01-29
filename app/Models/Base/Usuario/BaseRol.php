@@ -11,16 +11,13 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseRol extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Rol';
+    protected $table = 'utamed.Rol';
     protected $primaryKey = 'id_rol';
     public $incrementing = true;
 
       public $timestamps = false;
 
-    protected $fillable = [
-        'nombre',
-        'id_usuario_autor'
-    ];
+    protected $fillable = ['nombre'];
 
     // Relaciones
 
@@ -51,7 +48,7 @@ abstract class BaseRol extends Model
             'id_rol',
             'id_permiso'
         )
-        ->withPivot('puede_delegar_permisos');
+            ->withPivot('puede_delegar_permisos');
     }
 
     public function usuariosConRolAsignado()
@@ -62,7 +59,7 @@ abstract class BaseRol extends Model
             'id_rol',
             'id_usuario_recipiente'
         )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function contextosConEsteRol()
@@ -73,7 +70,7 @@ abstract class BaseRol extends Model
             'id_rol',
             'id_contexto'
         )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
 }

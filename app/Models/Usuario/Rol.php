@@ -12,9 +12,18 @@ use App\Models\Base\Usuario\BaseRol;
  */
 class Rol extends BaseRol
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+    protected $fillable = ['nombre', 'id_usuario_autor'];
+
+    /**
+     * Override base relationship to use correct pivot table name.
+     */
+    public function permisos()
+    {
+        return $this->belongsToMany(
+            Permiso::class,
+            'utamed.Asignación_Rol_Permiso',
+            'id_rol',
+            'id_permiso'
+        )->withPivot('puede_delegar_permisos');
+    }
 }

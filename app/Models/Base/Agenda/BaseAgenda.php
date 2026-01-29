@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseAgenda extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Agenda';
+    protected $table = 'utamed.Agenda';
     protected $primaryKey = 'id';
     public $incrementing = true;
 

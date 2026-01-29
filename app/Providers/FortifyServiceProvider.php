@@ -40,6 +40,20 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
+
+        // Custom Authentication Logic (Email OR Username)
+        Fortify::authenticateUsing(function (Request $request) {
+            $input = $request->input('email'); // Form field is still named 'email' for compatibility
+            $user = \App\Models\Usuario\Usuario::where('email', $input)
+                ->orWhere('username', $input)
+                ->first();
+
+            if ($user && \Illuminate\Support\Facades\Hash::check($request->password, $user->passhash)) {
+                return $user;
+            }
+
+            return null; // Return null if auth fails
+        });
     }
 
     /**

@@ -12,6 +12,11 @@ use App\Models\Base\Usuario\BaseContexto;
  */
 class Contexto extends BaseContexto
 {
+    protected $fillable = [
+        'nombre',
+        'descripcion',
+        'contexto_display' // Keep from base just in case
+    ];
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

@@ -6,15 +6,19 @@ use App\Models\Base\Usuario\BaseAsignaciónRolPermiso;
 
 /**
  * Modelo AsignaciónRolPermiso
- * 
- * Extiende de BaseAsignaciónRolPermiso (auto-generado)
- * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
  */
 class AsignaciónRolPermiso extends BaseAsignaciónRolPermiso
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+    protected $casts = [
+        'puede_delegar_permisos' => 'boolean',
+    ];
+
+    public $incrementing = false;
+    protected $primaryKey = null; // Composite key
+
+    protected $fillable = [
+        'id_rol',
+        'id_permiso',
+        'puede_delegar_permisos'
+    ];
 }

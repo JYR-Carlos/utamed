@@ -13,7 +13,7 @@ abstract class BaseCarrera extends Model
 {
     use SoftDeletes;
     protected $connection = 'pgsql';
-    protected $table = 'Carrera';
+    protected $table = 'utamed.Carrera';
     protected $primaryKey = 'id_carrera';
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';
@@ -34,7 +34,7 @@ abstract class BaseCarrera extends Model
 
     public function departamento()
     {
-        return $this->belongsTo(\App\Models\Administrativo\Departamento::class, ['id_departamento', 'id_facultad'], ['id_departamento', 'id_facultad']);
+        return $this->belongsTo(\App\Models\Administrativo\Departamento::class, 'id_departamento', 'id_departamento');
     }
 
     // Relaciones inversas

@@ -13,8 +13,8 @@ abstract class BaseAsignacionPlan extends Model
 {
     use SoftDeletes;
     protected $connection = 'pgsql';
-    protected $table = 'Asignacion_Plan';
-    protected $primaryKey = 'id_asignatura';
+    protected $table = 'utamed.Asignacion_Plan';
+    protected $primaryKey = 'id_asignacion';
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';
 
@@ -22,6 +22,7 @@ abstract class BaseAsignacionPlan extends Model
 
     protected $fillable = [
         'id_plan',
+        'id_asignatura',
         'agno_planificado',
         'semestre_planificado',
         'tipo_ramo'
@@ -43,7 +44,7 @@ abstract class BaseAsignacionPlan extends Model
 
     public function cursos()
     {
-        return $this->hasMany(\App\Models\Curso\Curso::class, ['id_asignatura', 'id_plan'], ['id_asignatura', 'id_plan']);
+        return $this->hasMany(\App\Models\Curso\Curso::class, 'id_asignatura', 'id_asignatura');
     }
 
 }

@@ -13,7 +13,7 @@ abstract class BaseCurso extends Model
 {
     use SoftDeletes;
     protected $connection = 'pgsql';
-    protected $table = 'Curso';
+    protected $table = 'utamed.Curso';
     protected $primaryKey = 'id_curso';
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';
@@ -45,14 +45,17 @@ abstract class BaseCurso extends Model
 
     public function asignacionPlan()
     {
-        return $this->belongsTo(\App\Models\Administrativo\AsignacionPlan::class, ['id_asignatura', 'id_plan'], ['id_asignatura', 'id_plan']);
+        // This is tricky because Curso table has id_asignatura and id_plan
+        // but Asignacion_Plan has a unique constraint on them.
+        // For now, let's use the natural keys.
+        return $this->belongsTo(\App\Models\Administrativo\AsignacionPlan::class, 'id_asignatura', 'id_asignatura');
     }
 
     // Relaciones inversas
 
     public function programas()
     {
-        return $this->hasMany(\App\Models\Administrativo\Programa::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
+        return $this->hasMany(\App\Models\Administrativo\Programa::class, 'id_curso', 'id_curso');
     }
 
     public function inscripcionCursos()
@@ -62,12 +65,12 @@ abstract class BaseCurso extends Model
 
     public function secciones()
     {
-        return $this->hasMany(\App\Models\Curso\Seccion::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
+        return $this->hasMany(\App\Models\Curso\Seccion::class, 'id_curso', 'id_curso');
     }
 
     public function unidades()
     {
-        return $this->hasMany(\App\Models\Curso\Unidad::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
+        return $this->hasMany(\App\Models\Curso\Unidad::class, 'id_curso', 'id_curso');
     }
 
     // Relaciones muchos-a-muchos
@@ -80,7 +83,7 @@ abstract class BaseCurso extends Model
             'id_curso',
             'id_estudiante'
         )
-        ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
+            ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
     }
 
 }

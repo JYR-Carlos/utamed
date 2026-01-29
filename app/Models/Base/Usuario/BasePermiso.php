@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BasePermiso extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Permiso';
+    protected $table = 'utamed.Permiso';
     protected $primaryKey = 'id_permiso';
     public $incrementing = true;
 

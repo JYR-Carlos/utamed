@@ -26,7 +26,7 @@
     <title>Login</title>
 </svelte:head>
 
-<AuthBase title="Log in to your account" description="Enter your email and password below to log in">
+<AuthBase title="Portal Académico" description="Ingresa tus credenciales para acceder">
     {#if status}
         <div class="mb-4 text-center text-sm font-medium text-green-600">
             {status}
@@ -37,25 +37,26 @@
         {#snippet children({ errors, processing }: BaseFormSnippetProps)}
             <div class="grid gap-6">
                 <div class="grid gap-2">
-                    <Label for="email">Email address</Label>
+                    <Label for="email" class="text-gray-900">Email o Usuario</Label>
                     <Input
                         id="email"
                         name="email"
-                        type="email"
+                        type="text"
                         required
                         autofocus
                         tabindex={1}
-                        autocomplete="email"
-                        placeholder="email@example.com"
+                        autocomplete="username"
+                        placeholder="ej. usuario o rut"
+                        class="bg-white text-gray-900 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-white dark:text-gray-900 dark:border-gray-300 dark:placeholder:text-gray-400"
                     />
                     <InputError message={errors.email} />
                 </div>
 
                 <div class="grid gap-2">
                     <div class="flex items-center justify-between">
-                        <Label for="password">Password</Label>
+                        <Label for="password" class="text-gray-900">Contraseña</Label>
                         {#if canResetPassword}
-                            <TextLink href={request().url} class="text-sm" tabindex={5}>Forgot password?</TextLink>
+                            <TextLink href={request().url} class="text-sm text-indigo-600 hover:text-indigo-500" tabindex={5}>¿Olvidaste tu contraseña?</TextLink>
                         {/if}
                     </div>
                     <Input
@@ -65,7 +66,8 @@
                         required
                         tabindex={2}
                         autocomplete="current-password"
-                        placeholder="Password"
+                        placeholder="••••••••"
+                        class="bg-white text-gray-900 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-white dark:text-gray-900 dark:border-gray-300 dark:placeholder:text-gray-400"
                     />
                     <InputError message={errors.password} />
                 </div>
@@ -73,24 +75,17 @@
                 <div class="flex items-center justify-between">
                     <Label for="remember" class="flex items-center space-x-3">
                         <Checkbox id="remember" name="remember" tabindex={3} />
-                        <span>Remember me</span>
+                        <span>Recordarme</span>
                     </Label>
                 </div>
 
-                <Button type="submit" class="mt-4 w-full" tabindex={4} disabled={processing}>
+                <Button type="submit" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-md transition-colors" tabindex={4} disabled={processing}>
                     {#if processing}
-                        <Spinner />
+                        <Spinner class="mr-2 h-4 w-4" />
                     {/if}
-                    Log in
+                    Iniciar Sesión
                 </Button>
             </div>
-
-            {#if canRegister}
-                <div class="text-center text-sm text-muted-foreground">
-                    Don't have an account?
-                    <TextLink href={register()} tabindex={5}>Sign up</TextLink>
-                </div>
-            {/if}
         {/snippet}
     </Form>
 </AuthBase>
