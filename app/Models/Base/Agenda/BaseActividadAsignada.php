@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseActividadAsignada extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Actividad_Asignada';
+    protected $table = 'utamed.Actividad_Asignada';
     protected $primaryKey = 'grupo';
     public $incrementing = true;
 
@@ -39,7 +39,7 @@ abstract class BaseActividadAsignada extends Model
 
     public function asignadoActividades()
     {
-        return $this->hasMany(\App\Models\Agenda\AsignadoActividad::class, ['grupo', 'id_actividad'], ['grupo', 'id_actividad']);
+        return $this->hasMany(\App\Models\Agenda\AsignadoActividad::class, 'grupo', 'grupo');
     }
 
     // Relaciones muchos-a-muchos

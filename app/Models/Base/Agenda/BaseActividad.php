@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseActividad extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Actividad';
+    protected $table = 'utamed.Actividad';
     protected $primaryKey = 'id_actividad';
     public $incrementing = true;
 

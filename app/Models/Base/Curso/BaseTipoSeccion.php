@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseTipoSeccion extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Tipo_Seccion';
+    protected $table = 'utamed.Tipo_Seccion';
     protected $primaryKey = 'id_tipo_seccion';
     public $incrementing = true;
 

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseUnidad extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Unidad';
+    protected $table = 'utamed.Unidad';
     protected $primaryKey = 'id_unidad';
     public $incrementing = true;
 
@@ -29,7 +29,7 @@ abstract class BaseUnidad extends Model
 
     public function curso()
     {
-        return $this->belongsTo(\App\Models\Curso\Curso::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
+        return $this->belongsTo(\App\Models\Curso\Curso::class, 'id_curso', 'id_curso');
     }
 
     // Relaciones inversas

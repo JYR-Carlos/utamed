@@ -13,7 +13,7 @@ abstract class BaseDepartamento extends Model
 {
     use SoftDeletes;
     protected $connection = 'pgsql';
-    protected $table = 'Departamento';
+    protected $table = 'utamed.Departamento';
     protected $primaryKey = 'id_departamento';
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';
@@ -21,10 +21,7 @@ abstract class BaseDepartamento extends Model
     const CREATED_AT = 'fecha_creacion';
     const UPDATED_AT = 'fecha_modificacion';
 
-    protected $fillable = [
-        'nombre',
-        'id_facultad'
-    ];
+    protected $fillable = ['nombre'];
 
     // Relaciones
 
@@ -37,7 +34,7 @@ abstract class BaseDepartamento extends Model
 
     public function carreras()
     {
-        return $this->hasMany(\App\Models\Administrativo\Carrera::class, ['id_departamento', 'id_facultad'], ['id_departamento', 'id_facultad']);
+        return $this->hasMany(\App\Models\Administrativo\Carrera::class, 'id_departamento', 'id_departamento');
     }
 
 }

@@ -6,15 +6,27 @@ use App\Models\Base\Usuario\BaseUsuarioRolAsignación;
 
 /**
  * Modelo UsuarioRolAsignación
- * 
- * Extiende de BaseUsuarioRolAsignación (auto-generado)
- * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
  */
 class UsuarioRolAsignación extends BaseUsuarioRolAsignación
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+    protected $casts = [
+        'esta_activo' => 'boolean',
+        'fue_eliminado' => 'boolean',
+    ];
+
+    public $incrementing = false;
+    protected $primaryKey = null; // Composite key handled manually if needed
+
+    protected $fillable = [
+        'id_usuario_recipiente',
+        'id_contexto',
+        'id_rol',
+        'id_usuario_asignador',
+        'asignado_por',
+        'fecha_inicio_planificada',
+        'fecha_fin_planificada',
+        'fecha_fin_real',
+        'fue_eliminado',
+        'esta_activo'
+    ];
 }

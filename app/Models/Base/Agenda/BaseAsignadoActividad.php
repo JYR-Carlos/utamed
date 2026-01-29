@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseAsignadoActividad extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Asignado_Actividad';
+    protected $table = 'utamed.Asignado_Actividad';
     protected $primaryKey = 'grupo';
     public $incrementing = true;
 
@@ -28,7 +28,7 @@ abstract class BaseAsignadoActividad extends Model
 
     public function actividadAsignada()
     {
-        return $this->belongsTo(\App\Models\Agenda\ActividadAsignada::class, ['grupo', 'id_actividad'], ['grupo', 'id_actividad']);
+        return $this->belongsTo(\App\Models\Agenda\ActividadAsignada::class, 'grupo', 'grupo');
     }
 
     public function estudiante()

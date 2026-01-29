@@ -14,8 +14,10 @@
     @inertiaHead
 
     {{-- Inline script to detect system dark mode preference and apply it immediately --}}
+    {{-- DISABLED: Forcing light mode for now --}}
+    {{--
     <script>
-        (function() {
+        (function () {
             const appearance = '{{ $appearance ?? "system" }}';
 
             if (appearance === 'system') {
@@ -27,20 +29,15 @@
             }
         })();
     </script>
+    --}}
 
     {{-- Inline style to set the HTML background color based on our theme in app.css --}}
     <style>
-        html {
-            background-color: oklch(1 0 0);
-        }
 
-        html.dark {
-            background-color: oklch(0.145 0 0);
-        }
     </style>
 </head>
 
-<body class="font-sans antialiased">
+<body class="font-sans antialiased" style="background-color: white;">
     @inertia
 </body>
 

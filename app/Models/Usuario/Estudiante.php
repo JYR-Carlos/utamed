@@ -12,9 +12,12 @@ use App\Models\Base\Usuario\BaseEstudiante;
  */
 class Estudiante extends BaseEstudiante
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+    protected $fillable = [
+        'rut',
+        'nombre_completo',
+        'agno_ingreso',
+        'id_carrera',
+        'id_usuario',
+        'id_contexto'
+    ];
 }

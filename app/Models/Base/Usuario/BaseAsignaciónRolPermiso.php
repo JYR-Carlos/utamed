@@ -11,16 +11,13 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseAsignaciónRolPermiso extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Asignación_Rol_Permiso';
+    protected $table = 'utamed.Asignación_Rol_Permiso';
     protected $primaryKey = 'id_rol';
     public $incrementing = true;
 
     public $timestamps = false;
 
-    protected $fillable = [
-        'puede_delegar_permisos',
-        'id_permiso'
-    ];
+    protected $fillable = ['puede_delegar_permisos'];
 
     // Relaciones
 

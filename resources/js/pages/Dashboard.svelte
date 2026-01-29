@@ -1,35 +1,156 @@
 <script lang="ts">
-    import PlaceholderPattern from '@/components/PlaceholderPattern.svelte';
-    import AppLayout from '@/layouts/AppLayout.svelte';
+    import AdminLayout from '@/layouts/AdminLayout.svelte';
+    import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+    import { BookOpen, Users, GraduationCap, Calendar, Clock, ArrowRight } from 'lucide-svelte';
+    import { page } from '@inertiajs/svelte';
+    import { Button } from '@/components/ui/button';
     import { type BreadcrumbItem } from '@/types';
+    
+    interface Stats {
+        usuarios: number;
+        cursos: number;
+        facultades: number;
+        carreras: number;
+    }
 
-    const breadcrumbs: BreadcrumbItem[] = [
-        {
-            title: 'Dashboard',
-            href: '/dashboard',
-        },
-    ];
+    interface Props {
+        stats: Stats;
+    }
+
+    let { stats }: Props = $props();
+    let user = $derived($page.props.auth.user);
 </script>
 
 <svelte:head>
     <title>Dashboard</title>
 </svelte:head>
 
-<AppLayout {breadcrumbs}>
-    <div class="space-y-4 px-4 pt-4 overflow-x-auto">
-        <div class="grid auto-rows-min gap-4 md:grid-cols-3">
-            <div class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                <PlaceholderPattern class="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-            </div>
-            <div class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                <PlaceholderPattern class="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-            </div>
-            <div class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                <PlaceholderPattern class="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+<AdminLayout>
+    <div class="page-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">
+                    Hola, {user.nombre1 ? user.nombre1 : (user.username || 'Usuario')} 👋
+                </h1>
+                <p class="page-description">
+                    Bienvenido al Panel de Administración UtaMed. Aquí tienes un resumen del sistema.
+                </p>
             </div>
         </div>
-        <div class="relative h-[calc(100vh-21rem)] overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-            <PlaceholderPattern class="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+
+        <!-- Real Stats Grid -->
+        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+            <Card class="bg-white border text-card-foreground shadow-sm">
+                <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle class="text-sm font-medium text-[#374151]">Usuarios Registrados</CardTitle>
+                    <Users class="h-4 w-4 text-[#6b7280]" />
+                </CardHeader>
+                <CardContent>
+                    <div class="text-2xl font-bold text-[#111827]">{stats.usuarios}</div>
+                    <p class="text-xs text-[#6b7280]">Total en el sistema</p>
+                </CardContent>
+            </Card>
+            <Card class="bg-white border text-card-foreground shadow-sm">
+                <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle class="text-sm font-medium text-[#374151]">Cursos</CardTitle>
+                    <BookOpen class="h-4 w-4 text-[#6b7280]" />
+                </CardHeader>
+                <CardContent>
+                    <div class="text-2xl font-bold text-[#111827]">{stats.cursos}</div>
+                    <p class="text-xs text-[#6b7280]">Cursos creados</p>
+                </CardContent>
+            </Card>
+            <Card class="bg-white border text-card-foreground shadow-sm">
+                <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle class="text-sm font-medium text-[#374151]">Facultades</CardTitle>
+                    <Users class="h-4 w-4 text-[#6b7280]" />
+                </CardHeader>
+                <CardContent>
+                    <div class="text-2xl font-bold text-[#111827]">{stats.facultades}</div>
+                    <p class="text-xs text-[#6b7280]">Facultades activas</p>
+                </CardContent>
+            </Card>
+            <Card class="bg-white border text-card-foreground shadow-sm">
+                <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle class="text-sm font-medium text-[#374151]">Carreras</CardTitle>
+                    <GraduationCap class="h-4 w-4 text-[#6b7280]" />
+                </CardHeader>
+                <CardContent>
+                    <div class="text-2xl font-bold text-[#111827]">{stats.carreras}</div>
+                    <p class="text-xs text-[#6b7280]">Carreras impartidas</p>
+                </CardContent>
+            </Card>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="grid gap-6 md:grid-cols-1">
+            <!-- Quick Actions -->
+            <Card class="bg-white border text-card-foreground shadow-sm">
+                <CardHeader>
+                    <CardTitle class="text-[#111827] text-lg">Accesos Rápidos</CardTitle>
+                    <CardDescription class="text-[#6b7280]">
+                        Gestión frecuente del sistema.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent class="grid gap-4 md:grid-cols-3">
+                    <Button variant="outline" class="h-auto py-4 justify-start px-4 group border-[#d1d5db] text-[#374151] hover:bg-gray-50 hover:text-[#111827]" asChild>
+                        <a href="/admin/usuarios" class="flex flex-col items-start gap-1">
+                            <div class="flex items-center gap-2 font-medium">
+                                <Users class="h-4 w-4" />
+                                Administrar Usuarios
+                            </div>
+                            <span class="text-xs font-normal text-muted-foreground">Crear y editar usuarios</span>
+                        </a>
+                    </Button>
+                    <Button variant="outline" class="h-auto py-4 justify-start px-4 group border-[#d1d5db] text-[#374151] hover:bg-gray-50 hover:text-[#111827]" asChild>
+                        <a href="/admin/cursos" class="flex flex-col items-start gap-1">
+                            <div class="flex items-center gap-2 font-medium">
+                                <BookOpen class="h-4 w-4" />
+                                Cursos
+                            </div>
+                            <span class="text-xs font-normal text-muted-foreground">Gestionar cursos académicos</span>
+                        </a>
+                    </Button>
+                     <Button variant="outline" class="h-auto py-4 justify-start px-4 group border-[#d1d5db] text-[#374151] hover:bg-gray-50 hover:text-[#111827]" asChild>
+                        <a href="/admin/planes" class="flex flex-col items-start gap-1">
+                            <div class="flex items-center gap-2 font-medium">
+                                <GraduationCap class="h-4 w-4" />
+                                Planes de Estudio
+                            </div>
+                            <span class="text-xs font-normal text-muted-foreground">Mallas y asignaturas</span>
+                        </a>
+                    </Button>
+                </CardContent>
+            </Card>
         </div>
     </div>
-</AppLayout>
+</AdminLayout>
+
+<style>
+    .page-container {
+        padding: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 2rem;
+    }
+
+    .page-title {
+        font-size: 1.875rem;
+        font-weight: 700;
+        color: #111827;
+        margin: 0 0 0.25rem 0;
+    }
+
+    .page-description {
+        color: #6b7280;
+        font-size: 0.875rem;
+        margin: 0;
+    }
+</style>

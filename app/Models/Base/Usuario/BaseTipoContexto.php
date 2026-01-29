@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseTipoContexto extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Tipo_Contexto';
+    protected $table = 'utamed.Tipo_Contexto';
     protected $primaryKey = 'id_tipo_contexto';
     public $incrementing = true;
 

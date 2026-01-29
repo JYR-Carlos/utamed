@@ -12,9 +12,13 @@ use App\Models\Base\Usuario\BaseDocente;
  */
 class Docente extends BaseDocente
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+    protected $fillable = [
+        'rut',
+        'nombre_completo',
+        'grado',
+        'titulo',
+        'cargo',
+        'id_usuario',
+        'id_contexto'
+    ];
 }

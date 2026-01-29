@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseUsuarioRolAsignación extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Usuario_Rol_Asignación';
+    protected $table = 'utamed.Usuario_Rol_Asignación';
     protected $primaryKey = 'id_contexto';
     public $incrementing = true;
 

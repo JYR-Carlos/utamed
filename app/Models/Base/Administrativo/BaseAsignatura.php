@@ -13,7 +13,7 @@ abstract class BaseAsignatura extends Model
 {
     use SoftDeletes;
     protected $connection = 'pgsql';
-    protected $table = 'Asignatura';
+    protected $table = 'utamed.Asignatura';
     protected $primaryKey = 'id_asignatura';
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';

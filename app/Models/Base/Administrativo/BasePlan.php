@@ -13,7 +13,7 @@ abstract class BasePlan extends Model
 {
     use SoftDeletes;
     protected $connection = 'pgsql';
-    protected $table = 'Plan';
+    protected $table = 'utamed.Plan';
     protected $primaryKey = 'id_plan';
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';

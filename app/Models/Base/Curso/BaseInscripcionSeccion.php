@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseInscripcionSeccion extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Inscripcion_Seccion';
+    protected $table = 'utamed.Inscripcion_Seccion';
     protected $primaryKey = 'id_estudiante';
     public $incrementing = true;
 
@@ -32,7 +32,7 @@ abstract class BaseInscripcionSeccion extends Model
 
     public function seccion()
     {
-        return $this->belongsTo(\App\Models\Curso\Seccion::class, ['id_seccion', 'id_curso'], ['id_seccion', 'id_curso']);
+        return $this->belongsTo(\App\Models\Curso\Seccion::class, 'id_seccion', 'id_seccion');
     }
 
     // Relaciones inversas

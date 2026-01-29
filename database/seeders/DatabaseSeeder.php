@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class DatabaseSeeder extends Seeder
 {
@@ -13,11 +12,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // Create default context
+        DB::table('utamed.Contexto')->insertOrIgnore([
+            'nombre' => 'Default',
+            'descripcion' => 'Contexto por defecto del sistema',
+            'fecha_creacion' => now(),
+            'fecha_modificacion' => now(),
         ]);
     }
 }

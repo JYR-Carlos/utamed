@@ -13,7 +13,7 @@ abstract class BasePrograma extends Model
 {
     use SoftDeletes;
     protected $connection = 'pgsql';
-    protected $table = 'Programa';
+    protected $table = 'utamed.Programa';
     protected $primaryKey = 'id_programa';
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';
@@ -39,7 +39,7 @@ abstract class BasePrograma extends Model
 
     public function curso()
     {
-        return $this->belongsTo(\App\Models\Curso\Curso::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
+        return $this->belongsTo(\App\Models\Curso\Curso::class, 'id_curso', 'id_curso');
     }
 
 }

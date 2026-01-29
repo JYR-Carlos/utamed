@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseSeccion extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'Seccion';
+    protected $table = 'utamed.Seccion';
     protected $primaryKey = 'id_seccion';
     public $incrementing = true;
 
@@ -38,7 +38,7 @@ abstract class BaseSeccion extends Model
 
     public function curso()
     {
-        return $this->belongsTo(\App\Models\Curso\Curso::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
+        return $this->belongsTo(\App\Models\Curso\Curso::class, 'id_curso', 'id_curso');
     }
 
     // Relaciones inversas
@@ -50,7 +50,7 @@ abstract class BaseSeccion extends Model
 
     public function inscripcionSecciones()
     {
-        return $this->hasMany(\App\Models\Curso\InscripcionSeccion::class, ['id_seccion', 'id_curso'], ['id_seccion', 'id_curso']);
+        return $this->hasMany(\App\Models\Curso\InscripcionSeccion::class, 'id_seccion', 'id_seccion');
     }
 
     // Relaciones muchos-a-muchos
