@@ -15,7 +15,7 @@ abstract class BaseDocente extends Model
     protected $primaryKey = 'id_docente';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'grado',
@@ -33,7 +33,7 @@ abstract class BaseDocente extends Model
 
     // Relaciones inversas
 
-    public function secciones()
+    public function seccionesQueDicta()
     {
         return $this->hasMany(\App\Models\Curso\Seccion::class, 'id_docente', 'id_docente');
     }

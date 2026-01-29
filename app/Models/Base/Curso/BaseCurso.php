@@ -18,8 +18,8 @@ abstract class BaseCurso extends Model
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';
 
-    const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = 'fecha_modificacion';
+      const CREATED_AT = 'fecha_creacion';
+      const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
         'cod_curso',
@@ -33,8 +33,6 @@ abstract class BaseCurso extends Model
         'estado_acta',
         'es_plantilla',
         'id_contexto',
-        'id_asignatura',
-        'id_plan',
         'grupo_letra'
     ];
 
@@ -77,7 +75,7 @@ abstract class BaseCurso extends Model
 
     // Relaciones muchos-a-muchos
 
-    public function estudiantes()
+    public function estudiantesInscritos()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Estudiante::class,

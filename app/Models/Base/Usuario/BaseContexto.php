@@ -15,7 +15,7 @@ abstract class BaseContexto extends Model
     protected $primaryKey = 'id_contexto';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'contexto_display'
@@ -52,7 +52,7 @@ abstract class BaseContexto extends Model
 
     // Relaciones muchos-a-muchos
 
-    public function usuariosUPE()
+    public function usuariosConPermisoEspecialEnContexto()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
@@ -63,7 +63,7 @@ abstract class BaseContexto extends Model
         ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
-    public function permisosUPE()
+    public function permisosEspecialesEnContexto()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Permiso::class,
@@ -74,18 +74,7 @@ abstract class BaseContexto extends Model
         ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
-    public function usuariosUPE1()
-    {
-        return $this->belongsToMany(
-            \App\Models\Usuario\Usuario::class,
-            '\"utamed.Usuario\".\"Usuario_Permiso_Especial\"',
-            'id_contexto',
-            'id_usuario_asignador'
-        )
-        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
-    }
-
-    public function usuariosURA()
+    public function usuariosConRolEnContexto()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
@@ -96,24 +85,13 @@ abstract class BaseContexto extends Model
         ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
-    public function rolesURA()
+    public function rolesEnContexto()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Rol::class,
             '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
             'id_contexto',
             'id_rol'
-        )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
-    }
-
-    public function usuariosURA1()
-    {
-        return $this->belongsToMany(
-            \App\Models\Usuario\Usuario::class,
-            '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
-            'id_contexto',
-            'id_usuario_asignador'
         )
         ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }

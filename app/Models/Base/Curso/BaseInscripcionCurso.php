@@ -15,7 +15,7 @@ abstract class BaseInscripcionCurso extends Model
     protected $primaryKey = 'id_curso';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'cod_inscripcion_uta',

@@ -15,8 +15,7 @@ abstract class BaseVwUsuariosCompleto extends Model
     protected $primaryKey = 'id';
     public $incrementing = true;
 
-    const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = 'fecha_modificacion';
+      public $timestamps = false;
 
     protected $fillable = [
         'id_usuario',
@@ -27,7 +26,6 @@ abstract class BaseVwUsuariosCompleto extends Model
         'tipo_usuario',
         'id_estudiante',
         'agno_ingreso',
-        'id_carrera',
         'carrera_nombre',
         'id_docente',
         'grado',

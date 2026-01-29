@@ -15,12 +15,11 @@ abstract class BaseTipoContexto extends Model
     protected $primaryKey = 'id_tipo_contexto';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'categoria',
-        'tabla_referenciada',
-        'id_contexto'
+        'tabla_referenciada'
     ];
 
     // Relaciones

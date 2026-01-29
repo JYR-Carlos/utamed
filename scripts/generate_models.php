@@ -72,6 +72,10 @@ require __DIR__ . '/../vendor/autoload.php';
 $app = require_once __DIR__ . '/../bootstrap/app.php';
 $app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
 
+// Parsear argumentos CLI
+$dryRun = in_array('--dry-run', $argv);
+$verbose = in_array('--verbose', $argv);
+
 // Usar clases de Laravel para hacerlo idiomático
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -134,6 +138,36 @@ function pluralizeSpanish($word)
 }
 
 // ==================================================================================
+// CONFIGURACIÓN GENERAL
+// ==================================================================================
+
+$catalogName = 'utamed_1ra_fase';
+$schemaPrefix = 'utamed.%';
+
+// Configurar columnas de auditoria
+$createdAtColumn = 'fecha_creacion';
+$updatedAtColumn = 'fecha_modificacion';
+$softDeleteColumnName = 'fecha_eliminacion'; // Nombre de columna para soft deletes
+
+$notFillableColumns = [
+  $createdAtColumn,
+  $updatedAtColumn,
+  $softDeleteColumnName,
+  // Agregar otras columnas que no deben ser fillable
+  'esta_activo' 
+];
+
+// Directorio para Models
+$modelDir = app_path(path: 'Models'); 
+// Derivados del base de Models
+$baseModelDir = $modelDir . '/Base';
+
+// Namespace base para plantilla de Models
+$extendedModelNamespace = 'App\\Models';
+$baseModelNamespace = $extendedModelNamespace . '\\Base';
+
+
+// ==================================================================================
 // CONFIGURACIÓN DE RENOMBRADO DE RELACIONES (belongsTo + hasMany/hasOne)
 // ==================================================================================
 //
@@ -184,39 +218,52 @@ function pluralizeSpanish($word)
 //     - asignacionesRolRecibidas()    ← ✅ hasMany renombrado
 //     - asignacionesRolRealizadas()   ← ✅ hasMany renombrado
 //
-// TODO: REVISAR
-// 🔍 Ver configuración actual: php scripts/show_pivot_config.php 
 
 $relationNames = [
+  // ===========================================================================================
+  // CONFIGURACIÓN CORREGIDA BASADA EN ANÁLISIS DEL DICCIONARIO DE DATOS
+  // ===========================================================================================
+
   // Usuario crea Roles (evitar conflicto con belongsToMany)
   'utamed.Usuario.Rol' => [
     'Usuario' => [
-      // 'id_usuario' => 'roles',  // Conflicto con fk a la misma tabla
-      'id_usuario_autor' => 'rolesCreados', // Cambia de 'roles1()' a 'rolesCreados()'
+      'id_usuario_autor' => 'rolesCreados', // rol1() -> rolesCreados()
     ],
   ],
 
-  // Usuario_Rol_Asignación: belongsTo + hasMany combinados
+  // Usuario_Rol_Asignación
   'utamed.Usuario.Usuario_Rol_Asignación' => [
-    '_self' => [
-      'asignado_por' => 'asignadoPor',
-      // URA.usuarios1() -> URA.asignadoPor()
-    ],
     'Usuario' => [
-      'id_usuario' => 'asignacionesRolRecibidas',      // hasMany en Usuario
-      'asignado_por' => 'asignacionesRolRealizadas',   // hasMany en Usuario
-      // Usuario.asignacionesRolRecibidas()
-      // Usuario.asignacionesRolRealizadas()
+      'id_usuario_recipiente' => 'asignacionesRolRecibidas',  // Usuario recibe roles
+      'id_usuario_asignador' => 'asignacionesRolRealizadas',  // Usuario asigna roles
     ],
   ],
 
-  // Usuario_Permiso_Especial
+  // Usuario_Permiso_Especial: múltiples FKs hacia Usuario
   'utamed.Usuario.Usuario_Permiso_Especial' => [
     'Usuario' => [
-      'id_usuario' => 'permisosEspecialesAsignados',
-      // Usuario.permisosEspecialesAsignados()
+      'id_usuario_recipiente' => 'permisosEspecialesRecibidos', // Usuario recibe permisos
+      'id_usuario_asignador' => 'permisosEspecialesAsignados',  // Usuario asigna permisos
     ],
   ],
+
+  // Programa: Usuario crea programas
+  'utamed.Administrativo.Programa' => [
+    '_self' => [
+      'id_usuario_autor' => 'autor',
+    ],
+    'Usuario' => [
+      'id_usuario_autor' => 'programasCreados',
+    ],
+  ],
+
+  // Seccion: Docente enseña secciones
+  'utamed.Curso.Seccion' => [
+    'Docente' => [
+      'id_docente' => 'seccionesQueDicta',
+    ],
+  ],
+
 ];
 
 // ==================================================================================
@@ -231,12 +278,15 @@ $relationNames = [
 //
 // FORMATO AVANZADO (control fino sobre relaciones):
 // 'utamed.Schema.NombreTabla' => [
-//   'tables' => ['tabla1', 'tabla2'],           // Solo genera relaciones con estas tablas
-//   'exclude_tables' => ['tabla3'],             // Excluye estas tablas de las relaciones
 //   'auto_suffix' => true,                      // Agrega sufijo del pivot automáticamente (default: false)
-//   'relation_names' => [                       // Renombrado personalizado de relaciones
+//   'relation_names' => [                       // Relaciones a generar (actúa como whitelist)
 //     'TablaOrigen' => [
 //       'TablaDestino' => 'nombre_metodo',
+//       'TablaDestino' => [
+//         'method_name' => 'nombre_metodo',     // Nombre del método
+//         'local_key' => 'columna_local',       // FK específica para esta relación
+//         'foreign_key' => 'columna_remota',    // FK específica hacia tabla destino
+//       ],
 //     ],
 //   ],
 // ]
@@ -249,6 +299,10 @@ $relationNames = [
 // - Pivots con 3+ FKs (muchos-a-muchos múltiple)
 //   Ejemplo: Usuario ↔ Rol ↔ Contexto
 //   Genera: Usuario->roles(), Usuario->contextos(), Rol->usuarios(), etc.
+//
+// - Pivots con múltiples FKs a la misma tabla (diferentes roles)
+//   Ejemplo: Usuario_Permiso_Especial con id_usuario_recipiente e id_usuario_asignador
+//   Permite especificar qué FK usar para cada relación semánticamente correcta
 //
 // - Pivots con nombres conflictivos (evita duplicados con hasMany/hasOne)
 //   Ejemplo: Usuario tiene hasMany(Rol) Y belongsToMany(Rol)
@@ -264,7 +318,7 @@ $relationNames = [
 //   'auto_suffix' => true,  // Genera: roles_ura(), contextos_ura()
 // ],
 //
-// // 3. Pivot con renombrado personalizado:
+// // 3. Pivot con renombrado personalizado simple:
 // 'utamed.Usuario.Usuario_Permiso_Especial' => [
 //   'relation_names' => [
 //     'Usuario' => [
@@ -274,35 +328,171 @@ $relationNames = [
 //   ],
 // ],
 //
-// // 4. Pivot triple solo algunas relaciones:
-// 'utamed.Usuario.Usuario_Rol_Contexto' => [
-//   'tables' => ['Usuario', 'Rol'],  // Ignora Contexto
-//   'auto_suffix' => true,
+// // 4. Pivot con múltiples FKs hacia misma tabla (caso complejo):
+// 'utamed.Usuario.Usuario_Permiso_Especial' => [
+//   'relation_names' => [
+//     'Usuario' => [
+//       'Usuario' => [
+//         ['method_name' => 'usuariosQueRecibenMisPermisos', 'local_key' => 'id_usuario_asignador', 'foreign_key' => 'id_usuario_recipiente'],
+//         ['method_name' => 'usuariosQueAsignanMisPermisos', 'local_key' => 'id_usuario_recipiente', 'foreign_key' => 'id_usuario_asignador'],
+//       ],
+//       'Permiso' => 'permisosEspeciales',
+//       'Contexto' => 'contextosPermisos',
+//     ],
+//   ],
 // ],
 //
+//
+
 $manualPivotTables = [
-  // Ejemplos con configuración mejorada:
-  'utamed.Administrativo.Asignacion_Plan' => true,
-  'utamed.Curso.Inscripcion_Curso' => true,
-  'utamed.Curso.Inscripcion_Seccion' => true,
-  'utamed.Agenda.Actividad_Asignada' => true,
-  'utamed.Agenda.Asignado_Actividad' => true,
+  // ===========================================================================================
+  // PIVOTS SIMPLES (2 FKs)
+  // ===========================================================================================
 
-  // Usuario con renombrado para evitar conflictos
-  'utamed.Usuario.Usuario_Rol_Asignación' => [
-    'auto_suffix' => true,  // Genera: rolesUra(), contextosUra(), usuariosUra()
+  // Asignacion_Plan: Asignatura ↔ Plan
+  'utamed.Administrativo.Asignacion_Plan' => [
+    'relation_names' => [
+      'Asignatura' => [
+        'Plan' => 'planes', // asignatura->planes()
+      ],
+      'Plan' => [
+        'Asignatura' => 'asignaturas', // plan->asignaturas()
+      ],
+    ],
   ],
 
+  // Inscripcion_Curso: Curso ↔ Estudiante
+  'utamed.Curso.Inscripcion_Curso' => [
+    'relation_names' => [
+      'Curso' => [
+        'Estudiante' => 'estudiantesInscritos', // curso->estudiantesInscritos()
+      ],
+      'Estudiante' => [
+        'Curso' => 'cursosInscritos', // estudiante->cursosInscritos()
+      ],
+    ],
+  ],
+
+  // Actividad_Asignada: Actividad ↔ Estado_Actividad (solo genera relación desde EstadoActividad)
+  'utamed.Agenda.Actividad_Asignada' => [
+    'relation_names' => [
+      // Solo especificamos EstadoActividad -> Actividad
+      // Omitimos Actividad para no generar relaciones inversas desde Actividad
+      'EstadoActividad' => [
+        'Actividad' => 'actividadesConEstado', // estadoActividad->actividadesConEstado()
+      ],
+    ],
+  ],
+
+  // Asignado_Actividad: Actividad_Asignada ↔ Estudiante
+  'utamed.Agenda.Asignado_Actividad' => [
+    'relation_names' => [
+      'ActividadAsignada' => [
+        'Estudiante' => 'estudiantesAsignados', // actividadAsignada->estudiantesAsignados()
+      ],
+      'Estudiante' => [
+        'ActividadAsignada' => 'actividadesAsignadas', // estudiante->actividadesAsignadas()
+      ],
+    ],
+  ],
+
+  // Asignación_Rol_Permiso: Rol ↔ Permiso
+  'utamed.Usuario.Asignación_Rol_Permiso' => [
+    'relation_names' => [
+      'Rol' => [
+        'Permiso' => 'permisos', // rol->permisos()
+      ],
+      'Permiso' => [
+        'Rol' => 'roles', // permiso->roles()
+      ],
+    ],
+  ],
+
+  // ===========================================================================================
+  // PIVOTS COMPLEJOS (3+ FKs o múltiples FKs a misma tabla)
+  // ===========================================================================================
+
+  // Inscripcion_Seccion: Estudiante ↔ Seccion (también involucra Curso)
+  'utamed.Curso.Inscripcion_Seccion' => [
+    'relation_names' => [
+      'Estudiante' => [
+        'Seccion' => 'seccionesInscritas', // estudiante->seccionesInscritas()
+        // No genera relación con Curso porque ya existe en Inscripcion_Curso
+      ],
+      'Seccion' => [
+        'Estudiante' => 'estudiantesInscritos', // seccion->estudiantesInscritos()
+      ],
+    ],
+  ],
+
+  // Usuario_Permiso_Especial: Usuario ↔ Permiso ↔ Contexto (múltiples FKs a Usuario)
   'utamed.Usuario.Usuario_Permiso_Especial' => [
-    'auto_suffix' => true,  // Genera: permisosUpe(), contextosUpe()
+    'relation_names' => [
+      'Usuario' => [
+        'Usuario' => [
+          [
+            'method_name' => 'usuariosQueRecibenMisPermisos',
+            'local_key' => 'id_usuario_asignador',
+            'foreign_key' => 'id_usuario_recipiente'
+          ],
+          [
+            'method_name' => 'usuariosQueAsignanMisPermisos',
+            'local_key' => 'id_usuario_recipiente',
+            'foreign_key' => 'id_usuario_asignador'
+          ],
+        ],
+        'Permiso' => 'permisosEspeciales',
+        'Contexto' => 'contextosConPermisoEspecial',
+      ],
+      'Permiso' => [
+        'Usuario' => 'usuariosConPermisoEspecial', // permiso->usuariosConPermisoEspecial()
+        'Contexto' => 'contextosConEstePermiso',   // permiso->contextosConEstePermiso()
+      ],
+      'Contexto' => [
+        'Usuario' => 'usuariosConPermisoEspecialEnContexto', // contexto->usuariosConPermisoEspecialEnContexto()
+        'Permiso' => 'permisosEspecialesEnContexto',         // contexto->permisosEspecialesEnContexto()
+      ],
+    ],
   ],
 
-  'utamed.Usuario.Asignación_Rol_Permiso' => true,
+  // Usuario_Rol_Asignación: Usuario ↔ Rol ↔ Contexto (múltiples FKs a Usuario)
+  'utamed.Usuario.Usuario_Rol_Asignación' => [
+    'relation_names' => [
+      'Usuario' => [
+        'Usuario' => [
+          [
+            'method_name' => 'usuariosQueRecibenMisRoles',
+            'local_key' => 'id_usuario_asignador',
+            'foreign_key' => 'id_usuario_recipiente'
+          ],
+          [
+            'method_name' => 'usuariosQueAsignanMisRoles',
+            'local_key' => 'id_usuario_recipiente',
+            'foreign_key' => 'id_usuario_asignador'
+          ],
+        ],
+        'Rol' => 'rolesAsignados',
+        'Contexto' => 'contextosConRolAsignado',
+      ],
+      'Rol' => [
+        'Usuario' => 'usuariosConRolAsignado', // rol->usuariosConRolAsignado()
+        'Contexto' => 'contextosConEsteRol',   // rol->contextosConEsteRol()
+      ],
+      'Contexto' => [
+        'Usuario' => 'usuariosConRolEnContexto', // contexto->usuariosConRolEnContexto()
+        'Rol' => 'rolesEnContexto',              // contexto->rolesEnContexto()
+      ],
+    ],
+  ],
 ];
 
 
 
-echo "🚀 Generando modelos desde PostgreSQL...\n\n";
+echo "🚀 Generando modelos desde PostgreSQL...\n";
+if ($dryRun) {
+  echo "🔍 MODO DRY-RUN (sin crear/modificar archivos)\n";
+}
+echo "\n";
 
 // ==================================================================================
 // PASO 1: DETECCIÓN DE TABLAS EN ESQUEMAS POSTGRESQL
@@ -329,10 +519,10 @@ $tables = DB::select("
       table_schema, 
       table_name
     FROM information_schema.tables
-    WHERE table_catalog = 'utamed_1ra_fase' 
-    AND table_schema LIKE 'utamed.%'
+    WHERE table_catalog = ?
+    AND table_schema LIKE ?
     ORDER BY table_schema, table_name
-");
+", [$catalogName, $schemaPrefix]);
 
 echo "Encontradas " . count($tables) . " tablas\n\n";
 
@@ -429,7 +619,7 @@ foreach ($tables as $t) {
 echo "✓ Relaciones inversas analizadas\n\n";
 
 // ==================================================================================
-// PASO 2.5: CARGAR TABLAS PIVOT (belongsToMany)
+// PASO 3: CARGAR TABLAS PIVOT (belongsToMany)
 // ==================================================================================
 //
 // OBJETIVO: Procesar tablas pivot definidas en $manualPivotTables
@@ -444,7 +634,8 @@ echo "✓ Relaciones inversas analizadas\n\n";
 //   'fk2' => ['schema' => ..., 'table' => ..., 'columns' => ...]
 // ]
 //
-// NOTA: Pivots triples (3+ FKs) requieren lógica personalizada manual
+// NOTA: Pivots con más de tres relaciones
+// requieren lógica personalizada manual
 // ==================================================================================
 
 echo "🔗 Cargando tablas pivot...\n";
@@ -493,26 +684,9 @@ foreach ($tables as $t) {
         ];
       }
 
-      // Aplicar filtros de configuración si existen
-      if (is_array($pivotConfig)) {
-        // Filtrar por tablas específicas si están definidas
-        if (isset($pivotConfig['tables']) && is_array($pivotConfig['tables'])) {
-          $allowedTables = array_map('strtolower', $pivotConfig['tables']);
-          $fkList = array_filter($fkList, function ($fk) use ($allowedTables) {
-            return in_array(strtolower($fk['table']), $allowedTables);
-          });
-        }
+      // Configuración se aplicará posteriormente mediante relation_names que actúa como whitelist
 
-        // Excluir tablas específicas si están definidas
-        if (isset($pivotConfig['exclude_tables']) && is_array($pivotConfig['exclude_tables'])) {
-          $excludedTables = array_map('strtolower', $pivotConfig['exclude_tables']);
-          $fkList = array_filter($fkList, function ($fk) use ($excludedTables) {
-            return !in_array(strtolower($fk['table']), $excludedTables);
-          });
-        }
-      }
-
-      // Reindexar array después de filtrar
+      // Normalizar índices del array de FKs
       $fkList = array_values($fkList);
 
       // Guardar información de pivot con todas sus FKs
@@ -541,7 +715,7 @@ foreach ($tables as $t) {
         }
         echo "\n";
       } else {
-        echo "  ⚠ {$pivotKey}: Menos de 2 FKs válidas después de filtrar\n";
+        echo "  ⚠ {$pivotKey}: Menos de 2 FKs detectadas\n";
       }
     } else {
       echo "  ⚠ {$pivotKey}: Solo tiene " . count($fks) . " FK(s)\n";
@@ -552,7 +726,7 @@ foreach ($tables as $t) {
 echo "\n✓ Tablas pivot cargadas: " . count($pivotTables) . "\n\n";
 
 // ==================================================================================
-// PASO 3: BUCLE PRINCIPAL - GENERAR MODELOS PARA CADA TABLA
+// PASO 4: BUCLE PRINCIPAL - GENERAR MODELOS PARA CADA TABLA
 // ==================================================================================
 //
 // OBJETIVO: Procesar cada tabla y generar su par de modelos (Base + Extendido)
@@ -577,7 +751,7 @@ foreach ($tables as $tableInfo) {
   echo "Generando: {$schemaName}\\{$className} <- {$schema}.{$tableName}\n";
 
   // ==================================================================================
-  // PASO 3.1: CREAR ESTRUCTURA DE DIRECTORIOS
+  // PASO 4.1: CREAR ESTRUCTURA DE DIRECTORIOS
   // ==================================================================================
   //
   // ESTRUCTURA GENERADA:
@@ -595,22 +769,22 @@ foreach ($tables as $tableInfo) {
   //       └── Usuario.php
   // ==================================================================================
 
-  // Crear directorios
-  $baseModelDir = __DIR__ . "/../app/Models/Base/{$schemaName}";
-  $modelDir = __DIR__ . "/../app/Models/{$schemaName}";
+  // Crear directorios usando configuración global
+  $baseModelSchemaDir = $baseModelDir . "/{$schemaName}";
+  $modelSchemaDir = $modelDir . "/{$schemaName}";
 
-  if (!is_dir($baseModelDir)) {
-    mkdir($baseModelDir, 0755, true);
+  if (!is_dir($baseModelSchemaDir)) {
+    mkdir($baseModelSchemaDir, 0755, true);
   }
-  if (!is_dir($modelDir)) {
-    mkdir($modelDir, 0755, true);
+  if (!is_dir($modelSchemaDir)) {
+    mkdir($modelSchemaDir, 0755, true);
   }
 
-  $baseModelPath = "{$baseModelDir}/Base{$className}.php";
-  $modelPath = "{$modelDir}/{$className}.php";
+  $baseModelPath = "{$baseModelSchemaDir}/Base{$className}.php";
+  $modelPath = "{$modelSchemaDir}/{$className}.php";
 
   // ==================================================================================
-  // PASO 3.2: OBTENER COLUMNAS DE LA TABLA
+  // PASO 4.2: OBTENER COLUMNAS DE LA TABLA
   // ==================================================================================
   //
   // OBJETIVO: Extraer todas las columnas con sus metadatos
@@ -636,7 +810,7 @@ foreach ($tables as $tableInfo) {
     ", [$schema, $tableName]);
 
   // ==================================================================================
-  // PASO 3.3: DETECTAR CLAVE PRIMARIA
+  // PASO 4.3: DETECTAR CLAVE PRIMARIA
   // ==================================================================================
   //
   // OBJETIVO: Identificar la columna que es Primary Key
@@ -669,7 +843,7 @@ foreach ($tables as $tableInfo) {
   $primaryKey = !empty($pkResult) ? $pkResult[0]->column_name : 'id';
 
   // ==================================================================================
-  // PASO 3.4: OBTENER FOREIGN KEYS (Para relaciones belongsTo)
+  // PASO 4.4: OBTENER FOREIGN KEYS (Para relaciones belongsTo)
   // ==================================================================================
   //
   // OBJETIVO: Detectar todas las FKs de la tabla actual para generar belongsTo()
@@ -723,7 +897,7 @@ foreach ($tables as $tableInfo) {
     ", [$tableName, $schema]);
 
   // ==================================================================================
-  // PASO 3.5: GENERAR ARRAY $fillable
+  // PASO 4.5: GENERAR ARRAY $fillable
   // ==================================================================================
   //
   // OBJETIVO: Crear lista de columnas asignables masivamente
@@ -746,15 +920,18 @@ foreach ($tables as $tableInfo) {
   // USO: Permite hacer Modelo::create(['nombre' => 'Test']) sin mass assignment exception
   // ==================================================================================
 
+ 
+  array_push($notFillableColumns, $primaryKey); // Excluir PK
+
   // Generar fillable
   $fillable = collect($columns)
     ->pluck('column_name')
-    ->reject(fn($col) => in_array($col, [$primaryKey, 'fecha_creacion', 'fecha_modificacion', 'fecha_eliminacion', 'esta_activo']))
+    ->reject(fn($col) => in_array($col, $notFillableColumns))
     ->map(fn($col) => "        '{$col}'")
     ->implode(",\n");
 
   // ==================================================================================
-  // PASO 3.6: CONFIGURAR TIMESTAMPS
+  // PASO 4.6: CONFIGURAR TIMESTAMPS
   // ==================================================================================
   //
   // OBJETIVO: Configurar manejo de timestamps según esquema de BD
@@ -777,26 +954,30 @@ foreach ($tables as $tableInfo) {
   // ==================================================================================
 
   // Detectar timestamps
-  $hasTimestamps = collect($columns)->contains('column_name', 'fecha_creacion');
-  $timestampsConfig = $hasTimestamps ? "
-    const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = 'fecha_modificacion';" : "
-    public \$timestamps = false;";
+  $hasCreatedAt = collect($columns)->contains('column_name', $createdAtColumn);
+  $hasUpdatedAt = collect($columns)->contains('column_name', $updatedAtColumn);
+
+  // Solo activa si AMBAS existen
+  if ($hasCreatedAt && $hasUpdatedAt) {
+    $timestampsConfig = "
+      const CREATED_AT = '$createdAtColumn';
+      const UPDATED_AT = '$updatedAtColumn';";
+  } else {
+    // Si falta cualquiera, desactiva completamente
+    $timestampsConfig = "
+      public \$timestamps = false;";
+  }
 
   // ==================================================================================
-  // PASO 3.7: CONFIGURAR SOFT DELETES (USANDO fecha_eliminacion)
+  // PASO 4.7: CONFIGURAR SOFT DELETES (USANDO fecha_eliminacion)
   // ==================================================================================
   //
-  // DECISIÓN: Usar trait SoftDeletes de Laravel
-  //
-  // RAZÓN:
+  // SoftDeletes en Laravel:
   // - SoftDeletes espera una columna TIMESTAMP (deleted_at o similar)
-  // - Esta BD usa 'fecha_eliminacion' TIMESTAMP NULLABLE
-  // - Es el patrón estándar para soft deletes en Laravel
+  // - Por defecto usa 'fecha_eliminacion'
   //
-  // SOLUCIÓN IMPLEMENTADA:
-  // - Mapear fecha_eliminacion como columna de soft delete
-  // - Agregar trait SoftDeletes
+  // FUNCIONAMIENTO:
+  // - Agrega el trait SoftDeletes al modelo
   // - Configurar const DELETED_AT = 'fecha_eliminacion'
   // - Laravel filtra automáticamente registros con fecha_eliminacion no nula
   //
@@ -809,44 +990,75 @@ foreach ($tables as $tableInfo) {
   // - $modelo->forceDelete()            ← Elimina permanentemente
   // ==================================================================================
 
+
   // Detectar si la tabla tiene fecha_eliminacion
-  $hasSoftDeletes = collect($columns)->contains('column_name', 'fecha_eliminacion');
+  $hasSoftDeletes = collect($columns)->contains('column_name', $softDeleteColumnName);
   $softDeleteImport = $hasSoftDeletes ? "use Illuminate\\Database\\Eloquent\\SoftDeletes;\n" : "";
   $softDeleteTrait = $hasSoftDeletes ? "    use SoftDeletes;\n" : "";
-  $softDeleteConst = $hasSoftDeletes ? "\n    const DELETED_AT = 'fecha_eliminacion';" : "";
+  $softDeleteConst = $hasSoftDeletes ? "\n    const DELETED_AT = '$softDeleteColumnName';" : "";
 
   // ==================================================================================
-  // PASO 3.8: GENERAR RELACIONES belongsTo (FK → Modelo padre)
+  // PASO 4.8: GENERAR RELACIONES belongsTo (FK → Modelo padre)
   // ==================================================================================
   //
   // OBJETIVO: Crear métodos belongsTo para cada Foreign Key detectada
   //
   // FUNCIONAMIENTO:
-  // 1. Itera sobre cada FK encontrada en PASO 3.4
-  // 2. Extrae schema y modelo destino
-  // 3. Genera nombre de método basado en la columna local
+  // 1. Itera sobre cada FK encontrada en PASO 4.4
+  // 2. Extrae schema y modelo destino de la FK
+  // 3. Genera nombre de método según configuración o automáticamente
   //
-  // GENERACIÓN DE NOMBRE DE MÉTODO:
-  // - Columna FK: 'id_facultad' → Método: 'facultad()'
-  // - Proceso: Quita prefijo 'id_', convierte a camelCase
+  // CONFIGURACIÓN PERSONALIZADA (usando $relationNames):
+  // - Clave especial: '_self' para relaciones belongsTo
+  // - Formato:
+  // $relationNames['schema.tabla']['_self'] = [
+  //     'columna_fk' => 'nombreMetodo',
+  //     ...
+  // ];
+  //
+  // - Ejemplo real:
+  // $relationNames['utamed.Base.departamento']['_self'] = [
+  //     'id_facultad' => 'facultadPrincipal',
+  // ];
+  //
+  // GENERACIÓN AUTOMÁTICA DE NOMBRE:
+  // - Tabla destino: 'facultad' → Método: 'facultad()'
+  // - Proceso: Usa nombre de tabla destino, convierte a camelCase
+  // - NO usa el nombre de la columna FK
   //
   // MANEJO DE DUPLICADOS:
-  // - Si una tabla tiene múltiples FKs a la misma tabla (FK compuesta)
-  // - Genera: facultad(), facultad1(), facultad2()
-  // - Evita conflictos de nombres de métodos
+  // - Si una tabla tiene múltiples FKs a la misma tabla:
+  //   - Genera: facultad(), facultad1(), facultad2()
+  //   - Agrega sufijo numérico para evitar conflictos
+  // - Ejemplo real: Usuario_Permiso_Especial tiene id_usuario_recipiente + id_usuario_asignador
+  //   - Sin configuración: usuario(), usuario1()
+  //   - Con configuración: usuarioRecipiente(), usuarioAsignador()
   //
-  // CÓDIGO GENERADO:
+  // SOPORTE FK COMPUESTA:
+  // - Detecta si la FK tiene múltiples columnas
+  // - Usa arrays en vez de strings para foreign key y primary key
+  // - Ejemplo: ['col1', 'col2'] en vez de 'col1'
+  //
+  // CÓDIGO GENERADO (FK SIMPLE):
   // public function facultad()
   // {
   //     return $this->belongsTo(\App\Models\Administrativo\Facultad::class, 'id_facultad', 'id_facultad');
   // }
   //
-  // PARÁMETROS belongsTo:
-  // 1. Clase del modelo relacionado
-  // 2. Foreign key local (columna en esta tabla)
-  // 3. Primary key remota (columna en tabla destino)
+  // CÓDIGO GENERADO (FK COMPUESTA):
+  // public function detalleCurso()
+  // {
+  //     return $this->belongsTo(\App\Models\Curso\DetalleCurso::class, ['id_curso', 'id_periodo'], ['id_curso', 'id_periodo']);
+  // }
   //
-  // USO: $departamento->facultad  ← Retorna modelo Facultad relacionado
+  // PARÁMETROS belongsTo:
+  // 1. Clase del modelo relacionado (FQCN)
+  // 2. Foreign key local (columna(s) en esta tabla)
+  // 3. Primary key remota (columna(s) en tabla destino)
+  //
+  // USO: 
+  // - $departamento->facultad  ← Retorna modelo Facultad relacionado (o null)
+  // - $permiso->usuarioRecipiente  ← Con nombre personalizado
   // ==================================================================================
 
   // Generar relaciones
@@ -906,7 +1118,7 @@ foreach ($tables as $tableInfo) {
   }
 
   // ==================================================================================
-  // PASO 3.9: GENERAR RELACIONES INVERSAS hasMany/hasOne (Modelo hijo → Esta tabla)
+  // PASO 4.9: GENERAR RELACIONES INVERSAS hasMany/hasOne (Modelo hijo → Esta tabla)
   // ==================================================================================
   //
   // OBJETIVO: Crear métodos hasMany o hasOne para tablas que tienen FK hacia esta tabla
@@ -917,36 +1129,43 @@ foreach ($tables as $tableInfo) {
   // 3. Por cada tabla que apunta, genera un método hasMany o hasOne
   // 4. DETECCIÓN 1:1: Si la FK tiene índice UNIQUE → hasOne (relación uno-a-uno)
   //
-  // EJEMPLO hasMany:
-  // Tabla actual: facultad
-  // Búsqueda: $allForeignKeys['utamed.Administrativo.facultad']
-  // Resultado: [
-  //   ['source_table' => 'departamento', 'source_column' => 'id_facultad', 'is_unique' => false]
-  // ]
+  // CONFIGURACIÓN PERSONALIZADA (usando $relationNames):
+  // - Formato: Para tabla que TIENE la FK (tabla origen), usando tabla destino como clave
+  // - Estructura:
+  // $relationNames['schema.tabla_origen'][ClassName_destino] = [
+  //     'columna_fk' => 'nombreMetodo',
+  //     ...
+  // ];
   //
-  // EJEMPLO hasOne:
-  // Tabla actual: curso
-  // Búsqueda: $allForeignKeys['utamed.Administrativo.curso']
-  // Resultado: [
-  //   ['source_table' => 'programa', 'source_column' => 'id_curso', 'is_unique' => true]
-  // ]
+  // - Ejemplo real (Departamento tiene FK a Facultad):
+  // $relationNames['utamed.Base.departamento']['Facultad'] = [
+  //     'id_facultad' => 'misDepartamentos',  // Desde Facultad hacia Departamento
+  // ];
   //
-  // GENERACIÓN DE NOMBRE DE MÉTODO:
-  // - hasMany: 'departamento' → 'departamentos()' (plural)
-  // - hasOne: 'programa' → 'programa()' (singular)
-  // - Proceso: Pluraliza/singulariza según tipo, convierte a camelCase
+  // GENERACIÓN AUTOMÁTICA DE NOMBRE:
+  // - hasMany (1:N): 'departamento' → 'departamentos()' (plural)
+  // - hasOne (1:1): 'programa' → 'programa()' (singular)
+  // - Detección 1:1: Si la FK tiene índice UNIQUE → usa hasOne
   //
-  // CÓDIGO GENERADO hasMany:
+  // MANEJO DE DUPLICADOS:
+  // - Si múltiples tablas apuntan a esta con FKs diferentes, genera sufijos
+  // - Ejemplo: departamentos(), departamentos1()
+  //
+  // CÓDIGO GENERADO (hasMany - 1:N):
   // public function departamentos()
   // {
   //     return $this->hasMany(\App\Models\Administrativo\Departamento::class, 'id_facultad', 'id_facultad');
   // }
   //
-  // CÓDIGO GENERADO hasOne:
+  // CÓDIGO GENERADO (hasOne - 1:1):
   // public function programa()
   // {
   //     return $this->hasOne(\App\Models\Administrativo\Programa::class, 'id_curso', 'id_curso');
   // }
+  //
+  // PARÁMETROS:
+  // - hasMany: Retorna Collection (0...N registros)
+  // - hasOne: Retorna Model|null (0 o 1 registro)
   //
   // EJEMPLOS DE RELACIONES 1:1 DETECTADAS:
   // - curso ↔ programa (programa tiene UNIQUE(id_curso))
@@ -956,6 +1175,7 @@ foreach ($tables as $tableInfo) {
   //
   // USO:
   // - $facultad->departamentos  ← Collection (1:N)
+  // - $facultad->misDepartamentos  ← Con nombre personalizado
   // - $curso->programa          ← Model o null (1:1)
   // ==================================================================================
 
@@ -1036,7 +1256,7 @@ foreach ($tables as $tableInfo) {
   }
 
   // ==================================================================================
-  // PASO 3.10: GENERAR RELACIONES belongsToMany (Muchos-a-muchos con pivot)
+  // PASO 4.10: GENERAR RELACIONES belongsToMany (Muchos-a-muchos con pivot)
   // ==================================================================================
   //
   // OBJETIVO: Crear métodos belongsToMany cuando esta tabla está relacionada
@@ -1044,40 +1264,110 @@ foreach ($tables as $tableInfo) {
   //
   // FUNCIONAMIENTO:
   // 1. Busca en $pivotTables si hay tablas pivot que conecten esta tabla con otras
-  // 2. Soporta pivots con 2, 3, 4+ FKs
-  // 3. Genera una relación belongsToMany por cada OTRA tabla relacionada en el pivot
+  // 2. Itera sobre cada FK del pivot (soporta 2, 3, 4+ FKs)
+  // 3. Por cada tabla relacionada (que NO sea esta tabla), genera una relación
+  // 4. Aplica configuración: nombres personalizados, sufijos, exclusiones, local_key/foreign_key
   //
-  // EJEMPLO PIVOT CON 2 FKs:
-  // Tabla actual: Curso
+  // PROCESO DE GENERACIÓN (con configuración aplicada):
+  //
+  // 1. LECTURA DE CONFIGURACIÓN:
+  //    - Lee $pivotConfig[$pivotTable] con opciones: auto_suffix, relation_names
+  //    - relation_names actúa como WHITELIST: solo genera si está listada
+  //
+  // 2. DETERMINACIÓN DE NOMBRE DE MÉTODO:
+  //    a) SI hay relation_names personalizado (string):
+  //       → Usa el nombre personalizado directamente
+  //       → Ejemplo: 'Usuario' => ['Rol' => 'miRoles'] → $usuario->miRoles()
+  //
+  //    b) SI hay relation_names personalizado (array avanzado):
+  //       → Genera múltiples relaciones con diferentes nombres
+  //       → Usa local_key y foreign_key especificados
+  //       → Ejemplo: [['name' => 'rolesActivos', 'local_key' => ...], ...]
+  //
+  //    c) SI auto_suffix está activado:
+  //       → Agrega sufijo del pivot al nombre automático
+  //       → Ejemplo: Usuario_Rol_Asignación → Ura → roles() → rolesUra()
+  //
+  //    d) SI no hay configuración personalizada:
+  //       → Pluraliza nombre de tabla relacionada
+  //       → Ejemplo: Inscripcion_Curso + estudiante → estudiantes()
+  //
+  // 3. INCLUSIÓN DE COLUMNAS ADICIONALES (withPivot):
+  //    - Recolecta todas las columnas del pivot
+  //    - Excluye automáticamente: FK columns, 'created_at', 'updated_at', 'fecha_*'
+  //    - Incluye: Solo columnas de datos del negocio
+  //    - Accesibles vía: $modelo->pivot->columna
+  //
+  // EJEMPLOS DE RELACIONES GENERADAS:
+  //
+  // Ejemplo 1 - Configuración simple (sin personalización):
   // Pivot: Inscripcion_Curso (id_curso, id_estudiante)
-  // Genera: Curso->estudiantes() (Curso ↔ Estudiante)
+  // Generado en Curso:
+  //   public function estudiantes()
+  //   {
+  //       return $this->belongsToMany(\App\Models\Usuario\Estudiante::class, 'Inscripcion_Curso', 'id_curso', 'id_estudiante')
+  //           ->withPivot('cod_inscripcion_uta', 'fecha_inscripcion', 'estado');
+  //   }
   //
-  // EJEMPLO PIVOT CON 3 FKs:
-  // Tabla actual: Usuario
+  // Ejemplo 2 - Con nombre personalizado (relation_names string):
+  // Config: 'Curso' => ['Estudiante' => 'inscritos']
+  // Generado en Curso:
+  //   public function inscritos()
+  //   {
+  //       return $this->belongsToMany(\App\Models\Usuario\Estudiante::class, 'Inscripcion_Curso', 'id_curso', 'id_estudiante')
+  //           ->withPivot('cod_inscripcion_uta', 'fecha_inscripcion', 'estado');
+  //   }
+  //
+  // Ejemplo 3 - Con auto_suffix:
+  // Config: auto_suffix => true
+  // Pivot: Usuario_Rol_Asignación → Ura
+  // Generado en Usuario:
+  //   public function rolesUra()
+  //   {
+  //       return $this->belongsToMany(\App\Models\Seguridad\Rol::class, 'Usuario_Rol_Asignación', 'id_usuario', 'id_rol')
+  //           ->withPivot('fecha_asignacion', 'vigente');
+  //   }
+  //
+  // Ejemplo 4 - Pivots ternarios (3+ FKs):
   // Pivot: Usuario_Rol_Contexto (id_usuario, id_rol, id_contexto)
-  // Genera: Usuario->roles(), Usuario->contextos()
+  // Generado en Usuario:
+  //   public function roles()                    ← Relación a Rol
+  //   public function contextos()                ← Relación a Contexto
   //
-  // CÓDIGO GENERADO:
-  // public function estudiantes()
-  // {
-  //     return $this->belongsToMany(
-  //         \App\Models\Usuario\Estudiante::class,
-  //         'Inscripcion_Curso',          // Tabla pivot
-  //         'id_curso',                    // FK en pivot hacia esta tabla
-  //         'id_estudiante'                // FK en pivot hacia tabla relacionada
-  //     )->withPivot('cod_inscripcion_uta', 'fecha_inscripcion', ...);
-  // }
+  // Generado en Rol:
+  //   public function usuarios()                 ← Relación a Usuario
+  //   public function contextos()                ← Relación a Contexto
   //
-  // PARÁMETROS belongsToMany:
-  // 1. Clase del modelo relacionado
+  // PARÁMETROS belongsToMany (en orden de generación):
+  // 1. Clase del modelo relacionado (FQCN)
   // 2. Nombre de tabla pivot
-  // 3. FK en pivot que apunta a esta tabla (foreignPivotKey)
-  // 4. FK en pivot que apunta a tabla relacionada (relatedPivotKey)
+  // 3. Foreign key en pivot hacia ESTA tabla (foreignPivotKey)
+  // 4. Foreign key en pivot hacia tabla RELACIONADA (relatedPivotKey)
   //
-  // withPivot(): Agrega columnas adicionales del pivot accesibles vía $model->pivot->columna
+  // CONFLICTOS AUTOMÁTICOS:
+  // - Si el nombre generado ya existe (en belongsTo, hasMany, etc.):
+  //   → Agrega sufijo numérico: roles(), roles1(), roles2()
+  // - Detecta duplicados incluso en relaciones personalizadas
   //
-  // USO: $curso->estudiantes  ← Collection con datos pivot
-  //      $estudiante->pivot->fecha_inscripcion
+  // USO DE LAS RELACIONES GENERADAS:
+  //
+  // Obtener todos los registros relacionados:
+  //   $curso->estudiantes  ← Collection de Estudiante
+  //   $usuario->rolesUra   ← Collection de Rol (con suffix)
+  //
+  // Acceder a datos del pivot:
+  //   $curso->estudiantes()->first()->pivot->cod_inscripcion_uta
+  //   $curso->estudiantes()->first()->pivot->fecha_inscripcion
+  //
+  // Con filtros:
+  //   $curso->estudiantes()->wherePivot('estado', 'activo')->get()
+  //   $usuario->rolesUra()->wherePivot('vigente', true)->get()
+  //
+  // Agregar nuevas relaciones:
+  //   $curso->estudiantes()->attach($estudiante->id, ['fecha_inscripcion' => now()])
+  //
+  // Actualizar datos del pivot:
+  //   $curso->estudiantes()->updateExistingPivot($estudiante->id, ['estado' => 'inactivo'])
   // ==================================================================================
 
   // Generar relaciones belongsToMany
@@ -1135,7 +1425,7 @@ foreach ($tables as $tableInfo) {
         $autoSuffix = strtoupper(implode('', array_map(fn($w) => substr($w, 0, 1), $pivotWords)));
       }
 
-      // Generar una relación belongsToMany con cada OTRA tabla del pivot
+      // Generar relaciones belongsToMany según configuración
       foreach ($allFks as $otherIdx => $otherFk) {
         if ($otherIdx === $thisFkIndex) {
           continue; // Saltar la FK que apunta a esta misma tabla
@@ -1145,89 +1435,146 @@ foreach ($tables as $tableInfo) {
         $relatedTable = $otherFk['table'];
         $relatedModel = Str::studly($relatedTable);
 
-        // Intentar obtener nombre personalizado de la configuración
-        $customName = null;
-        if (is_array($pivotConfig) && isset($pivotConfig['relation_names'][$className][$relatedModel])) {
-          $customName = $pivotConfig['relation_names'][$className][$relatedModel];
+        // Si hay relation_names especificado, solo generar si está ahí listado explícitamente (actúa como whitelist)
+        if (is_array($pivotConfig) && isset($pivotConfig['relation_names'])) {
+          $hasExplicitConfig = false;
+          if (isset($pivotConfig['relation_names'][$className][$relatedModel])) {
+            $hasExplicitConfig = true;
+          }
+          // Si tiene relation_names pero esta tabla NO está en la config, saltar SOLO si no hay auto_suffix
+          if (!$hasExplicitConfig && !($pivotConfig['auto_suffix'] ?? false)) {
+            continue;  // ← Solo salta si NO está en relation_names Y NO hay auto_suffix
+          }
         }
 
-        // Nombre del método
-        if ($customName) {
-          // Usar nombre personalizado
-          $methodName = $customName;
-        } else {
-          // Nombre automático - plural de la tabla relacionada
-          $methodName = Str::camel(pluralizeSpanish($relatedTable));
+        // Verificar si hay configuración personalizada para esta relación
+        $customConfig = null;
+        if (is_array($pivotConfig) && isset($pivotConfig['relation_names'][$className][$relatedModel])) {
+          $customConfig = $pivotConfig['relation_names'][$className][$relatedModel];
+        }
 
-          // Aplicar sufijo automático si está configurado
+        // Determinar qué relaciones generar
+        $relationsToGenerate = [];
+
+        if (is_array($customConfig)) {
+          // Configuración avanzada: múltiples relaciones hacia la misma tabla
+          if (isset($customConfig[0]) && is_array($customConfig[0])) {
+            // Array de configuraciones para múltiples relaciones hacia la misma tabla
+            foreach ($customConfig as $relationConfig) {
+              if (isset($relationConfig['method_name'], $relationConfig['local_key'], $relationConfig['foreign_key'])) {
+                $relationsToGenerate[] = [
+                  'method_name' => $relationConfig['method_name'],
+                  'local_key' => $relationConfig['local_key'],
+                  'foreign_key' => $relationConfig['foreign_key'],
+                  'is_custom' => true,
+                ];
+              }
+            }
+          } else {
+            // Configuración simple con método personalizado
+            $relationsToGenerate[] = [
+              'method_name' => $customConfig,
+              'local_key' => $thisFk['local_columns'],
+              'foreign_key' => $otherFk['local_columns'],
+              'is_custom' => true,
+            ];
+          }
+        } elseif (is_string($customConfig)) {
+          // String simple - nombre personalizado
+          $relationsToGenerate[] = [
+            'method_name' => $customConfig,
+            'local_key' => $thisFk['local_columns'],
+            'foreign_key' => $otherFk['local_columns'],
+            'is_custom' => true,
+          ];
+        } else {
+          // Sin configuración personalizada - usar automático
+          $methodName = Str::camel(pluralizeSpanish($relatedTable));
           if ($autoSuffix) {
             $methodName .= $autoSuffix;
           }
+
+          $relationsToGenerate[] = [
+            'method_name' => $methodName,
+            'local_key' => $thisFk['local_columns'],
+            'foreign_key' => $otherFk['local_columns'],
+            'is_custom' => false,
+          ];
         }
 
-        // Verificar conflictos con hasMany/hasOne/belongsTo
-        $originalMethod = $methodName;
+        // Generar cada relación
+        foreach ($relationsToGenerate as $relationConfig) {
+          $methodName = $relationConfig['method_name'];
+          $localKey = $relationConfig['local_key'];
+          $foreignKey = $relationConfig['foreign_key'];
+          $isCustom = $relationConfig['is_custom'];
 
-        // Si ya existe en hasMany/hasOne/belongsTo, agregar sufijo
-        if (in_array($methodName, $allUsedMethods) && !$autoSuffix && !$customName) {
-          // Solo agregar sufijo si no tiene configuración personalizada
-          $pivotWords = preg_split('/[_\s]+/', $pivotTable);
-          $suffix = strtoupper(implode('', array_map(fn($w) => substr($w, 0, 1), $pivotWords)));
-          $methodName .= $suffix;
-        }
+          // Verificar conflictos solo si no es personalizado
+          if (!$isCustom) {
+            $originalMethod = $methodName;
 
-        // Evitar duplicados con otros belongsToMany
-        $counter = 1;
-        while (in_array($methodName, $belongsToManyUsedMethods) || in_array($methodName, $allUsedMethods)) {
-          if ($customName) {
-            // Si es nombre personalizado, agregar número
-            $methodName = $customName . $counter;
-          } else {
-            $methodName = $originalMethod . $counter;
+            // Si ya existe en hasMany/hasOne/belongsTo, agregar sufijo
+            if (in_array($methodName, $allUsedMethods) && !$autoSuffix) {
+              $pivotWords = preg_split('/[_\s]+/', $pivotTable);
+              $suffix = strtoupper(implode('', array_map(fn($w) => substr($w, 0, 1), $pivotWords)));
+              $methodName .= $suffix;
+            }
+
+            // Evitar duplicados con otros belongsToMany
+            $counter = 1;
+            while (in_array($methodName, $belongsToManyUsedMethods) || in_array($methodName, $allUsedMethods)) {
+              $methodName = $originalMethod . $counter;
+              $counter++;
+            }
           }
-          $counter++;
+
+          // Validar que el método no esté duplicado (incluso para personalizados)
+          if (in_array($methodName, $belongsToManyUsedMethods)) {
+            echo "  ⚠ Método duplicado detectado: {$methodName}, saltando...\n";
+            continue;
+          }
+
+          $belongsToManyUsedMethods[] = $methodName;
+          $allUsedMethods[] = $methodName;
+
+          if (empty($relations)) {
+            $relations = "\n    // Relaciones\n";
+          }
+
+          // Agregar sección si es la primera belongsToMany
+          if (count($belongsToManyUsedMethods) == 1) {
+            $relations .= "\n    // Relaciones muchos-a-muchos\n";
+          }
+
+          $relations .= "\n    public function {$methodName}()\n";
+          $relations .= "    {\n";
+          $relations .= "        return \$this->belongsToMany(\n";
+          $relations .= "            \\App\\Models\\{$relatedSchema}\\{$relatedModel}::class,\n";
+
+          // Nombre completo de tabla pivot con comillas: "utamed.Schema"."Tabla"
+          $quotedPivotTable = '\"' . $pivotSchema . '\".\"' . $pivotTable . '\"';
+          $relations .= "            '{$quotedPivotTable}',\n";
+
+          // FKs - usar las específicas de la configuración
+          $relations .= "            '{$localKey}',\n";
+          $relations .= "            '{$foreignKey}'\n";
+          $relations .= "        )";
+
+          // Agregar withPivot si hay columnas adicionales
+          if (!empty($additionalCols)) {
+            $pivotColsStr = "'" . implode("', '", $additionalCols) . "'";
+            $relations .= "\n        ->withPivot({$pivotColsStr})";
+          }
+
+          $relations .= ";\n";
+          $relations .= "    }\n";
         }
-
-        $belongsToManyUsedMethods[] = $methodName;
-        $allUsedMethods[] = $methodName;
-
-        if (empty($relations)) {
-          $relations = "\n    // Relaciones\n";
-        }
-
-        // Agregar sección si es la primera belongsToMany
-        if (count($belongsToManyUsedMethods) == 1) {
-          $relations .= "\n    // Relaciones muchos-a-muchos\n";
-        }
-
-        $relations .= "\n    public function {$methodName}()\n";
-        $relations .= "    {\n";
-        $relations .= "        return \$this->belongsToMany(\n";
-        $relations .= "            \\App\\Models\\{$relatedSchema}\\{$relatedModel}::class,\n";
-
-        // Nombre completo de tabla pivot con comillas: "utamed.Schema"."Tabla"
-        $quotedPivotTable = '\"' . $pivotSchema . '\".\"' . $pivotTable . '\"';
-        $relations .= "            '{$quotedPivotTable}',\n";
-
-        // FKs
-        $relations .= "            '{$thisFk['local_columns']}',\n";
-        $relations .= "            '{$otherFk['local_columns']}'\n";
-        $relations .= "        )";
-
-        // Agregar withPivot si hay columnas adicionales
-        if (!empty($additionalCols)) {
-          $pivotColsStr = "'" . implode("', '", $additionalCols) . "'";
-          $relations .= "\n        ->withPivot({$pivotColsStr})";
-        }
-
-        $relations .= ";\n";
-        $relations .= "    }\n";
       }
     }
   }
 
   // ==================================================================================
-  // PASO 3.11: GENERAR ARCHIVO BASE MODEL (Sobrescribible)
+  // PASO 4.11: GENERAR ARCHIVO BASE MODEL (Sobrescribible)
   // ==================================================================================
   //
   // OBJETIVO: Crear clase abstracta Base con toda la configuración auto-generada
@@ -1267,7 +1614,7 @@ foreach ($tables as $tableInfo) {
   $baseContent = <<<PHP
 <?php
 
-namespace App\\Models\\Base\\{$schemaName};
+namespace {$baseModelNamespace}\\{$schemaName};
 
 use Illuminate\\Database\\Eloquent\\Model;
 {$softDeleteImport}
@@ -1290,10 +1637,14 @@ abstract class Base{$className} extends Model
 }
 PHP;
 
-  file_put_contents($baseModelPath, $baseContent);
+  if (!$dryRun) {
+    file_put_contents($baseModelPath, $baseContent);
+  } else {
+    echo "    [DRY-RUN] Base model: $baseModelPath\n";
+  }
 
   // ==================================================================================
-  // PASO 3.12: GENERAR MODELO EXTENDIDO (Solo si no existe)
+  // PASO 4.12: GENERAR MODELO EXTENDIDO (Solo si no existe)
   // ==================================================================================
   //
   // OBJETIVO: Crear clase extendida para personalizaciones del usuario
@@ -1344,9 +1695,9 @@ PHP;
     $extendedContent = <<<PHP
 <?php
 
-namespace App\\Models\\{$schemaName};
+namespace {$extendedModelNamespace}\\{$schemaName};
 
-use App\\Models\\Base\\{$schemaName}\\Base{$className};
+use {$baseModelNamespace}\\{$schemaName}\\Base{$className};
 
 /**
  * Modelo {$className}
@@ -1364,12 +1715,16 @@ class {$className} extends Base{$className}
 }
 PHP;
 
-    file_put_contents($modelPath, $extendedContent);
+    if (!$dryRun) {
+      file_put_contents($modelPath, $extendedContent);
+    } else {
+      echo "    [DRY-RUN] Extended model: $modelPath\n";
+    }
   }
 }
 
 // ==================================================================================
-// PASO 4: RESUMEN FINAL
+// PASO 5: RESUMEN FINAL
 // ==================================================================================
 //
 // OBJETIVO: Informar al usuario sobre los archivos generados y próximos pasos
@@ -1379,21 +1734,25 @@ PHP;
 // 2. Ubicación de Extended Models (preservados)
 // 3. Recordatorio sobre preservación de personalizaciones
 //
-// PRÓXIMOS PASOS SUGERIDOS:
-// 3. Agregar relaciones belongsToMany para tablas pivote
-// 4. Agregar scopes personalizados en modelos extendidos
-// 5. Implementar accessors/mutators según necesidad
-// 6. Crear Form Requests para validación
-// 7. Probar relaciones con Tinker: php artisan tinker
+// PRÓXIMOS PASOS:
+// 1. Agregar scopes personalizados en modelos extendidos
+// 2. Implementar accessors/mutators según necesidad
+// 3. Crear Form Requests para validación
+// 4. Crear test cases para asegurar funcionalidad
 //
 // COMANDOS ÚTILES:
 // - php generate_models.php           ← Regenerar todos los modelos
 // - php artisan tinker                ← Probar modelos interactivamente
-// - php artisan migrate               ← Ejecutar migraciones (si aplica)
-// - php artisan db:seed               ← Poblar BD con datos de prueba
 // ==================================================================================
 
 echo "\n✅ Base Models generados en app/Models/Base/\n";
 echo "✅ Modelos extendidos en app/Models/\n";
-echo "\n📝 Nota: Los modelos en app/Models/ solo se crean si no existen.\n";
-echo "   Puedes personalizarlos sin que se sobrescriban al regenerar.\n";
+
+if ($dryRun) {
+  echo "\n📝 MODO DRY-RUN: Los archivos NO fueron creados/modificados\n";
+  echo "   Para aplicar los cambios, ejecuta:\n";
+  echo "   php scripts/generate_models.php\n";
+} else {
+  echo "\n📝 Nota: Los modelos en app/Models/ solo se crean si no existen.\n";
+  echo "   Puedes personalizarlos sin que se sobrescriban al regenerar.\n";
+}
