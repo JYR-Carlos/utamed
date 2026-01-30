@@ -539,7 +539,7 @@ class UsuarioController extends Controller
             ->where('id_contexto', $idContexto)
             ->where('esta_activo', true)
             ->where('fue_borrado', false)
-            ->get(['id_permiso', 'esta_permitido']);
+            ->get(['id_permiso', 'esta_permitido', 'puede_delegar']);
 
         return response()->json([
             'roles' => $roles,
@@ -552,14 +552,10 @@ class UsuarioController extends Controller
      */
     public function syncPermissions(Request $request, $id)
     {
-        \Illuminate\Support\Facades\Log::info("START syncPermissions for User {$id}");
-
         $validated = $request->validate([
             'roles' => 'array',
             'special_permissions' => 'array' // { id_permiso: true/false/null }
         ]);
-
-        \Illuminate\Support\Facades\Log::info("Validated payload:", $validated);
 
         $usuario = Usuario::findOrFail($id);
 
@@ -569,35 +565,35 @@ class UsuarioController extends Controller
             ['descripcion' => 'Contexto Global por defecto']
         );
         $idContexto = $contexto->id_contexto;
-        \Illuminate\Support\Facades\Log::info("Context ID: {$idContexto}");
 
         $adminId = auth()->id() ?? 1; // Fallback only for dev/seeder
 
         DB::beginTransaction();
         try {
             // 1. Sync Roles
-            \Illuminate\Support\Facades\Log::info("Syncing Roles...");
 
             // Soft-delete all existing active assignments for this context
-            $deleted = UsuarioRolAsignación::where('id_usuario_recipiente', $usuario->id_usuario)
+            UsuarioRolAsignación::where('id_usuario_recipiente', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->where('esta_activo', true)
                 ->update(['esta_activo' => false, 'fue_eliminado' => true, 'fecha_fin_real' => now()]);
 
-            \Illuminate\Support\Facades\Log::info("Soft-deleted {$deleted} existing roles.");
-
             if (!empty($validated['roles'])) {
                 foreach ($validated['roles'] as $rolId) {
-                    \Illuminate\Support\Facades\Log::info("Creating role assignment for role ID: {$rolId}");
-                    UsuarioRolAsignación::create([
-                        'id_usuario_recipiente' => $usuario->id_usuario,
-                        'id_contexto' => $idContexto,
-                        'id_rol' => $rolId,
-                        'id_usuario_asignador' => $adminId,
-                        'fecha_inicio_planificada' => now(),
-                        'esta_activo' => true,
-                        'fue_eliminado' => false
-                    ]);
+                    UsuarioRolAsignación::updateOrCreate(
+                        [
+                            'id_usuario_recipiente' => $usuario->id_usuario,
+                            'id_contexto' => $idContexto,
+                            'id_rol' => $rolId,
+                            'id_usuario_asignador' => $adminId
+                        ],
+                        [
+                            'fecha_inicio_planificada' => now(),
+                            'esta_activo' => true,
+                            'fue_eliminado' => false,
+                            'fecha_fin_real' => null
+                        ]
+                    );
                 }
             }
 
@@ -608,30 +604,35 @@ class UsuarioController extends Controller
                 ->where('esta_activo', true)
                 ->update(['esta_activo' => false, 'fue_borrado' => true, 'fecha_fin_real' => now()]);
 
-            if (!empty($validated['special_permissions'])) {
-                foreach ($validated['special_permissions'] as $permId => $status) {
-                    if ($status !== null) { // true (allow) or false (deny)
-                        UsuarioPermisoEspecial::create([
+            foreach ($validated['special_permissions'] as $permId => $status) {
+                $isObject = is_array($status);
+                $allowed = $isObject ? ($status['allowed'] ?? null) : $status;
+                $canDelegate = $isObject ? ($status['can_delegate'] ?? false) : false;
+
+                if ($allowed !== null || $canDelegate) {
+                    UsuarioPermisoEspecial::updateOrCreate(
+                        [
                             'id_usuario_recipiente' => $usuario->id_usuario,
                             'id_contexto' => $idContexto,
                             'id_permiso' => $permId,
-                            'id_usuario_asignador' => $adminId,
-                            'esta_permitido' => (bool) $status,
+                            'id_usuario_asignador' => $adminId
+                        ],
+                        [
+                            'esta_permitido' => ($allowed === null) ? null : (bool) $allowed,
+                            'puede_delegar' => (bool) $canDelegate,
                             'esta_activo' => true,
-                            'fue_borrado' => false
-                        ]);
-                    }
+                            'fue_borrado' => false,
+                            'fecha_fin_real' => null
+                        ]
+                    );
                 }
             }
 
             DB::commit();
-            \Illuminate\Support\Facades\Log::info("Transaction COMMITTED successfully.");
             return back()->with('success', 'Permisos actualizados correctamente.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            \Illuminate\Support\Facades\Log::error("Transaction FAILED: " . $e->getMessage());
-            \Illuminate\Support\Facades\Log::error($e->getTraceAsString());
             return back()->with('error', 'Error al actualizar permisos: ' . $e->getMessage());
         }
     }

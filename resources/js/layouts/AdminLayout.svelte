@@ -7,33 +7,72 @@
     }
 
     let { children }: Props = $props();
+    let authRoles = $derived(($page.props.auth.roles as string[]) || []);
 
     const navigation = [
         {
             name: 'Principal',
             items: [
-                { name: 'Inicio', href: '/dashboard', icon: '🏠' },
+                { name: 'Inicio', href: '/dashboard', icon: '🏠', roles: ['*'] }, // Visible to all
             ],
+            roles: ['*'],
         },
         {
             name: 'Gestión Académica',
             items: [
-                { name: 'Facultades', href: '/admin/facultades', icon: '🏛️' },
-                { name: 'Departamentos', href: '/admin/departamentos', icon: '🏢' },
-                { name: 'Carreras', href: '/admin/carreras', icon: '🎓' },
-                { name: 'Planes', href: '/admin/planes', icon: '📋' },
-                { name: 'Asignaturas', href: '/admin/asignaturas', icon: '📚' },
+                { name: 'Facultades', href: '/admin/facultades', icon: '🏛️', roles: ['Super Admin', 'Administrador'] },
+                { name: 'Departamentos', href: '/admin/departamentos', icon: '🏢', roles: ['Super Admin', 'Administrador'] },
+                { name: 'Carreras', href: '/admin/carreras', icon: '🎓', roles: ['Super Admin', 'Administrador'] },
+                { name: 'Planes', href: '/admin/planes', icon: '📋', roles: ['Super Admin', 'Administrador'] },
+                { name: 'Asignaturas', href: '/admin/asignaturas', icon: '📚', roles: ['Super Admin', 'Administrador'] },
             ],
+            roles: ['Super Admin', 'Administrador'],
         },
         {
             name: 'Gestión de Cursos',
-            items: [{ name: 'Cursos', href: '/admin/cursos', icon: '👨‍🏫' }],
+            items: [
+                { name: 'Cursos', href: '/admin/cursos', icon: '👨‍🏫', roles: ['Super Admin', 'Administrador'] },
+            ],
+            roles: ['Super Admin', 'Administrador', 'Docente'],
         },
         {
             name: 'Usuarios',
-            items: [{ name: 'Usuarios', href: '/admin/usuarios', icon: '👥' }],
+            items: [
+                { name: 'Usuarios', href: '/admin/usuarios', icon: '👥', roles: ['Super Admin', 'Administrador'] },
+            ],
+            roles: ['Super Admin', 'Administrador'],
         },
+        // Role specific sections
+        {
+            name: 'Estudiante',
+            items: [
+                { name: 'Mis Notas', href: '#', icon: '📝', roles: ['Super Admin', 'Estudiante'] },
+                { name: 'Horario', href: '#', icon: '📅', roles: ['Super Admin', 'Estudiante'] },
+            ],
+            roles: ['Super Admin', 'Estudiante'],
+        },
+        {
+            name: 'Docente',
+            items: [
+                { name: 'Mis Asignaturas', href: '/docente/cursos', icon: '📚', roles: ['Super Admin', 'Docente'] },
+            ],
+            roles: ['Super Admin', 'Docente'],
+        }
     ];
+
+    function hasRole(requiredRoles: string[]): boolean {
+        if (requiredRoles.includes('*')) return true;
+        
+        // Super Admin has access to everything
+        if (authRoles.includes('Super Admin')) return true;
+
+        return requiredRoles.some(role => authRoles.includes(role));
+    }
+
+    let filteredNavigation = $derived(navigation.map(section => ({
+        ...section,
+        items: section.items.filter(item => hasRole(item.roles))
+    })).filter(section => section.items.length > 0)); 
 
     function isActive(href: string): boolean {
         return $page.url.startsWith(href);
@@ -57,7 +96,7 @@
         </div>
 
         <nav class="sidebar-nav">
-            {#each navigation as section}
+            {#each filteredNavigation as section}
                 <div class="nav-section">
                     <h2 class="nav-section-title">{section.name}</h2>
                     <ul class="nav-list">

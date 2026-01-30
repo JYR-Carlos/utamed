@@ -74,6 +74,12 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
     Route::post('cursos/{curso}/team', [CourseTeamController::class, 'store'])->name('cursos.team.store');
     Route::delete('cursos/{curso}/team/{usuario}', [CourseTeamController::class, 'destroy'])->name('cursos.team.destroy');
 
+    // Permissions management for team members
+    Route::get('cursos/{curso}/team/{usuario}/permissions', [CourseTeamController::class, 'getMemberPermissions'])
+        ->name('cursos.team.permissions');
+    Route::post('cursos/{curso}/team/{usuario}/sync-permissions', [CourseTeamController::class, 'syncMemberPermissions'])
+        ->name('cursos.team.sync-permissions');
+
     // Helper endpoints for cascading selects
     Route::get('facultades/{facultad}/departamentos', [DepartamentoController::class, 'byFacultad'])
         ->name('facultades.departamentos');
@@ -81,6 +87,24 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
         ->name('departamentos.carreras');
     Route::get('carreras/{carrera}/planes', [PlanController::class, 'byCarrera'])
         ->name('carreras.planes');
+});
+
+// Docente Routes
+Route::prefix('docente')->middleware(['auth', 'verified'])->name('docente.')->group(function () {
+    Route::get('cursos', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'index'])->name('cursos.index');
+
+    // Team management (reuse admin course team endpoints but under docente prefix if needed, 
+    // or just point to Admin controller if middleware allows or it's context-safe).
+    // Let's create specific routes for clarity and potential docente-only logic.
+    Route::get('cursos/{curso}/team', [CourseTeamController::class, 'index'])->name('cursos.team.index');
+    Route::post('cursos/{curso}/team', [CourseTeamController::class, 'store'])->name('cursos.team.store');
+    Route::delete('cursos/{curso}/team/{usuario}', [CourseTeamController::class, 'destroy'])->name('cursos.team.destroy');
+
+    // Permissions management for team members
+    Route::get('cursos/{curso}/team/{usuario}/permissions', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'getMemberPermissions'])
+        ->name('cursos.team.permissions');
+    Route::post('cursos/{curso}/team/{usuario}/sync-permissions', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'syncMemberPermissions'])
+        ->name('cursos.team.sync-permissions');
 });
 
 require __DIR__ . '/settings.php';

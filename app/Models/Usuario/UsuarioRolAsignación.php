@@ -29,4 +29,22 @@ class UsuarioRolAsignación extends BaseUsuarioRolAsignación
         'fue_eliminado',
         'esta_activo'
     ];
+
+    /**
+     * Set the keys for a save update query.
+     * Use composite keys since this table doesn't have a single PK.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    protected function setKeysForSaveQuery($query)
+    {
+        $keys = ['id_usuario_recipiente', 'id_contexto', 'id_rol', 'id_usuario_asignador'];
+
+        foreach ($keys as $key) {
+            $query->where($key, '=', $this->getAttribute($key));
+        }
+
+        return $query;
+    }
 }

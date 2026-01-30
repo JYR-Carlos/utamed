@@ -1,20 +1,35 @@
 <script lang="ts">
     import { router } from '@inertiajs/svelte';
     import type { Curso } from '@/types/admin.types';
+    import PermissionsModal from './PermissionsModal.svelte';
 
     interface Props {
         isOpen: boolean;
         onClose: () => void;
         curso: Curso;
+        availableRoles?: any[];
+        availablePermissions?: Record<string, any[]>;
+        urlPrefix?: string; // 'admin' or 'docente'
     }
 
-    let { isOpen = $bindable(), onClose, curso }: Props = $props();
+    let { 
+        isOpen = $bindable(), 
+        onClose, 
+        curso,
+        availableRoles = [],
+        availablePermissions = {},
+        urlPrefix = 'admin'
+    }: Props = $props();
 
     let teamMembers = $state<any[]>([]);
     let isLoading = $state(false);
     let searchTerm = $state('');
     let searchResults = $state<any[]>([]);
     let isSearching = $state(false);
+
+    // Permissions Modal State
+    let showPermissionsModal = $state(false);
+    let selectedUserForPermissions = $state<any>(null);
 
     // Initial load
     $effect(() => {
@@ -26,7 +41,7 @@
     async function loadTeamMembers() {
         isLoading = true;
         try {
-            const res = await fetch(`/admin/cursos/${curso.id_curso}/team`);
+            const res = await fetch(`/${urlPrefix}/cursos/${curso.id_curso}/team`);
             const data = await res.json();
             teamMembers = data;
         } catch (error) {
@@ -40,14 +55,14 @@
         if (searchTerm.length < 3) return;
         isSearching = true;
         try {
-            // Search all users generically
+            // Search all users generically via admin endpoint
             const res = await fetch(`/admin/usuarios?search=${searchTerm}&per_page=5`, {
                 headers: { 'Accept': 'application/json' }
             });
             const data = await res.json();
             // Filter out existing members
             const currentIds = teamMembers.map(m => m.id_usuario);
-            searchResults = data.data.filter((u: any) => !currentIds.includes(u.id_usuario));
+            searchResults = (data.data || []).filter((u: any) => !currentIds.includes(u.id_usuario));
         } catch (error) {
             console.error("Error searching users:", error);
         } finally {
@@ -58,9 +73,7 @@
     async function addMember(user: any) {
         isLoading = true;
         try {
-            // Hardcode 'Ayudante' role logic for now, or allow selection if multiple roles exist
-            // Assuming 'Ayudante' is the primary delegable role.
-            await router.post(`/admin/cursos/${curso.id_curso}/team`, {
+            await router.post(`/${urlPrefix}/cursos/${curso.id_curso}/team`, {
                 id_usuario: user.id_usuario,
                 role_name: 'Ayudante' 
             }, {
@@ -82,7 +95,7 @@
         if (!confirm(`¿Quitar a ${member.nombre_completo} del equipo?`)) return;
 
         isLoading = true;
-        router.delete(`/admin/cursos/${curso.id_curso}/team/${member.id_usuario}`, {
+        router.delete(`/${urlPrefix}/cursos/${curso.id_curso}/team/${member.id_usuario}`, {
             preserveScroll: true,
             onSuccess: () => {
                 loadTeamMembers();
@@ -91,6 +104,11 @@
                 isLoading = false;
             }
         });
+    }
+
+    function openPermissions(member: any) {
+        selectedUserForPermissions = member;
+        showPermissionsModal = true;
     }
 </script>
 
@@ -155,9 +173,18 @@
                                         <span class="member-name">{member.nombre_completo}</span>
                                         <span class="member-role badge">{member.role_name}</span>
                                     </div>
-                                    <button onclick={() => removeMember(member)} class="btn-remove" title="Quitar">
-                                        ✕
-                                    </button>
+                                    <div class="member-actions">
+                                        <button 
+                                            onclick={() => openPermissions(member)} 
+                                            class="btn-permissions" 
+                                            title="Gestionar Permisos"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                        </button>
+                                        <button onclick={() => removeMember(member)} class="btn-remove" title="Quitar">
+                                            ✕
+                                        </button>
+                                    </div>
                                 </div>
                             {/each}
                         </div>
@@ -170,6 +197,23 @@
             </div>
         </div>
     </div>
+{/if}
+
+{#if selectedUserForPermissions}
+    <PermissionsModal
+        bind:isOpen={showPermissionsModal}
+        onClose={() => { showPermissionsModal = false; selectedUserForPermissions = null; }}
+        usuario={{
+            id_usuario: selectedUserForPermissions.id_usuario,
+            username: selectedUserForPermissions.nombre_completo
+        }}
+        {availableRoles}
+        {availablePermissions}
+        hideRoles={urlPrefix === 'docente'}
+        isCourseContext={true}
+        loadPath={`/${urlPrefix}/cursos/${curso.id_curso}/team/${selectedUserForPermissions.id_usuario}/permissions`}
+        savePath={`/${urlPrefix}/cursos/${curso.id_curso}/team/${selectedUserForPermissions.id_usuario}/sync-permissions`}
+    />
 {/if}
 
 <style>
@@ -195,7 +239,7 @@
     .search-box { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
     .search-input { 
         flex: 1; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem; 
-        color: #1f2937 !important; /* Force text visibility */
+        color: #1f2937 !important; 
     }
     .btn-search { padding: 0.5rem 1rem; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; font-weight: 500; cursor: pointer; color: #374151; }
     .btn-search:hover:not(:disabled) { background: #e5e7eb; }
@@ -215,7 +259,11 @@
     .member-name { font-weight: 500; color: #111827; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; background: #eff6ff; color: #1d4ed8; font-size: 0.75rem; font-weight: 500; border-radius: 9999px; width: fit-content; }
     
-    .btn-remove { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: #9ca3af; cursor: pointer; border-radius: 50%; font-size: 0.875rem; }
+    .member-actions { display: flex; align-items: center; gap: 0.5rem; }
+    .btn-permissions { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border: 1px solid #e5e7eb; color: #4b5563; cursor: pointer; border-radius: 6px; }
+    .btn-permissions:hover { background: #e5e7eb; color: #111827; }
+    
+    .btn-remove { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: #9ca3af; cursor: pointer; border-radius: 6px; font-size: 1rem; }
     .btn-remove:hover { background: #fee2e2; color: #dc2626; }
 
     .empty-state { text-align: center; color: #6b7280; font-size: 0.875rem; padding: 1rem; border: 1px dashed #d1d5db; border-radius: 6px; }

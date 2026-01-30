@@ -54,10 +54,30 @@ class CursoController extends Controller
         $asignaturas = Asignatura::orderBy('cod_asignatura')->get();
         $planes = Plan::with('carrera')->orderBy('agno', 'desc')->get();
 
+        // RBAC Data for team management - Filtered if user is a Docente
+        /** @var \App\Models\Usuario\Usuario $user */
+        $user = auth()->user();
+        $isDocente = $user && $user->docente;
+        // In this system, someone might have both roles, but if they have a docente profile, we restrict them here
+        // UNLESS they have a higher system-admin role. Let's be safe and check if they are explicitly restricted.
+
+        $roleQuery = \App\Models\Usuario\Rol::orderBy('nombre');
+        $permQuery = \App\Models\Usuario\Permiso::orderBy('modulo')->orderBy('slug');
+
+        if ($isDocente) {
+            $roleQuery->whereIn('nombre', ['Ayudante', 'Estudiante']);
+            $permQuery->whereIn('modulo', ['Docencia', 'Ayudantía']);
+        }
+
+        $availableRoles = $roleQuery->get();
+        $availablePermissions = $permQuery->get()->groupBy('modulo');
+
         return Inertia::render('admin/Cursos', [
             'cursos' => $cursos,
             'asignaturas' => $asignaturas,
             'planes' => $planes,
+            'availableRoles' => $availableRoles,
+            'availablePermissions' => $availablePermissions,
             'filters' => $request->only(['search', 'id_asignatura'])
         ]);
     }
