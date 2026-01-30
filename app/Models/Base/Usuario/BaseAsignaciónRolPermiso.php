@@ -15,7 +15,7 @@ abstract class BaseAsignaciónRolPermiso extends Model
     protected $primaryKey = 'id_rol';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = ['puede_delegar_permisos'];
 

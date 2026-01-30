@@ -15,8 +15,7 @@ abstract class BaseUsuarioPermisoEspecial extends Model
     // Primary key is composite, handled in child model
     public $incrementing = false;
 
-    const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = 'fecha_modificacion';
+      public $timestamps = false;
 
     protected $fillable = [
         'fecha_inicio_planificada',
@@ -25,7 +24,6 @@ abstract class BaseUsuarioPermisoEspecial extends Model
         'puede_delegar',
         'fecha_fin_real',
         'fue_borrado',
-        'id_contexto',
         'id_usuario_recipiente',
         'id_usuario_asignador'
     ];

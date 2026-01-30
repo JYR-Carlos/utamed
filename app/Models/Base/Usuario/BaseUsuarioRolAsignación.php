@@ -15,8 +15,7 @@ abstract class BaseUsuarioRolAsignación extends Model
     // Primary key is composite, handled in child model
     public $incrementing = false;
 
-    const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = 'fecha_modificacion';
+      public $timestamps = false;
 
     protected $fillable = [
         'asignado_por',
@@ -24,7 +23,6 @@ abstract class BaseUsuarioRolAsignación extends Model
         'fecha_fin_planificada',
         'fecha_fin_real',
         'fue_eliminado',
-        'id_rol',
         'id_usuario_recipiente',
         'id_usuario_asignador'
     ];

@@ -18,8 +18,7 @@ abstract class BaseAsignacionPlan extends Model
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';
 
-    const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = 'fecha_modificacion';
+      public $timestamps = false;
 
     protected $fillable = [
         'id_plan',

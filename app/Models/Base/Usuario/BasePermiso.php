@@ -15,7 +15,7 @@ abstract class BasePermiso extends Model
     protected $primaryKey = 'id_permiso';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'slug',
@@ -50,7 +50,7 @@ abstract class BasePermiso extends Model
         ->withPivot('puede_delegar_permisos');
     }
 
-    public function usuariosUPE()
+    public function usuariosConPermisoEspecial()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
@@ -61,24 +61,13 @@ abstract class BasePermiso extends Model
         ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
-    public function contextosUPE()
+    public function contextosConEstePermiso()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Contexto::class,
             '\"utamed.Usuario\".\"Usuario_Permiso_Especial\"',
             'id_permiso',
             'id_contexto'
-        )
-        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
-    }
-
-    public function usuariosUPE1()
-    {
-        return $this->belongsToMany(
-            \App\Models\Usuario\Usuario::class,
-            '\"utamed.Usuario\".\"Usuario_Permiso_Especial\"',
-            'id_permiso',
-            'id_usuario_asignador'
         )
         ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }

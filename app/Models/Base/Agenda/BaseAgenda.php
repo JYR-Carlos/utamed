@@ -15,7 +15,7 @@ abstract class BaseAgenda extends Model
     protected $primaryKey = 'id';
     public $incrementing = true;
 
-    public $timestamps = false;
+      public $timestamps = false;
 
     protected $fillable = [
         'wip'
