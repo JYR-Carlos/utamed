@@ -12,8 +12,8 @@ abstract class BaseUsuarioPermisoEspecial extends Model
 {
     protected $connection = 'pgsql';
     protected $table = 'utamed.Usuario_Permiso_Especial';
-    protected $primaryKey = 'id_permiso';
-    public $incrementing = true;
+    // Primary key is composite, handled in child model
+    public $incrementing = false;
 
     const CREATED_AT = 'fecha_creacion';
     const UPDATED_AT = 'fecha_modificacion';

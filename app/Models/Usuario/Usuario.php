@@ -87,14 +87,14 @@ class Usuario extends BaseUsuario implements Authenticatable
 
         // Check explicit DENY first (special permission with esta_permitido = false)
         foreach ($specialPerms as $special) {
-            if (!$special->esta_permitido && $this->matchesSlug($slug, $special->permiso->slug)) {
+            if ($special->esta_permitido === false && $this->matchesSlug($slug, $special->permiso->slug)) {
                 return false; // Explicitly denied
             }
         }
 
         // Check explicit ALLOW (special permission with esta_permitido = true)
         foreach ($specialPerms as $special) {
-            if ($special->esta_permitido && $this->matchesSlug($slug, $special->permiso->slug)) {
+            if ($special->esta_permitido === true && $this->matchesSlug($slug, $special->permiso->slug)) {
                 return true; // Explicitly allowed
             }
         }

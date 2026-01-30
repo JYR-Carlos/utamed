@@ -38,14 +38,33 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
+        $roles = [];
+        $user = $request->user();
+
+        if ($user) {
+            // Fetch active roles for Global context (ID 5) or all active roles if strict context not required yet.
+            // For dashboard purposes, we usually want "What is this user system-wide?".
+            // We'll fetch ALL active assignments for now.
+            $roles = $user->rolesAsignados()
+                ->where('esta_activo', true)
+                ->where('fue_eliminado', false)
+                ->with('rol')
+                ->get()
+                ->pluck('rol.nombre')
+                ->unique()
+                ->values()
+                ->toArray();
+        }
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user,
+                'roles' => $roles,
             ],
-            'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }
 }

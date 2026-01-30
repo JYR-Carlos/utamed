@@ -18,10 +18,12 @@
 		cursos: PaginatedResponse<Curso>;
 		asignaturas: Asignatura[];
 		planes: Plan[];
+		availableRoles: any[];
+		availablePermissions: Record<string, any[]>;
 		filters: { search?: string; id_asignatura?: number };
 	}
 
-	let { cursos, asignaturas, planes, filters }: Props = $props();
+	let { cursos, asignaturas, planes, filters, availableRoles = [], availablePermissions = {} }: Props = $props();
 
 	let showModal = $state(false);
 	let showDeleteDialog = $state(false);
@@ -209,6 +211,8 @@
         bind:isOpen={showTeamModal}
         onClose={closeTeamModal}
         curso={managingTeamCurso}
+        availableRoles={availableRoles}
+        availablePermissions={availablePermissions}
     />
 {/if}
 

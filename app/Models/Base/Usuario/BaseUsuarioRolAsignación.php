@@ -12,8 +12,8 @@ abstract class BaseUsuarioRolAsignación extends Model
 {
     protected $connection = 'pgsql';
     protected $table = 'utamed.Usuario_Rol_Asignación';
-    protected $primaryKey = 'id_contexto';
-    public $incrementing = true;
+    // Primary key is composite, handled in child model
+    public $incrementing = false;
 
     const CREATED_AT = 'fecha_creacion';
     const UPDATED_AT = 'fecha_modificacion';

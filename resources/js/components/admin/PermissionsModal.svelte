@@ -7,6 +7,10 @@
 		usuario: any;
 		availableRoles: any[];
 		availablePermissions: Record<string, any[]>; // Grouped by module
+		loadPath?: string; // Optional custom load path
+		savePath?: string; // Optional custom save path
+		hideRoles?: boolean;
+		isCourseContext?: boolean;
 	}
 
 	let {
@@ -14,36 +18,76 @@
 		onClose,
 		usuario,
 		availableRoles = [],
-		availablePermissions = {}
+		availablePermissions = {},
+		loadPath = '',
+		savePath = '',
+		hideRoles = false,
+		isCourseContext = false
 	}: Props = $props();
 
 	let activeTab = $state('roles'); // 'roles' | 'permissions'
-    let isLoading = $state(false);
+    
+    $effect(() => {
+        if (hideRoles) {
+            activeTab = 'permissions';
+        }
+    });
+
+	let isLoading = $state(false);
 	let selectedRoles = $state<number[]>([]);
-	let specialPermissions = $state<Record<number, boolean | null>>({}); // id_permiso -> true (allow), false (deny), null (inherit)
+    // id_permiso -> { allowed: boolean | null, can_delegate: boolean }
+	let specialPermissions = $state<Record<number, any>>({}); 
+
+    // Local copy of available permissions
+    let currentPermissions = $state<Record<string, any[]>>({});
+
+    // Synchronize local state with prop ONLY if we don't have data yet
+    $effect(() => {
+        if (availablePermissions && Object.keys(availablePermissions).length > 0 && Object.keys(currentPermissions).length === 0) {
+            currentPermissions = availablePermissions;
+        }
+    });
 
     // Load initial data when modal opens or user changes
     $effect(() => {
-        if (isOpen && usuario) {
-            loadUserPermissions();
+        if (isOpen) {
+            if (usuario?.id_usuario) {
+                // Reset local states to avoid leakage from previous users/views
+                selectedRoles = [];
+                specialPermissions = {};
+                currentPermissions = {}; // Reset will trigger the prop synchronization if available
+                
+                loadUserPermissions();
+            }
         }
     });
 
     async function loadUserPermissions() {
         isLoading = true;
         try {
-            const res = await fetch(`/admin/usuarios/${usuario.id_usuario}/permissions`);
+            const url = loadPath || `/admin/usuarios/${usuario.id_usuario}/permissions`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
             const data = await res.json();
-            selectedRoles = data.roles;
+            
+            selectedRoles = data.roles || [];
             
             // Map special permissions array to object key-value
-            const specialMapping: Record<number, boolean | null> = {};
-            data.special_permissions.forEach((sp: any) => {
-                specialMapping[sp.id_permiso] = sp.esta_permitido;
+            const specialMapping: Record<number, any> = {};
+            (data.special_permissions || []).forEach((sp: any) => {
+                specialMapping[sp.id_permiso] = {
+                    allowed: sp.esta_permitido,
+                    can_delegate: sp.puede_delegar || false
+                };
             });
             specialPermissions = specialMapping;
+
+            // If backend provides a specific list of available permissions for this user/context, use it.
+            if (data.available_permissions) {
+                currentPermissions = data.available_permissions;
+            }
         } catch (error) {
-            console.error("Error loading permissions", error);
+            console.error("Error loading permissions:", error);
         } finally {
             isLoading = false;
         }
@@ -51,7 +95,8 @@
 
 	function handleSave() {
         isLoading = true;
-        router.post(`/admin/usuarios/${usuario.id_usuario}/sync-permissions`, {
+        const url = savePath || `/admin/usuarios/${usuario.id_usuario}/sync-permissions`;
+        router.post(url, {
             roles: selectedRoles,
             special_permissions: specialPermissions
         }, {
@@ -67,90 +112,151 @@
 
     // Helper to toggle tri-state permission
     function cyclePermission(id_permiso: number) {
-        const current = specialPermissions[id_permiso];
-        if (current === undefined || current === null) {
-            specialPermissions[id_permiso] = true; // Allow
-        } else if (current === true) {
-            specialPermissions[id_permiso] = false; // Deny
-        } else {
-            specialPermissions[id_permiso] = null; // Inherit (reset)
+        if (!specialPermissions[id_permiso]) {
+            specialPermissions[id_permiso] = { allowed: null, can_delegate: false };
         }
+        
+        const current = specialPermissions[id_permiso].allowed;
+        let nextAllowed: boolean | null = null;
+        
+        if (current === null) {
+            nextAllowed = true; // Allow
+        } else if (current === true) {
+            nextAllowed = false; // Deny
+        } else {
+            nextAllowed = null; // Inherit (reset)
+        }
+        
+        specialPermissions[id_permiso] = {
+            ...specialPermissions[id_permiso],
+            allowed: nextAllowed
+        };
     }
+
+    function toggleDelegation(id_permiso: number) {
+        if (!specialPermissions[id_permiso]) {
+            specialPermissions[id_permiso] = { allowed: null, can_delegate: false };
+        }
+        
+        specialPermissions[id_permiso] = {
+            ...specialPermissions[id_permiso],
+            can_delegate: !specialPermissions[id_permiso].can_delegate
+        };
+    }
+
+    // Safely get entries for availablePermissions and apply visual filter if needed
+    let moduleEntries = $derived(
+        Object.entries(currentPermissions || {})
+            .filter(([modulo]) => {
+                // If in course context OR hideRoles is true, we strictly show only specific modules
+                if (isCourseContext || hideRoles) {
+                    const normalized = (modulo || '').trim().toLowerCase()
+                        .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    return normalized.includes('docencia') || normalized.includes('ayudantia');
+                }
+                return true;
+            })
+    );
 </script>
 
 {#if isOpen}
 	<div class="modal-backdrop" onclick={(e) => e.target === e.currentTarget && onClose()} role="presentation">
 		<div class="modal-content" role="dialog" aria-modal="true">
 			<div class="modal-header">
-				<h2 class="modal-title">Permisos: {usuario.username}</h2>
+				<h2 class="modal-title">Permisos: {usuario?.username || 'Cargando...'}</h2>
 				<button onclick={onClose} class="close-button">✕</button>
 			</div>
 
-            <div class="tabs">
-                <button 
-                    class="tab-btn" 
-                    class:active={activeTab === 'roles'} 
-                    onclick={() => activeTab = 'roles'}
-                >
-                    Roles
-                </button>
-                <button 
-                    class="tab-btn" 
-                    class:active={activeTab === 'permissions'} 
-                    onclick={() => activeTab = 'permissions'}
-                >
-                    Permisos Especiales
-                </button>
-            </div>
+            {#if !hideRoles}
+                <div class="tabs">
+                    <button 
+                        class="tab-btn" 
+                        class:active={activeTab === 'roles'} 
+                        onclick={() => activeTab = 'roles'}
+                    >
+                        Roles
+                    </button>
+                    <button 
+                        class="tab-btn" 
+                        class:active={activeTab === 'permissions'} 
+                        onclick={() => activeTab = 'permissions'}
+                    >
+                        Permisos Especiales
+                    </button>
+                </div>
+            {/if}
 
 			<div class="modal-body">
                 {#if isLoading}
                     <div class="loading-state">Cargando...</div>
                 {:else if activeTab === 'roles'}
                     <div class="roles-grid">
-                        {#each availableRoles as rol}
-                            <label class="role-card" class:selected={selectedRoles.includes(rol.id_rol)}>
-                                <input 
-                                    type="checkbox" 
-                                    bind:group={selectedRoles} 
-                                    value={rol.id_rol} 
-                                    class="hidden-checkbox"
-                                />
-                                <div class="role-name">{rol.nombre}</div>
-                            </label>
-                        {/each}
+                        {#if !availableRoles || availableRoles.length === 0}
+                            <div class="empty-state">No hay roles disponibles.</div>
+                        {:else}
+                            {#each availableRoles as rol}
+                                <label class="role-card" class:selected={selectedRoles.includes(rol.id_rol)}>
+                                    <input 
+                                        type="checkbox" 
+                                        bind:group={selectedRoles} 
+                                        value={rol.id_rol} 
+                                        class="hidden-checkbox"
+                                    />
+                                    <div class="role-name">{rol.nombre}</div>
+                                </label>
+                            {/each}
+                        {/if}
                     </div>
                 {:else}
                     <div class="permissions-list">
                         <div class="info-banner">
                             <small>
-                                🟢 Permitir explícitamente | 🔴 Denegar explícitamente | ⚪ Heredar de Rol
+                                🟢 Permitir | 🔴 Denegar | ⚪ Heredar | <strong>Delegar</strong> (Solo Admin)
                             </small>
                         </div>
-                        {#each Object.entries(availablePermissions) as [modulo, perms]}
-                            <div class="module-group">
-                                <h3>{modulo || 'General'}</h3>
-                                <div class="perms-grid">
-                                    {#each perms as perm}
-                                        {@const state = specialPermissions[perm.id_permiso]}
-                                        <button 
-                                            class="perm-btn" 
-                                            class:allow={state === true}
-                                            class:deny={state === false}
-                                            onclick={() => cyclePermission(perm.id_permiso)}
-                                            title={perm.descripcion}
-                                        >
-                                            <span class="status-indicator">
-                                                {#if state === true}🟢
-                                                {:else if state === false}🔴
-                                                {:else}⚪{/if}
-                                            </span>
-                                            <span class="perm-slug">{perm.slug}</span>
-                                        </button>
-                                    {/each}
+                        
+                        {#if moduleEntries.length === 0}
+                            <div class="empty-state">No hay permisos disponibles.</div>
+                        {:else}
+                            {#each moduleEntries as [modulo, perms]}
+                                <div class="module-group">
+                                    <h3>{modulo || 'General'}</h3>
+                                    <div class="perms-grid">
+                                        {#each perms as perm}
+                                            {@const state = specialPermissions[perm.id_permiso]?.allowed ?? null}
+                                            {@const canDelegate = specialPermissions[perm.id_permiso]?.can_delegate ?? false}
+                                            <div class="perm-row">
+                                                <button 
+                                                    class="perm-btn" 
+                                                    class:allow={state === true}
+                                                    class:deny={state === false}
+                                                    onclick={() => cyclePermission(perm.id_permiso)}
+                                                    title={perm.descripcion}
+                                                >
+                                                    <span class="status-indicator">
+                                                        {#if state === true}🟢
+                                                        {:else if state === false}🔴
+                                                        {:else}⚪{/if}
+                                                    </span>
+                                                    <span class="perm-slug">{perm.slug}</span>
+                                                </button>
+                                                
+                                                {#if !hideRoles}
+                                                    <button 
+                                                        class="delegate-btn" 
+                                                        class:active={canDelegate}
+                                                        onclick={() => toggleDelegation(perm.id_permiso)}
+                                                        title="¿Puede delegar este permiso?"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg>
+                                                    </button>
+                                                {/if}
+                                            </div>
+                                        {/each}
+                                    </div>
                                 </div>
-                            </div>
-                        {/each}
+                            {/each}
+                        {/if}
                     </div>
                 {/if}
 			</div>
@@ -166,12 +272,11 @@
 {/if}
 
 <style>
-	/* Reuse modal styles from FormModal or define new ones */
-    .modal-backdrop { /* ... same as FormModal ... */
+    .modal-backdrop {
 		position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 1rem;
 	}
     .modal-content {
-		background: white; border-radius: 12px; max-width: 600px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;
+		background: white; border-radius: 12px; max-width: 650px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;
 	}
     .modal-header { padding: 1rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
     .modal-title { font-size: 1.1rem; font-weight: bold; margin: 0; }
@@ -188,29 +293,40 @@
     .roles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; }
     .role-card {
         border: 1px solid #ddd; padding: 0.75rem; border-radius: 6px; cursor: pointer; text-align: center; transition: all 0.2s;
-        color: #1f2937 !important; /* Force visible text */
+        color: #1f2937 !important;
     }
     .role-card:hover { background: #f0f7ff; border-color: #bfdbfe; }
     .role-card.selected { background: #eff6ff; border-color: #3b82f6; color: #1d4ed8 !important; font-weight: 500; box-shadow: 0 0 0 1px #3b82f6; }	
     .hidden-checkbox { display: none; }
 
-    /* Reviewing */
+    /* Permissions */
     .module-group h3 { margin-top: 1rem; margin-bottom: 0.5rem; font-size: 0.9rem; color: #555; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #eee; padding-bottom: 0.2rem; }
-    .perms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem; }
+    .perms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.5rem; }
     
+    .perm-row { display: flex; align-items: stretch; gap: 2px; }
+
     .perm-btn {
-        display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border: 1px solid #eee; background: white; border-radius: 4px; cursor: pointer; text-align: left; font-size: 0.85rem; width: 100%;
-        color: #1f2937 !important; /* Force visible text */
+        flex: 1; display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border: 1px solid #eee; background: white; border-radius: 4px 0 0 4px; cursor: pointer; text-align: left; font-size: 0.85rem;
+        color: #1f2937 !important;
     }
     .perm-btn:hover { background: #fafafa; border-color: #ddd; }
-    .perm-btn.allow { background: #ecfdf5; border-color: #10b981; color: #065f46 !important; } /* Green-ish text for allow */
-    .perm-btn.deny { background: #fef2f2; border-color: #ef4444; color: #991b1b !important; } /* Red-ish text for deny */
+    .perm-btn.allow { background: #ecfdf5; border-color: #10b981; color: #065f46 !important; }
+    .perm-btn.deny { background: #fef2f2; border-color: #ef4444; color: #991b1b !important; }
     
+    .delegate-btn {
+        display: flex; align-items: center; justify-content: center; padding: 0.5rem; border: 1px solid #eee; background: #fff; border-radius: 0 4px 4px 0; cursor: pointer; color: #9ca3af; transition: all 0.2s;
+    }
+    .delegate-btn:hover { background: #f9fafb; border-color: #ddd; color: #6b7280; }
+    .delegate-btn.active { background: #fef9c3; border-color: #facc15; color: #854d0e; }
+
     .status-indicator { font-size: 0.8rem; }
-    .info-banner { background: #f8fafc; padding: 0.5rem; margin-bottom: 1rem; border-radius: 4px; text-align: center; color: #64748b; }
+    .info-banner { background: #f8fafc; padding: 0.5rem; margin-bottom: 1rem; border-radius: 4px; text-align: center; color: #64748b; font-size: 0.8rem; }
 
     .btn-cancel, .btn-submit { padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; border: none; }
     .btn-cancel { background: #f3f4f6; color: #374151; }
     .btn-submit { background: #3b82f6; color: white; }
     .btn-submit:disabled { opacity: 0.7; }
+
+    .loading-state { text-align: center; color: #6b7280; padding: 2rem; }
+    .empty-state { text-align: center; color: #94a3b8; padding: 1.5rem; font-size: 0.875rem; border: 1px dashed #e2e8f0; border-radius: 8px; grid-column: 1 / -1; }
 </style>
