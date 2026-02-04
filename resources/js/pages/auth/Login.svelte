@@ -1,7 +1,7 @@
 <script lang="ts">
     import AuthenticatedSessionController from '@/actions/Laravel/Fortify/Http/Controllers/AuthenticatedSessionController';
-    import InputError from '@/components/InputError.svelte';
-    import TextLink from '@/components/TextLink.svelte';
+    import InputError from '@/components/custom/common/InputError.svelte';
+    import TextLink from '@/components/custom/common/TextLink.svelte';
     import { Button } from '@/components/ui/button';
     import { Checkbox } from '@/components/ui/checkbox';
     import { Input } from '@/components/ui/input';

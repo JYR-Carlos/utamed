@@ -12,6 +12,17 @@ use App\Models\Base\Administrativo\BaseAsignacionPlan;
  */
 class AsignacionPlan extends BaseAsignacionPlan
 {
+    use \App\Traits\HasCompositeKey;
+
+    /**
+     * Wayfinder/Eloquent workaround: return a single key name instead of the composite array
+     * to prevent Reflection errors in Wayfinder.
+     */
+    public function getRouteKeyName()
+    {
+        return 'id_asignatura'; // Or 'id_plan', either works as a placeholder for Wayfinder
+    }
+
     /**
      * Boot method to add model events
      */

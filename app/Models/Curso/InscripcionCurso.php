@@ -12,6 +12,13 @@ use App\Models\Base\Curso\BaseInscripcionCurso;
  */
 class InscripcionCurso extends BaseInscripcionCurso
 {
+    use \App\Traits\HasCompositeKey;
+
+    public function getRouteKeyName()
+    {
+        return 'id_curso';
+    }
+
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

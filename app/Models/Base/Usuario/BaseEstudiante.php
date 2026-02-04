@@ -11,7 +11,7 @@ use Awobaz\Compoships\Database\Eloquent\Model;
 abstract class BaseEstudiante extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Estudiante';
+    protected $table = 'Estudiante';
     protected $primaryKey = 'id_estudiante';
     public $incrementing = true;
 
@@ -19,8 +19,12 @@ abstract class BaseEstudiante extends Model
 
     protected $fillable = [
         'agno_ingreso',
-        'id_usuario'
+        'id_usuario',
+        'id_carrera'
     ];
+
+    // Overrides removed to fix double quoting issue
+
 
     // Relaciones
 
@@ -57,33 +61,33 @@ abstract class BaseEstudiante extends Model
     {
         return $this->belongsToMany(
             \App\Models\Agenda\ActividadAsignada::class,
-            '\"utamed.Agenda\".\"Asignado_Actividad\"',
+            'Asignado_Actividad',
             'id_estudiante',
             'grupo,id_actividad'
         )
-        ->withPivot('nota_individual', 'diferencia_decimas');
+            ->withPivot('nota_individual', 'diferencia_decimas');
     }
 
     public function cursosInscritos()
     {
         return $this->belongsToMany(
             \App\Models\Curso\Curso::class,
-            '\"utamed.Curso\".\"Inscripcion_Curso\"',
+            'Inscripcion_Curso',
             'id_estudiante',
             'id_curso'
         )
-        ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
+            ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
     }
 
     public function seccionesInscritas()
     {
         return $this->belongsToMany(
             \App\Models\Curso\Seccion::class,
-            '\"utamed.Curso\".\"Inscripcion_Seccion\"',
+            'Inscripcion_Seccion',
             'id_estudiante',
             'id_seccion,id_curso'
         )
-        ->withPivot('nota_seccion');
+            ->withPivot('nota_seccion');
     }
 
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { dashboard, login } from '@/routes';
     import { Link, page } from '@inertiajs/svelte';
-    import AppLogoIcon from '@/components/AppLogoIcon.svelte';
+    import AppLogoIcon from '@/components/custom/layout/AppLogoIcon.svelte';
 
     interface Props {
         canRegister: boolean;

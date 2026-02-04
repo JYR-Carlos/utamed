@@ -28,13 +28,13 @@ class DocenteCursoController extends Controller
         }
 
         $cursos = Curso::where('id_docente', $user->docente->id_docente)
-            ->join('utamed.Asignatura', 'utamed.Curso.id_asignatura', '=', 'utamed.Asignatura.id_asignatura')
+            ->join('Asignatura', 'Curso.id_asignatura', '=', 'Asignatura.id_asignatura')
             ->select(
-                'utamed.Curso.*',
-                'utamed.Asignatura.nombre as asignatura_nombre',
-                'utamed.Asignatura.cod_asignatura'
+                'Curso.*',
+                'Asignatura.nombre as asignatura_nombre',
+                'Asignatura.cod_asignatura'
             )
-            ->orderBy('utamed.Curso.fecha_inicio', 'desc')
+            ->orderBy('Curso.fecha_inicio', 'desc')
             ->get();
 
         // RBAC Data for modals - Docentes can only delegate specific roles and permissions they possess
@@ -42,9 +42,10 @@ class DocenteCursoController extends Controller
 
         $delegablePerms = $this->getDelegablePermissions($user);
         // Only show 'Docencia' and 'Ayudantía' modules for Docentes (Business Rule)
+        // Filter by slug prefix instead of module
         $availablePermissions = $delegablePerms->filter(function ($p) {
-            return in_array($p->modulo, ['Docencia', 'Ayudantía']);
-        })->groupBy('modulo');
+            return str_starts_with($p->slug, 'actividad:') || str_starts_with($p->slug, 'curso:');
+        });
 
         return Inertia::render('docente/Cursos', [
             'cursos' => $cursos,
@@ -70,7 +71,7 @@ class DocenteCursoController extends Controller
         $rolePerms = $roleQuery->with([
             'rol.permisos' => function ($query) {
                 $query->wherePivot('puede_delegar_permisos', true)
-                    ->whereIn('modulo', ['Docencia', 'Ayudantía']); // Domain restriction
+                    ->where('slug', 'like', 'actividad:%'); // Domain restriction
             }
         ])
             ->get()
@@ -94,7 +95,7 @@ class DocenteCursoController extends Controller
 
         $specialPerms = $specialQuery->with([
             'permiso' => function ($query) {
-                $query->whereIn('modulo', ['Docencia', 'Ayudantía']); // Domain restriction
+                $query->where('slug', 'like', 'actividad:%'); // Domain restriction
             }
         ])
             ->get()
@@ -153,8 +154,8 @@ class DocenteCursoController extends Controller
 
         // Filter by relevant modules for Docente view
         $availablePermissions = $delegablePerms->filter(function ($p) {
-            return in_array($p->modulo, ['Docencia', 'Ayudantía']);
-        })->groupBy('modulo');
+            return str_starts_with($p->slug, 'actividad:') || str_starts_with($p->slug, 'curso:');
+        });
 
         return response()->json([
             'roles' => $roles,
@@ -218,9 +219,12 @@ class DocenteCursoController extends Controller
                             ],
                             [
                                 'fecha_inicio_planificada' => now(),
+                                'fecha_fin_planificada' => now()->addYears(100),
                                 'esta_activo' => true,
                                 'fue_eliminado' => false,
-                                'fecha_fin_real' => null
+                                'fecha_fin_real' => null,
+                                'fecha_creacion' => now(),
+                                'asignado_por' => (int) ($adminId ?? 1)
                             ]
                         );
                     }
@@ -265,7 +269,9 @@ class DocenteCursoController extends Controller
                                 'puede_delegar' => (bool) $canDelegate,
                                 'esta_activo' => true,
                                 'fue_borrado' => false,
-                                'fecha_fin_real' => null
+                                'fecha_fin_real' => null,
+                                'fecha_fin_planificada' => now()->addYears(100),
+                                'fecha_creacion' => now()
                             ]
                         );
                     }

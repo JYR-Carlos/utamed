@@ -22,6 +22,28 @@ abstract class BaseActividadAsignada extends Model
         'id_estado'
     ];
 
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
+    }
+
+
     // Relaciones
 
     public function actividad()
@@ -38,7 +60,7 @@ abstract class BaseActividadAsignada extends Model
 
     public function asignadoActividades()
     {
-        return $this->hasMany(\App\Models\Agenda\AsignadoActividad::class, 'grupo', 'grupo');
+        return $this->hasMany(\App\Models\Agenda\AsignadoActividad::class, ['grupo', 'id_actividad'], ['grupo', 'id_actividad']);
     }
 
     // Relaciones muchos-a-muchos
@@ -47,7 +69,7 @@ abstract class BaseActividadAsignada extends Model
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Estudiante::class,
-            '\"utamed.Agenda\".\"Asignado_Actividad\"',
+            'Asignado_Actividad',
             'grupo,id_actividad',
             'id_estudiante'
         )

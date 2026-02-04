@@ -30,3 +30,10 @@ yarn-error.log
 /.zed
 .DS_Store
 /.claude
+
+# Database dumps and backups (pueden contener datos sensibles)
+database_dump.sql
+*.dump
+*.sql.gz
+local_backup.sql
+db_backup_*.sql

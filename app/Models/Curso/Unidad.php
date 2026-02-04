@@ -12,6 +12,17 @@ use App\Models\Base\Curso\BaseUnidad;
  */
 class Unidad extends BaseUnidad
 {
+    /**
+     * Override primary key to use single identity column for Eloquent compatibility
+     */
+    protected $primaryKey = 'id_unidad';
+    public $incrementing = true;
+
+    public function getRouteKeyName()
+    {
+        return 'id_unidad';
+    }
+
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

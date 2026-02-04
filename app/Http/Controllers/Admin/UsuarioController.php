@@ -29,61 +29,61 @@ class UsuarioController extends Controller
 
         if ($tipo === 'estudiante') {
             $query = Estudiante::query()
-                ->join('utamed.Usuario', 'utamed.Estudiante.id_usuario', '=', 'utamed.Usuario.id_usuario')
+                ->join('Usuario', 'Estudiante.id_usuario', '=', 'Usuario.id_usuario')
                 ->select(
-                    'utamed.Estudiante.*',
-                    'utamed.Usuario.id_usuario',
-                    'utamed.Usuario.rut',
-                    'utamed.Usuario.nombre1',
-                    'utamed.Usuario.nombre2',
-                    'utamed.Usuario.apellido1',
-                    'utamed.Usuario.apellido2',
-                    'utamed.Usuario.email',
-                    'utamed.Usuario.esta_activo',
-                    'utamed.Usuario.username'
+                    'Estudiante.*',
+                    'Usuario.id_usuario',
+                    'Usuario.rut',
+                    'Usuario.nombre1',
+                    'Usuario.nombre2',
+                    'Usuario.apellido1',
+                    'Usuario.apellido2',
+                    'Usuario.email',
+                    'Usuario.esta_activo',
+                    'Usuario.username'
                 )
                 ->with('carrera');
 
             if ($request->has('search')) {
                 $search = $request->input('search');
                 $query->where(function ($q) use ($search) {
-                    $q->where('utamed.Usuario.nombre1', 'ilike', "%{$search}%")
-                        ->orWhere('utamed.Usuario.apellido1', 'ilike', "%{$search}%")
-                        ->orWhere('utamed.Usuario.rut', 'ilike', "%{$search}%");
+                    $q->where('Usuario.nombre1', 'ilike', "%{$search}%")
+                        ->orWhere('Usuario.apellido1', 'ilike', "%{$search}%")
+                        ->orWhere('Usuario.rut', 'ilike', "%{$search}%");
                 });
             }
 
-            $usuarios = $query->orderBy('utamed.Usuario.nombre1')
-                ->orderBy('utamed.Usuario.apellido1')
+            $usuarios = $query->orderBy('Usuario.nombre1')
+                ->orderBy('Usuario.apellido1')
                 ->paginate($request->input('per_page', 15))
                 ->withQueryString();
         } elseif ($tipo === 'docente') {
             $query = Docente::query()
-                ->join('utamed.Usuario', 'utamed.Docente.id_usuario', '=', 'utamed.Usuario.id_usuario')
+                ->join('Usuario', 'Docente.id_usuario', '=', 'Usuario.id_usuario')
                 ->select(
-                    'utamed.Docente.*',
-                    'utamed.Usuario.id_usuario',
-                    'utamed.Usuario.rut',
-                    'utamed.Usuario.nombre1',
-                    'utamed.Usuario.nombre2',
-                    'utamed.Usuario.apellido1',
-                    'utamed.Usuario.apellido2',
-                    'utamed.Usuario.email',
-                    'utamed.Usuario.esta_activo',
-                    'utamed.Usuario.username'
+                    'Docente.*',
+                    'Usuario.id_usuario',
+                    'Usuario.rut',
+                    'Usuario.nombre1',
+                    'Usuario.nombre2',
+                    'Usuario.apellido1',
+                    'Usuario.apellido2',
+                    'Usuario.email',
+                    'Usuario.esta_activo',
+                    'Usuario.username'
                 );
 
             if ($request->has('search')) {
                 $search = $request->input('search');
                 $query->where(function ($q) use ($search) {
-                    $q->where('utamed.Usuario.nombre1', 'ilike', "%{$search}%")
-                        ->orWhere('utamed.Usuario.apellido1', 'ilike', "%{$search}%")
-                        ->orWhere('utamed.Usuario.rut', 'ilike', "%{$search}%");
+                    $q->where('Usuario.nombre1', 'ilike', "%{$search}%")
+                        ->orWhere('Usuario.apellido1', 'ilike', "%{$search}%")
+                        ->orWhere('Usuario.rut', 'ilike', "%{$search}%");
                 });
             }
 
-            $usuarios = $query->orderBy('utamed.Usuario.nombre1')
-                ->orderBy('utamed.Usuario.apellido1')
+            $usuarios = $query->orderBy('Usuario.nombre1')
+                ->orderBy('Usuario.apellido1')
                 ->paginate($request->input('per_page', 15))
                 ->withQueryString();
         } else {
@@ -91,12 +91,12 @@ class UsuarioController extends Controller
             $query = Usuario::query()
                 ->whereNotIn('id_usuario', function ($query) {
                     $query->select('id_usuario')
-                        ->from('utamed.Docente')
+                        ->from('Docente')
                         ->whereNotNull('id_usuario');
                 })
                 ->whereNotIn('id_usuario', function ($query) {
                     $query->select('id_usuario')
-                        ->from('utamed.Estudiante')
+                        ->from('Estudiante')
                         ->whereNotNull('id_usuario');
                 });
 
@@ -125,7 +125,8 @@ class UsuarioController extends Controller
         // RBAC Data
         $availableRoles = Rol::orderBy('nombre')->get();
         // Group permissions by module
-        $availablePermissions = Permiso::orderBy('modulo')->orderBy('slug')->get()->groupBy('modulo');
+        // Group permissions by module -> Just flat list now
+        $availablePermissions = Permiso::orderBy('slug')->get();
 
         return Inertia::render('admin/Usuarios', [
             'usuarios' => $usuarios,
@@ -189,8 +190,6 @@ class UsuarioController extends Controller
             // Create Estudiante linked to Usuario
             Estudiante::create([
                 'id_usuario' => $usuario->id_usuario,
-                'rut' => $validated['rut'],
-                'nombre_completo' => trim($validated['nombre1'] . ' ' . ($validated['nombre2'] ?? '') . ' ' . $validated['apellido1'] . ' ' . ($validated['apellido2'] ?? '')),
                 'agno_ingreso' => $validated['agno_ingreso'] ?? null,
                 'id_carrera' => $validated['id_carrera'] ?? null,
             ]);
@@ -201,7 +200,11 @@ class UsuarioController extends Controller
                 ->with('success', 'Estudiante creado exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error al crear estudiante: ' . $e->getMessage());
+            \Log::error('Error creating estudiante: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'data' => $validated
+            ]);
+            return back()->withErrors(['error' => 'Error al crear estudiante: ' . $e->getMessage()])->withInput();
         }
     }
 
@@ -242,8 +245,6 @@ class UsuarioController extends Controller
             // Create Docente linked to Usuario
             Docente::create([
                 'id_usuario' => $usuario->id_usuario,
-                'rut' => $validated['rut'],
-                'nombre_completo' => trim($validated['nombre1'] . ' ' . ($validated['nombre2'] ?? '') . ' ' . $validated['apellido1'] . ' ' . ($validated['apellido2'] ?? '')),
                 'grado' => $validated['grado'] ?? null,
                 'titulo' => $validated['titulo'] ?? null,
                 'cargo' => $validated['cargo'] ?? null,
@@ -255,7 +256,11 @@ class UsuarioController extends Controller
                 ->with('success', 'Docente creado exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error al crear docente: ' . $e->getMessage());
+            \Log::error('Error creating docente: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'data' => $validated
+            ]);
+            return back()->withErrors(['error' => 'Error al crear docente: ' . $e->getMessage()])->withInput();
         }
     }
 
@@ -357,8 +362,6 @@ class UsuarioController extends Controller
             ]);
 
             $estudiante->update([
-                'rut' => $validated['rut'],
-                'nombre_completo' => trim($validated['nombre1'] . ' ' . ($validated['nombre2'] ?? '') . ' ' . $validated['apellido1'] . ' ' . ($validated['apellido2'] ?? '')),
                 'agno_ingreso' => $validated['agno_ingreso'],
                 'id_carrera' => $validated['id_carrera'],
             ]);
@@ -405,8 +408,6 @@ class UsuarioController extends Controller
             ]);
 
             $docente->update([
-                'rut' => $validated['rut'],
-                'nombre_completo' => trim($validated['nombre1'] . ' ' . ($validated['nombre2'] ?? '') . ' ' . $validated['apellido1'] . ' ' . ($validated['apellido2'] ?? '')),
                 'grado' => $validated['grado'],
                 'cargo' => $validated['cargo'],
                 'titulo' => $validated['titulo'],
@@ -515,16 +516,18 @@ class UsuarioController extends Controller
     {
         $usuario = Usuario::findOrFail($id);
 
-        // For simple UI, we assume Global context or primary context. 
-        // Real implementation might need context selection.
-        $contexto = Contexto::where('nombre', 'Global')->first();
-        if (!$contexto) {
-            // Fallback if Global not found
-            $contexto = Contexto::first();
-        }
+        // For simple UI, we assume Global context or primary context.
+        // In detailed UI, user should select scope.
+        $contexto = Contexto::where('contexto_display', 'Global')->first();
 
         if (!$contexto) {
-            return response()->json(['roles' => [], 'special_permissions' => []]);
+            // Fallback if Global not found
+            if (!$contexto) {
+                $contexto = Contexto::firstOrCreate(
+                    ['contexto_display' => 'Global'],
+                    ['descripcion' => 'Contexto Global por defecto']
+                );
+            }
         }
 
         $idContexto = $contexto->id_contexto;
@@ -552,6 +555,8 @@ class UsuarioController extends Controller
      */
     public function syncPermissions(Request $request, $id)
     {
+        \Illuminate\Support\Facades\Log::info("SyncPermissions called for user $id");
+        \Illuminate\Support\Facades\Log::info("Payload: " . print_r($request->all(), true));
         $validated = $request->validate([
             'roles' => 'array',
             'special_permissions' => 'array' // { id_permiso: true/false/null }
@@ -561,7 +566,7 @@ class UsuarioController extends Controller
 
         // Assuming Global context for now
         $contexto = Contexto::firstOrCreate(
-            ['nombre' => 'Global'],
+            ['contexto_display' => 'Global'],
             ['descripcion' => 'Contexto Global por defecto']
         );
         $idContexto = $contexto->id_contexto;
@@ -589,9 +594,12 @@ class UsuarioController extends Controller
                         ],
                         [
                             'fecha_inicio_planificada' => now(),
+                            'fecha_fin_planificada' => now()->addYears(100),
                             'esta_activo' => true,
                             'fue_eliminado' => false,
-                            'fecha_fin_real' => null
+                            'fecha_fin_real' => null,
+                            'fecha_creacion' => now(),
+                            'asignado_por' => (int) $adminId
                         ]
                     );
                 }
@@ -622,7 +630,9 @@ class UsuarioController extends Controller
                             'puede_delegar' => (bool) $canDelegate,
                             'esta_activo' => true,
                             'fue_borrado' => false,
-                            'fecha_fin_real' => null
+                            'fecha_fin_real' => null,
+                            'fecha_fin_planificada' => now()->addYears(100),
+                            'fecha_creacion' => now()
                         ]
                     );
                 }
@@ -633,6 +643,7 @@ class UsuarioController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Illuminate\Support\Facades\Log::error("SyncPermissions Error: " . $e->getMessage());
             return back()->with('error', 'Error al actualizar permisos: ' . $e->getMessage());
         }
     }

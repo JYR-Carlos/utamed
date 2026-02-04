@@ -1,7 +1,7 @@
 <script lang="ts">
-    import HeadingSmall from '@/components/HeadingSmall.svelte';
-    import TwoFactorRecoveryCodes from '@/components/TwoFactorRecoveryCodes.svelte';
-    import TwoFactorSetupModal from '@/components/TwoFactorSetupModal.svelte';
+    import HeadingSmall from '@/components/custom/common/HeadingSmall.svelte';
+    import TwoFactorRecoveryCodes from '@/components/custom/auth/TwoFactorRecoveryCodes.svelte';
+    import TwoFactorSetupModal from '@/components/custom/auth/TwoFactorSetupModal.svelte';
     import { Badge } from '@/components/ui/badge';
     import { Button } from '@/components/ui/button';
     import AppLayout from '@/layouts/AppLayout.svelte';

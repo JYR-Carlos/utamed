@@ -22,6 +22,9 @@ abstract class BaseSeccion extends Model
         'id_docente'
     ];
 
+    // Overrides removed to fix double quoting issue
+
+
     // Relaciones
 
     public function tipoSeccion()
@@ -36,7 +39,7 @@ abstract class BaseSeccion extends Model
 
     public function curso()
     {
-        return $this->belongsTo(\App\Models\Curso\Curso::class, 'id_curso', 'id_curso');
+        return $this->belongsTo(\App\Models\Curso\Curso::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
     }
 
     // Relaciones inversas
@@ -48,7 +51,7 @@ abstract class BaseSeccion extends Model
 
     public function inscripcionSecciones()
     {
-        return $this->hasMany(\App\Models\Curso\InscripcionSeccion::class, 'id_seccion', 'id_seccion');
+        return $this->hasMany(\App\Models\Curso\InscripcionSeccion::class, ['id_seccion', 'id_curso'], ['id_seccion', 'id_curso']);
     }
 
     // Relaciones muchos-a-muchos
@@ -57,11 +60,11 @@ abstract class BaseSeccion extends Model
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Estudiante::class,
-            '\"utamed.Curso\".\"Inscripcion_Seccion\"',
+            'Inscripcion_Seccion',
             'id_seccion,id_curso',
             'id_estudiante'
         )
-        ->withPivot('nota_seccion');
+            ->withPivot('nota_seccion');
     }
 
 }

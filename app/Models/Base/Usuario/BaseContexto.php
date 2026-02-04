@@ -11,7 +11,7 @@ use Awobaz\Compoships\Database\Eloquent\Model;
 abstract class BaseContexto extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Contexto';
+    protected $table = 'Contexto';
     protected $primaryKey = 'id_contexto';
     public $incrementing = true;
 
@@ -20,6 +20,28 @@ abstract class BaseContexto extends Model
     protected $fillable = [
         'contexto_display'
     ];
+
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
+    }
+
 
     // Relaciones
 
@@ -56,44 +78,44 @@ abstract class BaseContexto extends Model
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            '\"utamed.Usuario\".\"Usuario_Permiso_Especial\"',
+            'Usuario_Permiso_Especial',
             'id_contexto',
             'id_usuario_recipiente'
         )
-        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function permisosEspecialesEnContexto()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Permiso::class,
-            '\"utamed.Usuario\".\"Usuario_Permiso_Especial\"',
+            'Usuario_Permiso_Especial',
             'id_contexto',
             'id_permiso'
         )
-        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function usuariosConRolEnContexto()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
+            'Usuario_Rol_Asignación',
             'id_contexto',
             'id_usuario_recipiente'
         )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function rolesEnContexto()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Rol::class,
-            '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
+            'Usuario_Rol_Asignación',
             'id_contexto',
             'id_rol'
         )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
 }

@@ -11,7 +11,7 @@ use Awobaz\Compoships\Database\Eloquent\Model;
 abstract class BasePermiso extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Permiso';
+    protected $table = 'Permiso';
     protected $primaryKey = 'id_permiso';
     public $incrementing = true;
 
@@ -22,6 +22,28 @@ abstract class BasePermiso extends Model
         'nombre',
         'descripcion'
     ];
+
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
+    }
+
 
     // Relaciones
 
@@ -43,7 +65,7 @@ abstract class BasePermiso extends Model
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Rol::class,
-            '\"utamed.Usuario\".\"Asignación_Rol_Permiso\"',
+            'Asignación_Rol_Permiso',
             'id_permiso',
             'id_rol'
         )
@@ -54,7 +76,7 @@ abstract class BasePermiso extends Model
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            '\"utamed.Usuario\".\"Usuario_Permiso_Especial\"',
+            'Usuario_Permiso_Especial',
             'id_permiso',
             'id_usuario_recipiente'
         )
@@ -65,7 +87,7 @@ abstract class BasePermiso extends Model
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Contexto::class,
-            '\"utamed.Usuario\".\"Usuario_Permiso_Especial\"',
+            'Usuario_Permiso_Especial',
             'id_permiso',
             'id_contexto'
         )

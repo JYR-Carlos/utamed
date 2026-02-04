@@ -21,7 +21,9 @@ use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
  */
 class Usuario extends BaseUsuario implements Authenticatable
 {
+    protected $table = 'Usuario';
     use AuthenticatableTrait;
+
 
     /**
      * Get the password for the user.

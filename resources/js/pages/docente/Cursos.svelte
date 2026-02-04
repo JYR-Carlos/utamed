@@ -1,6 +1,6 @@
 <script lang="ts">
     import AdminLayout from '@/layouts/AdminLayout.svelte';
-    import CourseTeamModal from '@/components/admin/CourseTeamModal.svelte';
+    import CourseTeamModal from '@/components/custom/admin/CourseTeamModal.svelte';
 
     interface Props {
         cursos: any[];

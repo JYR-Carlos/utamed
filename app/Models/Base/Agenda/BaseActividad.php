@@ -11,7 +11,7 @@ use Awobaz\Compoships\Database\Eloquent\Model;
 abstract class BaseActividad extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Actividad';
+    protected $table = 'Actividad';
     protected $primaryKey = 'id_actividad';
     public $incrementing = true;
 
@@ -28,6 +28,28 @@ abstract class BaseActividad extends Model
         'id_seccion',
         'id_unidad'
     ];
+
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
+    }
+
 
     // Relaciones
 

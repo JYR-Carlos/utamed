@@ -1,5 +1,5 @@
 <script lang="ts">
-    import Heading from '@/components/Heading.svelte';
+    import Heading from '@/components/custom/common/Heading.svelte';
     import { Button } from '@/components/ui/button';
     import { Separator } from '@/components/ui/separator';
     import { cn } from '@/lib/utils';

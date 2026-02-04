@@ -12,6 +12,19 @@ use App\Models\Base\Administrativo\BaseAsignatura;
  */
 class Asignatura extends BaseAsignatura
 {
+    protected $table = 'Asignatura';
+    protected $fillable = [
+        'cod_asignatura',
+        'nombre',
+        'descripcion',
+        'creditos_sct',
+        'horas_catedra',
+        'horas_taller',
+        'horas_laboratorio',
+        'horas_dirigidas',
+        'horas_autonomas',
+        'id_contexto'
+    ];
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

@@ -12,6 +12,11 @@ use App\Models\Base\Administrativo\BasePrograma;
  */
 class Programa extends BasePrograma
 {
+    public function getRouteKeyName()
+    {
+        return 'id_programa';
+    }
+
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

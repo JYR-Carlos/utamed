@@ -18,6 +18,7 @@ class AsignacionPlanController extends Controller
     public function index(Request $request, Plan $plan)
     {
         $plan->load(['carrera', 'asignacionPlanes.asignatura']);
+        $plan->setAttribute('creditos_sct_totales', $plan->calculateTotalCredits());
 
         // Organize by año and semestre
         $malla = $plan->asignacionPlanes->groupBy(function ($item) {
@@ -43,7 +44,7 @@ class AsignacionPlanController extends Controller
             'id_asignatura' => ['required', Rule::exists(Asignatura::class, 'id_asignatura')],
             'agno_planificado' => 'required|integer|min:1|max:10',
             'semestre_planificado' => 'required|integer|in:1,2',
-            'tipo_ramo' => 'nullable|string|max:50',
+            'tipo_ramo' => 'nullable|integer',
         ]);
 
         // Check if already assigned
@@ -55,9 +56,10 @@ class AsignacionPlanController extends Controller
             return back()->with('error', 'Esta asignatura ya está asignada a este plan.');
         }
 
-        $asignacion = new AsignacionPlan($validated);
-        $asignacion->id_plan = $plan->id_plan;
-        $asignacion->save();
+        // Add id_plan to validated data
+        $validated['id_plan'] = $plan->id_plan;
+
+        AsignacionPlan::create($validated);
 
         return back()->with('success', 'Asignatura asignada al plan exitosamente.');
     }
@@ -70,7 +72,7 @@ class AsignacionPlanController extends Controller
         $validated = $request->validate([
             'agno_planificado' => 'required|integer|min:1|max:10',
             'semestre_planificado' => 'required|integer|in:1,2',
-            'tipo_ramo' => 'nullable|string|max:50',
+            'tipo_ramo' => 'nullable|integer',
         ]);
 
         $asignacion = AsignacionPlan::where('id_plan', $plan->id_plan)

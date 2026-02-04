@@ -76,10 +76,14 @@ class CarreraController extends Controller
             'id_facultad' => ['required', Rule::exists(Facultad::class, 'id_facultad')],
         ]);
 
-        $carrera = Carrera::create($validated);
+        try {
+            $carrera = Carrera::create($validated);
 
-        return redirect()->route('admin.carreras.index')
-            ->with('success', 'Carrera creada exitosamente.');
+            return redirect()->route('admin.carreras.index')
+                ->with('success', 'Carrera creada exitosamente.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error al crear carrera: ' . $e->getMessage());
+        }
     }
 
     /**

@@ -21,10 +21,31 @@ abstract class BaseAsignacionPlan extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'id_asignatura',
+        'id_plan',
         'agno_planificado',
         'semestre_planificado',
         'tipo_ramo'
     ];
+
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        return is_string($column) && str_contains($column, '.')
+            ? $column
+            : $this->getTable() . '.' . $column;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return $this->getTable() . '.' . $this->getKeyName();
+    }
+
 
     // Relaciones
 
@@ -42,7 +63,7 @@ abstract class BaseAsignacionPlan extends Model
 
     public function cursos()
     {
-        return $this->hasMany(\App\Models\Curso\Curso::class, 'id_asignatura', 'id_asignatura');
+        return $this->hasMany(\App\Models\Curso\Curso::class, ['id_asignatura', 'id_plan'], ['id_asignatura', 'id_plan']);
     }
 
 }

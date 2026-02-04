@@ -1,10 +1,10 @@
 <script lang="ts">
 	import AdminLayout from '@/layouts/AdminLayout.svelte';
 	import { router } from '@inertiajs/svelte';
-	import DataTable from '@/components/admin/DataTable.svelte';
-	import FormModal from '@/components/admin/FormModal.svelte';
-	import PermissionsModal from '@/components/admin/PermissionsModal.svelte';
-	import DeleteConfirmation from '@/components/admin/DeleteConfirmation.svelte';
+	import DataTable from '@/components/custom/admin/DataTable.svelte';
+	import FormModal from '@/components/custom/admin/FormModal.svelte';
+	import PermissionsModal from '@/components/custom/admin/PermissionsModal.svelte';
+	import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
 	import type {
 		Estudiante,
 		Docente,
@@ -222,20 +222,26 @@
 
 			router.put(`/admin/usuarios/${id}`, dataToSend, {
 				onSuccess: () => {
+					console.log('Usuario updated successfully');
 					closeModal();
 					isLoading = false;
 				},
-				onError: () => {
+				onError: (errors) => {
+					console.error('Error updating usuario:', errors);
+					alert('Error al actualizar usuario: ' + JSON.stringify(errors));
 					isLoading = false;
 				}
 			});
 		} else {
 			router.post('/admin/usuarios', dataToSend, {
 				onSuccess: () => {
+					console.log('Usuario created successfully');
 					closeModal();
 					isLoading = false;
 				},
-				onError: () => {
+				onError: (errors) => {
+					console.error('Error creating usuario:', errors);
+					alert('Error al crear usuario: ' + JSON.stringify(errors));
 					isLoading = false;
 				}
 			});
@@ -268,7 +274,9 @@
 				closeDeleteDialog();
 				isLoading = false;
 			},
-			onError: () => {
+			onError: (errors) => {
+				console.error('Error deleting usuario:', errors);
+				alert('Error al eliminar usuario: ' + JSON.stringify(errors));
 				isLoading = false;
 			}
 		});
@@ -308,7 +316,9 @@
 				closePasswordModal();
 				isLoading = false;
 			},
-			onError: () => {
+			onError: (errors) => {
+				console.error('Error changing password:', errors);
+				alert('Error al cambiar contraseña: ' + JSON.stringify(errors));
 				isLoading = false;
 			}
 		});

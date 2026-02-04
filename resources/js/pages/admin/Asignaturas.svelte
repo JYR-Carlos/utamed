@@ -1,9 +1,9 @@
 <script lang="ts">
     import AdminLayout from '@/layouts/AdminLayout.svelte';
 	import { router } from '@inertiajs/svelte';
-	import DataTable from '@/components/admin/DataTable.svelte';
-	import FormModal from '@/components/admin/FormModal.svelte';
-	import DeleteConfirmation from '@/components/admin/DeleteConfirmation.svelte';
+	import DataTable from '@/components/custom/admin/DataTable.svelte';
+	import FormModal from '@/components/custom/admin/FormModal.svelte';
+	import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
 	import type { Asignatura, PaginatedResponse, AsignaturaFormData } from '@/types/admin.types';
 
 	interface Props {

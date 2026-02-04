@@ -1,6 +1,6 @@
 <script lang="ts">
     import EmailVerificationNotificationController from '@/actions/Laravel/Fortify/Http/Controllers/EmailVerificationNotificationController';
-    import TextLink from '@/components/TextLink.svelte';
+    import TextLink from '@/components/custom/common/TextLink.svelte';
     import { Button } from '@/components/ui/button';
     import AuthLayout from '@/layouts/AuthLayout.svelte';
     import { logout } from '@/routes';

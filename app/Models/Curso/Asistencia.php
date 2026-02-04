@@ -12,6 +12,11 @@ use App\Models\Base\Curso\BaseAsistencia;
  */
 class Asistencia extends BaseAsistencia
 {
+    public function getRouteKeyName()
+    {
+        return 'id_asistencia';
+    }
+
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

@@ -1,8 +1,8 @@
 <script lang="ts">
-    import AppContent from '@/components/AppContent.svelte';
-    import AppShell from '@/components/AppShell.svelte';
-    import AppSidebar from '@/components/AppSidebar.svelte';
-    import AppSidebarHeader from '@/components/AppSidebarHeader.svelte';
+    import AppContent from '@/components/custom/layout/AppContent.svelte';
+    import AppShell from '@/components/custom/layout/AppShell.svelte';
+    import AppSidebar from '@/components/custom/layout/AppSidebar.svelte';
+    import AppSidebarHeader from '@/components/custom/layout/AppSidebarHeader.svelte';
     import type { BreadcrumbItemType } from '@/types';
     import type { Snippet } from 'svelte';
 

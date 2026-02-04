@@ -66,10 +66,14 @@ class DepartamentoController extends Controller
             'id_facultad' => ['required', Rule::exists(Facultad::class, 'id_facultad')],
         ]);
 
-        $departamento = Departamento::create($validated);
+        try {
+            $departamento = Departamento::create($validated);
 
-        return redirect()->route('admin.departamentos.index')
-            ->with('success', 'Departamento creado exitosamente.');
+            return redirect()->route('admin.departamentos.index')
+                ->with('success', 'Departamento creado exitosamente.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error al crear departamento: ' . $e->getMessage());
+        }
     }
 
     /**

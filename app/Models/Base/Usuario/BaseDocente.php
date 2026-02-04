@@ -11,7 +11,7 @@ use Awobaz\Compoships\Database\Eloquent\Model;
 abstract class BaseDocente extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Docente';
+    protected $table = 'Docente';
     protected $primaryKey = 'id_docente';
     public $incrementing = true;
 
@@ -23,6 +23,9 @@ abstract class BaseDocente extends Model
         'cargo',
         'id_usuario'
     ];
+
+    // Overrides removed to fix double quoting issue
+
 
     // Relaciones
 

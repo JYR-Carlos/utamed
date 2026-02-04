@@ -11,7 +11,7 @@ use Awobaz\Compoships\Database\Eloquent\Model;
 abstract class BaseUsuario extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Usuario';
+    protected $table = 'Usuario';
     protected $primaryKey = 'id_usuario';
     public $incrementing = true;
 
@@ -27,6 +27,9 @@ abstract class BaseUsuario extends Model
         'apellido2',
         'rut'
     ];
+
+    // Overrides removed to fix double quoting issue
+
 
     // Relaciones
 
@@ -78,88 +81,88 @@ abstract class BaseUsuario extends Model
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Permiso::class,
-            '\"utamed.Usuario\".\"Usuario_Permiso_Especial\"',
+            'Usuario_Permiso_Especial',
             'id_usuario_recipiente',
             'id_permiso'
         )
-        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function contextosConPermisoEspecial()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Contexto::class,
-            '\"utamed.Usuario\".\"Usuario_Permiso_Especial\"',
+            'Usuario_Permiso_Especial',
             'id_usuario_recipiente',
             'id_contexto'
         )
-        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function usuariosQueRecibenMisPermisos()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            '\"utamed.Usuario\".\"Usuario_Permiso_Especial\"',
+            'Usuario_Permiso_Especial',
             'id_usuario_asignador',
             'id_usuario_recipiente'
         )
-        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function usuariosQueAsignanMisPermisos()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            '\"utamed.Usuario\".\"Usuario_Permiso_Especial\"',
+            'Usuario_Permiso_Especial',
             'id_usuario_recipiente',
             'id_usuario_asignador'
         )
-        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function contextosConRolAsignado()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Contexto::class,
-            '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
+            'Usuario_Rol_Asignación',
             'id_usuario_recipiente',
             'id_contexto'
         )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function rolesAsignados()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Rol::class,
-            '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
+            'Usuario_Rol_Asignación',
             'id_usuario_recipiente',
             'id_rol'
         )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function usuariosQueRecibenMisRoles()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
+            'Usuario_Rol_Asignación',
             'id_usuario_asignador',
             'id_usuario_recipiente'
         )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function usuariosQueAsignanMisRoles()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
+            'Usuario_Rol_Asignación',
             'id_usuario_recipiente',
             'id_usuario_asignador'
         )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
 }

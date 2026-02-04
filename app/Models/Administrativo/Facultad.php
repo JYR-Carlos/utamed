@@ -12,6 +12,8 @@ use App\Models\Base\Administrativo\BaseFacultad;
  */
 class Facultad extends BaseFacultad
 {
+    protected $table = 'Facultad';
+    protected $fillable = ['nombre', 'id_contexto'];
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

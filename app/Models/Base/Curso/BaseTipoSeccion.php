@@ -11,7 +11,7 @@ use Awobaz\Compoships\Database\Eloquent\Model;
 abstract class BaseTipoSeccion extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Tipo_Seccion';
+    protected $table = 'Tipo_Seccion';
     protected $primaryKey = 'id_tipo_seccion';
     public $incrementing = true;
 
@@ -20,6 +20,9 @@ abstract class BaseTipoSeccion extends Model
     protected $fillable = [
         'tipo'
     ];
+
+    // Overrides removed to fix double quoting issue
+
 
     // Relaciones
 

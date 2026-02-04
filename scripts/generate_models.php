@@ -154,11 +154,11 @@ $notFillableColumns = [
   $updatedAtColumn,
   $softDeleteColumnName,
   // Agregar otras columnas que no deben ser fillable
-  'esta_activo' 
+  'esta_activo'
 ];
 
 // Directorio para Models
-$modelDir = app_path(path: 'Models'); 
+$modelDir = app_path(path: 'Models');
 // Derivados del base de Models
 $baseModelDir = $modelDir . '/Base';
 
@@ -933,7 +933,7 @@ foreach ($tables as $tableInfo) {
   // USO: Permite hacer Modelo::create(['nombre' => 'Test']) sin mass assignment exception
   // ==================================================================================
 
- 
+
   // Excluir PK (simple o compuesta)
   if (is_array($primaryKey)) {
     $notFillableColumns = array_merge($notFillableColumns, $primaryKey);
@@ -1449,15 +1449,15 @@ foreach ($tables as $tableInfo) {
       // Cuando hay múltiples FKs a la misma tabla (ej: id_usuario_recipiente, id_usuario_asignador),
       // solo debemos generar relaciones una vez por tabla única.
       // Agrupamos por schema.table y usamos la primera FK encontrada como default.
-      
+
       $fksByTable = [];
       foreach ($allFks as $otherIdx => $otherFk) {
         if ($otherIdx === $thisFkIndex) {
           continue; // Saltar la FK que apunta a esta misma tabla
         }
-        
+
         $tableKey = $otherFk['schema'] . '.' . $otherFk['table'];
-        
+
         // Solo guardar la primera FK para cada tabla de destino
         if (!isset($fksByTable[$tableKey])) {
           $fksByTable[$tableKey] = [
@@ -1466,7 +1466,7 @@ foreach ($tables as $tableInfo) {
           ];
         }
       }
-      
+
       // Generar relaciones belongsToMany según configuración (una por tabla única)
       foreach ($fksByTable as $tableKey => $fkData) {
         $otherFk = $fkData['fk'];
@@ -1593,7 +1593,7 @@ foreach ($tables as $tableInfo) {
           $relations .= "            \\App\\Models\\{$relatedSchema}\\{$relatedModel}::class,\n";
 
           // Nombre completo de tabla pivot con comillas: "utamed.Schema"."Tabla"
-          $quotedPivotTable = '\"' . $pivotSchema . '\".\"' . $pivotTable . '\"';
+          $quotedPivotTable = $pivotTable;
           $relations .= "            '{$quotedPivotTable}',\n";
 
           // FKs - usar las específicas de la configuración
@@ -1674,6 +1674,28 @@ abstract class Base{$className} extends Model
     protected \$fillable = [
 {$fillable}
     ];
+
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn(\$column)
+    {
+        \$qualified = parent::qualifyColumn(\$column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains(\$qualified, '\"') && str_contains(\$qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', \$qualified) . '\"';
+        }
+        return \$qualified;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return '\"' . \$this->getTable() . '\".\"' . \$this->getKeyName() . '\"';
+    }
+
 {$relations}
 }
 PHP;

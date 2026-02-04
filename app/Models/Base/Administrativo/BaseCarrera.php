@@ -13,7 +13,7 @@ abstract class BaseCarrera extends Model
 {
     use SoftDeletes;
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Carrera';
+    protected $table = 'Carrera';
     protected $primaryKey = 'id_carrera';
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';
@@ -29,6 +29,25 @@ abstract class BaseCarrera extends Model
         'id_departamento',
         'id_facultad'
     ];
+
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        return is_string($column) && str_contains($column, '.')
+            ? $column
+            : $this->getTable() . '.' . $column;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return $this->getTable() . '.' . $this->getKeyName();
+    }
+
 
     // Relaciones
 

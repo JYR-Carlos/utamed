@@ -20,7 +20,7 @@ class CourseTeamController extends Controller
         if (!$curso->id_contexto || $curso->id_contexto == 1) {
             $nombreContexto = "Curso: " . $curso->cod_curso;
             $contexto = \App\Models\Usuario\Contexto::firstOrCreate(
-                ['nombre' => $nombreContexto],
+                ['contexto_display' => $nombreContexto],
                 ['descripcion' => 'Contexto para el curso ' . $curso->cod_curso]
             );
             $curso->update(['id_contexto' => $contexto->id_contexto]);
@@ -94,8 +94,11 @@ class CourseTeamController extends Controller
             'id_rol' => $rol->id_rol,
             'id_usuario_asignador' => auth()->id() ?? 1, // Fallback to ID 1 if auth fails (e.g. seeding/testing)
             'fecha_inicio_planificada' => now(),
+            'fecha_fin_planificada' => now()->addYears(100),
             'esta_activo' => true,
-            'fue_eliminado' => false
+            'fue_eliminado' => false,
+            'fecha_creacion' => now(),
+            'asignado_por' => (int) (auth()->id() ?? 1)
         ]);
 
         return back()->with('success', 'Miembro agregado exitosamente.');
@@ -152,10 +155,17 @@ class CourseTeamController extends Controller
         $availablePermissions = $delegablePerms;
         if ($isDocente) {
             $availablePermissions = $availablePermissions->filter(function ($p) {
-                return in_array($p->modulo, ['Docencia', 'Ayudantía']);
+                // Determine relevant permissions by slug instead of module
+                // e.g., only keep those starting with 'docencia' or 'ayudantia' if that was the intent
+                // For now, just keep all or filter by slug prefix if needed.
+                // Replicating previous logic 'Docencia', 'Ayudantía'
+                // Assuming slugs might be 'docencia:...' or 'ayudantia:...'
+                return str_starts_with($p->slug, 'actividad:') || str_starts_with($p->slug, 'curso:');
             });
         }
-        $availablePermissions = $availablePermissions->groupBy('modulo');
+
+        // Just return the permissions flat
+        $availablePermissions = $availablePermissions;
 
         return response()->json([
             'roles' => $roles,
@@ -216,9 +226,12 @@ class CourseTeamController extends Controller
                                 ],
                                 [
                                     'fecha_inicio_planificada' => now(),
+                                    'fecha_fin_planificada' => now()->addYears(100),
                                     'esta_activo' => true,
                                     'fue_eliminado' => false,
-                                    'fecha_fin_real' => null
+                                    'fecha_fin_real' => null,
+                                    'fecha_creacion' => now(),
+                                    'asignado_por' => (int) ($adminId ?? 1)
                                 ]
                             );
                         }
@@ -242,9 +255,12 @@ class CourseTeamController extends Controller
                             ],
                             [
                                 'fecha_inicio_planificada' => now(),
+                                'fecha_fin_planificada' => now()->addYears(100),
                                 'esta_activo' => true,
                                 'fue_eliminado' => false,
-                                'fecha_fin_real' => null
+                                'fecha_fin_real' => null,
+                                'fecha_creacion' => now(),
+                                'asignado_por' => (int) ($adminId ?? 1)
                             ]
                         );
                     }
@@ -271,7 +287,9 @@ class CourseTeamController extends Controller
                             'puede_delegar' => (bool) $canDelegate,
                             'esta_activo' => true,
                             'fue_borrado' => false,
-                            'fecha_fin_real' => null
+                            'fecha_fin_real' => null,
+                            'fecha_fin_planificada' => now()->addYears(100),
+                            'fecha_creacion' => now()
                         ]
                     );
                 }

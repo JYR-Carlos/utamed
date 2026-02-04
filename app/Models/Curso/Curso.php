@@ -13,16 +13,13 @@ use Illuminate\Support\Facades\DB;
  */
 class Curso extends BaseCurso
 {
-    protected $fillable = [
-        'cod_curso',
-        'nombre',
-        'fecha_inicio',
-        'numero_semestre',
-        'id_asignatura',
-        'id_plan',
-        'id_docente',
-        'id_contexto'
-    ];
+    /**
+     * Override primary key to use single identity column for Eloquent compatibility
+     */
+    protected $table = 'Curso';
+    protected $primaryKey = 'id_curso';
+    public $incrementing = true;
+    // Note: fillable is inherited from BaseCurso
 
     /**
      * Relación con Docente
@@ -55,6 +52,14 @@ class Curso extends BaseCurso
     public function asignacionPlan()
     {
         return $this->hasOne(\App\Models\Administrativo\AsignacionPlan::class, 'id_asignatura', 'id_asignatura')
-            ->whereColumn('utamed.Asignacion_Plan.id_plan', 'utamed.Curso.id_plan');
+            ->whereColumn('Asignacion_Plan.id_plan', 'Curso.id_plan');
+    }
+
+    /**
+     * Override relaciones para evitar claves compuestas que fallan con boolean types en Postgres
+     */
+    public function secciones()
+    {
+        return $this->hasMany(\App\Models\Curso\Seccion::class, 'id_curso', 'id_curso');
     }
 }

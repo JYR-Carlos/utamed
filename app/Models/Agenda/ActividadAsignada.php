@@ -12,6 +12,13 @@ use App\Models\Base\Agenda\BaseActividadAsignada;
  */
 class ActividadAsignada extends BaseActividadAsignada
 {
+    use \App\Traits\HasCompositeKey;
+
+    public function getRouteKeyName()
+    {
+        return 'id_actividad';
+    }
+
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

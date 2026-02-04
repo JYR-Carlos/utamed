@@ -80,6 +80,14 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
     Route::post('cursos/{curso}/team/{usuario}/sync-permissions', [CourseTeamController::class, 'syncMemberPermissions'])
         ->name('cursos.team.sync-permissions');
 
+    // Section (Seccion) Management for Courses
+    Route::post('cursos/{curso}/secciones', [\App\Http\Controllers\Admin\SeccionController::class, 'store'])
+        ->name('cursos.secciones.store');
+    Route::put('cursos/secciones/{seccion}', [\App\Http\Controllers\Admin\SeccionController::class, 'update'])
+        ->name('cursos.secciones.update');
+    Route::delete('cursos/secciones/{seccion}', [\App\Http\Controllers\Admin\SeccionController::class, 'destroy'])
+        ->name('cursos.secciones.destroy');
+
     // Helper endpoints for cascading selects
     Route::get('facultades/{facultad}/departamentos', [DepartamentoController::class, 'byFacultad'])
         ->name('facultades.departamentos');
@@ -87,6 +95,8 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
         ->name('departamentos.carreras');
     Route::get('carreras/{carrera}/planes', [PlanController::class, 'byCarrera'])
         ->name('carreras.planes');
+    Route::get('planes/{plan}/asignaturas-disponibles', [CursoController::class, 'getAsignaturasByPlan'])
+        ->name('planes.asignaturas-disponibles');
 });
 
 // Docente Routes

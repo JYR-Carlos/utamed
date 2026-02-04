@@ -13,7 +13,7 @@ abstract class BasePlan extends Model
 {
     use SoftDeletes;
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Plan';
+    protected $table = 'Plan';
     protected $primaryKey = 'id_plan';
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';
@@ -22,10 +22,30 @@ abstract class BasePlan extends Model
     const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
+        'id_carrera',
         'agno',
         'version',
         'creditos_sct_totales'
     ];
+
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        return is_string($column) && str_contains($column, '.')
+            ? $column
+            : $this->getTable() . '.' . $column;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return $this->getTable() . '.' . $this->getKeyName();
+    }
+
 
     // Relaciones
 
@@ -47,11 +67,11 @@ abstract class BasePlan extends Model
     {
         return $this->belongsToMany(
             \App\Models\Administrativo\Asignatura::class,
-            '\"utamed.Administrativo\".\"Asignacion_Plan\"',
+            'Asignacion_Plan',
             'id_plan',
             'id_asignatura'
         )
-        ->withPivot('agno_planificado', 'semestre_planificado', 'tipo_ramo');
+            ->withPivot('agno_planificado', 'semestre_planificado', 'tipo_ramo');
     }
 
 }

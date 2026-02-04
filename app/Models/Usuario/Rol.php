@@ -13,7 +13,8 @@ use App\Models\Base\Usuario\BaseRol;
 class Rol extends BaseRol
 {
     protected $fillable = ['nombre', 'id_usuario_autor'];
-
+    protected $table = 'Rol';
+    protected $primaryKey = 'id_rol';
     /**
      * Override base relationship to use correct pivot table name.
      */
@@ -21,7 +22,7 @@ class Rol extends BaseRol
     {
         return $this->belongsToMany(
             Permiso::class,
-            'utamed.Asignación_Rol_Permiso',
+            'Asignación_Rol_Permiso',
             'id_rol',
             'id_permiso'
         )->withPivot('puede_delegar_permisos');

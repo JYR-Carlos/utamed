@@ -1,22 +1,47 @@
-// Admin Types
+/**
+ * Type definitions for the admin module
+ * Contains interfaces for all administrative entities, form data, and pagination
+ * 
+ * @module admin.types
+ */
+
 import type { FormDataConvertible } from '@inertiajs/core';
 
-
+/**
+ * Facultad (Faculty) entity
+ * Represents an academic faculty within the university
+ */
 export interface Facultad {
+    /** Unique identifier for the faculty */
     id_facultad: number;
+    /** Name of the faculty */
     nombre: string;
+    /** Creation timestamp */
     fecha_creacion?: string;
+    /** Last modification timestamp */
     fecha_modificacion?: string;
+    /** Soft delete timestamp */
     fecha_eliminacion?: string;
 }
 
+/**
+ * Departamento (Department) entity
+ * Represents an academic department within a faculty
+ */
 export interface Departamento {
+    /** Unique identifier for the department */
     id_departamento: number;
+    /** Foreign key to the parent faculty */
     id_facultad: number;
+    /** Name of the department */
     nombre: string;
+    /** Related faculty object (eager loaded) */
     facultad?: Facultad;
+    /** Creation timestamp */
     fecha_creacion?: string;
+    /** Last modification timestamp */
     fecha_modificacion?: string;
+    /** Soft delete timestamp */
     fecha_eliminacion?: string;
 }
 
@@ -46,19 +71,36 @@ export interface Plan {
     fecha_eliminacion?: string;
 }
 
+/**
+ * Asignatura (Subject/Course) entity
+ * Represents an academic subject with its credit and hour distribution
+ */
 export interface Asignatura {
+    /** Unique identifier for the subject */
     id_asignatura: number;
+    /** Subject code (e.g., "MED101") */
     cod_asignatura: string;
+    /** Subject name */
     nombre: string;
+    /** Subject description */
     descripcion?: string;
+    /** SCT (Sistema de Créditos Transferibles) credits */
     creditos_sct?: number;
+    /** Lecture hours */
     horas_catedra?: number;
+    /** Workshop hours */
     horas_taller?: number;
+    /** Laboratory hours */
     horas_laboratorio?: number;
+    /** Directed study hours */
     horas_dirigidas?: number;
+    /** Autonomous study hours */
     horas_autonomas?: number;
+    /** Creation timestamp */
     fecha_creacion?: string;
+    /** Last modification timestamp */
     fecha_modificacion?: string;
+    /** Soft delete timestamp */
     fecha_eliminacion?: string;
 }
 
@@ -91,7 +133,7 @@ export interface Curso {
     id_curso: number;
     id_asignatura: number;
     id_plan: number;
-    cod_curso: string;
+    cod_curso: number;
     nombre?: string;
     fecha_inicio?: string;
     numero_semestre?: number;
@@ -149,20 +191,37 @@ export interface Administrador {
     esta_activo: boolean;
 }
 
-// Pagination
+/**
+ * Generic paginated response from Laravel
+ * Used for all paginated data tables and lists
+ * 
+ * @template T - The type of data being paginated
+ */
 export interface PaginatedResponse<T> {
+    /** Array of data items for the current page */
     data: T[];
+    /** Current page number */
     current_page: number;
+    /** Total number of pages */
     last_page: number;
+    /** Number of items per page */
     per_page: number;
+    /** Total number of items across all pages */
     total: number;
+    /** Index of first item on current page */
     from: number;
+    /** Index of last item on current page */
     to: number;
 }
 
-// Form Data Types
+/**
+ * Form data for creating/updating a Facultad
+ * Used in FormModal components for faculty management
+ */
 export interface FacultadFormData {
+    /** Faculty name */
     nombre: string;
+    /** Allow additional form fields */
     [key: string]: FormDataConvertible;
 }
 
@@ -190,16 +249,30 @@ export interface PlanFormData {
     [key: string]: FormDataConvertible;
 }
 
+/**
+ * Form data for creating/updating an Asignatura
+ * Contains all editable fields for subject management
+ */
 export interface AsignaturaFormData {
+    /** Subject code */
     cod_asignatura: string;
+    /** Subject name */
     nombre: string;
+    /** Subject description */
     descripcion?: string;
+    /** SCT credits */
     creditos_sct?: number;
+    /** Lecture hours */
     horas_catedra?: number;
+    /** Workshop hours */
     horas_taller?: number;
+    /** Laboratory hours */
     horas_laboratorio?: number;
+    /** Directed study hours */
     horas_dirigidas?: number;
+    /** Autonomous study hours */
     horas_autonomas?: number;
+    /** Allow additional form fields */
     [key: string]: FormDataConvertible;
 }
 
@@ -214,7 +287,7 @@ export interface AsignacionPlanFormData {
 export interface CursoFormData {
     id_asignatura: number;
     id_plan: number;
-    cod_curso: string;
+    cod_curso: number;
     nombre?: string;
     fecha_inicio?: string;
     numero_semestre?: number;

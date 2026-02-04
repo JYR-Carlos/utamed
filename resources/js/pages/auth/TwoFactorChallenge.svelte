@@ -1,5 +1,5 @@
 <script lang="ts">
-    import InputError from '@/components/InputError.svelte';
+    import InputError from '@/components/custom/common/InputError.svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';

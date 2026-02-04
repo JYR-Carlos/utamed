@@ -9,6 +9,9 @@ use App\Models\Base\Usuario\BaseUsuarioPermisoEspecial;
  */
 class UsuarioPermisoEspecial extends BaseUsuarioPermisoEspecial
 {
+
+    use \App\Traits\HasCompositeKey;
+
     protected $casts = [
         'esta_activo' => 'boolean',
         'esta_permitido' => 'boolean',
@@ -16,8 +19,8 @@ class UsuarioPermisoEspecial extends BaseUsuarioPermisoEspecial
         'fue_borrado' => 'boolean',
     ];
 
-    public $incrementing = false;
-    protected $primaryKey = null; // Composite key
+    // public $incrementing = false; // Inherited
+    // protected $primaryKey = null; // Inherited
 
     protected $fillable = [
         'id_usuario_recipiente',
@@ -30,24 +33,12 @@ class UsuarioPermisoEspecial extends BaseUsuarioPermisoEspecial
         'puede_delegar',
         'fecha_fin_real',
         'fue_borrado',
-        'esta_activo'
+        'esta_activo',
+        'fecha_creacion'
     ];
 
-    /**
-     * Set the keys for a save update query.
-     * Use composite keys since this table doesn't have a single PK.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
-     */
-    protected function setKeysForSaveQuery($query)
+    public function getRouteKeyName()
     {
-        $keys = ['id_usuario_recipiente', 'id_contexto', 'id_permiso', 'id_usuario_asignador'];
-
-        foreach ($keys as $key) {
-            $query->where($key, '=', $this->getAttribute($key));
-        }
-
-        return $query;
+        return 'id_usuario_recipiente';
     }
 }

@@ -1,8 +1,8 @@
 <script lang="ts">
     import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
-    import DeleteUser from '@/components/DeleteUser.svelte';
-    import HeadingSmall from '@/components/HeadingSmall.svelte';
-    import InputError from '@/components/InputError.svelte';
+    import DeleteUser from '@/components/custom/auth/DeleteUser.svelte';
+    import HeadingSmall from '@/components/custom/common/HeadingSmall.svelte';
+    import InputError from '@/components/custom/common/InputError.svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';

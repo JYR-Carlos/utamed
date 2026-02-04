@@ -1,7 +1,7 @@
 <script lang="ts">
     import PasswordResetLinkController from '@/actions/Laravel/Fortify/Http/Controllers/PasswordResetLinkController';
-    import InputError from '@/components/InputError.svelte';
-    import TextLink from '@/components/TextLink.svelte';
+    import InputError from '@/components/custom/common/InputError.svelte';
+    import TextLink from '@/components/custom/common/TextLink.svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';

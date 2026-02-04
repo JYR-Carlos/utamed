@@ -9,13 +9,16 @@ use App\Models\Base\Usuario\BaseUsuarioRolAsignación;
  */
 class UsuarioRolAsignación extends BaseUsuarioRolAsignación
 {
+
+    use \App\Traits\HasCompositeKey;
+
     protected $casts = [
         'esta_activo' => 'boolean',
         'fue_eliminado' => 'boolean',
     ];
 
-    public $incrementing = false;
-    protected $primaryKey = null; // Composite key handled manually if needed
+    // public $incrementing = false; // Inherited from Base
+    // protected $primaryKey = null; // Removed to inherit from Base array
 
     protected $fillable = [
         'id_usuario_recipiente',
@@ -27,24 +30,13 @@ class UsuarioRolAsignación extends BaseUsuarioRolAsignación
         'fecha_fin_planificada',
         'fecha_fin_real',
         'fue_eliminado',
-        'esta_activo'
+        'esta_activo',
+        'fecha_creacion',
+        'fecha_modificacion'
     ];
 
-    /**
-     * Set the keys for a save update query.
-     * Use composite keys since this table doesn't have a single PK.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
-     */
-    protected function setKeysForSaveQuery($query)
+    public function getRouteKeyName()
     {
-        $keys = ['id_usuario_recipiente', 'id_contexto', 'id_rol', 'id_usuario_asignador'];
-
-        foreach ($keys as $key) {
-            $query->where($key, '=', $this->getAttribute($key));
-        }
-
-        return $query;
+        return 'id_usuario_recipiente';
     }
 }

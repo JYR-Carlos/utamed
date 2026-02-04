@@ -1,7 +1,7 @@
 <script lang="ts">
-    import AppContent from '@/components/AppContent.svelte';
-    import AppHeader from '@/components/AppHeader.svelte';
-    import AppShell from '@/components/AppShell.svelte';
+    import AppContent from '@/components/custom/layout/AppContent.svelte';
+    import AppHeader from '@/components/custom/layout/AppHeader.svelte';
+    import AppShell from '@/components/custom/layout/AppShell.svelte';
     import type { BreadcrumbItemType } from '@/types';
     import type { Snippet } from 'svelte';
 

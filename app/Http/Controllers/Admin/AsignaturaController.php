@@ -54,10 +54,14 @@ class AsignaturaController extends Controller
             'horas_autonomas' => 'nullable|integer|min:0',
         ]);
 
-        $asignatura = Asignatura::create($validated);
+        try {
+            $asignatura = Asignatura::create($validated);
 
-        return redirect()->route('admin.asignaturas.index')
-            ->with('success', 'Asignatura creada exitosamente.');
+            return redirect()->route('admin.asignaturas.index')
+                ->with('success', 'Asignatura creada exitosamente.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error al crear asignatura: ' . $e->getMessage());
+        }
     }
 
     /**

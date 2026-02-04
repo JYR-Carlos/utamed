@@ -2,8 +2,8 @@
 	import { router } from '@inertiajs/svelte';
 	import type { Plan, Asignatura, AsignacionPlan, AsignacionPlanFormData, MallaData } from '@/types/admin.types';
 	import AdminLayout from '@/layouts/AdminLayout.svelte';
-	import FormModal from '@/components/admin/FormModal.svelte';
-	import DeleteConfirmation from '@/components/admin/DeleteConfirmation.svelte';
+	import FormModal from '@/components/custom/admin/FormModal.svelte';
+	import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
 
 	interface Props {
 		plan: Plan;

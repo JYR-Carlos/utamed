@@ -25,28 +25,27 @@ class CursoController extends Controller
         if ($request->has('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
-                $q->where('utamed.Curso.nombre', 'ilike', "%{$search}%")
-                    ->orWhere('utamed.Curso.cod_curso', 'ilike', "%{$search}%");
+                $q->where('Curso.nombre', 'ilike', "%{$search}%")
+                    ->orWhere('Curso.cod_curso', 'ilike', "%{$search}%");
             });
         }
 
         // Filter by asignatura
         if ($request->has('id_asignatura')) {
-            $query->where('utamed.Curso.id_asignatura', $request->input('id_asignatura'));
+            $query->where('Curso.id_asignatura', $request->input('id_asignatura'));
         }
 
         // Join with relationships to simplify data access in frontend
-        $cursos = $query->join('utamed.Asignatura', 'utamed.Curso.id_asignatura', '=', 'utamed.Asignatura.id_asignatura')
-            ->join('utamed.Plan', 'utamed.Curso.id_plan', '=', 'utamed.Plan.id_plan')
-            ->join('utamed.Carrera', 'utamed.Plan.id_carrera', '=', 'utamed.Carrera.id_carrera')
-            ->leftJoin('utamed.Docente', 'utamed.Curso.id_docente', '=', 'utamed.Docente.id_docente')
+        $cursos = $query->join('Asignatura', 'Curso.id_asignatura', '=', 'Asignatura.id_asignatura')
+            ->join('Plan', 'Curso.id_plan', '=', 'Plan.id_plan')
+            ->join('Carrera', 'Plan.id_carrera', '=', 'Carrera.id_carrera')
             ->select(
-                'utamed.Curso.*',
-                'utamed.Asignatura.nombre as asignatura_nombre',
-                'utamed.Carrera.nombre as carrera_nombre',
-                'utamed.Docente.nombre_completo as docente_nombre'
+                'Curso.*',
+                'Asignatura.nombre as asignatura_nombre',
+                'Carrera.nombre as carrera_nombre'
             )
-            ->orderBy('utamed.Curso.fecha_inicio', 'desc')
+            ->whereNull('Curso.fecha_eliminacion')
+            ->orderBy('Curso.fecha_inicio', 'desc')
             ->paginate($request->input('per_page', 15))
             ->withQueryString();
 
@@ -62,15 +61,16 @@ class CursoController extends Controller
         // UNLESS they have a higher system-admin role. Let's be safe and check if they are explicitly restricted.
 
         $roleQuery = \App\Models\Usuario\Rol::orderBy('nombre');
-        $permQuery = \App\Models\Usuario\Permiso::orderBy('modulo')->orderBy('slug');
+        $permQuery = \App\Models\Usuario\Permiso::orderBy('slug');
 
         if ($isDocente) {
             $roleQuery->whereIn('nombre', ['Ayudante', 'Estudiante']);
-            $permQuery->whereIn('modulo', ['Docencia', 'Ayudantía']);
+            // $permQuery->whereIn('modulo', ['Docencia', 'Ayudantía']); // Modulo no longer exists
         }
 
         $availableRoles = $roleQuery->get();
-        $availablePermissions = $permQuery->get()->groupBy('modulo');
+        // Just return all permissions, maybe keyed by something else or just flat
+        $availablePermissions = $permQuery->get();
 
         return Inertia::render('admin/Cursos', [
             'cursos' => $cursos,
@@ -78,6 +78,7 @@ class CursoController extends Controller
             'planes' => $planes,
             'availableRoles' => $availableRoles,
             'availablePermissions' => $availablePermissions,
+            'tipos_seccion' => \App\Models\Curso\TipoSeccion::all(),
             'filters' => $request->only(['search', 'id_asignatura'])
         ]);
     }
@@ -90,12 +91,32 @@ class CursoController extends Controller
         $validated = $request->validate([
             'id_asignatura' => ['required', Rule::exists(Asignatura::class, 'id_asignatura')],
             'id_plan' => ['required', Rule::exists(Plan::class, 'id_plan')],
-            'cod_curso' => 'required|string|max:50',
+            'cod_curso' => 'required|integer',
             'nombre' => 'nullable|string|max:255',
             'fecha_inicio' => 'nullable|date',
-            'numero_semestre' => 'nullable|integer|min:1',
-            'id_docente' => ['nullable', Rule::exists(Docente::class, 'id_docente')],
+            // Note: Docente is assigned through Sección, not directly to Curso
         ]);
+
+        // BUSINESS RULE: Validate that plan is active (not soft-deleted)
+        $plan = Plan::find($validated['id_plan']);
+        if (!$plan || $plan->trashed()) {
+            return back()->withErrors([
+                'id_plan' => 'El plan seleccionado no está activo o no existe.'
+            ])->withInput();
+        }
+
+        // BUSINESS RULE: Validate that asignatura belongs to the selected plan
+        $asignacionExists = DB::table('Asignacion_Plan')
+            ->where('id_plan', $validated['id_plan'])
+            ->where('id_asignatura', $validated['id_asignatura'])
+            ->whereNull('fecha_eliminacion')
+            ->exists();
+
+        if (!$asignacionExists) {
+            return back()->withErrors([
+                'id_asignatura' => 'La asignatura seleccionada no pertenece al plan especificado.'
+            ])->withInput();
+        }
 
         DB::beginTransaction();
         try {
@@ -105,39 +126,36 @@ class CursoController extends Controller
             $nombreContexto = "Curso: " . $data['cod_curso'];
             // Check if context exists? Unique constraints might apply to name, but for now we create new
             $contexto = \App\Models\Usuario\Contexto::firstOrCreate(
-                ['nombre' => $nombreContexto],
+                ['contexto_display' => $nombreContexto],
                 ['descripcion' => 'Contexto para el curso ' . $data['cod_curso']]
             );
             $data['id_contexto'] = $contexto->id_contexto;
 
+            // Set default values for required NOT NULL fields
+            $data['grupo_indice'] = $data['grupo_indice'] ?? 1;
+
+            // If fecha_fin is not provided, set it to 6 months after fecha_inicio (typical semester duration)
+            if (empty($data['fecha_fin']) && !empty($data['fecha_inicio'])) {
+                $fechaInicio = new \DateTime($data['fecha_inicio']);
+                $fechaInicio->modify('+6 months');
+                $data['fecha_fin'] = $fechaInicio->format('Y-m-d');
+            }
+
             $curso = Curso::create($data);
 
-            // If a Docente is assigned, give them the 'Docente' role in this context automatically
-            if (!empty($data['id_docente'])) {
-                $docente = Docente::find($data['id_docente']);
-                if ($docente && $docente->id_usuario) {
-                    // Find or create 'Docente' role
-                    $rolDocente = \App\Models\Usuario\Rol::where('nombre', 'Docente')->first();
-                    if ($rolDocente) {
-                        \App\Models\Usuario\UsuarioRolAsignación::create([
-                            'id_usuario_recipiente' => $docente->id_usuario,
-                            'id_contexto' => $contexto->id_contexto,
-                            'id_rol' => $rolDocente->id_rol,
-                            'id_usuario_asignador' => auth()->id() ?? 1, // Fallback for seeds
-                            'fecha_inicio_planificada' => now(),
-                            'esta_activo' => true,
-                            'fue_eliminado' => false
-                        ]);
-                    }
-                }
-            }
+            // Note: Docente assignment is handled through Sección creation
+            // Secciones can have different docentes for lab, theory, etc.
 
             DB::commit();
             return redirect()->route('admin.cursos.index')
                 ->with('success', 'Curso creado exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error al crear el curso: ' . $e->getMessage());
+            \Log::error('Error creating curso: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'data' => $validated
+            ]);
+            return back()->withErrors(['error' => 'Error al crear el curso: ' . $e->getMessage()])->withInput();
         }
     }
 
@@ -146,15 +164,26 @@ class CursoController extends Controller
      */
     public function show(Curso $curso)
     {
-        $curso->load('inscripcionCursos.estudiante');
+        try {
+            $curso->load('inscripcionCursos.estudiante');
+            $curso->load('secciones.docente.usuario');
+            $curso->load('secciones.tipoSeccion');
 
-        // Manually load AsignacionPlan with related data
-        $curso->asignacion_plan = \App\Models\Administrativo\AsignacionPlan::with(['asignatura', 'plan.carrera'])
-            ->where('id_asignatura', $curso->id_asignatura)
-            ->where('id_plan', $curso->id_plan)
-            ->first();
+            // Manually load AsignacionPlan with related data
+            $curso->asignacion_plan = \App\Models\Administrativo\AsignacionPlan::with(['asignatura', 'plan.carrera'])
+                ->where('id_asignatura', $curso->id_asignatura)
+                ->where('id_plan', $curso->id_plan)
+                ->first();
 
-        return response()->json($curso);
+            return response()->json([
+                'curso' => $curso,
+                'secciones' => $curso->secciones,
+                'tipos_seccion' => \App\Models\Curso\TipoSeccion::all()
+            ]);
+        } catch (\Exception $e) {
+            \Log::error("Error in show curso: " . $e->getMessage());
+            return response()->json(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
+        }
     }
 
     /**
@@ -165,11 +194,10 @@ class CursoController extends Controller
         $validated = $request->validate([
             'id_asignatura' => ['required', Rule::exists(Asignatura::class, 'id_asignatura')],
             'id_plan' => ['required', Rule::exists(Plan::class, 'id_plan')],
-            'cod_curso' => 'required|string|max:50',
+            'cod_curso' => 'required|integer',
             'nombre' => 'nullable|string|max:255',
             'fecha_inicio' => 'nullable|date',
-            'numero_semestre' => 'nullable|integer|min:1',
-            'id_docente' => ['nullable', Rule::exists(Docente::class, 'id_docente')],
+            'id_docente' => 'nullable|integer|exists:App\Models\Usuario\Docente,id_docente',
         ]);
 
         DB::beginTransaction();
@@ -180,7 +208,7 @@ class CursoController extends Controller
             if (!$curso->id_contexto || $curso->id_contexto == 1) { // 1 is global default to move away from
                 $nombreContexto = "Curso: " . $data['cod_curso'];
                 $contexto = \App\Models\Usuario\Contexto::firstOrCreate(
-                    ['nombre' => $nombreContexto],
+                    ['contexto_display' => $nombreContexto],
                     ['descripcion' => 'Contexto para el curso ' . $data['cod_curso']]
                 );
                 $data['id_contexto'] = $contexto->id_contexto;
@@ -188,46 +216,28 @@ class CursoController extends Controller
                 // Rename context if code changes? Optional but nice.
                 $contexto = \App\Models\Usuario\Contexto::find($curso->id_contexto);
                 if ($contexto && $data['cod_curso'] !== $curso->cod_curso) {
-                    $contexto->update(['nombre' => "Curso: " . $data['cod_curso']]);
+                    $contexto->update(['contexto_display' => "Curso: " . $data['cod_curso']]);
                 }
             }
 
-            // Check if Docente changed to sync Role
-            $oldDocenteId = $curso->id_docente;
-            $newDocenteId = $data['id_docente'] ?? null;
-
             $curso->update($data);
 
-            // Sync Role logic
-            if ($newDocenteId !== $oldDocenteId) {
-                $idContexto = $curso->id_contexto; // Updated one
-                $rolDocente = \App\Models\Usuario\Rol::where('nombre', 'Docente')->first();
+            // Handle Docente assignment through Seccion
+            if (array_key_exists('id_docente', $validated)) {
+                // Find existing section or create a default one
+                $seccion = \App\Models\Curso\Seccion::where('id_curso', $curso->id_curso)->first();
 
-                // Remove role from old docente in this context
-                if ($oldDocenteId) {
-                    $old = Docente::find($oldDocenteId);
-                    if ($old && $old->id_usuario) {
-                        \App\Models\Usuario\UsuarioRolAsignación::where('id_usuario_recipiente', $old->id_usuario)
-                            ->where('id_contexto', $idContexto)
-                            ->where('id_rol', $rolDocente->id_rol)
-                            ->update(['esta_activo' => false, 'fue_eliminado' => true, 'fecha_fin_real' => now()]);
-                    }
-                }
-
-                // Add role to new docente
-                if ($newDocenteId) {
-                    $new = Docente::find($newDocenteId);
-                    if ($new && $new->id_usuario && $rolDocente) {
-                        \App\Models\Usuario\UsuarioRolAsignación::create([
-                            'id_usuario_recipiente' => $new->id_usuario,
-                            'id_contexto' => $idContexto,
-                            'id_rol' => $rolDocente->id_rol,
-                            'id_usuario_asignador' => auth()->id() ?? 1,
-                            'fecha_inicio_planificada' => now(),
-                            'esta_activo' => true,
-                            'fue_eliminado' => false
-                        ]);
-                    }
+                if ($seccion) {
+                    $seccion->update(['id_docente' => $validated['id_docente']]);
+                } elseif ($validated['id_docente']) {
+                    // Create new section if it doesn't exist AND we have a docente to assign
+                    // Assuming default tipo_seccion = 1 (Catedra/Teoria)
+                    \App\Models\Curso\Seccion::create([
+                        'id_curso' => $curso->id_curso,
+                        'id_docente' => $validated['id_docente'],
+                        'id_tipo_seccion' => 1, // Default type
+                        'es_plantilla' => false
+                    ]);
                 }
             }
 
@@ -240,28 +250,21 @@ class CursoController extends Controller
         }
     }
 
-    /**
-     * Assign a docente to a curso.
-     */
-    public function assignDocente(Request $request, Curso $curso)
-    {
-        $validated = $request->validate([
-            'id_docente' => ['required', Rule::exists(Docente::class, 'id_docente')],
-        ]);
 
-        $curso->update(['id_docente' => $validated['id_docente']]);
-
-        return back()->with('success', 'Docente asignado al curso exitosamente.');
-    }
 
     /**
-     * Remove docente from curso.
+     * Get asignaturas for a specific plan (for cascading select).
      */
-    public function unassignDocente(Curso $curso)
+    public function getAsignaturasByPlan(Plan $plan)
     {
-        $curso->update(['id_docente' => null]);
+        // Get asignaturas that belong to this plan and are not deleted
+        $asignaturas = $plan->asignaturas()
+            ->whereNull('Asignacion_Plan.fecha_eliminacion')
+            ->select('Asignatura.id_asignatura', 'Asignatura.cod_asignatura', 'Asignatura.nombre')
+            ->orderBy('Asignatura.cod_asignatura')
+            ->get();
 
-        return back()->with('success', 'Docente removido del curso exitosamente.');
+        return response()->json($asignaturas);
     }
 
     /**

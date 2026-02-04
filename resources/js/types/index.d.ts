@@ -1,6 +1,6 @@
 import '@inertiajs/svelte';
 
-export interface Auth {
+export interface SharedAuth {
     user: User;
     roles: string[];
 }
@@ -20,7 +20,7 @@ export interface NavItem {
 export type PageProps<T extends Record<string, unknown> = Record<string, unknown>> = T & {
     name: string;
     quote: { message: string; author: string };
-    auth: Auth;
+    auth: SharedAuth;
     [key: string]: unknown;
 };
 

@@ -26,6 +26,24 @@ abstract class BasePrograma extends Model
         'id_usuario_autor'
     ];
 
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        return is_string($column) && str_contains($column, '.')
+            ? $column
+            : $this->getTable() . '.' . $column;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return $this->getTable() . '.' . $this->getKeyName();
+    }
+
     // Relaciones
 
     public function autor()
@@ -35,7 +53,7 @@ abstract class BasePrograma extends Model
 
     public function curso()
     {
-        return $this->belongsTo(\App\Models\Curso\Curso::class, 'id_curso', 'id_curso');
+        return $this->belongsTo(\App\Models\Curso\Curso::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
     }
 
 }

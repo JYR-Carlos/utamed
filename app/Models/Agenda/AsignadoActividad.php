@@ -12,6 +12,11 @@ use App\Models\Base\Agenda\BaseAsignadoActividad;
  */
 class AsignadoActividad extends BaseAsignadoActividad
 {
+    public function getRouteKeyName()
+    {
+        return 'id_actividad';
+    }
+
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

@@ -22,11 +22,33 @@ abstract class BaseAsignadoActividad extends Model
         'diferencia_decimas'
     ];
 
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
+    }
+
+
     // Relaciones
 
     public function actividadAsignada()
     {
-        return $this->belongsTo(\App\Models\Agenda\ActividadAsignada::class, 'grupo', 'grupo');
+        return $this->belongsTo(\App\Models\Agenda\ActividadAsignada::class, ['grupo', 'id_actividad'], ['grupo', 'id_actividad']);
     }
 
     public function estudiante()

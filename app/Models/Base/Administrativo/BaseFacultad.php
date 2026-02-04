@@ -13,7 +13,7 @@ abstract class BaseFacultad extends Model
 {
     use SoftDeletes;
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Facultad';
+    protected $table = 'Facultad';
     protected $primaryKey = 'id_facultad';
     public $incrementing = true;
     const DELETED_AT = 'fecha_eliminacion';
@@ -21,7 +21,29 @@ abstract class BaseFacultad extends Model
     const CREATED_AT = 'fecha_creacion';
     const UPDATED_AT = 'fecha_modificacion';
 
-    protected $fillable = ['nombre'];
+    protected $fillable = [
+        'nombre',
+        'id_contexto'
+    ];
+
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        return is_string($column) && str_contains($column, '.')
+            ? $column
+            : $this->getTable() . '.' . $column;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return $this->getTable() . '.' . $this->getKeyName();
+    }
+
 
     // Relaciones
 

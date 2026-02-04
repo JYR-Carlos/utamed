@@ -11,13 +11,36 @@ use Awobaz\Compoships\Database\Eloquent\Model;
 abstract class BaseRol extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Rol';
+    protected $table = 'Rol';
     protected $primaryKey = 'id_rol';
     public $incrementing = true;
 
     public $timestamps = false;
 
-    protected $fillable = ['nombre'];
+    protected $fillable = [
+        'nombre',
+        'id_usuario_autor'
+    ];
+
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        // Usamos el comportamiento estándar de Eloquent
+        return is_string($column) && str_contains($column, '.')
+            ? $column
+            : $this->getTable() . '.' . $column;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return $this->getTable() . '.' . $this->getKeyName();
+    }
+
 
     // Relaciones
 
@@ -44,7 +67,7 @@ abstract class BaseRol extends Model
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Permiso::class,
-            '\"utamed.Usuario\".\"Asignación_Rol_Permiso\"',
+            'Asignación_Rol_Permiso',
             'id_rol',
             'id_permiso'
         )
@@ -55,7 +78,7 @@ abstract class BaseRol extends Model
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
+            'Usuario_Rol_Asignación',
             'id_rol',
             'id_usuario_recipiente'
         )
@@ -66,7 +89,7 @@ abstract class BaseRol extends Model
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Contexto::class,
-            '\"utamed.Usuario\".\"Usuario_Rol_Asignación\"',
+            'Usuario_Rol_Asignación',
             'id_rol',
             'id_contexto'
         )

@@ -12,15 +12,17 @@ use App\Models\Base\Administrativo\BasePlan;
  */
 class Plan extends BasePlan
 {
+    protected $table = 'Plan';
+    protected $fillable = ['id_carrera', 'agno', 'version', 'id_contexto'];
     /**
      * Calculate total SCT credits from all assigned asignaturas
      */
     public function calculateTotalCredits()
     {
         return $this->asignacionPlanes()
-            ->join('utamed.Asignatura', 'utamed.Asignacion_Plan.id_asignatura', '=', 'utamed.Asignatura.id_asignatura')
-            ->whereNull('utamed.Asignatura.fecha_eliminacion')
-            ->whereNull('utamed.Asignacion_Plan.fecha_eliminacion')
-            ->sum('utamed.Asignatura.creditos_sct') ?? 0;
+            ->join('Asignatura', 'Asignacion_Plan.id_asignatura', '=', 'Asignatura.id_asignatura')
+            ->whereNull('Asignatura.fecha_eliminacion')
+            ->whereNull('Asignacion_Plan.fecha_eliminacion')
+            ->sum('Asignatura.creditos_sct') ?? 0;
     }
 }

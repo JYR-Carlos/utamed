@@ -12,6 +12,11 @@ use App\Models\Base\Curso\BaseInscripcionSeccion;
  */
 class InscripcionSeccion extends BaseInscripcionSeccion
 {
+    public function getRouteKeyName()
+    {
+        return 'id_estudiante';
+    }
+
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

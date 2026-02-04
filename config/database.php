@@ -93,10 +93,11 @@ return [
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => '"utamed.Administrativo","utamed.Usuario","utamed.Curso","utamed.Agenda",utamed,public',
+            'search_path' => '"utamed.Usuario", "utamed.Agenda", "utamed.Administrativo", "utamed.Curso", public',
             'sslmode' => 'prefer',
             'options' => [
                 \PDO::ATTR_EMULATE_PREPARES => false,
+                \PDO::ATTR_PERSISTENT => false,
             ],
         ],
 

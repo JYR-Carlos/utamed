@@ -42,10 +42,25 @@ class FacultadController extends Controller
             'nombre' => 'required|string|max:255',
         ]);
 
-        $facultad = Facultad::create($validated);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            // Create context for this Facultad
+            $contexto = \App\Models\Usuario\Contexto::firstOrCreate(
+                ['contexto_display' => 'Facultad: ' . $validated['nombre']],
+                ['descripcion' => 'Contexto para la facultad ' . $validated['nombre']]
+            );
 
-        return redirect()->route('admin.facultades.index')
-            ->with('success', 'Facultad creada exitosamente.');
+            $validated['id_contexto'] = $contexto->id_contexto;
+            $facultad = Facultad::create($validated);
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return redirect()->route('admin.facultades.index')
+                ->with('success', 'Facultad creada exitosamente.');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return back()->with('error', 'Error al crear facultad: ' . $e->getMessage());
+        }
     }
 
     /**

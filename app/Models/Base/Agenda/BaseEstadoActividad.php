@@ -11,13 +11,38 @@ use Awobaz\Compoships\Database\Eloquent\Model;
 abstract class BaseEstadoActividad extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.Estado_Actividad';
+    protected $table = 'Estado_Actividad';
     protected $primaryKey = 'id_estado';
     public $incrementing = true;
 
     public $timestamps = false;
 
-    protected $fillable = ['titulo'];
+    protected $fillable = [
+        'titulo',
+        'descripcion'
+    ];
+
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
+    }
+
 
     // Relaciones
 
@@ -34,11 +59,11 @@ abstract class BaseEstadoActividad extends Model
     {
         return $this->belongsToMany(
             \App\Models\Agenda\Actividad::class,
-            '\"utamed.Agenda\".\"Actividad_Asignada\"',
+            'Actividad_Asignada',
             'id_estado',
             'id_actividad'
         )
-            ->withPivot('grupo', 'nota');
+        ->withPivot('grupo', 'nota');
     }
 
 }

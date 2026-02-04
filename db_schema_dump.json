@@ -1,0 +1,1573 @@
+{
+    "utamed.Usuario.Docente": {
+        "columns": [
+            {
+                "column_name": "id_docente",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "grado",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "titulo",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "cargo",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_usuario",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_docente"
+        ]
+    },
+    "utamed.Usuario.Usuario": {
+        "columns": [
+            {
+                "column_name": "id_usuario",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "username",
+                "data_type": "character varying",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": 30
+            },
+            {
+                "column_name": "passhash",
+                "data_type": "character varying",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "email",
+                "data_type": "character varying",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "nombre1",
+                "data_type": "text",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "nombre2",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "apellido1",
+                "data_type": "text",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "apellido2",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "rut",
+                "data_type": "character varying",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": 20
+            },
+            {
+                "column_name": "fecha_creacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "esta_activo",
+                "data_type": "boolean",
+                "is_nullable": "NO",
+                "column_default": "true",
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_usuario"
+        ]
+    },
+    "utamed.Usuario.Estudiante": {
+        "columns": [
+            {
+                "column_name": "id_estudiante",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "agno_ingreso",
+                "data_type": "integer",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_carrera",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_usuario",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_estudiante"
+        ]
+    },
+    "utamed.Usuario.Contexto": {
+        "columns": [
+            {
+                "column_name": "id_contexto",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "contexto_display",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_contexto"
+        ]
+    },
+    "utamed.Usuario.Permiso": {
+        "columns": [
+            {
+                "column_name": "id_permiso",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "slug",
+                "data_type": "character varying",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": 50
+            },
+            {
+                "column_name": "nombre",
+                "data_type": "text",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "descripcion",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_permiso"
+        ]
+    },
+    "utamed.Usuario.Asignaci\u00f3n_Rol_Permiso": {
+        "columns": [
+            {
+                "column_name": "puede_delegar_permisos",
+                "data_type": "boolean",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_rol",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_permiso",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_rol",
+            "id_permiso"
+        ]
+    },
+    "utamed.Usuario.Rol": {
+        "columns": [
+            {
+                "column_name": "id_rol",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "nombre",
+                "data_type": "character varying",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": 50
+            },
+            {
+                "column_name": "id_usuario_autor",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_rol"
+        ]
+    },
+    "utamed.Usuario.Usuario_Rol_Asignaci\u00f3n": {
+        "columns": [
+            {
+                "column_name": "asignado_por",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_inicio_planificada",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_fin_planificada",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_fin_real",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fue_eliminado",
+                "data_type": "boolean",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_contexto",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_rol",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_usuario_recipiente",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_usuario_asignador",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_creacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "esta_activo",
+                "data_type": "boolean",
+                "is_nullable": "NO",
+                "column_default": "true",
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_usuario_recipiente",
+            "id_contexto",
+            "id_rol",
+            "id_usuario_asignador"
+        ]
+    },
+    "utamed.Usuario.Usuario_Permiso_Especial": {
+        "columns": [
+            {
+                "column_name": "fecha_inicio_planificada",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_fin_planificada",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "esta_permitido",
+                "data_type": "boolean",
+                "is_nullable": "NO",
+                "column_default": "true",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "puede_delegar",
+                "data_type": "boolean",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_fin_real",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fue_borrado",
+                "data_type": "boolean",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_permiso",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_contexto",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_usuario_recipiente",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_usuario_asignador",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_creacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "esta_activo",
+                "data_type": "boolean",
+                "is_nullable": "NO",
+                "column_default": "true",
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_usuario_recipiente",
+            "id_permiso",
+            "id_contexto",
+            "id_usuario_asignador"
+        ]
+    },
+    "utamed.Usuario.Tipo_Contexto": {
+        "columns": [
+            {
+                "column_name": "id_tipo_contexto",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "categoria",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "tabla_referenciada",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_contexto",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_tipo_contexto",
+            "id_contexto"
+        ]
+    },
+    "utamed.Administrativo.Facultad": {
+        "columns": [
+            {
+                "column_name": "id_facultad",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "nombre",
+                "data_type": "text",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_creacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_modificacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_eliminacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_contexto",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_facultad"
+        ]
+    },
+    "utamed.Administrativo.Asignatura": {
+        "columns": [
+            {
+                "column_name": "id_asignatura",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "cod_asignatura",
+                "data_type": "character varying",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": 10
+            },
+            {
+                "column_name": "nombre",
+                "data_type": "text",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "descripcion",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "creditos_sct",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "horas_catedra",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "horas_taller",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "horas_laboratorio",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "horas_dirigidas",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "horas_autonomas",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_creacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_modificacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_eliminacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_asignatura"
+        ]
+    },
+    "utamed.Administrativo.Carrera": {
+        "columns": [
+            {
+                "column_name": "id_carrera",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "nombre",
+                "data_type": "text",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "jornada",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "sede",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "modalidad",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_creacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_modificacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_eliminacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_departamento",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_facultad",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_carrera"
+        ]
+    },
+    "utamed.Administrativo.Programa": {
+        "columns": [
+            {
+                "column_name": "id_programa",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "version",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "unc_programa",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_curso",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "es_plantilla",
+                "data_type": "boolean",
+                "is_nullable": "NO",
+                "column_default": "false",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_usuario_autor",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "es_actual",
+                "data_type": "boolean",
+                "is_nullable": "NO",
+                "column_default": "true",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_creacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_eliminacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_programa",
+            "es_actual",
+            "id_curso",
+            "es_plantilla"
+        ]
+    },
+    "utamed.Administrativo.Departamento": {
+        "columns": [
+            {
+                "column_name": "id_departamento",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "nombre",
+                "data_type": "text",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_creacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_modificacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_eliminacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_facultad",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_departamento",
+            "id_facultad"
+        ]
+    },
+    "utamed.Administrativo.Plan": {
+        "columns": [
+            {
+                "column_name": "id_plan",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_carrera",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "agno",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "version",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "creditos_sct_totales",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_creacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_modificacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_eliminacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_plan"
+        ]
+    },
+    "utamed.Administrativo.Asignacion_Plan": {
+        "columns": [
+            {
+                "column_name": "id_asignatura",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_plan",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "agno_planificado",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "semestre_planificado",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "tipo_ramo",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_creacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_eliminacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_asignatura",
+            "id_plan"
+        ]
+    },
+    "utamed.Curso.Curso": {
+        "columns": [
+            {
+                "column_name": "id_curso",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "cod_curso",
+                "data_type": "numeric",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "nombre",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "grupo_indice",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_inicio",
+                "data_type": "date",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_fin",
+                "data_type": "date",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "agno_real",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "semestre_real",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "estado_interno",
+                "data_type": "character varying",
+                "is_nullable": "YES",
+                "column_default": "'ABIERTO'::character varying",
+                "character_maximum_length": 20
+            },
+            {
+                "column_name": "estado_acta",
+                "data_type": "character varying",
+                "is_nullable": "YES",
+                "column_default": "'NO_ENVIADO'::character varying",
+                "character_maximum_length": 20
+            },
+            {
+                "column_name": "es_plantilla",
+                "data_type": "boolean",
+                "is_nullable": "NO",
+                "column_default": "false",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_contexto",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_asignatura",
+                "data_type": "integer",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_plan",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_creacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_modificacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "NO",
+                "column_default": "now()",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_eliminacion",
+                "data_type": "timestamp without time zone",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "grupo_letra",
+                "data_type": "character varying",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": 2
+            }
+        ],
+        "pks": [
+            "id_curso"
+        ]
+    },
+    "utamed.Curso.Unidad": {
+        "columns": [
+            {
+                "column_name": "id_unidad",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "num_unidad",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "nombre",
+                "data_type": "character varying",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "descripcion",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_curso",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "es_plantilla",
+                "data_type": "boolean",
+                "is_nullable": "YES",
+                "column_default": "false",
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_unidad",
+            "id_curso"
+        ]
+    },
+    "utamed.Curso.Tipo_Seccion": {
+        "columns": [
+            {
+                "column_name": "id_tipo_seccion",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "tipo",
+                "data_type": "character varying",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": 50
+            }
+        ],
+        "pks": [
+            "id_tipo_seccion"
+        ]
+    },
+    "utamed.Curso.Inscripcion_Seccion": {
+        "columns": [
+            {
+                "column_name": "nota_seccion",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_estudiante",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_seccion",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_curso",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_estudiante",
+            "id_seccion",
+            "id_curso"
+        ]
+    },
+    "utamed.Curso.Asistencia": {
+        "columns": [
+            {
+                "column_name": "id_asistencia",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "dia",
+                "data_type": "date",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "hora_inicio",
+                "data_type": "time without time zone",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "hora_fin",
+                "data_type": "time without time zone",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "esta_presente",
+                "data_type": "boolean",
+                "is_nullable": "YES",
+                "column_default": "true",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_estudiante",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_seccion",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_curso",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": []
+    },
+    "utamed.Curso.Inscripcion_Curso": {
+        "columns": [
+            {
+                "column_name": "cod_inscripcion_uta",
+                "data_type": "character varying",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "num_intento",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": "1",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_inscripcion",
+                "data_type": "date",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "estado_inscripcion",
+                "data_type": "character varying",
+                "is_nullable": "YES",
+                "column_default": "'INSCRITO'::character varying",
+                "character_maximum_length": 20
+            },
+            {
+                "column_name": "promedio_parcial",
+                "data_type": "numeric",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_curso",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_estudiante",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_curso",
+            "id_estudiante"
+        ]
+    },
+    "utamed.Curso.Seccion": {
+        "columns": [
+            {
+                "column_name": "id_seccion",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_curso",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "es_plantilla",
+                "data_type": "boolean",
+                "is_nullable": "NO",
+                "column_default": "false",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_tipo_seccion",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_docente",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_seccion",
+            "id_curso"
+        ]
+    },
+    "utamed.Agenda.Agenda": {
+        "columns": [
+            {
+                "column_name": "wip",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": []
+    },
+    "utamed.Agenda.Actividad_Asignada": {
+        "columns": [
+            {
+                "column_name": "grupo",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "nota",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_actividad",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_estado",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "grupo",
+            "id_actividad"
+        ]
+    },
+    "utamed.Agenda.Actividad": {
+        "columns": [
+            {
+                "column_name": "id_actividad",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "nombre",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "fecha_limite",
+                "data_type": "date",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "visible",
+                "data_type": "boolean",
+                "is_nullable": "NO",
+                "column_default": "true",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "tipo_actividad",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "tipo_entrega",
+                "data_type": "character varying",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "es_grupal",
+                "data_type": "boolean",
+                "is_nullable": "NO",
+                "column_default": "false",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "max_integrantes",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": "1",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "es_plantilla",
+                "data_type": "boolean",
+                "is_nullable": "NO",
+                "column_default": "false",
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_curso",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_seccion",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_unidad",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_actividad"
+        ]
+    },
+    "utamed.Agenda.Estado_Actividad": {
+        "columns": [
+            {
+                "column_name": "id_estado",
+                "data_type": "smallint",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "titulo",
+                "data_type": "text",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "descripcion",
+                "data_type": "text",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "id_estado"
+        ]
+    },
+    "utamed.Agenda.Asignado_Actividad": {
+        "columns": [
+            {
+                "column_name": "nota_individual",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "diferencia_decimas",
+                "data_type": "smallint",
+                "is_nullable": "YES",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "grupo",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_actividad",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            },
+            {
+                "column_name": "id_estudiante",
+                "data_type": "integer",
+                "is_nullable": "NO",
+                "column_default": null,
+                "character_maximum_length": null
+            }
+        ],
+        "pks": [
+            "grupo",
+            "id_actividad",
+            "id_estudiante"
+        ]
+    }
+}

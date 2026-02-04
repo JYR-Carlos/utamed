@@ -11,7 +11,7 @@ use Awobaz\Compoships\Database\Eloquent\Model;
 abstract class BaseVwPermisosUsuario extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'utamed.vw_permisos_usuario';
+    protected $table = 'vw_permisos_usuario';
     protected $primaryKey = 'id';
     public $incrementing = true;
 
@@ -21,5 +21,27 @@ abstract class BaseVwPermisosUsuario extends Model
         'slug',
         'tipo_asignacion'
     ];
+
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
+    }
+
 
 }

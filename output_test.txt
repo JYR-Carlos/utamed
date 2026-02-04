@@ -1,4 +1,0 @@
-1. Role check: SUCCESS
-2. Assigned role check: SUCCESS
-3. Special revoke check: SUCCESS
-Verification COMPLETE

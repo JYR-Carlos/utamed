@@ -1,5 +1,5 @@
 <script lang="ts">
-    import AppLogoIcon from '@/components/AppLogoIcon.svelte';
+    import AppLogoIcon from '@/components/custom/layout/AppLogoIcon.svelte';
     import { home } from '@/routes';
     import { Link } from '@inertiajs/svelte';
     import type { Snippet } from 'svelte';

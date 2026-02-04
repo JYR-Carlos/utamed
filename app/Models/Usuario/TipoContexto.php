@@ -12,6 +12,11 @@ use App\Models\Base\Usuario\BaseTipoContexto;
  */
 class TipoContexto extends BaseTipoContexto
 {
+    public function getRouteKeyName()
+    {
+        return 'id_tipo_contexto';
+    }
+
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales
