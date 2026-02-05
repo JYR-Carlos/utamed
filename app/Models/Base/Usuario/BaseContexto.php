@@ -80,9 +80,9 @@ abstract class BaseContexto extends Model
             \App\Models\Usuario\Usuario::class,
             'Usuario_Permiso_Especial',
             'id_contexto',
-            'id_usuario_recipiente'
+            'id_usuario'
         )
-            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function permisosEspecialesEnContexto()
@@ -93,7 +93,7 @@ abstract class BaseContexto extends Model
             'id_contexto',
             'id_permiso'
         )
-            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function usuariosConRolEnContexto()
@@ -102,9 +102,9 @@ abstract class BaseContexto extends Model
             \App\Models\Usuario\Usuario::class,
             'Usuario_Rol_Asignación',
             'id_contexto',
-            'id_usuario_recipiente'
+            'id_usuario'
         )
-            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function rolesEnContexto()
@@ -115,7 +115,7 @@ abstract class BaseContexto extends Model
             'id_contexto',
             'id_rol'
         )
-            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
 }

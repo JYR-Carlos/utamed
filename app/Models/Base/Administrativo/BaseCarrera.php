@@ -35,9 +35,12 @@ abstract class BaseCarrera extends Model
      */
     public function qualifyColumn($column)
     {
-        return is_string($column) && str_contains($column, '.')
-            ? $column
-            : $this->getTable() . '.' . $column;
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
     }
 
     /**
@@ -45,7 +48,7 @@ abstract class BaseCarrera extends Model
      */
     public function getQualifiedKeyName()
     {
-        return $this->getTable() . '.' . $this->getKeyName();
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
     }
 
 
@@ -53,7 +56,7 @@ abstract class BaseCarrera extends Model
 
     public function departamento()
     {
-        return $this->belongsTo(\App\Models\Administrativo\Departamento::class, 'id_departamento', 'id_departamento');
+        return $this->belongsTo(\App\Models\Administrativo\Departamento::class, ['id_departamento', 'id_facultad'], ['id_departamento', 'id_facultad']);
     }
 
     // Relaciones inversas

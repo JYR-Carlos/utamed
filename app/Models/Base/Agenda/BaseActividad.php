@@ -26,9 +26,7 @@ abstract class BaseActividad extends Model
         'es_grupal',
         'max_integrantes',
         'id_seccion',
-        'id_unidad',
-        'id_curso',
-        'es_plantilla'
+        'id_unidad'
     ];
 
     /**

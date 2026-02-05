@@ -24,7 +24,7 @@ abstract class BaseCurso extends Model
     protected $fillable = [
         'cod_curso',
         'nombre',
-        'grupo_indice',
+        'indice_grupo',
         'fecha_inicio',
         'fecha_fin',
         'agno_real',
@@ -32,13 +32,29 @@ abstract class BaseCurso extends Model
         'estado_interno',
         'estado_acta',
         'id_contexto',
-        'grupo_letra',
-        'id_asignatura',
-        'id_plan',
-        'es_plantilla'
+        'letra_grupo'
     ];
 
-    // Overrides removed to fix double quoting issue
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
+    }
 
 
     // Relaciones
@@ -85,7 +101,7 @@ abstract class BaseCurso extends Model
             'id_curso',
             'id_estudiante'
         )
-            ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
+        ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
     }
 
 }

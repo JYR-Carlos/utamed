@@ -18,6 +18,7 @@ abstract class BaseVwPermisosUsuario extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'esta_permitido',
         'slug',
         'tipo_asignacion'
     ];

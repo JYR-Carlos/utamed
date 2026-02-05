@@ -12,7 +12,7 @@ abstract class BaseUsuarioPermisoEspecial extends Model
 {
     protected $connection = 'pgsql';
     protected $table = 'Usuario_Permiso_Especial';
-    protected $primaryKey = ['id_permiso', 'id_contexto', 'id_usuario_recipiente', 'id_usuario_asignador'];
+    protected $primaryKey = ['id_permiso', 'id_contexto', 'id_usuario'];
     public $incrementing = false;
 
     public $timestamps = false;
@@ -23,7 +23,9 @@ abstract class BaseUsuarioPermisoEspecial extends Model
         'esta_permitido',
         'puede_delegar',
         'fecha_fin_real',
-        'fue_borrado'
+        'fue_borrado',
+        'creado_por',
+        'eliminado_por'
     ];
 
     /**
@@ -52,7 +54,7 @@ abstract class BaseUsuarioPermisoEspecial extends Model
 
     public function usuario()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario_recipiente', 'id_usuario');
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario', 'id_usuario');
     }
 
     public function permiso()
@@ -67,7 +69,12 @@ abstract class BaseUsuarioPermisoEspecial extends Model
 
     public function usuario1()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario_asignador', 'id_usuario');
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'creado_por', 'id_usuario');
+    }
+
+    public function usuario2()
+    {
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'eliminado_por', 'id_usuario');
     }
 
 }

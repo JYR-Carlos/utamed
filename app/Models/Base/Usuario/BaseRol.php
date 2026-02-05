@@ -19,7 +19,7 @@ abstract class BaseRol extends Model
 
     protected $fillable = [
         'nombre',
-        'id_usuario_autor'
+        'creado_por'
     ];
 
     /**
@@ -27,10 +27,12 @@ abstract class BaseRol extends Model
      */
     public function qualifyColumn($column)
     {
-        // Usamos el comportamiento estándar de Eloquent
-        return is_string($column) && str_contains($column, '.')
-            ? $column
-            : $this->getTable() . '.' . $column;
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
     }
 
     /**
@@ -38,7 +40,7 @@ abstract class BaseRol extends Model
      */
     public function getQualifiedKeyName()
     {
-        return $this->getTable() . '.' . $this->getKeyName();
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
     }
 
 
@@ -46,7 +48,7 @@ abstract class BaseRol extends Model
 
     public function usuario()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario_autor', 'id_usuario');
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'creado_por', 'id_usuario');
     }
 
     // Relaciones inversas
@@ -71,7 +73,7 @@ abstract class BaseRol extends Model
             'id_rol',
             'id_permiso'
         )
-            ->withPivot('puede_delegar_permisos');
+        ->withPivot('puede_delegar_permisos');
     }
 
     public function usuariosConRolAsignado()
@@ -80,9 +82,9 @@ abstract class BaseRol extends Model
             \App\Models\Usuario\Usuario::class,
             'Usuario_Rol_Asignación',
             'id_rol',
-            'id_usuario_recipiente'
+            'id_usuario'
         )
-            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function contextosConEsteRol()
@@ -93,7 +95,7 @@ abstract class BaseRol extends Model
             'id_rol',
             'id_contexto'
         )
-            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
 }

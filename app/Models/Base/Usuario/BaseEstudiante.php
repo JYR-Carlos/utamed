@@ -19,11 +19,29 @@ abstract class BaseEstudiante extends Model
 
     protected $fillable = [
         'agno_ingreso',
-        'id_usuario',
-        'id_carrera'
+        'id_usuario'
     ];
 
-    // Overrides removed to fix double quoting issue
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
+    }
 
 
     // Relaciones
@@ -65,7 +83,7 @@ abstract class BaseEstudiante extends Model
             'id_estudiante',
             'grupo,id_actividad'
         )
-            ->withPivot('nota_individual', 'diferencia_decimas');
+        ->withPivot('nota_individual', 'diferencia_decimas');
     }
 
     public function cursosInscritos()
@@ -76,7 +94,7 @@ abstract class BaseEstudiante extends Model
             'id_estudiante',
             'id_curso'
         )
-            ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
+        ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
     }
 
     public function seccionesInscritas()
@@ -87,7 +105,7 @@ abstract class BaseEstudiante extends Model
             'id_estudiante',
             'id_seccion,id_curso'
         )
-            ->withPivot('nota_seccion');
+        ->withPivot('nota_seccion');
     }
 
 }

@@ -78,7 +78,7 @@ abstract class BasePermiso extends Model
             \App\Models\Usuario\Usuario::class,
             'Usuario_Permiso_Especial',
             'id_permiso',
-            'id_usuario_recipiente'
+            'id_usuario'
         )
         ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }

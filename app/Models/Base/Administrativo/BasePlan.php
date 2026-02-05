@@ -22,9 +22,8 @@ abstract class BasePlan extends Model
     const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
-        'id_carrera',
         'agno',
-        'version',
+        'version_plan',
         'creditos_sct_totales'
     ];
 
@@ -33,9 +32,12 @@ abstract class BasePlan extends Model
      */
     public function qualifyColumn($column)
     {
-        return is_string($column) && str_contains($column, '.')
-            ? $column
-            : $this->getTable() . '.' . $column;
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
     }
 
     /**
@@ -43,7 +45,7 @@ abstract class BasePlan extends Model
      */
     public function getQualifiedKeyName()
     {
-        return $this->getTable() . '.' . $this->getKeyName();
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
     }
 
 
@@ -71,7 +73,7 @@ abstract class BasePlan extends Model
             'id_plan',
             'id_asignatura'
         )
-            ->withPivot('agno_planificado', 'semestre_planificado', 'tipo_ramo');
+        ->withPivot('agno_planificado', 'semestre_planificado', 'tipo_ramo');
     }
 
 }

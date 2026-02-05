@@ -21,9 +21,9 @@ abstract class BasePrograma extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'version',
+        'version_programa',
         'unc_programa',
-        'id_usuario_autor'
+        'creado_por'
     ];
 
     /**
@@ -31,9 +31,12 @@ abstract class BasePrograma extends Model
      */
     public function qualifyColumn($column)
     {
-        return is_string($column) && str_contains($column, '.')
-            ? $column
-            : $this->getTable() . '.' . $column;
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
     }
 
     /**
@@ -41,14 +44,15 @@ abstract class BasePrograma extends Model
      */
     public function getQualifiedKeyName()
     {
-        return $this->getTable() . '.' . $this->getKeyName();
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
     }
+
 
     // Relaciones
 
-    public function autor()
+    public function usuario()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario_autor', 'id_usuario');
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'creado_por', 'id_usuario');
     }
 
     public function curso()

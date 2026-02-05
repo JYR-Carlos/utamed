@@ -12,7 +12,7 @@ abstract class BaseUsuarioRolAsignación extends Model
 {
     protected $connection = 'pgsql';
     protected $table = 'Usuario_Rol_Asignación';
-    protected $primaryKey = ['id_contexto', 'id_rol', 'id_usuario_recipiente', 'id_usuario_asignador'];
+    protected $primaryKey = ['id_contexto', 'id_rol', 'id_usuario'];
     public $incrementing = false;
 
     public $timestamps = false;
@@ -22,7 +22,9 @@ abstract class BaseUsuarioRolAsignación extends Model
         'fecha_inicio_planificada',
         'fecha_fin_planificada',
         'fecha_fin_real',
-        'fue_eliminado'
+        'fue_eliminado',
+        'creado_por',
+        'eliminado_por'
     ];
 
     /**
@@ -51,7 +53,7 @@ abstract class BaseUsuarioRolAsignación extends Model
 
     public function usuario()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario_recipiente', 'id_usuario');
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario', 'id_usuario');
     }
 
     public function contexto()
@@ -66,7 +68,12 @@ abstract class BaseUsuarioRolAsignación extends Model
 
     public function usuario1()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario_asignador', 'id_usuario');
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'creado_por', 'id_usuario');
+    }
+
+    public function usuario2()
+    {
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'eliminado_por', 'id_usuario');
     }
 
 }
