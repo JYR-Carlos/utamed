@@ -149,12 +149,20 @@ $createdAtColumn = 'fecha_creacion';
 $updatedAtColumn = 'fecha_modificacion';
 $softDeleteColumnName = 'fecha_eliminacion'; // Nombre de columna para soft deletes
 
+// Dos formas de configurar columnas NO fillable:
+// 1. Globales para todas las tablas (nombres comunes)
+// 2. Específicas por tabla (array con 'table' y 'colname')
 $notFillableColumns = [
+  // Globales (todas las tablas)
   $createdAtColumn,
   $updatedAtColumn,
   $softDeleteColumnName,
-  // Agregar otras columnas que no deben ser fillable
-  'esta_activo'
+  // 'esta_activo' de roles y permisos
+  ['table' => 'Usuario_Rol_Asignación', 'colname' => 'esta_activo'],
+  ['table' => 'Usuario_Permiso_Especial', 'colname' => 'esta_activo'],
+  // Curso
+  ['table' => 'Curso', 'colname' => 'grupo_indice'],   // Generada por trigger (MAX query)
+  ['table' => 'Curso', 'colname' => 'grupo_letra'],    // Generada de grupo_indice (STORED)
 ];
 
 // Directorio para Models
@@ -490,7 +498,7 @@ $manualPivotTables = [
 
 echo "🚀 Generando modelos desde PostgreSQL...\n";
 if ($dryRun) {
-  echo "🔍 MODO DRY-RUN (sin crear/modificar archivos)\n";
+  echo "MODO DRY-RUN (sin crear/modificar archivos)\n";
 }
 echo "\n";
 
@@ -558,7 +566,7 @@ echo "Encontradas " . count($tables) . " tablas\n\n";
 // ==================================================================================
 
 // Pre-cargar todas las FK para detectar relaciones inversas
-echo "📊 Analizando relaciones inversas...\n";
+echo "Analizando relaciones inversas...\n";
 $allForeignKeys = [];
 foreach ($tables as $t) {
   $fks = DB::select("
@@ -616,7 +624,7 @@ foreach ($tables as $t) {
     ];
   }
 }
-echo "✓ Relaciones inversas analizadas\n\n";
+echo "Relaciones inversas analizadas\n\n";
 
 // ==================================================================================
 // PASO 3: CARGAR TABLAS PIVOT (belongsToMany)
@@ -638,7 +646,7 @@ echo "✓ Relaciones inversas analizadas\n\n";
 // requieren lógica personalizada manual
 // ==================================================================================
 
-echo "🔗 Cargando tablas pivot...\n";
+echo "Cargando tablas pivot...\n";
 $pivotTables = [];
 
 foreach ($tables as $t) {
@@ -932,8 +940,7 @@ foreach ($tables as $tableInfo) {
   //
   // USO: Permite hacer Modelo::create(['nombre' => 'Test']) sin mass assignment exception
   // ==================================================================================
-
-
+ 
   // Excluir PK (simple o compuesta)
   if (is_array($primaryKey)) {
     $notFillableColumns = array_merge($notFillableColumns, $primaryKey);
@@ -941,10 +948,28 @@ foreach ($tables as $tableInfo) {
     $notFillableColumns[] = $primaryKey;
   }
 
-  // Generar fillable
+  // Crear función helper para verificar si columna debe ser excluida
+  $shouldExcludeColumn = function($colName, $currentTable) use ($notFillableColumns) {
+    foreach ($notFillableColumns as $exclude) {
+      if (is_string($exclude)) {
+        // Excluye globalmente si es string
+        if ($colName === $exclude) {
+          return true;
+        }
+      } elseif (is_array($exclude) && isset($exclude['table'], $exclude['colname'])) {
+        // Excluye solo si tabla y columna coinciden
+        if ($exclude['table'] === $currentTable && $exclude['colname'] === $colName) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  // Usar la función al generar fillable
   $fillable = collect($columns)
     ->pluck('column_name')
-    ->reject(fn($col) => in_array($col, $notFillableColumns))
+    ->reject(fn($col) => $shouldExcludeColumn($col, $tableName))
     ->map(fn($col) => "        '{$col}'")
     ->implode(",\n");
 
