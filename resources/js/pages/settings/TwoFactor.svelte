@@ -1,4 +1,18 @@
 <script lang="ts">
+    /**
+     * Página de configuración de autenticación de dos factores (2FA).
+     * 
+     * Permite a usuarios habilitar/deshabilitar 2FA y gestionar códigos de recuperación.
+     * 
+     * Características:
+     * - Habilitación/deshabilitación de 2FA
+     * - Modal de configuración con QR code para aplicación autenticadora
+     * - Generación y visualización de códigos de recuperación de emergencia
+     * - Regeneración de códigos de recuperación
+     * - Confirmación de código antes de activación (opcional)
+     * - Badges de estado (habilitado/deshabilitado)
+     * - Integración con Fortify para TOTP
+     */
     import HeadingSmall from '@/components/custom/common/HeadingSmall.svelte';
     import TwoFactorRecoveryCodes from '@/components/custom/auth/TwoFactorRecoveryCodes.svelte';
     import TwoFactorSetupModal from '@/components/custom/auth/TwoFactorSetupModal.svelte';

@@ -1,4 +1,16 @@
 <script lang="ts">
+    /**
+     * Página de registro de nuevos usuarios.
+     * 
+     * Formulario de auto-registro que permite crear nueva cuenta
+     * (aunque en UTAMED típicamente usuarios son creados por administradores).
+     * 
+     * Características:
+     * - Validación de campos (nombre, email único, contraseña confirmada)
+     * - Integración con Fortify de Laravel
+     * - Manejo de errores de validación
+     * - Spinner de carga durante procesamiento
+     */
     import RegisteredUserController from '@/actions/Laravel/Fortify/Http/Controllers/RegisteredUserController';
     import InputError from '@/components/custom/common/InputError.svelte';
     import TextLink from '@/components/custom/common/TextLink.svelte';

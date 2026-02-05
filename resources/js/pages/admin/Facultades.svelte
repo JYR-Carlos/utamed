@@ -1,4 +1,18 @@
 <script lang="ts">
+    /**
+     * Página de administración de facultades.
+     * 
+     * Gestión CRUD de facultades en la jerarquía académica.
+     * Las facultades contienen departamentos que a su vez contienen carreras.
+     * 
+     * Características:
+     * - Tabla con búsqueda por nombre
+     * - Formulario modal para crear/editar facultades
+     * - Eliminación con confirmación
+     * 
+     * Tabla relacionada:
+     * - administrativo.facultad: Información de facultades
+     */
     import { router } from '@inertiajs/svelte';
     import DataTable from '@/components/custom/admin/DataTable.svelte';
     import FormModal from '@/components/custom/admin/FormModal.svelte';
@@ -6,8 +20,13 @@
     import AdminLayout from '@/layouts/AdminLayout.svelte';
     import type { Facultad, PaginatedResponse, FacultadFormData } from '@/types/admin.types';
 
+    /**
+     * Props recibidas del servidor.
+     */
     interface Props {
+        /** Facultades paginadas */
         facultades: PaginatedResponse<Facultad>;
+        /** Filtros de búsqueda */
         filters: { search?: string };
     }
 

@@ -1,7 +1,17 @@
 <script lang="ts">
+    /**
+     * Widget de dashboard para docentes.
+     * 
+     * Componente reutilizable que muestra opciones y accesos rápidos
+     * específicos para docentes en el dashboard principal.
+     */
     import { Link } from '@inertiajs/svelte';
     
+    /**
+     * Props recibidas.
+     */
     interface Props {
+        /** Datos del usuario docente autenticado */
         user: any;
     }
     let { user }: Props = $props();

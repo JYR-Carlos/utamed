@@ -1,5 +1,15 @@
 <script lang="ts">
+    /**
+     * Widget de dashboard para estudiantes/alumnos.
+     * 
+     * Componente reutilizable que muestra opciones y accesos rápidos
+     * específicos para estudiantes en el dashboard principal.
+     */
+    /**
+     * Props recibidas.
+     */
     interface Props {
+        /** Datos del usuario estudiante autenticado */
         user: any;
     }
     let { user }: Props = $props();

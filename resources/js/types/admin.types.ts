@@ -146,6 +146,46 @@ export interface Curso {
     fecha_eliminacion?: string;
 }
 
+/**
+ * TipoSeccion (Section Type) entity
+ * Represents the type of a course section (e.g., Cátedra, Problemas, Laboratorio)
+ */
+export interface TipoSeccion {
+    /** Unique identifier for the section type */
+    id_tipo_seccion: number;
+    /** Type name (e.g., "Cátedra", "Problemas", "Laboratorio") */
+    tipo: string;
+    /** Creation timestamp */
+    fecha_creacion?: string;
+    /** Last modification timestamp */
+    fecha_modificacion?: string;
+}
+
+/**
+ * Seccion (Course Section) entity
+ * Represents a specific section of a course (e.g., lecture, lab, workshop)
+ */
+export interface Seccion {
+    /** Unique identifier for the section */
+    id_seccion: number;
+    /** Foreign key to the parent course */
+    id_curso: number;
+    /** Foreign key to the section type */
+    id_tipo_seccion: number;
+    /** Foreign key to the assigned instructor (optional) */
+    id_docente?: number;
+    /** Related section type object (eager loaded) */
+    tipo_seccion?: TipoSeccion;
+    /** Related instructor object (eager loaded) */
+    docente?: Docente;
+    /** Creation timestamp */
+    fecha_creacion?: string;
+    /** Last modification timestamp */
+    fecha_modificacion?: string;
+    /** Soft delete timestamp */
+    fecha_eliminacion?: string;
+}
+
 export interface Usuario {
     id_usuario: number;
     username: string;

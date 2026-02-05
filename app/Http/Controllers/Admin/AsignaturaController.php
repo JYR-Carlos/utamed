@@ -8,10 +8,21 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
+
+/**
+ * Controlador para la gestión de asignaturas.
+ * 
+ * Tablas implicadas:
+ * - administrativo.asignatura: Catálogo de asignaturas disponibles.
+ * - administrativo.asignacion_plan: Instancias de asignaturas en planes específicos.
+ * 
+ * Las asignaturas son entidades globales que pueden ser asignadas a múltiples planes.
+ * Contienen información como código, nombre, créditos SCT y otros datos académicos.
+ */
 class AsignaturaController extends Controller
 {
     /**
-     * Display a listing of asignaturas.
+     * Muestra un listado paginado de asignaturas con búsqueda por código o nombre.
      */
     public function index(Request $request)
     {
@@ -38,7 +49,7 @@ class AsignaturaController extends Controller
     }
 
     /**
-     * Store a newly created asignatura.
+     * Crea una nueva asignatura en el catálogo global.
      */
     public function store(Request $request)
     {
@@ -65,7 +76,7 @@ class AsignaturaController extends Controller
     }
 
     /**
-     * Display the specified asignatura.
+     * Obtiene una asignatura con sus asignaciones a planes.
      */
     public function show(Asignatura $asignatura)
     {
@@ -75,7 +86,7 @@ class AsignaturaController extends Controller
     }
 
     /**
-     * Update the specified asignatura.
+     * Actualiza los datos de una asignatura.
      */
     public function update(Request $request, Asignatura $asignatura)
     {
@@ -103,7 +114,7 @@ class AsignaturaController extends Controller
     }
 
     /**
-     * Remove the specified asignatura.
+     * Elimina una asignatura del catálogo.
      */
     public function destroy(Asignatura $asignatura)
     {

@@ -15,6 +15,14 @@ class AsignacionPlan extends BaseAsignacionPlan
     use \App\Traits\HasCompositeKey;
 
     /**
+     * Attributes that should be mutated to dates
+     */
+    protected $dates = [
+        'fecha_creacion',
+        'fecha_eliminacion'
+    ];
+
+    /**
      * Wayfinder/Eloquent workaround: return a single key name instead of the composite array
      * to prevent Reflection errors in Wayfinder.
      */
@@ -29,6 +37,13 @@ class AsignacionPlan extends BaseAsignacionPlan
     protected static function boot()
     {
         parent::boot();
+
+        // Ensure fecha_creacion is set when creating
+        static::creating(function ($asignacion) {
+            if (!$asignacion->fecha_creacion) {
+                $asignacion->fecha_creacion = now();
+            }
+        });
 
         // When a new assignment is created, update plan credits
         static::created(function ($asignacion) {

@@ -1,5 +1,21 @@
 <script lang="ts">
+    /**
+     * Widget de dashboard para ayudantes de cátedra.
+     * 
+     * Componente reutilizable que muestra opciones y accesos rápidos
+     * específicos para ayudantes en el dashboard principal.
+     * 
+     * Características:
+     * - Panel de gestión de ayudantías asignadas
+     * - Registro de asistencia
+     * - Vista de tareas pendientes (informes por revisar)
+     */
+    
+    /**
+     * Props recibidas.
+     */
     interface Props {
+        /** Datos del usuario ayudante autenticado */
         user: any;
     }
     let { user }: Props = $props();

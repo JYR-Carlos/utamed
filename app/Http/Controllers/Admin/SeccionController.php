@@ -9,10 +9,31 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controlador para la gestión de secciones de un curso.
+ * 
+ * Tablas implicadas:
+ * - curso.seccion: Secciones (Cátedra, Problemas, Laboratorio) de cada curso
+ * - curso.curso: Cursos ofertados en periodos académicos
+ * - usuario.docente: Docentes asignados como responsables de secciones
+ * - curso.tipo_seccion: Tipos válidos de secciones (Cátedra, Problemas, Laboratorio, etc.)
+ * 
+ * Gestiona la creación, actualización y eliminación de secciones dentro de un curso.
+ * Aplica reglas de negocio: máximo 2 secciones por curso, tipo único por sección.
+ * Permite asignar docentes responsables y realizar seguimiento.
+ */
 class SeccionController extends Controller
 {
     /**
-     * Store a newly created seccion.
+     * Crea una nueva sección para un curso específico.
+     * 
+     * Valida reglas de negocio: máximo 2 secciones por curso, sin duplicar tipos.
+     * Permite asignación opcional de docente responsable.
+     * Devuelve JSON si es solicitud AJAX, redirección de vuelta si es formulario tradicional.
+     * 
+     * @param  Request  $request  Datos: id_tipo_seccion, id_docente (opcional)
+     * @param  Curso    $curso    Curso al cual agregar la sección
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse  JSON o redirección
      */
     public function store(Request $request, Curso $curso)
     {
@@ -61,7 +82,14 @@ class SeccionController extends Controller
     }
 
     /**
-     * Update the specified seccion.
+     * Actualiza una sección existente (tipo y docente responsable).
+     * 
+     * Modifica el tipo de sección y/o el docente asignado.
+     * Devuelve JSON si es solicitud AJAX, redirección de vuelta si es formulario tradicional.
+     * 
+     * @param  Request  $request  Datos actualizados: id_tipo_seccion, id_docente (opcional)
+     * @param  Seccion  $seccion  Sección a actualizar
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse  JSON o redirección
      */
     public function update(Request $request, Seccion $seccion)
     {
@@ -89,7 +117,13 @@ class SeccionController extends Controller
     }
 
     /**
-     * Remove the specified seccion.
+     * Elimina una sección del curso.
+     * 
+     * Borra la sección y sus registros asociados. Devuelve JSON si es AJAX, redirección si es formulario.
+     * 
+     * @param  Request  $request  Solicitud HTTP
+     * @param  Seccion  $seccion  Sección a eliminar
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse  JSON o redirección
      */
     public function destroy(Request $request, Seccion $seccion)
     {

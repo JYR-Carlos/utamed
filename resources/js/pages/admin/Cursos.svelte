@@ -1,11 +1,34 @@
 <script lang="ts">
+	/**
+	 * Página de administración de cursos ofertados.
+	 * 
+	 * Gestión completa de cursos que se ofrecen en periodos académicos.
+	 * Cada curso es una oferta específica de una asignatura en un plan.
+	 * 
+	 * Características:
+	 * - CRUD de cursos (crear, leer, actualizar, eliminar)
+	 * - Creación de secciones (cátedra, problemas, laboratorio)
+	 * - Asignación de docentes a secciones
+	 * - Gestión de equipos de cátedra (docentes auxiliares, ayudantes)
+	 * - Asignación de roles y permisos a miembros del equipo
+	 * - Validación de reglas de negocio (máx 2 secciones por curso, tipos únicos)
+	 * 
+	 * Tablas relacionadas:
+	 * - curso.curso: Información del curso (oferta específica)
+	 * - administrativo.asignatura: Asignatura que se cursa
+	 * - administrativo.plan: Plan al que pertenece el curso
+	 * - curso.seccion: Secciones del curso (cátedra, problemas, etc.)
+	 * - usuario.docente: Docentes responsables de secciones
+	 * - usuario.usuario_rol_asignación: Roles de miembros del equipo
+	 * - usuario.usuario_permiso_especial: Permisos especiales en contexto del curso
+	 */
 	import AdminLayout from '@/layouts/AdminLayout.svelte';
 	import { router } from '@inertiajs/svelte';
 	import DataTable from '@/components/custom/admin/DataTable.svelte';
 	import FormModal from '@/components/custom/admin/FormModal.svelte';
 	import CourseTeamModal from '@/components/custom/admin/CourseTeamModal.svelte';
 	import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
-	import axios from 'axios';
+	import axios, { AxiosError } from 'axios';
 	import type {
 		Curso,
 		Asignatura,
@@ -13,17 +36,27 @@
 		Docente,
 		PaginatedResponse,
 		CursoFormData,
-		Seccion, // Assuming type exists or I need to add it
+		Seccion,
 		TipoSeccion
 	} from '@/types/admin.types';
 
+	/**
+	 * Props recibidas del servidor.
+	 */
 	interface Props {
+		/** Cursos paginados */
 		cursos: PaginatedResponse<Curso>;
+		/** Asignaturas disponibles para crear cursos */
 		asignaturas: Asignatura[];
+		/** Planes disponibles para filtrar/asignar cursos */
 		planes: Plan[];
+		/** Roles disponibles para asignar a miembros del equipo */
 		availableRoles: any[];
+		/** Permisos especiales disponibles */
 		availablePermissions: Record<string, any[]>;
+		/** Filtros aplicados */
 		filters: { search?: string; id_asignatura?: number };
+		/** Tipos de secciones disponibles (Cátedra, Problemas, etc.) */
 		tipos_seccion: TipoSeccion[];
 	}
 
@@ -174,7 +207,10 @@
 			}
 		} catch (error) {
 			console.error("Error adding seccion:", error);
-			alert("Error al agregar sección: " + (error.response?.data?.error || error.message));
+			const message = error instanceof AxiosError 
+				? (error.response?.data?.error || error.message)
+				: 'Error desconocido';
+			alert("Error al agregar sección: " + message);
 		}
 	}
 
@@ -186,7 +222,10 @@
 			currentSecciones = currentSecciones.filter(s => s.id_seccion !== seccionId);
 		} catch (error) {
 			console.error("Error deleting seccion:", error);
-			alert("Error al eliminar sección: " + (error.response?.data?.error || error.message));
+			const message = error instanceof AxiosError 
+				? (error.response?.data?.error || error.message)
+				: 'Error desconocido';
+			alert("Error al eliminar sección: " + message);
 		}
 	}
 
@@ -199,7 +238,10 @@
 			// Optionally show success toast
 		} catch (error) {
 			console.error("Error updating seccion:", error);
-			alert("Error al actualizar sección: " + (error.response?.data?.error || error.message));
+			const message = error instanceof AxiosError 
+				? (error.response?.data?.error || error.message)
+				: 'Error desconocido';
+			alert("Error al actualizar sección: " + message);
 		}
 	}
 

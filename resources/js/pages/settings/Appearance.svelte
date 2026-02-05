@@ -1,4 +1,14 @@
 <script lang="ts">
+    /**
+     * Página de configuración de apariencia.
+     * 
+     * Permite a usuarios personalizar la apariencia de la interfaz.
+     * 
+     * Características:
+     * - Selector de tema (claro/oscuro/sistema)
+     * - Configuración de preferencias visuales
+     * - Persistencia de configuración en localStorage
+     */
     import AppearanceTabs from '@/components/custom/common/AppearanceTabs.svelte';
     import HeadingSmall from '@/components/custom/common/HeadingSmall.svelte';
     import { type BreadcrumbItem } from '@/types';

@@ -1,23 +1,53 @@
 <script lang="ts">
+	/**
+	 * Modal para gestionar detalles de la malla curricular.
+	 * 
+	 * Permite a administradores agregar, editar y eliminar asignaturas
+	 * de un plan de estudios específico.
+	 * 
+	 * Características:
+	 * - Búsqueda y filtrado de asignaturas
+	 * - Validación de tipos de dato (tipo_ramo: null o integer)
+	 * - Organización por año y semestre planificado
+	 * - Manejo de errores con display en modal
+	 * - Confirmación antes de eliminación
+	 * 
+	 * Tablas relacionadas:
+	 * - administrativo.asignacion_plan: Relación asignatura-plan
+	 * - administrativo.asignatura: Información de asignaturas
+	 * - administrativo.plan: Información de planes curriculares
+	 */
 	import { router } from '@inertiajs/svelte';
 	import type { Plan, Asignatura, AsignacionPlan, AsignacionPlanFormData, MallaData } from '@/types/admin.types';
 	import AdminLayout from '@/layouts/AdminLayout.svelte';
 	import FormModal from '@/components/custom/admin/FormModal.svelte';
 	import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
 
+	/**
+	 * Props recibidas del servidor (Inertia).
+	 */
 	interface Props {
+		/** Plan académico que se está editando */
 		plan: Plan;
+		/** Datos de la malla actual organizados por período */
 		malla: MallaData;
+		/** Lista de asignaturas disponibles para asignar */
 		asignaturas: Asignatura[];
+		/** Mensajes flash del servidor (éxito/error) */
+		flash?: {
+			error?: string;
+			success?: string;
+		};
 	}
 
-	let { plan, malla, asignaturas }: Props = $props();
+	let { plan, malla, asignaturas, flash }: Props = $props();
 
 	let showModal = $state(false);
 	let showDeleteDialog = $state(false);
 	let isLoading = $state(false);
 	let editingAsignacion = $state<AsignacionPlan | null>(null);
 	let deletingAsignacion = $state<AsignacionPlan | null>(null);
+	let modalError = $state<string | null>(null);
 
 	let formData = $state<AsignacionPlanFormData>({
 		id_asignatura: 0,
@@ -64,6 +94,7 @@
 
 	function openCreateModal() {
 		editingAsignacion = null;
+		modalError = null;
 		formData = {
 			id_asignatura: 0,
 			agno_planificado: 1,
@@ -75,6 +106,7 @@
 
 	function openEditModal(asignacion: AsignacionPlan) {
 		editingAsignacion = asignacion;
+		modalError = null;
 		formData = {
 			id_asignatura: asignacion.id_asignatura,
 			agno_planificado: asignacion.agno_planificado,
@@ -89,10 +121,14 @@
 		editingAsignacion = null;
 		searchTerm = '';
 		showAsignaturasDropdown = false;
+		modalError = null;
 	}
 
 	function handleSubmit() {
-		if (formData.id_asignatura === 0) return;
+		if (formData.id_asignatura === 0) {
+			modalError = 'Debes seleccionar una asignatura';
+			return;
+		}
 
 		isLoading = true;
 
@@ -102,8 +138,10 @@
 					closeModal();
 					isLoading = false;
 				},
-				onError: () => {
+				onError: (errors) => {
 					isLoading = false;
+					modalError = 'Error al actualizar la asignación. Intenta de nuevo.';
+					console.error('Update errors:', errors);
 				}
 			});
 		} else {
@@ -112,8 +150,10 @@
 					closeModal();
 					isLoading = false;
 				},
-				onError: () => {
+				onError: (errors) => {
 					isLoading = false;
+					modalError = 'Error al asignar la asignatura. Verifica los datos e intenta de nuevo.';
+					console.error('Create errors:', errors);
 				}
 			});
 		}
@@ -246,6 +286,16 @@
 		onSubmit={handleSubmit}
 		{isLoading}
 	>
+		{#if modalError}
+			<div class="error-alert">
+				<div class="error-icon">⚠️</div>
+				<div class="error-content">
+					<p class="error-title">Error</p>
+					<p class="error-message">{modalError}</p>
+				</div>
+			</div>
+		{/if}
+
 		<div class="form-group">
 			<label for="id_asignatura" class="form-label">Asignatura *</label>
 			<div class="asignatura-search-container">
@@ -717,4 +767,40 @@
 			grid-template-columns: 1fr;
 		}
 	}
+
+.error-alert {
+	display: flex;
+	gap: 1rem;
+	padding: 1rem;
+	background-color: #fef2f2;
+	border: 1px solid #fecaca;
+	border-radius: 8px;
+	margin-bottom: 1rem;
+	align-items: flex-start;
+}
+
+.error-icon {
+	font-size: 1.5rem;
+	flex-shrink: 0;
+}
+
+.error-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.error-title {
+	margin: 0 0 0.25rem 0;
+	color: #dc2626;
+	font-weight: 600;
+	font-size: 0.875rem;
+}
+
+.error-message {
+	margin: 0;
+	color: #991b1b;
+	font-size: 0.875rem;
+	line-height: 1.5;
+	word-break: break-word;
+}
 </style>

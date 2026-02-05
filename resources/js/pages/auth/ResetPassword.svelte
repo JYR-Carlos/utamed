@@ -1,4 +1,16 @@
 <script lang="ts">
+    /**
+     * Página para establecer nueva contraseña.
+     * 
+     * Permite a usuarios restablecer su contraseña usando enlace
+     * recibido por email con token de validación.
+     * 
+     * Características:
+     * - Recibe token y email del enlace
+     * - Validación de nueva contraseña y confirmación
+     * - Integración con Fortify
+     * - Mensajes de error específicos
+     */
     import NewPasswordController from '@/actions/Laravel/Fortify/Http/Controllers/NewPasswordController';
     import InputError from '@/components/custom/common/InputError.svelte';
     import { Button } from '@/components/ui/button';
@@ -9,8 +21,13 @@
     import { Form } from '@inertiajs/svelte';
     import { LoaderCircle } from 'lucide-svelte';
 
+    /**
+     * Props recibidas del URL/servidor.
+     */
     interface Props {
+        /** Token de reset del URL */
         token: string;
+        /** Email del usuario del URL */
         email: string;
     }
 

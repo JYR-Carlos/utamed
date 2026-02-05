@@ -6,14 +6,23 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Middleware para validar que el usuario autenticado es administrador.
+ * 
+ * Define administrador como usuario que NO tiene perfil de Docente ni Estudiante.
+ * Redirige a usuarios sin permiso al dashboard con mensaje de error.
+ */
 class IsAdmin
 {
     /**
-     * Handle an incoming request.
+     * Verifica que el usuario autenticado sea administrador.
      * 
-     * Solo permite acceso a usuarios que NO tengan perfil de docente ni estudiante.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * Un usuario es administrador si NO posee instancia Docente ni Estudiante.
+     * Redirige a dashboard si falla la validación.
+     * 
+     * @param  Request  $request  Solicitud HTTP
+     * @param  Closure  $next     Siguiente middleware/controlador
+     * @return Response  Respuesta o redirección si no autorizado
      */
     public function handle(Request $request, Closure $next): Response
     {

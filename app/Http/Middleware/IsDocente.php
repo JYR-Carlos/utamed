@@ -6,12 +6,23 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Middleware para validar que el usuario autenticado es docente.
+ * 
+ * Verifica que el usuario posea perfil Docente.
+ * Redirige a usuarios sin permiso al dashboard con mensaje de error.
+ */
 class IsDocente
 {
     /**
-     * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * Verifica que el usuario autenticado sea docente.
+     * 
+     * Valida que el usuario autenticado tenga instancia Docente asociada.
+     * Redirige a dashboard si falla la validación.
+     * 
+     * @param  Request  $request  Solicitud HTTP
+     * @param  Closure  $next     Siguiente middleware/controlador
+     * @return Response  Respuesta o redirección si no autorizado
      */
     public function handle(Request $request, Closure $next): Response
     {

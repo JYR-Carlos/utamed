@@ -15,10 +15,29 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
+/**
+ * Controlador para gestión de cursos desde perspectiva del docente.
+ * 
+ * Tablas implicadas:
+ * - curso.curso: Cursos ofertados en periodos académicos
+ * - curso.seccion: Secciones asignadas al docente responsable
+ * - usuario.docente: Perfil docente del usuario autenticado
+ * - usuario.usuario_rol_asignación: Roles asignados en contexto del curso
+ * - usuario.usuario_permiso_especial: Permisos especiales en contexto del curso
+ * - usuario.contexto: Contextos (cursos) donde se aplican roles y permisos
+ * 
+ * Permite al docente ver sus cursos asignados, gestionar equipos de cátedra,
+ * asignar roles y permisos a otros docentes/ayudantes en sus cursos.
+ */
 class DocenteCursoController extends Controller
 {
     /**
-     * Display a listing of courses associated with the authenticated teacher.
+     * Muestra listado de cursos asociados al docente autenticado.
+     * 
+     * Obtiene todos los cursos donde el docente es responsable de alguna sección,
+     * con información de asignatura, plan y carrera.
+     * 
+     * @return \Illuminate\Http\RedirectResponse|\Inertia\Response  Redirección si no es docente, o vista con cursos
      */
     public function index()
     {
@@ -75,47 +94,68 @@ class DocenteCursoController extends Controller
     private function getDelegablePermissions(Usuario $user, ?int $idContexto = null)
     {
         // 1. Get delegable permissions from Roles
-        $roleQuery = $user->rolesAsignados()
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false);
+        try {
+            $roleAssignments = $user->rolesAsignados()
+                ->where('esta_activo', true)
+                ->where('fue_eliminado', false);
 
-        if ($idContexto) {
-            $roleQuery->where('id_contexto', $idContexto);
-        }
-
-        $rolePerms = $roleQuery->with([
-            'rol.permisos' => function ($query) {
-                $query->wherePivot('puede_delegar_permisos', true)
-                    ->where('slug', 'like', 'actividad:%'); // Domain restriction
+            if ($idContexto) {
+                $roleAssignments = $roleAssignments->where('id_contexto', $idContexto);
             }
-        ])
-            ->get()
-            ->pluck('rol.permisos')
-            ->flatten()
-            ->unique('id_permiso');
+
+            $roleAssignments = $roleAssignments->get();
+
+            $rolePerms = collect();
+            foreach ($roleAssignments as $assignment) {
+                $role = $assignment->rol;
+                if ($role) {
+                    // Get permisos for this role with delegation rights
+                    $perms = $role->permisos()
+                        ->wherePivot('puede_delegar_permisos', true)
+                        ->get();
+                    
+                    // Filter by slug
+                    foreach ($perms as $perm) {
+                        if (str_starts_with($perm->slug, 'actividad:') || str_starts_with($perm->slug, 'curso:')) {
+                            $rolePerms->push($perm);
+                        }
+                    }
+                }
+            }
+            $rolePerms = $rolePerms->unique('id_permiso');
+        } catch (\Exception $e) {
+            \Log::error('Error getting role permissions: ' . $e->getMessage());
+            $rolePerms = collect();
+        }
 
         // 2. Get delegable permissions from Special Permissions
-        $specialQuery = UsuarioPermisoEspecial::where('id_usuario_recipiente', $user->id_usuario)
-            ->where('esta_activo', true)
-            ->where('fue_borrado', false)
-            ->where(function ($query) {
-                $query->where('esta_permitido', true)
-                    ->orWhereNull('esta_permitido');
-            })
-            ->where('puede_delegar', true);
+        try {
+            $specialQuery = UsuarioPermisoEspecial::where('id_usuario_recipiente', $user->id_usuario)
+                ->where('esta_activo', true)
+                ->where('fue_borrado', false)
+                ->where(function ($query) {
+                    $query->where('esta_permitido', true)
+                        ->orWhereNull('esta_permitido');
+                })
+                ->where('puede_delegar', true);
 
-        if ($idContexto) {
-            $specialQuery->where('id_contexto', $idContexto);
-        }
-
-        $specialPerms = $specialQuery->with([
-            'permiso' => function ($query) {
-                $query->where('slug', 'like', 'actividad:%'); // Domain restriction
+            if ($idContexto) {
+                $specialQuery->where('id_contexto', $idContexto);
             }
-        ])
-            ->get()
-            ->pluck('permiso')
-            ->filter(); // Remove nulls from filtered perms
+
+            $assignments = $specialQuery->get();
+            $specialPerms = collect();
+            
+            foreach ($assignments as $assignment) {
+                $perm = $assignment->permiso;
+                if ($perm && (str_starts_with($perm->slug, 'actividad:') || str_starts_with($perm->slug, 'curso:'))) {
+                    $specialPerms->push($perm);
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error getting special permissions: ' . $e->getMessage());
+            $specialPerms = collect();
+        }
 
         $allDelegable = $rolePerms->concat($specialPerms)->unique('id_permiso');
 

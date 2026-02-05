@@ -12,10 +12,22 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controlador para la gestión de cursos (instancias de asignaturas).
+ * 
+ * Tablas implicadas:
+ * - curso.curso: Instancias de asignaturas ofrecidas en un período académico.
+ * - administrativo.asignatura: Asignaturas que conforman los cursos.
+ * - administrativo.plan: Planes de estudio de los que se derivan los cursos.
+ * - usuario.docente: Docentes responsables de cursos.
+ * 
+ * Los cursos representan la oferta académica de un semestre. Cada curso está vinculado
+ * a una asignatura y puede tener múltiples secciones con diferentes docentes.
+ */
 class CursoController extends Controller
 {
     /**
-     * Display a listing of cursos.
+     * Muestra un listado paginado de todos los cursos con búsqueda y filtros.
      */
     public function index(Request $request)
     {

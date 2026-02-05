@@ -7,10 +7,20 @@ use App\Models\Administrativo\Facultad;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
+/**
+ * Controlador para la gestión de facultades.
+ * 
+ * Tablas implicadas:
+ * - administrativo.facultad: Facultades de la institución.
+ * 
+ * Las facultades son entidades raíz en la jerarquía organizacional.
+ * Contienen departamentos que a su vez contienen carreras.
+ */
 class FacultadController extends Controller
 {
     /**
-     * Display a listing of facultades.
+     * Muestra un listado paginado de todas las facultades.
+     * Soporta búsqueda por nombre.
      */
     public function index(Request $request)
     {
@@ -34,7 +44,10 @@ class FacultadController extends Controller
     }
 
     /**
-     * Store a newly created facultad.
+     * Crea una nueva facultad y su contexto asociado.
+     * 
+     * La facultad genera automáticamente un contexto para gestionar
+     * permisos y roles a nivel de facultad.
      */
     public function store(Request $request)
     {
@@ -64,7 +77,7 @@ class FacultadController extends Controller
     }
 
     /**
-     * Display the specified facultad.
+     * Obtiene los datos de una facultad específica con sus departamentos.
      */
     public function show(Facultad $facultad)
     {
@@ -74,7 +87,7 @@ class FacultadController extends Controller
     }
 
     /**
-     * Update the specified facultad.
+     * Actualiza los datos de una facultad.
      */
     public function update(Request $request, Facultad $facultad)
     {
@@ -89,7 +102,7 @@ class FacultadController extends Controller
     }
 
     /**
-     * Remove the specified facultad.
+     * Elimina una facultad y todas sus relaciones en cascada.
      */
     public function destroy(Facultad $facultad)
     {

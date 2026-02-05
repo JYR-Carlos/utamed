@@ -13,10 +13,21 @@ use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * Controlador para gestionar el registro de nuevos usuarios (no utilizado en UTAMED).
+ * 
+ * Proporciona formulario de auto-registro y procesamiento de nuevas cuentas.
+ * NOTA: En UTAMED, la creación de usuarios es gestionada por administradores
+ * a través de UsuarioController, no mediante registro público.
+ */
 class RegisteredUserController extends Controller
 {
     /**
-     * Show the registration page.
+     * Muestra la página de registro de usuario.
+     * 
+     * Renderiza formulario para que visitantes se registren.
+     * 
+     * @return Response  Vista Inertia con formulario de registro
      */
     public function create(): Response
     {
@@ -24,8 +35,13 @@ class RegisteredUserController extends Controller
     }
 
     /**
-     * Handle an incoming registration request.
-     *
+     * Procesa solicitud de registro: crea usuario, dispara evento Registered, autentica.
+     * 
+     * Valida datos (nombre, email único, contraseña con reglas por defecto),
+     * crea usuario en tabla users, dispara evento para notificaciones, autentica.
+     * 
+     * @param  Request  $request  Datos: name, email, password, password_confirmation
+     * @return RedirectResponse  Redirección a dashboard
      * @throws \Illuminate\Validation\ValidationException
      */
     public function store(Request $request): RedirectResponse

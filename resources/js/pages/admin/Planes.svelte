@@ -1,4 +1,22 @@
 <script lang="ts">
+	/**
+	 * Página de administración de planes curriculares (Mallas).
+	 * 
+	 * Gestión CRUD de planes de estudio que pertenecen a carreras.
+	 * Cada plan es una versión/año específico de una carrera.
+	 * 
+	 * Características:
+	 * - Filtrado por carrera
+	 * - Búsqueda por nombre de plan
+	 * - Formulario modal para crear/editar planes (requiere año y carrera)
+	 * - Acceso a editor visual de malla (asignaciones de asignaturas por semestre)
+	 * - Confirmación antes de eliminación
+	 * 
+	 * Tablas relacionadas:
+	 * - administrativo.plan: Información de planes/mallas
+	 * - administrativo.carrera: Carrera padre
+	 * - administrativo.asignacion_plan: Asignaturas asignadas al plan
+	 */
 	import AdminLayout from '@/layouts/AdminLayout.svelte';
 	import { router } from '@inertiajs/svelte';
 	import DataTable from '@/components/custom/admin/DataTable.svelte';
@@ -11,9 +29,15 @@
 		PlanFormData
 	} from '@/types/admin.types';
 
+	/**
+	 * Props recibidas del servidor.
+	 */
 	interface Props {
+		/** Planes paginados */
 		planes: PaginatedResponse<Plan>;
+		/** Todas las carreras para selector */
 		carreras: Carrera[];
+		/** Filtros de búsqueda y carrera */
 		filters: { search?: string; id_carrera?: number };
 	}
 

@@ -1,10 +1,32 @@
 <script lang="ts">
+    /**
+     * Página de gestión de cursos para docentes.
+     * 
+     * Lista todos los cursos asignados al docente y permite:
+     * - Ver información de cada curso (asignatura, carrera, fechas)
+     * - Gestionar equipos de cátedra (docentes auxiliares, ayudantes)
+     * - Asignar roles y permisos a miembros del equipo
+     * - Acceso a funciones de gestión de actividades y calificaciones
+     * 
+     * Tablas relacionadas:
+     * - curso.curso: Cursos ofertados
+     * - curso.seccion: Secciones donde el docente es responsable
+     * - usuario.usuario_rol_asignación: Roles en contexto del curso
+     * - usuario.usuario_permiso_especial: Permisos especiales
+     */
+    import { Link } from '@inertiajs/svelte';
     import DocenteLayout from '@/layouts/DocenteLayout.svelte';
     import CourseTeamModal from '@/components/custom/admin/CourseTeamModal.svelte';
 
+    /**
+     * Props recibidas del servidor.
+     */
     interface Props {
+        /** Cursos asignados al docente */
         cursos: any[];
+        /** Roles disponibles para asignar a miembros del equipo */
         availableRoles: any[];
+        /** Permisos especiales disponibles */
         availablePermissions: Record<string, any[]>;
     }
 
@@ -52,6 +74,10 @@
                             </div>
                         </div>
                         <div class="course-actions">
+                            <Link href={`/docente/cursos/${curso.id_curso}/actividades`} class="btn-activity">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H3v2h6v-2zm0-4H3v2h6V7zm6 0v2h6V7h-6zm0 4v2h6v-2h-6zM9 3H3v2h6V3zm6 0v2h6V3h-6z"></path></svg>
+                                Actividades
+                            </Link>
                             <button onclick={() => openTeamModal(curso)} class="btn-manage">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                                 Gestionar Equipo
@@ -145,9 +171,36 @@
     }
 
     .course-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
         margin-top: 1.5rem;
         padding-top: 1rem;
         border-top: 1px solid #f3f4f6;
+    }
+
+    /* @apply btn-activity */
+    .btn-activity {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.625rem;
+        background: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    /* @apply btn-activity:hover */
+    .btn-activity:hover {
+        background: #dbeafe;
+        border-color: #3b82f6;
     }
 
     .btn-manage {

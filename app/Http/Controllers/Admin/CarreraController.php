@@ -10,9 +10,21 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
+/**
+ * Controlador para la gestión de carreras.
+ * 
+ * Tablas implicadas:
+ * - administrativo.carrera: Carreras académicas.
+ * - administrativo.departamento: Departamentos que contienen carreras.
+ * - administrativo.facultad: Facultades que contienen departamentos.
+ * 
+ * Las carreras pertenecen a departamentos y contienen planes de estudio.
+ * Forman parte de la jerarquía: Facultad → Departamento → Carrera → Plan.
+ */
 class CarreraController extends Controller
 {
     /**
+     * Muestra un listado paginado de carreras con búsqueda y filtros.
      * Display a listing of carreras.
      */
     public function index(Request $request)
@@ -51,7 +63,7 @@ class CarreraController extends Controller
     }
 
     /**
-     * Get carreras by departamento (for cascading selects).
+     * Obtiene carreras para un select en cascada (por departamento).
      */
     public function byDepartamento(Departamento $departamento)
     {
@@ -63,7 +75,7 @@ class CarreraController extends Controller
     }
 
     /**
-     * Store a newly created carrera.
+     * Crea una nueva carrera.
      */
     public function store(Request $request)
     {
@@ -87,7 +99,7 @@ class CarreraController extends Controller
     }
 
     /**
-     * Display the specified carrera.
+     * Obtiene una carrera con sus relaciones (departamento, facultad, planes).
      */
     public function show(Carrera $carrera)
     {
@@ -97,7 +109,7 @@ class CarreraController extends Controller
     }
 
     /**
-     * Update the specified carrera.
+     * Actualiza los datos de una carrera.
      */
     public function update(Request $request, Carrera $carrera)
     {
@@ -117,7 +129,7 @@ class CarreraController extends Controller
     }
 
     /**
-     * Remove the specified carrera.
+     * Elimina una carrera.
      */
     public function destroy(Carrera $carrera)
     {

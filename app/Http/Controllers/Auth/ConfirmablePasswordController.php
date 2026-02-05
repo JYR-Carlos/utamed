@@ -10,10 +10,19 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * Controlador para confirmar contraseña del usuario autenticado.
+ * 
+ * Proporciona formulario de re-confirmación de contraseña para operaciones sensibles.
+ */
 class ConfirmablePasswordController extends Controller
 {
     /**
-     * Show the confirm password page.
+     * Muestra página para confirmar contraseña.
+     * 
+     * Renderiza formulario donde usuario debe ingresar su contraseña actual.
+     * 
+     * @return Response  Vista Inertia con formulario
      */
     public function show(): Response
     {
@@ -21,7 +30,14 @@ class ConfirmablePasswordController extends Controller
     }
 
     /**
-     * Confirm the user's password.
+     * Valida contraseña actual del usuario y marca sesión como contraseña confirmada.
+     * 
+     * Valida que contraseña ingresada coincida con la del usuario autenticado.
+     * Si es válida, registra timestamp 'auth.password_confirmed_at' en sesión.
+     * 
+     * @param  Request  $request  Datos: password
+     * @return RedirectResponse  Redirección a dashboard o página intencionada
+     * @throws ValidationException  Si contraseña no coincide
      */
     public function store(Request $request): RedirectResponse
     {

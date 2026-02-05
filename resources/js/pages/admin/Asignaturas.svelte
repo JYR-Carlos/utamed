@@ -1,4 +1,19 @@
 <script lang="ts">
+    /**
+     * Página de administración de asignaturas globales.
+     * 
+     * Permite crear, leer, actualizar y eliminar asignaturas que pueden
+     * ser asignadas a múltiples planes de estudio.
+     * 
+     * Características:
+     * - Tabla paginada con búsqueda por código y nombre
+     * - Formulario modal para crear/editar asignaturas
+     * - Validación de campos (horas, créditos, etc.)
+     * - Confirmación antes de eliminación
+     * 
+     * Tabla relacionada:
+     * - administrativo.asignatura: Almacena información global de asignaturas
+     */
     import AdminLayout from '@/layouts/AdminLayout.svelte';
 	import { router } from '@inertiajs/svelte';
 	import DataTable from '@/components/custom/admin/DataTable.svelte';
@@ -6,8 +21,13 @@
 	import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
 	import type { Asignatura, PaginatedResponse, AsignaturaFormData } from '@/types/admin.types';
 
+	/**
+	 * Props recibidas del servidor.
+	 */
 	interface Props {
+		/** Asignaturas paginadas del servidor */
 		asignaturas: PaginatedResponse<Asignatura>;
+		/** Filtros aplicados (búsqueda) */
 		filters: { search?: string };
 	}
 

@@ -10,10 +10,22 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
+/**
+ * Controlador para la gestión de asignaciones de asignaturas a planes (Detalle Malla).
+ * 
+ * Tablas implicadas:
+ * - administrativo.asignacion_plan: Instancia de la asignatura en el plan.
+ * - administrativo.plan: Plan de estudios al que se asignan las asignaturas.
+ * - administrativo.asignatura: Asignaturas disponibles para asignar a planes.
+ * 
+ * Las asignaturas pueden ser asignadas, editadas o eliminadas de un plan específico.
+ * Las asignaturas no se diferencian por carrera, sino que son globales y pueden ser
+ * asignadas a cualquier plan.
+ */
 class AsignacionPlanController extends Controller
 {
     /**
-     * Display asignaturas assigned to a plan (Detalle Malla).
+     * Muestra el detalle de la malla curricular de un plan, mostrando datos ya sea del plan o de las asignaturas asignadas.
      */
     public function index(Request $request, Plan $plan)
     {
@@ -26,7 +38,8 @@ class AsignacionPlanController extends Controller
         });
 
         // Get all asignaturas for adding new ones
-        $asignaturas = Asignatura::orderBy('cod_asignatura')->get();
+        $asignaturas = Asignatura::orderBy('cod_asignatura')
+            ->get(['id_asignatura', 'cod_asignatura', 'nombre', 'creditos_sct']);
 
         return Inertia::render('admin/DetalleMalla', [
             'plan' => $plan,
@@ -36,7 +49,7 @@ class AsignacionPlanController extends Controller
     }
 
     /**
-     * Assign an asignatura to a plan.
+     * Asignar una asignatura a un plan.
      */
     public function store(Request $request, Plan $plan)
     {
@@ -47,9 +60,15 @@ class AsignacionPlanController extends Controller
             'tipo_ramo' => 'nullable|integer',
         ]);
 
-        // Check if already assigned
+        // Se deja en null el atributo 'tipo_ramo',  05-02-2026 TABLA AUN NO DEFINIDA 'TIPO_RAMO'
+        if (isset($validated['tipo_ramo']) && $validated['tipo_ramo'] === '') {
+            $validated['tipo_ramo'] = null;
+        }
+
+        // Check if already assigned to THIS PLAN (allows recycling from other plans)
         $exists = AsignacionPlan::where('id_plan', $plan->id_plan)
             ->where('id_asignatura', $validated['id_asignatura'])
+            ->withoutTrashed() // Also check non-deleted records
             ->exists();
 
         if ($exists) {
@@ -59,13 +78,34 @@ class AsignacionPlanController extends Controller
         // Add id_plan to validated data
         $validated['id_plan'] = $plan->id_plan;
 
-        AsignacionPlan::create($validated);
-
-        return back()->with('success', 'Asignatura asignada al plan exitosamente.');
+        try {
+            \Log::info('Creating AsignacionPlan with data:', $validated);
+            
+            $asignacion = AsignacionPlan::create($validated);
+            
+            \Log::info('AsignacionPlan created successfully:', $asignacion->toArray());
+            return back()->with('success', 'Asignatura asignada al plan exitosamente.');
+        } catch (\Illuminate\Database\QueryException $e) {
+            $errorMsg = 'Error de base de datos: ' . $e->getMessage();
+            \Log::error('Database error assigning subject to plan:', [
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
+                'data' => $validated
+            ]);
+            return back()->with('error', $errorMsg)->withInput();
+        } catch (\Exception $e) {
+            $errorMsg = 'Error al asignar la asignatura: ' . $e->getMessage();
+            \Log::error('Error assigning subject to plan:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'data' => $validated
+            ]);
+            return back()->with('error', $errorMsg)->withInput();
+        }
     }
 
     /**
-     * Update an asignatura assignment in a plan.
+     * Editar asignatura asignada en un plan.
      */
     public function update(Request $request, Plan $plan, Asignatura $asignatura)
     {
@@ -74,6 +114,10 @@ class AsignacionPlanController extends Controller
             'semestre_planificado' => 'required|integer|in:1,2',
             'tipo_ramo' => 'nullable|integer',
         ]);
+        // Se deja en null el atributo 'tipo_ramo',  05-02-2026 TABLA AUN NO DEFINIDA 'TIPO_RAMO'
+        if (isset($validated['tipo_ramo']) && $validated['tipo_ramo'] === '') {
+            $validated['tipo_ramo'] = null;
+        }   
 
         $asignacion = AsignacionPlan::where('id_plan', $plan->id_plan)
             ->where('id_asignatura', $asignatura->id_asignatura)
@@ -85,7 +129,7 @@ class AsignacionPlanController extends Controller
     }
 
     /**
-     * Remove an asignatura from a plan.
+     * Eliminar asignatura de un plan. 
      */
     public function destroy(Plan $plan, Asignatura $asignatura)
     {

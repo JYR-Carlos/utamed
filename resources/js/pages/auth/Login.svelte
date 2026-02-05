@@ -1,4 +1,18 @@
 <script lang="ts">
+    /**
+     * Página de login del sistema UtaMed.
+     * 
+     * Formulario de autenticación que permite a usuarios ingresar sus
+     * credenciales (email/username y contraseña).
+     * 
+     * Características:
+     * - Campo de email o username para flexibilidad en login
+     * - Opción de "Recuérdame" para mantener sesión
+     * - Enlace a recuperación de contraseña
+     * - Validación de errores con display de mensajes
+     * - Spinner de carga durante autenticación
+     * - Soporte para login con Fortify (Laravel)
+     */
     import AuthenticatedSessionController from '@/actions/Laravel/Fortify/Http/Controllers/AuthenticatedSessionController';
     import InputError from '@/components/custom/common/InputError.svelte';
     import TextLink from '@/components/custom/common/TextLink.svelte';
@@ -13,9 +27,15 @@
     import type { BaseFormSnippetProps } from '@/types/forms';
     import { Form } from '@inertiajs/svelte';
 
+    /**
+     * Props recibidas del servidor.
+     */
     interface Props {
+        /** Mensaje de estado (ej: "Email verificado") */
         status?: string;
+        /** Si la contraseña puede ser recuperada */
         canResetPassword: boolean;
+        /** Si está habilitado el registro de usuarios */
         canRegister: boolean;
     }
 

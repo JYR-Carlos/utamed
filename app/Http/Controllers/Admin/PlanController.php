@@ -9,10 +9,21 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
+/**
+ * Controlador para la gestión de planes de estudio.
+ * 
+ * Tablas implicadas:
+ * - administrativo.plan: Planes de estudio de carreras.
+ * - administrativo.carrera: Carreras que contienen planes.
+ * - administrativo.asignacion_plan: Asignaturas asignadas a planes.
+ * 
+ * Los planes pertenecen a carreras y contienen asignaturas organizadas por años y semestres.
+ * Cada plan tiene versionado para permitir cambios en la malla sin afectar estudios anteriores.
+ */
 class PlanController extends Controller
 {
     /**
-     * Display a listing of planes.
+     * Muestra un listado paginado de planes con búsqueda y filtros por carrera.
      */
     public function index(Request $request)
     {
@@ -62,7 +73,7 @@ class PlanController extends Controller
     }
 
     /**
-     * Get planes by carrera (for cascading selects).
+     * Obtiene planes para un select en cascada (por carrera).
      */
     public function byCarrera(Carrera $carrera)
     {
@@ -75,7 +86,7 @@ class PlanController extends Controller
     }
 
     /**
-     * Store a newly created plan.
+     * Crea un nuevo plan de estudios para una carrera.
      */
     public function store(Request $request)
     {
@@ -101,7 +112,7 @@ class PlanController extends Controller
     }
 
     /**
-     * Display the specified plan.
+     * Obtiene un plan con sus asignaciones y el total de créditos.
      */
     public function show(Plan $plan)
     {
@@ -112,7 +123,7 @@ class PlanController extends Controller
     }
 
     /**
-     * Update the specified plan.
+     * Actualiza los datos de un plan de estudios.
      */
     public function update(Request $request, Plan $plan)
     {
@@ -129,7 +140,7 @@ class PlanController extends Controller
     }
 
     /**
-     * Remove the specified plan.
+     * Elimina un plan de estudios.
      */
     public function destroy(Plan $plan)
     {

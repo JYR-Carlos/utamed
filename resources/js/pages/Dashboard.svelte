@@ -1,4 +1,15 @@
 <script lang="ts">
+    /**
+     * Dashboard principal del sistema UtaMed.
+     * 
+     * Página de inicio que muestra diferentes vistas según el rol del usuario:
+     * - Docente: Dashboard de cursos y secciones asignadas
+     * - Estudiante: Dashboard con calificaciones y actividades
+     * - Ayudante: Dashboard de cursos donde asiste
+     * - Admin: Estadísticas globales y widgets CRUD
+     * 
+     * Utiliza layouts responsivos y componentes reutilizables de SoftUI.
+     */
     import AppLayout from '@/layouts/AppLayout.svelte';
     import { page, Link } from '@inertiajs/svelte';
     import { 
@@ -20,6 +31,10 @@
     import DashboardAlumno from './dashboards/DashboardAlumno.svelte';
     import DashboardAyudante from './dashboards/DashboardAyudante.svelte';
 
+    /**
+     * Estadísticas globales del sistema.
+     * @type {{usuarios: number, cursos: number, facultades: number, carreras: number}}
+     */
     interface Stats {
         usuarios: number;
         cursos: number;
@@ -27,6 +42,9 @@
         carreras: number;
     }
 
+    /**
+     * Props que recibe el componente Dashboard.
+     */
     interface Props {
         stats: Stats;
     }

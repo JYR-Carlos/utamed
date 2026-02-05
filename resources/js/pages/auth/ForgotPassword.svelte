@@ -1,4 +1,16 @@
 <script lang="ts">
+    /**
+     * Página para solicitar enlace de recuperación de contraseña.
+     * 
+     * Permite a usuarios solicitar un enlace de reset enviado por email
+     * si no recuerdan su contraseña.
+     * 
+     * Características:
+     * - Campo de email para identificar usuario
+     * - Integración con Fortify para envío de enlace
+     * - Mensaje de estado post-envío
+     * - Validación de email
+     */
     import PasswordResetLinkController from '@/actions/Laravel/Fortify/Http/Controllers/PasswordResetLinkController';
     import InputError from '@/components/custom/common/InputError.svelte';
     import TextLink from '@/components/custom/common/TextLink.svelte';
@@ -11,7 +23,11 @@
     import { Form } from '@inertiajs/svelte';
     import { LoaderCircle } from 'lucide-svelte';
 
+    /**
+     * Props recibidas del servidor.
+     */
     interface Props {
+        /** Mensaje de estado (ej: "Enlace enviado") */
         status?: string;
     }
 

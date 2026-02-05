@@ -18,10 +18,46 @@ use App\Models\Usuario\UsuarioRolAsignación;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Models\Usuario\Contexto;
 
+/**
+ * Controlador para la gestión integral de usuarios del sistema.
+ * 
+ * Tablas implicadas:
+ * - usuario.usuario: Base de todos los usuarios del sistema
+ * - usuario.estudiante: Perfil específico de estudiantes con carrera asignada
+ * - usuario.docente: Perfil específico de docentes con grado, título y cargo
+ * - usuario.rol: Definiciones de roles disponibles (Docente, Estudiante, Ayudante, etc.)
+ * - usuario.permiso: Definiciones de permisos especiales asignables
+ * - usuario.usuario_rol_asignación: Asignaciones de roles a usuarios en contextos específicos
+ * - usuario.usuario_permiso_especial: Asignaciones de permisos especiales a usuarios
+ * - usuario.contexto: Contextos (cursos) en los que roles y permisos se aplican
+ * 
+ * SEGURIDAD CRÍTICA: Este controlador maneja Control de Acceso Basado en Roles (RBAC).
+ * Históricamente se encontraron vulnerabilidades IDOR en esta gestión.
+ * Siempre validar que el usuario autenticado tenga permisos de administración para las operaciones.
+ * 
+ * Gestiona:
+ * - Creación/actualización/eliminación de usuarios (Estudiantes, Docentes, Administradores)
+ * - Asignación de roles y permisos a usuarios
+ * - Sincronización de datos de usuario y sus roles en contextos
+ * - Búsqueda filtrada por tipo de usuario
+ * 
+ * Arquitectura:
+ * - index(): Lista usuarios filtrados por tipo con paginación y búsqueda
+ * - store(): Dispatcher que delega a métodos específicos por tipo
+ * - storeEstudiante/storeDocente/storeAdministrador: Creación transaccional por tipo
+ * - show/update/destroy: Operaciones estándar con validaciones RBAC
+ */
 class UsuarioController extends Controller
 {
     /**
-     * Display a listing of usuarios.
+     * Obtiene listado paginado y filtrable de usuarios por tipo.
+     * 
+     * Soporta tres tipos: estudiante, docente, administrador.
+     * Implementa búsqueda por nombre, apellido, RUT y username (case-insensitive con ilike).
+     * Retorna HTML Inertia con usuarios, roles, permisos disponibles, y datos de carreras.
+     * 
+     * @param  Request  $request  Parámetros: tipo (estudiante|docente|administrador), search, per_page
+     * @return \Inertia\Response|\Illuminate\Http\JsonResponse  Vista HTML o JSON según Accept header
      */
     public function index(Request $request)
     {
@@ -139,7 +175,15 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Store a newly created usuario.
+     * Dispatcher para crear nuevo usuario según tipo especificado.
+     * 
+     * Valida que el request incluya 'tipo' y delega a método específico:
+     * - 'estudiante' → storeEstudiante()
+     * - 'docente' → storeDocente()
+     * - otro → storeAdministrador()
+     * 
+     * @param  Request  $request  Datos del usuario: tipo, rut, nombres, etc.
+     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
      */
     public function store(Request $request)
     {
@@ -155,7 +199,14 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Store a new estudiante.
+     * Crea nuevo usuario Estudiante de forma transaccional.
+     * 
+     * Crea registro base Usuario y vincula perfil Estudiante con carrera.
+     * Valida RUT único, username único (máx 10 caracteres).
+     * Rollback completo si alguna operación falla.
+     * 
+     * @param  Request  $request  Datos: rut, nombre1, apellido1, email, agno_ingreso, id_carrera, username, password
+     * @return \Illuminate\Http\RedirectResponse  Redirección a lista estudiantes con mensaje
      */
     private function storeEstudiante(Request $request)
     {
@@ -209,7 +260,14 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Store a new docente.
+     * Crea nuevo usuario Docente de forma transaccional.
+     * 
+     * Crea registro base Usuario y vincula perfil Docente con grado, título, cargo.
+     * Valida RUT único, username único (máx 10 caracteres).
+     * Rollback completo si alguna operación falla.
+     * 
+     * @param  Request  $request  Datos: rut, nombre1, apellido1, email, grado, titulo, cargo, username, password
+     * @return \Illuminate\Http\RedirectResponse  Redirección a lista docentes con mensaje
      */
     private function storeDocente(Request $request)
     {
@@ -265,7 +323,13 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Store a new administrador.
+     * Crea nuevo usuario Administrador.
+     * 
+     * Crea registro base Usuario sin perfil específico (diferenciador de Estudiante/Docente).
+     * Valida RUT único, username único (máx 30 caracteres para mayor flexibilidad).
+     * 
+     * @param  Request  $request  Datos: rut, nombre1, apellido1, email, username, password
+     * @return \Illuminate\Http\RedirectResponse  Redirección a lista administradores con mensaje
      */
     private function storeAdministrador(Request $request)
     {
@@ -298,7 +362,14 @@ class UsuarioController extends Controller
 
 
     /**
-     * Display the specified usuario.
+     * Obtiene detalles de un usuario específico según su tipo.
+     * 
+     * Resuelve el usuario con relaciones asociadas (carrera para estudiantes, etc.).
+     * Retorna JSON.
+     * 
+     * @param  int      $id       ID del estudiante/docente/usuario
+     * @param  Request  $request  Parámetro: tipo (estudiante|docente|administrador)
+     * @return \Illuminate\Http\JsonResponse  JSON con datos del usuario y relaciones
      */
     public function show($id, Request $request)
     {
@@ -316,7 +387,16 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Update the specified usuario.
+     * Dispatcher para actualizar usuario según tipo especificado.
+     * 
+     * Valida 'tipo' y delega a método específico:
+     * - 'estudiante' → updateEstudiante()
+     * - 'docente' → updateDocente()
+     * - otro → updateAdministrador()
+     * 
+     * @param  Request  $request  Parámetro: tipo, y datos a actualizar
+     * @param  int      $id       ID del usuario a actualizar
+     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
      */
     public function update(Request $request, $id)
     {
@@ -332,7 +412,15 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Update an estudiante.
+     * Actualiza datos de usuario Estudiante de forma transaccional.
+     * 
+     * Modifica registros Usuario y Estudiante conjuntamente.
+     * Permite actualizar información personal, carrera y año de ingreso.
+     * Rollback completo si alguna operación falla.
+     * 
+     * @param  Request  $request  Datos actualizados: rut, nombres, carrera, agno_ingreso, email
+     * @param  int      $id       ID del estudiante a actualizar
+     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
      */
     private function updateEstudiante(Request $request, $id)
     {
@@ -377,7 +465,15 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Update a docente.
+     * Actualiza datos de usuario Docente de forma transaccional.
+     * 
+     * Modifica registros Usuario y Docente conjuntamente.
+     * Permite actualizar información personal, grado académico, cargo y título.
+     * Rollback completo si alguna operación falla.
+     * 
+     * @param  Request  $request  Datos actualizados: rut, nombres, email, grado, cargo, titulo
+     * @param  int      $id       ID del docente a actualizar
+     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
      */
     private function updateDocente(Request $request, $id)
     {
@@ -424,7 +520,13 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Update an administrador.
+     * Actualiza datos de usuario Administrador.
+     * 
+     * Modifica registro Usuario base con información personal y contacto.
+     * 
+     * @param  Request  $request  Datos actualizados: rut, nombres, email
+     * @param  int      $id       ID del administrador a actualizar
+     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
      */
     private function updateAdministrador(Request $request, $id)
     {
@@ -446,7 +548,14 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Remove the specified usuario.
+     * Elimina un usuario y su perfil asociado de forma transaccional.
+     * 
+     * Elimina perfil específico (Estudiante/Docente) primero, luego registro Usuario base.
+     * Rollback completo si hay registros asociados que lo impidan (foreign keys).
+     * 
+     * @param  int      $id       ID del estudiante/docente/usuario a eliminar
+     * @param  Request  $request  Parámetro: tipo (estudiante|docente|administrador)
+     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
      */
     public function destroy($id, Request $request)
     {
@@ -482,7 +591,14 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Change password for a usuario.
+     * Actualiza la contraseña de un usuario.
+     * 
+     * Valida que la nueva contraseña cumpla requisitos mínimos (6 caracteres, confirmación).
+     * Hash y almacena en campo 'passhash'.
+     * 
+     * @param  Request  $request  Datos: password (required, min:6, confirmed)
+     * @param  int      $id       ID del usuario cuya contraseña actualizar
+     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
      */
     public function changePassword(Request $request, $id)
     {
@@ -497,7 +613,12 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Toggle active status for a usuario.
+     * Alterna el estado activo/inactivo de un usuario.
+     * 
+     * Cambia 'esta_activo' entre true y false. Usuario inactivo no puede autenticarse.
+     * 
+     * @param  int  $id  ID del usuario a activar/desactivar
+     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
      */
     public function toggleActive($id)
     {
@@ -510,7 +631,13 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Get permissions for a specific user.
+     * Obtiene todos los roles y permisos especiales asignados a un usuario en contexto Global.
+     * 
+     * Resuelve o crea contexto Global si no existe, luego recupera asignaciones activas.
+     * Retorna JSON con array de IDs de rol y array de permisos especiales.
+     * 
+     * @param  int  $id  ID del usuario cuyo permisos obtener
+     * @return \Illuminate\Http\JsonResponse  JSON con roles e permisos activos
      */
     public function getUserPermissions($id)
     {
@@ -551,7 +678,14 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Sync permissions for a user.
+     * Sincroniza (actualiza) todos los roles y permisos especiales de un usuario.
+     * 
+     * Reemplaza asignaciones actuales con las nuevas. Implementa RBAC validado.
+     * Registra cambios para auditoría. Transaccional.
+     * 
+     * @param  Request  $request  Datos: roles (array de ids), special_permissions (array de id_permiso => bool)
+     * @param  int      $id       ID del usuario cuyo permisos sincronizar
+     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse  JSON o redirección
      */
     public function syncPermissions(Request $request, $id)
     {

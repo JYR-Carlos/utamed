@@ -1,4 +1,22 @@
 <script lang="ts">
+    /**
+     * Página de administración de carreras.
+     * 
+     * Gestión CRUD de carreras dentro de la jerarquía académica.
+     * Permite crear carreras dentro de departamentos que a su vez
+     * pertenecen a facultades.
+     * 
+     * Características:
+     * - Filtrado por facultad y departamento (cascading selects)
+     * - Búsqueda por código y nombre de carrera
+     * - Formulario modal para crear/editar
+     * - Confirmación antes de eliminación
+     * 
+     * Tablas relacionadas:
+     * - administrativo.carrera: Información de carreras
+     * - administrativo.facultad: Facultad padre
+     * - administrativo.departamento: Departamento padre
+     */
     import AdminLayout from '@/layouts/AdminLayout.svelte';
 	import { router } from '@inertiajs/svelte';
 	import DataTable from '@/components/custom/admin/DataTable.svelte';
@@ -12,9 +30,15 @@
 		CarreraFormData
 	} from '@/types/admin.types';
 
+	/**
+	 * Props recibidas del servidor.
+	 */
 	interface Props {
+		/** Carreras paginadas */
 		carreras: PaginatedResponse<Carrera>;
+		/** Todas las facultades para el selector cascada */
 		facultades: Facultad[];
+		/** Filtros de búsqueda y filtros cascada */
 		filters: { search?: string; id_facultad?: number; id_departamento?: number };
 	}
 

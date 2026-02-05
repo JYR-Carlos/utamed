@@ -9,10 +9,20 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
+/**
+ * Controlador para la gestión de departamentos.
+ * 
+ * Tablas implicadas:
+ * - administrativo.departamento: Departamentos dentro de facultades.
+ * - administrativo.facultad: Facultades que contienen departamentos.
+ * 
+ * Los departamentos pertenecen a facultades y contienen carreras.
+ * Forman parte de la jerarquía: Facultad → Departamento → Carrera.
+ */
 class DepartamentoController extends Controller
 {
     /**
-     * Display a listing of departamentos.
+     * Muestra un listado paginado de departamentos con búsqueda por nombre y facultad.
      */
     public function index(Request $request)
     {
@@ -45,7 +55,7 @@ class DepartamentoController extends Controller
     }
 
     /**
-     * Get departamentos by facultad (for cascading selects).
+     * Obtiene departamentos para un select en cascada (por facultad).
      */
     public function byFacultad(Facultad $facultad)
     {
@@ -57,7 +67,7 @@ class DepartamentoController extends Controller
     }
 
     /**
-     * Store a newly created departamento.
+     * Crea un nuevo departamento asociado a una facultad.
      */
     public function store(Request $request)
     {
@@ -77,7 +87,7 @@ class DepartamentoController extends Controller
     }
 
     /**
-     * Display the specified departamento.
+     * Obtiene los datos de un departamento con su facultad y carreras.
      */
     public function show(Departamento $departamento)
     {
@@ -87,7 +97,7 @@ class DepartamentoController extends Controller
     }
 
     /**
-     * Update the specified departamento.
+     * Actualiza los datos de un departamento.
      */
     public function update(Request $request, Departamento $departamento)
     {
@@ -103,7 +113,7 @@ class DepartamentoController extends Controller
     }
 
     /**
-     * Remove the specified departamento.
+     * Elimina un departamento.
      */
     public function destroy(Departamento $departamento)
     {

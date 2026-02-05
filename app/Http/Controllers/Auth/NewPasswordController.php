@@ -14,10 +14,20 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * Controlador para completar el reset de contraseña.
+ * 
+ * Procesa el enlace de reset enviado por email y permite establecer nueva contraseña.
+ */
 class NewPasswordController extends Controller
 {
     /**
-     * Show the password reset page.
+     * Muestra la página para ingresar nueva contraseña.
+     * 
+     * Renderiza formulario con token de reset pre-poblado (obtenido de URL).
+     * 
+     * @param  Request  $request  Solicitud HTTP (contiene token y email en URL)
+     * @return Response  Vista Inertia con formulario de nueva contraseña
      */
     public function create(Request $request): Response
     {
@@ -28,8 +38,13 @@ class NewPasswordController extends Controller
     }
 
     /**
-     * Handle an incoming new password request.
-     *
+     * Procesa y valida reset de contraseña: genera nueva contraseña hasheada.
+     * 
+     * Valida token, email y nueva contraseña.
+     * Si válido, actualiza password, marca sesión como reset, dispara evento PasswordReset.
+     * 
+     * @param  Request  $request  Datos: token, email, password, password_confirmation
+     * @return RedirectResponse  Redirección a login o home según resultado
      * @throws \Illuminate\Validation\ValidationException
      */
     public function store(Request $request): RedirectResponse

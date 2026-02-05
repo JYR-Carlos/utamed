@@ -1,8 +1,20 @@
 <script lang="ts">
+    /**
+     * Página de bienvenida de UtaMed.
+     * 
+     * Página inicial pública del sistema que muestra:
+     * - Logo e información de la aplicación
+     * - Opción de ir al dashboard si está autenticado
+     * - Opción de login si no está autenticado
+     * - Información de derechos de autor
+     */
     import { dashboard, login } from '@/routes';
     import { Link, page } from '@inertiajs/svelte';
     import AppLogoIcon from '@/components/custom/layout/AppLogoIcon.svelte';
 
+    /**
+     * Props para la página Welcome.
+     */
     interface Props {
         canRegister: boolean;
     }

@@ -1,4 +1,30 @@
 <script lang="ts">
+	/**
+	 * Página de administración integral de usuarios.
+	 * 
+	 * Gestión CRUD de Estudiantes, Docentes y Administradores del sistema.
+	 * Permite crear, editar, eliminar usuarios y asignar roles/permisos especiales.
+	 * 
+	 * SEGURIDAD: Este componente maneja datos sensibles. Valida que usuario
+	 * autenticado sea administrador antes de permitir cualquier operación.
+	 * 
+	 * Características:
+	 * - Filtrado por tipo de usuario (estudiante/docente/admin)
+	 * - Búsqueda por RUT, nombre, username
+	 * - Modal para crear/editar con campos específicos por tipo
+	 * - Modal para cambiar contraseña
+	 * - Modal para asignar roles y permisos especiales (RBAC)
+	 * - Confirmación antes de eliminación
+	 * 
+	 * Tablas relacionadas:
+	 * - usuario.usuario: Datos base de usuarios
+	 * - usuario.estudiante: Perfil de estudiante con carrera
+	 * - usuario.docente: Perfil de docente con grado/título/cargo
+	 * - usuario.rol: Roles disponibles del sistema
+	 * - usuario.permiso: Permisos especiales asignables
+	 * - usuario.usuario_rol_asignación: Asignaciones de roles
+	 * - usuario.usuario_permiso_especial: Asignaciones de permisos
+	 */
 	import AdminLayout from '@/layouts/AdminLayout.svelte';
 	import { router } from '@inertiajs/svelte';
 	import DataTable from '@/components/custom/admin/DataTable.svelte';
@@ -16,12 +42,21 @@
 		AdministradorFormData
 	} from '@/types/admin.types';
 
+	/**
+	 * Props recibidas del servidor.
+	 */
 	interface Props {
+		/** Usuarios paginados según tipo seleccionado */
 		usuarios: PaginatedResponse<Estudiante | Docente | Administrador>;
+		/** Tipo de usuario a mostrar: estudiante, docente o administrador */
 		tipo: 'estudiante' | 'docente' | 'administrador';
+		/** Carreras disponibles (para asignar a estudiantes) */
 		carreras: Carrera[];
+		/** Roles disponibles para asignar a usuarios */
 		availableRoles: any[];
+		/** Permisos especiales disponibles por módulo */
 		availablePermissions: Record<string, any[]>;
+		/** Filtros de búsqueda/tipo */
 		filters: { search?: string; tipo?: string };
 	}
 

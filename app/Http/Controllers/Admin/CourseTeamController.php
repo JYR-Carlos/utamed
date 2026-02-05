@@ -13,6 +13,18 @@ use Illuminate\Support\Facades\DB;
 
 use App\Models\Usuario\UsuarioPermisoEspecial;
 
+/**
+ * Controlador para la gestión del equipo de un curso.
+ * 
+ * Tablas implicadas:
+ * - curso.curso: Cursos para los que se gestiona el equipo.
+ * - usuario.usuario_rol_asignación: Asignaciones de roles a usuarios en contextos.
+ * - usuario.usuario_permiso_especial: Permisos especiales de usuarios.
+ * - usuario.rol: Roles disponibles (Docente, Ayudante, etc).
+ * 
+ * Permite agregar, modificar y eliminar miembros del equipo de un curso,
+ * así como gestionar sus roles y permisos específicos.
+ */
 class CourseTeamController extends Controller
 {
     private function ensureContext(Curso $curso)
@@ -27,11 +39,22 @@ class CourseTeamController extends Controller
         }
     }
 
+
+
     /**
-     * Get team members for a specific curso.
+     * Obtiene el listado de miembros del equipo (docentes y administrativos) asignados a un curso.
+     * 
+     * Recupera todas las asignaciones de roles activas en el contexto del curso,
+     * resuelve la información de usuario correspondiente (nombre completo, etc.),
+     * y retorna un listado JSON estructurado con: id_usuario, nombre_completo, role_name, rut.
+     * 
+     * @param  Curso  $curso  Curso para el cual obtener los miembros del equipo
+     * @return \Illuminate\Http\JsonResponse  JSON con array de miembros del equipo
      */
     public function index(Curso $curso)
     {
+        $this->authorize('manageTeam', $curso);
+
         // Ensure context exists (Lazy Creation)
         $this->ensureContext($curso);
 
@@ -72,10 +95,20 @@ class CourseTeamController extends Controller
     }
 
     /**
-     * Add a member to the team.
+     * Agrega un nuevo miembro (usuario con rol específico) al equipo de un curso.
+     * 
+     * Valida que el usuario exista y el rol sea válido. Crea una nueva asignación de rol
+     * en el contexto del curso con fechas planificadas (inicio inmediato, fin en 100 años).
+     * Registra quién asignó el rol (usuario autenticado).
+     * 
+     * @param  Request  $request  Datos de la solicitud: id_usuario, role_name
+     * @param  Curso    $curso    Curso al cual agregar el miembro
+     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de éxito
      */
     public function store(Request $request, Curso $curso)
     {
+        $this->authorize('manageTeam', $curso);
+
         $validated = $request->validate([
             'id_usuario' => ['required', Rule::exists(Usuario::class, 'id_usuario')],
             'role_name' => ['required', 'string', Rule::exists(Rol::class, 'nombre')]
@@ -104,8 +137,21 @@ class CourseTeamController extends Controller
         return back()->with('success', 'Miembro agregado exitosamente.');
     }
 
+    /**
+     * Remueve un miembro del equipo de un curso (marca su asignación como inactiva y eliminada).
+     * 
+     * Desactiva todas las asignaciones de rol activas del usuario en el contexto del curso,
+     * registrando la fecha de eliminación real para auditoría. Mantiene registros históricos
+     * mediante soft delete pattern (fue_eliminado = true).
+     * 
+     * @param  Curso    $curso    Curso del cual remover el miembro
+     * @param  Usuario  $usuario  Usuario a remover del equipo
+     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de éxito
+     */
     public function destroy(Curso $curso, Usuario $usuario)
     {
+        $this->authorize('manageTeam', $curso);
+
         if (!$curso->id_contexto) {
             return back()->with('error', 'El curso no tiene un contexto asignado.');
         }
@@ -122,12 +168,32 @@ class CourseTeamController extends Controller
     }
 
     /**
-     * Get permission data for a team member in a course context.
+     * Obtiene los permisos y roles asignados a un miembro específico en el contexto de un curso.
+     * 
+     * Recupera los roles activos del usuario en el curso y resuelve permisos especiales
+     * derivados de su rol(es). Retorna estructura JSON con roles e permisos para frontend.
+     * 
+     * @param  Curso    $curso    Curso del cual obtener permisos
+     * @param  Usuario  $usuario  Usuario cuya información de permisos se solicita
+     * @return \Illuminate\Http\JsonResponse  JSON con roles activos y permisos especiales
      */
     public function getMemberPermissions(Curso $curso, Usuario $usuario)
     {
+        $this->authorize('manageTeam', $curso);
+
         if (!$curso->id_contexto) {
             return response()->json(['roles' => [], 'special_permissions' => []]);
+        }
+
+        // ✅ Validar que usuario es miembro del equipo
+        $isMember = UsuarioRolAsignación::where('id_contexto', $curso->id_contexto)
+            ->where('id_usuario_recipiente', $usuario->id_usuario)
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->exists();
+
+        if (!$isMember) {
+            return response()->json(['error' => 'Usuario no es miembro del equipo de este curso'], 404);
         }
 
         $idContexto = $curso->id_contexto;
@@ -175,10 +241,22 @@ class CourseTeamController extends Controller
     }
 
     /**
-     * Sync permissions for a team member in a course context.
+     * Sincroniza (actualiza) los roles y permisos especiales de un miembro del equipo en el contexto del curso.
+     * 
+     * Realiza validaciones de seguridad RBAC: prohibe que un usuario modifique sus propios permisos,
+     * restricciones basadas en tipo de usuario (docentes solo pueden asignar Ayudante/Estudiante),
+     * y valida que los permisos a asignar estén disponibles para quien realiza la asignación.
+     * Transaccional para consistencia.
+     * 
+     * @param  Request  $request  Datos de la solicitud: roles (array de ids), special_permissions (array)
+     * @param  Curso    $curso    Curso cuyo equipo se actualiza
+     * @param  Usuario  $usuario  Usuario cuyo roles y permisos se sincronizan
+     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de éxito o error
      */
     public function syncMemberPermissions(Request $request, Curso $curso, Usuario $usuario)
     {
+        $this->authorize('manageTeam', $curso);
+
         $validated = $request->validate([
             'roles' => 'array',
             'special_permissions' => 'array'
@@ -186,6 +264,17 @@ class CourseTeamController extends Controller
 
         if (!$curso->id_contexto) {
             return back()->with('error', 'El curso no tiene un contexto configurado.');
+        }
+
+        // ✅ Validar que usuario es miembro del equipo
+        $isMember = UsuarioRolAsignación::where('id_contexto', $curso->id_contexto)
+            ->where('id_usuario_recipiente', $usuario->id_usuario)
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->exists();
+
+        if (!$isMember) {
+            return back()->with('error', 'El usuario no es miembro del equipo de este curso.');
         }
 
         $idContexto = $curso->id_contexto;

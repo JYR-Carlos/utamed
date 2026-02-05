@@ -1,10 +1,28 @@
 <script lang="ts">
+    /**
+     * Dashboard del docente.
+     * 
+     * Página principal para docentes que muestra:
+     * - Información personal (nombre, grado, cargo)
+     * - Estadísticas de cursos asignados
+     * - Lista de cursos con información de asignatura y carrera
+     * - Acceso rápido a funciones de gestión de cursos
+     * 
+     * Tabla relacionada:
+     * - usuario.docente: Perfil del docente autenticado
+     * - curso.curso: Cursos ofertados
+     * - curso.seccion: Secciones donde el docente es responsable
+     */
     import DocenteLayout from '@/layouts/DocenteLayout.svelte';
     import type { BreadcrumbItem } from '@/types';
     import { Link } from '@inertiajs/svelte';
     import { BookOpen, Users, Clock, Award } from 'lucide-svelte';
 
+    /**
+     * Props recibidas del servidor.
+     */
     interface Props {
+        /** Información del docente autenticado */
         docente: {
             id_docente: number;
             grado?: string;
@@ -12,6 +30,7 @@
             cargo?: string;
             id_usuario: number;
         };
+        /** Cursos asignados al docente */
         cursos: Array<{
             id_curso: number;
             nombre: string;
@@ -21,6 +40,7 @@
             fecha_inicio: string;
             fecha_fin?: string;
         }>;
+        /** Estadísticas y datos globales del docente */
         stats: {
             total_cursos: number;
             nombre_completo: string;

@@ -1,4 +1,16 @@
 <script lang="ts">
+    /**
+     * Página para verificar email del usuario.
+     * 
+     * Muestra instrucciones para completar verificación de email
+     * y permite reenviar enlace de verificación.
+     * 
+     * Características:
+     * - Mensaje de instrucciones de verificación
+     * - Botón para reenviar enlace si es necesario
+     * - Opción para cambiar email
+     * - Logout para cambiar de cuenta
+     */
     import EmailVerificationNotificationController from '@/actions/Laravel/Fortify/Http/Controllers/EmailVerificationNotificationController';
     import TextLink from '@/components/custom/common/TextLink.svelte';
     import { Button } from '@/components/ui/button';
@@ -7,7 +19,11 @@
     import { Form } from '@inertiajs/svelte';
     import { LoaderCircle } from 'lucide-svelte';
 
+    /**
+     * Props recibidas del servidor.
+     */
     interface Props {
+        /** Mensaje de estado (ej: "Enlace reenviado") */
         status?: string;
     }
 

@@ -1,4 +1,17 @@
 <script lang="ts">
+    /**
+     * Página de desafío de autenticación de dos factores (2FA).
+     * 
+     * Permite a usuarios autenticarse usando código de autenticación
+     * o código de recuperación de emergencia.
+     * 
+     * Características:
+     * - Input OTP de 6 dígitos para código de autenticador
+     * - Alternativa de código de recuperación de emergencia
+     * - Toggle entre ambos modos de autenticación
+     * - Validación y manejo de errores
+     * - Integración con Fortify
+     */
     import InputError from '@/components/custom/common/InputError.svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';

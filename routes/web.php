@@ -124,6 +124,12 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
         ->name('cursos.team.permissions');
     Route::post('cursos/{curso}/team/{usuario}/sync-permissions', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'syncMemberPermissions'])
         ->name('cursos.team.sync-permissions');
+
+    // Activity management for courses
+    Route::get('cursos/{curso}/actividades', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'show'])->name('cursos.actividades.index');
+    Route::post('cursos/{curso}/actividades', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'store'])->name('cursos.actividades.store');
+    Route::put('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'update'])->name('cursos.actividades.update');
+    Route::delete('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'destroy'])->name('cursos.actividades.destroy');
 });
 
 require __DIR__ . '/settings.php';

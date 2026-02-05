@@ -1,4 +1,15 @@
 <script lang="ts">
+    /**
+     * Página para confirmar contraseña del usuario autenticado.
+     * 
+     * Requerida antes de acceder a áreas sensibles del sistema.
+     * El usuario debe re-ingresar su contraseña para proceder.
+     * 
+     * Características:
+     * - Campo de contraseña para verificación
+     * - Integración con Fortify
+     * - Validación y manejo de errores
+     */
     import ConfirmablePasswordController from '@/actions/Laravel/Fortify/Http/Controllers/ConfirmablePasswordController';
     import InputError from '@/components/custom/common/InputError.svelte';
     import { Button } from '@/components/ui/button';

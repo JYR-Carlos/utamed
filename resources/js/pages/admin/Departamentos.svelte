@@ -1,4 +1,20 @@
 <script lang="ts">
+    /**
+     * Página de administración de departamentos.
+     * 
+     * Gestión CRUD de departamentos que pertenecen a facultades.
+     * Los departamentos contienen carreras que a su vez contienen planes.
+     * 
+     * Características:
+     * - Filtrado por facultad (selector cascada)
+     * - Búsqueda por nombre
+     * - Formulario modal para crear/editar departamentos
+     * - Confirmación antes de eliminación
+     * 
+     * Tablas relacionadas:
+     * - administrativo.departamento: Información de departamentos
+     * - administrativo.facultad: Facultad padre
+     */
     import AdminLayout from '@/layouts/AdminLayout.svelte';
     import { router } from '@inertiajs/svelte';
     import DataTable from '@/components/custom/admin/DataTable.svelte';
@@ -6,9 +22,15 @@
     import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
     import type { Departamento, Facultad, PaginatedResponse, DepartamentoFormData } from '@/types/admin.types';
 
+    /**
+     * Props recibidas del servidor.
+     */
     interface Props {
+        /** Departamentos paginados */
         departamentos: PaginatedResponse<Departamento>;
+        /** Todas las facultades para selector */
         facultades: Facultad[];
+        /** Filtros de búsqueda y facultad */
         filters: { search?: string; id_facultad?: number };
     }
 

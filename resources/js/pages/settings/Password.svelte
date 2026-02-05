@@ -1,4 +1,17 @@
 <script lang="ts">
+    /**
+     * Página de configuración de contraseña.
+     * 
+     * Permite a usuarios cambiar su contraseña actual por una nueva.
+     * 
+     * Características:
+     * - Validación de contraseña actual
+     * - Confirmación de nueva contraseña
+     * - Validación de seguridad (longitud mínima)
+     * - Manejo de errores con focus automático en campos con error
+     * - Mensaje de éxito tras actualización
+     * - Reset de formulario tras éxito o error
+     */
     import PasswordController from '@/actions/App/Http/Controllers/Settings/PasswordController';
 import HeadingSmall from '@/components/custom/common/HeadingSmall.svelte';
     import InputError from '@/components/custom/common/InputError.svelte';
