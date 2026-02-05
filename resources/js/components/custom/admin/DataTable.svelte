@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { router } from '@inertiajs/svelte';
+	import { router, page } from '@inertiajs/svelte';
 	import type { PaginatedResponse } from '@/types/admin.types';
 
 	interface Props {
@@ -17,10 +17,11 @@
 	let { data, columns, onEdit, onDelete, onPasswordChange, onToggleActive, onCustomAction, customActionLabel = 'Ver', searchPlaceholder = 'Buscar...' }: Props = $props();
 
 	let searchTerm = $state('');
+	let currentPath = $derived($page.url);
 
 	function handleSearch() {
 		router.get(
-			window.location.pathname,
+			currentPath,
 			{ search: searchTerm },
 			{
 				preserveState: true,
@@ -31,7 +32,7 @@
 
 	function goToPage(page: number) {
 		router.get(
-			window.location.pathname,
+			currentPath,
 			{ page },
 			{
 				preserveState: true,

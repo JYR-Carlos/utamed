@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Docente;
 
 use App\Http\Controllers\Controller;
 use App\Models\Curso\Curso;
+use App\Models\Curso\Seccion;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Contexto;
@@ -27,15 +28,29 @@ class DocenteCursoController extends Controller
             return redirect()->route('dashboard')->with('error', 'No tienes un perfil docente asociado.');
         }
 
-        $cursos = Curso::where('id_docente', $user->docente->id_docente)
-            ->join('Asignatura', 'Curso.id_asignatura', '=', 'Asignatura.id_asignatura')
-            ->select(
-                'Curso.*',
-                'Asignatura.nombre as asignatura_nombre',
-                'Asignatura.cod_asignatura'
-            )
-            ->orderBy('Curso.fecha_inicio', 'desc')
+        // Obtener secciones del docente
+        $secciones = Seccion::where('id_docente', $user->docente->id_docente)
             ->get();
+
+        // Obtener ids de cursos únicos
+        $cursoIds = $secciones->pluck('id_curso')->unique();
+
+        // Consultar cursos con información adicional
+        $cursos = Curso::whereIn('id_curso', $cursoIds)
+            ->with('asignatura')
+            ->orderBy('fecha_inicio', 'desc')
+            ->get()
+            ->map(function ($curso) {
+                return [
+                    'id_curso' => $curso->id_curso,
+                    'nombre' => $curso->nombre,
+                    'cod_curso' => $curso->cod_curso,
+                    'asignatura_nombre' => $curso->asignatura?->nombre ?? 'N/A',
+                    'cod_asignatura' => $curso->asignatura?->cod_asignatura ?? 'N/A',
+                    'fecha_inicio' => $curso->fecha_inicio,
+                    'fecha_fin' => $curso->fecha_fin,
+                ];
+            });
 
         // RBAC Data for modals - Docentes can only delegate specific roles and permissions they possess
         $availableRoles = Rol::whereIn('nombre', ['Ayudante', 'Estudiante'])->orderBy('nombre')->get();
@@ -45,7 +60,7 @@ class DocenteCursoController extends Controller
         // Filter by slug prefix instead of module
         $availablePermissions = $delegablePerms->filter(function ($p) {
             return str_starts_with($p->slug, 'actividad:') || str_starts_with($p->slug, 'curso:');
-        });
+        })->groupBy(fn() => 'General');
 
         return Inertia::render('docente/Cursos', [
             'cursos' => $cursos,
@@ -153,14 +168,14 @@ class DocenteCursoController extends Controller
         $delegablePerms = $this->getDelegablePermissions($teacher, $idContexto);
 
         // Filter by relevant modules for Docente view
-        $availablePermissions = $delegablePerms->filter(function ($p) {
+        $available_permissions = $delegablePerms->filter(function ($p) {
             return str_starts_with($p->slug, 'actividad:') || str_starts_with($p->slug, 'curso:');
-        });
+        })->groupBy(fn() => 'General');
 
         return response()->json([
             'roles' => $roles,
             'special_permissions' => $special,
-            'available_permissions' => $availablePermissions
+            'available_permissions' => $available_permissions
         ]);
     }
 

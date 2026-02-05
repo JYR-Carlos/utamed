@@ -20,6 +20,14 @@ Route::get('/', function () {
 })->name('home');
 
 Route::get('dashboard', function () {
+    /** @var \App\Models\Usuario\Usuario $user */
+    $user = auth()->user();
+    
+    // Redirigir docentes a su dashboard
+    if ($user && $user->docente) {
+        return redirect()->route('docente.dashboard');
+    }
+    
     return Inertia::render('Dashboard', [
         'stats' => [
             'usuarios' => \App\Models\Usuario\Usuario::count(),
@@ -31,7 +39,7 @@ Route::get('dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 // Admin Routes
-Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(function () {
+Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admin.')->group(function () {
     // Resource routes
     Route::resource('facultades', FacultadController::class);
     Route::resource('departamentos', DepartamentoController::class);
@@ -100,7 +108,8 @@ Route::prefix('admin')->middleware(['auth', 'verified'])->name('admin.')->group(
 });
 
 // Docente Routes
-Route::prefix('docente')->middleware(['auth', 'verified'])->name('docente.')->group(function () {
+Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('docente.')->group(function () {
+    Route::get('dashboard', [\App\Http\Controllers\Docente\DashboardController::class, 'index'])->name('dashboard');
     Route::get('cursos', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'index'])->name('cursos.index');
 
     // Team management (reuse admin course team endpoints but under docente prefix if needed, 

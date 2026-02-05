@@ -26,6 +26,22 @@
 		tipo_ramo: ''
 	});
 
+	let searchTerm = $state('');
+	let showAsignaturasDropdown = $state(false);
+
+	// Filter asignaturas by search term
+	const filteredAsignaturas = $derived.by(() => {
+		if (!searchTerm.trim()) {
+			return asignaturas;
+		}
+		
+		const term = searchTerm.toLowerCase();
+		return asignaturas.filter(a => 
+			a.cod_asignatura.toLowerCase().includes(term) ||
+			a.nombre.toLowerCase().includes(term)
+		);
+	});
+
 	// Organize malla by year
 	const mallaByYear = $derived(() => {
 		const years: { [year: number]: { semestre1: AsignacionPlan[], semestre2: AsignacionPlan[] } } = {};
@@ -71,6 +87,8 @@
 	function closeModal() {
 		showModal = false;
 		editingAsignacion = null;
+		searchTerm = '';
+		showAsignaturasDropdown = false;
 	}
 
 	function handleSubmit() {
@@ -230,20 +248,44 @@
 	>
 		<div class="form-group">
 			<label for="id_asignatura" class="form-label">Asignatura *</label>
-			<select
-				id="id_asignatura"
-				bind:value={formData.id_asignatura}
-				class="form-input"
-				required
-				disabled={!!editingAsignacion}
-			>
-				<option value={0}>Seleccione una asignatura</option>
-				{#each asignaturas as asignatura}
-					<option value={asignatura.id_asignatura}>
-						{asignatura.cod_asignatura} - {asignatura.nombre}
-					</option>
-				{/each}
-			</select>
+			<div class="asignatura-search-container">
+				<input
+					type="text"
+					placeholder="Ponga el código/nombre o prefijo de la asignatura"
+					bind:value={searchTerm}
+					onfocus={() => showAsignaturasDropdown = true}
+					onblur={() => setTimeout(() => showAsignaturasDropdown = false, 200)}
+					class="search-input form-input"
+					disabled={!!editingAsignacion}
+				/>
+				
+				{#if showAsignaturasDropdown && filteredAsignaturas.length > 0}
+					<div class="asignaturas-dropdown">
+						{#each filteredAsignaturas as asignatura}
+							<button
+								type="button"
+								class="dropdown-item"
+								onclick={() => {
+									formData.id_asignatura = asignatura.id_asignatura;
+									searchTerm = `${asignatura.cod_asignatura} - ${asignatura.nombre}`;
+									showAsignaturasDropdown = false;
+								}}
+								disabled={!!editingAsignacion}
+							>
+								<div class="dropdown-item-code">{asignatura.cod_asignatura}</div>
+								<div class="dropdown-item-info">
+									<div class="dropdown-item-name">{asignatura.nombre}</div>
+									<div class="dropdown-item-credits">{asignatura.creditos_sct || 0} créditos SCT</div>
+								</div>
+							</button>
+						{/each}
+					</div>
+				{:else if showAsignaturasDropdown && searchTerm.trim() && filteredAsignaturas.length === 0}
+					<div class="asignaturas-dropdown empty">
+						<p class="no-results">No se encontraron asignaturas</p>
+					</div>
+				{/if}
+			</div>
 		</div>
 
 		<div class="form-row">
@@ -566,6 +608,95 @@
 	.form-input:disabled {
 		background: #f3f4f6;
 		cursor: not-allowed;
+	}
+
+	.asignatura-search-container {
+		position: relative;
+	}
+
+	.search-input {
+		font-size: 0.875rem;
+	}
+
+	.asignaturas-dropdown {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		right: 0;
+		background: white;
+		border: 1px solid #d1d5db;
+		border-top: none;
+		border-radius: 0 0 6px 6px;
+		max-height: 300px;
+		overflow-y: auto;
+		z-index: 10;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	}
+
+	.asignaturas-dropdown.empty {
+		padding: 1rem;
+		text-align: center;
+	}
+
+	.no-results {
+		color: #9ca3af;
+		font-size: 0.875rem;
+		margin: 0;
+	}
+
+	.dropdown-item {
+		width: 100%;
+		padding: 0.75rem 0.875rem;
+		border: none;
+		background: white;
+		text-align: left;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		transition: background 0.2s;
+		border-bottom: 1px solid #f3f4f6;
+	}
+
+	.dropdown-item:last-child {
+		border-bottom: none;
+	}
+
+	.dropdown-item:hover {
+		background: #f0f9ff;
+	}
+
+	.dropdown-item:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.dropdown-item-code {
+		font-family: 'Courier New', monospace;
+		font-weight: 600;
+		color: #3b82f6;
+		font-size: 0.875rem;
+		min-width: 80px;
+	}
+
+	.dropdown-item-info {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.dropdown-item-name {
+		color: #111827;
+		font-weight: 500;
+		font-size: 0.875rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.dropdown-item-credits {
+		color: #9ca3af;
+		font-size: 0.75rem;
+		margin-top: 0.25rem;
 	}
 
 	@media (max-width: 768px) {

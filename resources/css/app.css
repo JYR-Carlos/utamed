@@ -86,75 +86,52 @@
 
 @layer base {
     :root {
-        --background: hsl(0 0% 100%);
-        --foreground: hsl(0 0% 3.9%);
+        --background: hsl(210 33% 97%);
+        /* Pale blue-gray background */
+        --foreground: hsl(220 30% 10%);
+        /* Deep charcoal for text */
         --card: hsl(0 0% 100%);
-        --card-foreground: hsl(0 0% 3.9%);
+        --card-foreground: hsl(220 30% 10%);
         --popover: hsl(0 0% 100%);
-        --popover-foreground: hsl(0 0% 3.9%);
-        --primary: hsl(0 0% 9%);
-        --primary-foreground: hsl(0 0% 98%);
-        --secondary: hsl(0 0% 92.1%);
-        --secondary-foreground: hsl(0 0% 9%);
-        --muted: hsl(0 0% 96.1%);
-        --muted-foreground: hsl(0 0% 45.1%);
-        --accent: hsl(0 0% 96.1%);
-        --accent-foreground: hsl(0 0% 9%);
-        --destructive: hsl(0 84.2% 60.2%);
-        --destructive-foreground: hsl(0 0% 98%);
-        --border: hsl(0 0% 92.8%);
-        --input: hsl(0 0% 89.8%);
-        --ring: hsl(0 0% 3.9%);
-        --chart-1: hsl(12 76% 61%);
-        --chart-2: hsl(173 58% 39%);
-        --chart-3: hsl(197 37% 24%);
-        --chart-4: hsl(43 74% 66%);
-        --chart-5: hsl(27 87% 67%);
-        --radius: 0.5rem;
-        --sidebar-background: hsl(0 0% 98%);
-        --sidebar-foreground: hsl(240 5.3% 26.1%);
-        --sidebar-primary: hsl(0 0% 10%);
-        --sidebar-primary-foreground: hsl(0 0% 98%);
-        --sidebar-accent: hsl(0 0% 94%);
-        --sidebar-accent-foreground: hsl(0 0% 30%);
-        --sidebar-border: hsl(0 0% 91%);
-        --sidebar-ring: hsl(217.2 91.2% 59.8%);
-        --sidebar: hsl(0 0% 98%);
+        --popover-foreground: hsl(220 30% 10%);
+        --primary: hsl(221 83% 53%);
+        --primary-foreground: hsl(210 40% 98%);
+        --secondary: hsl(210 40% 96.1%);
+        --secondary-foreground: hsl(222 47% 11%);
+        --muted: hsl(210 33% 94%);
+        --muted-foreground: hsl(220 15% 45%);
+        --accent: hsl(210 33% 94%);
+        --accent-foreground: hsl(222 47% 11%);
+        --destructive: hsl(0 84% 60%);
+        --destructive-foreground: hsl(210 40% 98%);
+        --border: hsl(210 33% 92%);
+        --input: hsl(210 33% 92%);
+        --ring: hsl(221 83% 53%);
+        --radius: 0.75rem;
+
+        --sidebar-background: hsl(0 0% 100%);
+        --sidebar-foreground: hsl(220 30% 10%);
+        --sidebar-primary: hsl(221 83% 53%);
+        --sidebar-primary-foreground: hsl(210 40% 98%);
+        --sidebar-accent: hsl(221 83% 53%);
+        /* Solid blue for active */
+        --sidebar-accent-foreground: hsl(210 40% 98%);
+        /* White text on active */
+        --sidebar-border: hsl(210 33% 92%);
+        --sidebar-ring: hsl(221 83% 53%);
     }
 
+    /* Force light theme for now to avoid system dark mode black backgrounds as per user preference */
     .dark {
-        --foreground: hsl(0 0% 98%);
-        --card: hsl(0 0% 3.9%);
-        --card-foreground: hsl(0 0% 98%);
-        --popover: hsl(0 0% 3.9%);
-        --popover-foreground: hsl(0 0% 98%);
-        --primary: hsl(0 0% 98%);
-        --primary-foreground: hsl(0 0% 9%);
-        --secondary: hsl(0 0% 14.9%);
-        --secondary-foreground: hsl(0 0% 98%);
-        --muted: hsl(0 0% 16.08%);
-        --muted-foreground: hsl(0 0% 63.9%);
-        --accent: hsl(0 0% 14.9%);
-        --accent-foreground: hsl(0 0% 98%);
-        --destructive: hsl(0 84% 60%);
-        --destructive-foreground: hsl(0 0% 98%);
-        --border: hsl(0 0% 14.9%);
-        --input: hsl(0 0% 14.9%);
-        --ring: hsl(0 0% 83.1%);
-        --chart-1: hsl(220 70% 50%);
-        --chart-2: hsl(160 60% 45%);
-        --chart-3: hsl(30 80% 55%);
-        --chart-4: hsl(280 65% 60%);
-        --chart-5: hsl(340 75% 55%);
-        --sidebar-background: hsl(0 0% 7%);
-        --sidebar-foreground: hsl(0 0% 95.9%);
-        --sidebar-primary: hsl(360, 100%, 100%);
-        --sidebar-primary-foreground: hsl(0 0% 100%);
-        --sidebar-accent: hsl(0 0% 15.9%);
-        --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
-        --sidebar-border: hsl(0 0% 15.9%);
-        --sidebar-ring: hsl(217.2 91.2% 59.8%);
-        --sidebar: hsl(240 5.9% 10%);
+        --background: hsl(210 33% 97%);
+        --foreground: hsl(220 30% 10%);
+        --card: hsl(0 0% 100%);
+        --card-foreground: hsl(220 30% 10%);
+        --primary: hsl(221 83% 53%);
+        --primary-foreground: hsl(210 40% 98%);
+        --border: hsl(210 33% 92%);
+        --sidebar-background: hsl(0 0% 100%);
+        --sidebar-foreground: hsl(220 30% 10%);
     }
 }
 
@@ -164,6 +141,98 @@
     }
 
     body {
-        @apply bg-background text-foreground;
+        @apply bg-background text-foreground text-sm md:text-base lg:text-lg;
+    }
+
+    /* Responsive font sizing for better readability on larger screens */
+    h1 {
+        @apply text-2xl md:text-3xl lg:text-4xl font-bold;
+    }
+
+    h2 {
+        @apply text-xl md:text-2xl lg:text-3xl font-bold;
+    }
+
+    h3 {
+        @apply text-lg md:text-xl lg:text-2xl font-semibold;
+    }
+
+    h4 {
+        @apply text-base md:text-lg lg:text-xl font-semibold;
+    }
+
+    h5 {
+        @apply text-sm md:text-base lg:text-lg font-semibold;
+    }
+
+    h6 {
+        @apply text-xs md:text-sm lg:text-base font-semibold;
+    }
+
+    p {
+        @apply text-sm md:text-base lg:text-base;
+    }
+}
+
+/* Enhanced responsive font sizing for better readability on larger screens */
+@layer components {
+    /* Small text (xs) - more visible on large screens */
+    .text-xs {
+        @apply text-xs md:text-xs lg:text-sm;
+    }
+    
+    /* Tables and list items */
+    .table-cell,
+    li {
+        @apply text-sm md:text-sm lg:text-base;
+    }
+    
+    /* Buttons and interactive elements */
+    button,
+    [role="button"],
+    a {
+        @apply text-sm md:text-sm lg:text-base;
+    }
+    
+    /* Form labels and descriptions */
+    label,
+    .label {
+        @apply text-sm md:text-sm lg:text-base;
+    }
+
+    /* Sidebar and navigation text */
+    [data-sidebar="group-label"],
+    .sidebar-label {
+        @apply text-xs md:text-xs lg:text-sm;
+    }
+
+    /* Cards and panels */
+    .card,
+    [role="article"] {
+        @apply text-sm md:text-sm lg:text-base;
+    }
+}
+
+/* Media query adjustments for large displays (1920px+) */
+@media (min-width: 1920px) {
+    body,
+    html {
+        font-size: 18px;
+    }
+
+    h1 {
+        @apply text-5xl;
+    }
+
+    h2 {
+        @apply text-4xl;
+    }
+
+    h3 {
+        @apply text-3xl;
+    }
+
+    .sidebar-label {
+        @apply text-sm;
     }
 }

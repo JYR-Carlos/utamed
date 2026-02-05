@@ -164,8 +164,8 @@ class CourseTeamController extends Controller
             });
         }
 
-        // Just return the permissions flat
-        $availablePermissions = $availablePermissions;
+        // Just return the permissions flat -> Now grouped for frontend
+        $availablePermissions = $availablePermissions->groupBy(fn() => 'General');
 
         return response()->json([
             'roles' => $roles,

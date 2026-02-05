@@ -45,7 +45,7 @@
                 {#snippet children({ errors, processing, recentlySuccessful }: ProfileFormSnippetProps)}
                     <div class="grid gap-2">
                         <Label for="name">Name</Label>
-                        <Input name="name" class="mt-1 block w-full" defaultValue={user.name} required autocomplete="name" placeholder="Full name" />
+                        <Input name="name" id="name" class="mt-1 block w-full" defaultValue={user.nombre1 ?? ''} required autocomplete="name" placeholder="Full name" />
                         <InputError class="mt-2" message={errors.name} />
                     </div>
 
@@ -55,14 +55,13 @@
                             id="email"
                             name="email"
                             class="mt-1 block w-full"
-                            defaultValue={user.email}
+                            defaultValue={user.email ?? ''}
                             required
                             autocomplete="username"
                             placeholder="Email address"
                         />
                         <InputError class="mt-2" message={errors.email} />
                     </div>
-
                     {#if mustVerifyEmail && !user.email_verified_at}
                         <div>
                             <p class="-mt-4 text-sm text-muted-foreground">

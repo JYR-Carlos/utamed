@@ -1,10 +1,21 @@
 <script lang="ts">
-    import AdminLayout from '@/layouts/AdminLayout.svelte';
-    import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-    import { BookOpen, Users, GraduationCap, Calendar, Clock, ArrowRight } from 'lucide-svelte';
-    import { page } from '@inertiajs/svelte';
-    import { Button } from '@/components/ui/button';
-    import { type BreadcrumbItem } from '@/types';
+    import AppLayout from '@/layouts/AppLayout.svelte';
+    import { page, Link } from '@inertiajs/svelte';
+    import { 
+        Users, 
+        BookOpen, 
+        GraduationCap, 
+        Building2,
+        Calendar,
+        MessageSquare,
+        UserPlus,
+        Clock,
+        ArrowUpRight,
+        ClipboardList,
+        Settings
+    } from 'lucide-svelte';
+    import SoftCard from '@/components/custom/dashboard/SoftCard.svelte';
+    import IllustrationWidget from '@/components/custom/dashboard/IllustrationWidget.svelte';
     import DashboardDocente from './dashboards/DashboardDocente.svelte';
     import DashboardAlumno from './dashboards/DashboardAlumno.svelte';
     import DashboardAyudante from './dashboards/DashboardAyudante.svelte';
@@ -22,191 +33,191 @@
 
     let { stats }: Props = $props();
     let user = $derived($page.props.auth.user);
-    // Cast roles to array of strings safely
     let roles = $derived(($page.props.auth.roles as string[]) || []);
     
     let isDocente = $derived(roles.includes('Docente'));
     let isEstudiante = $derived(roles.includes('Estudiante'));
     let isAyudante = $derived(roles.includes('Ayudante'));
     let isAdmin = $derived(roles.includes('Super Admin') || roles.includes('Administrador') || roles.length === 0);
+
+    // Mock data for new UI elements
+    const crudStats = [
+        { label: 'Registros Nuevos Hoy', value: '12', color: 'blue', change: '+3 desde ayer' },
+        { label: 'Actualizaciones', value: '28', color: 'purple', change: '+8 esta sesión' },
+        { label: 'Datos Pendientes', value: '5', color: 'orange', change: 'Requiere acción' },
+        { label: 'Cambios Validados', value: '156', color: 'emerald', change: 'Este período' },
+    ];
 </script>
 
 <svelte:head>
-    <title>Dashboard</title>
+    <title>Dashboard | UTAMED</title>
 </svelte:head>
 
-<AdminLayout>
-    <div class="page-container">
-        <!-- Page Header -->
-        <div class="page-header">
-            <div>
-                <h1 class="page-title">
-                    Hola, {user.nombre1 ? user.nombre1 : (user.username || 'Usuario')} 👋
-                </h1>
-                <p class="page-description">
-                    {#if roles.length > 0}
-                        Tus roles: {roles.join(', ')}
-                    {:else}
-                        Bienvenido al Panel de Administración UtaMed.
+<AppLayout breadcrumbs={[{ title: 'Dashboard', href: '/dashboard' }]}>
+    <div class="dashboard-page px-4 py-6 md:px-8 max-w-[1600px] mx-auto">
+        <!-- Top Section: Welcome & Actions -->
+        <header class="dashboard-header mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="welcome-text">
+                <h1 class="title text-3xl md:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight">¡Hola, {user.nombre1 || 'Usuario'}! 👋</h1>
+                <p class="subtitle text-slate-500 mt-1 text-sm md:text-base lg:text-lg">Aquí tienes un resumen de lo que está pasando hoy en UTAMED.</p>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Grid -->
+        <div class="dashboard-grid grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Left Column: Activity & Stats -->
+            <div class="lg:col-span-12 xl:col-span-9 space-y-6">
+                
+                <!-- System Operations Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <IllustrationWidget 
+                        title="Cambios Registrados" 
+                        description="Registro de auditoría: 156 cambios validados en el período actual."
+                        color="purple"
+                        icon={Users}
+                        stats="156 registros"
+                    />
+                    <IllustrationWidget 
+                        title="Backups Sistema" 
+                        description="Último backup completado: hace 6 horas. Próximo: en 18 horas."
+                        color="orange"
+                        icon={Calendar}
+                        stats="Automático"
+                    />
+                </div>
+
+                <!-- Main Stats Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-4">
+                    <SoftCard class="stat-card p-5 flex items-center gap-4">
+                        <div class="stat-icon bg-blue-50 text-blue-500 w-12 h-12 rounded-2xl flex items-center justify-center shrink-0">
+                            <Users size={24} />
+                        </div>
+                        <div class="stat-info min-w-0 flex-1">
+                            <span class="stat-label block text-[10px] md:text-xs lg:text-xs font-bold text-slate-400 uppercase tracking-wider">Usuarios</span>
+                            <span class="stat-value text-xl md:text-2xl lg:text-2xl font-bold text-slate-800 truncate block">{stats.usuarios}</span>
+                        </div>
+                    </SoftCard>
+
+                    <SoftCard class="stat-card p-5 flex items-center gap-4">
+                        <div class="stat-icon bg-orange-50 text-orange-500 w-12 h-12 rounded-2xl flex items-center justify-center shrink-0">
+                            <BookOpen size={24} />
+                        </div>
+                        <div class="stat-info min-w-0 flex-1">
+                            <span class="stat-label block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cursos</span>
+                            <span class="stat-value text-xl font-bold text-slate-800 truncate block">{stats.cursos}</span>
+                        </div>
+                    </SoftCard>
+
+                    <SoftCard class="stat-card p-5 flex items-center gap-4">
+                        <div class="stat-icon bg-purple-50 text-purple-500 w-12 h-12 rounded-2xl flex items-center justify-center shrink-0">
+                            <Building2 size={24} />
+                        </div>
+                        <div class="stat-info min-w-0 flex-1">
+                            <span class="stat-label block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Facultades</span>
+                            <span class="stat-value text-xl font-bold text-slate-800 truncate block">{stats.facultades}</span>
+                        </div>
+                    </SoftCard>
+
+                    <SoftCard class="stat-card p-5 flex items-center gap-4">
+                        <div class="stat-icon bg-emerald-50 text-emerald-500 w-12 h-12 rounded-2xl flex items-center justify-center shrink-0">
+                            <GraduationCap size={24} />
+                        </div>
+                        <div class="stat-info min-w-0 flex-1">
+                            <span class="stat-label block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Carreras</span>
+                            <span class="stat-value text-xl font-bold text-slate-800 truncate block">{stats.carreras}</span>
+                        </div>
+                    </SoftCard>
+                </div>
+
+                <!-- Tables & Special Panels -->
+                <div class="space-y-6 pt-4">
+                    {#if isDocente}
+                        <section class="pt-4">
+                            <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <span class="p-2 bg-indigo-50 rounded-lg text-indigo-500"><Users size={20} /></span>
+                                Panel Docente
+                            </h2>
+                            <DashboardDocente {user} />
+                        </section>
                     {/if}
-                </p>
+
+                    {#if isEstudiante}
+                        <section class="pt-4">
+                            <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <span class="p-2 bg-emerald-50 rounded-lg text-emerald-500"><GraduationCap size={20} /></span>
+                                Panel Estudiante
+                            </h2>
+                            <DashboardAlumno {user} />
+                        </section>
+                    {/if}
+                </div>
+            </div>
+
+            <!-- Right Column: Info & Shortcuts -->
+            <div class="lg:col-span-12 xl:col-span-3 space-y-6">
+                <SoftCard class="p-6">
+                    <h3 class="font-bold text-slate-800 mb-4 text-lg md:text-xl">Enlaces Rápidos</h3>
+                    <div class="flex flex-col gap-2">
+                        <Link href="/admin/usuarios" class="flex items-center gap-3 p-3 rounded-xl text-sm md:text-base lg:text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-all">
+                            <div class="p-2 bg-slate-100 rounded-lg group-hover:bg-blue-50">
+                                <Users size={18} />
+                            </div>
+                            Usuarios
+                        </Link>
+                        <Link href="/admin/cursos" class="flex items-center gap-3 p-3 rounded-xl text-sm md:text-base lg:text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-all">
+                            <div class="p-2 bg-slate-100 rounded-lg group-hover:bg-blue-50">
+                                <BookOpen size={18} />
+                            </div>
+                            Cursos
+                        </Link>
+                        <Link href="/admin/planes" class="flex items-center gap-3 p-3 rounded-xl text-sm md:text-base lg:text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-all">
+                            <div class="p-2 bg-slate-100 rounded-lg group-hover:bg-blue-50">
+                                <ClipboardList size={18} />
+                            </div>
+                            Planes
+                        </Link>
+                        <Link href="/settings" class="flex items-center gap-3 p-3 rounded-xl text-sm md:text-base lg:text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-all">
+                            <div class="p-2 bg-slate-100 rounded-lg group-hover:bg-blue-50">
+                                <Settings size={18} />
+                            </div>
+                            Configuración
+                        </Link>
+                    </div>
+                </SoftCard>
+
+                <div class="p-6 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl text-white shadow-xl shadow-blue-500/20">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="p-2 bg-white/20 rounded-xl">
+                            <Users size={20} />
+                        </div>
+                        <span class="font-bold">Operaciones Principales</span>
+                    </div>
+                    <div class="space-y-3 text-sm opacity-90">
+                        <div class="flex justify-between">
+                            <span>Crear Usuario</span>
+                            <span class="font-semibold cursor-pointer hover:opacity-100 transition-opacity">→</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Gestionar Roles</span>
+                            <span class="font-semibold cursor-pointer hover:opacity-100 transition-opacity">→</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Validar Datos</span>
+                            <span class="font-semibold cursor-pointer hover:opacity-100 transition-opacity">→</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Ver Auditoría</span>
+                            <span class="font-semibold cursor-pointer hover:opacity-100 transition-opacity">→</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-
-        <!-- Role Specific Dashboards (Stacked for multi-role users) -->
-        
-        {#if isDocente}
-            <div class="mb-8">
-                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <span class="text-2xl">👨‍🏫</span> Panel Docente
-                </h2>
-                <DashboardDocente {user} />
-            </div>
-        {/if}
-
-        {#if isAyudante}
-            <div class="mb-8">
-                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <span class="text-2xl">📚</span> Panel Ayudante
-                </h2>
-                <DashboardAyudante {user} />
-            </div>
-        {/if}
-
-        {#if isEstudiante}
-            <div class="mb-8">
-                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <span class="text-2xl">🎓</span> Panel Estudiante
-                </h2>
-                <DashboardAlumno {user} />
-            </div>
-        {/if}
-
-        <!-- Admin Stats & Quick Actions (Only for Admin or fallback) -->
-        {#if isAdmin}
-            <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-                <Card class="bg-white border text-card-foreground shadow-sm">
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium text-[#374151]">Usuarios Registrados</CardTitle>
-                        <Users class="h-4 w-4 text-[#6b7280]" />
-                    </CardHeader>
-                    <CardContent>
-                        <div class="text-2xl font-bold text-[#111827]">{stats.usuarios}</div>
-                        <p class="text-xs text-[#6b7280]">Total en el sistema</p>
-                    </CardContent>
-                </Card>
-                <Card class="bg-white border text-card-foreground shadow-sm">
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium text-[#374151]">Cursos</CardTitle>
-                        <BookOpen class="h-4 w-4 text-[#6b7280]" />
-                    </CardHeader>
-                    <CardContent>
-                        <div class="text-2xl font-bold text-[#111827]">{stats.cursos}</div>
-                        <p class="text-xs text-[#6b7280]">Cursos creados</p>
-                    </CardContent>
-                </Card>
-                <Card class="bg-white border text-card-foreground shadow-sm">
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium text-[#374151]">Facultades</CardTitle>
-                        <Users class="h-4 w-4 text-[#6b7280]" />
-                    </CardHeader>
-                    <CardContent>
-                        <div class="text-2xl font-bold text-[#111827]">{stats.facultades}</div>
-                        <p class="text-xs text-[#6b7280]">Facultades activas</p>
-                    </CardContent>
-                </Card>
-                <Card class="bg-white border text-card-foreground shadow-sm">
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium text-[#374151]">Carreras</CardTitle>
-                        <GraduationCap class="h-4 w-4 text-[#6b7280]" />
-                    </CardHeader>
-                    <CardContent>
-                        <div class="text-2xl font-bold text-[#111827]">{stats.carreras}</div>
-                        <p class="text-xs text-[#6b7280]">Carreras impartidas</p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <div class="grid gap-6 md:grid-cols-1">
-                <!-- Quick Actions -->
-                <Card class="bg-white border text-card-foreground shadow-sm">
-                    <CardHeader>
-                        <CardTitle class="text-[#111827] text-lg">Accesos Rápidos</CardTitle>
-                        <CardDescription class="text-[#6b7280]">
-                            Gestión frecuente del sistema.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent class="grid gap-4 md:grid-cols-3">
-                        <Button 
-                            variant="outline" 
-                            class="h-auto py-4 justify-start px-4 group border-[#d1d5db] text-[#374151] hover:bg-gray-50 hover:text-[#111827]" 
-                            href="/admin/usuarios"
-                        >
-                            <div class="flex flex-col items-start gap-1">
-                                <div class="flex items-center gap-2 font-medium">
-                                    <Users class="h-4 w-4" />
-                                    Administrar Usuarios
-                                </div>
-                                <span class="text-xs font-normal text-muted-foreground">Crear y editar usuarios</span>
-                            </div>
-                        </Button>
-                        <Button 
-                            variant="outline" 
-                            class="h-auto py-4 justify-start px-4 group border-[#d1d5db] text-[#374151] hover:bg-gray-50 hover:text-[#111827]" 
-                            href="/admin/cursos"
-                        >
-                            <div class="flex flex-col items-start gap-1">
-                                <div class="flex items-center gap-2 font-medium">
-                                    <BookOpen class="h-4 w-4" />
-                                    Cursos
-                                </div>
-                                <span class="text-xs font-normal text-muted-foreground">Gestionar cursos académicos</span>
-                            </div>
-                        </Button>
-                        <Button 
-                            variant="outline" 
-                            class="h-auto py-4 justify-start px-4 group border-[#d1d5db] text-[#374151] hover:bg-gray-50 hover:text-[#111827]" 
-                            href="/admin/planes"
-                        >
-                            <div class="flex flex-col items-start gap-1">
-                                <div class="flex items-center gap-2 font-medium">
-                                    <GraduationCap class="h-4 w-4" />
-                                    Planes de Estudio
-                                </div>
-                                <span class="text-xs font-normal text-muted-foreground">Mallas y asignaturas</span>
-                            </div>
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-        {/if}
     </div>
-</AdminLayout>
+</AppLayout>
 
 <style>
-    .page-container {
-        padding: 2rem;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    .page-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 2rem;
-    }
-
-    .page-title {
-        font-size: 1.875rem;
-        font-weight: 700;
-        color: #111827;
-        margin: 0 0 0.25rem 0;
-    }
-
-    .page-description {
-        color: #6b7280;
-        font-size: 0.875rem;
-        margin: 0;
+    .dashboard-page {
+        min-height: calc(100vh - 64px);
     }
 </style>

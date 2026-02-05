@@ -70,7 +70,8 @@ class CursoController extends Controller
 
         $availableRoles = $roleQuery->get();
         // Just return all permissions, maybe keyed by something else or just flat
-        $availablePermissions = $permQuery->get();
+        // Group permissions by 'General' category since 'modulo' column was removed
+        $availablePermissions = $permQuery->get()->groupBy(fn() => 'General');
 
         return Inertia::render('admin/Cursos', [
             'cursos' => $cursos,

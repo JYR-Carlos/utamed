@@ -8,7 +8,7 @@
     import { show as editTwoFactor } from '@/routes/two-factor';
     import { edit as editPassword } from '@/routes/user-password';
     import { type NavItem } from '@/types';
-    import { Link } from '@inertiajs/svelte';
+    import { Link, page } from '@inertiajs/svelte';
     import type { Snippet } from 'svelte';
 
     const sidebarNavItems: NavItem[] = [
@@ -30,7 +30,7 @@
         },
     ];
 
-    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+    let currentPath = $derived($page.url);
 
     interface Props {
         children?: Snippet;

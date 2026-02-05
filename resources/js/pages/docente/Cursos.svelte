@@ -1,5 +1,5 @@
 <script lang="ts">
-    import AdminLayout from '@/layouts/AdminLayout.svelte';
+    import DocenteLayout from '@/layouts/DocenteLayout.svelte';
     import CourseTeamModal from '@/components/custom/admin/CourseTeamModal.svelte';
 
     interface Props {
@@ -24,7 +24,7 @@
     }
 </script>
 
-<AdminLayout>
+<DocenteLayout>
     <div class="page-container">
         <div class="page-header">
             <div>
@@ -73,7 +73,7 @@
             urlPrefix="docente"
         />
     {/if}
-</AdminLayout>
+</DocenteLayout>
 
 <style>
     .page-container {

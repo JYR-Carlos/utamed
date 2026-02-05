@@ -125,8 +125,8 @@ class UsuarioController extends Controller
         // RBAC Data
         $availableRoles = Rol::orderBy('nombre')->get();
         // Group permissions by module
-        // Group permissions by module -> Just flat list now
-        $availablePermissions = Permiso::orderBy('slug')->get();
+        // Group permissions by module -> Grouped as 'General' for frontend display
+        $availablePermissions = Permiso::orderBy('slug')->get()->groupBy(fn() => 'General');
 
         return Inertia::render('admin/Usuarios', [
             'usuarios' => $usuarios,

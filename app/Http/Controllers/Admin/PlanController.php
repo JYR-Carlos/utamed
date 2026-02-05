@@ -89,8 +89,13 @@ class PlanController extends Controller
             $plan = Plan::create($validated);
 
             return redirect()->route('admin.planes.index')
-                ->with('success', 'Plan creado exitosamente.');
+                ->with('success', 'Plan creado exitosamente para el año ' . $validated['agno'] . ' versión ' . $validated['version'] . '.');
         } catch (\Exception $e) {
+            \Log::error('Error al crear plan: ' . $e->getMessage(), [
+                'validated_data' => $validated,
+                'exception' => $e
+            ]);
+            
             return back()->with('error', 'Error al crear plan: ' . $e->getMessage());
         }
     }

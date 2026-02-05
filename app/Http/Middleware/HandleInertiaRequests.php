@@ -40,6 +40,8 @@ class HandleInertiaRequests extends Middleware
 
         $roles = [];
         $user = $request->user();
+        $docente = null;
+        $estudiante = null;
 
         if ($user) {
             // Fetch active roles for Global context (ID 5) or all active roles if strict context not required yet.
@@ -54,6 +56,14 @@ class HandleInertiaRequests extends Middleware
                 ->unique()
                 ->values()
                 ->toArray();
+            
+            // Obtener información de docente y estudiante
+            if ($user->docente) {
+                $docente = $user->docente;
+            }
+            if ($user->estudiante) {
+                $estudiante = $user->estudiante;
+            }
         }
 
         return [
@@ -63,6 +73,8 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user,
                 'roles' => $roles,
+                'docente' => $docente,
+                'estudiante' => $estudiante,
             ],
             'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
