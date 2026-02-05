@@ -2,27 +2,26 @@
 
 namespace Database\Seeders;
 
+use App\Models\Curso\TipoSeccion;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class TipoSeccionSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     *
-     * @return void
-     */
     public function run()
     {
+        // Insertar tipos de sección
         $tipos = [
-            [1, 'Cátedra'],
-            [2, 'Taller'],
-            [3, 'Laboratorio'],
-            [4, 'Ayudantía'],
+            ['id_tipo_seccion' => 1, 'tipo' => 'Cátedra'],
+            ['id_tipo_seccion' => 2, 'tipo' => 'Taller'],
+            ['id_tipo_seccion' => 3, 'tipo' => 'Laboratorio'],
+            ['id_tipo_seccion' => 4, 'tipo' => 'Ayudantía'],
         ];
 
         foreach ($tipos as $tipo) {
-            DB::statement('INSERT INTO "utamed.Curso"."Tipo_Seccion" (id_tipo_seccion, tipo) VALUES (?, ?) ON CONFLICT (id_tipo_seccion) DO UPDATE SET tipo = EXCLUDED.tipo', $tipo);
+            TipoSeccion::updateOrCreate(
+                ['id_tipo_seccion' => $tipo['id_tipo_seccion']],
+                $tipo
+            );
         }
     }
 }
