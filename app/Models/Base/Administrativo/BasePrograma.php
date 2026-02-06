@@ -50,7 +50,7 @@ abstract class BasePrograma extends Model
 
     // Relaciones
 
-    public function usuario()
+    public function autor()
     {
         return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'creado_por', 'id_usuario');
     }

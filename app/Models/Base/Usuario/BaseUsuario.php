@@ -56,7 +56,7 @@ abstract class BaseUsuario extends Model
 
     // Relaciones inversas
 
-    public function programas()
+    public function programasCreados()
     {
         return $this->hasMany(\App\Models\Administrativo\Programa::class, 'creado_por', 'id_usuario');
     }
@@ -71,37 +71,37 @@ abstract class BaseUsuario extends Model
         return $this->hasOne(\App\Models\Usuario\Estudiante::class, 'id_usuario', 'id_usuario');
     }
 
-    public function roles()
+    public function rolesCreados()
     {
         return $this->hasMany(\App\Models\Usuario\Rol::class, 'creado_por', 'id_usuario');
     }
 
-    public function usuarioPermisoEspeciales()
+    public function permisosEspecialesRecibidos()
     {
         return $this->hasMany(\App\Models\Usuario\UsuarioPermisoEspecial::class, 'id_usuario', 'id_usuario');
     }
 
-    public function usuarioPermisoEspeciales1()
+    public function permisosEspecialesAsignados()
     {
         return $this->hasMany(\App\Models\Usuario\UsuarioPermisoEspecial::class, 'creado_por', 'id_usuario');
     }
 
-    public function usuarioPermisoEspeciales2()
+    public function permisosEspecialesEliminados()
     {
         return $this->hasMany(\App\Models\Usuario\UsuarioPermisoEspecial::class, 'eliminado_por', 'id_usuario');
     }
 
-    public function usuarioRolAsignacciones()
+    public function asignacionesRolRecibidas()
     {
         return $this->hasMany(\App\Models\Usuario\UsuarioRolAsignación::class, 'id_usuario', 'id_usuario');
     }
 
-    public function usuarioRolAsignacciones1()
+    public function asignacionesRolRealizadas()
     {
         return $this->hasMany(\App\Models\Usuario\UsuarioRolAsignación::class, 'creado_por', 'id_usuario');
     }
 
-    public function usuarioRolAsignacciones2()
+    public function asignacionesRolEliminadas()
     {
         return $this->hasMany(\App\Models\Usuario\UsuarioRolAsignación::class, 'eliminado_por', 'id_usuario');
     }
@@ -130,24 +130,68 @@ abstract class BaseUsuario extends Model
         ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
-    public function usuariosQueRecibenMisPermisos()
-    {
-        return $this->belongsToMany(
-            \App\Models\Usuario\Usuario::class,
-            'Usuario_Permiso_Especial',
-            'id_usuario_asignador',
-            'id_usuario_recipiente'
-        )
-        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
-    }
-
     public function usuariosQueAsignanMisPermisos()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
             'Usuario_Permiso_Especial',
-            'id_usuario_recipiente',
-            'id_usuario_asignador'
+            'id_usuario',
+            'creado_por'
+        )
+        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+    }
+
+    public function usuariosQueBorranMisPermisos()
+    {
+        return $this->belongsToMany(
+            \App\Models\Usuario\Usuario::class,
+            'Usuario_Permiso_Especial',
+            'id_usuario',
+            'eliminado_por'
+        )
+        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+    }
+
+    public function usuariosQueRecibenMisPermisos()
+    {
+        return $this->belongsToMany(
+            \App\Models\Usuario\Usuario::class,
+            'Usuario_Permiso_Especial',
+            'creado_por',
+            'id_usuario'
+        )
+        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+    }
+
+    public function usuariosQueBorranMisPermisosAsignados()
+    {
+        return $this->belongsToMany(
+            \App\Models\Usuario\Usuario::class,
+            'Usuario_Permiso_Especial',
+            'creado_por',
+            'eliminado_por'
+        )
+        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+    }
+
+    public function usuariosQueBorranMisPermisosRecibidos()
+    {
+        return $this->belongsToMany(
+            \App\Models\Usuario\Usuario::class,
+            'Usuario_Permiso_Especial',
+            'eliminado_por',
+            'id_usuario'
+        )
+        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+    }
+
+    public function usuariosALosQueBorroSusPermisos()
+    {
+        return $this->belongsToMany(
+            \App\Models\Usuario\Usuario::class,
+            'Usuario_Permiso_Especial',
+            'eliminado_por',
+            'creado_por'
         )
         ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
@@ -179,8 +223,8 @@ abstract class BaseUsuario extends Model
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
             'Usuario_Rol_Asignación',
-            'id_usuario_asignador',
-            'id_usuario_recipiente'
+            'creado_por',
+            'id_usuario'
         )
         ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
@@ -190,8 +234,8 @@ abstract class BaseUsuario extends Model
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
             'Usuario_Rol_Asignación',
-            'id_usuario_recipiente',
-            'id_usuario_asignador'
+            'id_usuario',
+            'creado_por'
         )
         ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }

@@ -52,7 +52,7 @@ abstract class BaseUsuarioPermisoEspecial extends Model
 
     // Relaciones
 
-    public function usuario()
+    public function receptor()
     {
         return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario', 'id_usuario');
     }
@@ -67,12 +67,12 @@ abstract class BaseUsuarioPermisoEspecial extends Model
         return $this->belongsTo(\App\Models\Usuario\Contexto::class, 'id_contexto', 'id_contexto');
     }
 
-    public function usuario1()
+    public function asignador()
     {
         return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'creado_por', 'id_usuario');
     }
 
-    public function usuario2()
+    public function borrador()
     {
         return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'eliminado_por', 'id_usuario');
     }

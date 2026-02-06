@@ -182,14 +182,21 @@ $baseModelNamespace = $extendedModelNamespace . '\\Base';
 // UNIFICA EL RENOMBRADO DE TODOS LOS TIPOS DE RELACIONES EN UN SOLO LUGAR
 //
 // FORMATO:
-// 'utamed.{Schema}.{Tabla}' => [
+// '{Schema}.{Tabla}' => [
 //   '_self' => [                           ← belongsTo: Relaciones EN esta tabla
-//     '{columna_fk}' => '{nuevo_nombre}',
+//     '{local_key}' => '{nombre_metodo_belongs}',
 //   ],
 //   '{OtraTabla}' => [                     ← hasMany/hasOne: Relaciones DESDE otra tabla
-//     '{columna_fk}' => '{nuevo_nombre}',
+//     '{foreign_key}' => '{nombre_metodo_has}',
 //   ],
 // ]
+//
+// Corolario:
+//   -- SE LEE DE ADENTRO HACIA AFUERA: --
+//   "{OtraTabla} puede invocar {nombre_metodo_has} 
+//   para acceder a instancias de {Tabla} a través de la columna {foreign_key}."
+//   "También, {Tabla} puede invocar {nombre_metodo_belongs}
+//   para acceder a la instancia de {OtraTabla} relacionada a través de {local_key}."
 //
 // CLAVE ESPECIAL '_self':
 // - Renombra métodos belongsTo en la MISMA tabla que tiene las FKs
@@ -235,33 +242,45 @@ $relationNames = [
   // Usuario crea Roles (evitar conflicto con belongsToMany)
   'utamed.Usuario.Rol' => [
     'Usuario' => [
-      'id_usuario_autor' => 'rolesCreados', // rol1() -> rolesCreados()
+      'creado_por' => 'rolesCreados',
     ],
   ],
 
   // Usuario_Rol_Asignación
   'utamed.Usuario.Usuario_Rol_Asignación' => [
+    '_self'=> [
+      'creado_por' => 'asignador',  // belongsTo: usuario que asigna el permiso
+      'id_usuario' => 'receptor',   // belongsTo: usuario que recibe el permiso
+      'eliminado_por' => 'borrador', // belongsTo: usuario que borra el permiso
+    ],
     'Usuario' => [
-      'id_usuario_recipiente' => 'asignacionesRolRecibidas',  // Usuario recibe roles
-      'id_usuario_asignador' => 'asignacionesRolRealizadas',  // Usuario asigna roles
+      'id_usuario' => 'asignacionesRolRecibidas',  // Usuario recibe roles
+      'creado_por' => 'asignacionesRolRealizadas',  // Usuario asigna roles
+      'eliminado_por' => 'asignacionesRolEliminadas' // Usuario que borra roles
     ],
   ],
 
   // Usuario_Permiso_Especial: múltiples FKs hacia Usuario
   'utamed.Usuario.Usuario_Permiso_Especial' => [
+    '_self' => [
+      'creado_por' => 'asignador',  // belongsTo: usuario que asigna el permiso
+      'id_usuario' => 'receptor',   // belongsTo: usuario que recibe el permiso
+      'eliminado_por' => 'borrador', // belongsTo: usuario que borra el permiso
+    ],
     'Usuario' => [
-      'id_usuario_recipiente' => 'permisosEspecialesRecibidos', // Usuario recibe permisos
-      'id_usuario_asignador' => 'permisosEspecialesAsignados',  // Usuario asigna permisos
+      'id_usuario' => 'permisosEspecialesRecibidos', // Usuario recibe permisos
+      'creado_por' => 'permisosEspecialesAsignados', // Usuario asigna permisos
+      'eliminado_por' => 'permisosEspecialesEliminados' // Usuario que borra permisos
     ],
   ],
 
   // Programa: Usuario crea programas
   'utamed.Administrativo.Programa' => [
     '_self' => [
-      'id_usuario_autor' => 'autor',
+      'creado_por' => 'autor',
     ],
     'Usuario' => [
-      'id_usuario_autor' => 'programasCreados',
+      'creado_por' => 'programasCreados',
     ],
   ],
 
@@ -285,12 +304,14 @@ $relationNames = [
 // 'utamed.Schema.NombreTabla' => true
 //
 // FORMATO AVANZADO (control fino sobre relaciones):
-// 'utamed.Schema.NombreTabla' => [
+// 'Esquema.Tabla_Pivot' => [
 //   'auto_suffix' => true,                      // Agrega sufijo del pivot automáticamente (default: false)
 //   'relation_names' => [                       // Relaciones a generar (actúa como whitelist)
-//     'TablaOrigen' => [
-//       'TablaDestino' => 'nombre_metodo',
-//       'TablaDestino' => [
+//     'Tabla_Origen' => [
+//       'Tabla_Destino' => 'nombre_metodo',      // Nombre del método (belongsTo o hasMany)
+//       
+//       // o especificando más
+//       'Tabla_Destino' => [
 //         'method_name' => 'nombre_metodo',     // Nombre del método
 //         'local_key' => 'columna_local',       // FK específica para esta relación
 //         'foreign_key' => 'columna_remota',    // FK específica hacia tabla destino
@@ -298,6 +319,12 @@ $relationNames = [
 //     ],
 //   ],
 // ]
+//
+// Corolario:
+//  "A través de {Esquema.Tabla_Pivot}, 
+//  {Tabla_Origen} puede invocar {nombre_metodo} 
+//  para acceder a todas las instancias de {Tabla_Destino} relacionadas a la tabla,
+//  usando {columna_local} en referencia a {columna_remota}."
 //
 // CASOS DE USO:
 // - Pivots con 2 FKs (muchos-a-muchos simple)
@@ -349,7 +376,6 @@ $relationNames = [
 //     ],
 //   ],
 // ],
-//
 //
 
 $manualPivotTables = [
@@ -433,20 +459,43 @@ $manualPivotTables = [
     ],
   ],
 
-  // Usuario_Permiso_Especial: Usuario ↔ Permiso ↔ Contexto (múltiples FKs a Usuario)
+  // Usuario_Permiso_Especial: Usuario ↔ Usuario ↔ Permiso ↔ Contexto (múltiples FKs a Usuario)
   'utamed.Usuario.Usuario_Permiso_Especial' => [
     'relation_names' => [
       'Usuario' => [
         'Usuario' => [
-          [
-            'method_name' => 'usuariosQueRecibenMisPermisos',
-            'local_key' => 'id_usuario_asignador',
-            'foreign_key' => 'id_usuario_recipiente'
-          ],
+          // los pivots desde usuario que recibe
           [
             'method_name' => 'usuariosQueAsignanMisPermisos',
-            'local_key' => 'id_usuario_recipiente',
-            'foreign_key' => 'id_usuario_asignador'
+            'local_key' => 'id_usuario',
+            'foreign_key' => 'creado_por'
+          ],
+          [
+            'method_name' => 'usuariosQueBorranMisPermisos', 
+            'local_key' => 'id_usuario',
+            'foreign_key' => 'eliminado_por'
+          ],
+          // los pivots desde usuario que asigna
+          [
+            'method_name' => 'usuariosQueRecibenMisPermisos',
+            'local_key' => 'creado_por',
+            'foreign_key' => 'id_usuario'
+          ],
+          [
+            'method_name'=> 'usuariosQueBorranMisPermisosAsignados',
+            'local_key' => 'creado_por',
+            'foreign_key' => 'eliminado_por'
+          ],
+          // los pivots desde usuario que borra
+          [
+            'method_name' => 'usuariosQueBorranMisPermisosRecibidos',
+            'local_key' => 'eliminado_por',
+            'foreign_key' => 'id_usuario'
+          ],
+          [
+            'method_name' => 'usuariosALosQueBorroSusPermisos',
+            'local_key' => 'eliminado_por',
+            'foreign_key' => 'creado_por'
           ],
         ],
         'Permiso' => 'permisosEspeciales',
@@ -470,13 +519,13 @@ $manualPivotTables = [
         'Usuario' => [
           [
             'method_name' => 'usuariosQueRecibenMisRoles',
-            'local_key' => 'id_usuario_asignador',
-            'foreign_key' => 'id_usuario_recipiente'
+            'local_key' => 'creado_por',
+            'foreign_key' => 'id_usuario'
           ],
           [
             'method_name' => 'usuariosQueAsignanMisRoles',
-            'local_key' => 'id_usuario_recipiente',
-            'foreign_key' => 'id_usuario_asignador'
+            'local_key' => 'id_usuario',
+            'foreign_key' => 'creado_por'
           ],
         ],
         'Rol' => 'rolesAsignados',

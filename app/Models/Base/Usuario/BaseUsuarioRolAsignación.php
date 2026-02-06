@@ -51,7 +51,7 @@ abstract class BaseUsuarioRolAsignación extends Model
 
     // Relaciones
 
-    public function usuario()
+    public function receptor()
     {
         return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario', 'id_usuario');
     }
@@ -66,12 +66,12 @@ abstract class BaseUsuarioRolAsignación extends Model
         return $this->belongsTo(\App\Models\Usuario\Rol::class, 'id_rol', 'id_rol');
     }
 
-    public function usuario1()
+    public function asignador()
     {
         return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'creado_por', 'id_usuario');
     }
 
-    public function usuario2()
+    public function borrador()
     {
         return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'eliminado_por', 'id_usuario');
     }
