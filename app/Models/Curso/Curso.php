@@ -62,4 +62,22 @@ class Curso extends BaseCurso
     {
         return $this->hasMany(\App\Models\Curso\Seccion::class, 'id_curso', 'id_curso');
     }
+
+    /**
+     * Fix for double quoting issue in BaseCurso.
+     * Reverts to standard Eloquent behavior.
+     */
+    public function qualifyColumn($column)
+    {
+        if (str_contains($column, '.')) {
+            return $column;
+        }
+
+        return $this->getTable() . '.' . $column;
+    }
+
+    public function getQualifiedKeyName()
+    {
+        return $this->qualifyColumn($this->getKeyName());
+    }
 }

@@ -148,4 +148,22 @@ class Usuario extends BaseUsuario implements Authenticatable
 
         return false;
     }
+
+    /**
+     * Fix for double quoting issue in BaseUsuario.
+     * Reverts to standard Eloquent behavior.
+     */
+    public function qualifyColumn($column)
+    {
+        if (str_contains($column, '.')) {
+            return $column;
+        }
+
+        return $this->getTable() . '.' . $column;
+    }
+
+    public function getQualifiedKeyName()
+    {
+        return $this->qualifyColumn($this->getKeyName());
+    }
 }

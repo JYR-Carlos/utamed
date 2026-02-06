@@ -19,4 +19,22 @@ class Facultad extends BaseFacultad
     // Relaciones adicionales
     // Accessors/Mutators
     // etc.
+
+    /**
+     * Fix for double quoting issue in BaseFacultad.
+     * Reverts to standard Eloquent behavior.
+     */
+    public function qualifyColumn($column)
+    {
+        if (str_contains($column, '.')) {
+            return $column;
+        }
+
+        return $this->getTable() . '.' . $column;
+    }
+
+    public function getQualifiedKeyName()
+    {
+        return $this->qualifyColumn($this->getKeyName());
+    }
 }

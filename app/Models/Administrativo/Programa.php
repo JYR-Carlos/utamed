@@ -17,34 +17,32 @@ class Programa extends BasePrograma
         return 'id_programa';
     }
 
+    protected $fillable = [
+        'id_curso',
+        'es_plantilla',
+        'version',
+        'unc_programa',
+        'id_usuario_autor',
+        'es_actual',
+        'fecha_creacion'
+    ];
+
     /**
-     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     * Fix for double quoting issue in BasePrograma.
+     * Reverts to standard Eloquent behavior.
      */
     public function qualifyColumn($column)
     {
-        // Check if the column is already qualified with the table name
         if (str_contains($column, '.')) {
-            // Split into table and column
-            [$table, $col] = explode('.', $column, 2);
-
-            // If table matches our table or alias, ensure it's quoted if column is not
-            if ($table === $this->getTable() || $table === 'Programa') {
-                // If table is not quoted, quote it
-                // We assume if it contains Quotes it is handled
-                if (!str_contains($table, '"')) {
-                    $table = '"' . $table . '"';
-                }
-
-                // If col is not quoted, quote it (optional but safe)
-                if (!str_contains($col, '"') && $col !== '*') {
-                    $col = '"' . $col . '"';
-                }
-
-                return "$table.$col";
-            }
+            return $column;
         }
 
-        return '"' . $this->getTable() . '"."' . $column . '"';
+        return $this->getTable() . '.' . $column;
+    }
+
+    public function getQualifiedKeyName()
+    {
+        return $this->qualifyColumn($this->getKeyName());
     }
 
     // Agrega aquí tus métodos personalizados

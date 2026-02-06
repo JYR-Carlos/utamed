@@ -24,8 +24,8 @@ class UsuarioPermisoEspecial extends BaseUsuarioPermisoEspecial
 
     protected $fillable = [
         'id_usuario_recipiente',
-        'id_permiso',
         'id_contexto',
+        'id_permiso',
         'id_usuario_asignador',
         'fecha_inicio_planificada',
         'fecha_fin_planificada',
@@ -34,8 +34,27 @@ class UsuarioPermisoEspecial extends BaseUsuarioPermisoEspecial
         'fecha_fin_real',
         'fue_borrado',
         'esta_activo',
-        'fecha_creacion'
+        'fecha_creacion',
+        'fecha_modificacion'
     ];
+
+    /**
+     * Fix for double quoting issue in BaseUsuarioPermisoEspecial.
+     * Reverts to standard Eloquent behavior.
+     */
+    public function qualifyColumn($column)
+    {
+        if (str_contains($column, '.')) {
+            return $column;
+        }
+
+        return $this->getTable() . '.' . $column;
+    }
+
+    public function getQualifiedKeyName()
+    {
+        return $this->qualifyColumn($this->getKeyName());
+    }
 
     public function getRouteKeyName()
     {

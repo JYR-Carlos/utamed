@@ -143,6 +143,8 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     // Program Management
     Route::post('cursos/{curso}/programa', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'store'])
         ->name('cursos.programa.store');
+    Route::get('cursos/{curso}/programa', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'show'])
+        ->name('cursos.programa.show');
 
     // Student Enrollment (Inscripciones)
     Route::get('inscripciones', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'index'])->name('inscripciones.index');
@@ -157,4 +159,5 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
 });
 
 require __DIR__ . '/settings.php';
+
 

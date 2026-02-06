@@ -14,321 +14,146 @@
      * - usuario.usuario_rol_asignación: Roles en contexto del curso
      * - usuario.usuario_permiso_especial: Permisos especiales
      */
-    import { Link, router } from '@inertiajs/svelte';
+    import { router, Link } from '@inertiajs/svelte';
     import DocenteLayout from '@/layouts/DocenteLayout.svelte';
     import CourseTeamModal from '@/components/custom/admin/CourseTeamModal.svelte';
-    import { FilePlus, BookOpenCheck } from 'lucide-svelte';
+    import { BookOpen, BookOpenCheck, Loader2, CheckCircle2, FilePlus } from "lucide-svelte";
+    import * as Tooltip from "@/components/ui/tooltip";
+    import { Badge } from "@/components/ui/badge";
 
     /**
      * Props recibidas del servidor.
      */
-    interface Props {
-        /** Cursos asignados al docente */
-        cursos: any[];
-        /** Roles disponibles para asignar a miembros del equipo */
-        availableRoles: any[];
-        /** Permisos especiales disponibles */
-        availablePermissions: Record<string, any[]>;
-    }
+    export let cursos: any[] = []; // Using any[] to bypass strict typing for now if types aren't perfect
+    export let availableRoles: any[] = [];
+    export let availablePermissions: any[] = [];
 
-    let { cursos, availableRoles, availablePermissions }: Props = $props();
-
-    let showTeamModal = $state(false);
-    let managingTeamCurso = $state<any>(null);
+    let isTeamModalOpen = false;
+    let selectedCurso: any = null;
 
     function openTeamModal(curso: any) {
-        managingTeamCurso = curso;
-        showTeamModal = true;
-    }
-
-    function closeTeamModal() {
-        showTeamModal = false;
-        managingTeamCurso = null;
+        selectedCurso = curso;
+        isTeamModalOpen = true;
     }
 
     function generateProgram(curso: any) {
-        if (confirm(`¿Estás seguro de generar el programa para ${curso.asignatura_nombre}? Esto creará el registro del programa.`)) {
-            router.post(`/docente/cursos/${curso.id_curso}/programa`, {}, {
+        if (confirm(`¿Estás seguro de generar el programa para el curso ${curso.cod_curso}?`)) {
+            router.post(route('docente.cursos.programa.store', curso.id_curso), {}, {
                 preserveScroll: true,
+                onSuccess: () => {
+                   // Success notification handling if global toast exists
+                },
+                onError: (errors) => {
+                    alert('Error al generar el programa: ' + JSON.stringify(errors));
+                }
             });
         }
     }
-
-    function goToInscriptions(cursoId: number) {
-        router.visit(`/docente/inscripciones?id_curso=${cursoId}`);
-    }
 </script>
 
-<DocenteLayout>
-    <div class="page-container">
-        <div class="page-header">
-            <div>
-                <h1 class="page-title">Mis Cursos</h1>
-                <p class="page-description">Gestiona el equipo y ayudantes de tus asignaturas asignadas.</p>
-            </div>
+<DocenteLayout title="Mis Cursos">
+    <div class="space-y-6">
+        <div class="flex items-center justify-between">
+            <h1 class="text-3xl font-bold tracking-tight text-slate-900">Mis Cursos</h1>
         </div>
 
-        {#if cursos.length === 0}
-            <div class="empty-state">
-                <div class="empty-icon">📚</div>
-                <h3>No tienes cursos asignados</h3>
-                <p>Contacta con el administrador si crees que esto es un error.</p>
-            </div>
-        {:else}
-            <div class="courses-grid">
-                {#each cursos as curso}
-                    <div class="course-card">
-                        <div class="course-info">
-                            <span class="course-code">{curso.cod_asignatura} - {curso.cod_curso}</span>
-                            <h2 class="course-name">{curso.asignatura_nombre}</h2>
-                            <div class="course-meta">
-                                <span>📅 Inicio: {curso.fecha_inicio || 'No definida'}</span>
-                                <span>🎯 Semestre: {curso.numero_semestre || 'N/A'}</span>
+        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {#each cursos as curso}
+                <div class="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md">
+                    <!-- Top accent bar -->
+                    <div class="h-1.5 w-full bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+
+                    <div class="p-5">
+                        <div class="mb-4 flex items-start justify-between">
+                            <div>
+                                <h3 class="font-semibold text-lg text-slate-900 line-clamp-1" title={curso.nombre}>
+                                    {curso.nombre}
+                                </h3>
+                                <p class="text-sm text-slate-500 font-medium">
+                                    {curso.cod_asignatura} - Secc. {curso.grupo_indice}
+                                </p>
+                            </div>
+                            <span class={`rounded-full px-2.5 py-0.5 text-xs font-medium border ${
+                                curso.es_plantilla 
+                                ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                                : 'bg-slate-50 text-slate-600 border-slate-200'
+                            }`}>
+                                {curso.es_plantilla ? 'Plantilla' : 'Regular'}
+                            </span>
+                        </div>
+
+                        <div class="space-y-2 mb-6">
+                            <div class="flex items-center text-sm text-slate-600">
+                                <span class="font-medium mr-2">Asignatura:</span>
+                                <span class="truncate" title={curso.asignatura_nombre}>{curso.asignatura_nombre}</span>
+                            </div>
+                            <div class="flex items-center text-sm text-slate-600">
+                                <span class="font-medium mr-2">Calendario:</span>
+                                <span>{new Date(curso.fecha_inicio).toLocaleDateString()} - {new Date(curso.fecha_fin).toLocaleDateString()}</span>
                             </div>
                         </div>
-                        <div class="course-actions">
-                            <Link href={`/docente/cursos/${curso.id_curso}/actividades`} class="btn-activity">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H3v2h6v-2zm0-4H3v2h6V7zm6 0v2h6V7h-6zm0 4v2h6v-2h-6zM9 3H3v2h6V3zm6 0v2h6V3h-6z"></path></svg>
-                                Actividades
-                            </Link>
 
-                            <button onclick={() => openTeamModal(curso)} class="btn-manage">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                                Gestionar Equipo
-                            </button>
-
-                            <button onclick={() => goToInscriptions(curso.id_curso)} class="btn-inscriptions">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                                Inscripciones
-                            </button>
+                        <div class="flex flex-wrap gap-2 pt-4 border-t border-slate-100">
+                            <div class="flex gap-2 w-full">
+                                <button
+                                    class="flex-1 inline-flex items-center justify-center rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                                    on:click={() => openTeamModal(curso)}
+                                >
+                                    <FilePlus class="mr-2 h-4 w-4" />
+                                    Equipo
+                                </button>
+                                
+                                <Tooltip.Root>
+                                    <Tooltip.Trigger asChild let:builder>
+                                        <button
+                                            builders={[builder]}
+                                            class="inline-flex items-center justify-center rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+                                            on:click={() => router.visit(route('docente.cursos.actividades.index', curso.id_curso))}
+                                        >
+                                            <BookOpen class="h-4 w-4" />
+                                        </button>
+                                    </Tooltip.Trigger>
+                                    <Tooltip.Content>
+                                        <p>Gestionar Actividades</p>
+                                    </Tooltip.Content>
+                                </Tooltip.Root>
+                            </div>
 
                             {#if !curso.tiene_programa}
-                                <button onclick={() => generateProgram(curso)} class="btn-generate">
-                                    <FilePlus size={18} />
+                                <button
+                                    class="w-full mt-2 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                                    on:click={() => generateProgram(curso)}
+                                >
+                                    <BookOpenCheck class="mr-2 h-4 w-4" />
                                     Generar Programa
                                 </button>
                             {:else}
-                                <div class="program-exists-chip">
-                                    <BookOpenCheck size={18} />
+                            <Link href="/docente/cursos/{curso.id_curso}/programa">
+                                <Badge
+                                    variant="secondary"
+                                    class="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-200 transition-colors cursor-pointer"
+                                >
+                                    <CheckCircle2 class="w-3 h-3 mr-1" />
                                     Programa Generado
-                                </div>
-                            {/if}
+                                </Badge>
+                            </Link>
+                        {/if}
                         </div>
                     </div>
-                {/each}
-            </div>
-        {/if}
+                </div>
+            {/each}
+        </div>
     </div>
 
-    {#if managingTeamCurso}
-        <CourseTeamModal 
-            bind:isOpen={showTeamModal}
-            onClose={closeTeamModal}
-            curso={managingTeamCurso}
+    <!-- Modal de Equipo -->
+    {#if selectedCurso}
+        <CourseTeamModal
+            bind:isOpen={isTeamModalOpen}
+            curso={selectedCurso}
             {availableRoles}
             {availablePermissions}
-            urlPrefix="docente"
         />
     {/if}
 </DocenteLayout>
 
-<style>
-    .page-container {
-        padding: 2rem;
-        max-width: 1000px;
-        margin: 0 auto;
-    }
 
-    .page-header {
-        margin-bottom: 2rem;
-    }
-
-    .page-title {
-        font-size: 1.875rem;
-        font-weight: 700;
-        color: #111827;
-        margin: 0 0 0.5rem 0;
-    }
-
-    .page-description {
-        color: #6b7280;
-        font-size: 1rem;
-    }
-
-    .courses-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .course-card {
-        background: white;
-        border-radius: 12px;
-        border: 1px solid #e5e7eb;
-        padding: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .course-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-
-    .course-code {
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: #3b82f6;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .course-name {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #111827;
-        margin: 0.5rem 0 1rem 0;
-    }
-
-    .course-meta {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        font-size: 0.875rem;
-        color: #6b7280;
-    }
-
-    .course-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        margin-top: 1.5rem;
-        padding-top: 1rem;
-        border-top: 1px solid #f3f4f6;
-    }
-
-    /* @apply btn-activity */
-    .btn-activity {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        padding: 0.625rem;
-        background: #eff6ff;
-        color: #1e40af;
-        border: 1px solid #bfdbfe;
-        border-radius: 8px;
-        font-weight: 500;
-        cursor: pointer;
-        text-decoration: none;
-        transition: all 0.2s;
-    }
-
-    /* @apply btn-activity:hover */
-    .btn-activity:hover {
-        background: #dbeafe;
-        border-color: #3b82f6;
-    }
-
-    .btn-manage {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        padding: 0.625rem;
-        background: #f3f4f6;
-        color: #374151;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .btn-manage:hover {
-        background: #e5e7eb;
-        border-color: #9ca3af;
-        color: #111827;
-    }
-
-    .btn-inscriptions {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        padding: 0.625rem;
-        background: #eff6ff;
-        color: #1e40af;
-        border: 1px solid #bfdbfe;
-        border-radius: 8px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .btn-inscriptions:hover {
-        background: #dbeafe;
-        border-color: #3b82f6;
-    }
-
-    .btn-generate {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        padding: 0.625rem;
-        background: #fdf2f8; /* Pink/Rose tint */
-        color: #be185d;
-        border: 1px solid #fbcfe8;
-        border-radius: 8px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .btn-generate:hover {
-        background: #fce7f3;
-        border-color: #f9a8d4;
-    }
-
-    .program-exists-chip {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        padding: 0.625rem;
-        background: #f0fdf4; /* Green tint */
-        color: #15803d;
-        border: 1px solid #bbf7d0;
-        border-radius: 8px;
-        font-weight: 500;
-        cursor: default;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 4rem 2rem;
-        background: white;
-        border-radius: 12px;
-        border: 1px dashed #d1d5db;
-        color: #6b7280;
-    }
-
-    .empty-icon {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-    }
-
-    .empty-state h3 {
-        color: #111827;
-        margin-bottom: 0.5rem;
-    }
-</style>

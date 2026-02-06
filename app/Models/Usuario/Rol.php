@@ -27,4 +27,22 @@ class Rol extends BaseRol
             'id_permiso'
         )->withPivot('puede_delegar_permisos');
     }
+
+    /**
+     * Fix for double quoting issue in BaseRol.
+     * Reverts to standard Eloquent behavior.
+     */
+    public function qualifyColumn($column)
+    {
+        if (str_contains($column, '.')) {
+            return $column;
+        }
+
+        return $this->getTable() . '.' . $column;
+    }
+
+    public function getQualifiedKeyName()
+    {
+        return $this->qualifyColumn($this->getKeyName());
+    }
 }

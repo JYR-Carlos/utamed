@@ -13,6 +13,25 @@ use App\Models\Base\Usuario\BaseDocente;
 class Docente extends BaseDocente
 {
     protected $table = 'Docente';
+    protected $primaryKey = 'id_docente';
+
+    /**
+     * Fix for double quoting issue in BaseDocente.
+     * Reverts to standard Eloquent behavior.
+     */
+    public function qualifyColumn($column)
+    {
+        if (str_contains($column, '.')) {
+            return $column;
+        }
+
+        return $this->getTable() . '.' . $column;
+    }
+
+    public function getQualifiedKeyName()
+    {
+        return $this->qualifyColumn($this->getKeyName());
+    }
     protected $fillable = [
         'rut',
         'nombre_completo',

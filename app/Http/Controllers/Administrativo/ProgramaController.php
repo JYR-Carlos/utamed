@@ -40,19 +40,44 @@ class ProgramaController extends Controller
         Programa::create([
             'id_curso' => $curso->id_curso,
             'es_plantilla' => $curso->es_plantilla,
-            // 'es_actual' is part of primary key in Base, but typically defaults or managed by DB trigger?
-            // Let's check BasePrograma key: ['id_programa', 'id_curso', 'es_plantilla', 'es_actual']
-            // Wait, id_programa is usually auto-assigned if it's a sequence, but Base says 'incrementing = false'.
-            // Let's assume database handles it or we need to check migration/model deeper.
-            // If incrementing is false, we might need to provide it?
-            // Re-checking BasePrograma: public $incrementing = false; 
-            // If it's serial in DB, Laravel might be confused by composite key.
-            // Let's try letting DB handle it if it's serial.
-
+            'es_actual' => true,
             'id_usuario_autor' => $user->id_usuario,
-            'version' => 1, // Default version?
+            'version' => 1,
+            'unc_programa' => 1, // Default value for required field
+            'fecha_creacion' => now(),
         ]);
 
         return Redirect::back()->with('success', 'Programa generado correctamente.');
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show(Curso $curso)
+    {
+        $curso->load(['asignatura']);
+
+        // Fetch existing program for this course
+        $programa = Programa::where('id_curso', $curso->id_curso)
+            ->where('es_plantilla', $curso->es_plantilla)
+            ->where('es_actual', true)
+            ->first();
+
+        if (!$programa) {
+            return Redirect::back()->with('error', 'El programa no ha sido generado.');
+        }
+
+        // Fetch units for this course
+        $unidades = \App\Models\Curso\Unidad::where('id_curso', $curso->id_curso)
+            ->where('es_plantilla', $curso->es_plantilla)
+            ->orderBy('num_unidad')
+            ->get();
+
+        return \Inertia\Inertia::render('docente/Programa', [
+            'curso' => $curso,
+            'programa' => $programa,
+            'asignatura' => $curso->asignatura,
+            'unidades' => $unidades
+        ]);
     }
 }

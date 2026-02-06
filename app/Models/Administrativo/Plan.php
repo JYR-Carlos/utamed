@@ -25,4 +25,22 @@ class Plan extends BasePlan
             ->whereNull('Asignacion_Plan.fecha_eliminacion')
             ->sum('Asignatura.creditos_sct') ?? 0;
     }
+
+    /**
+     * Fix for double quoting issue in BasePlan.
+     * Reverts to standard Eloquent behavior.
+     */
+    public function qualifyColumn($column)
+    {
+        if (str_contains($column, '.')) {
+            return $column;
+        }
+
+        return $this->getTable() . '.' . $column;
+    }
+
+    public function getQualifiedKeyName()
+    {
+        return $this->qualifyColumn($this->getKeyName());
+    }
 }

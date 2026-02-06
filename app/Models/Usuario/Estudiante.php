@@ -20,4 +20,22 @@ class Estudiante extends BaseEstudiante
         'id_usuario',
         'id_contexto'
     ];
+
+    /**
+     * Fix for double quoting issue in BaseEstudiante.
+     * Reverts to standard Eloquent behavior.
+     */
+    public function qualifyColumn($column)
+    {
+        if (str_contains($column, '.')) {
+            return $column;
+        }
+
+        return $this->getTable() . '.' . $column;
+    }
+
+    public function getQualifiedKeyName()
+    {
+        return $this->qualifyColumn($this->getKeyName());
+    }
 }
