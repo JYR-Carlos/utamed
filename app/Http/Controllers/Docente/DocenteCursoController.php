@@ -56,10 +56,16 @@ class DocenteCursoController extends Controller
 
         // Consultar cursos con información adicional
         $cursos = Curso::whereIn('id_curso', $cursoIds)
-            ->with('asignatura')
+            ->with(['asignatura'])
             ->orderBy('fecha_inicio', 'desc')
             ->get()
             ->map(function ($curso) {
+                // Verificar si existe algún programa para este curso
+                $tienePrograma = DB::table('Programa')
+                    ->where('id_curso', $curso->id_curso)
+                    ->whereNull('fecha_eliminacion')
+                    ->exists();
+
                 return [
                     'id_curso' => $curso->id_curso,
                     'nombre' => $curso->nombre,
@@ -68,6 +74,8 @@ class DocenteCursoController extends Controller
                     'cod_asignatura' => $curso->asignatura?->cod_asignatura ?? 'N/A',
                     'fecha_inicio' => $curso->fecha_inicio,
                     'fecha_fin' => $curso->fecha_fin,
+                    'tiene_programa' => $tienePrograma,
+                    'es_plantilla' => $curso->es_plantilla
                 ];
             });
 
@@ -113,7 +121,7 @@ class DocenteCursoController extends Controller
                     $perms = $role->permisos()
                         ->wherePivot('puede_delegar_permisos', true)
                         ->get();
-                    
+
                     // Filter by slug
                     foreach ($perms as $perm) {
                         if (str_starts_with($perm->slug, 'actividad:') || str_starts_with($perm->slug, 'curso:')) {
@@ -145,7 +153,7 @@ class DocenteCursoController extends Controller
 
             $assignments = $specialQuery->get();
             $specialPerms = collect();
-            
+
             foreach ($assignments as $assignment) {
                 $perm = $assignment->permiso;
                 if ($perm && (str_starts_with($perm->slug, 'actividad:') || str_starts_with($perm->slug, 'curso:'))) {

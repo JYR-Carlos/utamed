@@ -21,11 +21,12 @@
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
     import { Spinner } from '@/components/ui/spinner';
-    import AuthBase from '@/layouts/AuthLayout.svelte';
+        import AuthBase from '@/layouts/auth/AuthSplitLayout.svelte';
     import { register } from '@/routes';
     import { request } from '@/routes/password';
     import type { BaseFormSnippetProps } from '@/types/forms';
     import { Form } from '@inertiajs/svelte';
+    import { Eye, EyeOff, Link } from 'lucide-svelte';
 
     /**
      * Props recibidas del servidor.
@@ -40,72 +41,118 @@
     }
 
     let { status, canResetPassword, canRegister }: Props = $props();
+    let showPassword = $state(false);
 </script>
 
 <svelte:head>
-    <title>Login</title>
+    <title>Iniciar Sesión | UTAMed</title>
 </svelte:head>
 
-<AuthBase title="Portal Académico" description="Ingresa tus credenciales para acceder">
+<AuthBase title="Iniciar Sesión" description="Ingresa los detalles de tu cuenta">
     {#if status}
         <div class="mb-4 text-center text-sm font-medium text-green-600">
             {status}
         </div>
     {/if}
 
-    <Form {...AuthenticatedSessionController.store.form()} resetOnSuccess={['password']} className="flex flex-col gap-6">
+    <Form {...AuthenticatedSessionController.store.form()} resetOnSuccess={['password']} className="flex flex-col gap-8">
         {#snippet children({ errors, processing }: BaseFormSnippetProps)}
             <div class="grid gap-6">
-                <div class="grid gap-2">
-                    <Label for="email" class="text-gray-900">Email o Usuario</Label>
-                    <Input
-                        id="email"
-                        name="email"
-                        type="text"
-                        required
-                        autofocus
-                        tabindex={1}
-                        autocomplete="username"
-                        placeholder="ej. usuario o rut"
-                        class="bg-white text-gray-900 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-white dark:text-gray-900 dark:border-gray-300 dark:placeholder:text-gray-400"
-                    />
-                    <InputError message={errors.email} />
+                <!-- Email/Username Field -->
+                <div class="space-y-2">
+                    <label 
+                        for="email" 
+                        class="text-sm font-medium text-muted-foreground ml-1"
+                    >
+                        Usuario o Correo
+                    </label>
+                    <div class="relative group">
+                        <input
+                            id="email"
+                            name="email"
+                            type="text"
+                            required
+                            autofocus
+                            tabindex={1}
+                            autocomplete="username"
+                            placeholder="ejemplo@uta.cl"
+                            class="w-full bg-secondary/30 border border-border rounded-2xl px-5 py-4 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/50"
+                        />
+                    </div>
+                    <InputError message={errors.email} class="mt-2 text-xs" />
                 </div>
 
-                <div class="grid gap-2">
-                    <div class="flex items-center justify-between">
-                        <Label for="password" class="text-gray-900">Contraseña</Label>
+                <!-- Password Field -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center px-1">
+                        <label 
+                            for="password" 
+                            class="text-sm font-medium text-muted-foreground"
+                        >
+                            Contraseña
+                        </label>
                         {#if canResetPassword}
-                            <TextLink href={request().url} class="text-sm text-indigo-600 hover:text-indigo-500" tabindex={5}>¿Olvidaste tu contraseña?</TextLink>
+                            <TextLink href={request().url} class="text-xs text-muted-foreground hover:text-primary transition-colors" tabindex={5}>¿Olvidaste tu contraseña?</TextLink>
                         {/if}
                     </div>
-                    <Input
-                        id="password"
-                        name="password"
-                        type="password"
-                        required
-                        tabindex={2}
-                        autocomplete="current-password"
-                        placeholder="••••••••"
-                        class="bg-white text-gray-900 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-white dark:text-gray-900 dark:border-gray-300 dark:placeholder:text-gray-400"
-                    />
-                    <InputError message={errors.password} />
+                    <div class="relative group">
+                        <input
+                            id="password"
+                            name="password"
+                            type={showPassword ? "text" : "password"}
+                            required
+                            tabindex={2}
+                            autocomplete="current-password"
+                            placeholder="••••••••"
+                            class="w-full bg-secondary/30 border border-border rounded-2xl px-5 py-4 pr-12 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/50"
+                        />
+                        <button 
+                            type="button" 
+                            class="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            onclick={() => showPassword = !showPassword}
+                        >
+                            {#if showPassword}
+                                <EyeOff size={20} />
+                            {:else}
+                                <Eye size={20} />
+                            {/if}
+                        </button>
+                    </div>
+                    <InputError message={errors.password} class="mt-2 text-xs" />
                 </div>
 
-                <div class="flex items-center justify-between">
-                    <Label for="remember" class="flex items-center space-x-3">
-                        <Checkbox id="remember" name="remember" tabindex={3} />
-                        <span>Recordarme</span>
-                    </Label>
+                <div class="flex items-center space-x-2 px-1">
+                    <Checkbox id="remember" name="remember" tabindex={3} class="border-border bg-transparent data-[state=checked]:bg-primary data-[state=checked]:border-primary" />
+                    <Label for="remember" class="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Mantenerme conectado</Label>
                 </div>
 
-                <Button type="submit" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-md transition-colors" tabindex={4} disabled={processing}>
+                <Button 
+                    type="submit" 
+                    class="mt-2 w-full bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground font-bold py-7 rounded-2xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 text-base" 
+                    tabindex={4} 
+                    disabled={processing}
+                >
                     {#if processing}
-                        <Spinner class="mr-2 h-4 w-4" />
+                        <Spinner class="h-4 w-4" />
                     {/if}
-                    Iniciar Sesión
+                    Entrar al Portal
                 </Button>
+
+                <div class="mt-6 p-6 rounded-2xl bg-secondary/20 border border-dashed border-border text-center space-y-3">
+                    <p class="text-sm text-foreground font-medium">Información de Acceso</p>
+                    <p class="text-xs text-muted-foreground leading-relaxed">
+                        Como parte de nuestra comunidad académica, tus credenciales han sido enviadas previamente a tu correo institucional.
+                    </p>
+                    <p class="text-xs font-medium text-muted-foreground">
+                        ¿Problemas para entrar? <br/>
+                        <a href="mailto:soporte@uta.cl" class="text-primary hover:underline transition-all">Contactar a soporte: soporte@uta.cl</a>
+                    </p>
+                </div>
             </div>
+        {#snippet children({ errors, processing }: BaseFormSnippetProps)}
+            <!-- Snippet children redundant here but maintained for API compatibility if needed elsewhere -->
+        {/snippet}
         {/snippet}
     </Form>
 </AuthBase>
+

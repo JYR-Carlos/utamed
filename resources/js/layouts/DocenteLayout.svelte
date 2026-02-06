@@ -5,7 +5,7 @@
     import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
     import { type NavItem } from '@/types';
     import { Link } from '@inertiajs/svelte';
-    import { BookOpen, LayoutGrid } from 'lucide-svelte';
+    import { BookOpen, LayoutGrid, Users } from 'lucide-svelte';
     import AppLogo from '@/components/custom/layout/AppLogo.svelte';
     import AppShell from '@/components/custom/layout/AppShell.svelte';
     import AppContent from '@/components/custom/layout/AppContent.svelte';
@@ -31,6 +31,11 @@
             title: 'Mis Cursos',
             href: '/docente/cursos',
             icon: BookOpen,
+        },
+        {
+            title: 'Inscripciones',
+            href: '/docente/inscripciones',
+            icon: Users, // Need to import Users icon
         }
     ];
 

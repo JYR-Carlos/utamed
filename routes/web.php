@@ -22,12 +22,12 @@ Route::get('/', function () {
 Route::get('dashboard', function () {
     /** @var \App\Models\Usuario\Usuario $user */
     $user = auth()->user();
-    
+
     // Redirigir docentes a su dashboard
     if ($user && $user->docente) {
         return redirect()->route('docente.dashboard');
     }
-    
+
     return Inertia::render('Dashboard', [
         'stats' => [
             'usuarios' => \App\Models\Usuario\Usuario::count(),
@@ -88,6 +88,15 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::post('cursos/{curso}/team/{usuario}/sync-permissions', [CourseTeamController::class, 'syncMemberPermissions'])
         ->name('cursos.team.sync-permissions');
 
+    // Student Course Enrollments (Inscripciones de Estudiantes en Cursos)
+    Route::resource('inscripciones_cursos', \App\Http\Controllers\Admin\InscripcionCursoController::class);
+    Route::get('inscripciones_cursos/ajax/disponibles', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'getEstudiantesDisponibles'])
+        ->name('inscripciones_cursos.disponibles');
+    Route::get('inscripciones_cursos/ajax/by-curso', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'getByCurso'])
+        ->name('inscripciones_cursos.by-curso');
+    Route::get('inscripciones_cursos/export/csv', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'exportCsv'])
+        ->name('inscripciones_cursos.export.csv');
+
     // Section (Seccion) Management for Courses
     Route::post('cursos/{curso}/secciones', [\App\Http\Controllers\Admin\SeccionController::class, 'store'])
         ->name('cursos.secciones.store');
@@ -130,6 +139,21 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::post('cursos/{curso}/actividades', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'store'])->name('cursos.actividades.store');
     Route::put('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'update'])->name('cursos.actividades.update');
     Route::delete('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'destroy'])->name('cursos.actividades.destroy');
+
+    // Program Management
+    Route::post('cursos/{curso}/programa', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'store'])
+        ->name('cursos.programa.store');
+
+    // Student Enrollment (Inscripciones)
+    Route::get('inscripciones', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'index'])->name('inscripciones.index');
+    Route::get('inscripciones/create', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'create'])->name('inscripciones.create');
+    Route::post('inscripciones', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'store'])->name('inscripciones.store');
+    Route::get('inscripciones/{inscripcion_curso}/edit', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'edit'])->name('inscripciones.edit');
+    // Note: Update and Destroy might be needed if Docentes can manage them, adhering to policy.
+    Route::put('inscripciones/{inscripcion_curso}', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'update'])->name('inscripciones.update');
+    // Docentes typically don't delete, but policy handles it.
+    Route::get('inscripciones/ajax/disponibles', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'getEstudiantesDisponibles'])
+        ->name('inscripciones.disponibles');
 });
 
 require __DIR__ . '/settings.php';

@@ -13,14 +13,12 @@
      */
     import PasswordResetLinkController from '@/actions/Laravel/Fortify/Http/Controllers/PasswordResetLinkController';
     import InputError from '@/components/custom/common/InputError.svelte';
-    import TextLink from '@/components/custom/common/TextLink.svelte';
     import { Button } from '@/components/ui/button';
-    import { Input } from '@/components/ui/input';
-    import { Label } from '@/components/ui/label';
-    import AuthLayout from '@/layouts/AuthLayout.svelte';
+    import { Spinner } from '@/components/ui/spinner';
+    import AuthBase from '@/layouts/auth/AuthSplitLayout.svelte';
     import { login } from '@/routes';
     import type { BaseFormSnippetProps } from '@/types/forms';
-    import { Form } from '@inertiajs/svelte';
+    import { Form, Link } from '@inertiajs/svelte';
     import { LoaderCircle } from 'lucide-svelte';
 
     /**
@@ -35,39 +33,67 @@
 </script>
 
 <svelte:head>
-    <title>Forgot Password</title>
+    <title>¿Olvidaste tu contraseña? | UTAMed</title>
 </svelte:head>
 
-<AuthLayout title="Forgot password" description="Enter your email to receive a password reset link">
+<AuthBase title="¿Olvidaste tu contraseña?" description="Ingresa tu correo para recibir un enlace de recuperación">
     {#if status}
-        <div class="mb-4 text-center text-sm font-medium text-green-600">
+        <div class="mb-6 text-sm font-medium text-green-600 bg-green-600/10 p-4 rounded-xl border border-green-600/20">
             {status}
         </div>
     {/if}
 
-    <div class="space-y-6">
-        <Form {...PasswordResetLinkController.store.form()}>
-            {#snippet children({ errors, processing }: BaseFormSnippetProps)}
-                <div class="grid gap-2">
-                    <Label for="email">Email address</Label>
-                    <Input id="email" type="email" name="email" autocomplete="off" autofocus placeholder="email@example.com" />
-                    <InputError message={errors.email} />
+    <Form {...PasswordResetLinkController.store.form()} className="flex flex-col gap-8">
+        {#snippet children({ errors, processing }: BaseFormSnippetProps)}
+            <div class="grid gap-8">
+                <p class="text-sm text-muted-foreground leading-relaxed">
+                    ¿Olvidaste tu contraseña? No hay problema. Solo dinos tu dirección de correo electrónico y te enviaremos un enlace para restablecerla que te permitirá elegir una nueva.
+                </p>
+
+                <!-- Email Field -->
+                <div class="relative group">
+                    <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        required
+                        autofocus
+                        tabindex={1}
+                        autocomplete="email"
+                        placeholder=" "
+                        class="peer w-full bg-transparent border-0 border-b border-border py-2 text-foreground focus:ring-0 focus:border-primary transition-all placeholder-transparent"
+                    />
+                    <label 
+                        for="email" 
+                        class="absolute left-0 -top-full text-xs text-muted-foreground peer-placeholder-shown:text-base peer-placeholder-shown:top-2 peer-focus:-top-4 peer-focus:text-xs peer-focus:text-primary transition-all pointer-events-none"
+                    >
+                        Correo Electrónico
+                    </label>
+                    <InputError message={errors.email} class="mt-2 text-xs" />
                 </div>
 
-                <div class="my-6 flex items-center justify-start">
-                    <Button type="submit" class="w-full" disabled={processing}>
+                <div class="flex flex-col gap-4">
+                    <Button 
+                        type="submit" 
+                        class="w-full bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground font-semibold py-6 rounded-2xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2" 
+                        tabindex={2} 
+                        disabled={processing}
+                    >
                         {#if processing}
                             <LoaderCircle class="h-4 w-4 animate-spin" />
                         {/if}
-                        Email password reset link
+                        Enviar enlace de recuperación
                     </Button>
-                </div>
-            {/snippet}
-        </Form>
 
-        <div class="space-x-1 text-center text-sm text-muted-foreground">
-            <span>Or, return to</span>
-            <TextLink href={login()}>log in</TextLink>
-        </div>
-    </div>
-</AuthLayout>
+                    <Link 
+                        href={login().url} 
+                        class="text-center text-xs text-muted-foreground hover:text-primary transition-colors py-2"
+                    >
+                        Volver al inicio de sesión
+                    </Link>
+                </div>
+            </div>
+        {/snippet}
+    </Form>
+</AuthBase>
+

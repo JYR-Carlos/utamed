@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use App\Models\Curso\Curso;
+use App\Models\Curso\InscripcionCurso;
 use App\Policies\CursoPolicy;
+use App\Policies\InscripcionCursoPolicy;
 
 /**
  * Proveedor de servicios de autenticación y autorización.
@@ -20,6 +22,7 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         Curso::class => CursoPolicy::class,
+        InscripcionCurso::class => InscripcionCursoPolicy::class,
     ];
 
     /**

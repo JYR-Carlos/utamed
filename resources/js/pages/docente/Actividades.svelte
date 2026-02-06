@@ -20,7 +20,7 @@
     import DocenteLayout from '@/layouts/DocenteLayout.svelte';
     import FormModal from '@/components/custom/admin/FormModal.svelte';
     import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
-    import { Plus, Edit2, Trash2, ArrowLeft } from 'lucide-svelte';
+    import { Plus, Edit2, Trash2, ArrowLeft, Users } from 'lucide-svelte';
 
     /**
      * Interface para un objeto Actividad.
@@ -169,10 +169,16 @@
                         {curso.cod_asignatura} - {curso.asignatura_nombre}
                     </p>
                 </div>
-                <button onclick={openCreateModal} class="btn-primary">
-                    <Plus size={20} />
-                    Nueva Actividad
-                </button>
+                <div class="flex gap-3">
+                    <Link href={`/docente/inscripciones?id_curso=${curso.id_curso}`} class="btn-secondary">
+                        <Users size={20} class="mr-2"/>
+                        Inscripciones
+                    </Link>
+                    <button onclick={openCreateModal} class="btn-primary">
+                        <Plus size={20} />
+                        Nueva Actividad
+                    </button>
+                </div>
             </div>
         </div>
 

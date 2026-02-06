@@ -65,10 +65,12 @@
 	let showModal = $state(false);
 	let showDeleteDialog = $state(false);
     let showTeamModal = $state(false);
+	let showInscriptionModal = $state(false);
 	let isLoading = $state(false);
 	let editingCurso = $state<Curso | null>(null);
 	let deletingCurso = $state<Curso | null>(null);
     let managingTeamCurso = $state<Curso | null>(null);
+	let selectedCursoForInscription = $state<Curso | null>(null);
 	let docentes = $state<Docente[]>([]);
 	let availableAsignaturas = $state<Asignatura[]>([]);
 	let loadingAsignaturas = $state(false);
@@ -321,6 +323,21 @@
 				isLoading = false;
 			}
 		});
+	}
+
+	function openInscriptionsModal(curso: Curso) {
+		selectedCursoForInscription = curso;
+		showModal = false;
+		showInscriptionModal = true;
+	}
+
+	function closeInscriptionsModal() {
+		showInscriptionModal = false;
+		selectedCursoForInscription = null;
+	}
+
+	function goToInscriptions(cursoId: number) {
+		router.visit(`/admin/inscripciones_cursos?id_curso=${cursoId}`);
 	}
 </script>
 
@@ -711,6 +728,45 @@
 	.btn-secondary:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	.form-actions {
+		display: flex;
+		gap: 1rem;
+		margin-top: 2rem;
+		padding-top: 2rem;
+		border-top: 1px solid #e5e7eb;
+	}
+
+	.btn-action {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.625rem 1.25rem;
+		border: 1px solid #d1d5db;
+		border-radius: 0.5rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		background-color: #ffffff;
+		color: #374151;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.btn-action:hover {
+		background-color: #f9fafb;
+		border-color: #9ca3af;
+	}
+
+	.btn-inscriptions {
+		background-color: #eff6ff;
+		color: #1e40af;
+		border-color: #93c5fd;
+	}
+
+	.btn-inscriptions:hover {
+		background-color: #dbeafe;
+		border-color: #60a5fa;
 	}
 </style>
 </AdminLayout>

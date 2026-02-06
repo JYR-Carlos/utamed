@@ -18,68 +18,140 @@
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
     import { Spinner } from '@/components/ui/spinner';
-    import AuthBase from '@/layouts/AuthLayout.svelte';
+    import AuthBase from '@/layouts/auth/AuthSplitLayout.svelte';
     import { login } from '@/routes';
     import type { BaseFormSnippetProps } from '@/types/forms';
-    import { Form } from '@inertiajs/svelte';
+    import { Form, Link } from '@inertiajs/svelte';
+    import { Eye, EyeOff } from 'lucide-svelte';
+
+    let showPassword = $state(false);
 </script>
 
 <svelte:head>
-    <title>Register</title>
+    <title>Registrarse | UTAMed</title>
 </svelte:head>
 
-<AuthBase title="Create an account" description="Enter your details below to create your account">
-    <Form
-        {...RegisteredUserController.store.form()}
-        resetOnSuccess={['password', 'password_confirmation']}
-        disableWhileProcessing
-        className="flex flex-col gap-6"
-    >
+<AuthBase title="Registrarse" description="Crea tu cuenta para unirte a UTAMed">
+    <Form {...RegisteredUserController.store.form()} resetOnSuccess={['password', 'password_confirmation']} className="flex flex-col gap-6">
         {#snippet children({ errors, processing }: BaseFormSnippetProps)}
             <div class="grid gap-6">
-                <div class="grid gap-2">
-                    <Label for="name">Name</Label>
-                    <Input id="name" name="name" type="text" required autofocus tabindex={1} autocomplete="name" placeholder="Full name" />
-                    <InputError message={errors.name} />
+                <!-- Name Field -->
+                <div class="relative group">
+                    <input
+                        id="name"
+                        name="name"
+                        type="text"
+                        required
+                        autofocus
+                        tabindex={1}
+                        autocomplete="name"
+                        placeholder=" "
+                        class="peer w-full bg-transparent border-0 border-b border-border py-2 text-foreground focus:ring-0 focus:border-primary transition-all placeholder-transparent"
+                    />
+                    <label 
+                        for="name" 
+                        class="absolute left-0 -top-full text-xs text-muted-foreground peer-placeholder-shown:text-base peer-placeholder-shown:top-2 peer-focus:-top-4 peer-focus:text-xs peer-focus:text-primary transition-all pointer-events-none"
+                    >
+                        Nombre Completo
+                    </label>
+                    <InputError message={errors.name} class="mt-2 text-xs" />
                 </div>
 
-                <div class="grid gap-2">
-                    <Label for="email">Email address</Label>
-                    <Input id="email" name="email" type="email" required tabindex={2} autocomplete="email" placeholder="email@example.com" />
-                    <InputError message={errors.email} />
+                <!-- Email Field -->
+                <div class="relative group">
+                    <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        required
+                        tabindex={2}
+                        autocomplete="email"
+                        placeholder=" "
+                        class="peer w-full bg-transparent border-0 border-b border-border py-2 text-foreground focus:ring-0 focus:border-primary transition-all placeholder-transparent"
+                    />
+                    <label 
+                        for="email" 
+                        class="absolute left-0 -top-full text-xs text-muted-foreground peer-placeholder-shown:text-base peer-placeholder-shown:top-2 peer-focus:-top-4 peer-focus:text-xs peer-focus:text-primary transition-all pointer-events-none"
+                    >
+                        Correo Electrónico
+                    </label>
+                    <InputError message={errors.email} class="mt-2 text-xs" />
                 </div>
 
-                <div class="grid gap-2">
-                    <Label for="password">Password</Label>
-                    <Input id="password" name="password" type="password" required tabindex={3} autocomplete="new-password" placeholder="Password" />
-                    <InputError message={errors.password} />
+                <!-- Password Field -->
+                <div class="relative group">
+                    <input
+                        id="password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        required
+                        tabindex={3}
+                        autocomplete="new-password"
+                        placeholder=" "
+                        class="peer w-full bg-transparent border-0 border-b border-border py-2 pr-10 text-foreground focus:ring-0 focus:border-primary transition-all placeholder-transparent"
+                    />
+                    <label 
+                        for="password" 
+                        class="absolute left-0 -top-full text-xs text-muted-foreground peer-placeholder-shown:text-base peer-placeholder-shown:top-2 peer-focus:-top-4 peer-focus:text-xs peer-focus:text-primary transition-all pointer-events-none"
+                    >
+                        Contraseña
+                    </label>
+                    <InputError message={errors.password} class="mt-2 text-xs" />
                 </div>
 
-                <div class="grid gap-2">
-                    <Label for="password_confirmation">Confirm password</Label>
-                    <Input
+                <!-- Confirm Password Field -->
+                <div class="relative group">
+                    <input
                         id="password_confirmation"
                         name="password_confirmation"
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         required
                         tabindex={4}
                         autocomplete="new-password"
-                        placeholder="Confirm password"
+                        placeholder=" "
+                        class="peer w-full bg-transparent border-0 border-b border-border py-2 pr-10 text-foreground focus:ring-0 focus:border-primary transition-all placeholder-transparent"
                     />
-                    <InputError message={errors.password_confirmation} />
+                    <label 
+                        for="password_confirmation" 
+                        class="absolute left-0 -top-full text-xs text-muted-foreground peer-placeholder-shown:text-base peer-placeholder-shown:top-2 peer-focus:-top-4 peer-focus:text-xs peer-focus:text-primary transition-all pointer-events-none"
+                    >
+                        Confirmar Contraseña
+                    </label>
+                    <button 
+                        type="button" 
+                        class="absolute right-0 top-2 text-muted-foreground hover:text-foreground transition-colors"
+                        onclick={() => showPassword = !showPassword}
+                    >
+                        {#if showPassword}
+                            <EyeOff size={18} />
+                        {:else}
+                            <Eye size={18} />
+                        {/if}
+                    </button>
+                    <InputError message={errors.password_confirmation} class="mt-2 text-xs" />
                 </div>
 
-                <Button type="submit" class="mt-2 w-full" tabindex={5} disabled={processing}>
+                <Button 
+                    type="submit" 
+                    class="mt-4 w-full bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground font-semibold py-6 rounded-2xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2" 
+                    tabindex={5} 
+                    disabled={processing}
+                >
                     {#if processing}
-                        <Spinner />
+                        <Spinner class="h-4 w-4" />
                     {/if}
-                    Create account
+                    Registrarse
                 </Button>
-            </div>
 
-            <div class="text-center text-sm text-muted-foreground">
-                Already have an account?
-                <TextLink href={login()} class="underline underline-offset-4" tabindex={6}>Log in</TextLink>
+                <div class="mt-6 flex items-center justify-between gap-4">
+                    <p class="text-xs text-muted-foreground">¿Ya tienes una cuenta?</p>
+                    <Link 
+                        href={login().url} 
+                        class="px-6 py-2 rounded-xl bg-secondary border border-border text-xs font-medium hover:bg-secondary/80 hover:border-muted-foreground transition-all"
+                    >
+                        Iniciar sesión
+                    </Link>
+                </div>
             </div>
         {/snippet}
     </Form>

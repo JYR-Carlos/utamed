@@ -11,15 +11,13 @@
      * - Integración con Fortify
      * - Mensajes de error específicos
      */
+    import AuthBase from '@/layouts/auth/AuthSplitLayout.svelte';
+    import type { BaseFormSnippetProps } from '@/types/forms';
+    import { Form, Link } from '@inertiajs/svelte';
+    import { Eye, EyeOff, LoaderCircle } from 'lucide-svelte';
     import NewPasswordController from '@/actions/Laravel/Fortify/Http/Controllers/NewPasswordController';
     import InputError from '@/components/custom/common/InputError.svelte';
     import { Button } from '@/components/ui/button';
-    import { Input } from '@/components/ui/input';
-    import { Label } from '@/components/ui/label';
-    import AuthLayout from '@/layouts/AuthLayout.svelte';
-    import type { BaseFormSnippetProps } from '@/types/forms';
-    import { Form } from '@inertiajs/svelte';
-    import { LoaderCircle } from 'lucide-svelte';
 
     /**
      * Props recibidas del URL/servidor.
@@ -32,60 +30,107 @@
     }
 
     let { token, email }: Props = $props();
+    let showPassword = $state(false);
 </script>
 
 <svelte:head>
-    <title>Reset Password</title>
+    <title>Restablecer Contraseña | UTAMed</title>
 </svelte:head>
 
-<AuthLayout title="Reset password" description="Please enter your new password below">
+<AuthBase title="Restablecer Contraseña" description="Ingresa tu nueva contraseña a continuación">
     <Form
         {...NewPasswordController.store.form()}
         transform={(data) => ({ ...data, token, email })}
         resetOnSuccess={['password', 'password_confirmation']}
+        className="flex flex-col gap-8"
     >
         {#snippet children({ errors, processing }: BaseFormSnippetProps)}
-            <div class="grid gap-6">
-                <div class="grid gap-2">
-                    <Label for="email">Email</Label>
-                    <Input id="email" type="email" name="email" autocomplete="email" class="mt-1 block w-full" readonly />
-                    <InputError message={errors.email} class="mt-2" />
+            <div class="grid gap-8">
+                <!-- Email Field (Readonly) -->
+                <div class="relative group opacity-60">
+                    <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={email}
+                        readonly
+                        class="peer w-full bg-transparent border-0 border-b border-border py-2 text-foreground focus:ring-0 transition-all"
+                    />
+                    <label 
+                        for="email" 
+                        class="absolute left-0 -top-4 text-xs text-muted-foreground transition-all pointer-events-none"
+                    >
+                        Correo Electrónico
+                    </label>
                 </div>
 
-                <div class="grid gap-2">
-                    <Label for="password">Password</Label>
-                    <Input
+                <!-- Password Field -->
+                <div class="relative group">
+                    <input
                         id="password"
-                        type="password"
                         name="password"
-                        autocomplete="new-password"
-                        class="mt-1 block w-full"
+                        type={showPassword ? "text" : "password"}
+                        required
                         autofocus
-                        placeholder="Password"
-                    />
-                    <InputError message={errors.password} />
-                </div>
-
-                <div class="grid gap-2">
-                    <Label for="password_confirmation">Confirm Password</Label>
-                    <Input
-                        id="password_confirmation"
-                        type="password"
-                        name="password_confirmation"
+                        tabindex={1}
                         autocomplete="new-password"
-                        class="mt-1 block w-full"
-                        placeholder="Confirm password"
+                        placeholder=" "
+                        class="peer w-full bg-transparent border-0 border-b border-border py-2 pr-10 text-foreground focus:ring-0 focus:border-primary transition-all placeholder-transparent"
                     />
-                    <InputError message={errors.password_confirmation} />
+                    <label 
+                        for="password" 
+                        class="absolute left-0 -top-full text-xs text-muted-foreground peer-placeholder-shown:text-base peer-placeholder-shown:top-2 peer-focus:-top-4 peer-focus:text-xs peer-focus:text-primary transition-all pointer-events-none"
+                    >
+                        Nueva Contraseña
+                    </label>
+                    <InputError message={errors.password} class="mt-2 text-xs" />
                 </div>
 
-                <Button type="submit" class="mt-4 w-full" disabled={processing}>
+                <!-- Confirm Password Field -->
+                <div class="relative group">
+                    <input
+                        id="password_confirmation"
+                        name="password_confirmation"
+                        type={showPassword ? "text" : "password"}
+                        required
+                        tabindex={2}
+                        autocomplete="new-password"
+                        placeholder=" "
+                        class="peer w-full bg-transparent border-0 border-b border-border py-2 pr-10 text-foreground focus:ring-0 focus:border-primary transition-all placeholder-transparent"
+                    />
+                    <label 
+                        for="password_confirmation" 
+                        class="absolute left-0 -top-full text-xs text-muted-foreground peer-placeholder-shown:text-base peer-placeholder-shown:top-2 peer-focus:-top-4 peer-focus:text-xs peer-focus:text-primary transition-all pointer-events-none"
+                    >
+                        Confirmar Nueva Contraseña
+                    </label>
+                    <button 
+                        type="button" 
+                        class="absolute right-0 top-2 text-muted-foreground hover:text-foreground transition-colors"
+                        onclick={() => showPassword = !showPassword}
+                    >
+                        {#if showPassword}
+                            <EyeOff size={18} />
+                        {:else}
+                            <Eye size={18} />
+                        {/if}
+                    </button>
+                    <InputError message={errors.password_confirmation} class="mt-2 text-xs" />
+                </div>
+
+                <Button 
+                    type="submit" 
+                    class="mt-4 w-full bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground font-semibold py-6 rounded-2xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2" 
+                    tabindex={3} 
+                    disabled={processing}
+                >
                     {#if processing}
                         <LoaderCircle class="h-4 w-4 animate-spin" />
                     {/if}
-                    Reset password
+                    Restablecer Contraseña
                 </Button>
             </div>
         {/snippet}
     </Form>
-</AuthLayout>
+</AuthBase>
+

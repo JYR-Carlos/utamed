@@ -74,6 +74,18 @@
             show: hasRole(['Administrador']),
         },
         {
+            title: 'Cursos Ofertados',
+            href: '/admin/cursos',
+            icon: BookOpen,
+            show: hasRole(['Administrador']),
+        },
+        {
+            title: 'Inscripciones',
+            href: '/admin/inscripciones_cursos',
+            icon: Users,
+            show: hasRole(['Administrador']),
+        },
+        {
             title: 'Mis Cursos',
             href: '/docente/cursos',
             icon: BookOpen,

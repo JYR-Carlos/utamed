@@ -1,4 +1,5 @@
 import '@inertiajs/svelte';
+import { type Docente } from './admin.types';
 
 export interface SharedAuth {
     user: User;
@@ -37,6 +38,7 @@ export interface User {
     email_verified_at: string | null;
     created_at: string;
     updated_at: string;
+    docente?: Docente;
 }
 
 export type BreadcrumbItemType = BreadcrumbItem;
