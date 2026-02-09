@@ -33,11 +33,30 @@ class IsAdmin
             return redirect('/login');
         }
 
-        // Un usuario es admin si NO es docente ni estudiante
-        $isAdmin = !$user->docente && !$user->estudiante;
+        // Un usuario es admin si tiene rol Administrador o SuperAdmin activo
+        $isAdmin = false;
+
+        // Check roles via relationship if loaded, or query
+        $roles = $user->rolesAsignados()
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->with('rol')
+            ->get()
+            ->pluck('rol.nombre')
+            ->toArray();
+
+        // Check if user has 'Administrador' or 'SuperAdmin' role
+        // Also keep legacy check for now if roles aren't fully migrated, OR strictly enforce roles.
+        // Given the task is to fix bypass, we should strictly enforce roles.
+        // But for safety during transition, we might want to check the negative condition too?
+        // No, let's stick to positive role check as requested.
+
+        if (in_array('Administrador', $roles) || in_array('SuperAdmin', $roles)) {
+            $isAdmin = true;
+        }
 
         if (!$isAdmin) {
-            return redirect('/dashboard')->with('error', 'No tienes permisos para acceder a esta sección. Acceso restringido a administradores.');
+            return redirect()->route('dashboard')->with('error', 'No tienes permisos para acceder a esta sección. Acceso restringido a administradores.');
         }
 
         return $next($request);

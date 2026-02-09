@@ -252,6 +252,16 @@ export interface PaginatedResponse<T> {
     from: number;
     /** Index of last item on current page */
     to: number;
+    /** URL for the previous page */
+    prev_page_url?: string;
+    /** URL for the next page */
+    next_page_url?: string;
+    /** Pagination links for navigation */
+    links: {
+        url?: string;
+        label: string;
+        active: boolean;
+    }[];
 }
 
 /**

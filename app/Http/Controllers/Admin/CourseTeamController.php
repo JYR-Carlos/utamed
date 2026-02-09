@@ -122,16 +122,16 @@ class CourseTeamController extends Controller
         // In future: Check if auth user has permission to assign this role.
 
         UsuarioRolAsignación::create([
-            'id_usuario_recipiente' => $validated['id_usuario'],
+            'id_usuario' => $validated['id_usuario'],
             'id_contexto' => $curso->id_contexto,
             'id_rol' => $rol->id_rol,
-            'id_usuario_asignador' => auth()->id() ?? 1, // Fallback to ID 1 if auth fails (e.g. seeding/testing)
+            'asignado_por' => (int) (auth()->id() ?? 1), // Fallback to ID 1 if auth fails (e.g. seeding/testing)
+            'creado_por' => (int) (auth()->id() ?? 1),
             'fecha_inicio_planificada' => now(),
             'fecha_fin_planificada' => now()->addYears(100),
             'esta_activo' => true,
             'fue_eliminado' => false,
             'fecha_creacion' => now(),
-            'asignado_por' => (int) (auth()->id() ?? 1)
         ]);
 
         return back()->with('success', 'Miembro agregado exitosamente.');
@@ -157,7 +157,7 @@ class CourseTeamController extends Controller
         }
 
         UsuarioRolAsignación::where('id_contexto', $curso->id_contexto)
-            ->where('id_usuario_recipiente', $usuario->id_usuario)
+            ->where('id_usuario', $usuario->id_usuario)
             ->update([
                 'esta_activo' => false,
                 'fue_eliminado' => true,
@@ -187,7 +187,7 @@ class CourseTeamController extends Controller
 
         // ✅ Validar que usuario es miembro del equipo
         $isMember = UsuarioRolAsignación::where('id_contexto', $curso->id_contexto)
-            ->where('id_usuario_recipiente', $usuario->id_usuario)
+            ->where('id_usuario', $usuario->id_usuario)
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
             ->exists();
@@ -268,7 +268,7 @@ class CourseTeamController extends Controller
 
         // ✅ Validar que usuario es miembro del equipo
         $isMember = UsuarioRolAsignación::where('id_contexto', $curso->id_contexto)
-            ->where('id_usuario_recipiente', $usuario->id_usuario)
+            ->where('id_usuario', $usuario->id_usuario)
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
             ->exists();
@@ -297,7 +297,7 @@ class CourseTeamController extends Controller
             if ($isDocente) {
                 $allowedRoleIds = Rol::whereIn('nombre', ['Ayudante', 'Estudiante'])->pluck('id_rol')->toArray();
 
-                UsuarioRolAsignación::where('id_usuario_recipiente', $usuario->id_usuario)
+                UsuarioRolAsignación::where('id_usuario', $usuario->id_usuario)
                     ->where('id_contexto', $idContexto)
                     ->whereIn('id_rol', $allowedRoleIds)
                     ->where('esta_activo', true)
@@ -308,19 +308,19 @@ class CourseTeamController extends Controller
                         if (in_array($rolId, $allowedRoleIds)) {
                             UsuarioRolAsignación::updateOrCreate(
                                 [
-                                    'id_usuario_recipiente' => $usuario->id_usuario,
+                                    'id_usuario' => $usuario->id_usuario,
                                     'id_contexto' => $idContexto,
                                     'id_rol' => $rolId,
-                                    'id_usuario_asignador' => $adminId
                                 ],
                                 [
+                                    'asignado_por' => (int) ($adminId ?? 1),
+                                    'creado_por' => (int) ($adminId ?? 1),
                                     'fecha_inicio_planificada' => now(),
                                     'fecha_fin_planificada' => now()->addYears(100),
                                     'esta_activo' => true,
                                     'fue_eliminado' => false,
                                     'fecha_fin_real' => null,
                                     'fecha_creacion' => now(),
-                                    'asignado_por' => (int) ($adminId ?? 1)
                                 ]
                             );
                         }
@@ -328,7 +328,7 @@ class CourseTeamController extends Controller
                 }
             } else {
                 // For Full Admin: Sync all roles in this context
-                UsuarioRolAsignación::where('id_usuario_recipiente', $usuario->id_usuario)
+                UsuarioRolAsignación::where('id_usuario', $usuario->id_usuario)
                     ->where('id_contexto', $idContexto)
                     ->where('esta_activo', true)
                     ->update(['esta_activo' => false, 'fue_eliminado' => true, 'fecha_fin_real' => now()]);
@@ -337,19 +337,19 @@ class CourseTeamController extends Controller
                     foreach ($validated['roles'] as $rolId) {
                         UsuarioRolAsignación::updateOrCreate(
                             [
-                                'id_usuario_recipiente' => $usuario->id_usuario,
+                                'id_usuario' => $usuario->id_usuario,
                                 'id_contexto' => $idContexto,
                                 'id_rol' => $rolId,
-                                'id_usuario_asignador' => $adminId
                             ],
                             [
+                                'asignado_por' => (int) ($adminId ?? 1),
+                                'creado_por' => (int) ($adminId ?? 1),
                                 'fecha_inicio_planificada' => now(),
                                 'fecha_fin_planificada' => now()->addYears(100),
                                 'esta_activo' => true,
                                 'fue_eliminado' => false,
                                 'fecha_fin_real' => null,
                                 'fecha_creacion' => now(),
-                                'asignado_por' => (int) ($adminId ?? 1)
                             ]
                         );
                     }
@@ -366,12 +366,12 @@ class CourseTeamController extends Controller
                 if (in_array($permId, $delegablePermIds)) {
                     UsuarioPermisoEspecial::updateOrCreate(
                         [
-                            'id_usuario_recipiente' => $usuario->id_usuario,
+                            'id_usuario' => $usuario->id_usuario,
                             'id_contexto' => $idContexto,
                             'id_permiso' => $permId,
-                            'id_usuario_asignador' => $adminId
                         ],
                         [
+                            'creado_por' => $adminId,
                             'esta_permitido' => ($allowed === null) ? null : (bool) $allowed,
                             'puede_delegar' => (bool) $canDelegate,
                             'esta_activo' => true,
@@ -416,7 +416,7 @@ class CourseTeamController extends Controller
             ->flatten()
             ->unique('id_permiso');
 
-        $specialQuery = UsuarioPermisoEspecial::where('id_usuario_recipiente', $user->id_usuario)
+        $specialQuery = UsuarioPermisoEspecial::where('id_usuario', $user->id_usuario)
             ->where('esta_activo', true)
             ->where('fue_borrado', false)
             ->where(function ($query) {

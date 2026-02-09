@@ -26,7 +26,7 @@
      */
     export let cursos: any[] = []; // Using any[] to bypass strict typing for now if types aren't perfect
     export let availableRoles: any[] = [];
-    export let availablePermissions: any[] = [];
+    export let availablePermissions: Record<string, any[]> = {};
 
     let isTeamModalOpen = false;
     let selectedCurso: any = null;
@@ -38,7 +38,7 @@
 
     function generateProgram(curso: any) {
         if (confirm(`¿Estás seguro de generar el programa para el curso ${curso.cod_curso}?`)) {
-            router.post(route('docente.cursos.programa.store', curso.id_curso), {}, {
+            router.post(`/docente/cursos/${curso.id_curso}/programa`, {}, {
                 preserveScroll: true,
                 onSuccess: () => {
                    // Success notification handling if global toast exists
@@ -51,7 +51,7 @@
     }
 </script>
 
-<DocenteLayout title="Mis Cursos">
+<DocenteLayout>
     <div class="space-y-6">
         <div class="flex items-center justify-between">
             <h1 class="text-3xl font-bold tracking-tight text-slate-900">Mis Cursos</h1>
@@ -104,15 +104,17 @@
                                 </button>
                                 
                                 <Tooltip.Root>
-                                    <Tooltip.Trigger asChild let:builder>
+                                    <Tooltip.Trigger>
+                                    {#snippet child({ props })}
                                         <button
-                                            builders={[builder]}
+                                            {...props}
                                             class="inline-flex items-center justify-center rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
-                                            on:click={() => router.visit(route('docente.cursos.actividades.index', curso.id_curso))}
+                                            on:click={() => router.visit(`/docente/cursos/${curso.id_curso}/actividades`)}
                                         >
                                             <BookOpen class="h-4 w-4" />
                                         </button>
-                                    </Tooltip.Trigger>
+                                    {/snippet}
+                                </Tooltip.Trigger>
                                     <Tooltip.Content>
                                         <p>Gestionar Actividades</p>
                                     </Tooltip.Content>
@@ -149,6 +151,7 @@
     {#if selectedCurso}
         <CourseTeamModal
             bind:isOpen={isTeamModalOpen}
+            onClose={() => isTeamModalOpen = false}
             curso={selectedCurso}
             {availableRoles}
             {availablePermissions}

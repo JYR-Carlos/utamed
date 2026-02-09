@@ -33,21 +33,19 @@ class Carrera extends BaseCarrera
     // Accessors/Mutators
     // etc.
 
+
+    // Agrega aquí tus métodos personalizados
+    // Scopes personalizados
+    // Relaciones adicionales
+    // Accessors/Mutators
+    // etc.
+
     /**
-     * Fix for double quoting issue in BaseCarrera.
-     * Reverts to standard Eloquent behavior.
+     * Override Compoships newBelongsTo to use our custom BelongsTo relation
+     * which fixes the eager loading quoting issue.
      */
-    public function qualifyColumn($column)
+    protected function newBelongsTo(\Illuminate\Database\Eloquent\Builder $query, \Illuminate\Database\Eloquent\Model $child, $foreignKey, $ownerKey, $relation)
     {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-
-    public function getQualifiedKeyName()
-    {
-        return $this->qualifyColumn($this->getKeyName());
+        return new \App\Extensions\Compoships\BelongsTo($query, $child, $foreignKey, $ownerKey, $relation);
     }
 }

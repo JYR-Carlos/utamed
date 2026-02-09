@@ -145,7 +145,7 @@ class CursoController extends Controller
             $data['id_contexto'] = $contexto->id_contexto;
 
             // Set default values for required NOT NULL fields
-            $data['grupo_indice'] = $data['grupo_indice'] ?? 1;
+            $data['indice_grupo'] = $request->input('indice_grupo', 1);
 
             // If fecha_fin is not provided, set it to 6 months after fecha_inicio (typical semester duration)
             if (empty($data['fecha_fin']) && !empty($data['fecha_inicio'])) {

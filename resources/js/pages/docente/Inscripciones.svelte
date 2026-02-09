@@ -41,10 +41,9 @@
 		inscripciones: PaginatedResponse<Inscripcion>;
 		cursos: Curso[];
 		filters: { search?: string; id_curso?: number; estado_inscripcion?: string };
-        auth: { user: any }; // Inertia shared prop
 	}
 
-	let { inscripciones, cursos, filters, auth }: Props = $props();
+	let { inscripciones, cursos, filters }: Props = $props();
 
     // Filters state
     let search = $state(filters.search || '');
@@ -70,7 +69,7 @@
 
 </script>
 
-<DocenteLayout {auth}>
+<DocenteLayout>
 	<div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
 		<div class="md:flex md:items-center md:justify-between mb-6">
 			<div class="min-w-0 flex-1">

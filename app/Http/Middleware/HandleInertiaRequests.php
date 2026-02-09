@@ -67,9 +67,9 @@ class HandleInertiaRequests extends Middleware
             $user->load([
                 'rolesAsignados' => fn($q) => $q->where('esta_activo', true)
                     ->where('fue_eliminado', false),
-                    'rolesAsignados.rol',
-                    'docente',
-                    'estudiante'
+                'rolesAsignados.rol',
+                'docente',
+                'estudiante'
             ]);
             // Fetch active roles for Global context (ID 5) or all active roles if strict context not required yet.
             // For dashboard purposes, we usually want "What is this user system-wide?".
@@ -77,15 +77,18 @@ class HandleInertiaRequests extends Middleware
             // 2. Ahora procesamos sobre la COLECCIÓN (en memoria), no sobre el Query Builder
             $roles = $user->rolesAsignados // <--- Sin paréntesis (), usamos la colección ya cargada
                 ->pluck('rol.nombre')
-                ->unique()  
+                ->unique()
                 ->values()
                 ->toArray();
-    
+
+            // \Log::info('HandleInertiaRequests - User Roles:', ['id' => $user->id_usuario, 'roles' => $roles]);
+
             // 3. Ya están cargados, así que esto no dispara más SQL
             $docente = $user->docente;
-            $estudiante = $user->estudiante;$estudiante = $user->estudiante;
-            }
-        
+            $estudiante = $user->estudiante;
+            $estudiante = $user->estudiante;
+        }
+
 
         return [
             ...parent::share($request),
@@ -99,8 +102,8 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
-                'success' => fn () => $request->session()->get('success'),
-                'error' => fn () => $request->session()->get('error'),
+                'success' => fn() => $request->session()->get('success'),
+                'error' => fn() => $request->session()->get('error'),
             ],
         ];
     }

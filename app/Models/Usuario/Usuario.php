@@ -60,7 +60,7 @@ class Usuario extends BaseUsuario implements Authenticatable
      */
     public function rolesAsignados()
     {
-        return $this->hasMany(UsuarioRolAsignación::class, 'id_usuario_recipiente', 'id_usuario');
+        return $this->hasMany(UsuarioRolAsignación::class, 'id_usuario', 'id_usuario');
     }
 
     /**
@@ -68,7 +68,7 @@ class Usuario extends BaseUsuario implements Authenticatable
      */
     public function permisosEspeciales()
     {
-        return $this->hasMany(UsuarioPermisoEspecial::class, 'id_usuario_recipiente', 'id_usuario');
+        return $this->hasMany(UsuarioPermisoEspecial::class, 'id_usuario', 'id_usuario');
     }
 
     /**
@@ -164,6 +164,6 @@ class Usuario extends BaseUsuario implements Authenticatable
 
     public function getQualifiedKeyName()
     {
-        return $this->qualifyColumn($this->getKeyName());
+        return $this->getTable() . '.' . $this->getKeyName();
     }
 }

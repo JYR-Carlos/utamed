@@ -27,11 +27,13 @@ class Programa extends BasePrograma
         'fecha_creacion'
     ];
 
+
+
     /**
-     * Fix for double quoting issue in BasePrograma.
-     * Reverts to standard Eloquent behavior.
+     * Fix: Override BasePrograma quoting to prevent double-escaping backslashes.
+     * Uses standard double quotes for PostgreSQL.
      */
-    public function qualifyColumn($column)
+  public function qualifyColumn($column)
     {
         if (str_contains($column, '.')) {
             return $column;
@@ -44,9 +46,6 @@ class Programa extends BasePrograma
     {
         return $this->qualifyColumn($this->getKeyName());
     }
-
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
     // Relaciones adicionales
     // Accessors/Mutators
     // etc.

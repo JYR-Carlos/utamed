@@ -13,7 +13,7 @@ use App\Models\Base\Administrativo\BasePlan;
 class Plan extends BasePlan
 {
     protected $table = 'Plan';
-    protected $fillable = ['id_carrera', 'agno', 'version', 'id_contexto'];
+    protected $fillable = ['id_carrera', 'agno', 'version_plan', 'id_contexto'];
     /**
      * Calculate total SCT credits from all assigned asignaturas
      */
@@ -26,9 +26,10 @@ class Plan extends BasePlan
             ->sum('Asignatura.creditos_sct') ?? 0;
     }
 
+
     /**
-     * Fix for double quoting issue in BasePlan.
-     * Reverts to standard Eloquent behavior.
+     * Fix: Override BasePlan quoting to prevent double-escaping backslashes.
+     * Uses standard double quotes for PostgreSQL.
      */
     public function qualifyColumn($column)
     {

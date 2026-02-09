@@ -45,7 +45,7 @@ class PlanController extends Controller
         // Pagination
         // Calculate total SCT credits summing Asignatura.creditos_sct via AsignacionPlan
         $planes = $query->orderBy('agno', 'desc')
-            ->orderBy('version', 'desc')
+            ->orderBy('version_plan', 'desc')
             ->addSelect([
                 'creditos_sct_totales' => function ($q) {
                     // Use explicit schema if needed, but standard strings usually work if search_path is set.
@@ -79,7 +79,7 @@ class PlanController extends Controller
     {
         $planes = $carrera->planes()
             ->orderBy('agno', 'desc')
-            ->orderBy('version', 'desc')
+            ->orderBy('version_plan', 'desc')
             ->get();
 
         return response()->json($planes);
@@ -93,20 +93,20 @@ class PlanController extends Controller
         $validated = $request->validate([
             'id_carrera' => ['required', Rule::exists(Carrera::class, 'id_carrera')],
             'agno' => 'required|integer|min:1900|max:2100',
-            'version' => 'required|integer|min:1',
+            'version_plan' => 'required|integer|min:1',
         ]);
 
         try {
             $plan = Plan::create($validated);
 
             return redirect()->route('admin.planes.index')
-                ->with('success', 'Plan creado exitosamente para el año ' . $validated['agno'] . ' versión ' . $validated['version'] . '.');
+                ->with('success', 'Plan creado exitosamente para el año ' . $validated['agno'] . ' versión ' . $validated['version_plan'] . '.');
         } catch (\Exception $e) {
             \Log::error('Error al crear plan: ' . $e->getMessage(), [
                 'validated_data' => $validated,
                 'exception' => $e
             ]);
-            
+
             return back()->with('error', 'Error al crear plan: ' . $e->getMessage());
         }
     }
@@ -130,7 +130,7 @@ class PlanController extends Controller
         $validated = $request->validate([
             'id_carrera' => ['required', Rule::exists(Carrera::class, 'id_carrera')],
             'agno' => 'required|integer|min:1900|max:2100',
-            'version' => 'required|integer|min:1',
+            'version_plan' => 'required|integer|min:1',
         ]);
 
         $plan->update($validated);

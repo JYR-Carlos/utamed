@@ -11,8 +11,9 @@ use App\Models\Usuario\Estudiante;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
-
+use \Illuminate\Support\Facades\Auth;
 /**
  * Controlador para la gestión de inscripciones de estudiantes en cursos.
  * 
@@ -39,7 +40,7 @@ class InscripcionCursoController extends Controller
      */
     public function index(Request $request)
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Verify user is admin or docente
         // Admin is defined as user without docente nor estudiante profiles
@@ -122,7 +123,7 @@ class InscripcionCursoController extends Controller
      */
     public function create(Request $request)
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Verify user is admin or docente
         // Admin is defined as user without docente nor estudiante profiles
@@ -171,7 +172,7 @@ class InscripcionCursoController extends Controller
      */
     public function store(StoreInscripcionCursoRequest $request)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         $validated = $request->validated();
 
         // Verify authorization
@@ -215,7 +216,7 @@ class InscripcionCursoController extends Controller
                 ->with('success', 'Inscripción creada exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error creating inscripcion: ' . $e->getMessage(), [
+            Log::error('Error creating inscripcion: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'data' => $validated
             ]);
@@ -228,7 +229,7 @@ class InscripcionCursoController extends Controller
      */
     public function show(InscripcionCurso $inscripcionCurso)
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Verify authorization
         // Admin is defined as user without docente nor estudiante profiles
@@ -262,7 +263,7 @@ class InscripcionCursoController extends Controller
      */
     public function edit(InscripcionCurso $inscripcionCurso)
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Verify authorization
         // Admin is defined as user without docente nor estudiante profiles
@@ -296,7 +297,7 @@ class InscripcionCursoController extends Controller
      */
     public function update(UpdateInscripcionCursoRequest $request, InscripcionCurso $inscripcionCurso)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         $validated = $request->validated();
 
         // Verify authorization
@@ -325,7 +326,7 @@ class InscripcionCursoController extends Controller
                 ->with('success', 'Inscripción actualizada exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error updating inscripcion: ' . $e->getMessage(), [
+            Log::error('Error updating inscripcion: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'data' => $validated
             ]);
@@ -338,7 +339,7 @@ class InscripcionCursoController extends Controller
      */
     public function destroy(InscripcionCurso $inscripcionCurso)
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Solo admins pueden eliminar
         // Admin is defined as user without docente nor estudiante profiles
@@ -357,7 +358,7 @@ class InscripcionCursoController extends Controller
                 ->with('success', 'Inscripción eliminada exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error deleting inscripcion: ' . $e->getMessage(), [
+            Log::error('Error deleting inscripcion: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'id_curso' => $inscripcionCurso->id_curso,
                 'id_estudiante' => $inscripcionCurso->id_estudiante
@@ -391,6 +392,13 @@ class InscripcionCursoController extends Controller
             ->orderBy('id_estudiante')
             ->get();
 
+        Log::info('getEstudiantesDisponibles', [
+            'idCurso' => $idCurso,
+            'inscritosIds' => $inscritosIds,
+            'count' => $estudiantes->count(),
+            'first' => $estudiantes->first()
+        ]);
+
         return response()->json([
             'estudiantes' => $estudiantes
         ]);
@@ -422,7 +430,7 @@ class InscripcionCursoController extends Controller
      */
     public function exportCsv(Request $request)
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Verify user is admin or docente
         // Admin is defined as user without docente nor estudiante profiles

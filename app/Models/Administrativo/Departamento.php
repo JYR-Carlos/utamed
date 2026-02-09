@@ -17,6 +17,7 @@ class Departamento extends BaseDepartamento
      */
     protected $primaryKey = 'id_departamento';
     public $incrementing = true;
+    protected $table = 'Departamento'; // Defined in Base
     protected $fillable = ['nombre', 'id_facultad', 'id_contexto'];
 
     /**
@@ -34,21 +35,10 @@ class Departamento extends BaseDepartamento
     // Accessors/Mutators
     // etc.
 
-    /**
-     * Fix for double quoting issue in BaseDepartamento.
-     * Reverts to standard Eloquent behavior.
-     */
-    public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
 
-        return $this->getTable() . '.' . $column;
-    }
-
-    public function getQualifiedKeyName()
-    {
-        return $this->qualifyColumn($this->getKeyName());
-    }
+    // Agrega aquí tus métodos personalizados
+    // Scopes personalizados
+    // Relaciones adicionales
+    // Accessors/Mutators
+    // etc.
 }

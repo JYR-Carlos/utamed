@@ -12,11 +12,19 @@ use App\Models\Base\Curso\BaseUnidad;
  */
 class Unidad extends BaseUnidad
 {
-    /**
-     * Override primary key to use single identity column for Eloquent compatibility
-     */
-    protected $primaryKey = 'id_unidad';
-    public $incrementing = true;
+    public function qualifyColumn($column)
+    {
+        if (str_contains($column, '.')) {
+            return $column;
+        }
+
+        return $this->getTable() . '.' . $column;
+    }
+
+    public function getQualifiedKeyName()
+    {
+        return $this->qualifyColumn($this->getKeyName());
+    }
 
     public function getRouteKeyName()
     {

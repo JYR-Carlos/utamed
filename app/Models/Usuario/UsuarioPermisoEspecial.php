@@ -23,10 +23,10 @@ class UsuarioPermisoEspecial extends BaseUsuarioPermisoEspecial
     // protected $primaryKey = null; // Inherited
 
     protected $fillable = [
-        'id_usuario_recipiente',
+        'id_usuario',
         'id_contexto',
         'id_permiso',
-        'id_usuario_asignador',
+        'creado_por',
         'fecha_inicio_planificada',
         'fecha_fin_planificada',
         'esta_permitido',
@@ -58,6 +58,6 @@ class UsuarioPermisoEspecial extends BaseUsuarioPermisoEspecial
 
     public function getRouteKeyName()
     {
-        return 'id_usuario_recipiente';
+        return 'id_usuario';
     }
 }

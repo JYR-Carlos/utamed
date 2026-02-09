@@ -12,6 +12,20 @@ use App\Models\Base\Curso\BaseInscripcionSeccion;
  */
 class InscripcionSeccion extends BaseInscripcionSeccion
 {
+    public function qualifyColumn($column)
+    {
+        if (str_contains($column, '.')) {
+            return $column;
+        }
+
+        return $this->getTable() . '.' . $column;
+    }
+
+    public function getQualifiedKeyName()
+    {
+        return $this->qualifyColumn($this->getKeyName());
+    }
+
     public function getRouteKeyName()
     {
         return 'id_estudiante';

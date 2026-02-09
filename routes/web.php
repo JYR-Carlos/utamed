@@ -21,11 +21,16 @@ Route::get('/', function () {
 
 Route::get('dashboard', function () {
     /** @var \App\Models\Usuario\Usuario $user */
-    $user = auth()->user();
+    $user = \Illuminate\Support\Facades\Auth::user();
 
     // Redirigir docentes a su dashboard
     if ($user && $user->docente) {
         return redirect()->route('docente.dashboard');
+    }
+
+    // Redirigir estudiantes a su dashboard
+    if ($user && $user->estudiante) {
+        return redirect()->route('estudiante.dashboard');
     }
 
     return Inertia::render('Dashboard', [
@@ -158,6 +163,11 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
         ->name('inscripciones.disponibles');
 });
 
+// Student Routes
+Route::prefix('estudiante')->middleware(['auth', 'verified', 'is_estudiante'])->name('estudiante.')->group(function () {
+    Route::get('dashboard', [\App\Http\Controllers\Student\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('cursos', [\App\Http\Controllers\Student\CourseController::class, 'index'])->name('cursos.index');
+    Route::get('cursos/{curso}', [\App\Http\Controllers\Student\CourseController::class, 'show'])->name('cursos.show');
+});
+
 require __DIR__ . '/settings.php';
-
-

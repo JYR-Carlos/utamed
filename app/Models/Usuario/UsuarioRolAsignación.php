@@ -21,11 +21,11 @@ class UsuarioRolAsignación extends BaseUsuarioRolAsignación
     // protected $primaryKey = null; // Removed to inherit from Base array
 
     protected $fillable = [
-        'id_usuario_recipiente',
+        'id_usuario',
         'id_contexto',
         'id_rol',
-        'id_usuario_asignador',
         'asignado_por',
+        'creado_por',
         'fecha_inicio_planificada',
         'fecha_fin_planificada',
         'fecha_fin_real',
@@ -37,7 +37,7 @@ class UsuarioRolAsignación extends BaseUsuarioRolAsignación
 
     public function getRouteKeyName()
     {
-        return 'id_usuario_recipiente';
+        return 'id_usuario';
     }
 
     /**

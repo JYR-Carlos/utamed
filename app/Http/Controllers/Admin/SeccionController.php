@@ -46,12 +46,12 @@ class SeccionController extends Controller
             // Validar Reglas de Negocio
             $existingSections = Seccion::where('id_curso', $curso->id_curso)->get();
 
-            // 1. Un curso no puede tener más de dos secciones
-            if ($existingSections->count() >= 2) {
+            // 1. Un curso no puede tener más de tres secciones
+            if ($existingSections->count() >= 3) {
                 if ($request->wantsJson()) {
-                    return response()->json(['error' => 'El curso no puede tener más de 2 secciones.'], 422);
+                    return response()->json(['error' => 'El curso no puede tener más de 3 secciones.'], 422);
                 }
-                return back()->with('error', 'El curso no puede tener más de 2 secciones.');
+                return back()->with('error', 'El curso no puede tener más de 3 secciones.');
             }
 
             // 2. No pueden ser 2 cátedras ni 2 repetidas (Tipo único)

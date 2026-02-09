@@ -31,11 +31,12 @@ class Asignatura extends BaseAsignatura
     // Accessors/Mutators
     // etc.
 
+
     /**
-     * Fix for double quoting issue in BaseAsignatura.
-     * Reverts to standard Eloquent behavior.
+     * Fix: Override BaseAsignatura quoting to prevent double-escaping backslashes.
+     * Uses standard double quotes for PostgreSQL.
      */
-    public function qualifyColumn($column)
+ public function qualifyColumn($column)
     {
         if (str_contains($column, '.')) {
             return $column;

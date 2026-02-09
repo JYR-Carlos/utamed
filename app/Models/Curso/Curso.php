@@ -19,7 +19,22 @@ class Curso extends BaseCurso
     protected $table = 'Curso';
     protected $primaryKey = 'id_curso';
     public $incrementing = true;
-    // Note: fillable is inherited from BaseCurso
+    // Note: fillable is inherited from BaseCurso, but we need to add fields that might be missing in Base
+    protected $fillable = [
+        'cod_curso',
+        'nombre',
+        'indice_grupo',
+        'fecha_inicio',
+        'fecha_fin',
+        'agno_real',
+        'semestre_real',
+        'estado_interno',
+        'estado_acta',
+        'id_contexto',
+        'letra_grupo',
+        'id_asignatura',
+        'id_plan'
+    ];
 
     /**
      * Relación con Docente

@@ -31,12 +31,22 @@ abstract class BaseAsignacionPlan extends Model
      */
     public function qualifyColumn($column)
     {
-        $qualified = parent::qualifyColumn($column);
-        // Only quote if not already quoted and contains a dot (table.column)
-        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
-            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        // If already qualified (contains table.column format with quotes), return as-is
+        if (preg_match('/^"[^"]+"\."[^"]+"$/', $column)) {
+            return $column;
         }
-        return $qualified;
+        
+        // Remove any existing quotes
+        $column = str_replace(['"', "'"], '', $column);
+        
+        // If column contains a dot, it's already in table.column format
+        if (str_contains($column, '.')) {
+            [$table, $col] = explode('.', $column, 2);
+            return '"' . $table . '"."' . $col . '"';
+        }
+        
+        // Single column, qualify with table name
+        return '"' . $this->getTable() . '"."' . $column . '"';
     }
 
     /**
@@ -44,7 +54,7 @@ abstract class BaseAsignacionPlan extends Model
      */
     public function getQualifiedKeyName()
     {
-        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
+        return '"' . $this->getTable() . '"."' . $this->getKeyName() . '"';
     }
 
 

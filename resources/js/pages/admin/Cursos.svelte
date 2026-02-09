@@ -511,9 +511,9 @@
 			<div class="add-seccion-form">
 				<h4>Agregar Sección</h4>
 				<div class="form-row">
-					<select bind:value={newSeccionData.id_tipo_seccion} class="form-input" disabled={availableTiposSeccion.length === 0 || currentSecciones.length >= 2}>
+					<select bind:value={newSeccionData.id_tipo_seccion} class="form-input" disabled={availableTiposSeccion.length === 0 || currentSecciones.length >= 3}>
 						<option value={undefined}>
-							{#if currentSecciones.length >= 2}
+							{#if currentSecciones.length >= 3}
 								Máximo de secciones alcanzado
 							{:else if availableTiposSeccion.length === 0}
 								Todos los tipos asignados
@@ -525,7 +525,7 @@
 							<option value={tipo.id_tipo_seccion}>{tipo.tipo}</option>
 						{/each}
 					</select>
-					<select bind:value={newSeccionData.id_docente} class="form-input" disabled={currentSecciones.length >= 2}>
+					<select bind:value={newSeccionData.id_docente} class="form-input" disabled={currentSecciones.length >= 3}>
 						<option value={undefined}>Docente (Opcional)</option>
 						{#each docentes as docente}
 							<option value={docente.id_docente}>{docente.nombre_completo}</option>
@@ -535,14 +535,14 @@
 						type="button" 
 						class="btn-primary" 
 						onclick={addSeccion}
-						disabled={!newSeccionData.id_tipo_seccion || loadingSecciones || currentSecciones.length >= 2}
+						disabled={!newSeccionData.id_tipo_seccion || loadingSecciones || currentSecciones.length >= 3}
 					>
 						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
 						Agregar
 					</button>
 				</div>
-				{#if currentSecciones.length >= 2}
-					<p class="text-sm text-red-500 mt-2">Este curso ya tiene el máximo de 2 secciones permitidas.</p>
+				{#if currentSecciones.length >= 3}
+					<p class="text-sm text-red-500 mt-2">Este curso ya tiene el máximo de 3 secciones permitidas.</p>
 				{/if}
 			</div>
 		{/if}

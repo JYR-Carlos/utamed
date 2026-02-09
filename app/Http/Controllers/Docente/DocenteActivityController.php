@@ -8,6 +8,8 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\Seccion;
 use App\Models\Curso\Unidad;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 /**

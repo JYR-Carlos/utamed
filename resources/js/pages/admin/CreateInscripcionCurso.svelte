@@ -37,7 +37,7 @@
 
 	let isSubmitting = $state(false);
 	let errorMessage = $state('');
-	let errors = $state<Record<string, string[]>>({});
+	let errors = $state<Record<string, string>>({});
 	let estudiantesDisponibles = $state<Estudiante[]>([]);
 
 	$effect(() => {
@@ -63,27 +63,28 @@
 		}
 	}
 
-	async function handleSubmit(e: SubmitEvent) {
+	function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
-		isSubmitting = true;
-		errorMessage = '';
-		errors = {};
-
-		try {
-			await router.post(inscripciones_cursos.store().url, formData);
-		} catch (error) {
-			if (error instanceof AxiosError) {
-				if (error.response?.status === 422 && error.response?.data?.errors) {
-					errors = error.response.data.errors;
-					errorMessage = 'Por favor, verifica los errores en el formulario.';
-				} else {
-					errorMessage = error.response?.data?.message || 'Error al crear la inscripción';
-				}
-			} else {
-				errorMessage = 'Error al crear la inscripción';
-			}
-			isSubmitting = false;
-		}
+		
+		router.post(inscripciones_cursos.store().url, formData, {
+			onStart: () => {
+				isSubmitting = true;
+				errorMessage = '';
+				errors = {};
+			},
+			onFinish: () => {
+				isSubmitting = false;
+			},
+			onError: (errs) => {
+				console.error('Inertia validation errors:', errs);
+				errors = errs;
+				errorMessage = 'Por favor, verifica los errores en el formulario.';
+			},
+            onSuccess: () => {
+                // Success handling is usually automated by redirect, but we can double check here
+                console.log('Inscripción created successfully');
+            }
+		});
 	}
 
 	function handleCancel() {
@@ -127,7 +128,7 @@
 							{/each}
 						</select>
 						{#if errors.id_curso}
-							<p class="mt-2 text-sm text-red-600">{errors.id_curso[0]}</p>
+							<p class="mt-2 text-sm text-red-600">{errors.id_curso}</p>
 						{/if}
 					</div>
 
@@ -156,7 +157,7 @@
 							{/each}
 						</select>
 						{#if errors.id_estudiante}
-							<p class="mt-2 text-sm text-red-600">{errors.id_estudiante[0]}</p>
+							<p class="mt-2 text-sm text-red-600">{errors.id_estudiante}</p>
 						{/if}
 					</div>
 
@@ -172,7 +173,7 @@
 							class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
 						/>
 						{#if errors.cod_inscripcion_uta}
-							<p class="mt-2 text-sm text-red-600">{errors.cod_inscripcion_uta[0]}</p>
+							<p class="mt-2 text-sm text-red-600">{errors.cod_inscripcion_uta}</p>
 						{/if}
 					</div>
 
@@ -187,7 +188,7 @@
 							class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
 						/>
 						{#if errors.fecha_inscripcion}
-							<p class="mt-2 text-sm text-red-600">{errors.fecha_inscripcion[0]}</p>
+							<p class="mt-2 text-sm text-red-600">{errors.fecha_inscripcion}</p>
 						{/if}
 					</div>
 
@@ -207,7 +208,7 @@
 							<option value="REPROBADO">Reprobado</option>
 						</select>
 						{#if errors.estado_inscripcion}
-							<p class="mt-2 text-sm text-red-600">{errors.estado_inscripcion[0]}</p>
+							<p class="mt-2 text-sm text-red-600">{errors.estado_inscripcion}</p>
 						{/if}
 					</div>
 
@@ -223,7 +224,7 @@
 							class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
 						/>
 						{#if errors.num_intento}
-							<p class="mt-2 text-sm text-red-600">{errors.num_intento[0]}</p>
+							<p class="mt-2 text-sm text-red-600">{errors.num_intento}</p>
 						{/if}
 					</div>
 

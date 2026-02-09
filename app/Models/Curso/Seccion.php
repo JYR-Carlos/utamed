@@ -32,6 +32,20 @@ class Seccion extends BaseSeccion
         return 'id_seccion';
     }
 
+    public function qualifyColumn($column)
+    {
+        if (str_contains($column, '.')) {
+            return $column;
+        }
+
+        return $this->getTable() . '.' . $column;
+    }
+
+    public function getQualifiedKeyName()
+    {
+        return $this->qualifyColumn($this->getKeyName());
+    }
+
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

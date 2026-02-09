@@ -13,7 +13,9 @@ use App\Models\Usuario\UsuarioRolAsignación;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use \Illuminate\Support\Facades\Auth;
 
 /**
  * Controlador para gestión de cursos desde perspectiva del docente.
@@ -42,7 +44,7 @@ class DocenteCursoController extends Controller
     public function index()
     {
         /** @var Usuario $user */
-        $user = auth()->user();
+        $user = Auth::user();
         if (!$user->docente) {
             return redirect()->route('dashboard')->with('error', 'No tienes un perfil docente asociado.');
         }
@@ -85,7 +87,7 @@ class DocenteCursoController extends Controller
         $delegablePerms = $this->getDelegablePermissions($user);
         // Only show 'Docencia' and 'Ayudantía' modules for Docentes (Business Rule)
         // Filter by slug prefix instead of module
-        $availablePermissions = $delegablePerms->filter(function ($p) {
+        $availablePermissions = $delegablePerms->filter(function (\App\Models\Usuario\Permiso $p) {
             return str_starts_with($p->slug, 'actividad:') || str_starts_with($p->slug, 'curso:');
         })->groupBy(fn() => 'General');
 
@@ -132,13 +134,13 @@ class DocenteCursoController extends Controller
             }
             $rolePerms = $rolePerms->unique('id_permiso');
         } catch (\Exception $e) {
-            \Log::error('Error getting role permissions: ' . $e->getMessage());
+            Log::error('Error getting role permissions: ' . $e->getMessage());
             $rolePerms = collect();
         }
 
         // 2. Get delegable permissions from Special Permissions
         try {
-            $specialQuery = UsuarioPermisoEspecial::where('id_usuario_recipiente', $user->id_usuario)
+            $specialQuery = UsuarioPermisoEspecial::where('id_usuario', $user->id_usuario)
                 ->where('esta_activo', true)
                 ->where('fue_borrado', false)
                 ->where(function ($query) {
@@ -161,14 +163,14 @@ class DocenteCursoController extends Controller
                 }
             }
         } catch (\Exception $e) {
-            \Log::error('Error getting special permissions: ' . $e->getMessage());
+            Log::error('Error getting special permissions: ' . $e->getMessage());
             $specialPerms = collect();
         }
 
         $allDelegable = $rolePerms->concat($specialPerms)->unique('id_permiso');
 
         // 3. Subtract explicit DENIES the user has in this context
-        $deniedPermIds = UsuarioPermisoEspecial::where('id_usuario_recipiente', $user->id_usuario)
+        $deniedPermIds = UsuarioPermisoEspecial::where('id_usuario', $user->id_usuario)
             ->where('esta_activo', true)
             ->where('fue_borrado', false)
             ->where('esta_permitido', false);
@@ -212,11 +214,11 @@ class DocenteCursoController extends Controller
 
         // Fetch delegable perms for the AUTHENTICATED teacher in THIS context (Issue 2)
         /** @var Usuario $teacher */
-        $teacher = auth()->user();
+        $teacher = Auth::user();
         $delegablePerms = $this->getDelegablePermissions($teacher, $idContexto);
 
         // Filter by relevant modules for Docente view
-        $available_permissions = $delegablePerms->filter(function ($p) {
+        $available_permissions = $delegablePerms->filter(function (\App\Models\Usuario\Permiso $p) {
             return str_starts_with($p->slug, 'actividad:') || str_starts_with($p->slug, 'curso:');
         })->groupBy(fn() => 'General');
 
@@ -244,9 +246,9 @@ class DocenteCursoController extends Controller
         }
 
         $idContexto = $curso->id_contexto;
-        $adminId = auth()->id();
+        $adminId = Auth::id();
         /** @var Usuario $user */
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Security: A user cannot modify their own permissions (Issue 3)
         if ($usuario->id_usuario === $user->id_usuario) {
@@ -263,7 +265,7 @@ class DocenteCursoController extends Controller
             $allowedRoleIds = Rol::whereIn('nombre', $allowedRoleNames)->pluck('id_rol')->toArray();
 
             // Deactivate ONLY allowed roles first to avoid wiping things teachers shouldn't touch
-            UsuarioRolAsignación::where('id_usuario_recipiente', $usuario->id_usuario)
+            UsuarioRolAsignación::where('id_usuario', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->whereIn('id_rol', $allowedRoleIds)
                 ->where('esta_activo', true)
@@ -275,19 +277,19 @@ class DocenteCursoController extends Controller
                     if (in_array($rolId, $allowedRoleIds)) {
                         UsuarioRolAsignación::updateOrCreate(
                             [
-                                'id_usuario_recipiente' => $usuario->id_usuario,
+                                'id_usuario' => $usuario->id_usuario,
                                 'id_contexto' => $idContexto,
                                 'id_rol' => $rolId,
-                                'id_usuario_asignador' => $adminId
                             ],
                             [
+                                'asignado_por' => (int) ($adminId ?? 1),
+                                'creado_por' => (int) ($adminId ?? 1),
                                 'fecha_inicio_planificada' => now(),
                                 'fecha_fin_planificada' => now()->addYears(100),
                                 'esta_activo' => true,
                                 'fue_eliminado' => false,
                                 'fecha_fin_real' => null,
                                 'fecha_creacion' => now(),
-                                'asignado_por' => (int) ($adminId ?? 1)
                             ]
                         );
                     }
@@ -297,7 +299,7 @@ class DocenteCursoController extends Controller
             // 2. Sync Special Permissions
             // We only update permissions the docente is allowed to delegate.
             // Deactivate only DELEGABLE ones first?
-            UsuarioPermisoEspecial::where('id_usuario_recipiente', $usuario->id_usuario)
+            UsuarioPermisoEspecial::where('id_usuario', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->whereIn('id_permiso', $delegablePermIds)
                 ->where('esta_activo', true)
@@ -322,12 +324,12 @@ class DocenteCursoController extends Controller
                     if ($allowed !== null || $canDelegate) {
                         UsuarioPermisoEspecial::updateOrCreate(
                             [
-                                'id_usuario_recipiente' => $usuario->id_usuario,
+                                'id_usuario' => $usuario->id_usuario,
                                 'id_contexto' => $idContexto,
                                 'id_permiso' => $permId,
-                                'id_usuario_asignador' => $adminId
                             ],
                             [
+                                'creado_por' => $adminId,
                                 'esta_permitido' => ($allowed === null) ? null : (bool) $allowed,
                                 'puede_delegar' => (bool) $canDelegate,
                                 'esta_activo' => true,
@@ -354,7 +356,7 @@ class DocenteCursoController extends Controller
      */
     private function authorizeAccess(Curso $curso)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         if (!$user->docente || $curso->id_docente !== $user->docente->id_docente) {
             abort(403, 'No tienes permiso para gestionar este curso.');
         }

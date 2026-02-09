@@ -12,6 +12,21 @@ use App\Models\Base\Curso\BaseTipoSeccion;
  */
 class TipoSeccion extends BaseTipoSeccion
 {
+    // Fix for double quoting issue in Base model
+    public function qualifyColumn($column)
+    {
+        if (str_contains($column, '.')) {
+            return $column;
+        }
+
+        return $this->getTable() . '.' . $column;
+    }
+
+    public function getQualifiedKeyName()
+    {
+        return $this->qualifyColumn($this->getKeyName());
+    }
+
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

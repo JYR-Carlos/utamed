@@ -18,7 +18,7 @@
     // Helper to check for roles
     const hasRole = (requiredRoles: string[]) => {
         if (requiredRoles.includes('*')) return true;
-        if (authRoles.includes('Super Admin')) return true;
+        if (authRoles.includes('SuperAdmin')) return true;
         return authRoles.some(r => requiredRoles.includes(r));
     };
 
@@ -30,7 +30,7 @@
     });
 
     // Define all possible nav items
-    const allNavItems = [
+    let allNavItems = $derived([
         {
             title: 'Dashboard',
             href: '/dashboard',
@@ -91,7 +91,7 @@
             icon: BookOpen,
             show: userDocente && !isAdminOnly,
         }
-    ];
+    ]);
 
     // Filter items based on active roles using $derived
     let mainNavItems = $derived(allNavItems.filter(item => {

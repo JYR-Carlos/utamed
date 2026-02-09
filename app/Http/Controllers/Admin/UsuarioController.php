@@ -712,7 +712,7 @@ class UsuarioController extends Controller
             // 1. Sync Roles
 
             // Soft-delete all existing active assignments for this context
-            UsuarioRolAsignación::where('id_usuario_recipiente', $usuario->id_usuario)
+            UsuarioRolAsignación::where('id_usuario', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->where('esta_activo', true)
                 ->update(['esta_activo' => false, 'fue_eliminado' => true, 'fecha_fin_real' => now()]);
@@ -721,19 +721,19 @@ class UsuarioController extends Controller
                 foreach ($validated['roles'] as $rolId) {
                     UsuarioRolAsignación::updateOrCreate(
                         [
-                            'id_usuario_recipiente' => $usuario->id_usuario,
+                            'id_usuario' => $usuario->id_usuario,
                             'id_contexto' => $idContexto,
                             'id_rol' => $rolId,
-                            'id_usuario_asignador' => $adminId
                         ],
                         [
+                            'asignado_por' => (int) $adminId,
+                            'creado_por' => (int) $adminId,
                             'fecha_inicio_planificada' => now(),
                             'fecha_fin_planificada' => now()->addYears(100),
                             'esta_activo' => true,
                             'fue_eliminado' => false,
                             'fecha_fin_real' => null,
                             'fecha_creacion' => now(),
-                            'asignado_por' => (int) $adminId
                         ]
                     );
                 }
@@ -741,7 +741,7 @@ class UsuarioController extends Controller
 
             // 2. Sync Special Permissions
             // Soft-delete existing
-            UsuarioPermisoEspecial::where('id_usuario_recipiente', $usuario->id_usuario)
+            UsuarioPermisoEspecial::where('id_usuario', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->where('esta_activo', true)
                 ->update(['esta_activo' => false, 'fue_borrado' => true, 'fecha_fin_real' => now()]);
@@ -754,12 +754,12 @@ class UsuarioController extends Controller
                 if ($allowed !== null || $canDelegate) {
                     UsuarioPermisoEspecial::updateOrCreate(
                         [
-                            'id_usuario_recipiente' => $usuario->id_usuario,
+                            'id_usuario' => $usuario->id_usuario,
                             'id_contexto' => $idContexto,
                             'id_permiso' => $permId,
-                            'id_usuario_asignador' => $adminId
                         ],
                         [
+                            'creado_por' => $adminId,
                             'esta_permitido' => ($allowed === null) ? null : (bool) $allowed,
                             'puede_delegar' => (bool) $canDelegate,
                             'esta_activo' => true,
