@@ -61,13 +61,15 @@
  *     - Advertencias claras en comentarios sobre qué NO editar
  * 
  * ==================================================================================
- * EJECUCIÓN: php generate_models.php
+ * EJECUCIÓN: php scripts/generate_models.php
  * ==================================================================================
  */
 
 
 // Cargar autoload y bootstrap de Laravel
 require __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/utils.printing.php';
+require_once __DIR__ . '/utils.pluralize.php';
 
 $app = require_once __DIR__ . '/../bootstrap/app.php';
 $app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
@@ -79,63 +81,6 @@ $verbose = in_array('--verbose', $argv);
 // Usar clases de Laravel para hacerlo idiomático
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-
-/**
- * FUNCIÓN: pluralizeSpanish - Pluralización en español
- * ==================================================================================
- * Convierte palabras singulares al plural en español.
- * 
- * Reglas aplicadas:
- * - Terminación en vocal (a, e, i, o, u): agregar -s
- * - Terminación con tilde en ó/í: normalizar y aplicar regla
- * - Terminación en -ción: cambiar a -ciones
- * - Terminación en -sión: cambiar a -siones
- * - Terminación en consonante: agregar -es
- */
-function pluralizeSpanish($word)
-{
-  // Normalizar: remover acentos para la lógica
-  $normalized = str_replace(
-    ['á', 'é', 'í', 'ó', 'ú', 'Á', 'É', 'Í', 'Ó', 'Ú', 'ñ', 'Ñ'],
-    ['a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U', 'n', 'N'],
-    $word
-  );
-
-  $normalized = strtolower($normalized);
-  $wordLower = strtolower($word);
-
-  $lastChar = substr($normalized, -1);
-  $last2Chars = substr($normalized, -2);
-  $last3Chars = substr($normalized, -3);
-  $last4Chars = substr($normalized, -4);
-
-  // Terminación en -ción → -ciones (con o sin tilde)
-  if ($last4Chars === 'cion' || substr($wordLower, -4) === 'ción') {
-    return substr($word, 0, -4) . 'ciones';
-  }
-
-  // Terminación en -sión → -siones
-  if ($last4Chars === 'sion' || substr($wordLower, -4) === 'sión') {
-    return substr($word, 0, -4) . 'siones';
-  }
-
-  // Terminación en -z → -ces
-  if ($lastChar === 'z') {
-    return substr($word, 0, -1) . 'ces';
-  }
-
-  // Vocales (a, e, i, o, u) y vocales con tilde → agregar -s
-  $lastCharOriginal = substr($wordLower, -1);
-  if (
-    in_array($lastChar, ['a', 'e', 'i', 'o', 'u']) ||
-    in_array($lastCharOriginal, ['á', 'é', 'í', 'ó', 'ú'])
-  ) {
-    return $word . 's';
-  }
-
-  // Consonantes → agregar -es
-  return $word . 'es';
-}
 
 // ==================================================================================
 // CONFIGURACIÓN GENERAL
@@ -161,8 +106,8 @@ $notFillableColumns = [
   ['table' => 'Usuario_Rol_Asignación', 'colname' => 'esta_activo'],
   ['table' => 'Usuario_Permiso_Especial', 'colname' => 'esta_activo'],
   // Curso
-  ['table' => 'Curso', 'colname' => 'grupo_indice'],   // Generada por trigger (MAX query)
-  ['table' => 'Curso', 'colname' => 'grupo_letra'],    // Generada de grupo_indice (STORED)
+  ['table' => 'Curso', 'colname' => 'indice_grupo'],   // Generada por trigger (MAX query)
+  ['table' => 'Curso', 'colname' => 'letra_grupo'],    // Generada de grupo_indice (STORED)
 ];
 
 // Directorio para Models
@@ -517,14 +462,37 @@ $manualPivotTables = [
     'relation_names' => [
       'Usuario' => [
         'Usuario' => [
+          // de usuario que recibe el rol
+          [
+            'method_name' => 'usuariosQueAsignanMisRoles',
+            'local_key' => 'id_usuario',
+            'foreign_key' => 'creado_por'
+          ],
+          [
+            'method_name' => 'usuariosQueBorranMisRoles', 
+            'local_key' => 'id_usuario',
+            'foreign_key' => 'eliminado_por'
+          ],
+          // de usuario que asigna el rol 
           [
             'method_name' => 'usuariosQueRecibenMisRoles',
             'local_key' => 'creado_por',
             'foreign_key' => 'id_usuario'
           ],
           [
-            'method_name' => 'usuariosQueAsignanMisRoles',
-            'local_key' => 'id_usuario',
+            'method_name' => 'usuariosQueBorranMisRolesAsignados',
+            'local_key' => 'creado_por',
+            'foreign_key' => 'eliminado_por'
+          ],
+          // de usuario que elimina el rol
+          [
+            'method_name' => 'usuariosQueBorranMisRolesRecibidos',
+            'local_key' => 'eliminado_por',
+            'foreign_key' => 'id_usuario'
+          ],
+          [
+            'method_name' => 'usuariosALosQueBorroSusRoles',
+            'local_key' => 'eliminado_por',
             'foreign_key' => 'creado_por'
           ],
         ],
@@ -755,32 +723,121 @@ foreach ($tables as $t) {
           'fks' => $fkList,
           'num_fks' => count($fkList),
         ];
-        echo "  ✓ {$pivotKey}: {$fkList[0]['table']}";
-        for ($i = 1; $i < count($fkList); $i++) {
-          echo " ↔ {$fkList[$i]['table']}";
-        }
-        echo " (" . count($fkList) . " FKs)";
-
-        // Mostrar configuración especial si existe
-        if (is_array($pivotConfig)) {
-          if (isset($pivotConfig['auto_suffix']) && $pivotConfig['auto_suffix']) {
-            echo " [auto_suffix]";
-          }
-          if (isset($pivotConfig['relation_names'])) {
-            echo " [custom_names]";
-          }
-        }
-        echo "\n";
       } else {
-        echo "  ⚠ {$pivotKey}: Menos de 2 FKs detectadas\n";
+        echo "  " . color("⚠ {$pivotKey}: Menos de 2 FKs detectadas", 'yellow') . "\n";
       }
     } else {
-      echo "  ⚠ {$pivotKey}: Solo tiene " . count($fks) . " FK(s)\n";
+      echo "  " . color("⚠ {$pivotKey}: Solo tiene " . count($fks) . " FK(s)", 'yellow') . "\n";
     }
   }
 }
 
-echo "\n✓ Tablas pivot cargadas: " . count($pivotTables) . "\n\n";
+// ==================================================================================
+// IMPRIMIR ÁRBOL DE TABLAS PIVOT CONFIGURADAS
+// ==================================================================================
+//
+// FORMATO DE SALIDA (modo verbose):
+//
+// Tablas pivot configuradas: 8
+// Asignacion_Plan
+// ├── Asignatura ↔ Plan (2 FKs)
+// ├── Asignatura > Plan
+// │   └── planes() (id_asignatura > id_plan)              [verde = custom]
+// └── Plan > Asignatura
+//     └── asignaturas() (id_plan > id_asignatura)         [verde = custom]
+// Inscripcion_Curso
+//     ├── Curso ↔ Estudiante (2 FKs)
+//     └── ...
+//
+// En modo no-verbose, solo muestra los nombres con el resumen de FKs.
+//
+// COLORES:
+// - Verde: Método con nombre custom (definido en relation_names)
+// - Azul:  Método con auto_suffix
+// - Rojo:  Método autogenerado sin configuración
+// ==================================================================================
+
+echo "\n" . color("Tablas pivot configuradas: " . count($pivotTables), 'bold') . "\n";
+
+$pivotKeys = array_keys($pivotTables);
+$pivotTotal = count($pivotKeys);
+
+foreach ($pivotKeys as $pIdx => $pivotKey) {
+  $pivotInfo = $pivotTables[$pivotKey];
+  $fkList = $pivotInfo['fks'];
+  $pivotConfig = $pivotInfo['config'];
+  $isLastPivot = ($pIdx === $pivotTotal - 1);
+
+  // Línea 1: Nombre del pivot
+  $fkNames = implode(' ↔ ', array_map(fn($fk) => $fk['table'], $fkList));
+  $fkCountStr = color("(" . count($fkList) . " FKs)", 'gray');
+
+  // Etiqueta de configuración
+  $configTag = '';
+  if (is_array($pivotConfig)) {
+    if (isset($pivotConfig['auto_suffix']) && $pivotConfig['auto_suffix']) {
+      $configTag .= ' ' . color('[auto_suffix]', 'blue');
+    }
+    if (isset($pivotConfig['relation_names'])) {
+      $configTag .= ' ' . color('[custom_names]', 'green');
+    }
+  }
+
+  // Imprimir nombre del pivot sin símbolos de árbol (primer nivel)
+  echo color($pivotInfo['pivot_table'], 'bold') . " {$fkCountStr}{$configTag}\n";
+
+  if ($verbose) {
+    $pivotChildPrefix = '';
+
+    // Mostrar relaciones: una rama por cada par Origen > Destino definido en config
+    $relationEntries = [];
+
+    if (is_array($pivotConfig) && isset($pivotConfig['relation_names'])) {
+      foreach ($pivotConfig['relation_names'] as $originModel => $targets) {
+        foreach ($targets as $targetModel => $methodConfig) {
+          if (is_array($methodConfig) && isset($methodConfig[0]) && is_array($methodConfig[0])) {
+            // Múltiples relaciones avanzadas hacia la misma tabla
+            foreach ($methodConfig as $rc) {
+              $relationEntries[] = [
+                'origin' => $originModel,
+                'target' => $targetModel,
+                'method' => $rc['method_name'],
+                'local_key' => $rc['local_key'],
+                'foreign_key' => $rc['foreign_key'],
+                'origin_type' => 'custom',
+              ];
+            }
+          } elseif (is_string($methodConfig)) {
+            // Nombre simple personalizado
+            $relationEntries[] = [
+              'origin' => $originModel,
+              'target' => $targetModel,
+              'method' => $methodConfig,
+              'local_key' => null,
+              'foreign_key' => null,
+              'origin_type' => 'custom',
+            ];
+          }
+        }
+      }
+    }
+
+    // Imprimir sub-árbol de relaciones
+    $relTotal = count($relationEntries);
+    foreach ($relationEntries as $rIdx => $rel) {
+      $isLastRel = ($rIdx === $relTotal - 1);
+      $methodColored = color($rel['method'] . '()', method_color($rel['origin_type']));
+      $keyInfo = '';
+      if ($rel['local_key'] && $rel['foreign_key']) {
+        $keyInfo = ' ' . color("({$rel['local_key']} > {$rel['foreign_key']})", 'gray');
+      }
+      $direction = color($rel['origin'], 'bold') . ' > ' . $rel['target'];
+      tree_print($pivotChildPrefix, $isLastRel, "{$direction}: {$methodColored}{$keyInfo}");
+    }
+  }
+}
+
+echo "\n";
 
 // ==================================================================================
 // PASO 4: BUCLE PRINCIPAL - GENERAR MODELOS PARA CADA TABLA
@@ -799,13 +856,24 @@ echo "\n✓ Tablas pivot cargadas: " . count($pivotTables) . "\n\n";
 // 6. Genera Extended Model (solo si no existe)
 // ==================================================================================
 
+// Acumula info de cada modelo para el resumen final (verbose)
+$modelSummary = [];
+
 foreach ($tables as $tableInfo) {
   $schema = $tableInfo->table_schema;
   $tableName = $tableInfo->table_name;
   $schemaName = str_replace('utamed.', '', $schema);
   $className = Str::studly($tableName);
 
-  echo "Generando: {$schemaName}\\{$className} <- {$schema}.{$tableName}\n";
+  echo "Generando: {$schemaName}\\{$className}\n";
+
+  // Inicializar registro de métodos para este modelo (para resumen verbose)
+  $modelMethods = [];
+
+  // Inicializar arrays de métodos usados para detectar conflictos
+  // (se poblan en los pasos 4.8, 4.9 dentro de sus condicionales)
+  $usedMethods = [];
+  $inverseUsedMethods = [];
 
   // ==================================================================================
   // PASO 4.1: CREAR ESTRUCTURA DE DIRECTORIOS
@@ -851,16 +919,18 @@ foreach ($tables as $tableInfo) {
   // - data_type: Tipo PostgreSQL (integer, varchar, boolean, timestamp, etc.)
   // - is_nullable: YES/NO
   // - column_default: Valor por defecto (ej: nextval, CURRENT_TIMESTAMP, etc.)
+  // - is_generated: NEVER/ALWAYS/BY DEFAULT (para detectar columnas autogeneradas)
   //
   // USO:
   // - Generar array $fillable
   // - Detectar tipos para $casts
   // - Detectar timestamps (fecha_creacion)
+  // - Excluir columnas ALWAYS GENERATED
   // ==================================================================================
 
-  // Obtener columnas
+  // Obtener columnas con información sobre si son generadas
   $columns = DB::select("
-        SELECT column_name, data_type, is_nullable, column_default
+        SELECT column_name, data_type, is_nullable, column_default, is_generated
         FROM information_schema.columns
         WHERE table_schema = ? AND table_name = ?
         ORDER BY ordinal_position
@@ -911,6 +981,67 @@ foreach ($tables as $tableInfo) {
     ? "['" . implode("', '", $primaryKey) . "']"
     : "'{$primaryKey}'";
   $incrementingValue = $isCompositePK ? 'false' : 'true';
+
+  // ==================================================================================
+  // PASO 4.3.5: DETECTAR Y EXCLUIR COLUMNAS ALWAYS GENERATED
+  // ==================================================================================
+  //
+  // OBJETIVO: Identificar columnas que son ALWAYS GENERATED (autocalculadas)
+  //
+  // TIPOS DE COLUMNAS GENERADAS EN PostgreSQL:
+  // - ALWAYS GENERATED AS (expression): Columna computada (ej: computed indexes)
+  // - BY DEFAULT: Generada solo al insertar, puede ser sobrescrita
+  //
+  // EXCLUSION INTELIGENTE:
+  // - Solo excluye ALWAYS GENERATED (is_generated = 'ALWAYS')
+  // - No duplica exclusiones ya existentes en $notFillableColumns
+  // - Verifica tanto columnas globales como especificas por tabla
+  //
+  // USO:
+  // - Impide mass assignment de columnas autocalculadas
+  // - Evita errores al intentar asignar una columna que BD calcula automaticamente
+  //
+  // EJEMPLO:
+  // Si tabla tiene columna "full_name" GENERATED AS (first_name || ' ' || last_name)
+  // -> Sera excluida automaticamente de $fillable
+  // -> Previene: Model::create(['full_name' => 'Invalid'])
+  // ==================================================================================
+
+  // Detectar columnas ALWAYS GENERATED y agregarlas a exclusion
+  foreach ($columns as $col) {
+    if ($col->is_generated === 'ALWAYS') {
+      $colName = $col->column_name;
+
+      // Verificar si ya esta excluida globalmente (string)
+      $alreadyExcluded = false;
+      foreach ($notFillableColumns as $exclude) {
+        if (is_string($exclude) && $exclude === $colName) {
+          $alreadyExcluded = true;
+          break;
+        }
+      }
+
+      // Verificar si ya esta excluida por tabla especifica
+      if (!$alreadyExcluded) {
+        foreach ($notFillableColumns as $exclude) {
+          if (is_array($exclude) && isset($exclude['table'], $exclude['colname'])) {
+            if ($exclude['table'] === $tableName && $exclude['colname'] === $colName) {
+              $alreadyExcluded = true;
+              break;
+            }
+          }
+        }
+      }
+
+      // Agregar a exclusion si no estaba ya
+      if (!$alreadyExcluded) {
+        $notFillableColumns[] = [
+          'table' => $tableName,
+          'colname' => $colName
+        ];
+      }
+    }
+  }
 
   // ==================================================================================
   // PASO 4.4: OBTENER FOREIGN KEYS (Para relaciones belongsTo)
@@ -1192,6 +1323,15 @@ foreach ($tables as $tableInfo) {
       }
       $usedMethods[] = $methodName;
 
+      // Registrar método para resumen verbose
+      $modelMethods[] = [
+        'method' => $methodName,
+        'type' => 'belongsTo',
+        'related' => $relatedModel,
+        'keys' => $fk->column_names . ($fk->column_names !== $fk->foreign_column_names ? ' > ' . $fk->foreign_column_names : ''),
+        'origin' => $customName ? 'custom' : 'auto',
+      ];
+
       $relations .= "\n    public function {$methodName}()\n";
       $relations .= "    {\n";
 
@@ -1329,6 +1469,15 @@ foreach ($tables as $tableInfo) {
         $counter++;
       }
       $inverseUsedMethods[] = $methodName;
+
+      // Registrar método para resumen verbose
+      $modelMethods[] = [
+        'method' => $methodName,
+        'type' => $relationType,
+        'related' => $sourceModel,
+        'keys' => $inverseFk['source_columns'] . ($inverseFk['source_columns'] !== $inverseFk['target_columns'] ? ' > ' . $inverseFk['target_columns'] : ''),
+        'origin' => $customName ? 'custom' : 'auto',
+      ];
 
       $relations .= "\n    public function {$methodName}()\n";
       $relations .= "    {\n";
@@ -1645,12 +1794,30 @@ foreach ($tables as $tableInfo) {
 
           // Validar que el método no esté duplicado (incluso para personalizados)
           if (in_array($methodName, $belongsToManyUsedMethods)) {
-            echo "  ⚠ Método duplicado detectado: {$methodName}, saltando...\n";
+            echo "  " . color("⚠ Método duplicado detectado: {$methodName}, saltando...", 'yellow') . "\n";
             continue;
           }
 
           $belongsToManyUsedMethods[] = $methodName;
           $allUsedMethods[] = $methodName;
+
+          // Determinar origen para el color del resumen
+          $methodOrigin = 'auto';
+          if ($isCustom) {
+            $methodOrigin = 'custom';
+          } elseif ($autoSuffix) {
+            $methodOrigin = 'auto_suffix';
+          }
+
+          // Registrar método para resumen verbose
+          $modelMethods[] = [
+            'method' => $methodName,
+            'type' => 'belongsToMany',
+            'related' => $relatedModel,
+            'keys' => $localKey . ' > ' . $foreignKey,
+            'pivot' => $pivotTable,
+            'origin' => $methodOrigin,
+          ];
 
           if (empty($relations)) {
             $relations = "\n    // Relaciones\n";
@@ -1858,6 +2025,13 @@ PHP;
       echo "    [DRY-RUN] Extended model: $modelPath\n";
     }
   }
+
+  // Guardar métodos del modelo para el resumen final
+  $modelSummary[] = [
+    'schema' => $schemaName,
+    'class' => $className,
+    'methods' => $modelMethods,
+  ];
 }
 
 // ==================================================================================
@@ -1870,26 +2044,120 @@ PHP;
 // 1. Ubicación de Base Models (sobrescribibles)
 // 2. Ubicación de Extended Models (preservados)
 // 3. Recordatorio sobre preservación de personalizaciones
+// 4. (verbose) Árbol detallado de modelos y métodos generados
 //
-// PRÓXIMOS PASOS:
-// 1. Agregar scopes personalizados en modelos extendidos
-// 2. Implementar accessors/mutators según necesidad
-// 3. Crear Form Requests para validación
-// 4. Crear test cases para asegurar funcionalidad
+// FORMATO DEL ÁRBOL (verbose):
+//
+// Modelos generados: 25
+// Administrativo\Facultad (3 métodos)
+// ├── departamentos() hasMany Departamento (id_facultad)      [rojo = auto]
+// ├── contexto() hasOne Contexto (id_facultad)                [rojo = auto]
+// └── misDepartamentos() hasMany Departamento (id_facultad)   [verde = custom]
+// Usuario\Usuario (5 métodos)
+// ├── receptor() belongsTo Usuario (id_usuario)                [verde = custom]
+// ├── rolesAsignados() belongsToMany Rol via ... (id_usuario > id_rol) [verde = custom]
+// └── ...
+//
+// COLORES DE MÉTODOS:
+// - Rojo  (\033[31m): Método autogenerado (nombre derivado automáticamente de la tabla)
+// - Azul  (\033[34m): Método con auto_suffix (nombre automático + sufijo de pivot)
+// - Verde (\033[32m): Método custom (nombre definido explícitamente en configuración)
 //
 // COMANDOS ÚTILES:
 // - php generate_models.php           ← Regenerar todos los modelos
+// - php generate_models.php --verbose ← Regenerar con detalle de métodos
+// - php generate_models.php --dry-run ← Simular sin escribir archivos
 // - php artisan tinker                ← Probar modelos interactivamente
 // ==================================================================================
 
-echo "\n✅ Base Models generados en app/Models/Base/\n";
-echo "✅ Modelos extendidos en app/Models/\n";
+echo "\n" . color("✅ Base Models generados en app/Models/Base/", 'green') . "\n";
+echo color("✅ Modelos extendidos en app/Models/", 'green') . "\n";
 
 if ($dryRun) {
-  echo "\n📝 MODO DRY-RUN: Los archivos NO fueron creados/modificados\n";
+  echo "\n" . color("📝 MODO DRY-RUN: Los archivos NO fueron creados/modificados", 'yellow') . "\n";
   echo "   Para aplicar los cambios, ejecuta:\n";
   echo "   php scripts/generate_models.php\n";
 } else {
   echo "\n📝 Nota: Los modelos en app/Models/ solo se crean si no existen.\n";
   echo "   Puedes personalizarlos sin que se sobrescriban al regenerar.\n";
 }
+
+// ==================================================================================
+// RESUMEN VERBOSE: ÁRBOL DE MODELOS Y MÉTODOS GENERADOS
+// ==================================================================================
+//
+// Solo se muestra si se pasa --verbose.
+//
+// Imprime un árbol estilo directorio con:
+// - Nivel 1: Nombre del modelo (Schema\Clase)
+// - Nivel 2: Cada método de relación con su tipo, modelo relacionado, claves y color
+//
+// ESTRUCTURA DE $modelSummary:
+// [
+//   [
+//     'schema'  => 'Administrativo',
+//     'class'   => 'Facultad',
+//     'methods' => [
+//       [
+//         'method'  => 'departamentos',      // Nombre del método
+//         'type'    => 'hasMany',             // Tipo de relación Eloquent
+//         'related' => 'Departamento',        // Modelo relacionado
+//         'keys'    => 'id_facultad',         // Claves usadas (local > foreign si difieren)
+//         'pivot'   => 'Inscripcion_Curso',   // (solo belongsToMany) nombre de tabla pivot
+//         'origin'  => 'auto|custom|auto_suffix',  // Origen del nombre del método
+//       ],
+//       ...
+//     ],
+//   ],
+//   ...
+// ]
+//
+// COLORES (definidos en method_color()):
+// - 'auto'        → rojo:  nombre generado automáticamente
+// - 'auto_suffix' → azul:  nombre automático con sufijo de pivot
+// - 'custom'      → verde: nombre definido en $relationNames o $manualPivotTables
+// ==================================================================================
+
+if ($verbose) {
+  echo "\n" . color("Modelos generados: " . count($modelSummary), 'bold') . "\n";
+
+  // Leyenda de colores
+  echo color("  ● auto", 'red') . "  "
+     . color("● auto_suffix", 'blue') . "  "
+     . color("● custom", 'green') . "\n\n";
+
+  $modelTotal = count($modelSummary);
+  foreach ($modelSummary as $mIdx => $model) {
+    $isLastModel = ($mIdx === $modelTotal - 1);
+    $methodCount = count($model['methods']);
+    $label = $model['schema'] . '\\' . $model['class'];
+
+    if ($methodCount > 0) {
+      $label .= ' ' . color("({$methodCount} métodos)", 'gray');
+    }
+
+    // Imprimir nombre del modelo sin símbolos de árbol (primer nivel)
+    echo color($label, 'bold') . "\n";
+
+    // Imprimir cada método como sub-rama
+    $modelPrefix = '';
+    foreach ($model['methods'] as $rIdx => $mth) {
+      $isLastMethod = ($rIdx === $methodCount - 1);
+
+      // Construir línea del método:
+      // nombre() tipo Modelo (claves) [via PivotTable si aplica]
+      $methodColored = color($mth['method'] . '()', method_color($mth['origin']));
+      $typeStr = color($mth['type'], relation_type_color($mth['type']));
+      $keysStr = color("({$mth['keys']})", 'gray');
+
+      $viaStr = '';
+      if (isset($mth['pivot'])) {
+        $viaStr = ' ' . color("via {$mth['pivot']}", 'gray');
+      }
+
+      tree_print($modelPrefix, $isLastMethod, "{$methodColored} {$typeStr} {$mth['related']} {$keysStr}{$viaStr}");
+    }
+  }
+}
+
+echo "\n";

@@ -20,6 +20,7 @@ abstract class BaseUsuario extends Model
     protected $fillable = [
         'username',
         'passhash',
+        'email',
         'rut',
         'nombre1',
         'nombre2',
@@ -218,6 +219,28 @@ abstract class BaseUsuario extends Model
         ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
+    public function usuariosQueAsignanMisRoles()
+    {
+        return $this->belongsToMany(
+            \App\Models\Usuario\Usuario::class,
+            'Usuario_Rol_Asignación',
+            'id_usuario',
+            'creado_por'
+        )
+        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+    }
+
+    public function usuariosQueBorranMisRoles()
+    {
+        return $this->belongsToMany(
+            \App\Models\Usuario\Usuario::class,
+            'Usuario_Rol_Asignación',
+            'id_usuario',
+            'eliminado_por'
+        )
+        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+    }
+
     public function usuariosQueRecibenMisRoles()
     {
         return $this->belongsToMany(
@@ -229,12 +252,34 @@ abstract class BaseUsuario extends Model
         ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
-    public function usuariosQueAsignanMisRoles()
+    public function usuariosQueBorranMisRolesAsignados()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
             'Usuario_Rol_Asignación',
-            'id_usuario',
+            'creado_por',
+            'eliminado_por'
+        )
+        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+    }
+
+    public function usuariosQueBorranMisRolesRecibidos()
+    {
+        return $this->belongsToMany(
+            \App\Models\Usuario\Usuario::class,
+            'Usuario_Rol_Asignación',
+            'eliminado_por',
+            'id_usuario'
+        )
+        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+    }
+
+    public function usuariosALosQueBorroSusRoles()
+    {
+        return $this->belongsToMany(
+            \App\Models\Usuario\Usuario::class,
+            'Usuario_Rol_Asignación',
+            'eliminado_por',
             'creado_por'
         )
         ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');

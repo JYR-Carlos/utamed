@@ -27,7 +27,8 @@ abstract class BaseCarrera extends Model
         'sede',
         'modalidad',
         'id_departamento',
-        'id_facultad'
+        'id_facultad',
+        'id_contexto'
     ];
 
     /**
@@ -57,6 +58,11 @@ abstract class BaseCarrera extends Model
     public function departamento()
     {
         return $this->belongsTo(\App\Models\Administrativo\Departamento::class, ['id_departamento', 'id_facultad'], ['id_departamento', 'id_facultad']);
+    }
+
+    public function contexto()
+    {
+        return $this->belongsTo(\App\Models\Usuario\Contexto::class, 'id_contexto', 'id_contexto');
     }
 
     // Relaciones inversas

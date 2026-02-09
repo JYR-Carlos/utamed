@@ -26,7 +26,8 @@ abstract class BaseActividad extends Model
         'es_grupal',
         'max_integrantes',
         'id_seccion',
-        'id_unidad'
+        'id_unidad',
+        'id_contexto'
     ];
 
     /**
@@ -52,6 +53,11 @@ abstract class BaseActividad extends Model
 
 
     // Relaciones
+
+    public function contexto()
+    {
+        return $this->belongsTo(\App\Models\Usuario\Contexto::class, 'id_contexto', 'id_contexto');
+    }
 
     public function seccion()
     {

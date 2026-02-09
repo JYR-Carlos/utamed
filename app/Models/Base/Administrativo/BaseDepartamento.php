@@ -22,7 +22,8 @@ abstract class BaseDepartamento extends Model
     const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
-        'nombre'
+        'nombre',
+        'id_contexto'
     ];
 
     /**
@@ -52,6 +53,11 @@ abstract class BaseDepartamento extends Model
     public function facultad()
     {
         return $this->belongsTo(\App\Models\Administrativo\Facultad::class, 'id_facultad', 'id_facultad');
+    }
+
+    public function contexto()
+    {
+        return $this->belongsTo(\App\Models\Usuario\Contexto::class, 'id_contexto', 'id_contexto');
     }
 
     // Relaciones inversas

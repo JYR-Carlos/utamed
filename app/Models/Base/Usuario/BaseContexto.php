@@ -47,9 +47,24 @@ abstract class BaseContexto extends Model
 
     // Relaciones inversas
 
+    public function carrera()
+    {
+        return $this->hasOne(\App\Models\Administrativo\Carrera::class, 'id_contexto', 'id_contexto');
+    }
+
+    public function departamento()
+    {
+        return $this->hasOne(\App\Models\Administrativo\Departamento::class, 'id_contexto', 'id_contexto');
+    }
+
     public function facultad()
     {
         return $this->hasOne(\App\Models\Administrativo\Facultad::class, 'id_contexto', 'id_contexto');
+    }
+
+    public function actividad()
+    {
+        return $this->hasOne(\App\Models\Agenda\Actividad::class, 'id_contexto', 'id_contexto');
     }
 
     public function curso()

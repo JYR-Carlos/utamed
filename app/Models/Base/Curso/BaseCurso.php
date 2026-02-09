@@ -24,15 +24,13 @@ abstract class BaseCurso extends Model
     protected $fillable = [
         'cod_curso',
         'nombre',
-        'indice_grupo',
         'fecha_inicio',
         'fecha_fin',
         'agno_real',
         'semestre_real',
         'estado_interno',
         'estado_acta',
-        'id_contexto',
-        'letra_grupo'
+        'id_contexto'
     ];
 
     /**
