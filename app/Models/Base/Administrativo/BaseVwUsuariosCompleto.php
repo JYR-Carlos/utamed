@@ -3,6 +3,7 @@
 namespace App\Models\Base\Administrativo;
 
 use Awobaz\Compoships\Database\Eloquent\Model;
+use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
@@ -10,6 +11,7 @@ use Awobaz\Compoships\Database\Eloquent\Model;
  */
 abstract class BaseVwUsuariosCompleto extends Model
 {
+    use Compoships;
     protected $connection = 'pgsql';
     protected $table = 'vw_usuarios_completo';
     protected $primaryKey = 'id';
@@ -34,36 +36,7 @@ abstract class BaseVwUsuariosCompleto extends Model
         'esta_activo'
     ];
 
-    /**
-     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
-     */
-    public function qualifyColumn($column)
-    {
-        // If already qualified (contains table.column format with quotes), return as-is
-        if (preg_match('/^"[^"]+"\."[^"]+"$/', $column)) {
-            return $column;
-        }
-        
-        // Remove any existing quotes
-        $column = str_replace(['"', "'"], '', $column);
-        
-        // If column contains a dot, it's already in table.column format
-        if (str_contains($column, '.')) {
-            [$table, $col] = explode('.', $column, 2);
-            return '"' . $table . '"."' . $col . '"';
-        }
-        
-        // Single column, qualify with table name
-        return '"' . $this->getTable() . '"."' . $column . '"';
-    }
 
-    /**
-     * Override getQualifiedKeyName to ensure correct quoting
-     */
-    public function getQualifiedKeyName()
-    {
-        return '"' . $this->getTable() . '"."' . $this->getKeyName() . '"';
-    }
 
 
 }

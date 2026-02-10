@@ -2,6 +2,7 @@
 
 namespace App\Models\Base\Administrativo;
 
+use Awobaz\Compoships\Compoships;
 use Awobaz\Compoships\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 abstract class BaseAsignatura extends Model
 {
     use SoftDeletes;
+    use Compoships;
     protected $connection = 'pgsql';
     protected $table = 'Asignatura';
     protected $primaryKey = 'id_asignatura';
@@ -33,25 +35,6 @@ abstract class BaseAsignatura extends Model
         'horas_autonomas'
     ];
 
-    /**
-     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
-     */
- public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-
-    /**
-     * Override getQualifiedKeyName to ensure correct quoting
-     */
-    public function getQualifiedKeyName()
-    {
-        return '"' . $this->getTable() . '"."' . $this->getKeyName() . '"';
-    }
 
 
     // Relaciones
@@ -73,7 +56,7 @@ abstract class BaseAsignatura extends Model
             'id_asignatura',
             'id_plan'
         )
-        ->withPivot('agno_planificado', 'semestre_planificado', 'tipo_ramo');
+            ->withPivot('agno_planificado', 'semestre_planificado', 'tipo_ramo');
     }
 
 }

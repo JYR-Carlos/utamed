@@ -12,12 +12,6 @@ use App\Models\Base\Administrativo\BaseCarrera;
  */
 class Carrera extends BaseCarrera
 {
-    protected $table = 'Carrera';
-    /**
-     * Override primary key to use single identity column for Eloquent compatibility
-     */
-    protected $primaryKey = 'id_carrera';
-    public $incrementing = true;
     protected $fillable = [
         'nombre',
         'jornada',
@@ -44,8 +38,5 @@ class Carrera extends BaseCarrera
      * Override Compoships newBelongsTo to use our custom BelongsTo relation
      * which fixes the eager loading quoting issue.
      */
-    protected function newBelongsTo(\Illuminate\Database\Eloquent\Builder $query, \Illuminate\Database\Eloquent\Model $child, $foreignKey, $ownerKey, $relation)
-    {
-        return new \App\Extensions\Compoships\BelongsTo($query, $child, $foreignKey, $ownerKey, $relation);
-    }
+
 }

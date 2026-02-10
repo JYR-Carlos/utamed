@@ -2,6 +2,7 @@
 
 namespace App\Models\Base\Administrativo;
 
+use Awobaz\Compoships\Compoships;
 use Awobaz\Compoships\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 abstract class BaseFacultad extends Model
 {
     use SoftDeletes;
+    use Compoships;  // Importante: maneja composite keys correctamente
     protected $connection = 'pgsql';
     protected $table = 'Facultad';
     protected $primaryKey = 'id_facultad';
@@ -25,26 +27,6 @@ abstract class BaseFacultad extends Model
         'nombre',
         'id_contexto'
     ];
-
-    /**
-     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
-     */
-    public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-
-    /**
-     * Override getQualifiedKeyName to ensure correct quoting
-     */
-    public function getQualifiedKeyName()
-    {
-        return $this->qualifyColumn($this->getKeyName());
-    }
 
 
     // Relaciones

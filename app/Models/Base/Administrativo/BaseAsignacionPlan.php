@@ -3,6 +3,7 @@
 namespace App\Models\Base\Administrativo;
 
 use Awobaz\Compoships\Database\Eloquent\Model;
+use Awobaz\Compoships\Compoships;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 abstract class BaseAsignacionPlan extends Model
 {
     use SoftDeletes;
+    use Compoships;
     protected $connection = 'pgsql';
     protected $table = 'Asignacion_Plan';
     protected $primaryKey = ['id_asignatura', 'id_plan'];
@@ -26,36 +28,7 @@ abstract class BaseAsignacionPlan extends Model
         'tipo_ramo'
     ];
 
-    /**
-     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
-     */
-    public function qualifyColumn($column)
-    {
-        // If already qualified (contains table.column format with quotes), return as-is
-        if (preg_match('/^"[^"]+"\."[^"]+"$/', $column)) {
-            return $column;
-        }
-        
-        // Remove any existing quotes
-        $column = str_replace(['"', "'"], '', $column);
-        
-        // If column contains a dot, it's already in table.column format
-        if (str_contains($column, '.')) {
-            [$table, $col] = explode('.', $column, 2);
-            return '"' . $table . '"."' . $col . '"';
-        }
-        
-        // Single column, qualify with table name
-        return '"' . $this->getTable() . '"."' . $column . '"';
-    }
 
-    /**
-     * Override getQualifiedKeyName to ensure correct quoting
-     */
-    public function getQualifiedKeyName()
-    {
-        return '"' . $this->getTable() . '"."' . $this->getKeyName() . '"';
-    }
 
 
     // Relaciones

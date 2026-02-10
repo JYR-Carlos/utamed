@@ -2,9 +2,11 @@
 
 namespace App\Models\Base\Administrativo;
 
+use App\Models\Administrativo\Departamento;
+use Awobaz\Compoships\Compoships;
 use Awobaz\Compoships\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-
+use App\Extensions\Compoships\BelongsTo;
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
@@ -12,12 +14,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 abstract class BaseCarrera extends Model
 {
     use SoftDeletes;
+    use Compoships;                             // ← Muy importante
+
     protected $connection = 'pgsql';
     protected $table = 'Carrera';
     protected $primaryKey = 'id_carrera';
     public $incrementing = true;
-    const DELETED_AT = 'fecha_eliminacion';
 
+    const DELETED_AT = 'fecha_eliminacion';
     const CREATED_AT = 'fecha_creacion';
     const UPDATED_AT = 'fecha_modificacion';
 
@@ -31,31 +35,18 @@ abstract class BaseCarrera extends Model
         'id_contexto'
     ];
 
-    /**
-     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
-     */ public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-
-    /**
-     * Override getQualifiedKeyName to ensure correct quoting
-     */
-    public function getQualifiedKeyName()
-    {
-        return $this->qualifyColumn($this->getKeyName());
-    }
-
-
-    // Relaciones
-
+    // Relaciones: Se está usando una opción manual para el eager loading con llave compuesta que falla si no se utiliza el belongsTO.
     public function departamento()
     {
-        return $this->belongsTo(\App\Models\Administrativo\Departamento::class, ['id_departamento', 'id_facultad'], ['id_departamento', 'id_facultad']);
+        $instance = new Departamento;
+
+        return new BelongsTo(
+            $instance->newQuery(),
+            $this,
+            ['id_departamento', 'id_facultad'],
+            ['id_departamento', 'id_facultad'],
+            'departamento'
+        );
     }
 
     public function contexto()
@@ -64,7 +55,6 @@ abstract class BaseCarrera extends Model
     }
 
     // Relaciones inversas
-
     public function planes()
     {
         return $this->hasMany(\App\Models\Administrativo\Plan::class, 'id_carrera', 'id_carrera');
@@ -74,5 +64,4 @@ abstract class BaseCarrera extends Model
     {
         return $this->hasMany(\App\Models\Usuario\Estudiante::class, 'id_carrera', 'id_carrera');
     }
-
 }

@@ -92,26 +92,5 @@ class AsignacionPlan extends BaseAsignacionPlan
      * Fix: Override BaseAsignacionPlan quoting to prevent double-escaping backslashes.
      * Uses standard double quotes for PostgreSQL.
      */
-    public function qualifyColumn($column)
-    {
-        // Remove plain quotes from column
-        $column = str_replace(['"', "'"], '', $column);
 
-        // Handle table name separately
-        $table = $this->getTable();
-        // Remove quotes from table name if present
-        $table = str_replace(['"', "'"], '', $table);
-
-        if (str_contains($column, '.')) {
-            $parts = explode('.', $column);
-            return '"' . $parts[0] . '"."' . $parts[1] . '"';
-        }
-
-        return '"' . $table . '"."' . $column . '"';
-    }
-
-    public function getQualifiedKeyName()
-    {
-        return $this->qualifyColumn($this->getKeyName());
-    }
 }
