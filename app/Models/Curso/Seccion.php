@@ -46,9 +46,26 @@ class Seccion extends BaseSeccion
         return $this->qualifyColumn($this->getKeyName());
     }
 
+
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales
     // Accessors/Mutators
     // etc.
+
+    /**
+     * Relación con TipoSeccion
+     */
+    public function tipoSeccion()
+    {
+        return $this->belongsTo(\App\Models\Curso\TipoSeccion::class, 'id_tipo_seccion', 'id_tipo_seccion');
+    }
+
+    /**
+     * Relación con InscripcionSeccion
+     */
+    public function inscripcionSecciones()
+    {
+        return $this->hasMany(\App\Models\Curso\InscripcionSeccion::class, 'id_seccion', 'id_seccion');
+    }
 }

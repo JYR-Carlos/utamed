@@ -77,9 +77,13 @@ class DocenteCursoController extends Controller
                     'fecha_inicio' => $curso->fecha_inicio,
                     'fecha_fin' => $curso->fecha_fin,
                     'tiene_programa' => $tienePrograma,
-                    'es_plantilla' => $curso->es_plantilla
+                    'es_plantilla' => $curso->es_plantilla,
+                    'semestre_real' => $curso->semestre_real
                 ];
             });
+
+        // Agrupar cursos por semestre
+        $cursosPorSemestre = $cursos->groupBy('semestre_real');
 
         // RBAC Data for modals - Docentes can only delegate specific roles and permissions they possess
         $availableRoles = Rol::whereIn('nombre', ['Ayudante', 'Estudiante'])->orderBy('nombre')->get();
@@ -92,11 +96,75 @@ class DocenteCursoController extends Controller
         })->groupBy(fn() => 'General');
 
         return Inertia::render('docente/Cursos', [
-            'cursos' => $cursos,
+            'cursosSemestre1' => $cursosPorSemestre->get(1, collect()),
+            'cursosSemestre2' => $cursosPorSemestre->get(2, collect()),
             'availableRoles' => $availableRoles,
             'availablePermissions' => $availablePermissions
         ]);
     }
+
+    /**
+     * Muestra información detallada de un curso específico.
+     * 
+     * @param Curso $curso
+     * @return \Inertia\Response
+     */
+    public function show(Curso $curso)
+    {
+        // Verificar que el docente tenga acceso al curso
+        $this->authorizeAccess($curso);
+
+        // Cargar relaciones necesarias
+        $curso->load([
+            'asignatura',
+            'plan.carrera',
+            'secciones.tipoSeccion',
+            'secciones.inscripcionSecciones'
+        ]);
+
+        // Calcular estadísticas
+        $totalEstudiantes = $curso->secciones->reduce(function ($carry, $seccion) {
+            return $carry + $seccion->inscripcionSecciones->count();
+        }, 0);
+        // Verificar si existe algún programa para este curso
+        $tienePrograma = DB::table('Programa')
+            ->where('id_curso', $curso->id_curso)
+            ->whereNull('fecha_eliminacion')
+            ->exists();
+
+        return Inertia::render('docente/CursoDetalle', [
+            'curso' => [
+                'id_curso' => $curso->id_curso,
+                'nombre' => $curso->nombre,
+                'cod_curso' => $curso->cod_curso,
+                'fecha_inicio' => $curso->fecha_inicio,
+                'fecha_fin' => $curso->fecha_fin,
+                'agno_real' => $curso->agno_real,
+                'semestre_real' => $curso->semestre_real,
+                'estado_interno' => $curso->estado_interno,
+                'es_plantilla' => $curso->es_plantilla,
+                'tiene_programa' => $tienePrograma,
+                'asignatura' => [
+                    'nombre' => $curso->asignatura?->nombre ?? 'N/A',
+                    'cod_asignatura' => $curso->asignatura?->cod_asignatura ?? 'N/A',
+                    'descripcion' => $curso->asignatura?->descripcion ?? '',
+                ],
+                'plan' => [
+                    'nombre' => $curso->plan?->nombre ?? 'N/A',
+                    'carrera' => $curso->plan?->carrera?->nombre ?? 'N/A',
+                ],
+                'secciones' => $curso->secciones->map(function ($seccion) {
+                    return [
+                        'id_seccion' => $seccion->id_seccion,
+                        'tipo' => $seccion->tipoSeccion?->nombre ?? 'N/A',
+                        'total_estudiantes' => $seccion->inscripcionSecciones->count(),
+                    ];
+                }),
+                'total_estudiantes' => $totalEstudiantes,
+            ]
+        ]);
+    }
+
 
     /**
      * Get permissions the user is allowed to delegate to others.
@@ -353,11 +421,24 @@ class DocenteCursoController extends Controller
 
     /**
      * Helper to authorize access to course management.
+     * 
+     * Verifica que el docente autenticado tenga al menos una sección asignada en el curso.
      */
     private function authorizeAccess(Curso $curso)
     {
+        /** @var Usuario $user */
         $user = Auth::user();
-        if (!$user->docente || $curso->id_docente !== $user->docente->id_docente) {
+
+        if (!$user->docente) {
+            abort(403, 'No tienes un perfil docente asociado.');
+        }
+
+        // Verificar si el docente tiene alguna sección en este curso
+        $tieneSeccion = Seccion::where('id_curso', $curso->id_curso)
+            ->where('id_docente', $user->docente->id_docente)
+            ->exists();
+
+        if (!$tieneSeccion) {
             abort(403, 'No tienes permiso para gestionar este curso.');
         }
     }
