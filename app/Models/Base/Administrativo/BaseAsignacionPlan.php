@@ -2,25 +2,29 @@
 
 namespace App\Models\Base\Administrativo;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 use Awobaz\Compoships\Compoships;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Contracts\HasContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseAsignacionPlan extends Model
+abstract class BaseAsignacionPlan extends Model implements HasContext
 {
     use SoftDeletes;
     use Compoships;
+    use ContextAware;
+    use FiltersContextScope;
+    const DELETED_AT = 'fecha_eliminacion';
+    public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Asignacion_Plan';
     protected $primaryKey = ['id_asignatura', 'id_plan'];
     public $incrementing = false;
-    const DELETED_AT = 'fecha_eliminacion';
-
-    public $timestamps = false;
 
     protected $fillable = [
         'agno_planificado',
@@ -28,7 +32,26 @@ abstract class BaseAsignacionPlan extends Model
         'tipo_ramo'
     ];
 
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
+    }
 
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
+    }
 
 
     // Relaciones
@@ -50,4 +73,21 @@ abstract class BaseAsignacionPlan extends Model
         return $this->hasMany(\App\Models\Curso\Curso::class, ['id_asignatura', 'id_plan'], ['id_asignatura', 'id_plan']);
     }
 
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Path: plan
+     */
+    public function scopeWhereContextHierarchy($query, array $contextIds)
+    {
+        if (empty($contextIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('plan', function ($q) use ($contextIds) {
+                $q->whereHas('carrera', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+            });
+    }
 }

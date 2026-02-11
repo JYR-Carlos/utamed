@@ -2,7 +2,8 @@
 
 namespace App\Models\Base\Usuario;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
@@ -10,12 +11,12 @@ use Awobaz\Compoships\Database\Eloquent\Model;
  */
 abstract class BasePasswordResetTokens extends Model
 {
+    use Compoships;
+    public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'password_reset_tokens';
     protected $primaryKey = 'email';
     public $incrementing = true;
-
-    public $timestamps = false;
 
     protected $fillable = [
         'token',

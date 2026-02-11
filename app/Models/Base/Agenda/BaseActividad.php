@@ -2,20 +2,26 @@
 
 namespace App\Models\Base\Agenda;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Compoships;
+use App\Contracts\HasContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseActividad extends Model
+abstract class BaseActividad extends Model implements HasContext
 {
+    use Compoships;
+    use ContextAware;
+    use FiltersContextScope;
+    public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Actividad';
     protected $primaryKey = 'id_actividad';
     public $incrementing = true;
-
-    public $timestamps = false;
 
     protected $fillable = [
         'nombre',

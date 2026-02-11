@@ -2,7 +2,8 @@
 
 namespace App\Models\Base\Usuario;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
@@ -10,12 +11,12 @@ use Awobaz\Compoships\Database\Eloquent\Model;
  */
 abstract class BaseTipoContexto extends Model
 {
+    use Compoships;
+    public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Tipo_Contexto';
     protected $primaryKey = ['id_tipo_contexto', 'id_contexto'];
     public $incrementing = false;
-
-    public $timestamps = false;
 
     protected $fillable = [
         'categoria',

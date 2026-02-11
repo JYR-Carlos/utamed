@@ -69,6 +69,7 @@
 // Cargar autoload y bootstrap de Laravel
 require __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/utils.printing.php';
+$tab = str_repeat(' ', 4);
 require_once __DIR__ . '/utils.pluralize.php';
 
 $app = require_once __DIR__ . '/../bootstrap/app.php';
@@ -520,6 +521,147 @@ if ($dryRun) {
 echo "\n";
 
 // ==================================================================================
+// CARGAR CONFIGURACIÓN DE CONTEXTOS
+// ==================================================================================
+// Leer del archivo autogenerado por analyze_context_hierarchies.php
+// Este archivo usa nombres de tablas reales de BD (con underscores)
+$contextConfig = [];
+$contextConfigPath = __DIR__ . '/generated_context_hierarchies.php';
+
+if (file_exists($contextConfigPath)) {
+  // Cargar y extraer $contextHierarchies
+  $contextHierarchies = [];
+  include $contextConfigPath;
+  $contextConfig = $contextHierarchies ?? [];
+  echo color("✓ Configuración de contextos cargada desde scripts/generated_context_hierarchies.php\n", 'green');
+} else {
+  $contextConfig = ['direct' => [], 'hierarchical' => [], 'global' => [], 'context_column' => 'id_contexto'];
+  echo color("⚠ Configuración de contextos no encontrada en scripts/generated_context_hierarchies.php\n", 'yellow');
+}
+
+// Crear un set de modelos que tienen contexto para búsqueda rápida
+// El archivo generado usa nombres de tabla reales (Asignacion_Plan), 
+// usamos esos valores directamente sin conversión
+$modelsWithContext = [];
+foreach (['direct', 'hierarchical', 'global'] as $contextType) {
+  foreach ($contextConfig[$contextType] ?? [] as $tableKey => $value) {
+    $modelsWithContext[$tableKey] = $contextType;
+  }
+}
+
+// Cargar mappings generados con rutas y métodos (para scopes jerárquicos)
+$contextMappings = [];
+$contextMappingsPath = config_path('generated-context-mappings.php');
+if (file_exists($contextMappingsPath)) {
+  $contextMappings = include $contextMappingsPath;
+}
+
+/**
+ * Construir el método scopeWhereContextHierarchy basado en paths de relaciones
+ * 
+ * Genera un scope legible que usa whereHas en los paths del modelo.
+ */
+function buildContextHierarchyScopeMethod(array $paths, string $contextColumn): string
+{
+  if (empty($paths)) {
+    return '';
+  }
+
+  // Construir código para cada path
+  $pathConditions = [];
+  foreach ($paths as $pathIndex => $pathMethods) {
+    if (empty($pathMethods)) {
+      continue;
+    }
+
+    // Construir la cadena de whereHas anidados
+    $whereHasChain = buildWhereHasChain($pathMethods, $contextColumn);
+    $pathConditions[] = $whereHasChain;
+  }
+
+  if (empty($pathConditions)) {
+    return '';
+  }
+
+  // Si hay un solo path, genera código simple
+  if (count($pathConditions) === 1) {
+    $condition = $pathConditions[0];
+    return <<<PHP
+
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Path: {$paths[0][0]}
+     */
+    public function scopeWhereContextHierarchy(\$query, array \$contextIds)
+    {
+        if (empty(\$contextIds)) {
+            return \$query->whereRaw('1 = 0');
+        }
+
+        return \$query->{$condition};
+    }
+PHP;
+  }
+
+  // Múltiples paths: construir cada orWhereHas completo
+  $orConditions = [];
+  foreach ($pathConditions as $idx => $condition) {
+    if ($idx === 0) {
+      $orConditions[] = $condition;
+    } else {
+      $orConditions[] = "or" . ucfirst($condition);
+    }
+  }
+  
+  $chainedConditions = implode("\n            ->", $orConditions);
+  
+  return <<<PHP
+
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Paths múltiples detectados.
+     */
+    public function scopeWhereContextHierarchy(\$query, array \$contextIds)
+    {
+        if (empty(\$contextIds)) {
+            return \$query->whereRaw('1 = 0');
+        }
+
+        return \$query->{$chainedConditions};
+    }
+PHP;
+}
+
+/**
+ * Construir cadena de whereHas anidados para un path
+ */
+function buildWhereHasChain(array $pathMethods, string $contextColumn): string
+{
+  if (empty($pathMethods)) {
+    return '';
+  }
+
+  // Tomar el primer método
+  $firstMethod = array_shift($pathMethods);
+  
+  // Si no hay más métodos, este es el último (tiene el contexto)
+  if (empty($pathMethods)) {
+    return "whereHas('{$firstMethod}', function (\$q) use (\$contextIds) {
+                \$q->whereIn('{$contextColumn}', \$contextIds);
+            })";
+  }
+
+  // Hay más métodos: anidar recursivamente
+  $nestedChain = buildWhereHasChain($pathMethods, $contextColumn);
+  
+  return "whereHas('{$firstMethod}', function (\$q) use (\$contextIds) {
+                \$q->{$nestedChain};
+            })";
+}
+
+// ==================================================================================
 // PASO 1: DETECCIÓN DE TABLAS EN ESQUEMAS POSTGRESQL
 // ==================================================================================
 // 
@@ -859,6 +1001,13 @@ echo "\n";
 // Acumula info de cada modelo para el resumen final (verbose)
 $modelSummary = [];
 
+// ==================================================================================
+// VARIABLE PARA RASTREAR RELACIONES
+// ==================================================================================
+// Estructura: $tableRelationMappings[$tableKey] = ['methods' => ['methodName' => 'TargetClass']]
+// Se popula mientras se generan las relaciones
+$tableRelationMappings = [];
+
 foreach ($tables as $tableInfo) {
   $schema = $tableInfo->table_schema;
   $tableName = $tableInfo->table_name;
@@ -866,6 +1015,12 @@ foreach ($tables as $tableInfo) {
   $className = Str::studly($tableName);
 
   echo "Generando: {$schemaName}\\{$className}\n";
+
+  // Determinar si este modelo tiene contexto
+  // Usar nombre de tabla real (no modelo) para buscar en modelsWithContext
+  $tableFullKey = "{$schema}.{$tableName}";
+  $modelContextType = $modelsWithContext[$tableFullKey] ?? null;
+  $implementsContext = !is_null($modelContextType);
 
   // Inicializar registro de métodos para este modelo (para resumen verbose)
   $modelMethods = [];
@@ -1150,7 +1305,7 @@ foreach ($tables as $tableInfo) {
   $fillable = collect($columns)
     ->pluck('column_name')
     ->reject(fn($col) => $shouldExcludeColumn($col, $tableName))
-    ->map(fn($col) => "        '{$col}'")
+    ->map(fn($col) => "{$tab}{$tab}'{$col}'")
     ->implode(",\n");
 
   // ==================================================================================
@@ -1192,8 +1347,11 @@ foreach ($tables as $tableInfo) {
   }
 
   // ==================================================================================
-  // PASO 4.7: CONFIGURAR SOFT DELETES (USANDO fecha_eliminacion)
+  // PASO 4.7: CONFIGURAR IMPORTS Y TRAITS DE LOS MODELOS
   // ==================================================================================
+
+  // ==================================================================================
+  // PASO 4.7.a: CONFIGURAR SOFT DELETES
   //
   // SoftDeletes en Laravel:
   // - SoftDeletes espera una columna TIMESTAMP (deleted_at o similar)
@@ -1215,10 +1373,76 @@ foreach ($tables as $tableInfo) {
 
 
   // Detectar si la tabla tiene fecha_eliminacion
-  $hasSoftDeletes = collect($columns)->contains('column_name', $softDeleteColumnName);
-  $softDeleteImport = $hasSoftDeletes ? "use Illuminate\\Database\\Eloquent\\SoftDeletes;\n" : "";
-  $softDeleteTrait = $hasSoftDeletes ? "    use SoftDeletes;\n" : "";
-  $softDeleteConst = $hasSoftDeletes ? "\n    const DELETED_AT = '$softDeleteColumnName';" : "";
+  $hasSoftDeletes = 
+    collect($columns)
+    ->contains('column_name', $softDeleteColumnName);
+  
+  $softDeleteImport = $hasSoftDeletes 
+    ? "use Illuminate\\Database\\Eloquent\\SoftDeletes;\n" 
+    : "";
+  
+  $softDeleteTrait = $hasSoftDeletes 
+    ? "{$tab}use SoftDeletes;\n" 
+    : "";
+  
+  $softDeleteConst = $hasSoftDeletes 
+    ? "{$tab}const DELETED_AT = '$softDeleteColumnName';\n" 
+    : "";
+
+  // ==================================================================================
+  // PASO 4.7.b: CONFIGURAR RESOLUCIÓN DE CONTEXTO (SI APLICA AL MODELO)
+  //
+  // Contexto en modelos:
+  // - Permite recuperar los contextos
+  //   y filtrar automáticamente por contexto 
+  //   (los contextos sobre los que el usuario tenga acceso)
+  //
+  // FUNCIONAMIENTO:
+  // - Agrega imports necesarios para contexto
+  // - Agrega traits ContextAware y FiltersContextScope
+  // ==================================================================================
+
+  // Agregar imports y traits para contexto si aplica
+  $contextImport = $implementsContext
+    ? "use App\\Contracts\\HasContext;\nuse App\\Traits\\ContextAware;\nuse App\\Traits\\QueryScopes\\FiltersContextScope;\n"
+    : "";
+    
+  $contextTrait = $implementsContext
+    ? "{$tab}use ContextAware;\n{$tab}use FiltersContextScope;\n"
+    : "";
+
+  $implementsClause = $implementsContext ? " implements HasContext" : "";
+
+  // ==================================================================================
+  // PASO 4.7.c: CONFIGURAR CLAVES COMPUESTAS CON awobaz/compoships
+  // ==================================================================================
+
+  $composhipsImport = "use Awobaz\\Compoships\\Compoships;\n";
+  
+  $composhipsTrait = "{$tab}use Compoships;\n";
+  
+  // ==================================================================================
+  // PASO 4.7.d: COMPILAR TIMESTAMPS CON INDENTACIÓN CORRECTA
+  // ==================================================================================
+
+  $timestampsStorage = "";
+  if ($hasCreatedAt && $hasUpdatedAt) {
+    $timestampsStorage = "{$tab}const CREATED_AT = '$createdAtColumn';\n{$tab}const UPDATED_AT = '$updatedAtColumn';\n";
+  } else {
+    $timestampsStorage = "{$tab}public \$timestamps = false;\n";
+  }
+  
+  // ==================================================================================
+  // COMPILAR IMPORTS, TRAITS Y CONFIGURACIONES CON HEREDOC
+  // ==================================================================================
+
+  // Compilar todo dinámicamente sin dejar espacios en blanco
+  $allImports = $composhipsImport . $softDeleteImport . $contextImport;
+  
+  // Compilar traits y constantes en un bloque único
+  $allTraitsAndConsts = <<<EOL
+{$softDeleteTrait}{$composhipsTrait}{$contextTrait}{$softDeleteConst}{$timestampsStorage}
+EOL;
 
   // ==================================================================================
   // PASO 4.8: GENERAR RELACIONES belongsTo (FK → Modelo padre)
@@ -1331,6 +1555,14 @@ foreach ($tables as $tableInfo) {
         'keys' => $fk->column_names . ($fk->column_names !== $fk->foreign_column_names ? ' > ' . $fk->foreign_column_names : ''),
         'origin' => $customName ? 'custom' : 'auto',
       ];
+
+      // Rastrear relación para contextos: Tabla actual -> Tabla destino
+      // Usar nombre de tabla real (no de modelo) para consistencia con config
+      $tableKey = "{$schema}.{$tableName}";
+      if (!isset($tableRelationMappings[$tableKey])) {
+        $tableRelationMappings[$tableKey] = ['methods' => []];
+      }
+      $tableRelationMappings[$tableKey]['methods'][$methodName] = $relatedModel;
 
       $relations .= "\n    public function {$methodName}()\n";
       $relations .= "    {\n";
@@ -1478,6 +1710,14 @@ foreach ($tables as $tableInfo) {
         'keys' => $inverseFk['source_columns'] . ($inverseFk['source_columns'] !== $inverseFk['target_columns'] ? ' > ' . $inverseFk['target_columns'] : ''),
         'origin' => $customName ? 'custom' : 'auto',
       ];
+
+      // Rastrear relación para contextos: Tabla actual -> Tabla origen (hasMany/hasOne apuntan hacia la tabla origen)
+      // Usar nombre de tabla real (no de modelo) para consistencia con config
+      $tableKey = "{$schema}.{$tableName}";
+      if (!isset($tableRelationMappings[$tableKey])) {
+        $tableRelationMappings[$tableKey] = ['methods' => []];
+      }
+      $tableRelationMappings[$tableKey]['methods'][$methodName] = $sourceModel;
 
       $relations .= "\n    public function {$methodName}()\n";
       $relations .= "    {\n";
@@ -1819,6 +2059,14 @@ foreach ($tables as $tableInfo) {
             'origin' => $methodOrigin,
           ];
 
+          // Rastrear relación para contextos: Tabla actual -> Tabla relacionada
+          // Usar nombre de tabla real (no de modelo) para consistencia con config
+          $tableKey = "{$schema}.{$tableName}";
+          if (!isset($tableRelationMappings[$tableKey])) {
+            $tableRelationMappings[$tableKey] = ['methods' => []];
+          }
+          $tableRelationMappings[$tableKey]['methods'][$methodName] = $relatedModel;
+
           if (empty($relations)) {
             $relations = "\n    // Relaciones\n";
           }
@@ -1845,13 +2093,40 @@ foreach ($tables as $tableInfo) {
           // Agregar withPivot si hay columnas adicionales
           if (!empty($additionalCols)) {
             $pivotColsStr = "'" . implode("', '", $additionalCols) . "'";
-            $relations .= "\n        ->withPivot({$pivotColsStr})";
+            $relations .= "\n            ->withPivot({$pivotColsStr})";
           }
 
           $relations .= ";\n";
           $relations .= "    }\n";
         }
       }
+    }
+  }
+
+  // ==================================================================================
+  // PASO 4.10.5: GENERAR SCOPE JERARQUICO (SOLO SI APLICA)
+  // ==================================================================================
+  $contextScopeMethods = '';
+  if ($implementsContext) {
+    $modelKey = "utamed.{$schemaName}.{$className}";
+    $mapping = $contextMappings[$modelKey] ?? null;
+
+    if ($mapping && ($mapping['type'] ?? null) === 'hierarchical') {
+      $paths = [];
+      foreach ($mapping['paths'] as $path) {
+        $methods = [];
+        foreach ($path as $step) {
+          if (!empty($step['method'])) {
+            $methods[] = $step['method'];
+          }
+        }
+        if (!empty($methods)) {
+          $paths[] = $methods;
+        }
+      }
+
+      $contextColumn = $contextConfig['context_column'] ?? 'id_contexto';
+      $contextScopeMethods = buildContextHierarchyScopeMethod($paths, $contextColumn);
     }
   }
 
@@ -1898,19 +2173,18 @@ foreach ($tables as $tableInfo) {
 
 namespace {$baseModelNamespace}\\{$schemaName};
 
-use Awobaz\\Compoships\\Database\\Eloquent\\Model;
-{$softDeleteImport}
+use Illuminate\\Database\\Eloquent\\Model;
+{$allImports}
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class Base{$className} extends Model
+abstract class Base{$className} extends Model{$implementsClause}
 {
-{$softDeleteTrait}    protected \$connection = 'pgsql';
+{$allTraitsAndConsts}    protected \$connection = 'pgsql';
     protected \$table = '{$tableName}';
     protected \$primaryKey = {$primaryKeyDefinition};
-    public \$incrementing = {$incrementingValue};{$softDeleteConst}
-{$timestampsConfig}
+    public \$incrementing = {$incrementingValue};
 
     protected \$fillable = [
 {$fillable}
@@ -1937,8 +2211,9 @@ abstract class Base{$className} extends Model
         return '\"' . \$this->getTable() . '\".\"' . \$this->getKeyName() . '\"';
     }
 
-{$relations}
+{$relations}{$contextScopeMethods}
 }
+
 PHP;
 
   if (!$dryRun) {
@@ -2158,6 +2433,175 @@ if ($verbose) {
       tree_print($modelPrefix, $isLastMethod, "{$methodColored} {$typeStr} {$mth['related']} {$keysStr}{$viaStr}");
     }
   }
+}
+
+// ==================================================================================
+// GENERAR JSON DE CONTEXT MAPPINGS
+// ==================================================================================
+//
+// OBJETIVO: Procesar la configuración de contextos (config/context-hierarchies.php)
+// y cruzarla con las relaciones reales generadas en $tableRelationMappings
+//
+// RESULTADO: storage/app/context-mappings.json con las rutas de contextos
+// ==================================================================================
+
+echo "\n" . color("Generando context mappings...", 'bold') . "\n";
+
+$contextConfigPath = app_path('../config/context-hierarchies.php');
+$contextHierarchies = [];
+
+if (file_exists($contextConfigPath)) {
+  $contextHierarchies = include $contextConfigPath;
+  echo color("✓ Configuración de contextos cargada\n", 'green');
+} else {
+  echo color("⚠ Configuración de contextos no encontrada\n", 'yellow');
+}
+
+// Construir índices para contextos jerárquicos:
+// 1. table_name -> schema.table_name (nombre de tabla original)
+// 2. ModelName -> table_name (para conversión inversa)
+$tableNameToFullKey = [];
+$modelNameToTableName = [];
+foreach ($tables as $t) {
+  $modelName = Str::studly($t->table_name);
+  $tableNameToFullKey[$t->table_name] = $t->table_schema . '.' . $t->table_name;
+  $modelNameToTableName[$modelName] = $t->table_name;
+}
+
+// Procesar contextos jerárquicos
+$contextMappings = [];
+
+// Agregar contextos 'direct'
+foreach ($contextConfig['direct'] ?? [] as $modelKey => $contextType) {
+  // Convertir clave a formato de modelo Laravel (schema.ModelName)
+  $parts = explode('.', $modelKey);
+  if (count($parts) === 3) {
+    $tableName = $parts[2];
+    $modelName = Str::studly($tableName);
+    $modelKeyFormatted = $parts[0] . '.' . $parts[1] . '.' . $modelName;
+  } else {
+    $modelKeyFormatted = $modelKey;
+  }
+  
+  $contextMappings[$modelKeyFormatted] = [
+    'type' => 'direct',
+    'paths' => []
+  ];
+}
+
+// Agregar contextos 'global'
+foreach ($contextConfig['global'] ?? [] as $modelKey => $contextType) {
+  // Convertir clave a formato de modelo Laravel (schema.ModelName)
+  $parts = explode('.', $modelKey);
+  if (count($parts) === 3) {
+    $tableName = $parts[2];
+    $modelName = Str::studly($tableName);
+    $modelKeyFormatted = $parts[0] . '.' . $parts[1] . '.' . $modelName;
+  } else {
+    $modelKeyFormatted = $modelKey;
+  }
+  
+  $contextMappings[$modelKeyFormatted] = [
+    'type' => 'global',
+    'paths' => []
+  ];
+}
+
+// Procesar contextos 'hierarchical'
+foreach ($contextConfig['hierarchical'] ?? [] as $modelKey => $configPaths) {
+  $mapping = [
+    'type' => 'hierarchical',
+    'paths' => []
+  ];
+
+  $configPathsArray = is_array($configPaths) ? $configPaths : [$configPaths];
+
+  foreach ($configPathsArray as $pathConfig) {
+    $pathSteps = [];
+    $path = is_array($pathConfig) ? $pathConfig : [$pathConfig];
+
+    // Seguir el path en las relaciones generadas
+    // $modelKey viene con nombre de tabla (ej: 'utamed.Administrativo.Asignacion_Plan')
+    // Mantenemos ese formato para buscar en $tableRelationMappings
+    $currentTableKey = $modelKey;
+    $pathValid = true;
+
+    foreach ($path as $stepIdx => $targetTableName) {
+      // targetTableName es el nombre de tabla real (ej: 'Plan')
+      // Buscar en $tableRelationMappings[currentTableKey] qué método va a esa tabla
+      $foundMethodName = null;
+      $targetTableFullKey = null;
+
+      if (isset($tableRelationMappings[$currentTableKey]['methods'])) {
+        foreach ($tableRelationMappings[$currentTableKey]['methods'] as $methodName => $targetModel) {
+          // targetModel es el nombre de modelo (ej: 'Plan')
+          // Convertir targetTableName a modelo para comparar
+          $expectedModel = Str::studly($targetTableName);
+          if ($targetModel === $expectedModel) {
+            $foundMethodName = $methodName;
+            // Convertir nombre de modelo a nombre de tabla, luego a clave completa
+            $actualTableName = $modelNameToTableName[$targetModel] ?? $targetTableName;
+            $targetTableFullKey = $tableNameToFullKey[$actualTableName] ?? null;
+            break;
+          }
+        }
+      }
+
+      if ($foundMethodName === null) {
+        // Método no encontrado, marcar path como inválido
+        echo color("  ⚠ {$modelKey}: No encontrado método hacia {$targetTableName} desde {$currentTableKey}\n", 'yellow');
+        $pathValid = false;
+        break;
+      }
+
+      if ($targetTableFullKey === null) {
+        // Tabla no encontrada en el índice, marcar path como inválido
+        echo color("  ⚠ {$modelKey}: Tabla {$targetTableName} no encontrada en el esquema\n", 'yellow');
+        $pathValid = false;
+        break;
+      }
+
+      // Agregar paso
+      $pathSteps[] = [
+        'target' => Str::studly($targetTableName), // Guardar nombre de modelo
+        'method' => $foundMethodName
+      ];
+
+      // Actualizar clave para siguiente iteración
+      $currentTableKey = $targetTableFullKey;
+    }
+
+    if ($pathValid) {
+      $mapping['paths'][] = $pathSteps;
+      echo color("  ✓ {$modelKey}: Path válido → " . implode(' → ', array_column($pathSteps, 'target')) . "\n", 'green');
+    }
+  }
+
+  // Convertir clave a formato de modelo Laravel (schema.ModelName) al guardar
+  $parts = explode('.', $modelKey);
+  if (count($parts) === 3) {
+    $tableName = $parts[2];
+    $modelName = Str::studly($tableName);
+    $modelKeyFormatted = $parts[0] . '.' . $parts[1] . '.' . $modelName;
+  } else {
+    $modelKeyFormatted = $modelKey;
+  }
+  
+  $contextMappings[$modelKeyFormatted] = $mapping;
+}
+
+// Guardar como archivo PHP en config/
+if (!$dryRun) {
+  $configPath = app_path('../config/generated-context-mappings.php');
+  $phpContent = "<?php\n\nreturn " . var_export($contextMappings, true) . ";\n";
+  
+  if (file_put_contents($configPath, $phpContent)) {
+    echo color("✓ Context mappings guardados en: config/generated-context-mappings.php\n", 'green');
+  } else {
+    echo color("⚠ Error al guardar context mappings\n", 'red');
+  }
+} else {
+  echo "[DRY-RUN] Context mappings: config/generated-context-mappings.php\n";
 }
 
 echo "\n";

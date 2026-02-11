@@ -2,24 +2,30 @@
 
 namespace App\Models\Base\Curso;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Compoships;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Contracts\HasContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseCurso extends Model
+abstract class BaseCurso extends Model implements HasContext
 {
     use SoftDeletes;
+    use Compoships;
+    use ContextAware;
+    use FiltersContextScope;
+    const DELETED_AT = 'fecha_eliminacion';
+    const CREATED_AT = 'fecha_creacion';
+    const UPDATED_AT = 'fecha_modificacion';
     protected $connection = 'pgsql';
     protected $table = 'Curso';
     protected $primaryKey = 'id_curso';
     public $incrementing = true;
-    const DELETED_AT = 'fecha_eliminacion';
-
-    const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
         'cod_curso',
@@ -99,7 +105,7 @@ abstract class BaseCurso extends Model
             'id_curso',
             'id_estudiante'
         )
-        ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
+            ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
     }
 
 }

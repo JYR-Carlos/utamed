@@ -2,7 +2,8 @@
 
 namespace App\Models\Base\Usuario;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
@@ -10,12 +11,12 @@ use Awobaz\Compoships\Database\Eloquent\Model;
  */
 abstract class BasePermiso extends Model
 {
+    use Compoships;
+    public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Permiso';
     protected $primaryKey = 'id_permiso';
     public $incrementing = true;
-
-    public $timestamps = false;
 
     protected $fillable = [
         'slug',
@@ -69,7 +70,7 @@ abstract class BasePermiso extends Model
             'id_permiso',
             'id_rol'
         )
-        ->withPivot('puede_delegar_permisos');
+            ->withPivot('puede_delegar_permisos');
     }
 
     public function usuariosConPermisoEspecial()
@@ -80,7 +81,7 @@ abstract class BasePermiso extends Model
             'id_permiso',
             'id_usuario'
         )
-        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function contextosConEstePermiso()
@@ -91,7 +92,7 @@ abstract class BasePermiso extends Model
             'id_permiso',
             'id_contexto'
         )
-        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
 }

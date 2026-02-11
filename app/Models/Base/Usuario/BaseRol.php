@@ -2,20 +2,26 @@
 
 namespace App\Models\Base\Usuario;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Compoships;
+use App\Contracts\HasContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseRol extends Model
+abstract class BaseRol extends Model implements HasContext
 {
+    use Compoships;
+    use ContextAware;
+    use FiltersContextScope;
+    public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Rol';
     protected $primaryKey = 'id_rol';
     public $incrementing = true;
-
-    public $timestamps = false;
 
     protected $fillable = [
         'nombre',
@@ -73,7 +79,7 @@ abstract class BaseRol extends Model
             'id_rol',
             'id_permiso'
         )
-        ->withPivot('puede_delegar_permisos');
+            ->withPivot('puede_delegar_permisos');
     }
 
     public function usuariosConRolAsignado()
@@ -84,7 +90,7 @@ abstract class BaseRol extends Model
             'id_rol',
             'id_usuario'
         )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function contextosConEsteRol()
@@ -95,7 +101,7 @@ abstract class BaseRol extends Model
             'id_rol',
             'id_contexto'
         )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
 }

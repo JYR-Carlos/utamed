@@ -2,7 +2,8 @@
 
 namespace App\Models\Base\Curso;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
@@ -10,12 +11,12 @@ use Awobaz\Compoships\Database\Eloquent\Model;
  */
 abstract class BaseTipoSeccion extends Model
 {
+    use Compoships;
+    public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Tipo_Seccion';
     protected $primaryKey = 'id_tipo_seccion';
     public $incrementing = true;
-
-    public $timestamps = false;
 
     protected $fillable = [
         'tipo'

@@ -2,26 +2,30 @@
 
 namespace App\Models\Base\Administrativo;
 
+use Illuminate\Database\Eloquent\Model;
 use Awobaz\Compoships\Compoships;
-use Awobaz\Compoships\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Contracts\HasContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseAsignatura extends Model
+abstract class BaseAsignatura extends Model implements HasContext
 {
     use SoftDeletes;
     use Compoships;
+    use ContextAware;
+    use FiltersContextScope;
+    const DELETED_AT = 'fecha_eliminacion';
+    const CREATED_AT = 'fecha_creacion';
+    const UPDATED_AT = 'fecha_modificacion';
     protected $connection = 'pgsql';
     protected $table = 'Asignatura';
     protected $primaryKey = 'id_asignatura';
     public $incrementing = true;
-    const DELETED_AT = 'fecha_eliminacion';
-
-    const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
         'cod_asignatura',
@@ -35,6 +39,26 @@ abstract class BaseAsignatura extends Model
         'horas_autonomas'
     ];
 
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
+    }
 
 
     // Relaciones

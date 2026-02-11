@@ -2,28 +2,30 @@
 
 namespace App\Models\Base\Administrativo;
 
-use App\Models\Administrativo\Departamento;
+use Illuminate\Database\Eloquent\Model;
 use Awobaz\Compoships\Compoships;
-use Awobaz\Compoships\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Extensions\Compoships\BelongsTo;
+use App\Contracts\HasContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
+
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseCarrera extends Model
+abstract class BaseCarrera extends Model implements HasContext
 {
     use SoftDeletes;
-    use Compoships;                             // ← Muy importante
-
+    use Compoships;
+    use ContextAware;
+    use FiltersContextScope;
+    const DELETED_AT = 'fecha_eliminacion';
+    const CREATED_AT = 'fecha_creacion';
+    const UPDATED_AT = 'fecha_modificacion';
     protected $connection = 'pgsql';
     protected $table = 'Carrera';
     protected $primaryKey = 'id_carrera';
     public $incrementing = true;
-
-    const DELETED_AT = 'fecha_eliminacion';
-    const CREATED_AT = 'fecha_creacion';
-    const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
         'nombre',
@@ -35,18 +37,33 @@ abstract class BaseCarrera extends Model
         'id_contexto'
     ];
 
-    // Relaciones: Se está usando una opción manual para el eager loading con llave compuesta que falla si no se utiliza el belongsTO.
+    /**
+     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
+     */
+    public function qualifyColumn($column)
+    {
+        $qualified = parent::qualifyColumn($column);
+        // Only quote if not already quoted and contains a dot (table.column)
+        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
+            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        }
+        return $qualified;
+    }
+
+    /**
+     * Override getQualifiedKeyName to ensure correct quoting
+     */
+    public function getQualifiedKeyName()
+    {
+        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
+    }
+
+
+    // Relaciones
+
     public function departamento()
     {
-        $instance = new Departamento;
-
-        return new BelongsTo(
-            $instance->newQuery(),
-            $this,
-            ['id_departamento', 'id_facultad'],
-            ['id_departamento', 'id_facultad'],
-            'departamento'
-        );
+        return $this->belongsTo(\App\Models\Administrativo\Departamento::class, ['id_departamento', 'id_facultad'], ['id_departamento', 'id_facultad']);
     }
 
     public function contexto()
@@ -55,6 +72,7 @@ abstract class BaseCarrera extends Model
     }
 
     // Relaciones inversas
+
     public function planes()
     {
         return $this->hasMany(\App\Models\Administrativo\Plan::class, 'id_carrera', 'id_carrera');
@@ -64,4 +82,5 @@ abstract class BaseCarrera extends Model
     {
         return $this->hasMany(\App\Models\Usuario\Estudiante::class, 'id_carrera', 'id_carrera');
     }
+
 }

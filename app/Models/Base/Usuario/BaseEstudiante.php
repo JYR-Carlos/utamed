@@ -2,20 +2,26 @@
 
 namespace App\Models\Base\Usuario;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Compoships;
+use App\Contracts\HasContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseEstudiante extends Model
+abstract class BaseEstudiante extends Model implements HasContext
 {
+    use Compoships;
+    use ContextAware;
+    use FiltersContextScope;
+    public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Estudiante';
     protected $primaryKey = 'id_estudiante';
     public $incrementing = true;
-
-    public $timestamps = false;
 
     protected $fillable = [
         'agno_ingreso',
@@ -83,7 +89,7 @@ abstract class BaseEstudiante extends Model
             'id_estudiante',
             'grupo,id_actividad'
         )
-        ->withPivot('nota_individual', 'diferencia_decimas');
+            ->withPivot('nota_individual', 'diferencia_decimas');
     }
 
     public function cursosInscritos()
@@ -94,7 +100,7 @@ abstract class BaseEstudiante extends Model
             'id_estudiante',
             'id_curso'
         )
-        ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
+            ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
     }
 
     public function seccionesInscritas()
@@ -105,7 +111,7 @@ abstract class BaseEstudiante extends Model
             'id_estudiante',
             'id_seccion,id_curso'
         )
-        ->withPivot('nota_seccion');
+            ->withPivot('nota_seccion');
     }
 
 }

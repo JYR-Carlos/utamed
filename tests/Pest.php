@@ -14,6 +14,10 @@
 pest()->extend(Tests\TestCase::class)
     ->in('Feature');
 
+// Unit tests don't need database
+pest()->extend(Tests\TestCase::class)
+    ->in('Unit');
+
 /*
 |--------------------------------------------------------------------------
 | Expectations

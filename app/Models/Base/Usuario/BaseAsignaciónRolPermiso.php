@@ -2,7 +2,8 @@
 
 namespace App\Models\Base\Usuario;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
@@ -10,12 +11,12 @@ use Awobaz\Compoships\Database\Eloquent\Model;
  */
 abstract class BaseAsignaciónRolPermiso extends Model
 {
+    use Compoships;
+    public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Asignación_Rol_Permiso';
     protected $primaryKey = ['id_rol', 'id_permiso'];
     public $incrementing = false;
-
-    public $timestamps = false;
 
     protected $fillable = [
         'puede_delegar_permisos'

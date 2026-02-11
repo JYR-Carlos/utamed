@@ -2,7 +2,8 @@
 
 namespace App\Models\Base\Usuario;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
@@ -10,12 +11,12 @@ use Awobaz\Compoships\Database\Eloquent\Model;
  */
 abstract class BaseContexto extends Model
 {
+    use Compoships;
+    public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Contexto';
     protected $primaryKey = 'id_contexto';
     public $incrementing = true;
-
-    public $timestamps = false;
 
     protected $fillable = [
         'contexto_display'
@@ -97,7 +98,7 @@ abstract class BaseContexto extends Model
             'id_contexto',
             'id_usuario'
         )
-        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function permisosEspecialesEnContexto()
@@ -108,7 +109,7 @@ abstract class BaseContexto extends Model
             'id_contexto',
             'id_permiso'
         )
-        ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function usuariosConRolEnContexto()
@@ -119,7 +120,7 @@ abstract class BaseContexto extends Model
             'id_contexto',
             'id_usuario'
         )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function rolesEnContexto()
@@ -130,7 +131,7 @@ abstract class BaseContexto extends Model
             'id_contexto',
             'id_rol'
         )
-        ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
 }

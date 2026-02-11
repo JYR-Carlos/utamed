@@ -2,20 +2,26 @@
 
 namespace App\Models\Base\Curso;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
+use Awobaz\Compoships\Compoships;
+use App\Contracts\HasContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseInscripcionSeccion extends Model
+abstract class BaseInscripcionSeccion extends Model implements HasContext
 {
+    use Compoships;
+    use ContextAware;
+    use FiltersContextScope;
+    public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Inscripcion_Seccion';
     protected $primaryKey = ['id_estudiante', 'id_seccion', 'id_curso'];
     public $incrementing = false;
-
-    public $timestamps = false;
 
     protected $fillable = [
         'nota_seccion'
@@ -62,4 +68,26 @@ abstract class BaseInscripcionSeccion extends Model
         return $this->hasMany(\App\Models\Curso\Asistencia::class, ['id_estudiante', 'id_seccion', 'id_curso'], ['id_estudiante', 'id_seccion', 'id_curso']);
     }
 
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Paths múltiples detectados.
+     */
+    public function scopeWhereContextHierarchy($query, array $contextIds)
+    {
+        if (empty($contextIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('estudiante', function ($q) use ($contextIds) {
+                $q->whereHas('carrera', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+            })
+            ->orWhereHas('seccion', function ($q) use ($contextIds) {
+                $q->whereHas('curso', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+            });
+    }
 }

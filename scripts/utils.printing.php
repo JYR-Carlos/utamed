@@ -155,3 +155,36 @@ function relation_type_color(string $relationType): string
     default         => 'gray',
   };
 }
+
+// ==================================================================================
+// FUNCIONES DE SECCIÓN Y PASOS
+// ==================================================================================
+
+/**
+ * Imprime una sección con título y datos opcionales
+ * 
+ * @param string $title Título de la sección
+ * @param array $data Array asociativo con [clave => valor]
+ */
+function section(string $title, array $data = []): void
+{
+    echo "\n" . color($title, 'bright_green') . "\n";
+    
+    foreach ($data as $key => $value) {
+        echo "  • $key: " . color((string)$value, 'blue') . "\n";
+    }
+    
+    if (!empty($data)) {
+        echo "\n";
+    }
+}
+
+/**
+ * Imprime un paso dentro de una sección
+ * 
+ * @param string $message Mensaje del paso
+ */
+function step(string $message): void
+{
+    echo "  ✓ $message\n";
+}
