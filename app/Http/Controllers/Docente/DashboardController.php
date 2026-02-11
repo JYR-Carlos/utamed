@@ -37,7 +37,7 @@ class DashboardController extends Controller
     {
         /** @var Usuario $user */
         $user = auth()->user();
-        
+
         // Verificar que el usuario es docente
         if (!$user->docente) {
             return redirect('/dashboard')->with('error', 'No tienes acceso a esta sección');
@@ -45,7 +45,7 @@ class DashboardController extends Controller
 
         // Obtener los cursos a través de las secciones del docente
         $docente = $user->docente;
-        
+
         // Obtener secciones del docente
         $secciones = Seccion::where('id_docente', $docente->id_docente)
             ->get();
@@ -53,23 +53,10 @@ class DashboardController extends Controller
         // Obtener los ids de cursos únicos
         $cursoIds = $secciones->pluck('id_curso')->unique();
 
-        // Consultar cursos con información relacionada
-        $cursosData = Curso::whereIn('id_curso', $cursoIds)
+        // Contar cursos activos
+        $totalCursos = Curso::whereIn('id_curso', $cursoIds)
             ->whereNull('fecha_eliminacion')
-            ->with(['asignatura', 'plan.carrera'])
-            ->orderBy('fecha_inicio', 'desc')
-            ->get()
-            ->map(function ($curso) {
-                return [
-                    'id_curso' => $curso->id_curso,
-                    'nombre' => $curso->nombre,
-                    'cod_curso' => $curso->cod_curso,
-                    'asignatura_nombre' => $curso->asignatura?->nombre ?? 'N/A',
-                    'carrera_nombre' => $curso->plan?->carrera?->nombre ?? 'N/A',
-                    'fecha_inicio' => $curso->fecha_inicio,
-                    'fecha_fin' => $curso->fecha_fin,
-                ];
-            });
+            ->count();
 
         return Inertia::render('docente/Dashboard', [
             'docente' => [
@@ -79,9 +66,8 @@ class DashboardController extends Controller
                 'cargo' => $docente->cargo,
                 'id_usuario' => $user->id_usuario,
             ],
-            'cursos' => $cursosData,
             'stats' => [
-                'total_cursos' => $cursosData->count(),
+                'total_cursos' => $totalCursos,
                 'nombre_completo' => trim("{$user->nombre1} {$user->apellido1}"),
             ]
         ]);

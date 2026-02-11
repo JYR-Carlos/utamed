@@ -13,12 +13,14 @@
     // Get roles from page props with Svelte 5 runes
     let authRoles = $derived(($page.props.auth?.roles as string[]) || []);
     let userDocente = $derived(($page.props.auth?.user?.docente) || null);
-    let isAdminOnly = $derived(authRoles.length === 0 || (authRoles.length === 1 && authRoles.includes('Administrador')));
+    let isAdminOnly = $derived(authRoles.length === 0 || (authRoles.length === 1 && (authRoles.includes('Administrador') || authRoles.includes('SuperAdmin') || authRoles.includes('Super Admin'))));
+
+
 
     // Helper to check for roles
     const hasRole = (requiredRoles: string[]) => {
         if (requiredRoles.includes('*')) return true;
-        if (authRoles.includes('SuperAdmin')) return true;
+        if (authRoles.includes('SuperAdmin') || authRoles.includes('Super Admin')) return true;
         return authRoles.some(r => requiredRoles.includes(r));
     };
 

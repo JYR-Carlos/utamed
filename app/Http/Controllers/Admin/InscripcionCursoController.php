@@ -371,6 +371,7 @@ class InscripcionCursoController extends Controller
      * Obtiene estudiantes disponibles para un curso específico (endpoint AJAX).
      * 
      * Retorna solo los estudiantes que aún no están inscritos en el curso.
+     * Auto-crea perfiles de Estudiante para usuarios con rol estudiante que no tengan perfil.
      */
     public function getEstudiantesDisponibles(Request $request)
     {
@@ -385,18 +386,63 @@ class InscripcionCursoController extends Controller
             ->pluck('id_estudiante')
             ->toArray();
 
-        // Get available estudiantes
+        // Get available estudiantes (with existing profiles)
         $estudiantes = Estudiante::query()
             ->with('usuario:id_usuario,nombre1,apellido1,username')
             ->whereNotIn('id_estudiante', $inscritosIds)
             ->orderBy('id_estudiante')
             ->get();
 
+        // Also find users with 'estudiante' role but no Estudiante profile
+        // and auto-create the profile
+        $usuariosConRolEstudiante = DB::table('Usuario')
+            ->join('Usuario_Rol_Asignación', 'Usuario.id_usuario', '=', 'Usuario_Rol_Asignación.id_usuario')
+            ->join('Rol', 'Usuario_Rol_Asignación.id_rol', '=', 'Rol.id_rol')
+            ->where('Rol.nombre', 'Estudiante')
+            ->where('Usuario_Rol_Asignación.esta_activo', true)
+            ->where('Usuario_Rol_Asignación.fue_eliminado', false)
+            ->whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('Estudiante')
+                    ->whereColumn('Estudiante.id_usuario', 'Usuario.id_usuario');
+            })
+            ->select('Usuario.id_usuario', 'Usuario.nombre1', 'Usuario.apellido1', 'Usuario.username', 'Usuario.rut')
+            ->get();
+
+        // Auto-create Estudiante profiles for users with student role
+        foreach ($usuariosConRolEstudiante as $usuario) {
+            try {
+                $nuevoEstudiante = Estudiante::create([
+                    'id_usuario' => $usuario->id_usuario,
+                    'rut' => $usuario->rut,
+                    'nombre_completo' => trim(($usuario->nombre1 ?? '') . ' ' . ($usuario->apellido1 ?? '')),
+                    'agno_ingreso' => now()->year,
+                    'id_carrera' => null, // Se puede asignar después
+                    'id_contexto' => null
+                ]);
+
+                // Add to the list if not already inscribed
+                if (!in_array($nuevoEstudiante->id_estudiante, $inscritosIds)) {
+                    $nuevoEstudiante->load('usuario:id_usuario,nombre1,apellido1,username');
+                    $estudiantes->push($nuevoEstudiante);
+                }
+
+                Log::info('Auto-created Estudiante profile', [
+                    'id_usuario' => $usuario->id_usuario,
+                    'id_estudiante' => $nuevoEstudiante->id_estudiante
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Error auto-creating Estudiante profile: ' . $e->getMessage(), [
+                    'id_usuario' => $usuario->id_usuario
+                ]);
+            }
+        }
+
         Log::info('getEstudiantesDisponibles', [
             'idCurso' => $idCurso,
             'inscritosIds' => $inscritosIds,
             'count' => $estudiantes->count(),
-            'first' => $estudiantes->first()
+            'auto_created' => $usuariosConRolEstudiante->count()
         ]);
 
         return response()->json([

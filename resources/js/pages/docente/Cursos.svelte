@@ -14,7 +14,8 @@
      * - usuario.usuario_rol_asignación: Roles en contexto del curso
      * - usuario.usuario_permiso_especial: Permisos especiales
      */
-    import { router, Link } from '@inertiajs/svelte';
+    import { router, Link, usePage } from '@inertiajs/svelte';
+    import { toast } from 'svelte-sonner';
     import DocenteLayout from '@/layouts/DocenteLayout.svelte';
     import CourseTeamModal from '@/components/custom/admin/CourseTeamModal.svelte';
     import { BookOpen, BookOpenCheck, Loader2, CheckCircle2, FilePlus, Info } from "lucide-svelte";
@@ -40,13 +41,23 @@
 
     function generateProgram(curso: any) {
         if (confirm(`¿Estás seguro de generar el programa para el curso ${curso.cod_curso}?`)) {
+            const toastId = toast.loading(`Generando programa para ${curso.cod_curso}...`);
+            
             router.post(`/docente/cursos/${curso.id_curso}/programa`, {}, {
                 preserveScroll: true,
-                onSuccess: () => {
-                   // Success notification handling if global toast exists
+                onSuccess: (page: any) => {
+                    // Check if there was a flash error despite "success" request
+                    const flashError = page.props.flash?.error;
+                    if (flashError) {
+                        toast.error(flashError, { id: toastId });
+                    } else {
+                        toast.success("Programa generado correctamente", { id: toastId });
+                    }
                 },
                 onError: (errors) => {
-                    alert('Error al generar el programa: ' + JSON.stringify(errors));
+                    console.error('Error generating program:', errors);
+                    const errorMessage = Object.values(errors).flat().join(', ') || "Error al generar el programa";
+                    toast.error(errorMessage, { id: toastId });
                 }
             });
         }

@@ -17,23 +17,26 @@ class Programa extends BasePrograma
         return 'id_programa';
     }
 
+    protected $primaryKey = 'id_programa';
+    public $incrementing = true;
+
+    protected $table = 'Programa';
+
     protected $fillable = [
         'id_curso',
         'es_plantilla',
-        'version',
+        'version_programa',
         'unc_programa',
-        'id_usuario_autor',
         'es_actual',
-        'fecha_creacion'
+        'fecha_creacion',
+        'creado_por'
     ];
 
-
-
     /**
-     * Fix: Override BasePrograma quoting to prevent double-escaping backslashes.
-     * Uses standard double quotes for PostgreSQL.
+     * Fix for double quoting issue with Compoships.
+     * Reverts to standard Eloquent behavior.
      */
-  public function qualifyColumn($column)
+    public function qualifyColumn($column)
     {
         if (str_contains($column, '.')) {
             return $column;
@@ -46,7 +49,18 @@ class Programa extends BasePrograma
     {
         return $this->qualifyColumn($this->getKeyName());
     }
+
+
     // Relaciones adicionales
+
+    /**
+     * Override newHasMany to use custom HasMany with proper PostgreSQL quoting
+     */
+    protected function newHasMany(\Illuminate\Database\Eloquent\Builder $query, \Illuminate\Database\Eloquent\Model $parent, $foreignKey, $localKey)
+    {
+        return new \App\Extensions\Compoships\HasMany($query, $parent, $foreignKey, $localKey);
+    }
+
     // Accessors/Mutators
     // etc.
 }

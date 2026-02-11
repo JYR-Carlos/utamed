@@ -51,7 +51,8 @@ class IsAdmin
         // But for safety during transition, we might want to check the negative condition too?
         // No, let's stick to positive role check as requested.
 
-        if (in_array('Administrador', $roles) || in_array('SuperAdmin', $roles)) {
+        $adminRoles = ['Administrador', 'SuperAdmin', 'Super Admin'];
+        if (count(array_intersect($adminRoles, $roles)) > 0) {
             $isAdmin = true;
         }
 

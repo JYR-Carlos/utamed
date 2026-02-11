@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Link } from '@inertiajs/svelte';
+    import { Link, router } from '@inertiajs/svelte';
     import DocenteLayout from '@/layouts/DocenteLayout.svelte';
     import {
         Card,
@@ -10,22 +10,113 @@
     import * as Table from "@/components/ui/table";
     import { Button } from "@/components/ui/button";
     import { Badge } from "@/components/ui/badge";
-    import { ArrowLeft, Printer } from "lucide-svelte";
+    import { ArrowLeft, Printer, Save, Eye, Edit, Trash2 } from "lucide-svelte";
     import type { Curso, Asignatura } from "@/types/admin.types";
+    import SyllabusEditor from '@/components/SyllabusEditor.svelte';
+    import SyllabusViewer from '@/components/SyllabusViewer.svelte';
+    import { toast } from "svelte-sonner";
 
-    export let curso: Curso;
-    export let asignatura: Asignatura;
-    // Define types if not available
-    export let unities: any[] = [];
-    export let programa: any;
+    interface Props {
+        curso: Curso;
+        asignatura: Asignatura;
+        programa: any;
+    }
+
+    let { curso, asignatura, programa }: Props = $props();
 
     let title = `Programa: ${asignatura.nombre}`;
+    let syllabusData: any[] = $state([]);
+    
+    // Mode: 'view' or 'edit'
+    // Default to 'view' if program exists, 'edit' if creating new
+    let mode: 'view' | 'edit' = $state(programa && programa.secciones ? 'view' : 'edit');
+    let hasUnsavedChanges = $state(false);
+
+    // Initialize syllabus data from backend if available
+    $effect(() => {
+        if (programa && programa.secciones) {
+            syllabusData = programa.secciones.map((s: any) => ({
+                nombre_seccion: s.nombre_seccion,
+                numeral_romano: s.numeral_romano,
+                es_lista: s.es_lista,
+                orden: s.orden,
+                contenidos: s.contenidos_programa ? s.contenidos_programa.map((c: any) => ({
+                    texto_contenido: c.texto_contenido,
+                    orden_item: c.orden_item,
+                    valor_numerico: c.valor_numerico
+                })) : []
+            }));
+        } else {
+            // Default template if no program exists
+            syllabusData = [
+                { nombre_seccion: "Descripción de la Asignatura", numeral_romano: "I", orden: 1, contenidos: [{ texto_contenido: asignatura.descripcion || "", orden_item: 1 }] },
+                { nombre_seccion: "Competencias", numeral_romano: "II", orden: 2, contenidos: [] },
+                { nombre_seccion: "Resultados de Aprendizaje", numeral_romano: "III", orden: 3, contenidos: [] },
+                { nombre_seccion: "Contenidos", numeral_romano: "IV", orden: 4, contenidos: [] },
+                { nombre_seccion: "Metodología", numeral_romano: "V", orden: 5, contenidos: [] },
+                { nombre_seccion: "Evaluación", numeral_romano: "VI", orden: 6, contenidos: [] },
+            ];
+        }
+    });
+
+    function handleSave(event: CustomEvent) {
+        const data = event.detail;
+        
+        router.post(`/docente/cursos/${curso.id_curso}/programa`, {
+            secciones: data
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success("Programa guardado correctamente");
+                hasUnsavedChanges = false;
+                mode = 'view';
+            },
+            onError: (errors) => {
+                toast.error("Error al guardar el programa");
+                console.error(errors);
+            }
+        });
+    }
+
+    function handleDelete() {
+        if (!programa) {
+            toast.error("No hay programa para eliminar");
+            return;
+        }
+
+        if (confirm("¿Estás seguro de eliminar este programa? Esta acción no se puede deshacer.")) {
+            router.delete(`/docente/cursos/${curso.id_curso}/programa`, {
+                onSuccess: () => {
+                    toast.success("Programa eliminado correctamente");
+                },
+                onError: (errors) => {
+                    toast.error("Error al eliminar el programa");
+                    console.error(errors);
+                }
+            });
+        }
+    }
+
+    function switchToEdit() {
+        mode = 'edit';
+    }
+
+    function switchToView() {
+        if (hasUnsavedChanges) {
+            if (confirm("Tienes cambios sin guardar. ¿Deseas descartarlos?")) {
+                hasUnsavedChanges = false;
+                mode = 'view';
+            }
+        } else {
+            mode = 'view';
+        }
+    }
 </script>
 
-<DocenteLayout {title}>
+<DocenteLayout>
     <div class="p-6 max-w-5xl mx-auto space-y-6">
-        <!-- Header with Back Button -->
-        <div class="flex items-center justify-between">
+        <!-- Header with Back Button and Mode Controls -->
+        <div class="flex items-center justify-between no-print">
             <div class="flex items-center gap-4">
                  <Link href="/docente/cursos">
                     <Button variant="ghost" size="icon">
@@ -38,7 +129,29 @@
                 </div>
             </div>
             <div class="flex gap-2">
-                 <Button variant="outline" on:click={() => window.print()}>
+                {#if programa && programa.secciones}
+                    <!-- View/Edit toggle buttons -->
+                    {#if mode === 'view'}
+                        <Button variant="outline" onclick={switchToEdit}>
+                            <Edit class="mr-2 size-4" />
+                            Editar
+                        </Button>
+                    {:else}
+                        <Button variant="outline" onclick={switchToView}>
+                            <Eye class="mr-2 size-4" />
+                            Ver
+                        </Button>
+                    {/if}
+                    
+                    <!-- Delete button -->
+                    <Button variant="destructive" onclick={handleDelete}>
+                        <Trash2 class="mr-2 size-4" />
+                        Eliminar
+                    </Button>
+                {/if}
+                
+                <!-- Print button -->
+                 <Button variant="outline" onclick={() => window.print()}>
                     <Printer class="mr-2 size-4" />
                     Imprimir
                  </Button>
@@ -46,7 +159,7 @@
         </div>
 
         <!-- Main Info Card -->
-        <Card>
+        <Card class="no-print">
             <CardHeader>
                 <CardTitle>Información General</CardTitle>
             </CardHeader>
@@ -65,50 +178,42 @@
                 </div>
                  <div class="space-y-1">
                     <p class="text-sm font-medium leading-none text-muted-foreground">Versión Programa</p>
-                    <Badge variant="secondary">v{programa.version}</Badge>
+                    {#if programa}
+                        <Badge variant="secondary">v{programa.version_programa}</Badge>
+                    {:else}
+                        <Badge variant="outline">No generado</Badge>
+                    {/if}
                 </div>
             </CardContent>
         </Card>
 
-        <!-- Description -->
-        {#if asignatura.descripcion}
-        <Card>
-             <CardHeader>
-                <CardTitle>Descripción de la Asignatura</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p class="text-sm text-muted-foreground leading-relaxed">
-                    {asignatura.descripcion}
-                </p>
-            </CardContent>
-        </Card>
-        {/if}
 
-        <!-- Units (if we have them) -->
-        {#if unities && unities.length > 0}
-        <Card>
-            <CardHeader>
-                <CardTitle>Unidades de Aprendizaje</CardTitle>
-            </CardHeader>
-            <CardContent>
-                 <Table.Root>
-                    <Table.Header>
-                        <Table.Row>
-                            <Table.Head class="w-[100px]">Unidad</Table.Head>
-                            <Table.Head>Nombre</Table.Head>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {#each unities as unidad}
-                            <Table.Row>
-                                <Table.Cell class="font-medium">{unidad.num_unidad}</Table.Cell>
-                                <Table.Cell>{unidad.nombre}</Table.Cell>
-                            </Table.Row>
-                        {/each}
-                    </Table.Body>
-                </Table.Root>
-            </CardContent>
-        </Card>
-        {/if}
+        <!-- Syllabus Content Area -->
+        <div class="print:block">
+            {#if mode === 'view'}
+                <!-- View Mode: Read-only document view -->
+                <SyllabusViewer 
+                    sections={syllabusData}
+                    {asignatura}
+                    {curso}
+                />
+            {:else}
+                <!-- Edit Mode: Editor with save functionality -->
+                <SyllabusEditor 
+                    bind:modelValue={syllabusData} 
+                    on:save={handleSave}
+                    on:change={() => hasUnsavedChanges = true}
+                />
+            {/if}
+        </div>
+        
     </div>
 </DocenteLayout>
+
+<style>
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+    }
+</style>

@@ -77,9 +77,15 @@ class HandleInertiaRequests extends Middleware
             // 2. Ahora procesamos sobre la COLECCIÓN (en memoria), no sobre el Query Builder
             $roles = $user->rolesAsignados // <--- Sin paréntesis (), usamos la colección ya cargada
                 ->pluck('rol.nombre')
-                ->unique()
                 ->values()
                 ->toArray();
+
+            \Illuminate\Support\Facades\Log::info('HandleInertiaRequests - User roles:', [
+                'user_id' => $user->id_usuario,
+                'roles_count' => count($roles),
+                'roles' => $roles,
+                'assignments' => $user->rolesAsignados->toArray()
+            ]);
 
             // \Log::info('HandleInertiaRequests - User Roles:', ['id' => $user->id_usuario, 'roles' => $roles]);
 

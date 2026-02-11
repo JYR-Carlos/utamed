@@ -56,7 +56,7 @@
     let isDocente = $derived(roles.includes('Docente'));
     let isEstudiante = $derived(roles.includes('Estudiante'));
     let isAyudante = $derived(roles.includes('Ayudante'));
-    let isAdmin = $derived(roles.includes('Super Admin') || roles.includes('Administrador') || roles.length === 0);
+    let isAdmin = $derived(roles.includes('SuperAdmin') || roles.includes('Super Admin') || roles.includes('Administrador') || roles.length === 0);
 
     // Mock data for new UI elements
     const crudStats = [

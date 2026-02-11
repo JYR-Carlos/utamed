@@ -153,6 +153,8 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
         ->name('cursos.programa.store');
     Route::get('cursos/{curso}/programa', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'show'])
         ->name('cursos.programa.show');
+    Route::delete('cursos/{curso}/programa', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'destroy'])
+        ->name('cursos.programa.destroy');
 
     // Student Enrollment (Inscripciones)
     Route::get('inscripciones', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'index'])->name('inscripciones.index');

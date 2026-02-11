@@ -43,4 +43,9 @@ abstract class BasePrograma extends Model
         return $this->belongsTo(\App\Models\Curso\Curso::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
     }
 
+    public function secciones()
+    {
+        return $this->hasMany(\App\Models\Administrativo\EstructuraPrograma::class, ['id_programa', 'es_actual', 'id_curso', 'es_plantilla'], ['id_programa', 'es_actual', 'id_curso', 'es_plantilla']);
+    }
+
 }

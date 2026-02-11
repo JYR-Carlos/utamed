@@ -30,16 +30,6 @@
             cargo?: string;
             id_usuario: number;
         };
-        /** Cursos asignados al docente */
-        cursos: Array<{
-            id_curso: number;
-            nombre: string;
-            cod_curso: string;
-            asignatura_nombre: string;
-            carrera_nombre: string;
-            fecha_inicio: string;
-            fecha_fin?: string;
-        }>;
         /** Estadísticas y datos globales del docente */
         stats: {
             total_cursos: number;
@@ -47,7 +37,7 @@
         };
     }
 
-    let { docente, cursos, stats }: Props = $props();
+    let { docente, stats }: Props = $props();
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/docente/dashboard' }
@@ -113,56 +103,37 @@
             </div>
         </div>
 
-        <!-- Cursos Section -->
+
+        <!-- Quick Actions Section -->
         <div class="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
             <div class="flex items-center justify-between mb-6">
-                <h2 class="text-xl font-bold text-slate-900">Mis Cursos</h2>
-                <Link href="/docente/cursos" class="text-blue-600 hover:text-blue-700 font-medium text-sm">
-                    Ver todos →
-                </Link>
+                <h2 class="text-xl font-bold text-slate-900">Acciones Rápidas</h2>
             </div>
 
-            {#if cursos.length > 0}
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead>
-                            <tr class="border-b border-slate-200">
-                                <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700">Asignatura</th>
-                                <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700">Código</th>
-                                <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700">Carrera</th>
-                                <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700">Inicio</th>
-                                <th class="text-center py-3 px-4 text-sm font-semibold text-slate-700">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {#each cursos as curso (curso.id_curso)}
-                                <tr class="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                                    <td class="py-3 px-4 text-slate-900 font-medium">{curso.asignatura_nombre}</td>
-                                    <td class="py-3 px-4 text-slate-600">{curso.cod_curso}</td>
-                                    <td class="py-3 px-4 text-slate-600">{curso.carrera_nombre}</td>
-                                    <td class="py-3 px-4 text-slate-600">
-                                        {new Date(curso.fecha_inicio).toLocaleDateString('es-CL')}
-                                    </td>
-                                    <td class="py-3 px-4 text-center">
-                                        <Link
-                                            href={`/docente/cursos/${curso.id_curso}/team`}
-                                            class="text-blue-600 hover:text-blue-700 font-medium text-sm"
-                                        >
-                                            Gestionar
-                                        </Link>
-                                    </td>
-                                </tr>
-                            {/each}
-                        </tbody>
-                    </table>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Ver Cursos -->
+                <Link href="/docente/cursos" class="group block p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 hover:border-blue-300 hover:shadow-md transition-all">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                            <BookOpen class="text-blue-600" size={24} />
+                        </div>
+                        <span class="text-2xl font-bold text-blue-900">{stats.total_cursos}</span>
+                    </div>
+                    <h3 class="font-semibold text-lg text-slate-900 mb-1">Mis Cursos</h3>
+                    <p class="text-sm text-slate-600">Gestiona tus cursos, programas y equipos</p>
+                </Link>
+
+                <!-- Placeholder para futuras funcionalidades -->
+                <div class="p-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border border-slate-200">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="p-3 bg-slate-200 rounded-lg">
+                            <Clock class="text-slate-500" size={24} />
+                        </div>
+                    </div>
+                    <h3 class="font-semibold text-lg text-slate-900 mb-1">Actividades Recientes</h3>
+                    <p class="text-sm text-slate-600">Próximamente: historial de actividades</p>
                 </div>
-            {:else}
-                <div class="text-center py-12">
-                    <BookOpen class="mx-auto text-slate-400 mb-3" size={32} />
-                    <p class="text-slate-600 mb-2">No tienes cursos asignados</p>
-                    <p class="text-slate-500 text-sm">Contacta con administración para que te asigne cursos</p>
-                </div>
-            {/if}
+            </div>
         </div>
     </div>
 </DocenteLayout>

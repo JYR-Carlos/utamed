@@ -29,18 +29,59 @@
         return () => document.removeEventListener('keydown', handleKeydown);
     });
 
-    const searchItems = [
-        { group: 'Navegación', items: [
-            { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard' },
-            { icon: Users, label: 'Usuarios', href: '/admin/usuarios' },
-            { icon: Building2, label: 'Facultades', href: '/admin/facultades' },
-            { icon: BookOpen, label: 'Asignaturas', href: '/admin/asignaturas' },
-        ]},
-        { group: 'Configuración', items: [
-            { icon: Settings, label: 'Perfil', href: '/settings' },
-            { icon: LogOut, label: 'Cerrar Sesión', action: () => router.post('/logout') },
-        ]}
-    ];
+    const searchItems = $derived.by(() => {
+        const isAdmin = roles.includes('admin');
+        const isDocente = roles.includes('docente');
+        const isEstudiante = roles.includes('estudiante');
+
+        const items = [];
+
+        // Admin navigation
+        if (isAdmin) {
+            items.push({
+                group: 'Administración',
+                items: [
+                    { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard' },
+                    { icon: Users, label: 'Usuarios', href: '/admin/usuarios' },
+                    { icon: Building2, label: 'Facultades', href: '/admin/facultades' },
+                    { icon: BookOpen, label: 'Asignaturas', href: '/admin/asignaturas' },
+                ]
+            });
+        }
+
+        // Docente navigation
+        if (isDocente) {
+            items.push({
+                group: 'Docente',
+                items: [
+                    { icon: LayoutGrid, label: 'Dashboard', href: '/docente/dashboard' },
+                    { icon: BookOpen, label: 'Mis Cursos', href: '/docente/cursos' },
+                ]
+            });
+        }
+
+        // Estudiante navigation
+        if (isEstudiante) {
+            items.push({
+                group: 'Estudiante',
+                items: [
+                    { icon: LayoutGrid, label: 'Dashboard', href: '/estudiante/dashboard' },
+                    { icon: BookOpen, label: 'Mis Cursos', href: '/estudiante/cursos' },
+                ]
+            });
+        }
+
+        // Common options for all users
+        items.push({
+            group: 'Configuración',
+            items: [
+                { icon: Settings, label: 'Perfil', href: '/settings' },
+                { icon: LogOut, label: 'Cerrar Sesión', action: () => router.post('/logout') },
+            ]
+        });
+
+        return items;
+    });
 
     function handleSelect(item: any) {
         openSearch = false;

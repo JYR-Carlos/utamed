@@ -63,8 +63,7 @@ class DocenteCursoController extends Controller
             ->get()
             ->map(function ($curso) {
                 // Verificar si existe algún programa para este curso
-                $tienePrograma = DB::table('Programa')
-                    ->where('id_curso', $curso->id_curso)
+                $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)
                     ->whereNull('fecha_eliminacion')
                     ->exists();
 
@@ -127,8 +126,7 @@ class DocenteCursoController extends Controller
             return $carry + $seccion->inscripcionSecciones->count();
         }, 0);
         // Verificar si existe algún programa para este curso
-        $tienePrograma = DB::table('Programa')
-            ->where('id_curso', $curso->id_curso)
+        $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)
             ->whereNull('fecha_eliminacion')
             ->exists();
 

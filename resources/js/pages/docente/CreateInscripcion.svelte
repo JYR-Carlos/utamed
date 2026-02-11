@@ -37,7 +37,7 @@
 
 	let isSubmitting = $state(false);
 	let errorMessage = $state('');
-	let errors = $state<Record<string, string[]>>({});
+	let errors = $state<Record<string, string>>({});
 	let estudiantesDisponibles = $state<Estudiante[]>([]);
 
 	$effect(() => {
@@ -51,7 +51,7 @@
 	async function cargarEstudiantesDisponibles() {
 		try {
 			const response = await axios.get(
-			    '/admin/inscripciones_cursos/ajax/disponibles', // Reuse the admin ajax endpoint (it checks permissions)
+			    '/docente/inscripciones/ajax/disponibles',
 				{
 					params: { id_curso: formData.id_curso }
 				}
@@ -63,27 +63,32 @@
 		}
 	}
 
-	async function handleSubmit(e: SubmitEvent) {
+	function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
-		isSubmitting = true;
 		errorMessage = '';
 		errors = {};
 
-		try {
-			await router.post('/docente/inscripciones', formData); // Post to docente route
-		} catch (error) {
-			if (error instanceof AxiosError) {
-				if (error.response?.status === 422 && error.response?.data?.errors) {
-					errors = error.response.data.errors;
-					errorMessage = 'Por favor, verifica los errores en el formulario.';
-				} else {
-					errorMessage = error.response?.data?.message || 'Error al crear la inscripción';
-				}
-			} else {
-				errorMessage = 'Error al crear la inscripción';
+		console.log('Submitting form data:', formData);
+
+		router.post('/docente/inscripciones', formData, {
+			onStart: () => {
+				isSubmitting = true;
+			},
+			onFinish: () => {
+				isSubmitting = false;
+			},
+			onError: (pageErrors) => {
+				console.log('Validation errors:', pageErrors);
+				errors = pageErrors;
+				
+				// Show specific errors if available
+				const errorList = Object.entries(pageErrors)
+					.map(([field, message]) => `${field}: ${message}`)
+					.join('\n');
+				
+				errorMessage = errorList || 'Por favor, verifica los errores en el formulario.';
 			}
-			isSubmitting = false;
-		}
+		});
 	}
 
 	function handleCancel() {
@@ -124,7 +129,7 @@
 						{/each}
 					</select>
 					{#if errors.id_curso}
-						<p class="mt-2 text-sm text-red-600">{errors.id_curso[0]}</p>
+						<p class="mt-2 text-sm text-red-600">{errors.id_curso}</p>
 					{/if}
 				</div>
 
@@ -153,7 +158,7 @@
 						{/each}
 					</select>
 					{#if errors.id_estudiante}
-						<p class="mt-2 text-sm text-red-600">{errors.id_estudiante[0]}</p>
+						<p class="mt-2 text-sm text-red-600">{errors.id_estudiante}</p>
 					{/if}
 				</div>
 
@@ -169,7 +174,7 @@
 						class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
 					/>
 					{#if errors.cod_inscripcion_uta}
-						<p class="mt-2 text-sm text-red-600">{errors.cod_inscripcion_uta[0]}</p>
+						<p class="mt-2 text-sm text-red-600">{errors.cod_inscripcion_uta}</p>
 					{/if}
 				</div>
 
