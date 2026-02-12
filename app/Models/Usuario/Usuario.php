@@ -6,6 +6,8 @@ use App\Models\Base\Usuario\BaseUsuario;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Services\Authorization\PermissionValidator;
+use App\Contracts\HasContext;
 
 /**
  * Modelo Usuario
@@ -18,14 +20,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * Modelo Usuario
  * 
  * Extiende de BaseUsuario (auto-generado)
- * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
- */
+ * Agrega aquí tus personalizaciones, relaciones adicionales, etc . */
 class Usuario extends BaseUsuario implements Authenticatable
 {
     use AuthenticatableTrait, HasFactory;
 
     protected $table = 'Usuario';
-
 
     /**
      * Get the password for the user.
@@ -38,27 +38,9 @@ class Usuario extends BaseUsuario implements Authenticatable
         return $this->passhash;
     }
 
-    protected function casts(): array
-    {
-        return [
-            'esta_activo' => 'boolean',
-        ];
-    }
-
-    protected $fillable = [
-        'username',
-        'passhash',
-        'email',
-        'nombre1',
-        'nombre2',
-        'apellido1',
-        'apellido2',
-        'rut',
-        'esta_activo'
-    ];
-
     /**
      * Roles assigned to the user in different contexts.
+     * @deprecated Usar relaciones directas del modelo base
      */
     public function rolesAsignados()
     {
@@ -67,6 +49,7 @@ class Usuario extends BaseUsuario implements Authenticatable
 
     /**
      * Special individual permissions assigned to the user.
+     * @deprecated Usar relaciones directas del modelo base
      */
     public function permisosEspeciales()
     {
@@ -75,80 +58,208 @@ class Usuario extends BaseUsuario implements Authenticatable
 
     /**
      * Check if user has a specific permission in a given context.
-     * Special permissions override role permissions.
+     * 
+     * NOTA: Método existente refactorizado para usar PermissionValidator.
+     * Mantiene firma para retrocompatibilidad.
+     * 
+     * @param string $slug Slug del permiso (ej: 'facultad:ver')
+     * @param int $id_contexto ID del contexto
+     * @return bool
      */
     public function hasPermission(string $slug, int $id_contexto): bool
     {
-        // 1. Get all active permissions for this user (Role-based & Special)
-        // We'll prioritize special permissions (allow/deny) over roles
+        return app(PermissionValidator::class)
+            ->validate($this, $slug, null, $id_contexto);
+    }
 
-        $specialPerms = $this->permisosEspeciales()
-            ->where('id_contexto', $id_contexto)
-            ->where('esta_activo', true)
-            ->where('fue_borrado', false)
-            ->with('permiso')
-            ->get();
+    /**
+     * Verificar permiso con resolución automática de contexto desde un recurso.
+     * 
+     * @param string $permission Slug del permiso
+     * @param HasContext|null $resource Instancia del modelo (opcional)
+     * @return bool
+     */
+    public function hasPermissionFor(string $permission, ?HasContext $resource = null): bool
+    {
+        return app(PermissionValidator::class)
+            ->validate($this, $permission, $resource);
+    }
 
-        // Check explicit DENY first (special permission with esta_permitido = false)
-        foreach ($specialPerms as $special) {
-            if ($special->esta_permitido === false && $this->matchesSlug($slug, $special->permiso->slug)) {
-                return false; // Explicitly denied
-            }
+    /**
+     * Verificar permiso en contexto explícito.
+     * 
+     * Alias de hasPermission() con nombre más descriptivo.
+     * 
+     * @param string $permission Slug del permiso
+     * @param int $contextId ID del contexto
+     * @return bool
+     */
+    public function hasPermissionInContext(string $permission, int $contextId): bool
+    {
+        return $this->hasPermission($permission, $contextId);
+    }
+
+    /**
+     * Obtener contextos donde el usuario tiene un permiso.
+     * 
+     * Útil para filtrar queries con whereContext()
+     * 
+     * @param string $permission Slug del permiso
+     * @return array Array de IDs de contexto
+     */
+    public function getContextsWithPermission(string $permission): array
+    {
+        return app(PermissionValidator::class)
+            ->getContextsWithPermission($this, $permission);
+    }
+
+    /**
+     * Obtener todos los permisos efectivos del usuario.
+     * 
+     * Para debugging y mostrar en UI.
+     * 
+     * @param int|null $contextId Filtrar por contexto
+     * @return \Illuminate\Support\Collection
+     */
+    public function getAllPermissions(?int $contextId = null): \Illuminate\Support\Collection
+    {
+        return app(PermissionValidator::class)
+            ->getUserPermissions($this, $contextId);
+    }
+
+    /* 
+    * ============================================================================
+    * SISTEMA DE PERMISOS RBAC CON CONTEXTOS JERÁRQUICOS
+    * ============================================================================
+    * 
+    * Este modelo incluye métodos para validación de permisos basados en:
+    * - URA (Usuario-Rol-Asignación): Permisos heredados de roles
+    * - UPE (Usuario-Permiso-Especial): Permisos individuales (GRANT/DENY)
+    * - Contextos jerárquicos: Permisos limitados a ámbitos específicos
+    * 
+    * MÉTODOS DISPONIBLES:
+    * --------------------
+    * 
+    * 1. hasPermission(slug, contextId): Verificar permiso en contexto explícito
+    *    Ej: $user->hasPermission('facultad:ver', 5)
+    * 
+    * 2. hasPermissionFor(slug, resource?): Verificar permiso con resolución automática
+    *    Ej: $user->hasPermissionFor('facultad:editar', $facultad)
+    * 
+    * 3. getContextsWithPermission(slug): Obtener contextos donde tiene permiso
+    *    Ej: $contextIds = $user->getContextsWithPermission('curso:ver')
+    *        $cursos = Curso::whereContext($contextIds)->get()
+    * 
+    * 4. getAllPermissions(contextId?): Listar todos los permisos efectivos
+    *    Ej: $permisos = $user->getAllPermissions(5) // Para debugging/UI
+    * 
+    * 5. can(ability, arguments): Integración con Laravel Gates/Policies
+    *    Ej: $user->can('view', $facultad) // Usa FacultadPolicy si existe
+    *        $user->can('facultad:ver', $facultad) // Fallback a PermissionValidator
+    * 
+    * USO CON POLICIES (FASE 4 - Pendiente de implementación):
+    * ----------------------------------------------------------
+    * 
+    * Las Policies deben registrarse en AuthServiceProvider y usar PermissionValidator:
+    * 
+    * // app/Policies/FacultadPolicy.php (EJEMPLO FUTURO)
+    * class FacultadPolicy
+    * {
+    *     public function __construct(
+    *         protected PermissionValidator $validator
+    *     ) {}
+    * 
+    *     public function view(Usuario $user, Facultad $facultad): bool
+    *     {
+    *         return $this->validator->validate($user, 'facultad:ver', $facultad);
+    *     }
+    * 
+    *     public function create(Usuario $user, ?HasContext $parent = null): bool
+    *     {
+    *         $contextId = $parent?->getContextId()[0] ?? null;
+    *         return $this->validator->validate($user, 'facultad:crear', null, $contextId);
+    *     }
+    * }
+    * 
+    * // app/Providers/AuthServiceProvider.php
+    * protected $policies = [
+    *     Facultad::class => FacultadPolicy::class,
+    * ];
+    * 
+    * // En Controllers
+    * $this->authorize('view', $facultad); // Usa FacultadPolicy::view()
+    * 
+    * ============================================================================
+    */
+
+    /**
+     * Override del método can() de Laravel para integrar con el sistema de permisos.
+     * 
+     * FLUJO DE AUTORIZACIÓN:
+     * 1. PRIORIDAD: Policies registradas en AuthServiceProvider
+     *    - Si existe Policy para el modelo, Laravel la ejecuta automáticamente
+     *    - La Policy internamente debe usar PermissionValidator
+     * 
+     * 2. FALLBACK: PermissionValidator directo (solo si NO hay Policy)
+     *    - Para slugs de permisos ('recurso:accion') sin Policy registrada
+     *    - Permite usar $user->can('facultad:ver', $facultad) sin Policy
+     * 
+     * RECOMENDACIÓN: Usar Policies para modelos con validaciones complejas.
+     * Para verificaciones directas, preferir: $user->hasPermissionFor($slug, $resource)
+     * 
+     * @param string $ability Nombre de la habilidad ('view', 'create') o slug ('facultad:ver')
+     * @param array|mixed $arguments Argumentos (modelo, contexto, etc.)
+     * @return bool
+     */
+    public function can($ability, $arguments = []): bool
+    {
+        // PASO 1: Delegar a parent (Laravel's Gate/Policy system)
+        // Esto ejecutará Policies registradas automáticamente
+        $parentResult = parent::can($ability, $arguments);
+        
+        // Si parent permitió, retornar true
+        if ($parentResult) {
+            return true;
         }
-
-        // Check explicit ALLOW (special permission with esta_permitido = true)
-        foreach ($specialPerms as $special) {
-            if ($special->esta_permitido === true && $this->matchesSlug($slug, $special->permiso->slug)) {
-                return true; // Explicitly allowed
+        
+        // PASO 2: Fallback para slugs de permisos SIN Policy registrada
+        // parent::can() retornó false, podría ser porque:
+        // a) Una Policy denegó explícitamente (respetar esa decisión)
+        // b) No hay Policy registrada (usar PermissionValidator)
+        
+        if (str_contains($ability, ':') || $ability === '*') {
+            $model = is_array($arguments) ? ($arguments[0] ?? null) : $arguments;
+            
+            // Verificar si existe una Policy registrada para el modelo
+            if (is_object($model)) {
+                $gate = app(\Illuminate\Contracts\Auth\Access\Gate::class);
+                
+                // Si hay Policy, respetar su decisión (false)
+                if ($gate->getPolicyFor($model) !== null) {
+                    return false;
+                }
             }
+            
+            // No hay Policy registrada, usar PermissionValidator como fallback
+            $resource = ($model instanceof HasContext) ? $model : null;
+            return $this->hasPermissionFor($ability, $resource);
         }
-
-        // 2. Check Role Permissions
-        $rolePerms = $this->rolesAsignados()
-            ->where('id_contexto', $id_contexto)
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->with(['rol.permisos'])
-            ->get()
-            ->pluck('rol.permisos')
-            ->flatten()
-            ->unique('id_permiso');
-
-        foreach ($rolePerms as $perm) {
-            if ($this->matchesSlug($slug, $perm->slug)) {
-                return true;
-            }
-        }
-
+        
+        // Para habilidades estándar sin Policy, retornar false
         return false;
     }
 
     /**
      * Check if a requested slug matches a user's permission slug using wildcards.
      * 
+     * @deprecated Usar WildcardMatcher en su lugar. Mantenido para retrocompatibilidad.
      * @param string $requestedSlug The permission being checked (e.g., 'activity:edit')
      * @param string $userSlug The permission the user has (e.g., 'activity:*')
      * @return bool
      */
     protected function matchesSlug(string $requestedSlug, string $userSlug): bool
     {
-        if ($userSlug === '*') {
-            return true;
-        }
-
-        if ($userSlug === $requestedSlug) {
-            return true;
-        }
-
-        // Check wildcard: "activity:*" matches "activity:edit"
-        if (str_ends_with($userSlug, '*')) {
-            $prefix = substr($userSlug, 0, -1);
-            if (str_starts_with($requestedSlug, $prefix)) {
-                return true;
-            }
-        }
-
-        return false;
+        return \App\Services\Authorization\WildcardMatcher::matches($requestedSlug, $userSlug);
     }
 
     /**
