@@ -33,7 +33,18 @@ class CursoPolicy
     public function manageTeam(Usuario $user, Curso $curso): bool
     {
         // Admins siempre tienen acceso
-        if ($user->is_admin) {
+        // Verificar roles: Administrador o SuperAdmin
+        $adminRoles = ['Administrador', 'SuperAdmin', 'Super Admin'];
+        $userRoles = $user->rolesAsignados()
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->with('rol')
+            ->get()
+            ->pluck('rol.nombre')
+            ->toArray();
+
+        // Si tiene alguno de los roles de admin, permitir
+        if (count(array_intersect($adminRoles, $userRoles)) > 0) {
             return true;
         }
 

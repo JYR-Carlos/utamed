@@ -44,14 +44,12 @@ abstract class BaseCurso extends Model implements HasContext
      */
     public function qualifyColumn($column)
     {
-        $qualified = parent::qualifyColumn($column);
-        // Only quote if not already quoted and contains a dot (table.column)
-        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
-            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        if (str_contains($column, '.')) {
+            return $column;
         }
-        return $qualified;
-    }
 
+        return $this->getTable() . '.' . $column;
+    }
     /**
      * Override getQualifiedKeyName to ensure correct quoting
      */

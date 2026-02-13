@@ -2,6 +2,8 @@
 
 namespace App\Models\Base\Administrativo;
 
+use App\Extensions\Compoships\BelongsTo;
+use App\Models\Administrativo\Departamento;
 use Illuminate\Database\Eloquent\Model;
 use Awobaz\Compoships\Compoships;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -42,12 +44,11 @@ abstract class BaseCarrera extends Model implements HasContext
      */
     public function qualifyColumn($column)
     {
-        $qualified = parent::qualifyColumn($column);
-        // Only quote if not already quoted and contains a dot (table.column)
-        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
-            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
+        if (str_contains($column, '.')) {
+            return $column;
         }
-        return $qualified;
+
+        return $this->getTable() . '.' . $column;
     }
 
     /**
@@ -63,7 +64,15 @@ abstract class BaseCarrera extends Model implements HasContext
 
     public function departamento()
     {
-        return $this->belongsTo(\App\Models\Administrativo\Departamento::class, ['id_departamento', 'id_facultad'], ['id_departamento', 'id_facultad']);
+        $instance = new Departamento();
+
+        return new BelongsTo(
+            $instance->newQuery(),
+            $this,
+            ['id_departamento', 'id_facultad'],
+            ['id_departamento', 'id_facultad'],
+            'departamento'
+        );
     }
 
     public function contexto()
