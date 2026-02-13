@@ -36,7 +36,8 @@ Route::get('dashboard', function () {
     return Inertia::render('Dashboard', [
         'stats' => [
             'usuarios' => \App\Models\Usuario\Usuario::count(),
-            'cursos' => \App\Models\Curso\Curso::where('estado_interno', 'ABIERTO')
+            'cursos_total' => \App\Models\Curso\Curso::count(),
+            'cursos_pendientes' => \App\Models\Curso\Curso::where('estado_interno', 'ABIERTO')
                 ->where(function ($query) {
                     $query->where('estado_acta', '!=', 'ENVIADO')
                         ->orWhereNull('estado_acta');

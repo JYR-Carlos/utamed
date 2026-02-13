@@ -140,18 +140,37 @@ class CourseTeamController extends Controller
         // Security Check: For now, just ensuring we don't overwrite existing
         // In future: Check if auth user has permission to assign this role.
 
-        UsuarioRolAsignación::create([
-            'id_usuario' => $validated['id_usuario'],
-            'id_contexto' => $curso->id_contexto,
-            'id_rol' => $rol->id_rol,
-            'asignado_por' => (int) (auth()->id() ?? 1), // Fallback to ID 1 if auth fails (e.g. seeding/testing)
-            'creado_por' => (int) (auth()->id() ?? 1),
-            'fecha_inicio_planificada' => now(),
-            'fecha_fin_planificada' => now()->addYears(100),
-            'esta_activo' => true,
-            'fue_eliminado' => false,
-            'fecha_creacion' => now(),
-        ]);
+        // Check for existing assignment (including soft deleted)
+        $existingAssignment = UsuarioRolAsignación::where('id_usuario', $validated['id_usuario'])
+            ->where('id_contexto', $curso->id_contexto)
+            ->where('id_rol', $rol->id_rol)
+            ->first();
+
+        if ($existingAssignment) {
+            // Reactivate existing assignment
+            $existingAssignment->update([
+                'esta_activo' => true,
+                'fue_eliminado' => false,
+                'fecha_fin_real' => null,
+                'asignado_por' => (int) (auth()->id() ?? 1),
+                'fecha_inicio_planificada' => now(),
+                'fecha_fin_planificada' => now()->addYears(100),
+            ]);
+        } else {
+            // Create new assignment
+            UsuarioRolAsignación::create([
+                'id_usuario' => $validated['id_usuario'],
+                'id_contexto' => $curso->id_contexto,
+                'id_rol' => $rol->id_rol,
+                'asignado_por' => (int) (auth()->id() ?? 1), // Fallback to ID 1 if auth fails (e.g. seeding/testing)
+                'creado_por' => (int) (auth()->id() ?? 1),
+                'fecha_inicio_planificada' => now(),
+                'fecha_fin_planificada' => now()->addYears(100),
+                'esta_activo' => true,
+                'fue_eliminado' => false,
+                'fecha_creacion' => now(),
+            ]);
+        }
 
         return back()->with('success', 'Miembro agregado exitosamente.');
     }
