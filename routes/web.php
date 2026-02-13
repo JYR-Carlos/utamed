@@ -28,9 +28,45 @@ Route::get('dashboard', function () {
         return redirect()->route('docente.dashboard');
     }
 
-    // Redirigir estudiantes a su dashboard
+    // Redirigir estudiantes a su dashboard (Prioridad Estudiante)
     if ($user && $user->estudiante) {
         return redirect()->route('estudiante.dashboard');
+    }
+
+    // Check if user is Ayudante (Only if NOT student, or explicit access)
+    $isAyudante = $user->rolesAsignados()
+        ->where('esta_activo', true)
+        ->where('fue_eliminado', false)
+        ->whereHas('rol', function ($query) {
+            $query->whereIn('nombre', ['Ayudante', 'ayudante']);
+        })
+        ->exists();
+
+    if ($isAyudante) {
+        return redirect()->route('ayudante.dashboard');
+    }
+
+    $ayudanteCourses = [];
+    if ($isAyudante) {
+        $contextosAsignados = $user->rolesAsignados()
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->whereHas('rol', function ($query) {
+                $query->whereIn('nombre', ['Ayudante', 'ayudante']);
+            })
+            ->pluck('id_contexto');
+
+        $ayudanteCourses = \App\Models\Curso\Curso::whereIn('id_contexto', $contextosAsignados)
+            ->with(['asignatura', 'plan.carrera'])
+            ->get()
+            ->map(function ($curso) {
+                return [
+                    'id_curso' => $curso->id_curso,
+                    'nombre' => $curso->nombre,
+                    'cod_curso' => $curso->cod_curso,
+                    'asignatura_nombre' => $curso->asignatura?->nombre ?? 'N/A',
+                ];
+            });
     }
 
     return Inertia::render('Dashboard', [
@@ -45,7 +81,8 @@ Route::get('dashboard', function () {
                 ->count(),
             'facultades' => \App\Models\Administrativo\Facultad::count(),
             'carreras' => \App\Models\Administrativo\Carrera::count(),
-        ]
+        ],
+        'ayudanteCourses' => $ayudanteCourses,
     ]);
 
 })->middleware(['auth', 'verified'])->name('dashboard');
@@ -190,6 +227,13 @@ Route::prefix('estudiante')->middleware(['auth', 'verified', 'is_estudiante'])->
     Route::get('dashboard', [\App\Http\Controllers\Student\DashboardController::class, 'index'])->name('dashboard');
     Route::get('cursos', [\App\Http\Controllers\Student\CourseController::class, 'index'])->name('cursos.index');
     Route::get('cursos/{curso}', [\App\Http\Controllers\Student\CourseController::class, 'show'])->name('cursos.show');
+});
+
+// Ayudante Routes
+Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name('ayudante.')->group(function () {
+    Route::get('dashboard', [\App\Http\Controllers\Ayudante\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('cursos', [\App\Http\Controllers\Ayudante\CourseController::class, 'index'])->name('cursos.index');
+    Route::get('cursos/{curso}', [\App\Http\Controllers\Ayudante\CourseController::class, 'show'])->name('cursos.show');
 });
 
 require __DIR__ . '/settings.php';

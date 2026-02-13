@@ -31,7 +31,7 @@ class DashboardController extends Controller
 
         // Obtener las inscripciones del estudiante
         $inscripciones = InscripcionCurso::where('id_estudiante', $estudiante->id_estudiante)
-            ->where('estado_inscripcion', 'INSCRITA') // Asumiendo estado 'INSCRITA' o similar
+            ->where('estado_inscripcion', 'INSCRITO')
             ->with(['curso.asignatura', 'curso.plan.carrera'])
             ->get();
 
@@ -49,6 +49,15 @@ class DashboardController extends Controller
             ];
         });
 
+        // Check if user is also Ayudante
+        $isAyudante = $user->rolesAsignados()
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->whereHas('rol', function ($query) {
+                $query->whereIn('nombre', ['Ayudante', 'ayudante']);
+            })
+            ->exists();
+
         return Inertia::render('student/Dashboard', [
             'estudiante' => [
                 'id_estudiante' => $estudiante->id_estudiante,
@@ -59,7 +68,8 @@ class DashboardController extends Controller
             'stats' => [
                 'total_cursos' => $cursosData->count(),
                 'nombre_completo' => trim("{$user->nombre1} {$user->apellido1}"),
-            ]
+            ],
+            'isAyudante' => $isAyudante
         ]);
     }
 }

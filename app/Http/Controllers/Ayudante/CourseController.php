@@ -1,10 +1,9 @@
 <?php
 
-namespace App\Http\Controllers\Student;
+namespace App\Http\Controllers\Ayudante;
 
 use App\Http\Controllers\Controller;
 use App\Models\Usuario\Usuario;
-use App\Models\Curso\InscripcionCurso;
 use Inertia\Inertia;
 
 class CourseController extends Controller
@@ -14,20 +13,20 @@ class CourseController extends Controller
         /** @var Usuario $user */
         $user = auth()->user();
 
-        if (!$user->estudiante) {
-            return redirect('/dashboard');
-        }
+        // Obtener cursos donde es Ayudante
+        $contextosAsignados = $user->rolesAsignados()
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->whereHas('rol', function ($query) {
+                $query->whereIn('nombre', ['Ayudante', 'ayudante']);
+            })
+            ->pluck('id_contexto');
 
-        $estudiante = $user->estudiante;
-
-        // Obtener inscripciones del estudiante
-        $inscripciones = $estudiante->inscripcionCursos()
-            ->where('estado_inscripcion', 'INSCRITO') // Asumiendo estado para cursos activos
-            ->with(['curso.asignatura', 'curso.plan.carrera'])
+        $cursosInscritos = \App\Models\Curso\Curso::whereIn('id_contexto', $contextosAsignados)
+            ->with(['asignatura', 'plan.carrera'])
             ->get();
 
-        $cursosData = $inscripciones->map(function ($inscripcion) {
-            $curso = $inscripcion->curso;
+        $cursosData = $cursosInscritos->map(function ($curso) {
             return [
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
@@ -39,16 +38,14 @@ class CourseController extends Controller
             ];
         });
 
-        return Inertia::render('student/Courses/Index', [
+        return Inertia::render('ayudante/Courses/Index', [
             'cursos' => $cursosData,
         ]);
     }
 
     public function show(int $id)
     {
-        // Logic to show specific course details (activities, messages)
-        // For now just a placeholder or basic view
-        return Inertia::render('student/Courses/Show', [
+        return Inertia::render('ayudante/Courses/Show', [
             'id_curso' => $id
         ]);
     }

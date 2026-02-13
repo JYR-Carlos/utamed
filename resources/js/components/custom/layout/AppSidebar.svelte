@@ -92,6 +92,19 @@
             href: '/docente/cursos',
             icon: BookOpen,
             show: userDocente && !isAdminOnly,
+        },
+        // Ayudante Items
+        {
+            title: 'Dashboard Ayudante',
+            href: '/ayudante/dashboard',
+            icon: LayoutGrid,
+            show: hasRole(['Ayudante']),
+        },
+        {
+            title: 'Cursos Asignados',
+            href: '/ayudante/cursos',
+            icon: BookOpen,
+            show: hasRole(['Ayudante']),
         }
     ]);
 

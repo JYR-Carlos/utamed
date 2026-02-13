@@ -32,9 +32,11 @@
             total_cursos: number;
             nombre_completo: string;
         };
+        /** Es ayudante? */
+        isAyudante?: boolean;
     }
 
-    let { estudiante, cursos, stats }: Props = $props();
+    let { estudiante, cursos, stats, isAyudante = false }: Props = $props();
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/estudiante/dashboard' }
@@ -64,6 +66,21 @@
             </div>
 
             <!-- Add more stats if needed -->
+            {#if isAyudante}
+                <div class="bg-indigo-50 rounded-lg border border-indigo-100 p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-indigo-600 text-sm font-medium">Rol Ayudante Detectado</p>
+                            <Link href="/ayudante/dashboard" class="text-lg font-bold text-indigo-900 mt-1 hover:underline flex items-center gap-2">
+                                Ir al Panel de Ayudante →
+                            </Link>
+                        </div>
+                        <div class="bg-indigo-100 p-3 rounded-lg">
+                            <BookOpen class="text-indigo-600" size={24} />
+                        </div>
+                    </div>
+                </div>
+            {/if}
         </div>
 
         <!-- Cursos Section -->
