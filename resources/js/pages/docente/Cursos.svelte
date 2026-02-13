@@ -286,12 +286,11 @@
     {#if selectedCurso}
         <CourseTeamModal
             bind:isOpen={isTeamModalOpen}
-            onClose={() => isTeamModalOpen = false}
+            onClose={() => { isTeamModalOpen = false; selectedCurso = null; }}
             curso={selectedCurso}
+            urlPrefix="docente"
             {availableRoles}
             {availablePermissions}
         />
     {/if}
 </DocenteLayout>
-
-

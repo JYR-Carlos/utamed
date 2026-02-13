@@ -3,6 +3,7 @@
 namespace App\Models\Usuario;
 
 use App\Models\Base\Usuario\BaseDocente;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
  * Modelo Docente
@@ -12,6 +13,7 @@ use App\Models\Base\Usuario\BaseDocente;
  */
 class Docente extends BaseDocente
 {
+    use HasFactory;
     protected $table = 'Docente';
     protected $primaryKey = 'id_docente';
 

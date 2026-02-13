@@ -62,30 +62,49 @@ class CourseTeamController extends Controller
         $assignments = UsuarioRolAsignación::where('id_contexto', $curso->id_contexto)
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
-            ->with(['usuario', 'rol'])
+            ->with(['rol'])
             ->get();
 
         // Transform for frontend
         $team = $assignments->map(function ($assignment) {
-            $user = $assignment->usuario;
-            if (!$user)
+            // Get user directly by id_usuario
+            $user = Usuario::find($assignment->id_usuario);
+
+            \Log::info('Processing assignment', [
+                'id_usuario' => $assignment->id_usuario,
+                'user_found' => $user ? 'yes' : 'no',
+                'user_data' => $user ? [
+                    'id' => $user->id_usuario,
+                    'nombre1' => $user->nombre1,
+                    'apellido1' => $user->apellido1,
+                    'rut' => $user->rut,
+                    'has_docente' => $user->docente ? 'yes' : 'no',
+                    'has_estudiante' => $user->estudiante ? 'yes' : 'no',
+                ] : null
+            ]);
+
+            if (!$user) {
+                \Log::warning('User not found for assignment', ['id_usuario' => $assignment->id_usuario]);
                 return null; // Safety check
+            }
 
             // Let's try to get a display name.
-            $name = $user->nombre_usuario ?? "Usuario " . $user->id_usuario;
-            $rut = $user->nombre_usuario; // Often RUT is username
+            $name = "Usuario " . $user->id_usuario; // Default fallback
+            $rut = $user->rut ?? '';
+
             // Try to find specific profile
-            if ($user->docente) {
+            if ($user->nombre1 && $user->apellido1) {
+                // Use direct fields first (most reliable)
+                $name = trim($user->nombre1 . ' ' . $user->apellido1);
+            } elseif ($user->docente) {
                 $name = $user->docente->nombre_completo;
             } elseif ($user->estudiante) {
                 $name = $user->estudiante->nombre_completo;
-            } elseif ($user->administrativo) {
-                $name = $user->administrativo->nombre_completo;
             }
 
             return [
                 'id_usuario' => $user->id_usuario,
-                'nombre_completo' => $name,
+                'nombre' => $name,
                 'role_name' => $assignment->rol->nombre,
                 'rut' => $rut
             ];
@@ -389,6 +408,89 @@ class CourseTeamController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Error al sincronizar permisos: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Busca usuarios con rol 'ayudante' disponibles para agregar al equipo del curso.
+     * 
+     * Filtra usuarios que:
+     * - Tengan el rol 'ayudante' asignado en cualquier contexto
+     * - No estén ya en el equipo del curso
+     * - Coincidan con el término de búsqueda (nombre, apellido, RUT)
+     * 
+     * @param  Request  $request  Parámetros: search (término de búsqueda)
+     * @param  Curso    $curso    Curso para el cual buscar ayudantes
+     * @return \Illuminate\Http\JsonResponse  JSON con array de usuarios disponibles
+     */
+    public function searchAssistants(Request $request, Curso $curso)
+    {
+        try {
+            $this->authorize('manageTeam', $curso);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'No autorizado'], 403);
+        }
+
+        $searchTerm = $request->input('search', '');
+
+        if (strlen($searchTerm) < 3) {
+            return response()->json([]);
+        }
+
+        try {
+            // Obtener el ID del rol 'ayudante'
+            $ayudanteRole = Rol::where('nombre', 'ayudante')->first();
+
+            if (!$ayudanteRole) {
+                return response()->json([]);
+            }
+
+            // Obtener IDs de usuarios que ya están en el equipo del curso
+            $existingMemberIds = [];
+            if ($curso->id_contexto) {
+                $existingMemberIds = UsuarioRolAsignación::where('id_contexto', $curso->id_contexto)
+                    ->where('esta_activo', true)
+                    ->where('fue_eliminado', false)
+                    ->pluck('id_usuario')
+                    ->toArray();
+            }
+
+            // Buscar usuarios con rol 'ayudante'
+            $usuariosConAyudante = UsuarioRolAsignación::where('id_rol', $ayudanteRole->id_rol)
+                ->where('esta_activo', true)
+                ->where('fue_eliminado', false)
+                ->whereNotIn('id_usuario', $existingMemberIds)
+                ->pluck('id_usuario')
+                ->unique();
+
+            // Buscar en la tabla Usuario
+            $usuarios = Usuario::whereIn('id_usuario', $usuariosConAyudante)
+                ->where('esta_activo', true)
+                ->where(function ($query) use ($searchTerm) {
+                    $query->where('nombre1', 'ILIKE', "%{$searchTerm}%")
+                        ->orWhere('apellido1', 'ILIKE', "%{$searchTerm}%")
+                        ->orWhere('apellido2', 'ILIKE', "%{$searchTerm}%")
+                        ->orWhere('rut', 'ILIKE', "%{$searchTerm}%")
+                        ->orWhere('username', 'ILIKE', "%{$searchTerm}%");
+                })
+                ->limit(10)
+                ->get();
+
+            // Formatear resultados
+            $results = $usuarios->map(function ($user) {
+                return [
+                    'id_usuario' => $user->id_usuario,
+                    'nombre1' => $user->nombre1,
+                    'apellido1' => $user->apellido1,
+                    'rut' => $user->rut,
+                    'username' => $user->username,
+                ];
+            });
+
+            return response()->json($results);
+        } catch (\Exception $e) {
+            \Log::error('Error searching assistants: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 

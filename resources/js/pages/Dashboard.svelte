@@ -37,7 +37,8 @@
      */
     interface Stats {
         usuarios: number;
-        cursos: number;
+        cursos_total: number;
+        cursos_pendientes: number;
         facultades: number;
         carreras: number;
     }
@@ -121,8 +122,18 @@
                             <BookOpen size={24} />
                         </div>
                         <div class="stat-info min-w-0 flex-1">
-                            <span class="stat-label block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cursos</span>
-                            <span class="stat-value text-xl font-bold text-slate-800 truncate block">{stats.cursos}</span>
+                            <span class="stat-label block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cursos Totales</span>
+                            <span class="stat-value text-xl font-bold text-slate-800 truncate block">{stats.cursos_total}</span>
+                        </div>
+                    </SoftCard>
+
+                    <SoftCard class="stat-card p-5 flex items-center gap-4 border-l-4 border-l-orange-500 bg-orange-50/50">
+                        <div class="stat-icon bg-orange-100 text-orange-600 w-12 h-12 rounded-2xl flex items-center justify-center shrink-0">
+                            <Clock size={24} />
+                        </div>
+                        <div class="stat-info min-w-0 flex-1">
+                            <span class="stat-label block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cursos Activos (Sin Acta)</span>
+                            <span class="stat-value text-xl font-bold text-slate-800 truncate block">{stats.cursos_pendientes}</span>
                         </div>
                     </SoftCard>
 

@@ -3,6 +3,9 @@
 namespace App\Models\Usuario;
 
 use App\Models\Base\Usuario\BaseUsuario;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
  * Modelo Usuario
@@ -10,8 +13,6 @@ use App\Models\Base\Usuario\BaseUsuario;
  * Extiende de BaseUsuario (auto-generado)
  * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
  */
-use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
 
 /**
  * Modelo Usuario
@@ -21,8 +22,9 @@ use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
  */
 class Usuario extends BaseUsuario implements Authenticatable
 {
+    use AuthenticatableTrait, HasFactory;
+
     protected $table = 'Usuario';
-    use AuthenticatableTrait;
 
 
     /**

@@ -43,6 +43,7 @@
         try {
             const res = await fetch(`/${urlPrefix}/cursos/${curso.id_curso}/team`);
             const data = await res.json();
+            console.log('Team members loaded:', data);
             teamMembers = data;
         } catch (error) {
             console.error("Error loading team:", error);
@@ -54,17 +55,35 @@
     async function searchUsers() {
         if (searchTerm.length < 3) return;
         isSearching = true;
+        searchResults = [];
+        
         try {
-            // Search all users generically via admin endpoint
-            const res = await fetch(`/admin/usuarios?search=${searchTerm}&per_page=5`, {
-                headers: { 'Accept': 'application/json' }
+            const url = `/${urlPrefix}/cursos/${curso.id_curso}/team/search-assistants?search=${encodeURIComponent(searchTerm)}`;
+            console.log('Fetching:', url);
+            
+            const res = await fetch(url, {
+                headers: { 
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             });
-            const data = await res.json();
-            // Filter out existing members
-            const currentIds = teamMembers.map(m => m.id_usuario);
-            searchResults = (data.data || []).filter((u: any) => !currentIds.includes(u.id_usuario));
+            
+            console.log('Response status:', res.status);
+            
+            if (!res.ok) {
+                const text = await res.text();
+                console.error('HTTP Error:', res.status, text.substring(0, 200));
+                return;
+            }
+            
+            const text = await res.text();
+            console.log('Response text:', text.substring(0, 300));
+            
+            const data = JSON.parse(text);
+            console.log('Search results:', data);
+            searchResults = Array.isArray(data) ? data : [];
         } catch (error) {
-            console.error("Error searching users:", error);
+            console.error("Error searching assistants:", error);
         } finally {
             isSearching = false;
         }
@@ -75,7 +94,7 @@
         try {
             await router.post(`/${urlPrefix}/cursos/${curso.id_curso}/team`, {
                 id_usuario: user.id_usuario,
-                role_name: 'Ayudante' 
+                role_name: 'ayudante' 
             }, {
                 preserveScroll: true,
                 onSuccess: () => {
@@ -170,7 +189,7 @@
                             {#each teamMembers as member}
                                 <div class="team-member">
                                     <div class="member-info">
-                                        <span class="member-name">{member.nombre_completo}</span>
+                                        <span class="member-name">{member.nombre}</span>
                                         <span class="member-role badge">{member.role_name}</span>
                                     </div>
                                     <div class="member-actions">

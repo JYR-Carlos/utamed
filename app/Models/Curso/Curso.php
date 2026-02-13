@@ -3,6 +3,7 @@
 namespace App\Models\Curso;
 
 use App\Models\Base\Curso\BaseCurso;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\DB;
  */
 class Curso extends BaseCurso
 {
+    use HasFactory;
     /**
      * Override primary key to use single identity column for Eloquent compatibility
      */

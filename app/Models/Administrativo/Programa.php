@@ -3,6 +3,7 @@
 namespace App\Models\Administrativo;
 
 use App\Models\Base\Administrativo\BasePrograma;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
  * Modelo Programa
@@ -12,6 +13,7 @@ use App\Models\Base\Administrativo\BasePrograma;
  */
 class Programa extends BasePrograma
 {
+    use HasFactory;
     public function getRouteKeyName()
     {
         return 'id_programa';

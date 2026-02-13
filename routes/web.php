@@ -36,11 +36,17 @@ Route::get('dashboard', function () {
     return Inertia::render('Dashboard', [
         'stats' => [
             'usuarios' => \App\Models\Usuario\Usuario::count(),
-            'cursos' => \App\Models\Curso\Curso::count(),
+            'cursos' => \App\Models\Curso\Curso::where('estado_interno', 'ABIERTO')
+                ->where(function ($query) {
+                    $query->where('estado_acta', '!=', 'ENVIADO')
+                        ->orWhereNull('estado_acta');
+                })
+                ->count(),
             'facultades' => \App\Models\Administrativo\Facultad::count(),
             'carreras' => \App\Models\Administrativo\Carrera::count(),
         ]
     ]);
+
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 // Admin Routes
@@ -84,6 +90,11 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
 
     // Course Team Management
     Route::get('cursos/{curso}/team', [CourseTeamController::class, 'index'])->name('cursos.team.index');
+
+    // Search assistants (must be before {usuario} routes)
+    Route::get('cursos/{curso}/team/search-assistants', [CourseTeamController::class, 'searchAssistants'])
+        ->name('cursos.team.search-assistants');
+
     Route::post('cursos/{curso}/team', [CourseTeamController::class, 'store'])->name('cursos.team.store');
     Route::delete('cursos/{curso}/team/{usuario}', [CourseTeamController::class, 'destroy'])->name('cursos.team.destroy');
 
@@ -128,8 +139,13 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
 
     // Team management (reuse admin course team endpoints but under docente prefix if needed, 
     // or just point to Admin controller if middleware allows or it's context-safe).
-    // Let's create specific routes for clarity and potential docente-only logic.
+    // Let's create specific routes for clarity and potential    // Course Team Management
     Route::get('cursos/{curso}/team', [CourseTeamController::class, 'index'])->name('cursos.team.index');
+
+    // Search assistants (must be before {usuario} routes)
+    Route::get('cursos/{curso}/team/search-assistants', [CourseTeamController::class, 'searchAssistants'])
+        ->name('cursos.team.search-assistants');
+
     Route::post('cursos/{curso}/team', [CourseTeamController::class, 'store'])->name('cursos.team.store');
     Route::delete('cursos/{curso}/team/{usuario}', [CourseTeamController::class, 'destroy'])->name('cursos.team.destroy');
 
