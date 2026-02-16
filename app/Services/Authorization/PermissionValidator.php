@@ -48,12 +48,12 @@ class PermissionValidator
     ) {
         // Cargar ID del contexto global dinámicamente
         $this->globalContextId = $this->loadGlobalContextId();
-        
+
         // Cargar configuración del sistema
         $this->cacheTtl = config('rbac.cache_ttl');
         $this->cachePrefix = config('rbac.cache_prefix');
         $this->cacheEnabled = config('rbac.cache_enabled');
-        
+
         $this->globalWildcard = WildcardMatcher::GLOBAL_WILDCARD;
     }
 
@@ -64,16 +64,13 @@ class PermissionValidator
      */
     protected function loadGlobalContextId(): int
     {
-        $globalType = config('rbac.global_context_type');
-        
-        $globalContext = DB::connection('pgsql')
-            ->table('Contexto.Contexto')
-            ->where('tipo_contexto', $globalType)
+        $globalContext = \App\Models\Usuario\Contexto
+            ::where('contexto_display', 'Global')
             ->first();
 
         if (!$globalContext) {
             throw new \RuntimeException(
-                "Contexto global no encontrado. Verifica que exista un registro con tipo_contexto='{$globalType}' en Contexto.Contexto"
+                "Contexto global no encontrado. Verifica que exista un registro con contexto_display='Global' en Contexto"
             );
         }
 
@@ -159,7 +156,7 @@ class PermissionValidator
     public function getUserPermissions(Usuario $user, ?int $contextId = null): Collection
     {
         $query = DB::connection('pgsql')
-            ->table('Usuario.vw_permisos_usuario')
+            ->table('vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario);
 
         if ($contextId !== null) {
@@ -189,7 +186,7 @@ class PermissionValidator
     protected function isSuperAdmin(Usuario $user): bool
     {
         $hasSuperAdmin = DB::connection('pgsql')
-            ->table('Usuario.vw_permisos_usuario')
+            ->table('vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('slug', $this->globalWildcard)
             ->where('id_contexto', $this->globalContextId)
@@ -214,13 +211,13 @@ class PermissionValidator
     {
         // Contexto explícito tiene prioridad
         if ($contextId !== null) {
-            return [$contextId];
+            return [$contextId, $this->globalContextId];
         }
 
         // Resolver desde recurso vía ContextResolver
         if ($resource !== null) {
             $contextIds = $this->contextResolver->getContextId($resource);
-            
+
             if (!empty($contextIds) && is_array($contextIds)) {
                 return $contextIds;
             }
@@ -245,17 +242,17 @@ class PermissionValidator
         foreach ($contextIds as $contextId) {
             // Verificar UPE para este contexto
             $specialResult = $this->checkSpecialPermission($user, $permission, $contextId);
-            
+
             if ($specialResult === false) {
                 // DENY explícito en este contexto → saltar al siguiente
                 continue;
             }
-            
+
             if ($specialResult === true) {
                 // GRANT explícito en UPE → autorizar inmediatamente
                 return true;
             }
-            
+
             // No hay UPE, verificar URA
             if ($this->checkRolePermission($user, $permission, $contextId)) {
                 return true;
@@ -288,7 +285,7 @@ class PermissionValidator
         $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
 
         $result = DB::connection('pgsql')
-            ->table('Usuario.vw_permisos_usuario')
+            ->table('vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('id_contexto', $contextId)
             ->where('tipo_asignacion', self::TIPO_ESPECIAL)
@@ -340,7 +337,7 @@ class PermissionValidator
         $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
 
         $hasPermission = DB::connection('pgsql')
-            ->table('Usuario.vw_permisos_usuario')
+            ->table('vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('id_contexto', $contextId)
             ->where('tipo_asignacion', self::TIPO_ROL)
@@ -367,8 +364,8 @@ class PermissionValidator
 
 
         return DB::connection('pgsql')
-            ->table('Usuario.Usuario_Permiso_Especial as upe')
-            ->join('Usuario.Permiso as p', 'upe.id_permiso', '=', 'p.id_permiso')
+            ->table('Usuario_Permiso_Especial as upe')
+            ->join('Permiso as p', 'upe.id_permiso', '=', 'p.id_permiso')
             ->where('upe.id_usuario', $user->id_usuario)
             ->where('upe.esta_activo', true)
             ->where(function ($query) {
@@ -396,7 +393,7 @@ class PermissionValidator
         $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
 
         return DB::connection('pgsql')
-            ->table('Usuario.vw_permisos_usuario')
+            ->table('vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('tipo_asignacion', self::TIPO_ESPECIAL)
             ->where('esta_permitido', true)
@@ -417,7 +414,7 @@ class PermissionValidator
         $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
 
         return DB::connection('pgsql')
-            ->table('Usuario.vw_permisos_usuario')
+            ->table('vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('tipo_asignacion', self::TIPO_ROL)
             ->whereIn('slug', [$permission, $resourceWildcard, $this->globalWildcard])

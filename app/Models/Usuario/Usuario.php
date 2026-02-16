@@ -17,12 +17,6 @@ use App\Contracts\HasContext;
  * Extiende de BaseUsuario (auto-generado)
  * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
  */
-
-/**
- * Modelo Usuario
- * 
- * Extiende de BaseUsuario (auto-generado)
- * Agrega aquí tus personalizaciones, relaciones adicionales, etc . */
 class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContract
 {
     use AuthenticatableTrait, HasFactory;
@@ -209,43 +203,52 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     /**
      * Override del método can() de Laravel para integrar con el sistema de permisos.
      * 
-     * FLUJO DE AUTORIZACIÓN:
-     * 1. PRIORIDAD: Policies registradas en AuthServiceProvider
-     *    - Si existe Policy para el modelo, Laravel la ejecuta automáticamente
-     *    - La Policy internamente debe usar PermissionValidator
+     * FLUJO DE AUTORIZACIÓN (CORREGIDO):
+     * ===================================
      * 
-     * 2. FALLBACK: PermissionValidator directo (solo si NO hay Policy)
-     *    - Para slugs de permisos ('recurso:accion') sin Policy registrada
-     *    - Permite usar $user->can('facultad:ver', $facultad) sin Policy
+     * 1. Si $ability es una acción simple ('view', 'create', etc.):
+     *    - Delegar a Laravel's Authorizable::can() → ejecutará Policy si existe
+     *    - Si no hay Policy, retornar false (NO permitir acceso directo)
+     *    - RECOMENDACIÓN: Usar Policies siempre para modelos
      * 
-     * RECOMENDACIÓN: Usar Policies para modelos con validaciones complejas.
-     * Para verificaciones directas, preferir: $user->hasPermissionFor($slug, $resource)
+     * 2. Si $ability es un slug completo ('facultad:ver', 'curso:crear', etc.):
+     *    - Usar PermissionValidator directamente (validación con contextos jerárquicos)
+     *    - Para recursos virtuales o validaciones complejas
      * 
-     * @param string $ability Nombre de la habilidad ('view', 'create') o slug ('facultad:ver')
+     * 3. Si $ability es '*' (wildcard):
+     *    - Usar PermissionValidator (verifica permiso super admin)
+     * 
+     * RESTRICCIÓN: 
+     * - Para modelos con Policy, DEBE usarse can() con acciones simples
+     * - Para validaciones diretas de permisos, DEBE usarse hasPermissionFor()
+     * - Esto previene confusión y asegura consistencia
+     * 
+     * @param string $ability Acción simple ('view', 'create') o slug completo ('facultad:ver')
      * @param array|mixed $arguments Argumentos (modelo, contexto, etc.)
      * @return bool
      */
     public function can($ability, $arguments = []): bool
     {
-        // PASO 1: Delegar a Laravel's Gate/Policy system
-        // Esto ejecutará Policies registradas automáticamente
-        
-        // PASO 2: Fallback para slugs de permisos SIN Policy registrada
-        // parent::can() retornó false, podría ser porque:
-        // a) Una Policy denegó explícitamente (respetar esa decisión)
-        // b) No hay Policy registrada (usar PermissionValidator)
-        
-        if (!(str_contains($ability, ':') && $ability === '*')) {
-            return $this->authorizableCan($ability, $arguments);
+        // Detectar si es slug completo (contiene ':') o wildcard ('*')
+        $isSlugCompleto = str_contains($ability, ':');
+        $isWildcard = $ability === '*';
 
-        } else {
+        if ($isSlugCompleto || $isWildcard) {
+            // SLUG COMPLETO O WILDCARD: Usar PermissionValidator directo
             $model = is_array($arguments) ? ($arguments[0] ?? null) : $arguments;
             $resource = ($model instanceof HasContext) ? $model : null;
             return $this->hasPermissionFor($ability, $resource);
+        } else {
+            // ACCIÓN SIMPLE: Delegar a Laravel's Policy system
+            // Si no hay Policy registrada, retornará false automáticamente
+            return $this->authorizableCan($ability, $arguments);
         }
+<<<<<<< HEAD
 
         // Para habilidades estándar sin Policy, retornar false
         return false;
+=======
+>>>>>>> 9b9cfb3 (fix: usuario->can() ahora funciona)
     }
 
     /**
