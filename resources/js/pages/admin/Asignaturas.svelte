@@ -20,7 +20,7 @@
 	import FormModal from '@/components/custom/admin/FormModal.svelte';
 	import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
 	import type { Asignatura, PaginatedResponse, AsignaturaFormData } from '@/types/admin.types';
-
+	import { useForm } from '@inertiajs/svelte';
 	/**
 	 * Props recibidas del servidor.
 	 */
@@ -35,11 +35,12 @@
 
 	let showModal = $state(false);
 	let showDeleteDialog = $state(false);
-	let isLoading = $state(false);
 	let editingAsignatura = $state<Asignatura | null>(null);
 	let deletingAsignatura = $state<Asignatura | null>(null);
+	
 
-	let formData = $state<AsignaturaFormData>({
+	// Uso de useForm para manejar el estado del formulario
+	let formData = useForm({
 		cod_asignatura: '',
 		nombre: '',
 		descripcion: '',
@@ -59,23 +60,14 @@
 
 	function openCreateModal() {
 		editingAsignatura = null;
-		formData = {
-			cod_asignatura: '',
-			nombre: '',
-			descripcion: '',
-			creditos_sct: 0,
-			horas_catedra: 0,
-			horas_taller: 0,
-			horas_laboratorio: 0,
-			horas_dirigidas: 0,
-			horas_autonomas: 0
-		};
+		$formData.reset();
+		$formData.clearErrors();
 		showModal = true;
 	}
 
 	function openEditModal(asignatura: Asignatura) {
 		editingAsignatura = asignatura;
-		formData = {
+		$formData.defaults({
 			cod_asignatura: asignatura.cod_asignatura,
 			nombre: asignatura.nombre,
 			descripcion: asignatura.descripcion || '',
@@ -85,39 +77,28 @@
 			horas_laboratorio: asignatura.horas_laboratorio || 0,
 			horas_dirigidas: asignatura.horas_dirigidas || 0,
 			horas_autonomas: asignatura.horas_autonomas || 0
-		};
+		});
+		$formData.reset();
 		showModal = true;
 	}
 
-	function closeModal() {
-		showModal = false;
-		editingAsignatura = null;
-	}
+
 
 	function handleSubmit() {
-		isLoading = true;
 
-		if (editingAsignatura) {
-			router.put(`/admin/asignaturas/${editingAsignatura.id_asignatura}`, formData, {
-				onSuccess: () => {
-					closeModal();
-					isLoading = false;
-				},
-				onError: () => {
-					isLoading = false;
-				}
-			});
-		} else {
-			router.post('/admin/asignaturas', formData, {
-				onSuccess: () => {
-					closeModal();
-					isLoading = false;
-				},
-				onError: () => {
-					isLoading = false;
-				}
-			});
-		}
+		const url = editingAsignatura ? `/admin/asignaturas/{editingAsignatura.id_asignatura}` : '/admin/asignaturas';
+		
+		const method = editingAsignatura ? 'put' : 'post';
+
+		$formData[method](url, {
+			onSuccess: () => {
+				showModal = false;
+				editingAsignatura = null;
+			},
+			onError: () => {
+				console.error('Error al guardar la asignatura:', formData.errors);
+			}
+		})
 	}
 
 	function openDeleteDialog(asignatura: Asignatura) {
@@ -125,22 +106,18 @@
 		showDeleteDialog = true;
 	}
 
-	function closeDeleteDialog() {
-		showDeleteDialog = false;
-		deletingAsignatura = null;
-	}
+
 
 	function handleDelete() {
 		if (!deletingAsignatura) return;
 
-		isLoading = true;
-		router.delete(`/admin/asignaturas/${deletingAsignatura.id_asignatura}`, {
+		$formData.delete(`/admin/asignaturas/${deletingAsignatura.id_asignatura}`, {
 			onSuccess: () => {
-				closeDeleteDialog();
-				isLoading = false;
+				showDeleteDialog = false;
+				deletingAsignatura = null;
 			},
 			onError: () => {
-				isLoading = false;
+				console.error('Error al eliminar la asignatura:', formData.errors.nombre);
 			}
 		});
 	}
@@ -179,9 +156,9 @@
 <FormModal
 	bind:isOpen={showModal}
 	title={editingAsignatura ? 'Editar Asignatura' : 'Nueva Asignatura'}
-	onClose={closeModal}
+	onClose={() => showModal = false}
 	onSubmit={handleSubmit}
-	{isLoading}
+	isLoading={$formData.processing}
 >
 	<div class="form-row">
 		<div class="form-group">
@@ -189,11 +166,15 @@
 			<input
 				id="cod_asignatura"
 				type="text"
-				bind:value={formData.cod_asignatura}
+				bind:value={$formData.cod_asignatura}
 				class="form-input"
+				class:border-red-500={$formData.errors.cod_asignatura}
 				placeholder="Ej: MED101"
 				required
 			/>
+			{#if $formData.errors.cod_asignatura}
+				<p class="text-red-500 text-sm">{$formData.errors.cod_asignatura}</p>
+			{/if}
 		</div>
 
 		<div class="form-group">
@@ -201,10 +182,14 @@
 			<input
 				id="creditos_sct"
 				type="number"
-				bind:value={formData.creditos_sct}
+				bind:value={$formData.creditos_sct}
 				class="form-input"
+				class:border-red-500={$formData.errors.creditos_sct}
 				min="0"
 			/>
+			{#if $formData.errors.creditos_sct}
+				<p class="text-red-500 text-sm">{$formData.errors.creditos_sct}</p>
+			{/if}
 		</div>
 	</div>
 
@@ -213,18 +198,22 @@
 		<input
 			id="nombre"
 			type="text"
-			bind:value={formData.nombre}
+			bind:value={$formData.nombre}
 			class="form-input"
+			class:border-red-500={$formData.errors.nombre}
 			placeholder="Ej: Anatomía Humana"
 			required
 		/>
+		{#if $formData.errors.nombre}
+			<p class="text-red-500 text-sm">{$formData.errors.nombre}</p>
+		{/if}
 	</div>
 
 	<div class="form-group">
 		<label for="descripcion" class="form-label">Descripción</label>
 		<textarea
 			id="descripcion"
-			bind:value={formData.descripcion}
+			bind:value={$formData.descripcion}
 			class="form-input"
 			rows="3"
 			placeholder="Descripción de la asignatura"
@@ -237,7 +226,7 @@
 			<input
 				id="horas_catedra"
 				type="number"
-				bind:value={formData.horas_catedra}
+				bind:value={$formData.horas_catedra}
 				class="form-input"
 				min="0"
 			/>
@@ -248,7 +237,7 @@
 			<input
 				id="horas_taller"
 				type="number"
-				bind:value={formData.horas_taller}
+				bind:value={$formData.horas_taller}
 				class="form-input"
 				min="0"
 			/>
@@ -261,7 +250,7 @@
 			<input
 				id="horas_laboratorio"
 				type="number"
-				bind:value={formData.horas_laboratorio}
+				bind:value={$formData.horas_laboratorio}
 				class="form-input"
 				min="0"
 			/>
@@ -272,7 +261,7 @@
 			<input
 				id="horas_dirigidas"
 				type="number"
-				bind:value={formData.horas_dirigidas}
+				bind:value={$formData.horas_dirigidas}
 				class="form-input"
 				min="0"
 			/>
@@ -284,7 +273,7 @@
 		<input
 			id="horas_autonomas"
 			type="number"
-			bind:value={formData.horas_autonomas}
+			bind:value={$formData.horas_autonomas}
 			class="form-input"
 			min="0"
 		/>
@@ -296,8 +285,8 @@
 	title="¿Eliminar Asignatura?"
 	message="Esta acción no se puede deshacer. Si la asignatura está asignada a planes, no podrá ser eliminada."
 	onConfirm={handleDelete}
-	onCancel={closeDeleteDialog}
-	{isLoading}
+	onCancel={() => showDeleteDialog = false}
+	isLoading={$formData.processing}
 />
 
 <style>

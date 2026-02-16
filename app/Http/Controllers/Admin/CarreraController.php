@@ -29,35 +29,40 @@ class CarreraController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Carrera::with(['departamento', 'departamento.facultad']);
+        $query = Carrera::query()
+            ->select(['id_carrera', 'nombre', 'id_departamento', 'jornada', 'sede'])
+            ->with([
+                'departamento:id_departamento,nombre,id_facultad',
+                'departamento.facultad:id_facultad,nombre'
+            ]);
 
-        // Search functionality
-        if ($request->has('search')) {
-            $search = $request->input('search');
-            $query->where('nombre', 'ilike', "%{$search}%");
+        // 2. Búsqueda con ilike (Recuerda crear el índice GIN que mencionamos)
+        if ($request->filled('search')) {
+            $query->where('nombre', 'ilike', "%{$request->search}%");
         }
 
-        // Filter by departamento
-        if ($request->has('id_departamento')) {
-            $query->where('id_departamento', $request->input('id_departamento'));
+        // 3. Filtros optimizados
+        if ($request->filled('id_departamento')) {
+            $query->where('id_departamento', $request->id_departamento);
         }
 
-        // Filter by facultad
-        if ($request->has('id_facultad')) {
-            $query->where('id_facultad', $request->input('id_facultad'));
+        if ($request->filled('id_facultad')) {
+            // Filtramos a través de la relación de forma eficiente
+            $query->whereHas(
+                'departamento',
+                fn($q) =>
+                $q->where('id_facultad', $request->id_facultad)
+            );
         }
 
-        // Pagination
         $carreras = $query->orderBy('nombre')
-            ->paginate($request->input('per_page', 15))
+            ->paginate($request->integer('per_page', 15))
             ->withQueryString();
-
-        // Get all facultades for the filter
-        $facultades = Facultad::orderBy('nombre')->get();
 
         return Inertia::render('admin/Carreras', [
             'carreras' => $carreras,
-            'facultades' => $facultades,
+            // Usamos map para enviar solo lo que el combo necesita
+            'facultades' => Facultad::select(['id_facultad', 'nombre'])->orderBy('nombre')->get(),
             'filters' => $request->only(['search', 'id_departamento', 'id_facultad'])
         ]);
     }

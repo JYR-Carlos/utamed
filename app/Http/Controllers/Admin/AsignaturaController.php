@@ -26,21 +26,20 @@ class AsignaturaController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Asignatura::query();
+        $query = Asignatura::select(['id_asignatura', 'cod_asignatura', 'nombre', 'creditos_sct']);
 
         // Search functionality
-        if ($request->has('search')) {
+        if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('nombre', 'ilike', "%{$search}%")
-                    ->orWhere('cod_asignatura', 'ilike', "%{$search}%");
+                -> orWhere('cod_asignatura', 'ilike', "%{$search}%");
             });
         }
 
-        // Pagination
-        $asignaturas = $query->orderBy('cod_asignatura')
-            ->paginate($request->input('per_page', 15))
-            ->withQueryString();
+        $asignaturas = $query->orderBy(('cod_asignatura'))
+        ->paginate($request->integer('per_page', 15))
+        ->withQueryString();
 
         return Inertia::render('admin/Asignaturas', [
             'asignaturas' => $asignaturas,

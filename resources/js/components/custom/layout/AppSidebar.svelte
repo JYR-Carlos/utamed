@@ -93,18 +93,18 @@
             icon: BookOpen,
             show: userDocente && !isAdminOnly,
         },
-        // Ayudante Items
+        // Ayudante Items - STRICT check (Admins shouldn't see this unless they are also Ayudantes)
         {
             title: 'Dashboard Ayudante',
             href: '/ayudante/dashboard',
             icon: LayoutGrid,
-            show: hasRole(['Ayudante']),
+            show: authRoles.includes('Ayudante') || authRoles.includes('ayudante'),
         },
         {
             title: 'Cursos Asignados',
             href: '/ayudante/cursos',
             icon: BookOpen,
-            show: hasRole(['Ayudante']),
+            show: authRoles.includes('Ayudante') || authRoles.includes('ayudante'),
         }
     ]);
 

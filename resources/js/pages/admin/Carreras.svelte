@@ -29,7 +29,7 @@
 		PaginatedResponse,
 		CarreraFormData
 	} from '@/types/admin.types';
-
+	import { useForm } from '@inertiajs/svelte';
 	/**
 	 * Props recibidas del servidor.
 	 */
@@ -46,12 +46,11 @@
 
 	let showModal = $state(false);
 	let showDeleteDialog = $state(false);
-	let isLoading = $state(false);
 	let editingCarrera = $state<Carrera | null>(null);
 	let deletingCarrera = $state<Carrera | null>(null);
 	let departamentos = $state<Departamento[]>([]);
 
-	let formData = $state<CarreraFormData>({
+	let formData = useForm({
 		nombre: '',
 		jornada: '',
 		sede: '',
@@ -85,28 +84,23 @@
 
 	function openCreateModal() {
 		editingCarrera = null;
-		formData = {
-			nombre: '',
-			jornada: '',
-			sede: '',
-			modalidad: '',
-			id_departamento: 0,
-			id_facultad: 0
-		};
+		$formData.reset();
+		$formData.clearErrors();
 		departamentos = [];
 		showModal = true;
 	}
 
 	async function openEditModal(carrera: Carrera) {
 		editingCarrera = carrera;
-		formData = {
+		$formData.defaults({
 			nombre: carrera.nombre,
 			jornada: carrera.jornada || '',
 			sede: carrera.sede || '',
 			modalidad: carrera.modalidad || '',
 			id_departamento: carrera.id_departamento,
 			id_facultad: carrera.id_facultad
-		};
+		});
+		$formData.reset()
 		await loadDepartamentos(carrera.id_facultad);
 		showModal = true;
 	}
@@ -118,29 +112,19 @@
 	}
 
 	function handleSubmit() {
-		isLoading = true;
+		const url = editingCarrera
+			? `/admin/carreras/${editingCarrera.id_carrera}`
+			: '/admin/carreras';
+		const method = editingCarrera ? 'put' : 'post';
 
-		if (editingCarrera) {
-			router.put(`/admin/carreras/${editingCarrera.id_carrera}`, formData, {
-				onSuccess: () => {
-					closeModal();
-					isLoading = false;
-				},
-				onError: () => {
-					isLoading = false;
-				}
-			});
-		} else {
-			router.post('/admin/carreras', formData, {
-				onSuccess: () => {
-					closeModal();
-					isLoading = false;
-				},
-				onError: () => {
-					isLoading = false;
-				}
-			});
-		}
+		$formData[method](url, {
+			onSuccess: () => {
+				closeModal();
+			},
+			onError: () => {
+				console.error('Error creando una carrera:', formData.errors);
+			}
+		})
 	}
 
 	function openDeleteDialog(carrera: Carrera) {
@@ -148,29 +132,25 @@
 		showDeleteDialog = true;
 	}
 
-	function closeDeleteDialog() {
-		showDeleteDialog = false;
-		deletingCarrera = null;
-	}
+
 
 	function handleDelete() {
 		if (!deletingCarrera) return;
 
-		isLoading = true;
-		router.delete(`/admin/carreras/${deletingCarrera.id_carrera}`, {
+		$formData.delete(`/admin/carreras/${deletingCarrera.id_carrera}`, {
 			onSuccess: () => {
-				closeDeleteDialog();
-				isLoading = false;
+				showDeleteDialog = false;
+				deletingCarrera = null;
 			},
 			onError: () => {
-				isLoading = false;
+				console.error('Error eliminando una carrera:', $formData.errors.nombre);
 			}
 		});
 	}
 
 	$effect(() => {
-		if (formData.id_facultad) {
-			loadDepartamentos(formData.id_facultad);
+		if ($formData.id_facultad) {
+			loadDepartamentos($formData.id_facultad);
 		}
 	});
 </script>
@@ -208,20 +188,25 @@
 <FormModal
 	bind:isOpen={showModal}
 	title={editingCarrera ? 'Editar Carrera' : 'Nueva Carrera'}
-	onClose={closeModal}
+	onClose={() => showModal = false}
 	onSubmit={handleSubmit}
-	{isLoading}
+	isLoading={$formData.processing}
+
 >
 	<div class="form-group">
 		<label for="nombre" class="form-label">Nombre</label>
 		<input
 			id="nombre"
 			type="text"
-			bind:value={formData.nombre}
+			bind:value={$formData.nombre}
 			class="form-input"
+			class:border-red-500={$formData.errors.nombre}
 			placeholder="Ej: Medicina"
 			required
 		/>
+		{#if $formData.errors.nombre}
+			<p class="text-red-500 text-sm">{$formData.errors.nombre}</p>
+		{/if}
 	</div>
 
 	<div class="form-row">
@@ -230,8 +215,9 @@
 			<input
 				id="jornada"
 				type="text"
-				bind:value={formData.jornada}
+				bind:value={$formData.jornada}
 				class="form-input"
+				class:border-red-500={$formData.errors.jornada}
 				placeholder="Ej: Diurna"
 			/>
 		</div>
@@ -241,7 +227,7 @@
 			<input
 				id="sede"
 				type="text"
-				bind:value={formData.sede}
+				bind:value={$formData.sede}
 				class="form-input"
 				placeholder="Ej: Campus Central"
 			/>
@@ -253,7 +239,7 @@
 		<input
 			id="modalidad"
 			type="text"
-			bind:value={formData.modalidad}
+			bind:value={$formData.modalidad}
 			class="form-input"
 			placeholder="Ej: Presencial"
 		/>
@@ -261,7 +247,7 @@
 
 	<div class="form-group">
 		<label for="facultad" class="form-label">Facultad</label>
-		<select id="facultad" bind:value={formData.id_facultad} class="form-input" required>
+		<select id="facultad" bind:value={$formData.id_facultad} class="form-input" required>
 			<option value={0}>Seleccione una facultad</option>
 			{#each facultades as facultad}
 				<option value={facultad.id_facultad}>{facultad.nombre}</option>
@@ -273,9 +259,9 @@
 		<label for="departamento" class="form-label">Departamento</label>
 		<select
 			id="departamento"
-			bind:value={formData.id_departamento}
+			bind:value={$formData.id_departamento}
 			class="form-input"
-			disabled={!formData.id_facultad}
+			disabled={!$formData.id_facultad}
 			required
 		>
 			<option value={0}>Seleccione un departamento</option>
@@ -288,11 +274,11 @@
 
 <DeleteConfirmation
 	bind:isOpen={showDeleteDialog}
-	title="¿Eliminar Carrera?"
+	title="¿Eliminar Ca	rrera?"
 	message="Esta acción no se puede deshacer. Si la carrera tiene planes o estudiantes asociados, no podrá ser eliminada."
 	onConfirm={handleDelete}
-	onCancel={closeDeleteDialog}
-	{isLoading}
+	onCancel={() => showDeleteDialog = false}
+	isLoading={$formData.processing}
 />
 
 <style>

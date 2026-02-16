@@ -12,6 +12,19 @@ use App\Models\Base\Curso\BaseAsistencia;
  */
 class Asistencia extends BaseAsistencia
 {
+    use \App\Traits\HasCompositeKey;
+
+    protected $fillable = [
+        'id_asistencia',
+        'id_estudiante',
+        'id_seccion',
+        'id_curso',
+        'dia',
+        'hora_inicio',
+        'hora_fin',
+        'esta_presente'
+    ];
+
     public function qualifyColumn($column)
     {
         if (str_contains($column, '.')) {
