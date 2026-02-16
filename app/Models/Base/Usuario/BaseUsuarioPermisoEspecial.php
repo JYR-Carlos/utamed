@@ -2,14 +2,14 @@
 
 namespace App\Models\Base\Usuario;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseUsuarioPermisoEspecial extends Model
+abstract class BaseUsuarioPermisoEspecial extends CustomBaseModel
 {
     use Compoships;
     public $timestamps = false;
@@ -25,6 +25,9 @@ abstract class BaseUsuarioPermisoEspecial extends Model
         'puede_delegar',
         'fecha_fin_real',
         'fue_borrado',
+        'id_permiso',
+        'id_contexto',
+        'id_usuario',
         'creado_por',
         'eliminado_por'
     ];

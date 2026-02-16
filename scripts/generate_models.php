@@ -94,15 +94,21 @@ $schemaPrefix = 'utamed.%';
 $createdAtColumn = 'fecha_creacion';
 $updatedAtColumn = 'fecha_modificacion';
 $softDeleteColumnName = 'fecha_eliminacion'; // Nombre de columna para soft deletes
+$contextColumn = 'id_contexto'; // Columna de contexto
 
 // Dos formas de configurar columnas NO fillable:
 // 1. Globales para todas las tablas (nombres comunes)
 // 2. Específicas por tabla (array con 'table' y 'colname')
+// 
+// NOTA: $contextColumn (id_contexto) se excluye DINÁMICAMENTE en PASO 4.5
+// Solo para tablas con contexto 'direct' (se asigna automáticamente)
+// Para otros casos, id_contexto puede ser parte de la PK y debe ser fillable
 $notFillableColumns = [
   // Globales (todas las tablas)
   $createdAtColumn,
   $updatedAtColumn,
   $softDeleteColumnName,
+  // $contextColumn se maneja dinámicamente en PASO 4.5 según tipo de contexto
   // 'esta_activo' de roles y permisos
   ['table' => 'Usuario_Rol_Asignación', 'colname' => 'esta_activo'],
   ['table' => 'Usuario_Permiso_Especial', 'colname' => 'esta_activo'],
@@ -194,7 +200,7 @@ $relationNames = [
 
   // Usuario_Rol_Asignación
   'utamed.Usuario.Usuario_Rol_Asignación' => [
-    '_self'=> [
+    '_self' => [
       'creado_por' => 'asignador',  // belongsTo: usuario que asigna el permiso
       'id_usuario' => 'receptor',   // belongsTo: usuario que recibe el permiso
       'eliminado_por' => 'borrador', // belongsTo: usuario que borra el permiso
@@ -417,7 +423,7 @@ $manualPivotTables = [
             'foreign_key' => 'creado_por'
           ],
           [
-            'method_name' => 'usuariosQueBorranMisPermisos', 
+            'method_name' => 'usuariosQueBorranMisPermisos',
             'local_key' => 'id_usuario',
             'foreign_key' => 'eliminado_por'
           ],
@@ -428,7 +434,7 @@ $manualPivotTables = [
             'foreign_key' => 'id_usuario'
           ],
           [
-            'method_name'=> 'usuariosQueBorranMisPermisosAsignados',
+            'method_name' => 'usuariosQueBorranMisPermisosAsignados',
             'local_key' => 'creado_por',
             'foreign_key' => 'eliminado_por'
           ],
@@ -470,7 +476,7 @@ $manualPivotTables = [
             'foreign_key' => 'creado_por'
           ],
           [
-            'method_name' => 'usuariosQueBorranMisRoles', 
+            'method_name' => 'usuariosQueBorranMisRoles',
             'local_key' => 'id_usuario',
             'foreign_key' => 'eliminado_por'
           ],
@@ -531,12 +537,13 @@ $contextConfigPath = __DIR__ . '/generated_context_hierarchies.php';
 if (file_exists($contextConfigPath)) {
   // Cargar y extraer $contextHierarchies
   $contextHierarchies = [];
-  include $contextConfigPath;
+  include $contextConfigPath; // importar el archivo que define $contextHierarchies
   $contextConfig = $contextHierarchies ?? [];
   echo color("✓ Configuración de contextos cargada desde scripts/generated_context_hierarchies.php\n", 'green');
 } else {
-  $contextConfig = ['direct' => [], 'hierarchical' => [], 'global' => [], 'context_column' => 'id_contexto'];
   echo color("⚠ Configuración de contextos no encontrada en scripts/generated_context_hierarchies.php\n", 'yellow');
+  echo color("⚠ Asegúrate de ejecutar analyze_context_hierarchies.php -o generated_context_hierarchies.php para generar esta configuración\n", 'yellow');
+  throw new Exception('Error: Falta archivo de configuración');
 }
 
 // Crear un set de modelos que tienen contexto para búsqueda rápida
@@ -613,9 +620,9 @@ PHP;
       $orConditions[] = "or" . ucfirst($condition);
     }
   }
-  
+
   $chainedConditions = implode("\n            ->", $orConditions);
-  
+
   return <<<PHP
 
     /**
@@ -645,7 +652,7 @@ function buildWhereHasChain(array $pathMethods, string $contextColumn): string
 
   // Tomar el primer método
   $firstMethod = array_shift($pathMethods);
-  
+
   // Si no hay más métodos, este es el último (tiene el contexto)
   if (empty($pathMethods)) {
     return "whereHas('{$firstMethod}', function (\$q) use (\$contextIds) {
@@ -655,7 +662,7 @@ function buildWhereHasChain(array $pathMethods, string $contextColumn): string
 
   // Hay más métodos: anidar recursivamente
   $nestedChain = buildWhereHasChain($pathMethods, $contextColumn);
-  
+
   return "whereHas('{$firstMethod}', function (\$q) use (\$contextIds) {
                 \$q->{$nestedChain};
             })";
@@ -1030,6 +1037,20 @@ foreach ($tables as $tableInfo) {
   $usedMethods = [];
   $inverseUsedMethods = [];
 
+  // Instanciar $notFillableColumns para cada tabla
+  // Comienza con valores globales y se agrega exclusiones específicas de la tabla
+  $tableNotFillableColumns = [
+    $createdAtColumn,
+    $updatedAtColumn,
+    $softDeleteColumnName,
+  ];
+  // Agregar exclusiones específicas de tabla si existen
+  foreach ($notFillableColumns as $exclude) {
+    if (is_array($exclude) && isset($exclude['table']) && $exclude['table'] === $tableName) {
+      $tableNotFillableColumns[] = $exclude;
+    }
+  }
+
   // ==================================================================================
   // PASO 4.1: CREAR ESTRUCTURA DE DIRECTORIOS
   // ==================================================================================
@@ -1084,11 +1105,29 @@ foreach ($tables as $tableInfo) {
   // ==================================================================================
 
   // Obtener columnas con información sobre si son generadas
+  // Usa pg_attribute.attidentity en lugar de information_schema.is_generated
+  // attidentity: 'a' = ALWAYS, 'd' = BY DEFAULT, '' = not generated
   $columns = DB::select("
-        SELECT column_name, data_type, is_nullable, column_default, is_generated
-        FROM information_schema.columns
-        WHERE table_schema = ? AND table_name = ?
-        ORDER BY ordinal_position
+        SELECT 
+          a.attname AS column_name,
+          t.typname::text AS data_type,
+          (NOT a.attnotnull)::text AS is_nullable,
+          pg_get_expr(d.adbin, d.adrelid) AS column_default,
+          CASE 
+            WHEN a.attidentity = 'a' THEN 'ALWAYS'
+            WHEN a.attidentity = 'd' THEN 'BY DEFAULT'
+            ELSE 'NEVER'
+          END AS is_generated
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_attribute a ON a.attrelid = c.oid
+        LEFT JOIN pg_type t ON t.oid = a.atttypid
+        LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+        WHERE n.nspname = ? 
+          AND c.relname = ?
+          AND a.attnum > 0
+          AND NOT a.attisdropped
+        ORDER BY a.attnum
     ", [$schema, $tableName]);
 
   // ==================================================================================
@@ -1167,18 +1206,18 @@ foreach ($tables as $tableInfo) {
     if ($col->is_generated === 'ALWAYS') {
       $colName = $col->column_name;
 
-      // Verificar si ya esta excluida globalmente (string)
+      // Verificar si ya esta excluida (string)
       $alreadyExcluded = false;
-      foreach ($notFillableColumns as $exclude) {
+      foreach ($tableNotFillableColumns as $exclude) {
         if (is_string($exclude) && $exclude === $colName) {
           $alreadyExcluded = true;
           break;
         }
       }
 
-      // Verificar si ya esta excluida por tabla especifica
+      // Verificar si ya esta excluida (array)
       if (!$alreadyExcluded) {
-        foreach ($notFillableColumns as $exclude) {
+        foreach ($tableNotFillableColumns as $exclude) {
           if (is_array($exclude) && isset($exclude['table'], $exclude['colname'])) {
             if ($exclude['table'] === $tableName && $exclude['colname'] === $colName) {
               $alreadyExcluded = true;
@@ -1190,7 +1229,7 @@ foreach ($tables as $tableInfo) {
 
       // Agregar a exclusion si no estaba ya
       if (!$alreadyExcluded) {
-        $notFillableColumns[] = [
+        $tableNotFillableColumns[] = [
           'table' => $tableName,
           'colname' => $colName
         ];
@@ -1256,36 +1295,43 @@ foreach ($tables as $tableInfo) {
   // PASO 4.5: GENERAR ARRAY $fillable
   // ==================================================================================
   //
-  // OBJETIVO: Crear lista de columnas asignables masivamente
+  // OBJETIVO: Crear lista de columnas asignables masivamente (mass assignment)
   //
-  // FUNCIONAMIENTO:
-  // 1. Toma todas las columnas de la tabla
-  // 2. EXCLUYE:
-  //    - Clave primaria (no debe ser asignable)
-  //    - fecha_creacion (timestamp, manejado por Eloquent)
-  //    - fecha_eliminacion (soft delete, manejado por SoftDeletes trait)
-  // 3. Formatea cada columna con indentación
+  // ESTRATEGIA DE EXCLUSIÓN:
+  // Solo se excluyen columnas que son GENERATED ALWAYS (autocalculadas por la BD)
+  // Las claves primarias SÍ se incluyen en $fillable si no son auto-generadas
   //
-  // EJEMPLO RESULTADO:
-  // protected $fillable = [
-  //     'nombre',
-  //     'descripcion',
-  //     'id_facultad',
-  // ];
+  // REGLAS:
+  // 1. EXCLUIR si: is_generated = 'ALWAYS' (BD la calcula automáticamente)
+  // 2. INCLUIR si: Es PK pero NO es GENERATED ALWAYS (usuario debe poder asignarla)
+  // 3. INCLUIR si: Es PK GENERATED ALWAYS pero de tipo compuesta (algunas partes pueden ser asignables)
+  //
+  // JUSTIFICACIÓN:
+  // - Algunos modelos requieren asignar la PK (ej: Facultad recibe id_facultad)
+  // - Otros tienen PK autogenerada (ej: Departamento.id_departamento GENERATED ALWAYS)
+  // - Solo excluir lo que la BD genera automáticamente, no asumir reglas globales
+  //
+  // EJEMPLO - Facultad (PK simple, NO generada automáticamente):
+  // CREATE TABLE Facultad (
+  //     id_facultad smallint NOT NULL,  ← NO GENERATED, debe estar en $fillable
+  //     nombre text
+  // );
+  // Resultado: $fillable = ['id_facultad', 'nombre']
+  //
+  // EJEMPLO - Departamento (PK simple, GENERADA automáticamente):
+  // CREATE TABLE Departamento (
+  //     id_departamento smallint NOT NULL GENERATED ALWAYS AS IDENTITY,  ← SÍ GENERATED, excluir
+  //     id_facultad smallint NOT NULL,  ← NO GENERATED, incluir
+  //     nombre text
+  // );
+  // Resultado: $fillable = ['id_facultad', 'nombre']
   //
   // USO: Permite hacer Modelo::create(['nombre' => 'Test']) sin mass assignment exception
   // ==================================================================================
- 
-  // Excluir PK (simple o compuesta)
-  if (is_array($primaryKey)) {
-    $notFillableColumns = array_merge($notFillableColumns, $primaryKey);
-  } else {
-    $notFillableColumns[] = $primaryKey;
-  }
 
   // Crear función helper para verificar si columna debe ser excluida
-  $shouldExcludeColumn = function($colName, $currentTable) use ($notFillableColumns) {
-    foreach ($notFillableColumns as $exclude) {
+  $shouldExcludeColumn = function ($colName, $currentTable) use ($tableNotFillableColumns, $contextColumn, $schema, $modelsWithContext) {
+    foreach ($tableNotFillableColumns as $exclude) {
       if (is_string($exclude)) {
         // Excluye globalmente si es string
         if ($colName === $exclude) {
@@ -1298,10 +1344,24 @@ foreach ($tables as $tableInfo) {
         }
       }
     }
+
+    // EXCLUSIÓN DINÁMICA: Excluir id_contexto solo si tabla es contexto 'direct'
+    // Tablas con contexto 'direct' NO pueden cambiar id_contexto (se asigna automáticamente)
+    // Otras tablas SÍ pueden tener id_contexto en fillable (ej: si es parte de PK compuesta)
+    if ($colName === $contextColumn) {
+      $tableKey = "{$schema}.{$currentTable}";
+      $contextType = $modelsWithContext[$tableKey] ?? null;
+
+      // Solo excluir si es contexto 'direct'
+      if ($contextType === 'direct') {
+        return true;
+      }
+    }
+
     return false;
   };
 
-  // Usar la función al generar fillable
+  // Generar array $fillable
   $fillable = collect($columns)
     ->pluck('column_name')
     ->reject(fn($col) => $shouldExcludeColumn($col, $tableName))
@@ -1373,20 +1433,20 @@ foreach ($tables as $tableInfo) {
 
 
   // Detectar si la tabla tiene fecha_eliminacion
-  $hasSoftDeletes = 
+  $hasSoftDeletes =
     collect($columns)
-    ->contains('column_name', $softDeleteColumnName);
-  
-  $softDeleteImport = $hasSoftDeletes 
-    ? "use Illuminate\\Database\\Eloquent\\SoftDeletes;\n" 
+      ->contains('column_name', $softDeleteColumnName);
+
+  $softDeleteImport = $hasSoftDeletes
+    ? "use Illuminate\\Database\\Eloquent\\SoftDeletes;\n"
     : "";
-  
-  $softDeleteTrait = $hasSoftDeletes 
-    ? "{$tab}use SoftDeletes;\n" 
+
+  $softDeleteTrait = $hasSoftDeletes
+    ? "{$tab}use SoftDeletes;\n"
     : "";
-  
-  $softDeleteConst = $hasSoftDeletes 
-    ? "{$tab}const DELETED_AT = '$softDeleteColumnName';\n" 
+
+  $softDeleteConst = $hasSoftDeletes
+    ? "{$tab}const DELETED_AT = '$softDeleteColumnName';\n"
     : "";
 
   // ==================================================================================
@@ -1406,7 +1466,7 @@ foreach ($tables as $tableInfo) {
   $contextImport = $implementsContext
     ? "use App\\Contracts\\HasContext;\nuse App\\Traits\\ContextAware;\nuse App\\Traits\\QueryScopes\\FiltersContextScope;\n"
     : "";
-    
+
   $contextTrait = $implementsContext
     ? "{$tab}use ContextAware;\n{$tab}use FiltersContextScope;\n"
     : "";
@@ -1418,9 +1478,9 @@ foreach ($tables as $tableInfo) {
   // ==================================================================================
 
   $composhipsImport = "use Awobaz\\Compoships\\Compoships;\n";
-  
+
   $composhipsTrait = "{$tab}use Compoships;\n";
-  
+
   // ==================================================================================
   // PASO 4.7.d: COMPILAR TIMESTAMPS CON INDENTACIÓN CORRECTA
   // ==================================================================================
@@ -1431,14 +1491,14 @@ foreach ($tables as $tableInfo) {
   } else {
     $timestampsStorage = "{$tab}public \$timestamps = false;\n";
   }
-  
+
   // ==================================================================================
   // COMPILAR IMPORTS, TRAITS Y CONFIGURACIONES CON HEREDOC
   // ==================================================================================
 
   // Compilar todo dinámicamente sin dejar espacios en blanco
   $allImports = $composhipsImport . $softDeleteImport . $contextImport;
-  
+
   // Compilar traits y constantes en un bloque único
   $allTraitsAndConsts = <<<EOL
 {$softDeleteTrait}{$composhipsTrait}{$contextTrait}{$softDeleteConst}{$timestampsStorage}
@@ -2125,7 +2185,7 @@ EOL;
         }
       }
 
-      $contextColumn = $contextConfig['context_column'] ?? 'id_contexto';
+      $contextColumn = $contextConfig['context_column'] ?? $contextColumn;
       $contextScopeMethods = buildContextHierarchyScopeMethod($paths, $contextColumn);
     }
   }
@@ -2173,13 +2233,13 @@ EOL;
 
 namespace {$baseModelNamespace}\\{$schemaName};
 
-use Illuminate\\Database\\Eloquent\\Model;
+use App\\Models\\BaseModel as CustomBaseModel;
 {$allImports}
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class Base{$className} extends Model{$implementsClause}
+abstract class Base{$className} extends CustomBaseModel{$implementsClause}
 {
 {$allTraitsAndConsts}    protected \$connection = 'pgsql';
     protected \$table = '{$tableName}';
@@ -2189,27 +2249,6 @@ abstract class Base{$className} extends Model{$implementsClause}
     protected \$fillable = [
 {$fillable}
     ];
-
-    /**
-     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
-     */
-    public function qualifyColumn(\$column)
-    {
-        \$qualified = parent::qualifyColumn(\$column);
-        // Only quote if not already quoted and contains a dot (table.column)
-        if (!str_contains(\$qualified, '\"') && str_contains(\$qualified, '.')) {
-            return '\"' . str_replace('.', '\".\"', \$qualified) . '\"';
-        }
-        return \$qualified;
-    }
-
-    /**
-     * Override getQualifiedKeyName to ensure correct quoting
-     */
-    public function getQualifiedKeyName()
-    {
-        return '\"' . \$this->getTable() . '\".\"' . \$this->getKeyName() . '\"';
-    }
 
 {$relations}{$contextScopeMethods}
 }
@@ -2398,8 +2437,8 @@ if ($verbose) {
 
   // Leyenda de colores
   echo color("  ● auto", 'red') . "  "
-     . color("● auto_suffix", 'blue') . "  "
-     . color("● custom", 'green') . "\n\n";
+    . color("● auto_suffix", 'blue') . "  "
+    . color("● custom", 'green') . "\n\n";
 
   $modelTotal = count($modelSummary);
   foreach ($modelSummary as $mIdx => $model) {
@@ -2447,7 +2486,7 @@ if ($verbose) {
 
 echo "\n" . color("Generando context mappings...", 'bold') . "\n";
 
-$contextConfigPath = app_path('../config/context-hierarchies.php');
+$contextConfigPath = config_path('generated-context-mappings.php');
 $contextHierarchies = [];
 
 if (file_exists($contextConfigPath)) {
@@ -2482,7 +2521,7 @@ foreach ($contextConfig['direct'] ?? [] as $modelKey => $contextType) {
   } else {
     $modelKeyFormatted = $modelKey;
   }
-  
+
   $contextMappings[$modelKeyFormatted] = [
     'type' => 'direct',
     'paths' => []
@@ -2500,7 +2539,7 @@ foreach ($contextConfig['global'] ?? [] as $modelKey => $contextType) {
   } else {
     $modelKeyFormatted = $modelKey;
   }
-  
+
   $contextMappings[$modelKeyFormatted] = [
     'type' => 'global',
     'paths' => []
@@ -2586,22 +2625,21 @@ foreach ($contextConfig['hierarchical'] ?? [] as $modelKey => $configPaths) {
   } else {
     $modelKeyFormatted = $modelKey;
   }
-  
+
   $contextMappings[$modelKeyFormatted] = $mapping;
 }
 
 // Guardar como archivo PHP en config/
 if (!$dryRun) {
-  $configPath = app_path('../config/generated-context-mappings.php');
   $phpContent = "<?php\n\nreturn " . var_export($contextMappings, true) . ";\n";
-  
-  if (file_put_contents($configPath, $phpContent)) {
-    echo color("✓ Context mappings guardados en: config/generated-context-mappings.php\n", 'green');
+
+  if (file_put_contents($contextConfigPath, $phpContent)) {
+    echo color("✓ Context mappings guardados en: {$contextConfigPath}\n", 'green');
   } else {
     echo color("⚠ Error al guardar context mappings\n", 'red');
   }
 } else {
-  echo "[DRY-RUN] Context mappings: config/generated-context-mappings.php\n";
+  echo "[DRY-RUN] Context mappings: {$contextConfigPath}\n";
 }
 
 echo "\n";

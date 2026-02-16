@@ -2,14 +2,14 @@
 
 namespace App\Models\Base\Usuario;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseCacheLocks extends Model
+abstract class BaseCacheLocks extends CustomBaseModel
 {
     use Compoships;
     public $timestamps = false;
@@ -19,6 +19,7 @@ abstract class BaseCacheLocks extends Model
     public $incrementing = true;
 
     protected $fillable = [
+        'key',
         'owner',
         'expiration'
     ];

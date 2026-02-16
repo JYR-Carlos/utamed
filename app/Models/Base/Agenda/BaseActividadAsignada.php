@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Agenda;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
@@ -12,7 +12,7 @@ use App\Traits\QueryScopes\FiltersContextScope;
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseActividadAsignada extends Model implements HasContext
+abstract class BaseActividadAsignada extends CustomBaseModel implements HasContext
 {
     use Compoships;
     use ContextAware;
@@ -24,7 +24,9 @@ abstract class BaseActividadAsignada extends Model implements HasContext
     public $incrementing = false;
 
     protected $fillable = [
+        'grupo',
         'nota',
+        'id_actividad',
         'id_estado'
     ];
 

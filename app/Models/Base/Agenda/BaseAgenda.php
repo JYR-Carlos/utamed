@@ -2,14 +2,14 @@
 
 namespace App\Models\Base\Agenda;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseAgenda extends Model
+abstract class BaseAgenda extends CustomBaseModel
 {
     use Compoships;
     public $timestamps = false;

@@ -2,14 +2,14 @@
 
 namespace App\Models\Base\Usuario;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseJobBatches extends Model
+abstract class BaseJobBatches extends CustomBaseModel
 {
     use Compoships;
     public $timestamps = false;
@@ -19,6 +19,7 @@ abstract class BaseJobBatches extends Model
     public $incrementing = true;
 
     protected $fillable = [
+        'id',
         'name',
         'total_jobs',
         'pending_jobs',

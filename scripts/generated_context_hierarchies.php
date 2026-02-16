@@ -15,6 +15,12 @@ $contextHierarchies = [
         'utamed.Administrativo.Asignacion_Plan' => [
             ['Plan', 'Carrera']
         ],
+        'utamed.Administrativo.Contenido_Programa' => [
+            ['Estructura_Programa', 'Programa', 'Curso']
+        ],
+        'utamed.Administrativo.Estructura_Programa' => [
+            ['Programa', 'Curso']
+        ],
         'utamed.Administrativo.Plan' => [
             ['Carrera']
         ],
@@ -70,13 +76,5 @@ $contextHierarchies = [
 // - utamed.Usuario.Tipo_Contexto: Prefijo filtrado
 // - utamed.Usuario.Usuario_Permiso_Especial: Tabla filtrada
 // - utamed.Usuario.Usuario_Rol_Asignación: Tabla filtrada
-// - utamed.Usuario.cache: Tabla filtrada
-// - utamed.Usuario.cache_locks: Tabla filtrada
-// - utamed.Usuario.failed_jobs: Tabla filtrada
-// - utamed.Usuario.job_batches: Tabla filtrada
-// - utamed.Usuario.jobs: Tabla filtrada
-// - utamed.Usuario.migrations: Tabla filtrada
-// - utamed.Usuario.password_reset_tokens: Tabla filtrada
-// - utamed.Usuario.sessions: Tabla filtrada
 // - utamed.Usuario.vw_permisos_usuario: Prefijo filtrado
 */

@@ -2,14 +2,14 @@
 
 namespace App\Models\Base\Usuario;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseVwPermisosUsuario extends Model
+abstract class BaseVwPermisosUsuario extends CustomBaseModel
 {
     use Compoships;
     public $timestamps = false;
@@ -19,6 +19,8 @@ abstract class BaseVwPermisosUsuario extends Model
     public $incrementing = true;
 
     protected $fillable = [
+        'id_usuario',
+        'id_contexto',
         'esta_permitido',
         'slug',
         'tipo_asignacion'

@@ -2,8 +2,7 @@
 
 namespace App\Models\Base\Curso;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
@@ -13,9 +12,8 @@ use App\Traits\QueryScopes\FiltersContextScope;
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseInscripcionSeccion extends Model implements HasContext
+abstract class BaseInscripcionSeccion extends CustomBaseModel implements HasContext
 {
-    use HasFactory;
     use Compoships;
     use ContextAware;
     use FiltersContextScope;
@@ -26,10 +24,10 @@ abstract class BaseInscripcionSeccion extends Model implements HasContext
     public $incrementing = false;
 
     protected $fillable = [
+        'nota_seccion',
         'id_estudiante',
         'id_seccion',
-        'id_curso',
-        'nota_seccion'
+        'id_curso'
     ];
 
 

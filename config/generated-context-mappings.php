@@ -91,6 +91,51 @@ return array (
       ),
     ),
   ),
+  'utamed.Administrativo.ContenidoPrograma' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
+      array (
+        0 => 
+        array (
+          'target' => 'EstructuraPrograma',
+          'method' => 'estructuraPrograma',
+        ),
+        1 => 
+        array (
+          'target' => 'Programa',
+          'method' => 'programa',
+        ),
+        2 => 
+        array (
+          'target' => 'Curso',
+          'method' => 'curso',
+        ),
+      ),
+    ),
+  ),
+  'utamed.Administrativo.EstructuraPrograma' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
+      array (
+        0 => 
+        array (
+          'target' => 'Programa',
+          'method' => 'programa',
+        ),
+        1 => 
+        array (
+          'target' => 'Curso',
+          'method' => 'curso',
+        ),
+      ),
+    ),
+  ),
   'utamed.Administrativo.Plan' => 
   array (
     'type' => 'hierarchical',

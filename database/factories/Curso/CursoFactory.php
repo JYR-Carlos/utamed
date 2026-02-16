@@ -17,8 +17,6 @@ class CursoFactory extends Factory
         return [
             'cod_curso' => $this->faker->unique()->numerify('#########'),
             'nombre' => $this->faker->sentence(3),
-            'indice_grupo' => 1,
-            // letra_grupo is a GENERATED column, don't set it
             'fecha_inicio' => now()->startOfYear(),
             'fecha_fin' => now()->endOfYear(),
             'agno_real' => now()->year,
@@ -26,7 +24,6 @@ class CursoFactory extends Factory
             'estado_interno' => 'ABIERTO',
             'estado_acta' => 'NO_ENVIADO',
             'es_plantilla' => false,
-            'id_contexto' => 1,
             'id_asignatura' => null,
             'id_plan' => null,
         ];

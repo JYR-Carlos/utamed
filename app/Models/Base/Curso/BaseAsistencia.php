@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Curso;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
@@ -12,7 +12,7 @@ use App\Traits\QueryScopes\FiltersContextScope;
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseAsistencia extends Model implements HasContext
+abstract class BaseAsistencia extends CustomBaseModel implements HasContext
 {
     use Compoships;
     use ContextAware;
@@ -27,7 +27,10 @@ abstract class BaseAsistencia extends Model implements HasContext
         'dia',
         'hora_inicio',
         'hora_fin',
-        'esta_presente'
+        'esta_presente',
+        'id_estudiante',
+        'id_seccion',
+        'id_curso'
     ];
 
 

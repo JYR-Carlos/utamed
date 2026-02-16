@@ -2,14 +2,14 @@
 
 namespace App\Models\Base\Administrativo;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseVwUsuariosCompleto extends Model
+abstract class BaseVwUsuariosCompleto extends CustomBaseModel
 {
     use Compoships;
     public $timestamps = false;
@@ -27,6 +27,7 @@ abstract class BaseVwUsuariosCompleto extends Model
         'tipo_usuario',
         'id_estudiante',
         'agno_ingreso',
+        'id_carrera',
         'carrera_nombre',
         'id_docente',
         'grado',

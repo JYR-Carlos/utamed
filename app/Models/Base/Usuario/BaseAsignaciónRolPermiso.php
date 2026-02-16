@@ -2,14 +2,14 @@
 
 namespace App\Models\Base\Usuario;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseAsignaciónRolPermiso extends Model
+abstract class BaseAsignaciónRolPermiso extends CustomBaseModel
 {
     use Compoships;
     public $timestamps = false;
@@ -19,7 +19,9 @@ abstract class BaseAsignaciónRolPermiso extends Model
     public $incrementing = false;
 
     protected $fillable = [
-        'puede_delegar_permisos'
+        'puede_delegar_permisos',
+        'id_rol',
+        'id_permiso'
     ];
 
 

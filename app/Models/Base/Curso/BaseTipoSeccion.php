@@ -2,17 +2,15 @@
 
 namespace App\Models\Base\Curso;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseTipoSeccion extends Model
+abstract class BaseTipoSeccion extends CustomBaseModel
 {
-    use HasFactory;
     use Compoships;
     public $timestamps = false;
     protected $connection = 'pgsql';

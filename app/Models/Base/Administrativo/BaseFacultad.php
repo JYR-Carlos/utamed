@@ -2,8 +2,7 @@
 
 namespace App\Models\Base\Administrativo;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Contracts\HasContext;
@@ -14,9 +13,8 @@ use App\Traits\QueryScopes\FiltersContextScope;
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseFacultad extends Model implements HasContext
+abstract class BaseFacultad extends CustomBaseModel implements HasContext
 {
-    use HasFactory;
     use SoftDeletes;
     use Compoships;
     use ContextAware;

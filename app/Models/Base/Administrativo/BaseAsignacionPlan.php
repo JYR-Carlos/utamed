@@ -2,7 +2,7 @@
 
 namespace App\Models\Base\Administrativo;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Contracts\HasContext;
@@ -13,7 +13,7 @@ use App\Traits\QueryScopes\FiltersContextScope;
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseAsignacionPlan extends Model implements HasContext
+abstract class BaseAsignacionPlan extends CustomBaseModel implements HasContext
 {
     use SoftDeletes;
     use Compoships;
@@ -27,6 +27,8 @@ abstract class BaseAsignacionPlan extends Model implements HasContext
     public $incrementing = false;
 
     protected $fillable = [
+        'id_asignatura',
+        'id_plan',
         'agno_planificado',
         'semestre_planificado',
         'tipo_ramo'

@@ -2,8 +2,7 @@
 
 namespace App\Models\Base\Usuario;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
@@ -13,9 +12,8 @@ use App\Traits\QueryScopes\FiltersContextScope;
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseEstudiante extends Model implements HasContext
+abstract class BaseEstudiante extends CustomBaseModel implements HasContext
 {
-    use HasFactory;
     use Compoships;
     use ContextAware;
     use FiltersContextScope;
@@ -27,6 +25,7 @@ abstract class BaseEstudiante extends Model implements HasContext
 
     protected $fillable = [
         'agno_ingreso',
+        'id_carrera',
         'id_usuario'
     ];
 

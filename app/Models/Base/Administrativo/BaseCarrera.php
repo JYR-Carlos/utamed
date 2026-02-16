@@ -4,7 +4,7 @@ namespace App\Models\Base\Administrativo;
 
 use App\Extensions\Compoships\BelongsTo;
 use App\Models\Administrativo\Departamento;
-use Illuminate\Database\Eloquent\Model;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Contracts\HasContext;
@@ -15,7 +15,7 @@ use App\Traits\QueryScopes\FiltersContextScope;
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseCarrera extends Model implements HasContext
+abstract class BaseCarrera extends CustomBaseModel implements HasContext
 {
     use SoftDeletes;
     use Compoships;

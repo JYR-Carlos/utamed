@@ -2,8 +2,7 @@
 
 namespace App\Models\Base\Curso;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
@@ -13,9 +12,8 @@ use App\Traits\QueryScopes\FiltersContextScope;
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseSeccion extends Model implements HasContext
+abstract class BaseSeccion extends CustomBaseModel implements HasContext
 {
-    use HasFactory;
     use Compoships;
     use ContextAware;
     use FiltersContextScope;
@@ -27,6 +25,7 @@ abstract class BaseSeccion extends Model implements HasContext
 
     protected $fillable = [
         'id_curso',
+        'es_plantilla',
         'id_tipo_seccion',
         'id_docente'
     ];
