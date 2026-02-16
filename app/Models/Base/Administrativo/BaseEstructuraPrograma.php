@@ -2,22 +2,26 @@
 
 namespace App\Models\Base\Administrativo;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 use Awobaz\Compoships\Compoships;
+use App\Contracts\HasContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseEstructuraPrograma extends Model
+abstract class BaseEstructuraPrograma extends Model implements HasContext
 {
     use Compoships;
-
+    use ContextAware;
+    use FiltersContextScope;
+    public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Estructura_Programa';
     protected $primaryKey = 'id_seccion';
     public $incrementing = true;
-    public $timestamps = false;
 
     protected $fillable = [
         'nombre_seccion',
@@ -30,19 +34,36 @@ abstract class BaseEstructuraPrograma extends Model
         'es_plantilla'
     ];
 
+
     // Relaciones
+
     public function programa()
     {
-        return $this->belongsTo(
-            \App\Models\Administrativo\Programa::class,
-            ['id_programa', 'es_actual', 'id_curso', 'es_plantilla'],
-            ['id_programa', 'es_actual', 'id_curso', 'es_plantilla']
-        );
+        return $this->belongsTo(\App\Models\Administrativo\Programa::class, ['id_programa', 'es_actual', 'id_curso', 'es_plantilla'], ['id_programa', 'es_actual', 'id_curso', 'es_plantilla']);
     }
 
     // Relaciones inversas
-    public function contenidos_programa()
+
+    public function contenidoProgramas()
     {
         return $this->hasMany(\App\Models\Administrativo\ContenidoPrograma::class, 'id_seccion', 'id_seccion');
+    }
+
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Path: programa
+     */
+    public function scopeWhereContextHierarchy($query, array $contextIds)
+    {
+        if (empty($contextIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('programa', function ($q) use ($contextIds) {
+                $q->whereHas('curso', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+            });
     }
 }

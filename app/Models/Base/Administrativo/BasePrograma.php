@@ -32,27 +32,6 @@ abstract class BasePrograma extends Model implements HasContext
         'creado_por'
     ];
 
-    /**
-     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
-     */
-    public function qualifyColumn($column)
-    {
-        $qualified = parent::qualifyColumn($column);
-        // Only quote if not already quoted and contains a dot (table.column)
-        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
-            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
-        }
-        return $qualified;
-    }
-
-    /**
-     * Override getQualifiedKeyName to ensure correct quoting
-     */
-    public function getQualifiedKeyName()
-    {
-        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
-    }
-
 
     // Relaciones
 
@@ -66,7 +45,9 @@ abstract class BasePrograma extends Model implements HasContext
         return $this->belongsTo(\App\Models\Curso\Curso::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
     }
 
-    public function secciones()
+    // Relaciones inversas
+
+    public function estructuraProgramas()
     {
         return $this->hasMany(\App\Models\Administrativo\EstructuraPrograma::class, ['id_programa', 'es_actual', 'id_curso', 'es_plantilla'], ['id_programa', 'es_actual', 'id_curso', 'es_plantilla']);
     }

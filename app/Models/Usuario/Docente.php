@@ -3,7 +3,6 @@
 namespace App\Models\Usuario;
 
 use App\Models\Base\Usuario\BaseDocente;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
  * Modelo Docente
@@ -13,51 +12,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  */
 class Docente extends BaseDocente
 {
-    use HasFactory;
-    protected $table = 'Docente';
-    protected $primaryKey = 'id_docente';
-
-    /**
-     * Fix for double quoting issue in BaseDocente.
-     * Reverts to standard Eloquent behavior.
-     */
-    public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-
-    public function getQualifiedKeyName()
-    {
-        return $this->qualifyColumn($this->getKeyName());
-    }
-    protected $fillable = [
-        'rut',
-        'nombre_completo',
-        'grado',
-        'titulo',
-        'cargo',
-        'id_usuario',
-        'id_contexto'
-    ];
-
-    protected $appends = ['nombre_completo'];
-
-    public function getNombreCompletoAttribute()
-    {
-        // If attributes are available directly (e.g. via join)
-        if ($this->getAttribute('nombre1')) {
-            return trim("{$this->nombre1} {$this->nombre2} {$this->apellido1} {$this->apellido2}");
-        }
-
-        // If loaded via relation
-        if ($this->relationLoaded('usuario') && $this->usuario) {
-            return trim("{$this->usuario->nombre1} {$this->usuario->nombre2} {$this->usuario->apellido1} {$this->usuario->apellido2}");
-        }
-
-        return 'Docente ' . $this->rut;
-    }
+    // Agrega aquí tus métodos personalizados
+    // Scopes personalizados
+    // Relaciones adicionales
+    // Accessors/Mutators
+    // etc.
 }

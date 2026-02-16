@@ -3,6 +3,7 @@
 namespace App\Models\Base\Administrativo;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Awobaz\Compoships\Compoships;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Contracts\HasContext;
@@ -15,6 +16,7 @@ use App\Traits\QueryScopes\FiltersContextScope;
  */
 abstract class BaseFacultad extends Model implements HasContext
 {
+    use HasFactory;
     use SoftDeletes;
     use Compoships;
     use ContextAware;
@@ -28,29 +30,8 @@ abstract class BaseFacultad extends Model implements HasContext
     public $incrementing = true;
 
     protected $fillable = [
-        'nombre',
-        'id_contexto'
+        'nombre'
     ];
-
-    /**
-     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
-     */
-    public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-
-    /**
-     * Override getQualifiedKeyName to ensure correct quoting
-     */
-    public function getQualifiedKeyName()
-    {
-        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
-    }
 
 
     // Relaciones

@@ -4,7 +4,9 @@ namespace App\Models\Usuario;
 
 use App\Models\Base\Usuario\BaseUsuario;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\Access\Authorizable as AuthorizableContract;
 use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
+use Illuminate\Foundation\Auth\Access\Authorizable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Services\Authorization\PermissionValidator;
 use App\Contracts\HasContext;
@@ -21,11 +23,12 @@ use App\Contracts\HasContext;
  * 
  * Extiende de BaseUsuario (auto-generado)
  * Agrega aquí tus personalizaciones, relaciones adicionales, etc . */
-class Usuario extends BaseUsuario implements Authenticatable
+class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContract
 {
     use AuthenticatableTrait, HasFactory;
-
-    protected $table = 'Usuario';
+    use Authorizable {
+        Authorizable::can as authorizableCan;
+    }
 
     /**
      * Get the password for the user.
@@ -224,34 +227,19 @@ class Usuario extends BaseUsuario implements Authenticatable
      */
     public function can($ability, $arguments = []): bool
     {
-        // PASO 1: Delegar a parent (Laravel's Gate/Policy system)
+        // PASO 1: Delegar a Laravel's Gate/Policy system
         // Esto ejecutará Policies registradas automáticamente
-        $parentResult = parent::can($ability, $arguments);
-
-        // Si parent permitió, retornar true
-        if ($parentResult) {
-            return true;
-        }
-
+        
         // PASO 2: Fallback para slugs de permisos SIN Policy registrada
         // parent::can() retornó false, podría ser porque:
         // a) Una Policy denegó explícitamente (respetar esa decisión)
         // b) No hay Policy registrada (usar PermissionValidator)
+        
+        if (!(str_contains($ability, ':') && $ability === '*')) {
+            return $this->authorizableCan($ability, $arguments);
 
-        if (str_contains($ability, ':') || $ability === '*') {
+        } else {
             $model = is_array($arguments) ? ($arguments[0] ?? null) : $arguments;
-
-            // Verificar si existe una Policy registrada para el modelo
-            if (is_object($model)) {
-                $gate = app(\Illuminate\Contracts\Auth\Access\Gate::class);
-
-                // Si hay Policy, respetar su decisión (false)
-                if ($gate->getPolicyFor($model) !== null) {
-                    return false;
-                }
-            }
-
-            // No hay Policy registrada, usar PermissionValidator como fallback
             $resource = ($model instanceof HasContext) ? $model : null;
             return $this->hasPermissionFor($ability, $resource);
         }

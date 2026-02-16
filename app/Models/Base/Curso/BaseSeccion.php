@@ -3,6 +3,7 @@
 namespace App\Models\Base\Curso;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Awobaz\Compoships\Compoships;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
@@ -14,6 +15,7 @@ use App\Traits\QueryScopes\FiltersContextScope;
  */
 abstract class BaseSeccion extends Model implements HasContext
 {
+    use HasFactory;
     use Compoships;
     use ContextAware;
     use FiltersContextScope;
@@ -24,29 +26,10 @@ abstract class BaseSeccion extends Model implements HasContext
     public $incrementing = false;
 
     protected $fillable = [
+        'id_curso',
         'id_tipo_seccion',
         'id_docente'
     ];
-
-    /**
-     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
-     */
-    public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return '"' . $this->getTable() . '".' . $column;
-    }
-
-    /**
-     * Override getQualifiedKeyName to ensure correct quoting
-     */
-    public function getQualifiedKeyName()
-    {
-        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
-    }
 
 
     // Relaciones

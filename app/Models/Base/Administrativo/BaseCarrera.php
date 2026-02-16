@@ -35,29 +35,8 @@ abstract class BaseCarrera extends Model implements HasContext
         'sede',
         'modalidad',
         'id_departamento',
-        'id_facultad',
-        'id_contexto'
+        'id_facultad'
     ];
-
-    /**
-     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
-     */
-    public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-
-    /**
-     * Override getQualifiedKeyName to ensure correct quoting
-     */
-    public function getQualifiedKeyName()
-    {
-        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
-    }
 
 
     // Relaciones

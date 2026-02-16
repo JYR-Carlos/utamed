@@ -3,6 +3,7 @@
 namespace App\Models\Base\Curso;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Awobaz\Compoships\Compoships;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Contracts\HasContext;
@@ -15,6 +16,7 @@ use App\Traits\QueryScopes\FiltersContextScope;
  */
 abstract class BaseCurso extends Model implements HasContext
 {
+    use HasFactory;
     use SoftDeletes;
     use Compoships;
     use ContextAware;
@@ -35,28 +37,8 @@ abstract class BaseCurso extends Model implements HasContext
         'agno_real',
         'semestre_real',
         'estado_interno',
-        'estado_acta',
-        'id_contexto'
+        'estado_acta'
     ];
-
-    /**
-     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
-     */
-    public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-    /**
-     * Override getQualifiedKeyName to ensure correct quoting
-     */
-    public function getQualifiedKeyName()
-    {
-        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
-    }
 
 
     // Relaciones

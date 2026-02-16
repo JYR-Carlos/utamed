@@ -12,24 +12,9 @@ use App\Models\Base\Administrativo\BaseFacultad;
  */
 class Facultad extends BaseFacultad
 {
-    protected $table = 'Facultad';
-    protected $fillable = ['nombre', 'id_contexto'];
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales
     // Accessors/Mutators
     // etc.
-
-
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
-
-
-    public function getQualifiedKeyName()
-    {
-        return $this->qualifyColumn($this->getKeyName());
-    }
 }

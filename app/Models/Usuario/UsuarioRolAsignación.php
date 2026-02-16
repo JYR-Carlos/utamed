@@ -6,55 +6,15 @@ use App\Models\Base\Usuario\BaseUsuarioRolAsignación;
 
 /**
  * Modelo UsuarioRolAsignación
+ * 
+ * Extiende de BaseUsuarioRolAsignación (auto-generado)
+ * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
  */
 class UsuarioRolAsignación extends BaseUsuarioRolAsignación
 {
-
-    use \App\Traits\HasCompositeKey;
-
-    protected $casts = [
-        'esta_activo' => 'boolean',
-        'fue_eliminado' => 'boolean',
-    ];
-
-    // public $incrementing = false; // Inherited from Base
-    // protected $primaryKey = null; // Removed to inherit from Base array
-
-    protected $fillable = [
-        'id_usuario',
-        'id_contexto',
-        'id_rol',
-        'asignado_por',
-        'creado_por',
-        'fecha_inicio_planificada',
-        'fecha_fin_planificada',
-        'fecha_fin_real',
-        'fue_eliminado',
-        'esta_activo',
-        'fecha_creacion',
-        'fecha_modificacion'
-    ];
-
-    public function getRouteKeyName()
-    {
-        return 'id_usuario';
-    }
-
-    /**
-     * Fix for double quoting issue in BaseUsuarioRolAsignación.
-     * Reverts to standard Eloquent behavior.
-     */
-    public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-
-    public function getQualifiedKeyName()
-    {
-        return $this->qualifyColumn($this->getKeyName());
-    }
+    // Agrega aquí tus métodos personalizados
+    // Scopes personalizados
+    // Relaciones adicionales
+    // Accessors/Mutators
+    // etc.
 }

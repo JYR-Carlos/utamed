@@ -2,22 +2,26 @@
 
 namespace App\Models\Base\Administrativo;
 
-use Awobaz\Compoships\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 use Awobaz\Compoships\Compoships;
+use App\Contracts\HasContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseContenidoPrograma extends Model
+abstract class BaseContenidoPrograma extends Model implements HasContext
 {
     use Compoships;
-
+    use ContextAware;
+    use FiltersContextScope;
+    public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Contenido_Programa';
     protected $primaryKey = 'id_contenido_programa';
     public $incrementing = true;
-    public $timestamps = false;
 
     protected $fillable = [
         'texto_contenido',
@@ -26,9 +30,31 @@ abstract class BaseContenidoPrograma extends Model
         'id_seccion'
     ];
 
+
     // Relaciones
-    public function estructura_programa()
+
+    public function estructuraPrograma()
     {
         return $this->belongsTo(\App\Models\Administrativo\EstructuraPrograma::class, 'id_seccion', 'id_seccion');
+    }
+
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Path: estructuraPrograma
+     */
+    public function scopeWhereContextHierarchy($query, array $contextIds)
+    {
+        if (empty($contextIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('estructuraPrograma', function ($q) use ($contextIds) {
+                $q->whereHas('programa', function ($q) use ($contextIds) {
+                $q->whereHas('curso', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+            });
+            });
     }
 }

@@ -12,41 +12,9 @@ use App\Models\Base\Administrativo\BaseAsignatura;
  */
 class Asignatura extends BaseAsignatura
 {
-    protected $table = 'Asignatura';
-    protected $fillable = [
-        'cod_asignatura',
-        'nombre',
-        'descripcion',
-        'creditos_sct',
-        'horas_catedra',
-        'horas_taller',
-        'horas_laboratorio',
-        'horas_dirigidas',
-        'horas_autonomas',
-        'id_contexto'
-    ];
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales
     // Accessors/Mutators
     // etc.
-
-
-    /**
-     * Fix: Override BaseAsignatura quoting to prevent double-escaping backslashes.
-     * Uses standard double quotes for PostgreSQL.
-     */
- public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-
-    public function getQualifiedKeyName()
-    {
-        return $this->qualifyColumn($this->getKeyName());
-    }
 }

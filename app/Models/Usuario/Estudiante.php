@@ -12,30 +12,9 @@ use App\Models\Base\Usuario\BaseEstudiante;
  */
 class Estudiante extends BaseEstudiante
 {
-    protected $fillable = [
-        'rut',
-        'nombre_completo',
-        'agno_ingreso',
-        'id_carrera',
-        'id_usuario',
-        'id_contexto'
-    ];
-
-    /**
-     * Fix for double quoting issue in BaseEstudiante.
-     * Reverts to standard Eloquent behavior.
-     */
-    public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-
-    public function getQualifiedKeyName()
-    {
-        return $this->qualifyColumn($this->getKeyName());
-    }
+    // Agrega aquí tus métodos personalizados
+    // Scopes personalizados
+    // Relaciones adicionales
+    // Accessors/Mutators
+    // etc.
 }

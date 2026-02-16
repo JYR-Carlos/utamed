@@ -6,58 +6,15 @@ use App\Models\Base\Usuario\BaseUsuarioPermisoEspecial;
 
 /**
  * Modelo UsuarioPermisoEspecial
+ * 
+ * Extiende de BaseUsuarioPermisoEspecial (auto-generado)
+ * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
  */
 class UsuarioPermisoEspecial extends BaseUsuarioPermisoEspecial
 {
-
-    use \App\Traits\HasCompositeKey;
-
-    protected $casts = [
-        'esta_activo' => 'boolean',
-        'esta_permitido' => 'boolean',
-        'puede_delegar' => 'boolean',
-        'fue_borrado' => 'boolean',
-    ];
-
-    // public $incrementing = false; // Inherited
-    // protected $primaryKey = null; // Inherited
-
-    protected $fillable = [
-        'id_usuario',
-        'id_contexto',
-        'id_permiso',
-        'creado_por',
-        'fecha_inicio_planificada',
-        'fecha_fin_planificada',
-        'esta_permitido',
-        'puede_delegar',
-        'fecha_fin_real',
-        'fue_borrado',
-        'esta_activo',
-        'fecha_creacion',
-        'fecha_modificacion'
-    ];
-
-    /**
-     * Fix for double quoting issue in BaseUsuarioPermisoEspecial.
-     * Reverts to standard Eloquent behavior.
-     */
-    public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-
-    public function getQualifiedKeyName()
-    {
-        return $this->qualifyColumn($this->getKeyName());
-    }
-
-    public function getRouteKeyName()
-    {
-        return 'id_usuario';
-    }
+    // Agrega aquí tus métodos personalizados
+    // Scopes personalizados
+    // Relaciones adicionales
+    // Accessors/Mutators
+    // etc.
 }

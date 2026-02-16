@@ -3,6 +3,7 @@
 namespace App\Models\Base\Curso;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Awobaz\Compoships\Compoships;
 
 /**
@@ -11,6 +12,7 @@ use Awobaz\Compoships\Compoships;
  */
 abstract class BaseTipoSeccion extends Model
 {
+    use HasFactory;
     use Compoships;
     public $timestamps = false;
     protected $connection = 'pgsql';
@@ -19,29 +21,9 @@ abstract class BaseTipoSeccion extends Model
     public $incrementing = true;
 
     protected $fillable = [
+        'id_tipo_seccion',
         'tipo'
     ];
-
-    /**
-     * Override qualifyColumn to ensure correct quoting for PostgreSQL case sensitivity
-     */
-    public function qualifyColumn($column)
-    {
-        $qualified = parent::qualifyColumn($column);
-        // Only quote if not already quoted and contains a dot (table.column)
-        if (!str_contains($qualified, '\"') && str_contains($qualified, '.')) {
-            return '\"' . str_replace('.', '\".\"', $qualified) . '\"';
-        }
-        return $qualified;
-    }
-
-    /**
-     * Override getQualifiedKeyName to ensure correct quoting
-     */
-    public function getQualifiedKeyName()
-    {
-        return '\"' . $this->getTable() . '\".\"' . $this->getKeyName() . '\"';
-    }
 
 
     // Relaciones

@@ -12,12 +12,9 @@ use App\Models\Base\Usuario\BaseContexto;
  */
 class Contexto extends BaseContexto
 {
-    protected $fillable = [
-        'contexto_display'
-    ];
-
-    protected $table = 'Contexto';
-    protected $primaryKey = 'id_contexto';
-    // Disable timestamps if not present
-    public $timestamps = false;
+    // Agrega aquí tus métodos personalizados
+    // Scopes personalizados
+    // Relaciones adicionales
+    // Accessors/Mutators
+    // etc.
 }

@@ -12,25 +12,6 @@ use App\Models\Base\Curso\BaseAsistencia;
  */
 class Asistencia extends BaseAsistencia
 {
-    public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-
-    public function getQualifiedKeyName()
-    {
-        return $this->qualifyColumn($this->getKeyName());
-    }
-
-    public function getRouteKeyName()
-    {
-        return 'id_asistencia';
-    }
-
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales
