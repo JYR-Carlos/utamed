@@ -20,7 +20,7 @@ abstract class BaseEstructuraPrograma extends CustomBaseModel implements HasCont
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Estructura_Programa';
-    protected $primaryKey = 'id_seccion';
+    protected $primaryKey = 'id_estructura_programa';
     public $incrementing = true;
 
     protected $fillable = [
@@ -46,7 +46,7 @@ abstract class BaseEstructuraPrograma extends CustomBaseModel implements HasCont
 
     public function contenidoProgramas()
     {
-        return $this->hasMany(\App\Models\Administrativo\ContenidoPrograma::class, 'id_seccion', 'id_seccion');
+        return $this->hasMany(\App\Models\Administrativo\ContenidoPrograma::class, 'id_estructura_programa', 'id_estructura_programa');
     }
 
     /**

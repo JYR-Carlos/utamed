@@ -15,21 +15,22 @@ abstract class BaseTipoContexto extends CustomBaseModel
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'Tipo_Contexto';
-    protected $primaryKey = ['id_tipo_contexto', 'id_contexto'];
-    public $incrementing = false;
+    protected $primaryKey = 'id_tipo_contexto';
+    public $incrementing = true;
 
     protected $fillable = [
         'categoria',
-        'tabla_referenciada',
-        'id_contexto'
+        'tabla_referenciada'
     ];
 
 
     // Relaciones
 
-    public function contexto()
+    // Relaciones inversas
+
+    public function contextos()
     {
-        return $this->belongsTo(\App\Models\Usuario\Contexto::class, 'id_contexto', 'id_contexto');
+        return $this->hasMany(\App\Models\Usuario\Contexto::class, 'id_tipo_contexto', 'id_tipo_contexto');
     }
 
 }

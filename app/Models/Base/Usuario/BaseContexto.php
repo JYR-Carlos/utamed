@@ -19,11 +19,18 @@ abstract class BaseContexto extends CustomBaseModel
     public $incrementing = true;
 
     protected $fillable = [
-        'contexto_display'
+        'id_contexto',
+        'contexto_display',
+        'id_tipo_contexto'
     ];
 
 
     // Relaciones
+
+    public function tipoContexto()
+    {
+        return $this->belongsTo(\App\Models\Usuario\TipoContexto::class, 'id_tipo_contexto', 'id_tipo_contexto');
+    }
 
     // Relaciones inversas
 
@@ -50,11 +57,6 @@ abstract class BaseContexto extends CustomBaseModel
     public function curso()
     {
         return $this->hasOne(\App\Models\Curso\Curso::class, 'id_contexto', 'id_contexto');
-    }
-
-    public function tipoContextos()
-    {
-        return $this->hasMany(\App\Models\Usuario\TipoContexto::class, 'id_contexto', 'id_contexto');
     }
 
     public function usuarioPermisoEspeciales()

@@ -19,7 +19,6 @@ abstract class BaseTipoSeccion extends CustomBaseModel
     public $incrementing = true;
 
     protected $fillable = [
-        'id_tipo_seccion',
         'tipo'
     ];
 

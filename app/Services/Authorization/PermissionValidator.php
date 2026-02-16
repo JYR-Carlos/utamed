@@ -58,19 +58,24 @@ class PermissionValidator
     }
 
     /**
-     * Cargar ID del contexto global desde la BD usando tipo_contexto.
+     * Cargar ID del contexto global desde la BD usando tipo_contexto.tabla_referenciada.
+     * 
+     * Busca el Tipo_Contexto donde tabla_referenciada = 'GLOBAL',
+     * luego obtiene el Contexto asociado.
      * 
      * @return int
      */
     protected function loadGlobalContextId(): int
     {
-        $globalContext = \App\Models\Usuario\Contexto
-            ::where('contexto_display', 'Global')
+        $globalContext = \App\Models\Usuario\Contexto::query()
+            ->whereHas('tipoContexto', function ($query) {
+                $query->where('tabla_referenciada', 'GLOBAL');
+            })
             ->first();
 
         if (!$globalContext) {
             throw new \RuntimeException(
-                "Contexto global no encontrado. Verifica que exista un registro con contexto_display='Global' en Contexto"
+                "Contexto global no encontrado. Verifica que exista un registro en Tipo_Contexto con tabla_referenciada='GLOBAL' y su contexto asociado en \"utamed.Usuario\".\"Contexto\""
             );
         }
 

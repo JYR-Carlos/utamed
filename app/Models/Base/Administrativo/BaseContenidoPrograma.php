@@ -27,7 +27,7 @@ abstract class BaseContenidoPrograma extends CustomBaseModel implements HasConte
         'texto_contenido',
         'valor_numerico',
         'orden_item',
-        'id_seccion'
+        'id_estructura_programa'
     ];
 
 
@@ -35,7 +35,7 @@ abstract class BaseContenidoPrograma extends CustomBaseModel implements HasConte
 
     public function estructuraPrograma()
     {
-        return $this->belongsTo(\App\Models\Administrativo\EstructuraPrograma::class, 'id_seccion', 'id_seccion');
+        return $this->belongsTo(\App\Models\Administrativo\EstructuraPrograma::class, 'id_estructura_programa', 'id_estructura_programa');
     }
 
     /**
