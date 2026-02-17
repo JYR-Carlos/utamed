@@ -8,7 +8,7 @@ use App\Models\Administrativo\Carrera;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
-
+use Illuminate\Support\Facades\Log;
 /**
  * Controlador para la gestión de planes de estudio.
  * 
@@ -102,7 +102,7 @@ class PlanController extends Controller
             return redirect()->route('admin.planes.index')
                 ->with('success', 'Plan creado exitosamente para el año ' . $validated['agno'] . ' versión ' . $validated['version_plan'] . '.');
         } catch (\Exception $e) {
-            \Log::error('Error al crear plan: ' . $e->getMessage(), [
+            Log::error('Error al crear plan: ' . $e->getMessage(), [
                 'validated_data' => $validated,
                 'exception' => $e
             ]);

@@ -27,9 +27,6 @@
 </Avatar>
 
 <div class="grid flex-1 text-left text-sm leading-tight">
-    <span class="truncate font-medium">{displayName}</span>
-
-    {#if showEmail}
-        <span class="truncate text-xs text-muted-foreground">{user.email}</span>
-    {/if}
+    <span class="truncate font-bold text-slate-900">{displayName}</span>
+    <span class="truncate text-xs text-slate-500">{user.email}</span>
 </div>

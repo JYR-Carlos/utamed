@@ -137,6 +137,8 @@ export interface Curso {
     nombre?: string;
     fecha_inicio?: string;
     numero_semestre?: number;
+    agno_real?: number;
+    semestre_real?: number;
     id_docente?: number;
     asignatura?: Asignatura;
     plan?: Plan;
@@ -341,6 +343,8 @@ export interface CursoFormData {
     nombre?: string;
     fecha_inicio?: string;
     numero_semestre?: number;
+    agno_real?: number;
+    semestre_real?: number;
     id_docente?: number;
     [key: string]: FormDataConvertible;
 }

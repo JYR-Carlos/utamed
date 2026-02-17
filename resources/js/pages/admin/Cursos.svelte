@@ -88,6 +88,8 @@
 		cod_curso: 0,
 		nombre: '',
 		fecha_inicio: '',
+		agno_real: new Date().getFullYear(),
+		semestre_real: 1,
 		id_docente: undefined // Kept for legacy compatibility or removal
 	});
 
@@ -146,6 +148,8 @@
 			nombre: '',
 			fecha_inicio: '',
 			numero_semestre: undefined,
+			agno_real: new Date().getFullYear(),
+			semestre_real: 1,
 			id_docente: undefined
 		};
 		availableAsignaturas = [];
@@ -162,6 +166,8 @@
 			nombre: curso.nombre || '',
 			fecha_inicio: curso.fecha_inicio || '',
 			numero_semestre: curso.numero_semestre,
+			agno_real: curso.agno_real || new Date().getFullYear(),
+			semestre_real: curso.semestre_real || 1,
 			id_docente: curso.id_docente
 		};
 		// Load asignaturas for the selected plan
@@ -476,6 +482,33 @@
 			bind:value={formData.fecha_inicio}
 			class="form-input"
 		/>
+	</div>
+
+	<div class="form-row">
+		<div class="form-group">
+			<label for="agno_real" class="form-label">Año Real *</label>
+			<input
+				id="agno_real"
+				type="number"
+				bind:value={formData.agno_real}
+				class="form-input"
+				min="2000"
+				max="2100"
+				required
+			/>
+		</div>
+		<div class="form-group">
+			<label for="semestre_real" class="form-label">Semestre Real *</label>
+			<select
+				id="semestre_real"
+				bind:value={formData.semestre_real}
+				class="form-input"
+				required
+			>
+				<option value={1}>1</option>
+				<option value={2}>2</option>
+			</select>
+		</div>
 	</div>
 
 	<div class="form-group">

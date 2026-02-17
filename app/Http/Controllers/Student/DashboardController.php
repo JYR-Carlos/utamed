@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Usuario\Usuario;
 use App\Models\Curso\InscripcionCurso;
 use Inertia\Inertia;
-
+use Illuminate\Support\Facades\Auth;
 /**
  * Controlador para el dashboard del estudiante.
  */
@@ -20,7 +20,7 @@ class DashboardController extends Controller
     public function index()
     {
         /** @var Usuario $user */
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Verificar que el usuario es estudiante
         if (!$user->estudiante) {

@@ -5,13 +5,13 @@ namespace App\Http\Controllers\Ayudante;
 use App\Http\Controllers\Controller;
 use App\Models\Usuario\Usuario;
 use Inertia\Inertia;
-
+use Illuminate\Support\Facades\Auth;
 class CourseController extends Controller
 {
     public function index()
     {
         /** @var Usuario $user */
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Obtener cursos donde es Ayudante
         $contextosAsignados = $user->rolesAsignados()

@@ -11,7 +11,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 /**
  * Controlador para la gestión de cursos (instancias de asignaturas).
  * 
@@ -67,7 +68,7 @@ class CursoController extends Controller
 
         // RBAC Data for team management - Filtered if user is a Docente
         /** @var \App\Models\Usuario\Usuario $user */
-        $user = auth()->user();
+        $user = Auth::user();
         $isDocente = $user && $user->docente;
         // In this system, someone might have both roles, but if they have a docente profile, we restrict them here
         // UNLESS they have a higher system-admin role. Let's be safe and check if they are explicitly restricted.
@@ -107,6 +108,8 @@ class CursoController extends Controller
             'cod_curso' => 'required|integer',
             'nombre' => 'nullable|string|max:255',
             'fecha_inicio' => 'nullable|date',
+            'agno_real' => 'required|integer|min:2000|max:2100',
+            'semestre_real' => 'required|integer|in:1,2',
             // Note: Docente is assigned through Sección, not directly to Curso
         ]);
 
@@ -164,7 +167,7 @@ class CursoController extends Controller
                 ->with('success', 'Curso creado exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error creating curso: ' . $e->getMessage(), [
+            Log::error('Error creating curso: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'data' => $validated
             ]);
@@ -194,7 +197,7 @@ class CursoController extends Controller
                 'tipos_seccion' => \App\Models\Curso\TipoSeccion::all()
             ]);
         } catch (\Exception $e) {
-            \Log::error("Error in show curso: " . $e->getMessage());
+            Log::error("Error in show curso: " . $e->getMessage());
             return response()->json(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
         }
     }
@@ -210,6 +213,8 @@ class CursoController extends Controller
             'cod_curso' => 'required|integer',
             'nombre' => 'nullable|string|max:255',
             'fecha_inicio' => 'nullable|date',
+            'agno_real' => 'required|integer|min:2000|max:2100',
+            'semestre_real' => 'required|integer|in:1,2',
             'id_docente' => 'nullable|integer|exists:App\Models\Usuario\Docente,id_docente',
         ]);
 

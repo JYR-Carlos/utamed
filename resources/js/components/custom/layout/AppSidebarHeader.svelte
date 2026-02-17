@@ -2,7 +2,7 @@
     import Breadcrumbs from '@/components/custom/navigation/Breadcrumbs.svelte';
     import { SidebarTrigger } from '@/components/ui/sidebar';
     import type { BreadcrumbItem } from '@/types';
-    import { Search, Bell, ChevronDown, LayoutGrid, Users, Building2, BookOpen, Settings, LogOut } from 'lucide-svelte';
+    import { Search, Bell, ChevronDown, LayoutGrid, Users, Building2, BookOpen, Settings, LogOut, Folder, GraduationCap, ClipboardList } from 'lucide-svelte';
     import { page, router } from '@inertiajs/svelte';
     import * as Command from '@/components/ui/command';
     import { onMount } from 'svelte';
@@ -13,7 +13,7 @@
 
     let { breadcrumbs = [] }: Props = $props();
     let user = $derived($page.props.auth.user);
-    let roles = $derived(($page.props.auth.roles as string[]) || []);
+    const authRoles = $derived(($page.props.auth.roles as string[]) || []);
 
     let openSearch = $state(false);
 
@@ -30,9 +30,10 @@
     });
 
     const searchItems = $derived.by(() => {
-        const isAdmin = roles.includes('admin');
-        const isDocente = roles.includes('docente');
-        const isEstudiante = roles.includes('estudiante');
+        // More robust role checking
+        const isAdmin = authRoles.includes('Administrador') || authRoles.includes('SuperAdmin') || authRoles.includes('Super Admin');
+        const isDocente = authRoles.includes('Docente') || authRoles.includes('docente'); // Check both cases just to be safe
+        const isEstudiante = authRoles.includes('Estudiante') || authRoles.includes('estudiante');
 
         const items = [];
 
@@ -44,14 +45,19 @@
                     { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard' },
                     { icon: Users, label: 'Usuarios', href: '/admin/usuarios' },
                     { icon: Building2, label: 'Facultades', href: '/admin/facultades' },
+                    { icon: Folder, label: 'Departamentos', href: '/admin/departamentos' },
+                    { icon: GraduationCap, label: 'Carreras', href: '/admin/carreras' },
                     { icon: BookOpen, label: 'Asignaturas', href: '/admin/asignaturas' },
+                    { icon: ClipboardList, label: 'Planes de Estudio', href: '/admin/planes' },
+                    { icon: BookOpen, label: 'Cursos Ofertados', href: '/admin/cursos' },
+                    { icon: Users, label: 'Inscripciones', href: '/admin/inscripciones_cursos' },
                 ]
             });
         }
-
+        
         // Docente navigation
         if (isDocente) {
-            items.push({
+             items.push({
                 group: 'Docente',
                 items: [
                     { icon: LayoutGrid, label: 'Dashboard', href: '/docente/dashboard' },
@@ -103,11 +109,11 @@
         {/if}
     </div>
 
-    <div class="header-center">
+    <div class="header-center hidden lg:flex lg:justify-center">
         <button class="search-box cursor-text text-left" onclick={() => openSearch = true}>
             <Search size={18} class="search-icon" />
             <span class="search-input text-slate-400">Buscar en el sistema...</span>
-            <span class="ml-auto hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-400">
+            <span class="ml-auto hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-400">
                 <span class="text-[12px] leading-none">⌘</span> K
             </span>
         </button>
@@ -132,7 +138,10 @@
     </Command.Dialog>
 
     <div class="header-right">
-        <button class="icon-btn">
+        <button class="icon-btn lg:hidden flex items-center justify-center" onclick={() => openSearch = true}>
+            <Search size={20} />
+        </button>
+        <button class="icon-btn flex items-center justify-center">
             <Bell size={20} />
             <span class="pulse-dot"></span>
         </button>
@@ -143,7 +152,7 @@
             </div>
             <div class="user-meta hidden md:flex">
                 <span class="user-name">{user.nombre1 || user.username}</span>
-                <span class="user-role">{roles[0] || 'Usuario'}</span>
+                <span class="user-role">{authRoles[0] || 'Usuario'}</span>
             </div>
             <ChevronDown size={14} class="ml-1 text-slate-400 group-hover:text-slate-600 transition-colors" />
         </div>
@@ -174,18 +183,27 @@
 
     .header-center {
         flex: 0 1 400px;
-        display: flex;
-        justify-content: center;
-        min-width: 300px;
+        min-width: 0;
     }
 
     .header-right {
         display: flex;
         align-items: center;
-        gap: 1.25rem;
+        gap: 0.75rem;
         flex: 1;
         justify-content: flex-end;
-        min-width: 200px;
+        min-width: 0;
+    }
+
+    @media (min-width: 768px) {
+        .header-center {
+            min-width: 300px;
+        }
+
+        .header-right {
+            gap: 1.25rem;
+            min-width: 200px;
+        }
     }
 
     .search-box {
@@ -222,9 +240,6 @@
         width: 40px;
         height: 40px;
         border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         color: #64748b;
         background: #f8fafc;
         border: 1px solid #f1f5f9;

@@ -42,7 +42,7 @@
     function generateProgram(curso: any) {
         if (confirm(`¿Estás seguro de generar el programa para el curso ${curso.cod_curso}?`)) {
             const toastId = toast.loading(`Generando programa para ${curso.cod_curso}...`);
-            
+            console.log(curso);
             router.post(`/docente/cursos/${curso.id_curso}/programa`, {}, {
                 preserveScroll: true,
                 onSuccess: (page: any) => {

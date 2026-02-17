@@ -474,17 +474,10 @@ class CourseTeamController extends Controller
                     ->toArray();
             }
 
-            // Buscar usuarios con rol 'ayudante'
-            $usuariosConAyudante = UsuarioRolAsignación::where('id_rol', $ayudanteRole->id_rol)
-                ->where('esta_activo', true)
-                ->where('fue_eliminado', false)
-                ->whereNotIn('id_usuario', $existingMemberIds)
-                ->pluck('id_usuario')
-                ->unique();
-
             // Buscar en la tabla Usuario
-            $usuarios = Usuario::whereIn('id_usuario', $usuariosConAyudante)
-                ->where('esta_activo', true)
+            $usuarios = Usuario::where('esta_activo', true)
+                ->whereHas('estudiante') // Only students can be assistants
+                ->whereNotIn('id_usuario', $existingMemberIds)
                 ->where(function ($query) use ($searchTerm) {
                     $query->where('nombre1', 'ILIKE', "%{$searchTerm}%")
                         ->orWhere('apellido1', 'ILIKE', "%{$searchTerm}%")

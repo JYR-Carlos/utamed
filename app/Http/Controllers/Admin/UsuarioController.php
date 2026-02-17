@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Estudiante;
 use App\Models\Usuario\Docente;
@@ -17,7 +18,7 @@ use App\Models\Usuario\Permiso;
 use App\Models\Usuario\UsuarioRolAsignación;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Models\Usuario\Contexto;
-
+use Illuminate\Support\Facades\Log;
 /**
  * Controlador para la gestión integral de usuarios del sistema.
  * 
@@ -245,13 +246,16 @@ class UsuarioController extends Controller
                 'id_carrera' => $validated['id_carrera'] ?? null,
             ]);
 
+            // Assign 'estudiante' role
+            $this->assignRole($usuario, 'estudiante');
+
             DB::commit();
 
             return redirect()->route('admin.usuarios.index', ['tipo' => 'estudiante'])
                 ->with('success', 'Estudiante creado exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error creating estudiante: ' . $e->getMessage(), [
+            Log::error('Error creating estudiante: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'data' => $validated
             ]);
@@ -308,13 +312,16 @@ class UsuarioController extends Controller
                 'cargo' => $validated['cargo'] ?? null,
             ]);
 
+            // Assign 'docente' role
+            $this->assignRole($usuario, 'docente');
+
             DB::commit();
 
             return redirect()->route('admin.usuarios.index', ['tipo' => 'docente'])
                 ->with('success', 'Docente creado exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error creating docente: ' . $e->getMessage(), [
+            Log::error('Error creating docente: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'data' => $validated
             ]);
@@ -344,20 +351,32 @@ class UsuarioController extends Controller
             'password' => 'required|string|min:6',
         ]);
 
-        Usuario::create([
-            'username' => $validated['username'],
-            'passhash' => Hash::make($validated['password']),
-            'rut' => $validated['rut'],
-            'nombre1' => $validated['nombre1'],
-            'nombre2' => $validated['nombre2'] ?? null,
-            'apellido1' => $validated['apellido1'],
-            'apellido2' => $validated['apellido2'] ?? null,
-            'email' => $validated['email'] ?? null,
-            'esta_activo' => true,
-        ]);
+        DB::beginTransaction();
+        try {
+            $usuario = Usuario::create([
+                'username' => $validated['username'],
+                'passhash' => Hash::make($validated['password']),
+                'rut' => $validated['rut'],
+                'nombre1' => $validated['nombre1'],
+                'nombre2' => $validated['nombre2'] ?? null,
+                'apellido1' => $validated['apellido1'],
+                'apellido2' => $validated['apellido2'] ?? null,
+                'email' => $validated['email'] ?? null,
+                'esta_activo' => true,
+            ]);
 
-        return redirect()->route('admin.usuarios.index', ['tipo' => 'administrador'])
-            ->with('success', 'Administrador creado exitosamente.');
+            // Assign 'SuperAdmin' role
+            $this->assignRole($usuario, 'SuperAdmin');
+
+            DB::commit();
+
+            return redirect()->route('admin.usuarios.index', ['tipo' => 'administrador'])
+                ->with('success', 'Administrador creado exitosamente.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error creating administrador: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Error al crear administrador: ' . $e->getMessage()])->withInput();
+        }
     }
 
 
@@ -659,17 +678,23 @@ class UsuarioController extends Controller
 
         $idContexto = $contexto->id_contexto;
 
-        $roles = $usuario->rolesAsignados()
+        $roles = $usuario->roles()
             ->where('id_contexto', $idContexto)
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
             ->pluck('id_rol');
 
-        $special = $usuario->permisosEspeciales()
+        $special = $usuario->permisosEspeciales
             ->where('id_contexto', $idContexto)
             ->where('esta_activo', true)
             ->where('fue_borrado', false)
-            ->get(['id_permiso', 'esta_permitido', 'puede_delegar']);
+            ->map(function ($permiso) {
+                return [
+                    'id_permiso' => $permiso->id_permiso,
+                    'esta_permitido' => $permiso->esta_permitido,
+                    'puede_delegar' => $permiso->puede_delegar
+                ];
+            });
 
         return response()->json([
             'roles' => $roles,
@@ -689,8 +714,8 @@ class UsuarioController extends Controller
      */
     public function syncPermissions(Request $request, $id)
     {
-        \Illuminate\Support\Facades\Log::info("SyncPermissions called for user $id");
-        \Illuminate\Support\Facades\Log::info("Payload: " . print_r($request->all(), true));
+        Log::info("SyncPermissions called for user $id");
+        Log::info("Payload: " . print_r($request->all(), true));
         $validated = $request->validate([
             'roles' => 'array',
             'special_permissions' => 'array' // { id_permiso: true/false/null }
@@ -705,7 +730,7 @@ class UsuarioController extends Controller
         );
         $idContexto = $contexto->id_contexto;
 
-        $adminId = auth()->id() ?? 1; // Fallback only for dev/seeder
+        $adminId = Auth::id() ?? 1; // Fallback only for dev/seeder
 
         DB::beginTransaction();
         try {
@@ -777,8 +802,44 @@ class UsuarioController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            \Illuminate\Support\Facades\Log::error("SyncPermissions Error: " . $e->getMessage());
+            Log::error("SyncPermissions Error: " . $e->getMessage());
             return back()->with('error', 'Error al actualizar permisos: ' . $e->getMessage());
         }
+    }
+    /**
+     * Helper to assign a role to a user in the Global context.
+     */
+    private function assignRole(Usuario $usuario, string $roleName)
+    {
+        $rol = Rol::where('nombre', $roleName)->first();
+        if (!$rol) {
+            Log::warning("Role '$roleName' not found for automatic assignment.");
+            return;
+        }
+
+        $contexto = Contexto::firstOrCreate(
+            ['contexto_display' => 'Global'],
+            ['descripcion' => 'Contexto Global por defecto']
+        );
+
+        $adminId = auth()->guard('web')->id() ?? 1;
+
+        UsuarioRolAsignación::updateOrCreate(
+            [
+                'id_usuario' => $usuario->id_usuario,
+                'id_contexto' => $contexto->id_contexto,
+                'id_rol' => $rol->id_rol,
+            ],
+            [
+                'asignado_por' => (int) $adminId,
+                'creado_por' => (int) $adminId,
+                'fecha_inicio_planificada' => now(),
+                'fecha_fin_planificada' => now()->addYears(100),
+                'esta_activo' => true,
+                'fue_eliminado' => false,
+                'fecha_fin_real' => null,
+                'fecha_creacion' => now(),
+            ]
+        );
     }
 }

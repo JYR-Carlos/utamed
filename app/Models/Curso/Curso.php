@@ -35,7 +35,11 @@ class Curso extends BaseCurso
         'id_contexto',
         'letra_grupo',
         'id_asignatura',
-        'id_plan'
+        'id_plan',
+    ];
+
+    protected $casts = [
+        'es_plantilla' => 'boolean'
     ];
 
     /**

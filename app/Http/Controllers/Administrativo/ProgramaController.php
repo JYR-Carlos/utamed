@@ -96,6 +96,7 @@ class ProgramaController extends Controller
             });
 
         } catch (\Exception $e) {
+            dd($e->getMessage());
             return Redirect::back()->with('error', 'Error al generar el programa: ' . $e->getMessage());
         }
     }
@@ -148,7 +149,8 @@ class ProgramaController extends Controller
     public function destroy(Curso $curso)
     {
         // Autorizar acceso
-        $this->authorizeAccess($curso);
+        $this->authorize('delete', $curso);
+        
 
         // Buscar programa actual
         $programa = Programa::where('id_curso', $curso->id_curso)

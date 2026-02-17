@@ -39,6 +39,17 @@ class Usuario extends BaseUsuario implements Authenticatable
     }
 
     /**
+     * Get the column name for the "remember me" token.
+     * Overrides default 'remember_token' column.
+     *
+     * @return string
+     */
+    public function getRememberTokenName()
+    {
+        return 'token_recuerdame_sesion';
+    }
+
+    /**
      * Roles assigned to the user in different contexts.
      * @deprecated Usar relaciones directas del modelo base
      */
@@ -128,69 +139,69 @@ class Usuario extends BaseUsuario implements Authenticatable
     }
 
     /* 
-    * ============================================================================
-    * SISTEMA DE PERMISOS RBAC CON CONTEXTOS JERÁRQUICOS
-    * ============================================================================
-    * 
-    * Este modelo incluye métodos para validación de permisos basados en:
-    * - URA (Usuario-Rol-Asignación): Permisos heredados de roles
-    * - UPE (Usuario-Permiso-Especial): Permisos individuales (GRANT/DENY)
-    * - Contextos jerárquicos: Permisos limitados a ámbitos específicos
-    * 
-    * MÉTODOS DISPONIBLES:
-    * --------------------
-    * 
-    * 1. hasPermission(slug, contextId): Verificar permiso en contexto explícito
-    *    Ej: $user->hasPermission('facultad:ver', 5)
-    * 
-    * 2. hasPermissionFor(slug, resource?): Verificar permiso con resolución automática
-    *    Ej: $user->hasPermissionFor('facultad:editar', $facultad)
-    * 
-    * 3. getContextsWithPermission(slug): Obtener contextos donde tiene permiso
-    *    Ej: $contextIds = $user->getContextsWithPermission('curso:ver')
-    *        $cursos = Curso::whereContext($contextIds)->get()
-    * 
-    * 4. getAllPermissions(contextId?): Listar todos los permisos efectivos
-    *    Ej: $permisos = $user->getAllPermissions(5) // Para debugging/UI
-    * 
-    * 5. can(ability, arguments): Integración con Laravel Gates/Policies
-    *    Ej: $user->can('view', $facultad) // Usa FacultadPolicy si existe
-    *        $user->can('facultad:ver', $facultad) // Fallback a PermissionValidator
-    * 
-    * USO CON POLICIES (FASE 4 - Pendiente de implementación):
-    * ----------------------------------------------------------
-    * 
-    * Las Policies deben registrarse en AuthServiceProvider y usar PermissionValidator:
-    * 
-    * // app/Policies/FacultadPolicy.php (EJEMPLO FUTURO)
-    * class FacultadPolicy
-    * {
-    *     public function __construct(
-    *         protected PermissionValidator $validator
-    *     ) {}
-    * 
-    *     public function view(Usuario $user, Facultad $facultad): bool
-    *     {
-    *         return $this->validator->validate($user, 'facultad:ver', $facultad);
-    *     }
-    * 
-    *     public function create(Usuario $user, ?HasContext $parent = null): bool
-    *     {
-    *         $contextId = $parent?->getContextId()[0] ?? null;
-    *         return $this->validator->validate($user, 'facultad:crear', null, $contextId);
-    *     }
-    * }
-    * 
-    * // app/Providers/AuthServiceProvider.php
-    * protected $policies = [
-    *     Facultad::class => FacultadPolicy::class,
-    * ];
-    * 
-    * // En Controllers
-    * $this->authorize('view', $facultad); // Usa FacultadPolicy::view()
-    * 
-    * ============================================================================
-    */
+     * ============================================================================
+     * SISTEMA DE PERMISOS RBAC CON CONTEXTOS JERÁRQUICOS
+     * ============================================================================
+     * 
+     * Este modelo incluye métodos para validación de permisos basados en:
+     * - URA (Usuario-Rol-Asignación): Permisos heredados de roles
+     * - UPE (Usuario-Permiso-Especial): Permisos individuales (GRANT/DENY)
+     * - Contextos jerárquicos: Permisos limitados a ámbitos específicos
+     * 
+     * MÉTODOS DISPONIBLES:
+     * --------------------
+     * 
+     * 1. hasPermission(slug, contextId): Verificar permiso en contexto explícito
+     *    Ej: $user->hasPermission('facultad:ver', 5)
+     * 
+     * 2. hasPermissionFor(slug, resource?): Verificar permiso con resolución automática
+     *    Ej: $user->hasPermissionFor('facultad:editar', $facultad)
+     * 
+     * 3. getContextsWithPermission(slug): Obtener contextos donde tiene permiso
+     *    Ej: $contextIds = $user->getContextsWithPermission('curso:ver')
+     *        $cursos = Curso::whereContext($contextIds)->get()
+     * 
+     * 4. getAllPermissions(contextId?): Listar todos los permisos efectivos
+     *    Ej: $permisos = $user->getAllPermissions(5) // Para debugging/UI
+     * 
+     * 5. can(ability, arguments): Integración con Laravel Gates/Policies
+     *    Ej: $user->can('view', $facultad) // Usa FacultadPolicy si existe
+     *        $user->can('facultad:ver', $facultad) // Fallback a PermissionValidator
+     * 
+     * USO CON POLICIES (FASE 4 - Pendiente de implementación):
+     * ----------------------------------------------------------
+     * 
+     * Las Policies deben registrarse en AuthServiceProvider y usar PermissionValidator:
+     * 
+     * // app/Policies/FacultadPolicy.php (EJEMPLO FUTURO)
+     * class FacultadPolicy
+     * {
+     *     public function __construct(
+     *         protected PermissionValidator $validator
+     *     ) {}
+     * 
+     *     public function view(Usuario $user, Facultad $facultad): bool
+     *     {
+     *         return $this->validator->validate($user, 'facultad:ver', $facultad);
+     *     }
+     * 
+     *     public function create(Usuario $user, ?HasContext $parent = null): bool
+     *     {
+     *         $contextId = $parent?->getContextId()[0] ?? null;
+     *         return $this->validator->validate($user, 'facultad:crear', null, $contextId);
+     *     }
+     * }
+     * 
+     * // app/Providers/AuthServiceProvider.php
+     * protected $policies = [
+     *     Facultad::class => FacultadPolicy::class,
+     * ];
+     * 
+     * // En Controllers
+     * $this->authorize('view', $facultad); // Usa FacultadPolicy::view()
+     * 
+     * ============================================================================
+     */
 
     /**
      * Override del método can() de Laravel para integrar con el sistema de permisos.
@@ -216,35 +227,35 @@ class Usuario extends BaseUsuario implements Authenticatable
         // PASO 1: Delegar a parent (Laravel's Gate/Policy system)
         // Esto ejecutará Policies registradas automáticamente
         $parentResult = parent::can($ability, $arguments);
-        
+
         // Si parent permitió, retornar true
         if ($parentResult) {
             return true;
         }
-        
+
         // PASO 2: Fallback para slugs de permisos SIN Policy registrada
         // parent::can() retornó false, podría ser porque:
         // a) Una Policy denegó explícitamente (respetar esa decisión)
         // b) No hay Policy registrada (usar PermissionValidator)
-        
+
         if (str_contains($ability, ':') || $ability === '*') {
             $model = is_array($arguments) ? ($arguments[0] ?? null) : $arguments;
-            
+
             // Verificar si existe una Policy registrada para el modelo
             if (is_object($model)) {
                 $gate = app(\Illuminate\Contracts\Auth\Access\Gate::class);
-                
+
                 // Si hay Policy, respetar su decisión (false)
                 if ($gate->getPolicyFor($model) !== null) {
                     return false;
                 }
             }
-            
+
             // No hay Policy registrada, usar PermissionValidator como fallback
             $resource = ($model instanceof HasContext) ? $model : null;
             return $this->hasPermissionFor($ability, $resource);
         }
-        
+
         // Para habilidades estándar sin Policy, retornar false
         return false;
     }
