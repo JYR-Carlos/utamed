@@ -10,4 +10,4 @@
 export * from './admin.types';
 
 // Re-export global types
-export type { User, SharedAuth, PageProps, BreadcrumbItem, NavItem } from './index.d';
+export type { User, SharedAuth, PageProps, BreadcrumbItem, NavItem, SidebarCourse } from './index.d';

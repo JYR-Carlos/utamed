@@ -18,7 +18,7 @@
         </div>
     </SidebarInset>
 {:else}
-    <main class="mx-auto flex h-full w-full max-w-7xl flex-1 flex-col gap-4 rounded-xl {className}">
+    <main class="flex h-full w-full flex-1 flex-col gap-4 {className}">
         {@render children?.()}
     </main>
 {/if}

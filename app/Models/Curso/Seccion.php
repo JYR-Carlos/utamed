@@ -47,6 +47,20 @@ class Seccion extends BaseSeccion
     // etc.
 
     /**
+     * Override de la relación curso() de BaseSeccion.
+     *
+     * BaseSeccion usa Compoships con claves compuestas ['id_curso', 'es_plantilla'],
+     * pero 'es_plantilla' NO es parte de la PK de Curso. Eso genera SQL inválido
+     * en PostgreSQL: (Curso.id_curso, Curso.es_plantilla) IN (...) sin alias de tabla.
+     *
+     * Solución: usar belongsTo estándar de Eloquent con solo id_curso.
+     */
+    public function curso()
+    {
+        return $this->belongsTo(\App\Models\Curso\Curso::class, 'id_curso', 'id_curso');
+    }
+
+    /**
      * Relación con TipoSeccion
      */
     public function tipoSeccion()

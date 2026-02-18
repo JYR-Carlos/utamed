@@ -3,7 +3,6 @@
 namespace App\Models\Curso;
 
 use App\Models\Base\Curso\BaseUnidad;
-use App\Traits\HasCompositeKey;
 
 /**
  * Modelo Unidad
@@ -13,16 +12,6 @@ use App\Traits\HasCompositeKey;
  */
 class Unidad extends BaseUnidad
 {
-    use HasCompositeKey;
-
-    protected $fillable = [
-        'id_curso',
-        'es_plantilla',
-        'num_unidad',
-        'nombre',
-        'descripcion'
-    ];
-
     public function qualifyColumn($column)
     {
         if (str_contains($column, '.')) {

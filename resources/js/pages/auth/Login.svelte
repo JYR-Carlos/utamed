@@ -55,7 +55,7 @@
         </div>
     {/if}
 
-    <Form {...AuthenticatedSessionController.store.form()} resetOnSuccess={['password']} className="flex flex-col gap-6 sm:gap-8">
+    <Form {...AuthenticatedSessionController.store.form()} resetOnSuccess={['password']} className="flex flex-col gap-8">
         {#snippet children({ errors, processing }: BaseFormSnippetProps)}
             <div class="grid gap-6">
                 <!-- Email/Username Field -->
@@ -76,7 +76,7 @@
                             tabindex={1}
                             autocomplete="username"
                             placeholder="ejemplo@uta.cl"
-                            class="w-full bg-secondary/30 border border-border rounded-2xl px-4 py-3 text-sm sm:px-5 sm:py-4 sm:text-base text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/50"
+                            class="w-full bg-secondary/30 border border-border rounded-2xl px-5 py-4 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/50"
                         />
                     </div>
                     <InputError message={errors.email} class="mt-2 text-xs" />
@@ -104,7 +104,7 @@
                             tabindex={2}
                             autocomplete="current-password"
                             placeholder="••••••••"
-                            class="w-full bg-secondary/30 border border-border rounded-2xl px-4 py-3 pr-10 text-sm sm:px-5 sm:py-4 sm:pr-12 sm:text-base text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/50"
+                            class="w-full bg-secondary/30 border border-border rounded-2xl px-5 py-4 pr-12 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/50"
                         />
                         <button 
                             type="button" 
@@ -128,7 +128,7 @@
 
                 <Button 
                     type="submit" 
-                    class="mt-2 w-full bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground font-bold py-4 sm:py-7 rounded-2xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 text-sm sm:text-base" 
+                    class="mt-2 w-full bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground font-bold py-7 rounded-2xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 text-base" 
                     tabindex={4} 
                     disabled={processing}
                 >
@@ -155,3 +155,4 @@
         {/snippet}
     </Form>
 </AuthBase>
+

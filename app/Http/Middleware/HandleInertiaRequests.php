@@ -116,8 +116,35 @@ class HandleInertiaRequests extends Middleware
                             'id_curso' => $curso->id_curso,
                             'nombre' => $curso->nombre,
                             'cod_curso' => $curso->cod_curso,
+                            'tiene_programa' => \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)->exists(),
                         ];
                     }) : [],
+                'estudiante_courses' => $estudiante ? \App\Models\Curso\InscripcionSeccion::where('id_estudiante', $estudiante->id_estudiante)
+                    ->with('seccion.curso')
+                    ->get()
+                    ->pluck('seccion.curso')
+                    ->filter()
+                    ->unique('id_curso')
+                    ->values()
+                    ->map(fn($c) => [
+                        'id_curso' => $c->id_curso,
+                        'nombre' => $c->nombre,
+                        'cod_curso' => $c->cod_curso,
+                    ]) : [],
+                'ayudante_courses' => ($estudiante && in_array('Ayudante', $roles))
+                    ? \App\Models\Curso\Seccion::where('id_ayudante', $estudiante->id_estudiante)
+                        ->with('curso')
+                        ->get()
+                        ->pluck('curso')
+                        ->filter()
+                        ->unique('id_curso')
+                        ->values()
+                        ->map(fn($c) => [
+                            'id_curso' => $c->id_curso,
+                            'nombre' => $c->nombre,
+                            'cod_curso' => $c->cod_curso,
+                        ]) : [],
+
             ],
             'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [

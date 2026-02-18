@@ -1,9 +1,21 @@
 import '@inertiajs/svelte';
 import { type Docente } from './admin.types';
 
+export interface SidebarCourse {
+    id_curso: number;
+    nombre: string;
+    cod_curso: string;
+    tiene_programa?: boolean;
+}
+
 export interface SharedAuth {
     user: User;
     roles: string[];
+    docente?: any;
+    estudiante?: any;
+    docente_courses: SidebarCourse[];
+    estudiante_courses: SidebarCourse[];
+    ayudante_courses: SidebarCourse[];
 }
 
 export interface BreadcrumbItem {

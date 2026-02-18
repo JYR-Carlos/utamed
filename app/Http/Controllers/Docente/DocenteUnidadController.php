@@ -8,12 +8,13 @@ use App\Models\Curso\Unidad;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
 
 class DocenteUnidadController extends Controller
 {
     public function index(Curso $curso)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         if (!$user->docente) {
             abort(403, 'No tienes un perfil docente.');
         }
@@ -44,7 +45,7 @@ class DocenteUnidadController extends Controller
 
     public function store(Request $request, Curso $curso)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         if (!$user->docente) {
             abort(403, 'No tienes un perfil docente.');
         }
@@ -91,7 +92,7 @@ class DocenteUnidadController extends Controller
 
     public function update(Request $request, Curso $curso, Unidad $unidad)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         if (!$user->docente) {
             abort(403, 'No tienes un perfil docente.');
         }
@@ -130,7 +131,7 @@ class DocenteUnidadController extends Controller
 
     public function destroy(Curso $curso, Unidad $unidad)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         if (!$user->docente) {
             abort(403, 'No tienes un perfil docente.');
         }

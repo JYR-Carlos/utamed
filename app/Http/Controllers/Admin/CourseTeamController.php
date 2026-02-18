@@ -10,6 +10,7 @@ use App\Models\Usuario\UsuarioRolAsignación;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 use App\Models\Usuario\UsuarioPermisoEspecial;
 
@@ -70,7 +71,7 @@ class CourseTeamController extends Controller
             // Get user directly by id_usuario
             $user = Usuario::find($assignment->id_usuario);
 
-            \Log::info('Processing assignment', [
+            Log::info('Processing assignment', [
                 'id_usuario' => $assignment->id_usuario,
                 'user_found' => $user ? 'yes' : 'no',
                 'user_data' => $user ? [
@@ -84,7 +85,7 @@ class CourseTeamController extends Controller
             ]);
 
             if (!$user) {
-                \Log::warning('User not found for assignment', ['id_usuario' => $assignment->id_usuario]);
+                Log::warning('User not found for assignment', ['id_usuario' => $assignment->id_usuario]);
                 return null; // Safety check
             }
 

@@ -1,11 +1,13 @@
 <script lang="ts">
     import Breadcrumbs from '@/components/custom/navigation/Breadcrumbs.svelte';
-    import { SidebarTrigger } from '@/components/ui/sidebar';
     import type { BreadcrumbItem } from '@/types';
     import { Search, Bell, ChevronDown, LayoutGrid, Users, Building2, BookOpen, Settings, LogOut, Folder, GraduationCap, ClipboardList } from 'lucide-svelte';
     import { page, router } from '@inertiajs/svelte';
     import * as Command from '@/components/ui/command';
     import { onMount } from 'svelte';
+    import { useSidebar } from '@/components/ui/sidebar/context.svelte';
+
+    const sidebar = useSidebar();
 
     interface Props {
         breadcrumbs?: BreadcrumbItem[];
@@ -101,7 +103,15 @@
 
 <header class="global-header">
     <div class="header-left">
-        <SidebarTrigger class="sidebar-toggle" />
+        <!-- Mobile trigger -->
+        <button 
+            class="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-md transition-colors"
+            onclick={() => sidebar.toggle()}
+            aria-label="Toggle Sidebar"
+        >
+            <LayoutGrid size={20} />
+        </button>
+
         {#if breadcrumbs.length > 0}
             <div class="breadcrumb-wrapper">
                 <Breadcrumbs {breadcrumbs} />
@@ -138,8 +148,12 @@
     </Command.Dialog>
 
     <div class="header-right">
-        <button class="icon-btn lg:hidden flex items-center justify-center" onclick={() => openSearch = true}>
-            <Search size={20} />
+        <button 
+            class="lg:hidden mobile-search-trigger flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-full font-bold shadow-sm" 
+            onclick={() => openSearch = true}
+        >
+            <Search size={18} />
+            <span class="text-xs">Buscar</span>
         </button>
         <button class="icon-btn flex items-center justify-center">
             <Bell size={20} />

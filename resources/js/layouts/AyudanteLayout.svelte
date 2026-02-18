@@ -1,18 +1,18 @@
 <script lang="ts">
-    import AppLayout from '@/layouts/AppLayout.svelte';
+    import AppSidebarLayout from '@/layouts/app/AppSidebarLayout.svelte';
     import type { BreadcrumbItem } from '@/types';
-    import { page } from '@inertiajs/svelte';
+    import type { Snippet } from 'svelte';
 
     interface Props {
-        children?: import('svelte').Snippet;
         breadcrumbs?: BreadcrumbItem[];
+        children?: Snippet;
     }
 
-    let { children, breadcrumbs = [] }: Props = $props();
+    let { breadcrumbs = [], children }: Props = $props();
 </script>
 
-<AppLayout {breadcrumbs}>
-    <div class="ayudante-layout min-h-screen bg-slate-50">
+<div class="flex w-full max-w-[1900px] mx-auto min-h-screen bg-white shadow-xl border-x border-slate-100 relative">
+    <AppSidebarLayout {breadcrumbs}>
         {@render children?.()}
-    </div>
-</AppLayout>
+    </AppSidebarLayout>
+</div>

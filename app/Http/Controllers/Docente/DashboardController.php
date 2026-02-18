@@ -53,10 +53,23 @@ class DashboardController extends Controller
         // Obtener los ids de cursos únicos
         $cursoIds = $secciones->pluck('id_curso')->unique();
 
-        // Contar cursos activos
-        $totalCursos = Curso::whereIn('id_curso', $cursoIds)
+        // Obtener cursos con flag de programa
+        $cursos = Curso::whereIn('id_curso', $cursoIds)
             ->whereNull('fecha_eliminacion')
-            ->count();
+            ->get()
+            ->map(function ($curso) {
+                $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)
+                    ->where('es_actual', true)
+                    ->exists();
+
+                return [
+                    'id_curso' => $curso->id_curso,
+                    'nombre' => $curso->nombre,
+                    'cod_curso' => $curso->cod_curso,
+                    'tiene_programa' => $tienePrograma,
+                ];
+            })
+            ->values();
 
         return Inertia::render('docente/Dashboard', [
             'docente' => [
@@ -67,9 +80,10 @@ class DashboardController extends Controller
                 'id_usuario' => $user->id_usuario,
             ],
             'stats' => [
-                'total_cursos' => $totalCursos,
+                'total_cursos' => $cursos->count(),
                 'nombre_completo' => trim("{$user->nombre1} {$user->apellido1}"),
-            ]
+            ],
+            'cursos' => $cursos,
         ]);
     }
 }
