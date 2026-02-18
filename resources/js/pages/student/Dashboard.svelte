@@ -41,6 +41,15 @@
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/estudiante/dashboard' }
     ];
+
+    const parseDate = (d: string | undefined) => d ? new Date(d) : new Date();
+    const currentYear = $derived(cursos.length ? parseDate(cursos[0].fecha_inicio).getFullYear() : new Date().getFullYear());
+    const byYear = $derived({
+        actual: cursos.filter(c => parseDate(c.fecha_inicio).getFullYear() === currentYear),
+        anteriores: cursos.filter(c => parseDate(c.fecha_inicio).getFullYear() !== currentYear),
+    });
+    const semestre1 = $derived(byYear.actual.filter(c => parseDate(c.fecha_inicio).getMonth() <= 5));
+    const semestre2 = $derived(byYear.actual.filter(c => parseDate(c.fecha_inicio).getMonth() > 5));
 </script>
 
 <StudentLayout {breadcrumbs}>
@@ -83,56 +92,67 @@
             {/if}
         </div>
 
-        <!-- Cursos Section -->
+        <!-- Academic Year Timeline -->
         <div class="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
-            <div class="flex items-center justify-between mb-6">
-                <h2 class="text-xl font-bold text-slate-900">Mis Cursos</h2>
-                <!-- Link to all courses if implemented -->
-                <!-- <Link href="/estudiante/cursos" class="text-blue-600 hover:text-blue-700 font-medium text-sm">
-                    Ver todos →
-                </Link> -->
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-slate-900">{currentYear} Año Académico</h2>
+                <div class="text-slate-500 text-sm">{byYear.actual.length} cursos</div>
             </div>
-
-            {#if cursos.length > 0}
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead>
-                            <tr class="border-b border-slate-200">
-                                <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700">Asignatura</th>
-                                <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700">Código</th>
-                                <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700">Carrera</th>
-                                <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700">Inicio</th>
-                                <th class="text-center py-3 px-4 text-sm font-semibold text-slate-700">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {#each cursos as curso (curso.id_curso)}
-                                <tr class="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                                    <td class="py-3 px-4 text-slate-900 font-medium">{curso.asignatura_nombre}</td>
-                                    <td class="py-3 px-4 text-slate-600">{curso.cod_curso}</td>
-                                    <td class="py-3 px-4 text-slate-600">{curso.carrera_nombre}</td>
-                                    <td class="py-3 px-4 text-slate-600">
-                                        {new Date(curso.fecha_inicio).toLocaleDateString('es-CL')}
-                                    </td>
-                                    <td class="py-3 px-4 text-center">
-                                        <Link
-                                            href={`/estudiante/cursos/${curso.id_curso}`}
-                                            class="text-blue-600 hover:text-blue-700 font-medium text-sm"
-                                        >
-                                            Ver Curso
-                                        </Link>
-                                    </td>
-                                </tr>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-3">
+                    <div class="text-sm font-semibold text-slate-700">Semestre 1</div>
+                    {#if semestre1.length > 0}
+                        <div class="grid grid-cols-1 gap-4">
+                            {#each semestre1 as c (c.id_curso)}
+                                <div class="rounded-xl border border-slate-200 shadow-sm p-4 bg-white">
+                                    <div class="flex items-center justify-between">
+                                        <div class="text-slate-900 font-semibold">{c.asignatura_nombre}</div>
+                                        <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">Actual</span>
+                                    </div>
+                                    <div class="mt-1 text-slate-600 text-sm">Código {c.cod_curso}</div>
+                                    <div class="mt-1 text-slate-500 text-xs">{c.carrera_nombre}</div>
+                                    <div class="mt-3 flex items-center gap-2">
+                                        <Link href={`/estudiante/cursos/${c.id_curso}`} class="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs hover:opacity-90">Ver Curso</Link>
+                                        <button class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-xs cursor-not-allowed" aria-disabled="true" data-pending="syllabus">Syllabus</button>
+                                        <button class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-xs cursor-not-allowed" aria-disabled="true" data-pending="mensajes">Mensajes</button>
+                                        <button class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-xs cursor-not-allowed" aria-disabled="true" data-pending="recursos">Recursos</button>
+                                        <button class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-xs cursor-not-allowed" aria-disabled="true" data-pending="actividades">Actividades</button>
+                                    </div>
+                                </div>
                             {/each}
-                        </tbody>
-                    </table>
+                        </div>
+                    {:else}
+                        <div class="rounded-xl border border-dashed border-slate-200 p-6 text-center text-slate-500 text-sm">No hay cursos en este semestre</div>
+                    {/if}
                 </div>
-            {:else}
-                <div class="text-center py-12">
-                    <BookOpen class="mx-auto text-slate-400 mb-3" size={32} />
-                    <p class="text-slate-600 mb-2">No tienes cursos inscritos</p>
+                <div class="space-y-3">
+                    <div class="text-sm font-semibold text-slate-700">Semestre 2</div>
+                    {#if semestre2.length > 0}
+                        <div class="grid grid-cols-1 gap-4">
+                            {#each semestre2 as c (c.id_curso)}
+                                <div class="rounded-xl border border-slate-200 shadow-sm p-4 bg-white">
+                                    <div class="flex items-center justify-between">
+                                        <div class="text-slate-900 font-semibold">{c.asignatura_nombre}</div>
+                                        <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">Actual</span>
+                                    </div>
+                                    <div class="mt-1 text-slate-600 text-sm">Código {c.cod_curso}</div>
+                                    <div class="mt-1 text-slate-500 text-xs">{c.carrera_nombre}</div>
+                                    <div class="mt-3 flex items-center gap-2">
+                                        <Link href={`/estudiante/cursos/${c.id_curso}`} class="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs hover:opacity-90">Ver Curso</Link>
+                                        <button class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-xs cursor-not-allowed" aria-disabled="true" data-pending="syllabus">Syllabus</button>
+                                        <button class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-xs cursor-not-allowed" aria-disabled="true" data-pending="mensajes">Mensajes</button>
+                                        <button class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-xs cursor-not-allowed" aria-disabled="true" data-pending="recursos">Recursos</button>
+                                        <button class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-xs cursor-not-allowed" aria-disabled="true" data-pending="actividades">Actividades</button>
+                                    </div>
+                                </div>
+                            {/each}
+                        </div>
+                    {:else}
+                        <div class="rounded-xl border border-dashed border-slate-200 p-6 text-center text-slate-500 text-sm">Próximos cursos aparecerán aquí</div>
+                    {/if}
                 </div>
-            {/if}
+            </div>
+            <div class="mt-6 rounded-xl border border-slate-200 p-4 text-slate-500 text-sm">{currentYear - 1} Año Académico</div>
         </div>
     </div>
 </StudentLayout>

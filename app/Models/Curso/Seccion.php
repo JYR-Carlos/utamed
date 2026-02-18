@@ -32,14 +32,7 @@ class Seccion extends BaseSeccion
         return 'id_seccion';
     }
 
-    public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
 
-        return $this->getTable() . '.' . $column;
-    }
 
     public function getQualifiedKeyName()
     {

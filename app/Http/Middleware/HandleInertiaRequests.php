@@ -105,6 +105,19 @@ class HandleInertiaRequests extends Middleware
                 'roles' => $roles,
                 'docente' => $docente,
                 'estudiante' => $estudiante,
+                'docente_courses' => $docente ? \App\Models\Curso\Seccion::where('id_docente', $docente->id_docente)
+                    ->with('curso')
+                    ->get()
+                    ->pluck('curso')
+                    ->unique('id_curso')
+                    ->values()
+                    ->map(function ($curso) {
+                        return [
+                            'id_curso' => $curso->id_curso,
+                            'nombre' => $curso->nombre,
+                            'cod_curso' => $curso->cod_curso,
+                        ];
+                    }) : [],
             ],
             'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [

@@ -202,6 +202,12 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::put('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'update'])->name('cursos.actividades.update');
     Route::delete('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'destroy'])->name('cursos.actividades.destroy');
 
+    // Units (Unidades) Management
+    Route::get('cursos/{curso}/unidades', [\App\Http\Controllers\Docente\DocenteUnidadController::class, 'index'])->name('cursos.unidades.index');
+    Route::post('cursos/{curso}/unidades', [\App\Http\Controllers\Docente\DocenteUnidadController::class, 'store'])->name('cursos.unidades.store');
+    Route::put('cursos/{curso}/unidades/{unidad}', [\App\Http\Controllers\Docente\DocenteUnidadController::class, 'update'])->name('cursos.unidades.update');
+    Route::delete('cursos/{curso}/unidades/{unidad}', [\App\Http\Controllers\Docente\DocenteUnidadController::class, 'destroy'])->name('cursos.unidades.destroy');
+
     // Program Management
     Route::post('cursos/{curso}/programa', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'store'])
         ->name('cursos.programa.store');
