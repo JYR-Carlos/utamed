@@ -24,14 +24,17 @@ class DatabaseServiceProvider extends ServiceProvider
         DB::listen(function ($query) {
             static $searchPathSet = [];
 
-            $connectionName = DB::connection()->getName();
+            // Use the query event's connection instead of calling DB::connection()
+            $connection = $query->connection;
+            $connectionName = $query->connectionName;
 
             // Only set search_path once per connection
-            if (!isset($searchPathSet[$connectionName]) && DB::connection()->getDriverName() === 'pgsql') {
+            if (!isset($searchPathSet[$connectionName]) && $connection->getDriverName() === 'pgsql') {
                 try {
                     // Use PDO directly to avoid triggering another query event
-                    $pdo = DB::connection()->getPdo();
-                    $pdo->exec('SET search_path TO "utamed.Usuario", "utamed.Administrativo", "utamed.Curso", "utamed.Agenda", public');
+                    $pdo = $connection->getPdo();
+                    $searchPath = config('database.connections.pgsql.search_path', 'public');
+                    $pdo->exec("SET search_path TO {$searchPath}");
                     $searchPathSet[$connectionName] = true;
                 } catch (\Exception $e) {
                     // Silently fail

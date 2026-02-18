@@ -4,6 +4,7 @@ namespace App\Models\Base\Curso;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -19,33 +20,40 @@ abstract class BaseSeccion extends CustomBaseModel implements HasContext
     use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Seccion';
+    protected $table = 'seccion';
     protected $primaryKey = ['id_seccion', 'id_curso'];
     public $incrementing = false;
 
     protected $fillable = [
         'id_curso',
+        'genera_acta',
+        'porcentaje_aprobacion',
+        'aprobacion_obligatoria',
+        'porcentaje_asistencia_obligatoria',
         'es_plantilla',
-        'id_tipo_seccion',
-        'id_docente'
+        'id_docente',
+        'id_tipo_seccion'
     ];
 
 
     // Relaciones
 
-    public function tipoSeccion()
-    {
-        return $this->belongsTo(\App\Models\Curso\TipoSeccion::class, 'id_tipo_seccion', 'id_tipo_seccion');
-    }
-
     public function docente()
     {
-        return $this->belongsTo(\App\Models\Usuario\Docente::class, 'id_docente', 'id_docente');
+        $instance = new \App\Models\Usuario\Docente();
+        return new BelongsTo($instance->newQuery(), $this, 'id_docente', 'id_docente', 'docente');
+    }
+
+    public function tipoSeccion()
+    {
+        $instance = new \App\Models\Curso\TipoSeccion();
+        return new BelongsTo($instance->newQuery(), $this, 'id_tipo_seccion', 'id_tipo_seccion', 'tipoSeccion');
     }
 
     public function curso()
     {
-        return $this->belongsTo(\App\Models\Curso\Curso::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
+        $instance = new \App\Models\Curso\Curso();
+        return new BelongsTo($instance->newQuery(), $this, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla'], 'curso');
     }
 
     // Relaciones inversas
@@ -66,11 +74,11 @@ abstract class BaseSeccion extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Estudiante::class,
-            'Inscripcion_Seccion',
+            'inscripcion_seccion',
             'id_seccion,id_curso',
             'id_estudiante'
         )
-            ->withPivot('nota_seccion');
+            ->withPivot('id_inscripcion_seccion', 'nota_seccion');
     }
 
     /**

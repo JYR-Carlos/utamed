@@ -4,6 +4,7 @@ namespace App\Models\Base\Usuario;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -19,7 +20,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Usuario';
+    protected $table = 'usuario';
     protected $primaryKey = 'id_usuario';
     public $incrementing = true;
 
@@ -42,9 +43,14 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
 
     // Relaciones inversas
 
-    public function programasCreados()
+    public function programas()
     {
         return $this->hasMany(\App\Models\Administrativo\Programa::class, 'creado_por', 'id_usuario');
+    }
+
+    public function programas1()
+    {
+        return $this->hasMany(\App\Models\Administrativo\Programa::class, 'revisado_por', 'id_usuario');
     }
 
     public function docente()
@@ -57,39 +63,39 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
         return $this->hasOne(\App\Models\Usuario\Estudiante::class, 'id_usuario', 'id_usuario');
     }
 
-    public function rolesCreados()
+    public function roles()
     {
         return $this->hasMany(\App\Models\Usuario\Rol::class, 'creado_por', 'id_usuario');
     }
 
-    public function permisosEspecialesRecibidos()
+    public function usuarioPermisoEspeciales()
     {
         return $this->hasMany(\App\Models\Usuario\UsuarioPermisoEspecial::class, 'id_usuario', 'id_usuario');
     }
 
-    public function permisosEspecialesAsignados()
+    public function usuarioPermisoEspeciales1()
     {
         return $this->hasMany(\App\Models\Usuario\UsuarioPermisoEspecial::class, 'creado_por', 'id_usuario');
     }
 
-    public function permisosEspecialesEliminados()
+    public function usuarioPermisoEspeciales2()
     {
         return $this->hasMany(\App\Models\Usuario\UsuarioPermisoEspecial::class, 'eliminado_por', 'id_usuario');
     }
 
-    public function asignacionesRolRecibidas()
+    public function usuarioRolAsignaciones()
     {
-        return $this->hasMany(\App\Models\Usuario\UsuarioRolAsignación::class, 'id_usuario', 'id_usuario');
+        return $this->hasMany(\App\Models\Usuario\UsuarioRolAsignacion::class, 'id_usuario', 'id_usuario');
     }
 
-    public function asignacionesRolRealizadas()
+    public function usuarioRolAsignaciones1()
     {
-        return $this->hasMany(\App\Models\Usuario\UsuarioRolAsignación::class, 'creado_por', 'id_usuario');
+        return $this->hasMany(\App\Models\Usuario\UsuarioRolAsignacion::class, 'creado_por', 'id_usuario');
     }
 
-    public function asignacionesRolEliminadas()
+    public function usuarioRolAsignaciones2()
     {
-        return $this->hasMany(\App\Models\Usuario\UsuarioRolAsignación::class, 'eliminado_por', 'id_usuario');
+        return $this->hasMany(\App\Models\Usuario\UsuarioRolAsignacion::class, 'eliminado_por', 'id_usuario');
     }
 
     // Relaciones muchos-a-muchos
@@ -98,7 +104,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Permiso::class,
-            'Usuario_Permiso_Especial',
+            'usuario_permiso_especial',
             'id_usuario',
             'id_permiso'
         )
@@ -109,7 +115,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Contexto::class,
-            'Usuario_Permiso_Especial',
+            'usuario_permiso_especial',
             'id_usuario',
             'id_contexto'
         )
@@ -120,7 +126,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Permiso_Especial',
+            'usuario_permiso_especial',
             'id_usuario',
             'creado_por'
         )
@@ -131,7 +137,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Permiso_Especial',
+            'usuario_permiso_especial',
             'id_usuario',
             'eliminado_por'
         )
@@ -142,7 +148,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Permiso_Especial',
+            'usuario_permiso_especial',
             'creado_por',
             'id_usuario'
         )
@@ -153,7 +159,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Permiso_Especial',
+            'usuario_permiso_especial',
             'creado_por',
             'eliminado_por'
         )
@@ -164,7 +170,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Permiso_Especial',
+            'usuario_permiso_especial',
             'eliminado_por',
             'id_usuario'
         )
@@ -175,7 +181,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Permiso_Especial',
+            'usuario_permiso_especial',
             'eliminado_por',
             'creado_por'
         )
@@ -186,7 +192,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Contexto::class,
-            'Usuario_Rol_Asignación',
+            'usuario_rol_asignacion',
             'id_usuario',
             'id_contexto'
         )
@@ -197,7 +203,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Rol::class,
-            'Usuario_Rol_Asignación',
+            'usuario_rol_asignacion',
             'id_usuario',
             'id_rol'
         )
@@ -208,7 +214,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Rol_Asignación',
+            'usuario_rol_asignacion',
             'id_usuario',
             'creado_por'
         )
@@ -219,7 +225,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Rol_Asignación',
+            'usuario_rol_asignacion',
             'id_usuario',
             'eliminado_por'
         )
@@ -230,7 +236,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Rol_Asignación',
+            'usuario_rol_asignacion',
             'creado_por',
             'id_usuario'
         )
@@ -241,7 +247,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Rol_Asignación',
+            'usuario_rol_asignacion',
             'creado_por',
             'eliminado_por'
         )
@@ -252,7 +258,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Rol_Asignación',
+            'usuario_rol_asignacion',
             'eliminado_por',
             'id_usuario'
         )
@@ -263,7 +269,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Rol_Asignación',
+            'usuario_rol_asignacion',
             'eliminado_por',
             'creado_por'
         )

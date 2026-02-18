@@ -10,10 +10,10 @@ Este es un script automatizado que genera modelos Eloquent para Laravel a partir
 
 **Sin el generador:**
 
-- Crear modelos manualmente para 50+ tablas toma días
+- Crear modelos manualmente toma días, sobretodo cuando hay muchas tablas
 - Fácil olvidar relaciones entre tablas
-- Nombres inconsistentes entre modelos y base de datos
-- Perder tiempo configurando fillables, timestamps, soft deletes
+- Posibles inconsistencias surgen entre modelos y base de datos
+- Necesidad de configurar fillables, timestamps, soft deletes, etc. Todo por tabla, manualmente.
 
 **Con el generador:**
 
@@ -27,8 +27,8 @@ Este es un script automatizado que genera modelos Eloquent para Laravel a partir
 
 El generador sigue un proceso de 4 pasos:
 
-1. **Detección de Tablas** → Encuentra todas las tablas en esquemas `utamed.*`
-2. **Análisis de Relaciones** → Lee Foreign Keys y detecta relaciones 1:1, 1:N, N:M
+1. **Detección de Tablas** → Encuentra todas las tablas en el esquema provisto
+2. **Análisis de Relaciones** → Lee Constraints y detecta relaciones 1:1, 1:N, N:M
 3. **Configuración de Pivots** → Procesa tablas pivot para relaciones belongsToMany
 4. **Generación de Modelos** → Crea archivos PHP con Base Models y Extended Models
 

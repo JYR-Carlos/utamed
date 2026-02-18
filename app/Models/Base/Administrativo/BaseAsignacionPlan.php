@@ -4,6 +4,7 @@ namespace App\Models\Base\Administrativo;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
@@ -22,7 +23,7 @@ abstract class BaseAsignacionPlan extends CustomBaseModel implements HasContext
     const DELETED_AT = 'fecha_eliminacion';
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Asignacion_Plan';
+    protected $table = 'asignacion_plan';
     protected $primaryKey = ['id_asignatura', 'id_plan'];
     public $incrementing = false;
 
@@ -39,12 +40,14 @@ abstract class BaseAsignacionPlan extends CustomBaseModel implements HasContext
 
     public function asignatura()
     {
-        return $this->belongsTo(\App\Models\Administrativo\Asignatura::class, 'id_asignatura', 'id_asignatura');
+        $instance = new \App\Models\Administrativo\Asignatura();
+        return new BelongsTo($instance->newQuery(), $this, 'id_asignatura', 'id_asignatura', 'asignatura');
     }
 
     public function plan()
     {
-        return $this->belongsTo(\App\Models\Administrativo\Plan::class, 'id_plan', 'id_plan');
+        $instance = new \App\Models\Administrativo\Plan();
+        return new BelongsTo($instance->newQuery(), $this, 'id_plan', 'id_plan', 'plan');
     }
 
     // Relaciones inversas
@@ -66,9 +69,9 @@ abstract class BaseAsignacionPlan extends CustomBaseModel implements HasContext
         }
 
         return $query->whereHas('plan', function ($q) use ($contextIds) {
-            $q->whereHas('carrera', function ($q) use ($contextIds) {
+                $q->whereHas('carrera', function ($q) use ($contextIds) {
                 $q->whereIn('id_contexto', $contextIds);
             });
-        });
+            });
     }
 }

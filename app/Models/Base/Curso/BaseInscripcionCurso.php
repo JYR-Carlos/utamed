@@ -4,6 +4,7 @@ namespace App\Models\Base\Curso;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -19,8 +20,8 @@ abstract class BaseInscripcionCurso extends CustomBaseModel implements HasContex
     use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Inscripcion_Curso';
-    protected $primaryKey = ['id_curso', 'id_estudiante'];
+    protected $table = 'inscripcion_curso';
+    protected $primaryKey = ['id_curso_inscripcion', 'id_curso', 'id_estudiante'];
     public $incrementing = false;
 
     protected $fillable = [
@@ -38,12 +39,14 @@ abstract class BaseInscripcionCurso extends CustomBaseModel implements HasContex
 
     public function curso()
     {
-        return $this->belongsTo(\App\Models\Curso\Curso::class, 'id_curso', 'id_curso');
+        $instance = new \App\Models\Curso\Curso();
+        return new BelongsTo($instance->newQuery(), $this, 'id_curso', 'id_curso', 'curso');
     }
 
     public function estudiante()
     {
-        return $this->belongsTo(\App\Models\Usuario\Estudiante::class, 'id_estudiante', 'id_estudiante');
+        $instance = new \App\Models\Usuario\Estudiante();
+        return new BelongsTo($instance->newQuery(), $this, 'id_estudiante', 'id_estudiante', 'estudiante');
     }
 
     /**

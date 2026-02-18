@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Administrativo\Programa;
-use App\Models\Administrativo\EstructuraPrograma;
 
 test('programa tiene atributos fillable correctos', function () {
     $fillable = (new Programa())->getFillable();
@@ -16,29 +15,17 @@ test('programa tiene atributos fillable correctos', function () {
 test('programa usa tabla correcta', function () {
     $programa = new Programa();
 
-    expect($programa->getTable())->toBe('Programa');
+    expect($programa->getTable())->toBe('programa');
 });
 
 test('programa tiene primary key correcta', function () {
     $programa = new Programa();
 
-    expect($programa->getKeyName())->toBe('id_programa');
+    expect($programa->getKeyName())->toBe(['id_programa', 'id_curso', 'es_plantilla', 'es_actual']);
 });
 
-test('programa es auto-incrementing', function () {
+test('programa no es auto-incrementing', function () {
     $programa = new Programa();
 
-    expect($programa->getIncrementing())->toBeTrue();
-});
-
-test('estructura programa usa tabla correcta', function () {
-    $estructura = new EstructuraPrograma();
-
-    expect($estructura->getTable())->toBe('Estructura_Programa');
-});
-
-test('estructura programa tiene primary key correcta', function () {
-    $estructura = new EstructuraPrograma();
-
-    expect($estructura->getKeyName())->toBe('id_seccion');
+    expect($programa->getIncrementing())->toBeFalse();
 });

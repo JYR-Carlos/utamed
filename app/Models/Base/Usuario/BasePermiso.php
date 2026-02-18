@@ -4,6 +4,7 @@ namespace App\Models\Base\Usuario;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 
 /**
  * Clase Base generada automáticamente
@@ -14,7 +15,7 @@ abstract class BasePermiso extends CustomBaseModel
     use Compoships;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Permiso';
+    protected $table = 'permiso';
     protected $primaryKey = 'id_permiso';
     public $incrementing = true;
 
@@ -29,9 +30,9 @@ abstract class BasePermiso extends CustomBaseModel
 
     // Relaciones inversas
 
-    public function asignaciónRolPermisos()
+    public function asignacionRolPermisos()
     {
-        return $this->hasMany(\App\Models\Usuario\AsignaciónRolPermiso::class, 'id_permiso', 'id_permiso');
+        return $this->hasMany(\App\Models\Usuario\AsignacionRolPermiso::class, 'id_permiso', 'id_permiso');
     }
 
     public function usuarioPermisoEspeciales()
@@ -45,7 +46,7 @@ abstract class BasePermiso extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Rol::class,
-            'Asignación_Rol_Permiso',
+            'asignacion_rol_permiso',
             'id_permiso',
             'id_rol'
         )
@@ -56,7 +57,7 @@ abstract class BasePermiso extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Permiso_Especial',
+            'usuario_permiso_especial',
             'id_permiso',
             'id_usuario'
         )
@@ -67,7 +68,7 @@ abstract class BasePermiso extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Contexto::class,
-            'Usuario_Permiso_Especial',
+            'usuario_permiso_especial',
             'id_permiso',
             'id_contexto'
         )

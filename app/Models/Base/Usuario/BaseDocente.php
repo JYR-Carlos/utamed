@@ -4,6 +4,7 @@ namespace App\Models\Base\Usuario;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -19,7 +20,7 @@ abstract class BaseDocente extends CustomBaseModel implements HasContext
     use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Docente';
+    protected $table = 'docente';
     protected $primaryKey = 'id_docente';
     public $incrementing = true;
 
@@ -35,12 +36,13 @@ abstract class BaseDocente extends CustomBaseModel implements HasContext
 
     public function usuario()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario', 'id_usuario');
+        $instance = new \App\Models\Usuario\Usuario();
+        return new BelongsTo($instance->newQuery(), $this, 'id_usuario', 'id_usuario', 'usuario');
     }
 
     // Relaciones inversas
 
-    public function seccionesQueDicta()
+    public function secciones()
     {
         return $this->hasMany(\App\Models\Curso\Seccion::class, 'id_docente', 'id_docente');
     }

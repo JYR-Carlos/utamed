@@ -4,6 +4,7 @@ namespace App\Models\Base\Curso;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 
 /**
  * Clase Base generada automáticamente
@@ -14,7 +15,7 @@ abstract class BaseTipoSeccion extends CustomBaseModel
     use Compoships;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Tipo_Seccion';
+    protected $table = 'tipo_seccion';
     protected $primaryKey = 'id_tipo_seccion';
     public $incrementing = true;
 

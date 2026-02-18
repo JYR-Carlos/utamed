@@ -4,6 +4,7 @@ namespace App\Models\Base\Usuario;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 
 /**
  * Clase Base generada automáticamente
@@ -14,7 +15,7 @@ abstract class BaseTipoContexto extends CustomBaseModel
     use Compoships;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Tipo_Contexto';
+    protected $table = 'tipo_contexto';
     protected $primaryKey = 'id_tipo_contexto';
     public $incrementing = true;
 

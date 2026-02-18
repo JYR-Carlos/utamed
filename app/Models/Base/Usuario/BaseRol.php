@@ -4,6 +4,7 @@ namespace App\Models\Base\Usuario;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -19,7 +20,7 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
     use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Rol';
+    protected $table = 'rol';
     protected $primaryKey = 'id_rol';
     public $incrementing = true;
 
@@ -33,19 +34,20 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
 
     public function usuario()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'creado_por', 'id_usuario');
+        $instance = new \App\Models\Usuario\Usuario();
+        return new BelongsTo($instance->newQuery(), $this, 'creado_por', 'id_usuario', 'usuario');
     }
 
     // Relaciones inversas
 
-    public function asignaciónRolPermisos()
+    public function asignacionRolPermisos()
     {
-        return $this->hasMany(\App\Models\Usuario\AsignaciónRolPermiso::class, 'id_rol', 'id_rol');
+        return $this->hasMany(\App\Models\Usuario\AsignacionRolPermiso::class, 'id_rol', 'id_rol');
     }
 
-    public function usuarioRolAsignacciones()
+    public function usuarioRolAsignaciones()
     {
-        return $this->hasMany(\App\Models\Usuario\UsuarioRolAsignación::class, 'id_rol', 'id_rol');
+        return $this->hasMany(\App\Models\Usuario\UsuarioRolAsignacion::class, 'id_rol', 'id_rol');
     }
 
     // Relaciones muchos-a-muchos
@@ -54,7 +56,7 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Permiso::class,
-            'Asignación_Rol_Permiso',
+            'asignacion_rol_permiso',
             'id_rol',
             'id_permiso'
         )
@@ -65,7 +67,7 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Rol_Asignación',
+            'usuario_rol_asignacion',
             'id_rol',
             'id_usuario'
         )
@@ -76,7 +78,7 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Contexto::class,
-            'Usuario_Rol_Asignación',
+            'usuario_rol_asignacion',
             'id_rol',
             'id_contexto'
         )

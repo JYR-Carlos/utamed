@@ -5,84 +5,70 @@
 $contextHierarchies = [
     'context_column' => 'id_contexto',
     'direct' => [
-        'utamed.Administrativo.Carrera' => 'carrera',
-        'utamed.Administrativo.Departamento' => 'departamento',
-        'utamed.Administrativo.Facultad' => 'facultad',
-        'utamed.Agenda.Actividad' => 'actividad',
-        'utamed.Curso.Curso' => 'curso',
+        'administrativo.carrera' => 'carrera',
+        'administrativo.departamento' => 'departamento',
+        'administrativo.facultad' => 'facultad',
+        'agenda.actividad' => 'actividad',
+        'curso.curso' => 'curso',
     ],
     'hierarchical' => [
-        'utamed.Administrativo.Asignacion_Plan' => [
-            ['Plan', 'Carrera']
+        'administrativo.asignacion_plan' => [
+            ['plan', 'carrera']
         ],
-        'utamed.Administrativo.Contenido_Programa' => [
-            ['Estructura_Programa', 'Programa', 'Curso']
+        'administrativo.plan' => [
+            ['carrera']
         ],
-        'utamed.Administrativo.Estructura_Programa' => [
-            ['Programa', 'Curso']
+        'administrativo.programa' => [
+            ['curso']
         ],
-        'utamed.Administrativo.Plan' => [
-            ['Carrera']
+        'agenda.actividad_asignada' => [
+            ['actividad']
         ],
-        'utamed.Administrativo.Programa' => [
-            ['Curso']
+        'agenda.asignado_actividad' => [
+            ['actividad_asignada', 'actividad'],
+            ['estudiante', 'carrera']
         ],
-        'utamed.Agenda.Actividad_Asignada' => [
-            ['Actividad']
+        'curso.asistencia' => [
+            ['inscripcion_seccion', 'estudiante', 'carrera'],
+            ['inscripcion_seccion', 'seccion', 'curso']
         ],
-        'utamed.Agenda.Asignado_Actividad' => [
-            ['Actividad_Asignada', 'Actividad'],
-            ['Estudiante', 'Carrera']
+        'curso.inscripcion_curso' => [
+            ['curso'],
+            ['estudiante', 'carrera']
         ],
-        'utamed.Curso.Asistencia' => [
-            ['Inscripcion_Seccion', 'Estudiante', 'Carrera'],
-            ['Inscripcion_Seccion', 'Seccion', 'Curso']
+        'curso.inscripcion_seccion' => [
+            ['estudiante', 'carrera'],
+            ['seccion', 'curso']
         ],
-        'utamed.Curso.Inscripcion_Curso' => [
-            ['Curso'],
-            ['Estudiante', 'Carrera']
+        'curso.seccion' => [
+            ['curso']
         ],
-        'utamed.Curso.Inscripcion_Seccion' => [
-            ['Estudiante', 'Carrera'],
-            ['Seccion', 'Curso']
-        ],
-        'utamed.Curso.Seccion' => [
-            ['Curso']
-        ],
-        'utamed.Curso.Unidad' => [
-            ['Curso']
+        'curso.unidad' => [
+            ['curso']
         ],
     ],
     'global' => [
-        'utamed.Administrativo.Asignatura' => 'asignatura',
-        'utamed.Usuario.Docente' => 'docente',
-        'utamed.Usuario.Estudiante' => 'estudiante',
-        'utamed.Usuario.Rol' => 'rol',
-        'utamed.Usuario.Usuario' => 'usuario',
+        'administrativo.asignatura' => 'asignatura',
+        'usuario.docente' => 'docente',
+        'usuario.estudiante' => 'estudiante',
+        'usuario.rol' => 'rol',
+        'usuario.usuario' => 'usuario',
     ],
     'complex' => [
-        // 'utamed.Agenda.Agenda', // TODO: revisar manualmente
+        // 'agenda.agenda', // TODO: revisar manualmente
     ],
 ];
 
 /*
 // TABLAS FILTRADAS (Excluidas por prefijo o configuración):
-// - utamed.Administrativo.vw_usuarios_completo: Prefijo filtrado
-// - utamed.Agenda.Estado_Actividad: Prefijo filtrado
-// - utamed.Curso.Tipo_Seccion: Prefijo filtrado
-// - utamed.Usuario.Asignación_Rol_Permiso: Tabla filtrada
-// - utamed.Usuario.Contexto: Tabla filtrada
-// - utamed.Usuario.Permiso: Tabla filtrada
-// - utamed.Usuario.Tipo_Contexto: Prefijo filtrado
-// - utamed.Usuario.Usuario_Permiso_Especial: Tabla filtrada
-// - utamed.Usuario.Usuario_Rol_Asignación: Tabla filtrada
-// - utamed.Usuario.cache: Tabla filtrada
-// - utamed.Usuario.cache_locks: Tabla filtrada
-// - utamed.Usuario.failed_jobs: Tabla filtrada
-// - utamed.Usuario.job_batches: Tabla filtrada
-// - utamed.Usuario.jobs: Tabla filtrada
-// - utamed.Usuario.migrations: Tabla filtrada
-// - utamed.Usuario.password_reset_tokens: Tabla filtrada
-// - utamed.Usuario.sessions: Tabla filtrada
-// - utamed.Usuario.vw_permisos_usuario: Prefijo filtrado
+// - administrativo.vw_usuarios_completo: Prefijo filtrado
+// - agenda.estado_actividad: Prefijo filtrado
+// - curso.tipo_seccion: Prefijo filtrado
+// - usuario.asignacion_rol_permiso: Tabla filtrada
+// - usuario.contexto: Tabla filtrada
+// - usuario.permiso: Tabla filtrada
+// - usuario.tipo_contexto: Prefijo filtrado
+// - usuario.usuario_permiso_especial: Tabla filtrada
+// - usuario.usuario_rol_asignacion: Tabla filtrada
+// - usuario.vw_permisos_usuario: Prefijo filtrado
 */

@@ -4,6 +4,7 @@ namespace App\Models\Base\Curso;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -19,15 +20,16 @@ abstract class BaseAsistencia extends CustomBaseModel implements HasContext
     use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Asistencia';
-    protected $primaryKey = ['id_asistencia', 'id_estudiante', 'id_seccion', 'id_curso'];
-    public $incrementing = false;
+    protected $table = 'asistencia';
+    protected $primaryKey = 'id_asistencia';
+    public $incrementing = true;
 
     protected $fillable = [
         'dia',
         'hora_inicio',
         'hora_fin',
         'esta_presente',
+        'id_inscripcion_seccion',
         'id_estudiante',
         'id_seccion',
         'id_curso'
@@ -38,7 +40,8 @@ abstract class BaseAsistencia extends CustomBaseModel implements HasContext
 
     public function inscripcionSeccion()
     {
-        return $this->belongsTo(\App\Models\Curso\InscripcionSeccion::class, ['id_estudiante', 'id_seccion', 'id_curso'], ['id_estudiante', 'id_seccion', 'id_curso']);
+        $instance = new \App\Models\Curso\InscripcionSeccion();
+        return new BelongsTo($instance->newQuery(), $this, ['id_inscripcion_seccion', 'id_estudiante', 'id_seccion', 'id_curso'], ['id_inscripcion_seccion', 'id_estudiante', 'id_seccion', 'id_curso'], 'inscripcionSeccion');
     }
 
     /**

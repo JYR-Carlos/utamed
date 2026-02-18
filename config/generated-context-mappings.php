@@ -1,77 +1,77 @@
 <?php
 
 return array (
-  'utamed.Administrativo.Carrera' => 
+  'Administrativo\\Carrera' => 
   array (
     'type' => 'direct',
     'paths' => 
     array (
     ),
   ),
-  'utamed.Administrativo.Departamento' => 
+  'Administrativo\\Departamento' => 
   array (
     'type' => 'direct',
     'paths' => 
     array (
     ),
   ),
-  'utamed.Administrativo.Facultad' => 
+  'Administrativo\\Facultad' => 
   array (
     'type' => 'direct',
     'paths' => 
     array (
     ),
   ),
-  'utamed.Agenda.Actividad' => 
+  'Agenda\\Actividad' => 
   array (
     'type' => 'direct',
     'paths' => 
     array (
     ),
   ),
-  'utamed.Curso.Curso' => 
+  'Curso\\Curso' => 
   array (
     'type' => 'direct',
     'paths' => 
     array (
     ),
   ),
-  'utamed.Administrativo.Asignatura' => 
+  'Administrativo\\Asignatura' => 
   array (
     'type' => 'global',
     'paths' => 
     array (
     ),
   ),
-  'utamed.Usuario.Docente' => 
+  'Usuario\\Docente' => 
   array (
     'type' => 'global',
     'paths' => 
     array (
     ),
   ),
-  'utamed.Usuario.Estudiante' => 
+  'Usuario\\Estudiante' => 
   array (
     'type' => 'global',
     'paths' => 
     array (
     ),
   ),
-  'utamed.Usuario.Rol' => 
+  'Usuario\\Rol' => 
   array (
     'type' => 'global',
     'paths' => 
     array (
     ),
   ),
-  'utamed.Usuario.Usuario' => 
+  'Usuario\\Usuario' => 
   array (
     'type' => 'global',
     'paths' => 
     array (
     ),
   ),
-  'utamed.Administrativo.AsignacionPlan' => 
+  'Administrativo\\AsignacionPlan' => 
   array (
     'type' => 'hierarchical',
     'paths' => 
@@ -91,52 +91,7 @@ return array (
       ),
     ),
   ),
-  'utamed.Administrativo.ContenidoPrograma' => 
-  array (
-    'type' => 'hierarchical',
-    'paths' => 
-    array (
-      0 => 
-      array (
-        0 => 
-        array (
-          'target' => 'EstructuraPrograma',
-          'method' => 'estructuraPrograma',
-        ),
-        1 => 
-        array (
-          'target' => 'Programa',
-          'method' => 'programa',
-        ),
-        2 => 
-        array (
-          'target' => 'Curso',
-          'method' => 'curso',
-        ),
-      ),
-    ),
-  ),
-  'utamed.Administrativo.EstructuraPrograma' => 
-  array (
-    'type' => 'hierarchical',
-    'paths' => 
-    array (
-      0 => 
-      array (
-        0 => 
-        array (
-          'target' => 'Programa',
-          'method' => 'programa',
-        ),
-        1 => 
-        array (
-          'target' => 'Curso',
-          'method' => 'curso',
-        ),
-      ),
-    ),
-  ),
-  'utamed.Administrativo.Plan' => 
+  'Administrativo\\Plan' => 
   array (
     'type' => 'hierarchical',
     'paths' => 
@@ -151,7 +106,7 @@ return array (
       ),
     ),
   ),
-  'utamed.Administrativo.Programa' => 
+  'Administrativo\\Programa' => 
   array (
     'type' => 'hierarchical',
     'paths' => 
@@ -166,7 +121,7 @@ return array (
       ),
     ),
   ),
-  'utamed.Agenda.ActividadAsignada' => 
+  'Agenda\\ActividadAsignada' => 
   array (
     'type' => 'hierarchical',
     'paths' => 
@@ -181,7 +136,7 @@ return array (
       ),
     ),
   ),
-  'utamed.Agenda.AsignadoActividad' => 
+  'Agenda\\AsignadoActividad' => 
   array (
     'type' => 'hierarchical',
     'paths' => 
@@ -214,7 +169,7 @@ return array (
       ),
     ),
   ),
-  'utamed.Curso.Asistencia' => 
+  'Curso\\Asistencia' => 
   array (
     'type' => 'hierarchical',
     'paths' => 
@@ -257,7 +212,7 @@ return array (
       ),
     ),
   ),
-  'utamed.Curso.InscripcionCurso' => 
+  'Curso\\InscripcionCurso' => 
   array (
     'type' => 'hierarchical',
     'paths' => 
@@ -285,7 +240,7 @@ return array (
       ),
     ),
   ),
-  'utamed.Curso.InscripcionSeccion' => 
+  'Curso\\InscripcionSeccion' => 
   array (
     'type' => 'hierarchical',
     'paths' => 
@@ -318,7 +273,7 @@ return array (
       ),
     ),
   ),
-  'utamed.Curso.Seccion' => 
+  'Curso\\Seccion' => 
   array (
     'type' => 'hierarchical',
     'paths' => 
@@ -333,7 +288,7 @@ return array (
       ),
     ),
   ),
-  'utamed.Curso.Unidad' => 
+  'Curso\\Unidad' => 
   array (
     'type' => 'hierarchical',
     'paths' => 

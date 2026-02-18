@@ -4,6 +4,7 @@ namespace App\Models\Base\Administrativo;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
@@ -22,17 +23,19 @@ abstract class BasePrograma extends CustomBaseModel implements HasContext
     const DELETED_AT = 'fecha_eliminacion';
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Programa';
+    protected $table = 'programa';
     protected $primaryKey = ['id_programa', 'id_curso', 'es_plantilla', 'es_actual'];
     public $incrementing = false;
 
     protected $fillable = [
         'version_programa',
-        'unc_programa',
+        'estado',
+        'data_syllabus',
         'id_curso',
         'es_plantilla',
         'es_actual',
-        'creado_por'
+        'creado_por',
+        'revisado_por'
     ];
 
 
@@ -40,19 +43,20 @@ abstract class BasePrograma extends CustomBaseModel implements HasContext
 
     public function autor()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'creado_por', 'id_usuario');
+        $instance = new \App\Models\Usuario\Usuario();
+        return new BelongsTo($instance->newQuery(), $this, 'creado_por', 'id_usuario', 'autor');
+    }
+
+    public function usuario()
+    {
+        $instance = new \App\Models\Usuario\Usuario();
+        return new BelongsTo($instance->newQuery(), $this, 'revisado_por', 'id_usuario', 'usuario');
     }
 
     public function curso()
     {
-        return $this->belongsTo(\App\Models\Curso\Curso::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
-    }
-
-    // Relaciones inversas
-
-    public function estructuraProgramas()
-    {
-        return $this->hasMany(\App\Models\Administrativo\EstructuraPrograma::class, ['id_programa', 'es_actual', 'id_curso', 'es_plantilla'], ['id_programa', 'es_actual', 'id_curso', 'es_plantilla']);
+        $instance = new \App\Models\Curso\Curso();
+        return new BelongsTo($instance->newQuery(), $this, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla'], 'curso');
     }
 
     /**

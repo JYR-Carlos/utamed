@@ -342,12 +342,12 @@ class ContextResolver
 
         return $parentModel;
     }
-    
+
     /**
      * Obtener la clave del modelo (con namespace)
      * 
      * @param object $model Instancia del modelo
-     * @return string (ej: 'utamed.Administrativo.Carrera')
+     * @return string (ej: 'Administrativo\Carrera')
      */
     protected function getModelKey($model): string
     {
@@ -356,22 +356,22 @@ class ContextResolver
 
         // Obtener Schema y Model Name
         // Estructura: App\Models\Administrativo\Carrera
-        // Queremos: utamed.Administrativo.Carrera
+        // Queremos: Administrativo\Carrera
         $schema = $parts[count($parts) - 2] ?? 'Unknown';
         $modelName = $parts[count($parts) - 1] ?? 'Unknown';
 
-        return "utamed.$schema.$modelName";
+        return "{$schema}\\{$modelName}";
     }
 
     /**
      * Inferir el tipo de contexto del nombre del modelo
      * 
-     * @param string $modelKey (ej: 'utamed.Administrativo.Carrera')
+     * @param string $modelKey (ej: 'Administrativo\Carrera')
      * @return string (ej: 'carrera')
      */
     protected function inferContextType(string $modelKey): string
     {
-        $parts = explode('.', $modelKey);
+        $parts = explode('\\', $modelKey);
         $modelName = end($parts);
 
         // Convertir PascalCase a camelCase

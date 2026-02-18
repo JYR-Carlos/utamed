@@ -29,7 +29,8 @@ class AppServiceProvider extends ServiceProvider
     {
         // Set PostgreSQL search_path when connection is ready
         if (config('database.default') === 'pgsql') {
-            DB::connection()->getPdo()->exec('SET search_path TO "utamed.Usuario","utamed.Administrativo","utamed.Curso","utamed.Agenda",public');
+            $searchPath = config('database.connections.pgsql.search_path', 'public');
+            DB::connection()->getPdo()->exec("SET search_path TO {$searchPath}");
         }
     }
 }

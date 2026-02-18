@@ -4,6 +4,7 @@ namespace App\Models\Base\Curso;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
@@ -23,13 +24,14 @@ abstract class BaseCurso extends CustomBaseModel implements HasContext
     const CREATED_AT = 'fecha_creacion';
     const UPDATED_AT = 'fecha_modificacion';
     protected $connection = 'pgsql';
-    protected $table = 'Curso';
+    protected $table = 'curso';
     protected $primaryKey = 'id_curso';
     public $incrementing = true;
 
     protected $fillable = [
         'cod_curso',
         'nombre',
+        'indice_grupo',
         'fecha_inicio',
         'fecha_fin',
         'agno_real',
@@ -38,7 +40,8 @@ abstract class BaseCurso extends CustomBaseModel implements HasContext
         'estado_acta',
         'es_plantilla',
         'id_asignatura',
-        'id_plan'
+        'id_plan',
+        'letra_grupo'
     ];
 
 
@@ -46,12 +49,14 @@ abstract class BaseCurso extends CustomBaseModel implements HasContext
 
     public function contexto()
     {
-        return $this->belongsTo(\App\Models\Usuario\Contexto::class, 'id_contexto', 'id_contexto');
+        $instance = new \App\Models\Usuario\Contexto();
+        return new BelongsTo($instance->newQuery(), $this, 'id_contexto', 'id_contexto', 'contexto');
     }
 
     public function asignacionPlan()
     {
-        return $this->belongsTo(\App\Models\Administrativo\AsignacionPlan::class, ['id_asignatura', 'id_plan'], ['id_asignatura', 'id_plan']);
+        $instance = new \App\Models\Administrativo\AsignacionPlan();
+        return new BelongsTo($instance->newQuery(), $this, ['id_asignatura', 'id_plan'], ['id_asignatura', 'id_plan'], 'asignacionPlan');
     }
 
     // Relaciones inversas
@@ -82,11 +87,11 @@ abstract class BaseCurso extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Estudiante::class,
-            'Inscripcion_Curso',
+            'inscripcion_curso',
             'id_curso',
             'id_estudiante'
         )
-            ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
+            ->withPivot('id_curso_inscripcion', 'cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
     }
 
 }

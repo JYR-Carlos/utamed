@@ -4,6 +4,7 @@ namespace App\Models\Base\Agenda;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -19,7 +20,7 @@ abstract class BaseActividadAsignada extends CustomBaseModel implements HasConte
     use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Actividad_Asignada';
+    protected $table = 'actividad_asignada';
     protected $primaryKey = ['grupo', 'id_actividad'];
     public $incrementing = false;
 
@@ -35,12 +36,14 @@ abstract class BaseActividadAsignada extends CustomBaseModel implements HasConte
 
     public function actividad()
     {
-        return $this->belongsTo(\App\Models\Agenda\Actividad::class, 'id_actividad', 'id_actividad');
+        $instance = new \App\Models\Agenda\Actividad();
+        return new BelongsTo($instance->newQuery(), $this, 'id_actividad', 'id_actividad', 'actividad');
     }
 
     public function estadoActividad()
     {
-        return $this->belongsTo(\App\Models\Agenda\EstadoActividad::class, 'id_estado', 'id_estado');
+        $instance = new \App\Models\Agenda\EstadoActividad();
+        return new BelongsTo($instance->newQuery(), $this, 'id_estado', 'id_estado', 'estadoActividad');
     }
 
     // Relaciones inversas
@@ -56,7 +59,7 @@ abstract class BaseActividadAsignada extends CustomBaseModel implements HasConte
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Estudiante::class,
-            'Asignado_Actividad',
+            'asignado_actividad',
             'grupo,id_actividad',
             'id_estudiante'
         )

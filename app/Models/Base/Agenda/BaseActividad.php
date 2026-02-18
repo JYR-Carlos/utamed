@@ -4,6 +4,7 @@ namespace App\Models\Base\Agenda;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -19,7 +20,7 @@ abstract class BaseActividad extends CustomBaseModel implements HasContext
     use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Actividad';
+    protected $table = 'actividad';
     protected $primaryKey = 'id_actividad';
     public $incrementing = true;
 
@@ -42,17 +43,20 @@ abstract class BaseActividad extends CustomBaseModel implements HasContext
 
     public function contexto()
     {
-        return $this->belongsTo(\App\Models\Usuario\Contexto::class, 'id_contexto', 'id_contexto');
+        $instance = new \App\Models\Usuario\Contexto();
+        return new BelongsTo($instance->newQuery(), $this, 'id_contexto', 'id_contexto', 'contexto');
     }
 
     public function seccion()
     {
-        return $this->belongsTo(\App\Models\Curso\Seccion::class, ['id_seccion', 'id_curso', 'es_plantilla'], ['id_seccion', 'id_curso', 'es_plantilla']);
+        $instance = new \App\Models\Curso\Seccion();
+        return new BelongsTo($instance->newQuery(), $this, ['id_seccion', 'id_curso', 'es_plantilla'], ['id_seccion', 'id_curso', 'es_plantilla'], 'seccion');
     }
 
     public function unidad()
     {
-        return $this->belongsTo(\App\Models\Curso\Unidad::class, ['id_unidad', 'id_curso', 'es_plantilla'], ['id_unidad', 'id_curso', 'es_plantilla']);
+        $instance = new \App\Models\Curso\Unidad();
+        return new BelongsTo($instance->newQuery(), $this, ['id_unidad', 'id_curso', 'es_plantilla'], ['id_unidad', 'id_curso', 'es_plantilla'], 'unidad');
     }
 
     // Relaciones inversas

@@ -4,6 +4,7 @@ namespace App\Models\Base\Usuario;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 
 /**
  * Clase Base generada automáticamente
@@ -14,7 +15,7 @@ abstract class BaseContexto extends CustomBaseModel
     use Compoships;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Contexto';
+    protected $table = 'contexto';
     protected $primaryKey = 'id_contexto';
     public $incrementing = true;
 
@@ -29,7 +30,8 @@ abstract class BaseContexto extends CustomBaseModel
 
     public function tipoContexto()
     {
-        return $this->belongsTo(\App\Models\Usuario\TipoContexto::class, 'id_tipo_contexto', 'id_tipo_contexto');
+        $instance = new \App\Models\Usuario\TipoContexto();
+        return new BelongsTo($instance->newQuery(), $this, 'id_tipo_contexto', 'id_tipo_contexto', 'tipoContexto');
     }
 
     // Relaciones inversas
@@ -64,9 +66,9 @@ abstract class BaseContexto extends CustomBaseModel
         return $this->hasMany(\App\Models\Usuario\UsuarioPermisoEspecial::class, 'id_contexto', 'id_contexto');
     }
 
-    public function usuarioRolAsignacciones()
+    public function usuarioRolAsignaciones()
     {
-        return $this->hasMany(\App\Models\Usuario\UsuarioRolAsignación::class, 'id_contexto', 'id_contexto');
+        return $this->hasMany(\App\Models\Usuario\UsuarioRolAsignacion::class, 'id_contexto', 'id_contexto');
     }
 
     // Relaciones muchos-a-muchos
@@ -75,7 +77,7 @@ abstract class BaseContexto extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Permiso_Especial',
+            'usuario_permiso_especial',
             'id_contexto',
             'id_usuario'
         )
@@ -86,7 +88,7 @@ abstract class BaseContexto extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Permiso::class,
-            'Usuario_Permiso_Especial',
+            'usuario_permiso_especial',
             'id_contexto',
             'id_permiso'
         )
@@ -97,7 +99,7 @@ abstract class BaseContexto extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'Usuario_Rol_Asignación',
+            'usuario_rol_asignacion',
             'id_contexto',
             'id_usuario'
         )
@@ -108,7 +110,7 @@ abstract class BaseContexto extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Rol::class,
-            'Usuario_Rol_Asignación',
+            'usuario_rol_asignacion',
             'id_contexto',
             'id_rol'
         )

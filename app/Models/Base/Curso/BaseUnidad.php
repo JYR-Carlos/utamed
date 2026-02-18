@@ -4,6 +4,7 @@ namespace App\Models\Base\Curso;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -19,7 +20,7 @@ abstract class BaseUnidad extends CustomBaseModel implements HasContext
     use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Unidad';
+    protected $table = 'unidad';
     protected $primaryKey = ['id_unidad', 'id_curso'];
     public $incrementing = false;
 
@@ -36,7 +37,8 @@ abstract class BaseUnidad extends CustomBaseModel implements HasContext
 
     public function curso()
     {
-        return $this->belongsTo(\App\Models\Curso\Curso::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
+        $instance = new \App\Models\Curso\Curso();
+        return new BelongsTo($instance->newQuery(), $this, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla'], 'curso');
     }
 
     // Relaciones inversas

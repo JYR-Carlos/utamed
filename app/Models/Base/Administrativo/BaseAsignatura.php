@@ -4,6 +4,7 @@ namespace App\Models\Base\Administrativo;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
@@ -23,7 +24,7 @@ abstract class BaseAsignatura extends CustomBaseModel implements HasContext
     const CREATED_AT = 'fecha_creacion';
     const UPDATED_AT = 'fecha_modificacion';
     protected $connection = 'pgsql';
-    protected $table = 'Asignatura';
+    protected $table = 'asignatura';
     protected $primaryKey = 'id_asignatura';
     public $incrementing = true;
 
@@ -55,7 +56,7 @@ abstract class BaseAsignatura extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Administrativo\Plan::class,
-            'Asignacion_Plan',
+            'asignacion_plan',
             'id_asignatura',
             'id_plan'
         )

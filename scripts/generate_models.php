@@ -88,7 +88,7 @@ use Illuminate\Support\Str;
 // ==================================================================================
 
 $catalogName = 'utamed_1ra_fase';
-$schemaPrefix = 'utamed.%';
+$schemaPrefix = 'administrativo,agenda,curso,usuario';
 
 // Configurar columnas de auditoria
 $createdAtColumn = 'fecha_creacion';
@@ -192,53 +192,53 @@ $relationNames = [
   // ===========================================================================================
 
   // Usuario crea Roles (evitar conflicto con belongsToMany)
-  'utamed.Usuario.Rol' => [
-    'Usuario' => [
+  'usuario.rol' => [
+    'usuario' => [
       'creado_por' => 'rolesCreados',
     ],
   ],
 
-  // Usuario_Rol_Asignación
-  'utamed.Usuario.Usuario_Rol_Asignación' => [
+  // usuario_rol_asignacion
+  'usuario.usuario_rol_asignacion' => [
     '_self' => [
       'creado_por' => 'asignador',  // belongsTo: usuario que asigna el permiso
       'id_usuario' => 'receptor',   // belongsTo: usuario que recibe el permiso
       'eliminado_por' => 'borrador', // belongsTo: usuario que borra el permiso
     ],
-    'Usuario' => [
+    'usuario' => [
       'id_usuario' => 'asignacionesRolRecibidas',  // Usuario recibe roles
       'creado_por' => 'asignacionesRolRealizadas',  // Usuario asigna roles
       'eliminado_por' => 'asignacionesRolEliminadas' // Usuario que borra roles
     ],
   ],
 
-  // Usuario_Permiso_Especial: múltiples FKs hacia Usuario
-  'utamed.Usuario.Usuario_Permiso_Especial' => [
+  // usuario_permiso_especial: múltiples FKs hacia Usuario
+  'usuario.usuario_permiso_especial' => [
     '_self' => [
       'creado_por' => 'asignador',  // belongsTo: usuario que asigna el permiso
       'id_usuario' => 'receptor',   // belongsTo: usuario que recibe el permiso
       'eliminado_por' => 'borrador', // belongsTo: usuario que borra el permiso
     ],
-    'Usuario' => [
+    'usuario' => [
       'id_usuario' => 'permisosEspecialesRecibidos', // Usuario recibe permisos
       'creado_por' => 'permisosEspecialesAsignados', // Usuario asigna permisos
       'eliminado_por' => 'permisosEspecialesEliminados' // Usuario que borra permisos
     ],
   ],
 
-  // Programa: Usuario crea programas
-  'utamed.Administrativo.Programa' => [
+  // programa: Usuario crea programas
+  'administrativo.programa' => [
     '_self' => [
       'creado_por' => 'autor',
     ],
-    'Usuario' => [
+    'usuario' => [
       'creado_por' => 'programasCreados',
     ],
   ],
 
-  // Seccion: Docente enseña secciones
-  'utamed.Curso.Seccion' => [
-    'Docente' => [
+  // seccion: Docente enseña secciones
+  'curso.seccion' => [
+    'docente' => [
       'id_docente' => 'seccionesQueDicta',
     ],
   ],
@@ -335,61 +335,61 @@ $manualPivotTables = [
   // PIVOTS SIMPLES (2 FKs)
   // ===========================================================================================
 
-  // Asignacion_Plan: Asignatura ↔ Plan
-  'utamed.Administrativo.Asignacion_Plan' => [
+  // asignacion_plan: Asignatura ↔ Plan
+  'administrativo.asignacion_plan' => [
     'relation_names' => [
-      'Asignatura' => [
-        'Plan' => 'planes', // asignatura->planes()
+      'asignatura' => [
+        'plan' => 'planes', // asignatura->planes()
       ],
-      'Plan' => [
-        'Asignatura' => 'asignaturas', // plan->asignaturas()
+      'plan' => [
+        'asignatura' => 'asignaturas', // plan->asignaturas()
       ],
     ],
   ],
 
-  // Inscripcion_Curso: Curso ↔ Estudiante
-  'utamed.Curso.Inscripcion_Curso' => [
+  // inscripcion_curso: Curso ↔ Estudiante
+  'curso.inscripcion_curso' => [
     'relation_names' => [
-      'Curso' => [
-        'Estudiante' => 'estudiantesInscritos', // curso->estudiantesInscritos()
+      'curso' => [
+        'estudiante' => 'estudiantesInscritos', // curso->estudiantesInscritos()
       ],
-      'Estudiante' => [
-        'Curso' => 'cursosInscritos', // estudiante->cursosInscritos()
+      'estudiante' => [
+        'curso' => 'cursosInscritos', // estudiante->cursosInscritos()
       ],
     ],
   ],
 
-  // Actividad_Asignada: Actividad ↔ Estado_Actividad (solo genera relación desde EstadoActividad)
-  'utamed.Agenda.Actividad_Asignada' => [
+  // actividad_asignada: Actividad ↔ estado_actividad (solo genera relación desde estado_actividad)
+  'agenda.actividad_asignada' => [
     'relation_names' => [
-      // Solo especificamos EstadoActividad -> Actividad
-      // Omitimos Actividad para no generar relaciones inversas desde Actividad
-      'EstadoActividad' => [
-        'Actividad' => 'actividadesConEstado', // estadoActividad->actividadesConEstado()
+      // Solo especificamos estado_actividad -> actividad
+      // Omitimos actividad para no generar relaciones inversas desde actividad
+      'estado_actividad' => [
+        'actividad' => 'actividadesConEstado', // estadoActividad->actividadesConEstado()
       ],
     ],
   ],
 
-  // Asignado_Actividad: Actividad_Asignada ↔ Estudiante
-  'utamed.Agenda.Asignado_Actividad' => [
+  // asignado_actividad: actividad_asignada ↔ Estudiante
+  'agenda.asignado_actividad' => [
     'relation_names' => [
-      'ActividadAsignada' => [
-        'Estudiante' => 'estudiantesAsignados', // actividadAsignada->estudiantesAsignados()
+      'actividad_asignada' => [
+        'estudiante' => 'estudiantesAsignados', // actividadAsignada->estudiantesAsignados()
       ],
-      'Estudiante' => [
-        'ActividadAsignada' => 'actividadesAsignadas', // estudiante->actividadesAsignadas()
+      'estudiante' => [
+        'actividad_asignada' => 'actividadesAsignadas', // estudiante->actividadesAsignadas()
       ],
     ],
   ],
 
-  // Asignación_Rol_Permiso: Rol ↔ Permiso
-  'utamed.Usuario.Asignación_Rol_Permiso' => [
+  // asignacion_rol_permiso: Rol ↔ Permiso
+  'usuario.asignacion_rol_permiso' => [
     'relation_names' => [
-      'Rol' => [
-        'Permiso' => 'permisos', // rol->permisos()
+      'rol' => [
+        'permiso' => 'permisos', // rol->permisos()
       ],
-      'Permiso' => [
-        'Rol' => 'roles', // permiso->roles()
+      'permiso' => [
+        'rol' => 'roles', // permiso->roles()
       ],
     ],
   ],
@@ -398,24 +398,24 @@ $manualPivotTables = [
   // PIVOTS COMPLEJOS (3+ FKs o múltiples FKs a misma tabla)
   // ===========================================================================================
 
-  // Inscripcion_Seccion: Estudiante ↔ Seccion (también involucra Curso)
-  'utamed.Curso.Inscripcion_Seccion' => [
+  // inscripcion_seccion: Estudiante ↔ Seccion (también involucra Curso)
+  'curso.inscripcion_seccion' => [
     'relation_names' => [
-      'Estudiante' => [
-        'Seccion' => 'seccionesInscritas', // estudiante->seccionesInscritas()
-        // No genera relación con Curso porque ya existe en Inscripcion_Curso
+      'estudiante' => [
+        'seccion' => 'seccionesInscritas', // estudiante->seccionesInscritas()
+        // No genera relación con Curso porque ya existe en inscripcion_curso
       ],
-      'Seccion' => [
-        'Estudiante' => 'estudiantesInscritos', // seccion->estudiantesInscritos()
+      'seccion' => [
+        'estudiante' => 'estudiantesInscritos', // seccion->estudiantesInscritos()
       ],
     ],
   ],
 
-  // Usuario_Permiso_Especial: Usuario ↔ Usuario ↔ Permiso ↔ Contexto (múltiples FKs a Usuario)
-  'utamed.Usuario.Usuario_Permiso_Especial' => [
+  // usuario_permiso_especial: Usuario ↔ Usuario ↔ Permiso ↔ Contexto (múltiples FKs a Usuario)
+  'usuario.usuario_permiso_especial' => [
     'relation_names' => [
-      'Usuario' => [
-        'Usuario' => [
+      'usuario' => [
+        'usuario' => [
           // los pivots desde usuario que recibe
           [
             'method_name' => 'usuariosQueAsignanMisPermisos',
@@ -450,25 +450,25 @@ $manualPivotTables = [
             'foreign_key' => 'creado_por'
           ],
         ],
-        'Permiso' => 'permisosEspeciales',
-        'Contexto' => 'contextosConPermisoEspecial',
+        'permiso' => 'permisosEspeciales',
+        'contexto' => 'contextosConPermisoEspecial',
       ],
-      'Permiso' => [
-        'Usuario' => 'usuariosConPermisoEspecial', // permiso->usuariosConPermisoEspecial()
-        'Contexto' => 'contextosConEstePermiso',   // permiso->contextosConEstePermiso()
+      'permiso' => [
+        'usuario' => 'usuariosConPermisoEspecial', // permiso->usuariosConPermisoEspecial()
+        'contexto' => 'contextosConEstePermiso',   // permiso->contextosConEstePermiso()
       ],
-      'Contexto' => [
-        'Usuario' => 'usuariosConPermisoEspecialEnContexto', // contexto->usuariosConPermisoEspecialEnContexto()
-        'Permiso' => 'permisosEspecialesEnContexto',         // contexto->permisosEspecialesEnContexto()
+      'contexto' => [
+        'usuario' => 'usuariosConPermisoEspecialEnContexto', // contexto->usuariosConPermisoEspecialEnContexto()
+        'permiso' => 'permisosEspecialesEnContexto',         // contexto->permisosEspecialesEnContexto()
       ],
     ],
   ],
 
-  // Usuario_Rol_Asignación: Usuario ↔ Rol ↔ Contexto (múltiples FKs a Usuario)
-  'utamed.Usuario.Usuario_Rol_Asignación' => [
+  // usuario_rol_asignacion: Usuario ↔ Rol ↔ Contexto (múltiples FKs a Usuario)
+  'usuario.usuario_rol_asignacion' => [
     'relation_names' => [
-      'Usuario' => [
-        'Usuario' => [
+      'usuario' => [
+        'usuario' => [
           // de usuario que recibe el rol
           [
             'method_name' => 'usuariosQueAsignanMisRoles',
@@ -503,16 +503,16 @@ $manualPivotTables = [
             'foreign_key' => 'creado_por'
           ],
         ],
-        'Rol' => 'rolesAsignados',
-        'Contexto' => 'contextosConRolAsignado',
+        'rol' => 'rolesAsignados',
+        'contexto' => 'contextosConRolAsignado',
       ],
-      'Rol' => [
-        'Usuario' => 'usuariosConRolAsignado', // rol->usuariosConRolAsignado()
-        'Contexto' => 'contextosConEsteRol',   // rol->contextosConEsteRol()
+      'rol' => [
+        'usuario' => 'usuariosConRolAsignado', // rol->usuariosConRolAsignado()
+        'contexto' => 'contextosConEsteRol',   // rol->contextosConEsteRol()
       ],
-      'Contexto' => [
-        'Usuario' => 'usuariosConRolEnContexto', // contexto->usuariosConRolEnContexto()
-        'Rol' => 'rolesEnContexto',              // contexto->rolesEnContexto()
+      'contexto' => [
+        'usuario' => 'usuariosConRolEnContexto', // contexto->usuariosConRolEnContexto()
+        'rol' => 'rolesEnContexto',              // contexto->rolesEnContexto()
       ],
     ],
   ],
@@ -672,31 +672,33 @@ function buildWhereHasChain(array $pathMethods, string $contextColumn): string
 // PASO 1: DETECCIÓN DE TABLAS EN ESQUEMAS POSTGRESQL
 // ==================================================================================
 // 
-// OBJETIVO: Obtener todas las tablas de los esquemas utamed.* del catálogo especificado
+// OBJETIVO: Obtener todas las tablas de los esquemas especificados del catálogo
 // 
 // FUNCIONAMIENTO:
 // - Consulta information_schema.tables del catálogo 'utamed_1ra_fase'
-// - Filtra solo esquemas que empiezan con 'utamed.'
+// - Filtra solo los esquemas configurados (administrativo, agenda, curso, usuario)
 // - Ordena por schema y nombre de tabla
 // - Retorna: 
-//    - table_schema (ej: 'utamed.Administrativo'),
-//    - table_name (ej: 'Facultad')
+//    - table_schema (ej: 'administrativo'),
+//    - table_name (ej: 'facultad')
 //
 // NOTA: PostgreSQL es case sensitive y requiere comillas dobles al referenciar
 // tablas y esquemas.
 // ==================================================================================
 
 // Obtener tablas de la bd utamed_1ra_fase 
-// pertenecientes al esquema utamed.*
+// pertenecientes a los esquemas configurados
+$schemas = explode(',', $schemaPrefix);
+$placeholders = implode(',', array_fill(0, count($schemas), '?'));
 $tables = DB::select("
     SELECT 
       table_schema, 
       table_name
     FROM information_schema.tables
     WHERE table_catalog = ?
-    AND table_schema LIKE ?
+    AND table_schema IN ($placeholders)
     ORDER BY table_schema, table_name
-", [$catalogName, $schemaPrefix]);
+", array_merge([$catalogName], $schemas));
 
 echo "Encontradas " . count($tables) . " tablas\n\n";
 
@@ -1012,13 +1014,15 @@ $modelSummary = [];
 // VARIABLE PARA RASTREAR RELACIONES
 // ==================================================================================
 // Estructura: $tableRelationMappings[$tableKey] = ['methods' => ['methodName' => 'TargetClass']]
+// NOTA: $tableKey usa StudlyCase para consistencia con context config
+// Ejemplo: 'utamed.Curso.Seccion' (no 'utamed.Curso.seccion')
 // Se popula mientras se generan las relaciones
 $tableRelationMappings = [];
 
 foreach ($tables as $tableInfo) {
   $schema = $tableInfo->table_schema;
   $tableName = $tableInfo->table_name;
-  $schemaName = str_replace('utamed.', '', $schema);
+  $schemaName = Str::studly($schema); // Convertir schema a StudlyCase para namespace PSR-4
   $className = Str::studly($tableName);
 
   echo "Generando: {$schemaName}\\{$className}\n";
@@ -1477,7 +1481,7 @@ foreach ($tables as $tableInfo) {
   // PASO 4.7.c: CONFIGURAR CLAVES COMPUESTAS CON awobaz/compoships
   // ==================================================================================
 
-  $composhipsImport = "use Awobaz\\Compoships\\Compoships;\n";
+  $composhipsImport = "use Awobaz\\Compoships\\Compoships;\nuse App\\Extensions\\Compoships\\BelongsTo;\n";
 
   $composhipsTrait = "{$tab}use Compoships;\n";
 
@@ -1575,7 +1579,7 @@ EOL;
     $usedMethods = [];
 
     foreach ($foreignKeys as $fk) {
-      $relatedSchema = str_replace('utamed.', '', $fk->foreign_table_schema);
+      $relatedSchema = Str::studly($fk->foreign_table_schema); // Convertir schema a StudlyCase para PSR-4
       $relatedModel = Str::studly($fk->foreign_table_name);
 
       // Detectar si es FK simple o compuesta
@@ -1617,7 +1621,7 @@ EOL;
       ];
 
       // Rastrear relación para contextos: Tabla actual -> Tabla destino
-      // Usar nombre de tabla real (no de modelo) para consistencia con config
+      // Usar formato schema.tabla en minúsculas para consistencia con context config
       $tableKey = "{$schema}.{$tableName}";
       if (!isset($tableRelationMappings[$tableKey])) {
         $tableRelationMappings[$tableKey] = ['methods' => []];
@@ -1631,10 +1635,12 @@ EOL;
         // FK compuesta: pasar arrays
         $localArray = "['" . implode("', '", $localCols) . "']";
         $foreignArray = "['" . implode("', '", explode(',', $fk->foreign_column_names)) . "']";
-        $relations .= "        return \$this->belongsTo(\\App\\Models\\{$relatedSchema}\\{$relatedModel}::class, {$localArray}, {$foreignArray});\n";
+        $relations .= "{$tab}{$tab}\$instance = new \\App\\Models\\{$relatedSchema}\\{$relatedModel}();\n";
+        $relations .= "{$tab}{$tab}return new BelongsTo(\$instance->newQuery(), \$this, {$localArray}, {$foreignArray}, '{$methodName}');\n";
       } else {
         // FK simple: strings
-        $relations .= "        return \$this->belongsTo(\\App\\Models\\{$relatedSchema}\\{$relatedModel}::class, '{$fk->column_names}', '{$fk->foreign_column_names}');\n";
+        $relations .= "{$tab}{$tab}\$instance = new \\App\\Models\\{$relatedSchema}\\{$relatedModel}();\n";
+        $relations .= "{$tab}{$tab}return new BelongsTo(\$instance->newQuery(), \$this, '{$fk->column_names}', '{$fk->foreign_column_names}', '{$methodName}');\n";
       }
 
       $relations .= "    }\n";
@@ -1714,7 +1720,7 @@ EOL;
     $inverseUsedMethods = [];
 
     foreach ($allForeignKeys[$currentTableKey] as $inverseFk) {
-      $sourceSchema = str_replace('utamed.', '', $inverseFk['source_schema']);
+      $sourceSchema = Str::studly($inverseFk['source_schema']); // Convertir schema a StudlyCase para PSR-4
       $sourceModel = Str::studly($inverseFk['source_table']);
 
       // Detectar si es FK compuesta
@@ -1772,7 +1778,7 @@ EOL;
       ];
 
       // Rastrear relación para contextos: Tabla actual -> Tabla origen (hasMany/hasOne apuntan hacia la tabla origen)
-      // Usar nombre de tabla real (no de modelo) para consistencia con config
+      // Usar formato schema.tabla en minúsculas para consistencia con context config
       $tableKey = "{$schema}.{$tableName}";
       if (!isset($tableRelationMappings[$tableKey])) {
         $tableRelationMappings[$tableKey] = ['methods' => []];
@@ -1995,14 +2001,17 @@ EOL;
         $otherFk = $fkData['fk'];
         $otherIdx = $fkData['index'];
 
-        $relatedSchema = str_replace('utamed.', '', $otherFk['schema']);
+        $relatedSchema = Str::studly($otherFk['schema']); // Convertir schema a StudlyCase para PSR-4
         $relatedTable = $otherFk['table'];
         $relatedModel = Str::studly($relatedTable);
 
         // Si hay relation_names especificado, solo generar si está ahí listado explícitamente (actúa como whitelist)
         if (is_array($pivotConfig) && isset($pivotConfig['relation_names'])) {
           $hasExplicitConfig = false;
-          if (isset($pivotConfig['relation_names'][$className][$relatedModel])) {
+          // Buscar usando nombres de tabla en minúsculas (como están en la config)
+          $currentTableLower = strtolower($tableName);
+          $relatedTableLower = strtolower($relatedTable);
+          if (isset($pivotConfig['relation_names'][$currentTableLower][$relatedTableLower])) {
             $hasExplicitConfig = true;
           }
           // Si tiene relation_names pero esta tabla NO está en la config, saltar SOLO si no hay auto_suffix
@@ -2013,8 +2022,11 @@ EOL;
 
         // Verificar si hay configuración personalizada para esta relación
         $customConfig = null;
-        if (is_array($pivotConfig) && isset($pivotConfig['relation_names'][$className][$relatedModel])) {
-          $customConfig = $pivotConfig['relation_names'][$className][$relatedModel];
+        // Buscar usando nombres de tabla en minúsculas (como están en la config)
+        $currentTableLower = strtolower($tableName);
+        $relatedTableLower = strtolower($relatedTable);
+        if (is_array($pivotConfig) && isset($pivotConfig['relation_names'][$currentTableLower][$relatedTableLower])) {
+          $customConfig = $pivotConfig['relation_names'][$currentTableLower][$relatedTableLower];
         }
 
         // Determinar qué relaciones generar
@@ -2120,7 +2132,7 @@ EOL;
           ];
 
           // Rastrear relación para contextos: Tabla actual -> Tabla relacionada
-          // Usar nombre de tabla real (no de modelo) para consistencia con config
+          // Usar formato schema.tabla en minúsculas para consistencia con context config
           $tableKey = "{$schema}.{$tableName}";
           if (!isset($tableRelationMappings[$tableKey])) {
             $tableRelationMappings[$tableKey] = ['methods' => []];
@@ -2168,8 +2180,17 @@ EOL;
   // ==================================================================================
   $contextScopeMethods = '';
   if ($implementsContext) {
-    $modelKey = "utamed.{$schemaName}.{$className}";
+    // Construir clave para buscar en contextMappings: Schema\ModelName
+    $modelKey = "{$schemaName}\\{$className}";
     $mapping = $contextMappings[$modelKey] ?? null;
+
+    if ($verbose) {
+      if ($mapping) {
+        echo "  DEBUG: Encontrado mapping para {$modelKey}, tipo: " . ($mapping['type'] ?? 'unknown') . "\n";
+      } else {
+        echo "  DEBUG: No encontrado mapping para {$modelKey}\n";
+      }
+    }
 
     if ($mapping && ($mapping['type'] ?? null) === 'hierarchical') {
       $paths = [];
@@ -2497,13 +2518,13 @@ if (file_exists($contextConfigPath)) {
 }
 
 // Construir índices para contextos jerárquicos:
-// 1. table_name -> schema.table_name (nombre de tabla original)
+// 1. table_name -> schema.tabla (formato minúsculas para tableRelationMappings)
 // 2. ModelName -> table_name (para conversión inversa)
 $tableNameToFullKey = [];
 $modelNameToTableName = [];
 foreach ($tables as $t) {
   $modelName = Str::studly($t->table_name);
-  $tableNameToFullKey[$t->table_name] = $t->table_schema . '.' . $t->table_name;
+  $tableNameToFullKey[$t->table_name] = $t->table_schema . '.' . $t->table_name;  // Usar formato minúsculas
   $modelNameToTableName[$modelName] = $t->table_name;
 }
 
@@ -2512,13 +2533,16 @@ $contextMappings = [];
 
 // Agregar contextos 'direct'
 foreach ($contextConfig['direct'] ?? [] as $modelKey => $contextType) {
-  // Convertir clave a formato de modelo Laravel (schema.ModelName)
+  // Convertir clave a formato de modelo Laravel (Schema\ModelName)
+  // Formato entrada: 'administrativo.carrera' (2 partes)
   $parts = explode('.', $modelKey);
-  if (count($parts) === 3) {
-    $tableName = $parts[2];
-    $modelName = Str::studly($tableName);
-    $modelKeyFormatted = $parts[0] . '.' . $parts[1] . '.' . $modelName;
+  if (count($parts) === 2) {
+    $schemaName = Str::studly($parts[0]); // administrativo -> Administrativo
+    $tableName = $parts[1];
+    $modelName = Str::studly($tableName); // carrera -> Carrera
+    $modelKeyFormatted = $schemaName . '\\' . $modelName; // Administrativo\Carrera (var_export lo escapa)
   } else {
+    // Fallback para formato antiguo de 3 partes
     $modelKeyFormatted = $modelKey;
   }
 
@@ -2530,13 +2554,16 @@ foreach ($contextConfig['direct'] ?? [] as $modelKey => $contextType) {
 
 // Agregar contextos 'global'
 foreach ($contextConfig['global'] ?? [] as $modelKey => $contextType) {
-  // Convertir clave a formato de modelo Laravel (schema.ModelName)
+  // Convertir clave a formato de modelo Laravel (Schema\ModelName)
+  // Formato entrada: 'usuario.estudiante' (2 partes)
   $parts = explode('.', $modelKey);
-  if (count($parts) === 3) {
-    $tableName = $parts[2];
-    $modelName = Str::studly($tableName);
-    $modelKeyFormatted = $parts[0] . '.' . $parts[1] . '.' . $modelName;
+  if (count($parts) === 2) {
+    $schemaName = Str::studly($parts[0]); // usuario -> Usuario
+    $tableName = $parts[1];
+    $modelName = Str::studly($tableName); // estudiante -> Estudiante
+    $modelKeyFormatted = $schemaName . '\\' . $modelName; // Usuario\Estudiante (var_export lo escapa)
   } else {
+    // Fallback para formato antiguo de 3 partes
     $modelKeyFormatted = $modelKey;
   }
 
@@ -2555,16 +2582,18 @@ foreach ($contextConfig['hierarchical'] ?? [] as $modelKey => $configPaths) {
 
   $configPathsArray = is_array($configPaths) ? $configPaths : [$configPaths];
 
+  // Por cada camino detectado...
   foreach ($configPathsArray as $pathConfig) {
     $pathSteps = [];
     $path = is_array($pathConfig) ? $pathConfig : [$pathConfig];
 
     // Seguir el path en las relaciones generadas
-    // $modelKey viene con nombre de tabla (ej: 'utamed.Administrativo.Asignacion_Plan')
-    // Mantenemos ese formato para buscar en $tableRelationMappings
+    // $modelKey viene con formato schema.tabla (ej: 'administrativo.asignacion_plan')
+    // Este formato ya coincide con tableRelationMappings
     $currentTableKey = $modelKey;
     $pathValid = true;
 
+    // Por cada paso en el camino... (ej: ['Plan', 'Carrera', 'Departamento'])
     foreach ($path as $stepIdx => $targetTableName) {
       // targetTableName es el nombre de tabla real (ej: 'Plan')
       // Buscar en $tableRelationMappings[currentTableKey] qué método va a esa tabla
@@ -2616,13 +2645,15 @@ foreach ($contextConfig['hierarchical'] ?? [] as $modelKey => $configPaths) {
     }
   }
 
-  // Convertir clave a formato de modelo Laravel (schema.ModelName) al guardar
+  // Convertir clave a formato de modelo Laravel (Schema\ModelName) al guardar
   $parts = explode('.', $modelKey);
-  if (count($parts) === 3) {
-    $tableName = $parts[2];
-    $modelName = Str::studly($tableName);
-    $modelKeyFormatted = $parts[0] . '.' . $parts[1] . '.' . $modelName;
+  if (count($parts) === 2) {
+    $schemaName = Str::studly($parts[0]); // administrativo -> Administrativo
+    $tableName = $parts[1];
+    $modelName = Str::studly($tableName); // carrera -> Carrera
+    $modelKeyFormatted = $schemaName . '\\' . $modelName; // Administrativo\Carrera (var_export lo escapa)
   } else {
+    // Fallback para formato antiguo de 3 partes
     $modelKeyFormatted = $modelKey;
   }
 

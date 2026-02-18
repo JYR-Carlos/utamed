@@ -23,38 +23,38 @@ use Illuminate\Support\Facades\DB;
 
 $config = [
     'database' => 'utamed_1ra_fase',
-    'schema_prefix' => 'utamed.%',
+    'schema_prefix' => 'administrativo,agenda,curso,usuario',
     'context_columns' => ['id_contexto'],
     'filter_prefix' => [  // Excluir vistas y tablas de enumerables
-      'vw_',
-      'Estado_',
-      'Tipo_'
+        'vw_',
+        'estado_',
+        'tipo_'
     ],
     'filter_tables' => [ // Vacío = analizar todos.
-      // Tablas sin contexto ni relación a contexto
-      "Permiso",
-      // Tablas con relación a contexto pero que en realidad no tienen contexto
-      "Contexto", 
-      "Tipo_Contexto", 
-      "Usuario_Permiso_Especial", 
-      "Usuario_Rol_Asignación",
-      "Asignación_Rol_Permiso",
-      // Tablas de Laravel
-      "cache",
-      "cache_locks",
-      "failed_jobs",
-      "job_batches",
-      "jobs",
-      "migrations",
-      "password_reset_tokens",
-      "sessions"
+        // Tablas sin contexto ni relación a contexto
+        "permiso",
+        // Tablas con relación a contexto pero que en realidad no tienen contexto
+        "contexto",
+        "tipo_contexto",
+        "usuario_permiso_especial",
+        "usuario_rol_asignacion",
+        "asignacion_rol_permiso",
+        // Tablas de Laravel
+        "cache",
+        "cache_locks",
+        "failed_jobs",
+        "job_batches",
+        "jobs",
+        "migrations",
+        "password_reset_tokens",
+        "sessions"
     ],
     'global_context_tables' => [ // Tablas sin contexto pero modificables (contexto global)
-      "Asignatura",
-      "Rol",
-      "Usuario",
-      "Estudiante",
-      "Docente"
+        "asignatura",
+        "rol",
+        "usuario",
+        "estudiante",
+        "docente"
     ],
     'max_depth' => 5,
 ];
@@ -72,12 +72,14 @@ section("⚙️  CONFIGURACIÓN", [
 section("📊 CARGANDO ESTRUCTURA DE DATOS");
 
 // Cargar todas las tablas
+$schemas = explode(',', $config['schema_prefix']);
+$placeholders = implode(',', array_fill(0, count($schemas), '?'));
 $tables = DB::select("
     SELECT table_schema, table_name
     FROM information_schema.tables
-    WHERE table_catalog = ? AND table_schema LIKE ?
+    WHERE table_catalog = ? AND table_schema IN ($placeholders)
     ORDER BY table_schema, table_name
-", [$config['database'], $config['schema_prefix']]);
+", array_merge([$config['database']], $schemas));
 
 step(count($tables) . " tablas encontradas");
 
@@ -89,8 +91,8 @@ $filteredTables = []; // Rastrear tablas filtradas
 foreach ($tables as $t) {
     // Filtrar por prefijo (vistas, etc) o por nombre específico
     [$shouldFilter, $reason] = shouldFilterTable(
-        $t->table_name, 
-        $config['filter_prefix'], 
+        $t->table_name,
+        $config['filter_prefix'],
         $config['filter_tables']
     );
 
@@ -100,19 +102,19 @@ foreach ($tables as $t) {
         $filteredTables[] = "{$t->table_schema}.{$t->table_name}: {$reason}";
         continue;
     }
-    
+
     $fullName = "{$t->table_schema}.{$t->table_name}";
-    
+
     // Obtener columnas de esta tabla
     $columns = DB::select("
         SELECT column_name, data_type
         FROM information_schema.columns
         WHERE table_schema = ? AND table_name = ?
     ", [$t->table_schema, $t->table_name]);
-    
-    $columnMap = array_column((array)$columns, 'data_type', 'column_name');
+
+    $columnMap = array_column((array) $columns, 'data_type', 'column_name');
     $contextCols = array_intersect_key($columnMap, array_flip($config['context_columns']));
-    
+
     $dataStructure[$fullName] = [
         'schema' => $t->table_schema,
         'table' => $t->table_name,
@@ -120,7 +122,7 @@ foreach ($tables as $t) {
         'context_columns' => array_keys($contextCols),
         'fks' => [], // Se llena después
     ];
-    
+
     if (!empty($contextCols)) {
         $tablesWithContext[$fullName] = array_keys($contextCols)[0]; // Primera columna contexto
     }
@@ -147,7 +149,7 @@ foreach ($dataStructure as $fullName => &$tableData) {
         WHERE con.contype = 'f' AND c.relname = ? AND n.nspname = ?
         GROUP BY con.oid, fn.nspname, fc.relname
     ", [$tableData['table'], $tableData['schema']]);
-    
+
     foreach ($fks as $fk) {
         $targetName = "{$fk->target_schema}.{$fk->target_table}";
         $tableData['fks'][$fk->columns] = $targetName;
@@ -163,15 +165,16 @@ step("Foreign Keys cargadas: " . array_sum(array_map('count', array_column($data
 
 section("🔍 DETECTANDO JERARQUÍAS");
 
-function detectContextPath($table, $dataStructure, $tablesWithContext, $maxDepth) {
+function detectContextPath($table, $dataStructure, $tablesWithContext, $maxDepth)
+{
     /**
      * Busca cadena de FKs que lleva de $table a una tabla con contexto
      * Retorna: ['table1', 'table2', ...] o null si no encuentra
      */
-    
+
     $queue = [];
     $visited = [$table];
-    
+
     // Inicializar con FKs directos
     if (!empty($dataStructure[$table]['fks'])) {
         foreach ($dataStructure[$table]['fks'] as $target) {
@@ -184,37 +187,37 @@ function detectContextPath($table, $dataStructure, $tablesWithContext, $maxDepth
             ];
         }
     }
-    
+
     $foundPaths = [];
-    
+
     while (!empty($queue)) {
         $node = array_shift($queue);
-        
+
         // Encontró tabla con contexto
         if (isset($tablesWithContext[$node['current']])) {
             $foundPaths[] = $node['path'];
             continue;
         }
-        
+
         // No explorar más allá del máximo
         if (count($node['path']) >= $maxDepth) {
             continue;
         }
-        
+
         // Si no existe en estructura (tabla ajena), ignorar
         if (!isset($dataStructure[$node['current']])) {
             continue;
         }
-        
+
         // Explorar siguiente nivel
         foreach ($dataStructure[$node['current']]['fks'] as $nextTarget) {
             if (!in_array($nextTarget, $node['visited'])) {
                 $newVisited = $node['visited'];
                 $newVisited[] = $nextTarget;
-                
+
                 $nextParts = explode('.', $nextTarget);
                 $nextTableName = end($nextParts); // Extraer nombre de tabla
-                
+
                 $queue[] = [
                     'current' => $nextTarget,
                     'path' => array_merge($node['path'], [$nextTableName]),
@@ -223,11 +226,11 @@ function detectContextPath($table, $dataStructure, $tablesWithContext, $maxDepth
             }
         }
     }
-    
+
     if (empty($foundPaths)) {
         return null;
     }
-    
+
     // Retornar TODOS los caminos encontrados (ordenados por longitud)
     usort($foundPaths, fn($a, $b) => count($a) <=> count($b));
     return $foundPaths;
@@ -243,7 +246,7 @@ $results = [
 
 foreach ($dataStructure as $fullName => $tableData) {
     $tableName = $tableData['table'];
-    
+
     // Verificar si está en global_context_tables
     $isGlobal = false;
     foreach ($config['global_context_tables'] as $globalTable) {
@@ -252,7 +255,7 @@ foreach ($dataStructure as $fullName => $tableData) {
             break;
         }
     }
-    
+
     if ($isGlobal) {
         // Contexto global (sin jerarquía)
         $results['global'][$fullName] = [
@@ -268,12 +271,12 @@ foreach ($dataStructure as $fullName => $tableData) {
     } else {
         // Buscar jerarquía
         $paths = detectContextPath(
-            $fullName, 
-            $dataStructure, 
-            $tablesWithContext, 
+            $fullName,
+            $dataStructure,
+            $tablesWithContext,
             $config['max_depth']
         );
-        
+
         if ($paths) {
             $results['hierarchical'][$fullName] = [
                 'paths' => $paths,  // Array de todos los caminos posibles
@@ -328,7 +331,8 @@ if ($outputFile) {
  * Filtra tablas según prefijos o nombres específicos
  * @return array [bool $shouldFilter, string $reason]
  */
-function shouldFilterTable($tableName, $filterPrefixes = [], $filterTables = []): array {
+function shouldFilterTable($tableName, $filterPrefixes = [], $filterTables = []): array
+{
     /**
      * Retorna true si la tabla debe ser excluida del análisis
      * 
@@ -339,36 +343,37 @@ function shouldFilterTable($tableName, $filterPrefixes = [], $filterTables = [])
 
     $FILTERED_BY_PREFIX = "Prefijo filtrado";
     $FILTERED_BY_NAME = "Tabla filtrada";
-    
+
     // Chequear por prefijo
     foreach ($filterPrefixes as $prefix) {
         if (str_starts_with(strtolower($tableName), strtolower($prefix))) {
             return [true, $FILTERED_BY_PREFIX];
         }
     }
-    
+
     // Chequear por nombre exacto (case-insensitive)
     foreach ($filterTables as $filterName) {
         if (strtolower($tableName) === strtolower($filterName)) {
             return [true, $FILTERED_BY_NAME];
         }
     }
-    
+
     return [false, null];
 }
 
-function outputConfig($results, $contextColumnName, $filteredTables = []) {
+function outputConfig($results, $contextColumnName, $filteredTables = [])
+{
     /**
      * Genera configuración PHP usando heredoc (formato limpio y legible)
      */
-    
+
     // Generar sección direct
     $directLines = [];
     foreach ($results['direct'] as $table => $config) {
         $directLines[] = "        '$table' => '{$config['name']}',";
     }
     $directBlock = implode("\n", $directLines);
-    
+
     // Generar sección hierarchical
     $hierarchicalLines = [];
     foreach ($results['hierarchical'] as $table => $config) {
@@ -387,21 +392,21 @@ function outputConfig($results, $contextColumnName, $filteredTables = []) {
         $hierarchicalLines[] = "        ],";
     }
     $hierarchicalBlock = implode("\n", $hierarchicalLines);
-    
+
     // Generar sección global
     $globalLines = [];
     foreach ($results['global'] as $table => $config) {
         $globalLines[] = "        '$table' => '{$config['name']}',";
     }
     $globalBlock = implode("\n", $globalLines);
-    
+
     // Generar sección complex
     $complexLines = [];
     foreach ($results['complex'] as $table => $_) {
         $complexLines[] = "        // '$table', // TODO: revisar manualmente";
     }
     $complexBlock = implode("\n", $complexLines);
-    
+
     // Generar sección filtered (tablas excluidas)
     $filteredBlock = '';
     if (!empty($filteredTables)) {
@@ -411,7 +416,7 @@ function outputConfig($results, $contextColumnName, $filteredTables = []) {
         }
         $filteredBlock = "\n/*\n" . $filteredComment . "*/\n";
     }
-    
+
     // Usar heredoc para generar el código PHP limpio
     $php = <<<PHP
 <?php
@@ -435,6 +440,6 @@ $complexBlock
 ];
 $filteredBlock
 PHP;
-    
+
     return $php;
 }

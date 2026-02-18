@@ -4,6 +4,7 @@ namespace App\Models\Base\Curso;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -19,8 +20,8 @@ abstract class BaseInscripcionSeccion extends CustomBaseModel implements HasCont
     use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Inscripcion_Seccion';
-    protected $primaryKey = ['id_estudiante', 'id_seccion', 'id_curso'];
+    protected $table = 'inscripcion_seccion';
+    protected $primaryKey = ['id_inscripcion_seccion', 'id_estudiante', 'id_seccion', 'id_curso'];
     public $incrementing = false;
 
     protected $fillable = [
@@ -35,19 +36,21 @@ abstract class BaseInscripcionSeccion extends CustomBaseModel implements HasCont
 
     public function estudiante()
     {
-        return $this->belongsTo(\App\Models\Usuario\Estudiante::class, 'id_estudiante', 'id_estudiante');
+        $instance = new \App\Models\Usuario\Estudiante();
+        return new BelongsTo($instance->newQuery(), $this, 'id_estudiante', 'id_estudiante', 'estudiante');
     }
 
     public function seccion()
     {
-        return $this->belongsTo(\App\Models\Curso\Seccion::class, ['id_seccion', 'id_curso'], ['id_seccion', 'id_curso']);
+        $instance = new \App\Models\Curso\Seccion();
+        return new BelongsTo($instance->newQuery(), $this, ['id_seccion', 'id_curso'], ['id_seccion', 'id_curso'], 'seccion');
     }
 
     // Relaciones inversas
 
     public function asistencias()
     {
-        return $this->hasMany(\App\Models\Curso\Asistencia::class, ['id_estudiante', 'id_seccion', 'id_curso'], ['id_estudiante', 'id_seccion', 'id_curso']);
+        return $this->hasMany(\App\Models\Curso\Asistencia::class, ['id_inscripcion_seccion', 'id_estudiante', 'id_seccion', 'id_curso'], ['id_inscripcion_seccion', 'id_estudiante', 'id_seccion', 'id_curso']);
     }
 
     /**

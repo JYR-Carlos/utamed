@@ -4,6 +4,7 @@ namespace App\Models\Base\Agenda;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 
 /**
  * Clase Base generada automáticamente
@@ -14,7 +15,7 @@ abstract class BaseAgenda extends CustomBaseModel
     use Compoships;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Agenda';
+    protected $table = 'agenda';
     protected $primaryKey = 'id';
     public $incrementing = true;
 

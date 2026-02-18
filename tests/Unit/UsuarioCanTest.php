@@ -25,6 +25,8 @@ function createDbConnectionMock()
 {
     $mock = Mockery::mock();
     $mock->shouldReceive('table')->andReturnSelf();
+    $mock->shouldReceive('join')->andReturnSelf();
+    $mock->shouldReceive('select')->andReturnSelf();
     $mock->shouldReceive('where')->andReturnSelf();
     $mock->shouldReceive('whereIn')->andReturnSelf();
     $mock->shouldReceive('orderByRaw')->andReturnSelf();
@@ -60,36 +62,36 @@ test('Auth::user()->can() con slug de permiso usa PermissionValidator como fallb
     $usuario = new UsuarioStub();
     $usuario->id_usuario = 10;
     authenticateUser($usuario);
-    
+
     // Crear mock de la conexión a BD preconfigurado
     $connectionMock = createDbConnectionMock();
-    
+
     // Simular llamadas a BD:
     // 1ra: loadGlobalContextId() obtiene el contexto global
     // 2da: checkSpecialPermission() encuentra permiso en UPE
     $connectionMock->shouldReceive('first')->andReturn(
-        (object)['id_contexto' => 1], // loadGlobalContextId
-        (object)['esta_permitido' => true] // checkSpecialPermission
+        (object) ['id_contexto' => 1], // loadGlobalContextId
+        (object) ['esta_permitido' => true] // checkSpecialPermission
     );
-    
+
     // isSuperAdmin() retorna false
     $connectionMock->shouldReceive('exists')->andReturn(false);
-    
+
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
-    
+
     // Mock del ContextResolver
     $contextResolver = Mockery::mock(ContextResolver::class);
     $contextResolver->shouldReceive('getContextId')->andReturn([5]);
-    
+
     // Mock del Gate para simular que NO hay Policy registrada
     Gate::shouldReceive('getPolicyFor')->andReturn(null);
-    
+
     // Bind del ContextResolver en el contenedor
     app()->instance(ContextResolver::class, $contextResolver);
-    
+
     // Crear recurso
     $facultad = new CarreraStub(5);
-    
+
     // Verificar que Auth::user()->can() funciona con slug de permiso
     expect(Auth::user()->can('facultad:ver', $facultad))->toBeTrue();
 });
@@ -99,20 +101,20 @@ test('Auth::user()->can() con wildcard global (*) detecta superadmin', function 
     $usuario = new UsuarioStub();
     $usuario->id_usuario = 1;
     authenticateUser($usuario);
-    
+
     // Crear mock de la conexión a BD
     $connectionMock = createDbConnectionMock();
-    
+
     // Simular que es superadmin (tiene permiso '*' en contexto global)
-    $connectionMock->shouldReceive('first')->once()->andReturn((object)['id_contexto' => 1]);
+    $connectionMock->shouldReceive('first')->once()->andReturn((object) ['id_contexto' => 1]);
     $connectionMock->shouldReceive('exists')->andReturn(true); // isSuperAdmin
-    
+
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
-    
+
     // Mock del ContextResolver
     $contextResolver = Mockery::mock(ContextResolver::class);
     app()->instance(ContextResolver::class, $contextResolver);
-    
+
     // Verificar que can('*') funciona correctamente
     expect(Auth::user()->can('*'))->toBeTrue();
 });
@@ -122,20 +124,20 @@ test('Auth::user()->can() sin recurso usa contexto del usuario actual', function
     $usuario = new UsuarioStub();
     $usuario->id_usuario = 1;
     authenticateUser($usuario);
-    
+
     // Crear mock de la conexión a BD
     $connectionMock = createDbConnectionMock();
-    
+
     // Simular que es superadmin
-    $connectionMock->shouldReceive('first')->once()->andReturn((object)['id_contexto' => 1]);
+    $connectionMock->shouldReceive('first')->once()->andReturn((object) ['id_contexto' => 1]);
     $connectionMock->shouldReceive('exists')->andReturn(true); // isSuperAdmin
-    
+
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
-    
+
     // Mock del ContextResolver
     $contextResolver = Mockery::mock(ContextResolver::class);
     app()->instance(ContextResolver::class, $contextResolver);
-    
+
     // Verificar que superadmin puede hacer cualquier acción sin pasar recurso
     expect(Auth::user()->can('facultad:crear'))->toBeTrue();
     expect(Auth::user()->can('curso:eliminar'))->toBeTrue();
@@ -150,30 +152,30 @@ test('Auth::user()->can() retorna false cuando no tiene permiso', function () {
     $usuario = new UsuarioStub();
     $usuario->id_usuario = 50;
     authenticateUser($usuario);
-    
+
     // Crear mock de la conexión a BD
     $connectionMock = createDbConnectionMock();
-    
+
     // Simular que no tiene permisos
     $connectionMock->shouldReceive('first')->andReturn(
-        (object)['id_contexto' => 1], // loadGlobalContextId
+        (object) ['id_contexto' => 1], // loadGlobalContextId
         null // checkSpecialPermission (no UPE)
     );
     $connectionMock->shouldReceive('exists')->andReturn(false, false); // no superadmin, no rol
-    
+
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
-    
+
     // Mock del ContextResolver
     $contextResolver = Mockery::mock(ContextResolver::class);
     $contextResolver->shouldReceive('getContextId')->andReturn([10]);
-    
+
     // Mock del Gate
     Gate::shouldReceive('getPolicyFor')->andReturn(null);
-    
+
     app()->instance(ContextResolver::class, $contextResolver);
-    
+
     $facultad = new CarreraStub(10);
-    
+
     // Verificar que el usuario NO puede eliminar (sin permisos)
     expect(Auth::user()->can('facultad:eliminar', $facultad))->toBeFalse();
 });
@@ -187,30 +189,30 @@ test('Auth::user()->can() respeta DENY de UPE', function () {
     $usuario = new UsuarioStub();
     $usuario->id_usuario = 20;
     authenticateUser($usuario);
-    
+
     // Crear mock de la conexión a BD
     $connectionMock = createDbConnectionMock();
-    
+
     // Simular DENY en UPE
     $connectionMock->shouldReceive('first')->andReturn(
-        (object)['id_contexto' => 1], // loadGlobalContextId
-        (object)['esta_permitido' => false] // checkSpecialPermission (DENY)
+        (object) ['id_contexto' => 1], // loadGlobalContextId
+        (object) ['esta_permitido' => false] // checkSpecialPermission (DENY)
     );
     $connectionMock->shouldReceive('exists')->andReturn(false); // no superadmin
-    
+
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
-    
+
     // Mock del ContextResolver
     $contextResolver = Mockery::mock(ContextResolver::class);
     $contextResolver->shouldReceive('getContextId')->andReturn([8]);
-    
+
     // Mock del Gate
     Gate::shouldReceive('getPolicyFor')->andReturn(null);
-    
+
     app()->instance(ContextResolver::class, $contextResolver);
-    
+
     $curso = new CarreraStub(8);
-    
+
     // Verificar que el DENY se respeta
     expect(Auth::user()->can('curso:editar', $curso))->toBeFalse();
 });
@@ -224,9 +226,9 @@ test('Auth::user()->can() con habilidad estándar sin Policy retorna false', fun
     $usuario = new UsuarioStub();
     $usuario->id_usuario = 30;
     authenticateUser($usuario);
-    
+
     $facultad = new CarreraStub(5);
-    
+
     // can() con habilidad estándar ('view') sin Policy debe retornar false
     // porque parent::can() retornará false y no es un slug con ':'
     expect(Auth::user()->can('view', $facultad))->toBeFalse();
@@ -242,32 +244,32 @@ test('caso real: profesor autenticado puede ver cursos de su departamento', func
     $profesor = new UsuarioStub();
     $profesor->id_usuario = 100;
     authenticateUser($profesor);
-    
+
     // Crear mock de la conexión a BD
     $connectionMock = createDbConnectionMock();
-    
+
     $connectionMock->shouldReceive('first')->andReturn(
-        (object)['id_contexto' => 1], // loadGlobalContextId
+        (object) ['id_contexto' => 1], // loadGlobalContextId
         null // checkSpecialPermission (no UPE)
     );
     $connectionMock->shouldReceive('exists')->andReturn(
         false, // isSuperAdmin
         true   // checkRolePermission (tiene por rol)
     );
-    
+
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
-    
+
     // Mock del ContextResolver
     $contextResolver = Mockery::mock(ContextResolver::class);
     $contextResolver->shouldReceive('getContextId')->andReturn([50]);
-    
+
     // Mock del Gate
     Gate::shouldReceive('getPolicyFor')->andReturn(null);
-    
+
     app()->instance(ContextResolver::class, $contextResolver);
-    
+
     $curso = new CarreraStub(50);
-    
+
     // Verificar usando Auth::user()->can()
     expect(Auth::user()->can('curso:ver', $curso))->toBeTrue();
 });
@@ -277,29 +279,29 @@ test('caso real: estudiante autenticado NO puede eliminar inscripciones', functi
     $estudiante = new UsuarioStub();
     $estudiante->id_usuario = 102;
     authenticateUser($estudiante);
-    
+
     // Crear mock de la conexión a BD
     $connectionMock = createDbConnectionMock();
-    
+
     $connectionMock->shouldReceive('first')->andReturn(
-        (object)['id_contexto' => 1],
+        (object) ['id_contexto' => 1],
         null
     );
     $connectionMock->shouldReceive('exists')->andReturn(false, false);
-    
+
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
-    
+
     // Mock del ContextResolver
     $contextResolver = Mockery::mock(ContextResolver::class);
     $contextResolver->shouldReceive('getContextId')->andReturn([70]);
-    
+
     // Mock del Gate
     Gate::shouldReceive('getPolicyFor')->andReturn(null);
-    
+
     app()->instance(ContextResolver::class, $contextResolver);
-    
+
     $inscripcion = new CarreraStub(70);
-    
+
     // Verificar usando Auth::user()->can()
     expect(Auth::user()->can('inscripcion:eliminar', $inscripcion))->toBeFalse();
 });
@@ -313,16 +315,16 @@ test('Auth::user()->can() respeta decisión de Policy cuando está registrada', 
     $usuario = new UsuarioStub();
     $usuario->id_usuario = 40;
     authenticateUser($usuario);
-    
+
     $facultad = new CarreraStub(5);
-    
+
     // Simular que hay una Policy registrada que deniega
     $mockPolicy = Mockery::mock('FacultadPolicy');
     Gate::shouldReceive('getPolicyFor')->with($facultad)->andReturn($mockPolicy);
-    
+
     // parent::can() retornará false (Policy deniega)
     // can() debe respetar esa decisión y NO hacer fallback a PermissionValidator
-    
+
     // Como hay Policy, can() debe retornar false sin intentar PermissionValidator
     expect(Auth::user()->can('facultad:editar', $facultad))->toBeFalse();
 });

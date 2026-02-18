@@ -2,10 +2,9 @@
 
 namespace App\Models\Base\Administrativo;
 
-use App\Extensions\Compoships\BelongsTo;
-use App\Models\Administrativo\Departamento;
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
@@ -25,7 +24,7 @@ abstract class BaseCarrera extends CustomBaseModel implements HasContext
     const CREATED_AT = 'fecha_creacion';
     const UPDATED_AT = 'fecha_modificacion';
     protected $connection = 'pgsql';
-    protected $table = 'Carrera';
+    protected $table = 'carrera';
     protected $primaryKey = 'id_carrera';
     public $incrementing = true;
 
@@ -43,20 +42,14 @@ abstract class BaseCarrera extends CustomBaseModel implements HasContext
 
     public function departamento()
     {
-        $instance = new Departamento();
-
-        return new BelongsTo(
-            $instance->newQuery(),
-            $this,
-            ['id_departamento', 'id_facultad'],
-            ['id_departamento', 'id_facultad'],
-            'departamento'
-        );
+        $instance = new \App\Models\Administrativo\Departamento();
+        return new BelongsTo($instance->newQuery(), $this, ['id_departamento', 'id_facultad'], ['id_departamento', 'id_facultad'], 'departamento');
     }
 
     public function contexto()
     {
-        return $this->belongsTo(\App\Models\Usuario\Contexto::class, 'id_contexto', 'id_contexto');
+        $instance = new \App\Models\Usuario\Contexto();
+        return new BelongsTo($instance->newQuery(), $this, 'id_contexto', 'id_contexto', 'contexto');
     }
 
     // Relaciones inversas

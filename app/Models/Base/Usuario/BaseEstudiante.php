@@ -4,6 +4,7 @@ namespace App\Models\Base\Usuario;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -19,7 +20,7 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
     use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Estudiante';
+    protected $table = 'estudiante';
     protected $primaryKey = 'id_estudiante';
     public $incrementing = true;
 
@@ -34,12 +35,14 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
 
     public function carrera()
     {
-        return $this->belongsTo(\App\Models\Administrativo\Carrera::class, 'id_carrera', 'id_carrera');
+        $instance = new \App\Models\Administrativo\Carrera();
+        return new BelongsTo($instance->newQuery(), $this, 'id_carrera', 'id_carrera', 'carrera');
     }
 
     public function usuario()
     {
-        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'id_usuario', 'id_usuario');
+        $instance = new \App\Models\Usuario\Usuario();
+        return new BelongsTo($instance->newQuery(), $this, 'id_usuario', 'id_usuario', 'usuario');
     }
 
     // Relaciones inversas
@@ -65,7 +68,7 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Agenda\ActividadAsignada::class,
-            'Asignado_Actividad',
+            'asignado_actividad',
             'id_estudiante',
             'grupo,id_actividad'
         )
@@ -76,22 +79,22 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Curso\Curso::class,
-            'Inscripcion_Curso',
+            'inscripcion_curso',
             'id_estudiante',
             'id_curso'
         )
-            ->withPivot('cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
+            ->withPivot('id_curso_inscripcion', 'cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
     }
 
     public function seccionesInscritas()
     {
         return $this->belongsToMany(
             \App\Models\Curso\Seccion::class,
-            'Inscripcion_Seccion',
+            'inscripcion_seccion',
             'id_estudiante',
             'id_seccion,id_curso'
         )
-            ->withPivot('nota_seccion');
+            ->withPivot('id_inscripcion_seccion', 'nota_seccion');
     }
 
 }

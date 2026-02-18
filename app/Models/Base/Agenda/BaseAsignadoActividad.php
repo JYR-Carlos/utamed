@@ -4,6 +4,7 @@ namespace App\Models\Base\Agenda;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -19,7 +20,7 @@ abstract class BaseAsignadoActividad extends CustomBaseModel implements HasConte
     use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Asignado_Actividad';
+    protected $table = 'asignado_actividad';
     protected $primaryKey = ['grupo', 'id_actividad', 'id_estudiante'];
     public $incrementing = false;
 
@@ -36,12 +37,14 @@ abstract class BaseAsignadoActividad extends CustomBaseModel implements HasConte
 
     public function actividadAsignada()
     {
-        return $this->belongsTo(\App\Models\Agenda\ActividadAsignada::class, ['grupo', 'id_actividad'], ['grupo', 'id_actividad']);
+        $instance = new \App\Models\Agenda\ActividadAsignada();
+        return new BelongsTo($instance->newQuery(), $this, ['grupo', 'id_actividad'], ['grupo', 'id_actividad'], 'actividadAsignada');
     }
 
     public function estudiante()
     {
-        return $this->belongsTo(\App\Models\Usuario\Estudiante::class, 'id_estudiante', 'id_estudiante');
+        $instance = new \App\Models\Usuario\Estudiante();
+        return new BelongsTo($instance->newQuery(), $this, 'id_estudiante', 'id_estudiante', 'estudiante');
     }
 
     /**

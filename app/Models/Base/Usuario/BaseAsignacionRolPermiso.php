@@ -4,17 +4,18 @@ namespace App\Models\Base\Usuario;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseAsignaciónRolPermiso extends CustomBaseModel
+abstract class BaseAsignacionRolPermiso extends CustomBaseModel
 {
     use Compoships;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Asignación_Rol_Permiso';
+    protected $table = 'asignacion_rol_permiso';
     protected $primaryKey = ['id_rol', 'id_permiso'];
     public $incrementing = false;
 
@@ -29,12 +30,14 @@ abstract class BaseAsignaciónRolPermiso extends CustomBaseModel
 
     public function rol()
     {
-        return $this->belongsTo(\App\Models\Usuario\Rol::class, 'id_rol', 'id_rol');
+        $instance = new \App\Models\Usuario\Rol();
+        return new BelongsTo($instance->newQuery(), $this, 'id_rol', 'id_rol', 'rol');
     }
 
     public function permiso()
     {
-        return $this->belongsTo(\App\Models\Usuario\Permiso::class, 'id_permiso', 'id_permiso');
+        $instance = new \App\Models\Usuario\Permiso();
+        return new BelongsTo($instance->newQuery(), $this, 'id_permiso', 'id_permiso', 'permiso');
     }
 
 }

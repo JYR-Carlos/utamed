@@ -93,7 +93,7 @@ return [
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => env('DB_SEARCH_PATH', '"utamed.Usuario", "utamed.Agenda", "utamed.Administrativo", "utamed.Curso", public'),
+            'search_path' => env('DB_SEARCH_PATH', 'usuario, agenda, administrativo, curso, public'),
             'sslmode' => 'prefer',
             'options' => [
                 \PDO::ATTR_EMULATE_PREPARES => false,

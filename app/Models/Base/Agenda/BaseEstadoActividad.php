@@ -4,6 +4,7 @@ namespace App\Models\Base\Agenda;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
 
 /**
  * Clase Base generada automáticamente
@@ -14,7 +15,7 @@ abstract class BaseEstadoActividad extends CustomBaseModel
     use Compoships;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'Estado_Actividad';
+    protected $table = 'estado_actividad';
     protected $primaryKey = 'id_estado';
     public $incrementing = true;
 
@@ -39,7 +40,7 @@ abstract class BaseEstadoActividad extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Agenda\Actividad::class,
-            'Actividad_Asignada',
+            'actividad_asignada',
             'id_estado',
             'id_actividad'
         )

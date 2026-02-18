@@ -9,7 +9,7 @@ class BelongsTo extends BaseBelongsTo
     /**
      * Override addEagerConstraints to ensure keys are correctly quoted.
      */
-    public function addEagerConstraints(array $models)
+    public function addEagerConstraints(array $models): void
     {
         if (is_array($this->ownerKey)) { // Check for multi-columns relationship
             $keys = [];

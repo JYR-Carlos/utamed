@@ -1,5 +1,7 @@
 <?php
 
+uses(Tests\TestCase::class, Illuminate\Foundation\Testing\DatabaseTransactions::class);
+
 use App\Models\Administrativo\Facultad;
 use App\Models\Administrativo\Departamento;
 use App\Models\Administrativo\Carrera;
@@ -53,10 +55,11 @@ test("llave compuesta triple - curso > seccion > inscripcion_seccion > estudiant
   echo "tipo seccion {$tipoSeccion->id_tipo_seccion}\n";
 
   // 7. Crear un Usuario y Docente
+  $uniqueId = substr(uniqid(), -8);
   $usuario = Usuario::create([
-    'username' => 'docente_' . time(),
+    'username' => 'doc_' . $uniqueId,
     'passhash' => 'test',
-    'rut' => 'XX.XXX.XXX-' . random_int(0, 9),
+    'rut' => 'T' . $uniqueId,
     'nombre1' => 'Test',
     'apellido1' => 'Docente'
   ]);
@@ -71,16 +74,21 @@ test("llave compuesta triple - curso > seccion > inscripcion_seccion > estudiant
     'id_curso' => $curso->id_curso,
     'id_tipo_seccion' => $tipoSeccion->id_tipo_seccion,
     'id_docente' => $docente->id_docente,
+    'genera_acta' => false,
+    'porcentaje_aprobacion' => 60,
+    'aprobacion_obligatoria' => false,
+    'porcentaje_asistencia_obligatoria' => 0,
   ]);
   echo "seccion clave: " . json_encode($seccion->getKey()) . "\n";
   echo "seccion->id_seccion: " . $seccion->id_seccion . "\n";
   echo "seccion->id_curso: " . $seccion->id_curso . "\n";
 
   // 9. Crear otro Usuario para Estudiante
+  $uniqueIdEst = substr(uniqid(), -8);
   $usuarioEst = Usuario::create([
-    'username' => 'estudiante_' . time(),
+    'username' => 'est_' . $uniqueIdEst,
     'passhash' => 'test',
-    'rut' => 'YY.YYY.YYY-' . random_int(0, 9),
+    'rut' => 'E' . $uniqueIdEst,
     'nombre1' => 'Test',
     'apellido1' => 'Estudiante'
   ]);

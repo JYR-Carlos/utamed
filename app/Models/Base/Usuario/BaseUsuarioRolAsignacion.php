@@ -10,24 +10,23 @@ use App\Extensions\Compoships\BelongsTo;
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseUsuarioPermisoEspecial extends CustomBaseModel
+abstract class BaseUsuarioRolAsignacion extends CustomBaseModel
 {
     use Compoships;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'usuario_permiso_especial';
-    protected $primaryKey = ['id_permiso', 'id_contexto', 'id_usuario'];
+    protected $table = 'usuario_rol_asignacion';
+    protected $primaryKey = ['id_contexto', 'id_rol', 'id_usuario'];
     public $incrementing = false;
 
     protected $fillable = [
+        'asignado_por',
         'fecha_inicio_planificada',
         'fecha_fin_planificada',
-        'esta_permitido',
-        'puede_delegar',
         'fecha_fin_real',
-        'fue_borrado',
-        'id_permiso',
+        'fue_eliminado',
         'id_contexto',
+        'id_rol',
         'id_usuario',
         'esta_activo',
         'creado_por',
@@ -43,16 +42,16 @@ abstract class BaseUsuarioPermisoEspecial extends CustomBaseModel
         return new BelongsTo($instance->newQuery(), $this, 'id_usuario', 'id_usuario', 'receptor');
     }
 
-    public function permiso()
-    {
-        $instance = new \App\Models\Usuario\Permiso();
-        return new BelongsTo($instance->newQuery(), $this, 'id_permiso', 'id_permiso', 'permiso');
-    }
-
     public function contexto()
     {
         $instance = new \App\Models\Usuario\Contexto();
         return new BelongsTo($instance->newQuery(), $this, 'id_contexto', 'id_contexto', 'contexto');
+    }
+
+    public function rol()
+    {
+        $instance = new \App\Models\Usuario\Rol();
+        return new BelongsTo($instance->newQuery(), $this, 'id_rol', 'id_rol', 'rol');
     }
 
     public function asignador()
