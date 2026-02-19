@@ -12,9 +12,17 @@ use App\Models\Base\Administrativo\BasePlan;
  */
 class Plan extends BasePlan
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+    /**
+     * Override asignaturas to include soft delete check on pivot table.
+     */
+    public function asignaturas()
+    {
+        return parent::asignaturas()->wherePivotNull('fecha_eliminacion');
+    }
+
+
+    public function calculateTotalCredits()
+    {
+        return $this->asignaturas()->sum('creditos_sct');
+    }
 }

@@ -10,6 +10,8 @@ use Illuminate\Foundation\Auth\Access\Authorizable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Services\Authorization\PermissionValidator;
 use App\Contracts\HasContext;
+use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Models\Usuario\UsuarioPermisoEspecial;
 
 /**
  * Modelo Usuario
@@ -52,7 +54,7 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
      */
     public function rolesAsignados()
     {
-        return $this->hasMany(UsuarioRolAsignación::class, 'id_usuario', 'id_usuario');
+        return $this->hasMany(UsuarioRolAsignacion::class, 'id_usuario', 'id_usuario');
     }
 
     /**

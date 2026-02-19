@@ -38,40 +38,27 @@ class CursoController extends Controller
         if ($request->has('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
-                $q->where('Curso.nombre', 'ilike', "%{$search}%")
-                    ->orWhere('Curso.cod_curso', 'ilike', "%{$search}%");
+                $q->where('curso.nombre', 'ilike', "%{$search}%")
+                    ->orWhere('curso.cod_curso', 'ilike', "%{$search}%");
             });
         }
 
         // Filter by asignatura
         if ($request->has('id_asignatura')) {
-            $query->where('Curso.id_asignatura', $request->input('id_asignatura'));
+            $query->where('curso.id_asignatura', $request->input('id_asignatura'));
         }
 
-        // Join with relationships to simplify data access in frontend.
-        // NOTE: correlated subqueries in SELECT (not a derived-table leftJoin) to avoid
-        // PostgreSQL alias-scope errors with Laravel's pagination COUNT(*) wrapper query.
-        $cursos = $query->join('Asignatura', 'Curso.id_asignatura', '=', 'Asignatura.id_asignatura')
-            ->join('Plan', 'Curso.id_plan', '=', 'Plan.id_plan')
-            ->join('Carrera', 'Plan.id_carrera', '=', 'Carrera.id_carrera')
+        // Join with relationships to simplify data access in frontend
+        $cursos = $query->join('asignatura', 'curso.id_asignatura', '=', 'asignatura.id_asignatura')
+            ->join('plan', 'curso.id_plan', '=', 'plan.id_plan')
+            ->join('carrera', 'plan.id_carrera', '=', 'carrera.id_carrera')
             ->select(
-                'Curso.*',
-                'Asignatura.nombre as asignatura_nombre',
-                'Carrera.nombre as carrera_nombre',
-                DB::raw('EXISTS(
-                    SELECT 1 FROM "Programa"
-                    WHERE "Programa"."id_curso" = "Curso"."id_curso"
-                      AND "Programa"."es_actual" = true
-                ) as has_programa'),
-                DB::raw('(
-                    SELECT "Programa"."id_programa" FROM "Programa"
-                    WHERE "Programa"."id_curso" = "Curso"."id_curso"
-                      AND "Programa"."es_actual" = true
-                    LIMIT 1
-                ) as id_programa')
+                'curso.*',
+                'asignatura.nombre as asignatura_nombre',
+                'carrera.nombre as carrera_nombre'
             )
-            ->whereNull('Curso.fecha_eliminacion')
-            ->orderBy('Curso.fecha_inicio', 'desc')
+            ->whereNull('curso.fecha_eliminacion')
+            ->orderBy('curso.fecha_inicio', 'desc')
             ->paginate($request->input('per_page', 15))
             ->withQueryString();
 

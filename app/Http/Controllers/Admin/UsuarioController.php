@@ -65,77 +65,46 @@ class UsuarioController extends Controller
         $tipo = $request->input('tipo', 'estudiante'); // estudiante, docente, or administrador
 
         if ($tipo === 'estudiante') {
-            $query = Estudiante::query()
-                ->join('Usuario', 'Estudiante.id_usuario', '=', 'Usuario.id_usuario')
-                ->select(
-                    'Estudiante.*',
-                    'Usuario.id_usuario',
-                    'Usuario.rut',
-                    'Usuario.nombre1',
-                    'Usuario.nombre2',
-                    'Usuario.apellido1',
-                    'Usuario.apellido2',
-                    'Usuario.email',
-                    'Usuario.esta_activo',
-                    'Usuario.username'
-                )
-                ->with('carrera');
+            $query = Estudiante::with(['usuario', 'carrera']);
 
             if ($request->has('search')) {
                 $search = $request->input('search');
-                $query->where(function ($q) use ($search) {
-                    $q->where('Usuario.nombre1', 'ilike', "%{$search}%")
-                        ->orWhere('Usuario.apellido1', 'ilike', "%{$search}%")
-                        ->orWhere('Usuario.rut', 'ilike', "%{$search}%");
+                $query->whereHas('usuario', function ($q) use ($search) {
+                    $q->where('nombre1', 'ilike', "%{$search}%")
+                        ->orWhere('apellido1', 'ilike', "%{$search}%")
+                        ->orWhere('rut', 'ilike', "%{$search}%");
                 });
             }
 
-            $usuarios = $query->orderBy('Usuario.nombre1')
-                ->orderBy('Usuario.apellido1')
+            $usuarios = $query->join('usuario', 'estudiante.id_usuario', '=', 'usuario.id_usuario')
+                ->orderBy('usuario.nombre1')
+                ->orderBy('usuario.apellido1')
+                ->select('estudiante.*') // Select estudiante fields to avoid ID collisions if needed, or just let Eloquent handle it
                 ->paginate($request->input('per_page', 15))
                 ->withQueryString();
         } elseif ($tipo === 'docente') {
-            $query = Docente::query()
-                ->join('Usuario', 'Docente.id_usuario', '=', 'Usuario.id_usuario')
-                ->select(
-                    'Docente.*',
-                    'Usuario.id_usuario',
-                    'Usuario.rut',
-                    'Usuario.nombre1',
-                    'Usuario.nombre2',
-                    'Usuario.apellido1',
-                    'Usuario.apellido2',
-                    'Usuario.email',
-                    'Usuario.esta_activo',
-                    'Usuario.username'
-                );
+            $query = Docente::with('usuario');
 
             if ($request->has('search')) {
                 $search = $request->input('search');
-                $query->where(function ($q) use ($search) {
-                    $q->where('Usuario.nombre1', 'ilike', "%{$search}%")
-                        ->orWhere('Usuario.apellido1', 'ilike', "%{$search}%")
-                        ->orWhere('Usuario.rut', 'ilike', "%{$search}%");
+                $query->whereHas('usuario', function ($q) use ($search) {
+                    $q->where('nombre1', 'ilike', "%{$search}%")
+                        ->orWhere('apellido1', 'ilike', "%{$search}%")
+                        ->orWhere('rut', 'ilike', "%{$search}%");
                 });
             }
 
-            $usuarios = $query->orderBy('Usuario.nombre1')
-                ->orderBy('Usuario.apellido1')
+            $usuarios = $query->join('usuario', 'docente.id_usuario', '=', 'usuario.id_usuario')
+                ->orderBy('usuario.nombre1')
+                ->orderBy('usuario.apellido1')
+                ->select('docente.*')
                 ->paginate($request->input('per_page', 15))
                 ->withQueryString();
         } else {
             // Administradores: usuarios sin docente ni estudiante
             $query = Usuario::query()
-                ->whereNotIn('id_usuario', function ($query) {
-                    $query->select('id_usuario')
-                        ->from('Docente')
-                        ->whereNotNull('id_usuario');
-                })
-                ->whereNotIn('id_usuario', function ($query) {
-                    $query->select('id_usuario')
-                        ->from('Estudiante')
-                        ->whereNotNull('id_usuario');
-                });
+                ->whereDoesntHave('docente')
+                ->whereDoesntHave('estudiante');
 
             if ($request->has('search')) {
                 $search = $request->input('search');

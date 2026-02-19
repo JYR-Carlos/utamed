@@ -46,19 +46,7 @@ class PlanController extends Controller
         // Calculate total SCT credits summing Asignatura.creditos_sct via AsignacionPlan
         $planes = $query->orderBy('agno', 'desc')
             ->orderBy('version_plan', 'desc')
-            ->addSelect([
-                'creditos_sct_totales' => function ($q) {
-                    // Use explicit schema if needed, but standard strings usually work if search_path is set.
-                    // Safest to rely on what works for Plan, but since this is raw SQL in addSelect,
-                    // we should be careful. Assuming default search path works for now.
-                    $q->selectRaw('sum(creditos_sct)')
-                        ->from('Asignacion_Plan')
-                        ->join('Asignatura', 'Asignacion_Plan.id_asignatura', '=', 'Asignatura.id_asignatura')
-                        ->whereColumn('Asignacion_Plan.id_plan', 'Plan.id_plan')
-                        ->whereNull('Asignatura.fecha_eliminacion')
-                        ->whereNull('Asignacion_Plan.fecha_eliminacion');
-                }
-            ])
+            ->withSum('asignaturas as creditos_sct_totales', 'creditos_sct')
             ->paginate($request->input('per_page', 15))
             ->withQueryString();
 

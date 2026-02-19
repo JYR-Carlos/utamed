@@ -36,6 +36,13 @@ abstract class BaseSeccion extends CustomBaseModel implements HasContext
     ];
 
 
+    // send a simple key
+
+    public function getRouteKeyName()
+    {
+        return 'id_seccion';
+    }
+
     // Relaciones
 
     public function docente()
