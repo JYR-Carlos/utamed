@@ -108,7 +108,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'id_usuario',
             'id_permiso'
         )
-            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function contextosConPermisoEspecial()
@@ -119,7 +119,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'id_usuario',
             'id_contexto'
         )
-            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function usuariosQueAsignanMisPermisos()
@@ -130,7 +130,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'id_usuario',
             'creado_por'
         )
-            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function usuariosQueBorranMisPermisos()
@@ -141,7 +141,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'id_usuario',
             'eliminado_por'
         )
-            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function usuariosQueRecibenMisPermisos()
@@ -152,7 +152,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'creado_por',
             'id_usuario'
         )
-            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function usuariosQueBorranMisPermisosAsignados()
@@ -163,7 +163,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'creado_por',
             'eliminado_por'
         )
-            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function usuariosQueBorranMisPermisosRecibidos()
@@ -174,7 +174,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'eliminado_por',
             'id_usuario'
         )
-            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function usuariosALosQueBorroSusPermisos()
@@ -185,7 +185,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'eliminado_por',
             'creado_por'
         )
-            ->withPivot('fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
     }
 
     public function contextosConRolAsignado()
@@ -196,7 +196,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'id_usuario',
             'id_contexto'
         )
-            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function rolesAsignados()
@@ -207,7 +207,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'id_usuario',
             'id_rol'
         )
-            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function usuariosQueAsignanMisRoles()
@@ -218,7 +218,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'id_usuario',
             'creado_por'
         )
-            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function usuariosQueBorranMisRoles()
@@ -229,7 +229,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'id_usuario',
             'eliminado_por'
         )
-            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function usuariosQueRecibenMisRoles()
@@ -240,7 +240,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'creado_por',
             'id_usuario'
         )
-            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function usuariosQueBorranMisRolesAsignados()
@@ -251,7 +251,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'creado_por',
             'eliminado_por'
         )
-            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function usuariosQueBorranMisRolesRecibidos()
@@ -262,7 +262,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'eliminado_por',
             'id_usuario'
         )
-            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function usuariosALosQueBorroSusRoles()
@@ -273,7 +273,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'eliminado_por',
             'creado_por'
         )
-            ->withPivot('asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
 }

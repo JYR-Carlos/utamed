@@ -24,18 +24,17 @@ abstract class BasePrograma extends CustomBaseModel implements HasContext
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'programa';
-    protected $primaryKey = ['id_programa', 'id_curso', 'es_plantilla', 'es_actual'];
-    public $incrementing = false;
+    protected $primaryKey = 'id_programa';
+    public $incrementing = true;
 
     protected $fillable = [
         'version_programa',
         'estado',
         'data_syllabus',
-        'id_curso',
-        'es_plantilla',
-        'es_actual',
         'creado_por',
-        'revisado_por'
+        'revisado_por',
+        'id_curso',
+        'es_actual'
     ];
 
 
@@ -56,7 +55,7 @@ abstract class BasePrograma extends CustomBaseModel implements HasContext
     public function curso()
     {
         $instance = new \App\Models\Curso\Curso();
-        return new BelongsTo($instance->newQuery(), $this, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla'], 'curso');
+        return new BelongsTo($instance->newQuery(), $this, 'id_curso', 'id_curso', 'curso');
     }
 
     /**

@@ -21,8 +21,8 @@ abstract class BaseActividadAsignada extends CustomBaseModel implements HasConte
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'actividad_asignada';
-    protected $primaryKey = ['grupo', 'id_actividad'];
-    public $incrementing = false;
+    protected $primaryKey = 'grupo';
+    public $incrementing = true;
 
     protected $fillable = [
         'grupo',
@@ -50,7 +50,7 @@ abstract class BaseActividadAsignada extends CustomBaseModel implements HasConte
 
     public function asignadoActividades()
     {
-        return $this->hasMany(\App\Models\Agenda\AsignadoActividad::class, ['grupo', 'id_actividad'], ['grupo', 'id_actividad']);
+        return $this->hasMany(\App\Models\Agenda\AsignadoActividad::class, 'grupo', 'grupo');
     }
 
     // Relaciones muchos-a-muchos
@@ -60,10 +60,10 @@ abstract class BaseActividadAsignada extends CustomBaseModel implements HasConte
         return $this->belongsToMany(
             \App\Models\Usuario\Estudiante::class,
             'asignado_actividad',
-            'grupo,id_actividad',
+            'grupo',
             'id_estudiante'
         )
-            ->withPivot('nota_individual', 'diferencia_decimas');
+            ->withPivot('id_asignado_actividad', 'nota_individual', 'diferencia_decimas');
     }
 
     /**

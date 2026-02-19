@@ -21,15 +21,14 @@ abstract class BaseUnidad extends CustomBaseModel implements HasContext
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'unidad';
-    protected $primaryKey = ['id_unidad', 'id_curso'];
-    public $incrementing = false;
+    protected $primaryKey = 'id_unidad';
+    public $incrementing = true;
 
     protected $fillable = [
         'num_unidad',
         'nombre',
         'descripcion',
-        'id_curso',
-        'es_plantilla'
+        'id_curso'
     ];
 
 
@@ -38,14 +37,14 @@ abstract class BaseUnidad extends CustomBaseModel implements HasContext
     public function curso()
     {
         $instance = new \App\Models\Curso\Curso();
-        return new BelongsTo($instance->newQuery(), $this, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla'], 'curso');
+        return new BelongsTo($instance->newQuery(), $this, 'id_curso', 'id_curso', 'curso');
     }
 
     // Relaciones inversas
 
     public function actividades()
     {
-        return $this->hasMany(\App\Models\Agenda\Actividad::class, ['id_unidad', 'id_curso', 'es_plantilla'], ['id_unidad', 'id_curso', 'es_plantilla']);
+        return $this->hasMany(\App\Models\Agenda\Actividad::class, 'id_unidad', 'id_unidad');
     }
 
     /**

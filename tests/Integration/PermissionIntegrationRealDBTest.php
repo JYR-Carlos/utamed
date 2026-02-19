@@ -8,8 +8,9 @@ use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\Rol;
-use App\Models\Usuario\UsuarioRolAsignación;
+use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;
+use App\Models\Usuario\TipoContexto;
 use App\Models\Usuario\Contexto;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -26,10 +27,23 @@ uses(TestCase::class);
 beforeEach(function () {
     // ========== INICIALIZAR BD SI ESTÁ VACÍA ==========
     // Crear contexto global si no existe (id_contexto es GENERATED ALWAYS, usar first o create sin id)
-    $contextoGlobal = Contexto::first();
-    if (!$contextoGlobal) {
-        $contextoGlobal = Contexto::create(['contexto_display' => 'Global']);
-    }
+    $tipoSystem = TipoContexto::firstOrCreate(
+        [
+            'categoria' => 'system',
+            'tabla_referenciada' => 'GLOBAL'
+        ],
+    );
+
+    $contextoGlobal = DB::transaction(function () use ($tipoSystem) {
+        return Contexto::firstOrCreate(
+            [
+                'contexto_display' => 'Contexto Global | Solo Permisos Administrativos'
+            ],
+            [
+                'id_tipo_contexto' => $tipoSystem->id_tipo_contexto,
+            ]
+        );
+    });
     $this->contextoGlobal_id = $contextoGlobal->id_contexto;
 
     // Crear usuario admin sistema para creado_por si no existe
@@ -54,22 +68,22 @@ beforeEach(function () {
 
     // Eliminar relaciones si existen
     if ($superadminId) {
-        UsuarioRolAsignación::where('id_usuario', $superadminId)->delete();
+        UsuarioRolAsignacion::where('id_usuario', $superadminId)->delete();
         UsuarioPermisoEspecial::where('id_usuario', $superadminId)->delete();
     }
     if ($profesorId) {
-        UsuarioRolAsignación::where('id_usuario', $profesorId)->delete();
+        UsuarioRolAsignacion::where('id_usuario', $profesorId)->delete();
         UsuarioPermisoEspecial::where('id_usuario', $profesorId)->delete();
     }
     if ($coordinadorId) {
-        UsuarioRolAsignación::where('id_usuario', $coordinadorId)->delete();
+        UsuarioRolAsignacion::where('id_usuario', $coordinadorId)->delete();
         UsuarioPermisoEspecial::where('id_usuario', $coordinadorId)->delete();
     }
 
     // Eliminar permisos de roles antes de eliminar roles (FK constraint)
     $rolIds = Rol::whereIn('nombre', ['Super Admin', 'Profesor', 'Coordinador'])->pluck('id_rol');
     if ($rolIds->isNotEmpty()) {
-        DB::table('Asignación_Rol_Permiso')
+        DB::table('asignacion_rol_permiso')
             ->whereIn('id_rol', $rolIds)
             ->delete();
     }
@@ -84,35 +98,35 @@ beforeEach(function () {
     Usuario::where('username', 'coordinador')->delete();
 
     // Limpiar estructura administrativa de tests previos
-    DB::table('Curso')->where('nombre', 'Matemática I')->delete();
-    DB::table('Asignacion_Plan')->whereIn('id_asignatura', function ($q) {
-        $q->select('id_asignatura')->from('Asignatura')->where('cod_asignatura', 'MAT-101');
+    DB::table('curso')->where('nombre', 'Matemática I')->delete();
+    DB::table('asignacion_plan')->whereIn('id_asignatura', function ($q) {
+        $q->select('id_asignatura')->from('asignatura')->where('cod_asignatura', 'MAT-101');
     })->delete();
-    DB::table('Asignatura')->where('cod_asignatura', 'MAT-101')->delete();
-    DB::table('Plan')->whereIn('id_carrera', function ($q) {
-        $q->select('id_carrera')->from('Carrera')->where('nombre', 'Ingeniería en Sistemas');
+    DB::table('asignatura')->where('cod_asignatura', 'MAT-101')->delete();
+    DB::table('plan')->whereIn('id_carrera', function ($q) {
+        $q->select('id_carrera')->from('carrera')->where('nombre', 'Ingeniería en Sistemas');
     })->delete();
-    DB::table('Carrera')->where('nombre', 'Ingeniería en Sistemas')->delete();
-    DB::table('Departamento')->where('nombre', 'Departamento de Ingeniería Test')->delete();
-    DB::table('Facultad')->where('nombre', 'Facultad de Ingeniería Test')->delete();
+    DB::table('carrera')->where('nombre', 'Ingeniería en Sistemas')->delete();
+    DB::table('departamento')->where('nombre', 'Departamento de Ingeniería Test')->delete();
+    DB::table('facultad')->where('nombre', 'Facultad de Ingeniería Test')->delete();
 
     // ========== CREAR ESTRUCTURA ADMINISTRATIVA ==========
     // Crear Facultad usando DB directamente para evitar qualifyColumn bugs
-    $facultadId = DB::table('Facultad')->insertGetId([
+    $facultadId = DB::table('facultad')->insertGetId([
         'nombre' => 'Facultad de Ingeniería Test',
         'fecha_creacion' => now(),
         'fecha_modificacion' => now()
     ], 'id_facultad');
-    $this->facultad = Facultad::where('id_facultad', $facultadId)->first();
+    $this->facultad = Facultad::find($facultadId);
 
     // Crear Departamento
-    $departamentoId = DB::table('Departamento')->insertGetId([
+    $departamentoId = DB::table('departamento')->insertGetId([
         'nombre' => 'Departamento de Ingeniería Test',
         'id_facultad' => $facultadId,
         'fecha_creacion' => now(),
         'fecha_modificacion' => now()
     ], 'id_departamento');
-    $this->departamento = Departamento::where([['id_departamento', $departamentoId], ['id_facultad', $facultadId]])->first();
+    $this->departamento = Departamento::find($departamentoId);
 
     // Crear Carrera (id_contexto se crea automáticamente por trigger)
     $this->carrera = Carrera::create([
@@ -121,7 +135,6 @@ beforeEach(function () {
         'sede' => 'Central',
         'modalidad' => 'Presencial',
         'id_departamento' => $this->departamento->id_departamento,
-        'id_facultad' => $this->facultad->id_facultad
     ]);
     $this->carrera->refresh(); // Trigger sets id_contexto
 
@@ -133,7 +146,7 @@ beforeEach(function () {
     ]);
 
     // Crear Asignatura para poder vincular Curso con Plan
-    $asignaturaId = DB::table('Asignatura')->insertGetId([
+    $asignaturaId = DB::table('asignatura')->insertGetId([
         'cod_asignatura' => 'MAT-101',
         'nombre' => 'Matemática I',
         'creditos_sct' => 6,
@@ -147,7 +160,7 @@ beforeEach(function () {
     ], 'id_asignatura');
 
     // Crear AsignacionPlan (vincula asignatura con plan)
-    DB::table('Asignacion_Plan')->insert([
+    DB::table('asignacion_plan')->insert([
         'id_asignatura' => $asignaturaId,
         'id_plan' => $this->plan->id_plan,
         'agno_planificado' => 1,
@@ -197,7 +210,7 @@ beforeEach(function () {
         'fue_eliminado' => false,
         'creado_por' => $this->superadmin->id_usuario
     ];
-    UsuarioRolAsignación::create($uraData);
+    UsuarioRolAsignacion::create($uraData);
 
     // Asignar permiso '*' al superadmin vía UPE (permiso especial)
     $permisoWildcard = Permiso::where('slug', '*')->firstOrCreate(
@@ -244,7 +257,7 @@ beforeEach(function () {
     ]);
 
     // Asignar rol al profesor en contexto de la carrera
-    UsuarioRolAsignación::create([
+    UsuarioRolAsignacion::create([
         'id_usuario' => $this->profesor->id_usuario,
         'id_contexto' => $this->carrera->id_contexto,
         'id_rol' => $this->rolProfesor->id_rol,
@@ -257,7 +270,7 @@ beforeEach(function () {
     ]);
 
     // IMPORTANTE: También asignar en contexto del Curso para que pueda acceder a él
-    UsuarioRolAsignación::create([
+    UsuarioRolAsignacion::create([
         'id_usuario' => $this->profesor->id_usuario,
         'id_contexto' => $this->curso->id_contexto,
         'id_rol' => $this->rolProfesor->id_rol,
@@ -298,7 +311,7 @@ beforeEach(function () {
     ]);
 
     // Asignar rol al coordinador en contexto de la carrera
-    UsuarioRolAsignación::create([
+    UsuarioRolAsignacion::create([
         'id_usuario' => $this->coordinador->id_usuario,
         'id_contexto' => $this->carrera->id_contexto,
         'id_rol' => $this->rolCoordinador->id_rol,
@@ -311,7 +324,7 @@ beforeEach(function () {
     ]);
 
     // IMPORTANTE: También asignar en contexto del Curso para que pueda acceder a él
-    UsuarioRolAsignación::create([
+    UsuarioRolAsignacion::create([
         'id_usuario' => $this->coordinador->id_usuario,
         'id_contexto' => $this->curso->id_contexto,
         'id_rol' => $this->rolCoordinador->id_rol,
@@ -375,7 +388,7 @@ test('roles tienen permisos asignados', function () {
 test('usuarios tienen roles asignados', function () {
     // Superadmin tiene rol Super Admin en contexto global
     $rolSuperAdmin = Rol::where('nombre', operator: 'Super Admin')->first();
-    $tieneRol = UsuarioRolAsignación::where([
+    $tieneRol = UsuarioRolAsignacion::where([
         'id_usuario' => $this->superadmin->id_usuario,
         'id_rol' => $rolSuperAdmin->id_rol,
         'esta_activo' => true,
@@ -384,7 +397,7 @@ test('usuarios tienen roles asignados', function () {
 
     // Profesor tiene rol Profesor
     $rolProfesor = Rol::where('nombre', 'Profesor')->first();
-    $tieneRol = UsuarioRolAsignación::where([
+    $tieneRol = UsuarioRolAsignacion::where([
         'id_usuario' => $this->profesor->id_usuario,
         'esta_activo' => true,
         'id_rol' => $rolProfesor->id_rol,
@@ -393,7 +406,7 @@ test('usuarios tienen roles asignados', function () {
 
     // Coordinador tiene rol Coordinador
     $rolCoordinador = Rol::where('nombre', 'Coordinador')->first();
-    $tieneRol = UsuarioRolAsignación::where([
+    $tieneRol = UsuarioRolAsignacion::where([
         'id_usuario' => $this->coordinador->id_usuario,
         'esta_activo' => true,
         'id_rol' => $rolCoordinador->id_rol,
@@ -403,9 +416,9 @@ test('usuarios tienen roles asignados', function () {
 
 test('superadmin tiene permiso wildcard', function () {
     $tieneWildcard = $this->superadmin
-        ->permisosEspecialesRecibidos()
+        ->permisosEspeciales()
         ->where('esta_permitido', true)
-        ->whereHas('permiso', fn($q) => $q->where('slug', '*'))
+        ->where('slug', '*')
         ->exists();
 
     expect($tieneWildcard)->toBeTrue();
@@ -506,7 +519,7 @@ test('resolución de contexto directo (Curso)', function () {
     $this->actingAs($this->profesor);
 
     // Verificar que profesor tiene permiso en contexto directo del curso
-    $uraEnContextoCurso = UsuarioRolAsignación::where([
+    $uraEnContextoCurso = UsuarioRolAsignacion::where([
         'id_usuario' => $this->profesor->id_usuario,
         'id_contexto' => $this->curso->id_contexto,
         'esta_activo' => true
@@ -525,7 +538,7 @@ test('resolución de contexto jerárquico (Plan -> Carrera)', function () {
 
     // Profesor tiene rol en contexto de Carrera
     // El Plan debería ser accesible a través de esta asignación si se implementa herencia de contextos
-    $uraEnContextoCarrera = UsuarioRolAsignación::where([
+    $uraEnContextoCarrera = UsuarioRolAsignacion::where([
         'id_usuario' => $this->profesor->id_usuario,
         'id_contexto' => $this->carrera->id_contexto,
         'esta_activo' => true

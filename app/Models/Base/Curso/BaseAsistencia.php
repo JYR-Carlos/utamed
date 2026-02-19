@@ -29,10 +29,7 @@ abstract class BaseAsistencia extends CustomBaseModel implements HasContext
         'hora_inicio',
         'hora_fin',
         'esta_presente',
-        'id_inscripcion_seccion',
-        'id_estudiante',
-        'id_seccion',
-        'id_curso'
+        'id_inscripcion_seccion'
     ];
 
 
@@ -41,7 +38,7 @@ abstract class BaseAsistencia extends CustomBaseModel implements HasContext
     public function inscripcionSeccion()
     {
         $instance = new \App\Models\Curso\InscripcionSeccion();
-        return new BelongsTo($instance->newQuery(), $this, ['id_inscripcion_seccion', 'id_estudiante', 'id_seccion', 'id_curso'], ['id_inscripcion_seccion', 'id_estudiante', 'id_seccion', 'id_curso'], 'inscripcionSeccion');
+        return new BelongsTo($instance->newQuery(), $this, 'id_inscripcion_seccion', 'id_inscripcion_seccion', 'inscripcionSeccion');
     }
 
     /**

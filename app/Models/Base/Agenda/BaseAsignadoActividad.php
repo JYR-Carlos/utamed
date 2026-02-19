@@ -21,14 +21,13 @@ abstract class BaseAsignadoActividad extends CustomBaseModel implements HasConte
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'asignado_actividad';
-    protected $primaryKey = ['grupo', 'id_actividad', 'id_estudiante'];
-    public $incrementing = false;
+    protected $primaryKey = 'id_asignado_actividad';
+    public $incrementing = true;
 
     protected $fillable = [
         'nota_individual',
         'diferencia_decimas',
         'grupo',
-        'id_actividad',
         'id_estudiante'
     ];
 
@@ -38,7 +37,7 @@ abstract class BaseAsignadoActividad extends CustomBaseModel implements HasConte
     public function actividadAsignada()
     {
         $instance = new \App\Models\Agenda\ActividadAsignada();
-        return new BelongsTo($instance->newQuery(), $this, ['grupo', 'id_actividad'], ['grupo', 'id_actividad'], 'actividadAsignada');
+        return new BelongsTo($instance->newQuery(), $this, 'grupo', 'grupo', 'actividadAsignada');
     }
 
     public function estudiante()

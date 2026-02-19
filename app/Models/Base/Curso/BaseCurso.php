@@ -40,7 +40,6 @@ abstract class BaseCurso extends CustomBaseModel implements HasContext
         'estado_acta',
         'es_plantilla',
         'id_asignacion_plan',
-        'id_contexto',
         'id_curso_padre',
         'version_plantilla',
         'letra_grupo'
@@ -57,14 +56,26 @@ abstract class BaseCurso extends CustomBaseModel implements HasContext
 
     public function asignacionPlan()
     {
-        return $this->belongsTo(\App\Models\Administrativo\AsignacionPlan::class, 'id_asignacion_plan', 'id_asignacion_plan');
+        $instance = new \App\Models\Administrativo\AsignacionPlan();
+        return new BelongsTo($instance->newQuery(), $this, 'id_asignacion_plan', 'id_asignacion_plan', 'asignacionPlan');
+    }
+
+    public function curso()
+    {
+        $instance = new \App\Models\Curso\Curso();
+        return new BelongsTo($instance->newQuery(), $this, 'id_curso_padre', 'id_curso', 'curso');
     }
 
     // Relaciones inversas
 
     public function programas()
     {
-        return $this->hasMany(\App\Models\Administrativo\Programa::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
+        return $this->hasMany(\App\Models\Administrativo\Programa::class, 'id_curso', 'id_curso');
+    }
+
+    public function cursos()
+    {
+        return $this->hasMany(\App\Models\Curso\Curso::class, 'id_curso_padre', 'id_curso');
     }
 
     public function inscripcionCursos()
@@ -74,12 +85,12 @@ abstract class BaseCurso extends CustomBaseModel implements HasContext
 
     public function secciones()
     {
-        return $this->hasMany(\App\Models\Curso\Seccion::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
+        return $this->hasMany(\App\Models\Curso\Seccion::class, 'id_curso', 'id_curso');
     }
 
     public function unidades()
     {
-        return $this->hasMany(\App\Models\Curso\Unidad::class, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla']);
+        return $this->hasMany(\App\Models\Curso\Unidad::class, 'id_curso', 'id_curso');
     }
 
     // Relaciones muchos-a-muchos
@@ -92,7 +103,7 @@ abstract class BaseCurso extends CustomBaseModel implements HasContext
             'id_curso',
             'id_estudiante'
         )
-            ->withPivot('id_curso_inscripcion', 'cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
+            ->withPivot('id_inscripcion_curso', 'cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
     }
 
 }

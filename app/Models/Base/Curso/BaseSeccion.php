@@ -21,18 +21,17 @@ abstract class BaseSeccion extends CustomBaseModel implements HasContext
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'seccion';
-    protected $primaryKey = ['id_seccion', 'id_curso'];
-    public $incrementing = false;
+    protected $primaryKey = 'id_seccion';
+    public $incrementing = true;
 
     protected $fillable = [
-        'id_curso',
         'genera_acta',
         'porcentaje_aprobacion',
         'aprobacion_obligatoria',
         'porcentaje_asistencia_obligatoria',
-        'es_plantilla',
         'id_docente',
-        'id_tipo_seccion'
+        'id_tipo_seccion',
+        'id_curso'
     ];
 
 
@@ -60,19 +59,19 @@ abstract class BaseSeccion extends CustomBaseModel implements HasContext
     public function curso()
     {
         $instance = new \App\Models\Curso\Curso();
-        return new BelongsTo($instance->newQuery(), $this, ['id_curso', 'es_plantilla'], ['id_curso', 'es_plantilla'], 'curso');
+        return new BelongsTo($instance->newQuery(), $this, 'id_curso', 'id_curso', 'curso');
     }
 
     // Relaciones inversas
 
     public function actividades()
     {
-        return $this->hasMany(\App\Models\Agenda\Actividad::class, ['id_seccion', 'id_curso', 'es_plantilla'], ['id_seccion', 'id_curso', 'es_plantilla']);
+        return $this->hasMany(\App\Models\Agenda\Actividad::class, 'id_seccion', 'id_seccion');
     }
 
     public function inscripcionSecciones()
     {
-        return $this->hasMany(\App\Models\Curso\InscripcionSeccion::class, ['id_seccion', 'id_curso'], ['id_seccion', 'id_curso']);
+        return $this->hasMany(\App\Models\Curso\InscripcionSeccion::class, 'id_seccion', 'id_seccion');
     }
 
     // Relaciones muchos-a-muchos
@@ -82,7 +81,7 @@ abstract class BaseSeccion extends CustomBaseModel implements HasContext
         return $this->belongsToMany(
             \App\Models\Usuario\Estudiante::class,
             'inscripcion_seccion',
-            'id_seccion,id_curso',
+            'id_seccion',
             'id_estudiante'
         )
             ->withPivot('id_inscripcion_seccion', 'nota_seccion');

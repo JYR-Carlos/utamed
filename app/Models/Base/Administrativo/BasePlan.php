@@ -29,10 +29,10 @@ abstract class BasePlan extends CustomBaseModel implements HasContext
     public $incrementing = true;
 
     protected $fillable = [
-        'id_carrera',
         'agno',
         'version_plan',
-        'creditos_sct_totales'
+        'creditos_sct_totales',
+        'id_carrera'
     ];
 
 
@@ -61,7 +61,7 @@ abstract class BasePlan extends CustomBaseModel implements HasContext
             'id_plan',
             'id_asignatura'
         )
-            ->withPivot('agno_planificado', 'semestre_planificado', 'tipo_ramo');
+            ->withPivot('id_asignacion_plan', 'agno_planificado', 'semestre_planificado', 'tipo_ramo');
     }
 
     /**

@@ -21,8 +21,8 @@ abstract class BaseInscripcionCurso extends CustomBaseModel implements HasContex
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'inscripcion_curso';
-    protected $primaryKey = ['id_curso_inscripcion', 'id_curso', 'id_estudiante'];
-    public $incrementing = false;
+    protected $primaryKey = 'id_inscripcion_curso';
+    public $incrementing = true;
 
     protected $fillable = [
         'cod_inscripcion_uta',

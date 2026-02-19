@@ -34,7 +34,7 @@ class PermissionValidator
     /**
      * Configuración cargada en constructor
      */
-    protected int $globalContextId;
+    protected ?int $globalContextId = null;
     protected int $cacheTtl;
     protected string $cachePrefix;
     protected bool $cacheEnabled;
@@ -46,15 +46,23 @@ class PermissionValidator
     public function __construct(
         protected ContextResolver $contextResolver
     ) {
-        // Cargar ID del contexto global dinámicamente
-        $this->globalContextId = $this->loadGlobalContextId();
-
         // Cargar configuración del sistema
         $this->cacheTtl = config('rbac.cache_ttl');
         $this->cachePrefix = config('rbac.cache_prefix');
         $this->cacheEnabled = config('rbac.cache_enabled');
 
         $this->globalWildcard = WildcardMatcher::GLOBAL_WILDCARD;
+    }
+
+    /**
+     * Getter para globalContextId con lazy loading
+     */
+    protected function getGlobalContextId(): int
+    {
+        if ($this->globalContextId === null) {
+            $this->globalContextId = $this->loadGlobalContextId();
+        }
+        return $this->globalContextId;
     }
 
     /**
@@ -67,20 +75,24 @@ class PermissionValidator
      */
     protected function loadGlobalContextId(): int
     {
-        $globalContext = DB::connection('pgsql')
-            ->table('contexto')
-            ->join('tipo_contexto', 'contexto.id_tipo_contexto', '=', 'tipo_contexto.id_tipo_contexto')
-            ->where('tipo_contexto.tabla_referenciada', 'GLOBAL')
-            ->select('contexto.id_contexto')
-            ->first();
+        try {
+            $globalContext = \App\Models\Usuario\Contexto::whereHas('tipoContexto', function ($query) {
+                $query->where('tabla_referenciada', 'GLOBAL');
+            })->select('id_contexto')->soleValue('id_contexto');
 
-        if (!$globalContext) {
-            throw new \RuntimeException(
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+             throw new \RuntimeException(
                 "Contexto global no encontrado. Verifica que exista un registro en tipo_contexto con tabla_referenciada='GLOBAL' y su contexto asociado en usuario.contexto"
+            );
+        } catch (\Illuminate\Database\MultipleRecordsFoundException $e) {
+            throw new \RuntimeException(
+                "Múltiples contextos globales encontrados. Existe configuración corrupta del servicio. 
+                El sistema se rehusará a funcionar hasta que se corrija. 
+                Verifica que solo exista UN registro en tipo_contexto con tabla_referenciada='GLOBAL' y su contexto asociado en usuario.contexto"
             );
         }
 
-        return $globalContext->id_contexto;
+        return $globalContext;
     }
 
     /**
@@ -195,7 +207,7 @@ class PermissionValidator
             ->table('vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('slug', $this->globalWildcard)
-            ->where('id_contexto', $this->globalContextId)
+            ->where('id_contexto', $this->getGlobalContextId())
             ->where('esta_permitido', true)
             ->exists();
 
@@ -217,7 +229,7 @@ class PermissionValidator
     {
         // Contexto explícito tiene prioridad
         if ($contextId !== null) {
-            return [$contextId, $this->globalContextId];
+            return [$contextId, $this->getGlobalContextId()];
         }
 
         // Resolver desde recurso vía ContextResolver
@@ -230,7 +242,7 @@ class PermissionValidator
         }
 
         // Sin contexto → usar contexto global
-        return [$this->globalContextId];
+        return [$this->getGlobalContextId()];
     }
 
     /**
@@ -370,8 +382,8 @@ class PermissionValidator
 
 
         return DB::connection('pgsql')
-            ->table('Usuario_Permiso_Especial as upe')
-            ->join('Permiso as p', 'upe.id_permiso', '=', 'p.id_permiso')
+            ->table('usuario_permiso_especial as upe')
+            ->join('permiso as p', 'upe.id_permiso', '=', 'p.id_permiso')
             ->where('upe.id_usuario', $user->id_usuario)
             ->where('upe.esta_activo', true)
             ->where(function ($query) {

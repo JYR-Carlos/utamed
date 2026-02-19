@@ -21,14 +21,13 @@ abstract class BaseInscripcionSeccion extends CustomBaseModel implements HasCont
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'inscripcion_seccion';
-    protected $primaryKey = ['id_inscripcion_seccion', 'id_estudiante', 'id_seccion', 'id_curso'];
-    public $incrementing = false;
+    protected $primaryKey = 'id_inscripcion_seccion';
+    public $incrementing = true;
 
     protected $fillable = [
         'nota_seccion',
         'id_estudiante',
-        'id_seccion',
-        'id_curso'
+        'id_seccion'
     ];
 
 
@@ -43,14 +42,14 @@ abstract class BaseInscripcionSeccion extends CustomBaseModel implements HasCont
     public function seccion()
     {
         $instance = new \App\Models\Curso\Seccion();
-        return new BelongsTo($instance->newQuery(), $this, ['id_seccion', 'id_curso'], ['id_seccion', 'id_curso'], 'seccion');
+        return new BelongsTo($instance->newQuery(), $this, 'id_seccion', 'id_seccion', 'seccion');
     }
 
     // Relaciones inversas
 
     public function asistencias()
     {
-        return $this->hasMany(\App\Models\Curso\Asistencia::class, ['id_inscripcion_seccion', 'id_estudiante', 'id_seccion', 'id_curso'], ['id_inscripcion_seccion', 'id_estudiante', 'id_seccion', 'id_curso']);
+        return $this->hasMany(\App\Models\Curso\Asistencia::class, 'id_inscripcion_seccion', 'id_inscripcion_seccion');
     }
 
     /**

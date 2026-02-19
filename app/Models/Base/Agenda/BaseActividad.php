@@ -33,7 +33,6 @@ abstract class BaseActividad extends CustomBaseModel implements HasContext
         'es_grupal',
         'max_integrantes',
         'es_plantilla',
-        'id_curso',
         'id_seccion',
         'id_unidad'
     ];
@@ -50,13 +49,13 @@ abstract class BaseActividad extends CustomBaseModel implements HasContext
     public function seccion()
     {
         $instance = new \App\Models\Curso\Seccion();
-        return new BelongsTo($instance->newQuery(), $this, ['id_seccion', 'id_curso', 'es_plantilla'], ['id_seccion', 'id_curso', 'es_plantilla'], 'seccion');
+        return new BelongsTo($instance->newQuery(), $this, 'id_seccion', 'id_seccion', 'seccion');
     }
 
     public function unidad()
     {
         $instance = new \App\Models\Curso\Unidad();
-        return new BelongsTo($instance->newQuery(), $this, ['id_unidad', 'id_curso', 'es_plantilla'], ['id_unidad', 'id_curso', 'es_plantilla'], 'unidad');
+        return new BelongsTo($instance->newQuery(), $this, 'id_unidad', 'id_unidad', 'unidad');
     }
 
     // Relaciones inversas

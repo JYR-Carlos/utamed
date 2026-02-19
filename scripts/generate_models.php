@@ -762,7 +762,11 @@ foreach ($tables as $t) {
 
   foreach ($fks as $fk) {
     // Detectar si las columnas FK tienen índice UNIQUE (indica relación 1:1)
-    // Usa unnest() para comparar exactamente las columnas del índice con las de la FK
+    // IMPORTANTE: Excluir:
+    //   1. PK (indices primarios no son considerados para detectar 1:1)
+    //   2. Índices UNIQUE Parciales con y sin expresiones (indexprs, indpred) 
+    //      porque no garantizan unicidad absoluta
+    // Solo UNIQUE constraints sin expresiones indican relación 1:1 verdadera
     $hasUniqueIndex = DB::select("
       SELECT COUNT(*) as count
       FROM pg_index i
@@ -771,8 +775,16 @@ foreach ($tables as $t) {
       JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS u(attnum, ordinality) ON true
       JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = u.attnum
       WHERE n.nspname = ?
-        AND c.relname = ?
+        -- Si son indices unique que incluyen EXACTAMENTE las columnas de la FK
         AND i.indisunique = true
+        -- En donde la tabla del índice coincide con la tabla que tiene la FK
+        AND c.relname = ?
+        -- Si no son índices primarios (PK)
+        AND i.indisprimary = false
+        -- Si no son índices con expresiones (ej: índices parciales o con condiciones)
+        AND i.indexprs IS NULL
+        -- Si no son índices con predicados (ej: índices parciales con WHERE)
+        AND i.indpred IS NULL
       GROUP BY i.indexrelid
       HAVING array_to_string(array_agg(a.attname ORDER BY u.ordinality), ',') = ?
     ", [$t->table_schema, $t->table_name, $fk->column_names]);

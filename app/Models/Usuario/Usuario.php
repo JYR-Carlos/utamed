@@ -38,35 +38,6 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
-     * Get the column name for the "remember me" token.
-     * Overrides default 'remember_token' column.
-     *
-     * @return string
-     */
-    public function getRememberTokenName()
-    {
-        return 'token_recuerdame_sesion';
-    }
-
-    /**
-     * Roles assigned to the user in different contexts.
-     * @deprecated Usar relaciones directas del modelo base
-     */
-    public function rolesAsignados()
-    {
-        return $this->hasMany(UsuarioRolAsignacion::class, 'id_usuario', 'id_usuario');
-    }
-
-    /**
-     * Special individual permissions assigned to the user.
-     * @deprecated Usar relaciones directas del modelo base
-     */
-    public function permisosEspeciales()
-    {
-        return $this->hasMany(UsuarioPermisoEspecial::class, 'id_usuario', 'id_usuario');
-    }
-
-    /**
      * Check if user has a specific permission in a given context.
      * 
      * NOTA: Método existente refactorizado para usar PermissionValidator.

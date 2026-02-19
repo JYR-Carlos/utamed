@@ -33,8 +33,7 @@ abstract class BaseCarrera extends CustomBaseModel implements HasContext
         'jornada',
         'sede',
         'modalidad',
-        'id_departamento',
-        'id_facultad'
+        'id_departamento'
     ];
 
 
@@ -43,7 +42,7 @@ abstract class BaseCarrera extends CustomBaseModel implements HasContext
     public function departamento()
     {
         $instance = new \App\Models\Administrativo\Departamento();
-        return new BelongsTo($instance->newQuery(), $this, ['id_departamento', 'id_facultad'], ['id_departamento', 'id_facultad'], 'departamento');
+        return new BelongsTo($instance->newQuery(), $this, 'id_departamento', 'id_departamento', 'departamento');
     }
 
     public function contexto()

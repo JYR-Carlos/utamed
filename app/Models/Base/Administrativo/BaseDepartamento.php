@@ -25,8 +25,8 @@ abstract class BaseDepartamento extends CustomBaseModel implements HasContext
     const UPDATED_AT = 'fecha_modificacion';
     protected $connection = 'pgsql';
     protected $table = 'departamento';
-    protected $primaryKey = ['id_departamento', 'id_facultad'];
-    public $incrementing = false;
+    protected $primaryKey = 'id_departamento';
+    public $incrementing = true;
 
     protected $fillable = [
         'nombre',
@@ -58,7 +58,7 @@ abstract class BaseDepartamento extends CustomBaseModel implements HasContext
 
     public function carreras()
     {
-        return $this->hasMany(\App\Models\Administrativo\Carrera::class, ['id_departamento', 'id_facultad'], ['id_departamento', 'id_facultad']);
+        return $this->hasMany(\App\Models\Administrativo\Carrera::class, 'id_departamento', 'id_departamento');
     }
 
 }

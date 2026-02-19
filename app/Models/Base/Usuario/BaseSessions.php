@@ -1,0 +1,32 @@
+<?php
+
+namespace App\Models\Base\Usuario;
+
+use App\Models\BaseModel as CustomBaseModel;
+use Awobaz\Compoships\Compoships;
+use App\Extensions\Compoships\BelongsTo;
+
+/**
+ * Clase Base generada automáticamente
+ * NO EDITAR - Se sobrescribe al regenerar
+ */
+abstract class BaseSessions extends CustomBaseModel
+{
+    use Compoships;
+    public $timestamps = false;
+    protected $connection = 'pgsql';
+    protected $table = 'sessions';
+    protected $primaryKey = 'id';
+    public $incrementing = true;
+
+    protected $fillable = [
+        'id',
+        'user_id',
+        'ip_address',
+        'user_agent',
+        'payload',
+        'last_activity'
+    ];
+
+
+}

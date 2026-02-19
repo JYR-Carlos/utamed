@@ -16,8 +16,8 @@ abstract class BaseAsignacionRolPermiso extends CustomBaseModel
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'asignacion_rol_permiso';
-    protected $primaryKey = ['id_rol', 'id_permiso'];
-    public $incrementing = false;
+    protected $primaryKey = 'id_asignacion_rol_permiso';
+    public $incrementing = true;
 
     protected $fillable = [
         'puede_delegar_permisos',

@@ -16,8 +16,8 @@ abstract class BaseUsuarioPermisoEspecial extends CustomBaseModel
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'usuario_permiso_especial';
-    protected $primaryKey = ['id_permiso', 'id_contexto', 'id_usuario'];
-    public $incrementing = false;
+    protected $primaryKey = 'id_upe';
+    public $incrementing = true;
 
     protected $fillable = [
         'fecha_inicio_planificada',

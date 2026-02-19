@@ -24,15 +24,15 @@ abstract class BaseAsignacionPlan extends CustomBaseModel implements HasContext
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'asignacion_plan';
-    protected $primaryKey = ['id_asignatura', 'id_plan'];
-    public $incrementing = false;
+    protected $primaryKey = 'id_asignacion_plan';
+    public $incrementing = true;
 
     protected $fillable = [
-        'id_asignatura',
-        'id_plan',
         'agno_planificado',
         'semestre_planificado',
-        'tipo_ramo'
+        'tipo_ramo',
+        'id_plan',
+        'id_asignatura'
     ];
 
 
@@ -54,7 +54,7 @@ abstract class BaseAsignacionPlan extends CustomBaseModel implements HasContext
 
     public function cursos()
     {
-        return $this->hasMany(\App\Models\Curso\Curso::class, ['id_asignatura', 'id_plan'], ['id_asignatura', 'id_plan']);
+        return $this->hasMany(\App\Models\Curso\Curso::class, 'id_asignacion_plan', 'id_asignacion_plan');
     }
 
     /**
