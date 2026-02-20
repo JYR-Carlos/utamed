@@ -48,14 +48,27 @@ class CursoController extends Controller
             $query->where('Curso.id_asignatura', $request->input('id_asignatura'));
         }
 
-        // Join with relationships to simplify data access in frontend
+        // Join with relationships to simplify data access in frontend.
+        // NOTE: correlated subqueries in SELECT (not a derived-table leftJoin) to avoid
+        // PostgreSQL alias-scope errors with Laravel's pagination COUNT(*) wrapper query.
         $cursos = $query->join('Asignatura', 'Curso.id_asignatura', '=', 'Asignatura.id_asignatura')
             ->join('Plan', 'Curso.id_plan', '=', 'Plan.id_plan')
             ->join('Carrera', 'Plan.id_carrera', '=', 'Carrera.id_carrera')
             ->select(
                 'Curso.*',
                 'Asignatura.nombre as asignatura_nombre',
-                'Carrera.nombre as carrera_nombre'
+                'Carrera.nombre as carrera_nombre',
+                DB::raw('EXISTS(
+                    SELECT 1 FROM "Programa"
+                    WHERE "Programa"."id_curso" = "Curso"."id_curso"
+                      AND "Programa"."es_actual" = true
+                ) as has_programa'),
+                DB::raw('(
+                    SELECT "Programa"."id_programa" FROM "Programa"
+                    WHERE "Programa"."id_curso" = "Curso"."id_curso"
+                      AND "Programa"."es_actual" = true
+                    LIMIT 1
+                ) as id_programa')
             )
             ->whereNull('Curso.fecha_eliminacion')
             ->orderBy('Curso.fecha_inicio', 'desc')
@@ -137,15 +150,6 @@ class CursoController extends Controller
         DB::beginTransaction();
         try {
             $data = $validated;
-
-            // Create a specific Context for this course
-            $nombreContexto = "Curso: " . $data['cod_curso'];
-            // Check if context exists? Unique constraints might apply to name, but for now we create new
-            $contexto = \App\Models\Usuario\Contexto::firstOrCreate(
-                ['contexto_display' => $nombreContexto],
-                ['descripcion' => 'Contexto para el curso ' . $data['cod_curso']]
-            );
-            $data['id_contexto'] = $contexto->id_contexto;
 
             // Set default values for required NOT NULL fields
             $data['indice_grupo'] = $request->input('indice_grupo', 1);

@@ -129,6 +129,25 @@ export interface MallaData {
     [key: string]: AsignacionPlan[]; // key format: "año-semestre"
 }
 
+export interface Programa {
+    /** Unique identifier for the programa */
+    id_programa: number;
+    /** Course this programa belongs to */
+    id_curso: number;
+    /** Whether this is a template programa (draft) */
+    es_plantilla: boolean;
+    /** Whether this is the current active programa */
+    es_actual: boolean;
+    /** Whether it is a draft or approved */
+    estado: string;
+    /** Version number (increments on regeneration) */
+    version_programa: number;
+    /** ISO timestamp of creation */
+    fecha_creacion?: string;
+    /** User who created the programa */
+    creado_por?: number;
+}
+
 export interface Curso {
     id_curso: number;
     id_asignatura: number;
@@ -143,6 +162,18 @@ export interface Curso {
     asignatura?: Asignatura;
     plan?: Plan;
     docente?: Docente;
+    /** Active programa for this course (eager-loaded or from LEFT JOIN) */
+    programa?: Programa | null;
+    /** Boolean flag from CursoController JOIN — avoids N+1 */
+    has_programa?: boolean;
+    /** id_programa from JOIN (null if none) */
+    id_programa?: number | null;
+    /** Asignatura name from JOIN (CursoController::index) */
+    asignatura_nombre?: string;
+    /** Carrera name from JOIN (CursoController::index) */
+    carrera_nombre?: string;
+    /** Docente name from JOIN (CursoController) */
+    docente_nombre?: string;
     fecha_creacion?: string;
     fecha_modificacion?: string;
     fecha_eliminacion?: string;

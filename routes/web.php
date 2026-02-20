@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\AsignaturaController;
 use App\Http\Controllers\Admin\AsignacionPlanController;
 use App\Http\Controllers\Admin\CursoController;
 use App\Http\Controllers\Admin\CourseTeamController;
+use App\Http\Controllers\Admin\ProgramaController as AdminProgramaController;
 use App\Http\Controllers\Admin\UsuarioController;
 
 Route::get('/', function () {
@@ -158,6 +159,14 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('cursos.secciones.update');
     Route::delete('cursos/secciones/{seccion}', [\App\Http\Controllers\Admin\SeccionController::class, 'destroy'])
         ->name('cursos.secciones.destroy');
+
+    // Programa (Syllabus) Management for Courses
+    Route::get('cursos/{curso}/programa', [AdminProgramaController::class, 'show'])
+        ->name('cursos.programa.show');
+    Route::post('cursos/{curso}/programa', [AdminProgramaController::class, 'store'])
+        ->name('cursos.programa.store');
+    Route::put('cursos/{curso}/programa/aprobar', [AdminProgramaController::class, 'approve'])
+        ->name('cursos.programa.aprobar');
 
     // Helper endpoints for cascading selects
     Route::get('facultades/{facultad}/departamentos', [DepartamentoController::class, 'byFacultad'])

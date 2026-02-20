@@ -27,6 +27,7 @@
 	import DataTable from '@/components/custom/admin/DataTable.svelte';
 	import FormModal from '@/components/custom/admin/FormModal.svelte';
 	import CourseTeamModal from '@/components/custom/admin/CourseTeamModal.svelte';
+	import SyllabusModal from '@/components/custom/admin/SyllabusModal.svelte';
 	import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
 	import axios, { AxiosError } from 'axios';
 	import type {
@@ -37,7 +38,8 @@
 		PaginatedResponse,
 		CursoFormData,
 		Seccion,
-		TipoSeccion
+		TipoSeccion,
+		Programa
 	} from '@/types/admin.types';
 
 	/**
@@ -66,14 +68,26 @@
 	let showDeleteDialog = $state(false);
     let showTeamModal = $state(false);
 	let showInscriptionModal = $state(false);
+	let showSyllabusModal = $state(false);
 	let isLoading = $state(false);
 	let editingCurso = $state<Curso | null>(null);
 	let deletingCurso = $state<Curso | null>(null);
     let managingTeamCurso = $state<Curso | null>(null);
+	let syllabusTargetCurso = $state<Curso | null>(null);
 	let selectedCursoForInscription = $state<Curso | null>(null);
 	let docentes = $state<Docente[]>([]);
 	let availableAsignaturas = $state<Asignatura[]>([]);
 	let loadingAsignaturas = $state(false);
+
+	// Toast notification
+	let toast = $state<{ msg: string; type: 'success' | 'error' } | null>(null);
+	let toastTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	function showToast(msg: string, type: 'success' | 'error' = 'success') {
+		if (toastTimeout) clearTimeout(toastTimeout);
+		toast = { msg, type };
+		toastTimeout = setTimeout(() => { toast = null; }, 4500);
+	}
 
 	let currentSecciones = $state<Seccion[]>([]);
 	let newSeccionData = $state({
@@ -345,6 +359,33 @@
 	function goToInscriptions(cursoId: number) {
 		router.visit(`/admin/inscripciones_cursos?id_curso=${cursoId}`);
 	}
+
+	// ── Syllabus modal ────────────────────────────────────────────────────
+	function openSyllabusModal(curso: Curso) {
+		syllabusTargetCurso = curso;
+		showSyllabusModal = true;
+	}
+
+	function closeSyllabusModal() {
+		showSyllabusModal = false;
+		syllabusTargetCurso = null;
+	}
+
+	function handleSyllabusSuccess(programa: Programa) {
+		// Optimistic update — mutate the row in the local paginated list
+		if (syllabusTargetCurso) {
+			const idx = cursos.data.findIndex(c => c.id_curso === syllabusTargetCurso!.id_curso);
+			if (idx !== -1) {
+				cursos.data[idx] = {
+					...cursos.data[idx],
+					has_programa: true,
+					id_programa: programa.id_programa
+				};
+			}
+		}
+		closeSyllabusModal();
+		showToast('Programa generado exitosamente.');
+	}
 </script>
 
 <AdminLayout>
@@ -380,8 +421,31 @@
         onDelete={openDeleteDialog} 
         onCustomAction={openTeamModal}
         customActionLabel="Equipo"
+        onSyllabus={openSyllabusModal}
     />
 </div>
+
+<!-- Syllabus Modal (Programa wizard) -->
+{#if showSyllabusModal}
+	<SyllabusModal
+		bind:isOpen={showSyllabusModal}
+		curso={syllabusTargetCurso}
+		onClose={closeSyllabusModal}
+		onSuccess={handleSyllabusSuccess}
+	/>
+{/if}
+
+<!-- Toast Notification -->
+{#if toast}
+	<div class="toast toast-{toast.type}" role="status" aria-live="polite">
+		{#if toast.type === 'success'}
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+		{:else}
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+		{/if}
+		{toast.msg}
+	</div>
+{/if}
 
 {#if managingTeamCurso}
     <CourseTeamModal 
@@ -800,6 +864,40 @@
 	.btn-inscriptions:hover {
 		background-color: #dbeafe;
 		border-color: #60a5fa;
+	}
+
+	/* ── Toast notification ───────────────────────────────── */
+	.toast {
+		position: fixed;
+		bottom: 1.5rem;
+		right: 1.5rem;
+		z-index: 10000;
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+		padding: 0.75rem 1.25rem;
+		border-radius: 10px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
+		animation: toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+
+	.toast-success {
+		background: #f0fdf4;
+		border: 1px solid #bbf7d0;
+		color: #166534;
+	}
+
+	.toast-error {
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		color: #dc2626;
+	}
+
+	@keyframes toast-in {
+		from { opacity: 0; transform: translateY(12px) scale(0.96); }
+		to   { opacity: 1; transform: translateY(0)    scale(1);    }
 	}
 </style>
 </AdminLayout>

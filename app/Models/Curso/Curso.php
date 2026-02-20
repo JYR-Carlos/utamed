@@ -85,6 +85,15 @@ class Curso extends BaseCurso
     }
 
     /**
+     * Relación con el Programa actual del curso.
+     */
+    public function programa()
+    {
+        return $this->hasOne(\App\Models\Administrativo\Programa::class, 'id_curso', 'id_curso')
+            ->where('es_actual', true);
+    }
+
+    /**
      * Fix for double quoting issue in BaseCurso.
      * Reverts to standard Eloquent behavior.
      */
