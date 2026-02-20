@@ -95,6 +95,19 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
+     * Verificar si el usuario es SuperAdmin.
+     * 
+     * Retorna true si el usuario tiene el permiso '*' en el contexto global.
+     * Sin necesidad de pasar el contexto explícitamente.
+     * 
+     * @return bool
+     */
+    public function isSuperAdmin(): bool
+    {
+        return app(PermissionValidator::class)->isSuperAdmin($this);
+    }
+
+    /**
      * Obtener todos los permisos efectivos del usuario.
      * 
      * Para debugging y mostrar en UI.

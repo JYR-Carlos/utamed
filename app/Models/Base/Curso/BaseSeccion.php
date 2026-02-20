@@ -35,13 +35,6 @@ abstract class BaseSeccion extends CustomBaseModel implements HasContext
     ];
 
 
-    // send a simple key
-
-    public function getRouteKeyName()
-    {
-        return 'id_seccion';
-    }
-
     // Relaciones
 
     public function docente()
@@ -99,7 +92,7 @@ abstract class BaseSeccion extends CustomBaseModel implements HasContext
         }
 
         return $query->whereHas('curso', function ($q) use ($contextIds) {
-            $q->whereIn('id_contexto', $contextIds);
-        });
+                $q->whereIn('id_contexto', $contextIds);
+            });
     }
 }

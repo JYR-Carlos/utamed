@@ -2,11 +2,14 @@
 
 namespace App\Policies;
 
+use App\Policies\Base\BaseInscripcionCursoPolicy;
 use App\Models\Curso\InscripcionCurso;
 use App\Models\Usuario\Usuario;
 
 /**
  * Policy para autorización de operaciones sobre el modelo InscripcionCurso.
+ * 
+ * Extiende BaseInscripcionCursoPolicy (autogenerada) con lógica personalizada.
  * 
  * Implementa control de acceso basado en roles (RBAC) para gestión de inscripciones de estudiantes en cursos.
  * 
@@ -16,7 +19,7 @@ use App\Models\Usuario\Usuario;
  * - Estudiantes: No pueden gestionar inscripciones (solo ver las suyas propias)
  * - Otros usuarios: Sin acceso
  */
-class InscripcionCursoPolicy
+class InscripcionCursoPolicy extends BaseInscripcionCursoPolicy
 {
     /**
      * Determina si el usuario puede ver todas las inscripciones.
@@ -76,9 +79,10 @@ class InscripcionCursoPolicy
      * Determina si el usuario puede crear una inscripción.
      *
      * @param Usuario $user
+     * @param mixed $parent
      * @return bool
      */
-    public function create(Usuario $user): bool
+    public function create(Usuario $user, $parent = null): bool
     {
         // Admins siempre pueden crear
         if ($user->is_admin) {

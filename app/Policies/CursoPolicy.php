@@ -2,11 +2,14 @@
 
 namespace App\Policies;
 
+use App\Policies\Base\BaseCursoPolicy;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 
 /**
  * Policy para autorización de operaciones sobre el modelo Curso.
+ * 
+ * Extiende BaseCursoPolicy (autogenerada) con lógica personalizada.
  * 
  * Implementa control de acceso basado en roles (RBAC) para gestión de equipos de curso.
  * Reemplaza la autorización insegura basada en path por validación robusta de permisos.
@@ -16,7 +19,7 @@ use App\Models\Usuario\Usuario;
  * - Docentes: Solo cursos donde dictan al menos una sección
  * - Otros usuarios: Sin acceso
  */
-class CursoPolicy
+class CursoPolicy extends BaseCursoPolicy
 {
     /**
      * Determina si el usuario puede gestionar el equipo de un curso.

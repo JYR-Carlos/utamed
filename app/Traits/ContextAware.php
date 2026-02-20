@@ -27,7 +27,7 @@ use App\Services\ContextResolver;
  * 
  * 3. CONTEXTOS GLOBALES (Global):
  *    Modelos sin contexto (ej: usuario, estudiante, rol)
- *    → Retorna null
+ *    → Retorna [$id_contexto_global] para que la validación de permisos use el contexto global como fallback
  * 
  * USO:
  * 
@@ -38,17 +38,22 @@ use App\Services\ContextResolver;
  *    
  *    // En la aplicación
  *    $seccion = Seccion::find(1);
- *    $contextId = $seccion->getContextId();      // int (id_contexto del Curso)
+ *    $contextId = $seccion->getContextId();      // array (ej: [42])
  *    $contextType = $seccion->getContextType();  // string ('curso')
  */
 trait ContextAware
 {
     /**
-     * Obtener el ID de contexto del modelo
-     * 
-     * @return int|null
+     * Obtener todos los IDs de contexto del modelo.
+     *
+     * Retorna el array completo resuelto por el ContextResolver:
+     * - Modelos con contexto directo (id_contexto): retorna [$id_contexto].
+     * - Modelos jerárquicos: retorna todos los contextos de cada ruta.
+     * - Modelos globales (sin contexto): retorna [$id_contexto_global].
+     *
+     * @return array<int>
      */
-    public function getContextId(): ?int
+    public function getContextId(): array
     {
         return app(ContextResolver::class)->getContextId($this);
     }

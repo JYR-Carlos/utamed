@@ -34,12 +34,6 @@ abstract class BaseDepartamento extends CustomBaseModel implements HasContext
     ];
 
 
-
-    // return a simple key instead of composite key for wayfinder (that's bad)
-    public function getRouteKeyName()
-    {
-        return 'id_departamento';
-    }
     // Relaciones
 
     public function facultad()

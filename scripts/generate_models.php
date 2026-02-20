@@ -128,6 +128,51 @@ $baseModelNamespace = $extendedModelNamespace . '\\Base';
 
 
 // ==================================================================================
+// CONFIGURACIÓN DE POLICIES
+// ==================================================================================
+//
+// OBJETIVO: Definir qué modelos tienen Base Policies autogeneradas
+//
+// ESTRUCTURA:
+// - namespace:  namespace completo del modelo Eloquent (para imports en la policy)
+// - class:      nombre de la clase del modelo
+// - resource:   slug del recurso para los permisos (prefijo del slug CRUD)
+//
+// BASE POLICIES: Se sobrescriben en cada ejecución  → app/Policies/Base/
+// EXTENDED STUBS: Solo se crean si no existen       → app/Policies/
+// ==================================================================================
+$policyConfigs = [
+  // ===== Administrativo =====
+  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Facultad', 'resource' => 'facultad'],
+  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Departamento', 'resource' => 'departamento'],
+  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Carrera', 'resource' => 'carrera'],
+  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Plan', 'resource' => 'plan'],
+  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Asignatura', 'resource' => 'asignatura'],
+  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'AsignacionPlan', 'resource' => 'asignacion_plan'],
+
+  // ===== Curso =====
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'Curso', 'resource' => 'curso'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'Programa', 'resource' => 'curso/programa'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'Seccion', 'resource' => 'curso/seccion'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'Unidad', 'resource' => 'curso/unidad'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'InscripcionCurso', 'resource' => 'inscripcion_curso'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'InscripcionSeccion', 'resource' => 'curso/inscripcion_seccion'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'Asistencia', 'resource' => 'curso/asistencia'],
+
+  // ===== Usuario =====
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Usuario', 'resource' => 'usuario'],
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Estudiante', 'resource' => 'usuario/estudiante'],
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Docente', 'resource' => 'usuario/docente'],
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Rol', 'resource' => 'rol'],
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'AsignacionRolPermiso', 'resource' => 'asignacion_rol_permiso'],
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'UsuarioRolAsignacion', 'resource' => 'usuario_rol_asignacion'],
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'UsuarioPermisoEspecial', 'resource' => 'usuario_permiso_especial'],
+];
+$policyDir = app_path('Policies');
+$basePolicyDir = $policyDir . '/Base';
+
+
+// ==================================================================================
 // CONFIGURACIÓN DE RENOMBRADO DE RELACIONES (belongsTo + hasMany/hasOne)
 // ==================================================================================
 //
@@ -2504,6 +2549,347 @@ if ($verbose) {
 
       tree_print($modelPrefix, $isLastMethod, "{$methodColored} {$typeStr} {$mth['related']} {$keysStr}{$viaStr}");
     }
+  }
+}
+
+// ==================================================================================
+// PASO 6: GENERAR BASE POLICIES (Sobrescribibles)
+// ==================================================================================
+//
+// OBJETIVO: Crear una clase abstracta Base por cada modelo configurado en
+// $policyConfigs. Cada base delega CRUD a PermissionValidator y expone hooks
+// customXXX() para que la clase extendida personalice sin perder el fallback.
+//
+// REGENERACIÓN: Este archivo SE SOBRESCRIBE en cada ejecución.
+// NO agregar código personalizado aquí.
+// ==================================================================================
+
+echo "\n" . color("Generando Base Policies...", 'bold') . "\n";
+
+if (!$dryRun && !is_dir($basePolicyDir)) {
+  mkdir($basePolicyDir, 0755, true);
+}
+
+foreach ($policyConfigs as $pc) {
+  $className = $pc['class'];
+  $modelNs = $pc['namespace'];
+  $resource = $pc['resource'];
+  $baseName = "Base{$className}Policy";
+  $basePolicyPath = $basePolicyDir . "/{$baseName}.php";
+
+  // Evitar import duplicado si el modelo es Usuario del namespace Usuario
+  $modelUseStatement = '';
+  $modelFullPath = "{$modelNs}\\{$className}";
+  if ($modelFullPath !== 'App\\Models\\Usuario\\Usuario') {
+    $modelUseStatement = "\nuse {$modelNs}\\{$className};";
+  }
+
+  $content = <<<PHP
+<?php
+
+namespace App\\Policies\\Base;
+
+use App\\Models\\Usuario\\Usuario;{$modelUseStatement}
+use App\\Policies\\Base\\Traits\\HasBasePolicyMethods;
+
+/**
+ * Policy Base para {$className} - AUTOGENERADA
+ * ⚠️ NO EDITAR - Se sobrescribe al regenerar
+ *
+ * Para personalizaciones, extender en app/Policies/{$className}Policy.php:
+ *   - Patrón 1: Sobrescribir customXXX()       → base corre primero, hook como fallback
+ *   - Patrón 2: Sobrescribir método + parent:: → tu lógica primero, base como fallback
+ *   - Patrón 3: Sobrescribir sin parent::      → reemplaza la base completamente
+ */
+abstract class {$baseName}
+{
+    use HasBasePolicyMethods;
+
+    protected string \$resource = '{$resource}';
+
+    public function viewAny(Usuario \$user): bool
+    {
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'ver'))) {
+            return true;
+        }
+
+        return \$this->customViewAny(\$user);
+    }
+
+    public function view(Usuario \$user, {$className} \$model): bool
+    {
+        \$contextId = \$this->resolveContextId(\$model);
+
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'ver'), \$model, \$contextId)) {
+            return true;
+        }
+
+        return \$this->customView(\$user, \$model);
+    }
+
+    public function create(Usuario \$user, \$parent = null): bool
+    {
+        \$contextId = \$parent?->getContextId();
+
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'crear'), null, \$contextId)) {
+            return true;
+        }
+
+        return \$this->customCreate(\$user, \$parent);
+    }
+
+    public function update(Usuario \$user, {$className} \$model): bool
+    {
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'editar'), \$model)) {
+            return true;
+        }
+
+        return \$this->customUpdate(\$user, \$model);
+    }
+
+    public function delete(Usuario \$user, {$className} \$model): bool
+    {
+        if (\$this->validator()->validate(\$user, \$this->buildPermissionSlug(\$this->resource, 'eliminar'), \$model)) {
+            return true;
+        }
+
+        return \$this->customDelete(\$user, \$model);
+    }
+}
+
+PHP;
+
+  if (!$dryRun) {
+    file_put_contents($basePolicyPath, $content);
+    echo color("  ✓ {$baseName}.php\n", 'green');
+  } else {
+    echo "    [DRY-RUN] Base policy: {$basePolicyPath}\n";
+  }
+}
+
+// ==================================================================================
+// PASO 7: GENERAR EXTENDED POLICY STUBS (Solo si no existen)
+// ==================================================================================
+//
+// OBJETIVO: Crear un stub vacío por cada modelo para que el desarrollador
+// pueda personalizar sin que se sobreescriba al regenerar.
+//
+// PRESERVACIÓN: Solo se crea si NO EXISTE el archivo.
+// ==================================================================================
+
+echo color("Generando Extended Policy stubs...\n", 'bold');
+
+if (!$dryRun && !is_dir($policyDir)) {
+  mkdir($policyDir, 0755, true);
+}
+
+foreach ($policyConfigs as $pc) {
+  $className = $pc['class'];
+  $modelNs = $pc['namespace'];
+  $baseName = "Base{$className}Policy";
+  $extName = "{$className}Policy";
+  $extPolicyPath = $policyDir . "/{$extName}.php";
+
+  // Evitar import duplicado si el modelo es Usuario del namespace Usuario
+  $modelUseStatement = '';
+  $modelFullPath = "{$modelNs}\\{$className}";
+  if ($modelFullPath !== 'App\\Models\\Usuario\\Usuario') {
+    $modelUseStatement = "\nuse {$modelNs}\\{$className};";
+  }
+
+  if (!file_exists($extPolicyPath)) {
+    $stub = <<<PHP
+<?php
+
+namespace App\\Policies;
+
+use App\\Policies\\Base\\{$baseName};
+use App\\Models\\Usuario\\Usuario;{$modelUseStatement}
+
+/**
+ * Policy personalizada para {$className}.
+ * Creada automáticamente como stub - NO se sobrescribe al regenerar.
+ *
+ * Patrones disponibles:
+ *   1. Sobrescribir customXXX()       → base corre primero, hook como fallback
+ *   2. Sobrescribir método + parent:: → tu lógica primero, base como fallback
+ *   3. Sobrescribir sin parent::      → reemplaza la base completamente
+ */
+class {$extName} extends {$baseName}
+{
+    // Sobrescribir métodos customXXX() o CRUD según sea necesario
+}
+
+PHP;
+
+    if (!$dryRun) {
+      file_put_contents($extPolicyPath, $stub);
+      echo color("  ✓ {$extName}.php (nuevo)\n", 'green');
+    } else {
+      echo "    [DRY-RUN] Extended policy stub: {$extPolicyPath}\n";
+    }
+  } else {
+    echo color("  ~ {$extName}.php (preservado)\n", 'yellow');
+  }
+}
+
+// ==================================================================================
+// PASO 8: GENERAR AUTHSERVICEPROVIDER
+// ==================================================================================
+//
+// OBJETIVO: Escribir app/Providers/AuthServiceProvider.php con el array $policies
+// completo derivado de $policyConfigs. El archivo SE SOBRESCRIBE siempre.
+//
+// RAZÓN: El provider es pura configuración; no hay código de negocio aquí.
+// ==================================================================================
+
+echo color("Generando AuthServiceProvider...\n", 'bold');
+
+$modelImports = '';
+$policyImports = '';
+$policyArray = '';
+
+foreach ($policyConfigs as $pc) {
+  $class = $pc['class'];
+  $modelNs = $pc['namespace'];
+  $modelImports .= "use {$modelNs}\\{$class};\n";
+  $policyImports .= "use App\\Policies\\{$class}Policy;\n";
+  $policyArray .= "        {$class}::class => {$class}Policy::class,\n";
+}
+
+$authProviderPath = app_path('Providers/AuthServiceProvider.php');
+$authProviderContent = <<<PHP
+<?php
+
+namespace App\\Providers;
+
+use Illuminate\\Foundation\\Support\\Providers\\AuthServiceProvider as ServiceProvider;
+
+// Models
+{$modelImports}
+// Policies
+{$policyImports}
+/**
+ * Proveedor de servicios de autenticación y autorización.
+ * AUTOGENERADO - Se sobrescribe al regenerar.
+ *
+ * Para políticas manuales adicionales, agregar a \$policies manualmente
+ * y excluir ese modelo de \$policyConfigs en generate_models.php.
+ */
+class AuthServiceProvider extends ServiceProvider
+{
+    /**
+     * Mapeo de modelos a políticas de autorización.
+     *
+     * @var array<class-string, class-string>
+     */
+    protected \$policies = [
+{$policyArray}    ];
+
+    /**
+     * Registra servicios de autenticación/autorización.
+     */
+    public function boot(): void
+    {
+        \$this->registerPolicies();
+    }
+}
+
+PHP;
+
+if (!$dryRun) {
+  file_put_contents($authProviderPath, $authProviderContent);
+  echo color("  ✓ AuthServiceProvider.php\n", 'green');
+} else {
+  echo "    [DRY-RUN] AuthServiceProvider: {$authProviderPath}\n";
+}
+
+// ==================================================================================
+// PASO 9: GENERAR app/Support/Permissions.php (Enum-like de slugs)
+// ==================================================================================
+//
+// OBJETIVO: Leer scripts/permissions_config.php y producir una clase PHP con
+// constantes string para cada permiso. Evita magic strings en el código.
+//
+// EJEMPLO:
+//   Permissions::FACULTAD_VER          → 'facultad:ver'
+//   Permissions::CURSOS_SECCION_CREAR  → 'curso/seccion:crear'
+//
+// REGENERACIÓN: El archivo SE SOBRESCRIBE en cada ejecución.
+// ==================================================================================
+
+echo color("Generando Permissions.php...\n", 'bold');
+
+$permissionsConfigPath = __DIR__ . '/permissions_config.php';
+$permissionsOutPath = app_path('Support/Permissions.php');
+
+if (!file_exists($permissionsConfigPath)) {
+  echo color("  ⚠ No se encontró {$permissionsConfigPath} — saltando PASO 9\n", 'yellow');
+} else {
+  $permDefs = include $permissionsConfigPath;
+
+  // Aplanar el array anidado en pares [recurso, accion]
+  // Clave especial '_actions' lista las acciones en ese nivel
+  // Las demás claves son sub-recursos que se unen con '/'
+  $flattenPerms = function (array $node, string $prefix = '') use (&$flattenPerms): array {
+    $slugs = [];
+    foreach ($node as $key => $value) {
+      if ($key === '_actions') {
+        foreach ($value as $action) {
+          $slugs[] = [$prefix, $action];
+        }
+      } elseif (is_array($value)) {
+        $child = $prefix ? "{$prefix}/{$key}" : $key;
+        $slugs = array_merge($slugs, $flattenPerms($value, $child));
+      }
+    }
+    return $slugs;
+  };
+
+  $allSlugs = $flattenPerms($permDefs);
+  $constants = '';
+  $prevTop = null;
+
+  foreach ($allSlugs as [$resource, $action]) {
+    // Blank line between top-level resource groups
+    $top = explode('/', $resource)[0];
+    if ($prevTop !== null && $top !== $prevTop) {
+      $constants .= "\n";
+    }
+    $prevTop = $top;
+
+    $resConst = strtoupper(str_replace(['/', '-', ' '], '_', $resource));
+    $actConst = strtoupper(str_replace([' ', '-'], '_', $action));
+    $constName = "{$resConst}_{$actConst}";
+    $slug = "{$resource}:{$action}";
+    $constants .= "    const {$constName} = '{$slug}';\n";
+  }
+
+  $permissionsContent = <<<PHP
+<?php
+
+namespace App\Support;
+
+/**
+ * Slugs de permisos centralizados, estandarizados y a prueba de errores.
+ * AUTOGENERADO desde {$permissionsConfigPath} — NO EDITAR.
+ *
+ * Uso: Permissions::FACULTAD_VER <- 'facultad:ver'
+ * Para agregar permisos, editar {$permissionsConfigPath} y regenerar.
+ */
+class Permissions
+{
+{$constants}}
+PHP;
+
+  if (!$dryRun) {
+    if (!is_dir(app_path('Support'))) {
+      mkdir(app_path('Support'), 0755, true);
+    }
+    file_put_contents($permissionsOutPath, $permissionsContent);
+    echo color("  ✓ app/Support/Permissions.php\n", 'green');
+  } else {
+    echo "    [DRY-RUN] Permissions: {$permissionsOutPath}\n";
   }
 }
 

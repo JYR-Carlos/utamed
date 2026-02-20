@@ -21,11 +21,14 @@ interface HasContext
      * Puede ser:
      * - El id_contexto directo de la tabla
      * - Un ID heredado a través de relaciones (ej: Inscripcion_Seccion → Carrera → id_contexto)
-     * - null si el modelo no tiene contexto (modelos globales)
-     * 
-     * @return int|null
+     * - array vacío si el modelo no tiene contexto (modelos globales)
+     *
+     * Retorna array porque un modelo puede tener múltiples rutas de contexto
+     * (ej: InscripcionCurso → Carrera y también → Curso).
+     *
+     * @return array<int>
      */
-    public function getContextId(): ?int;
+    public function getContextId(): array;
 
     /**
      * Obtiene el tipo de contexto para este modelo

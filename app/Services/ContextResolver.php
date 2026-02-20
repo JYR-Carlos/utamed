@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Services\Authorization\GlobalContextService;
+
 /**
  * Servicio para resolver contextos de modelos
  * 
@@ -24,6 +26,10 @@ class ContextResolver
      * @var array
      */
     protected $contextCache = [];
+
+    public function __construct(
+        protected GlobalContextService $globalContextService
+    ) {}
 
     /**
      * Cargar los mappings del archivo
@@ -78,9 +84,9 @@ class ContextResolver
             return $contextId !== null ? [$contextId] : [];
         }
 
-        // Modelos con contexto global (sin contexto)
+        // Modelos con contexto global (sin contexto propio)
         if ($mapping['type'] === 'global') {
-            return [];
+            return [$this->globalContextService->getContextId()];
         }
 
         // Modelos con contexto jerárquico - seguir TODAS las rutas

@@ -4,6 +4,7 @@ namespace App\Services\Authorization;
 
 use App\Models\Usuario\Usuario;
 use App\Contracts\HasContext;
+use App\Services\Authorization\GlobalContextService;
 use App\Services\ContextResolver;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -34,7 +35,6 @@ class PermissionValidator
     /**
      * Configuración cargada en constructor
      */
-    protected ?int $globalContextId = null;
     protected int $cacheTtl;
     protected string $cachePrefix;
     protected bool $cacheEnabled;
@@ -44,13 +44,12 @@ class PermissionValidator
      * Constructor - inyectar dependencias y cargar configuración
      */
     public function __construct(
-        protected ContextResolver $contextResolver
+        protected ContextResolver $contextResolver,
+        protected GlobalContextService $globalContext
     ) {
-        // Cargar configuración del sistema
-        $this->cacheTtl = config('rbac.cache_ttl');
-        $this->cachePrefix = config('rbac.cache_prefix');
+        $this->cacheTtl     = config('rbac.cache_ttl');
+        $this->cachePrefix  = config('rbac.cache_prefix');
         $this->cacheEnabled = config('rbac.cache_enabled');
-
         $this->globalWildcard = WildcardMatcher::GLOBAL_WILDCARD;
     }
 
@@ -81,7 +80,7 @@ class PermissionValidator
             })->select('id_contexto')->soleValue('id_contexto');
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-             throw new \RuntimeException(
+            throw new \RuntimeException(
                 "Contexto global no encontrado. Verifica que exista un registro en tipo_contexto con tabla_referenciada='GLOBAL' y su contexto asociado en usuario.contexto"
             );
         } catch (\Illuminate\Database\MultipleRecordsFoundException $e) {
@@ -101,14 +100,14 @@ class PermissionValidator
      * @param Usuario $user Usuario a validar
      * @param string $permission Slug del permiso (ej: 'facultad:editar')
      * @param HasContext|null $resource Instancia del recurso (null para viewAny)
-     * @param int|null $contextId Contexto explícito (para create con padre)
+     * @param int|array|null $contextId Contexto(s) explícito(s) (para create con padre)
      * @return bool
      */
     public function validate(
         Usuario $user,
         string $permission,
         ?HasContext $resource = null,
-        ?int $contextId = null
+        int|array|null $contextId = null
     ): bool {
         // 1. Verificar SuperAdmin global
         if ($this->isSuperAdmin($user)) {
@@ -193,21 +192,37 @@ class PermissionValidator
         return $permissions;
     }
 
-    // ========== MÉTODOS PROTEGIDOS ==========
-
     /**
-     * Verificar si es SuperAdmin global (permiso '*').
+     * Verificar si es SuperAdmin (permiso '*' en contexto global).
+     * 
+     * Wrapper público para detectar si el usuario es superadmin.
+     * No requiere que el llamador conozca el contexto global.
      * 
      * @param Usuario $user
      * @return bool
      */
-    protected function isSuperAdmin(Usuario $user): bool
+    public function isSuperAdmin(Usuario $user): bool
+    {
+        return $this->hasSuperAdminPermission($user);
+    }
+
+    // ========== MÉTODOS PROTEGIDOS ==========
+
+    /**
+     * Verificar si es SuperAdmin (permiso '*' en contexto global).
+     * 
+     * Método protegido que realiza la validación real.
+     * 
+     * @param Usuario $user
+     * @return bool
+     */
+    protected function hasSuperAdminPermission(Usuario $user): bool
     {
         $hasSuperAdmin = DB::connection('pgsql')
             ->table('vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('slug', $this->globalWildcard)
-            ->where('id_contexto', $this->getGlobalContextId())
+            ->where('id_contexto', $this->globalContext->getContextId())
             ->where('esta_permitido', true)
             ->exists();
 
@@ -222,14 +237,15 @@ class PermissionValidator
      * - Si null → contexto global
      * 
      * @param HasContext|null $resource
-     * @param int|null $contextId
+     * @param int|array|null $contextId
      * @return array Array de IDs de contexto para validar
      */
-    protected function resolveTargetContexts(?HasContext $resource, ?int $contextId): array
+    protected function resolveTargetContexts(?HasContext $resource, int|array|null $contextId): array
     {
-        // Contexto explícito tiene prioridad
+        // Contexto(s) explícito(s) tienen prioridad
         if ($contextId !== null) {
-            return [$contextId, $this->getGlobalContextId()];
+            $explicit = is_array($contextId) ? $contextId : [$contextId];
+            return array_values(array_unique(array_merge($explicit, [$this->globalContext->getContextId()])));
         }
 
         // Resolver desde recurso vía ContextResolver
@@ -242,7 +258,7 @@ class PermissionValidator
         }
 
         // Sin contexto → usar contexto global
-        return [$this->getGlobalContextId()];
+        return [$this->globalContext->getContextId()];
     }
 
     /**
