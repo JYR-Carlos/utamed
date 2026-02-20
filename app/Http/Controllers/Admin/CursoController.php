@@ -14,15 +14,10 @@ use App\Models\Curso\TipoSeccion;
 use App\Services\CursoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-<<<<<<< HEAD
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
-=======
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
->>>>>>> 749a229 (fix: Precambios en los controladores para las claves subrogadas.)
 /**
  * Controlador para la gestión de cursos (instancias de asignaturas).
  * 

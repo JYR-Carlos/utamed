@@ -245,12 +245,6 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
             // Si no hay Policy registrada, retornará false automáticamente
             return $this->authorizableCan($ability, $arguments);
         }
-<<<<<<< HEAD
-
-        // Para habilidades estándar sin Policy, retornar false
-        return false;
-=======
->>>>>>> 9b9cfb3 (fix: usuario->can() ahora funciona)
     }
 
     /**

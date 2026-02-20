@@ -10,10 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
-<<<<<<< HEAD
-use Illuminate\Support\Facades\DB;
-=======
->>>>>>> 749a229 (fix: Precambios en los controladores para las claves subrogadas.)
 
 /**
  * Controlador para la gestión de asignaciones de asignaturas a planes (Detalle Malla).
