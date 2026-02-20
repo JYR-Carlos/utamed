@@ -54,6 +54,31 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
+     * Determinar si el usuario es administrador.
+     * Un usuario es admin si tiene rol 'Administrador' o 'SuperAdmin' activo.
+     * 
+     * @return bool
+     */
+    public function isAdmin(): bool
+    {
+        return $this->rolesAsignados()
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->whereHas('rol', function ($query) {
+                $query->whereIn('nombre', ['Administrador', 'SuperAdmin', 'Admin', 'admin']);
+            })
+            ->exists();
+    }
+
+    /**
+     * Accessor para is_admin (para compatibilidad con $user->is_admin)
+     */
+    public function getIsAdminAttribute(): bool
+    {
+        return $this->isAdmin();
+    }
+
+    /**
      * Verificar permiso con resolución automática de contexto desde un recurso.
      * 
      * @param string $permission Slug del permiso

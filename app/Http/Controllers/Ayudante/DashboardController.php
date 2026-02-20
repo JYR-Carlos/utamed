@@ -23,14 +23,14 @@ class DashboardController extends Controller
             ->pluck('id_contexto');
 
         $ayudanteCourses = \App\Models\Curso\Curso::whereIn('id_contexto', $contextosAsignados)
-            ->with(['asignatura', 'plan.carrera'])
+            ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera'])
             ->get()
             ->map(function ($curso) {
                 return [
                     'id_curso' => $curso->id_curso,
                     'nombre' => $curso->nombre,
                     'cod_curso' => $curso->cod_curso,
-                    'asignatura_nombre' => $curso->asignatura?->nombre ?? 'N/A',
+                    'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                 ];
             });
 

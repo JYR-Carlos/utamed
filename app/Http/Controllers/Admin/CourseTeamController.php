@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
-use App\Models\Usuario\UsuarioRolAsignación;
+use App\Models\Usuario\UsuarioRolAsignacion;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
@@ -60,7 +60,7 @@ class CourseTeamController extends Controller
         $this->ensureContext($curso);
 
         // Get assignments in this context
-        $assignments = UsuarioRolAsignación::where('id_contexto', $curso->id_contexto)
+        $assignments = UsuarioRolAsignacion::where('id_contexto', $curso->id_contexto)
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
             ->with(['rol'])
@@ -142,7 +142,7 @@ class CourseTeamController extends Controller
         // In future: Check if auth user has permission to assign this role.
 
         // Check for existing assignment (including soft deleted)
-        $existingAssignment = UsuarioRolAsignación::where('id_usuario', $validated['id_usuario'])
+        $existingAssignment = UsuarioRolAsignacion::where('id_usuario', $validated['id_usuario'])
             ->where('id_contexto', $curso->id_contexto)
             ->where('id_rol', $rol->id_rol)
             ->first();
@@ -159,7 +159,7 @@ class CourseTeamController extends Controller
             ]);
         } else {
             // Create new assignment
-            UsuarioRolAsignación::create([
+            UsuarioRolAsignacion::create([
                 'id_usuario' => $validated['id_usuario'],
                 'id_contexto' => $curso->id_contexto,
                 'id_rol' => $rol->id_rol,
@@ -195,7 +195,7 @@ class CourseTeamController extends Controller
             return back()->with('error', 'El curso no tiene un contexto asignado.');
         }
 
-        UsuarioRolAsignación::where('id_contexto', $curso->id_contexto)
+        UsuarioRolAsignacion::where('id_contexto', $curso->id_contexto)
             ->where('id_usuario', $usuario->id_usuario)
             ->update([
                 'esta_activo' => false,
@@ -225,7 +225,7 @@ class CourseTeamController extends Controller
         }
 
         // ✅ Validar que usuario es miembro del equipo
-        $isMember = UsuarioRolAsignación::where('id_contexto', $curso->id_contexto)
+        $isMember = UsuarioRolAsignacion::where('id_contexto', $curso->id_contexto)
             ->where('id_usuario', $usuario->id_usuario)
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
@@ -306,7 +306,7 @@ class CourseTeamController extends Controller
         }
 
         // ✅ Validar que usuario es miembro del equipo
-        $isMember = UsuarioRolAsignación::where('id_contexto', $curso->id_contexto)
+        $isMember = UsuarioRolAsignacion::where('id_contexto', $curso->id_contexto)
             ->where('id_usuario', $usuario->id_usuario)
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
@@ -336,7 +336,7 @@ class CourseTeamController extends Controller
             if ($isDocente) {
                 $allowedRoleIds = Rol::whereIn('nombre', ['Ayudante', 'Estudiante'])->pluck('id_rol')->toArray();
 
-                UsuarioRolAsignación::where('id_usuario', $usuario->id_usuario)
+                UsuarioRolAsignacion::where('id_usuario', $usuario->id_usuario)
                     ->where('id_contexto', $idContexto)
                     ->whereIn('id_rol', $allowedRoleIds)
                     ->where('esta_activo', true)
@@ -345,7 +345,7 @@ class CourseTeamController extends Controller
                 if (!empty($validated['roles'])) {
                     foreach ($validated['roles'] as $rolId) {
                         if (in_array($rolId, $allowedRoleIds)) {
-                            UsuarioRolAsignación::updateOrCreate(
+                            UsuarioRolAsignacion::updateOrCreate(
                                 [
                                     'id_usuario' => $usuario->id_usuario,
                                     'id_contexto' => $idContexto,
@@ -367,14 +367,14 @@ class CourseTeamController extends Controller
                 }
             } else {
                 // For Full Admin: Sync all roles in this context
-                UsuarioRolAsignación::where('id_usuario', $usuario->id_usuario)
+                UsuarioRolAsignacion::where('id_usuario', $usuario->id_usuario)
                     ->where('id_contexto', $idContexto)
                     ->where('esta_activo', true)
                     ->update(['esta_activo' => false, 'fue_eliminado' => true, 'fecha_fin_real' => now()]);
 
                 if (!empty($validated['roles'])) {
                     foreach ($validated['roles'] as $rolId) {
-                        UsuarioRolAsignación::updateOrCreate(
+                        UsuarioRolAsignacion::updateOrCreate(
                             [
                                 'id_usuario' => $usuario->id_usuario,
                                 'id_contexto' => $idContexto,
@@ -468,7 +468,7 @@ class CourseTeamController extends Controller
             // Obtener IDs de usuarios que ya están en el equipo del curso
             $existingMemberIds = [];
             if ($curso->id_contexto) {
-                $existingMemberIds = UsuarioRolAsignación::where('id_contexto', $curso->id_contexto)
+                $existingMemberIds = UsuarioRolAsignacion::where('id_contexto', $curso->id_contexto)
                     ->where('esta_activo', true)
                     ->where('fue_eliminado', false)
                     ->pluck('id_usuario')
@@ -502,7 +502,7 @@ class CourseTeamController extends Controller
 
             return response()->json($results);
         } catch (\Exception $e) {
-            \Log::error('Error searching assistants: ' . $e->getMessage());
+            Log::error('Error searching assistants: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

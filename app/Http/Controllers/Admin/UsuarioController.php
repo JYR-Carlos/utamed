@@ -15,7 +15,7 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Permiso;
-use App\Models\Usuario\UsuarioRolAsignación;
+use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Models\Usuario\Contexto;
 use Illuminate\Support\Facades\Log;
@@ -637,26 +637,26 @@ class UsuarioController extends Controller
 
         if (!$contexto) {
             // Fallback if Global not found
-            if (!$contexto) {
-                $contexto = Contexto::firstOrCreate(
-                    ['contexto_display' => 'Global'],
-                    ['descripcion' => 'Contexto Global por defecto']
-                );
-            }
+            $contexto = Contexto::firstOrCreate(
+                ['contexto_display' => 'Global'],
+                ['descripcion' => 'Contexto Global por defecto']
+            );
         }
 
         $idContexto = $contexto->id_contexto;
 
-        $roles = $usuario->roles()
+        // Get role IDs from usuario_rol_asignacion junction table (not from rol table)
+        $roles = UsuarioRolAsignacion::where('id_usuario', $usuario->id_usuario)
             ->where('id_contexto', $idContexto)
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
             ->pluck('id_rol');
 
-        $special = $usuario->permisosEspeciales
+        $special = UsuarioPermisoEspecial::where('id_usuario', $usuario->id_usuario)
             ->where('id_contexto', $idContexto)
             ->where('esta_activo', true)
             ->where('fue_borrado', false)
+            ->get()
             ->map(function ($permiso) {
                 return [
                     'id_permiso' => $permiso->id_permiso,
@@ -685,6 +685,7 @@ class UsuarioController extends Controller
     {
         Log::info("SyncPermissions called for user $id");
         Log::info("Payload: " . print_r($request->all(), true));
+        
         $validated = $request->validate([
             'roles' => 'array',
             'special_permissions' => 'array' // { id_permiso: true/false/null }
@@ -704,16 +705,21 @@ class UsuarioController extends Controller
         DB::beginTransaction();
         try {
             // 1. Sync Roles
-
             // Soft-delete all existing active assignments for this context
-            UsuarioRolAsignación::where('id_usuario', $usuario->id_usuario)
+            UsuarioRolAsignacion::where('id_usuario', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->where('esta_activo', true)
-                ->update(['esta_activo' => false, 'fue_eliminado' => true, 'fecha_fin_real' => now()]);
+                ->where('fue_eliminado', false)
+                ->update([
+                    'esta_activo' => false,
+                    'fue_eliminado' => true,
+                    'fecha_fin_real' => now()
+                ]);
 
+            // Add new roles
             if (!empty($validated['roles'])) {
                 foreach ($validated['roles'] as $rolId) {
-                    UsuarioRolAsignación::updateOrCreate(
+                    UsuarioRolAsignacion::updateOrCreate(
                         [
                             'id_usuario' => $usuario->id_usuario,
                             'id_contexto' => $idContexto,
@@ -738,7 +744,12 @@ class UsuarioController extends Controller
             UsuarioPermisoEspecial::where('id_usuario', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->where('esta_activo', true)
-                ->update(['esta_activo' => false, 'fue_borrado' => true, 'fecha_fin_real' => now()]);
+                ->where('fue_borrado', false)
+                ->update([
+                    'esta_activo' => false,
+                    'fue_borrado' => true,
+                    'fecha_fin_real' => now()
+                ]);
 
             foreach ($validated['special_permissions'] as $permId => $status) {
                 $isObject = is_array($status);
@@ -767,11 +778,32 @@ class UsuarioController extends Controller
             }
 
             DB::commit();
+            
+            // Return appropriate response type
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Permisos actualizados correctamente.'
+                ]);
+            }
+            
             return back()->with('success', 'Permisos actualizados correctamente.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("SyncPermissions Error: " . $e->getMessage());
+            Log::error("SyncPermissions Error: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'user_id' => $id,
+                'payload' => $validated
+            ]);
+            
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al actualizar permisos: ' . $e->getMessage()
+                ], 500);
+            }
+            
             return back()->with('error', 'Error al actualizar permisos: ' . $e->getMessage());
         }
     }
@@ -793,7 +825,7 @@ class UsuarioController extends Controller
 
         $adminId = auth()->guard('web')->id() ?? 1;
 
-        UsuarioRolAsignación::updateOrCreate(
+        UsuarioRolAsignacion::updateOrCreate(
             [
                 'id_usuario' => $usuario->id_usuario,
                 'id_contexto' => $contexto->id_contexto,

@@ -5,22 +5,22 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreInscripcionCursoRequest;
 use App\Http\Requests\UpdateInscripcionCursoRequest;
+use App\Http\Resources\InscripcionCursoResource;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
 use App\Models\Usuario\Estudiante;
+use App\Services\InscripcionCursoService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
-use \Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Auth;
 /**
  * Controlador para la gestión de inscripciones de estudiantes en cursos.
  * 
- * Tablas implicadas:
- * - Inscripcion_Curso: Relación muchos-a-muchos entre Estudiante y Curso
- * - Curso: Cursos disponibles
- * - Estudiante: Estudiantes disponibles para inscribir
+ * Utiliza:
+ * - InscripcionCursoService para lógica de negocio
+ * - InscripcionCursoPolicy para autorización
+ * - InscripcionCursoResource para serialización de datos
  * 
  * Funcionalidades:
  * - Listar inscripciones con filtros y búsqueda
@@ -35,86 +35,50 @@ use \Illuminate\Support\Facades\Auth;
  */
 class InscripcionCursoController extends Controller
 {
+    private InscripcionCursoService $inscripcionService;
+
+    public function __construct(InscripcionCursoService $inscripcionService)
+    {
+        $this->inscripcionService = $inscripcionService;
+    }
+
     /**
-     * Muestra un listado paginado de todas las inscripciones con búsqueda y filtros.
+     * Muestra un listado paginado de inscripciones con búsqueda y filtros.
      */
     public function index(Request $request)
     {
         $user = Auth::user();
 
-        // Verify user is admin or docente
-        // Admin is defined as user without docente nor estudiante profiles
-        $isAdmin = !$user->docente && !$user->estudiante;
-        if (!$isAdmin && !$user->docente) {
-            abort(403, 'No tienes permiso para ver inscripciones');
-        }
+        // Autorizar vista
+        $this->authorize('viewAny', InscripcionCurso::class);
 
-        $query = InscripcionCurso::query();
+        $filters = $request->only(['search', 'id_curso', 'estado_inscripcion', 'page']);
+        $idDocente = $user->docente?->id_docente;
 
-        // Si es docente, filtrar solo sus cursos
-        if ($user->docente) {
-            $cursoIds = DB::table('Seccion')
-                ->where('id_docente', $user->docente->id_docente)
-                ->distinct()
-                ->pluck('id_curso');
+        $inscripciones = $this->inscripcionService->getFiltered(
+            $filters,
+            $idDocente,
+            $request->input('per_page', 15)
+        );
 
-            $query->whereIn('id_curso', $cursoIds);
-        }
+        // Obtener cursos disponibles
+        $cursos = $idDocente
+            ? $this->inscripcionService->getCursosByDocente($idDocente)
+            : Curso::orderBy('cod_curso')->get();
 
-        // Buscar por nombre de estudiante o curso
-        if ($request->has('search')) {
-            $search = $request->input('search');
-            $query->whereHas('estudiante', function ($q) use ($search) {
-                $q->whereHas('usuario', function ($q2) use ($search) {
-                    $q2->where(DB::raw("CONCAT(usuario.nombre1, ' ', COALESCE(usuario.apellido1, ''))"), 'ilike', "%{$search}%")
-                        ->orWhere('usuario.username', 'ilike', "%{$search}%");
-                });
-            })
-                ->orWhereHas('curso', function ($q) use ($search) {
-                    $q->where('Curso.nombre', 'ilike', "%{$search}%")
-                        ->orWhere('Curso.cod_curso', 'ilike', "%{$search}%");
-                });
-        }
-
-        // Filtrar por curso
-        if ($request->has('id_curso')) {
-            $query->where('id_curso', $request->input('id_curso'));
-        }
-
-        // Filtrar por estado
-        if ($request->has('estado_inscripcion')) {
-            $query->where('estado_inscripcion', $request->input('estado_inscripcion'));
-        }
-
-        $inscripciones = $query
-            ->with(['curso', 'estudiante.usuario'])
-            ->orderBy('fecha_inscripcion', 'desc')
-            ->paginate($request->input('per_page', 15))
-            ->withQueryString();
-
-        // Get available cursos for filtering
-        $cursosQuery = Curso::query();
-        if ($user->docente) {
-            $cursoIds = DB::table('Seccion')
-                ->where('id_docente', $user->docente->id_docente)
-                ->distinct()
-                ->pluck('id_curso');
-            $cursosQuery->whereIn('id_curso', $cursoIds);
-        }
-        $cursos = $cursosQuery->orderBy('cod_curso')->get();
-
+        // Renderizar según rol
         if ($user->docente) {
             return Inertia::render('docente/Inscripciones', [
                 'inscripciones' => $inscripciones,
                 'cursos' => $cursos,
-                'filters' => $request->only(['search', 'id_curso', 'estado_inscripcion'])
+                'filters' => $filters
             ]);
         }
 
         return Inertia::render('admin/InscripcionesCursos', [
             'inscripciones' => $inscripciones,
             'cursos' => $cursos,
-            'filters' => $request->only(['search', 'id_curso', 'estado_inscripcion'])
+            'filters' => $filters
         ]);
     }
 
@@ -125,45 +89,34 @@ class InscripcionCursoController extends Controller
     {
         $user = Auth::user();
 
-        // Verify user is admin or docente
-        // Admin is defined as user without docente nor estudiante profiles
-        $isAdmin = !$user->docente && !$user->estudiante;
-        if (!$isAdmin && !$user->docente) {
-            abort(403, 'No tienes permiso para crear inscripciones');
-        }
+        // Autorizar creación
+        $this->authorize('create', InscripcionCurso::class);
 
-        $idCurso = $request->query('id_curso');
+        $idCursoSelected = $request->query('id_curso');
+        $idDocente = $user->docente?->id_docente;
 
-        // Get available cursos
-        $cursosQuery = Curso::query();
-        if ($user->docente) {
-            $cursoIds = DB::table('Seccion')
-                ->where('id_docente', $user->docente->id_docente)
-                ->distinct()
-                ->pluck('id_curso');
-            $cursosQuery->whereIn('id_curso', $cursoIds);
-        }
-        $cursos = $cursosQuery->orderBy('cod_curso')->get();
+        // Obtener cursos disponibles
+        $cursos = $idDocente
+            ? $this->inscripcionService->getCursosByDocente($idDocente)
+            : Curso::orderBy('cod_curso')->get();
 
-        // Get available estudiantes
-        $estudiantesQuery = Estudiante::query()
-            ->with('usuario:id_usuario,nombre1,apellido1,username')
-            ->orderBy('id_estudiante');
-
-        $estudiantes = $estudiantesQuery->get();
+        // Obtener estudiantes disponibles
+        $estudiantes = Estudiante::with('usuario:id_usuario,nombre1,apellido1,username')
+            ->orderBy('id_estudiante')
+            ->get();
 
         if ($user->docente) {
             return Inertia::render('docente/CreateInscripcion', [
                 'cursos' => $cursos,
                 'estudiantes' => $estudiantes,
-                'idCursoSeleccionado' => $idCurso
+                'idCursoSeleccionado' => $idCursoSelected
             ]);
         }
 
         return Inertia::render('admin/CreateInscripcionCurso', [
             'cursos' => $cursos,
             'estudiantes' => $estudiantes,
-            'idCursoSeleccionado' => $idCurso
+            'idCursoSeleccionado' => $idCursoSelected
         ]);
     }
 
@@ -175,47 +128,15 @@ class InscripcionCursoController extends Controller
         $user = Auth::user();
         $validated = $request->validated();
 
-        // Verify authorization
-        // Admin is defined as user without docente nor estudiante profiles
-        $isAdmin = !$user->docente && !$user->estudiante;
-        if (!$isAdmin) {
-            if (!$user->docente) {
-                abort(403, 'No tienes permiso para crear inscripciones');
-            }
-            // Docente: Verify they teach in this course
-            $dictaSecciones = DB::table('Seccion')
-                ->where('id_docente', $user->docente->id_docente)
-                ->where('id_curso', $validated['id_curso'])
-                ->exists();
-            if (!$dictaSecciones) {
-                abort(403, 'No enseñas en este curso');
-            }
-        }
+        // Autorizar para este curso específico
+        $this->authorize('createForCurso', [InscripcionCurso::class, $validated['id_curso']]);
 
-        DB::beginTransaction();
         try {
-            // Set default values
-            if (empty($validated['fecha_inscripcion'])) {
-                $validated['fecha_inscripcion'] = now()->toDateString();
-            }
-
-            if (empty($validated['estado_inscripcion'])) {
-                $validated['estado_inscripcion'] = 'INSCRITO';
-            }
-
-            if (empty($validated['num_intento'])) {
-                $validated['num_intento'] = 1;
-            }
-
-            // Create the inscription
-            $inscripcion = InscripcionCurso::create($validated);
-
-            DB::commit();
+            $this->inscripcionService->create($validated);
 
             return redirect()->route('admin.inscripciones_cursos.index')
                 ->with('success', 'Inscripción creada exitosamente.');
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Error creating inscripcion: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'data' => $validated
@@ -229,23 +150,8 @@ class InscripcionCursoController extends Controller
      */
     public function show(InscripcionCurso $inscripcionCurso)
     {
-        $user = Auth::user();
-
-        // Verify authorization
-        // Admin is defined as user without docente nor estudiante profiles
-        $isAdmin = !$user->docente && !$user->estudiante;
-        if (!$isAdmin) {
-            if (!$user->docente) {
-                abort(403, 'No tienes permiso');
-            }
-            $dictaSecciones = DB::table('Seccion')
-                ->where('id_docente', $user->docente->id_docente)
-                ->where('id_curso', $inscripcionCurso->id_curso)
-                ->exists();
-            if (!$dictaSecciones) {
-                abort(403, 'No enseñas en este curso');
-            }
-        }
+        // Autorizar vista
+        $this->authorize('view', $inscripcionCurso);
 
         $inscripcionCurso->load([
             'curso',
@@ -254,7 +160,7 @@ class InscripcionCursoController extends Controller
         ]);
 
         return response()->json([
-            'inscripcion' => $inscripcionCurso
+            'inscripcion' => new InscripcionCursoResource($inscripcionCurso)
         ]);
     }
 
@@ -263,23 +169,8 @@ class InscripcionCursoController extends Controller
      */
     public function edit(InscripcionCurso $inscripcionCurso)
     {
-        $user = Auth::user();
-
-        // Verify authorization
-        // Admin is defined as user without docente nor estudiante profiles
-        $isAdmin = !$user->docente && !$user->estudiante;
-        if (!$isAdmin) {
-            if (!$user->docente) {
-                abort(403, 'No tienes permiso');
-            }
-            $dictaSecciones = DB::table('Seccion')
-                ->where('id_docente', $user->docente->id_docente)
-                ->where('id_curso', $inscripcionCurso->id_curso)
-                ->exists();
-            if (!$dictaSecciones) {
-                abort(403, 'No enseñas en este curso');
-            }
-        }
+        // Autorizar actualización
+        $this->authorize('update', $inscripcionCurso);
 
         $inscripcionCurso->load([
             'curso',
@@ -297,35 +188,17 @@ class InscripcionCursoController extends Controller
      */
     public function update(UpdateInscripcionCursoRequest $request, InscripcionCurso $inscripcionCurso)
     {
-        $user = Auth::user();
+        // Autorizar actualización
+        $this->authorize('update', $inscripcionCurso);
+
         $validated = $request->validated();
 
-        // Verify authorization
-        // Admin is defined as user without docente nor estudiante profiles
-        $isAdmin = !$user->docente && !$user->estudiante;
-        if (!$isAdmin) {
-            if (!$user->docente) {
-                abort(403, 'No tienes permiso');
-            }
-            $dictaSecciones = DB::table('Seccion')
-                ->where('id_docente', $user->docente->id_docente)
-                ->where('id_curso', $inscripcionCurso->id_curso)
-                ->exists();
-            if (!$dictaSecciones) {
-                abort(403, 'No enseñas en este curso');
-            }
-        }
-
-        DB::beginTransaction();
         try {
-            $inscripcionCurso->update($validated);
-
-            DB::commit();
+            $this->inscripcionService->update($inscripcionCurso, $validated);
 
             return redirect()->route('admin.inscripciones_cursos.index')
                 ->with('success', 'Inscripción actualizada exitosamente.');
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Error updating inscripcion: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'data' => $validated
@@ -339,25 +212,15 @@ class InscripcionCursoController extends Controller
      */
     public function destroy(InscripcionCurso $inscripcionCurso)
     {
-        $user = Auth::user();
+        // Autorizar eliminación (solo admins)
+        $this->authorize('delete', $inscripcionCurso);
 
-        // Solo admins pueden eliminar
-        // Admin is defined as user without docente nor estudiante profiles
-        $isAdmin = !$user->docente && !$user->estudiante;
-        if (!$isAdmin) {
-            abort(403, 'Solo administradores pueden eliminar inscripciones');
-        }
-
-        DB::beginTransaction();
         try {
-            $inscripcionCurso->delete();
-
-            DB::commit();
+            $this->inscripcionService->delete($inscripcionCurso);
 
             return redirect()->route('admin.inscripciones_cursos.index')
                 ->with('success', 'Inscripción eliminada exitosamente.');
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Error deleting inscripcion: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'id_curso' => $inscripcionCurso->id_curso,
@@ -368,10 +231,8 @@ class InscripcionCursoController extends Controller
     }
 
     /**
-     * Obtiene estudiantes disponibles para un curso específico (endpoint AJAX).
-     * 
-     * Retorna solo los estudiantes que aún no están inscritos en el curso.
-     * Auto-crea perfiles de Estudiante para usuarios con rol estudiante que no tengan perfil.
+     * Obtiene estudiantes disponibles para un curso (endpoint AJAX).
+     * Retorna solo estudiantes no inscritos. Auto-crea perfiles faltantes.
      */
     public function getEstudiantesDisponibles(Request $request)
     {
@@ -381,73 +242,13 @@ class InscripcionCursoController extends Controller
             return response()->json(['error' => 'id_curso requerido'], 400);
         }
 
-        // Get estudiante ids already inscribed in this course
-        $inscritosIds = InscripcionCurso::where('id_curso', $idCurso)
-            ->pluck('id_estudiante')
-            ->toArray();
-
-        // Get available estudiantes (with existing profiles)
-        $estudiantes = Estudiante::query()
-            ->with('usuario:id_usuario,nombre1,apellido1,username')
-            ->whereNotIn('id_estudiante', $inscritosIds)
-            ->orderBy('id_estudiante')
-            ->get();
-
-        // Also find users with 'estudiante' role but no Estudiante profile
-        // and auto-create the profile
-        $usuariosConRolEstudiante = DB::table('Usuario')
-            ->join('Usuario_Rol_Asignación', 'Usuario.id_usuario', '=', 'Usuario_Rol_Asignación.id_usuario')
-            ->join('Rol', 'Usuario_Rol_Asignación.id_rol', '=', 'Rol.id_rol')
-            ->where('Rol.nombre', 'Estudiante')
-            ->where('Usuario_Rol_Asignación.esta_activo', true)
-            ->where('Usuario_Rol_Asignación.fue_eliminado', false)
-            ->whereNotExists(function ($query) {
-                $query->select(DB::raw(1))
-                    ->from('Estudiante')
-                    ->whereColumn('Estudiante.id_usuario', 'Usuario.id_usuario');
-            })
-            ->select('Usuario.id_usuario', 'Usuario.nombre1', 'Usuario.apellido1', 'Usuario.username', 'Usuario.rut')
-            ->get();
-
-        // Auto-create Estudiante profiles for users with student role
-        foreach ($usuariosConRolEstudiante as $usuario) {
-            try {
-                $nuevoEstudiante = Estudiante::create([
-                    'id_usuario' => $usuario->id_usuario,
-                    'rut' => $usuario->rut,
-                    'nombre_completo' => trim(($usuario->nombre1 ?? '') . ' ' . ($usuario->apellido1 ?? '')),
-                    'agno_ingreso' => now()->year,
-                    'id_carrera' => null, // Se puede asignar después
-                    'id_contexto' => null
-                ]);
-
-                // Add to the list if not already inscribed
-                if (!in_array($nuevoEstudiante->id_estudiante, $inscritosIds)) {
-                    $nuevoEstudiante->load('usuario:id_usuario,nombre1,apellido1,username');
-                    $estudiantes->push($nuevoEstudiante);
-                }
-
-                Log::info('Auto-created Estudiante profile', [
-                    'id_usuario' => $usuario->id_usuario,
-                    'id_estudiante' => $nuevoEstudiante->id_estudiante
-                ]);
-            } catch (\Exception $e) {
-                Log::error('Error auto-creating Estudiante profile: ' . $e->getMessage(), [
-                    'id_usuario' => $usuario->id_usuario
-                ]);
-            }
+        try {
+            $estudiantes = $this->inscripcionService->getEstudiantesDisponibles($idCurso);
+            return response()->json(['estudiantes' => $estudiantes]);
+        } catch (\Exception $e) {
+            Log::error('Error getting available students: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al obtener estudiantes disponibles'], 500);
         }
-
-        Log::info('getEstudiantesDisponibles', [
-            'idCurso' => $idCurso,
-            'inscritosIds' => $inscritosIds,
-            'count' => $estudiantes->count(),
-            'auto_created' => $usuariosConRolEstudiante->count()
-        ]);
-
-        return response()->json([
-            'estudiantes' => $estudiantes
-        ]);
     }
 
     /**
@@ -461,98 +262,84 @@ class InscripcionCursoController extends Controller
             return response()->json(['error' => 'id_curso requerido'], 400);
         }
 
-        $inscripciones = InscripcionCurso::where('id_curso', $idCurso)
-            ->with(['estudiante.usuario', 'curso'])
-            ->orderBy('fecha_inscripcion', 'desc')
-            ->get();
-
-        return response()->json([
-            'inscripciones' => $inscripciones
-        ]);
+        try {
+            $inscripciones = $this->inscripcionService->getInscripcionesByCurso($idCurso);
+            return response()->json([
+                'inscripciones' => InscripcionCursoResource::collection($inscripciones)
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting inscripciones by curso: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al obtener inscripciones'], 500);
+        }
     }
 
     /**
-     * Exporta inscripciones de un curso a CSV.
+     * Exporta inscripciones a CSV.
      */
     public function exportCsv(Request $request)
     {
         $user = Auth::user();
 
-        // Verify user is admin or docente
-        // Admin is defined as user without docente nor estudiante profiles
-        $isAdmin = !$user->docente && !$user->estudiante;
-        if (!$isAdmin && !$user->docente) {
-            abort(403, 'No tienes permiso para exportar');
-        }
+        // Autorizar exportación
+        $this->authorize('export', InscripcionCurso::class);
 
         $idCurso = $request->query('id_curso');
+        $filters = ['id_curso' => $idCurso];
+        $idDocente = $user->docente?->id_docente;
 
-        $query = InscripcionCurso::query();
+        try {
+            $inscripciones = $this->inscripcionService->getFiltered($filters, $idDocente, 999999);
 
-        // Filter by course if provided
-        if ($idCurso) {
-            $query->where('id_curso', $idCurso);
-        }
+            $filename = 'inscripciones_' . ($idCurso ?? 'todas') . '_' . now()->format('Y-m-d_H-i-s') . '.csv';
 
-        // Filter to user's courses if docente
-        if ($user->docente) {
-            $cursoIds = DB::table('Seccion')
-                ->where('id_docente', $user->docente->id_docente)
-                ->distinct()
-                ->pluck('id_curso');
-            $query->whereIn('id_curso', $cursoIds);
-        }
+            $headers = [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => "attachment; filename=\"$filename\"",
+            ];
 
-        $inscripciones = $query
-            ->with(['curso', 'estudiante.usuario'])
-            ->orderBy('fecha_inscripcion', 'desc')
-            ->get();
+            $callback = function () use ($inscripciones) {
+                $file = fopen('php://output', 'w');
 
-        $filename = 'inscripciones_' . ($idCurso ?? 'todas') . '_' . now()->format('Y-m-d_H-i-s') . '.csv';
-
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => "attachment; filename=\"$filename\"",
-        ];
-
-        $callback = function () use ($inscripciones) {
-            $file = fopen('php://output', 'w');
-
-            // Header
-            fputcsv($file, [
-                'ID Curso',
-                'Código Curso',
-                'Nombre Curso',
-                'ID Estudiante',
-                'Estudiante',
-                'Usuario',
-                'Código Inscripción',
-                'Fecha Inscripción',
-                'Estado',
-                'Intentos',
-                'Promedio Parcial'
-            ]);
-
-            // Data
-            foreach ($inscripciones as $inscripcion) {
+                // Header
                 fputcsv($file, [
-                    $inscripcion->id_curso,
-                    $inscripcion->curso->cod_curso ?? '',
-                    $inscripcion->curso->nombre ?? '',
-                    $inscripcion->id_estudiante,
-                    $inscripcion->estudiante->usuario->nombre1 . ' ' . ($inscripcion->estudiante->usuario->apellido1 ?? ''),
-                    $inscripcion->estudiante->usuario->username ?? '',
-                    $inscripcion->cod_inscripcion_uta ?? '',
-                    $inscripcion->fecha_inscripcion ?? '',
-                    $inscripcion->estado_inscripcion ?? '',
-                    $inscripcion->num_intento ?? '1',
-                    $inscripcion->promedio_parcial ?? ''
+                    'ID Curso',
+                    'Código Curso',
+                    'Nombre Curso',
+                    'ID Estudiante',
+                    'Estudiante',
+                    'Usuario',
+                    'Código Inscripción',
+                    'Fecha Inscripción',
+                    'Estado',
+                    'Intentos',
+                    'Promedio Parcial'
                 ]);
-            }
 
-            fclose($file);
-        };
+                // Data
+                foreach ($inscripciones as $inscripcion) {
+                    $estudiante = $inscripcion->estudiante;
+                    fputcsv($file, [
+                        $inscripcion->id_curso,
+                        $inscripcion->curso->cod_curso ?? '',
+                        $inscripcion->curso->nombre ?? '',
+                        $inscripcion->id_estudiante,
+                        $estudiante->usuario->nombre1 . ' ' . ($estudiante->usuario->apellido1 ?? ''),
+                        $estudiante->usuario->username ?? '',
+                        $inscripcion->cod_inscripcion_uta ?? '',
+                        $inscripcion->fecha_inscripcion ?? '',
+                        $inscripcion->estado_inscripcion ?? '',
+                        $inscripcion->num_intento ?? '1',
+                        $inscripcion->promedio_parcial ?? ''
+                    ]);
+                }
 
-        return response()->stream($callback, 200, $headers);
+                fclose($file);
+            };
+
+            return response()->stream($callback, 200, $headers);
+        } catch (\Exception $e) {
+            Log::error('Error exporting inscripciones: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Error al exportar inscripciones']);
+        }
     }
 }

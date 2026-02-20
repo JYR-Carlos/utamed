@@ -163,7 +163,7 @@
 	<div class="modal-backdrop" onclick={(e) => e.target === e.currentTarget && onClose()} role="presentation">
 		<div class="modal-content" role="dialog" aria-modal="true">
 			<div class="modal-header">
-				<h2 class="modal-title">Permisos: {usuario?.username || 'Cargando...'}</h2>
+				<h2 class="modal-title">Permisos: {usuario?.username || usuario?.usuario?.username || 'Cargando...'}</h2>
 				<button onclick={onClose} class="close-button">✕</button>
 			</div>
 

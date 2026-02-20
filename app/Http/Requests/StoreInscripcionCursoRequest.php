@@ -29,14 +29,14 @@ class StoreInscripcionCursoRequest extends FormRequest
             'id_curso' => [
                 'required',
                 'integer',
-                'exists:Curso,id_curso'
+                'exists:curso,id_curso'
             ],
             'id_estudiante' => [
                 'required',
                 'integer',
-                'exists:Estudiante,id_estudiante',
+                'exists:estudiante,id_estudiante',
                 // Evitar duplicados: no puede haber dos inscripciones del mismo estudiante en el mismo curso
-                Rule::unique('Inscripcion_Curso', 'id_estudiante')
+                Rule::unique('inscripcion_curso', 'id_estudiante')
                     ->where('id_curso', $this->input('id_curso'))
             ],
             'cod_inscripcion_uta' => [

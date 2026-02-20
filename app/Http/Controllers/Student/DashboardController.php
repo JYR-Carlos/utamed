@@ -32,7 +32,7 @@ class DashboardController extends Controller
         // Obtener las inscripciones del estudiante
         $inscripciones = InscripcionCurso::where('id_estudiante', $estudiante->id_estudiante)
             ->where('estado_inscripcion', 'INSCRITO')
-            ->with(['curso.asignatura', 'curso.plan.carrera'])
+            ->with(['curso.asignacionPlan.asignatura', 'curso.asignacionPlan.plan.carrera'])
             ->get();
 
         // Transformar datos para la vista
@@ -42,8 +42,8 @@ class DashboardController extends Controller
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
                 'cod_curso' => $curso->cod_curso,
-                'asignatura_nombre' => $curso->asignatura?->nombre ?? 'N/A',
-                'carrera_nombre' => $curso->plan?->carrera?->nombre ?? 'N/A',
+                'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+                'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                 'fecha_inicio' => $curso->fecha_inicio,
                 'fecha_fin' => $curso->fecha_fin,
             ];

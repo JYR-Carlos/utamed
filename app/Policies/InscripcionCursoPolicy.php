@@ -104,7 +104,7 @@ class InscripcionCursoPolicy extends BaseInscripcionCursoPolicy
      * @param int $idCurso
      * @return bool
      */
-    public function createForCourse(Usuario $user, int $idCurso): bool
+    public function createForCurso(Usuario $user, int $idCurso): bool
     {
         // Admin puede crear para cualquier curso
         if ($user->is_admin) {

@@ -95,6 +95,9 @@
 		id_docente: undefined
 	});
 	let loadingSecciones = $state(false);
+	let showEditDocente = $state(false);
+	let editingSeccion = $state<Seccion | null>(null);
+	let editingDocenteId = $state<number | null>(null);
 
 	let formData = $state<CursoFormData>({
 		id_asignatura: 0,
@@ -115,15 +118,70 @@
 
 	async function loadDocentes() {
 		try {
-			const response = await fetch('/admin/usuarios?tipo=docente', {
+			console.log('📥 [loadDocentes] Iniciando carga de docentes');
+			const response = await fetch('/api/docentes', {
 				headers: {
 					'Accept': 'application/json'
 				}
 			});
+			
+			console.log('✅ [loadDocentes] Respuesta recibida:', {
+				status: response.status,
+				statusText: response.statusText,
+				url: response.url
+			});
+			
+			// Check if not OK
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error('❌ [loadDocentes] Response not OK:', {
+					status: response.status,
+					errorText: errorText
+				});
+				docentes = [];
+				return;
+			}
+			
 			const data = await response.json();
-			docentes = data.data || [];
+			console.log('✅ [loadDocentes] Datos recibidos:', data);
+			
+			// Verificar si data.data existe
+			if (!data.data) {
+				console.warn('⚠️ [loadDocentes] data.data no existe. Estructura recibida:', Object.keys(data));
+				if (Array.isArray(data)) {
+					console.log('⚠️ [loadDocentes] La respuesta es un array directo, procesando...');
+					docentes = data.map((docente: any) => ({
+						id_docente: docente.id_docente,
+						nombre_completo: docente.nombre_completo || docente.usuario?.nombre1 || 'Sin nombre',
+						email: docente.email,
+						grado: docente.grado,
+						titulo: docente.titulo,
+						cargo: docente.cargo,
+						usuario: docente.usuario
+					}));
+				} else {
+					docentes = [];
+				}
+			} else {
+				// nombre_completo already computed by DocenteResource on the backend
+				docentes = (data.data || []).map((docente: any) => ({
+					id_docente: docente.id_docente,
+					nombre_completo: docente.nombre_completo || docente.usuario?.nombre1 || 'Sin nombre',
+					email: docente.email,
+					grado: docente.grado,
+					titulo: docente.titulo,
+					cargo: docente.cargo,
+					usuario: docente.usuario
+				}));
+			}
+			
+			console.log(`✅ [loadDocentes] ${docentes.length} docentes cargados:`, docentes);
 		} catch (error) {
-			console.error('Error loading docentes:', error);
+			console.error('❌ [loadDocentes] Error CRÍTICO:', {
+				message: error instanceof Error ? error.message : String(error),
+				stack: error instanceof Error ? error.stack : 'No stack',
+				error_object: error
+			});
 			docentes = [];
 		}
 	}
@@ -166,6 +224,7 @@
 	}
 
 	function openEditModal(curso: Curso) {
+		console.log('🔵 [openEditModal] ABRIENDO MODAL DE EDICIÓN para curso:', curso.nombre);
 		editingCurso = curso;
 		// Get id_asignatura and id_plan from asignacionPlan relationship
 		const id_asignatura = curso.asignacionPlan?.id_asignatura || 0;
@@ -183,25 +242,56 @@
 		if (id_plan) {
 			loadAsignaturasByPlan(id_plan);
 		}
+		console.log('🔵 [openEditModal] LLAMANDO loadDocentes()');
 		loadDocentes();
 		
 		// Load Secciones
+		console.log('🔵 [openEditModal] LLAMANDO loadSecciones()');
 		loadSecciones(curso.id_curso);
 		
+		console.log('🔵 [openEditModal] showModal = true');
 		showModal = true;
 	}
 
 	async function loadSecciones(cursoId: number) {
 		loadingSecciones = true;
 		try {
+			console.log(`📥 [loadSecciones] Iniciando carga para curso ID: ${cursoId}`);
+			
 			// Fetch fresh course data including sections
 			const response = await axios.get(`/admin/cursos/${cursoId}`);
+			
+			console.log(`✅ [loadSecciones] Respuesta recibida:`, {
+				status: response.status,
+				data_keys: response.data ? Object.keys(response.data) : 'NO DATA',
+				secciones_count: response.data?.secciones?.length,
+				response_data: response.data
+			});
+			
 			// Assuming response.data.secciones exists due to my backend change
 			if (response.data.secciones) {
+				console.log(`✅ [loadSecciones] Secciones encontradas: ${response.data.secciones.length}`);
 				currentSecciones = response.data.secciones;
+				console.log(`✅ [loadSecciones] currentSecciones actualizado:`, currentSecciones);
+			} else {
+				console.warn(`⚠️ [loadSecciones] No se encontraron secciones en response.data.secciones`);
+				console.warn(`⚠️ [loadSecciones] response.data:`, response.data);
 			}
 		} catch (error) {
-			console.error("Error loading secciones:", error);
+			console.error(`❌ [loadSecciones] ERROR CRÍTICO:`, {
+				message: error instanceof Error ? error.message : String(error),
+				status: error?.response?.status,
+				statusText: error?.response?.statusText,
+				error_data: error?.response?.data,
+				error_object: error
+			});
+			
+			// Mostrar un alert con el error detallado
+			const errorMessage = error?.response?.data?.error || error?.response?.data?.message || (error instanceof Error ? error.message : 'Error desconocido');
+			const errorFile = error?.response?.data?.error_file || '';
+			const errorTrace = error?.response?.data?.trace ? '\n\nStack Trace:\n' + error.response.data.trace : '';
+			
+			alert(`❌ Error al cargar secciones:\n\n${errorMessage}\n${errorFile}${errorTrace}`);
 		} finally {
 			loadingSecciones = false;
 		}
@@ -261,6 +351,42 @@
 			alert("Error al actualizar sección: " + message);
 		}
 	}
+
+	function toggleEditDocente(seccion: Seccion) {
+		if (showEditDocente && editingSeccion?.id_seccion === seccion.id_seccion) {
+			// Close if clicking the same section
+			showEditDocente = false;
+			editingSeccion = null;
+			editingDocenteId = null;
+		} else {
+			// Open edit mode
+			editingSeccion = seccion;
+			editingDocenteId = seccion.id_docente;
+			showEditDocente = true;
+		}
+	}
+
+	async function saveDocente() {
+		if (!editingSeccion) return;
+		
+		editingSeccion.id_docente = editingDocenteId;
+		await updateSeccionDocente(editingSeccion);
+		showEditDocente = false;
+		editingSeccion = null;
+		editingDocenteId = null;
+	}
+
+	function cancelEditDocente() {
+		showEditDocente = false;
+		editingSeccion = null;
+		editingDocenteId = null;
+	}
+
+	// Computed: get the currently selected docente details
+	let selectedDocenteDetails = $derived.by(() => {
+		if (!editingDocenteId) return null;
+		return docentes.find(d => d.id_docente === editingDocenteId) || null;
+	});
 
 	function closeModal() {
 		showModal = false;
@@ -582,16 +708,16 @@
 							<span class="badget">{seccion.tipo_seccion?.tipo || 'Sección'}</span>
 						</div>
 						<div class="seccion-docente">
-							<select 
-								bind:value={seccion.id_docente} 
-								onchange={() => updateSeccionDocente(seccion)}
-								class="form-input"
-							>
-								<option value={null}>Sin docente</option>
-								{#each docentes as docente}
-									<option value={docente.id_docente}>{docente.nombre_completo}</option>
-								{/each}
-							</select>
+							{#if seccion.id_docente}
+								<div class="docente-display">
+									<span class="docente-name">{seccion.docente?.nombre_completo || 'Sin nombre'}</span>
+									<button type="button" class="btn-edit-docente" onclick={() => toggleEditDocente(seccion)}>
+										<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+									</button>
+								</div>
+							{:else}
+								<span class="docente-empty">Sin docente asignado</span>
+							{/if}
 						</div>
 						<button type="button" class="btn-icon" onclick={() => deleteSeccion(seccion.id_seccion)} title="Eliminar Sección">
 							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
@@ -599,6 +725,67 @@
 					</div>
 				{/each}
 			</div>
+
+			{#if showEditDocente && editingSeccion}
+				<div class="edit-docente-form">
+					<div class="form-group">
+						<label>Asignar Docente a {editingSeccion.tipo_seccion?.tipo || 'Sección'}</label>
+						<select bind:value={editingDocenteId} class="form-input">
+							<option value={null}>Sin docente</option>
+							{#each docentes as docente}
+								<option value={docente.id_docente}>{docente.nombre_completo}</option>
+							{/each}
+						</select>
+					</div>
+
+					{#if selectedDocenteDetails}
+						<div class="docente-details-panel">
+							<h5>Información del Docente</h5>
+							<div class="details-grid">
+								<div class="detail-item">
+									<span class="detail-label">Nombre Completo:</span>
+									<span class="detail-value">{selectedDocenteDetails.nombre_completo || 'Sin nombre'}</span>
+								</div>
+								{#if selectedDocenteDetails.email}
+									<div class="detail-item">
+										<span class="detail-label">Email:</span>
+										<span class="detail-value">{selectedDocenteDetails.email}</span>
+									</div>
+								{/if}
+								{#if selectedDocenteDetails.grado}
+									<div class="detail-item">
+										<span class="detail-label">Grado:</span>
+										<span class="detail-value">{selectedDocenteDetails.grado}</span>
+									</div>
+								{/if}
+								{#if selectedDocenteDetails.titulo}
+									<div class="detail-item">
+										<span class="detail-label">Título:</span>
+										<span class="detail-value">{selectedDocenteDetails.titulo}</span>
+									</div>
+								{/if}
+								{#if selectedDocenteDetails.cargo}
+									<div class="detail-item">
+										<span class="detail-label">Cargo:</span>
+										<span class="detail-value">{selectedDocenteDetails.cargo}</span>
+									</div>
+								{/if}
+							</div>
+						</div>
+					{/if}
+
+					<div class="form-actions">
+						<button type="button" class="btn-primary" onclick={saveDocente}>
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+							Guardar
+						</button>
+						<button type="button" class="btn-secondary" onclick={cancelEditDocente}>
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+							Cancelar
+						</button>
+					</div>
+				</div>
+			{/if}
 
 			<div class="add-seccion-form">
 				<h4>Agregar Sección</h4>
@@ -893,6 +1080,150 @@
 	@keyframes toast-in {
 		from { opacity: 0; transform: translateY(12px) scale(0.96); }
 		to   { opacity: 1; transform: translateY(0)    scale(1);    }
+	}
+
+	/* ── Docente Display and Edit ──────────────────────── */
+	.docente-display {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.75rem;
+		background-color: #ffffff;
+		border: 1px solid #e2e8f0;
+		border-radius: 0.375rem;
+	}
+
+	.docente-name {
+		flex: 1;
+		font-size: 0.875rem;
+		color: #1e293b;
+		font-weight: 500;
+	}
+
+	.docente-empty {
+		font-size: 0.875rem;
+		color: #94a3b8;
+		font-style: italic;
+	}
+
+	.btn-edit-docente {
+		padding: 0.25rem;
+		color: #0284c7;
+		background: none;
+		border: none;
+		cursor: pointer;
+		border-radius: 0.25rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: background-color 0.2s;
+	}
+
+	.btn-edit-docente:hover {
+		background-color: #e0f2fe;
+	}
+
+	.edit-docente-form {
+		padding: 1rem;
+		background-color: #fafafa;
+		border: 2px solid #3b82f6;
+		border-radius: 0.5rem;
+		margin: 1rem 0;
+	}
+
+	.form-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+
+	.form-group label {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: #1e293b;
+	}
+
+	.form-group .form-input {
+		padding: 0.625rem 0.75rem;
+		border: 1px solid #cbd5e1;
+		border-radius: 0.375rem;
+		font-size: 0.875rem;
+	}
+
+	.form-actions {
+		display: flex;
+		gap: 0.75rem;
+		margin-top: 1rem;
+	}
+
+	.btn-primary {
+		background-color: #3b82f6;
+		color: #ffffff;
+		padding: 0.625rem 1.25rem;
+		border: none;
+		border-radius: 0.375rem;
+		font-weight: 500;
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		transition: all 0.2s;
+	}
+
+	.btn-primary:hover:not(:disabled) {
+		background-color: #2563eb;
+	}
+
+	.btn-primary:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.mr-2 {
+		margin-right: 0.5rem;
+	}
+
+	/* ── Docente Details Panel ────────────────────────── */
+	.docente-details-panel {
+		padding: 1rem;
+		background-color: #f0f9ff;
+		border: 1px solid #bfdbfe;
+		border-radius: 0.5rem;
+		margin: 1rem 0;
+	}
+
+	.docente-details-panel h5 {
+		margin: 0 0 1rem 0;
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: #1e40af;
+	}
+
+	.details-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1rem;
+	}
+
+	.detail-item {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.detail-label {
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: #64748b;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.detail-value {
+		font-size: 0.875rem;
+		color: #1e293b;
+		font-weight: 500;
 	}
 </style>
 </AdminLayout>

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Administrativo;
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Programa;
 use App\Models\Curso\Curso;
+use App\Services\ProgramaService;
+use App\Services\SyllabusStructure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
@@ -13,23 +15,16 @@ class ProgramaController extends Controller
 {
     /**
      * Store a newly created resource in storage.
+     * 
+     * Si se envían secciones customizadas, actualiza el syllabus con esos contenidos.
+     * Si no, genera la estructura base automáticamente.
      */
     public function store(Request $request, Curso $curso)
     {
         $user = Auth::user();
 
-        // If 'secciones' is missing, we initialize with defaults for initial generation
-        if (!$request->has('secciones')) {
-            $curso->load('asignatura');
-            $secciones = [
-                ['nombre_seccion' => "Descripción de la Asignatura", 'numeral_romano' => "I", 'orden' => 1, 'contenidos' => [['texto_contenido' => $curso->asignatura->descripcion ?? '', 'orden_item' => 1]]],
-                ['nombre_seccion' => "Competencias", 'numeral_romano' => "II", 'orden' => 2, 'contenidos' => []],
-                ['nombre_seccion' => "Resultados de Aprendizaje", 'numeral_romano' => "III", 'orden' => 3, 'contenidos' => []],
-                ['nombre_seccion' => "Contenidos", 'numeral_romano' => "IV", 'orden' => 4, 'contenidos' => []],
-                ['nombre_seccion' => "Metodología", 'numeral_romano' => "V", 'orden' => 5, 'contenidos' => []],
-                ['nombre_seccion' => "Evaluación", 'numeral_romano' => "VI", 'orden' => 6, 'contenidos' => []],
-            ];
-        } else {
+        // Validar si se envían secciones
+        if ($request->has('secciones')) {
             $request->validate([
                 'secciones' => 'required|array',
                 'secciones.*.nombre_seccion' => 'required|string',
@@ -38,65 +33,26 @@ class ProgramaController extends Controller
                 'secciones.*.contenidos.*.texto_contenido' => 'nullable|string',
                 'secciones.*.contenidos.*.orden_item' => 'required|integer',
             ]);
-            $secciones = $request->secciones;
+            
+            // Generar con secciones customizadas
+            $overrides = [
+                'secciones' => $request->secciones
+            ];
+        } else {
+            $overrides = null;
         }
 
         try {
-            return \Illuminate\Support\Facades\DB::transaction(function () use ($secciones, $curso, $user) {
-                // Check if program already exists and is active
-                $existing = Programa::where('id_curso', $curso->id_curso)
-                    ->where('es_plantilla', $curso->es_plantilla)
-                    ->where('es_actual', true)
-                    ->first();
+            $programa = ProgramaService::generateProgramaWithSyllabus(
+                $curso,
+                $user,
+                $overrides
+            );
 
-                if ($existing) {
-                    $existing->update(['es_actual' => false]);
-                    $newVersion = $existing->version_programa + 1;
-                } else {
-                    $newVersion = 1;
-                }
-
-                // Create the program header
-                $programa = Programa::create([
-                    'id_curso' => $curso->id_curso,
-                    'es_plantilla' => $curso->es_plantilla,
-                    'es_actual' => true,
-                    'version_programa' => $newVersion,
-                    'unc_programa' => 1,
-                    'fecha_creacion' => now(),
-                    'creado_por' => $user->id_usuario
-                ]);
-
-                // Create Sections and Contents
-                foreach ($secciones as $seccionData) {
-                    $seccion = $programa->secciones()->create([
-                        'nombre_seccion' => $seccionData['nombre_seccion'],
-                        'numeral_romano' => $seccionData['numeral_romano'] ?? null,
-                        'es_lista' => $seccionData['es_lista'] ?? false,
-                        'orden' => $seccionData['orden'],
-                        'id_programa' => $programa->id_programa,
-                        'es_actual' => true,
-                        'id_curso' => $programa->id_curso,
-                        'es_plantilla' => $programa->es_plantilla,
-                    ]);
-
-                    if (!empty($seccionData['contenidos'])) {
-                        foreach ($seccionData['contenidos'] as $contenidoData) {
-                            $seccion->contenidos_programa()->create([
-                                'texto_contenido' => $contenidoData['texto_contenido'],
-                                'valor_numerico' => $contenidoData['valor_numerico'] ?? null,
-                                'orden_item' => $contenidoData['orden_item'],
-                            ]);
-                        }
-                    }
-                }
-
-                return Redirect::route('docente.cursos.programa.show', $curso->id_curso)
-                    ->with('success', 'Programa generado correctamente.');
-            });
+            return Redirect::route('docente.cursos.programa.show', $curso->id_curso)
+                ->with('success', 'Programa generado correctamente.');
 
         } catch (\Exception $e) {
-            dd($e->getMessage());
             return Redirect::back()->with('error', 'Error al generar el programa: ' . $e->getMessage());
         }
     }
@@ -106,55 +62,40 @@ class ProgramaController extends Controller
      */
     public function show(Curso $curso)
     {
-        $curso->load(['asignatura']);
+        $curso->load(['asignacionPlan.asignatura']);
 
-        // Fetch existing program for this course
+        // Obtener programa actual con JSONB
         $programa = Programa::where('id_curso', $curso->id_curso)
-            ->where('es_plantilla', $curso->es_plantilla)
             ->where('es_actual', true)
-            ->with([
-                'secciones' => function ($query) {
-                    $query->orderBy('orden')->with([
-                        'contenidos_programa' => function ($q) {
-                            $q->orderBy('orden_item');
-                        }
-                    ]);
-                }
-            ])
             ->first();
 
-        // If no program exists, we might want to return a template structure or just null
-        // The frontend can handle "Generar" vs "Ver" state
-
-        // Fetch units for this course (might be useful context)
-        $unidades = \App\Models\Curso\Unidad::where('id_curso', $curso->id_curso)
-            ->where('es_plantilla', $curso->es_plantilla)
-            ->orderBy('num_unidad')
-            ->get();
+        // Convertir JSONB a formato esperado por frontend
+        $programaData = null;
+        if ($programa && $programa->data_syllabus) {
+            $programaData = [
+                'id_programa' => $programa->id_programa,
+                'version_programa' => $programa->version_programa,
+                'estado' => $programa->estado,
+                'secciones' => $programa->data_syllabus['secciones'] ?? [],
+                'fecha_creacion' => $programa->fecha_creacion,
+            ];
+        }
 
         return \Inertia\Inertia::render('docente/Programa', [
             'curso' => $curso,
-            'programa' => $programa,
-            'asignatura' => $curso->asignatura,
-            'unidades' => $unidades
+            'programa' => $programaData,
+            'asignatura' => $curso->asignacionPlan?->asignatura,
         ]);
     }
 
     /**
      * Elimina el programa actual de un curso.
-     * 
-     * @param \App\Models\Curso\Curso $curso
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function destroy(Curso $curso)
     {
-        // Autorizar acceso
         $this->authorize('delete', $curso);
-        
 
-        // Buscar programa actual
         $programa = Programa::where('id_curso', $curso->id_curso)
-            ->where('es_plantilla', $curso->es_plantilla)
             ->where('es_actual', true)
             ->first();
 

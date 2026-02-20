@@ -58,14 +58,14 @@ Route::get('dashboard', function () {
             ->pluck('id_contexto');
 
         $ayudanteCourses = \App\Models\Curso\Curso::whereIn('id_contexto', $contextosAsignados)
-            ->with(['asignatura', 'plan.carrera'])
+            ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera'])
             ->get()
             ->map(function ($curso) {
                 return [
                     'id_curso' => $curso->id_curso,
                     'nombre' => $curso->nombre,
                     'cod_curso' => $curso->cod_curso,
-                    'asignatura_nombre' => $curso->asignatura?->nombre ?? 'N/A',
+                    'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                 ];
             });
     }
@@ -98,6 +98,10 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::resource('asignaturas', AsignaturaController::class);
     Route::resource('cursos', CursoController::class);
     Route::resource('usuarios', UsuarioController::class);
+
+    // Curso routes
+    Route::get('cursos/{plan}/asignaturas-disponibles', [CursoController::class, 'getAsignaturasByPlan'])
+        ->name('cursos.asignaturas-disponibles');
 
     // Additional usuario routes
     Route::post('usuarios/{usuario}/change-password', [UsuarioController::class, 'changePassword'])
@@ -243,6 +247,11 @@ Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name
     Route::get('dashboard', [\App\Http\Controllers\Ayudante\DashboardController::class, 'index'])->name('dashboard');
     Route::get('cursos', [\App\Http\Controllers\Ayudante\CourseController::class, 'index'])->name('cursos.index');
     Route::get('cursos/{curso}', [\App\Http\Controllers\Ayudante\CourseController::class, 'show'])->name('cursos.show');
+});
+
+// API Routes for AJAX/Fetch calls
+Route::prefix('api')->middleware(['auth', 'verified'])->group(function () {
+    Route::get('docentes', [\App\Http\Controllers\Admin\CursoController::class, 'getDocentes']);
 });
 
 require __DIR__ . '/settings.php';

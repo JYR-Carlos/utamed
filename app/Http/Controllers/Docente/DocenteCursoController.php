@@ -9,7 +9,7 @@ use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Contexto;
 use App\Models\Usuario\Permiso;
-use App\Models\Usuario\UsuarioRolAsignación;
+use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -58,7 +58,7 @@ class DocenteCursoController extends Controller
 
         // Consultar cursos con información adicional
         $cursos = Curso::whereIn('id_curso', $cursoIds)
-            ->with(['asignatura'])
+            ->with(['asignacionPlan.asignatura'])
             ->orderBy('fecha_inicio', 'desc')
             ->get()
             ->map(function ($curso) {
@@ -71,8 +71,8 @@ class DocenteCursoController extends Controller
                     'id_curso' => $curso->id_curso,
                     'nombre' => $curso->nombre,
                     'cod_curso' => $curso->cod_curso,
-                    'asignatura_nombre' => $curso->asignatura?->nombre ?? 'N/A',
-                    'cod_asignatura' => $curso->asignatura?->cod_asignatura ?? 'N/A',
+                    'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+                    'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? 'N/A',
                     'fecha_inicio' => $curso->fecha_inicio,
                     'fecha_fin' => $curso->fecha_fin,
                     'tiene_programa' => $tienePrograma,
@@ -115,8 +115,8 @@ class DocenteCursoController extends Controller
 
         // Cargar relaciones necesarias
         $curso->load([
-            'asignatura',
-            'plan.carrera',
+            'asignacionPlan.asignatura',
+            'asignacionPlan.plan.carrera',
             'secciones.tipoSeccion',
             'secciones.inscripcionSecciones'
         ]);
@@ -143,13 +143,13 @@ class DocenteCursoController extends Controller
                 'es_plantilla' => $curso->es_plantilla,
                 'tiene_programa' => $tienePrograma,
                 'asignatura' => [
-                    'nombre' => $curso->asignatura?->nombre ?? 'N/A',
-                    'cod_asignatura' => $curso->asignatura?->cod_asignatura ?? 'N/A',
-                    'descripcion' => $curso->asignatura?->descripcion ?? '',
+                    'nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+                    'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? 'N/A',
+                    'descripcion' => $curso->asignacionPlan?->asignatura?->descripcion ?? '',
                 ],
                 'plan' => [
-                    'nombre' => $curso->plan?->nombre ?? 'N/A',
-                    'carrera' => $curso->plan?->carrera?->nombre ?? 'N/A',
+                    'nombre' => $curso->asignacionPlan?->plan?->nombre ?? 'N/A',
+                    'carrera' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                 ],
                 'secciones' => $curso->secciones->map(function ($seccion) {
                     return [
@@ -331,7 +331,7 @@ class DocenteCursoController extends Controller
             $allowedRoleIds = Rol::whereIn('nombre', $allowedRoleNames)->pluck('id_rol')->toArray();
 
             // Deactivate ONLY allowed roles first to avoid wiping things teachers shouldn't touch
-            UsuarioRolAsignación::where('id_usuario', $usuario->id_usuario)
+            UsuarioRolAsignacion::where('id_usuario', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->whereIn('id_rol', $allowedRoleIds)
                 ->where('esta_activo', true)
@@ -341,7 +341,7 @@ class DocenteCursoController extends Controller
                 foreach ($validated['roles'] as $rolId) {
                     // Only sync if it's an allowed role for this context management
                     if (in_array($rolId, $allowedRoleIds)) {
-                        UsuarioRolAsignación::updateOrCreate(
+                        UsuarioRolAsignacion::updateOrCreate(
                             [
                                 'id_usuario' => $usuario->id_usuario,
                                 'id_contexto' => $idContexto,

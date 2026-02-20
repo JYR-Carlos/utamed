@@ -161,28 +161,7 @@ export interface Curso {
     id_curso_padre?: number;
     version_plantilla?: number;
     numero_semestre?: number;
-<<<<<<< HEAD
-    agno_real?: number;
-    semestre_real?: number;
-    id_docente?: number;
-    asignatura?: Asignatura;
-    plan?: Plan;
-    docente?: Docente;
-    /** Active programa for this course (eager-loaded or from LEFT JOIN) */
-    programa?: Programa | null;
-    /** Boolean flag from CursoController JOIN — avoids N+1 */
-    has_programa?: boolean;
-    /** id_programa from JOIN (null if none) */
-    id_programa?: number | null;
-    /** Asignatura name from JOIN (CursoController::index) */
-    asignatura_nombre?: string;
-    /** Carrera name from JOIN (CursoController::index) */
-    carrera_nombre?: string;
-    /** Docente name from JOIN (CursoController) */
-    docente_nombre?: string;
-=======
     asignacionPlan?: AsignacionPlan;
->>>>>>> 749a229 (fix: Precambios en los controladores para las claves subrogadas.)
     fecha_creacion?: string;
     fecha_modificacion?: string;
     fecha_eliminacion?: string;
@@ -231,34 +210,51 @@ export interface Seccion {
 export interface Usuario {
     id_usuario: number;
     username: string;
+    rut?: string;
+    nombre1?: string;
+    nombre2?: string;
+    apellido1?: string;
+    apellido2?: string;
+    email?: string;
+    esta_activo?: boolean;
     fecha_creacion?: string;
 }
 
 export interface Estudiante {
     id_estudiante: number;
-    rut: string;
-    nombre1: string;
-    nombre2?: string;
-    apellido1: string;
-    apellido2?: string;
-    email?: string;
+    id_usuario: number;
     agno_ingreso?: number;
     id_carrera?: number;
     carrera?: Carrera;
+    usuario?: Usuario;
+    /** @deprecated Use usuario.rut */
+    rut?: string;
+    /** @deprecated Use usuario.nombre1 */
+    nombre1?: string;
+    /** @deprecated Use usuario.nombre2 */
+    nombre2?: string;
+    /** @deprecated Use usuario.apellido1 */
+    apellido1?: string;
+    /** @deprecated Use usuario.apellido2 */
+    apellido2?: string;
+    /** @deprecated Use usuario.email */
+    email?: string;
 }
 
 export interface Docente {
     id_docente: number;
-    rut: string;
-    nombre1: string;
+    id_usuario?: number;
+    rut?: string;
+    nombre1?: string;
     nombre2?: string;
-    apellido1: string;
+    apellido1?: string;
     apellido2?: string;
     nombre_completo?: string;
     email?: string;
     grado?: string;
     titulo?: string;
     cargo?: string;
+    usuario?: Usuario;
 }
 
 export interface Administrador {

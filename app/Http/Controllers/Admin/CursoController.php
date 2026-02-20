@@ -103,30 +103,56 @@ class CursoController extends Controller
     public function show(Curso $curso)
     {
         try {
+            Log::info("CursoController.show() - iniciando carga de curso", ['id_curso' => $curso->id_curso]);
+            
             $curso->load([
                 'inscripcionCursos.estudiante',
                 'asignacionPlan.asignatura',
                 'asignacionPlan.plan.carrera'
             ]);
+            Log::info("CursoController.show() - curso cargado exitosamente");
 
-            // Load secciones directly to avoid composite key eager load issues
+            // Load secciones with all relationships upfront using eager loading
+            Log::info("CursoController.show() - cargando secciones", [
+                'id_curso' => $curso->id_curso
+            ]);
+            
             $secciones = Seccion::where('id_curso', $curso->id_curso)
-                ->where('es_plantilla', $curso->es_plantilla)
-                ->with('docente.usuario', 'tipoSeccion')
+                ->with(['docente.usuario', 'tipoSeccion'])
                 ->get();
+            
+            Log::info("CursoController.show() - secciones cargadas", [
+                'cantidad_secciones' => $secciones->count()
+            ]);
+            
+            Log::info("CursoController.show() - transformando con resources");
+            $cursoResource = new CursoResource($curso);
+            Log::info("CursoController.show() - CursoResource creado");
+            
+            $seccionesResource = SeccionResource::collection($secciones);
+            Log::info("CursoController.show() - SeccionResource collection creada");
+
+            $tiposSeccion = TipoSeccion::all();
+            Log::info("CursoController.show() - tipos sección cargados");
 
             return response()->json([
-                'curso' => new CursoResource($curso),
-                'secciones' => SeccionResource::collection($secciones),
-                'tipos_seccion' => TipoSeccion::all()
+                'curso' => $cursoResource,
+                'secciones' => $seccionesResource,
+                'tipos_seccion' => $tiposSeccion
             ]);
         } catch (\Exception $e) {
-            Log::error("Error in show curso: " . $e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
-                'curso_id' => $curso->id_curso
+            Log::error("❌ Error CRÍTICO en CursoController.show()", [
+                'curso_id' => $curso->id_curso ?? 'UNKNOWN',
+                'error_message' => $e->getMessage(),
+                'error_class' => get_class($e),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
             ]);
             return response()->json([
                 'error' => 'Error al cargar el curso: ' . $e->getMessage(),
+                'error_class' => get_class($e),
+                'error_file' => $e->getFile() . ':' . $e->getLine(),
                 'trace' => config('app.debug') ? $e->getTraceAsString() : null
             ], 500);
         }
@@ -173,6 +199,21 @@ class CursoController extends Controller
             ->get();
 
         return response()->json($asignaturas);
+    }
+
+    /**
+     * Get docentes with their user information (for dropdowns).
+     */
+    public function getDocentes()
+    {
+        // docente table has no fecha_eliminacion column – no soft-delete filter here
+        $docentes = \App\Models\Usuario\Docente::with('usuario')
+            ->orderBy('id_docente')
+            ->get();
+
+        return response()->json([
+            'data' => \App\Http\Resources\DocenteResource::collection($docentes)
+        ]);
     }
 
     /**

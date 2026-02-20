@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreSeccionRequest;
+use App\Http\Requests\UpdateSeccionRequest;
+use App\Http\Resources\SeccionResource;
 use App\Models\Curso\Seccion;
 use App\Models\Curso\Curso;
 use Illuminate\Http\Request;
@@ -31,16 +34,13 @@ class SeccionController extends Controller
      * Permite asignación opcional de docente responsable.
      * Devuelve JSON si es solicitud AJAX, redirección de vuelta si es formulario tradicional.
      * 
-     * @param  Request  $request  Datos: id_tipo_seccion, id_docente (opcional)
+     * @param  StoreSeccionRequest  $request  Datos: id_tipo_seccion, id_docente (opcional)
      * @param  Curso    $curso    Curso al cual agregar la sección
      * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse  JSON o redirección
      */
-    public function store(Request $request, Curso $curso)
+    public function store(StoreSeccionRequest $request, Curso $curso)
     {
-        $validated = $request->validate([
-            'id_tipo_seccion' => 'required|integer|exists:App\Models\Curso\TipoSeccion,id_tipo_seccion',
-            'id_docente' => 'nullable|integer|exists:App\Models\Usuario\Docente,id_docente',
-        ]);
+        $validated = $request->validated();
 
         try {
             // Validar Reglas de Negocio
@@ -66,11 +66,14 @@ class SeccionController extends Controller
                 'id_curso' => $curso->id_curso,
                 'id_tipo_seccion' => $validated['id_tipo_seccion'],
                 'id_docente' => $validated['id_docente'],
-                'es_plantilla' => false
+                'genera_acta' => false,
+                'porcentaje_aprobacion' => 60,
+                'aprobacion_obligatoria' => false,
+                'porcentaje_asistencia_obligatoria' => 0
             ]);
 
             if ($request->wantsJson()) {
-                return response()->json(['message' => 'Sección creada exitosamente.', 'seccion' => $seccion->load('tipoSeccion', 'docente')]);
+                return response()->json(['message' => 'Sección creada exitosamente.', 'seccion' => new SeccionResource($seccion->load(['tipoSeccion', 'docente.usuario']))]);
             }
             return back()->with('success', 'Sección creada exitosamente.'); // Return back for Inertia partial reload
         } catch (\Exception $e) {
@@ -87,16 +90,13 @@ class SeccionController extends Controller
      * Modifica el tipo de sección y/o el docente asignado.
      * Devuelve JSON si es solicitud AJAX, redirección de vuelta si es formulario tradicional.
      * 
-     * @param  Request  $request  Datos actualizados: id_tipo_seccion, id_docente (opcional)
+     * @param  UpdateSeccionRequest  $request  Datos actualizados: id_tipo_seccion, id_docente (opcional)
      * @param  Seccion  $seccion  Sección a actualizar
      * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse  JSON o redirección
      */
-    public function update(Request $request, Seccion $seccion)
+    public function update(UpdateSeccionRequest $request, Seccion $seccion)
     {
-        $validated = $request->validate([
-            'id_tipo_seccion' => 'required|integer|exists:App\Models\Curso\TipoSeccion,id_tipo_seccion',
-            'id_docente' => 'nullable|integer|exists:App\Models\Usuario\Docente,id_docente',
-        ]);
+        $validated = $request->validated();
 
         try {
             $seccion->update([
@@ -105,7 +105,7 @@ class SeccionController extends Controller
             ]);
 
             if ($request->wantsJson()) {
-                return response()->json(['message' => 'Sección actualizada exitosamente.', 'seccion' => $seccion->fresh('tipoSeccion', 'docente')]);
+                return response()->json(['message' => 'Sección actualizada exitosamente.', 'seccion' => new SeccionResource($seccion->fresh(['tipoSeccion', 'docente.usuario']))]);
             }
             return back()->with('success', 'Sección actualizada exitosamente.');
         } catch (\Exception $e) {

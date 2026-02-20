@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\Rol;
-use App\Models\Usuario\UsuarioRolAsignación;
+use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\Contexto;
 use Illuminate\Database\Seeder;
 
@@ -60,7 +60,7 @@ class RoleAndPermissionSeeder extends Seeder
         $now = now();
         $future = now()->addYears(100);
 
-        UsuarioRolAsignación::updateOrCreate(
+        UsuarioRolAsignacion::updateOrCreate(
             [
                 'id_usuario' => $admin->id_usuario,
                 'id_contexto' => $contextoGlobal->id_contexto,

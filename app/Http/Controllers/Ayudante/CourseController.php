@@ -23,7 +23,7 @@ class CourseController extends Controller
             ->pluck('id_contexto');
 
         $cursosInscritos = \App\Models\Curso\Curso::whereIn('id_contexto', $contextosAsignados)
-            ->with(['asignatura', 'plan.carrera'])
+            ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera'])
             ->get();
 
         $cursosData = $cursosInscritos->map(function ($curso) {
@@ -31,8 +31,8 @@ class CourseController extends Controller
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
                 'cod_curso' => $curso->cod_curso,
-                'asignatura_nombre' => $curso->asignatura?->nombre ?? 'N/A',
-                'carrera_nombre' => $curso->plan?->carrera?->nombre ?? 'N/A',
+                'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+                'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                 'fecha_inicio' => $curso->fecha_inicio,
                 'fecha_fin' => $curso->fecha_fin,
             ];

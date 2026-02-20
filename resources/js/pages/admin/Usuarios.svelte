@@ -80,7 +80,7 @@
 		apellido1: '',
 		apellido2: '',
 		email: '',
-		agno_ingreso: undefined,
+		agno_ingreso:  undefined,
 		id_carrera: undefined,
 		username: '',
 		password: ''
@@ -113,18 +113,18 @@
 
 	const estudianteColumns = [
 		{ key: 'id_estudiante', label: 'ID' },
-		{ key: 'rut', label: 'RUT' },
-		{ key: 'nombre1', label: 'Nombre' },
-		{ key: 'apellido1', label: 'Apellido' },
+		{ key: 'usuario.rut', label: 'RUT' },
+		{ key: 'usuario.nombre1', label: 'Nombre' },
+		{ key: 'usuario.apellido1', label: 'Apellido' },
 		{ key: 'agno_ingreso', label: 'Año Ingreso' },
 		{ key: 'carrera.nombre', label: 'Carrera' }
 	];
 
 	const docenteColumns = [
 		{ key: 'id_docente', label: 'ID' },
-		{ key: 'rut', label: 'RUT' },
-		{ key: 'nombre1', label: 'Nombre' },
-		{ key: 'apellido1', label: 'Apellido' },
+		{ key: 'usuario.rut', label: 'RUT' },
+		{ key: 'usuario.nombre1', label: 'Nombre' },
+		{ key: 'usuario.apellido1', label: 'Apellido' },
 		{ key: 'grado', label: 'Grado' },
 		{ key: 'cargo', label: 'Cargo' }
 	];
@@ -191,12 +191,12 @@
 		if (currentTipo === 'estudiante') {
 			const estudiante = usuario as Estudiante;
 			estudianteFormData = {
-				rut: estudiante.rut,
-				nombre1: estudiante.nombre1,
-				nombre2: estudiante.nombre2 || '',
-				apellido1: estudiante.apellido1,
-				apellido2: estudiante.apellido2 || '',
-				email: estudiante.email || '',
+				rut: estudiante.usuario?.rut || '',
+				nombre1: estudiante.usuario?.nombre1 || '',
+				nombre2: estudiante.usuario?.nombre2 || '',
+				apellido1: estudiante.usuario?.apellido1 || '',
+				apellido2: estudiante.usuario?.apellido2 || '',
+				email: estudiante.usuario?.email || '',
 				agno_ingreso: estudiante.agno_ingreso,
 				id_carrera: estudiante.id_carrera,
 				username: '',
@@ -205,12 +205,12 @@
 		} else if (currentTipo === 'docente') {
 			const docente = usuario as Docente;
 			docenteFormData = {
-				rut: docente.rut,
-				nombre1: docente.nombre1,
-				nombre2: docente.nombre2 || '',
-				apellido1: docente.apellido1,
-				apellido2: docente.apellido2 || '',
-				email: docente.email || '',
+				rut: docente.usuario?.rut || '',
+				nombre1: docente.usuario?.nombre1 || '',
+				nombre2: docente.usuario?.nombre2 || '',
+				apellido1: docente.usuario?.apellido1 || '',
+				apellido2: docente.usuario?.apellido2 || '',
+				email: docente.usuario?.email || '',
 				grado: docente.grado || '',
 				titulo: docente.titulo || '',
 				cargo: docente.cargo || '',
