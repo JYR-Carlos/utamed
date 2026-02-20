@@ -39,8 +39,10 @@ abstract class BaseCurso extends CustomBaseModel implements HasContext
         'estado_interno',
         'estado_acta',
         'es_plantilla',
-        'id_asignatura',
-        'id_plan',
+        'id_asignacion_plan',
+        'id_contexto',
+        'id_curso_padre',
+        'version_plantilla',
         'letra_grupo'
     ];
 
@@ -55,8 +57,7 @@ abstract class BaseCurso extends CustomBaseModel implements HasContext
 
     public function asignacionPlan()
     {
-        $instance = new \App\Models\Administrativo\AsignacionPlan();
-        return new BelongsTo($instance->newQuery(), $this, ['id_asignatura', 'id_plan'], ['id_asignatura', 'id_plan'], 'asignacionPlan');
+        return $this->belongsTo(\App\Models\Administrativo\AsignacionPlan::class, 'id_asignacion_plan', 'id_asignacion_plan');
     }
 
     // Relaciones inversas

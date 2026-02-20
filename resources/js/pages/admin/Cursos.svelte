@@ -101,10 +101,7 @@
 		id_plan: 0,
 		cod_curso: 0,
 		nombre: '',
-		fecha_inicio: '',
-		agno_real: new Date().getFullYear(),
-		semestre_real: 1,
-		id_docente: undefined // Kept for legacy compatibility or removal
+		fecha_inicio: ''
 	});
 
 	const columns = [
@@ -161,10 +158,7 @@
 			cod_curso: 0,
 			nombre: '',
 			fecha_inicio: '',
-			numero_semestre: undefined,
-			agno_real: new Date().getFullYear(),
-			semestre_real: 1,
-			id_docente: undefined
+			numero_semestre: undefined
 		};
 		availableAsignaturas = [];
 		loadDocentes();
@@ -173,20 +167,21 @@
 
 	function openEditModal(curso: Curso) {
 		editingCurso = curso;
+		// Get id_asignatura and id_plan from asignacionPlan relationship
+		const id_asignatura = curso.asignacionPlan?.id_asignatura || 0;
+		const id_plan = curso.asignacionPlan?.id_plan || 0;
+		
 		formData = {
-			id_asignatura: curso.id_asignatura,
-			id_plan: curso.id_plan,
+			id_asignatura: id_asignatura,
+			id_plan: id_plan,
 			cod_curso: curso.cod_curso,
 			nombre: curso.nombre || '',
 			fecha_inicio: curso.fecha_inicio || '',
-			numero_semestre: curso.numero_semestre,
-			agno_real: curso.agno_real || new Date().getFullYear(),
-			semestre_real: curso.semestre_real || 1,
-			id_docente: curso.id_docente
+			numero_semestre: curso.numero_semestre
 		};
 		// Load asignaturas for the selected plan
-		if (curso.id_plan) {
-			loadAsignaturasByPlan(curso.id_plan);
+		if (id_plan) {
+			loadAsignaturasByPlan(id_plan);
 		}
 		loadDocentes();
 		

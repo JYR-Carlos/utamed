@@ -3,16 +3,26 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreCursoRequest;
+use App\Http\Requests\UpdateCursoRequest;
+use App\Http\Resources\CursoResource;
+use App\Http\Resources\SeccionResource;
 use App\Models\Curso\Curso;
-use App\Models\Administrativo\Asignatura;
+use App\Models\Curso\Seccion;
 use App\Models\Administrativo\Plan;
-use App\Models\Usuario\Docente;
+use App\Models\Curso\TipoSeccion;
+use App\Services\CursoService;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
+<<<<<<< HEAD
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+=======
+use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
+use Inertia\Response;
+
+>>>>>>> 749a229 (fix: Precambios en los controladores para las claves subrogadas.)
 /**
  * Controlador para la gestión de cursos (instancias de asignaturas).
  * 
@@ -27,268 +37,166 @@ use Illuminate\Support\Facades\Log;
  */
 class CursoController extends Controller
 {
-    /**
-     * Muestra un listado paginado de todos los cursos con búsqueda y filtros.
-     */
-    public function index(Request $request)
+    protected CursoService $cursoService;
+
+    public function __construct(CursoService $cursoService)
     {
-        $query = Curso::query();
+        $this->cursoService = $cursoService;
+    }
 
-        // Search functionality
-        if ($request->has('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('curso.nombre', 'ilike', "%{$search}%")
-                    ->orWhere('curso.cod_curso', 'ilike', "%{$search}%");
-            });
-        }
-
-        // Filter by asignatura
-        if ($request->has('id_asignatura')) {
-            $query->where('curso.id_asignatura', $request->input('id_asignatura'));
-        }
-
-        // Join with relationships to simplify data access in frontend
-        $cursos = $query->join('asignatura', 'curso.id_asignatura', '=', 'asignatura.id_asignatura')
-            ->join('plan', 'curso.id_plan', '=', 'plan.id_plan')
-            ->join('carrera', 'plan.id_carrera', '=', 'carrera.id_carrera')
-            ->select(
-                'curso.*',
-                'asignatura.nombre as asignatura_nombre',
-                'carrera.nombre as carrera_nombre'
-            )
-            ->whereNull('curso.fecha_eliminacion')
-            ->orderBy('curso.fecha_inicio', 'desc')
+    /**
+     * Display a paginated list of all courses with search and filters.
+     */
+    public function index(Request $request): Response
+    {
+        $cursos = Curso::query()
+            ->with([
+                'asignacionPlan.asignatura',
+                'asignacionPlan.plan.carrera'
+            ])
+            ->when($request->search, function ($query, $search) {
+                $query->where('nombre', 'ilike', "%{$search}%")
+                    ->orWhere('cod_curso', 'ilike', "%{$search}%")
+                    ->orWhereHas('asignacionPlan.asignatura', function ($q) use ($search) {
+                        $q->where('nombre', 'ilike', "%{$search}%");
+                    });
+            })
+            ->whereNull('fecha_eliminacion')
+            ->orderBy('fecha_inicio', 'desc')
             ->paginate($request->input('per_page', 15))
             ->withQueryString();
 
-        // Get all asignaturas and planes for filters
-        $asignaturas = Asignatura::orderBy('cod_asignatura')->get();
-        $planes = Plan::with('carrera')->orderBy('agno', 'desc')->get();
-
-        // RBAC Data for team management - Filtered if user is a Docente
-        /** @var \App\Models\Usuario\Usuario $user */
-        $user = Auth::user();
-        $isDocente = $user && $user->docente;
-        // In this system, someone might have both roles, but if they have a docente profile, we restrict them here
-        // UNLESS they have a higher system-admin role. Let's be safe and check if they are explicitly restricted.
-
-        $roleQuery = \App\Models\Usuario\Rol::orderBy('nombre');
-        $permQuery = \App\Models\Usuario\Permiso::orderBy('slug');
-
-        if ($isDocente) {
-            $roleQuery->whereIn('nombre', ['Ayudante', 'Estudiante']);
-            // $permQuery->whereIn('modulo', ['Docencia', 'Ayudantía']); // Modulo no longer exists
-        }
-
-        $availableRoles = $roleQuery->get();
-        // Just return all permissions, maybe keyed by something else or just flat
-        // Group permissions by 'General' category since 'modulo' column was removed
-        $availablePermissions = $permQuery->get()->groupBy(fn() => 'General');
+        $planes = Plan::with('carrera')->get();
+        $tipos_seccion = TipoSeccion::all();
 
         return Inertia::render('admin/Cursos', [
-            'cursos' => $cursos,
-            'asignaturas' => $asignaturas,
+            'cursos' => CursoResource::collection($cursos),
             'planes' => $planes,
-            'availableRoles' => $availableRoles,
-            'availablePermissions' => $availablePermissions,
-            'tipos_seccion' => \App\Models\Curso\TipoSeccion::all(),
-            'filters' => $request->only(['search', 'id_asignatura'])
+            'tipos_seccion' => $tipos_seccion,
+            'availableRoles' => [],
+            'availablePermissions' => [],
+            'filters' => $request->only(['search'])
         ]);
     }
 
     /**
-     * Store a newly created curso.
+     * Store a newly created course.
      */
-    public function store(Request $request)
+    public function store(StoreCursoRequest $request)
     {
-        $validated = $request->validate([
-            'id_asignatura' => ['required', Rule::exists(Asignatura::class, 'id_asignatura')],
-            'id_plan' => ['required', Rule::exists(Plan::class, 'id_plan')],
-            'cod_curso' => 'required|integer',
-            'nombre' => 'nullable|string|max:255',
-            'fecha_inicio' => 'nullable|date',
-            'agno_real' => 'required|integer|min:2000|max:2100',
-            'semestre_real' => 'required|integer|in:1,2',
-            // Note: Docente is assigned through Sección, not directly to Curso
-        ]);
-
-        // BUSINESS RULE: Validate that plan is active (not soft-deleted)
-        $plan = Plan::find($validated['id_plan']);
-        if (!$plan || $plan->trashed()) {
-            return back()->withErrors([
-                'id_plan' => 'El plan seleccionado no está activo o no existe.'
-            ])->withInput();
-        }
-
-        // BUSINESS RULE: Validate that asignatura belongs to the selected plan
-        $asignacionExists = DB::table('Asignacion_Plan')
-            ->where('id_plan', $validated['id_plan'])
-            ->where('id_asignatura', $validated['id_asignatura'])
-            ->whereNull('fecha_eliminacion')
-            ->exists();
-
-        if (!$asignacionExists) {
-            return back()->withErrors([
-                'id_asignatura' => 'La asignatura seleccionada no pertenece al plan especificado.'
-            ])->withInput();
-        }
-
-        DB::beginTransaction();
         try {
-            $data = $validated;
+            $curso = $this->cursoService->create($request->validated());
 
-            // Set default values for required NOT NULL fields
-            $data['indice_grupo'] = $request->input('indice_grupo', 1);
-
-            // If fecha_fin is not provided, set it to 6 months after fecha_inicio (typical semester duration)
-            if (empty($data['fecha_fin']) && !empty($data['fecha_inicio'])) {
-                $fechaInicio = new \DateTime($data['fecha_inicio']);
-                $fechaInicio->modify('+6 months');
-                $data['fecha_fin'] = $fechaInicio->format('Y-m-d');
-            }
-
-            $curso = Curso::create($data);
-
-            // Note: Docente assignment is handled through Sección creation
-            // Secciones can have different docentes for lab, theory, etc.
-
-            DB::commit();
-            return redirect()->route('admin.cursos.index')
+            return redirect()
+                ->route('admin.cursos.index')
                 ->with('success', 'Curso creado exitosamente.');
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Error creating curso: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
-                'data' => $validated
+                'data' => $request->validated()
             ]);
-            return back()->withErrors(['error' => 'Error al crear el curso: ' . $e->getMessage()])->withInput();
+
+            return back()
+                ->withErrors(['error' => $e->getMessage()])
+                ->withInput();
         }
     }
 
     /**
-     * Display the specified curso.
+     * Display the specified course.
      */
     public function show(Curso $curso)
     {
         try {
-            $curso->load('inscripcionCursos.estudiante');
-            $curso->load('secciones.docente.usuario');
-            $curso->load('secciones.tipoSeccion');
+            $curso->load([
+                'inscripcionCursos.estudiante',
+                'asignacionPlan.asignatura',
+                'asignacionPlan.plan.carrera'
+            ]);
 
-            // Manually load AsignacionPlan with related data
-            $curso->asignacion_plan = \App\Models\Administrativo\AsignacionPlan::with(['asignatura', 'plan.carrera'])
-                ->where('id_asignatura', $curso->id_asignatura)
-                ->where('id_plan', $curso->id_plan)
-                ->first();
+            // Load secciones directly to avoid composite key eager load issues
+            $secciones = Seccion::where('id_curso', $curso->id_curso)
+                ->where('es_plantilla', $curso->es_plantilla)
+                ->with('docente.usuario', 'tipoSeccion')
+                ->get();
 
             return response()->json([
-                'curso' => $curso,
-                'secciones' => $curso->secciones,
-                'tipos_seccion' => \App\Models\Curso\TipoSeccion::all()
+                'curso' => new CursoResource($curso),
+                'secciones' => SeccionResource::collection($secciones),
+                'tipos_seccion' => TipoSeccion::all()
             ]);
         } catch (\Exception $e) {
-            Log::error("Error in show curso: " . $e->getMessage());
-            return response()->json(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
+            Log::error("Error in show curso: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'curso_id' => $curso->id_curso
+            ]);
+            return response()->json([
+                'error' => 'Error al cargar el curso: ' . $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null
+            ], 500);
         }
     }
 
     /**
-     * Update the specified curso.
+     * Update the specified course.
      */
-    public function update(Request $request, Curso $curso)
+    public function update(UpdateCursoRequest $request, Curso $curso)
     {
-        $validated = $request->validate([
-            'id_asignatura' => ['required', Rule::exists(Asignatura::class, 'id_asignatura')],
-            'id_plan' => ['required', Rule::exists(Plan::class, 'id_plan')],
-            'cod_curso' => 'required|integer',
-            'nombre' => 'nullable|string|max:255',
-            'fecha_inicio' => 'nullable|date',
-            'agno_real' => 'required|integer|min:2000|max:2100',
-            'semestre_real' => 'required|integer|in:1,2',
-            'id_docente' => 'nullable|integer|exists:App\Models\Usuario\Docente,id_docente',
-        ]);
-
-        DB::beginTransaction();
         try {
-            $data = $validated;
+            $updated = $this->cursoService->update($curso, $request->validated());
 
-            // Ensure context exists
-            if (!$curso->id_contexto || $curso->id_contexto == 1) { // 1 is global default to move away from
-                $nombreContexto = "Curso: " . $data['cod_curso'];
-                $contexto = \App\Models\Usuario\Contexto::firstOrCreate(
-                    ['contexto_display' => $nombreContexto],
-                    ['descripcion' => 'Contexto para el curso ' . $data['cod_curso']]
-                );
-                $data['id_contexto'] = $contexto->id_contexto;
-            } else {
-                // Rename context if code changes? Optional but nice.
-                $contexto = \App\Models\Usuario\Contexto::find($curso->id_contexto);
-                if ($contexto && $data['cod_curso'] !== $curso->cod_curso) {
-                    $contexto->update(['contexto_display' => "Curso: " . $data['cod_curso']]);
-                }
-            }
-
-            $curso->update($data);
-
-            // Handle Docente assignment through Seccion
-            if (array_key_exists('id_docente', $validated)) {
-                // Find existing section or create a default one
-                $seccion = \App\Models\Curso\Seccion::where('id_curso', $curso->id_curso)->first();
-
-                if ($seccion) {
-                    $seccion->update(['id_docente' => $validated['id_docente']]);
-                } elseif ($validated['id_docente']) {
-                    // Create new section if it doesn't exist AND we have a docente to assign
-                    // Assuming default tipo_seccion = 1 (Catedra/Teoria)
-                    \App\Models\Curso\Seccion::create([
-                        'id_curso' => $curso->id_curso,
-                        'id_docente' => $validated['id_docente'],
-                        'id_tipo_seccion' => 1, // Default type
-                        'es_plantilla' => false
-                    ]);
-                }
-            }
-
-            DB::commit();
-            return redirect()->route('admin.cursos.index')
+            return redirect()
+                ->route('admin.cursos.index')
                 ->with('success', 'Curso actualizado exitosamente.');
         } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Error al actualizar el curso: ' . $e->getMessage());
+            Log::error('Error updating curso: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'data' => $request->validated(),
+                'curso_id' => $curso->id_curso
+            ]);
+
+            return back()
+                ->withErrors(['error' => $e->getMessage()])
+                ->withInput();
         }
     }
 
-
-
     /**
-     * Get asignaturas for a specific plan (for cascading select).
+     * Get subjects for a specific plan (for cascading select).
      */
     public function getAsignaturasByPlan(Plan $plan)
     {
-        // Get asignaturas that belong to this plan and are not deleted
         $asignaturas = $plan->asignaturas()
-            ->whereNull('Asignacion_Plan.fecha_eliminacion')
-            ->select('Asignatura.id_asignatura', 'Asignatura.cod_asignatura', 'Asignatura.nombre')
-            ->orderBy('Asignatura.cod_asignatura')
+            ->whereNull('asignacion_plan.fecha_eliminacion')
+            ->select(
+                'asignatura.id_asignatura',
+                'asignatura.cod_asignatura',
+                'asignatura.nombre',
+                'asignatura.creditos_sct'
+            )
+            ->orderBy('asignatura.cod_asignatura')
             ->get();
 
         return response()->json($asignaturas);
     }
 
     /**
-     * Remove the specified curso.
+     * Remove the specified course.
      */
     public function destroy(Curso $curso)
     {
         try {
             $curso->delete();
 
-            return redirect()->route('admin.cursos.index')
+            return redirect()
+                ->route('admin.cursos.index')
                 ->with('success', 'Curso eliminado exitosamente.');
         } catch (\Exception $e) {
-            return redirect()->route('admin.cursos.index')
-                ->with('error', 'No se puede eliminar el curso porque tiene inscripciones asociadas.');
+            Log::error('Error deleting curso: ' . $e->getMessage());
+            
+            return redirect()
+                ->route('admin.cursos.index')
+                ->withErrors(['error' => 'No se puede eliminar el curso porque tiene asociaciones. Error: ' . $e->getMessage()]);
         }
     }
 }

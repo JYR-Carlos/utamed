@@ -1,0 +1,52 @@
+<?php
+
+namespace App\Http\Requests;
+
+use App\Models\Administrativo\Asignatura;
+use App\Models\Administrativo\Plan;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class UpdateCursoRequest extends FormRequest
+{
+    /**
+     * Determine if the user is authorized to make this request.
+     */
+    public function authorize(): bool
+    {
+        return true; // TODO: Implement authorization logic
+    }
+
+    /**
+     * Get the validation rules that apply to the request.
+     */
+    public function rules(): array
+    {
+        $cursoId = $this->route('curso')->id_curso;
+
+        return [
+            'id_asignatura' => ['required', Rule::exists(Asignatura::class, 'id_asignatura')],
+            'id_plan' => ['required', Rule::exists(Plan::class, 'id_plan')],
+            'cod_curso' => ['required', 'integer', Rule::unique('curso', 'cod_curso')->ignore($cursoId, 'id_curso')],
+            'nombre' => 'nullable|string|max:255',
+            'fecha_inicio' => 'nullable|date',
+            'indice_grupo' => 'nullable|integer|min:1',
+        ];
+    }
+
+    /**
+     * Get the error messages for the defined validation rules.
+     */
+    public function messages(): array
+    {
+        return [
+            'id_asignatura.required' => 'La asignatura es requerida',
+            'id_asignatura.exists' => 'La asignatura seleccionada no existe',
+            'id_plan.required' => 'El plan es requerido',
+            'id_plan.exists' => 'El plan seleccionado no existe',
+            'cod_curso.required' => 'El código de curso es requerido',
+            'cod_curso.integer' => 'El código de curso debe ser un número',
+            'cod_curso.unique' => 'Ya existe un curso con ese código',
+        ];
+    }
+}

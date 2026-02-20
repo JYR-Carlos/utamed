@@ -105,7 +105,7 @@ export interface Asignatura {
 }
 
 export interface AsignacionPlan {
-    id_asignacion: number;
+    id_asignacion_plan: number;
     id_plan: number;
     id_asignatura: number;
     agno_planificado: number;
@@ -150,12 +150,18 @@ export interface Programa {
 
 export interface Curso {
     id_curso: number;
-    id_asignatura: number;
-    id_plan: number;
     cod_curso: number;
     nombre?: string;
     fecha_inicio?: string;
+    fecha_fin?: string;
+    indice_grupo?: number;
+    letra_grupo?: string;
+    id_asignacion_plan: number;
+    id_contexto: number;
+    id_curso_padre?: number;
+    version_plantilla?: number;
     numero_semestre?: number;
+<<<<<<< HEAD
     agno_real?: number;
     semestre_real?: number;
     id_docente?: number;
@@ -174,6 +180,9 @@ export interface Curso {
     carrera_nombre?: string;
     /** Docente name from JOIN (CursoController) */
     docente_nombre?: string;
+=======
+    asignacionPlan?: AsignacionPlan;
+>>>>>>> 749a229 (fix: Precambios en los controladores para las claves subrogadas.)
     fecha_creacion?: string;
     fecha_modificacion?: string;
     fecha_eliminacion?: string;
@@ -374,9 +383,6 @@ export interface CursoFormData {
     nombre?: string;
     fecha_inicio?: string;
     numero_semestre?: number;
-    agno_real?: number;
-    semestre_real?: number;
-    id_docente?: number;
     [key: string]: FormDataConvertible;
 }
 

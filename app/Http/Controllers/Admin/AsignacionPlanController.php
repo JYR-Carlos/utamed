@@ -10,7 +10,10 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
+<<<<<<< HEAD
 use Illuminate\Support\Facades\DB;
+=======
+>>>>>>> 749a229 (fix: Precambios en los controladores para las claves subrogadas.)
 
 /**
  * Controlador para la gestión de asignaciones de asignaturas a planes (Detalle Malla).
@@ -84,9 +87,9 @@ class AsignacionPlanController extends Controller
 
         try {
             Log::info('Creating AsignacionPlan with data:', $validated);
-
+            
             $asignacion = AsignacionPlan::create($validated);
-
+            
             Log::info('AsignacionPlan created successfully:', $asignacion->toArray());
             return back()->with('success', 'Asignatura asignada al plan exitosamente.');
         } catch (\Illuminate\Database\QueryException $e) {
