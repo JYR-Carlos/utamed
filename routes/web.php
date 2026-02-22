@@ -25,49 +25,18 @@ Route::get('dashboard', function () {
     $user = \Illuminate\Support\Facades\Auth::user();
 
     // Redirigir docentes a su dashboard
-    if ($user && $user->docente) {
+    if ($user->hasRole('Docente')) {
         return redirect()->route('docente.dashboard');
     }
 
     // Redirigir estudiantes a su dashboard (Prioridad Estudiante)
-    if ($user && $user->estudiante) {
+    if ($user->hasRole('Estudiante')) {
         return redirect()->route('estudiante.dashboard');
     }
 
-    // Check if user is Ayudante (Only if NOT student, or explicit access)
-    $isAyudante = $user->rolesAsignados()
-        ->where('esta_activo', true)
-        ->where('fue_eliminado', false)
-        ->whereHas('rol', function ($query) {
-            $query->whereIn('nombre', ['Ayudante', 'ayudante']);
-        })
-        ->exists();
-
-    if ($isAyudante) {
+    // Redirigir ayudantes a su dashboard
+    if ($user->hasRole('Ayudante')) {
         return redirect()->route('ayudante.dashboard');
-    }
-
-    $ayudanteCourses = [];
-    if ($isAyudante) {
-        $contextosAsignados = $user->rolesAsignados()
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->whereHas('rol', function ($query) {
-                $query->whereIn('nombre', ['Ayudante', 'ayudante']);
-            })
-            ->pluck('id_contexto');
-
-        $ayudanteCourses = \App\Models\Curso\Curso::whereIn('id_contexto', $contextosAsignados)
-            ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera'])
-            ->get()
-            ->map(function ($curso) {
-                return [
-                    'id_curso' => $curso->id_curso,
-                    'nombre' => $curso->nombre,
-                    'cod_curso' => $curso->cod_curso,
-                    'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
-                ];
-            });
     }
 
     return Inertia::render('Dashboard', [
@@ -83,7 +52,6 @@ Route::get('dashboard', function () {
             'facultades' => \App\Models\Administrativo\Facultad::count(),
             'carreras' => \App\Models\Administrativo\Carrera::count(),
         ],
-        'ayudanteCourses' => $ayudanteCourses,
     ]);
 
 })->middleware(['auth', 'verified'])->name('dashboard');

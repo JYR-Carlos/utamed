@@ -24,7 +24,9 @@ class IsStudent
             return redirect('/login');
         }
 
-        if (!$user->estudiante) {
+        $isStudent = $user->hasRole('Estudiante');
+
+        if (!$isStudent) {
             return redirect('/dashboard')->with('error', 'No tienes permisos para acceder a esta sección');
         }
 

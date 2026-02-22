@@ -33,11 +33,13 @@ class IsDocente
             return redirect('/login');
         }
 
+        $isDocente = $user->hasRole('Docente');
+
         // Un usuario debe ser docente para acceder a estas rutas
-        if (!$user->docente) {
+        if (!$isDocente) {
             return redirect('/dashboard')->with('error', 'No tienes permisos para acceder a esta sección');
         }
-
+    
         return $next($request);
     }
 }

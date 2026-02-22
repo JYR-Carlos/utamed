@@ -2,8 +2,6 @@
 
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
-use App\Http\Middleware\IsAdmin;
-use App\Http\Middleware\IsDocente;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -25,8 +23,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'is_admin' => IsAdmin::class,
-            'is_docente' => IsDocente::class,
+            'is_admin' => \App\Http\Middleware\IsAdmin::class,
+            'is_docente' => \App\Http\Middleware\IsDocente::class,
             'is_estudiante' => \App\Http\Middleware\IsStudent::class,
             'is_ayudante' => \App\Http\Middleware\IsAyudante::class,
         ]);

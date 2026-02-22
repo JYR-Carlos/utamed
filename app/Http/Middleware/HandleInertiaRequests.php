@@ -67,7 +67,6 @@ class HandleInertiaRequests extends Middleware
             $user->load([
                 'rolesAsignados' => fn($q) => $q->where('esta_activo', true)
                     ->where('fue_eliminado', false),
-                'rolesAsignados.rol',
                 'docente',
                 'estudiante'
             ]);
@@ -76,7 +75,7 @@ class HandleInertiaRequests extends Middleware
             // We'll fetch ALL active assignments for now.
             // 2. Ahora procesamos sobre la COLECCIÓN (en memoria), no sobre el Query Builder
             $roles = $user->rolesAsignados // <--- Sin paréntesis (), usamos la colección ya cargada
-                ->pluck('rol.nombre')
+                ->pluck('nombre')
                 ->values()
                 ->toArray();
 

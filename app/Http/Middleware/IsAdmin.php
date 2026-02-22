@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use Auth;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,7 +27,7 @@ class IsAdmin
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Si no hay usuario autenticado, redirigir a login
         if (!$user) {
@@ -34,27 +35,7 @@ class IsAdmin
         }
 
         // Un usuario es admin si tiene rol Administrador o SuperAdmin activo
-        $isAdmin = false;
-
-        // Check roles via relationship if loaded, or query
-        $roles = $user->rolesAsignados()
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->with('rol')
-            ->get()
-            ->pluck('rol.nombre')
-            ->toArray();
-
-        // Check if user has 'Administrador' or 'SuperAdmin' role
-        // Also keep legacy check for now if roles aren't fully migrated, OR strictly enforce roles.
-        // Given the task is to fix bypass, we should strictly enforce roles.
-        // But for safety during transition, we might want to check the negative condition too?
-        // No, let's stick to positive role check as requested.
-
-        $adminRoles = ['Administrador', 'SuperAdmin', 'Super Admin'];
-        if (count(array_intersect($adminRoles, $roles)) > 0) {
-            $isAdmin = true;
-        }
+        $isAdmin = $user->hasAnyRole(['Administrador', 'SuperAdmin', 'Super Admin']);
 
         if (!$isAdmin) {
             return redirect()->route('dashboard')->with('error', 'No tienes permisos para acceder a esta sección. Acceso restringido a administradores.');

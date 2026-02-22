@@ -10,6 +10,7 @@ use Illuminate\Foundation\Auth\Access\Authorizable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Services\Authorization\PermissionValidator;
 use App\Contracts\HasContext;
+use App\Enums\PermissionTypeEnum;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 
@@ -54,29 +55,86 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
-     * Determinar si el usuario es administrador.
-     * Un usuario es admin si tiene rol 'Administrador' o 'SuperAdmin' activo.
-     * 
-     * @return bool
-     */
-    public function isAdmin(): bool
-    {
-        return $this->rolesAsignados()
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->whereHas('rol', function ($query) {
-                $query->whereIn('nombre', ['Administrador', 'SuperAdmin', 'Admin', 'admin']);
-            })
-            ->exists();
-    }
-
-    /**
      * Accessor para is_admin (para compatibilidad con $user->is_admin)
      */
     public function getIsAdminAttribute(): bool
     {
-        return $this->isAdmin();
+        return $this->isSuperAdmin();
     }
+
+    /**
+     * Verificar si el usuario tiene un rol específico en cualquier contexto.
+     * 
+     * El nombre del rol se normaliza (trim + lowercase) antes de comparar.
+     * Solo considera roles activos y no eliminados.
+     * 
+     * @param string $role Nombre del rol
+     * @return bool True si el usuario tiene el rol en cualquier contexto
+     * 
+     * @example
+     *   $user->hasRole('Ayudante') → true si es ayudante en algún contexto
+     *   $user->hasRole('  AYUDANTE  ') → true (trim + lowercase automático)
+     * 
+     * TODO: Crear enum Roles para estandarizar nombres de roles (RolesEnum::AYUDANTE, etc)
+     */
+    public function hasRole(string $role): bool
+    {
+        $normalizedRole = strtolower(trim($role));
+        $roleNames = array_column($this->getAllRoles(), 'nombre');
+        return in_array($normalizedRole, $roleNames);
+    }
+
+    /**
+     * Verificar si el usuario tiene CUALQUIERA de los roles especificados.
+     * 
+     * Retorna true si el usuario tiene al menos uno de los roles en cualquier contexto.
+     * Los nombres se normalizan (trim + lowercase) antes de comparar.
+     * Solo considera roles activos y no eliminados.
+     * 
+     * @param array $roles Array de nombres de roles
+     * @return bool True si el usuario tiene al menos uno de los roles
+     * 
+     * @example
+     *   $user->hasAnyRole(['Ayudante', 'Docente']) → true si es ayudante O docente
+     */
+    public function hasAnyRole(array $roles): bool
+    {
+        $normalizedRoles = array_map(
+            fn($role) => strtolower(trim($role)),
+            $roles
+        );
+
+        $roleNames = array_column($this->getAllRoles(), 'nombre');
+        return !empty(array_intersect($normalizedRoles, $roleNames));
+    }
+
+    /**
+     * Verificar si el usuario tiene TODOS los roles especificados.
+     * 
+     * Retorna true solamente si el usuario tiene todos los roles en cualquier contexto.
+     * Los nombres se normalizan (trim + lowercase) antes de comparar.
+     * Solo considera roles activos y no eliminados.
+     * 
+     * @param array $roles Array de nombres de roles
+     * @return bool True si el usuario tiene todos los roles
+     * 
+     * @example
+     *   $user->hasAllRoles(['Ayudante', 'Docente']) → true si es ambos
+     */
+    public function hasAllRoles(array $roles): bool
+    {
+        $normalizedRoles = array_map(
+            fn($role) => strtolower(trim($role)),
+            $roles
+        );
+
+        $roleNames = array_column($this->getAllRoles(), 'nombre');
+
+        // Retornar true si todos los roles buscados están en los roles del usuario
+        return count(array_intersect($normalizedRoles, $roleNames)) === count($normalizedRoles);
+    }
+
+
 
     /**
      * Verificar permiso con resolución automática de contexto desde un recurso.
@@ -133,17 +191,64 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
-     * Obtener todos los permisos efectivos del usuario.
+     * Obtener todos los permisos efectivos del usuario y sus detalles.
      * 
-     * Para debugging y mostrar en UI.
+     * Permite filtrar por contexto específico y tipo de permiso (ROL o ESPECIAL).
      * 
-     * @param int|null $contextId Filtrar por contexto
-     * @return \Illuminate\Support\Collection
+     * @param int|null $contextId El contexto por cual filtrar permisos (null para todos los contextos)
+     * @param PermissionTypeEnum|null $permissionType Filtrar por tipo: ROL o ESPECIAL
+     * @return array<
+     *   int, 
+     *   array{
+     *     id_usuario: int, 
+     *     id_contexto: int, 
+     *     id_permiso: int, 
+     *     slug: string, 
+     *     esta_permitido: bool, 
+     *     tipo_asignacion: string, 
+     *     puede_delegar: bool
+     *   }
+     * > Permisos efectivos con detalles completos
      */
-    public function getAllPermissions(?int $contextId = null): \Illuminate\Support\Collection
+    public function getAllPermissions(?int $contextId = null, ?PermissionTypeEnum $permissionType = null): array
     {
         return app(PermissionValidator::class)
-            ->getUserPermissions($this, $contextId);
+            ->getUserPermissions($this, $contextId, $permissionType)
+            ->toArray();
+    }
+
+    /**
+     * Obtener todos los roles (nombre e id) del usuario.
+     * 
+     * Permite filtrar por contexto específico.
+     * 
+     * @param int|null $contextId El contexto por cual filtrar roles (null para todos los contextos)
+     * @return array<
+     *   int, 
+     *   array{
+     *     id: int, 
+     *     nombre: string
+     *   }
+     * > Array de ids y nombres de roles (ej: [['id' => 1, 'nombre' => 'ayudante'], ...])
+     */
+    public function getAllRoles(?int $contextId = null): array
+    {
+        $query = $this->rolesAsignados()
+            ->wherePivot('esta_activo', true)
+            ->wherePivot('fue_eliminado', false);
+
+        if ($contextId !== null) {
+            $query->wherePivot('id_contexto', $contextId);
+        }
+
+        return $query->get()
+            ->map(function ($role) {
+                return [
+                    'id' => $role->id_rol,
+                    'nombre' => strtolower($role->nombre),
+                ];
+            })
+            ->toArray();
     }
 
     /* 
@@ -159,56 +264,33 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
      * MÉTODOS DISPONIBLES:
      * --------------------
      * 
-     * 1. hasPermission(slug, contextId): Verificar permiso en contexto explícito
+     * 1. hasRole(role): Verificar si user tiene UN rol específico en cualquier contexto
+     *    Ej: $user->hasRole('Ayudante') → true si es ayudante en algún contexto
+     *    TODO: Crear enum Roles (app/Enums/RolesEnum.php) para estandarizar nombres
+     *          Reemplazar strings por: RolesEnum::AYUDANTE->value, etc.
+     * 
+     * 2. hasAnyRole(roles): Verificar si user tiene CUALQUIERA de los roles
+     *    Ej: $user->hasAnyRole(['Ayudante', 'Docente']) → true si es cualquiera
+     * 
+     * 3. hasAllRoles(roles): Verificar si user tiene TODOS los roles especificados
+     *    Ej: $user->hasAllRoles(['Ayudante', 'Docente']) → true si es ambos
+     * 
+     * 4. hasPermission(slug, contextId): Verificar permiso en contexto explícito
      *    Ej: $user->hasPermission('facultad:ver', 5)
      * 
-     * 2. hasPermissionFor(slug, resource?): Verificar permiso con resolución automática
+     * 5. hasPermissionFor(slug, resource?): Verificar permiso con resolución automática
      *    Ej: $user->hasPermissionFor('facultad:editar', $facultad)
      * 
-     * 3. getContextsWithPermission(slug): Obtener contextos donde tiene permiso
+     * 6. getContextsWithPermission(slug): Obtener contextos donde tiene permiso
      *    Ej: $contextIds = $user->getContextsWithPermission('curso:ver')
      *        $cursos = Curso::whereContext($contextIds)->get()
      * 
-     * 4. getAllPermissions(contextId?): Listar todos los permisos efectivos
+     * 7. getAllPermissions(contextId?): Listar todos los permisos efectivos
      *    Ej: $permisos = $user->getAllPermissions(5) // Para debugging/UI
      * 
-     * 5. can(ability, arguments): Integración con Laravel Gates/Policies
+     * 8. can(ability, arguments): Integración con Laravel Gates/Policies
      *    Ej: $user->can('view', $facultad) // Usa FacultadPolicy si existe
      *        $user->can('facultad:ver', $facultad) // Fallback a PermissionValidator
-     * 
-     * USO CON POLICIES (FASE 4 - Pendiente de implementación):
-     * ----------------------------------------------------------
-     * 
-     * Las Policies deben registrarse en AuthServiceProvider y usar PermissionValidator:
-     * 
-     * // app/Policies/FacultadPolicy.php (EJEMPLO FUTURO)
-     * class FacultadPolicy
-     * {
-     *     public function __construct(
-     *         protected PermissionValidator $validator
-     *     ) {}
-     * 
-     *     public function view(Usuario $user, Facultad $facultad): bool
-     *     {
-     *         return $this->validator->validate($user, 'facultad:ver', $facultad);
-     *     }
-     * 
-     *     public function create(Usuario $user, ?HasContext $parent = null): bool
-     *     {
-     *         $contextId = $parent?->getContextId()[0] ?? null;
-     *         return $this->validator->validate($user, 'facultad:crear', null, $contextId);
-     *     }
-     * }
-     * 
-     * // app/Providers/AuthServiceProvider.php
-     * protected $policies = [
-     *     Facultad::class => FacultadPolicy::class,
-     * ];
-     * 
-     * // En Controllers
-     * $this->authorize('view', $facultad); // Usa FacultadPolicy::view()
-     * 
-     * ============================================================================
      */
 
     /**

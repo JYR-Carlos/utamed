@@ -21,15 +21,7 @@ class IsAyudante
             return redirect('/login');
         }
 
-        // Check if user has ANY active role assignment with 'Ayudante' role
-        // We need to check rolesAsignados relationship
-        $isAyudante = $user->rolesAsignados()
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->whereHas('rol', function ($query) {
-                $query->whereIn('nombre', ['Ayudante', 'ayudante']);
-            })
-            ->exists();
+        $isAyudante = $user->hasRole('Ayudante');
 
         if (!$isAyudante) {
             return redirect('/dashboard')->with('error', 'No tienes permisos de Ayudante.');

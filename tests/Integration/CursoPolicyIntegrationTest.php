@@ -22,6 +22,7 @@ use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Models\Usuario\TipoContexto;
 use App\Models\Usuario\Contexto;
 use App\Policies\CursoPolicy;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -255,27 +256,27 @@ describe('before() — bypass de superadmin', function () {
 
   test('superadmin puede ver cualquier curso (view) via before()', function () {
     $this->actingAs($this->superadmin);
-    expect($this->superadmin->can('view', $this->curso))->toBeTrue();
+    expect(Auth::user()->can('view', $this->curso))->toBeTrue();
   });
 
   test('superadmin puede ver el listado (viewAny) via before()', function () {
     $this->actingAs($this->superadmin);
-    expect($this->superadmin->can('viewAny', Curso::class))->toBeTrue();
+    expect(Auth::user()->can('viewAny', Curso::class))->toBeTrue();
   });
 
   test('superadmin puede crear cursos (create) via before()', function () {
     $this->actingAs($this->superadmin);
-    expect($this->superadmin->can('create', Curso::class))->toBeTrue();
+    expect(Auth::user()->can('create', Curso::class))->toBeTrue();
   });
 
   test('superadmin puede editar cualquier curso (update) via before()', function () {
     $this->actingAs($this->superadmin);
-    expect($this->superadmin->can('update', $this->curso))->toBeTrue();
+    expect(Auth::user()->can('update', $this->curso))->toBeTrue();
   });
 
   test('superadmin puede eliminar cualquier curso (delete) via before()', function () {
     $this->actingAs($this->superadmin);
-    expect($this->superadmin->can('delete', $this->curso))->toBeTrue();
+    expect(Auth::user()->can('delete', $this->curso))->toBeTrue();
   });
 
   test('isSuperAdmin() retorna true solo para el usuario con wildcard', function () {
@@ -306,17 +307,17 @@ describe('viewAny — permiso curso:ver sin modelo específico', function () {
 
   test('usuario con curso:ver puede listar cursos', function () {
     $this->actingAs($this->viewer);
-    expect($this->viewer->can('viewAny', Curso::class))->toBeTrue();
+    expect(Auth::user()->can('viewAny', Curso::class))->toBeTrue();
   });
 
   test('usuario con todos los permisos puede listar cursos', function () {
     $this->actingAs($this->manager);
-    expect($this->manager->can('viewAny', Curso::class))->toBeTrue();
+    expect(Auth::user()->can('viewAny', Curso::class))->toBeTrue();
   });
 
   test('usuario sin permisos NO puede listar cursos', function () {
     $this->actingAs($this->nobody);
-    expect($this->nobody->can('viewAny', Curso::class))->toBeFalse();
+    expect(Auth::user()->can('viewAny', Curso::class))->toBeFalse();
   });
 });
 
@@ -328,17 +329,17 @@ describe('view — permiso curso:ver sobre un curso específico', function () {
 
   test('viewer con curso:ver puede ver el curso', function () {
     $this->actingAs($this->viewer);
-    expect($this->viewer->can('view', $this->curso))->toBeTrue();
+    expect(Auth::user()->can('view', $this->curso))->toBeTrue();
   });
 
   test('manager con curso:ver puede ver el curso', function () {
     $this->actingAs($this->manager);
-    expect($this->manager->can('view', $this->curso))->toBeTrue();
+    expect(Auth::user()->can('view', $this->curso))->toBeTrue();
   });
 
   test('nobody sin permisos NO puede ver el curso', function () {
     $this->actingAs($this->nobody);
-    expect($this->nobody->can('view', $this->curso))->toBeFalse();
+    expect(Auth::user()->can('view', $this->curso))->toBeFalse();
   });
 
   test('el modelo curso tiene id_contexto (necesario para resolución de contexto)', function () {
@@ -358,17 +359,17 @@ describe('create — permiso curso:crear con contexto de parent', function () {
   test('manager con curso:crear puede crear un nuevo curso', function () {
     $this->actingAs($this->manager);
     // sin parent → id_contexto = null → validación en contexto global
-    expect($this->manager->can('create', Curso::class))->toBeTrue();
+    expect(Auth::user()->can('create', Curso::class))->toBeTrue();
   });
 
   test('viewer solo con curso:ver NO puede crear cursos', function () {
     $this->actingAs($this->viewer);
-    expect($this->viewer->can('create', Curso::class))->toBeFalse();
+    expect(Auth::user()->can('create', Curso::class))->toBeFalse();
   });
 
   test('nobody NO puede crear cursos', function () {
     $this->actingAs($this->nobody);
-    expect($this->nobody->can('create', Curso::class))->toBeFalse();
+    expect(Auth::user()->can('create', Curso::class))->toBeFalse();
   });
 
   test('create con parent pasa el contextId del parent al validador', function () {
@@ -393,17 +394,17 @@ describe('update — permiso curso:editar sobre un curso específico', function 
 
   test('manager con curso:editar puede editar el curso', function () {
     $this->actingAs($this->manager);
-    expect($this->manager->can('update', $this->curso))->toBeTrue();
+    expect(Auth::user()->can('update', $this->curso))->toBeTrue();
   });
 
   test('viewer solo con curso:ver NO puede editar el curso', function () {
     $this->actingAs($this->viewer);
-    expect($this->viewer->can('update', $this->curso))->toBeFalse();
+    expect(Auth::user()->can('update', $this->curso))->toBeFalse();
   });
 
   test('nobody NO puede editar el curso', function () {
     $this->actingAs($this->nobody);
-    expect($this->nobody->can('update', $this->curso))->toBeFalse();
+    expect(Auth::user()->can('update', $this->curso))->toBeFalse();
   });
 });
 
@@ -415,17 +416,17 @@ describe('delete — permiso curso:eliminar sobre un curso específico', functio
 
   test('manager con curso:eliminar puede eliminar el curso', function () {
     $this->actingAs($this->manager);
-    expect($this->manager->can('delete', $this->curso))->toBeTrue();
+    expect(Auth::user()->can('delete', $this->curso))->toBeTrue();
   });
 
   test('viewer solo con curso:ver NO puede eliminar el curso', function () {
     $this->actingAs($this->viewer);
-    expect($this->viewer->can('delete', $this->curso))->toBeFalse();
+    expect(Auth::user()->can('delete', $this->curso))->toBeFalse();
   });
 
   test('nobody NO puede eliminar el curso', function () {
     $this->actingAs($this->nobody);
-    expect($this->nobody->can('delete', $this->curso))->toBeFalse();
+    expect(Auth::user()->can('delete', $this->curso))->toBeFalse();
   });
 });
 

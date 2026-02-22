@@ -4,6 +4,7 @@ namespace App\Services\Authorization;
 
 use App\Models\Usuario\Usuario;
 use App\Contracts\HasContext;
+use App\Enums\PermissionTypeEnum;
 use App\Services\Authorization\GlobalContextService;
 use App\Services\ContextResolver;
 use Illuminate\Support\Facades\Cache;
@@ -168,9 +169,21 @@ class PermissionValidator
      * 
      * @param Usuario $user
      * @param int|null $contextId Filtrar por contexto específico
-     * @return Collection Colección de ['slug' => ..., 'contexto' => ..., 'tipo' => ...]
+     * @param PermissionTypeEnum|null $permissionType Filtrar por tipo de permiso: ROL o ESPECIAL
+     * @return Collection<
+     *   int,
+     *   array{
+     *     id_usuario: int,
+     *     id_contexto: int,
+     *     id_permiso: int,
+     *     slug: string,
+     *     esta_permitido: bool,
+     *     tipo_asignacion: string,
+     *     puede_delegar: bool
+     *   }
+     * > Colección de permisos con detalles completos
      */
-    public function getUserPermissions(Usuario $user, ?int $contextId = null): Collection
+    public function getUserPermissions(Usuario $user, ?int $contextId = null, ?PermissionTypeEnum $permissionType = null): Collection
     {
         $query = DB::connection('pgsql')
             ->table('vw_permisos_usuario')
@@ -180,12 +193,19 @@ class PermissionValidator
             $query->where('id_contexto', $contextId);
         }
 
+        if ($permissionType !== null) {
+            $query->where('tipo_asignacion', $permissionType->value);
+        }
+
         $permissions = $query->get()->map(function ($perm) {
             return [
+                'id_usuario' => $perm->id_usuario,
+                'id_contexto' => $perm->id_contexto,
+                'id_permiso' => $perm->id_permiso,
                 'slug' => $perm->slug,
-                'contexto' => $perm->id_contexto,
-                'tipo' => $perm->tipo_asignacion,
-                'permitido' => $perm->esta_permitido ?? true,
+                'esta_permitido' => $perm->esta_permitido ?? true,
+                'tipo_asignacion' => $perm->tipo_asignacion,
+                'puede_delegar' => $perm->puede_delegar ?? false,
             ];
         });
 

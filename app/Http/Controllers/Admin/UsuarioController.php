@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\PermissionTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Services\Authorization\GlobalContextService;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Estudiante;
@@ -631,43 +633,38 @@ class UsuarioController extends Controller
     {
         $usuario = Usuario::findOrFail($id);
 
-        // For simple UI, we assume Global context or primary context.
-        // In detailed UI, user should select scope.
-        $contexto = Contexto::where('contexto_display', 'Global')->first();
+        // Fix: Este método actualmente retorna roles y permisos de TODOS los contextos
+        // sin distinción, lo cual es incorrecto. El comportamiento correcto debería ser:
+        //
+        // 1. El frontend debería enviar un parámetro ?context_id=X para indicar en qué
+        //    contexto se está gestionando al usuario (ej: contexto Global para admins,
+        //    contexto de curso para equipo docente).
+        //
+        // 2. Este método debería filtrar por ese context_id y ADEMÁS retornar en la
+        //    respuesta los datos agrupados por contexto, para que el admin pueda ver
+        //    "este rol está asignado en el contexto Global, este otro en el Curso X".
+        //
+        // 3. El modal PermissionsModal debería mostrar un selector de contexto (basicamente
+        //    una lista de objetos con contexto) antes de cargar los permisos, o mostrar 
+        //    todos agrupados por contexto.
 
-        if (!$contexto) {
-            // Fallback if Global not found
-            $contexto = Contexto::firstOrCreate(
-                ['contexto_display' => 'Global'],
-                ['descripcion' => 'Contexto Global por defecto']
-            );
-        }
+        $idContexto = app(GlobalContextService::class)->getContextId();
 
-        $idContexto = $contexto->id_contexto;
+        $idRoles = array_column(
+            $usuario->getAllRoles($idContexto),
+            'id'
+        );
 
-        // Get role IDs from usuario_rol_asignacion junction table (not from rol table)
-        $roles = UsuarioRolAsignacion::where('id_usuario', $usuario->id_usuario)
-            ->where('id_contexto', $idContexto)
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->pluck('id_rol');
-
-        $special = UsuarioPermisoEspecial::where('id_usuario', $usuario->id_usuario)
-            ->where('id_contexto', $idContexto)
-            ->where('esta_activo', true)
-            ->where('fue_borrado', false)
-            ->get()
-            ->map(function ($permiso) {
-                return [
-                    'id_permiso' => $permiso->id_permiso,
-                    'esta_permitido' => $permiso->esta_permitido,
-                    'puede_delegar' => $permiso->puede_delegar
-                ];
-            });
+        $specialPermissions = array_values(
+            $usuario->getAllPermissions(
+                $idContexto,
+                PermissionTypeEnum::ESPECIAL
+            )
+        );
 
         return response()->json([
-            'roles' => $roles,
-            'special_permissions' => $special
+            'roles' => $idRoles,
+            'special_permissions' => $specialPermissions,
         ]);
     }
 
@@ -685,7 +682,7 @@ class UsuarioController extends Controller
     {
         Log::info("SyncPermissions called for user $id");
         Log::info("Payload: " . print_r($request->all(), true));
-        
+
         $validated = $request->validate([
             'roles' => 'array',
             'special_permissions' => 'array' // { id_permiso: true/false/null }
@@ -693,12 +690,18 @@ class UsuarioController extends Controller
 
         $usuario = Usuario::findOrFail($id);
 
-        // Assuming Global context for now
-        $contexto = Contexto::firstOrCreate(
-            ['contexto_display' => 'Global'],
-            ['descripcion' => 'Contexto Global por defecto']
-        );
-        $idContexto = $contexto->id_contexto;
+        // Fix: El contexto utilizado para guardar roles y permisos 
+        // debe ser explicito con los que el usuario está trabajando, 
+        // no asumir un contexto global por defecto sin validación.
+
+        // Solución correcta:
+        // 1. Recibir el context_id en el request (enviado desde el frontend).
+        // 2. Validar que el admin tenga permisos sobre ese contexto.
+        // 3. Usar app(GlobalContextService::class)->getContextId() para contexto global,
+        //    o el context_id del recurso correspondiente (curso, facultad, etc.).
+        // 4. Coordinar con getUserPermissions() para que ambos usen el mismo contexto.
+
+        $idContexto = app(GlobalContextService::class)->getContextId();
 
         $adminId = Auth::id() ?? 1; // Fallback only for dev/seeder
 
@@ -778,7 +781,7 @@ class UsuarioController extends Controller
             }
 
             DB::commit();
-            
+
             // Return appropriate response type
             if ($request->wantsJson()) {
                 return response()->json([
@@ -786,7 +789,7 @@ class UsuarioController extends Controller
                     'message' => 'Permisos actualizados correctamente.'
                 ]);
             }
-            
+
             return back()->with('success', 'Permisos actualizados correctamente.');
 
         } catch (\Exception $e) {
@@ -796,14 +799,14 @@ class UsuarioController extends Controller
                 'user_id' => $id,
                 'payload' => $validated
             ]);
-            
+
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Error al actualizar permisos: ' . $e->getMessage()
                 ], 500);
             }
-            
+
             return back()->with('error', 'Error al actualizar permisos: ' . $e->getMessage());
         }
     }
