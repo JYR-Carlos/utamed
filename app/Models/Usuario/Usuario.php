@@ -11,9 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Services\Authorization\PermissionValidator;
 use App\Contracts\HasContext;
 use App\Enums\PermissionTypeEnum;
-use App\Models\Usuario\UsuarioRolAsignacion;
-use App\Models\Usuario\UsuarioPermisoEspecial;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Traits\AssignsPermissions;
 
 /**
  * Modelo Usuario
@@ -41,6 +39,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContract
 {
     use AuthenticatableTrait, HasFactory;
+    use AssignsPermissions;
     use Authorizable {
         Authorizable::can as authorizableCan;
     }
@@ -189,10 +188,10 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
      * @param string $permission Slug del permiso
      * @return array Array de IDs de contexto
      */
-    public function getContextsWithPermission(string $permission): array
+    public function getContextsFromPermission(string $permission): array
     {
         return app(PermissionValidator::class)
-            ->getContextsWithPermission($this, $permission);
+            ->getContextsFromPermission($this, $permission);
     }
 
     /**
@@ -367,23 +366,5 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     protected function matchesSlug(string $requestedSlug, string $userSlug): bool
     {
         return \App\Services\Authorization\WildcardMatcher::matches($requestedSlug, $userSlug);
-    }
-
-    /**
-     * Fix for double quoting issue in BaseUsuario.
-     * Reverts to standard Eloquent behavior.
-     */
-    public function qualifyColumn($column)
-    {
-        if (str_contains($column, '.')) {
-            return $column;
-        }
-
-        return $this->getTable() . '.' . $column;
-    }
-
-    public function getQualifiedKeyName()
-    {
-        return $this->getTable() . '.' . $this->getKeyName();
     }
 }

@@ -2,6 +2,7 @@
 
 use App\Services\Authorization\PermissionValidator;
 use App\Services\ContextResolver;
+use App\Services\Authorization\GlobalContextService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,8 @@ use App\Models\Usuario\Usuario as UsuarioStub;
 // ============================================================================
 
 /**
- * Crear un mock de conexión a BD preconfigurado con los métodos básicos
+ * Crear un base mock que soporta encadenamiento de métodos
+ * Retorna self para todos los métodos de construcción de query
  */
 function createDbConnectionMock()
 {
@@ -30,6 +32,8 @@ function createDbConnectionMock()
     $mock->shouldReceive('where')->andReturnSelf();
     $mock->shouldReceive('whereIn')->andReturnSelf();
     $mock->shouldReceive('orderByRaw')->andReturnSelf();
+    $mock->shouldReceive('distinct')->andReturnSelf();
+    $mock->shouldReceive('limit')->andReturnSelf();
     return $mock;
 }
 
@@ -48,9 +52,22 @@ function authenticateUser($usuario)
 // ============================================================================
 
 beforeEach(function () {
+    // Mock de GlobalContextService para evitar consultas a BD
+    Mockery::close();
+
+    $globalContextMock = Mockery::mock(GlobalContextService::class);
+    $globalContextMock->shouldReceive('getContextId')
+        ->andReturn(1);
+
+    app()->instance(GlobalContextService::class, $globalContextMock);
+
     // Mock del Cache (sin caché en tests)
     Cache::shouldReceive('get')->andReturn(null);
     Cache::shouldReceive('put')->andReturn(true);
+});
+
+afterEach(function () {
+    Mockery::close();
 });
 
 // ============================================================================
@@ -66,16 +83,15 @@ test('Auth::user()->can() con slug de permiso usa PermissionValidator como fallb
     // Crear mock de la conexión a BD preconfigurado
     $connectionMock = createDbConnectionMock();
 
-    // Simular llamadas a BD:
-    // 1ra: loadGlobalContextId() obtiene el contexto global
-    // 2da: checkSpecialPermission() encuentra permiso en UPE
-    $connectionMock->shouldReceive('first')->andReturn(
-        (object) ['id_contexto' => 1], // loadGlobalContextId
-        (object) ['esta_permitido' => true] // checkSpecialPermission
-    );
-
     // isSuperAdmin() retorna false
-    $connectionMock->shouldReceive('exists')->andReturn(false);
+    $connectionMock->shouldReceive('exists')
+        ->andReturn(false);
+
+    // checkSpecialPermission() retorna una colección con el permiso
+    $connectionMock->shouldReceive('get')
+        ->andReturn(collect([
+            (object) ['slug' => 'facultad:ver', 'esta_permitido' => true]
+        ]));
 
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
 
@@ -105,8 +121,7 @@ test('Auth::user()->can() con wildcard global (*) detecta superadmin', function 
     // Crear mock de la conexión a BD
     $connectionMock = createDbConnectionMock();
 
-    // Simular que es superadmin (tiene permiso '*' en contexto global)
-    $connectionMock->shouldReceive('first')->once()->andReturn((object) ['id_contexto' => 1]);
+    // Simular que es superadmin (has permiso '*' en contexto global)
     $connectionMock->shouldReceive('exists')->andReturn(true); // isSuperAdmin
 
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
@@ -129,7 +144,6 @@ test('Auth::user()->can() sin recurso usa contexto del usuario actual', function
     $connectionMock = createDbConnectionMock();
 
     // Simular que es superadmin
-    $connectionMock->shouldReceive('first')->once()->andReturn((object) ['id_contexto' => 1]);
     $connectionMock->shouldReceive('exists')->andReturn(true); // isSuperAdmin
 
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
@@ -157,11 +171,10 @@ test('Auth::user()->can() retorna false cuando no tiene permiso', function () {
     $connectionMock = createDbConnectionMock();
 
     // Simular que no tiene permisos
-    $connectionMock->shouldReceive('first')->andReturn(
-        (object) ['id_contexto' => 1], // loadGlobalContextId
-        null // checkSpecialPermission (no UPE)
-    );
     $connectionMock->shouldReceive('exists')->andReturn(false, false); // no superadmin, no rol
+
+    $connectionMock->shouldReceive('get')
+        ->andReturn(collect([])); // checkSpecialPermission (no UPE)
 
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
 
@@ -194,11 +207,12 @@ test('Auth::user()->can() respeta DENY de UPE', function () {
     $connectionMock = createDbConnectionMock();
 
     // Simular DENY en UPE
-    $connectionMock->shouldReceive('first')->andReturn(
-        (object) ['id_contexto' => 1], // loadGlobalContextId
-        (object) ['esta_permitido' => false] // checkSpecialPermission (DENY)
-    );
     $connectionMock->shouldReceive('exists')->andReturn(false); // no superadmin
+
+    $connectionMock->shouldReceive('get')
+        ->andReturn(collect([
+            (object) ['slug' => 'curso:editar', 'esta_permitido' => false]
+        ]));
 
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
 
@@ -248,14 +262,13 @@ test('caso real: profesor autenticado puede ver cursos de su departamento', func
     // Crear mock de la conexión a BD
     $connectionMock = createDbConnectionMock();
 
-    $connectionMock->shouldReceive('first')->andReturn(
-        (object) ['id_contexto' => 1], // loadGlobalContextId
-        null // checkSpecialPermission (no UPE)
-    );
     $connectionMock->shouldReceive('exists')->andReturn(
         false, // isSuperAdmin
         true   // checkRolePermission (tiene por rol)
     );
+
+    $connectionMock->shouldReceive('get')
+        ->andReturn(collect([])); // checkSpecialPermission (no UPE)
 
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
 
@@ -283,11 +296,10 @@ test('caso real: estudiante autenticado NO puede eliminar inscripciones', functi
     // Crear mock de la conexión a BD
     $connectionMock = createDbConnectionMock();
 
-    $connectionMock->shouldReceive('first')->andReturn(
-        (object) ['id_contexto' => 1],
-        null
-    );
     $connectionMock->shouldReceive('exists')->andReturn(false, false);
+
+    $connectionMock->shouldReceive('get')
+        ->andReturn(collect([]));
 
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
 

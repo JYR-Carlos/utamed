@@ -3,10 +3,11 @@
 namespace App\Support;
 
 /**
- * Slugs de permisos centralizados.
- * AUTOGENERADO desde scripts/permissions-config.php — NO EDITAR.
+ * Slugs de permisos centralizados, estandarizados y a prueba de errores.
+ * AUTOGENERADO desde scripts/permissions_config.php — NO EDITAR.
  *
- * Uso: Permissions::FACULTAD_VER
+ * Uso: Permissions::FACULTAD_VER <- 'facultad:ver'
+ * Para agregar permisos, editar scripts/permissions_config.php y regenerar.
  */
 class Permissions
 {
@@ -87,4 +88,13 @@ class Permissions
     const CURSOS_ACTIVIDADES_GRUPOS_ELIMINAR = 'cursos/actividades/grupos:eliminar';
     const CURSOS_PROGRAMAS_VER = 'cursos/programas:ver';
     const CURSOS_PROGRAMAS_ELIMINAR = 'cursos/programas:eliminar';
+    const CURSOS_PROGRAMAS_MODIFICAR_MODULO_1 = 'cursos/programas/modificar:modulo_1';
+    const CURSOS_PROGRAMAS_MODIFICAR_MODULO_2 = 'cursos/programas/modificar:modulo_2';
+    const CURSOS_PROGRAMAS_MODIFICAR_MODULO_3 = 'cursos/programas/modificar:modulo_3';
+    const CURSOS_PROGRAMAS_MODIFICAR_MODULO_4 = 'cursos/programas/modificar:modulo_4';
+    const CURSOS_PROGRAMAS_MODIFICAR_MODULO_5 = 'cursos/programas/modificar:modulo_5';
+    const CURSOS_PROGRAMAS_MODIFICAR_MODULO_6 = 'cursos/programas/modificar:modulo_6';
+    const CURSOS_PROGRAMAS_MODIFICAR_MODULO_7 = 'cursos/programas/modificar:modulo_7';
+    const CURSOS_PROGRAMAS_MODIFICAR_MODULO_8 = 'cursos/programas/modificar:modulo_8';
+    const CURSOS_PROGRAMAS_MODIFICAR_MODULO_9 = 'cursos/programas/modificar:modulo_9';
 }

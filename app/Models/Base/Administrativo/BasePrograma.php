@@ -6,7 +6,7 @@ use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Extensions\Compoships\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Contracts\HasContext;
+use App\Contracts\HasOwnedContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
 
@@ -14,7 +14,7 @@ use App\Traits\QueryScopes\FiltersContextScope;
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BasePrograma extends CustomBaseModel implements HasContext
+abstract class BasePrograma extends CustomBaseModel implements HasOwnedContext
 {
     use SoftDeletes;
     use Compoships;

@@ -2,6 +2,7 @@
 
 use App\Services\Authorization\PermissionValidator;
 use App\Services\ContextResolver;
+use App\Services\Authorization\GlobalContextService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -17,13 +18,27 @@ use App\Models\Usuario\Usuario as UsuarioStub;
 // ============================================================================
 
 beforeEach(function () {
+    // Mock de GlobalContextService para evitar consultas a BD
+    Mockery::close();
+
+    $globalContextMock = Mockery::mock(GlobalContextService::class);
+    $globalContextMock->shouldReceive('getContextId')
+        ->andReturn(1);
+
+    app()->instance(GlobalContextService::class, $globalContextMock);
+
     // Mock del Cache (sin caché en tests)
     Cache::shouldReceive('get')->andReturn(null); // No guarda nada en realidad
     Cache::shouldReceive('put')->andReturn(true); // No tira error al intentar guardar en caché
 });
 
+afterEach(function () {
+    Mockery::close();
+});
+
 /**
- * Crear un mock de conexión a BD preconfigurado con los métodos básicos
+ * Crear un base mock que soporta encadenamiento de métodos
+ * Retorna self para todos los métodos de construcción de query
  */
 function createConnectionMock()
 {
@@ -34,6 +49,8 @@ function createConnectionMock()
     $mock->shouldReceive('where')->andReturnSelf();
     $mock->shouldReceive('whereIn')->andReturnSelf();
     $mock->shouldReceive('orderByRaw')->andReturnSelf();
+    $mock->shouldReceive('distinct')->andReturnSelf();
+    $mock->shouldReceive('limit')->andReturnSelf();
     return $mock;
 }
 
@@ -49,11 +66,7 @@ test('superadmin con permiso * en contexto global puede hacer todo', function ()
     // Crear mock de la conexión a BD preconfigurado con métodos básicos
     $connectionMock = createConnectionMock();
 
-    // Retornar contexto global (id_contexto = 1) cuando loadGlobalContextId() consulte
-    // Simplemente para que se inicialice el validador y no se caiga
-    $connectionMock->shouldReceive('first')->once()->andReturn((object) ['id_contexto' => 1]);
-
-    // Retornar true cuando isSuperAdmin() verifique si tiene permiso '*' en contexto global
+    // hasSuperAdminPermission() usa ->exists() returns true para superadmin
     $connectionMock->shouldReceive('exists')->andReturn(true);
 
     // Inyectar el mock en la fachada DB
@@ -61,7 +74,8 @@ test('superadmin con permiso * en contexto global puede hacer todo', function ()
 
     // Mock del ContextResolver (no se usa en este test pero es requerido por constructor)
     $contextResolver = Mockery::mock(ContextResolver::class);
-    $validator = new PermissionValidator($contextResolver);
+    $globalContext = app(GlobalContextService::class);
+    $validator = new PermissionValidator($contextResolver, $globalContext);
 
     // Verificar que el superadmin puede hacer cualquier acción
     expect($validator->validate($usuario, 'facultad:ver'))->toBeTrue();
@@ -80,16 +94,15 @@ test('usuario con permiso exacto puede realizar esa acción', function () {
     // Crear mock de la conexión a BD preconfigurado
     $connectionMock = createConnectionMock();
 
-    // Simular 2 llamadas a first():
-    // 1ra: loadGlobalContextId() obtiene el contexto global (id_contexto = 1)
-    // 2da: checkSpecialPermission() encuentra permiso exacto en UPE con esta_permitido = true
-    $connectionMock->shouldReceive('first')->andReturn(
-        (object) ['id_contexto' => 1], // loadGlobalContextId
-        (object) ['esta_permitido' => true] // checkSpecialPermission (permiso exacto UPE)
-    );
-
     // isSuperAdmin() retorna false (no es superadmin)
-    $connectionMock->shouldReceive('exists')->andReturn(false);
+    $connectionMock->shouldReceive('exists')
+        ->andReturn(false);
+
+    // checkSpecialPermission() usa get() y retorna una colección con el permiso exacto
+    $connectionMock->shouldReceive('get')
+        ->andReturn(collect([
+            (object) ['slug' => 'facultad:ver', 'esta_permitido' => true]
+        ]));
 
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
 
@@ -98,7 +111,8 @@ test('usuario con permiso exacto puede realizar esa acción', function () {
     $contextResolver->shouldReceive('getContextId')->andReturn([5]);
 
     // Instanciar el validador y el recurso (facultad con id_contexto = 5)
-    $validator = new PermissionValidator($contextResolver);
+    $globalContext = app(GlobalContextService::class);
+    $validator = new PermissionValidator($contextResolver, $globalContext);
     $facultad = new CarreraStub(5);
 
     // Verificar que el usuario puede ver la facultad (tiene permiso exacto 'facultad:ver' en UPE)
@@ -117,16 +131,15 @@ test('UPE con DENY sobrescribe permiso de URA', function () {
     // Crear mock de la conexión a BD preconfigurado
     $connectionMock = createConnectionMock();
 
-    // Simular 2 llamadas a first():
-    // 1ra: loadGlobalContextId() obtiene el contexto global
-    // 2da: checkSpecialPermission() encuentra DENY explícito en UPE (esta_permitido = false)
-    $connectionMock->shouldReceive('first')->andReturn(
-        (object) ['id_contexto' => 1],
-        (object) ['slug' => 'facultad:editar', 'esta_permitido' => false]
-    );
+    // isSuperAdmin() retorna false (no es superadmin)
+    $connectionMock->shouldReceive('exists')
+        ->andReturn(false);
 
-    // isSuperAdmin() retorna false
-    $connectionMock->shouldReceive('exists')->andReturn(false);
+    // checkSpecialPermission() retorna DENY en UPE (misma variable $facultad que se usa debajo)
+    $connectionMock->shouldReceive('get')
+        ->andReturn(collect([
+            (object) ['slug' => 'facultad:editar', 'esta_permitido' => false]
+        ]));
 
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
 
@@ -135,7 +148,8 @@ test('UPE con DENY sobrescribe permiso de URA', function () {
     $contextResolver->shouldReceive('getContextId')->andReturn([15]);
 
     // Instanciar el validador y el recurso
-    $validator = new PermissionValidator($contextResolver);
+    $globalContext = app(GlobalContextService::class);
+    $validator = new PermissionValidator($contextResolver, $globalContext);
     $facultad = new CarreraStub(15);
 
     // Verificar que el usuario NO puede editar (DENY en UPE tiene prioridad sobre cualquier permiso de rol)
@@ -154,21 +168,13 @@ test('caso real: profesor puede ver cursos de su departamento', function () {
     // Crear mock de la conexión a BD preconfigurado
     $connectionMock = createConnectionMock();
 
-    // Simular 2 llamadas a first():
-    // 1ra: loadGlobalContextId() obtiene el contexto global
-    // 2da: checkSpecialPermission() retorna null (no hay permiso especial UPE)
-    $connectionMock->shouldReceive('first')->andReturn(
-        (object) ['id_contexto' => 1], // loadGlobalContextId
-        null // checkSpecialPermission (no UPE)
-    );
+    // isSuperAdmin() retorna false (no es superadmin)
+    $connectionMock->shouldReceive('exists')
+        ->andReturn(false, true); // false for isSuperAdmin, true for checkRolePermission
 
-    // Simular 2 llamadas a exists():
-    // 1ra: isSuperAdmin() retorna false (no es superadmin)
-    // 2da: checkRolePermission() retorna true (tiene permiso por rol URA)
-    $connectionMock->shouldReceive('exists')->andReturn(
-        false, // isSuperAdmin
-        true   // checkRolePermission (tiene por rol)
-    );
+    // checkSpecialPermission() retorna colección vacía (no hay UPE)
+    $connectionMock->shouldReceive('get')
+        ->andReturn(collect([]));
 
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
 
@@ -177,7 +183,8 @@ test('caso real: profesor puede ver cursos de su departamento', function () {
     $contextResolver->shouldReceive('getContextId')->andReturn([50]);
 
     // Instanciar el validador y el recurso (curso)
-    $validator = new PermissionValidator($contextResolver);
+    $globalContext = app(GlobalContextService::class);
+    $validator = new PermissionValidator($contextResolver, $globalContext);
     $curso = new CarreraStub(50);
 
     // Verificar que el profesor puede ver el curso (tiene permiso 'curso:ver' por su rol en ese contexto)
@@ -192,15 +199,13 @@ test('caso real: estudiante NO puede eliminar inscripciones', function () {
     // Crear mock de la conexión a BD preconfigurado
     $connectionMock = createConnectionMock();
 
-    // Simular 2 llamadas a first():
-    // 1ra: loadGlobalContextId() obtiene el contexto global
-    // 2da: checkSpecialPermission() retorna null (no hay permiso especial)
-    $connectionMock->shouldReceive('first')->andReturn((object) ['id_contexto' => 1], null);
+    // isSuperAdmin() y checkRolePermission() retornan false
+    $connectionMock->shouldReceive('exists')
+        ->andReturn(false, false);
 
-    // Simular llamadas a exists() que todas retornan false:
-    // 1ra: isSuperAdmin() → false
-    // 2da: checkRolePermission() → false (no tiene permiso por rol)
-    $connectionMock->shouldReceive('exists')->andReturn(false, false, false);
+    // checkSpecialPermission() retorna colección vacía
+    $connectionMock->shouldReceive('get')
+        ->andReturn(collect([]));
 
     DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
 
@@ -209,7 +214,8 @@ test('caso real: estudiante NO puede eliminar inscripciones', function () {
     $contextResolver->shouldReceive('getContextId')->andReturn([70]);
 
     // Instanciar el validador y el recurso (inscripción)
-    $validator = new PermissionValidator($contextResolver);
+    $globalContext = app(GlobalContextService::class);
+    $validator = new PermissionValidator($contextResolver, $globalContext);
     $inscripcion = new CarreraStub(70);
 
     // Verificar que el estudiante NO puede eliminar inscripciones (no tiene permiso)

@@ -83,10 +83,12 @@ $verbose = in_array('--verbose', $argv);
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
+
 // ==================================================================================
 // CONFIGURACIÓN GENERAL
 // ==================================================================================
 
+$projectRoot = dirname(__DIR__); // utamed/
 $catalogName = 'utamed_1ra_fase';
 $schemaPrefix = 'administrativo,agenda,curso,usuario';
 
@@ -1524,15 +1526,21 @@ foreach ($tables as $tableInfo) {
   // ==================================================================================
 
   // Agregar imports y traits para contexto si aplica
-  $contextImport = $implementsContext
-    ? "use App\\Contracts\\HasContext;\nuse App\\Traits\\ContextAware;\nuse App\\Traits\\QueryScopes\\FiltersContextScope;\n"
-    : "";
-
-  $contextTrait = $implementsContext
-    ? "{$tab}use ContextAware;\n{$tab}use FiltersContextScope;\n"
-    : "";
-
-  $implementsClause = $implementsContext ? " implements HasContext" : "";
+  // Los modelos globales usan GlobalContextAware (implements HasContext solamente);
+  // los modelos direct/hierarchical usan ContextAware (implements HasOwnedContext).
+  if ($implementsContext && $modelContextType === 'global') {
+    $contextImport = "use App\\Contracts\\HasContext;\nuse App\\Traits\\GlobalContextAware;\nuse App\\Traits\\QueryScopes\\FiltersContextScope;\n";
+    $contextTrait = "{$tab}use GlobalContextAware;\n{$tab}use FiltersContextScope;\n";
+    $implementsClause = " implements HasContext";
+  } elseif ($implementsContext) {
+    $contextImport = "use App\\Contracts\\HasOwnedContext;\nuse App\\Traits\\ContextAware;\nuse App\\Traits\\QueryScopes\\FiltersContextScope;\n";
+    $contextTrait = "{$tab}use ContextAware;\n{$tab}use FiltersContextScope;\n";
+    $implementsClause = " implements HasOwnedContext";
+  } else {
+    $contextImport = "";
+    $contextTrait = "";
+    $implementsClause = "";
+  }
 
   // ==================================================================================
   // PASO 4.7.c: CONFIGURAR CLAVES COMPUESTAS CON awobaz/compoships
@@ -2336,7 +2344,7 @@ PHP;
   if (!$dryRun) {
     file_put_contents($baseModelPath, $baseContent);
   } else {
-    echo "    [DRY-RUN] Base model: $baseModelPath\n";
+    echo "    [DRY-RUN] Base model: " . relativePath($baseModelPath, $projectRoot) . "\n";
   }
 
   // ==================================================================================
@@ -2414,7 +2422,7 @@ PHP;
     if (!$dryRun) {
       file_put_contents($modelPath, $extendedContent);
     } else {
-      echo "    [DRY-RUN] Extended model: $modelPath\n";
+      echo "    [DRY-RUN] Extended model: " . relativePath($modelPath, $projectRoot) . "\n";
     }
   }
 
@@ -2663,7 +2671,7 @@ PHP;
     file_put_contents($basePolicyPath, $content);
     echo color("  ✓ {$baseName}.php\n", 'green');
   } else {
-    echo "    [DRY-RUN] Base policy: {$basePolicyPath}\n";
+    echo "    [DRY-RUN] Base policy: " . relativePath($basePolicyPath, $projectRoot) . "\n";
   }
 }
 
@@ -2726,7 +2734,7 @@ PHP;
       file_put_contents($extPolicyPath, $stub);
       echo color("  ✓ {$extName}.php (nuevo)\n", 'green');
     } else {
-      echo "    [DRY-RUN] Extended policy stub: {$extPolicyPath}\n";
+      echo "    [DRY-RUN] Extended policy stub: " . relativePath($extPolicyPath, $projectRoot) . "\n";
     }
   } else {
     echo color("  ~ {$extName}.php (preservado)\n", 'yellow');
@@ -2801,7 +2809,7 @@ if (!$dryRun) {
   file_put_contents($authProviderPath, $authProviderContent);
   echo color("  ✓ AuthServiceProvider.php\n", 'green');
 } else {
-  echo "    [DRY-RUN] AuthServiceProvider: {$authProviderPath}\n";
+  echo "    [DRY-RUN] AuthServiceProvider: " . relativePath($authProviderPath, $projectRoot) . "\n";
 }
 
 // ==================================================================================
@@ -2824,7 +2832,7 @@ $permissionsConfigPath = __DIR__ . '/permissions_config.php';
 $permissionsOutPath = app_path('Support/Permissions.php');
 
 if (!file_exists($permissionsConfigPath)) {
-  echo color("  ⚠ No se encontró {$permissionsConfigPath} — saltando PASO 9\n", 'yellow');
+  echo color("  ⚠ No se encontró " . relativePath($permissionsConfigPath, $projectRoot) . " — saltando PASO 9\n", 'yellow');
 } else {
   $permDefs = include $permissionsConfigPath;
 
@@ -2865,6 +2873,7 @@ if (!file_exists($permissionsConfigPath)) {
     $constants .= "    const {$constName} = '{$slug}';\n";
   }
 
+  $permissionsConfigRelative = relativePath($permissionsConfigPath, $projectRoot);
   $permissionsContent = <<<PHP
 <?php
 
@@ -2872,10 +2881,10 @@ namespace App\Support;
 
 /**
  * Slugs de permisos centralizados, estandarizados y a prueba de errores.
- * AUTOGENERADO desde {$permissionsConfigPath} — NO EDITAR.
+ * AUTOGENERADO desde {$permissionsConfigRelative} — NO EDITAR.
  *
  * Uso: Permissions::FACULTAD_VER <- 'facultad:ver'
- * Para agregar permisos, editar {$permissionsConfigPath} y regenerar.
+ * Para agregar permisos, editar {$permissionsConfigRelative} y regenerar.
  */
 class Permissions
 {
@@ -2889,7 +2898,7 @@ PHP;
     file_put_contents($permissionsOutPath, $permissionsContent);
     echo color("  ✓ app/Support/Permissions.php\n", 'green');
   } else {
-    echo "    [DRY-RUN] Permissions: {$permissionsOutPath}\n";
+    echo "    [DRY-RUN] Permissions: " . relativePath($permissionsOutPath, $projectRoot) . "\n";
   }
 }
 
@@ -3063,12 +3072,112 @@ if (!$dryRun) {
   $phpContent = "<?php\n\nreturn " . var_export($contextMappings, true) . ";\n";
 
   if (file_put_contents($contextConfigPath, $phpContent)) {
-    echo color("✓ Context mappings guardados en: {$contextConfigPath}\n", 'green');
+    echo color("✓ Context mappings guardados en: " . relativePath($contextConfigPath, $projectRoot) . "\n", 'green');
   } else {
     echo color("⚠ Error al guardar context mappings\n", 'red');
   }
 } else {
-  echo "[DRY-RUN] Context mappings: {$contextConfigPath}\n";
+  echo "[DRY-RUN] Context mappings: " . relativePath($contextConfigPath, $projectRoot) . "\n";
+}
+
+echo "\n";
+
+// ==================================================================================
+// GENERAR ENUM ContextualModelType
+// ==================================================================================
+//
+// Genera app/Enums/ContextualModelType.php con un case por cada modelo 'direct'.
+// Este enum es el tipo aceptado por ->onAll(), eliminando strings mágicos.
+// ==================================================================================
+
+echo color("Generando ContextualModelType enum...\n", 'bold');
+
+$enumCases = '';
+foreach ($contextConfig['direct'] ?? [] as $modelKey => $contextType) {
+  $parts = explode('.', $modelKey);  // 'administrativo.carrera' -> ['administrativo', 'carrera']
+  if (count($parts) === 2) {
+    $schemaName = Str::studly($parts[0]);  // Administrativo
+    $modelName = Str::studly($parts[1]); // Carrera
+    $caseName = strtoupper($parts[1]);  // CARRERA
+    $fqcn = "App\\\\Models\\\\{$schemaName}\\\\{$modelName}";
+    $enumCases .= "    case {$caseName} = {$modelName}::class;\n";
+  }
+}
+
+// Collect use imports for the direct models
+$enumUseImports = '';
+foreach ($contextConfig['direct'] ?? [] as $modelKey => $contextType) {
+  $parts = explode('.', $modelKey);
+  if (count($parts) === 2) {
+    $schemaName = Str::studly($parts[0]);
+    $modelName = Str::studly($parts[1]);
+    $enumUseImports .= "use App\\Models\\{$schemaName}\\{$modelName};\n";
+  }
+}
+
+$enumContent = <<<PHP
+<?php
+
+namespace App\Enums;
+
+{$enumUseImports}
+/**
+ * Enumeración de los modelos con contexto propio de tipo 'direct'.
+ *
+ * Generada automáticamente por scripts/generate_models.php
+ * NO EDITAR MANUALMENTE — se sobrescribe al regenerar.
+ *
+ * Estos son los "anclas" de contexto: modelos que tienen un id_contexto
+ * directo en su tabla y son el destino final de todos los caminos jerárquicos.
+ *
+ * Úsala en ->onAll() para eliminar strings mágicos y garantizar en tiempo de
+ * compilación que sólo se pasan modelos que poseen un contexto real:
+ *
+ * @example
+ *   // Antes (string mágico, sin verificación):
+ *   \$user->givePermission(\$perm)->onAll(Carrera::class)->for(30);
+ *
+ *   // Después (type-safe, IDE-friendly):
+ *   \$user->givePermission(\$perm)->onAll(ContextualModelType::CARRERA)->for(30);
+ */
+enum ContextualModelType: string
+{
+{$enumCases}
+    /**
+     * Retorna el FQCN del modelo asociado.
+     *
+     * @return class-string
+     */
+    public function modelClass(): string
+    {
+        return \$this->value;
+    }
+
+    /**
+     * Retorna una query builder para el modelo asociado.
+     *
+     * @return \\Illuminate\\Database\\Eloquent\\Builder
+     */
+    public function query(): \\Illuminate\\Database\\Eloquent\\Builder
+    {
+        return (\$this->value)::query();
+    }
+}
+PHP;
+
+$enumOutPath = app_path('Enums/ContextualModelType.php');
+
+if (!$dryRun) {
+  if (!is_dir(app_path('Enums'))) {
+    mkdir(app_path('Enums'), 0755, true);
+  }
+  if (file_put_contents($enumOutPath, $enumContent)) {
+    echo color("✓ Enum guardado en: " . relativePath($enumOutPath, $projectRoot) . "\n", 'green');
+  } else {
+    echo color("⚠ Error al guardar enum\n", 'red');
+  }
+} else {
+  echo "[DRY-RUN] ContextualModelType enum: " . relativePath($enumOutPath, $projectRoot) . "\n";
 }
 
 echo "\n";

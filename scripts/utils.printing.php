@@ -45,26 +45,26 @@
 // ==================================================================================
 
 // Constantes de caracteres de árbol para evitar strings mágicos
-define('TREE_BRANCH',    '├── ');   // Rama intermedia
-define('TREE_LAST',      '└── ');   // Última rama
-define('TREE_PIPE',      '│   ');   // Continuación vertical
-define('TREE_SPACE',     '    ');   // Espacio vacío (misma longitud que TREE_PIPE)
+define('TREE_BRANCH', '├── ');   // Rama intermedia
+define('TREE_LAST', '└── ');   // Última rama
+define('TREE_PIPE', '│   ');   // Continuación vertical
+define('TREE_SPACE', '    ');   // Espacio vacío (misma longitud que TREE_PIPE)
 
 // Constantes de colores ANSI
 define('COLORS', [
-  'red'    => "\033[31m",   // Método autogenerado
-  'blue'   => "\033[34m",   // Método auto-prefix/auto-suffix
-  'green'  => "\033[32m",   // Método custom (configuración explícita)
+  'red' => "\033[31m",   // Método autogenerado
+  'blue' => "\033[34m",   // Método auto-prefix/auto-suffix
+  'green' => "\033[32m",   // Método custom (configuración explícita)
   'yellow' => "\033[33m",   // Advertencias / etiquetas
-  'gray'   => "\033[90m",   // Info secundaria
-  'bold'   => "\033[1m",    // Negrita
-  'reset'  => "\033[0m",    // Reset color
-  
+  'gray' => "\033[90m",   // Info secundaria
+  'bold' => "\033[1m",    // Negrita
+  'reset' => "\033[0m",    // Reset color
+
   // Colores brillantes para tipos de relación
   'bright_yellow' => "\033[93m",  // belongsTo (amarillo fosforescente)
-  'bright_cyan'   => "\033[96m",  // hasOne (cyan brillante)
-  'bright_red'    => "\033[91m",  // hasMany (naranja brillante)
-  'bright_magenta'=> "\033[95m",  // belongsToMany (morado brillante)
+  'bright_cyan' => "\033[96m",  // hasOne (cyan brillante)
+  'bright_red' => "\033[91m",  // hasMany (naranja brillante)
+  'bright_magenta' => "\033[95m",  // belongsToMany (morado brillante)
 ]);
 
 /**
@@ -127,9 +127,9 @@ function tree_print(string $prefix, bool $isLast, string $text): void
 function method_color(string $origin): string
 {
   return match ($origin) {
-    'custom'      => 'green',
+    'custom' => 'green',
     'auto_suffix' => 'blue',
-    default       => 'red',
+    default => 'red',
   };
 }
 
@@ -148,11 +148,11 @@ function method_color(string $origin): string
 function relation_type_color(string $relationType): string
 {
   return match ($relationType) {
-    'belongsTo'     => 'bright_yellow',
-    'hasOne'        => 'bright_cyan',
-    'hasMany'       => 'bright_red',
+    'belongsTo' => 'bright_yellow',
+    'hasOne' => 'bright_cyan',
+    'hasMany' => 'bright_red',
     'belongsToMany' => 'bright_magenta',
-    default         => 'gray',
+    default => 'gray',
   };
 }
 
@@ -168,15 +168,15 @@ function relation_type_color(string $relationType): string
  */
 function section(string $title, array $data = []): void
 {
-    echo "\n" . color($title, 'bright_green') . "\n";
-    
-    foreach ($data as $key => $value) {
-        echo "  • $key: " . color((string)$value, 'blue') . "\n";
-    }
-    
-    if (!empty($data)) {
-        echo "\n";
-    }
+  echo "\n" . color($title, 'bright_green') . "\n";
+
+  foreach ($data as $key => $value) {
+    echo "  • $key: " . color((string) $value, 'blue') . "\n";
+  }
+
+  if (!empty($data)) {
+    echo "\n";
+  }
 }
 
 /**
@@ -186,5 +186,37 @@ function section(string $title, array $data = []): void
  */
 function step(string $message): void
 {
-    echo "  ✓ $message\n";
+  echo "  ✓ $message\n";
+}
+
+// ==================================================================================
+// FUNCIÓN DE RUTAS RELATIVAS
+// ==================================================================================
+
+/**
+ * Convierte una ruta absoluta a una ruta relativa desde la raíz del proyecto.
+ *
+ * @param string $absolutePath Ruta absoluta (normalmente desde app_path, base_path, etc.)
+ * @param string $projectRoot  Ruta raíz del proyecto (ej: c:\Users\user\Code\utamed)
+ * @return string Ruta relativa desde la raíz (ej: scripts/generate_models.php)
+ *
+ * @example
+ *   $absolute = 'c:\Users\user\Code\utamed\app\Models\Base\Administrativo\BaseFacultad.php';
+ *   $relative = relativePath($absolute, 'c:\Users\user\Code\utamed');
+ *   // Resultado: app/Models/Base/Administrativo/BaseFacultad.php
+ */
+function relativePath(string $absolutePath, string $projectRoot): string
+{
+  // Normalizar separadores de ruta a forward slashes
+  $absolutePath = str_replace('\\', '/', $absolutePath);
+  $projectRoot = str_replace('\\', '/', $projectRoot);
+
+  // Si la ruta comienza con el root del proyecto, extraer la parte relativa
+  if (strpos($absolutePath, $projectRoot) === 0) {
+    $relative = substr($absolutePath, strlen($projectRoot) + 1);
+    return $relative;
+  }
+
+  // Si no, devolver la ruta tal como está
+  return $absolutePath;
 }

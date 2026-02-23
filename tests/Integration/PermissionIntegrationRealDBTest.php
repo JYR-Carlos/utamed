@@ -435,9 +435,10 @@ test('contextos se resuelven correctamente', function () {
     $contextosCurso = $resolver->getContextId($this->curso);
     expect($contextosCurso)->toBe($contextosCurso); // Curso tiene su propio contexto
 
-    // Usuario tiene contexto global (vacío)
+    // Usuario tiene contexto global - ahora retorna el ID del contexto global desde GlobalContextService
     $contextosUsuario = $resolver->getContextId($this->profesor);
-    expect($contextosUsuario)->toBe([]);
+    // Global models now resolve to the global context ID via GlobalContextService
+    expect($contextosUsuario)->toBe([$this->contextoGlobal_id]);
 });
 
 // ============================================================================

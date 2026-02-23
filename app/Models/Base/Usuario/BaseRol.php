@@ -6,7 +6,7 @@ use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasContext;
-use App\Traits\ContextAware;
+use App\Traits\GlobalContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
@@ -16,7 +16,7 @@ use App\Traits\QueryScopes\FiltersContextScope;
 abstract class BaseRol extends CustomBaseModel implements HasContext
 {
     use Compoships;
-    use ContextAware;
+    use GlobalContextAware;
     use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';

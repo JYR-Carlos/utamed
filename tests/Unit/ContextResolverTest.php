@@ -19,10 +19,33 @@ use App\Models\Usuario\Usuario as UsuarioStub;
 use App\Models\Curso\Curso as CursoStub;
 use App\Models\Usuario\Estudiante as EstudianteStub;
 use App\Models\Curso\InscripcionCurso as InscripcionCursoStub;
+use App\Services\Authorization\GlobalContextService;
+
+// ============================================================================
+// SETUP
+// ============================================================================
+
+beforeEach(function () {
+    // Mock de GlobalContextService para evitar consultas a BD
+    // El ContextResolver depende de esto para modelos globales
+    Mockery::close();
+
+    $globalContextMock = Mockery::mock(GlobalContextService::class);
+    $globalContextMock->shouldReceive('getContextId')
+        ->andReturn(1);
+
+    app()->instance(GlobalContextService::class, $globalContextMock);
+});
+
+afterEach(function () {
+    Mockery::close();
+});
 
 // ============================================================================
 // TESTS DE CONFIGURACIÓN
 // ============================================================================
+
+
 
 test('mappings se cargan correctamente del archivo', function () {
     $resolver = app(ContextResolver::class);
@@ -99,7 +122,7 @@ test('AsignacionPlan (jerárquico 2 niveles) resuelve contexto desde Plan → Ca
 // TESTS DE CONTEXTO GLOBAL
 // ============================================================================
 
-test('Usuario (global) retorna array vacío como contexto', function () {
+test('Usuario (global) retorna contexto global', function () {
     $resolver = app(ContextResolver::class);
 
     $usuario = new UsuarioStub();
@@ -107,8 +130,8 @@ test('Usuario (global) retorna array vacío como contexto', function () {
     $contextIds = $resolver->getContextId($usuario);
     $contextType = $resolver->getContextType($usuario);
 
-    // Usuario es global, no tiene contexto
-    expect($contextIds)->toBe([]);
+    // Usuario es global, retorna el contexto global (id_contexto = 1)
+    expect($contextIds)->toBe([1]);
     expect($contextType)->toBeNull();
 });
 
@@ -214,18 +237,18 @@ test('Curso (directo) retorna su id_contexto directamente a pesar de tener camin
     expect($contextType)->toBe('curso');
 });
 
-test('Estudiante resuelve contexto directamente desde Carrera', function () {
+test('Estudiante (global) resuelve al contexto global', function () {
     $resolver = app(ContextResolver::class);
 
-    // Estudiante es GLOBAL, no tiene contexto propios
+    // Estudiante es GLOBAL, por lo que resuelve al contexto global (id_contexto = 1)
     $carrera = new CarreraStub(88);
     $estudiante = new EstudianteStub(null, $carrera);
 
     $contextIds = $resolver->getContextId($estudiante);
     $contextType = $resolver->getContextType($estudiante);
 
-    // Debe retornar vacío porque Estudiante es global
-    expect($contextIds)->toBe([]);
+    // Debe retornar el contexto global porque Estudiante es global
+    expect($contextIds)->toBe([1]);
     expect($contextType)->toBeNull();
 });
 

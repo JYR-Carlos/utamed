@@ -7,12 +7,11 @@ use App\Contracts\HasContext;
 use App\Enums\PermissionTypeEnum;
 use App\Services\Authorization\GlobalContextService;
 use App\Services\ContextResolver;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 
 /**
- * Motor de validación de permisos RBAC con contextos.
+ * Motor de validación de permisos RelBAC con contextos.
  * 
  * Flujo de validación:
  * 1. Verificar si es superadmin global (permiso '*' sin contexto)
@@ -36,9 +35,8 @@ class PermissionValidator
     /**
      * Configuración cargada en constructor
      */
-    protected int $cacheTtl;
-    protected string $cachePrefix;
-    protected bool $cacheEnabled;
+    // Para el caché
+    // protected int $cacheTtl;
     protected string $globalWildcard;
 
     /**
@@ -48,51 +46,9 @@ class PermissionValidator
         protected ContextResolver $contextResolver,
         protected GlobalContextService $globalContext
     ) {
-        $this->cacheTtl     = config('rbac.cache_ttl');
-        $this->cachePrefix  = config('rbac.cache_prefix');
-        $this->cacheEnabled = config('rbac.cache_enabled');
+        // Para el caché
+        // $this->cacheTtl     = config('configFile.cache_ttl');
         $this->globalWildcard = WildcardMatcher::GLOBAL_WILDCARD;
-    }
-
-    /**
-     * Getter para globalContextId con lazy loading
-     */
-    protected function getGlobalContextId(): int
-    {
-        if ($this->globalContextId === null) {
-            $this->globalContextId = $this->loadGlobalContextId();
-        }
-        return $this->globalContextId;
-    }
-
-    /**
-     * Cargar ID del contexto global desde la BD usando tipo_contexto.tabla_referenciada.
-     * 
-     * Busca el Tipo_Contexto donde tabla_referenciada = 'GLOBAL',
-     * luego obtiene el Contexto asociado.
-     * 
-     * @return int
-     */
-    protected function loadGlobalContextId(): int
-    {
-        try {
-            $globalContext = \App\Models\Usuario\Contexto::whereHas('tipoContexto', function ($query) {
-                $query->where('tabla_referenciada', 'GLOBAL');
-            })->select('id_contexto')->soleValue('id_contexto');
-
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            throw new \RuntimeException(
-                "Contexto global no encontrado. Verifica que exista un registro en tipo_contexto con tabla_referenciada='GLOBAL' y su contexto asociado en usuario.contexto"
-            );
-        } catch (\Illuminate\Database\MultipleRecordsFoundException $e) {
-            throw new \RuntimeException(
-                "Múltiples contextos globales encontrados. Existe configuración corrupta del servicio. 
-                El sistema se rehusará a funcionar hasta que se corrija. 
-                Verifica que solo exista UN registro en tipo_contexto con tabla_referenciada='GLOBAL' y su contexto asociado en usuario.contexto"
-            );
-        }
-
-        return $globalContext;
     }
 
     /**
@@ -131,16 +87,9 @@ class PermissionValidator
      * @param string $permission Slug del permiso
      * @return array Array de IDs de contexto
      */
-    public function getContextsWithPermission(Usuario $user, string $permission): array
+    public function getContextsFromPermission(Usuario $user, string $permission): array
     {
-        $cacheKey = $this->getCacheKey($user->id_usuario, "contexts:{$permission}", 0);
-
-        if ($this->cacheEnabled) {
-            $cached = Cache::get($cacheKey);
-            if ($cached !== null) {
-                return $cached;
-            }
-        }
+        // TODO: Recuperar de caché: Cache::get("perm:{$user->id_usuario}:contexts:{$permission}:0")
 
         // 1. Obtener contextos con DENY en UPE
         $deniedContexts = $this->getDeniedContexts($user, $permission);
@@ -155,9 +104,7 @@ class PermissionValidator
         $allGranted = array_unique(array_merge($grantedContextsUPE, $grantedContextsURA));
         $result = array_values(array_diff($allGranted, $deniedContexts));
 
-        if ($this->cacheEnabled) {
-            Cache::put($cacheKey, $result, $this->cacheTtl);
-        }
+        // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:contexts:{$permission}:0", $result)
 
         return $result;
     }
@@ -318,7 +265,12 @@ class PermissionValidator
 
     /**
      * Buscar en Permisos Especiales (UPE) vía vista vw_permisos_usuario.
-     * 
+     *
+     * Genera todos los patrones posibles (exacto, wildcard recurso, ancestros)
+     * y si hay múltiples matches, elige el más específico (menor prioridad).
+     * Ejemplo: si existe 'cursos:* (GRANT)' y 'cursos/inscripciones:* (DENY)',
+     * para 'cursos/inscripciones:ver' elige DENY porque es más específico.
+     *
      * @param Usuario $user
      * @param string $permission
      * @param int $contextId
@@ -326,51 +278,55 @@ class PermissionValidator
      */
     protected function checkSpecialPermission(Usuario $user, string $permission, int $contextId): ?bool
     {
-        $cacheKey = $this->getCacheKey($user->id_usuario, "upe:{$permission}", $contextId);
+        // TODO: Recuperar permisos UPE de caché: Cache::get("perm:{$user->id_usuario}:upe:{$permission}:{$contextId}")
 
-        if ($this->cacheEnabled) {
-            $cached = Cache::get($cacheKey);
-            if ($cached !== null) {
-                return $cached === 'grant' ? true : ($cached === 'deny' ? false : null);
-            }
-        }
+        // Generar todos los patrones (exacto, wildcard mismo recurso, ancestros, global)
+        $patterns = WildcardMatcher::generatePermissionPatterns($permission);
 
-        // Buscar en UPE con prioridad: exacto > wildcard recurso > wildcard global
-        $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
-
-        $result = DB::connection('pgsql')
+        $results = DB::connection('pgsql')
             ->table('vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('id_contexto', $contextId)
             ->where('tipo_asignacion', self::TIPO_ESPECIAL)
-            ->whereIn('slug', [$permission, $resourceWildcard, $this->globalWildcard])
-            ->orderByRaw("CASE 
-                WHEN slug = ? THEN 1
-                WHEN slug = ? THEN 2
-                WHEN slug = ? THEN 3
-                ELSE 999
-            END", [$permission, $resourceWildcard, $this->globalWildcard])
-            ->first();
+            ->whereIn('slug', $patterns)
+            ->get();
 
-        if ($result === null) {
-            if ($this->cacheEnabled) {
-                Cache::put($cacheKey, 'null', $this->cacheTtl);
-            }
+        if ($results->isEmpty()) {
+            // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:upe:{$permission}:{$contextId}", 'null')
             return null;
         }
 
-        $permissionResult = $result->esta_permitido ? true : false;
+        // Si hay múltiples resultados, elegir el de mayor prioridad (menor número)
+        // Esto asegura que lo más específico gana sobre lo general
+        $bestResult = null;
+        $bestPriority = 999;
 
-        if ($this->cacheEnabled) {
-            Cache::put($cacheKey, $permissionResult ? 'grant' : 'deny', $this->cacheTtl);
+        foreach ($results as $result) {
+            $priority = WildcardMatcher::getPriority($permission, $result->slug);
+            if ($priority < $bestPriority) {
+                $bestPriority = $priority;
+                $bestResult = $result;
+            }
         }
+
+        if ($bestResult === null) {
+            // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:upe:{$permission}:{$contextId}", 'null')
+            return null;
+        }
+
+        $permissionResult = $bestResult->esta_permitido ? true : false;
+
+        // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:upe:{$permission}:{$contextId}", $permissionResult ? 'grant' : 'deny')
 
         return $permissionResult;
     }
 
     /**
      * Buscar en Roles Asignados (URA) vía vista vw_permisos_usuario.
-     * 
+     *
+     * Genera todos los patrones posibles (exacto, wildcard recurso, ancestros)
+     * y verifica si al menos uno existe en URA.
+     *
      * @param Usuario $user
      * @param string $permission
      * @param int $contextId
@@ -378,44 +334,34 @@ class PermissionValidator
      */
     protected function checkRolePermission(Usuario $user, string $permission, int $contextId): bool
     {
-        $cacheKey = $this->getCacheKey($user->id_usuario, "ura:{$permission}", $contextId);
+        // TODO: Recuperar permisos URA de caché: Cache::get("perm:{$user->id_usuario}:ura:{$permission}:{$contextId}")
 
-        if ($this->cacheEnabled) {
-            $cached = Cache::get($cacheKey);
-            if ($cached !== null) {
-                return $cached === 'true';
-            }
-        }
-
-        // Buscar en URA con prioridad: exacto > wildcard recurso > wildcard global
-        $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
+        // Generar todos los patrones (exacto, wildcard mismo recurso, ancestros, global)
+        $patterns = WildcardMatcher::generatePermissionPatterns($permission);
 
         $hasPermission = DB::connection('pgsql')
             ->table('vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('id_contexto', $contextId)
             ->where('tipo_asignacion', self::TIPO_ROL)
-            ->whereIn('slug', [$permission, $resourceWildcard, $this->globalWildcard])
+            ->whereIn('slug', $patterns)
             ->exists();
 
-        if ($this->cacheEnabled) {
-            Cache::put($cacheKey, $hasPermission ? 'true' : 'false', $this->cacheTtl);
-        }
+        // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:ura:{$permission}:{$contextId}", $hasPermission ? 'true' : 'false')
 
         return $hasPermission;
     }
 
     /**
      * Obtener contextos donde el usuario tiene DENY en UPE.
-     * 
+     *
      * @param Usuario $user
      * @param string $permission
      * @return array
      */
     protected function getDeniedContexts(Usuario $user, string $permission): array
     {
-        $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
-
+        $patterns = WildcardMatcher::generatePermissionPatterns($permission);
 
         return DB::connection('pgsql')
             ->table('usuario_permiso_especial as upe')
@@ -430,28 +376,28 @@ class PermissionValidator
             ->whereRaw('"upe"."fecha_inicio_planificada" <= NOW()')
             ->whereRaw('"upe"."fecha_fin_planificada" >= NOW()')
             ->where('upe.esta_permitido', false)
-            ->whereIn('p.slug', [$permission, $resourceWildcard, $this->globalWildcard])
+            ->whereIn('p.slug', $patterns)
             ->pluck('upe.id_contexto')
             ->toArray();
     }
 
     /**
      * Obtener contextos donde el usuario tiene GRANT en UPE.
-     * 
+     *
      * @param Usuario $user
      * @param string $permission
      * @return array
      */
     protected function getGrantedContextsFromSpecial(Usuario $user, string $permission): array
     {
-        $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
+        $patterns = WildcardMatcher::generatePermissionPatterns($permission);
 
         return DB::connection('pgsql')
             ->table('vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('tipo_asignacion', self::TIPO_ESPECIAL)
             ->where('esta_permitido', true)
-            ->whereIn('slug', [$permission, $resourceWildcard, $this->globalWildcard])
+            ->whereIn('slug', $patterns)
             ->pluck('id_contexto')
             ->toArray();
     }
@@ -476,16 +422,5 @@ class PermissionValidator
             ->toArray();
     }
 
-    /**
-     * Generar clave de caché para un permiso.
-     * 
-     * @param int $userId
-     * @param string $permission
-     * @param int $contextId
-     * @return string
-     */
-    protected function getCacheKey(int $userId, string $permission, int $contextId): string
-    {
-        return "{$this->cachePrefix}:{$userId}:{$permission}:{$contextId}";
-    }
+
 }

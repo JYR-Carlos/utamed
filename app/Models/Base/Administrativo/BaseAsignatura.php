@@ -7,7 +7,7 @@ use Awobaz\Compoships\Compoships;
 use App\Extensions\Compoships\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Contracts\HasContext;
-use App\Traits\ContextAware;
+use App\Traits\GlobalContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
@@ -18,7 +18,7 @@ abstract class BaseAsignatura extends CustomBaseModel implements HasContext
 {
     use SoftDeletes;
     use Compoships;
-    use ContextAware;
+    use GlobalContextAware;
     use FiltersContextScope;
     const DELETED_AT = 'fecha_eliminacion';
     const CREATED_AT = 'fecha_creacion';

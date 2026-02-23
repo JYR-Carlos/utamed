@@ -2,13 +2,13 @@
 
 namespace App\Models\Administrativo;
 
-use App\Contracts\HasContext;
+use App\Contracts\HasOwnedContext;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Stub de Carrera para testing sin BD
  */
-class Carrera implements HasContext
+class Carrera implements HasOwnedContext
 {
     protected $attributes = [];
     
@@ -27,9 +27,10 @@ class Carrera implements HasContext
     /**
      * Obtiene el ID del contexto para este modelo
      */
-    public function getContextId(): ?int
+    public function getContextId(): array
     {
-        return $this->attributes['id_contexto'] ?? null;
+        $id = $this->attributes['id_contexto'] ?? null;
+        return $id !== null ? [$id] : [];
     }
 
     /**

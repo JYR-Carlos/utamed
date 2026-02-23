@@ -22,9 +22,11 @@ abstract class BaseVwPermisosUsuario extends CustomBaseModel
     protected $fillable = [
         'id_usuario',
         'id_contexto',
-        'esta_permitido',
+        'id_permiso',
         'slug',
-        'tipo_asignacion'
+        'esta_permitido',
+        'tipo_asignacion',
+        'puede_delegar'
     ];
 
 
