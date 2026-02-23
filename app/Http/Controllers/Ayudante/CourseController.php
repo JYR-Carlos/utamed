@@ -17,9 +17,7 @@ class CourseController extends Controller
         $contextosAsignados = $user->rolesAsignados()
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
-            ->whereHas('rol', function ($query) {
-                $query->whereIn('nombre', ['Ayudante', 'ayudante']);
-            })
+            ->whereIn('nombre', ['Ayudante', 'ayudante'])
             ->pluck('id_contexto');
 
         $cursosInscritos = \App\Models\Curso\Curso::whereIn('id_contexto', $contextosAsignados)

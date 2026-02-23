@@ -123,6 +123,10 @@
                                             <span class="truncate" title={curso.asignatura_nombre}>{curso.asignatura_nombre}</span>
                                         </div>
                                         <div class="flex items-center text-sm text-slate-600">
+                                            <span class="font-medium mr-2">Carrera:</span>
+                                            <span class="truncate" title={curso.carrera_nombre}>{curso.carrera_nombre}</span>
+                                        </div>
+                                        <div class="flex items-center text-sm text-slate-600">
                                             <span class="font-medium mr-2">Calendario:</span>
                                             <span>{new Date(curso.fecha_inicio).toLocaleDateString()} - {new Date(curso.fecha_fin).toLocaleDateString()}</span>
                                         </div>
@@ -218,6 +222,10 @@
                                         <div class="flex items-center text-sm text-slate-600">
                                             <span class="font-medium mr-2">Asignatura:</span>
                                             <span class="truncate" title={curso.asignatura_nombre}>{curso.asignatura_nombre}</span>
+                                        </div>
+                                        <div class="flex items-center text-sm text-slate-600">
+                                            <span class="font-medium mr-2">Carrera:</span>
+                                            <span class="truncate" title={curso.carrera_nombre}>{curso.carrera_nombre}</span>
                                         </div>
                                         <div class="flex items-center text-sm text-slate-600">
                                             <span class="font-medium mr-2">Calendario:</span>

@@ -104,7 +104,10 @@
 		id_plan: 0,
 		cod_curso: 0,
 		nombre: '',
-		fecha_inicio: ''
+		fecha_inicio: '',
+		numero_semestre: undefined,
+		agno_real: new Date().getFullYear(),
+		semestre_real: 1
 	});
 
 	const columns = [
@@ -216,7 +219,9 @@
 			cod_curso: 0,
 			nombre: '',
 			fecha_inicio: '',
-			numero_semestre: undefined
+			numero_semestre: undefined,
+			agno_real: new Date().getFullYear(),
+			semestre_real: 1
 		};
 		availableAsignaturas = [];
 		loadDocentes();
@@ -236,7 +241,9 @@
 			cod_curso: curso.cod_curso,
 			nombre: curso.nombre || '',
 			fecha_inicio: curso.fecha_inicio || '',
-			numero_semestre: curso.numero_semestre
+			numero_semestre: curso.numero_semestre,
+			agno_real: new Date().getFullYear(),
+			semestre_real: 1
 		};
 		// Load asignaturas for the selected plan
 		if (id_plan) {
@@ -483,8 +490,14 @@
 
 	// ── Syllabus modal ────────────────────────────────────────────────────
 	function openSyllabusModal(curso: Curso) {
-		syllabusTargetCurso = curso;
-		showSyllabusModal = true;
+		// Si el programa existe y NO está en BORRADOR, navegar a revisar
+		if (curso.has_programa && curso.programa_estado && curso.programa_estado !== 'BORRADOR') {
+			router.visit(`/admin/cursos/${curso.id_curso}/programa/revisar`, { method: 'get' });
+		} else {
+			// Si no existe o está en BORRADOR, abrir modal de crear/editar
+			syllabusTargetCurso = curso;
+			showSyllabusModal = true;
+		}
 	}
 
 	function closeSyllabusModal() {

@@ -13,12 +13,30 @@ use App\Contracts\HasContext;
 use App\Enums\PermissionTypeEnum;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * Modelo Usuario
  * 
  * Extiende de BaseUsuario (auto-generado)
  * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
+ * 
+ * Relaciones:
+ * @property-read \App\Models\Usuario\Docente|null $docente Perfil docente del usuario
+ * @property-read \App\Models\Usuario\Estudiante|null $estudiante Perfil estudiante del usuario
+ * 
+ * Métodos de relación:
+ * @method BelongsToMany rolesAsignados() Roles asignados al usuario vía UsuarioRolAsignacion
+ * @method BelongsToMany contextosConRolAsignado() Contextos donde el usuario tiene roles asignados
+ * @method BelongsToMany usuarioPermisoEspeciales() Permisos especiales del usuario
+ * 
+ * Métodos auxiliares de roles:
+ * @method bool isAdmin() Verifica si es administrador
+ * @method bool isDocente() Verifica si es docente
+ * @method bool isStudent() Verifica si es estudiante
+ * @method bool isAyudante() Verifica si es ayudante
+ * @method bool hasRole(string $roleName) Verifica si tiene un rol específico
+ * @method bool hasAnyRole(array $roleNames) Verifica si tiene alguno de los roles
  */
 class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContract
 {

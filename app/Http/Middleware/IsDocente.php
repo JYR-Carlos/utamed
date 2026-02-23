@@ -5,7 +5,8 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-
+use Illuminate\Support\Facades\Auth;
+use App\Models\Usuario\Usuario;
 /**
  * Middleware para validar que el usuario autenticado es docente.
  * 
@@ -26,7 +27,8 @@ class IsDocente
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = auth()->user();
+        /** @var Usuario|null $user */
+        $user = Auth::user();
 
         // Si no hay usuario autenticado, redirigir a login
         if (!$user) {
@@ -36,8 +38,8 @@ class IsDocente
         $isDocente = $user->hasRole('Docente');
 
         // Un usuario debe ser docente para acceder a estas rutas
-        if (!$isDocente) {
-            return redirect('/dashboard')->with('error', 'No tienes permisos para acceder a esta sección');
+        if (!$user->isDocente()) {
+            return redirect('/dashboard')->with('error', 'No tienes permisos para acceder a esta sección. Acceso restringido a docentes.');
         }
     
         return $next($request);

@@ -9,6 +9,7 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 
+
 /**
  * Controlador para la gestión de asignaturas.
  * 

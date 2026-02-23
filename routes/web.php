@@ -58,7 +58,21 @@ Route::get('dashboard', function () {
 
 // Admin Routes
 Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admin.')->group(function () {
-    // Resource routes
+    // Programa (Syllabus) routes MUST come before cursos resource to avoid route collision
+    Route::get('programas', [AdminProgramaController::class, 'index'])
+        ->name('programas.index');
+    Route::get('cursos/{curso}/programa', [AdminProgramaController::class, 'show'])
+        ->name('cursos.programa.show');
+    Route::get('cursos/{curso}/programa/revisar', [AdminProgramaController::class, 'show'])
+        ->name('cursos.programa.revisar');
+    Route::post('cursos/{curso}/programa', [AdminProgramaController::class, 'store'])
+        ->name('cursos.programa.store');
+    Route::put('cursos/{curso}/programa/aprobar', [AdminProgramaController::class, 'approve'])
+        ->name('cursos.programa.aprobar');
+    Route::put('cursos/{curso}/programa/rechazar', [AdminProgramaController::class, 'reject'])
+        ->name('cursos.programa.rechazar');
+
+    // Resource routes (more general routes go after specific ones)
     Route::resource('facultades', FacultadController::class);
     Route::resource('departamentos', DepartamentoController::class);
     Route::resource('carreras', CarreraController::class);
@@ -132,14 +146,6 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::delete('cursos/secciones/{seccion}', [\App\Http\Controllers\Admin\SeccionController::class, 'destroy'])
         ->name('cursos.secciones.destroy');
 
-    // Programa (Syllabus) Management for Courses
-    Route::get('cursos/{curso}/programa', [AdminProgramaController::class, 'show'])
-        ->name('cursos.programa.show');
-    Route::post('cursos/{curso}/programa', [AdminProgramaController::class, 'store'])
-        ->name('cursos.programa.store');
-    Route::put('cursos/{curso}/programa/aprobar', [AdminProgramaController::class, 'approve'])
-        ->name('cursos.programa.aprobar');
-
     // Helper endpoints for cascading selects
     Route::get('facultades/{facultad}/departamentos', [DepartamentoController::class, 'byFacultad'])
         ->name('facultades.departamentos');
@@ -207,6 +213,10 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
 Route::prefix('estudiante')->middleware(['auth', 'verified', 'is_estudiante'])->name('estudiante.')->group(function () {
     Route::get('dashboard', [\App\Http\Controllers\Student\DashboardController::class, 'index'])->name('dashboard');
     Route::get('cursos', [\App\Http\Controllers\Student\CourseController::class, 'index'])->name('cursos.index');
+    
+    // Programa (Syllabus) View - MUST be before generic {curso} route
+    Route::get('cursos/{curso}/programa', [\App\Http\Controllers\Student\ProgramaController::class, 'show'])->name('cursos.programa.show');
+    
     Route::get('cursos/{curso}', [\App\Http\Controllers\Student\CourseController::class, 'show'])->name('cursos.show');
 });
 

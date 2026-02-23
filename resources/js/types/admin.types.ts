@@ -165,6 +165,10 @@ export interface Curso {
     fecha_creacion?: string;
     fecha_modificacion?: string;
     fecha_eliminacion?: string;
+    // Programa information
+    has_programa?: boolean;
+    programa_estado?: string;
+    id_programa?: number;
 }
 
 /**
@@ -379,6 +383,8 @@ export interface CursoFormData {
     nombre?: string;
     fecha_inicio?: string;
     numero_semestre?: number;
+    agno_real?: number;
+    semestre_real?: number;
     [key: string]: FormDataConvertible;
 }
 

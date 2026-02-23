@@ -5,21 +5,19 @@ namespace App\Http\Controllers\Ayudante;
 use App\Http\Controllers\Controller;
 use App\Models\Usuario\Usuario;
 use Inertia\Inertia;
-
+use Illuminate\Support\Facades\Auth;
 class DashboardController extends Controller
 {
     public function index()
     {
         /** @var Usuario $user */
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Get available courses where they are assistant
         $contextosAsignados = $user->rolesAsignados()
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
-            ->whereHas('rol', function ($query) {
-                $query->whereIn('nombre', ['Ayudante', 'ayudante']);
-            })
+            ->whereIn('nombre', ['Ayudante', 'ayudante'])
             ->pluck('id_contexto');
 
         $ayudanteCourses = \App\Models\Curso\Curso::whereIn('id_contexto', $contextosAsignados)

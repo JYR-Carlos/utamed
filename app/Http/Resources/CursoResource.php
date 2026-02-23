@@ -14,6 +14,11 @@ class CursoResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        // Cargar programa actual del curso si existe
+        $programa = $this->programas()
+            ->where('es_actual', true)
+            ->first();
+
         return [
             'id_curso' => $this->id_curso,
             'cod_curso' => $this->cod_curso,
@@ -37,6 +42,11 @@ class CursoResource extends JsonResource
             'carrera_nombre' => $this->asignacionPlan?->plan?->carrera?->nombre,
             'numero_semestre' => $this->asignacionPlan?->semestre_planificado,
             'docente_nombre' => null, // Docentes are in secciones, not cursos
+            
+            // Programa information
+            'has_programa' => $programa !== null,
+            'programa_estado' => $programa?->estado,
+            'id_programa' => $programa?->id_programa,
             
             // Relationships
             'asignacionPlan' => new AsignacionPlanResource($this->whenLoaded('asignacionPlan')),

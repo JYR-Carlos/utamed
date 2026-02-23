@@ -4,11 +4,16 @@ namespace App\Policies;
 
 use App\Policies\Base\BaseProgramaPolicy;
 use App\Models\Usuario\Usuario;
-use App\Models\Curso\Programa;
+use App\Models\Administrativo\Programa;
+use App\Models\Curso\Seccion;
 
 /**
  * Policy personalizada para Programa.
- * Creada automáticamente como stub - NO se sobrescribe al regenerar.
+ * 
+ * Valida que:
+ * 1. Usuario es Administrador, O
+ * 2. Usuario es docente asignado al curso (tiene sección en ese curso), O
+ * 3. Usuario tiene permisos específicos de programa
  *
  * Patrones disponibles:
  *   1. Sobrescribir customXXX()       → base corre primero, hook como fallback
@@ -17,5 +22,233 @@ use App\Models\Curso\Programa;
  */
 class ProgramaPolicy extends BaseProgramaPolicy
 {
-    // Sobrescribir métodos customXXX() o CRUD según sea necesario
+    /**
+     * Verifica si el usuario es administrador
+     * 
+     * @param Usuario $user
+     * @return bool
+     */
+    private function isAdmin(Usuario $user): bool
+    {
+        return $user->rolesAsignados()
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->whereIn('nombre', ['Administrador', 'SuperAdmin', 'Super Admin', 'Admin'])
+            ->exists();
+    }
+
+    /**
+     * Verifica si el usuario es docente asignado al curso
+     * 
+     * @param Usuario $user
+     * @param Programa $programa
+     * @return bool
+     */
+    private function isAssignedDocente(Usuario $user, Programa $programa): bool
+    {
+        // Si no es docente, no tiene acceso
+        if (!$user->docente) {
+            return false;
+        }
+
+        // Verificar si el docente tiene sección en el curso del programa
+        return $user->docente->secciones()
+            ->where('id_curso', $programa->id_curso)
+            ->exists();
+    }
+
+    /**
+     * Verifica si el usuario es docente asignado a un curso (para create)
+     * 
+     * @param Usuario $user
+     * @param \App\Models\Curso\Curso $curso
+     * @return bool
+     */
+    private function isAssignedDocenteToCurso(Usuario $user, $curso): bool
+    {
+        // Si no es docente, no tiene acceso
+        if (!$user->docente) {
+            return false;
+        }
+
+        // Verificar si el docente tiene sección en el curso
+        return $user->docente->secciones()
+            ->where('id_curso', $curso->id_curso)
+            ->exists();
+    }
+
+    /**
+     * Sobrescribir view para añadir validación de docente asignado
+     */
+    public function view(Usuario $user, Programa $model): bool
+    {
+        // Administrador siempre puede ver
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
+        // Docente asignado al curso puede ver su programa
+        if ($this->isAssignedDocente($user, $model)) {
+            return true;
+        }
+
+        // Delegar a la base para validar permisos vía contexto
+        return parent::view($user, $model);
+    }
+
+    /**
+     * Sobrescribir update para añadir validación de docente asignado + permisos
+     * 
+     * Reglas:
+     * - Administrador: Puede editar cualquier programa
+     * - Docente: Solo si:
+     *   1. Tiene sección en el curso, Y
+     *   2. Tiene permiso 'cursos/programas:editar' en el contexto del curso
+     */
+    public function update(Usuario $user, Programa $model): bool
+    {
+        // Administrador siempre puede editar
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
+        // Para docentes: debe estar asignado al curso Y tener permiso para editar
+        if ($this->isAssignedDocente($user, $model)) {
+            // Validar que tiene el permiso específico para editar programas en este curso
+            return parent::update($user, $model);
+        }
+
+        // Docente no asignado al curso no puede editar
+        return false;
+    }
+
+    /**
+     * Sobrescribir delete para añadir validación de docente asignado + permisos
+     * 
+     * Reglas:
+     * - Administrador: Puede eliminar cualquier programa
+     * - Docente: Solo si:
+     *   1. Tiene sección en el curso, Y
+     *   2. Tiene permiso 'cursos/programas:eliminar' en el contexto del curso
+     */
+    public function delete(Usuario $user, Programa $model): bool
+    {
+        // Administrador siempre puede eliminar
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
+        // Para docentes: debe estar asignado al curso Y tener permiso para eliminar
+        if ($this->isAssignedDocente($user, $model)) {
+            // Validar que tiene el permiso específico para eliminar programas en este curso
+            return parent::delete($user, $model);
+        }
+
+        // Docente no asignado al curso no puede eliminar
+        return false;
+    }
+
+    /**
+     * Sobrescribir create para validar docente asignado + permisos
+     * 
+     * Reglas:
+     * - Administrador: Puede crear programa en cualquier curso
+     * - Docente: Solo si:
+     *   1. Tiene sección en el curso, Y
+     *   2. Tiene permiso 'cursos/programas:crear' en el contexto del curso
+     * 
+     * @param Usuario $user Usuario intentando crear programa
+     * @param \App\Models\Curso\Curso|null $parent Curso donde se crea el programa
+     * @return bool
+     */
+    public function create(Usuario $user, $parent = null): bool
+    {
+        // Administrador siempre puede crear
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
+        // Para docentes: debe estar asignado al curso Y tener permiso para crear
+        if ($parent && $this->isAssignedDocenteToCurso($user, $parent)) {
+            // Validar que tiene el permiso específico para crear programas en este curso
+            // Pasar el contexto del curso directamente ya que Curso.id_contexto es el contexto
+            $contextId = $parent->id_contexto;
+            
+            // Validar permisos via el validador
+            if ($this->validator()->validate(
+                $user, 
+                $this->buildPermissionSlug($this->resource, 'crear'), 
+                null, 
+                $contextId
+            )) {
+                return true;
+            }
+            
+            // Si no tiene permisos, ejecutar hook custom
+            return $this->customCreate($user, $parent);
+        }
+
+        // Docente no asignado al curso no puede crear
+        return false;
+    }
+
+    /**
+     * Método custom para hook adicional si es necesario
+     * Se ejecuta después de la validación base
+     */
+    protected function customView(Usuario $user, $model): bool
+    {
+        return false;
+    }
+
+    protected function customUpdate(Usuario $user, $model): bool
+    {
+        return false;
+    }
+
+    protected function customDelete(Usuario $user, $model): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determina si el usuario puede aprobar un programa.
+     * 
+     * Solo administradores y jefes de carrera pueden aprobar.
+     */
+    public function approve(Usuario $user, Programa $model): bool
+    {
+        // Administrador siempre puede aprobar
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
+        // Jefe de carrera puede aprobar
+        return $user->rolesAsignados()
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->whereIn('nombre', ['Jefe de Carrera', 'Coordinador de Carrera'])
+            ->exists();
+    }
+
+    /**
+     * Determina si el usuario puede rechazar un programa.
+     * 
+     * Solo administradores y jefes de carrera pueden rechazar.
+     */
+    public function reject(Usuario $user, Programa $model): bool
+    {
+        // Administrador siempre puede rechazar
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
+        // Jefe de carrera puede rechazar
+        return $user->rolesAsignados()
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->whereIn('nombre', ['Jefe de Carrera', 'Coordinador de Carrera'])
+            ->exists();
+    }
 }
+

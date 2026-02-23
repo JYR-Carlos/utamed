@@ -64,6 +64,9 @@ class DocenteCursoController extends Controller
                     ->whereNull('fecha_eliminacion')
                     ->exists();
 
+                // Determinar el semestre: usar semestre_real si existe, sino usar 1 como default
+                $semestre = $curso->semestre_real ?? 1;
+
                 return [
                     'id_curso' => $curso->id_curso,
                     'nombre' => $curso->nombre,
@@ -75,7 +78,7 @@ class DocenteCursoController extends Controller
                     'fecha_fin' => $curso->fecha_fin,
                     'tiene_programa' => $tienePrograma,
                     'es_plantilla' => $curso->es_plantilla,
-                    'semestre_real' => $curso->semestre_real
+                    'semestre_real' => $semestre
                 ];
             });
 
@@ -93,8 +96,8 @@ class DocenteCursoController extends Controller
         })->groupBy(fn() => 'General');
 
         return Inertia::render('docente/Cursos', [
-            'cursosSemestre1' => $cursosPorSemestre->get(1, collect()),
-            'cursosSemestre2' => $cursosPorSemestre->get(2, collect()),
+            'cursosSemestre1' => $cursosPorSemestre->get(1, collect())->values()->toArray(),
+            'cursosSemestre2' => $cursosPorSemestre->get(2, collect())->values()->toArray(),
             'availableRoles' => $availableRoles,
             'availablePermissions' => $availablePermissions
         ]);
@@ -108,8 +111,8 @@ class DocenteCursoController extends Controller
      */
     public function show(Curso $curso)
     {
-        // Verificar que el docente tenga acceso al curso
-        $this->authorizeAccess($curso);
+        // Verificar que el docente tenga acceso al curso usando la Policy
+        $this->authorize('viewPrograma', $curso);
 
         // Cargar relaciones necesarias
         $curso->load([
@@ -415,27 +418,4 @@ class DocenteCursoController extends Controller
         }
     }
 
-    /**
-     * Helper to authorize access to course management.
-     * 
-     * Verifica que el docente autenticado tenga al menos una sección asignada en el curso.
-     */
-    private function authorizeAccess(Curso $curso)
-    {
-        /** @var Usuario $user */
-        $user = Auth::user();
-
-        if (!$user->docente) {
-            abort(403, 'No tienes un perfil docente asociado.');
-        }
-
-        // Verificar si el docente tiene alguna sección en este curso
-        $tieneSeccion = Seccion::where('id_curso', $curso->id_curso)
-            ->where('id_docente', $user->docente->id_docente)
-            ->exists();
-
-        if (!$tieneSeccion) {
-            abort(403, 'No tienes permiso para gestionar este curso.');
-        }
-    }
 }

@@ -104,20 +104,22 @@ class HandleInertiaRequests extends Middleware
                 'roles' => $roles,
                 'docente' => $docente,
                 'estudiante' => $estudiante,
-                'docente_courses' => $docente ? \App\Models\Curso\Seccion::where('id_docente', $docente->id_docente)
-                    ->with('curso')
+                'docente_courses' => $docente ? \App\Models\Curso\Curso::join('curso.seccion', 'curso.curso.id_curso', '=', 'curso.seccion.id_curso')
+                    ->where('curso.seccion.id_docente', $docente->id_docente)
+                    ->distinct()
+                    ->select('curso.curso.id_curso', 'curso.curso.nombre', 'curso.curso.cod_curso')
+                    ->with(['asignacionPlan.plan.carrera'])
                     ->get()
-                    ->pluck('curso')
-                    ->unique('id_curso')
-                    ->values()
                     ->map(function ($curso) {
                         return [
                             'id_curso' => $curso->id_curso,
                             'nombre' => $curso->nombre,
                             'cod_curso' => $curso->cod_curso,
+                            'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                             'tiene_programa' => \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)->exists(),
                         ];
-                    }) : [],
+                    })
+                    ->values() : [],
                 'estudiante_courses' => $estudiante ? \App\Models\Curso\InscripcionSeccion::where('id_estudiante', $estudiante->id_estudiante)
                     ->with('seccion.curso')
                     ->get()

@@ -53,9 +53,7 @@ class DashboardController extends Controller
         $isAyudante = $user->rolesAsignados()
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
-            ->whereHas('rol', function ($query) {
-                $query->whereIn('nombre', ['Ayudante', 'ayudante']);
-            })
+            ->whereIn('nombre', ['Ayudante', 'ayudante'])
             ->exists();
 
         return Inertia::render('student/Dashboard', [

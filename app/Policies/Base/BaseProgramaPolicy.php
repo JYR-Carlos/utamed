@@ -3,7 +3,7 @@
 namespace App\Policies\Base;
 
 use App\Models\Usuario\Usuario;
-use App\Models\Curso\Programa;
+use App\Models\Administrativo\Programa;
 use App\Policies\Base\Traits\HasBasePolicyMethods;
 
 /**
@@ -19,7 +19,7 @@ abstract class BaseProgramaPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'curso/programa';
+    protected string $resource = 'cursos/programas';
 
     public function viewAny(Usuario $user): bool
     {

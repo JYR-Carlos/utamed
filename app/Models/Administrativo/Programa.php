@@ -23,6 +23,7 @@ class Programa extends BasePrograma
         'fecha_creacion' => 'datetime',
         'fecha_modificacion' => 'datetime',
         'fecha_eliminacion' => 'datetime',
+        'fecha_aprobacion' => 'datetime',
         'es_actual' => 'boolean',
     ];
 

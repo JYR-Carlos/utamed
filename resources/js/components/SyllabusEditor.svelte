@@ -3,11 +3,12 @@
   import { Input } from "@/components/ui/input";
   import { Label } from "@/components/ui/label";
   import { Textarea } from "@/components/ui/textarea";
-  import { Plus, Trash2, GripVertical, Save } from "lucide-svelte";
+  import { Plus, Trash2, GripVertical, Save, Loader2 } from "lucide-svelte";
   import { createEventDispatcher } from "svelte";
 
   export let modelValue: any[] = [];
   export let readOnly = false;
+  export let isLoading = false;
 
   const dispatch = createEventDispatcher();
 
@@ -122,14 +123,18 @@
 
   {#if !readOnly}
     <div class="flex justify-center py-4">
-        <Button variant="secondary" class="w-full border-dashed border-2 py-8" onclick={addSection}>
+        <Button variant="secondary" class="w-full border-dashed border-2 py-8" onclick={addSection} disabled={isLoading}>
             <Plus size={24} class="mr-2" /> Agregar Nueva Sección
         </Button>
     </div>
 
     <div class="sticky bottom-4 flex justify-end">
-        <Button size="lg" class="shadow-xl" onclick={save}>
-            <Save size={18} class="mr-2" /> Guardar Programa
+        <Button size="lg" class="shadow-xl" onclick={save} disabled={isLoading}>
+            {#if isLoading}
+                <Loader2 size={18} class="mr-2 animate-spin" /> Guardando...
+            {:else}
+                <Save size={18} class="mr-2" /> Guardar Programa
+            {/if}
         </Button>
     </div>
   {/if}

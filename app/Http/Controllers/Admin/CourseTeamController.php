@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 use App\Models\Usuario\UsuarioPermisoEspecial;
 
@@ -153,7 +154,7 @@ class CourseTeamController extends Controller
                 'esta_activo' => true,
                 'fue_eliminado' => false,
                 'fecha_fin_real' => null,
-                'asignado_por' => (int) (auth()->id() ?? 1),
+                'asignado_por' => (int) (Auth::id() ?? 1),
                 'fecha_inicio_planificada' => now(),
                 'fecha_fin_planificada' => now()->addYears(100),
             ]);
@@ -163,8 +164,8 @@ class CourseTeamController extends Controller
                 'id_usuario' => $validated['id_usuario'],
                 'id_contexto' => $curso->id_contexto,
                 'id_rol' => $rol->id_rol,
-                'asignado_por' => (int) (auth()->id() ?? 1), // Fallback to ID 1 if auth fails (e.g. seeding/testing)
-                'creado_por' => (int) (auth()->id() ?? 1),
+                'asignado_por' => (int) (Auth::id() ?? 1), // Fallback to ID 1 if auth fails (e.g. seeding/testing)
+                'creado_por' => (int) (Auth::id() ?? 1),
                 'fecha_inicio_planificada' => now(),
                 'fecha_fin_planificada' => now()->addYears(100),
                 'esta_activo' => true,
@@ -251,7 +252,7 @@ class CourseTeamController extends Controller
 
         // Fetch delegable perms for the AUTHENTICATED user in THIS context
         /** @var Usuario $currentUser */
-        $currentUser = auth()->user();
+        $currentUser = Auth::user();
         $delegablePerms = $this->getDelegablePermissions($currentUser, $idContexto);
 
         // Filter by relevant modules IF the user is a Docente (Business Rule)
@@ -317,9 +318,9 @@ class CourseTeamController extends Controller
         }
 
         $idContexto = $curso->id_contexto;
-        $adminId = auth()->id();
+        $adminId = Auth::id();
         /** @var Usuario $currentUser */
-        $currentUser = auth()->user();
+        $currentUser = Auth::user();
 
         // Security: A user cannot modify their own permissions
         if ($usuario->id_usuario === $currentUser->id_usuario) {
@@ -522,12 +523,12 @@ class CourseTeamController extends Controller
             $roleQuery->where('id_contexto', $idContexto);
 
         $rolePerms = $roleQuery->with([
-            'rol.permisos' => function ($query) {
+            'permisos' => function ($query) {
                 $query->wherePivot('puede_delegar_permisos', true);
             }
         ])
             ->get()
-            ->pluck('rol.permisos')
+            ->pluck('permisos')
             ->flatten()
             ->unique('id_permiso');
 

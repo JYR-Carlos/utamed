@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Usuario\Usuario;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Seccion;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 /**
@@ -36,7 +37,7 @@ class DashboardController extends Controller
     public function index()
     {
         /** @var Usuario $user */
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Verificar que el usuario es docente
         if (!$user->docente) {
@@ -46,16 +47,12 @@ class DashboardController extends Controller
         // Obtener los cursos a través de las secciones del docente
         $docente = $user->docente;
 
-        // Obtener secciones del docente
-        $secciones = Seccion::where('id_docente', $docente->id_docente)
-            ->get();
-
-        // Obtener los ids de cursos únicos
-        $cursoIds = $secciones->pluck('id_curso')->unique();
-
-        // Obtener cursos con flag de programa
-        $cursos = Curso::whereIn('id_curso', $cursoIds)
-            ->whereNull('fecha_eliminacion')
+        // Obtener cursos usando JOIN con secciones (relación: Docente → Secciones → Cursos)
+        $cursos = Curso::join('curso.seccion', 'curso.curso.id_curso', '=', 'curso.seccion.id_curso')
+            ->where('curso.seccion.id_docente', $docente->id_docente)
+            ->distinct()
+            ->select('curso.curso.*')
+            ->whereNull('curso.curso.fecha_eliminacion')
             ->get()
             ->map(function ($curso) {
                 $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)
