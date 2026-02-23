@@ -49,17 +49,14 @@ class DocenteCursoController extends Controller
             return redirect()->route('dashboard')->with('error', 'No tienes un perfil docente asociado.');
         }
 
-        // Obtener secciones del docente
-        $secciones = Seccion::where('id_docente', $user->docente->id_docente)
-            ->get();
-
-        // Obtener ids de cursos únicos
-        $cursoIds = $secciones->pluck('id_curso')->unique();
-
-        // Consultar cursos con información adicional
-        $cursos = Curso::whereIn('id_curso', $cursoIds)
-            ->with(['asignacionPlan.asignatura'])
-            ->orderBy('fecha_inicio', 'desc')
+        // Obtener cursos a través de las secciones del docente
+        // La relación es: Docente → Secciones → Cursos
+        $cursos = Curso::join('curso.seccion', 'curso.curso.id_curso', '=', 'curso.seccion.id_curso')
+            ->where('curso.seccion.id_docente', $user->docente->id_docente)
+            ->distinct()
+            ->select('curso.curso.*')
+            ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera'])
+            ->orderBy('curso.curso.fecha_inicio', 'desc')
             ->get()
             ->map(function ($curso) {
                 // Verificar si existe algún programa para este curso
@@ -73,6 +70,7 @@ class DocenteCursoController extends Controller
                     'cod_curso' => $curso->cod_curso,
                     'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                     'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? 'N/A',
+                    'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                     'fecha_inicio' => $curso->fecha_inicio,
                     'fecha_fin' => $curso->fecha_fin,
                     'tiene_programa' => $tienePrograma,
