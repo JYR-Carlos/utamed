@@ -662,9 +662,30 @@ class UsuarioController extends Controller
             )
         );
 
+        // Get available roles (all except SuperAdmin) - transform to clean array
+        $availableRoles = Rol::whereNotIn('nombre', ['SuperAdmin', 'Super Admin'])
+            ->orderBy('nombre')
+            ->get()
+            ->map(fn($rol) => [
+                'id_rol' => $rol->id_rol,
+                'nombre' => $rol->nombre
+            ])
+            ->values();
+
+        // Get available permissions (for admin, return all)
+        $availablePermissions = \App\Models\Usuario\Permiso::all()
+            ->map(fn($p) => [
+                'id_permiso' => $p->id_permiso,
+                'slug' => $p->slug,
+                'nombre' => $p->nombre
+            ])
+            ->groupBy(fn() => 'Docencia');
+
         return response()->json([
             'roles' => $idRoles,
             'special_permissions' => $specialPermissions,
+            'available_roles' => $availableRoles,
+            'available_permissions' => $availablePermissions,
         ]);
     }
 
@@ -686,6 +707,14 @@ class UsuarioController extends Controller
         $validated = $request->validate([
             'roles' => 'array',
             'special_permissions' => 'array' // { id_permiso: true/false/null }
+        ]);
+
+        Log::info('🔍 SPECIAL PERMISSIONS RECEIVED:', [
+            'raw' => $validated['special_permissions'],
+            'delegable_count' => count(array_filter(
+                $validated['special_permissions'],
+                fn($sp) => is_array($sp) && ($sp['can_delegate'] ?? false) === true
+            ))
         ]);
 
         $usuario = Usuario::findOrFail($id);
@@ -759,8 +788,16 @@ class UsuarioController extends Controller
                 $allowed = $isObject ? ($status['allowed'] ?? null) : $status;
                 $canDelegate = $isObject ? ($status['can_delegate'] ?? false) : false;
 
+                Log::debug('Processing permiso:', [
+                    'perm_id' => $permId,
+                    'is_object' => $isObject,
+                    'allowed' => $allowed,
+                    'can_delegate' => $canDelegate,
+                    'will_save' => ($allowed !== null || $canDelegate)
+                ]);
+
                 if ($allowed !== null || $canDelegate) {
-                    UsuarioPermisoEspecial::updateOrCreate(
+                    $upe = UsuarioPermisoEspecial::updateOrCreate(
                         [
                             'id_usuario' => $usuario->id_usuario,
                             'id_contexto' => $idContexto,
@@ -777,6 +814,12 @@ class UsuarioController extends Controller
                             'fecha_creacion' => now()
                         ]
                     );
+                    
+                    Log::debug('✅ Permiso guardado:', [
+                        'id_upe' => $upe->id_upe,
+                        'perm_id' => $permId,
+                        'puede_delegar_saved' => $upe->puede_delegar
+                    ]);
                 }
             }
 

@@ -17,18 +17,24 @@ class DashboardController extends Controller
         $contextosAsignados = $user->rolesAsignados()
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
-            ->whereIn('nombre', ['Ayudante', 'ayudante'])
+            ->whereIn('nombre', ['ayudante'])
             ->pluck('id_contexto');
 
         $ayudanteCourses = \App\Models\Curso\Curso::whereIn('id_contexto', $contextosAsignados)
             ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera'])
             ->get()
             ->map(function ($curso) {
+                // Verificar si el curso tiene programa actual
+                $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)
+                    ->where('es_actual', true)
+                    ->exists();
+
                 return [
                     'id_curso' => $curso->id_curso,
                     'nombre' => $curso->nombre,
                     'cod_curso' => $curso->cod_curso,
                     'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+                    'tiene_programa' => $tienePrograma,
                 ];
             });
 

@@ -2,9 +2,10 @@
 
 namespace App\Http\Middleware;
 
-use Auth;
+use Illuminate\Support\Facades\Auth;
 use Closure;
 use Illuminate\Http\Request;
+use App\Models\Usuario\Usuario;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -27,15 +28,25 @@ class IsAdmin
      */
     public function handle(Request $request, Closure $next): Response
     {
+        /** @var Usuario|null $user */
         $user = Auth::user();
 
         // Si no hay usuario autenticado, redirigir a login
+        
         if (!$user) {
             return redirect('/login');
         }
 
         // Un usuario es admin si tiene rol Administrador o SuperAdmin activo
-        $isAdmin = $user->hasAnyRole(['Administrador', 'SuperAdmin', 'Super Admin']);
+        $allRoles = $user->getAllRoles();
+        \Illuminate\Support\Facades\Log::info('IsAdmin Middleware Check', [
+            'user_id' => $user->id_usuario,
+            'username' => $user->username,
+            'all_roles' => $allRoles,
+            'has_superadmin' => $user->hasRole('SuperAdmin'),
+        ]);
+
+        $isAdmin = $user->hasRole('SuperAdmin');
 
         if (!$isAdmin) {
             return redirect()->route('dashboard')->with('error', 'No tienes permisos para acceder a esta sección. Acceso restringido a administradores.');

@@ -126,6 +126,12 @@
     }
 
     function openPermissions(member: any) {
+        console.log('Opening permissions for member:', member);
+        if (!member.id_usuario) {
+            console.error('❌ Member missing id_usuario:', member);
+            alert('Error: El miembro no tiene ID de usuario');
+            return;
+        }
         selectedUserForPermissions = member;
         showPermissionsModal = true;
     }
@@ -221,7 +227,11 @@
 {#if selectedUserForPermissions}
     <PermissionsModal
         bind:isOpen={showPermissionsModal}
-        onClose={() => { showPermissionsModal = false; selectedUserForPermissions = null; }}
+        onClose={() => { 
+            showPermissionsModal = false; 
+            selectedUserForPermissions = null;
+            loadTeamMembers();
+        }}
         usuario={{
             id_usuario: selectedUserForPermissions.id_usuario,
             username: selectedUserForPermissions.nombre_completo

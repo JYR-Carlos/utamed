@@ -234,10 +234,46 @@
                     <p class="px-4 py-2 text-sm text-slate-400 italic font-medium">{searchQuery ? 'Sin resultados' : 'Sin ayudantías asignadas'}</p>
                 {:else}
                     {#each filteredAyudante as curso (curso.id_curso)}
-                        <Link href="/ayudante/cursos/{curso.id_curso}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-all group">
-                            <Folder size={18} class="text-slate-400 group-hover:text-indigo-500 shrink-0" />
-                            <span class="flex-1 truncate">{curso.nombre}</span>
-                        </Link>
+                        {@const expanded = expandedCursos[curso.id_curso]}
+                        <div class="rounded-xl overflow-hidden transition-colors {expanded ? 'bg-slate-50/50' : ''}">
+                            <button
+                                onclick={() => toggleCurso(curso.id_curso)}
+                                class="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-[14px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all text-left group"
+                            >
+                                <span class="text-slate-400 shrink-0 group-hover:text-slate-600">
+                                    {#if expanded}<ChevronDown size={14} />{:else}<ChevronRight size={14} />{/if}
+                                </span>
+                                {#if expanded}
+                                    <FolderOpen size={18} class="text-indigo-500 shrink-0" />
+                                {:else}
+                                    <Folder size={18} class="text-slate-400 group-hover:text-slate-600 shrink-0 transition-colors" />
+                                {/if}
+                                <span class="flex-1 truncate font-semibold">{curso.nombre}</span>
+                            </button>
+
+                            {#if expanded}
+                                <div class="pl-11 pr-2 py-1 flex flex-col gap-1 mb-2">
+                                    <!-- Programa -->
+                                    {#if curso.tiene_programa}
+                                        <Link href="/ayudante/cursos/{curso.id_curso}/programa" class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-white hover:shadow-sm hover:text-indigo-600 transition-all">
+                                            <div class="flex items-center gap-2">
+                                                <BookOpenCheck size={16} class="shrink-0 text-slate-400" />
+                                                <span>Programa</span>
+                                            </div>
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Ver</span>
+                                        </Link>
+                                    {:else}
+                                        <button class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-400 cursor-not-allowed w-full text-left bg-slate-50/50" disabled>
+                                            <div class="flex items-center gap-2">
+                                                <BookOpenCheck size={16} class="shrink-0 opacity-50" />
+                                                <span>Programa</span>
+                                            </div>
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400">Pendiente</span>
+                                        </button>
+                                    {/if}
+                                </div>
+                            {/if}
+                        </div>
                     {/each}
                 {/if}
                  <div class="h-px bg-slate-100 my-4 mx-4"></div>

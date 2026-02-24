@@ -15,7 +15,7 @@ abstract class BaseUsuarioRolAsignacion extends CustomBaseModel
     use Compoships;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'usuario_rol_asignacion';
+    protected $table = 'usuario.usuario_rol_asignacion';
     protected $primaryKey = 'id_ura';
     public $incrementing = true;
 

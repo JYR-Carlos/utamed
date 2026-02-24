@@ -1,9 +1,9 @@
 <script lang="ts">
     import UserInfo from '@/components/custom/common/UserInfo.svelte';
     import { DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-    import { logout } from '@/routes';
-    import { edit } from '@/routes/profile';
+    import { edit } from '@/routes/profile/index';
     import type { User } from '@/types';
+    import { logout } from '@/routes';
     import { Link, router } from '@inertiajs/svelte';
     import { LogOut, Settings } from 'lucide-svelte';
 

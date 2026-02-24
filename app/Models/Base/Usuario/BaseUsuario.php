@@ -203,7 +203,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Rol::class,
-            'usuario_rol_asignacion',
+            'usuario.usuario_rol_asignacion',
             'id_usuario',
             'id_rol'
         )

@@ -127,7 +127,7 @@ class ProgramaController extends Controller
         return $user->rolesAsignados()
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
-            ->whereIn('nombre', ['Jefe de Carrera', 'Coordinador de Carrera'])
+            ->whereIn('nombre', ['jefe de carrera', 'coordinador de carrera'])
             ->exists();
     }
 

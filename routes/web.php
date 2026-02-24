@@ -224,6 +224,12 @@ Route::prefix('estudiante')->middleware(['auth', 'verified', 'is_estudiante'])->
 Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name('ayudante.')->group(function () {
     Route::get('dashboard', [\App\Http\Controllers\Ayudante\DashboardController::class, 'index'])->name('dashboard');
     Route::get('cursos', [\App\Http\Controllers\Ayudante\CourseController::class, 'index'])->name('cursos.index');
+    
+    // Programa (Syllabus) View - MUST be before generic {curso} route
+    Route::get('cursos/{curso}/programa', [\App\Http\Controllers\Ayudante\ProgramaController::class, 'show'])->name('cursos.programa.show');
+    Route::get('cursos/{curso}/programa/editar', [\App\Http\Controllers\Ayudante\ProgramaController::class, 'edit'])->name('cursos.programa.edit');
+    Route::post('cursos/{curso}/programa', [\App\Http\Controllers\Ayudante\ProgramaController::class, 'update'])->name('cursos.programa.update');
+    
     Route::get('cursos/{curso}', [\App\Http\Controllers\Ayudante\CourseController::class, 'show'])->name('cursos.show');
 });
 

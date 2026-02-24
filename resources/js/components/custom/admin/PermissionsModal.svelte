@@ -34,6 +34,7 @@
     });
 
 	let isLoading = $state(false);
+    let loadError = $state(''); // Track error messages
 	let selectedRoles = $state<number[]>([]);
     // id_permiso -> { allowed: boolean | null, can_delegate: boolean }
 	let specialPermissions = $state<Record<number, any>>({}); 
@@ -41,9 +42,19 @@
     // Local copy of available permissions
     let currentPermissions = $state<Record<string, any[]>>({});
 
-    // Synchronize local state with prop ONLY if we don't have data yet
+    // Local copy of available roles - updated from backend OR from prop
+    let localAvailableRoles = $state<any[]>([]);
+
+    // Initialize local roles from prop ONLY if loadPath is not provided
     $effect(() => {
-        if (availablePermissions && Object.keys(availablePermissions).length > 0 && Object.keys(currentPermissions).length === 0) {
+        if (!loadPath && availableRoles && availableRoles.length > 0) {
+            localAvailableRoles = availableRoles;
+        }
+    });
+
+    // Synchronize local state with prop ONLY if we don't have data yet and no custom loadPath
+    $effect(() => {
+        if (!loadPath && availablePermissions && Object.keys(availablePermissions).length > 0 && Object.keys(currentPermissions).length === 0) {
             currentPermissions = availablePermissions;
         }
     });
@@ -64,11 +75,24 @@
 
     async function loadUserPermissions() {
         isLoading = true;
+        loadError = '';
         try {
             const url = loadPath || `/admin/usuarios/${usuario.id_usuario}/permissions`;
+            console.log('🔄 Loading permissions from:', url);
+            
             const res = await fetch(url);
-            if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+            console.log('📦 Response status:', res.status);
+            
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error('❌ HTTP Error Response:', res.status, errorText.substring(0, 500));
+                const errorData = await res.json().catch(() => ({}));
+                const errorMsg = errorData.error || errorData.message || `HTTP ${res.status}`;
+                throw new Error(`Failed to load permissions: ${errorMsg}`);
+            }
+            
             const data = await res.json();
+            console.log('✅ Loaded permissions data:', data);
             
             selectedRoles = data.roles || [];
             
@@ -86,8 +110,18 @@
             if (data.available_permissions) {
                 currentPermissions = data.available_permissions;
             }
+
+            // ✅ ALWAYS update available roles from backend if provided (this is the source of truth for custom loadPath)
+            if (data.available_roles && Array.isArray(data.available_roles)) {
+                console.log('Loaded available roles:', data.available_roles);
+                localAvailableRoles = data.available_roles;
+            } else {
+                console.warn('No available_roles in response');
+            }
         } catch (error) {
-            console.error("Error loading permissions:", error);
+            const msg = error instanceof Error ? error.message : String(error);
+            console.error("Error loading permissions:", msg);
+            loadError = msg;
         } finally {
             isLoading = false;
         }
@@ -96,6 +130,16 @@
 	function handleSave() {
         isLoading = true;
         const url = savePath || `/admin/usuarios/${usuario.id_usuario}/sync-permissions`;
+        
+        // DEBUG: Log what we're sending
+        console.log('📤 Sending to backend:', {
+            roles: selectedRoles,
+            special_permissions: specialPermissions,
+            delegable_perms: Object.entries(specialPermissions)
+                .filter(([_, p]: [any, any]) => p.can_delegate === true)
+                .map(([id, _]: any) => id)
+        });
+        
         router.post(url, {
             roles: selectedRoles,
             special_permissions: specialPermissions
@@ -131,6 +175,9 @@
             ...specialPermissions[id_permiso],
             allowed: nextAllowed
         };
+        
+        // Force Svelte 5 to detect the change by reassigning the parent object
+        specialPermissions = { ...specialPermissions };
     }
 
     function toggleDelegation(id_permiso: number) {
@@ -142,6 +189,9 @@
             ...specialPermissions[id_permiso],
             can_delegate: !specialPermissions[id_permiso].can_delegate
         };
+        
+        // Force Svelte 5 to detect the change by reassigning the parent object
+        specialPermissions = { ...specialPermissions };
     }
 
     // Safely get entries for availablePermissions and apply visual filter if needed
@@ -187,14 +237,19 @@
             {/if}
 
 			<div class="modal-body">
+                {#if loadError}
+                    <div class="error-banner" style="background: #fee; color: #c33; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                        ❌ {loadError}
+                    </div>
+                {/if}
                 {#if isLoading}
                     <div class="loading-state">Cargando...</div>
                 {:else if activeTab === 'roles'}
                     <div class="roles-grid">
-                        {#if !availableRoles || availableRoles.length === 0}
+                        {#if !localAvailableRoles || localAvailableRoles.length === 0}
                             <div class="empty-state">No hay roles disponibles.</div>
                         {:else}
-                            {#each availableRoles as rol}
+                            {#each localAvailableRoles as rol}
                                 <label class="role-card" class:selected={selectedRoles.includes(rol.id_rol)}>
                                     <input 
                                         type="checkbox" 

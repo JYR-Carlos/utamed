@@ -7,13 +7,13 @@ use App\Models\Usuario\Usuario;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
 use Inertia\Inertia;
-
+use Illuminate\Support\Facades\Auth;
 class CourseController extends Controller
 {
     public function index()
     {
         /** @var Usuario $user */
-        $user = auth()->user();
+        $user = Auth::user();
 
         if (!$user->estudiante) {
             return redirect('/dashboard');
@@ -48,7 +48,7 @@ class CourseController extends Controller
     public function show(Curso $curso)
     {
         /** @var Usuario $user */
-        $user = auth()->user();
+        $user = Auth::user();
 
         if (!$user->estudiante) {
             return redirect('/dashboard');

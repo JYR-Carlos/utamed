@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
 use App\Models\Usuario\UsuarioPermisoEspecial;
+use App\Services\Authorization\GlobalContextService;
 
 /**
  * Controlador para la gestión del equipo de un curso.
@@ -239,16 +240,17 @@ class CourseTeamController extends Controller
         $idContexto = $curso->id_contexto;
 
         $roles = $usuario->rolesAsignados()
-            ->where('id_contexto', $idContexto)
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
+            ->where('usuario.usuario_rol_asignacion.id_contexto', $idContexto)
+            ->where('usuario.usuario_rol_asignacion.esta_activo', true)
+            ->where('usuario.usuario_rol_asignacion.fue_eliminado', false)
+            ->get()
             ->pluck('id_rol');
 
         $special = $usuario->permisosEspeciales()
-            ->where('id_contexto', $idContexto)
-            ->where('esta_activo', true)
-            ->where('fue_borrado', false)
-            ->get(['id_permiso', 'esta_permitido', 'puede_delegar']);
+            ->where('usuario.usuario_permiso_especial.id_contexto', $idContexto)
+            ->where('usuario.usuario_permiso_especial.esta_activo', true)
+            ->where('usuario.usuario_permiso_especial.fue_borrado', false)
+            ->get();
 
         // Fetch delegable perms for the AUTHENTICATED user in THIS context
         /** @var Usuario $currentUser */
@@ -261,22 +263,52 @@ class CourseTeamController extends Controller
         $availablePermissions = $delegablePerms;
         if ($isDocente) {
             $availablePermissions = $availablePermissions->filter(function ($p) {
-                // Determine relevant permissions by slug instead of module
-                // e.g., only keep those starting with 'docencia' or 'ayudantia' if that was the intent
-                // For now, just keep all or filter by slug prefix if needed.
-                // Replicating previous logic 'Docencia', 'Ayudantía'
-                // Assuming slugs might be 'docencia:...' or 'ayudantia:...'
                 return str_starts_with($p->slug, 'actividad:') || str_starts_with($p->slug, 'curso:');
             });
         }
 
-        // Just return the permissions flat -> Now grouped for frontend
-        $availablePermissions = $availablePermissions->groupBy(fn() => 'General');
+        // Group permissions for frontend - use 'Docencia' module name so it passes PermissionsModal filters
+        $availablePermissions = $availablePermissions->groupBy(fn() => 'Docencia');
+
+        // ✅ Return available roles for the modal to display
+        // For Docente: only Ayudante and Estudiante
+        // For Admin: all roles
+        $availableRoles = [];
+        if ($isDocente) {
+            $availableRoles = Rol::whereIn('nombre', ['ayudante', 'estudiante'])
+                ->orderBy('nombre')
+                ->get()
+                ->map(fn($rol) => [
+                    'id_rol' => $rol->id_rol,
+                    'nombre' => $rol->nombre
+                ])
+                ->values();
+        } else {
+            // Admin can assign all roles except SuperAdmin
+            $availableRoles = Rol::whereNotIn('nombre', ['SuperAdmin', 'Super Admin'])
+                ->orderBy('nombre')
+                ->get()
+                ->map(fn($rol) => [
+                    'id_rol' => $rol->id_rol,
+                    'nombre' => $rol->nombre
+                ])
+                ->values();
+        }
+
+        // Transform special permissions to include only necessary fields
+        $specialPermissionsFormatted = $special->map(function ($perm) {
+            return [
+                'id_permiso' => $perm->id_permiso,
+                'esta_permitido' => $perm->esta_permitido,
+                'puede_delegar' => $perm->puede_delegar
+            ];
+        })->values();
 
         return response()->json([
             'roles' => $roles,
-            'special_permissions' => $special,
-            'available_permissions' => $availablePermissions
+            'special_permissions' => $specialPermissionsFormatted,
+            'available_permissions' => $availablePermissions,
+            'available_roles' => $availableRoles
         ]);
     }
 
@@ -335,7 +367,7 @@ class CourseTeamController extends Controller
             // 1. Sync Roles - Restricted if user is Docente
             $isDocente = $currentUser && $currentUser->docente;
             if ($isDocente) {
-                $allowedRoleIds = Rol::whereIn('nombre', ['Ayudante', 'Estudiante'])->pluck('id_rol')->toArray();
+                $allowedRoleIds = Rol::whereIn('nombre', ['ayudante', 'estudiante'])->pluck('id_rol')->toArray();
 
                 UsuarioRolAsignacion::where('id_usuario', $usuario->id_usuario)
                     ->where('id_contexto', $idContexto)
@@ -510,17 +542,18 @@ class CourseTeamController extends Controller
 
     private function getDelegablePermissions(Usuario $user, ?int $idContexto = null)
     {
+        $effectiveContextIds = $this->getDelegablePermissionContextIds($idContexto);
+
         // If it's a super admin, return all
         if (!$user->docente) {
             return \App\Models\Usuario\Permiso::all();
         }
 
         // Apply same docente logic as DocenteCursoController
+        // Get all roles for the user (regardless of context)
         $roleQuery = $user->rolesAsignados()
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false);
-        if ($idContexto)
-            $roleQuery->where('id_contexto', $idContexto);
+            ->where('usuario.usuario_rol_asignacion.esta_activo', true)
+            ->where('usuario.usuario_rol_asignacion.fue_eliminado', false);
 
         $rolePerms = $roleQuery->with([
             'permisos' => function ($query) {
@@ -539,11 +572,31 @@ class CourseTeamController extends Controller
                 $query->where('esta_permitido', true)->orWhereNull('esta_permitido');
             })
             ->where('puede_delegar', true);
-        if ($idContexto)
-            $specialQuery->where('id_contexto', $idContexto);
+        if ($effectiveContextIds !== null) {
+            $specialQuery->whereIn('id_contexto', $effectiveContextIds);
+        }
 
         $specialPerms = $specialQuery->with('permiso')->get()->pluck('permiso');
 
         return $rolePerms->concat($specialPerms)->unique('id_permiso')->values();
+    }
+
+    private function getDelegablePermissionContextIds(?int $idContexto): ?array
+    {
+        if (!$idContexto) {
+            return null;
+        }
+
+        try {
+            $globalContextId = app(GlobalContextService::class)->getContextId();
+            return array_values(array_unique([$idContexto, $globalContextId]));
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo resolver contexto global para permisos delegables', [
+                'id_contexto' => $idContexto,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [$idContexto];
+        }
     }
 }

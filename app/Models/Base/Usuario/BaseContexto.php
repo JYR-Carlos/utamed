@@ -77,7 +77,7 @@ abstract class BaseContexto extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'usuario_permiso_especial',
+            'usuario.usuario_permiso_especial',
             'id_contexto',
             'id_usuario'
         )
@@ -88,7 +88,7 @@ abstract class BaseContexto extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Permiso::class,
-            'usuario_permiso_especial',
+            'usuario.usuario_permiso_especial',
             'id_contexto',
             'id_permiso'
         )
@@ -99,7 +99,7 @@ abstract class BaseContexto extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'usuario_rol_asignacion',
+            'usuario.usuario_rol_asignacion',
             'id_contexto',
             'id_usuario'
         )
@@ -110,7 +110,7 @@ abstract class BaseContexto extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Rol::class,
-            'usuario_rol_asignacion',
+            'usuario.usuario_rol_asignacion',
             'id_contexto',
             'id_rol'
         )

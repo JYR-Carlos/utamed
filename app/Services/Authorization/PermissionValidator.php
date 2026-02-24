@@ -133,7 +133,7 @@ class PermissionValidator
     public function getUserPermissions(Usuario $user, ?int $contextId = null, ?PermissionTypeEnum $permissionType = null): Collection
     {
         $query = DB::connection('pgsql')
-            ->table('vw_permisos_usuario')
+            ->table('usuario.vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario);
 
         if ($contextId !== null) {
@@ -186,7 +186,7 @@ class PermissionValidator
     protected function hasSuperAdminPermission(Usuario $user): bool
     {
         $hasSuperAdmin = DB::connection('pgsql')
-            ->table('vw_permisos_usuario')
+            ->table('usuario.vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('slug', $this->globalWildcard)
             ->where('id_contexto', $this->globalContext->getContextId())
@@ -283,8 +283,11 @@ class PermissionValidator
         // Generar todos los patrones (exacto, wildcard mismo recurso, ancestros, global)
         $patterns = WildcardMatcher::generatePermissionPatterns($permission);
 
-        $results = DB::connection('pgsql')
-            ->table('vw_permisos_usuario')
+        // Buscar en UPE con prioridad: exacto > wildcard recurso > wildcard global
+        $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
+
+        $result = DB::connection('pgsql')
+            ->table('usuario.vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('id_contexto', $contextId)
             ->where('tipo_asignacion', self::TIPO_ESPECIAL)
@@ -340,7 +343,7 @@ class PermissionValidator
         $patterns = WildcardMatcher::generatePermissionPatterns($permission);
 
         $hasPermission = DB::connection('pgsql')
-            ->table('vw_permisos_usuario')
+            ->table('usuario.vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('id_contexto', $contextId)
             ->where('tipo_asignacion', self::TIPO_ROL)
@@ -364,8 +367,8 @@ class PermissionValidator
         $patterns = WildcardMatcher::generatePermissionPatterns($permission);
 
         return DB::connection('pgsql')
-            ->table('usuario_permiso_especial as upe')
-            ->join('permiso as p', 'upe.id_permiso', '=', 'p.id_permiso')
+            ->table('usuario.usuario_permiso_especial as upe')
+            ->join('usuario.permiso as p', 'upe.id_permiso', '=', 'p.id_permiso')
             ->where('upe.id_usuario', $user->id_usuario)
             ->where('upe.esta_activo', true)
             ->where(function ($query) {
@@ -393,7 +396,7 @@ class PermissionValidator
         $patterns = WildcardMatcher::generatePermissionPatterns($permission);
 
         return DB::connection('pgsql')
-            ->table('vw_permisos_usuario')
+            ->table('usuario.vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('tipo_asignacion', self::TIPO_ESPECIAL)
             ->where('esta_permitido', true)
@@ -414,7 +417,7 @@ class PermissionValidator
         $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
 
         return DB::connection('pgsql')
-            ->table('vw_permisos_usuario')
+            ->table('usuario.vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('tipo_asignacion', self::TIPO_ROL)
             ->whereIn('slug', [$permission, $resourceWildcard, $this->globalWildcard])

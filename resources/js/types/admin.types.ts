@@ -152,6 +152,8 @@ export interface Curso {
     id_curso: number;
     cod_curso: number;
     nombre?: string;
+    asignatura_nombre?: string;
+    cod_asignatura?: string;
     fecha_inicio?: string;
     fecha_fin?: string;
     indice_grupo?: number;

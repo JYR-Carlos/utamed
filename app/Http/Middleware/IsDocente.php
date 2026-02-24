@@ -38,7 +38,7 @@ class IsDocente
         $isDocente = $user->hasRole('Docente');
 
         // Un usuario debe ser docente para acceder a estas rutas
-        if (!$user->isDocente()) {
+        if (!$user->hasAnyRole(['Docente'])) {
             return redirect('/dashboard')->with('error', 'No tienes permisos para acceder a esta sección. Acceso restringido a docentes.');
         }
     

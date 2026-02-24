@@ -11,6 +11,7 @@ use App\Models\Usuario\Contexto;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;
+use App\Services\Authorization\GlobalContextService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -86,14 +87,14 @@ class DocenteCursoController extends Controller
         $cursosPorSemestre = $cursos->groupBy('semestre_real');
 
         // RBAC Data for modals - Docentes can only delegate specific roles and permissions they possess
-        $availableRoles = Rol::whereIn('nombre', ['Ayudante', 'Estudiante'])->orderBy('nombre')->get();
+        $availableRoles = Rol::whereIn('nombre', ['ayudante', 'estudiante'])->orderBy('nombre')->get();
 
         $delegablePerms = $this->getDelegablePermissions($user);
         // Only show 'Docencia' and 'Ayudantía' modules for Docentes (Business Rule)
         // Filter by slug prefix instead of module
         $availablePermissions = $delegablePerms->filter(function (\App\Models\Usuario\Permiso $p) {
-            return str_starts_with($p->slug, 'actividad:') || str_starts_with($p->slug, 'curso:');
-        })->groupBy(fn() => 'General');
+            return str_starts_with($p->slug, 'cursos') || str_starts_with($p->slug, 'actividad:') || str_starts_with($p->slug, 'curso:');
+        })->groupBy(fn() => 'Docencia');
 
         return Inertia::render('docente/Cursos', [
             'cursosSemestre1' => $cursosPorSemestre->get(1, collect())->values()->toArray(),
@@ -170,30 +171,29 @@ class DocenteCursoController extends Controller
      */
     private function getDelegablePermissions(Usuario $user, ?int $idContexto = null)
     {
+        $effectiveContextIds = $this->getDelegablePermissionContextIds($idContexto);
+
         // 1. Get delegable permissions from Roles
         try {
+            // Get all roles for this user (regardless of context)
+            // Teachers should be able to delegate permissions they possess globally
             $roleAssignments = $user->rolesAsignados()
-                ->where('esta_activo', true)
-                ->where('fue_eliminado', false);
-
-            if ($idContexto) {
-                $roleAssignments = $roleAssignments->where('id_contexto', $idContexto);
-            }
-
-            $roleAssignments = $roleAssignments->get();
+                ->where('usuario.usuario_rol_asignacion.esta_activo', true)
+                ->where('usuario.usuario_rol_asignacion.fue_eliminado', false)
+                ->get();
 
             $rolePerms = collect();
-            foreach ($roleAssignments as $assignment) {
-                $role = $assignment->rol;
+            foreach ($roleAssignments as $role) {
+                // $role is already a Rol model (from belongsToMany)
                 if ($role) {
                     // Get permisos for this role with delegation rights
                     $perms = $role->permisos()
                         ->wherePivot('puede_delegar_permisos', true)
                         ->get();
 
-                    // Filter by slug
+                    // Filter by slug - include 'cursos' prefix for course/activity management
                     foreach ($perms as $perm) {
-                        if (str_starts_with($perm->slug, 'actividad:') || str_starts_with($perm->slug, 'curso:')) {
+                        if (str_starts_with($perm->slug, 'cursos') || str_starts_with($perm->slug, 'actividad:') || str_starts_with($perm->slug, 'curso:')) {
                             $rolePerms->push($perm);
                         }
                     }
@@ -216,8 +216,8 @@ class DocenteCursoController extends Controller
                 })
                 ->where('puede_delegar', true);
 
-            if ($idContexto) {
-                $specialQuery->where('id_contexto', $idContexto);
+            if ($effectiveContextIds !== null) {
+                $specialQuery->whereIn('id_contexto', $effectiveContextIds);
             }
 
             $assignments = $specialQuery->get();
@@ -242,8 +242,8 @@ class DocenteCursoController extends Controller
             ->where('fue_borrado', false)
             ->where('esta_permitido', false);
 
-        if ($idContexto) {
-            $deniedPermIds->where('id_contexto', $idContexto);
+        if ($effectiveContextIds !== null) {
+            $deniedPermIds->whereIn('id_contexto', $effectiveContextIds);
         }
 
         $deniedPermIds = $deniedPermIds->pluck('id_permiso')->toArray();
@@ -253,31 +253,62 @@ class DocenteCursoController extends Controller
         })->values();
     }
 
+    private function getDelegablePermissionContextIds(?int $idContexto): ?array
+    {
+        if (!$idContexto) {
+            return null;
+        }
+
+        try {
+            $globalContextId = app(GlobalContextService::class)->getContextId();
+            return array_values(array_unique([$idContexto, $globalContextId]));
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo resolver contexto global para permisos delegables', [
+                'id_contexto' => $idContexto,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [$idContexto];
+        }
+    }
+
     /**
      * Get permission data for a team member in a course context.
      */
     public function getMemberPermissions(Curso $curso, Usuario $usuario)
     {
         // Security: Ensure the teacher owns the course
-        $this->authorizeAccess($curso);
+        $this->authorize('manageTeam', $curso);
 
         if (!$curso->id_contexto) {
             return response()->json(['roles' => [], 'special_permissions' => []]);
         }
 
+        // ✅ Validar que usuario es miembro del equipo
+        $isMember = UsuarioRolAsignacion::where('id_contexto', $curso->id_contexto)
+            ->where('id_usuario', $usuario->id_usuario)
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->exists();
+
+        if (!$isMember) {
+            return response()->json(['error' => 'Usuario no es miembro del equipo de este curso'], 404);
+        }
+
         $idContexto = $curso->id_contexto;
 
         $roles = $usuario->rolesAsignados()
-            ->where('id_contexto', $idContexto)
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
+            ->where('usuario.usuario_rol_asignacion.id_contexto', $idContexto)
+            ->where('usuario.usuario_rol_asignacion.esta_activo', true)
+            ->where('usuario.usuario_rol_asignacion.fue_eliminado', false)
+            ->get()
             ->pluck('id_rol');
 
         $special = $usuario->permisosEspeciales()
-            ->where('id_contexto', $idContexto)
-            ->where('esta_activo', true)
-            ->where('fue_borrado', false)
-            ->get(['id_permiso', 'esta_permitido', 'puede_delegar']);
+            ->where('usuario.usuario_permiso_especial.id_contexto', $idContexto)
+            ->where('usuario.usuario_permiso_especial.esta_activo', true)
+            ->where('usuario.usuario_permiso_especial.fue_borrado', false)
+            ->get();
 
         // Fetch delegable perms for the AUTHENTICATED teacher in THIS context (Issue 2)
         /** @var Usuario $teacher */
@@ -286,13 +317,33 @@ class DocenteCursoController extends Controller
 
         // Filter by relevant modules for Docente view
         $available_permissions = $delegablePerms->filter(function (\App\Models\Usuario\Permiso $p) {
-            return str_starts_with($p->slug, 'actividad:') || str_starts_with($p->slug, 'curso:');
-        })->groupBy(fn() => 'General');
+            return str_starts_with($p->slug, 'cursos') || str_starts_with($p->slug, 'actividad:') || str_starts_with($p->slug, 'curso:');
+        })->groupBy(fn() => 'Docencia');
+
+        // ✅ Return available roles for teacher (only ayudante and estudiante)
+        $available_roles = Rol::whereIn('nombre', ['ayudante', 'estudiante'])
+            ->orderBy('nombre')
+            ->get()
+            ->map(fn($rol) => [
+                'id_rol' => $rol->id_rol,
+                'nombre' => $rol->nombre
+            ])
+            ->values();
+
+        // Transform special permissions to include only necessary fields
+        $specialPermissionsFormatted = $special->map(function ($perm) {
+            return [
+                'id_permiso' => $perm->id_permiso,
+                'esta_permitido' => $perm->esta_permitido,
+                'puede_delegar' => $perm->puede_delegar
+            ];
+        })->values();
 
         return response()->json([
             'roles' => $roles,
-            'special_permissions' => $special,
-            'available_permissions' => $available_permissions
+            'special_permissions' => $specialPermissionsFormatted,
+            'available_permissions' => $available_permissions,
+            'available_roles' => $available_roles
         ]);
     }
 
@@ -301,7 +352,7 @@ class DocenteCursoController extends Controller
      */
     public function syncMemberPermissions(Request $request, Curso $curso, Usuario $usuario)
     {
-        $this->authorizeAccess($curso);
+        $this->authorize('manageTeam', $curso);
 
         $validated = $request->validate([
             'roles' => 'array',
@@ -328,7 +379,7 @@ class DocenteCursoController extends Controller
         DB::beginTransaction();
         try {
             // 1. Sync Roles - Docentes can only manage specific team roles
-            $allowedRoleNames = ['Ayudante', 'Estudiante'];
+            $allowedRoleNames = ['ayudante', 'estudiante'];
             $allowedRoleIds = Rol::whereIn('nombre', $allowedRoleNames)->pluck('id_rol')->toArray();
 
             // Deactivate ONLY allowed roles first to avoid wiping things teachers shouldn't touch
@@ -364,8 +415,7 @@ class DocenteCursoController extends Controller
             }
 
             // 2. Sync Special Permissions
-            // We only update permissions the docente is allowed to delegate.
-            // Deactivate only DELEGABLE ones first?
+            // Docentes can now delegate the permissions they possess to team members
             UsuarioPermisoEspecial::where('id_usuario', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->whereIn('id_permiso', $delegablePermIds)
@@ -374,19 +424,15 @@ class DocenteCursoController extends Controller
 
             if (!empty($validated['special_permissions'])) {
                 foreach ($validated['special_permissions'] as $permId => $status) {
-                    // Extra security check
+                    // Extra security check: ensure teacher is delegating only their own permissions
                     if (!in_array($permId, $delegablePermIds)) {
                         continue;
                     }
 
                     $isObject = is_array($status);
                     $allowed = $isObject ? ($status['allowed'] ?? null) : $status;
-                    // For now, docentes cannot GRANT delegation to others unless we want to allow hierarchical delegation.
-                    // The user said "Para la vista de administrador... puede marcar la opción ¿Puede delegar permisos?".
-                    // This implies teachers don't necessarily have this power over others unless they are admins.
-                    // But if they HAVE it, they might want to delegate it.
-                    // However, to keep it simple and follow the request:
-                    $canDelegate = false; // Docentes can't grant delegation right now via this UI
+                    // Docentes can now delegate permissions they possess to their team members
+                    $canDelegate = false;
 
                     if ($allowed !== null || $canDelegate) {
                         UsuarioPermisoEspecial::updateOrCreate(

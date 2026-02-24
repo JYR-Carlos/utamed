@@ -18,10 +18,12 @@
     import { toast } from 'svelte-sonner';
     import DocenteLayout from '@/layouts/DocenteLayout.svelte';
     import CourseTeamModal from '@/components/custom/admin/CourseTeamModal.svelte';
+    import SyllabusModal from '@/components/custom/admin/SyllabusModal.svelte';
     import { BookOpen, BookOpenCheck, Loader2, CheckCircle2, FilePlus, Info } from "lucide-svelte";
     import * as Tooltip from "@/components/ui/tooltip";
     import * as Tabs from "@/components/ui/tabs";
     import { Badge } from "@/components/ui/badge";
+    import type { Programa } from '@/types/admin.types';
 
     /**
      * Props recibidas del servidor.
@@ -32,6 +34,7 @@
     export let availablePermissions: Record<string, any[]> = {};
 
     let isTeamModalOpen = false;
+    let isSyllabusModalOpen = false;
     let selectedCurso: any = null;
 
     function openTeamModal(curso: any) {
@@ -39,29 +42,23 @@
         isTeamModalOpen = true;
     }
 
-    function generateProgram(curso: any) {
-        if (confirm(`¿Estás seguro de generar el programa para el curso ${curso.cod_curso}?`)) {
-            const toastId = toast.loading(`Generando programa para ${curso.cod_curso}...`);
-            console.log(curso);
-            router.post(`/docente/cursos/${curso.id_curso}/programa`, {}, {
-                preserveScroll: true,
-                onSuccess: (page: any) => {
-                    // Check if there was a flash error despite "success" request
-                    const flashError = page.props.flash?.error;
-                    if (flashError) {
-                        toast.error(flashError, { id: toastId });
-                    } else {
-                        toast.success("Programa generado correctamente", { id: toastId });
-                    }
-                },
-                onError: (errors) => {
-                    console.error('Error generating program:', errors);
-                    const errorMessage = Object.values(errors).flat().join(', ') || "Error al generar el programa";
-                    toast.error(errorMessage, { id: toastId });
-                }
-            });
-        }
+    function openSyllabusModal(curso: any) {
+        selectedCurso = curso;
+        isSyllabusModalOpen = true;
     }
+
+    function closeSyllabusModal() {
+        isSyllabusModalOpen = false;
+        selectedCurso = null;
+    }
+
+    function handleSyllabusSuccess(programa: Programa) {
+        closeSyllabusModal();
+        toast.success('Programa generado correctamente');
+        router.reload({ only: ['cursosSemestre1', 'cursosSemestre2'] });
+    }
+
+
 </script>
 
 <DocenteLayout>
@@ -163,7 +160,7 @@
                                         {#if !curso.tiene_programa}
                                             <button
                                                 class="w-full mt-2 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-                                                on:click={() => generateProgram(curso)}
+                                                on:click={() => openSyllabusModal(curso)}
                                             >
                                                 <BookOpenCheck class="mr-2 h-4 w-4" />
                                                 Generar Programa
@@ -264,7 +261,7 @@
                                         {#if !curso.tiene_programa}
                                             <button
                                                 class="w-full mt-2 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-                                                on:click={() => generateProgram(curso)}
+                                                on:click={() => openSyllabusModal(curso)}
                                             >
                                                 <BookOpenCheck class="mr-2 h-4 w-4" />
                                                 Generar Programa
@@ -299,6 +296,16 @@
             urlPrefix="docente"
             {availableRoles}
             {availablePermissions}
+        />
+    {/if}
+
+    <!-- Modal de Programa -->
+    {#if isSyllabusModalOpen}
+        <SyllabusModal
+            bind:isOpen={isSyllabusModalOpen}
+            curso={selectedCurso}
+            onClose={closeSyllabusModal}
+            onSuccess={handleSyllabusSuccess}
         />
     {/if}
 </DocenteLayout>

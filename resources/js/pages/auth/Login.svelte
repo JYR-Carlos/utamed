@@ -13,20 +13,18 @@
      * - Spinner de carga durante autenticación
      * - Soporte para login con Fortify (Laravel)
      */
-    import AuthenticatedSessionController from '@/actions/Laravel/Fortify/Http/Controllers/AuthenticatedSessionController';
     import InputError from '@/components/custom/common/InputError.svelte';
     import TextLink from '@/components/custom/common/TextLink.svelte';
     import { Button } from '@/components/ui/button';
     import { Checkbox } from '@/components/ui/checkbox';
-    import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
     import { Spinner } from '@/components/ui/spinner';
-        import AuthBase from '@/layouts/auth/AuthSplitLayout.svelte';
-    import { register } from '@/routes';
+    import AuthBase from '@/layouts/auth/AuthSplitLayout.svelte';
+    import { register, login } from '@/routes';
     import { request } from '@/routes/password';
     import type { BaseFormSnippetProps } from '@/types/forms';
-    import { Form } from '@inertiajs/svelte';
-    import { Eye, EyeOff, Link } from 'lucide-svelte';
+    import { Form, useForm } from '@inertiajs/svelte';
+    import { Eye, EyeOff } from 'lucide-svelte';
 
     /**
      * Props recibidas del servidor.
@@ -42,6 +40,12 @@
 
     let { status, canResetPassword, canRegister }: Props = $props();
     let showPassword = $state(false);
+
+    const form = useForm({
+        email: '',
+        password: '',
+        remember: false,
+    });
 </script>
 
 <svelte:head>
@@ -55,7 +59,7 @@
         </div>
     {/if}
 
-    <Form {...AuthenticatedSessionController.store.form()} resetOnSuccess={['password']} className="flex flex-col gap-8">
+    <Form form={$form} method="post" action={login().url} class="flex flex-col gap-8">
         {#snippet children({ errors, processing }: BaseFormSnippetProps)}
             <div class="grid gap-6">
                 <!-- Email/Username Field -->
@@ -76,10 +80,11 @@
                             tabindex={1}
                             autocomplete="username"
                             placeholder="ejemplo@uta.cl"
+                            bind:value={$form.data.email}
                             class="w-full bg-secondary/30 border border-border rounded-2xl px-5 py-4 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/50"
                         />
                     </div>
-                    <InputError message={errors.email} class="mt-2 text-xs" />
+                    <InputError message={$form.errors.email} class="mt-2 text-xs" />
                 </div>
 
                 <!-- Password Field -->
@@ -103,7 +108,8 @@
                             required
                             tabindex={2}
                             autocomplete="current-password"
-                            placeholder="••••••••"
+                            placeholder="••••••••"  
+                            bind:value={$form.data.password}
                             class="w-full bg-secondary/30 border border-border rounded-2xl px-5 py-4 pr-12 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/50"
                         />
                         <button 
@@ -118,11 +124,23 @@
                             {/if}
                         </button>
                     </div>
-                    <InputError message={errors.password} class="mt-2 text-xs" />
+                    <InputError message={$form.errors.password} class="mt-2 text-xs" />
                 </div>
 
                 <div class="flex items-center space-x-2 px-1">
-                    <Checkbox id="remember" name="remember" tabindex={3} class="border-border bg-transparent data-[state=checked]:bg-primary data-[state=checked]:border-primary" />
+                    <input 
+                        type="hidden" 
+                        name="remember" 
+                        value="off"
+                    />
+                    <Checkbox 
+                        id="remember" 
+                        name="remember"
+                        checked={Boolean($form.data.remember)}
+                        on:change={(e) => { $form.data.remember = e.target.checked; }}
+                        tabindex={3} 
+                        class="border-border bg-transparent data-[state=checked]:bg-primary data-[state=checked]:border-primary" 
+                    />
                     <Label for="remember" class="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Mantenerme conectado</Label>
                 </div>
 
@@ -130,9 +148,9 @@
                     type="submit" 
                     class="mt-2 w-full bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground font-bold py-7 rounded-2xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 text-base" 
                     tabindex={4} 
-                    disabled={processing}
+                    disabled={$form.processing}
                 >
-                    {#if processing}
+                    {#if $form.processing}
                         <Spinner class="h-4 w-4" />
                     {/if}
                     Entrar al Portal
@@ -149,9 +167,6 @@
                     </p>
                 </div>
             </div>
-        {#snippet children({ errors, processing }: BaseFormSnippetProps)}
-            <!-- Snippet children redundant here but maintained for API compatibility if needed elsewhere -->
-        {/snippet}
         {/snippet}
     </Form>
 </AuthBase>
