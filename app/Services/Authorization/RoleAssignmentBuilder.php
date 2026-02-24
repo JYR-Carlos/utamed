@@ -12,6 +12,7 @@ use App\Models\Usuario\Contexto;
 use App\Models\Usuario\TipoContexto;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Services\ContextResolver;
+use App\Exceptions\DontHavePermissionException;
 
 /**
  * Builder declarativo para asignar roles (URA) a un usuario.
@@ -41,12 +42,15 @@ class RoleAssignmentBuilder
   /** @var bool Evita doble persistencia en __destruct */
   private bool $saved = false;
 
+  protected PermissionValidator $validator;
+
   public function __construct(
     private readonly Usuario $recipient,
     private readonly Rol $rol,
     private readonly Usuario $actor
   ) {
     $this->startDate = Carbon::now();
+    $this->validator = app(PermissionValidator::class);
   }
 
   /**
@@ -136,19 +140,50 @@ class RoleAssignmentBuilder
   }
 
   /**
+   * Validar que el actor tenga autorización para asignar este rol.
+   * 
+   * Reglas de autorización:
+   * - Admin (permiso '*'): puede asignar cualquier rol
+   * - No-admin: NO puede asignar roles (conservador)
+   *
+   * @throws DontHavePermissionException Si el actor no tiene autorización
+   */
+  private function validateActorAuthorization(): void
+  {
+    // Los admins pueden asignar roles
+    if ($this->validator->isSuperAdmin($this->actor)) {
+      return;
+    }
+
+    // TODO: agregar permisos administrativos
+
+    // No-admin: no puede asignar roles
+    throw new DontHavePermissionException(
+      objects: $this->contextIds,
+      message: 'Solo los administradores pueden asignar roles.'
+    );
+  }
+
+  /**
    * Persiste los registros URA en la base de datos.
    *
    * Se llama automaticamente en __destruct. Puede invocarse
    * explicitamente si se necesita acceso a los modelos creados.
    *
+   * Valida previamente que el actor tenga autorización para asignar el rol.
+   *
    * @return UsuarioRolAsignacion|Collection<int, UsuarioRolAsignacion>
    * @throws \InvalidArgumentException Si no se especifico ningun contexto
+   * @throws DontHavePermissionException Si el actor no tiene autorización
    */
   public function save(): UsuarioRolAsignacion|Collection
   {
     if ($this->saved) {
       return collect();
     }
+
+    // Validar que el actor tenga autorización ANTES de persistir
+    $this->validateActorAuthorization();
 
     $this->saved = true;
 

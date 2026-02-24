@@ -2813,15 +2813,15 @@ if (!$dryRun) {
 }
 
 // ==================================================================================
-// PASO 9: GENERAR app/Support/Permissions.php (Enum-like de slugs)
+// PASO 9: GENERAR app/Support/Permissions.php (Enum con backing string)
 // ==================================================================================
 //
-// OBJETIVO: Leer scripts/permissions_config.php y producir una clase PHP con
-// constantes string para cada permiso. Evita magic strings en el código.
+// OBJETIVO: Leer scripts/permissions_config.php y producir un enum PHP con
+// backing string para cada permiso. Evita magic strings en el código.
 //
 // EJEMPLO:
-//   Permissions::FACULTAD_VER          → 'facultad:ver'
-//   Permissions::CURSOS_SECCION_CREAR  → 'curso/seccion:crear'
+//   Permissions::FACULTAD_VER->value          → 'facultad:ver'
+//   Permissions::CURSOS_SECCION_CREAR->value  → 'curso/seccion:crear'
 //
 // REGENERACIÓN: El archivo SE SOBRESCRIBE en cada ejecución.
 // ==================================================================================
@@ -2870,7 +2870,7 @@ if (!file_exists($permissionsConfigPath)) {
     $actConst = strtoupper(str_replace([' ', '-'], '_', $action));
     $constName = "{$resConst}_{$actConst}";
     $slug = "{$resource}:{$action}";
-    $constants .= "    const {$constName} = '{$slug}';\n";
+    $constants .= "{$tab}case {$constName} = '{$slug}';\n";
   }
 
   $permissionsConfigRelative = relativePath($permissionsConfigPath, $projectRoot);
@@ -2879,15 +2879,22 @@ if (!file_exists($permissionsConfigPath)) {
 
 namespace App\Support;
 
+use App\Services\Authorization\WildcardMatcher;
+
 /**
  * Slugs de permisos centralizados, estandarizados y a prueba de errores.
  * AUTOGENERADO desde {$permissionsConfigRelative} — NO EDITAR.
  *
- * Uso: Permissions::FACULTAD_VER <- 'facultad:ver'
+ * Uso: Permissions::FACULTAD_VER->value (ej: 'facultad:ver')
  * Para agregar permisos, editar {$permissionsConfigRelative} y regenerar.
+ * 
+ * WILDCARD ESPECIAL: Permissions::GLOBAL_WILDCARD = '*' (acceso a todo)
  */
-class Permissions
+enum Permissions: string
 {
+    // Wildcard global — acceso a cualquier permiso en cualquier recurso
+    case GLOBAL_WILDCARD = WildcardMatcher::GLOBAL_WILDCARD;
+
 {$constants}}
 PHP;
 

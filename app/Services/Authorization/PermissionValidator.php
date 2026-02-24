@@ -3,10 +3,12 @@
 namespace App\Services\Authorization;
 
 use App\Models\Usuario\Usuario;
+use App\Enums\PermissionTypeEnum as PermisoType;
 use App\Contracts\HasContext;
 use App\Enums\PermissionTypeEnum;
 use App\Services\Authorization\GlobalContextService;
 use App\Services\ContextResolver;
+use App\Support\Permissions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 
@@ -55,14 +57,14 @@ class PermissionValidator
      * Validar si un usuario puede ejecutar una acción sobre un recurso.
      * 
      * @param Usuario $user Usuario a validar
-     * @param string $permission Slug del permiso (ej: 'facultad:editar')
+     * @param Permissions $permission Slug del permiso (ej: 'facultad:editar')
      * @param HasContext|null $resource Instancia del recurso (null para viewAny)
      * @param int|array|null $contextId Contexto(s) explícito(s) (para create con padre)
      * @return bool
      */
     public function validate(
         Usuario $user,
-        string $permission,
+        Permissions $permission,
         ?HasContext $resource = null,
         int|array|null $contextId = null
     ): bool {
@@ -84,12 +86,12 @@ class PermissionValidator
      * Útil para listados (viewAny) con scope whereContext()
      * 
      * @param Usuario $user
-     * @param string $permission Slug del permiso
+     * @param Permissions $permission Slug del permiso
      * @return array Array de IDs de contexto
      */
-    public function getContextsFromPermission(Usuario $user, string $permission): array
+    public function getContextsFromPermission(Usuario $user, Permissions $permission): array
     {
-        // TODO: Recuperar de caché: Cache::get("perm:{$user->id_usuario}:contexts:{$permission}:0")
+        // TODO: Recuperar de caché: Cache::get("perm:{$user->id_usuario}:contexts:{$permission->value}:0")
 
         // 1. Obtener contextos con DENY en UPE
         $deniedContexts = $this->getDeniedContexts($user, $permission);
@@ -104,7 +106,7 @@ class PermissionValidator
         $allGranted = array_unique(array_merge($grantedContextsUPE, $grantedContextsURA));
         $result = array_values(array_diff($allGranted, $deniedContexts));
 
-        // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:contexts:{$permission}:0", $result)
+        // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:contexts:{$permission->value}:0", $result)
 
         return $result;
     }
@@ -133,7 +135,8 @@ class PermissionValidator
     public function getUserPermissions(Usuario $user, ?int $contextId = null, ?PermissionTypeEnum $permissionType = null): Collection
     {
         $query = DB::connection('pgsql')
-            ->table('usuario.vw_permisos_usuario')
+            ->table('vw_permisos_usuario')
+            ->select('id_usuario', 'id_contexto', 'id_permiso', 'slug', 'esta_permitido', 'tipo_asignacion', 'puede_delegar')
             ->where('id_usuario', $user->id_usuario);
 
         if ($contextId !== null) {
@@ -145,22 +148,57 @@ class PermissionValidator
         }
 
         $permissions = $query->get()->map(function ($perm) {
+            $castedPermission = Permissions::tryFrom($perm->slug);
+
+            if (!$castedPermission) {
+                // no agregarlo a la lista y continuar con el siguiente permiso
+                \Log::error('Permiso en la BD malformado: ' . $perm->slug);
+                // TODO: tratar este error
+                return null;
+            }
+
             return [
                 'id_usuario' => $perm->id_usuario,
                 'id_contexto' => $perm->id_contexto,
                 'id_permiso' => $perm->id_permiso,
-                'slug' => $perm->slug,
+                'slug' => $castedPermission,
                 'esta_permitido' => $perm->esta_permitido ?? true,
                 'tipo_asignacion' => $perm->tipo_asignacion,
                 'puede_delegar' => $perm->puede_delegar ?? false,
             ];
         });
 
-        return $permissions;
+        return $permissions->filter(
+            fn($perm) => $perm !== null
+        )->values();
     }
 
     /**
-     * Verificar si es SuperAdmin (permiso '*' en contexto global).
+     * Obtener contextos donde un usuario puede delegar un permiso específico.
+     * 
+     * Retorna los IDs de contexto donde el usuario tiene el permiso con
+     * puede_delegar=true y esta_permitido=true.
+     * 
+     * Útil para validar delegación de permisos en PermissionAssignmentBuilder.
+     * 
+     * @param Usuario $user Usuario a verificar
+     * @param Permissions $permissionSlug Enum del permiso desde Permissions:: (ej: Permissions::CURSOS_VER)
+     * @return array Array de IDs de contexto donde puede delegar el permiso
+     */
+    public function getContextsWhereDelegablePermission(Usuario $user, Permissions $permissionSlug): array
+    {
+        return $this->getUserPermissions($user)
+            ->filter(
+                fn($perm) =>
+                $perm['slug'] === $permissionSlug
+                && $perm['esta_permitido'] === true
+                && $perm['puede_delegar'] === true
+            )
+            ->pluck('id_contexto')
+            ->all();
+    }
+
+    /**
      * 
      * Wrapper público para detectar si el usuario es superadmin.
      * No requiere que el llamador conozca el contexto global.
@@ -234,11 +272,11 @@ class PermissionValidator
      * Retorna true si el usuario tiene permiso en AL MENOS UNO de los contextos.
      * 
      * @param Usuario $user
-     * @param string $permission
+     * @param Permissions $permission
      * @param array $contextIds
      * @return bool
      */
-    protected function validateInAnyContext(Usuario $user, string $permission, array $contextIds): bool
+    protected function validateInAnyContext(Usuario $user, Permissions $permission, array $contextIds): bool
     {
         foreach ($contextIds as $contextId) {
             // Verificar UPE para este contexto
@@ -272,13 +310,13 @@ class PermissionValidator
      * para 'cursos/inscripciones:ver' elige DENY porque es más específico.
      *
      * @param Usuario $user
-     * @param string $permission
+     * @param Permissions $permission
      * @param int $contextId
      * @return bool|null true=GRANT, false=DENY, null=no encontrado
      */
-    protected function checkSpecialPermission(Usuario $user, string $permission, int $contextId): ?bool
+    protected function checkSpecialPermission(Usuario $user, Permissions $permission, int $contextId): ?bool
     {
-        // TODO: Recuperar permisos UPE de caché: Cache::get("perm:{$user->id_usuario}:upe:{$permission}:{$contextId}")
+        // TODO: Recuperar permisos UPE de caché: Cache::get("perm:{$user->id_usuario}:upe:{$permission->value}:{$contextId}")
 
         // Generar todos los patrones (exacto, wildcard mismo recurso, ancestros, global)
         $patterns = WildcardMatcher::generatePermissionPatterns($permission);
@@ -295,8 +333,23 @@ class PermissionValidator
             ->get();
 
         if ($results->isEmpty()) {
-            // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:upe:{$permission}:{$contextId}", 'null')
+            // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:upe:{$permission->value}:{$contextId}", 'null')
             return null;
+        }
+
+        // Transformar slugs a Permissions enum para mantener consistencia tipado
+        /** @var Permissions[] $transformedSlugs */
+        $transformedSlugs = [];
+
+        foreach ($results as $result) {
+            $castedPermission = Permissions::tryFrom($result->slug);
+
+            if (!$castedPermission) {
+                \Log::error('Permiso en la BD malformado: ' . $result->slug);
+                continue;
+            }
+
+            $transformedSlugs[] = $castedPermission;
         }
 
         // Si hay múltiples resultados, elegir el de mayor prioridad (menor número)
@@ -304,8 +357,8 @@ class PermissionValidator
         $bestResult = null;
         $bestPriority = 999;
 
-        foreach ($results as $result) {
-            $priority = WildcardMatcher::getPriority($permission, $result->slug);
+        foreach ($transformedSlugs as $slug) {
+            $priority = WildcardMatcher::getPriority($permission, $slug);
             if ($priority < $bestPriority) {
                 $bestPriority = $priority;
                 $bestResult = $result;
@@ -331,11 +384,11 @@ class PermissionValidator
      * y verifica si al menos uno existe en URA.
      *
      * @param Usuario $user
-     * @param string $permission
+     * @param Permissions $permission
      * @param int $contextId
      * @return bool
      */
-    protected function checkRolePermission(Usuario $user, string $permission, int $contextId): bool
+    protected function checkRolePermission(Usuario $user, Permissions $permission, int $contextId): bool
     {
         // TODO: Recuperar permisos URA de caché: Cache::get("perm:{$user->id_usuario}:ura:{$permission}:{$contextId}")
 
@@ -359,10 +412,10 @@ class PermissionValidator
      * Obtener contextos donde el usuario tiene DENY en UPE.
      *
      * @param Usuario $user
-     * @param string $permission
+     * @param Permissions $permission
      * @return array
      */
-    protected function getDeniedContexts(Usuario $user, string $permission): array
+    protected function getDeniedContexts(Usuario $user, Permissions $permission): array
     {
         $patterns = WildcardMatcher::generatePermissionPatterns($permission);
 
@@ -388,10 +441,10 @@ class PermissionValidator
      * Obtener contextos donde el usuario tiene GRANT en UPE.
      *
      * @param Usuario $user
-     * @param string $permission
+     * @param Permissions $permission
      * @return array
      */
-    protected function getGrantedContextsFromSpecial(Usuario $user, string $permission): array
+    protected function getGrantedContextsFromSpecial(Usuario $user, Permissions $permission): array
     {
         $patterns = WildcardMatcher::generatePermissionPatterns($permission);
 
@@ -409,10 +462,10 @@ class PermissionValidator
      * Obtener contextos donde el usuario tiene permiso vía URA.
      * 
      * @param Usuario $user
-     * @param string $permission
+     * @param Permissions $permission
      * @return array
      */
-    protected function getGrantedContextsFromRoles(Usuario $user, string $permission): array
+    protected function getGrantedContextsFromRoles(Usuario $user, Permissions $permission): array
     {
         $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
 
@@ -420,7 +473,7 @@ class PermissionValidator
             ->table('usuario.vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('tipo_asignacion', self::TIPO_ROL)
-            ->whereIn('slug', [$permission, $resourceWildcard, $this->globalWildcard])
+            ->whereIn('slug', [$permission->value, $resourceWildcard, $this->globalWildcard])
             ->pluck('id_contexto')
             ->toArray();
     }

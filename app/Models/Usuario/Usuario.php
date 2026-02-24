@@ -3,6 +3,7 @@
 namespace App\Models\Usuario;
 
 use App\Models\Base\Usuario\BaseUsuario;
+use App\Support\Permissions;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Access\Authorizable as AuthorizableContract;
 use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
@@ -61,11 +62,11 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
      * NOTA: Método existente refactorizado para usar PermissionValidator.
      * Mantiene firma para retrocompatibilidad.
      * 
-     * @param string $slug Slug del permiso (ej: 'facultad:ver')
+     * @param Permissions $slug Slug del permiso (ej: 'facultad:ver')
      * @param int $id_contexto ID del contexto
      * @return bool
      */
-    public function hasPermission(string $slug, int $id_contexto): bool
+    public function hasPermission(Permissions $slug, int $id_contexto): bool
     {
         return app(PermissionValidator::class)
             ->validate($this, $slug, null, $id_contexto);
@@ -156,11 +157,11 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     /**
      * Verificar permiso con resolución automática de contexto desde un recurso.
      * 
-     * @param string $permission Slug del permiso
+     * @param Permissions $permission Slug del permiso
      * @param HasContext|null $resource Instancia del modelo (opcional)
      * @return bool
      */
-    public function hasPermissionFor(string $permission, ?HasContext $resource = null): bool
+    public function hasPermissionFor(Permissions $permission, ?HasContext $resource = null): bool
     {
         return app(PermissionValidator::class)
             ->validate($this, $permission, $resource);
@@ -171,11 +172,11 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
      * 
      * Alias de hasPermission() con nombre más descriptivo.
      * 
-     * @param string $permission Slug del permiso
+     * @param Permissions $permission Slug del permiso
      * @param int $contextId ID del contexto
      * @return bool
      */
-    public function hasPermissionInContext(string $permission, int $contextId): bool
+    public function hasPermissionInContext(Permissions $permission, int $contextId): bool
     {
         return $this->hasPermission($permission, $contextId);
     }
@@ -185,10 +186,10 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
      * 
      * Útil para filtrar queries con whereContext()
      * 
-     * @param string $permission Slug del permiso
+     * @param Permissions $permission Slug del permiso
      * @return array Array de IDs de contexto
      */
-    public function getContextsFromPermission(string $permission): array
+    public function getContextsFromPermission(Permissions $permission): array
     {
         return app(PermissionValidator::class)
             ->getContextsFromPermission($this, $permission);
@@ -333,7 +334,7 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
      * - Para validaciones diretas de permisos, DEBE usarse hasPermissionFor()
      * - Esto previene confusión y asegura consistencia
      * 
-     * @param string $ability Acción simple ('view', 'create') o slug completo ('facultad:ver')
+     * @param string|Permissions $ability Acción simple ('view', 'create') o slug completo ('facultad:ver')
      * @param array|mixed $arguments Argumentos (modelo, contexto, etc.)
      * @return bool
      */
@@ -341,29 +342,37 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     {
         // Detectar si es slug completo (contiene ':') o wildcard ('*')
         $isSlugCompleto = str_contains($ability, ':');
-        $isWildcard = $ability === '*';
+        $isGlobalWildcard = $ability === Permissions::GLOBAL_WILDCARD->value;
 
-        if ($isSlugCompleto || $isWildcard) {
+        if ($isSlugCompleto || $isGlobalWildcard) {
+            // tryFrom() returns Permissions|null - type-safe at compile time
+            $permission = Permissions::tryFrom($ability);
+
+            if ($permission === null) {
+                return false; // Invalid permission slug
+                //TODO: hacer exception personalizada para casos de uso incorrecto (ej: usar can() con slug sin contexto o slug invalido)
+            }
+
             // SLUG COMPLETO O WILDCARD: Usar PermissionValidator directo
             $model = is_array($arguments) ? ($arguments[0] ?? null) : $arguments;
             $resource = ($model instanceof HasContext) ? $model : null;
-            return $this->hasPermissionFor($ability, $resource);
-        } else {
-            // ACCIÓN SIMPLE: Delegar a Laravel's Policy system
-            // Si no hay Policy registrada, retornará false automáticamente
-            return $this->authorizableCan($ability, $arguments);
-        }
+            return $this->hasPermissionFor($permission, $resource);
+        } 
+
+        // ACCIÓN SIMPLE: Delegar a Laravel's Policy system
+        // Si no hay Policy registrada, retornará false automáticamente
+        return $this->authorizableCan($ability, $arguments);
     }
 
     /**
      * Check if a requested slug matches a user's permission slug using wildcards.
      * 
      * @deprecated Usar WildcardMatcher en su lugar. Mantenido para retrocompatibilidad.
-     * @param string $requestedSlug The permission being checked (e.g., 'activity:edit')
-     * @param string $userSlug The permission the user has (e.g., 'activity:*')
+     * @param Permissions $requestedSlug The permission being checked (e.g., 'activity:edit')
+     * @param Permissions $userSlug The permission the user has (e.g., 'activity:*')
      * @return bool
      */
-    protected function matchesSlug(string $requestedSlug, string $userSlug): bool
+    protected function matchesSlug(Permissions $requestedSlug, Permissions $userSlug): bool
     {
         return \App\Services\Authorization\WildcardMatcher::matches($requestedSlug, $userSlug);
     }

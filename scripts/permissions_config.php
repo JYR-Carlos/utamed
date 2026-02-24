@@ -175,7 +175,7 @@ return [
     ],
 
     'programas' => [
-      '_actions' => ['ver', 'eliminar'],
+      '_actions' => ['ver', 'agregar', 'eliminar'],
 
       'modificar' => [
         '_actions' => [

@@ -2,6 +2,8 @@
 
 namespace App\Services\Authorization;
 
+use App\Support\Permissions;
+
 /**
  * Utilidad para matching de slugs de permisos con soporte de wildcards y recursos anidados.
  *
@@ -40,11 +42,11 @@ class WildcardMatcher
     /**
      * Verificar si un slug solicitado coincide con un patrón de permiso.
      *
-     * @param string $requestedSlug Slug solicitado (ej: 'cursos/inscripciones:ver')
-     * @param string $patternSlug   Patrón del permiso, puede tener wildcard de acción
+     * @param Permissions $requestedSlug Slug solicitado (ej: 'cursos/inscripciones:ver')
+     * @param Permissions $patternSlug   Patrón del permiso, puede tener wildcard de acción
      * @return bool
      */
-    public static function matches(string $requestedSlug, string $patternSlug): bool
+    public static function matches(Permissions $requestedSlug, Permissions $patternSlug): bool
     {
         // Match exacto
         if ($requestedSlug === $patternSlug) {
@@ -105,16 +107,16 @@ class WildcardMatcher
      * 'facultad:*'                 → 'facultad'
      * '*'                          → '*'
      *
-     * @param string $slug
+     * @param Permissions $slug
      * @return string
      */
-    public static function extractResource(string $slug): string
+    public static function extractResource(Permissions $slug): string
     {
         if (self::isGlobalWildcard($slug)) {
             return self::GLOBAL_WILDCARD;
         }
 
-        $parts = explode(self::SEPARATOR, $slug, 2);
+        $parts = explode(self::SEPARATOR, $slug->value, 2);
         return $parts[0] ?? '';
     }
 
@@ -126,10 +128,10 @@ class WildcardMatcher
      * 'facultad:ver'                   → ['facultad']
      * '*'                              → ['*']
      *
-     * @param string $slug
+     * @param Permissions $slug
      * @return string[]
      */
-    public static function extractResourceSegments(string $slug): array
+    public static function extractResourceSegments(Permissions $slug): array
     {
         $resource = self::extractResource($slug);
         return explode(self::RESOURCE_SEPARATOR, $resource);
@@ -143,44 +145,45 @@ class WildcardMatcher
      * 'facultad:*'                → '*'
      * '*'                         → null
      *
-     * @param string $slug
+     * @param Permissions $slug
      * @return string|null
      */
-    public static function extractAction(string $slug): ?string
+    public static function extractAction(Permissions $slug): ?string
     {
-        if ($slug === self::GLOBAL_WILDCARD) {
+        if ($slug->value === self::GLOBAL_WILDCARD) {
             return null;
         }
 
-        $parts = explode(self::SEPARATOR, $slug, 2);
+        $parts = explode(self::SEPARATOR, $slug->value, 2);
         return $parts[1] ?? null;
     }
 
     /**
      * Verificar si es wildcard global ('*').
      * 
-     * @param string $string
+     * @param Permissions $string
      * @return bool
      */
-    public static function isGlobalWildcard(string $string): bool
+    public static function isGlobalWildcard(Permissions $string): bool
     {
-        return $string === self::GLOBAL_WILDCARD;
+        return $string->value === self::GLOBAL_WILDCARD;
     }
 
     /**
      * Verificar si un slug es wildcard de recurso ('recurso:*' o 'recurso/sub:*').
      *
-     * @param string $slug
+     * @param Permissions $slug
      * @return bool
      */
-    public static function isResourceWildcard(string $slug): bool
+    public static function isResourceWildcard(Permissions $slug): bool
     {
         if (self::isGlobalWildcard($slug)) {
             return false;
         }
 
         $action = self::extractAction($slug);
-        return self::isGlobalWildcard($action);
+
+        return $action === self::GLOBAL_WILDCARD;
     }
 
     /**
@@ -191,10 +194,10 @@ class WildcardMatcher
      * 'cursos/inscripciones:ver'  → 'cursos/inscripciones:*'
      * '*'                         → '*'
      *
-     * @param string $slug
+     * @param Permissions $slug
      * @return string
      */
-    public static function toResourceWildcard(string $slug): string
+    public static function toResourceWildcard(Permissions $slug): string
     {
         if (self::isGlobalWildcard($slug)) {
             return self::GLOBAL_WILDCARD;
@@ -219,19 +222,22 @@ class WildcardMatcher
      *   4 => '*'                                    (global wildcard, prioridad 4)
      * ]
      *
-     * @param string $slug Slug del permiso (ej: 'cursos/inscripciones/alumno:ver')
+     * @param Permissions $slug Slug del permiso (ej: 'cursos/inscripciones/alumno:ver')
      * @return string[]
      */
-    public static function generatePermissionPatterns(string $slug): array
+    public static function generatePermissionPatterns(Permissions $slug): array
     {
-        // Extraer recurso y acción
+        // Extraer recurso y acción — trabajar con strings puros internamente.
+        // Los wildcards generados (recurso:*, *) son patrones de búsqueda en DB,
+        // no casos válidos del enum Permissions.
         $resource = self::extractResource($slug);
         $action = self::extractAction($slug);
 
+        /** @var string[] $patterns */
         $patterns = [];
 
         // 1. Match exacto
-        $patterns[] = $slug;
+        $patterns[] = $slug->value;
 
         // 2. Wildcard del mismo recurso (recurso:*)
         if ($action !== null) {
@@ -266,11 +272,11 @@ class WildcardMatcher
      * 4: Wildcard global        ('*')
      * 999: Sin coincidencia
      *
-     * @param string $requestedSlug Slug solicitado
-     * @param string $patternSlug   Patrón del permiso
+     * @param Permissions $requestedSlug Slug solicitado
+     * @param Permissions $patternSlug   Patrón del permiso
      * @return int
      */
-    public static function getPriority(string $requestedSlug, string $patternSlug): int
+    public static function getPriority(Permissions $requestedSlug, Permissions $patternSlug): int
     {
         // Match exacto
         if ($requestedSlug === $patternSlug) {

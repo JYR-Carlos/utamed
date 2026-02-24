@@ -4,14 +4,20 @@ namespace App\Services\Authorization;
 
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use App\Contracts\HasOwnedContext;
-use App\Enums\ContextualModelType;
+
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Contexto;
 use App\Models\Usuario\TipoContexto;
 use App\Models\Usuario\UsuarioPermisoEspecial;
+
+use App\Contracts\HasOwnedContext;
+use App\Enums\ContextualModelType;
 use App\Services\ContextResolver;
+use App\Support\Permissions;
+
+use App\Exceptions\DontHavePermissionException;
+use \Illuminate\Database\RecordNotFoundException;
 
 /**
  * Builder declarativo para asignar permisos individuales (UPE) a un usuario.
@@ -50,12 +56,15 @@ class PermissionAssignmentBuilder
   /** @var bool Evita doble persistencia en __destruct */
   private bool $saved = false;
 
+  protected PermissionValidator $validator;
+
   public function __construct(
     private readonly Usuario $recipient,
-    private readonly Permiso $permiso,
+    private readonly Permissions $permissionSlug,
     private readonly Usuario $actor
   ) {
     $this->startDate = Carbon::now();
+    $this->validator = app(PermissionValidator::class);
   }
 
   /**
@@ -173,19 +182,73 @@ class PermissionAssignmentBuilder
   }
 
   /**
+   * Validar que el actor tenga autorización para asignar este permiso.
+   * 
+   * Reglas de autorización:
+   * - Admin (permiso '*'): puede hacer cualquier cosa (GRANT, DENY, canDelegate)
+   * - No-admin (delegación): debe tener el permiso con puede_delegar=true en TODOS los contextos
+   *   donde se va a asignar. Al delegar, automáticamente NO puede re-delegar.
+   *
+   * @throws DontHavePermissionException Si el actor no tiene autorización
+   */
+  private function validateActorAuthorization(): void
+  {
+    // Los admins pueden hacer cualquier cosa
+    if ($this->validator->isSuperAdmin($this->actor)) {
+      return;
+    }
+
+    // No-admin: validar que tenga el permiso con puede_delegar en todos los contextos
+    if (empty($this->contextIds)) {
+      throw new DontHavePermissionException(
+        permission: $this->permissionSlug,
+        message: 'No tienes contextos donde delegar este permiso.'
+      );
+    }
+
+    // Obtener contextos donde el actor PUEDE delegar este permiso
+    $delegableContexts = $this->validator->getContextsWhereDelegablePermission(
+      $this->actor,
+      $this->permissionSlug
+    );
+
+    // Validar que TODOS los contextos destino estén en los delegables
+    $missingContexts = array_diff($this->contextIds, $delegableContexts);
+
+    if (!empty($missingContexts)) {
+      throw new DontHavePermissionException(
+        permission: $this->permissionSlug,
+        objects: $missingContexts,
+        message: 'No tienes permiso para delegar en los contextos especificados.'
+      );
+    }
+
+    // Si es delegación (no es admin), NO puede re-delegar
+    // Automáticamente resetear delegable a false para que el receptor no pueda delegar
+    $this->delegable = false;
+  }
+
+  /**
    * Persiste los registros UPE en la base de datos.
    *
    * Se llama automaticamente en __destruct. Puede invocarse
    * explicitamente si se necesita acceso a los modelos creados.
    *
+   * Valida previamente que el actor tenga autorización para asignar el permiso.
+   *
    * @return UsuarioPermisoEspecial|Collection<int, UsuarioPermisoEspecial>
    * @throws \InvalidArgumentException Si no se especifico ningun contexto
+   * @throws RecordNotFoundException Si el slug del permiso no existe 
+   * @throws DontHavePermissionException Si el actor no tiene autorización
    */
   public function save(): UsuarioPermisoEspecial|Collection
   {
     if ($this->saved) {
       return collect();
     }
+
+    // Validar que el actor tenga autorización ANTES de persistir
+    $this->validateActorAuthorization();
 
     $this->saved = true;
 
@@ -195,9 +258,16 @@ class PermissionAssignmentBuilder
       );
     }
 
+    // Obtener o crear el modelo Permiso desde el slug
+    $permiso = Permiso::where(
+      'slug',
+      $this->permissionSlug->value
+    )
+      ->firstOrFail();
+
     $payload = [
       'id_usuario' => $this->recipient->id_usuario,
-      'id_permiso' => $this->permiso->id_permiso,
+      'id_permiso' => $permiso->id_permiso,
       'esta_permitido' => $this->granted,
       'puede_delegar' => $this->delegable,
       'fecha_inicio_planificada' => $this->startDate,
