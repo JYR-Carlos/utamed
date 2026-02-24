@@ -586,8 +586,6 @@
         bind:isOpen={showTeamModal}
         onClose={closeTeamModal}
         curso={managingTeamCurso}
-        availableRoles={availableRoles}
-        availablePermissions={availablePermissions}
     />
 {/if}
 

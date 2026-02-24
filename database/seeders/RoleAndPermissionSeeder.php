@@ -58,7 +58,7 @@ class RoleAndPermissionSeeder extends Seeder
 
         // Asignar rol al admin
         $now = now();
-        $future = now()->addYears(100);
+        $future = now()->addDays(36500);  // ~100 años para inicialización del sistema
 
         UsuarioRolAsignacion::updateOrCreate(
             [

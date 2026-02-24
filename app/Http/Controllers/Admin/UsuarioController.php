@@ -719,16 +719,11 @@ class UsuarioController extends Controller
 
         $usuario = Usuario::findOrFail($id);
 
-        // Fix: El contexto utilizado para guardar roles y permisos 
-        // debe ser explicito con los que el usuario está trabajando, 
-        // no asumir un contexto global por defecto sin validación.
-
-        // Solución correcta:
-        // 1. Recibir el context_id en el request (enviado desde el frontend).
-        // 2. Validar que el admin tenga permisos sobre ese contexto.
-        // 3. Usar app(GlobalContextService::class)->getContextId() para contexto global,
-        //    o el context_id del recurso correspondiente (curso, facultad, etc.).
-        // 4. Coordinar con getUserPermissions() para que ambos usen el mismo contexto.
+        // Note: Para contextos específicos (Carrera, Facultad, Curso, etc.),
+        // usa los builders: $user->givePermission($perm)->on($carrera)->for(30)->save()
+        // Los builders aplican duración, delegación y auto-audit.
+        //
+        // Para el contexto global, usamos updateOrCreate directo con duración de 365 días.
 
         $idContexto = app(GlobalContextService::class)->getContextId();
 
@@ -761,7 +756,7 @@ class UsuarioController extends Controller
                             'asignado_por' => (int) $adminId,
                             'creado_por' => (int) $adminId,
                             'fecha_inicio_planificada' => now(),
-                            'fecha_fin_planificada' => now()->addYears(100),
+                            'fecha_fin_planificada' => now()->addDays(365),  // 365 días en lugar de 100 años
                             'esta_activo' => true,
                             'fue_eliminado' => false,
                             'fecha_fin_real' => null,
@@ -787,12 +782,14 @@ class UsuarioController extends Controller
                 $isObject = is_array($status);
                 $allowed = $isObject ? ($status['allowed'] ?? null) : $status;
                 $canDelegate = $isObject ? ($status['can_delegate'] ?? false) : false;
+                $duracionDias = $isObject ? ($status['duration_days'] ?? 365) : 365;
 
                 Log::debug('Processing permiso:', [
                     'perm_id' => $permId,
                     'is_object' => $isObject,
                     'allowed' => $allowed,
                     'can_delegate' => $canDelegate,
+                    'duration_days' => $duracionDias,
                     'will_save' => ($allowed !== null || $canDelegate)
                 ]);
 
@@ -810,7 +807,7 @@ class UsuarioController extends Controller
                             'esta_activo' => true,
                             'fue_borrado' => false,
                             'fecha_fin_real' => null,
-                            'fecha_fin_planificada' => now()->addYears(100),
+                            'fecha_fin_planificada' => now()->addDays($duracionDias),  // Usa duración del request
                             'fecha_creacion' => now()
                         ]
                     );
@@ -818,7 +815,8 @@ class UsuarioController extends Controller
                     Log::debug('✅ Permiso guardado:', [
                         'id_upe' => $upe->id_upe,
                         'perm_id' => $permId,
-                        'puede_delegar_saved' => $upe->puede_delegar
+                        'puede_delegar_saved' => $upe->puede_delegar,
+                        'duration_days' => $duracionDias
                     ]);
                 }
             }
@@ -864,29 +862,10 @@ class UsuarioController extends Controller
             return;
         }
 
-        $contexto = Contexto::firstOrCreate(
-            ['contexto_display' => 'Global'],
-            ['descripcion' => 'Contexto Global por defecto']
-        );
-
-        $adminId = auth()->guard('web')->id() ?? 1;
-
-        UsuarioRolAsignacion::updateOrCreate(
-            [
-                'id_usuario' => $usuario->id_usuario,
-                'id_contexto' => $contexto->id_contexto,
-                'id_rol' => $rol->id_rol,
-            ],
-            [
-                'asignado_por' => (int) $adminId,
-                'creado_por' => (int) $adminId,
-                'fecha_inicio_planificada' => now(),
-                'fecha_fin_planificada' => now()->addYears(100),
-                'esta_activo' => true,
-                'fue_eliminado' => false,
-                'fecha_fin_real' => null,
-                'fecha_creacion' => now(),
-            ]
-        );
+        $admin = $usuario;  // O usar Auth::user() si está disponible
+        
+        $admin->giveRole($rol)
+            ->for(365)  // 365 días en lugar de 100 años
+            ->save();
     }
 }

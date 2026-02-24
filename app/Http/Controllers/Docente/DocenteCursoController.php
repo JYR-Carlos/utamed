@@ -393,23 +393,11 @@ class DocenteCursoController extends Controller
                 foreach ($validated['roles'] as $rolId) {
                     // Only sync if it's an allowed role for this context management
                     if (in_array($rolId, $allowedRoleIds)) {
-                        UsuarioRolAsignacion::updateOrCreate(
-                            [
-                                'id_usuario' => $usuario->id_usuario,
-                                'id_contexto' => $idContexto,
-                                'id_rol' => $rolId,
-                            ],
-                            [
-                                'asignado_por' => (int) ($adminId ?? 1),
-                                'creado_por' => (int) ($adminId ?? 1),
-                                'fecha_inicio_planificada' => now(),
-                                'fecha_fin_planificada' => now()->addYears(100),
-                                'esta_activo' => true,
-                                'fue_eliminado' => false,
-                                'fecha_fin_real' => null,
-                                'fecha_creacion' => now(),
-                            ]
-                        );
+                        $rol = Rol::findOrFail($rolId);
+                        $usuario->giveRole($rol)
+                            ->on($curso)  // Curso implementa HasOwnedContext
+                            ->for(365)
+                            ->save();
                     }
                 }
             }
@@ -435,23 +423,22 @@ class DocenteCursoController extends Controller
                     $canDelegate = false;
 
                     if ($allowed !== null || $canDelegate) {
-                        UsuarioPermisoEspecial::updateOrCreate(
-                            [
-                                'id_usuario' => $usuario->id_usuario,
-                                'id_contexto' => $idContexto,
-                                'id_permiso' => $permId,
-                            ],
-                            [
-                                'creado_por' => $adminId,
-                                'esta_permitido' => ($allowed === null) ? null : (bool) $allowed,
-                                'puede_delegar' => (bool) $canDelegate,
-                                'esta_activo' => true,
-                                'fue_borrado' => false,
-                                'fecha_fin_real' => null,
-                                'fecha_fin_planificada' => now()->addYears(100),
-                                'fecha_creacion' => now()
-                            ]
-                        );
+                        $permiso = \App\Models\Usuario\Permiso::findOrFail($permId);
+                        $durationDays = $status['duration_days'] ?? 365;
+                        
+                        $builder = $usuario->givePermission($permiso)
+                            ->on($curso)  // Curso implementa HasOwnedContext
+                            ->for($durationDays);
+                        
+                        if ($canDelegate) {
+                            $builder->canDelegate();
+                        }
+                        
+                        if ($allowed === false) {
+                            $builder->revoke();
+                        }
+                        
+                        $builder->save();
                     }
                 }
             }

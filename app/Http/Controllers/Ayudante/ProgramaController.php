@@ -9,6 +9,7 @@ use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Support\Permissions;
 
 class ProgramaController extends Controller
 {
@@ -59,7 +60,7 @@ class ProgramaController extends Controller
         }
 
         // Verificar permiso: curso/programa: editar
-        if (!$user->hasPermission('curso/programa:editar', $curso->id_contexto)) {
+        if (!$user->hasPermission(Permissions::CURSO_PROGRAMA_EDITAR, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para editar el programa de este curso');
         }
@@ -114,7 +115,7 @@ class ProgramaController extends Controller
         }
 
         // Verificar permiso: curso/programa: editar
-        if (!$user->hasPermission('curso/programa:editar', $curso->id_contexto)) {
+        if (!$user->hasPermission(Permissions::CURSO_PROGRAMA_EDITAR, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para editar el programa de este curso');
         }
@@ -198,13 +199,13 @@ class ProgramaController extends Controller
         }
 
         // Verificar permiso: curso/programa: ver
-        if (!$user->hasPermission('curso/programa:ver', $curso->id_contexto)) {
+        if (!$user->hasPermission(Permissions::CURSO_PROGRAMA_VER, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para ver el programa de este curso');
         }
 
         // Verificar permiso para editar si es modo edit
-        if ($mode === 'edit' && !$user->hasPermission('curso/programa:editar', $curso->id_contexto)) {
+        if ($mode === 'edit' && !$user->hasPermission(Permissions::CURSO_PROGRAMA_EDITAR, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para editar el programa de este curso');
         }

@@ -7,8 +7,6 @@
         isOpen: boolean;
         onClose: () => void;
         curso: Curso;
-        availableRoles?: any[];
-        availablePermissions?: Record<string, any[]>;
         urlPrefix?: string; // 'admin' or 'docente'
     }
 
@@ -16,8 +14,6 @@
         isOpen = $bindable(), 
         onClose, 
         curso,
-        availableRoles = [],
-        availablePermissions = {},
         urlPrefix = 'admin'
     }: Props = $props();
 
@@ -236,8 +232,6 @@
             id_usuario: selectedUserForPermissions.id_usuario,
             username: selectedUserForPermissions.nombre_completo
         }}
-        {availableRoles}
-        {availablePermissions}
         hideRoles={urlPrefix === 'docente'}
         isCourseContext={true}
         loadPath={`/${urlPrefix}/cursos/${curso.id_curso}/team/${selectedUserForPermissions.id_usuario}/permissions`}

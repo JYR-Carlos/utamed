@@ -294,8 +294,6 @@
             onClose={() => { isTeamModalOpen = false; selectedCurso = null; }}
             curso={selectedCurso}
             urlPrefix="docente"
-            {availableRoles}
-            {availablePermissions}
         />
     {/if}
 

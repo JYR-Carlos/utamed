@@ -157,22 +157,16 @@ class CourseTeamController extends Controller
                 'fecha_fin_real' => null,
                 'asignado_por' => (int) (Auth::id() ?? 1),
                 'fecha_inicio_planificada' => now(),
-                'fecha_fin_planificada' => now()->addYears(100),
+                'fecha_fin_planificada' => now()->addDays(365),  // 365 días en lugar de 100 años
             ]);
         } else {
-            // Create new assignment
-            UsuarioRolAsignacion::create([
-                'id_usuario' => $validated['id_usuario'],
-                'id_contexto' => $curso->id_contexto,
-                'id_rol' => $rol->id_rol,
-                'asignado_por' => (int) (Auth::id() ?? 1), // Fallback to ID 1 if auth fails (e.g. seeding/testing)
-                'creado_por' => (int) (Auth::id() ?? 1),
-                'fecha_inicio_planificada' => now(),
-                'fecha_fin_planificada' => now()->addYears(100),
-                'esta_activo' => true,
-                'fue_eliminado' => false,
-                'fecha_creacion' => now(),
-            ]);
+            // Create new assignment using RoleAssignmentBuilder
+            $usuarioTarget = Usuario::findOrFail($validated['id_usuario']);
+            
+            $usuarioTarget->giveRole($rol)
+                ->on($curso)       // ← Curso implementa HasOwnedContext
+                ->for(365)         // ← 365 días
+                ->save();
         }
 
         return back()->with('success', 'Miembro agregado exitosamente.');
@@ -239,6 +233,7 @@ class CourseTeamController extends Controller
 
         $idContexto = $curso->id_contexto;
 
+        // Get roles assigned to this user in this context
         $roles = $usuario->rolesAsignados()
             ->where('usuario.usuario_rol_asignacion.id_contexto', $idContexto)
             ->where('usuario.usuario_rol_asignacion.esta_activo', true)
@@ -246,11 +241,39 @@ class CourseTeamController extends Controller
             ->get()
             ->pluck('id_rol');
 
-        $special = $usuario->permisosEspeciales()
+        // ✅ FIXED: Query directly to UsuarioPermisoEspecial table to get special permissions
+        // WITH correct schema qualification for PostgreSQL
+        $special = \App\Models\Usuario\UsuarioPermisoEspecial::where('usuario.usuario_permiso_especial.id_usuario', $usuario->id_usuario)
             ->where('usuario.usuario_permiso_especial.id_contexto', $idContexto)
             ->where('usuario.usuario_permiso_especial.esta_activo', true)
             ->where('usuario.usuario_permiso_especial.fue_borrado', false)
+            ->select('usuario.usuario_permiso_especial.*')
             ->get();
+
+        \Log::info('📥 getMemberPermissions - Special permissions loaded:', [
+            'user_id' => $usuario->id_usuario,
+            'context_id' => $idContexto,
+            'special_count' => $special->count(),
+            'special_ids' => $special->pluck('id_permiso')->toArray()
+        ]);
+
+        // Load permissions user has through roles in THIS context
+        $rolePermsInContext = collect();
+        
+        $userRolesInContext = UsuarioRolAsignacion::where('id_usuario', $usuario->id_usuario)
+            ->where('id_contexto', $idContexto)
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->with('rol.permisos')
+            ->get();
+
+        foreach ($userRolesInContext as $assignment) {
+            foreach ($assignment->rol->permisos as $perm) {
+                $rolePermsInContext->push($perm);
+            }
+        }
+        
+        $rolePermsInContext = $rolePermsInContext->unique('id_permiso')->values();
 
         // Fetch delegable perms for the AUTHENTICATED user in THIS context
         /** @var Usuario $currentUser */
@@ -300,13 +323,29 @@ class CourseTeamController extends Controller
             return [
                 'id_permiso' => $perm->id_permiso,
                 'esta_permitido' => $perm->esta_permitido,
-                'puede_delegar' => $perm->puede_delegar
+                'puede_delegar' => $perm->puede_delegar,
+                'source' => 'special'  // Indica que es UPE
             ];
         })->values();
 
+        // Add permissions from roles (marked as role-based)
+        $rolePermissionsFormatted = $rolePermsInContext->map(function ($perm) {
+            return [
+                'id_permiso' => $perm->id_permiso,
+                'esta_permitido' => true,  // Role permissions are always allowed
+                'puede_delegar' => $perm->pivot?->puede_delegar_permisos ?? false,
+                'source' => 'role'  // Indicates it comes from a role, not directly editable
+            ];
+        })->values();
+
+        // Merge, but avoid duplicates (UPE overrides role)
+        $allPermissions = $specialPermissionsFormatted->concat($rolePermissionsFormatted)
+            ->unique('id_permiso')  // Keep UPE if exists, discard role equivalent
+            ->values();
+
         return response()->json([
             'roles' => $roles,
-            'special_permissions' => $specialPermissionsFormatted,
+            'special_permissions' => $allPermissions,
             'available_permissions' => $availablePermissions,
             'available_roles' => $availableRoles
         ]);
@@ -328,6 +367,13 @@ class CourseTeamController extends Controller
     public function syncMemberPermissions(Request $request, Curso $curso, Usuario $usuario)
     {
         $this->authorize('manageTeam', $curso);
+
+        Log::info('📥 syncMemberPermissions request:', [
+            'id_curso' => $curso->id_curso,
+            'id_usuario' => $usuario->id_usuario,
+            'roles' => $request->input('roles'),
+            'special_permissions' => $request->input('special_permissions'),
+        ]);
 
         $validated = $request->validate([
             'roles' => 'array',
@@ -378,23 +424,11 @@ class CourseTeamController extends Controller
                 if (!empty($validated['roles'])) {
                     foreach ($validated['roles'] as $rolId) {
                         if (in_array($rolId, $allowedRoleIds)) {
-                            UsuarioRolAsignacion::updateOrCreate(
-                                [
-                                    'id_usuario' => $usuario->id_usuario,
-                                    'id_contexto' => $idContexto,
-                                    'id_rol' => $rolId,
-                                ],
-                                [
-                                    'asignado_por' => (int) ($adminId ?? 1),
-                                    'creado_por' => (int) ($adminId ?? 1),
-                                    'fecha_inicio_planificada' => now(),
-                                    'fecha_fin_planificada' => now()->addYears(100),
-                                    'esta_activo' => true,
-                                    'fue_eliminado' => false,
-                                    'fecha_fin_real' => null,
-                                    'fecha_creacion' => now(),
-                                ]
-                            );
+                            $rol = Rol::findOrFail($rolId);
+                            $usuario->giveRole($rol)
+                                ->on($curso)       // ← Curso implementa HasOwnedContext
+                                ->for(365)
+                                ->save();
                         }
                     }
                 }
@@ -407,52 +441,76 @@ class CourseTeamController extends Controller
 
                 if (!empty($validated['roles'])) {
                     foreach ($validated['roles'] as $rolId) {
-                        UsuarioRolAsignacion::updateOrCreate(
-                            [
-                                'id_usuario' => $usuario->id_usuario,
-                                'id_contexto' => $idContexto,
-                                'id_rol' => $rolId,
-                            ],
-                            [
-                                'asignado_por' => (int) ($adminId ?? 1),
-                                'creado_por' => (int) ($adminId ?? 1),
-                                'fecha_inicio_planificada' => now(),
-                                'fecha_fin_planificada' => now()->addYears(100),
-                                'esta_activo' => true,
-                                'fue_eliminado' => false,
-                                'fecha_fin_real' => null,
-                                'fecha_creacion' => now(),
-                            ]
-                        );
+                        $rol = Rol::findOrFail($rolId);
+                        $usuario->giveRole($rol)
+                            ->on($curso)       // ← Curso implementa HasOwnedContext
+                            ->for(365)
+                            ->save();
                     }
                 }
             }
 
             // 2. Sync Special Permissions
+            // First, deactivate all existing permissions for this user in this context
+            UsuarioPermisoEspecial::where('id_usuario', $usuario->id_usuario)
+                ->where('id_contexto', $idContexto)
+                ->where('esta_activo', true)
+                ->where('fue_borrado', false)
+                ->update([
+                    'esta_activo' => false,
+                    'fue_borrado' => true,
+                    'fecha_fin_real' => now()
+                ]);
+
+            // Then, create new permissions for those in the request
             foreach ($validated['special_permissions'] as $permId => $status) {
+                // Convert key to int if it comes as string from form data
+                $permId = (int) $permId;
+                
                 $isObject = is_array($status);
                 $allowed = $isObject ? ($status['allowed'] ?? null) : $status;
                 $canDelegate = $isObject ? ($status['can_delegate'] ?? false) : false;
 
-                // Sync all for admins, or restricted for docentes
+                Log::info('Processing permission:', [
+                    'permId' => $permId,
+                    'allowed' => $allowed,
+                    'can_delegate' => $canDelegate,
+                    'is_delegable' => in_array($permId, $delegablePermIds),
+                    'delegablePermIds' => $delegablePermIds
+                ]);
+
+                // Only sync delegable permissions (security check)
                 if (in_array($permId, $delegablePermIds)) {
-                    UsuarioPermisoEspecial::updateOrCreate(
-                        [
-                            'id_usuario' => $usuario->id_usuario,
-                            'id_contexto' => $idContexto,
-                            'id_permiso' => $permId,
-                        ],
-                        [
-                            'creado_por' => $adminId,
-                            'esta_permitido' => ($allowed === null) ? null : (bool) $allowed,
-                            'puede_delegar' => (bool) $canDelegate,
-                            'esta_activo' => true,
-                            'fue_borrado' => false,
-                            'fecha_fin_real' => null,
-                            'fecha_fin_planificada' => now()->addYears(100),
-                            'fecha_creacion' => now()
-                        ]
-                    );
+                    // Skip if permission is set to null (inherit) - don't create UPE
+                    if ($allowed === null) {
+                        Log::info("Skipping permission $permId - set to null (inherit)");
+                        continue;
+                    }
+
+                    $permiso = \App\Models\Usuario\Permiso::findOrFail($permId);
+                    $durationDays = $status['duration_days'] ?? 365;
+                    
+                    Log::info("Creating/updating permission $permId for user {$usuario->id_usuario}", [
+                        'allowed' => $allowed,
+                        'can_delegate' => $canDelegate,
+                        'duration_days' => $durationDays
+                    ]);
+                    
+                    $builder = $usuario->givePermission($permiso)
+                        ->on($curso)       // ← Curso implementa HasOwnedContext
+                        ->for($durationDays);
+                    
+                    if ($canDelegate) {
+                        $builder->canDelegate();
+                    }
+                    
+                    if ($allowed === false) {
+                        $builder->revoke();
+                    }
+                    
+                    $builder->save();
+                } else {
+                    Log::warning("Permission $permId not in delegable list for this user");
                 }
             }
 

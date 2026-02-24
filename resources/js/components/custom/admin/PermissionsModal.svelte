@@ -45,6 +45,11 @@
     // Local copy of available roles - updated from backend OR from prop
     let localAvailableRoles = $state<any[]>([]);
 
+    // Confirmation dialog state
+    let showConfirmation = $state(false);
+    let pendingPermissions = $state<Record<number, any> | null>(null);
+    let pendingRoles = $state<number[] | null>(null);
+
     // Initialize local roles from prop ONLY if loadPath is not provided
     $effect(() => {
         if (!loadPath && availableRoles && availableRoles.length > 0) {
@@ -101,10 +106,12 @@
             (data.special_permissions || []).forEach((sp: any) => {
                 specialMapping[sp.id_permiso] = {
                     allowed: sp.esta_permitido,
-                    can_delegate: sp.puede_delegar || false
+                    can_delegate: sp.puede_delegar || false,
+                    source: sp.source || 'special'  // 'special' o 'role'
                 };
             });
             specialPermissions = specialMapping;
+            console.log('📋 Mapped specialPermissions:', specialPermissions);
 
             // If backend provides a specific list of available permissions for this user/context, use it.
             if (data.available_permissions) {
@@ -128,30 +135,70 @@
     }
 
 	function handleSave() {
+        // Build special_permissions object with ONLY the permissions that were actually modified
+        // (exclude: permisos por rol, y permisos sin cambios)
+        const changedPermissions: Record<number, any> = {};
+        
+        // Only include permissions that have been explicitly set (allowed: true|false)
+        // NOT permissions with allowed: null (those are "inherit" state and shouldn't be sent)
+        Object.entries(specialPermissions).forEach(([permIdStr, permState]: [string, any]) => {
+            const permId = parseInt(permIdStr);
+            const source = permState?.source ?? 'special';
+            
+            // Solo incluir si:
+            // 1. NO viene de un rol (source !== 'role')
+            // 2. Y tiene un estado explícito (allowed !== null)
+            if (source !== 'role' && permState.allowed !== null) {
+                changedPermissions[permId] = {
+                    allowed: permState.allowed,
+                    can_delegate: permState.can_delegate ?? false
+                };
+            }
+        });
+        
+        // Store pending data and show confirmation
+        pendingPermissions = changedPermissions;
+        pendingRoles = selectedRoles;
+        showConfirmation = true;
+    }
+
+    function confirmSave() {
+        if (!pendingPermissions || !pendingRoles) return;
+
         isLoading = true;
         const url = savePath || `/admin/usuarios/${usuario.id_usuario}/sync-permissions`;
         
-        // DEBUG: Log what we're sending
         console.log('📤 Sending to backend:', {
-            roles: selectedRoles,
-            special_permissions: specialPermissions,
-            delegable_perms: Object.entries(specialPermissions)
-                .filter(([_, p]: [any, any]) => p.can_delegate === true)
-                .map(([id, _]: any) => id)
+            roles: pendingRoles,
+            special_permissions: pendingPermissions,
+            count: Object.keys(pendingPermissions).length
         });
         
         router.post(url, {
-            roles: selectedRoles,
-            special_permissions: specialPermissions
+            roles: pendingRoles,
+            special_permissions: pendingPermissions
         }, {
             onSuccess: () => {
-                onClose();
-                isLoading = false;
+                showConfirmation = false;
+                pendingPermissions = null;
+                pendingRoles = null;
+                // Reload permissions after successful save to show updates
+                loadUserPermissions().then(() => {
+                    onClose();
+                    isLoading = false;
+                });
             },
             onError: () => {
+                showConfirmation = false;
                 isLoading = false;
             }
         });
+    }
+
+    function cancelSave() {
+        showConfirmation = false;
+        pendingPermissions = null;
+        pendingRoles = null;
     }
 
     // Helper to toggle tri-state permission
@@ -280,20 +327,32 @@
                                         {#each perms as perm}
                                             {@const state = specialPermissions[perm.id_permiso]?.allowed ?? null}
                                             {@const canDelegate = specialPermissions[perm.id_permiso]?.can_delegate ?? false}
-                                            <div class="perm-row">
+                                            {@const source = specialPermissions[perm.id_permiso]?.source ?? 'special'}
+                                            {@const isFromRole = source === 'role'}
+                                            <div class="perm-row" class:from-role={isFromRole}>
                                                 <button 
                                                     class="perm-btn" 
                                                     class:allow={state === true}
                                                     class:deny={state === false}
-                                                    onclick={() => cyclePermission(perm.id_permiso)}
-                                                    title={perm.descripcion}
+                                                    class:disabled={isFromRole}
+                                                    onclick={() => !isFromRole && cyclePermission(perm.id_permiso)}
+                                                    title={isFromRole ? 'Permiso heredado del rol (solo lectura)' : perm.descripcion}
+                                                    disabled={isFromRole}
                                                 >
                                                     <span class="status-indicator">
                                                         {#if state === true}🟢
                                                         {:else if state === false}🔴
                                                         {:else}⚪{/if}
                                                     </span>
-                                                    <span class="perm-slug">{perm.slug}</span>
+                                                    <div style="flex: 1; display: flex; flex-direction: column; gap: 0.2rem; min-width: 0;">
+                                                        <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                                            {perm.nombre}
+                                                        </div>
+                                                        <div class="perm-slug">{perm.slug}</div>
+                                                    </div>
+                                                    {#if isFromRole}
+                                                        <span class="role-badge">👔 ROL</span>
+                                                    {/if}
                                                 </button>
                                                 
                                                 {#if !hideRoles}
@@ -324,6 +383,81 @@
 			</div>
 		</div>
 	</div>
+
+    {#if showConfirmation}
+        <div class="confirm-backdrop" onclick={(e) => e.target === e.currentTarget && cancelSave()} role="presentation">
+            <div class="confirm-dialog" role="alertdialog" aria-modal="true">
+                <div class="confirm-header">
+                    <h3 class="confirm-title">⚠️ Confirmar Cambios de Permisos</h3>
+                    <button onclick={cancelSave} class="close-button">✕</button>
+                </div>
+
+                <div class="confirm-body">
+                    <div class="confirm-info">
+                        <p><strong>Usuario:</strong> {usuario?.username || usuario?.usuario?.username || 'Desconocido'}</p>
+                        <p><strong>Contexto:</strong> Se aplicarán los permisos al contexto específico de este curso.</p>
+                    </div>
+
+                    <div class="confirm-changes">
+                        <h4>Resumen de cambios:</h4>
+                        
+                        {#if pendingRoles && pendingRoles.length > 0}
+                            <div class="change-section">
+                                <strong>👔 Roles ({pendingRoles.length}):</strong>
+                                <ul class="change-list">
+                                    {#each pendingRoles as roleId (roleId)}
+                                        {@const foundRole = localAvailableRoles.find((r: any) => r.id_rol === roleId || r.id === roleId)}
+                                        <li>{foundRole?.nombre ?? foundRole?.name ?? `Rol #${roleId}`}</li>
+                                    {/each}
+                                </ul>
+                            </div>
+                        {/if}
+                        
+                        {#if pendingPermissions && Object.keys(pendingPermissions).length > 0}
+                            <div class="change-section">
+                                <strong>🔐 Permisos especiales ({Object.keys(pendingPermissions).length}):</strong>
+                                <ul class="change-list">
+                                    {#each Object.entries(pendingPermissions) as [permIdStr, permState]}
+                                        {@const permId = parseInt(permIdStr)}
+                                        {@const allPerms = Object.values(currentPermissions).flat()}
+                                        {@const perm = allPerms.find((p: any) => p.id_permiso === permId || p.id === permId)}
+                                        <li>
+                                            {perm?.nombre || perm?.name || `Permiso #${permId}`}
+                                            <span class="perm-state">
+                                                {#if permState.allowed === true}
+                                                    ✓ permitido
+                                                {:else if permState.allowed === false}
+                                                    ✗ denegado
+                                                {/if}
+                                                {#if permState.can_delegate}
+                                                    · delegable
+                                                {/if}
+                                            </span>
+                                        </li>
+                                    {/each}
+                                </ul>
+                            </div>
+                        {/if}
+                        
+                        {#if (!pendingRoles || pendingRoles.length === 0) && (!pendingPermissions || Object.keys(pendingPermissions).length === 0)}
+                            <p class="no-changes">No hay cambios para guardar.</p>
+                        {/if}
+                    </div>
+
+                    <div class="confirm-warning">
+                        ℹ️ <em>Estos cambios se aplicarán <strong>solo en el contexto de este curso</strong> y no afectarán otros cursos.</em>
+                    </div>
+                </div>
+
+                <div class="confirm-footer">
+                    <button onclick={cancelSave} class="btn-cancel" disabled={isLoading}>Cancelar</button>
+                    <button onclick={confirmSave} class="btn-confirm" disabled={isLoading}>
+                        {#if isLoading}Guardando...{:else}Confirmar y Guardar{/if}
+                    </button>
+                </div>
+            </div>
+        </div>
+    {/if}
 {/if}
 
 <style>
@@ -355,23 +489,82 @@
     .hidden-checkbox { display: none; }
 
     /* Permissions */
-    .module-group h3 { margin-top: 1rem; margin-bottom: 0.5rem; font-size: 0.9rem; color: #555; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #eee; padding-bottom: 0.2rem; }
-    .perms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.5rem; }
+    .module-group h3 { margin-top: 1rem; margin-bottom: 0.75rem; font-size: 0.9rem; color: #555; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #eee; padding-bottom: 0.25rem; }
+    .perms-grid { display: flex; flex-direction: column; gap: 0.75rem; }
     
-    .perm-row { display: flex; align-items: stretch; gap: 2px; }
+    .perm-row { 
+        display: flex; 
+        align-items: center; 
+        gap: 4px; 
+        padding: 0.5rem;
+        background: #fafafa;
+        border: 1px solid #eee;
+        border-radius: 6px;
+        transition: all 0.15s;
+    }
+    .perm-row:hover { background: #f5f5f5; }
+    .perm-row.from-role { opacity: 0.7; background: #f0f7ff; }
 
     .perm-btn {
-        flex: 1; display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border: 1px solid #eee; background: white; border-radius: 4px 0 0 4px; cursor: pointer; text-align: left; font-size: 0.85rem;
+        flex: 1; 
+        display: flex; 
+        align-items: center; 
+        gap: 0.5rem; 
+        padding: 0.5rem 0.75rem; 
+        border: none; 
+        background: transparent;
+        cursor: pointer; 
+        text-align: left; 
+        font-size: 0.85rem;
         color: #1f2937 !important;
+        border-radius: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
-    .perm-btn:hover { background: #fafafa; border-color: #ddd; }
-    .perm-btn.allow { background: #ecfdf5; border-color: #10b981; color: #065f46 !important; }
-    .perm-btn.deny { background: #fef2f2; border-color: #ef4444; color: #991b1b !important; }
+    .perm-btn:hover { background: rgba(0,0,0,0.05); }
+    .perm-btn.allow { background: #ecfdf5; color: #065f46 !important; }
+    .perm-btn.deny { background: #fef2f2; color: #991b1b !important; }
+    .perm-btn.disabled { cursor: not-allowed; opacity: 0.6; }
+
+    .status-indicator { 
+        flex-shrink: 0;
+        font-size: 1rem; 
+        min-width: 1.25rem;
+    }
+
+    .perm-slug {
+        font-size: 0.75rem;
+        color: #999;
+        flex-shrink: 0;
+    }
+
+    .role-badge { 
+        padding: 0.25rem 0.5rem; 
+        background: #e0e7ff; 
+        color: #4f46e5; 
+        font-size: 0.65rem; 
+        font-weight: 700; 
+        border-radius: 3px;
+        flex-shrink: 0;
+    }
     
     .delegate-btn {
-        display: flex; align-items: center; justify-content: center; padding: 0.5rem; border: 1px solid #eee; background: #fff; border-radius: 0 4px 4px 0; cursor: pointer; color: #9ca3af; transition: all 0.2s;
+        flex-shrink: 0;
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: 1px solid #ddd; 
+        background: #fafafa; 
+        border-radius: 4px; 
+        cursor: pointer; 
+        color: #9ca3af; 
+        transition: all 0.2s;
     }
-    .delegate-btn:hover { background: #f9fafb; border-color: #ddd; color: #6b7280; }
+    .delegate-btn:hover { background: #f0f0f0; border-color: #bbb; color: #6b7280; }
     .delegate-btn.active { background: #fef9c3; border-color: #facc15; color: #854d0e; }
 
     .status-indicator { font-size: 0.8rem; }
@@ -384,4 +577,59 @@
 
     .loading-state { text-align: center; color: #6b7280; padding: 2rem; }
     .empty-state { text-align: center; color: #94a3b8; padding: 1.5rem; font-size: 0.875rem; border: 1px dashed #e2e8f0; border-radius: 8px; grid-column: 1 / -1; }
+
+    /* Confirmation Dialog */
+    .confirm-backdrop {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 1rem;
+    }
+    .confirm-dialog {
+        background: white; border-radius: 12px; max-width: 450px; width: 100%; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    .confirm-header { padding: 1.25rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+    .confirm-title { font-size: 1.1rem; font-weight: 600; color: #111827; margin: 0; }
+    .confirm-body { padding: 1.25rem; max-height: 60vh; overflow-y: auto; }
+    .confirm-footer { padding: 1rem; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 0.75rem; background: #f9fafb; }
+    
+    .confirm-info {
+        background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
+    }
+    .confirm-info p {
+        margin: 0.5rem 0; font-size: 0.9rem; color: #1e40af;
+    }
+    .confirm-info strong { color: #1d4ed8; }
+
+    .confirm-changes {
+        background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
+    }
+    .confirm-changes h4 { margin: 0 0 1rem 0; font-size: 0.95rem; color: #166534; font-weight: 600; }
+    
+    .change-section {
+        margin-bottom: 1rem;
+    }
+    .change-section > strong {
+        display: block; margin-bottom: 0.5rem; font-size: 0.85rem; color: #166534;
+    }
+    .change-list {
+        margin: 0; padding-left: 1.5rem; list-style: none;
+    }
+    .change-list li {
+        font-size: 0.85rem; color: #166534; margin: 0.35rem 0; padding-left: 0.5rem; display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem;
+    }
+    .perm-state {
+        font-size: 0.75rem; color: #15803d; font-weight: 500; background: rgba(34, 197, 94, 0.1); padding: 0.15rem 0.4rem; border-radius: 2px; white-space: nowrap;
+    }
+    
+    .no-changes {
+        font-size: 0.85rem; color: #999; font-style: italic; padding: 0.75rem; text-align: center;
+    }
+
+    .confirm-warning {
+        background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 0.75rem; font-size: 0.85rem; color: #92400e; line-height: 1.4;
+    }
+
+    .btn-confirm {
+        padding: 0.625rem 1.25rem; background: #10b981; color: white; border: none; border-radius: 6px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-confirm:hover:not(:disabled) { background: #059669; }
+    .btn-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
