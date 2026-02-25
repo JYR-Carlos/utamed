@@ -132,19 +132,24 @@ class HandleInertiaRequests extends Middleware
                         'nombre' => $c->nombre,
                         'cod_curso' => $c->cod_curso,
                     ]) : [],
-                'ayudante_courses' => ($estudiante && in_array('Ayudante', $roles))
-                    ? \App\Models\Curso\Seccion::where('id_ayudante', $estudiante->id_estudiante)
-                        ->with('curso')
-                        ->get()
-                        ->pluck('curso')
-                        ->filter()
-                        ->unique('id_curso')
-                        ->values()
-                        ->map(fn($c) => [
-                            'id_curso' => $c->id_curso,
-                            'nombre' => $c->nombre,
-                            'cod_curso' => $c->cod_curso,
-                        ]) : [],
+                'ayudante_courses' => ($estudiante && in_array('ayudante', $roles))
+                    ? \App\Models\Curso\Curso::whereIn('id_contexto', 
+                        \App\Models\Usuario\UsuarioRolAsignacion::where('id_usuario', $user->id_usuario)
+                            ->where('esta_activo', true)
+                            ->where('fue_eliminado', false)
+                            ->whereHas('rol', fn($q) => $q->where('nombre', 'ayudante'))
+                            ->pluck('id_contexto')
+                    )
+                    ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto')
+                    ->get()
+                    ->map(fn($c) => [
+                        'id_curso' => $c->id_curso,
+                        'nombre' => $c->nombre,
+                        'cod_curso' => $c->cod_curso,
+                        'tiene_programa' => \App\Models\Administrativo\Programa::where('id_curso', $c->id_curso)->exists(),
+                    ])
+                    ->unique('id_curso')
+                    ->values() : [],
 
             ],
             'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',

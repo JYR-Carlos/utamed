@@ -94,6 +94,24 @@ class PermissionAssignmentBuilder
   }
 
   /**
+   * Especificar un contexto directamente por su ID.
+   *
+   * Útil para asignar permisos a modelos globales donde el contexto
+   * se resuelve desde el servicio global (ej: al crear usuarios).
+   *
+   * @param int|int[] $contextIds ID o IDs del contexto
+   * @example
+   *   $user->givePermission($perm)->inContext($globalContextId)->for(30);
+   */
+  public function inContext(int|array $contextIds): static
+  {
+    $ids = is_array($contextIds) ? $contextIds : [$contextIds];
+    $this->contextIds = array_unique(array_merge($this->contextIds, $ids));
+
+    return $this;
+  }
+
+  /**
    * Asignar el permiso a TODOS los contextos del tipo dado.
    *
    * Usa el enum ContextualModelType para garantizar en tiempo de compilación

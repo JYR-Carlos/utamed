@@ -59,8 +59,8 @@ class ProgramaController extends Controller
                 ->with('error', 'No estás asignado a este curso como ayudante');
         }
 
-        // Verificar permiso: curso/programa: editar
-        if (!$user->hasPermission(Permissions::CURSO_PROGRAMA_EDITAR, $curso->id_contexto)) {
+        // Verificar permiso: cursos/programas
+        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para editar el programa de este curso');
         }
@@ -114,8 +114,8 @@ class ProgramaController extends Controller
                 ->with('error', 'No estás asignado a este curso como ayudante');
         }
 
-        // Verificar permiso: curso/programa: editar
-        if (!$user->hasPermission(Permissions::CURSO_PROGRAMA_EDITAR, $curso->id_contexto)) {
+        // Verificar permiso: cursos/programas
+        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para editar el programa de este curso');
         }
@@ -198,16 +198,10 @@ class ProgramaController extends Controller
                 ->with('error', 'No estás asignado a este curso como ayudante');
         }
 
-        // Verificar permiso: curso/programa: ver
-        if (!$user->hasPermission(Permissions::CURSO_PROGRAMA_VER, $curso->id_contexto)) {
+        // Verificar permiso: curso/programa
+        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
-                ->with('error', 'No tienes permiso para ver el programa de este curso');
-        }
-
-        // Verificar permiso para editar si es modo edit
-        if ($mode === 'edit' && !$user->hasPermission(Permissions::CURSO_PROGRAMA_EDITAR, $curso->id_contexto)) {
-            return redirect()->route('ayudante.cursos.index')
-                ->with('error', 'No tienes permiso para editar el programa de este curso');
+                ->with('error', 'No tienes permiso para acceder al programa de este curso');
         }
 
         // Obtener programa actual
@@ -241,9 +235,7 @@ class ProgramaController extends Controller
             ]);
         }
 
-        // Cargar secciones y contenidos del programa
-        $programa->load('secciones.contenidos');
-
+        // Los datos del programa (secciones y contenidos) están en data_syllabus (JSONB)
         $curso->load([
             'asignacionPlan.asignatura',
             'asignacionPlan.plan.carrera'
@@ -255,21 +247,7 @@ class ProgramaController extends Controller
                 'id_curso' => $programa->id_curso,
                 'version' => $programa->version,
                 'estado' => $programa->estado,
-                'secciones' => $programa->secciones->map(function ($seccion) {
-                    return [
-                        'id_estructura_programa' => $seccion->id_estructura_programa,
-                        'nombre_seccion' => $seccion->nombre_seccion,
-                        'numeral_romano' => $seccion->numeral_romano,
-                        'orden' => $seccion->orden,
-                        'contenidos_programa' => $seccion->contenidos->map(function ($contenido) {
-                            return [
-                                'id_contenido_programa' => $contenido->id_contenido_programa,
-                                'texto_contenido' => $contenido->texto_contenido,
-                                'orden_item' => $contenido->orden_item,
-                            ];
-                        })->toArray(),
-                    ];
-                })->toArray(),
+                'secciones' => $programa->data_syllabus['secciones'] ?? [],
                 'creado_por' => $programa->creadoPor?->nombre_completo,
                 'fecha_creacion' => $programa->fecha_creacion,
             ],

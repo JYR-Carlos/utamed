@@ -10,15 +10,15 @@
      * - Integración con Fortify
      * - Validación y manejo de errores
      */
-    import ConfirmablePasswordController from '@/actions/Laravel/Fortify/Http/Controllers/ConfirmablePasswordController';
     import InputError from '@/components/custom/common/InputError.svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
     import AuthLayout from '@/layouts/AuthLayout.svelte';
     import type { BaseFormSnippetProps } from '@/types/forms';
-    import { Form } from '@inertiajs/svelte';
+    import { Form, useForm } from '@inertiajs/svelte';
     import { LoaderCircle } from 'lucide-svelte';
+    import password from '@/routes/password';
 </script>
 
 <svelte:head>
@@ -26,7 +26,7 @@
 </svelte:head>
 
 <AuthLayout title="Confirm your password" description="This is a secure area of the application. Please confirm your password before continuing.">
-    <Form {...ConfirmablePasswordController.store.form()} resetOnSuccess={['password']}>
+    <Form method="post" action={password.confirm.store().url} class="space-y-6">
         {#snippet children({ errors, processing }: BaseFormSnippetProps)}
             <div class="space-y-6">
                 <div class="grid gap-2">

@@ -10,6 +10,7 @@ use App\Services\Authorization\GlobalContextService;
 use App\Services\ContextResolver;
 use App\Support\Permissions;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Collection;
 
 /**
@@ -152,7 +153,7 @@ class PermissionValidator
 
             if (!$castedPermission) {
                 // no agregarlo a la lista y continuar con el siguiente permiso
-                \Log::error('Permiso en la BD malformado: ' . $perm->slug);
+                Log::error('Permiso en la BD malformado: ' . $perm->slug);
                 // TODO: tratar este error
                 return null;
             }
@@ -324,7 +325,7 @@ class PermissionValidator
         // Buscar en UPE con prioridad: exacto > wildcard recurso > wildcard global
         $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
 
-        $result = DB::connection('pgsql')
+        $results = DB::connection('pgsql')
             ->table('usuario.vw_permisos_usuario')
             ->where('id_usuario', $user->id_usuario)
             ->where('id_contexto', $contextId)
@@ -345,7 +346,7 @@ class PermissionValidator
             $castedPermission = Permissions::tryFrom($result->slug);
 
             if (!$castedPermission) {
-                \Log::error('Permiso en la BD malformado: ' . $result->slug);
+                Log::error('Permiso en la BD malformado: ' . $result->slug);
                 continue;
             }
 

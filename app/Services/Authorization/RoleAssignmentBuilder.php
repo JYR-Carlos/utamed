@@ -80,6 +80,24 @@ class RoleAssignmentBuilder
   }
 
   /**
+   * Especificar un contexto directamente por su ID.
+   *
+   * Útil para asignar roles a modelos globales donde el contexto
+   * se resuelve desde el servicio global (ej: al crear usuarios).
+   *
+   * @param int|int[] $contextIds ID o IDs del contexto
+   * @example
+   *   $user->giveRole($rol)->inContext($globalContextId)->for(365);
+   */
+  public function inContext(int|array $contextIds): static
+  {
+    $ids = is_array($contextIds) ? $contextIds : [$contextIds];
+    $this->contextIds = array_unique(array_merge($this->contextIds, $ids));
+
+    return $this;
+  }
+
+  /**
    * Asignar el rol a TODOS los contextos del tipo dado.
    *
    * Usa el enum ContextualModelType para garantizar en tiempo de compilación

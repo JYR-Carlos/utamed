@@ -113,8 +113,6 @@ class AsignacionPlanController extends Controller
     public function update(Request $request, Plan $plan, Asignatura $asignatura)
     {
         try {
-            DB::beginTransaction();
-
             $validated = $request->validate([
                 'agno_planificado' => 'required|integer|min:1|max:10',
                 'semestre_planificado' => 'required|integer|in:1,2',
@@ -130,11 +128,9 @@ class AsignacionPlanController extends Controller
                 ->firstOrFail();
 
             $asignacion->update($validated);
-            DB::commit();
 
             return back()->with('success', 'Asignación actualizada exitosamente.');
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Error actualizando la asignación de la asignatura al plan/malla:', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),

@@ -23,6 +23,6 @@ class Plan extends BasePlan
 
     public function calculateTotalCredits()
     {
-        return $this->asignaturas()->sum('creditos_sct');
+        return $this->creditos_sct_totales ?? 0;
     }
 }

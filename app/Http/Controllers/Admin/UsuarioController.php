@@ -862,10 +862,12 @@ class UsuarioController extends Controller
             return;
         }
 
-        $admin = $usuario;  // O usar Auth::user() si está disponible
+        $admin = $usuario;
+        $globalContextId = app(\App\Services\Authorization\GlobalContextService::class)->getContextId();
         
         $admin->giveRole($rol)
-            ->for(365)  // 365 días en lugar de 100 años
+            ->inContext($globalContextId)
+            ->for(365)
             ->save();
     }
 }

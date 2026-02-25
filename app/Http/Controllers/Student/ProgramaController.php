@@ -35,10 +35,11 @@ class ProgramaController extends Controller
                 ->with('error', 'No estás inscrito en este curso');
         }
 
-        // Obtener programa aprobado
+        // Obtener programa aprobado con relaciones eager-loaded
         $programa = Programa::where('id_curso', $curso->id_curso)
             ->where('estado', 'APROBADO')
             ->where('es_actual', true)
+            ->with('autor')
             ->first();
 
         // Si no hay programa, mostrar página con aviso en lugar de 404
@@ -63,12 +64,11 @@ class ProgramaController extends Controller
             ]);
         }
 
-        // Cargar relaciones
+        // Cargar relaciones del curso
         $curso->load([
             'asignacionPlan.asignatura',
             'asignacionPlan.plan.carrera'
         ]);
-        $programa->load('autor');
 
         // Formatear datos
         $programaData = [
