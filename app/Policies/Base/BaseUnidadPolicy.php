@@ -19,7 +19,7 @@ abstract class BaseUnidadPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'curso/unidad';
+    protected string $resource = 'cursos/unidades';
 
     public function viewAny(Usuario $user): bool
     {

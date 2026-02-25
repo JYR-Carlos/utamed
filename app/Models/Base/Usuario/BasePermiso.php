@@ -57,7 +57,7 @@ abstract class BasePermiso extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'usuario.usuario_permiso_especial',
+            'usuario_permiso_especial',
             'id_permiso',
             'id_usuario'
         )
@@ -68,7 +68,7 @@ abstract class BasePermiso extends CustomBaseModel
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Contexto::class,
-            'usuario.usuario_permiso_especial',
+            'usuario_permiso_especial',
             'id_permiso',
             'id_contexto'
         )

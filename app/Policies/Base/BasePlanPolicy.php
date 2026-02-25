@@ -19,7 +19,7 @@ abstract class BasePlanPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'plan';
+    protected string $resource = 'planes';
 
     public function viewAny(Usuario $user): bool
     {

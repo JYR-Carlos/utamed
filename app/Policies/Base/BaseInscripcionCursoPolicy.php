@@ -19,7 +19,7 @@ abstract class BaseInscripcionCursoPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'inscripcion_curso';
+    protected string $resource = 'inscripciones_curso';
 
     public function viewAny(Usuario $user): bool
     {

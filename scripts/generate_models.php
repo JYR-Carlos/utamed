@@ -143,32 +143,35 @@ $baseModelNamespace = $extendedModelNamespace . '\\Base';
 // BASE POLICIES: Se sobrescriben en cada ejecución  → app/Policies/Base/
 // EXTENDED STUBS: Solo se crean si no existen       → app/Policies/
 // ==================================================================================
+
+// Todo: mejorar formato de configuración de policies para evitar redundancia y no amigabilidad
+// (ej: inferir resource de la clase o usar un formato más compacto)
 $policyConfigs = [
   // ===== Administrativo =====
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Facultad', 'resource' => 'facultad'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Departamento', 'resource' => 'departamento'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Carrera', 'resource' => 'carrera'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Plan', 'resource' => 'plan'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Asignatura', 'resource' => 'asignatura'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'AsignacionPlan', 'resource' => 'asignacion_plan'],
+  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Facultad', 'resource' => 'facultades'],
+  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Departamento', 'resource' => 'departamentos'],
+  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Carrera', 'resource' => 'carreras'],
+  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Plan', 'resource' => 'planes'],
+  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Asignatura', 'resource' => 'asignaturas'],
+  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'AsignacionPlan', 'resource' => 'asignaciones_plan'],
+  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Programa', 'resource' => 'cursos/programas'],
 
   // ===== Curso =====
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Curso', 'resource' => 'curso'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Programa', 'resource' => 'curso/programa'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Seccion', 'resource' => 'curso/seccion'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Unidad', 'resource' => 'curso/unidad'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'InscripcionCurso', 'resource' => 'inscripcion_curso'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'InscripcionSeccion', 'resource' => 'curso/inscripcion_seccion'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Asistencia', 'resource' => 'curso/asistencia'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'Curso', 'resource' => 'cursos'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'Seccion', 'resource' => 'cursos/secciones'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'Unidad', 'resource' => 'cursos/unidades'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'InscripcionCurso', 'resource' => 'inscripciones_curso'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'InscripcionSeccion', 'resource' => 'cursos/inscripciones_seccion'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'Asistencia', 'resource' => 'cursos/asistencias'],
 
   // ===== Usuario =====
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Usuario', 'resource' => 'usuario'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Estudiante', 'resource' => 'usuario/estudiante'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Docente', 'resource' => 'usuario/docente'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Rol', 'resource' => 'rol'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'AsignacionRolPermiso', 'resource' => 'asignacion_rol_permiso'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'UsuarioRolAsignacion', 'resource' => 'usuario_rol_asignacion'],
-  ['namespace' => 'App\\Models\\Usuario', 'class' => 'UsuarioPermisoEspecial', 'resource' => 'usuario_permiso_especial'],
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Usuario', 'resource' => 'usuarios'],
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Estudiante', 'resource' => 'usuarios/estudiantes'],
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Docente', 'resource' => 'usuarios/docentes'],
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'Rol', 'resource' => 'roles'],
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'AsignacionRolPermiso', 'resource' => 'asignaciones_rol_permiso'],
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'UsuarioRolAsignacion', 'resource' => 'usuario_rol_asignaciones'],
+  ['namespace' => 'App\\Models\\Usuario', 'class' => 'UsuarioPermisoEspecial', 'resource' => 'usuario_permiso_especiales'],
 ];
 $policyDir = app_path('Policies');
 $basePolicyDir = $policyDir . '/Base';

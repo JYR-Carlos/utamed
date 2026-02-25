@@ -19,7 +19,7 @@ abstract class BaseDocentePolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'usuario/docente';
+    protected string $resource = 'usuarios/docentes';
 
     public function viewAny(Usuario $user): bool
     {

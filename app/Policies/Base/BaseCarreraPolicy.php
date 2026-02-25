@@ -19,7 +19,7 @@ abstract class BaseCarreraPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'carrera';
+    protected string $resource = 'carreras';
 
     public function viewAny(Usuario $user): bool
     {

@@ -11,8 +11,8 @@ use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Plan;
 use App\Models\Administrativo\Asignatura;
 use App\Models\Administrativo\AsignacionPlan;
+use App\Models\Administrativo\Programa;
 use App\Models\Curso\Curso;
-use App\Models\Curso\Programa;
 use App\Models\Curso\Seccion;
 use App\Models\Curso\Unidad;
 use App\Models\Curso\InscripcionCurso;
@@ -33,8 +33,8 @@ use App\Policies\CarreraPolicy;
 use App\Policies\PlanPolicy;
 use App\Policies\AsignaturaPolicy;
 use App\Policies\AsignacionPlanPolicy;
-use App\Policies\CursoPolicy;
 use App\Policies\ProgramaPolicy;
+use App\Policies\CursoPolicy;
 use App\Policies\SeccionPolicy;
 use App\Policies\UnidadPolicy;
 use App\Policies\InscripcionCursoPolicy;
@@ -69,8 +69,8 @@ class AuthServiceProvider extends ServiceProvider
         Plan::class => PlanPolicy::class,
         Asignatura::class => AsignaturaPolicy::class,
         AsignacionPlan::class => AsignacionPlanPolicy::class,
-        Curso::class => CursoPolicy::class,
         Programa::class => ProgramaPolicy::class,
+        Curso::class => CursoPolicy::class,
         Seccion::class => SeccionPolicy::class,
         Unidad::class => UnidadPolicy::class,
         InscripcionCurso::class => InscripcionCursoPolicy::class,

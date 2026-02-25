@@ -19,7 +19,7 @@ abstract class BaseSeccionPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'curso/seccion';
+    protected string $resource = 'cursos/secciones';
 
     public function viewAny(Usuario $user): bool
     {

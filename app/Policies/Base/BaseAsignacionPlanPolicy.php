@@ -19,7 +19,7 @@ abstract class BaseAsignacionPlanPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'asignacion_plan';
+    protected string $resource = 'asignaciones_plan';
 
     public function viewAny(Usuario $user): bool
     {

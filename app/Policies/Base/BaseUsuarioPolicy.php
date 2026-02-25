@@ -18,7 +18,7 @@ abstract class BaseUsuarioPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'usuario';
+    protected string $resource = 'usuarios';
 
     public function viewAny(Usuario $user): bool
     {

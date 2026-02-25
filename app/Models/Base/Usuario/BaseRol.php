@@ -5,6 +5,7 @@ namespace App\Models\Base\Usuario;
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Extensions\Compoships\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Contracts\HasContext;
 use App\Traits\GlobalContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -15,9 +16,11 @@ use App\Traits\QueryScopes\FiltersContextScope;
  */
 abstract class BaseRol extends CustomBaseModel implements HasContext
 {
+    use SoftDeletes;
     use Compoships;
     use GlobalContextAware;
     use FiltersContextScope;
+    const DELETED_AT = 'fecha_eliminacion';
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'rol';
@@ -67,7 +70,7 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Usuario::class,
-            'usuario.usuario_rol_asignacion',
+            'usuario_rol_asignacion',
             'id_rol',
             'id_usuario'
         )
@@ -78,7 +81,7 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Contexto::class,
-            'usuario.usuario_rol_asignacion',
+            'usuario_rol_asignacion',
             'id_rol',
             'id_contexto'
         )

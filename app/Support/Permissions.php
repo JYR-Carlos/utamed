@@ -94,6 +94,7 @@ enum Permissions: string
     case CURSOS_ACTIVIDADES_GRUPOS_EDITAR = 'cursos/actividades/grupos:editar';
     case CURSOS_ACTIVIDADES_GRUPOS_ELIMINAR = 'cursos/actividades/grupos:eliminar';
     case CURSOS_PROGRAMAS_VER = 'cursos/programas:ver';
+    case CURSOS_PROGRAMAS_AGREGAR = 'cursos/programas:agregar';
     case CURSOS_PROGRAMAS_ELIMINAR = 'cursos/programas:eliminar';
     case CURSOS_PROGRAMAS_MODIFICAR_MODULO_1 = 'cursos/programas/modificar:modulo_1';
     case CURSOS_PROGRAMAS_MODIFICAR_MODULO_2 = 'cursos/programas/modificar:modulo_2';

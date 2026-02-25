@@ -19,7 +19,7 @@ abstract class BaseRolPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'rol';
+    protected string $resource = 'roles';
 
     public function viewAny(Usuario $user): bool
     {

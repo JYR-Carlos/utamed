@@ -19,7 +19,7 @@ abstract class BaseUsuarioPermisoEspecialPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'usuario_permiso_especial';
+    protected string $resource = 'usuario_permiso_especiales';
 
     public function viewAny(Usuario $user): bool
     {

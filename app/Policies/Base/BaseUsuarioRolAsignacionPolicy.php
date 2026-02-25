@@ -19,7 +19,7 @@ abstract class BaseUsuarioRolAsignacionPolicy
 {
     use HasBasePolicyMethods;
 
-    protected string $resource = 'usuario_rol_asignacion';
+    protected string $resource = 'usuario_rol_asignaciones';
 
     public function viewAny(Usuario $user): bool
     {
