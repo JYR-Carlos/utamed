@@ -8,10 +8,6 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Roles y permisos administrativos
-        $this->call(RoleAndPermissionSeeder::class);
-
-        // Catálogos
-        $this->call(TipoSeccionSeeder::class);
+        $this->call(UsuariosDePruebaSeeder::class);
     }
 }

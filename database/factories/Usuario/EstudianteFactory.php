@@ -2,8 +2,8 @@
 
 namespace Database\Factories\Usuario;
 
+use App\Models\Administrativo\Carrera;
 use App\Models\Usuario\Estudiante;
-use App\Models\Usuario\Usuario;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -16,8 +16,8 @@ class EstudianteFactory extends Factory
     public function definition(): array
     {
         return [
-            'id_usuario' => Usuario::factory(),
-            'agno_ingreso' => now()->year,
+            'agno_ingreso' => $this->faker->numberBetween(2017, 2026),
+            'id_carrera' => Carrera::inRandomOrder()->first()?->id_carrera ?? 1,
         ];
     }
 }

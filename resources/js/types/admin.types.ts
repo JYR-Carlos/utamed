@@ -1,7 +1,7 @@
 /**
  * Type definitions for the admin module
  * Contains interfaces for all administrative entities, form data, and pagination
- * 
+ *
  * @module admin.types
  */
 
@@ -277,10 +277,70 @@ export interface Administrador {
     esta_activo: boolean;
 }
 
+// ─── Unified contract emitted by UsuarioResource ─────────────────────────────
+
+/**
+ * Flat user data sub-object serialized by UsuarioResource.
+ * Matches the output of UsuarioResource::serializeUsuario().
+ */
+export interface UsuarioData {
+    id_usuario: number;
+    username: string;
+    email?: string;
+    rut?: string;
+    nombre1?: string;
+    nombre2?: string;
+    apellido1?: string;
+    apellido2?: string;
+    esta_activo: boolean;
+    fecha_verificacion_email?: string;
+}
+
+/**
+ * Estudiante sub-object serialized by UsuarioResource.
+ * Matches the output of UsuarioResource::serializeEstudiante().
+ */
+export interface EstudianteData {
+    id_estudiante: number;
+    id_usuario: number;
+    agno_ingreso?: number;
+    id_carrera?: number;
+    carrera?: {
+        id_carrera: number;
+        nombre: string;
+    };
+}
+
+/**
+ * Docente sub-object serialized by UsuarioResource.
+ * Matches the output of UsuarioResource::serializeDocente().
+ */
+export interface DocenteData {
+    id_docente: number;
+    id_usuario: number;
+    grado?: string;
+    titulo?: string;
+    cargo?: string;
+}
+
+/**
+ * Unified user item produced by UsuarioResource for every user type.
+ * Shape is identical regardless of tipo (estudiante / docente / administrador).
+ *
+ * - `usuario`    always present
+ * - `estudiante` present if the user has a student profile, null otherwise
+ * - `docente`    present if the user has a teacher profile, null otherwise
+ */
+export interface UsuarioItem {
+    usuario: UsuarioData;
+    estudiante: EstudianteData | null;
+    docente: DocenteData | null;
+}
+
 /**
  * Generic paginated response from Laravel
  * Used for all paginated data tables and lists
- * 
+ *
  * @template T - The type of data being paginated
  */
 export interface PaginatedResponse<T> {

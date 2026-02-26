@@ -1,463 +1,456 @@
 <script lang="ts">
-	import { router, page } from '@inertiajs/svelte';
-	import type { PaginatedResponse } from '@/types/admin.types';
+  import { router, page } from '@inertiajs/svelte';
+  import type { PaginatedResponse } from '@/types/admin.types';
 
-	interface Props {
-		data: PaginatedResponse<any>;
-		columns: { key: string; label: string; sortable?: boolean }[];
-		onEdit?: (item: any) => void;
-		onDelete?: (item: any) => void;
-		onPasswordChange?: (item: any) => void;
-		onToggleActive?: (item: any) => void;
-		onCustomAction?: (item: any) => void;
-		customActionLabel?: string;
-		onSyllabus?: (item: any) => void;
-		searchPlaceholder?: string;
-	}
+  interface Props {
+    data: PaginatedResponse<any>;
+    columns: { key: string; label: string; sortable?: boolean }[];
+    onEdit?: (item: any) => void;
+    onDelete?: (item: any) => void;
+    onPasswordChange?: (item: any) => void;
+    onToggleActive?: (item: any) => void;
+    onCustomAction?: (item: any) => void;
+    customActionLabel?: string;
+    onSyllabus?: (item: any) => void;
+    searchPlaceholder?: string;
+  }
 
-	let { data, columns, onEdit, onDelete, onPasswordChange, onToggleActive, onCustomAction, customActionLabel = 'Ver', onSyllabus, searchPlaceholder = 'Buscar...' }: Props = $props();
+  let {
+    data,
+    columns,
+    onEdit,
+    onDelete,
+    onPasswordChange,
+    onToggleActive,
+    onCustomAction,
+    customActionLabel = 'Ver',
+    onSyllabus,
+    searchPlaceholder = 'Buscar...',
+  }: Props = $props();
 
-	let searchTerm = $state('');
-	let currentPath = $derived($page.url);
+  let searchTerm = $state('');
+  // Usar solo el pathname para evitar duplicación de query params con el objeto params
+  let currentPath = $derived(new URL($page.url, window.location.origin).pathname);
 
-	function handleSearch() {
-		router.get(
-			currentPath,
-			{ search: searchTerm },
-			{
-				preserveState: true,
-				preserveScroll: true
-			}
-		);
-	}
+  // ── Sort state is derived from the URL (single source of truth) ──────────
+  type SortDir = 'asc' | 'desc' | null;
 
-	function goToPage(page: number) {
-		router.get(
-			currentPath,
-			{ page },
-			{
-				preserveState: true,
-				preserveScroll: true
-			}
-		);
-	}
+  function urlParams(): URLSearchParams {
+    return new URL($page.url, window.location.origin).searchParams;
+  }
 
-	function getValue(item: any, key: string) {
-		const keys = key.split('.');
-		let value = item;
-		for (const k of keys) {
-			value = value?.[k];
-		}
-		return value ?? '-';
-	}
+  let activeSortKey = $derived(urlParams().get('sort_key'));
+  let activeSortDir = $derived(urlParams().get('sort_dir') as SortDir);
+
+  // Build a plain params object from the current URL, omitting the given keys
+  function currentParamsExcept(...omit: string[]): Record<string, string> {
+    const out: Record<string, string> = {};
+    urlParams().forEach((v, k) => {
+      if (!omit.includes(k)) out[k] = v;
+    });
+    return out;
+  }
+
+  // Three-state cycle: none → asc → desc → none
+  // Fires a server request so the full dataset is sorted.
+  function cycleSort(key: string) {
+    let nextDir: SortDir;
+    if (activeSortKey !== key) {
+      nextDir = 'asc';
+    } else if (activeSortDir === 'asc') {
+      nextDir = 'desc';
+    } else {
+      nextDir = null;
+    }
+
+    // Preserve search, tipo, per_page — drop page (reset to 1) and old sort
+    const params = currentParamsExcept('sort_key', 'sort_dir', 'page');
+    if (nextDir) {
+      params.sort_key = key;
+      params.sort_dir = nextDir;
+    }
+
+    router.get(currentPath, params, { preserveState: true, preserveScroll: true });
+  }
+
+  function getValue(item: any, key: string): any {
+    return key.split('.').reduce((v: any, k: string) => v?.[k], item) ?? null;
+  }
+
+  function getDisplayValue(item: any, key: string): string {
+    const v = getValue(item, key);
+    return v !== null && v !== undefined ? String(v) : '-';
+  }
+
+  // ── Navigation ───────────────────────────────────────────────────────────
+  function handleSearch() {
+    // Preserve tipo, sort, per_page — drop page (reset to 1)
+    const params = currentParamsExcept('search', 'page');
+    if (searchTerm) params.search = searchTerm;
+    router.get(currentPath, params, { preserveState: true, preserveScroll: true });
+  }
+
+  function goToPage(p: number) {
+    const params = currentParamsExcept('page');
+    params.page = String(p);
+    router.get(currentPath, params, { preserveState: true, preserveScroll: true });
+  }
+
+  // ── Per-page selector ───────────────────────────────────────────────────
+  const perPageOptions = [10, 15, 25, 50, 100];
+
+  let currentPerPage = $derived(Number(urlParams().get('per_page') ?? '15'));
+
+  function changePerPage(value: number) {
+    const params = currentParamsExcept('per_page', 'page');
+    params.per_page = String(value);
+    router.get(currentPath, params, { preserveState: true, preserveScroll: true });
+  }
+
+  // ── Sliding page buttons ─────────────────────────────────────────────────
+  // Always shows 5 contiguous pages centered on current, plus first/last with ellipsis
+  type PageButton = { type: 'page'; n: number } | { type: 'ellipsis'; id: string };
+
+  let pageButtons = $derived.by((): PageButton[] => {
+    const cur = data.current_page;
+    const last = data.last_page;
+    if (last <= 1) return [];
+
+    const winStart = Math.max(1, Math.min(cur - 2, last - 4));
+    const winEnd = Math.min(last, winStart + 4);
+    const btns: PageButton[] = [];
+
+    if (winStart > 1) {
+      btns.push({ type: 'page', n: 1 });
+      if (winStart > 2) btns.push({ type: 'ellipsis', id: 'left' });
+    }
+
+    for (let i = winStart; i <= winEnd; i++) {
+      btns.push({ type: 'page', n: i });
+    }
+
+    if (winEnd < last) {
+      if (winEnd < last - 1) btns.push({ type: 'ellipsis', id: 'right' });
+      btns.push({ type: 'page', n: last });
+    }
+
+    return btns;
+  });
 </script>
 
-<div class="data-table">
-	<!-- Search Bar -->
-	<div class="search-bar">
-		<input
-			type="text"
-			bind:value={searchTerm}
-			placeholder={searchPlaceholder}
-			onkeydown={(e) => e.key === 'Enter' && handleSearch()}
-			class="search-input"
-		/>
-		<button onclick={handleSearch} class="search-button">Buscar</button>
-	</div>
+<div class="bg-white rounded-lg shadow overflow-hidden">
+  <!-- Search Bar -->
+  <div class="p-4 border-b border-gray-200 flex gap-2">
+    <input
+      type="text"
+      bind:value={searchTerm}
+      placeholder={searchPlaceholder}
+      onkeydown={(e) => e.key === 'Enter' && handleSearch()}
+      class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-shadow"
+    />
+    <button
+      onclick={handleSearch}
+      class="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition-colors cursor-pointer"
+    >
+      Buscar
+    </button>
+  </div>
 
-	<!-- Table -->
-	<div class="table-container">
-		<table class="table">
-			<thead>
-				<tr>
-					{#each columns as column}
-						<th>{column.label}</th>
-					{/each}
-					{#if onEdit || onDelete || onCustomAction || onSyllabus || onPasswordChange || onToggleActive}
-						<th>Acciones</th>
-					{/if}
-				</tr>
-			</thead>
-			<tbody>
-				{#if data.data.length === 0}
-					<tr>
-						<td colspan={columns.length + (onEdit || onDelete ? 1 : 0)} class="empty-state">
-							No se encontraron resultados
-						</td>
-					</tr>
-				{:else}
-					{#each data.data as item}
-						<tr>
-							{#each columns as column}
-								<td>{getValue(item, column.key)}</td>
-							{/each}
-							{#if onEdit || onDelete || onPasswordChange || onToggleActive || onCustomAction || onSyllabus}
-								<td class="actions">
-									<!-- P1: Manage Syllabus (Primary CTA — blue filled) -->
-									{#if onSyllabus}
-										<button
-											onclick={() => onSyllabus?.(item)}
-											class="btn-syllabus {item.has_programa ? 'has-programa' : ''}"
-											title={item.has_programa ? 'Ver / Regenerar Programa' : 'Generar Programa'}
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-											Programa
-											{#if item.has_programa}
-												<span class="programa-dot"></span>
-											{/if}
-										</button>
-									{/if}
+  <!-- Table -->
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          {#each columns as column}
+            <th
+              onclick={() => cycleSort(column.key)}
+              class="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500 tracking-wide cursor-pointer select-none hover:bg-gray-100 transition-colors"
+            >
+              <span class="inline-flex items-center gap-1">
+                {column.label}
 
-									<!-- P2: Manage Team / Custom Action (Secondary — indigo outline) -->
-									{#if onCustomAction}
-										<button onclick={() => onCustomAction?.(item)} class="btn-custom">{customActionLabel}</button>
-									{/if}
+                {#if activeSortKey === column.key && activeSortDir === 'asc'}
+                  <!-- Ascending: A→Z, arrow down -->
+                  <span class="text-blue-500 shrink-0">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="m3 16 4 4 4-4" />
+                      <path d="M7 20V4" />
+                      <path d="M20 8h-5" />
+                      <path d="M15 10V6.5a2.5 2.5 0 0 1 5 0V10" />
+                      <path d="M15 14h5l-5 6h5" />
+                    </svg>
+                  </span>
+                {:else if activeSortKey === column.key && activeSortDir === 'desc'}
+                  <!-- Descending: Z→A, arrow up — vertical mirror of ascending -->
+                  <span class="text-blue-500 shrink-0">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="m3 16 4 4 4-4"></path>
+                      <path d="M7 4v16"></path>
+                      <path d="M15 4h5l-5 6h5"></path>
+                      <path d="M15 20v-3.5a2.5 2.5 0 0 1 5 0V20"></path>
+                      <path d="M20 18h-5"></path>
+                    </svg>
+                  </span>
+                {:else}
+                  <!-- Unsorted: neutral hint icon -->
+                  <span class="text-gray-300 shrink-0">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="m3 16 4 4 4-4" />
+                      <path d="M7 20V4" />
+                      <path d="M20 8h-5" />
+                      <path d="M15 10V6.5a2.5 2.5 0 0 1 5 0V10" />
+                      <path d="M15 14h5l-5 6h5" />
+                    </svg>
+                  </span>
+                {/if}
+              </span>
+            </th>
+          {/each}
+          {#if onEdit || onDelete || onCustomAction || onSyllabus || onPasswordChange || onToggleActive}
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500 tracking-wide"> Acciones </th>
+          {/if}
+        </tr>
+      </thead>
+      <tbody>
+        {#if data.data.length === 0}
+          <tr>
+            <td colspan={columns.length + (onEdit || onDelete ? 1 : 0)} class="text-center text-gray-400 py-12 px-4">
+              No se encontraron resultados
+            </td>
+          </tr>
+        {:else}
+          {#each data.data as item}
+            <tr class="hover:bg-gray-50 transition-colors">
+              {#each columns as column}
+                <td class="px-4 py-3 border-b border-gray-100 text-sm text-gray-900 align-middle">
+                  {getDisplayValue(item, column.key)}
+                </td>
+              {/each}
+              {#if onEdit || onDelete || onPasswordChange || onToggleActive || onCustomAction || onSyllabus}
+                <td class="px-4 py-3 border-b border-gray-100 align-middle">
+                  <div class="flex items-center gap-1.5 whitespace-nowrap">
+                    <!-- P1: Syllabus -->
+                    {#if onSyllabus}
+                      <button
+                        onclick={() => onSyllabus?.(item)}
+                        title={item.has_programa ? 'Ver / Regenerar Programa' : 'Generar Programa'}
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 text-white rounded text-[0.73rem] font-semibold cursor-pointer transition-all shadow-sm relative
+												       {item.has_programa ? 'bg-blue-800 hover:bg-blue-900' : 'bg-blue-600 hover:bg-blue-700'}"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="13"
+                          height="13"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          ><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line
+                            x1="16"
+                            y1="13"
+                            x2="8"
+                            y2="13"
+                          /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg
+                        >
+                        Programa
+                        {#if item.has_programa}
+                          <span class="inline-block w-1.5 h-1.5 bg-green-400 rounded-full border border-white/60 shrink-0"></span>
+                        {/if}
+                      </button>
+                    {/if}
 
-									<!-- Separator between primary zone and edit/delete zone -->
-									{#if (onSyllabus || onCustomAction) && (onEdit || onDelete)}
-										<div class="action-sep"></div>
-									{/if}
+                    <!-- P2: Custom action -->
+                    {#if onCustomAction}
+                      <button
+                        onclick={() => onCustomAction?.(item)}
+                        class="px-2.5 py-1 border border-indigo-300 hover:border-indigo-400 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[0.73rem] font-medium cursor-pointer transition-all"
+                      >
+                        {customActionLabel}
+                      </button>
+                    {/if}
 
-									<!-- P3: Edit (Tertiary — ghost with icon) -->
-									{#if onEdit}
-										<button onclick={() => onEdit?.(item)} class="btn-edit" title="Editar">
-											<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-											Editar
-										</button>
-									{/if}
+                    <!-- Separator -->
+                    {#if (onSyllabus || onCustomAction) && (onEdit || onDelete)}
+                      <div class="w-px h-5 bg-gray-200 mx-0.5 shrink-0"></div>
+                    {/if}
 
-									<!-- P4: Delete (Destructive — icon-only, minimal prominence) -->
-									{#if onDelete}
-										<button onclick={() => onDelete?.(item)} class="btn-delete-icon" title="Eliminar">
-											<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-										</button>
-									{/if}
+                    <!-- P3: Edit -->
+                    {#if onEdit}
+                      <button
+                        onclick={() => onEdit?.(item)}
+                        title="Editar"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-transparent hover:bg-gray-100 text-gray-600 hover:text-gray-900 rounded text-[0.73rem] font-medium cursor-pointer transition-all border-0"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="13"
+                          height="13"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          ><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path
+                            d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                          /></svg
+                        >
+                        Editar
+                      </button>
+                    {/if}
 
-									<!-- Utility actions (other pages that use DataTable) -->
-									{#if onPasswordChange}
-										<button onclick={() => onPasswordChange?.(item)} class="btn-password">Contraseña</button>
-									{/if}
-									{#if onToggleActive}
-										<button
-											onclick={() => onToggleActive?.(item)}
-											class="btn-toggle {item.esta_activo ? 'active' : 'inactive'}"
-										>
-											{item.esta_activo ? 'Activo' : 'Inactivo'}
-										</button>
-									{/if}
-								</td>
-							{/if}
-						</tr>
-					{/each}
-				{/if}
-			</tbody>
-		</table>
-	</div>
+                    <!-- P4: Delete -->
+                    {#if onDelete}
+                      <button
+                        onclick={() => onDelete?.(item)}
+                        title="Eliminar"
+                        class="inline-flex items-center justify-center p-1.5 bg-transparent hover:bg-red-50 text-gray-400 hover:text-red-600 rounded cursor-pointer transition-all border-0"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          ><polyline points="3 6 5 6 21 6" /><path
+                            d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                          /></svg
+                        >
+                      </button>
+                    {/if}
 
-	<!-- Pagination -->
-	{#if data.last_page > 1}
-		<div class="pagination">
-			<button
-				onclick={() => goToPage(data.current_page - 1)}
-				disabled={data.current_page === 1}
-				class="pagination-button"
-			>
-				Anterior
-			</button>
+                    <!-- Utility: password -->
+                    {#if onPasswordChange}
+                      <button
+                        onclick={() => onPasswordChange?.(item)}
+                        class="px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded text-[0.73rem] font-medium cursor-pointer transition-all border-0"
+                      >
+                        Contraseña
+                      </button>
+                    {/if}
 
-			<span class="pagination-info">
-				Página {data.current_page} de {data.last_page}
-			</span>
+                    <!-- Utility: toggle active -->
+                    {#if onToggleActive}
+                      <button
+                        onclick={() => onToggleActive?.(item)}
+                        class="px-2.5 py-1 rounded text-[0.73rem] font-medium cursor-pointer transition-all border-0
+												       {item.esta_activo ? 'bg-blue-100 hover:bg-blue-200 text-blue-700' : 'bg-red-100 hover:bg-red-200 text-red-600'}"
+                      >
+                        {item.esta_activo ? 'Activo' : 'Inactivo'}
+                      </button>
+                    {/if}
+                  </div>
+                </td>
+              {/if}
+            </tr>
+          {/each}
+        {/if}
+      </tbody>
+    </table>
+  </div>
 
-			<button
-				onclick={() => goToPage(data.current_page + 1)}
-				disabled={data.current_page === data.last_page}
-				class="pagination-button"
-			>
-				Siguiente
-			</button>
-		</div>
-	{/if}
+  <!-- Pagination -->
+  <div class="px-4 py-3 flex items-center justify-between border-t border-gray-200 flex-wrap gap-3">
+    <!-- Left: record count info -->
+    <span class="text-sm text-gray-500 shrink-0">
+      {#if data.total === 0}
+        Sin resultados
+      {:else if data.to - data.from + 1 === data.total}
+        Mostrando {data.to} registro{data.to === 1 ? '' : 's'}
+      {:else}
+        Mostrando los elementos {data.from} a {data.to} de {data.total} registros
+      {/if}
+    </span>
+
+    <!-- Right: per-page + prev/page buttons/next -->
+    {#if data.last_page > 1 || data.total > 0}
+      <div class="flex items-center gap-2 ml-auto">
+        <!-- Per-page selector -->
+        <select
+          value={currentPerPage}
+          onchange={(e) => changePerPage(Number((e.target as HTMLSelectElement).value))}
+          class="px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white cursor-pointer focus:outline-none focus:border-blue-400 transition-colors"
+        >
+          {#each perPageOptions as opt}
+            <option value={opt}>{opt} por página</option>
+          {/each}
+        </select>
+
+        {#if data.last_page > 1}
+          <!-- Prev -->
+          <button
+            onclick={() => goToPage(data.current_page - 1)}
+            disabled={data.current_page === 1}
+            class="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-md cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Anterior
+          </button>
+
+          <!-- Sliding page buttons -->
+          <div class="flex items-center gap-1">
+            {#each pageButtons as btn}
+              {#if btn.type === 'ellipsis'}
+                <span class="px-1 text-sm text-gray-400 select-none">…</span>
+              {:else}
+                <button
+                  onclick={() => goToPage(btn.n)}
+                  class="min-w-[2rem] h-8 px-2 text-sm rounded-md border cursor-pointer transition-all
+                    {btn.n === data.current_page
+                    ? 'bg-blue-500 border-blue-500 text-white font-semibold'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'}"
+                >
+                  {btn.n}
+                </button>
+              {/if}
+            {/each}
+          </div>
+
+          <!-- Next -->
+          <button
+            onclick={() => goToPage(data.current_page + 1)}
+            disabled={data.current_page === data.last_page}
+            class="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-md cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Siguiente
+          </button>
+        {/if}
+      </div>
+    {/if}
+  </div>
 </div>
-
-<style>
-	.data-table {
-		background: white;
-		border-radius: 8px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		overflow: hidden;
-	}
-
-	.search-bar {
-		padding: 1rem;
-		border-bottom: 1px solid #e5e7eb;
-		display: flex;
-		gap: 0.5rem;
-	}
-
-	.search-input {
-		flex: 1;
-		padding: 0.5rem 1rem;
-		border: 1px solid #d1d5db;
-		border-radius: 6px;
-		font-size: 0.875rem;
-	}
-
-	.search-input:focus {
-		outline: none;
-		border-color: #3b82f6;
-		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-	}
-
-	.search-button {
-		padding: 0.5rem 1.5rem;
-		background: #3b82f6;
-		color: white;
-		border: none;
-		border-radius: 6px;
-		font-weight: 500;
-		cursor: pointer;
-		transition: background 0.2s;
-	}
-
-	.search-button:hover {
-		background: #2563eb;
-	}
-
-	.table-container {
-		overflow-x: auto;
-	}
-
-	.table {
-		width: 100%;
-		border-collapse: collapse;
-	}
-
-	.table thead {
-		background: #f9fafb;
-		border-bottom: 1px solid #e5e7eb;
-	}
-
-	.table th {
-		padding: 0.75rem 1rem;
-		text-align: left;
-		font-size: 0.75rem;
-		font-weight: 600;
-		text-transform: uppercase;
-		color: #6b7280;
-		letter-spacing: 0.05em;
-	}
-
-	.table td {
-		padding: 0.75rem 1rem;
-		border-bottom: 1px solid #f3f4f6;
-		font-size: 0.875rem;
-		color: #111827;
-		vertical-align: middle;
-	}
-
-	.table tbody tr:hover {
-		background: #f9fafb;
-	}
-
-	.empty-state {
-		text-align: center;
-		color: #9ca3af;
-		padding: 3rem 1rem !important;
-	}
-
-	/* ─── Actions cell ─────────────────────────────────── */
-	.actions {
-		display: flex;
-		align-items: center;
-		gap: 0.375rem;
-		white-space: nowrap;
-	}
-
-	/* Separator between primary zone and edit/delete zone */
-	.action-sep {
-		width: 1px;
-		height: 20px;
-		background: #e5e7eb;
-		margin: 0 0.125rem;
-		flex-shrink: 0;
-	}
-
-	/* ─── P1: Syllabus (Primary CTA) ────────────────────── */
-	.btn-syllabus {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-		padding: 0.3rem 0.65rem;
-		background: #2563eb;
-		color: white;
-		border: none;
-		border-radius: 5px;
-		font-size: 0.73rem;
-		font-weight: 600;
-		cursor: pointer;
-		transition: background 0.15s, box-shadow 0.15s;
-		box-shadow: 0 1px 2px rgba(37, 99, 235, 0.35);
-		position: relative;
-	}
-
-	.btn-syllabus:hover {
-		background: #1d4ed8;
-		box-shadow: 0 2px 6px rgba(37, 99, 235, 0.45);
-	}
-
-	/* green dot indicator when programa exists */
-	.programa-dot {
-		display: inline-block;
-		width: 7px;
-		height: 7px;
-		background: #4ade80;
-		border-radius: 50%;
-		border: 1px solid rgba(255,255,255,0.6);
-		flex-shrink: 0;
-	}
-
-	/* When already has a programa, shift to a slightly different shade */
-	.btn-syllabus.has-programa {
-		background: #1e40af;
-	}
-
-	/* ─── P2: Custom / Team (Secondary) ─────────────────── */
-	.btn-custom {
-		padding: 0.3rem 0.65rem;
-		border: 1px solid #a5b4fc;
-		border-radius: 5px;
-		font-size: 0.73rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: all 0.15s;
-		background: #eef2ff;
-		color: #4338ca;
-	}
-
-	.btn-custom:hover {
-		background: #e0e7ff;
-		border-color: #818cf8;
-	}
-
-	/* ─── P3: Edit (Tertiary ghost) ──────────────────────── */
-	.btn-edit {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-		padding: 0.3rem 0.65rem;
-		border: none;
-		border-radius: 5px;
-		font-size: 0.73rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: all 0.15s;
-		background: transparent;
-		color: #4b5563;
-	}
-
-	.btn-edit:hover {
-		background: #f3f4f6;
-		color: #111827;
-	}
-
-	/* ─── P4: Delete (Destructive icon-only) ────────────── */
-	.btn-delete-icon {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.3rem;
-		border: none;
-		border-radius: 5px;
-		font-size: 0.73rem;
-		cursor: pointer;
-		transition: all 0.15s;
-		background: transparent;
-		color: #9ca3af;
-	}
-
-	.btn-delete-icon:hover {
-		background: #fef2f2;
-		color: #dc2626;
-	}
-
-	/* ─── Utility (password, toggle) ─────────────────────── */
-	.btn-password {
-		padding: 0.3rem 0.65rem;
-		border: none;
-		border-radius: 5px;
-		font-size: 0.73rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: all 0.15s;
-		background: #f0fdf4;
-		color: #16a34a;
-	}
-
-	.btn-password:hover {
-		background: #dcfce7;
-	}
-
-	.btn-toggle {
-		padding: 0.3rem 0.65rem;
-		border: none;
-		border-radius: 5px;
-		font-size: 0.73rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.btn-toggle.active {
-		background: #dbeafe;
-		color: #1d4ed8;
-	}
-
-	.btn-toggle.active:hover {
-		background: #bfdbfe;
-	}
-
-	.btn-toggle.inactive {
-		background: #fee2e2;
-		color: #dc2626;
-	}
-
-	.btn-toggle.inactive:hover {
-		background: #fecaca;
-	}
-
-	/* ─── Pagination ─────────────────────────────────────── */
-	.pagination {
-		padding: 1rem;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		border-top: 1px solid #e5e7eb;
-	}
-
-	.pagination-button {
-		padding: 0.5rem 1rem;
-		background: white;
-		border: 1px solid #d1d5db;
-		border-radius: 6px;
-		font-size: 0.875rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.pagination-button:hover:not(:disabled) {
-		background: #f9fafb;
-		border-color: #9ca3af;
-	}
-
-	.pagination-button:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.pagination-info {
-		font-size: 0.875rem;
-		color: #6b7280;
-	}
-</style>

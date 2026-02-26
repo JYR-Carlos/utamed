@@ -3,7 +3,7 @@
 namespace Database\Factories\Usuario;
 
 use App\Models\Usuario\Docente;
-use App\Models\Usuario\Usuario;
+use App\Support\DataGenerators\ChileanNameGenerator;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -15,16 +15,12 @@ class DocenteFactory extends Factory
 
     public function definition(): array
     {
+        $atributos = ChileanNameGenerator::generarAtributosDocentes();
+
         return [
-            'grado' => $this->faker->randomElement(['Licenciado', 'Magíster', 'Doctor']),
-            'titulo' => $this->faker->randomElement([
-                'Ingeniero Civil',
-                'Diseñador Gráfico',
-                'Arquitecto',
-                'Profesor de Estado'
-            ]),
-            'cargo' => $this->faker->randomElement(['Profesor', 'Profesor Asociado', 'Profesor Titular']),
-            'id_usuario' => Usuario::factory(),
+            'grado' => $atributos['grado'],
+            'titulo' => $atributos['titulo'],
+            'cargo' => $atributos['cargo'],
         ];
     }
 }

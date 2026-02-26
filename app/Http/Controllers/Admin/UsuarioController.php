@@ -21,6 +21,7 @@ use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Models\Usuario\Contexto;
 use Illuminate\Support\Facades\Log;
+use App\Http\Resources\UsuarioResource;
 /**
  * Controlador para la gestión integral de usuarios del sistema.
  * 
@@ -55,7 +56,8 @@ class UsuarioController extends Controller
     /**
      * Obtiene listado paginado y filtrable de usuarios por tipo.
      * 
-     * Soporta tres tipos: estudiante, docente, administrador.
+     * Los usuarios pueden tener datos asociados en las tablas de estudiante o docente, o ninguno (no es funcionario).
+     * 
      * Implementa búsqueda por nombre, apellido, RUT y username (case-insensitive con ilike).
      * Retorna HTML Inertia con usuarios, roles, permisos disponibles, y datos de carreras.
      * 
@@ -64,64 +66,150 @@ class UsuarioController extends Controller
      */
     public function index(Request $request)
     {
-        $tipo = $request->input('tipo', 'estudiante');
-        $search = $request->input('search');
-        $perPage = $request->input('per_page', 15);
+        // Determinar qué tipo de usuario listar
+        $tipo = $request->input('tipo', 'estudiante'); // estudiante, docente, or administrador
 
+        // Parámetros de ordenamiento (whitelisted por tipo más abajo)
+        $sortKey = $request->input('sort_key');
+        $sortDir = $request->input('sort_dir', 'asc') === 'desc' ? 'desc' : 'asc';
+
+        // ==================== ESTUDIANTES ====================
+        // Recuperar estudiantes con sus datos de usuario y carrera
         if ($tipo === 'estudiante') {
-            $usuarios = Estudiante::with(['usuario', 'carrera'])
-                ->when($search, function ($query) use ($search) {
-                    return $query->whereHas('usuario', function ($q) use ($search) {
-                        $q->where('nombre1', 'ilike', "%{$search}%")
-                            ->orWhere('apellido1', 'ilike', "%{$search}%")
-                            ->orWhere('rut', 'ilike', "%{$search}%");
-                    });
-                })
-                ->join('usuario', 'estudiante.id_usuario', '=', 'usuario.id_usuario')
-                ->orderBy('usuario.nombre1')
-                ->orderBy('usuario.apellido1')
-                ->distinct()
-                ->paginate($perPage)
-                ->withQueryString();
-        } elseif ($tipo === 'docente') {
-            $usuarios = Docente::with('usuario')
-                ->when($search, function ($query) use ($search) {
-                    return $query->whereHas('usuario', function ($q) use ($search) {
-                        $q->where('nombre1', 'ilike', "%{$search}%")
-                            ->orWhere('apellido1', 'ilike', "%{$search}%")
-                            ->orWhere('rut', 'ilike', "%{$search}%");
-                    });
-                })
-                ->join('usuario', 'docente.id_usuario', '=', 'usuario.id_usuario')
-                ->orderBy('usuario.nombre1')
-                ->orderBy('usuario.apellido1')
-                ->distinct()
-                ->paginate($perPage)
-                ->withQueryString();
-        } else {
-            // Administradores: usuarios sin docente ni estudiante
-            $usuarios = Usuario::whereDoesntHave('docente')
-                ->whereDoesntHave('estudiante')
-                ->when($search, function ($query) use ($search) {
-                    return $query->where('username', 'ilike', "%{$search}%")
+            $query = Estudiante::with(['usuario', 'usuario.docente', 'carrera']);
+
+            // Buscar por nombre, apellido o RUT si se proporciona
+            if ($request->has('search')) {
+                $search = $request->input('search');
+                $query->whereHas('usuario', function ($q) use ($search) {
+                    $q->where('nombre1', 'ilike', "%{$search}%")
+                        ->orWhere('apellido1', 'ilike', "%{$search}%")
+                        ->orWhere('rut', 'ilike', "%{$search}%");
+                });
+            }
+
+            // Whitelist: frontend dot-key → columna SQL real
+            $estudianteSortWhitelist = [
+                'estudiante.id_estudiante' => 'estudiante.id_estudiante',
+                'usuario.rut' => 'usuario.rut',
+                'usuario.nombre1' => 'usuario.nombre1',
+                'usuario.apellido1' => 'usuario.apellido1',
+                'estudiante.agno_ingreso' => 'estudiante.agno_ingreso',
+                'estudiante.carrera.nombre' => 'carrera.nombre',
+            ];
+
+            // Unir opcionalmente con carrera si se ordena por nombre de carrera
+            if ($sortKey === 'estudiante.carrera.nombre') {
+                $query->leftJoin('carrera', 'estudiante.id_carrera', '=', 'carrera.id_carrera');
+            }
+
+            $sqlColumn = $estudianteSortWhitelist[$sortKey] ?? null;
+
+            // Unir con tabla usuario, ordenar y paginar
+            $q = $query->join('usuario', 'estudiante.id_usuario', '=', 'usuario.id_usuario')
+                ->select('estudiante.*');
+            if ($sqlColumn) {
+                $q->orderBy($sqlColumn, $sortDir);
+            } else {
+                $q->orderByRaw(
+                    "CONCAT(usuario.apellido1, ' ', usuario.apellido2, ' ', usuario.nombre1, ' ', usuario.nombre2)"
+                );
+            }
+            $usuarios = $q->paginate($request->input('per_page', 15))->withQueryString();
+        }
+        
+        // ==================== DOCENTES ====================
+        // Recuperar docentes con sus datos de usuario
+        elseif ($tipo === 'docente') {
+            $query = Docente::with(['usuario', 'usuario.estudiante']);
+
+            // Buscar por nombre, apellido o RUT si se proporciona
+            if ($request->has('search')) {
+                $search = $request->input('search');
+                $query->whereHas('usuario', function ($q) use ($search) {
+                    $q->where('nombre1', 'ilike', "%{$search}%")
+                        ->orWhere('apellido1', 'ilike', "%{$search}%")
+                        ->orWhere('rut', 'ilike', "%{$search}%");
+                });
+            }
+
+            $docenteSortWhitelist = [
+                'docente.id_docente' => 'docente.id_docente',
+                'usuario.rut' => 'usuario.rut',
+                'usuario.nombre1' => 'usuario.nombre1',
+                'usuario.apellido1' => 'usuario.apellido1',
+                'docente.grado' => 'docente.grado',
+                'docente.cargo' => 'docente.cargo',
+            ];
+
+            $sqlColumn = $docenteSortWhitelist[$sortKey] ?? null;
+
+            // Unir con tabla usuario, ordenar y paginar
+            $q = $query->join('usuario', 'docente.id_usuario', '=', 'usuario.id_usuario')
+                ->select('docente.*');
+            if ($sqlColumn) {
+                $q->orderBy($sqlColumn, $sortDir);
+            } else {
+                $q->orderByRaw(
+                    "CONCAT(usuario.apellido1, ' ', usuario.apellido2, ' ', usuario.nombre1, ' ', usuario.nombre2)"
+                );
+            }
+            $usuarios = $q->paginate($request->input('per_page', 15))->withQueryString();
+        }
+        // ==================== ADMINISTRADORES ====================
+        // Recuperar usuarios que no son docente ni estudiante
+        else {
+            $query = Usuario::query()
+                ->whereDoesntHave('docente')
+                ->whereDoesntHave('estudiante');
+
+            // Buscar por username, RUT o nombre si se proporciona
+            if ($request->has('search')) {
+                $search = $request->input('search');
+                $query->where(function ($q) use ($search) {
+                    $q->where('username', 'ilike', "%{$search}%")
                         ->orWhere('rut', 'ilike', "%{$search}%")
                         ->orWhere('nombre1', 'ilike', "%{$search}%")
                         ->orWhere('apellido1', 'ilike', "%{$search}%");
-                })
-                ->orderBy('nombre1')
-                ->orderBy('apellido1')
-                ->paginate($perPage)
-                ->withQueryString();
+                });
+            }
+
+            $adminSortWhitelist = [
+                'usuario.id_usuario' => 'id_usuario',
+                'usuario.rut' => 'rut',
+                'usuario.username' => 'username',
+                'usuario.nombre1' => 'nombre1',
+                'usuario.apellido1' => 'apellido1',
+                'usuario.email' => 'email',
+            ];
+
+            $sqlColumn = $adminSortWhitelist[$sortKey] ?? null;
+
+            // Ordenar y paginar
+            if ($sqlColumn) {
+                $query->orderBy($sqlColumn, $sortDir);
+            } else {
+                $query->orderBy('nombre1')->orderBy('apellido1');
+            }
+            $usuarios = $query->paginate($request->input('per_page', 15))->withQueryString();
         }
 
+        // Normalizar cada item al contrato { usuario, estudiante, docente } sin romper
+        // la estructura del paginador (current_page, last_page, links, etc.)
+        $usuarios->through(fn($item) => (new UsuarioResource($item))->toArray(request()));
+
+        // Retornar JSON si lo solicita el cliente
         if ($request->wantsJson()) {
             return response()->json($usuarios);
         }
 
+        // Cargar datos complementarios para el frontend
         $carreras = Carrera::orderBy('nombre')->get();
         $availableRoles = Rol::orderBy('nombre')->get();
+        // Group permissions by module -> Grouped as 'General' for frontend display
         $availablePermissions = Permiso::orderBy('slug')->get()->groupBy(fn() => 'General');
 
+        // Renderizar vista Inertia con todos los datos
         return Inertia::render('admin/Usuarios', [
             'usuarios' => $usuarios,
             'tipo' => $tipo,
@@ -145,6 +233,7 @@ class UsuarioController extends Controller
      */
     public function store(Request $request)
     {
+        // Determinar tipo de usuario a crear y delegar al método correspondiente
         $tipo = $request->input('tipo');
 
         if ($tipo === 'estudiante') {
@@ -168,6 +257,7 @@ class UsuarioController extends Controller
      */
     private function storeEstudiante(Request $request)
     {
+        // Validar datos del estudiante: identidad, contacto, carrera y credenciales
         $validated = $request->validate([
             'rut' => 'required|string|max:20',
             'nombre1' => 'required|string|max:100',
@@ -183,7 +273,7 @@ class UsuarioController extends Controller
 
         DB::beginTransaction();
         try {
-            // Create Usuario first
+            // Crear registro base de usuario con credenciales
             $usuario = Usuario::create([
                 'username' => $validated['username'],
                 'passhash' => Hash::make($validated['password']),
@@ -196,14 +286,14 @@ class UsuarioController extends Controller
                 'esta_activo' => true
             ]);
 
-            // Create Estudiante linked to Usuario
+            // Vincular perfil de estudiante con carrera
             Estudiante::create([
                 'id_usuario' => $usuario->id_usuario,
                 'agno_ingreso' => $validated['agno_ingreso'] ?? null,
                 'id_carrera' => $validated['id_carrera'] ?? null,
             ]);
 
-            // Assign 'estudiante' role
+            // Asignar rol de estudiante en contexto global
             $this->assignRole($usuario, 'estudiante');
 
             DB::commit();
@@ -232,6 +322,7 @@ class UsuarioController extends Controller
      */
     private function storeDocente(Request $request)
     {
+        // Validar datos del docente: identidad, contacto, grado académico y credenciales
         $validated = $request->validate([
             'rut' => 'required|string|max:20',
             'nombre1' => 'required|string|max:100',
@@ -248,7 +339,7 @@ class UsuarioController extends Controller
 
         DB::beginTransaction();
         try {
-            // Create Usuario first
+            // Crear registro base de usuario con credenciales
             $usuario = Usuario::create([
                 'username' => $validated['username'],
                 'passhash' => Hash::make($validated['password']),
@@ -261,7 +352,7 @@ class UsuarioController extends Controller
                 'esta_activo' => true
             ]);
 
-            // Create Docente linked to Usuario
+            // Vincular perfil de docente con datos académicos
             Docente::create([
                 'id_usuario' => $usuario->id_usuario,
                 'grado' => $validated['grado'] ?? null,
@@ -269,7 +360,7 @@ class UsuarioController extends Controller
                 'cargo' => $validated['cargo'] ?? null,
             ]);
 
-            // Assign 'docente' role
+            // Asignar rol de docente en contexto global
             $this->assignRole($usuario, 'docente');
 
             DB::commit();
@@ -297,6 +388,7 @@ class UsuarioController extends Controller
      */
     private function storeAdministrador(Request $request)
     {
+        // Validar datos del administrador: identidad, contacto y credenciales
         $validated = $request->validate([
             'rut' => ['required', 'string', 'max:20', Rule::unique(Usuario::class, 'rut')],
             'nombre1' => 'required|string|max:255',
@@ -310,6 +402,7 @@ class UsuarioController extends Controller
 
         DB::beginTransaction();
         try {
+            // Crear usuario sin perfil específico (diferenciador de Estudiante/Docente)
             $usuario = Usuario::create([
                 'username' => $validated['username'],
                 'passhash' => Hash::make($validated['password']),
@@ -322,7 +415,7 @@ class UsuarioController extends Controller
                 'esta_activo' => true,
             ]);
 
-            // Assign 'SuperAdmin' role
+            // Asignar rol de SuperAdmin para acceso total
             $this->assignRole($usuario, 'SuperAdmin');
 
             DB::commit();
@@ -349,8 +442,10 @@ class UsuarioController extends Controller
      */
     public function show($id, Request $request)
     {
+        // Determinar tipo de usuario
         $tipo = $request->input('tipo', 'estudiante');
 
+        // Recuperar usuario con sus relaciones según tipo
         if ($tipo === 'estudiante') {
             $usuario = Estudiante::with(['carrera', 'usuario'])->findOrFail($id);
         } elseif ($tipo === 'docente') {
@@ -359,6 +454,7 @@ class UsuarioController extends Controller
             $usuario = Usuario::findOrFail($id);
         }
 
+        // Retornar JSON
         return response()->json($usuario);
     }
 
@@ -376,6 +472,7 @@ class UsuarioController extends Controller
      */
     public function update(Request $request, $id)
     {
+        // Determinar tipo de usuario y delegar al método correspondiente
         $tipo = $request->input('tipo');
 
         if ($tipo === 'estudiante') {
@@ -400,9 +497,11 @@ class UsuarioController extends Controller
      */
     private function updateEstudiante(Request $request, $id)
     {
+        // Recuperar estudiante y su relación de usuario
         $estudiante = Estudiante::findOrFail($id);
         $usuario = $estudiante->usuario;
 
+        // Validar datos actualizados: datos personales y carrera
         $validated = $request->validate([
             'rut' => 'required|string|max:20',
             'nombre1' => 'required|string|max:100',
@@ -416,6 +515,7 @@ class UsuarioController extends Controller
 
         DB::beginTransaction();
         try {
+            // Actualizar datos de usuario
             $usuario->update([
                 'rut' => $validated['rut'],
                 'nombre1' => $validated['nombre1'],
@@ -425,6 +525,7 @@ class UsuarioController extends Controller
                 'email' => $validated['email'],
             ]);
 
+            // Actualizar datos específicos del estudiante
             $estudiante->update([
                 'agno_ingreso' => $validated['agno_ingreso'],
                 'id_carrera' => $validated['id_carrera'],
@@ -453,9 +554,11 @@ class UsuarioController extends Controller
      */
     private function updateDocente(Request $request, $id)
     {
+        // Recuperar docente y su relación de usuario
         $docente = Docente::findOrFail($id);
         $usuario = $docente->usuario;
 
+        // Validar datos actualizados: datos personales y grado académico
         $validated = $request->validate([
             'rut' => 'required|string|max:20',
             'nombre1' => 'required|string|max:100',
@@ -470,6 +573,7 @@ class UsuarioController extends Controller
 
         DB::beginTransaction();
         try {
+            // Actualizar datos de usuario
             $usuario->update([
                 'rut' => $validated['rut'],
                 'nombre1' => $validated['nombre1'],
@@ -479,6 +583,7 @@ class UsuarioController extends Controller
                 'email' => $validated['email'],
             ]);
 
+            // Actualizar datos específicos del docente
             $docente->update([
                 'grado' => $validated['grado'],
                 'cargo' => $validated['cargo'],
@@ -506,10 +611,12 @@ class UsuarioController extends Controller
      */
     private function updateAdministrador(Request $request, $id)
     {
+        // Recuperar usuario administrador
         $usuario = Usuario::findOrFail($id);
 
+        // Validar datos actualizados: datos personales
         $validated = $request->validate([
-            'rut' => ['required', 'string', 'max:20', Rule::unique(Usuario::class, 'rut')->ignore($id, 'id_usuario')],
+            'rut' => 'required|string|max:20',
             'nombre1' => 'required|string|max:255',
             'nombre2' => 'nullable|string|max:255',
             'apellido1' => 'required|string|max:255',
@@ -517,6 +624,7 @@ class UsuarioController extends Controller
             'email' => 'nullable|email|max:255',
         ]);
 
+        // Actualizar datos del usuario
         $usuario->update($validated);
 
         return redirect()->route('admin.usuarios.index', ['tipo' => 'administrador'])
@@ -535,10 +643,12 @@ class UsuarioController extends Controller
      */
     public function destroy($id, Request $request)
     {
+        // Determinar tipo de usuario a eliminar
         $tipo = $request->input('tipo', 'estudiante');
 
         DB::beginTransaction();
         try {
+            // Buscar registro específico según tipo
             if ($tipo === 'estudiante') {
                 $record = Estudiante::findOrFail($id);
                 $usuarioId = $record->id_usuario;
@@ -549,16 +659,26 @@ class UsuarioController extends Controller
                 $record->delete();
             } else {
                 $record = Usuario::findOrFail($id);
-                $usuarioId = $record->id_usuario;
             }
 
-            Usuario::where('id_usuario', $usuarioId)->delete();
+            // Obtener ID del usuario base
+            $usuarioId = ($tipo === 'administrador') ? $record->id_usuario : $record->id_usuario;
+
+            // Eliminar perfil específico primero (si aplica)
+            if ($tipo !== 'administrador') {
+                $record->delete();
+            }
+
+            // Eliminar registro base de usuario
+            Usuario::find($usuarioId)?->delete();
 
             DB::commit();
 
+            // Retornar con mensaje de éxito
             return redirect()->route('admin.usuarios.index', ['tipo' => $tipo])
                 ->with('success', ucfirst($tipo) . ' eliminado exitosamente.');
         } catch (\Exception $e) {
+            // Manejar error (registros asociados impiden eliminación)
             DB::rollBack();
             return redirect()->route('admin.usuarios.index', ['tipo' => $tipo])
                 ->with('error', 'No se puede eliminar el ' . $tipo . ' porque tiene registros asociados.');
@@ -577,10 +697,12 @@ class UsuarioController extends Controller
      */
     public function changePassword(Request $request, $id)
     {
+        // Validar nueva contraseña con confirmación
         $validated = $request->validate([
             'password' => 'required|string|min:6|confirmed',
         ]);
 
+        // Buscar usuario y actualizar hash de contraseña
         $usuario = Usuario::findOrFail($id);
         $usuario->update(['passhash' => Hash::make($validated['password'])]);
 
@@ -597,10 +719,12 @@ class UsuarioController extends Controller
      */
     public function toggleActive($id)
     {
+        // Buscar usuario y alternar su estado activo/inactivo
         $usuario = Usuario::findOrFail($id);
         $usuario->esta_activo = !(bool) $usuario->esta_activo;
         $usuario->save();
 
+        // Retornar mensaje con el nuevo estado
         $status = $usuario->esta_activo ? 'activado' : 'desactivado';
         return back()->with('success', "Usuario {$status} exitosamente.");
     }
@@ -616,30 +740,20 @@ class UsuarioController extends Controller
      */
     public function getUserPermissions($id)
     {
+        // Buscar usuario cuyo permisos obtener
         $usuario = Usuario::findOrFail($id);
 
-        // Fix: Este método actualmente retorna roles y permisos de TODOS los contextos
-        // sin distinción, lo cual es incorrecto. El comportamiento correcto debería ser:
-        //
-        // 1. El frontend debería enviar un parámetro ?context_id=X para indicar en qué
-        //    contexto se está gestionando al usuario (ej: contexto Global para admins,
-        //    contexto de curso para equipo docente).
-        //
-        // 2. Este método debería filtrar por ese context_id y ADEMÁS retornar en la
-        //    respuesta los datos agrupados por contexto, para que el admin pueda ver
-        //    "este rol está asignado en el contexto Global, este otro en el Curso X".
-        //
-        // 3. El modal PermissionsModal debería mostrar un selector de contexto (basicamente
-        //    una lista de objetos con contexto) antes de cargar los permisos, o mostrar 
-        //    todos agrupados por contexto.
-
+        // Obtener contexto global (actualmente solo soportamos permisos globales)
+        // TODO: Agregar soporte para contextos específicos (Cursos, Carreras, Facultades, etc.)
         $idContexto = app(GlobalContextService::class)->getContextId();
 
+        // Obtener todos los IDs de rol asignado al usuario
         $idRoles = array_column(
             $usuario->getAllRoles($idContexto),
             'id'
         );
 
+        // Obtener todos los permisos especiales del usuario
         $specialPermissions = array_values(
             $usuario->getAllPermissions(
                 $idContexto,
@@ -647,7 +761,7 @@ class UsuarioController extends Controller
             )
         );
 
-        // Get available roles (all except SuperAdmin) - transform to clean array
+        // Obtener roles disponibles (todos excepto SuperAdmin) - transformar a array limpio
         $availableRoles = Rol::whereNotIn('nombre', ['SuperAdmin', 'Super Admin'])
             ->orderBy('nombre')
             ->get()
@@ -657,8 +771,8 @@ class UsuarioController extends Controller
             ])
             ->values();
 
-        // Get available permissions (for admin, return all)
-        $availablePermissions = Permiso::all()
+        // Obtener permisos disponibles (para admin, retornar todos)
+        $availablePermissions = \App\Models\Usuario\Permiso::all()
             ->map(fn($p) => [
                 'id_permiso' => $p->id_permiso,
                 'slug' => $p->slug,
@@ -666,6 +780,7 @@ class UsuarioController extends Controller
             ])
             ->groupBy(fn() => 'Docencia');
 
+        // Retornar JSON con datos actuales y disponibles
         return response()->json([
             'roles' => $idRoles,
             'special_permissions' => $specialPermissions,
@@ -686,9 +801,11 @@ class UsuarioController extends Controller
      */
     public function syncPermissions(Request $request, $id)
     {
+        // Log para debugging
         Log::info("SyncPermissions called for user $id");
         Log::info("Payload: " . print_r($request->all(), true));
 
+        // Validar roles e permisos especiales desde el request
         $validated = $request->validate([
             'roles' => 'array',
             'special_permissions' => 'array' // { id_permiso: true/false/null }
@@ -702,13 +819,22 @@ class UsuarioController extends Controller
             ))
         ]);
 
+        // Recuperar usuario a sincronizar
         $usuario = Usuario::findOrFail($id);
+
+        // Obtener contexto global
+        // TODO: Ampliar para soportar sincronización multi-contexto
         $idContexto = app(GlobalContextService::class)->getContextId();
-        $adminId = Auth::id() ?? 1;
+
+        // Obtener admin que realiza la acción (para auditoría)
+        $adminId = Auth::id() ?? 1; // Fallback only for dev/seeder
 
         DB::beginTransaction();
         try {
-            // 1. Soft-delete existing active role assignments for this context
+            // ===============================================
+            // 1. SINCRONIZAR ROLES: Reemplazar con los nuevos
+            // ===============================================
+            // Desactivar asignaciones actuales
             UsuarioRolAsignacion::where('id_usuario', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->where('esta_activo', true)
@@ -719,7 +845,7 @@ class UsuarioController extends Controller
                     'fecha_fin_real' => now()
                 ]);
 
-            // 2. Add new roles
+            // Crear nuevas asignaciones de roles
             if (!empty($validated['roles'])) {
                 foreach ($validated['roles'] as $rolId) {
                     UsuarioRolAsignacion::updateOrCreate(
@@ -742,7 +868,10 @@ class UsuarioController extends Controller
                 }
             }
 
-            // 3. Soft-delete existing special permissions for this context
+            // ==========================================================
+            // 2. SINCRONIZAR PERMISOS ESPECIALES: Reemplazar con nuevos
+            // ==========================================================
+            // Desactivar permisos especiales actuales
             UsuarioPermisoEspecial::where('id_usuario', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->where('esta_activo', true)
@@ -753,7 +882,7 @@ class UsuarioController extends Controller
                     'fecha_fin_real' => now()
                 ]);
 
-            // 4. Add new special permissions
+            // Crear nuevas asignaciones de permisos especiales
             foreach ($validated['special_permissions'] as $permId => $status) {
                 $isObject = is_array($status);
                 $allowed = $isObject ? ($status['allowed'] ?? null) : $status;
@@ -770,6 +899,7 @@ class UsuarioController extends Controller
                 ]);
 
                 if ($allowed !== null || $canDelegate) {
+                    // Guardar o actualizar permiso especial con su configuración
                     $upe = UsuarioPermisoEspecial::updateOrCreate(
                         [
                             'id_usuario' => $usuario->id_usuario,
@@ -787,7 +917,7 @@ class UsuarioController extends Controller
                             'fecha_creacion' => now()
                         ]
                     );
-                    
+
                     Log::debug('✅ Permiso guardado:', [
                         'id_upe' => $upe->id_upe,
                         'perm_id' => $permId,
@@ -799,6 +929,7 @@ class UsuarioController extends Controller
 
             DB::commit();
 
+            // Retornar respuesta según formato solicitado
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => true,
@@ -809,6 +940,7 @@ class UsuarioController extends Controller
             return back()->with('success', 'Permisos actualizados correctamente.');
 
         } catch (\Exception $e) {
+            // Deshacer cambios si hay error
             DB::rollBack();
             Log::error("SyncPermissions Error: " . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
@@ -826,20 +958,23 @@ class UsuarioController extends Controller
             return back()->with('error', 'Error al actualizar permisos: ' . $e->getMessage());
         }
     }
+
     /**
-     * Helper to assign a role to a user in the Global context.
+     * Asignar rol a un usuario en contexto Global.
      */
     private function assignRole(Usuario $usuario, string $roleName)
     {
+        // Buscar rol por nombre
         $rol = Rol::where('nombre', $roleName)->first();
         if (!$rol) {
             Log::warning("Role '$roleName' not found for automatic assignment.");
             return;
         }
 
+        // Obtener contexto global y asignar rol por 365 días
         $admin = $usuario;
-        $globalContextId = app(GlobalContextService::class)->getContextId();
-        
+        $globalContextId = app(\App\Services\Authorization\GlobalContextService::class)->getContextId();
+
         $admin->giveRole($rol)
             ->inContext($globalContextId)
             ->for(365)

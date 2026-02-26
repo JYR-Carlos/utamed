@@ -18,12 +18,12 @@ class DocenteResource extends JsonResource
         } catch (\Exception $e) {
             $usuario = null;
         }
-        
+
         $nombre_completo = 'Sin nombre';
         if ($usuario) {
             $nombre_completo = trim(($usuario->nombre1 ?? '') . ' ' . ($usuario->apellido1 ?? '')) ?: 'Sin nombre';
         }
-        
+
         return [
             'id_docente' => $this->id_docente,
             'id_usuario' => $this->id_usuario,
@@ -36,7 +36,7 @@ class DocenteResource extends JsonResource
             'grado' => $this->grado,
             'titulo' => $this->titulo,
             'cargo' => $this->cargo,
-            'usuario' => new UsuarioResource($this->whenLoaded('usuario')),
+            'usuario' => new UsuarioDataResource($this->whenLoaded('usuario')),
         ];
     }
 }

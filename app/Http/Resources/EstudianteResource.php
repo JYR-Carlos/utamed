@@ -17,7 +17,7 @@ class EstudianteResource extends JsonResource
             'agno_ingreso' => $this->agno_ingreso,
             'id_carrera' => $this->id_carrera,
             'id_contexto' => $this->id_contexto,
-            'usuario' => new UsuarioResource($this->whenLoaded('usuario')),
+            'usuario' => new UsuarioDataResource($this->whenLoaded('usuario')),
             'carrera' => new CarreraResource($this->whenLoaded('carrera')),
         ];
     }
