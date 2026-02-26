@@ -6,12 +6,12 @@ He analizado el programa que modificaste. Los cambios realizados reflejan mejor 
 
 ### Cambios Clave Identificados
 
-| Sección | Original | Modificado | Implicación |
-|---------|----------|-----------|------------|
-| **IV. Competencias** | 5 específicas + 5 genéricas detalladas | 1 específica + 1 genérica + subcompetencias | Estructura jerárquica simplificada |
-| **V. Diagnóstica** | 5 evaluaciones completas | 1 tipo simple ("Preguntas exploratorias") | Flexibilidad para completar después |
-| **VII. Planificación** | Descripción pedagógica detallada | Solo titulares y tipo de estrategia | Información mínima por componente |
-| **IX. Aspectos Admvos** | Tabla de 6 evaluaciones | Tabla de 3 componentes + ponderación optativa | Estructura modular por tipo de actividad |
+| Sección                 | Original                               | Modificado                                    | Implicación                              |
+| ----------------------- | -------------------------------------- | --------------------------------------------- | ---------------------------------------- |
+| **IV. Competencias**    | 5 específicas + 5 genéricas detalladas | 1 específica + 1 genérica + subcompetencias   | Estructura jerárquica simplificada       |
+| **V. Diagnóstica**      | 5 evaluaciones completas               | 1 tipo simple ("Preguntas exploratorias")     | Flexibilidad para completar después      |
+| **VII. Planificación**  | Descripción pedagógica detallada       | Solo titulares y tipo de estrategia           | Información mínima por componente        |
+| **IX. Aspectos Admvos** | Tabla de 6 evaluaciones                | Tabla de 3 componentes + ponderación optativa | Estructura modular por tipo de actividad |
 
 ---
 
@@ -692,14 +692,14 @@ class ProgramaPolicy
 
 ## Resumen de la Implementación
 
-| Componente | Implementación |
-|-----------|----------------|
-| **BD** | Tabla `programa` con `data_syllabus` JSONB |
-| **Modelos** | `Programa` (optimizado), `SyllabusBuilder` (nuevo) |
-| **Controlador** | `ProgramaController` con 7 acciones clave |
-| **Vistas** | 4 vistas Inertia (Index, Show, Edit, Secciones) |
-| **Validaciones** | Validador de 9 secciones con reglas específicas |
-| **Workflow** | 7 estados del programa (Borrador → Vigente → Archivado) |
-| **Permisos** | Policy restrictiva por estado y rol |
+| Componente       | Implementación                                          |
+| ---------------- | ------------------------------------------------------- |
+| **BD**           | Tabla `programa` con `data_syllabus` JSONB              |
+| **Modelos**      | `Programa` (optimizado), `SyllabusBuilder` (nuevo)      |
+| **Controlador**  | `ProgramaController` con 7 acciones clave               |
+| **Vistas**       | 4 vistas Inertia (Index, Show, Edit, Secciones)         |
+| **Validaciones** | Validador de 9 secciones con reglas específicas         |
+| **Workflow**     | 7 estados del programa (Borrador → Vigente → Archivado) |
+| **Permisos**     | Policy restrictiva por estado y rol                     |
 
 ¿Qué te parece esta arquitectura? ¿Hay ajustes o aclaraciones que necesites?

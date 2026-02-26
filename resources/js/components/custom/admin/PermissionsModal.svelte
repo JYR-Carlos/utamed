@@ -41,7 +41,7 @@
 
   // Local copy of available permissions
   let currentPermissions = $state<Record<string, any[]>>({});
-  
+
   // Global permission map for quick lookup (id -> permission object)
   let permissionMap = $state<Record<number, any>>({});
 
