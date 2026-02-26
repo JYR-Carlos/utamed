@@ -2859,22 +2859,87 @@ if (!file_exists($permissionsConfigPath)) {
 
   $allSlugs = $flattenPerms($permDefs);
   $constants = '';
-  $prevTop = null;
 
+  // Agrupar permisos por su prefijo de recurso
+  $slugsByResource = [];
   foreach ($allSlugs as [$resource, $action]) {
-    // Blank line between top-level resource groups
-    $top = explode('/', $resource)[0];
-    if ($prevTop !== null && $top !== $prevTop) {
-      $constants .= "\n";
+    if (!isset($slugsByResource[$resource])) {
+      $slugsByResource[$resource] = [];
     }
-    $prevTop = $top;
-
-    $resConst = strtoupper(str_replace(['/', '-', ' '], '_', $resource));
-    $actConst = strtoupper(str_replace([' ', '-'], '_', $action));
-    $constName = "{$resConst}_{$actConst}";
-    $slug = "{$resource}:{$action}";
-    $constants .= "{$tab}case {$constName} = '{$slug}';\n";
+    $slugsByResource[$resource][] = $action;
   }
+
+  // Ordenar cada categoría alfabéticamente
+  foreach ($slugsByResource as $resource => $actions) {
+    sort($actions);
+    $slugsByResource[$resource] = $actions;
+  }
+
+  // Obtener todos los recursos únicos
+  $allResources = array_keys($slugsByResource);
+
+  // Función auxiliar para procesar un prefijo y sus descendientes recursivamente
+  // Encuentra todos los children de un prefijo dado y procesa su árbol completo
+  $processPrefix = function ($prefix, $depth = 0, $hierarchyPath = '') use ($allResources, $slugsByResource, &$constants, $tab, &$processPrefix) {
+    // Encontrar todos los recursos que son hijos directos de este prefijo
+    // (exactamente un nivel más profundo)
+    $directChildren = [];
+
+    foreach ($allResources as $resource) {
+      // Si el resource comienza con el prefijo + '/'
+      $expectedPrefix = $prefix ? $prefix . '/' : '';
+      if (strpos($resource, $expectedPrefix) === 0) {
+        // Eliminar el prefijo y contar los '/' restantes
+        $remainder = substr($resource, strlen($expectedPrefix));
+        $slashCount = substr_count($remainder, '/');
+
+        // Si no hay más slashes, es un hijo directo
+        if ($slashCount === 0) {
+          $directChildren[] = $resource;
+        }
+      }
+    }
+
+    // Procesar hijos directos en orden alfabético
+    sort($directChildren);
+    foreach ($directChildren as $resource) {
+      $actions = $slugsByResource[$resource] ?? [];
+
+      // Construir el path jerárquico para el comentario
+      // Obtener solo la última parte del resource (ej: de 'cursos/actividades' solo 'actividades')
+      $parts = explode('/', $resource);
+      $lastPart = end($parts);
+      $newHierarchyPath = $hierarchyPath ? $hierarchyPath . ' > ' . strtoupper($lastPart) : strtoupper($resource);
+
+      // Agregar comentario de sección para cada recurso procesado
+      $GLOBALS['_perm_constants'] .= "\n{$tab}// {$newHierarchyPath}\n";
+
+      // Generar wildcard
+      $resConst = strtoupper(str_replace(['/', '-', ' '], '_', $resource));
+      $constName = "{$resConst}_ALL";
+      $slug = "{$resource}:*";
+      $GLOBALS['_perm_constants'] .= "{$tab}case {$constName} = '{$slug}';\n";
+
+      // Generar acciones específicas
+      foreach ($actions as $action) {
+        $actConst = strtoupper(str_replace([' ', '-'], '_', $action));
+        $constName = "{$resConst}_{$actConst}";
+        $slug = "{$resource}:{$action}";
+        $GLOBALS['_perm_constants'] .= "{$tab}case {$constName} = '{$slug}';\n";
+      }
+
+      // Procesar recursivamente los hijos de este recurso
+      $processPrefix($resource, $depth + 1, $newHierarchyPath);
+    }
+  };
+
+  // Procesar desde la raíz (prefijo vacío) para obtener todos los recursos de nivel 1
+  $GLOBALS['_perm_constants'] = '';
+  $processPrefix('');
+  $constants = $GLOBALS['_perm_constants'];
+  unset($GLOBALS['_perm_constants']);
+
+  // No hay necesidad de generar comodines al final, ya están incluidos
 
   $permissionsConfigRelative = relativePath($permissionsConfigPath, $projectRoot);
   $permissionsContent = <<<PHP
