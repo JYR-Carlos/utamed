@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\AsignaturaController;
 use App\Http\Controllers\Admin\AsignacionPlanController;
 use App\Http\Controllers\Admin\CursoController;
 use App\Http\Controllers\Admin\CourseTeamController;
+use App\Http\Controllers\Admin\SeccionController as AdminSeccionController;
 use App\Http\Controllers\Admin\ProgramaController as AdminProgramaController;
 use App\Http\Controllers\Admin\UsuarioController;
 
@@ -61,6 +62,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     // Programa (Syllabus) routes MUST come before cursos resource to avoid route collision
     Route::get('programas', [AdminProgramaController::class, 'index'])
         ->name('programas.index');
+    Route::get('cursos/{curso}/programa/json', [AdminProgramaController::class, 'getJson'])
+        ->name('cursos.programa.json');
     Route::get('cursos/{curso}/programa', [AdminProgramaController::class, 'show'])
         ->name('cursos.programa.show');
     Route::get('cursos/{curso}/programa/revisar', [AdminProgramaController::class, 'show'])
@@ -71,6 +74,10 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('cursos.programa.aprobar');
     Route::put('cursos/{curso}/programa/rechazar', [AdminProgramaController::class, 'reject'])
         ->name('cursos.programa.rechazar');
+
+    // Secciones routes - Get componentes from sections
+    Route::get('cursos/{curso}/secciones', [AdminSeccionController::class, 'indexByCurso'])
+        ->name('cursos.secciones.index');
 
     // Resource routes (more general routes go after specific ones)
     Route::resource('facultades', FacultadController::class);
@@ -139,11 +146,11 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('inscripciones_cursos.export.csv');
 
     // Section (Seccion) Management for Courses
-    Route::post('cursos/{curso}/secciones', [\App\Http\Controllers\Admin\SeccionController::class, 'store'])
+    Route::post('cursos/{curso}/secciones', [AdminSeccionController::class, 'store'])
         ->name('cursos.secciones.store');
-    Route::put('cursos/secciones/{seccion}', [\App\Http\Controllers\Admin\SeccionController::class, 'update'])
+    Route::put('cursos/secciones/{seccion}', [AdminSeccionController::class, 'update'])
         ->name('cursos.secciones.update');
-    Route::delete('cursos/secciones/{seccion}', [\App\Http\Controllers\Admin\SeccionController::class, 'destroy'])
+    Route::delete('cursos/secciones/{seccion}', [AdminSeccionController::class, 'destroy'])
         ->name('cursos.secciones.destroy');
 
     // Helper endpoints for cascading selects
@@ -190,12 +197,18 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::delete('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'destroy'])->name('cursos.actividades.destroy');
 
     // Program Management
-    Route::post('cursos/{curso}/programa', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'store'])
+    Route::post('cursos/{curso}/programa', [AdminProgramaController::class, 'store'])
         ->name('cursos.programa.store');
+    Route::get('cursos/{curso}/programa/json', [AdminProgramaController::class, 'getJson'])
+        ->name('cursos.programa.json');
     Route::get('cursos/{curso}/programa', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'show'])
         ->name('cursos.programa.show');
     Route::delete('cursos/{curso}/programa', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'destroy'])
         ->name('cursos.programa.destroy');
+    
+    // Secciones (for programa components auto-populate)
+    Route::get('cursos/{curso}/secciones', [AdminSeccionController::class, 'indexByCurso'])
+        ->name('cursos.secciones.index');
 
     // Student Enrollment (Inscripciones)
     Route::get('inscripciones', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'index'])->name('inscripciones.index');
@@ -235,7 +248,7 @@ Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name
 
 // API Routes for AJAX/Fetch calls
 Route::prefix('api')->middleware(['auth', 'verified'])->group(function () {
-    Route::get('docentes', [\App\Http\Controllers\Admin\CursoController::class, 'getDocentes']);
+    Route::get('docentes', [CursoController::class, 'getDocentes']);
 });
 
 require __DIR__ . '/settings.php';

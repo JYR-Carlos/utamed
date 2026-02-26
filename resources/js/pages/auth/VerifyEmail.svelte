@@ -11,7 +11,6 @@
      * - Opción para cambiar email
      * - Logout para cambiar de cuenta
      */
-    import EmailVerificationNotificationController from '@/actions/Laravel/Fortify/Http/Controllers/EmailVerificationNotificationController';
     import TextLink from '@/components/custom/common/TextLink.svelte';
     import { Button } from '@/components/ui/button';
     import AuthLayout from '@/layouts/AuthLayout.svelte';
@@ -28,6 +27,7 @@
     }
 
     let { status }: Props = $props();
+
 </script>
 
 <svelte:head>
@@ -41,7 +41,7 @@
         </div>
     {/if}
 
-    <Form {...EmailVerificationNotificationController.store.form()} className="space-y-6 text-center">
+    <Form method="post" action="/email/verification-notification" className="space-y-6 text-center">
         {#snippet children({ processing }: { processing: boolean })}
             <Button type="submit" disabled={processing} variant="secondary">
                 {#if processing}

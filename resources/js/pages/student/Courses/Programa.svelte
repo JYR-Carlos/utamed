@@ -3,7 +3,6 @@
     import type { BreadcrumbItem } from '@/types';
     import { Undo2, BookOpen } from 'lucide-svelte';
     import { Link } from '@inertiajs/svelte';
-    import * as Card from '@/components/ui/card';
 
     interface Props {
         programa: {
@@ -15,10 +14,16 @@
                 nombre_seccion: string;
                 numeral_romano?: string;
                 orden: number;
-                contenidos: Array<{
+                contenidos_programa?: Array<{
                     texto_contenido: string;
                     orden_item: number;
                 }>;
+                contenidos?: Array<{
+                    texto_contenido: string;
+                    orden_item: number;
+                }>;
+                componentes?: Array<any>;
+                ponderacion_optativa?: any;
             }>;
             creado_por: string;
             fecha_creacion: string;
@@ -40,23 +45,31 @@
         { title: curso.nombre, href: `/estudiante/cursos/${curso.id_curso}` },
         { title: 'Programa', href: `/estudiante/cursos/${curso.id_curso}/programa` }
     ];
+
+    function getContenidos(seccion: any) {
+        return seccion.contenidos || seccion.contenidos_programa || [];
+    }
+
+    function formatDate(dateString: string) {
+        try {
+            return new Date(dateString).toLocaleDateString('es-CL', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        } catch {
+            return dateString;
+        }
+    }
 </script>
 
 <StudentLayout {breadcrumbs}>
-    <div class="container mx-auto px-6 py-8">
-        <!-- Encabezado -->
-        <div class="mb-8 flex items-center justify-between">
-            <div>
-                <h1 class="text-3xl font-bold text-slate-900 mb-2">Programa de Cátedra</h1>
-                <p class="text-slate-600">{curso.asignatura?.nombre} - {curso.cod_curso}</p>
-                <p class="text-sm text-slate-500">{curso.carrera?.nombre}</p>
-            </div>
-        </div>
-
-        {#if programa === null}
-            <!-- Mensaje cuando no hay programa disponible -->
-            <Card.Root class="mb-8 bg-amber-50 border-amber-200">
-                <Card.Content class="p-8">
+    <div class="w-full bg-white min-h-screen">
+        <div class="max-w-5xl mx-auto px-6 py-12">
+            
+            {#if programa === null}
+                <!-- Mensaje cuando no hay programa disponible -->
+                <div class="mb-8 rounded-lg bg-amber-50 border-2 border-amber-200 p-8">
                     <div class="flex items-start gap-4">
                         <div class="flex-shrink-0">
                             <BookOpen class="text-amber-600" size={32} />
@@ -71,80 +84,129 @@
                             </p>
                         </div>
                     </div>
-                </Card.Content>
-            </Card.Root>
-        {:else}
-            <!-- Información del programa -->
-            <Card.Root class="mb-8">
-                <Card.Content class="p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div>
-                            <p class="text-sm font-medium text-slate-500">Versión</p>
-                            <p class="text-lg font-semibold text-slate-900">{programa.version}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm font-medium text-slate-500">Preparado por</p>
-                            <p class="text-lg font-semibold text-slate-900">{programa.creado_por}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm font-medium text-slate-500">Fecha de Aprobación</p>
-                            <p class="text-lg font-semibold text-slate-900">
-                                {new Date(programa.fecha_creacion).toLocaleDateString('es-CL')}
-                            </p>
+                </div>
+            {:else}
+                <!-- Documento de Programa -->
+                <article class="prose prose-sm lg:prose-base max-w-none">
+                    
+                    <!-- Encabezado del Programa -->
+                    <div class="text-center mb-8 pb-6 border-b-2 border-slate-300">
+                        <h1 class="text-3xl font-bold text-slate-900 mb-2">PROGRAMA DE ASIGNATURA</h1>
+                        <h2 class="text-2xl font-semibold text-slate-700 mb-4">{curso.asignatura?.nombre}</h2>
+                        <div class="text-sm text-slate-600 space-y-1">
+                            <p><strong>Código:</strong> {curso.cod_curso}</p>
+                            <p><strong>Carrera:</strong> {curso.carrera?.nombre}</p>
                         </div>
                     </div>
-                </Card.Content>
-            </Card.Root>
 
-            <!-- Secciones del programa -->
-            <div class="space-y-6">
-                <h2 class="text-2xl font-bold text-slate-900 mb-4">Contenidos</h2>
-                
-                {#if programa.secciones && programa.secciones.length > 0}
-                    {#each programa.secciones as seccion, index}
-                        <Card.Root>
-                            <Card.Content class="p-6">
-                                <h3 class="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                                    <span class="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
-                                        {seccion.numeral_romano || index + 1}
-                                    </span>
-                                    {seccion.nombre_seccion}
-                                </h3>
+                    <!-- Secciones -->
+                    <div class="space-y-8">
+                        {#each programa.secciones as seccion}
+                            <section class="mb-8">
+                                <!-- Encabezado de sección -->
+                                <div class="mb-4">
+                                    <h3 class="text-xl font-bold text-slate-900 flex items-center gap-3">
+                                        <span class="text-slate-600">{seccion.numeral_romano}.</span>
+                                        <span>{seccion.nombre_seccion.toUpperCase()}</span>
+                                    </h3>
+                                    <div class="h-1 w-20 bg-blue-600 mt-2"></div>
+                                </div>
 
-                                {#if seccion.contenidos && seccion.contenidos.length > 0}
-                                    <div class="space-y-3">
-                                        {#each seccion.contenidos as contenido}
-                                            <div class="bg-slate-50 p-4 rounded border border-slate-200">
-                                                <p class="text-slate-700 whitespace-pre-wrap text-sm leading-relaxed">
-                                                    {contenido.texto_contenido || '(vacío)'}
-                                                </p>
-                                            </div>
-                                        {/each}
+                                <!-- Contenido por sección -->
+                                {#if seccion.numeral_romano === 'I'}
+                                    <!-- Sección I: Tabla de identificación -->
+                                    <div class="overflow-x-auto mb-6">
+                                        <table class="w-full border-collapse border border-slate-300">
+                                            <tbody>
+                                                {#each getContenidos(seccion) as contenido}
+                                                    {@const lines = contenido.texto_contenido.split('\n')}
+                                                    {#each lines as line}
+                                                        {@const [key, ...valueParts] = line.split(': ')}
+                                                        {#if key && valueParts.length > 0}
+                                                            <tr class="border border-slate-300">
+                                                                <td class="bg-blue-50 p-3 font-semibold text-slate-700 w-1/3 border border-slate-300">{key}</td>
+                                                                <td class="p-3 text-slate-700 border border-slate-300">{valueParts.join(': ')}</td>
+                                                            </tr>
+                                                        {/if}
+                                                    {/each}
+                                                {/each}
+                                            </tbody>
+                                        </table>
                                     </div>
-                                {:else}
-                                    <p class="text-slate-500 italic text-sm">Sin contenido especificado</p>
-                                {/if}
-                            </Card.Content>
-                        </Card.Root>
-                    {/each}
-                {:else}
-                    <div class="text-center py-12 bg-slate-50 rounded-lg border border-slate-200">
-                        <BookOpen class="mx-auto text-slate-400 mb-3" size={40} />
-                        <p class="text-slate-600">El programa no tiene contenido disponible</p>
-                    </div>
-                {/if}
-            </div>
-        {/if}
+                                {:else if seccion.numeral_romano === 'IX'}
+                                    <!-- Sección IX: Aspecto administrativo con tabla de componentes -->
+                                    {#each getContenidos(seccion) as contenido}
+                                        <div class="whitespace-pre-wrap text-slate-700 mb-6 leading-relaxed font-sans text-sm">
+                                            {contenido.texto_contenido}
+                                        </div>
+                                    {/each}
 
-        <!-- Botón volver -->
-        <div class="mt-8 flex justify-center">
-            <Link
-                href={`/estudiante/cursos/${curso.id_curso}`}
-                class="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
-            >
-                <Undo2 size={18} />
-                Volver al Curso
-            </Link>
+                                    {#if seccion.componentes && seccion.componentes.length > 0}
+                                        <div class="overflow-x-auto">
+                                            <table class="w-full border-collapse border border-slate-300">
+                                                <thead class="bg-blue-600 text-white">
+                                                    <tr>
+                                                        <th class="p-3 text-left border border-slate-300">Componente</th>
+                                                        <th class="p-3 text-center border border-slate-300">Genera Acta</th>
+                                                        <th class="p-3 text-center border border-slate-300">Porcentaje</th>
+                                                        <th class="p-3 text-center border border-slate-300">Aprobación Obligatoria</th>
+                                                        <th class="p-3 text-center border border-slate-300">Asistencia Obligatoria</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {#each seccion.componentes as comp, idx}
+                                                        <tr class="border border-slate-300 {idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}">
+                                                            <td class="p-3 border border-slate-300 font-medium text-slate-700">{comp.componente}</td>
+                                                            <td class="p-3 text-center border border-slate-300">{comp.genera_acta ? 'Sí' : 'No'}</td>
+                                                            <td class="p-3 text-center border border-slate-300">{comp.porcentaje}%</td>
+                                                            <td class="p-3 text-center border border-slate-300">{comp.aprobacion_obligatoria ? 'Sí' : 'No'}</td>
+                                                            <td class="p-3 text-center border border-slate-300">{comp.asistencia_obligatoria}%</td>
+                                                        </tr>
+                                                    {/each}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {#if seccion.ponderacion_optativa}
+                                            <div class="mt-4 p-4 bg-amber-50 border-l-4 border-amber-500 rounded">
+                                                <p class="font-semibold text-amber-900 mb-1">Ponderación Prueba Optativa</p>
+                                                <p class="text-amber-800 text-lg font-bold">{seccion.ponderacion_optativa.porcentaje || 0}%</p>
+                                            </div>
+                                        {/if}
+                                    {/if}
+                                {:else}
+                                    <!-- Resto de secciones: contenido formateado -->
+                                    {#each getContenidos(seccion) as contenido}
+                                        <div class="whitespace-pre-wrap text-slate-700 mb-6 leading-relaxed font-sans text-sm">
+                                            {contenido.texto_contenido}
+                                        </div>
+                                    {/each}
+                                {/if}
+                            </section>
+                        {/each}
+                    </div>
+
+                    <!-- Pie de página con información del documento -->
+                    <div class="mt-12 pt-6 border-t border-slate-300 text-xs text-slate-600 space-y-1">
+                        <p><strong>Versión:</strong> {programa.version}</p>
+                        <p><strong>Preparado por:</strong> {programa.creado_por || 'N/A'}</p>
+                        <p><strong>Fecha de Aprobación:</strong> {formatDate(programa.fecha_creacion)}</p>
+                    </div>
+
+                </article>
+            {/if}
+
+            <!-- Botón volver -->
+            <div class="mt-12 flex justify-center pt-6 border-t border-slate-200">
+                <Link
+                    href={`/estudiante/cursos/${curso.id_curso}`}
+                    class="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                >
+                    <Undo2 size={18} />
+                    Volver al Curso
+                </Link>
+            </div>
+
         </div>
     </div>
 </StudentLayout>

@@ -96,6 +96,7 @@ enum Permissions: string
     case CURSOS_PROGRAMAS_VER = 'cursos/programas:ver';
     case CURSOS_PROGRAMAS_AGREGAR = 'cursos/programas:agregar';
     case CURSOS_PROGRAMAS_ELIMINAR = 'cursos/programas:eliminar';
+    case CURSOS_PROGRAMAS_ALL = 'cursos/programas:*';
     case CURSOS_PROGRAMAS_MODIFICAR_MODULO_1 = 'cursos/programas/modificar:modulo_1';
     case CURSOS_PROGRAMAS_MODIFICAR_MODULO_2 = 'cursos/programas/modificar:modulo_2';
     case CURSOS_PROGRAMAS_MODIFICAR_MODULO_3 = 'cursos/programas/modificar:modulo_3';
@@ -105,4 +106,45 @@ enum Permissions: string
     case CURSOS_PROGRAMAS_MODIFICAR_MODULO_7 = 'cursos/programas/modificar:modulo_7';
     case CURSOS_PROGRAMAS_MODIFICAR_MODULO_8 = 'cursos/programas/modificar:modulo_8';
     case CURSOS_PROGRAMAS_MODIFICAR_MODULO_9 = 'cursos/programas/modificar:modulo_9';
+
+    /**
+     * Convert a permission slug to an enum case, handling wildcards.
+     * 
+     * - If slug is '*', returns GLOBAL_WILDCARD
+     * - If slug contains '*' (like 'cursos/programas:*'), returns all matching cases
+     * - Otherwise, attempts standard from() conversion
+     * 
+     * @param string $slug The permission slug
+     * @return array<self>|self The matching permission case(s)
+     * @throws \ValueError If slug is not found and doesn't match any pattern
+     */
+    public static function fromSlug(string $slug): array|self
+    {
+        // Handle global wildcard
+        if ($slug === '*') {
+            return self::GLOBAL_WILDCARD;
+        }
+
+        // Handle resource-level wildcards (e.g., 'cursos/programas:*')
+        if (str_contains($slug, '*')) {
+            $pattern = rtrim($slug, ':*');
+            $matches = [];
+            
+            foreach (self::cases() as $case) {
+                if (str_starts_with($case->value, $pattern)) {
+                    $matches[] = $case;
+                }
+            }
+            
+            // If no matches found, return global wildcard as fallback
+            if (empty($matches)) {
+                return self::GLOBAL_WILDCARD;
+            }
+            
+            return $matches;
+        }
+
+        // Standard enum conversion for specific slugs
+        return self::from($slug);
+    }
 }

@@ -18,10 +18,12 @@ class ProgramaService
 {
     /**
      * Genera un programa con estructura JSONB completa para un curso
+     * Soporta dos tipos: BASICO y COMPLETO
      * 
      * Rellena:
      * - Atributos de tabla (version, estado, creado_por, etc)
      * - data_syllabus con estructura completa (metadata + secciones)
+     * - tipo_syllabus en metadata (BASICO o COMPLETO)
      */
     public static function generateProgramaWithSyllabus(
         Curso $curso,
@@ -29,8 +31,10 @@ class ProgramaService
         ?array $overrides = null
     ): Programa {
         $createdBy = $createdBy ?? Auth::user();
+        $tipoSyllabus = $overrides['tipo_syllabus'] ?? 'BASICO';
+        $estadoInicial = $overrides['estado'] ?? ($tipoSyllabus === 'BASICO' ? 'BASICO_COMPLETO' : 'COMPLETO');
 
-        return DB::transaction(function () use ($curso, $createdBy, $overrides) {
+        return DB::transaction(function () use ($curso, $createdBy, $overrides, $tipoSyllabus, $estadoInicial) {
             // Marcar programa anterior como no actual si existe
             $existing = Programa::where('id_curso', $curso->id_curso)
                 ->where('es_actual', true)
@@ -45,6 +49,9 @@ class ProgramaService
 
             // Construir estructura JSONB base
             $syllabus = SyllabusStructure::for($curso);
+            
+            // Agregar tipo_syllabus a metadata
+            $syllabus['metadata']['tipo_syllabus'] = $tipoSyllabus;
 
             // Aplicar overrides si se proporcionan (ej: secciones customizadas)
             if ($overrides && isset($overrides['secciones'])) {
@@ -56,7 +63,7 @@ class ProgramaService
             $programa = Programa::create([
                 'id_curso' => $curso->id_curso,
                 'version_programa' => $newVersion,
-                'estado' => 'ABIERTO',
+                'estado' => $estadoInicial,
                 'data_syllabus' => $syllabus,
                 'creado_por' => $createdBy->id_usuario,
                 'es_actual' => true,
@@ -115,9 +122,70 @@ class ProgramaService
     }
 
     /**
-     * Actualiza una sección específica
+     * Actualiza una sección específica por ID (I, II, III, etc.)
+     * 
+     * Implementa lógica de conversión automática:
+     * - Si estado es BASICO_COMPLETO y se agrega sección III/IV/V/IX
+     * - Cambia automáticamente a COMPLETO
+     * 
+     * @param Programa $programa
+     * @param string $seccionId (I, II, III, IV, V, VI, VII, VIII, IX)
+     * @param array $contenido
+     * @param bool $triggerConversion (flag para conversión automática)
+     * @return Programa
      */
     public static function updateSeccion(
+        Programa $programa,
+        string $seccionId,
+        array $contenido,
+        bool $triggerConversion = false
+    ): Programa {
+        return DB::transaction(function () use ($programa, $seccionId, $contenido, $triggerConversion) {
+            $data = $programa->data_syllabus ?? [];
+            $secciones = $data['secciones'] ?? [];
+
+            // Encontrar y actualizar la sección por ID
+            $found = false;
+            foreach ($secciones as &$seccion) {
+                if ($seccion['id'] === $seccionId) {
+                    $seccion['contenido'] = $contenido;
+                    $seccion['ultima_modificacion'] = now()->toIso8601String();
+                    $found = true;
+                    break;
+                }
+            }
+
+            if (!$found) {
+                throw new \Exception("Sección {$seccionId} no encontrada en la estructura del programa");
+            }
+
+            $data['secciones'] = $secciones;
+            $data['timestamp'] = now()->toIso8601String();
+
+            // Determinar si realizar conversión automática
+            $updates = [
+                'data_syllabus' => $data,
+                'fecha_modificacion' => now(),
+            ];
+
+            // Lógica de conversión: BASICO -> COMPLETO
+            if ($triggerConversion && $programa->isBasicoCompleto() && $programa->isBasico()) {
+                // Cambiar tipo_syllabus a COMPLETO
+                $data['metadata']['tipo_syllabus'] = 'COMPLETO';
+                $updates['data_syllabus'] = $data;
+                $updates['estado'] = 'COMPLETO';  // Cambiar estado también
+            }
+
+            $programa->update($updates);
+
+            return $programa->fresh();
+        });
+    }
+
+    /**
+     * Actualiza una sección específica por orden (antiguo método - mantener para compatibilidad)
+     */
+    public static function updateSeccionByOrden(
         Programa $programa,
         int $orden,
         array $contenidos
@@ -171,12 +239,13 @@ class ProgramaService
 
     /**
      * Cambia el estado del programa
+     * Estados válidos: BASICO_COMPLETO, COMPLETO, APROBADO, PUBLICADO
      */
     public static function changeStatus(
         Programa $programa,
         string $newStatus
     ): Programa {
-        $validStatuses = ['ABIERTO', 'EN_REVISION', 'APROBADO', 'PUBLICADO'];
+        $validStatuses = ['BASICO_COMPLETO', 'COMPLETO', 'APROBADO', 'PUBLICADO'];
 
         if (!in_array($newStatus, $validStatuses)) {
             throw new \InvalidArgumentException(
@@ -184,7 +253,64 @@ class ProgramaService
             );
         }
 
-        return tap($programa)->update(['estado' => $newStatus]);
+        $programa->update(['estado' => $newStatus]);
+        return $programa->fresh();
+    }
+
+    /**
+     * Obtiene las secciones requeridas según el tipo de syllabus
+     * 
+     * @param Programa $programa
+     * @return array
+     */
+    public static function getRequiredSecciones(Programa $programa): array
+    {
+        $tipoSyllabus = $programa->getTipoSyllabus();
+        
+        return $tipoSyllabus === 'BASICO'
+            ? ['I', 'II', 'VI', 'VII', 'VIII']
+            : ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+    }
+
+    /**
+     * Valida si el programa tiene todas las secciones requeridas con contenido
+     * 
+     * @param Programa $programa
+     * @return bool
+     */
+    public static function isComplete(Programa $programa): bool
+    {
+        $secciones = self::getSecciones($programa);
+        $required = self::getRequiredSecciones($programa);
+
+        foreach ($required as $seccionId) {
+            if (!isset($secciones[$seccionId]) || empty($secciones[$seccionId]['contenido'])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Calcula el porcentaje de completitud según secciones requeridas
+     * 
+     * @param Programa $programa
+     * @return int (0-100)
+     */
+    public static function calculateCompletenessPercentage(Programa $programa): int
+    {
+        $secciones = self::getSecciones($programa);
+        $required = self::getRequiredSecciones($programa);
+        $completed = 0;
+
+        foreach ($required as $seccionId) {
+            if (isset($secciones[$seccionId]) && !empty($secciones[$seccionId]['contenido'])) {
+                $completed++;
+            }
+        }
+
+        return count($required) > 0 ? (int)(($completed / count($required)) * 100) : 0;
     }
 
     /**
@@ -198,7 +324,9 @@ class ProgramaService
             'programa_id' => $programa->id_programa,
             'version' => $programa->version_programa,
             'estado' => $programa->estado,
+            'tipo_syllabus' => $programa->getTipoSyllabus(),
             'fecha_creacion' => $programa->fecha_creacion,
+            'completud' => self::calculateCompletenessPercentage($programa),
             'metadata' => $data['metadata'] ?? [],
             'secciones' => $data['secciones'] ?? [],
         ];

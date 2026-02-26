@@ -78,6 +78,31 @@ class ProgramaPolicy extends BaseProgramaPolicy
     }
 
     /**
+     * Verifica si el usuario puede ver el programa de un curso
+     * Usado por el controlador para autorizar la vista inicial
+     * 
+     * Acepta un Curso en lugar de un Programa (para vistas sin programa creado aún)
+     * 
+     * @param Usuario $user Usuario intentando ver
+     * @param mixed $curso Curso model
+     * @return bool
+     */
+    public function viewPrograma(Usuario $user, $curso): bool
+    {
+        // Administrador siempre puede ver
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
+        // Docente asignado al curso puede ver su programa
+        if ($this->isAssignedDocenteToCurso($user, $curso)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Sobrescribir view para añadir validación de docente asignado
      */
     public function view(Usuario $user, Programa $model): bool
@@ -168,6 +193,11 @@ class ProgramaPolicy extends BaseProgramaPolicy
             return true;
         }
 
+        // **Ayudante NO puede crear programas** (solo puede editar si autorizado)
+        if ($user->isAyudante()) {
+            return false;
+        }
+
         // Para docentes: debe estar asignado al curso Y tener permiso para crear
         if ($parent && $this->isAssignedDocenteToCurso($user, $parent)) {
             // Validar que tiene el permiso específico para crear programas en este curso
@@ -175,9 +205,15 @@ class ProgramaPolicy extends BaseProgramaPolicy
             $contextId = $parent->id_contexto;
             
             // Validar permisos via el validador
+            $permissionSlug = $this->buildPermissionSlug($this->resource, 'crear');
+            $permissionEnum = \App\Support\Permissions::fromSlug($permissionSlug);
+            
+            // If fromSlug returns an array (wildcard match), use the first case
+            $permissionEnum = is_array($permissionEnum) ? $permissionEnum[0] : $permissionEnum;
+            
             if ($this->validator()->validate(
                 $user, 
-                $this->buildPermissionSlug($this->resource, 'crear'), 
+                $permissionEnum, 
                 null, 
                 $contextId
             )) {
@@ -196,6 +232,11 @@ class ProgramaPolicy extends BaseProgramaPolicy
      * Método custom para hook adicional si es necesario
      * Se ejecuta después de la validación base
      */
+    protected function customCreate(Usuario $user, $parent = null): bool
+    {
+        return false;
+    }
+
     protected function customView(Usuario $user, $model): bool
     {
         return false;
@@ -214,40 +255,31 @@ class ProgramaPolicy extends BaseProgramaPolicy
     /**
      * Determina si el usuario puede aprobar un programa.
      * 
-     * Solo administradores y jefes de carrera pueden aprobar.
+     * **SOLO administradores pueden aprobar.**
+     * Ni docentes ni jefes de carrera pueden aprobar programas.
      */
     public function approve(Usuario $user, Programa $model): bool
     {
-        // Administrador siempre puede aprobar
-        if ($this->isAdmin($user)) {
-            return true;
-        }
-
-        // Jefe de carrera puede aprobar
+        // Solo administradores pueden aprobar
         return $user->rolesAsignados()
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
-            ->whereIn('nombre', ['Jefe de Carrera', 'Coordinador de Carrera'])
+            ->whereIn('nombre', ['Administrador', 'SuperAdmin', 'Super Admin', 'Admin'])
             ->exists();
     }
 
     /**
      * Determina si el usuario puede rechazar un programa.
      * 
-     * Solo administradores y jefes de carrera pueden rechazar.
+     * **SOLO administradores pueden rechazar.**
      */
     public function reject(Usuario $user, Programa $model): bool
     {
-        // Administrador siempre puede rechazar
-        if ($this->isAdmin($user)) {
-            return true;
-        }
-
-        // Jefe de carrera puede rechazar
+        // Solo administradores pueden rechazar
         return $user->rolesAsignados()
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
-            ->whereIn('nombre', ['Jefe de Carrera', 'Coordinador de Carrera'])
+            ->whereIn('nombre', ['Administrador', 'SuperAdmin', 'Super Admin', 'Admin'])
             ->exists();
     }
 }

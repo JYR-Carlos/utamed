@@ -31,7 +31,8 @@ class DebugContexts extends Command
             ->get();
 
         foreach ($globales as $ctx) {
-            $this->line("  ID: {$ctx->id_contexto} | Nombre: {$ctx->nombre ?? 'N/A'}");
+            $nombre = $ctx->nombre ?? 'N/A';
+            $this->line("  ID: {$ctx->id_contexto} | Nombre: {$nombre}");
         }
 
         // 2. Contextos de cursos
@@ -50,8 +51,9 @@ class DebugContexts extends Command
                 ->where('id_contexto', $curso->id_contexto)
                 ->first();
             
+            $nombreContexto = $contexto?->nombre ?? 'N/A';
             $this->line("  Curso ID: {$curso->id_curso} | {$curso->nombre}");
-            $this->line("    └─ Contexto ID: {$curso->id_contexto} | {$contexto?->nombre ?? 'N/A'}");
+            $this->line("    └─ Contexto ID: {$curso->id_contexto} | {$nombreContexto}");
         }
 
         // 3. Permisos especiales del usuario 4 por contexto
@@ -69,8 +71,8 @@ class DebugContexts extends Command
 
         foreach ($agrupados as $ctxId => $perms) {
             $contexto = DB::table('contexto')->where('id_contexto', $ctxId)->first();
-            $this->line("  Contexto ID: {$ctxId} | {$contexto?->nombre ?? 'N/A'}");
-            
+            $nombreContexto = $contexto?->nombre ?? 'N/A';
+            $this->line("  Contexto ID: {$ctxId} | {$nombreContexto}");
             foreach ($perms as $p) {
                 $estado = $p->esta_permitido ? "✅" : "❌";
                 $this->line("    {$estado} {$p->slug}");

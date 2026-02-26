@@ -29,6 +29,8 @@
     let isLoading = $state(false);
     let permissionError = $state<string | null>(null);
 
+    console.log('📄 Programa.svelte - programa recibido:', programa);
+
     function closeSyllabusModal() {
         isSyllabusModalOpen = false;
     }

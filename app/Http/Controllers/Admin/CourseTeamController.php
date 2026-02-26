@@ -243,7 +243,7 @@ class CourseTeamController extends Controller
 
         // ✅ FIXED: Query directly to UsuarioPermisoEspecial table to get special permissions
         // WITH correct schema qualification for PostgreSQL
-        $special = \App\Models\Usuario\UsuarioPermisoEspecial::where('usuario.usuario_permiso_especial.id_usuario', $usuario->id_usuario)
+        $special = UsuarioPermisoEspecial::where('usuario.usuario_permiso_especial.id_usuario', $usuario->id_usuario)
             ->where('usuario.usuario_permiso_especial.id_contexto', $idContexto)
             ->where('usuario.usuario_permiso_especial.esta_activo', true)
             ->where('usuario.usuario_permiso_especial.fue_borrado', false)
@@ -319,12 +319,14 @@ class CourseTeamController extends Controller
         }
 
         // Transform special permissions to include only necessary fields
+        // Return them as-is from the database (no consolidation)
         $specialPermissionsFormatted = $special->map(function ($perm) {
             return [
                 'id_permiso' => $perm->id_permiso,
                 'esta_permitido' => $perm->esta_permitido,
-                'puede_delegar' => $perm->puede_delegar,
-                'source' => 'special'  // Indica que es UPE
+                'puede_delegar' => (bool) $perm->puede_delegar,  // Convert to boolean for frontend
+                'can_delegate' => (bool) $perm->puede_delegar,  // Alias for frontend (PermissionsModal.svelte uses this name)
+                'source' => 'special'  // Indicates it comes from special permissions (UPE)
             ];
         })->values();
 
@@ -333,15 +335,25 @@ class CourseTeamController extends Controller
             return [
                 'id_permiso' => $perm->id_permiso,
                 'esta_permitido' => true,  // Role permissions are always allowed
-                'puede_delegar' => $perm->pivot?->puede_delegar_permisos ?? false,
+                'puede_delegar' => (bool) ($perm->pivot?->puede_delegar_permisos ?? false),
+                'can_delegate' => (bool) ($perm->pivot?->puede_delegar_permisos ?? false),  // Alias for frontend
                 'source' => 'role'  // Indicates it comes from a role, not directly editable
             ];
         })->values();
 
-        // Merge, but avoid duplicates (UPE overrides role)
+        // Merge, but avoid duplicates (UPE/special overrides role)
         $allPermissions = $specialPermissionsFormatted->concat($rolePermissionsFormatted)
             ->unique('id_permiso')  // Keep UPE if exists, discard role equivalent
             ->values();
+
+        Log::info('📤 getMemberPermissions response:', [
+            'user_id' => $usuario->id_usuario,
+            'context_id' => $idContexto,
+            'special_permissions_count' => $specialPermissionsFormatted->count(),
+            'special_permission_ids' => $specialPermissionsFormatted->pluck('id_permiso')->toArray(),
+            'all_permissions_count' => $allPermissions->count(),
+            'all_permission_ids' => $allPermissions->pluck('id_permiso')->toArray(),
+        ]);
 
         return response()->json([
             'roles' => $roles,
@@ -367,13 +379,6 @@ class CourseTeamController extends Controller
     public function syncMemberPermissions(Request $request, Curso $curso, Usuario $usuario)
     {
         $this->authorize('manageTeam', $curso);
-
-        Log::info('📥 syncMemberPermissions request:', [
-            'id_curso' => $curso->id_curso,
-            'id_usuario' => $usuario->id_usuario,
-            'roles' => $request->input('roles'),
-            'special_permissions' => $request->input('special_permissions'),
-        ]);
 
         $validated = $request->validate([
             'roles' => 'array',
@@ -452,7 +457,7 @@ class CourseTeamController extends Controller
 
                 // 2. Sync Special Permissions
                 // First, deactivate all existing permissions for this user in this context
-                \App\Models\Usuario\UsuarioPermisoEspecial::where('id_usuario', $usuario->id_usuario)
+                UsuarioPermisoEspecial::where('id_usuario', $usuario->id_usuario)
                     ->where('id_contexto', $idContexto)
                     ->where('esta_activo', true)
                     ->where('fue_borrado', false)
@@ -471,46 +476,76 @@ class CourseTeamController extends Controller
                     $allowed = $isObject ? ($status['allowed'] ?? null) : $status;
                     $canDelegate = $isObject ? ($status['can_delegate'] ?? false) : false;
 
-                    Log::info('Processing permission:', [
-                        'permId' => $permId,
-                        'allowed' => $allowed,
-                        'can_delegate' => $canDelegate,
-                        'is_delegable' => in_array($permId, $delegablePermIds),
-                        'delegablePermIds' => $delegablePermIds
-                    ]);
-
                     // Only sync delegable permissions (security check)
                     if (in_array($permId, $delegablePermIds)) {
                         // Skip if permission is set to null (inherit) - don't create UPE
                         if ($allowed === null) {
-                            Log::info("Skipping permission $permId - set to null (inherit)");
                             continue;
                         }
 
                         $permiso = \App\Models\Usuario\Permiso::findOrFail($permId);
                         $durationDays = $status['duration_days'] ?? 365;
                         
-                        Log::info("Creating/updating permission $permId for user {$usuario->id_usuario}", [
-                            'allowed' => $allowed,
-                            'can_delegate' => $canDelegate,
-                            'duration_days' => $durationDays
-                        ]);
-                        
-                        $builder = $usuario->givePermission($permiso)
-                            ->on($curso)       // ← Curso implementa HasOwnedContext
-                            ->for($durationDays);
-                        
-                        if ($canDelegate) {
-                            $builder->canDelegate();
+                        try {
+                            // Get the permission enum case - use ONLY the direct permission, don't expand wildcards
+                            // This way, if user assigns programas:* (ID 64), we save ID 64, not all its expanded components
+                            $permissionEnumOrArray = \App\Support\Permissions::fromSlug($permiso->slug);
+                            
+                            // If it returns an array (multiple matching cases), find the one that matches permId exactly
+                            $permissionEnum = $permissionEnumOrArray;
+                            if (is_array($permissionEnumOrArray)) {
+                                // Search for the exact permission case that corresponds to $permId
+                                $matchedCase = null;
+                                foreach ($permissionEnumOrArray as $case) {
+                                    // Find permission in DB by enum value to get its ID
+                                    $foundPerm = \App\Models\Usuario\Permiso::where('slug', $case->value)->first();
+                                    
+                                    if ($foundPerm && $foundPerm->id_permiso === $permId) {
+                                        $matchedCase = $case;
+                                        break;
+                                    }
+                                }
+                                
+                                // If we found an exact match, use it
+                                // Otherwise fall back to the original enum we loaded
+                                if ($matchedCase) {
+                                    $permissionEnum = $matchedCase;
+                                } else {
+                                    // Shouldn't happen but fallback to from() for specific slug
+                                    $permissionEnum = \App\Support\Permissions::from($permiso->slug);
+                                }
+                            }
+                            
+                            try {
+                                $builder = $usuario->givePermission($permissionEnum)
+                                    ->on($curso)       // ← Curso implementa HasOwnedContext
+                                    ->for($durationDays);
+                                
+                                if ($canDelegate) {
+                                    $builder->canDelegate();
+                                }
+                                
+                                if ($allowed === false) {
+                                    $builder->revoke();
+                                }
+                                
+                                $builder->save();
+                            } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+                                Log::warning("Permission enum case not found in database: {$permissionEnum->value}", [
+                                    'enum_case' => $permissionEnum->name,
+                                    'error' => $e->getMessage()
+                                ]);
+                                // Skip this permission and continue with others
+                                continue;
+                            }
+                        } catch (\ValueError $e) {
+                            Log::error("Invalid permission slug: {$permiso->slug}", [
+                                'error' => $e->getMessage(),
+                                'permId' => $permId
+                            ]);
+                            // Skip this permission and continue with others
+                            continue;
                         }
-                        
-                        if ($allowed === false) {
-                            $builder->revoke();
-                        }
-                        
-                        $builder->save();
-                    } else {
-                        Log::warning("Permission $permId not in delegable list for this user");
                     }
                 }
             });

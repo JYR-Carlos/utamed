@@ -28,6 +28,37 @@ use Illuminate\Support\Facades\DB;
 class SeccionController extends Controller
 {
     /**
+     * Obtiene todas las secciones de un curso.
+     * 
+     * Retorna JSON con los datos de porcentaje de aprobación, asistencia obligatoria, etc.
+     * para llenar el wizard de Sección IX (Aspectos Administrativos).
+     * 
+     * @param  Curso  $curso  Curso cuyas secciones se solicitan
+     * @return \Illuminate\Http\JsonResponse  JSON con array de secciones
+     */
+    public function indexByCurso(Curso $curso)
+    {
+        $secciones = Seccion::where('id_curso', $curso->id_curso)
+            ->with(['tipoSeccion', 'docente.usuario'])
+            ->get();
+
+        $componentes = $secciones->map(function ($seccion) {
+            return [
+                'componente' => $seccion->tipoSeccion?->tipo ?? 'Sección',
+                'porcentaje' => $seccion->porcentaje_aprobacion ?? 0,
+                'genera_acta' => (bool) $seccion->genera_acta,
+                'aprobacion_obligatoria' => (bool) $seccion->aprobacion_obligatoria,
+                'asistencia_obligatoria' => $seccion->porcentaje_asistencia_obligatoria ?? 0,
+            ];
+        })->toArray();
+
+        return response()->json([
+            'secciones' => $componentes,
+            'total' => count($componentes),
+        ]);
+    }
+
+    /**
      * Crea una nueva sección para un curso específico.
      * 
      * Valida reglas de negocio: máximo 2 secciones por curso, sin duplicar tipos.

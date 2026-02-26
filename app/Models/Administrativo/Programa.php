@@ -88,23 +88,53 @@ class Programa extends BasePrograma
     }
 
     /**
-     * Check if programa is open for editing
+     * Get tipo_syllabus from metadata
      * 
-     * @return bool
+     * @return string|null (BASICO or COMPLETO)
      */
-    public function isOpen(): bool
+    public function getTipoSyllabus(): ?string
     {
-        return $this->estado === 'ABIERTO';
+        return $this->data_syllabus['metadata']['tipo_syllabus'] ?? null;
     }
 
     /**
-     * Check if programa is under review
+     * Check if programa is basic type
      * 
      * @return bool
      */
-    public function isUnderReview(): bool
+    public function isBasico(): bool
     {
-        return $this->estado === 'EN_REVISION';
+        return $this->getTipoSyllabus() === 'BASICO';
+    }
+
+    /**
+     * Check if programa is complete type
+     * 
+     * @return bool
+     */
+    public function isCompleto(): bool
+    {
+        return $this->getTipoSyllabus() === 'COMPLETO';
+    }
+
+    /**
+     * Check if programa is basic and complete
+     * 
+     * @return bool
+     */
+    public function isBasicoCompleto(): bool
+    {
+        return $this->estado === 'BASICO_COMPLETO';
+    }
+
+    /**
+     * Check if programa is complete version
+     * 
+     * @return bool
+     */
+    public function isCompletoState(): bool
+    {
+        return $this->estado === 'COMPLETO';
     }
 
     /**
@@ -125,5 +155,66 @@ class Programa extends BasePrograma
     public function isPublished(): bool
     {
         return $this->estado === 'PUBLICADO';
+    }
+
+    /**
+     * Check if programa can be edited
+     * 
+     * @return bool
+     */
+    public function isEditable(): bool
+    {
+        return in_array($this->estado, ['BASICO_COMPLETO', 'COMPLETO']);
+    }
+
+    /**
+     * Get required sections based on tipo_syllabus
+     * 
+     * @return array
+     */
+    public function getRequiredSecciones(): array
+    {
+        return $this->getTipoSyllabus() === 'BASICO' 
+            ? ['I', 'II', 'VI', 'VII', 'VIII']
+            : ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+    }
+
+    /**
+     * Check if programa has all required sections with content
+     * 
+     * @return bool
+     */
+    public function isCompleteWithAllSections(): bool
+    {
+        $secciones = $this->getSecciones();
+        $required = $this->getRequiredSecciones();
+        
+        foreach ($required as $seccionId) {
+            if (!isset($secciones[$seccionId]) || empty($secciones[$seccionId]['contenido'])) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    /**
+     * Calculate completeness percentage based on required sections
+     * 
+     * @return int (0-100)
+     */
+    public function getCompletenessPercentage(): int
+    {
+        $secciones = $this->getSecciones();
+        $required = $this->getRequiredSecciones();
+        $completed = 0;
+        
+        foreach ($required as $seccionId) {
+            if (isset($secciones[$seccionId]) && !empty($secciones[$seccionId]['contenido'])) {
+                $completed++;
+            }
+        }
+        
+        return count($required) > 0 ? (int)(($completed / count($required)) * 100) : 0;
     }
 }

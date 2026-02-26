@@ -673,7 +673,7 @@ class UsuarioController extends Controller
             ->values();
 
         // Get available permissions (for admin, return all)
-        $availablePermissions = \App\Models\Usuario\Permiso::all()
+        $availablePermissions = Permiso::all()
             ->map(fn($p) => [
                 'id_permiso' => $p->id_permiso,
                 'slug' => $p->slug,
@@ -863,7 +863,7 @@ class UsuarioController extends Controller
         }
 
         $admin = $usuario;
-        $globalContextId = app(\App\Services\Authorization\GlobalContextService::class)->getContextId();
+        $globalContextId = app(GlobalContextService::class)->getContextId();
         
         $admin->giveRole($rol)
             ->inContext($globalContextId)
