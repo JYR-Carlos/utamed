@@ -28,15 +28,23 @@ enum Permissions: string
 
     // CARRERAS
     case CARRERAS_ALL = 'carreras:*';
-    case CARRERAS_CREAR = 'carreras:crear';
     case CARRERAS_EDITAR = 'carreras:editar';
     case CARRERAS_ELIMINAR = 'carreras:eliminar';
     case CARRERAS_VER = 'carreras:ver';
 
+    // CARRERAS > PLANES
+    case CARRERAS_PLANES_ALL = 'carreras/planes:*';
+    case CARRERAS_PLANES_ASIGNACION_ASIGNATURAS = 'carreras/planes:asignacion_asignaturas';
+    case CARRERAS_PLANES_EDITAR = 'carreras/planes:editar';
+    case CARRERAS_PLANES_ELIMINAR = 'carreras/planes:eliminar';
+
+    // CARRERAS > PLANES > VER
+    case CARRERAS_PLANES_VER_ALL = 'carreras/planes/ver:*';
+    case CARRERAS_PLANES_VER_VER_DETALLES = 'carreras/planes/ver:ver_detalles';
+    case CARRERAS_PLANES_VER_VER_MALLA = 'carreras/planes/ver:ver_malla';
+
     // CURSOS
     case CURSOS_ALL = 'cursos:*';
-    case CURSOS_CREAR = 'cursos:crear';
-    case CURSOS_CREAR_PLANTILLA = 'cursos:crear_plantilla';
     case CURSOS_EDITAR = 'cursos:editar';
     case CURSOS_ELIMINAR = 'cursos:eliminar';
     case CURSOS_VER = 'cursos:ver';
@@ -114,18 +122,6 @@ enum Permissions: string
     case FACULTADES_EDITAR = 'facultades:editar';
     case FACULTADES_ELIMINAR = 'facultades:eliminar';
     case FACULTADES_VER = 'facultades:ver';
-
-    // PLANES
-    case PLANES_ALL = 'planes:*';
-    case PLANES_ASIGNACION_ASIGNATURAS = 'planes:asignacion_asignaturas';
-    case PLANES_CREAR = 'planes:crear';
-    case PLANES_EDITAR = 'planes:editar';
-    case PLANES_ELIMINAR = 'planes:eliminar';
-
-    // PLANES > VER
-    case PLANES_VER_ALL = 'planes/ver:*';
-    case PLANES_VER_VER_DETALLES = 'planes/ver:ver_detalles';
-    case PLANES_VER_VER_MALLA = 'planes/ver:ver_malla';
 
     // USUARIOS
     case USUARIOS_ALL = 'usuarios:*';

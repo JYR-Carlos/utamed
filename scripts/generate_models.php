@@ -3272,3 +3272,113 @@ if (!$dryRun) {
 }
 
 echo "\n";
+
+// ==================================================================================
+// GENERAR config/permission-context-metadata.php
+// ==================================================================================
+//
+// Lee scripts/permissions_config.php y genera un mapa plano:
+//   slug_de_permiso => [tipos_de_contexto_validos...]
+//
+// Reglas de resolución (aplicadas con recorsión del árbol):
+//   _valid_contexts       (en el nodo o ancestro) → contexto "propio"
+//   _valid_parent_context (en el nodo)            → contexto del padre para _parent_actions
+//   _actions              → ['GLOBAL', ownCtx]    o ['GLOBAL'] si no hay ownCtx
+//   _parent_actions       → ['GLOBAL', parentCtx] o ['GLOBAL'] si no hay parentCtx
+//   :* wildcards          → generados automáticamente por cada nodo con acciones
+//
+// REGENERACIÓN: El archivo SE SOBRESCRIBE en cada ejecución.
+// ==================================================================================
+
+echo color("Generando permission-context-metadata.php...\n", 'bold');
+
+$pcmOutPath = config_path('permission-context-metadata.php');
+
+if (empty($permDefs)) {
+  echo color("  \u26a0 \$permDefs no disponible \u2014 asegúrate de ejecutar PASO 9 (Permissions.php) antes\n", 'yellow');
+} else {
+  $flattenContexts = function (array $node, string $path, ?string $inheritedOwnCtx = null) use (&$flattenContexts): array {
+    $result = [];
+
+    $ownCtx = isset($node['_valid_contexts'])
+      ? strtoupper($node['_valid_contexts'])
+      : $inheritedOwnCtx;
+    $parentCtx = isset($node['_valid_parent_context'])
+      ? strtoupper($node['_valid_parent_context'])
+      : null;
+
+    $hasActions = !empty($node['_actions']) || !empty($node['_parent_actions']);
+
+    // Wildcard :* para este nivel (usa el contexto propio)
+    if ($hasActions) {
+      $result["{$path}:*"] = $ownCtx ? ['GLOBAL', $ownCtx] : ['GLOBAL'];
+    }
+
+    // _actions → contexto propio (o heredado)
+    foreach ($node['_actions'] ?? [] as $action) {
+      $result["{$path}:{$action}"] = $ownCtx ? ['GLOBAL', $ownCtx] : ['GLOBAL'];
+    }
+
+    // _parent_actions → contexto padre explícito
+    foreach ($node['_parent_actions'] ?? [] as $action) {
+      $result["{$path}:{$action}"] = $parentCtx ? ['GLOBAL', $parentCtx] : ['GLOBAL'];
+    }
+
+    // Recursión: subnodos heredan ownCtx
+    foreach ($node as $key => $value) {
+      if ($key[0] === '_' || !is_array($value))
+        continue;
+      $childPath = "{$path}/{$key}";
+      $result = array_merge($result, $flattenContexts($value, $childPath, $ownCtx));
+    }
+
+    return $result;
+  };
+
+  $allPermContexts = [];
+  foreach ($permDefs as $root => $groupDef) {
+    if (!is_array($groupDef))
+      continue;
+    $allPermContexts = array_merge($allPermContexts, $flattenContexts($groupDef, $root));
+  }
+  // Wildcard global
+  $allPermContexts['*'] = ['GLOBAL'];
+
+  // Construir entradas del array PHP
+  $pcmEntries = '';
+  foreach ($allPermContexts as $slug => $contexts) {
+    $ctxList = "'" . implode("', '", $contexts) . "'";
+    $pcmEntries .= "{$tab}'{$slug}' => [{$ctxList}],\n";
+  }
+
+  $pcmContent = <<<PHP
+<?php
+
+// AUTOGENERADO por scripts/generate_models.php — NO EDITAR MANUALMENTE.
+// Fuente de verdad: scripts/permissions_config.php
+//
+// Mapa plano: slug_de_permiso => tipos_de_contexto_válidos[]
+//
+// Resolución:
+//   _actions        → ['GLOBAL', _valid_contexts del nodo/ancestro]
+//   _parent_actions → ['GLOBAL', _valid_parent_context del nodo]
+//   Sin contexto    → ['GLOBAL']
+//   Wildcards :*    → contexto propio del nodo
+//
+// Consumido por: App\\Support\\PermissionContextConstraints
+return [
+{$pcmEntries}];
+PHP;
+
+  if (!$dryRun) {
+    if (file_put_contents($pcmOutPath, $pcmContent)) {
+      echo color("✓ permission-context-metadata.php guardado en: " . relativePath($pcmOutPath, $projectRoot) . "\n", 'green');
+    } else {
+      echo color("⚠ Error al guardar permission-context-metadata.php\n", 'red');
+    }
+  } else {
+    echo "[DRY-RUN] permission-context-metadata.php: " . relativePath($pcmOutPath, $projectRoot) . "\n";
+  }
+}
+
+echo "\n";

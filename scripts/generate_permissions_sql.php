@@ -36,13 +36,7 @@ function extractPermissions($config, $prefix = '') {
         $path = $prefix ? "{$prefix}/{$key}" : $key;
         
         // Si tiene _actions, agregar los permisos de las acciones
-        if (isset($value['_actions']) && is_array($value['_actions'])) {
-            // Agregar el permiso de la categoría vacía (ej: 'usuarios')
-            $permisos[$path] = [
-                'slug' => $path,
-                'nombre' => $path
-            ];
-            
+        if (isset($value['_actions']) && is_array($value['_actions'])) {            
             // Agregar permisos de las acciones
             foreach ($value['_actions'] as $action) {
                 $slug = "{$path}:{$action}";
