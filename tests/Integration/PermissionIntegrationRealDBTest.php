@@ -45,21 +45,21 @@ beforeEach(function () {
         'usuario_multi_test'
     ];
 
-    // Obtener todos los IDs de usuarios de test
-    $testUserIds = Usuario::whereIn('username', $testUsernames)->pluck('id_usuario')->toArray();
+    // Obtener todos los IDs de usuarios de test (incluye soft-deleted)
+    $testUserIds = Usuario::withTrashed()->whereIn('username', $testUsernames)->pluck('id_usuario')->toArray();
 
     if (!empty($testUserIds)) {
         // Eliminar permisos especiales donde el usuario es creador (creado_por)
-        UsuarioPermisoEspecial::whereIn('creado_por', $testUserIds)->delete();
-        
+        UsuarioPermisoEspecial::whereIn('creado_por', $testUserIds)->forceDelete();
+
         // Eliminar permisos especiales donde el usuario es receptor (id_usuario)
-        UsuarioPermisoEspecial::whereIn('id_usuario', $testUserIds)->delete();
-        
+        UsuarioPermisoEspecial::whereIn('id_usuario', $testUserIds)->forceDelete();
+
         // Eliminar asignaciones de roles
-        UsuarioRolAsignacion::whereIn('id_usuario', $testUserIds)->delete();
-        
-        // Eliminar usuarios
-        Usuario::whereIn('id_usuario', $testUserIds)->delete();
+        UsuarioRolAsignacion::whereIn('id_usuario', $testUserIds)->forceDelete();
+
+        // Eliminar usuarios (forceDelete para evitar UniqueConstraintViolation)
+        Usuario::withTrashed()->whereIn('id_usuario', $testUserIds)->forceDelete();
     }
 
     // ========== INICIALIZAR BD SI ESTÁ VACÍA ==========
@@ -98,23 +98,14 @@ beforeEach(function () {
     $this->adminSistemaId = $adminSistema->id_usuario;
 
     // ========== LIMPIAR DATOS DE TESTS PREVIOS ==========
-    // Obtener IDs de usuarios de test (pueden no existir)
-    $superadminId = Usuario::where('username', 'superadmin')->value('id_usuario');
-    $profesorId = Usuario::where('username', 'profesor')->value('id_usuario');
-    $coordinadorId = Usuario::where('username', 'coordinador')->value('id_usuario');
+    // Obtener IDs de usuarios de test (incluye soft-deleted)
+    $mainUserIds = Usuario::withTrashed()
+        ->whereIn('username', ['superadmin', 'profesor', 'coordinador'])
+        ->pluck('id_usuario')->toArray();
 
-    // Eliminar relaciones si existen
-    if ($superadminId) {
-        UsuarioRolAsignacion::where('id_usuario', $superadminId)->delete();
-        UsuarioPermisoEspecial::where('id_usuario', $superadminId)->delete();
-    }
-    if ($profesorId) {
-        UsuarioRolAsignacion::where('id_usuario', $profesorId)->delete();
-        UsuarioPermisoEspecial::where('id_usuario', $profesorId)->delete();
-    }
-    if ($coordinadorId) {
-        UsuarioRolAsignacion::where('id_usuario', $coordinadorId)->delete();
-        UsuarioPermisoEspecial::where('id_usuario', $coordinadorId)->delete();
+    if (!empty($mainUserIds)) {
+        UsuarioRolAsignacion::whereIn('id_usuario', $mainUserIds)->forceDelete();
+        UsuarioPermisoEspecial::whereIn('id_usuario', $mainUserIds)->forceDelete();
     }
 
     // Eliminar permisos de roles antes de eliminar roles (FK constraint)
@@ -127,12 +118,10 @@ beforeEach(function () {
 
     // Eliminar roles de test
     Rol::whereIn('nombre', ['Super Admin', 'Profesor', 'Coordinador'])
-        ->delete();
+        ->forceDelete();
 
-    // Eliminar usuarios de test
-    Usuario::where('username', 'superadmin')->delete();
-    Usuario::where('username', 'profesor')->delete();
-    Usuario::where('username', 'coordinador')->delete();
+    // Eliminar usuarios de test (forceDelete para evitar UniqueConstraintViolation)
+    Usuario::withTrashed()->whereIn('username', ['superadmin', 'profesor', 'coordinador'])->forceDelete();
 
     // Limpiar estructura administrativa de tests previos
     DB::table('curso')->where('nombre', 'Matemática I')->delete();
@@ -754,7 +743,7 @@ test('(admin invalidando) el admin puede invalidar permisos', function () {
 
     // Otorgando el permiso para probar siguiente parte
     $this->usuario1->givePermission(Permissions::CURSOS_CREAR)
-        ->on($this->curso)
+        ->on($this->carrera)
         ->for(30)
         ->canDelegate()
         ->save();
@@ -836,19 +825,24 @@ test('delegación múltiple está bloqueada después de un nivel', function () {
 test('permiso delegable en múltiples contextos se valida correctamente', function () {
     $this->actingAs($this->superadmin);
 
-    $upes = $this->usuario_multi->givePermission(Permissions::CURSOS_VER)
-        ->on([$this->curso, $this->carrera])
+    // cursos:ver es válido en contexto CURSO, carreras:ver en contexto CARRERA
+    $upeCurso = $this->usuario_multi->givePermission(Permissions::CURSOS_VER)
+        ->on($this->curso)
         ->for(30)
         ->canDelegate()
         ->save();
 
-    expect($upes)->toBeInstanceOf(\Illuminate\Support\Collection::class);
-    expect($upes->count())->toBe(2);
+    $upeCarrera = $this->usuario_multi->givePermission(Permissions::CARRERAS_VER)
+        ->on($this->carrera)
+        ->for(30)
+        ->canDelegate()
+        ->save();
 
-    $upes->each(
-        fn($upe) =>
-        expect($upe->puede_delegar)->toBeTrue()
-    );
+    expect($upeCurso)->toBeInstanceOf(\App\Models\Usuario\UsuarioPermisoEspecial::class);
+    expect($upeCurso->puede_delegar)->toBeTrue();
+
+    expect($upeCarrera)->toBeInstanceOf(\App\Models\Usuario\UsuarioPermisoEspecial::class);
+    expect($upeCarrera->puede_delegar)->toBeTrue();
 });
 
 

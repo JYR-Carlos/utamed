@@ -28,6 +28,7 @@ enum Permissions: string
 
     // CARRERAS
     case CARRERAS_ALL = 'carreras:*';
+    case CARRERAS_CREAR = 'carreras:crear';
     case CARRERAS_EDITAR = 'carreras:editar';
     case CARRERAS_ELIMINAR = 'carreras:eliminar';
     case CARRERAS_VER = 'carreras:ver';
@@ -35,6 +36,7 @@ enum Permissions: string
     // CARRERAS > PLANES
     case CARRERAS_PLANES_ALL = 'carreras/planes:*';
     case CARRERAS_PLANES_ASIGNACION_ASIGNATURAS = 'carreras/planes:asignacion_asignaturas';
+    case CARRERAS_PLANES_CREAR = 'carreras/planes:crear';
     case CARRERAS_PLANES_EDITAR = 'carreras/planes:editar';
     case CARRERAS_PLANES_ELIMINAR = 'carreras/planes:eliminar';
 
@@ -45,6 +47,8 @@ enum Permissions: string
 
     // CURSOS
     case CURSOS_ALL = 'cursos:*';
+    case CURSOS_CREAR = 'cursos:crear';
+    case CURSOS_CREAR_PLANTILLA = 'cursos:crear_plantilla';
     case CURSOS_EDITAR = 'cursos:editar';
     case CURSOS_ELIMINAR = 'cursos:eliminar';
     case CURSOS_VER = 'cursos:ver';

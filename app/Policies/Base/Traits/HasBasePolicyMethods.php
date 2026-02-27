@@ -4,6 +4,7 @@ namespace App\Policies\Base\Traits;
 
 use App\Models\Usuario\Usuario;
 use App\Services\Authorization\PermissionValidator;
+use App\Support\Permissions;
 
 /**
  * Trait que provee los métodos base para todas las Policies autogeneradas.
@@ -100,10 +101,12 @@ trait HasBasePolicyMethods
   }
 
   /**
-   * Construye el slug de permiso con formato "recurso:acción".
+   * Construye el slug de permiso con formato "recurso:acción" y lo resuelve a un Permissions enum.
+   *
+   * @throws \ValueError Si el slug generado no existe en el enum Permissions
    */
-  protected function buildPermissionSlug(string $resource, string $action): string
+  protected function buildPermissionSlug(string $resource, string $action): Permissions
   {
-    return "{$resource}:{$action}";
+    return Permissions::from("{$resource}:{$action}");
   }
 }

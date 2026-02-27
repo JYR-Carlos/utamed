@@ -15,6 +15,7 @@ use App\Contracts\HasOwnedContext;
 use App\Enums\ContextualModelType;
 use App\Services\ContextResolver;
 use App\Support\Permissions;
+use App\Services\Authorization\PermissionContextConstraints;
 
 use App\Exceptions\DontHavePermissionException;
 use \Illuminate\Database\RecordNotFoundException;
@@ -73,6 +74,7 @@ class PermissionAssignmentBuilder
    *
    * @param HasOwnedContext|HasOwnedContext[] $resources Instancia o arreglo de recursos con contexto propio (ej: $facultad, [$carreraA, $carreraB])
    * @throws \InvalidArgumentException Si algún elemento del array no implementa HasOwnedContext
+   * @throws \InvalidArgumentException Si el permiso no es compatible con el tipo de contexto
    */
   public function on(HasOwnedContext|array $resources): static
   {
@@ -87,6 +89,15 @@ class PermissionAssignmentBuilder
           . "o asigna el permiso directamente sin contexto."
         );
       }
+
+      // Validar tempranamente que el permiso sea compatible con este recurso (OPCIÓN 2)
+      $contextType = $resolver->getContextType($resource);
+      if ($contextType && !PermissionContextConstraints::isValidAssignment($this->permissionSlug->value, $contextType)) {
+        throw new \InvalidArgumentException(
+          PermissionContextConstraints::invalidAssignmentMessage($this->permissionSlug->value, $contextType)
+        );
+      }
+
       $ids = $resolver->getContextId($resource);
       $this->contextIds = array_unique(array_merge($this->contextIds, $ids));
     }
@@ -103,10 +114,25 @@ class PermissionAssignmentBuilder
    * @param int|int[] $contextIds ID o IDs del contexto
    * @example
    *   $user->givePermission($perm)->inContext($globalContextId)->for(30);
+   * @throws \InvalidArgumentException Si el permiso no es compatible con el tipo de contexto
    */
   public function inContext(int|array $contextIds): static
   {
     $ids = is_array($contextIds) ? $contextIds : [$contextIds];
+
+    // Validar tempranamente que el permiso sea compatible con cada contexto (OPCIÓN 2)
+    foreach ($ids as $contextId) {
+      $context = Contexto::find($contextId);
+      if ($context && $context->tipoContexto) {
+        $contextType = $context->tipoContexto->categoria;
+        if (!PermissionContextConstraints::isValidAssignment($this->permissionSlug->value, $contextType)) {
+          throw new \InvalidArgumentException(
+            PermissionContextConstraints::invalidAssignmentMessage($this->permissionSlug->value, $contextType)
+          );
+        }
+      }
+    }
+
     $this->contextIds = array_unique(array_merge($this->contextIds, $ids));
 
     return $this;
@@ -149,12 +175,20 @@ class PermissionAssignmentBuilder
    * @example $user->givePermission($perm)->onAll(ContextualModelType::CARRERA)->for(60);
    *
    * @param ContextualModelType $modelType Tipo de modelo contextual
+   * @throws \InvalidArgumentException Si el permiso no es compatible con este tipo de contexto
    * 
    * // FIX: onAll() deberia asignar al contexto global y validate deberia tener en cuenta eso
    */
   public function onAll(ContextualModelType $modelType): static
   {
     $category = strtolower(class_basename($modelType->value));
+
+    // Validar tempranamente que el permiso sea compatible (OPCIÓN 2)
+    if (!PermissionContextConstraints::isValidAssignment($this->permissionSlug->value, $category)) {
+      throw new \InvalidArgumentException(
+        PermissionContextConstraints::invalidAssignmentMessage($this->permissionSlug->value, $category)
+      );
+    }
 
     // Buscar el tipo de contexto por la categoría
     $tipoId = TipoContexto::
@@ -277,15 +311,52 @@ class PermissionAssignmentBuilder
   }
 
   /**
+   * Validar que el permiso sea compatible con los tipos de contexto.
+   * 
+   * Validación de doble-check en tiempo de persistencia (OPCIÓN 1).
+   * Complementa validaciones tempranas para prevenir peticiones malformadas en runtime.
+   *
+   * @throws \InvalidArgumentException Si un contexto no es compatible con el permiso
+   */
+  private function validateContextCompatibility(): void
+  {
+    if (empty($this->contextIds)) {
+      return;
+    }
+
+    // Obtener todos los contextos con sus tipos
+    $contexts = Contexto::whereIn('id_contexto', $this->contextIds)
+      ->with('tipoContexto')
+      ->get();
+
+    foreach ($contexts as $context) {
+      if (!$context->tipoContexto) {
+        throw new \InvalidArgumentException(
+          "Contexto {$context->id_contexto} no tiene tipo asociado"
+        );
+      }
+
+      $contextType = $context->tipoContexto->categoria;
+      if (!PermissionContextConstraints::isValidAssignment($this->permissionSlug->value, $contextType)) {
+        throw new \InvalidArgumentException(
+          PermissionContextConstraints::invalidAssignmentMessage($this->permissionSlug->value, $contextType)
+        );
+      }
+    }
+  }
+
+  /**
    * Persiste los registros UPE en la base de datos.
    *
    * Se llama automaticamente en __destruct. Puede invocarse
    * explicitamente si se necesita acceso a los modelos creados.
    *
-   * Valida previamente que el actor tenga autorización para asignar el permiso.
+   * Valida previamente que el actor tenga autorización para asignar el permiso
+   * y que el permiso sea compatible con los tipos de contexto.
    *
    * @return UsuarioPermisoEspecial|Collection<int, UsuarioPermisoEspecial>
    * @throws \InvalidArgumentException Si no se especifico ningun contexto
+   * @throws \InvalidArgumentException Si el permiso no es compatible con los contextos
    * @throws RecordNotFoundException Si el slug del permiso no existe 
    * @throws DontHavePermissionException Si el actor no tiene autorización
    */
@@ -297,6 +368,9 @@ class PermissionAssignmentBuilder
 
     // Validar que el actor tenga autorización ANTES de persistir
     $this->validateActorAuthorization();
+
+    // Validar que el permiso sea compatible con los contextos (OPCIÓN 1 - doble-check)
+    $this->validateContextCompatibility();
 
     $this->saved = true;
 

@@ -61,19 +61,22 @@ beforeEach(function () {
 
   // ---- Limpiar datos de tests anteriores ----
   $testUsernames = ['cp_superadmin', 'cp_manager', 'cp_viewer', 'cp_nobody'];
-  $testUserIds = Usuario::whereIn('username', $testUsernames)->pluck('id_usuario');
+  $testUserIds = Usuario::withTrashed()->whereIn('username', $testUsernames)->pluck('id_usuario');
 
   if ($testUserIds->isNotEmpty()) {
     UsuarioRolAsignacion::whereIn('id_usuario', $testUserIds)->delete();
     UsuarioPermisoEspecial::whereIn('id_usuario', $testUserIds)->delete();
-    Usuario::whereIn('id_usuario', $testUserIds)->delete();
+    Usuario::withTrashed()->whereIn('id_usuario', $testUserIds)->forceDelete();
   }
 
+  // Also force-delete any stale soft-deleted users with the RUTs we'll use
+  Usuario::withTrashed()->whereIn('rut', ['71111111-1', '72222222-2', '73333333-3', '74444444-4'])->forceDelete();
+
   $testRolNames = ['CP SuperAdmin', 'CP Manager', 'CP Viewer'];
-  $testRolIds = Rol::whereIn('nombre', $testRolNames)->pluck('id_rol');
+  $testRolIds = Rol::withTrashed()->whereIn('nombre', $testRolNames)->pluck('id_rol');
   if ($testRolIds->isNotEmpty()) {
     DB::table('asignacion_rol_permiso')->whereIn('id_rol', $testRolIds)->delete();
-    Rol::whereIn('id_rol', $testRolIds)->delete();
+    Rol::withTrashed()->whereIn('id_rol', $testRolIds)->forceDelete();
   }
 
   DB::table('curso')->where('nombre', 'CP Test Curso')->delete();
@@ -149,7 +152,7 @@ beforeEach(function () {
   $this->curso->refresh(); // trigger genera id_contexto
 
   // ---- Permisos del recurso curso ----
-  $permSlugs = ['*', 'curso:ver', 'curso:crear', 'curso:editar', 'curso:eliminar'];
+  $permSlugs = ['*', 'cursos:ver', 'cursos:crear', 'cursos:editar', 'cursos:eliminar'];
   foreach ($permSlugs as $slug) {
     Permiso::firstOrCreate(['slug' => $slug], ['nombre' => $slug, 'descripcion' => 'Test CP']);
   }
@@ -194,7 +197,7 @@ beforeEach(function () {
   // ---- Usuario 1: SUPERADMIN (permiso wildcard '*' en contexto global) ----
   $this->superadmin = Usuario::create([
     'username' => 'cp_superadmin',
-    'rut' => '91111111-1',
+    'rut' => '71111111-1',
     'nombre1' => 'CP',
     'apellido1' => 'SuperAdmin',
     'email' => 'cp_superadmin@test.local',
@@ -218,28 +221,28 @@ beforeEach(function () {
   // y en contexto del curso (cubre view, update, delete sobre ese modelo).
   $this->manager = $crearUsuarioConRol(
     'cp_manager',
-    '92222222-2',
+    '72222222-2',
     'cp_manager@test.local',
     'CP Manager',
-    ['curso:ver', 'curso:crear', 'curso:editar', 'curso:eliminar'],
+    ['cursos:ver', 'cursos:crear', 'cursos:editar', 'cursos:eliminar'],
     [$this->contextoGlobal_id, $this->curso->id_contexto]
   );
 
-  // ---- Usuario 3: VIEWER (solo curso:ver) ----
+  // ---- Usuario 3: VIEWER (solo cursos:ver) ----
   // Asignado en contexto global (cubre viewAny) y en contexto del curso (cubre view).
   $this->viewer = $crearUsuarioConRol(
     'cp_viewer',
-    '93333333-3',
+    '73333333-3',
     'cp_viewer@test.local',
     'CP Viewer',
-    ['curso:ver'],
+    ['cursos:ver'],
     [$this->contextoGlobal_id, $this->curso->id_contexto]
   );
 
   // ---- Usuario 4: NOBODY (sin ningún permiso) ----
   $this->nobody = Usuario::create([
     'username' => 'cp_nobody',
-    'rut' => '94444444-4',
+    'rut' => '74444444-4',
     'nombre1' => 'CP',
     'apellido1' => 'Nobody',
     'email' => 'cp_nobody@test.local',
@@ -477,8 +480,8 @@ describe('helpers de utilidad (HasBasePolicyMethods)', function () {
   test('buildPermissionSlug genera el slug correcto', function () {
     $method = new ReflectionMethod(CursoPolicy::class, 'buildPermissionSlug');
     $method->setAccessible(true);
-    $slug = $method->invoke(new CursoPolicy(), 'curso', 'ver');
-    expect($slug)->toBe('curso:ver');
+    $slug = $method->invoke(new CursoPolicy(), 'cursos', 'ver');
+    expect($slug)->toBe(\App\Support\Permissions::CURSOS_VER);
   });
 
   test('resolveContextId retorna el array de contextos del modelo', function () {

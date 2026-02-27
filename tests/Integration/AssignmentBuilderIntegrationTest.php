@@ -29,6 +29,7 @@ use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Services\Authorization\PermissionAssignmentBuilder;
 use App\Services\Authorization\RoleAssignmentBuilder;
+use App\Support\Permissions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -82,24 +83,28 @@ beforeEach(function () {
 
   // ---- Limpiar datos de tests anteriores ----
   $testUsernames = ['ab_actor', 'ab_recipient'];
-  $testUserIds = Usuario::whereIn('username', $testUsernames)->pluck('id_usuario');
+  $testUserIds = Usuario::withTrashed()->whereIn('username', $testUsernames)->pluck('id_usuario');
 
   if ($testUserIds->isNotEmpty()) {
+    UsuarioPermisoEspecial::whereIn('creado_por', $testUserIds)->delete();
     UsuarioPermisoEspecial::whereIn('id_usuario', $testUserIds)->delete();
     UsuarioRolAsignacion::whereIn('id_usuario', $testUserIds)->delete();
-    Usuario::whereIn('id_usuario', $testUserIds)->delete();
+    Usuario::withTrashed()->whereIn('id_usuario', $testUserIds)->forceDelete();
   }
 
+  // Also force-delete stale soft-deleted users with the RUTs we'll use
+  Usuario::withTrashed()->whereIn('rut', ['81111111-1', '82222222-2'])->forceDelete();
+
   $testRolNames = ['AB Test Rol'];
-  $testRolIds = Rol::whereIn('nombre', $testRolNames)->pluck('id_rol');
+  $testRolIds = Rol::withTrashed()->whereIn('nombre', $testRolNames)->pluck('id_rol');
   if ($testRolIds->isNotEmpty()) {
-    Rol::whereIn('id_rol', $testRolIds)->delete();
+    UsuarioRolAsignacion::whereIn('id_rol', $testRolIds)->delete();
+    Rol::withTrashed()->whereIn('id_rol', $testRolIds)->forceDelete();
   }
 
   DB::table('carrera')->where('nombre', 'AB Carrera A')->orWhere('nombre', 'AB Carrera B')->delete();
   DB::table('departamento')->where('nombre', 'AB Departamento')->delete();
   DB::table('facultad')->where('nombre', 'AB Facultad')->delete();
-  Permiso::where('slug', 'ab:test')->orWhere('slug', 'ab:otro')->delete();
 
   // ---- Crear estructura administrativa ----
   $facultadId = DB::table('facultad')->insertGetId([
@@ -136,14 +141,28 @@ beforeEach(function () {
   $this->carreraB->refresh();
 
   // ---- Permiso y Rol de prueba ----
-  $this->permiso = Permiso::firstOrCreate(
-    ['slug' => 'ab:test'],
-    ['nombre' => 'AB Test', 'descripcion' => 'Permiso para tests de builder']
+  // Usar Permissions enum reales (compatibles con contexto CARRERA)
+  $this->permiso = Permissions::CARRERAS_VER;
+  $this->permisoOtro = Permissions::CARRERAS_EDITAR;
+
+  // Asegurar que los Permiso records existen en la BD
+  $this->permisoModel = Permiso::firstOrCreate(
+    ['slug' => Permissions::CARRERAS_VER->value],
+    ['nombre' => 'Ver Carreras', 'descripcion' => 'Test AB']
   );
-  $this->permisoOtro = Permiso::firstOrCreate(
-    ['slug' => 'ab:otro'],
-    ['nombre' => 'AB Otro', 'descripcion' => 'Segundo permiso para tests']
+  Permiso::firstOrCreate(
+    ['slug' => Permissions::CARRERAS_EDITAR->value],
+    ['nombre' => 'Editar Carreras', 'descripcion' => 'Test AB']
   );
+  Permiso::firstOrCreate(
+    ['slug' => Permissions::FACULTADES_VER->value],
+    ['nombre' => 'Ver Facultades', 'descripcion' => 'Test AB']
+  );
+  $permisoWildcard = Permiso::firstOrCreate(
+    ['slug' => '*'],
+    ['nombre' => 'Super Admin Access', 'descripcion' => 'Acceso total']
+  );
+
   $this->rol = Rol::create([
     'nombre' => 'AB Test Rol',
     'creado_por' => $this->adminSistemaId,
@@ -170,6 +189,20 @@ beforeEach(function () {
     'esta_activo' => true,
   ]);
 
+  // Dar permiso wildcard al actor (super admin) para que pueda asignar permisos
+  UsuarioPermisoEspecial::create([
+    'id_usuario' => $this->actor->id_usuario,
+    'id_permiso' => $permisoWildcard->id_permiso,
+    'id_contexto' => $this->contextoGlobal_id,
+    'esta_permitido' => true,
+    'puede_delegar' => true,
+    'fecha_inicio_planificada' => now(),
+    'fecha_fin_planificada' => now()->addYears(100),
+    'creado_por' => $this->adminSistemaId,
+    'esta_activo' => true,
+    'fue_borrado' => false,
+  ]);
+
   // Autenticar como el actor para todos los tests
   $this->actingAs($this->actor);
 });
@@ -189,7 +222,7 @@ describe('PermissionAssignmentBuilder — on() y campos base', function () {
     expect($upe)->toBeInstanceOf(UsuarioPermisoEspecial::class);
     expect($upe->id_upe)->not()->toBeNull();
     expect($upe->id_usuario)->toBe($this->recipient->id_usuario);
-    expect($upe->id_permiso)->toBe($this->permiso->id_permiso);
+    expect($upe->id_permiso)->toBe($this->permisoModel->id_permiso);
     expect($upe->id_contexto)->toBe($this->carreraA->id_contexto);
     expect($upe->esta_permitido)->toBeTrue();
     expect($upe->puede_delegar)->toBeFalse();
@@ -200,7 +233,7 @@ describe('PermissionAssignmentBuilder — on() y campos base', function () {
 
   test('on() acepta cualquier modelo que implemente HasContext', function () {
     $upe = $this->recipient
-      ->givePermission($this->permiso)
+      ->givePermission(Permissions::FACULTADES_VER)
       ->on($this->facultad)
       ->save();
 
@@ -223,7 +256,7 @@ describe('PermissionAssignmentBuilder — on() y campos base', function () {
     $result = $this->recipient
       ->givePermission($this->permiso)
       ->on([$this->carreraA, $this->carreraB])
-      ->on($this->facultad)
+      ->inGlobalContext()
       ->save();
 
     expect($result)->toBeInstanceOf(\Illuminate\Support\Collection::class);
@@ -428,12 +461,12 @@ describe('PermissionAssignmentBuilder — onAll()', function () {
   test('onAll() y on() son acumulables', function () {
     $tipoId = TipoContexto::where('categoria', 'carrera')->value('id_tipo_contexto');
     $totalCarreras = $tipoId ? Contexto::where('id_tipo_contexto', $tipoId)->count() : 0;
-    $expectedTotal = $totalCarreras + 1; // + la facultad
+    $expectedTotal = $totalCarreras + 1; // + el contexto global
 
     $result = $this->recipient
       ->givePermission($this->permiso)
       ->onAll(ContextualModelType::CARRERA)
-      ->on($this->facultad)
+      ->inGlobalContext()
       ->save();
 
     expect($result->count())->toBe($expectedTotal);
@@ -761,7 +794,7 @@ describe('Tipos de retorno de los builders', function () {
     $builder = $this->recipient->givePermission($this->permiso);
     expect($builder)->toBeInstanceOf(PermissionAssignmentBuilder::class);
     // destruir sin guardar (sin contexto)
-    unset($builder);
+    $builder->__destruct();
   });
 
   test('giveRole() devuelve una instancia de RoleAssignmentBuilder', function () {

@@ -2861,10 +2861,13 @@ if (!file_exists($permissionsConfigPath)) {
   $flattenPerms = function (array $node, string $prefix = '') use (&$flattenPerms): array {
     $slugs = [];
     foreach ($node as $key => $value) {
-      if ($key === '_actions') {
+      if ($key === '_actions' || $key === '_parent_actions') {
         foreach ($value as $action) {
           $slugs[] = [$prefix, $action];
         }
+      } elseif (str_starts_with($key, '_')) {
+        // Skip other special keys (_valid_contexts, _valid_parent_context, etc.)
+        continue;
       } elseif (is_array($value)) {
         $child = $prefix ? "{$prefix}/{$key}" : $key;
         $slugs = array_merge($slugs, $flattenPerms($value, $child));

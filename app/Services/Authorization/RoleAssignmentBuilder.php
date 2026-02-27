@@ -219,6 +219,10 @@ class RoleAssignmentBuilder
    * explicitamente si se necesita acceso a los modelos creados.
    *
    * Valida previamente que el actor tenga autorización para asignar el rol.
+   * 
+   * // FIX: esta funcion no valida el par contexto:permiso, porque son un conjunto de permisos
+   * decidir si validarlos todos o hacer otra cosa. 
+   * (quiza redefinir el concepto de rol, conjunto de permisos especiales en vez de permisos)
    *
    * @return UsuarioRolAsignacion|Collection<int, UsuarioRolAsignacion>
    * @throws \InvalidArgumentException Si no se especifico ningun contexto
