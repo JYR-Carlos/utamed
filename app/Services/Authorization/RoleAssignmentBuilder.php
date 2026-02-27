@@ -47,10 +47,11 @@ class RoleAssignmentBuilder
   public function __construct(
     private readonly Usuario $recipient,
     private readonly Rol $rol,
-    private readonly Usuario $actor
+    private ?Usuario $actor = null
   ) {
     $this->startDate = Carbon::now();
     $this->validator = app(PermissionValidator::class);
+    $this->actor = $actor ?? auth()->user();
   }
 
   /**
@@ -94,6 +95,33 @@ class RoleAssignmentBuilder
     $ids = is_array($contextIds) ? $contextIds : [$contextIds];
     $this->contextIds = array_unique(array_merge($this->contextIds, $ids));
 
+    return $this;
+  }
+
+  /**
+   * Asignar el rol al contexto global.
+   *
+   * Útil para roles que aplican a nivel sistema sin restricción de contexto.
+   *
+   * @example
+   *   $user->giveRole($rol)->inGlobalContext()->for(365);
+   */
+  public function inGlobalContext(): static
+  {
+    $globalContextId = app(GlobalContextService::class)->getContextId();
+    return $this->inContext($globalContextId);
+  }
+
+  /**
+   * Especificar quién realiza la asignación (sobrescribe el actor autenticado).
+   *
+   * @param Usuario $actor Usuario que realiza la asignación
+   * @example
+   *   $user->giveRole($rol)->on($recurso)->as($admin)->for(60);
+   */
+  public function as(Usuario $actor): static
+  {
+    $this->actor = $actor;
     return $this;
   }
 

@@ -61,10 +61,11 @@ class PermissionAssignmentBuilder
   public function __construct(
     private readonly Usuario $recipient,
     private readonly Permissions $permissionSlug,
-    private readonly Usuario $actor
+    private ?Usuario $actor = null
   ) {
     $this->startDate = Carbon::now();
     $this->validator = app(PermissionValidator::class);
+    $this->actor = $actor ?? auth()->user();
   }
 
   /**
@@ -108,6 +109,33 @@ class PermissionAssignmentBuilder
     $ids = is_array($contextIds) ? $contextIds : [$contextIds];
     $this->contextIds = array_unique(array_merge($this->contextIds, $ids));
 
+    return $this;
+  }
+
+  /**
+   * Asignar el permiso al contexto global.
+   *
+   * Útil para permisos que aplican a nivel sistema sin restricción de contexto.
+   *
+   * @example
+   *   $user->givePermission($perm)->inGlobalContext()->for(30);
+   */
+  public function inGlobalContext(): static
+  {
+    $globalContextId = app(GlobalContextService::class)->getContextId();
+    return $this->inContext($globalContextId);
+  }
+
+  /**
+   * Especificar quién realiza la asignación (sobrescribe el actor autenticado).
+   *
+   * @param Usuario $actor Usuario que realiza la asignación
+   * @example
+   *   $user->givePermission($perm)->on($recurso)->as($admin)->for(30);
+   */
+  public function as(Usuario $actor): static
+  {
+    $this->actor = $actor;
     return $this;
   }
 
