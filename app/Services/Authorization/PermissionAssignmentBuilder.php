@@ -121,6 +121,8 @@ class PermissionAssignmentBuilder
    * @example $user->givePermission($perm)->onAll(ContextualModelType::CARRERA)->for(60);
    *
    * @param ContextualModelType $modelType Tipo de modelo contextual
+   * 
+   * // FIX: onAll() deberia asignar al contexto global y validate deberia tener en cuenta eso
    */
   public function onAll(ContextualModelType $modelType): static
   {

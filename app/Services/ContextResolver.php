@@ -64,6 +64,9 @@ class ContextResolver
      * 
      * @param object $model Instancia del modelo
      * @return array Array de IDs de contexto (vacío si no tiene contextos)
+     * 
+     * //FIX: todos deberian retornar al menos el contexto global, 
+     * incluso los directos (para validar permisos globales)
      */
     public function getContextId($model): array
     {
@@ -110,6 +113,12 @@ class ContextResolver
      * apuntar al mismo tipo de contexto (ej: 'carrera'). Retorna el primer
      * tipo encontrado.
      * 
+     * // FIX: esta descripcion esta mal
+     * puede haber modelos con multiples paths que apunten a contextos de distinto tipo (ej: carrera y facultad)
+     * //FIX: deberia retornar un array de tipos
+     * // TODO: check utilidad
+     * actualmente no se usa en nada importante, solo como accesor opcional
+     * 
      * @param object $model Instancia del modelo
      * @return string|null (ej: 'carrera', 'curso', 'departamento')
      */
@@ -132,6 +141,7 @@ class ContextResolver
 
         // Modelos con contexto global (sin contexto)
         if ($mapping['type'] === 'global') {
+            // TODO: check si esto esta bien
             return null;
         }
 
@@ -153,6 +163,10 @@ class ContextResolver
      * 
      * @param object $model Instancia del modelo
      * @return object|null Modelo padre que define el contexto, o null si es directo o global
+     * 
+     * // FIX: no retorna bien los contextos padre jerarquicos directos
+     * deberia retornar el padre del directo y cuando no tiene, el global
+     * para los globales deberia retornar null, no el global (porque no tiene sentido)
      */
     public function getParentContextModel($model): ?object
     {
@@ -384,34 +398,36 @@ class ContextResolver
         return lcfirst($modelName);
     }
 
-    /**
-     * Obtener la clave de contexto (namespace + contexto)
-     *
-     * Utilizado para caché y seguimiento
-     */
-    protected function getContextCacheKey($model): string
-    {
-        return spl_object_id($model);
-    }
+    // ----- CACHÉ (opcional, no implementado aún) -----
 
-    /**
-     * Invalidar el caché de un modelo
-     * 
-     * @param object $model
-     * @return void
-     */
-    public function invalidateCache($model): void
-    {
-        unset($this->contextCache[$this->getContextCacheKey($model)]);
-    }
+    // /**
+    //  * Obtener la clave de contexto (namespace + contexto)
+    //  *
+    //  * Utilizado para caché y seguimiento
+    //  */
+    // protected function getContextCacheKey($model): string
+    // {
+    //     return spl_object_id($model);
+    // }
 
-    /**
-     * Limpiar todo el caché
-     * 
-     * @return void
-     */
-    public function clearCache(): void
-    {
-        $this->contextCache = [];
-    }
+    // /**
+    //  * Invalidar el caché de un modelo
+    //  * 
+    //  * @param object $model
+    //  * @return void
+    //  */
+    // public function invalidateCache($model): void
+    // {
+    //     unset($this->contextCache[$this->getContextCacheKey($model)]);
+    // }
+
+    // /**
+    //  * Limpiar todo el caché
+    //  * 
+    //  * @return void
+    //  */
+    // public function clearCache(): void
+    // {
+    //     $this->contextCache = [];
+    // }
 }

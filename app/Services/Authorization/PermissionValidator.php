@@ -242,6 +242,9 @@ class PermissionValidator
      * - Si recurso → delegar a ContextResolver (puede retornar múltiples contextos)
      * - Si null → contexto global
      * 
+     * //FIX: Actualmente no se envia el contexto global en las demas branches
+     * no permite la verificacion de permisos globales en recursos con contextos
+     * 
      * @param HasContext|null $resource
      * @param int|array|null $contextId
      * @return array Array de IDs de contexto para validar

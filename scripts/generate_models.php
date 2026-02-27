@@ -743,7 +743,8 @@ $placeholders = implode(',', array_fill(0, count($schemas), '?'));
 $tables = DB::select("
     SELECT 
       table_schema, 
-      table_name
+      table_name,
+      table_type
     FROM information_schema.tables
     WHERE table_catalog = ?
     AND table_schema IN ($placeholders)
@@ -1151,6 +1152,12 @@ foreach ($tables as $tableInfo) {
   $modelPath = "{$modelSchemaDir}/{$className}.php";
 
   // ==================================================================================
+  // PASO 4.2.5: DETECTAR SI ES UNA VISTA
+  // ==================================================================================
+
+  $isView = $tableInfo->table_type === 'VIEW';
+
+  // ==================================================================================
   // PASO 4.2: OBTENER COLUMNAS DE LA TABLA
   // ==================================================================================
   //
@@ -1237,10 +1244,10 @@ foreach ($tables as $tableInfo) {
   }
 
   $isCompositePK = is_array($primaryKey);
-  $primaryKeyDefinition = $isCompositePK
+  $primaryKeyDefinition = $isView ? '' : ($isCompositePK
     ? "['" . implode("', '", $primaryKey) . "']"
-    : "'{$primaryKey}'";
-  $incrementingValue = $isCompositePK ? 'false' : 'true';
+    : "'{$primaryKey}'");
+  $incrementingValue = $isView ? '' : ($isCompositePK ? 'false' : 'true');
 
   // ==================================================================================
   // PASO 4.3.5: DETECTAR Y EXCLUIR COLUMNAS ALWAYS GENERATED
@@ -1433,6 +1440,11 @@ foreach ($tables as $tableInfo) {
     ->reject(fn($col) => $shouldExcludeColumn($col, $tableName))
     ->map(fn($col) => "{$tab}{$tab}'{$col}'")
     ->implode(",\n");
+
+  // Si es una vista, no tiene fillable (es read-only)
+  if ($isView) {
+    $fillable = '';
+  }
 
   // ==================================================================================
   // PASO 4.6: CONFIGURAR TIMESTAMPS
@@ -2314,7 +2326,16 @@ EOL;
   // - Usa trait SoftDeletes de Laravel
   // - Mapea DELETED_AT a fecha_eliminacion
   // - Filtrado automático de registros eliminados en queries
+  //
+  // VISTAS (table_type = 'VIEW'):
+  // - NO incluyen $primaryKey, $incrementing, $fillable
+  // - Son modelos read-only, no soportan mass assignment
   // ==================================================================================
+
+  // Generar propiedades condicionales para vistas
+  $primaryKeyLine = $isView ? '' : "{$tab}protected \$primaryKey = {$primaryKeyDefinition};\n";
+  $incrementingLine = $isView ? '' : "{$tab}public \$incrementing = {$incrementingValue};\n";
+  $fillableLine = $isView ? '' : "{$tab}protected \$fillable = [\n{$fillable}\n{$tab}];\n";
 
   // Generar Base Model
   $baseContent = <<<PHP
@@ -2332,13 +2353,8 @@ abstract class Base{$className} extends CustomBaseModel{$implementsClause}
 {
 {$allTraitsAndConsts}    protected \$connection = 'pgsql';
     protected \$table = '{$tableName}';
-    protected \$primaryKey = {$primaryKeyDefinition};
-    public \$incrementing = {$incrementingValue};
-
-    protected \$fillable = [
-{$fillable}
-    ];
-
+{$primaryKeyLine}{$incrementingLine}
+{$fillableLine}
 {$relations}{$contextScopeMethods}
 }
 
@@ -3175,7 +3191,7 @@ foreach ($contextConfig['direct'] ?? [] as $modelKey => $contextType) {
     $modelName = Str::studly($parts[1]); // Carrera
     $caseName = strtoupper($parts[1]);  // CARRERA
     $fqcn = "App\\\\Models\\\\{$schemaName}\\\\{$modelName}";
-    $enumCases .= "    case {$caseName} = {$modelName}::class;\n";
+    $enumCases .= "{$tab}case {$caseName} = {$modelName}::class;\n";
   }
 }
 

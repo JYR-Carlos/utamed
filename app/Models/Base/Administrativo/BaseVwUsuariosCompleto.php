@@ -16,26 +16,7 @@ abstract class BaseVwUsuariosCompleto extends CustomBaseModel
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'vw_usuarios_completo';
-    protected $primaryKey = 'id';
-    public $incrementing = true;
 
-    protected $fillable = [
-        'id_usuario',
-        'rut',
-        'username',
-        'nombre_completo',
-        'email',
-        'tipo_usuario',
-        'id_estudiante',
-        'agno_ingreso',
-        'id_carrera',
-        'carrera_nombre',
-        'id_docente',
-        'grado',
-        'titulo',
-        'cargo',
-        'esta_activo'
-    ];
 
 
 }

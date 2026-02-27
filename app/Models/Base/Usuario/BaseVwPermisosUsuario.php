@@ -16,18 +16,7 @@ abstract class BaseVwPermisosUsuario extends CustomBaseModel
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'vw_permisos_usuario';
-    protected $primaryKey = 'id';
-    public $incrementing = true;
 
-    protected $fillable = [
-        'id_usuario',
-        'id_contexto',
-        'id_permiso',
-        'slug',
-        'esta_permitido',
-        'tipo_asignacion',
-        'puede_delegar'
-    ];
 
 
 }

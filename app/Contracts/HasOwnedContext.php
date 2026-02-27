@@ -13,8 +13,10 @@ namespace App\Contracts;
  * pasados a ->on() en tiempo de análisis estático (PHPStan/Psalm) y en los builders.
  *
  * Jerarquía de interfaces:
- *   HasContext          ← todos los modelos context-aware
- *     └─ HasOwnedContext ← sólo direct + hierarchical (los que tienen contexto propio)
+ *  
+ * HasContext ← todos los modelos context-aware
+ * 
+ *  └─ HasOwnedContext ← sólo direct + hierarchical (los que tienen contexto propio)
  */
 interface HasOwnedContext extends HasContext
 {

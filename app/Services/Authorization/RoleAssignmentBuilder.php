@@ -107,6 +107,8 @@ class RoleAssignmentBuilder
    * @example $user->giveRole($rol)->onAll(ContextualModelType::FACULTAD)->for(30);
    *
    * @param ContextualModelType $modelType Tipo de modelo contextual
+   * 
+   * // FIX: onAll() deberia asignar al contexto global y validate deberia tener en cuenta eso
    */
   public function onAll(ContextualModelType $modelType): static
   {

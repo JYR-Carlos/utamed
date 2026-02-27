@@ -38,14 +38,6 @@ trait FiltersContextScope
         return $query;
     }
 
-    /**
-     * Alias explicito para filtrar por contexto.
-     */
-    public function scopeWhereContextId(Builder $query, $contextIds): Builder
-    {
-        return $this->scopeWhereContext($query, $contextIds);
-    }
-
     protected function normalizeContextIds($contextIds): array
     {
         if ($contextIds === null) {
