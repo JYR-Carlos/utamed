@@ -3,6 +3,7 @@
 namespace App\Traits\QueryScopes;
 
 use Illuminate\Database\Eloquent\Builder;
+use App\Support\ContextColumnConfig;
 
 /**
  * Trait para scopes de filtrado por contexto.
@@ -27,7 +28,7 @@ trait FiltersContextScope
         }
 
         if ($type === 'direct') {
-            $contextColumn = config('context-hierarchies.context_column', 'id_contexto');
+            $contextColumn = ContextColumnConfig::contextColumn();
             return $query->whereIn($this->qualifyColumn($contextColumn), $contextIds);
         }
 

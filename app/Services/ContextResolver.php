@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Services\Authorization\GlobalContextService;
+use App\Support\ContextColumnConfig;
 
 /**
  * Servicio para resolver contextos de modelos
@@ -26,6 +27,13 @@ class ContextResolver
      * @var array
      */
     protected $contextCache = [];
+
+    /**
+     * Nombre de la columna de contexto
+     *
+     * @var string|null
+     */
+    protected $contextColumn = null;
 
     public function __construct(
         protected GlobalContextService $globalContextService
@@ -52,6 +60,7 @@ class ContextResolver
         }
 
         $this->mappings = include $configPath;
+        $this->contextColumn = ContextColumnConfig::contextColumn();
 
         return $this->mappings;
     }
@@ -82,8 +91,7 @@ class ContextResolver
 
         // Modelos con contexto directo
         if ($mapping['type'] === 'direct') {
-            $contextColumn = config('context-hierarchies.context_column', 'id_contexto');
-            $contextId = $model->getAttribute($contextColumn);
+            $contextId = $model->getAttribute($this->contextColumn);
             return $contextId !== null ? [$contextId] : [];
         }
 
@@ -246,8 +254,7 @@ class ContextResolver
         $finalModelKey = $this->getModelKey($currentModel);
 
         if (isset($mappings[$finalModelKey]) && $mappings[$finalModelKey]['type'] === 'direct') {
-            $contextColumn = config('context-hierarchies.context_column', 'id_contexto');
-            return $currentModel->getAttribute($contextColumn);
+            return $currentModel->getAttribute($this->contextColumn);
         }
 
         return null;
