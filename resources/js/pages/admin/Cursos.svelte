@@ -28,6 +28,7 @@
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import CourseTeamModal from '@/components/custom/admin/CourseTeamModal.svelte';
   import SyllabusModal from '@/components/custom/admin/SyllabusModal.svelte';
+  import SyllabusTypeSelector from '@/components/custom/admin/SyllabusTypeSelector.svelte';
   import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
   import axios, { AxiosError } from 'axios';
   import type { Curso, Asignatura, Plan, Docente, PaginatedResponse, CursoFormData, Seccion, TipoSeccion, Programa } from '@/types/admin.types';
@@ -58,17 +59,41 @@
   let showDeleteDialog = $state(false);
   let showTeamModal = $state(false);
   let showInscriptionModal = $state(false);
+  let showSyllabusTypeSelector = $state(false);
   let showSyllabusModal = $state(false);
   let isLoading = $state(false);
   let editingCurso = $state<Curso | null>(null);
   let deletingCurso = $state<Curso | null>(null);
   let managingTeamCurso = $state<Curso | null>(null);
   let syllabusTargetCurso = $state<Curso | null>(null);
+  let selectedSyllabusType = $state<'simplified' | 'combined' | 'complete' | null>(null);
   let selectedCursoForInscription = $state<Curso | null>(null);
   let docentes = $state<Docente[]>([]);
   let availableAsignaturas = $state<Asignatura[]>([]);
   let loadingAsignaturas = $state(false);
   let editingDocenteId = $state<number | undefined>(undefined);
+
+  // ── Derived: Detect existing syllabus type from curso program ────────────────
+  let existingSyllabusType = $derived.by(() => {
+    // Prefer programa_estado on the list row (simpler, always present)
+    if (syllabusTargetCurso?.programa_estado === 'BASICO_COMPLETO') {
+      return 'BASICO' as const;
+    }
+    if (
+      syllabusTargetCurso?.programa_estado === 'COMPLETO' ||
+      syllabusTargetCurso?.programa_estado === 'APROBADO' ||
+      syllabusTargetCurso?.programa_estado === 'ENVIADO'
+    ) {
+      return 'COMPLETO' as const;
+    }
+    // Fallback: try to get tipo_syllabus from embedded program data
+    const programa = (syllabusTargetCurso as any)?.programa;
+    const tipoSyllabus = programa?.data_syllabus?.metadata?.tipo_syllabus;
+    if (tipoSyllabus === 'BASICO' || tipoSyllabus === 'COMPLETO') {
+      return tipoSyllabus as 'BASICO' | 'COMPLETO';
+    }
+    return null;
+  });
 
   // Toast notification
   let toast = $state<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -476,19 +501,35 @@
 
   // ── Syllabus modal ────────────────────────────────────────────────────
   function openSyllabusModal(curso: Curso) {
-    // Si el programa existe y NO está en BORRADOR, navegar a revisar
     if (curso.has_programa && curso.programa_estado && curso.programa_estado !== 'BORRADOR') {
+      // Navigate to view/review page for any existing program (including BASICO_COMPLETO)
       router.visit(`/admin/cursos/${curso.id_curso}/programa/revisar`, { method: 'get' });
     } else {
-      // Si no existe o está en BORRADOR, abrir modal de crear/editar
+      // No program or BORRADOR → open the type selector
       syllabusTargetCurso = curso;
-      showSyllabusModal = true;
+      showSyllabusTypeSelector = true;
     }
+  }
+
+  function handleSyllabusTypeSelect(type: 'simplified' | 'combined' | 'complete') {
+    console.log('🎯 handleSyllabusTypeSelect called with type:', type);
+    selectedSyllabusType = type;
+    console.log('✅ selectedSyllabusType actualizado a:', selectedSyllabusType);
+    showSyllabusTypeSelector = false;
+    showSyllabusModal = true;
+    console.log('🚀 Modal abierto con syllabusType:', selectedSyllabusType);
+  }
+
+  function closeSyllabusTypeSelector() {
+    console.log('❌ closeSyllabusTypeSelector - cerrando selector sin cambiar selectedSyllabusType');
+    showSyllabusTypeSelector = false;
+    // NO resetear selectedSyllabusType aquí - solo se resetea en closeSyllabusModal
   }
 
   function closeSyllabusModal() {
     showSyllabusModal = false;
     syllabusTargetCurso = null;
+    selectedSyllabusType = null;
   }
 
   function handleSyllabusSuccess(programa: Programa) {
@@ -545,9 +586,27 @@
     />
   </div>
 
-  <!-- Syllabus Modal (Programa wizard) -->
-  {#if showSyllabusModal}
-    <SyllabusModal bind:isOpen={showSyllabusModal} curso={syllabusTargetCurso} onClose={closeSyllabusModal} onSuccess={handleSyllabusSuccess} />
+  <!-- Syllabus Type Selector Modal (Programa type selection) -->
+  {#if showSyllabusTypeSelector && syllabusTargetCurso}
+    <SyllabusTypeSelector
+      bind:isOpen={showSyllabusTypeSelector}
+      onClose={closeSyllabusTypeSelector}
+      onSelect={handleSyllabusTypeSelect}
+      {existingSyllabusType}
+    />
+  {/if}
+
+  <!-- Syllabus Modal (Programa wizard) - use key block to remount on type change -->
+  {#if showSyllabusModal && syllabusTargetCurso}
+    {#key `${syllabusTargetCurso?.id_curso}-${selectedSyllabusType}`}
+      <SyllabusModal
+        bind:isOpen={showSyllabusModal}
+        curso={syllabusTargetCurso}
+        onClose={closeSyllabusModal}
+        onSuccess={handleSyllabusSuccess}
+        syllabusType={selectedSyllabusType}
+      />
+    {/key}
   {/if}
 
   <!-- Toast Notification -->
@@ -663,7 +722,7 @@
     </div>
 
     <div class="form-group">
-      <label class="form-label">Secciones del Curso</label>
+      <div class="form-label">Secciones del Curso</div>
       {#if loadingSecciones}
         <p>Cargando secciones...</p>
       {:else}
@@ -677,7 +736,7 @@
                 {#if seccion.id_docente}
                   <div class="docente-display">
                     <span class="docente-name">{seccion.docente?.nombre_completo || 'Sin nombre'}</span>
-                    <button type="button" class="btn-edit-docente" onclick={() => toggleEditDocente(seccion)}>
+                    <button type="button" class="btn-edit-docente" aria-label="Editar docente" onclick={() => toggleEditDocente(seccion)}>
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="16"
@@ -718,8 +777,8 @@
         {#if showEditDocente && editingSeccion}
           <div class="edit-docente-form">
             <div class="form-group">
-              <label>Asignar Docente a {editingSeccion.tipo_seccion?.tipo || 'Sección'}</label>
-              <select bind:value={editingDocenteId} class="form-input">
+              <label for="docente-select-{editingSeccion.id_seccion}">Asignar Docente a {editingSeccion.tipo_seccion?.tipo || 'Sección'}</label>
+              <select id="docente-select-{editingSeccion.id_seccion}" bind:value={editingDocenteId} class="form-input">
                 <option value={null}>Sin docente</option>
                 {#each docentes as docente}
                   <option value={docente.id_docente}>{docente.nombre_completo}</option>

@@ -42,6 +42,20 @@ class ProgramaController extends Controller
             ->with('autor')
             ->first();
 
+        // Obtener permisos especiales del usuario para el contexto del curso (si está configurado)
+        $userPermissions = [];
+        if ($curso->id_contexto) {
+            $userPermissionsData = $user->getAllPermissions($curso->id_contexto);
+            $userPermissions = collect($userPermissionsData)->map(function ($perm) {
+                return [
+                    'id_permiso' => $perm['id_permiso'],
+                    'slug' => $perm['slug'],
+                    'esta_permitido' => (bool)$perm['esta_permitido'],
+                    'puede_delegar' => (bool)($perm['puede_delegar'] ?? false),
+                ];
+            })->values()->toArray();
+        }
+
         // Si no hay programa, mostrar página con aviso en lugar de 404
         if (!$programa) {
             // Cargar relaciones para mostrar la información del curso
@@ -61,6 +75,7 @@ class ProgramaController extends Controller
             return Inertia::render('student/Courses/Programa', [
                 'programa' => null,
                 'curso' => $cursoData,
+                'userPermissions' => $userPermissions,
             ]);
         }
 
@@ -107,6 +122,7 @@ class ProgramaController extends Controller
         return Inertia::render('student/Courses/Programa', [
             'programa' => $programaData,
             'curso' => $cursoData,
+            'userPermissions' => $userPermissions,
         ]);
     }
 

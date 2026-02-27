@@ -142,12 +142,23 @@ class HandleInertiaRequests extends Middleware
                     )
                     ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto')
                     ->get()
-                    ->map(fn($c) => [
-                        'id_curso' => $c->id_curso,
-                        'nombre' => $c->nombre,
-                        'cod_curso' => $c->cod_curso,
-                        'tiene_programa' => \App\Models\Administrativo\Programa::where('id_curso', $c->id_curso)->exists(),
-                    ])
+                    ->map(function ($c) use ($user) {
+                        $userPermissions = $user->getAllPermissions($c->id_contexto);
+                        $userPermissions = collect($userPermissions)->map(function ($perm) {
+                            return [
+                                'id_permiso' => $perm['id_permiso'],
+                                'slug' => $perm['slug'],
+                                'esta_permitido' => (bool)$perm['esta_permitido'],
+                            ];
+                        })->values()->toArray();
+                        return [
+                            'id_curso' => $c->id_curso,
+                            'nombre' => $c->nombre,
+                            'cod_curso' => $c->cod_curso,
+                            'tiene_programa' => \App\Models\Administrativo\Programa::where('id_curso', $c->id_curso)->exists(),
+                            'userPermissions' => $userPermissions,
+                        ];
+                    })
                     ->unique('id_curso')
                     ->values() : [],
 

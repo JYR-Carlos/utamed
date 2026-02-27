@@ -49,9 +49,21 @@
     curso: Curso | null;
     onClose: () => void;
     onSuccess: (programa: Programa) => void;
+    syllabusType?: 'simplified' | 'combined' | 'complete' | null;
   }
 
-  let { isOpen = $bindable(), curso, onClose, onSuccess }: Props = $props();
+  let { isOpen = $bindable(), curso, onClose, onSuccess, syllabusType = null }: Props = $props();
+
+  // ── Syllabus Type tracking ───────────────────────────────────────────────
+  let selectedSyllabusType = $state<'simplified' | 'combined' | 'complete' | null>(null);
+
+  // Sincronizar selectedSyllabusType cuando syllabusType prop cambie
+  $effect(() => {
+    console.log('🔄 Effect en SyllabusModal: syllabusType prop cambió a:', syllabusType);
+    // 'combined' = continuar BASICO → usar pasos COMPLETO (9 steps)
+    selectedSyllabusType = syllabusType === 'combined' ? 'complete' : syllabusType;
+    console.log('🔄 selectedSyllabusType ahora es:', selectedSyllabusType, 'STEPS.length:', STEPS.length);
+  });
 
   // ── Mode ────────────────────────────────────────────────────────────────────
   // 'view' = showing existing programa (editable)
@@ -93,6 +105,19 @@
 
   // Sección V: Evaluación Diagnóstica
   let items_evaluacion = $state<{ titulo: string; descripcion: string }[]>([{ titulo: '', descripcion: '' }]);
+
+  // Sección VII (BASICO): Actividades de Aprendizaje
+  let actividades = $state<
+    {
+      id_actividad: number | null;
+      nombre: string;
+      tipo: string;
+      id_unidad?: number | null;
+      id_seccion?: number | null;
+      nombre_unidad?: string;
+    }[]
+  >([{ id_actividad: null, nombre: '', tipo: 'participación', id_unidad: null, id_seccion: null, nombre_unidad: '' }]);
+  let existingActividades = $state<{ id_actividad: number; nombre: string; fecha_limite: string }[]>([]);
 
   // Sección VI: Unidades (con resultados de aprendizaje por unidad)
   let unidades = $state<{ numero: number; titulo: string; contenidos: string; resultados_aprendizaje: { resultado: string }[] }[]>([
@@ -136,7 +161,7 @@
   >([{ componente: '', porcentaje: 0, genera_acta: false, aprobacion_obligatoria: false, asistencia_obligatoria: 0 }]);
   let normativa_curso = $state('');
 
-  const STEPS = [
+  const ALL_STEPS = [
     { id: 1, label: 'I. Identificación', icon: '📚' },
     { id: 2, label: 'II. Presentación', icon: '📝' },
     { id: 3, label: 'III. Estándares', icon: '📋' },
@@ -148,23 +173,63 @@
     { id: 9, label: 'IX. Aspectos Admin.', icon: '⚙️' },
   ] as const;
 
-  // Detectar contexto (docente o admin) desde la URL
+  // Filter steps based on syllabus type
+  const STEPS = $derived.by(() => {
+    if (selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined') {
+      // BASICO: 5 steps → I, II, VI (with activities), VIII, IX
+      return [ALL_STEPS[0], ALL_STEPS[1], ALL_STEPS[5], ALL_STEPS[7], ALL_STEPS[8]];
+    }
+    return ALL_STEPS; // All 9 steps for COMPLETO
+  });
+
+  // Detectar contexto (docente, ayudante o admin) desde la URL
   const getBasePath = () => {
     const currentPath = window.location.pathname;
-    return currentPath.includes('/docente/') ? '/docente/cursos' : '/admin/cursos';
+    if (currentPath.includes('/docente/')) return '/docente/cursos';
+    if (currentPath.includes('/ayudante/')) return '/ayudante/cursos';
+    return '/admin/cursos';
   };
 
   // ── Init on mount: decide mode and load data ─────────────────────────────────
   onMount(() => {
-    console.log('🔍 SyllabusModal onMount - curso.has_programa:', curso?.has_programa);
-    if (curso?.has_programa) {
+    console.log(
+      '🔍 SyllabusModal onMount - syllabusType (prop):',
+      syllabusType,
+      'selectedSyllabusType:',
+      selectedSyllabusType,
+      'has_programa:',
+      curso?.has_programa,
+    );
+    console.log(
+      `📊 STEPS derivation test: selectedSyllabusType=${selectedSyllabusType}, STEPS.length=${STEPS.length}, ALL_STEPS.length=${ALL_STEPS.length}`,
+    );
+    console.log(`📈 Contexto: modo wizard=${mode === 'wizard'}, curso_id=${curso?.id_curso}, curso_asignatura=${curso?.asignatura_nombre}`);
+
+    // Si es 'combined' y existe un programa BASICO, iniciar wizard COMPLETO pre-poblado
+    if (syllabusType === 'combined' && curso?.has_programa) {
+      mode = 'wizard';
+      console.log('✨ Modo WIZARD COMPLETO - continuando desde BASICO');
+      loadAndPrefillFromBasico();
+    }
+    // Si existe programa general, cargar en modo view
+    else if (curso?.has_programa) {
       mode = 'view';
       console.log('📖 Modo VIEW - cargando programa existente');
       loadPrograma();
-    } else {
+    }
+    // Si no existe programa, iniciar wizard
+    else {
       mode = 'wizard';
-      console.log('✨ Modo WIZARD - inicializando nuevo programa');
+      console.log('✨ Modo WIZARD - inicializando nuevo programa', 'syllabusType:', syllabusType, 'STEPS.length que se va a usar:', STEPS.length);
       initializeWizard();
+    }
+
+    // Force update of selectedSyllabusType in case it hasn't been set by $effect yet
+    const effectiveType = syllabusType === 'combined' ? 'complete' : syllabusType;
+    if (selectedSyllabusType !== effectiveType) {
+      console.log('🔄 Forcing selectedSyllabusType sync:', effectiveType);
+      selectedSyllabusType = effectiveType;
+      console.log(`📊 After sync: STEPS.length=${STEPS.length}`);
     }
   });
 
@@ -193,6 +258,8 @@
 
     // Cargar secciones del curso para Sección IX
     loadCursoSecciones();
+    // Cargar actividades existentes del curso para Sección VII
+    loadCursoActividades();
   }
 
   async function loadCursoSecciones() {
@@ -206,6 +273,21 @@
     } catch (error) {
       console.warn('Error cargando secciones del curso:', error);
       // Si falla, mantener la inicialización por defecto
+    }
+  }
+
+  async function loadCursoActividades() {
+    if (!curso) return;
+    try {
+      const basePath = getBasePath();
+      const { data } = await axios.get(`${basePath}/${curso.id_curso}/actividades/json`);
+      if (Array.isArray(data)) {
+        existingActividades = data;
+        console.log('✅ Actividades cargadas:', existingActividades);
+      }
+    } catch (error) {
+      console.warn('Error cargando actividades del curso:', error);
+      // Si falla, solo no mostrar actividades existentes
     }
   }
 
@@ -229,6 +311,70 @@
     } finally {
       loadingPrograma = false;
     }
+  }
+
+  /**
+   * Carga el programa BASICO existente y pre-rellena el wizard COMPLETO con sus datos.
+   * Se usa cuando syllabusType === 'combined' y existe un programa.
+   */
+  async function loadAndPrefillFromBasico() {
+    if (!curso) return;
+    try {
+      const basePath = getBasePath();
+      const { data } = await axios.get(`${basePath}/${curso.id_curso}/programa/json`, {
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      });
+
+      const raw: Record<string, any> = data.programa?.data_syllabus?.secciones ?? {};
+
+      // Sección I — Identificación
+      const cI = raw?.I?.contenido ?? {};
+      if (cI.nombre_asignatura) nombre_asignatura = cI.nombre_asignatura;
+      if (cI.codigo) codigo = String(cI.codigo);
+      if (cI.creditos_sct != null) creditos_sct = String(cI.creditos_sct);
+      if (cI.horas?.catedra != null) horas_catedra = String(cI.horas.catedra);
+      if (cI.horas?.taller != null) horas_taller = String(cI.horas.taller);
+      if (cI.horas?.laboratorio != null) horas_laboratorio = String(cI.horas.laboratorio);
+      if (cI.categoria) categoria = cI.categoria;
+
+      // Sección II — Presentación
+      const cII = raw?.II?.contenido ?? {};
+      if (cII.texto) presentacion = cII.texto;
+
+      // Sección VI — Unidades
+      const cVI = raw?.VI?.contenido ?? {};
+      if (Array.isArray(cVI.unidades) && cVI.unidades.length > 0) {
+        unidades = cVI.unidades.map((u: any) => ({
+          numero: u.numero ?? 1,
+          titulo: u.titulo ?? '',
+          contenidos: u.contenidos_items?.[0]?.item ?? '',
+          resultados_aprendizaje:
+            Array.isArray(u.resultados_aprendizaje) && u.resultados_aprendizaje.length > 0 ? u.resultados_aprendizaje : [{ resultado: '' }],
+        }));
+      }
+
+      // Sección VIII — Recursos
+      const cVIII = raw?.VIII?.contenido ?? {};
+      if (Array.isArray(cVIII.recursos) && cVIII.recursos.length > 0) {
+        recursos = cVIII.recursos.map((r: any) => ({
+          descripcion: r.descripcion ?? '',
+          tipo: r.tipo ?? 'Libro',
+          ubicacion: r.ubicacion ?? '',
+        }));
+      }
+
+      console.log('✅ Pre-relleno desde BASICO completado');
+    } catch (err) {
+      console.warn('No se pudo pre-cargar datos del programa básico, iniciando en blanco:', err);
+    }
+
+    // Fallback: asegurar que los campos de identificación estén rellenos desde el curso
+    if (!nombre_asignatura) nombre_asignatura = curso?.asignatura_nombre ?? '';
+    if (!codigo) codigo = String(curso?.cod_curso ?? '');
+
+    // Cargar secciones y actividades del curso para los selectores del wizard
+    loadCursoSecciones();
+    loadCursoActividades();
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -300,9 +446,17 @@
         })),
       }));
 
-      const { data } = await axios.post(`${getBasePath()}/${curso.id_curso}/programa`, {
-        secciones: payload,
-      });
+      const { data } = await axios.post(
+        `${getBasePath()}/${curso.id_curso}/programa`,
+        {
+          secciones: payload,
+        },
+        { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
+      );
+
+      if (typeof data === 'string' && data.trimStart().startsWith('<!DOCTYPE')) {
+        throw new Error('El servidor respondió con HTML (error de validación o sesión expirada). Revisa los datos e intenta de nuevo.');
+      }
 
       isSaving = false;
       resetAll();
@@ -360,7 +514,43 @@
   }
 
   function buildSecciones() {
-    return {
+    // Determinar Sección VII basada en el tipo
+    const seccionVII =
+      selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined'
+        ? {
+            contenido: {
+              actividades: actividades
+                .filter((a) => a.nombre.trim() || a.id_actividad)
+                .map((a) => ({
+                  id_actividad: a.id_actividad || null,
+                  nombre: a.nombre.trim() || 'Actividad',
+                  tipo: a.tipo,
+                  nombre_unidad: a.nombre_unidad?.trim() || '',
+                })),
+            },
+          }
+        : {
+            contenido: {
+              resultados_aprendizaje: {
+                titulo: 'Resultados de Aprendizaje',
+                items: consolidatedResults
+                  .filter((r) => r.resultado.trim())
+                  .map((r) => ({
+                    resultado: r.resultado.trim(),
+                  })),
+              },
+              metodologia: {
+                titulo: 'Metodología',
+                tipo_estrategia: metodologia.trim(),
+              },
+              evaluacion: {
+                titulo: 'Evaluación',
+                tipo_evaluacion: evaluacion.trim(),
+              },
+            },
+          };
+
+    const baseSecciones = {
       I: {
         contenido: {
           nombre_asignatura: nombre_asignatura.trim(),
@@ -429,26 +619,7 @@
             })),
         },
       },
-      VII: {
-        contenido: {
-          resultados_aprendizaje: {
-            titulo: 'Resultados de Aprendizaje',
-            items: consolidatedResults
-              .filter((r) => r.resultado.trim())
-              .map((r) => ({
-                resultado: r.resultado.trim(),
-              })),
-          },
-          metodologia: {
-            titulo: 'Metodología',
-            tipo_estrategia: metodologia.trim(),
-          },
-          evaluacion: {
-            titulo: 'Evaluación',
-            tipo_evaluacion: evaluacion.trim(),
-          },
-        },
-      },
+      VII: seccionVII,
       VIII: {
         contenido: {
           recursos: recursos
@@ -478,6 +649,16 @@
         },
       },
     };
+
+    // For BASICO types, only return sections I, II, VI, VII, VIII (skip III, IV, V, IX)
+    if (selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined') {
+      const { III: _, IV: __, V: ___, IX: ____, ...basicSecciones } = baseSecciones;
+      console.log('📋 buildSecciones - BASICO mode, returning sections:', Object.keys(basicSecciones));
+      return basicSecciones;
+    }
+
+    console.log('📋 buildSecciones - COMPLETO mode, returning all sections:', Object.keys(baseSecciones));
+    return baseSecciones;
   }
 
   async function handleGenerate() {
@@ -485,14 +666,34 @@
     isGenerating = true;
     errorMsg = '';
     try {
+      // Separar actividades nuevas (id_actividad = null) de las existentes
+      const actividadesNuevas = actividades.filter((a) => !a.id_actividad && a.nombre.trim());
+      const actividadesExistentes = actividades.filter((a) => a.id_actividad);
+
       const payload = {
         secciones: buildSecciones(),
+        syllabus_type: selectedSyllabusType ?? 'complete',
+        // Enviar actividades nuevas para crear después
+        actividades_to_create: actividadesNuevas.map((a) => ({
+          nombre: a.nombre.trim(),
+          tipo_actividad: 1, // Tipo por defecto
+          tipo_entrega: 'online',
+          es_grupal: false,
+          max_integrantes: 1,
+          nombre_unidad: a.nombre_unidad?.trim() || '',
+        })),
       };
       console.log('📤 Enviando payload:', JSON.stringify(payload, null, 2));
 
       const basePath = getBasePath();
-      const { data } = await axios.post(`${basePath}/${curso.id_curso}/programa`, payload);
+      const { data } = await axios.post(`${basePath}/${curso.id_curso}/programa`, payload, {
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      });
       console.log('✅ Respuesta exitosa:', data);
+
+      if (typeof data === 'string' && data.trimStart().startsWith('<!DOCTYPE')) {
+        throw new Error('El servidor respondió con HTML (error de validación o sesión expirada). Revisa los datos e intenta de nuevo.');
+      }
       isGenerating = false;
       resetAll();
       onSuccess(data.programa as Programa);
@@ -517,7 +718,7 @@
           errorMsg = err.response?.data?.error ?? err.message;
         }
       } else {
-        errorMsg = 'Error desconocido al generar el programa.';
+        errorMsg = err instanceof Error ? err.message : 'Error desconocido al generar el programa.';
       }
     }
   }
@@ -526,15 +727,32 @@
   let step1Valid = $derived(
     nombre_asignatura.trim().length > 0 && codigo.trim().length > 0 && creditos_sct.trim().length > 0 && horas_catedra.trim().length > 0,
   );
-  let step2Valid = $derived(presentacion.trim().length > 0);
+  let step2Valid = $derived(
+    selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined'
+      ? true // Presentación es opcional en BASICO
+      : presentacion.trim().length > 0, // Requerida en COMPLETO
+  );
   let step3Valid = $derived(estandares.trim().length > 0);
   let step4Valid = $derived(
     competencias_especificas.some((c) => c.titulo.trim().length > 0) && competencias_genericas.some((c) => c.titulo.trim().length > 0),
   );
   let step5Valid = $derived(items_evaluacion.some((i) => i.titulo.trim().length > 0));
-  let step6Valid = $derived(unidades.some((u) => u.titulo.trim().length > 0));
-  let step7Valid = $derived(consolidatedResults.length > 0 && metodologia.trim().length > 0 && evaluacion.trim().length > 0);
-  let step8Valid = $derived(recursos.filter((r) => r.descripcion.trim().length > 0).length >= 2);
+  let step6Valid = $derived(
+    selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined'
+      ? true // Unidades es opcional en BASICO
+      : unidades.some((u) => u.titulo.trim().length > 0), // Requerida en COMPLETO
+  );
+  // Step 7 es Actividades (opcional) para BASICO, y Planificación (requerida) para COMPLETO
+  let step7Valid = $derived(
+    selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined'
+      ? true // Actividades es completamente opcional en BASICO
+      : consolidatedResults.length > 0 && metodologia.trim().length > 0 && evaluacion.trim().length > 0,
+  );
+  let step8Valid = $derived(
+    selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined'
+      ? true // Recursos es opcional en BASICO
+      : recursos.filter((r) => r.descripcion.trim().length > 0).length >= 2, // Requerido en COMPLETO
+  );
   let step9Valid = $derived(normativa_curso.trim().length > 0 && componentes.some((c) => c.componente.trim().length > 0));
 
   // Helper: get the first content text of a section (for display)
@@ -800,38 +1018,93 @@
         <!-- WIZARD MODE (create from scratch)                          -->
         <!-- ══════════════════════════════════════════════════════════ -->
       {:else}
-        <!-- Step indicator -->
-        <div class="px-6 py-4 flex-shrink-0 border-b border-slate-100">
-          <ol class="flex items-center list-none m-0 p-0 gap-0">
+        <!-- Step indicator - Dynamic carousel showing only visible steps -->
+        <div class="px-4 py-3 flex-shrink-0 border-b border-slate-100 bg-slate-50">
+          <p class="text-xs text-slate-600 mb-2">
+            📍 Modo: <strong
+              >{selectedSyllabusType === 'simplified'
+                ? 'Simplificado (5 secciones)'
+                : selectedSyllabusType === 'combined'
+                  ? 'Combinado'
+                  : 'Completo (9 secciones)'}</strong
+            >
+            — Paso {step} de {STEPS.length}
+          </p>
+          <ol class="flex items-center justify-center list-none m-0 p-0 gap-2">
+            <!-- Botón anterior si hay pasos previos -->
+            {#if STEPS.findIndex((s) => s.id === step) > 0}
+              <button
+                type="button"
+                onclick={() => {
+                  const idx = STEPS.findIndex((s) => s.id === step);
+                  if (idx > 0) step = STEPS[idx - 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                }}
+                class="px-2 py-1 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded transition-all"
+              >
+                ← Anterior
+              </button>
+            {/if}
+
+            <!-- Mostrar solo 3 pasos visibles: anterior, actual, siguiente -->
             {#each STEPS as s, i}
-              {@const isComplete = step > s.id}
-              {@const isActive = step === s.id}
-              <li class="flex items-center flex-1">
-                <div class="flex items-center gap-2">
-                  <div
-                    class="{isComplete
-                      ? 'bg-blue-600 text-white'
-                      : isActive
-                        ? 'bg-blue-600 text-white ring-4 ring-blue-100'
-                        : 'bg-slate-100 text-slate-400'} w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all"
+              {@const currentIdx = STEPS.findIndex((st) => st.id === step)}
+              {@const isComplete = i < currentIdx}
+              {@const isActive = s.id === step}
+              {@const relPos = i - currentIdx}
+              {@const isVisible = Math.abs(relPos) <= 1}
+
+              {#if isVisible}
+                <li class="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    title={`${s.label}`}
+                    onclick={() => {
+                      if (isComplete || isActive) {
+                        console.log(`🔄 Saltando al paso ${s.id}`);
+                        step = s.id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                      }
+                    }}
+                    disabled={!isComplete && !isActive}
+                    class="disabled:cursor-not-allowed transition-all"
                   >
-                    {#if isComplete}<span>✓</span>{:else}<span>{s.id}</span>{/if}
-                  </div>
-                  <span class="text-lg">{s.icon}</span>
-                </div>
-                <span class="text-xs {isActive ? 'text-blue-600 font-semibold' : 'text-slate-500'} ml-2">{s.label}</span>
-                {#if i < STEPS.length - 1}
-                  <div class="{isComplete ? 'bg-blue-600' : 'bg-slate-200'} h-0.5 mx-2 flex-1 transition-colors"></div>
-                {/if}
-              </li>
+                    <div
+                      class="{isActive
+                        ? 'bg-blue-600 text-white ring-2 ring-blue-300 w-8 h-8'
+                        : isComplete
+                          ? 'bg-blue-500 text-white w-6 h-6'
+                          : 'bg-slate-300 text-slate-600 w-6 h-6'} rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all"
+                    >
+                      {#if isComplete}<span class="text-sm">✓</span>{:else}<span>{s.id}</span>{/if}
+                    </div>
+                  </button>
+                  {#if isVisible && relPos < 1}
+                    <div class="h-0.5 w-3 bg-slate-300 flex-shrink-0 mx-1"></div>
+                  {/if}
+                </li>
+              {/if}
             {/each}
+
+            <!-- Botón siguiente si hay pasos siguientes -->
+            {#if STEPS.findIndex((s) => s.id === step) < STEPS.length - 1}
+              <button
+                type="button"
+                onclick={() => {
+                  const idx = STEPS.findIndex((s) => s.id === step);
+                  if (idx < STEPS.length - 1) {
+                    step = STEPS[idx + 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                  }
+                }}
+                class="px-2 py-1 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded transition-all"
+              >
+                Siguiente →
+              </button>
+            {/if}
           </ol>
         </div>
 
         <div class="flex-1 overflow-y-auto px-6 py-6">
           <ProgramaWizardSteps
             {step}
-            bind:nombre_asignatura
             bind:codigo
             bind:creditos_sct
             bind:horas_catedra
@@ -844,6 +1117,8 @@
             bind:competencias_genericas
             bind:subcompetencias
             bind:items_evaluacion
+            bind:actividades
+            {existingActividades}
             bind:unidades
             resultados_aprendizaje={consolidatedResults}
             bind:metodologia
@@ -853,6 +1128,7 @@
             bind:ponderacion_optativa
             bind:componentes
             {curso}
+            syllabusType={selectedSyllabusType}
           />
 
           {#if errorMsg}
@@ -882,7 +1158,8 @@
               if (step === 1 && curso?.has_programa) {
                 mode = 'view';
               } else {
-                step = Math.max(1, step - 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                const idx = STEPS.findIndex((s) => s.id === step);
+                if (idx > 0) step = STEPS[idx - 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
               }
             }}
             disabled={isGenerating}
@@ -890,10 +1167,17 @@
           >
             ← {step === 1 && curso?.has_programa ? 'Ver existente' : 'Atrás'}
           </button>
-          {#if step < 9}
+
+          <!-- Show Next button only if not at the last step -->
+          {#if STEPS.findIndex((s) => s.id === step) < STEPS.length - 1}
             <button
               type="button"
-              onclick={() => (step = Math.min(9, step + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9)}
+              onclick={() => {
+                const idx = STEPS.findIndex((s) => s.id === step);
+                if (idx < STEPS.length - 1) {
+                  step = STEPS[idx + 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                }
+              }}
               disabled={(step === 1 && !step1Valid) ||
                 (step === 2 && !step2Valid) ||
                 (step === 3 && !step3Valid) ||
@@ -901,16 +1185,18 @@
                 (step === 5 && !step5Valid) ||
                 (step === 6 && !step6Valid) ||
                 (step === 7 && !step7Valid) ||
-                (step === 8 && !step8Valid)}
+                (step === 8 && !step8Valid) ||
+                (step === 9 && !step9Valid)}
               class="px-3 py-2 rounded-lg text-sm font-medium bg-blue-600 border-none text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
             >
               Siguiente →
             </button>
           {:else}
+            <!-- Show Save button when at the last step or beyond -->
             <button
               type="button"
               onclick={handleGenerate}
-              disabled={isGenerating || !step9Valid}
+              disabled={isGenerating}
               class="px-3 py-2 rounded-lg text-sm font-medium bg-blue-600 border-none text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
             >
               {#if isGenerating}

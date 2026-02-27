@@ -3,6 +3,8 @@
   import type { BreadcrumbItem } from '@/types';
   import { Undo2, BookOpen } from 'lucide-svelte';
   import { Link } from '@inertiajs/svelte';
+  import { hasPermission } from '@/services/permissionValidator';
+  import type { Permission } from '@/types/permissions.types';
 
   interface Props {
     programa: {
@@ -35,9 +37,10 @@
       asignatura: any;
       carrera: any;
     };
+    userPermissions?: Permission[];
   }
 
-  let { programa, curso }: Props = $props();
+  let { programa, curso, userPermissions = [] }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/estudiante/dashboard' },
@@ -45,6 +48,12 @@
     { title: curso.nombre, href: `/estudiante/cursos/${curso.id_curso}` },
     { title: 'Programa', href: `/estudiante/cursos/${curso.id_curso}/programa` },
   ];
+
+  // Validar permisos de usuario
+  const canViewPrograma = $derived.by(() => hasPermission(userPermissions, 'cursos/programas:ver'));
+  const canEditPrograma = $derived.by(
+    () => hasPermission(userPermissions, 'cursos/programas:modificar:modulo_1') || hasPermission(userPermissions, 'cursos/programas:*'),
+  );
 
   function getContenidos(seccion: any) {
     return seccion.contenidos || seccion.contenidos_programa || [];

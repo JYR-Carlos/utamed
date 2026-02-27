@@ -24,7 +24,18 @@ class CourseController extends Controller
             ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera'])
             ->get();
 
-        $cursosData = $cursosInscritos->map(function ($curso) {
+        $cursosData = $cursosInscritos->map(function ($curso) use ($user) {
+            // Obtener permisos del usuario para este contexto
+            $userPermissions = $user->getAllPermissions($curso->id_contexto);
+            $userPermissions = collect($userPermissions)->map(function ($perm) {
+                return [
+                    'id_permiso' => $perm['id_permiso'],
+                    'slug' => $perm['slug'],
+                    'esta_permitido' => (bool)$perm['esta_permitido'],
+                    'puede_delegar' => (bool)($perm['puede_delegar'] ?? false),
+                ];
+            })->values()->toArray();
+
             return [
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
@@ -33,6 +44,7 @@ class CourseController extends Controller
                 'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                 'fecha_inicio' => $curso->fecha_inicio,
                 'fecha_fin' => $curso->fecha_fin,
+                'userPermissions' => $userPermissions,
             ];
         });
 
@@ -73,10 +85,22 @@ class CourseController extends Controller
 
         $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $id)->exists();
 
+        // Obtener permisos especiales del usuario en el contexto del curso
+        $userPermissions = $user->getAllPermissions($curso->id_contexto);
+        $userPermissions = collect($userPermissions)->map(function ($perm) {
+            return [
+                'id_permiso' => $perm['id_permiso'],
+                'slug' => $perm['slug'],
+                'esta_permitido' => (bool)$perm['esta_permitido'],
+                'puede_delegar' => (bool)($perm['puede_delegar'] ?? false),
+            ];
+        })->values()->toArray();
+
         return Inertia::render('ayudante/Courses/Show', [
             'id_curso' => $id,
             'curso' => $cursoData,
-            'tiene_programa' => $tienePrograma
+            'tiene_programa' => $tienePrograma,
+            'userPermissions' => $userPermissions,
         ]);
     }
 }

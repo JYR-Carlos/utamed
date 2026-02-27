@@ -1,8 +1,8 @@
 <script lang="ts">
   export let step: number;
+  export let syllabusType: 'simplified' | 'combined' | 'complete' | null = null;
 
-  // Secció I: Identificación
-  export let nombre_asignatura: string;
+  // Sección I: Identificación (most are from curso object and disabled, except categoria)
   export let codigo: string;
   export let creditos_sct: string;
   export let horas_catedra: string;
@@ -24,6 +24,17 @@
 
   // Sección V: Evaluación Diagnóstica
   export let items_evaluacion: { titulo: string; descripcion: string }[];
+
+  // Sección VII (BASICO): Actividades
+  export let actividades: {
+    id_actividad: number | null;
+    nombre: string;
+    tipo: string;
+    id_unidad?: number | null;
+    id_seccion?: number | null;
+    nombre_unidad?: string;
+  }[];
+  export let existingActividades: { id_actividad: number; nombre: string; fecha_limite: string }[] = [];
 
   // Sección VI: Unidades
   export let unidades: { numero: number; titulo: string; contenidos: string; resultados_aprendizaje: { resultado: string }[] }[];
@@ -60,8 +71,29 @@
 {#if step === 1}
   <!-- Sección I: Identificación -->
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
+    {#if syllabusType === 'simplified'}
+      <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 mb-4">
+        <p class="text-sm text-blue-800">
+          <strong>Modo Simplificado:</strong> Estamos en la <strong>Edición Simplificada</strong>. Completa solo los campos esenciales para una
+          creación rápida.
+        </p>
+      </div>
+    {:else if syllabusType === 'combined'}
+      <div class="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4">
+        <p class="text-sm text-amber-800">
+          <strong>Modo Combinado:</strong> Continuarás desde tu edición simplificada y ahora completarás todos los detalles.
+        </p>
+      </div>
+    {:else if syllabusType === 'complete'}
+      <div class="rounded-lg bg-green-50 border border-green-200 p-3 mb-4">
+        <p class="text-sm text-green-800">
+          <strong>Syllabus Completo:</strong> Crearás todas las 9 secciones con información detallada. Asegúrate de tener toda la información disponible.
+        </p>
+      </div>
+    {/if}
+
     <div>
-      <h3 class="text-lg font-semibold text-slate-900">📚 I. Identificación</h3>
+      <h3 class="text-lg font-semibold text-slate-900 truncate">📚 I. Identificación</h3>
       <p class="text-sm text-slate-500 mt-0.5">Información básica de la asignatura</p>
     </div>
 
@@ -159,7 +191,7 @@
   <!-- Sección II: Presentación -->
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
     <div>
-      <h3 class="text-lg font-semibold text-slate-900">📝 II. Presentación</h3>
+      <h3 class="text-lg font-semibold text-slate-900 truncate">📝 II. Presentación</h3>
       <p class="text-sm text-slate-500 mt-0.5">Descripción general y contexto de la asignatura</p>
     </div>
     <textarea
@@ -174,7 +206,7 @@
   <!-- Sección III: Estándares -->
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
     <div>
-      <h3 class="text-lg font-semibold text-slate-900">📋 III. Estándares</h3>
+      <h3 class="text-lg font-semibold text-slate-900 truncate">📋 III. Estándares</h3>
       <p class="text-sm text-slate-500 mt-0.5">Estándares y marcos de referencia</p>
     </div>
     <textarea
@@ -189,7 +221,7 @@
   <!-- Sección IV: Competencias -->
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-6">
     <div>
-      <h3 class="text-lg font-semibold text-slate-900">🎯 IV. Competencias</h3>
+      <h3 class="text-lg font-semibold text-slate-900 truncate">🎯 IV. Competencias</h3>
       <p class="text-sm text-slate-500 mt-0.5">Competencias específicas, genéricas y subcompetencias</p>
     </div>
 
@@ -286,7 +318,7 @@
   <!-- Sección V: Evaluación Diagnóstica -->
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
     <div>
-      <h3 class="text-lg font-semibold text-slate-900">📊 V. Evaluación Diagnóstica</h3>
+      <h3 class="text-lg font-semibold text-slate-900 truncate">📊 V. Evaluación Diagnóstica</h3>
       <p class="text-sm text-slate-500 mt-0.5">Preguntas o ítems para evaluar conocimientos previos</p>
     </div>
     <div class="space-y-3">
@@ -318,11 +350,215 @@
       >
     </div>
   </div>
-{:else if step === 6}
+{:else if step === 6 && (syllabusType === 'simplified' || syllabusType === 'combined')}
+  <!-- Sección VI: Unidades + Actividades (BASICO) -->
+  <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-6">
+    <!-- Unidades -->
+    <div>
+      <h3 class="text-lg font-semibold text-slate-900 truncate mb-3">📖 VI. Unidades</h3>
+      <div class="space-y-4">
+        {#each unidades as unit, i}
+          <div class="rounded-lg border border-slate-200 p-4 space-y-3 border-l-4 border-l-blue-600">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-semibold text-slate-700">U{unit.numero}. {unit.titulo || 'Unidad'}</span>
+              {#if unidades.length > 1}
+                <button
+                  type="button"
+                  onclick={() => (unidades = removeItem(unidades, i))}
+                  title="Eliminar unidad"
+                  class="text-red-600 hover:bg-red-50 p-1 rounded"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+                  >
+                </button>
+              {/if}
+            </div>
+            <input
+              type="text"
+              bind:value={unit.titulo}
+              oninput={() => (unidades = [...unidades])}
+              placeholder="Título de la unidad"
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <textarea
+              bind:value={unit.contenidos}
+              placeholder="Contenidos principales..."
+              rows="2"
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            ></textarea>
+            <div class="bg-blue-50 p-3 rounded-lg space-y-2">
+              <h5 class="text-sm font-semibold text-slate-700">Resultados de Aprendizaje U{unit.numero}</h5>
+              {#each unit.resultados_aprendizaje as ra, raIdx}
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    bind:value={ra.resultado}
+                    placeholder="Ej: El estudiante podrá..."
+                    class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {#if unit.resultados_aprendizaje.length > 1}
+                    <button
+                      type="button"
+                      onclick={() => {
+                        unit.resultados_aprendizaje = removeItem(unit.resultados_aprendizaje, raIdx);
+                        unidades = [...unidades];
+                      }}
+                      title="Eliminar resultado"
+                      class="p-2 text-red-600 hover:bg-red-100 rounded transition-colors"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+                      >
+                    </button>
+                  {/if}
+                </div>
+              {/each}
+              <button
+                type="button"
+                onclick={() => {
+                  unit.resultados_aprendizaje = addItem(unit.resultados_aprendizaje, { resultado: '' });
+                  unidades = [...unidades];
+                }}
+                class="text-xs text-blue-600 hover:underline"
+              >
+                + Agregar resultado U{unit.numero}
+              </button>
+            </div>
+          </div>
+        {/each}
+        <button
+          type="button"
+          onclick={() =>
+            (unidades = addItem(unidades, { numero: unidades.length + 1, titulo: '', contenidos: '', resultados_aprendizaje: [{ resultado: '' }] }))}
+          class="w-full px-3 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 text-sm font-medium"
+        >
+          + Nueva unidad
+        </button>
+      </div>
+    </div>
+
+    <!-- Actividades (subsección) -->
+    <div class="border-t-4 border-t-amber-200 pt-6">
+      <h3 class="text-lg font-semibold text-slate-900 truncate mb-3">✅ Actividades de Aprendizaje</h3>
+      <p class="text-sm text-slate-500 mb-4">Asocia actividades existentes o crea nuevas relacionadas a las unidades</p>
+      <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mb-4">
+        💡 Las nuevas actividades se asocian a una unidad específica. Puedes omitir este campo y rellenarlo después.
+      </p>
+
+      <!-- Selector de actividades existentes -->
+      {#if existingActividades.length > 0}
+        <div class="space-y-3 border-l-4 border-blue-300 pl-4 py-3 mb-4">
+          <h4 class="text-sm font-semibold text-slate-700">📋 Actividades existentes del curso:</h4>
+          <div class="space-y-2 max-h-40 overflow-y-auto">
+            {#each existingActividades as act}
+              <button
+                type="button"
+                onclick={() => {
+                  if (!actividades.some((a) => a.id_actividad === act.id_actividad)) {
+                    actividades = [
+                      ...actividades,
+                      { id_actividad: act.id_actividad, nombre: act.nombre, tipo: 'tarea', id_unidad: null, id_seccion: null, nombre_unidad: '' },
+                    ];
+                  }
+                }}
+                class="w-full px-3 py-2 text-left text-sm rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors"
+              >
+                <div class="font-medium text-slate-800">{act.nombre}</div>
+                <div class="text-xs text-slate-600">Límite: {new Date(act.fecha_limite).toLocaleDateString('es-ES')}</div>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Actividades seleccionadas/creadas -->
+      <div class="space-y-3">
+        <h4 class="text-sm font-semibold text-slate-700">
+          ✅ Actividades:{' '}<span class="text-xs font-normal text-slate-500">({actividades.length})</span>
+        </h4>
+        {#each actividades as act, i}
+          <div class="rounded-lg border border-slate-200 p-4 space-y-3 bg-slate-50">
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label for="act-nombre-{i}" class="block text-sm font-semibold text-slate-700 mb-1">Nombre</label>
+                <input
+                  id="act-nombre-{i}"
+                  type="text"
+                  bind:value={act.nombre}
+                  placeholder="Ej: Trabajo colaborativo"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label for="act-tipo-{i}" class="block text-sm font-semibold text-slate-700 mb-1">Tipo</label>
+                <select
+                  bind:value={act.tipo}
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="participación">Participación</option>
+                  <option value="tarea">Tarea</option>
+                  <option value="proyecto">Proyecto</option>
+                  <option value="evaluación">Evaluación</option>
+                  <option value="discusión">Discusión</option>
+                  <option value="otra">Otra</option>
+                </select>
+              </div>
+              <div>
+                <label for="act-unidad-{i}" class="block text-sm font-semibold text-slate-700 mb-1">Unidad</label>
+                <select
+                  bind:value={act.nombre_unidad}
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Selecciona unidad --</option>
+                  {#each unidades as unidad}
+                    <option value={unidad.titulo}>{unidad.numero}. {unidad.titulo}</option>
+                  {/each}
+                </select>
+              </div>
+            </div>
+            {#if actividades.length > 1}
+              <button type="button" onclick={() => (actividades = removeItem(actividades, i))} class="text-xs text-red-600 hover:underline">
+                ✕ Eliminar
+              </button>
+            {/if}
+          </div>
+        {/each}
+        <button
+          type="button"
+          onclick={() =>
+            (actividades = addItem(actividades, {
+              id_actividad: null,
+              nombre: '',
+              tipo: 'participación',
+              id_unidad: null,
+              id_seccion: null,
+              nombre_unidad: '',
+            }))}
+          class="w-full px-3 py-2 border-2 border-dashed border-green-300 text-green-600 rounded-lg hover:bg-green-50 text-sm font-medium transition-colors"
+        >
+          + Crear nueva actividad
+        </button>
+      </div>
+    </div>
+  </div>
+{:else if step === 6 && syllabusType === 'complete'}
   <!-- Sección VI: Unidades -->
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
     <div>
-      <h3 class="text-lg font-semibold text-slate-900">📖 VI. Unidades y Resultados de Aprendizaje</h3>
+      <h3 class="text-lg font-semibold text-slate-900 truncate">📖 VI. Unidades y Resultados de Aprendizaje</h3>
       <p class="text-sm text-slate-500 mt-0.5">Estructura temática y resultados esperados por unidad</p>
     </div>
     <div class="space-y-4">
@@ -417,11 +653,11 @@
       </button>
     </div>
   </div>
-{:else if step === 7}
+{:else if step === 7 && syllabusType === 'complete'}
   <!-- Sección VII: Planificación -->
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
     <div>
-      <h3 class="text-lg font-semibold text-slate-900">📅 VII. Planificación</h3>
+      <h3 class="text-lg font-semibold text-slate-900 truncate">📅 VII. Planificación</h3>
       <p class="text-sm text-slate-500 mt-0.5">Metodología, evaluación y resultados de aprendizaje</p>
     </div>
 
@@ -472,11 +708,11 @@
       </div>
     </div>
   </div>
-{:else if step === 8}
+{:else if step === 8 && syllabusType === 'complete'}
   <!-- Sección VIII: Recursos -->
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
     <div>
-      <h3 class="text-lg font-semibold text-slate-900">📚 VIII. Recursos</h3>
+      <h3 class="text-lg font-semibold text-slate-900 truncate">📚 VIII. Recursos</h3>
       <p class="text-sm text-slate-500 mt-0.5">Libros, documentos y materiales (mínimo 2)</p>
     </div>
     <div class="space-y-3">
@@ -515,11 +751,11 @@
       {/if}
     </div>
   </div>
-{:else if step === 9}
+{:else if step === 9 && syllabusType === 'complete'}
   <!-- Sección IX: Aspectos Administrativos -->
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
     <div>
-      <h3 class="text-lg font-semibold text-slate-900">⚙️ IX. Aspectos Administrativos</h3>
+      <h3 class="text-lg font-semibold text-slate-900 truncate">⚙️ IX. Aspectos Administrativos</h3>
       <p class="text-sm text-slate-500 mt-0.5">Información administrativa y componentes de evaluación</p>
       <p class="text-xs text-blue-600 mt-2 p-2 bg-blue-50 rounded">
         📌 Los componentes de evaluación se cargan automáticamente desde las secciones del curso. Puedes editarlos aquí si es necesario.
@@ -625,6 +861,110 @@
         rows="4"
         class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
       ></textarea>
+    </div>
+
+    <!-- Actividades (subsección al final para COMPLETO) -->
+    <div class="border-t-4 border-t-orange-200 pt-6 mt-6">
+      <h3 class="text-lg font-semibold text-slate-900 truncate mb-3">✅ Actividades de Aprendizaje (Opcional)</h3>
+      <p class="text-sm text-slate-500 mb-4">Asocia actividades existentes o crea nuevas relacionadas a las unidades</p>
+      <p class="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded p-2 mb-4">
+        💡 Las nuevas actividades se asocian a una unidad específica. Puedes omitir este campo y rellenarlo después.
+      </p>
+
+      <!-- Selector de actividades existentes -->
+      {#if existingActividades.length > 0}
+        <div class="space-y-3 border-l-4 border-blue-300 pl-4 py-3 mb-4">
+          <h4 class="text-sm font-semibold text-slate-700">📋 Actividades existentes del curso:</h4>
+          <div class="space-y-2 max-h-40 overflow-y-auto">
+            {#each existingActividades as act}
+              <button
+                type="button"
+                onclick={() => {
+                  if (!actividades.some((a) => a.id_actividad === act.id_actividad)) {
+                    actividades = [
+                      ...actividades,
+                      { id_actividad: act.id_actividad, nombre: act.nombre, tipo: 'tarea', id_unidad: null, id_seccion: null, nombre_unidad: '' },
+                    ];
+                  }
+                }}
+                class="w-full px-3 py-2 text-left text-sm rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors"
+              >
+                <div class="font-medium text-slate-800">{act.nombre}</div>
+                <div class="text-xs text-slate-600">Límite: {new Date(act.fecha_limite).toLocaleDateString('es-ES')}</div>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Actividades seleccionadas/creadas -->
+      <div class="space-y-3">
+        <h4 class="text-sm font-semibold text-slate-700">
+          ✅ Actividades:{' '}<span class="text-xs font-normal text-slate-500">({actividades.length})</span>
+        </h4>
+        {#each actividades as act, i}
+          <div class="rounded-lg border border-slate-200 p-4 space-y-3 bg-slate-50">
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label for="act-nombre-{i}" class="block text-sm font-semibold text-slate-700 mb-1">Nombre</label>
+                <input
+                  id="act-nombre-{i}"
+                  type="text"
+                  bind:value={act.nombre}
+                  placeholder="Ej: Trabajo colaborativo"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label for="act-tipo-{i}" class="block text-sm font-semibold text-slate-700 mb-1">Tipo</label>
+                <select
+                  bind:value={act.tipo}
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="participación">Participación</option>
+                  <option value="tarea">Tarea</option>
+                  <option value="proyecto">Proyecto</option>
+                  <option value="evaluación">Evaluación</option>
+                  <option value="discusión">Discusión</option>
+                  <option value="otra">Otra</option>
+                </select>
+              </div>
+              <div>
+                <label for="act-unidad-{i}" class="block text-sm font-semibold text-slate-700 mb-1">Unidad</label>
+                <select
+                  bind:value={act.nombre_unidad}
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Selecciona unidad --</option>
+                  {#each unidades as unidad}
+                    <option value={unidad.titulo}>{unidad.numero}. {unidad.titulo}</option>
+                  {/each}
+                </select>
+              </div>
+            </div>
+            {#if actividades.length > 1}
+              <button type="button" onclick={() => (actividades = removeItem(actividades, i))} class="text-xs text-red-600 hover:underline">
+                ✕ Eliminar
+              </button>
+            {/if}
+          </div>
+        {/each}
+        <button
+          type="button"
+          onclick={() =>
+            (actividades = addItem(actividades, {
+              id_actividad: null,
+              nombre: '',
+              tipo: 'participación',
+              id_unidad: null,
+              id_seccion: null,
+              nombre_unidad: '',
+            }))}
+          class="w-full px-3 py-2 border-2 border-dashed border-green-300 text-green-600 rounded-lg hover:bg-green-50 text-sm font-medium transition-colors"
+        >
+          + Crear nueva actividad
+        </button>
+      </div>
     </div>
   </div>
 {/if}

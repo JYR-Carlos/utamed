@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Programa;
 use App\Models\Curso\Curso;
+use App\Models\Curso\Seccion;
+use App\Models\Curso\Unidad;
+use App\Models\Agenda\Actividad;
 use App\Services\ProgramaService;
 use App\Support\Permissions;
 use Illuminate\Http\Request;
@@ -26,6 +29,53 @@ use Inertia\Inertia;
  */
 class ProgramaController extends Controller
 {
+    /**
+     * Lista los programas DE UN CURSO ESPECÍFICO para el modal/sidebar view
+     * Retorna JSON con lista formateada para el frontend
+     * GET /admin/cursos/{curso}/programas
+     */
+    public function indexByCurso(Curso $curso)
+    {
+        $this->authorize('view', $curso);
+
+        $programas = Programa::where('id_curso', $curso->id_curso)
+            ->with(['creator' => function ($q) {
+                $q->select('id_usuario', 'nombre_completo');
+            }, 'reviewer' => function ($q) {
+                $q->select('id_usuario', 'nombre_completo');
+            }])
+            ->orderBy('fecha_creacion', 'desc')
+            ->get()
+            ->map(function ($p) {
+                return [
+                    'id_programa' => $p->id_programa,
+                    'version_programa' => $p->version_programa,
+                    'estado' => $p->estado,
+                    'creado_por' => $p->creado_por,
+                    'revisado_por' => $p->revisado_por,
+                    'fecha_creacion' => $p->fecha_creacion,
+                    'data_syllabus' => $p->data_syllabus,
+                    'completenessPercentage' => $p->getCompletenessPercentage(),
+                    'creator' => [
+                        'id_usuario' => $p->creator?->id_usuario,
+                        'nombre_completo' => $p->creator?->nombre_completo,
+                    ],
+                    'reviewer' => [
+                        'id_usuario' => $p->reviewer?->id_usuario,
+                        'nombre_completo' => $p->reviewer?->nombre_completo,
+                    ],
+                ];
+            });
+
+        return Inertia::render('admin/Programas_New', [
+            'cursoId' => $curso->id_curso,
+            'cursoNombre' => $curso->nombre,
+            'programas' => $programas,
+            'userRole' => Auth::user()->rol ?? 'usuario',
+            'userId' => Auth::id(),
+        ]);
+    }
+
     /**
      * Retorna el programa en formato JSON para el modal AJAX
      * GET /admin/cursos/{id}/programa/json
@@ -238,6 +288,9 @@ class ProgramaController extends Controller
         // Cargar relaciones necesarias
         $curso->load('asignacionPlan.asignatura', 'asignacionPlan.plan.carrera');
 
+        /** @var \App\Models\Usuario\Usuario $user */
+        $user = Auth::user();
+
         $programa = Programa::where('id_curso', $curso->id_curso)
             ->where('es_actual', true)
             ->first();
@@ -250,6 +303,20 @@ class ProgramaController extends Controller
         if (!$programa) {
             return redirect()->route('admin.cursos.index')
                 ->with('error', 'No hay programa para este curso');
+        }
+
+        // Obtener permisos especiales del usuario para el contexto del curso (si está configurado)
+        $userPermissions = [];
+        if ($curso->id_contexto) {
+            $userPermissionsData = $user->getAllPermissions($curso->id_contexto);
+            $userPermissions = collect($userPermissionsData)->map(function ($perm) {
+                return [
+                    'id_permiso' => $perm['id_permiso'],
+                    'slug' => $perm['slug'],
+                    'esta_permitido' => (bool)$perm['esta_permitido'],
+                    'puede_delegar' => (bool)($perm['puede_delegar'] ?? false),
+                ];
+            })->values()->toArray();
         }
 
         // Parse sections for display - parseSecciones already processes contenidos
@@ -276,9 +343,12 @@ class ProgramaController extends Controller
             'curso' => [
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
+                'cod_curso' => $curso->cod_curso,
+                'id_contexto' => $curso->id_contexto,
                 'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre,
                 'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre,
             ],
+            'userPermissions' => $userPermissions,
         ]);
     }
 
@@ -295,13 +365,23 @@ class ProgramaController extends Controller
         // Validar que el usuario tiene permiso general para crear/editar programa
         $this->authorize('create', [Programa::class, $curso]);
 
-        // Validar tipo_syllabus
-        $tipoSyllabus = $request->input('tipo_syllabus', 'BASICO');
-        if (!in_array($tipoSyllabus, ['BASICO', 'COMPLETO'])) {
+        // Validar y mapear syllabus_type del frontend
+        $syllabusType = $request->input('syllabus_type', 'complete');
+        
+        // Mapear valores del frontend a valores del backend
+        $typeMapping = [
+            'simplified' => 'BASICO',
+            'combined' => 'BASICO',  // combined continúa desde simplificado
+            'complete' => 'COMPLETO',
+        ];
+        
+        if (!in_array($syllabusType, ['simplified', 'combined', 'complete'])) {
             return response()->json([
-                'error' => 'tipo_syllabus debe ser "BASICO" o "COMPLETO"'
+                'error' => 'syllabus_type debe ser "simplified", "combined" o "complete"'
             ], 422);
         }
+
+        $tipoSyllabus = $typeMapping[$syllabusType];
 
         // Obtener reglas de validación según tipo
         $validationRules = $this->getValidationRulesForType($tipoSyllabus);
@@ -325,13 +405,25 @@ class ProgramaController extends Controller
                     'secciones' => $validated['secciones'],
                     'tipo_syllabus' => $tipoSyllabus,
                     'estado' => $estadoInicial,
+                    'syllabus_creation_type' => $syllabusType,  // Guardar el tipo original del frontend
                 ]
             );
+
+            // ── Crear/sincronizar unidades desde sección VI del syllabus ─────────────
+            $seccionVI = $validated['secciones']['VI']['contenido']['unidades'] ?? [];
+            $this->createUnidadesFromSyllabus($curso, $seccionVI);
+
+            // ── Crear actividades nuevas si se proporcionan ───────────────────────
+            $actividadesByCreate = $request->input('actividades_to_create', []);
+            if (!empty($actividadesByCreate)) {
+                $this->createActividadesFromSyllabus($curso, $actividadesByCreate);
+            }
 
             Log::info('Programa creado', [
                 'id_programa' => $programa->id_programa,
                 'id_curso' => $curso->id_curso,
                 'tipo_syllabus' => $tipoSyllabus,
+                'syllabus_creation_type' => $syllabusType,
                 'estado' => $estadoInicial,
                 'creado_por' => $user->id_usuario,
                 'version' => $programa->version_programa,
@@ -344,6 +436,7 @@ class ProgramaController extends Controller
                     'version_programa' => $programa->version_programa,
                     'estado' => $programa->estado,
                     'tipo_syllabus' => $tipoSyllabus,
+                    'syllabus_creation_type' => $syllabusType,
                     'creado_por' => $programa->autor->nombre,
                     'fecha_creacion' => $programa->fecha_creacion,
                 ],
@@ -753,26 +846,24 @@ class ProgramaController extends Controller
             'secciones.I.contenido.horas.laboratorio' => 'required|integer|min:0',
             'secciones.I.contenido.categoria' => 'required|string|in:Obligatorio,Electivo,Nivelación,Complementaria',
             
-            // Sección II: Presentación
-            'secciones.II.contenido.texto' => 'required|string|min:100',
+            // Sección II: Presentación - Permitir enviar vacío para rellenar después
+            'secciones.II.contenido.texto' => 'nullable|string',
+            'secciones.VI.contenido.unidades' => 'nullable|array',
+            'secciones.VI.contenido.unidades.*.numero' => 'nullable|integer',
+            'secciones.VI.contenido.unidades.*.titulo' => 'nullable|string',
+            'secciones.VI.contenido.unidades.*.contenidos_items' => 'nullable|array',
+            'secciones.VI.contenido.unidades.*.contenidos_items.*.item' => 'nullable|string',
             
-            // Sección VI: Unidades
-            'secciones.VI.contenido.unidades' => 'required|array|min:1',
-            'secciones.VI.contenido.unidades.*.numero' => 'required|integer',
-            'secciones.VI.contenido.unidades.*.titulo' => 'required|string',
-            'secciones.VI.contenido.unidades.*.contenidos_items' => 'required|array|min:1',
-            'secciones.VI.contenido.unidades.*.contenidos_items.*.item' => 'required|string',
+            // Sección VII: Actividades de Aprendizaje - Permitir enviar vacío para rellenar después
+            'secciones.VII.contenido.actividades' => 'nullable|array',
+            'secciones.VII.contenido.actividades.*.id_actividad' => 'nullable|integer',
+            'secciones.VII.contenido.actividades.*.nombre' => 'nullable|string',
+            'secciones.VII.contenido.actividades.*.tipo' => 'nullable|string',
             
-            // Sección VII: Actividades de Aprendizaje
-            'secciones.VII.contenido.actividades' => 'required|array|min:1',
-            'secciones.VII.contenido.actividades.*.id_actividad' => 'required|integer',
-            'secciones.VII.contenido.actividades.*.nombre' => 'required|string',
-            'secciones.VII.contenido.actividades.*.tipo' => 'required|string',
-            
-            // Sección VIII: Bibliografía/Recursos
-            'secciones.VIII.contenido.recursos' => 'required|array|min:2',
-            'secciones.VIII.contenido.recursos.*.descripcion' => 'required|string',
-            'secciones.VIII.contenido.recursos.*.tipo' => 'required|string|in:Libro,Documentación Online,Video,Herramienta Software,Base de Datos',
+            // Sección VIII: Bibliografía/Recursos - Permitir enviar vacío para rellenar después
+            'secciones.VIII.contenido.recursos' => 'nullable|array',
+            'secciones.VIII.contenido.recursos.*.descripcion' => 'nullable|string',
+            'secciones.VIII.contenido.recursos.*.tipo' => 'nullable|string|in:Libro,Documentación Online,Video,Herramienta Software,Base de Datos',
             'secciones.VIII.contenido.recursos.*.ubicacion' => 'nullable|string',
         ];
     }
@@ -792,8 +883,8 @@ class ProgramaController extends Controller
             'secciones.I.contenido.horas.laboratorio' => 'required|integer|min:0',
             'secciones.I.contenido.categoria' => 'required|string|in:Obligatorio,Electivo,Nivelación,Complementaria',
             
-            // Sección II: Presentación
-            'secciones.II.contenido.texto' => 'required|string|min:100',
+            // Sección II: Presentación - Permitir enviar vacío para rellenar después
+            'secciones.II.contenido.texto' => 'nullable|string',
             
             // Sección III: Estándares
             'secciones.III.contenido.texto' => 'required|string|min:100',
@@ -811,12 +902,12 @@ class ProgramaController extends Controller
             'secciones.V.contenido.items.*.titulo' => 'required|string',
             'secciones.V.contenido.items.*.descripcion' => 'nullable|string',
             
-            // Sección VI: Unidades
-            'secciones.VI.contenido.unidades' => 'required|array|min:1',
-            'secciones.VI.contenido.unidades.*.numero' => 'required|integer',
-            'secciones.VI.contenido.unidades.*.titulo' => 'required|string',
-            'secciones.VI.contenido.unidades.*.contenidos_items' => 'required|array|min:1',
-            'secciones.VI.contenido.unidades.*.contenidos_items.*.item' => 'required|string',
+            // Sección VI: Unidades - Permitir enviar vacío para rellenar después
+            'secciones.VI.contenido.unidades' => 'nullable|array',
+            'secciones.VI.contenido.unidades.*.numero' => 'nullable|integer',
+            'secciones.VI.contenido.unidades.*.titulo' => 'nullable|string',
+            'secciones.VI.contenido.unidades.*.contenidos_items' => 'nullable|array',
+            'secciones.VI.contenido.unidades.*.contenidos_items.*.item' => 'nullable|string',
             
             // Sección VII: Planificación
             'secciones.VII.contenido.resultados_aprendizaje.titulo' => 'required|string',
@@ -827,10 +918,10 @@ class ProgramaController extends Controller
             'secciones.VII.contenido.evaluacion.titulo' => 'required|string',
             'secciones.VII.contenido.evaluacion.tipo_evaluacion' => 'required|string',
             
-            // Sección VIII: Recursos
-            'secciones.VIII.contenido.recursos' => 'required|array|min:2',
-            'secciones.VIII.contenido.recursos.*.descripcion' => 'required|string',
-            'secciones.VIII.contenido.recursos.*.tipo' => 'required|string|in:Libro,Documentación Online,Video,Herramienta Software,Base de Datos',
+            // Sección VIII: Recursos - Permitir enviar vacío para rellenar después
+            'secciones.VIII.contenido.recursos' => 'nullable|array',
+            'secciones.VIII.contenido.recursos.*.descripcion' => 'nullable|string',
+            'secciones.VIII.contenido.recursos.*.tipo' => 'nullable|string|in:Libro,Documentación Online,Video,Herramienta Software,Base de Datos',
             'secciones.VIII.contenido.recursos.*.ubicacion' => 'nullable|string',
             
             // Sección IX: Aspectos Administrativos
@@ -843,5 +934,116 @@ class ProgramaController extends Controller
             'secciones.IX.contenido.tabla_componentes.*.aprobacion_obligatoria' => 'nullable|boolean',
             'secciones.IX.contenido.tabla_componentes.*.asistencia_obligatoria' => 'nullable|numeric|min:0|max:100',
         ];
+    }
+
+    /**
+     * Crea actividades nuevas asociadas a unidades del curso.
+     * 
+     * Hace match del nombre_unidad con las unidades existentes en el curso
+     * y crea las actividades asociadas.
+     * 
+     * @param Curso $curso
+     * @param array $actividadesData Array de actividades con nombre_unidad
+     */
+    /**
+     * Sincroniza las unidades del curso a partir de la sección VI del syllabus.
+     *
+     * Elimina las unidades existentes del curso y las vuelve a crear en base
+     * al arreglo $unidadesData (cada elemento tiene 'numero' y 'titulo').
+     * Al finalizar las unidades quedan disponibles para vincular actividades.
+     *
+     * @param Curso  $curso
+     * @param array  $unidadesData  [ ['numero' => int, 'titulo' => string, ...], ... ]
+     */
+    private function createUnidadesFromSyllabus(Curso $curso, array $unidadesData): void
+    {
+        if (empty($unidadesData)) {
+            return;
+        }
+
+        // Eliminar unidades existentes del curso para evitar duplicados
+        Unidad::where('id_curso', $curso->id_curso)->delete();
+
+        foreach ($unidadesData as $uData) {
+            $titulo = trim($uData['titulo'] ?? '');
+            if ($titulo === '') {
+                continue;
+            }
+
+            Unidad::create([
+                'num_unidad'  => $uData['numero'] ?? null,
+                'nombre'      => $titulo,
+                'descripcion' => $uData['contenidos_items'][0]['item'] ?? null,
+                'id_curso'    => $curso->id_curso,
+            ]);
+
+            Log::info('Unidad creada desde syllabus', [
+                'nombre'   => $titulo,
+                'id_curso' => $curso->id_curso,
+            ]);
+        }
+    }
+
+    private function createActividadesFromSyllabus(Curso $curso, array $actividadesData)
+    {
+        if (empty($actividadesData)) {
+            return;
+        }
+
+        try {
+            foreach ($actividadesData as $actData) {
+                // Validar que tenga los campos necesarios
+                if (empty($actData['nombre']) || empty($actData['nombre_unidad'])) {
+                    continue;
+                }
+
+                // Buscar la unidad que coincida con el nombre
+                $unidad = Unidad::where('id_curso', $curso->id_curso)
+                    ->where('nombre', $actData['nombre_unidad'])
+                    ->first();
+
+                if (!$unidad) {
+                    Log::warning("Unidad no encontrada para actividad: {$actData['nombre']}", [
+                        'nombre_unidad' => $actData['nombre_unidad'],
+                        'id_curso' => $curso->id_curso,
+                    ]);
+                    continue;
+                }
+
+                // Obtener la primera sección del curso para asociar la actividad
+                $seccion = Seccion::where('id_curso', $curso->id_curso)
+                    ->first();
+
+                if (!$seccion) {
+                    Log::warning("No hay secciones para crear actividad en curso: {$curso->id_curso}");
+                    continue;
+                }
+
+                // Crear la actividad
+                Actividad::create([
+                    'nombre' => $actData['nombre'],
+                    'tipo_actividad' => $actData['tipo_actividad'] ?? 1,
+                    'tipo_entrega' => $actData['tipo_entrega'] ?? 'online',
+                    'es_grupal' => $actData['es_grupal'] ?? false,
+                    'max_integrantes' => $actData['max_integrantes'] ?? 1,
+                    'es_plantilla' => false,
+                    'id_seccion' => $seccion->id_seccion,
+                    'id_unidad' => $unidad->id_unidad,
+                    'id_contexto' => $curso->id_contexto,
+                    'fecha_limite' => $actData['fecha_limite'] ?? now()->addDays(7),
+                    'visible' => true,
+                ]);
+
+                Log::info("Actividad creada", [
+                    'nombre' => $actData['nombre'],
+                    'id_unidad' => $unidad->id_unidad,
+                    'id_curso' => $curso->id_curso,
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error("Error creando actividades: {$e->getMessage()}", [
+                'trace' => $e->getTraceAsString(),
+            ]);
+        }
     }
 }

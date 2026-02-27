@@ -147,7 +147,7 @@
 
         // Build permissionMap from available_permissions for quick lookup
         permissionMap = {};
-        for (const [module, perms] of Object.entries(data.available_permissions)) {
+        for (const [module, perms] of Object.entries(data.available_permissions) as [string, any[]][]) {
           for (const perm of perms) {
             permissionMap[perm.id_permiso] = perm;
           }
@@ -316,98 +316,138 @@
 </script>
 
 {#if isOpen}
-  <div class="modal-backdrop" onclick={(e) => e.target === e.currentTarget && onClose()} role="presentation">
-    <div class="modal-content" role="dialog" aria-modal="true">
-      <div class="modal-header">
-        <h2 class="modal-title">Permisos: {usuario?.username || usuario?.usuario?.username || 'Cargando...'}</h2>
-        <button onclick={onClose} class="close-button">✕</button>
+  <div
+    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+    onclick={(e) => e.target === e.currentTarget && onClose()}
+    role="presentation"
+  >
+    <div class="bg-white rounded-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden" role="dialog" aria-modal="true">
+      <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+        <h2 class="text-lg font-bold m-0">Permisos: {usuario?.username || usuario?.usuario?.username || 'Cargando...'}</h2>
+        <button onclick={onClose} class="bg-none border-none text-xl cursor-pointer text-gray-600 hover:text-gray-800">✕</button>
       </div>
 
       {#if !hideRoles}
-        <div class="tabs">
-          <button class="tab-btn" class:active={activeTab === 'roles'} onclick={() => (activeTab = 'roles')}> Roles </button>
-          <button class="tab-btn" class:active={activeTab === 'permissions'} onclick={() => (activeTab = 'permissions')}>
+        <div class="flex border-b border-gray-200">
+          <button
+            class="flex-1 py-3 px-4 bg-gray-100 border-none cursor-pointer border-b-2 border-transparent text-gray-700 transition-all hover:bg-gray-50"
+            class:bg-white={activeTab === 'roles'}
+            class:border-b-blue-500={activeTab === 'roles'}
+            class:text-blue-600={activeTab === 'roles'}
+            class:font-semibold={activeTab === 'roles'}
+            onclick={() => (activeTab = 'roles')}
+          >
+            Roles
+          </button>
+          <button
+            class="flex-1 py-3 px-4 bg-gray-100 border-none cursor-pointer border-b-2 border-transparent text-gray-700 transition-all hover:bg-gray-50"
+            class:bg-white={activeTab === 'permissions'}
+            class:border-b-blue-500={activeTab === 'permissions'}
+            class:text-blue-600={activeTab === 'permissions'}
+            class:font-semibold={activeTab === 'permissions'}
+            onclick={() => (activeTab = 'permissions')}
+          >
             Permisos Especiales
           </button>
         </div>
       {/if}
 
-      <div class="modal-body">
+      <div class="p-4 overflow-y-auto bg-gray-50 flex-1">
         {#if loadError}
-          <div class="error-banner" style="background: #fee; color: #c33; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+          <div class="bg-red-100 text-red-700 p-2.5 rounded mb-2.5">
             ❌ {loadError}
           </div>
         {/if}
         {#if isLoading}
-          <div class="loading-state">Cargando...</div>
+          <div class="text-center text-gray-600 py-8">Cargando...</div>
         {:else if activeTab === 'roles'}
-          <div class="roles-grid">
+          <div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));">
             {#if !localAvailableRoles || localAvailableRoles.length === 0}
-              <div class="empty-state">No hay roles disponibles.</div>
+              <div class="text-center text-gray-400 py-6 px-4 border-2 border-dashed border-gray-200 rounded-lg col-span-full text-sm">
+                No hay roles disponibles.
+              </div>
             {:else}
               {#each localAvailableRoles as rol}
-                <label class="role-card" class:selected={selectedRoles.includes(rol.id_rol)}>
-                  <input type="checkbox" bind:group={selectedRoles} value={rol.id_rol} class="hidden-checkbox" />
-                  <div class="role-name">{rol.nombre}</div>
+                <label
+                  class="border border-gray-300 p-3 rounded cursor-pointer text-center transition-all hover:bg-blue-50 hover:border-blue-300"
+                  class:bg-blue-50={selectedRoles.includes(rol.id_rol)}
+                  class:border-blue-500={selectedRoles.includes(rol.id_rol)}
+                  class:text-blue-700={selectedRoles.includes(rol.id_rol)}
+                  class:font-medium={selectedRoles.includes(rol.id_rol)}
+                  class:shadow-sm={selectedRoles.includes(rol.id_rol)}
+                >
+                  <input type="checkbox" bind:group={selectedRoles} value={rol.id_rol} class="hidden" />
+                  <div>{rol.nombre}</div>
                 </label>
               {/each}
             {/if}
           </div>
         {:else}
-          <div class="permissions-list">
-            <div class="info-banner">
+          <div>
+            <div class="bg-slate-100 p-2 mb-4 rounded text-center text-gray-700 text-xs">
               <small>
-                🟢 Permitir | 🔴 Denegar | ⚪ Heredar | <strong>Delegar</strong> (Solo Admin)
+                🞪 Permitir | 🔴 Denegar | ⚪ Heredar | <strong>Delegar</strong> (Solo Admin)
               </small>
             </div>
 
             {#if moduleEntries.length === 0}
-              <div class="empty-state">No hay permisos disponibles.</div>
+              <div class="text-center text-gray-400 py-6 px-4 border-2 border-dashed border-gray-200 rounded-lg text-sm">
+                No hay permisos disponibles.
+              </div>
             {:else}
               {#each moduleEntries as [modulo, perms]}
-                <div class="module-group">
-                  <h3>{modulo || 'General'}</h3>
-                  <div class="perms-grid">
+                <div class="mt-4">
+                  <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide border-b-2 border-gray-200 pb-1 mb-3">{modulo || 'General'}</h3>
+                  <div class="flex flex-col gap-3">
                     {#each perms as perm}
                       {@const state = specialPermissions[perm.id_permiso]?.allowed ?? null}
                       {@const canDelegate = specialPermissions[perm.id_permiso]?.can_delegate ?? false}
                       {@const source = specialPermissions[perm.id_permiso]?.source ?? 'special'}
                       {@const isFromRole = source === 'role'}
                       {#if perm.id_permiso === 64}
-                        <div style="position: fixed; top: 10px; right: 10px; background: yellow; padding: 10px; font-weight: bold; z-index: 10000;">
+                        <div class="fixed top-2.5 right-2.5 bg-yellow-300 p-2.5 font-bold z-50" style="white-space: nowrap;">
                           🎯 RENDERING PERMISSION 64!
                         </div>
                       {/if}
-                      <div class="perm-row" class:from-role={isFromRole}>
+                      <div
+                        class="flex gap-1 p-2 bg-gray-50 border border-gray-200 rounded transition-all hover:bg-gray-100"
+                        class:opacity-70={isFromRole}
+                        class:bg-blue-50={isFromRole}
+                      >
                         <button
-                          class="perm-btn"
-                          class:allow={state === true}
-                          class:deny={state === false}
-                          class:disabled={isFromRole}
+                          class="flex-1 flex items-center gap-2 p-2 px-3 border-none bg-transparent cursor-pointer text-left text-xs text-gray-900 rounded hover:bg-black/5"
+                          class:bg-green-50={state === true}
+                          class:text-green-900={state === true}
+                          class:bg-red-50={state === false}
+                          class:text-red-900={state === false}
+                          class:opacity-60={isFromRole}
+                          class:cursor-not-allowed={isFromRole}
                           onclick={() => !isFromRole && cyclePermission(perm.id_permiso)}
                           title={isFromRole ? 'Permiso heredado del rol (solo lectura)' : perm.descripcion}
                           disabled={isFromRole}
                         >
-                          <span class="status-indicator">
+                          <span class="flex-shrink-0 text-base min-w-5">
                             {#if state === true}🟢
                             {:else if state === false}🔴
                             {:else}⚪{/if}
                           </span>
-                          <div style="flex: 1; display: flex; flex-direction: column; gap: 0.2rem; min-width: 0;">
-                            <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                          <div class="flex-1 flex flex-col gap-0.5 min-w-0">
+                            <div class="font-medium overflow-hidden text-ellipsis whitespace-nowrap">
                               {perm.nombre}
                             </div>
-                            <div class="perm-slug">{perm.slug}</div>
+                            <div class="text-xs text-gray-500">{perm.slug}</div>
                           </div>
                           {#if isFromRole}
-                            <span class="role-badge">👔 ROL</span>
+                            <span class="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded flex-shrink-0">👔 ROL</span>
                           {/if}
                         </button>
 
                         {#if !hideRoles}
                           <button
-                            class="delegate-btn"
-                            class:active={canDelegate}
+                            class="flex-shrink-0 flex items-center justify-center w-8 h-8 p-0 border border-gray-300 bg-gray-50 rounded cursor-pointer text-gray-400 transition-all hover:bg-gray-100 hover:border-gray-400 hover:text-gray-600"
+                            class:bg-yellow-100={canDelegate}
+                            class:border-yellow-400={canDelegate}
+                            class:text-yellow-900={canDelegate}
                             onclick={() => toggleDelegation(perm.id_permiso)}
                             title="¿Puede delegar este permiso?"
                           >
@@ -437,9 +477,17 @@
         {/if}
       </div>
 
-      <div class="modal-footer">
-        <button onclick={onClose} class="btn-cancel" disabled={isLoading}>Cancelar</button>
-        <button onclick={handleSave} class="btn-submit" disabled={isLoading}>
+      <div class="p-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+        <button
+          onclick={onClose}
+          class="px-4 py-2 bg-gray-100 text-gray-700 rounded cursor-pointer border-none hover:bg-gray-200 disabled:opacity-70"
+          disabled={isLoading}>Cancelar</button
+        >
+        <button
+          onclick={handleSave}
+          class="px-4 py-2 bg-blue-500 text-white rounded cursor-pointer border-none hover:bg-blue-600 disabled:opacity-70"
+          disabled={isLoading}
+        >
           {#if isLoading}Guardando...{:else}Guardar Cambios{/if}
         </button>
       </div>
@@ -447,44 +495,48 @@
   </div>
 
   {#if showConfirmation}
-    <div class="confirm-backdrop" onclick={(e) => e.target === e.currentTarget && cancelSave()} role="presentation">
-      <div class="confirm-dialog" role="alertdialog" aria-modal="true">
-        <div class="confirm-header">
-          <h3 class="confirm-title">⚠️ Confirmar Cambios de Permisos</h3>
-          <button onclick={cancelSave} class="close-button">✕</button>
+    <div
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-60 p-4"
+      onclick={(e) => e.target === e.currentTarget && cancelSave()}
+      role="presentation"
+    >
+      <div class="bg-white rounded-xl max-w-sm w-full shadow-2xl" role="alertdialog" aria-modal="true">
+        <div class="p-5 border-b border-gray-200 flex justify-between items-center">
+          <h3 class="text-lg font-semibold text-gray-900 m-0">⚠️ Confirmar Cambios de Permisos</h3>
+          <button onclick={cancelSave} class="bg-none border-none text-xl cursor-pointer text-gray-600 hover:text-gray-800">✕</button>
         </div>
 
-        <div class="confirm-body">
-          <div class="confirm-info">
-            <p><strong>Usuario:</strong> {usuario?.username || usuario?.usuario?.username || 'Desconocido'}</p>
-            <p><strong>Contexto:</strong> Se aplicarán los permisos al contexto específico de este curso.</p>
+        <div class="p-5 max-h-60 overflow-y-auto">
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <p class="m-2 text-sm text-blue-900"><strong>Usuario:</strong> {usuario?.username || usuario?.usuario?.username || 'Desconocido'}</p>
+            <p class="m-2 text-sm text-blue-900"><strong>Contexto:</strong> Se aplicarán los permisos al contexto específico de este curso.</p>
           </div>
 
-          <div class="confirm-changes">
-            <h4>Resumen de cambios:</h4>
+          <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+            <h4 class="m-0 mb-4 text-sm font-semibold text-green-900">Resumen de cambios:</h4>
 
             {#if pendingRoles && pendingRoles.length > 0}
-              <div class="change-section">
-                <strong>👔 Roles ({pendingRoles.length}):</strong>
-                <ul class="change-list">
+              <div class="mb-4">
+                <strong class="block mb-2 text-sm text-green-900">👔 Roles ({pendingRoles.length}):</strong>
+                <ul class="m-0 pl-6 list-none">
                   {#each pendingRoles as roleId (roleId)}
                     {@const foundRole = localAvailableRoles.find((r: any) => r.id_rol === roleId || r.id === roleId)}
-                    <li>{foundRole?.nombre ?? foundRole?.name ?? `Rol #${roleId}`}</li>
+                    <li class="text-sm text-green-900 mb-1.5">{foundRole?.nombre ?? foundRole?.name ?? `Rol #${roleId}`}</li>
                   {/each}
                 </ul>
               </div>
             {/if}
 
             {#if pendingPermissions && Object.keys(pendingPermissions).length > 0}
-              <div class="change-section">
-                <strong>🔐 Permisos especiales ({Object.keys(pendingPermissions).length}):</strong>
-                <ul class="change-list">
+              <div class="mb-4">
+                <strong class="block mb-2 text-sm text-green-900">🔐 Permisos especiales ({Object.keys(pendingPermissions).length}):</strong>
+                <ul class="m-0 pl-6 list-none">
                   {#each Object.entries(pendingPermissions) as [permIdStr, permState]}
                     {@const permId = parseInt(permIdStr)}
-                    {@const perm = permissionMap[permId] || getPermissionFromAllPerms(permId)}
-                    <li>
-                      {perm?.nombre || perm?.name || `Permiso #${permId}`}
-                      <span class="perm-state">
+                    {@const perm = permissionMap[permId]}
+                    <li class="text-sm text-green-900 mb-1.5 flex justify-between items-baseline gap-2">
+                      <span>{perm?.nombre || perm?.name || `Permiso #${permId}`}</span>
+                      <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded whitespace-nowrap">
                         {#if permState.allowed === true}
                           ✓ permitido
                         {:else if permState.allowed === false}
@@ -501,18 +553,26 @@
             {/if}
 
             {#if (!pendingRoles || pendingRoles.length === 0) && (!pendingPermissions || Object.keys(pendingPermissions).length === 0)}
-              <p class="no-changes">No hay cambios para guardar.</p>
+              <p class="text-sm text-gray-600 italic text-center py-3">No hay cambios para guardar.</p>
             {/if}
           </div>
 
-          <div class="confirm-warning">
+          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-900">
             ℹ️ <em>Estos cambios se aplicarán <strong>solo en el contexto de este curso</strong> y no afectarán otros cursos.</em>
           </div>
         </div>
 
-        <div class="confirm-footer">
-          <button onclick={cancelSave} class="btn-cancel" disabled={isLoading}>Cancelar</button>
-          <button onclick={confirmSave} class="btn-confirm" disabled={isLoading}>
+        <div class="p-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
+          <button
+            onclick={cancelSave}
+            class="px-4 py-2 bg-white text-gray-700 rounded border border-gray-300 cursor-pointer hover:bg-gray-100 disabled:opacity-70"
+            disabled={isLoading}>Cancelar</button
+          >
+          <button
+            onclick={confirmSave}
+            class="px-4 py-2 bg-green-500 text-white rounded cursor-pointer border-none hover:bg-green-600 font-medium disabled:opacity-70"
+            disabled={isLoading}
+          >
             {#if isLoading}Guardando...{:else}Confirmar y Guardar{/if}
           </button>
         </div>
@@ -520,419 +580,3 @@
     </div>
   {/if}
 {/if}
-
-<style>
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 50;
-    padding: 1rem;
-  }
-  .modal-content {
-    background: white;
-    border-radius: 12px;
-    max-width: 650px;
-    width: 100%;
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .modal-header {
-    padding: 1rem;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .modal-title {
-    font-size: 1.1rem;
-    font-weight: bold;
-    margin: 0;
-  }
-  .close-button {
-    background: none;
-    border: none;
-    font-size: 1.2rem;
-    cursor: pointer;
-    color: #666;
-  }
-
-  .tabs {
-    display: flex;
-    border-bottom: 1px solid #eee;
-  }
-  .tab-btn {
-    flex: 1;
-    padding: 0.75rem;
-    background: #f9f9f9;
-    border: none;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    color: #555;
-  }
-  .tab-btn.active {
-    background: white;
-    border-bottom-color: #3b82f6;
-    color: #3b82f6;
-    font-weight: 600;
-  }
-
-  .modal-body {
-    padding: 1rem;
-    overflow-y: auto;
-    background: #fdfdfd;
-  }
-  .modal-footer {
-    padding: 1rem;
-    border-top: 1px solid #eee;
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    background: white;
-  }
-
-  /* Roles */
-  .roles-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 0.5rem;
-  }
-  .role-card {
-    border: 1px solid #ddd;
-    padding: 0.75rem;
-    border-radius: 6px;
-    cursor: pointer;
-    text-align: center;
-    transition: all 0.2s;
-    color: #1f2937 !important;
-  }
-  .role-card:hover {
-    background: #f0f7ff;
-    border-color: #bfdbfe;
-  }
-  .role-card.selected {
-    background: #eff6ff;
-    border-color: #3b82f6;
-    color: #1d4ed8 !important;
-    font-weight: 500;
-    box-shadow: 0 0 0 1px #3b82f6;
-  }
-  .hidden-checkbox {
-    display: none;
-  }
-
-  /* Permissions */
-  .module-group h3 {
-    margin-top: 1rem;
-    margin-bottom: 0.75rem;
-    font-size: 0.9rem;
-    color: #555;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid #eee;
-    padding-bottom: 0.25rem;
-  }
-  .perms-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .perm-row {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 0.5rem;
-    background: #fafafa;
-    border: 1px solid #eee;
-    border-radius: 6px;
-    transition: all 0.15s;
-  }
-  .perm-row:hover {
-    background: #f5f5f5;
-  }
-  .perm-row.from-role {
-    opacity: 0.7;
-    background: #f0f7ff;
-  }
-
-  .perm-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    text-align: left;
-    font-size: 0.85rem;
-    color: #1f2937 !important;
-    border-radius: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .perm-btn:hover {
-    background: rgba(0, 0, 0, 0.05);
-  }
-  .perm-btn.allow {
-    background: #ecfdf5;
-    color: #065f46 !important;
-  }
-  .perm-btn.deny {
-    background: #fef2f2;
-    color: #991b1b !important;
-  }
-  .perm-btn.disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-
-  .status-indicator {
-    flex-shrink: 0;
-    font-size: 1rem;
-    min-width: 1.25rem;
-  }
-
-  .perm-slug {
-    font-size: 0.75rem;
-    color: #999;
-    flex-shrink: 0;
-  }
-
-  .role-badge {
-    padding: 0.25rem 0.5rem;
-    background: #e0e7ff;
-    color: #4f46e5;
-    font-size: 0.65rem;
-    font-weight: 700;
-    border-radius: 3px;
-    flex-shrink: 0;
-  }
-
-  .delegate-btn {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    border: 1px solid #ddd;
-    background: #fafafa;
-    border-radius: 4px;
-    cursor: pointer;
-    color: #9ca3af;
-    transition: all 0.2s;
-  }
-  .delegate-btn:hover {
-    background: #f0f0f0;
-    border-color: #bbb;
-    color: #6b7280;
-  }
-  .delegate-btn.active {
-    background: #fef9c3;
-    border-color: #facc15;
-    color: #854d0e;
-  }
-
-  .status-indicator {
-    font-size: 0.8rem;
-  }
-  .info-banner {
-    background: #f8fafc;
-    padding: 0.5rem;
-    margin-bottom: 1rem;
-    border-radius: 4px;
-    text-align: center;
-    color: #64748b;
-    font-size: 0.8rem;
-  }
-
-  .btn-cancel,
-  .btn-submit {
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: pointer;
-    border: none;
-  }
-  .btn-cancel {
-    background: #f3f4f6;
-    color: #374151;
-  }
-  .btn-submit {
-    background: #3b82f6;
-    color: white;
-  }
-  .btn-submit:disabled {
-    opacity: 0.7;
-  }
-
-  .loading-state {
-    text-align: center;
-    color: #6b7280;
-    padding: 2rem;
-  }
-  .empty-state {
-    text-align: center;
-    color: #94a3b8;
-    padding: 1.5rem;
-    font-size: 0.875rem;
-    border: 1px dashed #e2e8f0;
-    border-radius: 8px;
-    grid-column: 1 / -1;
-  }
-
-  /* Confirmation Dialog */
-  .confirm-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 60;
-    padding: 1rem;
-  }
-  .confirm-dialog {
-    background: white;
-    border-radius: 12px;
-    max-width: 450px;
-    width: 100%;
-    box-shadow:
-      0 20px 25px -5px rgba(0, 0, 0, 0.1),
-      0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  }
-  .confirm-header {
-    padding: 1.25rem;
-    border-bottom: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .confirm-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #111827;
-    margin: 0;
-  }
-  .confirm-body {
-    padding: 1.25rem;
-    max-height: 60vh;
-    overflow-y: auto;
-  }
-  .confirm-footer {
-    padding: 1rem;
-    border-top: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    background: #f9fafb;
-  }
-
-  .confirm-info {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 1rem;
-  }
-  .confirm-info p {
-    margin: 0.5rem 0;
-    font-size: 0.9rem;
-    color: #1e40af;
-  }
-  .confirm-info strong {
-    color: #1d4ed8;
-  }
-
-  .confirm-changes {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 1rem;
-  }
-  .confirm-changes h4 {
-    margin: 0 0 1rem 0;
-    font-size: 0.95rem;
-    color: #166534;
-    font-weight: 600;
-  }
-
-  .change-section {
-    margin-bottom: 1rem;
-  }
-  .change-section > strong {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-size: 0.85rem;
-    color: #166534;
-  }
-  .change-list {
-    margin: 0;
-    padding-left: 1.5rem;
-    list-style: none;
-  }
-  .change-list li {
-    font-size: 0.85rem;
-    color: #166534;
-    margin: 0.35rem 0;
-    padding-left: 0.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 0.5rem;
-  }
-  .perm-state {
-    font-size: 0.75rem;
-    color: #15803d;
-    font-weight: 500;
-    background: rgba(34, 197, 94, 0.1);
-    padding: 0.15rem 0.4rem;
-    border-radius: 2px;
-    white-space: nowrap;
-  }
-
-  .no-changes {
-    font-size: 0.85rem;
-    color: #999;
-    font-style: italic;
-    padding: 0.75rem;
-    text-align: center;
-  }
-
-  .confirm-warning {
-    background: #fef3c7;
-    border: 1px solid #fde68a;
-    border-radius: 8px;
-    padding: 0.75rem;
-    font-size: 0.85rem;
-    color: #92400e;
-    line-height: 1.4;
-  }
-
-  .btn-confirm {
-    padding: 0.625rem 1.25rem;
-    background: #10b981;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .btn-confirm:hover:not(:disabled) {
-    background: #059669;
-  }
-  .btn-confirm:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-</style>

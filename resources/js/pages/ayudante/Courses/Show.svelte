@@ -4,7 +4,9 @@
   import { Link } from '@inertiajs/svelte';
   import * as Card from '@/components/ui/card';
   import * as Button from '@/components/ui/button';
-  import { BookOpen, FileText, ArrowRight } from 'lucide-svelte';
+  import { BookOpen, FileText, ArrowRight, Plus } from 'lucide-svelte';
+  import { hasPermission } from '@/services/permissionValidator';
+  import type { Permission } from '@/types/permissions.types';
 
   interface Props {
     id_curso: number;
@@ -18,15 +20,19 @@
       fecha_fin?: string;
     };
     tiene_programa?: boolean;
+    userPermissions?: Permission[];
   }
 
-  let { id_curso, curso, tiene_programa = false }: Props = $props();
+  let { id_curso, curso, tiene_programa = false, userPermissions = [] }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: 'dashboard' },
     { title: 'Cursos', href: 'cursos' },
     { title: curso?.nombre || `Curso ${id_curso}`, href: '' },
   ];
+
+  // Validar permisos
+  const canCreatePrograma = $derived.by(() => hasPermission(userPermissions, 'cursos/programas:crear'));
 </script>
 
 <AyudanteLayout {breadcrumbs}>
@@ -99,6 +105,28 @@
               <Button.Root class="w-full">
                 <span>Ver Programa</span>
                 <ArrowRight class="h-4 w-4 ml-2" />
+              </Button.Root>
+            </Link>
+          </Card.Content>
+        </Card.Root>
+      {:else if canCreatePrograma}
+        <Card.Root class="bg-green-50 border-green-200 hover:shadow-md transition-shadow">
+          <Card.Header>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <Plus class="h-5 w-5 text-green-600" />
+                <div>
+                  <Card.Title class="text-base">Crear Programa de Curso</Card.Title>
+                  <p class="text-xs text-gray-500 mt-1">Inicia la creación del programa de este curso</p>
+                </div>
+              </div>
+            </div>
+          </Card.Header>
+          <Card.Content>
+            <Link href={`/ayudante/cursos/${id_curso}/programa/create`}>
+              <Button.Root class="w-full bg-green-600 hover:bg-green-700">
+                <span>Crear Programa</span>
+                <Plus class="h-4 w-4 ml-2" />
               </Button.Root>
             </Link>
           </Card.Content>

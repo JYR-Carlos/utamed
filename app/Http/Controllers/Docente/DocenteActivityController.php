@@ -39,7 +39,7 @@ class DocenteActivityController extends Controller
     public function show(Curso $curso)
     {
         // Verify the logged-in user is a docente for this course
-        $user = auth()->user();
+        $user = Auth::user();
         
         // Check if user is associated with this course as a docente (through sections)
         if (!$user->docente) {
@@ -83,7 +83,7 @@ class DocenteActivityController extends Controller
     public function store(Request $request, Curso $curso)
     {
         // Verify the logged-in user is a docente for this course
-        $user = auth()->user();
+        $user = Auth::user();
         
         if (!$user->docente) {
             abort(403, 'No tienes un perfil docente.');
@@ -120,7 +120,7 @@ class DocenteActivityController extends Controller
             
             return redirect()->back()->with('success', "Actividad '{$actividad->nombre}' creada correctamente.");
         } catch (\Exception $e) {
-            \Log::error('Error creating activity: ' . $e->getMessage());
+            Log::error('Error creating activity: ' . $e->getMessage());
             
             return redirect()->back()
                 ->withErrors(['error' => 'Error al crear la actividad: ' . $e->getMessage()])
@@ -134,7 +134,7 @@ class DocenteActivityController extends Controller
     public function update(Request $request, Curso $curso, Actividad $actividad)
     {
         // Verify the logged-in user is a docente for this course
-        $user = auth()->user();
+        $user = Auth::user();
         
         if (!$user->docente) {
             abort(403, 'No tienes un perfil docente.');
@@ -170,7 +170,7 @@ class DocenteActivityController extends Controller
             
             return redirect()->back()->with('success', 'Actividad actualizada correctamente.');
         } catch (\Exception $e) {
-            \Log::error('Error updating activity: ' . $e->getMessage());
+            Log::error('Error updating activity: ' . $e->getMessage());
             
             return redirect()->back()
                 ->withErrors(['error' => 'Error al actualizar la actividad.'])
@@ -184,7 +184,7 @@ class DocenteActivityController extends Controller
     public function destroy(Curso $curso, Actividad $actividad)
     {
         // Verify the logged-in user is a docente for this course
-        $user = auth()->user();
+        $user = Auth::user();
         
         if (!$user->docente) {
             abort(403, 'No tienes un perfil docente.');
@@ -209,10 +209,57 @@ class DocenteActivityController extends Controller
             
             return redirect()->back()->with('success', "Actividad '{$nombreActividad}' eliminada correctamente.");
         } catch (\Exception $e) {
-            \Log::error('Error deleting activity: ' . $e->getMessage());
+            Log::error('Error deleting activity: ' . $e->getMessage());
             
             return redirect()->back()
                 ->withErrors(['error' => 'Error al eliminar la actividad.']);
         }
+    }
+
+    /**
+     * Retorna las actividades de un curso en formato JSON para el modal de programa.
+     * 
+     * Nota: Las actividades se relacionan con cursos a través de la tabla seccion.
+     * 
+     * @param  Curso  $curso  Curso cuyas actividades se solicitan
+     * @return \Illuminate\Http\JsonResponse  Array de actividades
+     */
+    public function getBysCursoJson(Curso $curso)
+    {
+        // Verify the logged-in user has permission
+        $user = Auth::user();
+        
+        // Si es admin, permitir acceso directo
+        if ($user->is_admin) {
+            $actividades = Actividad::whereHas('seccion', function($query) use ($curso) {
+                $query->where('id_curso', $curso->id_curso);
+            })
+            ->orderBy('fecha_limite', 'asc')
+            ->get(['id_actividad', 'nombre', 'fecha_limite']);
+            
+            return response()->json($actividades);
+        }
+        
+        // Si es docente, verificar que sea responsable del curso
+        if (!$user->docente) {
+            return response()->json(['error' => 'No tienes un perfil docente o administrativo.'], 403);
+        }
+
+        $isDocente = $curso->secciones()
+            ->where('id_docente', $user->docente->id_docente)
+            ->exists();
+        
+        if (!$isDocente) {
+            return response()->json(['error' => 'No tienes permiso para acceder a este curso.'], 403);
+        }
+
+        // Get activities for this course through seccion relationship
+        $actividades = Actividad::whereHas('seccion', function($query) use ($curso) {
+            $query->where('id_curso', $curso->id_curso);
+        })
+        ->orderBy('fecha_limite', 'asc')
+        ->get(['id_actividad', 'nombre', 'fecha_limite']);
+
+        return response()->json($actividades);
     }
 }

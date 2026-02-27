@@ -6,6 +6,7 @@
   import ProgramaStateBadges from './ProgramaStateBadges.svelte';
   import ProgramaActionButtons from './ProgramaActionButtons.svelte';
   import SyllabusModal from './SyllabusModal.svelte';
+  import SyllabusTypeSelector from './SyllabusTypeSelector.svelte';
   import CompletenessProgressBar from './CompletenessProgressBar.svelte';
   import { formatDate, formatUserName } from '@/utils/formatters';
   import type { Curso } from '@/types/admin.types';
@@ -42,8 +43,19 @@
 
   let searchQuery = $state('');
   let selectedFilter = $state<string | null>(null);
+  let showSyllabusTypeSelector = $state(false);
   let showSyllabusModal = $state(false);
+  let selectedSyllabusType = $state<'simplified' | 'combined' | 'complete' | null>(null);
   let currentCurso = $state<Curso | null>(null);
+
+  // Detectar si existe un programa BASICO para mostrar opción de "Continuar"
+  const existingSyllabusType = $derived.by(() => {
+    const existing = programas.find((p) => ['BASICO_COMPLETO', 'COMPLETO'].includes(p.estado));
+    if (existing) {
+      return existing.data_syllabus?.metadata?.tipo_syllabus as 'COMPLETO' | 'BASICO' | null | undefined;
+    }
+    return null;
+  });
 
   const filteredProgramas = $derived.by(() => {
     let filtered = programas;
@@ -89,7 +101,7 @@
     router.visit(`/admin/programas/${programa.id_programa}`);
   }
 
-  function openSyllabusModal() {
+  function openSyllabusTypeSelector() {
     // Construir un objeto Curso mínimo con los datos disponibles
     currentCurso = {
       id_curso: cursoId,
@@ -98,13 +110,31 @@
       asignatura_nombre: cursoNombre,
       id_asignacion_plan: 0,
       id_contexto: 0,
-      has_programa: false, // Los programas aquí son listados, pero nuevos no tienen
+      has_programa: existingSyllabusType !== null,
     } as Curso;
+    showSyllabusTypeSelector = true;
+    selectedSyllabusType = null;
+  }
+
+  function closeSyllabusTypeSelector() {
+    showSyllabusTypeSelector = false;
+    selectedSyllabusType = null;
+  }
+
+  function handleSyllabusTypeSelect(type: 'simplified' | 'combined' | 'complete') {
+    selectedSyllabusType = type;
+    showSyllabusTypeSelector = false;
     showSyllabusModal = true;
+  }
+
+  function openSyllabusModal() {
+    showSyllabusTypeSelector = true;
   }
 
   function closeSyllabusModal() {
     showSyllabusModal = false;
+    showSyllabusTypeSelector = false;
+    selectedSyllabusType = null;
     currentCurso = null;
   }
 
@@ -124,7 +154,7 @@
         {filteredProgramas.length} de {programas.length} programas
       </p>
     </div>
-    {#if !isAdmin}
+    {#if isAdmin}
       <Button variant="default" size="lg" onclick={openSyllabusModal}>
         <Plus size={20} class="mr-2" />
         Nuevo Programa
@@ -277,8 +307,24 @@
     {/if}
   </div>
 
+  <!-- SyllabusTypeSelector para elegir tipo de programa -->
+  {#if showSyllabusTypeSelector && currentCurso}
+    <SyllabusTypeSelector
+      bind:isOpen={showSyllabusTypeSelector}
+      onClose={closeSyllabusTypeSelector}
+      onSelect={handleSyllabusTypeSelect}
+      {existingSyllabusType}
+    />
+  {/if}
+
   <!-- Syllabus Modal -->
   {#if showSyllabusModal && currentCurso}
-    <SyllabusModal bind:isOpen={showSyllabusModal} curso={currentCurso} onClose={closeSyllabusModal} onSuccess={handleSyllabusSuccess} />
+    <SyllabusModal
+      bind:isOpen={showSyllabusModal}
+      curso={currentCurso}
+      syllabusType={selectedSyllabusType}
+      onClose={closeSyllabusModal}
+      onSuccess={handleSyllabusSuccess}
+    />
   {/if}
 </div>

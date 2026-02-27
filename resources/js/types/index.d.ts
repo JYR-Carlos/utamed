@@ -6,6 +6,7 @@ export interface SidebarCourse {
     nombre: string;
     cod_curso: string;
     tiene_programa?: boolean;
+    userPermissions?: Array<{ id_permiso: number; slug: string; esta_permitido: boolean }>;
 }
 
 export interface SharedAuth {

@@ -62,6 +62,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     // Programa (Syllabus) routes MUST come before cursos resource to avoid route collision
     Route::get('programas', [AdminProgramaController::class, 'index'])
         ->name('programas.index');
+    Route::get('cursos/{curso}/programas', [AdminProgramaController::class, 'indexByCurso'])
+        ->name('cursos.programas.index');
     Route::get('cursos/{curso}/programa/json', [AdminProgramaController::class, 'getJson'])
         ->name('cursos.programa.json');
     Route::get('cursos/{curso}/programa', [AdminProgramaController::class, 'show'])
@@ -78,6 +80,10 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     // Secciones routes - Get componentes from sections
     Route::get('cursos/{curso}/secciones', [AdminSeccionController::class, 'indexByCurso'])
         ->name('cursos.secciones.index');
+    
+    // Actividades routes - Get activities for program wizard
+    Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getBysCursoJson'])
+        ->name('cursos.actividades.json');
 
     // Resource routes (more general routes go after specific ones)
     Route::resource('facultades', FacultadController::class);
@@ -192,6 +198,7 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
 
     // Activity management for courses
     Route::get('cursos/{curso}/actividades', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'show'])->name('cursos.actividades.index');
+    Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getBysCursoJson'])->name('cursos.actividades.json');
     Route::post('cursos/{curso}/actividades', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'store'])->name('cursos.actividades.store');
     Route::put('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'update'])->name('cursos.actividades.update');
     Route::delete('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'destroy'])->name('cursos.actividades.destroy');
@@ -240,9 +247,15 @@ Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name
     
     // Programa (Syllabus) View - MUST be before generic {curso} route
     Route::get('cursos/{curso}/programa', [\App\Http\Controllers\Ayudante\ProgramaController::class, 'show'])->name('cursos.programa.show');
+    Route::get('cursos/{curso}/programa/create', [\App\Http\Controllers\Ayudante\ProgramaController::class, 'create'])->name('cursos.programa.create');
     Route::get('cursos/{curso}/programa/editar', [\App\Http\Controllers\Ayudante\ProgramaController::class, 'edit'])->name('cursos.programa.edit');
+    Route::get('cursos/{curso}/programa/json', [AdminProgramaController::class, 'getJson'])->name('cursos.programa.json');
     Route::post('cursos/{curso}/programa', [\App\Http\Controllers\Ayudante\ProgramaController::class, 'update'])->name('cursos.programa.update');
-    
+
+    // JSON endpoints used by SyllabusModal wizard
+    Route::get('cursos/{curso}/secciones', [AdminSeccionController::class, 'indexByCurso'])->name('cursos.secciones.index');
+    Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getBysCursoJson'])->name('cursos.actividades.json');
+
     Route::get('cursos/{curso}', [\App\Http\Controllers\Ayudante\CourseController::class, 'show'])->name('cursos.show');
 });
 

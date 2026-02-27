@@ -217,4 +217,17 @@ class Programa extends BasePrograma
         
         return count($required) > 0 ? (int)(($completed / count($required)) * 100) : 0;
     }
+
+    /**
+     * Relaciones para acceso fácil desde el frontend
+     */
+    public function creator()
+    {
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'creado_por', 'id_usuario');
+    }
+
+    public function reviewer()
+    {
+        return $this->belongsTo(\App\Models\Usuario\Usuario::class, 'revisado_por', 'id_usuario');
+    }
 }
