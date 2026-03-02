@@ -31,7 +31,15 @@
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import PermissionsModal from '@/components/custom/admin/PermissionsModal.svelte';
   import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
-  import type { UsuarioItem, Carrera, PaginatedResponse, EstudianteFormData, DocenteFormData, AdministradorFormData } from '@/types/admin.types';
+  import type {
+    UsuarioItem,
+    Carrera,
+    PaginatedResponse,
+    EstudianteFormData,
+    DocenteFormData,
+    AdministradorFormData,
+    UsuarioData,
+  } from '@/types/admin.types';
 
   /**
    * Props recibidas del servidor.
@@ -359,7 +367,7 @@
 
   // Permissions Modal Logic
   let showPermissionsModal = $state(false);
-  let permissionsUser = $state<any>(null);
+  let permissionsUser = $state<UsuarioData | null>(null);
 
   function openPermissionsModal(item: UsuarioItem) {
     // PermissionsModal expects an object with { id_usuario, username }.
@@ -418,13 +426,15 @@
     />
   </div>
 
-  <PermissionsModal
-    bind:isOpen={showPermissionsModal}
-    onClose={closePermissionsModal}
-    usuario={permissionsUser}
-    {availableRoles}
-    {availablePermissions}
-  />
+  {#if showPermissionsModal && permissionsUser}
+    <PermissionsModal
+      bind:isOpen={showPermissionsModal}
+      onClose={closePermissionsModal}
+      usuario={permissionsUser}
+      {availableRoles}
+      {availablePermissions}
+    />
+  {/if}
 
   <FormModal
     bind:isOpen={showModal}

@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\CourseTeamController;
 use App\Http\Controllers\Admin\SeccionController as AdminSeccionController;
 use App\Http\Controllers\Admin\ProgramaController as AdminProgramaController;
 use App\Http\Controllers\Admin\UsuarioController;
+use App\Http\Controllers\Admin\AssignmentWizardController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -104,11 +105,25 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::post('usuarios/{usuario}/toggle-active', [UsuarioController::class, 'toggleActive'])
         ->name('usuarios.toggle-active');
 
-    // Permissions Routes
+    // Permissions Routes (legacy)
     Route::get('usuarios/{usuario}/permissions', [UsuarioController::class, 'getUserPermissions'])
         ->name('usuarios.permissions');
     Route::post('usuarios/{usuario}/sync-permissions', [UsuarioController::class, 'syncPermissions'])
         ->name('usuarios.syncPermissions');
+
+    // Assignment Wizard API
+    Route::get('assignment/context-types', [AssignmentWizardController::class, 'getContextTypes'])
+        ->name('assignment.context-types');
+    Route::get('assignment/context-types/{type}/objects', [AssignmentWizardController::class, 'getContextObjects'])
+        ->name('assignment.context-objects');
+    Route::get('assignment/roles', [AssignmentWizardController::class, 'getRoles'])
+        ->name('assignment.roles');
+    Route::get('assignment/permissions', [AssignmentWizardController::class, 'getPermissions'])
+        ->name('assignment.permissions');
+    Route::post('usuarios/{usuario}/assign-role', [AssignmentWizardController::class, 'assignRole'])
+        ->name('usuarios.assign-role');
+    Route::post('usuarios/{usuario}/assign-permission', [AssignmentWizardController::class, 'assignPermission'])
+        ->name('usuarios.assign-permission');
 
     // Detalle Malla (AsignacionPlan) routes
     Route::get('planes/{plan}/asignaturas', [AsignacionPlanController::class, 'index'])
@@ -233,10 +248,10 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
 Route::prefix('estudiante')->middleware(['auth', 'verified', 'is_estudiante'])->name('estudiante.')->group(function () {
     Route::get('dashboard', [\App\Http\Controllers\Student\DashboardController::class, 'index'])->name('dashboard');
     Route::get('cursos', [\App\Http\Controllers\Student\CourseController::class, 'index'])->name('cursos.index');
-    
+
     // Programa (Syllabus) View - MUST be before generic {curso} route
     Route::get('cursos/{curso}/programa', [\App\Http\Controllers\Student\ProgramaController::class, 'show'])->name('cursos.programa.show');
-    
+
     Route::get('cursos/{curso}', [\App\Http\Controllers\Student\CourseController::class, 'show'])->name('cursos.show');
 });
 
@@ -244,7 +259,7 @@ Route::prefix('estudiante')->middleware(['auth', 'verified', 'is_estudiante'])->
 Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name('ayudante.')->group(function () {
     Route::get('dashboard', [\App\Http\Controllers\Ayudante\DashboardController::class, 'index'])->name('dashboard');
     Route::get('cursos', [\App\Http\Controllers\Ayudante\CourseController::class, 'index'])->name('cursos.index');
-    
+
     // Programa (Syllabus) View - MUST be before generic {curso} route
     Route::get('cursos/{curso}/programa', [\App\Http\Controllers\Ayudante\ProgramaController::class, 'show'])->name('cursos.programa.show');
     Route::get('cursos/{curso}/programa/create', [\App\Http\Controllers\Ayudante\ProgramaController::class, 'create'])->name('cursos.programa.create');
