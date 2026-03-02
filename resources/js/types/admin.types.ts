@@ -16,6 +16,8 @@ export interface Facultad {
     id_facultad: number;
     /** Name of the faculty */
     nombre: string;
+    /** Associated permission context identifier */
+    id_contexto?: number;
     /** Creation timestamp */
     fecha_creacion?: string;
     /** Last modification timestamp */

@@ -64,63 +64,53 @@ class UsuarioController extends Controller
      */
     public function index(Request $request)
     {
-        $tipo = $request->input('tipo', 'estudiante'); // estudiante, docente, or administrador
+        $tipo = $request->input('tipo', 'estudiante');
+        $search = $request->input('search');
+        $perPage = $request->input('per_page', 15);
 
         if ($tipo === 'estudiante') {
-            $query = Estudiante::with(['usuario', 'carrera']);
-
-            if ($request->has('search')) {
-                $search = $request->input('search');
-                $query->whereHas('usuario', function ($q) use ($search) {
-                    $q->where('nombre1', 'ilike', "%{$search}%")
-                        ->orWhere('apellido1', 'ilike', "%{$search}%")
-                        ->orWhere('rut', 'ilike', "%{$search}%");
-                });
-            }
-
-            $usuarios = $query->join('usuario', 'estudiante.id_usuario', '=', 'usuario.id_usuario')
+            $usuarios = Estudiante::with(['usuario', 'carrera'])
+                ->when($search, function ($query) use ($search) {
+                    return $query->whereHas('usuario', function ($q) use ($search) {
+                        $q->where('nombre1', 'ilike', "%{$search}%")
+                            ->orWhere('apellido1', 'ilike', "%{$search}%")
+                            ->orWhere('rut', 'ilike', "%{$search}%");
+                    });
+                })
+                ->join('usuario', 'estudiante.id_usuario', '=', 'usuario.id_usuario')
                 ->orderBy('usuario.nombre1')
                 ->orderBy('usuario.apellido1')
-                ->select('estudiante.*') // Select estudiante fields to avoid ID collisions if needed, or just let Eloquent handle it
-                ->paginate($request->input('per_page', 15))
+                ->distinct()
+                ->paginate($perPage)
                 ->withQueryString();
         } elseif ($tipo === 'docente') {
-            $query = Docente::with('usuario');
-
-            if ($request->has('search')) {
-                $search = $request->input('search');
-                $query->whereHas('usuario', function ($q) use ($search) {
-                    $q->where('nombre1', 'ilike', "%{$search}%")
-                        ->orWhere('apellido1', 'ilike', "%{$search}%")
-                        ->orWhere('rut', 'ilike', "%{$search}%");
-                });
-            }
-
-            $usuarios = $query->join('usuario', 'docente.id_usuario', '=', 'usuario.id_usuario')
+            $usuarios = Docente::with('usuario')
+                ->when($search, function ($query) use ($search) {
+                    return $query->whereHas('usuario', function ($q) use ($search) {
+                        $q->where('nombre1', 'ilike', "%{$search}%")
+                            ->orWhere('apellido1', 'ilike', "%{$search}%")
+                            ->orWhere('rut', 'ilike', "%{$search}%");
+                    });
+                })
+                ->join('usuario', 'docente.id_usuario', '=', 'usuario.id_usuario')
                 ->orderBy('usuario.nombre1')
                 ->orderBy('usuario.apellido1')
-                ->select('docente.*')
-                ->paginate($request->input('per_page', 15))
+                ->distinct()
+                ->paginate($perPage)
                 ->withQueryString();
         } else {
             // Administradores: usuarios sin docente ni estudiante
-            $query = Usuario::query()
-                ->whereDoesntHave('docente')
-                ->whereDoesntHave('estudiante');
-
-            if ($request->has('search')) {
-                $search = $request->input('search');
-                $query->where(function ($q) use ($search) {
-                    $q->where('username', 'ilike', "%{$search}%")
+            $usuarios = Usuario::whereDoesntHave('docente')
+                ->whereDoesntHave('estudiante')
+                ->when($search, function ($query) use ($search) {
+                    return $query->where('username', 'ilike', "%{$search}%")
                         ->orWhere('rut', 'ilike', "%{$search}%")
                         ->orWhere('nombre1', 'ilike', "%{$search}%")
                         ->orWhere('apellido1', 'ilike', "%{$search}%");
-                });
-            }
-
-            $usuarios = $query->orderBy('nombre1')
+                })
+                ->orderBy('nombre1')
                 ->orderBy('apellido1')
-                ->paginate($request->input('per_page', 15))
+                ->paginate($perPage)
                 ->withQueryString();
         }
 
@@ -129,11 +119,7 @@ class UsuarioController extends Controller
         }
 
         $carreras = Carrera::orderBy('nombre')->get();
-
-        // RBAC Data
         $availableRoles = Rol::orderBy('nombre')->get();
-        // Group permissions by module
-        // Group permissions by module -> Grouped as 'General' for frontend display
         $availablePermissions = Permiso::orderBy('slug')->get()->groupBy(fn() => 'General');
 
         return Inertia::render('admin/Usuarios', [
@@ -555,19 +541,18 @@ class UsuarioController extends Controller
         try {
             if ($tipo === 'estudiante') {
                 $record = Estudiante::findOrFail($id);
+                $usuarioId = $record->id_usuario;
+                $record->delete();
             } elseif ($tipo === 'docente') {
                 $record = Docente::findOrFail($id);
+                $usuarioId = $record->id_usuario;
+                $record->delete();
             } else {
                 $record = Usuario::findOrFail($id);
+                $usuarioId = $record->id_usuario;
             }
 
-            $usuarioId = ($tipo === 'administrador') ? $record->id_usuario : $record->id_usuario;
-
-            if ($tipo !== 'administrador') {
-                $record->delete();
-            }
-
-            Usuario::find($usuarioId)?->delete();
+            Usuario::where('id_usuario', $usuarioId)->delete();
 
             DB::commit();
 
@@ -718,21 +703,12 @@ class UsuarioController extends Controller
         ]);
 
         $usuario = Usuario::findOrFail($id);
-
-        // Note: Para contextos específicos (Carrera, Facultad, Curso, etc.),
-        // usa los builders: $user->givePermission($perm)->on($carrera)->for(30)->save()
-        // Los builders aplican duración, delegación y auto-audit.
-        //
-        // Para el contexto global, usamos updateOrCreate directo con duración de 365 días.
-
         $idContexto = app(GlobalContextService::class)->getContextId();
-
-        $adminId = Auth::id() ?? 1; // Fallback only for dev/seeder
+        $adminId = Auth::id() ?? 1;
 
         DB::beginTransaction();
         try {
-            // 1. Sync Roles
-            // Soft-delete all existing active assignments for this context
+            // 1. Soft-delete existing active role assignments for this context
             UsuarioRolAsignacion::where('id_usuario', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->where('esta_activo', true)
@@ -743,7 +719,7 @@ class UsuarioController extends Controller
                     'fecha_fin_real' => now()
                 ]);
 
-            // Add new roles
+            // 2. Add new roles
             if (!empty($validated['roles'])) {
                 foreach ($validated['roles'] as $rolId) {
                     UsuarioRolAsignacion::updateOrCreate(
@@ -756,7 +732,7 @@ class UsuarioController extends Controller
                             'asignado_por' => (int) $adminId,
                             'creado_por' => (int) $adminId,
                             'fecha_inicio_planificada' => now(),
-                            'fecha_fin_planificada' => now()->addDays(365),  // 365 días en lugar de 100 años
+                            'fecha_fin_planificada' => now()->addDays(365),
                             'esta_activo' => true,
                             'fue_eliminado' => false,
                             'fecha_fin_real' => null,
@@ -766,8 +742,7 @@ class UsuarioController extends Controller
                 }
             }
 
-            // 2. Sync Special Permissions
-            // Soft-delete existing
+            // 3. Soft-delete existing special permissions for this context
             UsuarioPermisoEspecial::where('id_usuario', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->where('esta_activo', true)
@@ -778,6 +753,7 @@ class UsuarioController extends Controller
                     'fecha_fin_real' => now()
                 ]);
 
+            // 4. Add new special permissions
             foreach ($validated['special_permissions'] as $permId => $status) {
                 $isObject = is_array($status);
                 $allowed = $isObject ? ($status['allowed'] ?? null) : $status;
@@ -807,7 +783,7 @@ class UsuarioController extends Controller
                             'esta_activo' => true,
                             'fue_borrado' => false,
                             'fecha_fin_real' => null,
-                            'fecha_fin_planificada' => now()->addDays($duracionDias),  // Usa duración del request
+                            'fecha_fin_planificada' => now()->addDays($duracionDias),
                             'fecha_creacion' => now()
                         ]
                     );
@@ -823,7 +799,6 @@ class UsuarioController extends Controller
 
             DB::commit();
 
-            // Return appropriate response type
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => true,

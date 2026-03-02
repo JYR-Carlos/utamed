@@ -4,74 +4,73 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Facultad;
+use App\Services\FacultadService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 /**
  * Controlador para la gestión de facultades.
- * 
+ *
  * Tablas implicadas:
  * - administrativo.facultad: Facultades de la institución.
- * 
+ *
  * Las facultades son entidades raíz en la jerarquía organizacional.
  * Contienen departamentos que a su vez contienen carreras.
  */
 class FacultadController extends Controller
 {
+    public function __construct(private readonly FacultadService $facultadService)
+    {
+    }
+
     /**
      * Muestra un listado paginado de todas las facultades.
      * Soporta búsqueda por nombre.
      */
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Facultad::class);
+
         $query = Facultad::query();
 
-        // Search functionality
         if ($request->has('search')) {
             $search = $request->input('search');
             $query->where('nombre', 'ilike', "%{$search}%");
         }
 
-        // Pagination
         $facultades = $query->orderBy('nombre')
             ->paginate($request->input('per_page', 15))
             ->withQueryString();
 
+        $user = Auth::user();
+
         return Inertia::render('admin/Facultades', [
             'facultades' => $facultades,
-            'filters' => $request->only(['search'])
+            'filters'    => $request->only(['search']),
+            'canCreate'  => $user->can('create', Facultad::class),
+            'canEdit'    => $user->can('update', new Facultad()),
+            'canDelete'  => $user->can('delete', new Facultad()),
         ]);
     }
 
     /**
      * Crea una nueva facultad y su contexto asociado.
-     * 
-     * La facultad genera automáticamente un contexto para gestionar
-     * permisos y roles a nivel de facultad.
      */
     public function store(Request $request)
     {
+        $this->authorize('create', Facultad::class);
+
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
         ]);
 
-        \Illuminate\Support\Facades\DB::beginTransaction();
         try {
-            // Create context for this Facultad
-            $contexto = \App\Models\Usuario\Contexto::firstOrCreate(
-                ['contexto_display' => 'Facultad: ' . $validated['nombre']],
-                ['descripcion' => 'Contexto para la facultad ' . $validated['nombre']]
-            );
-
-            $validated['id_contexto'] = $contexto->id_contexto;
-            $facultad = Facultad::create($validated);
-
-            \Illuminate\Support\Facades\DB::commit();
+            $this->facultadService->create($validated, Auth::user());
 
             return redirect()->route('admin.facultades.index')
                 ->with('success', 'Facultad creada exitosamente.');
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\DB::rollBack();
             return back()->with('error', 'Error al crear facultad: ' . $e->getMessage());
         }
     }
@@ -81,6 +80,8 @@ class FacultadController extends Controller
      */
     public function show(Facultad $facultad)
     {
+        $this->authorize('view', $facultad);
+
         $facultad->load('departamentos');
 
         return response()->json($facultad);
@@ -91,14 +92,20 @@ class FacultadController extends Controller
      */
     public function update(Request $request, Facultad $facultad)
     {
+        $this->authorize('update', $facultad);
+
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
         ]);
 
-        $facultad->update($validated);
+        try {
+            $this->facultadService->update($facultad, $validated, Auth::user());
 
-        return redirect()->route('admin.facultades.index')
-            ->with('success', 'Facultad actualizada exitosamente.');
+            return redirect()->route('admin.facultades.index')
+                ->with('success', 'Facultad actualizada exitosamente.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error al actualizar facultad: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -106,8 +113,10 @@ class FacultadController extends Controller
      */
     public function destroy(Facultad $facultad)
     {
+        $this->authorize('delete', $facultad);
+
         try {
-            $facultad->delete();
+            $this->facultadService->delete($facultad, Auth::user());
 
             return redirect()->route('admin.facultades.index')
                 ->with('success', 'Facultad eliminada exitosamente.');
@@ -117,3 +126,4 @@ class FacultadController extends Controller
         }
     }
 }
+
