@@ -48,9 +48,9 @@
   let selectedSyllabusType = $state<'simplified' | 'combined' | 'complete' | null>(null);
   let currentCurso = $state<Curso | null>(null);
 
-  // Detectar si existe un programa BASICO para mostrar opción de "Continuar"
+  // Detectar si existe un programa activo (cualquier estado) para mostrar opción de "Continuar"
   const existingSyllabusType = $derived.by(() => {
-    const existing = programas.find((p) => ['BASICO_COMPLETO', 'COMPLETO'].includes(p.estado));
+    const existing = programas.find((p) => ['BORRADOR', 'BASICO_COMPLETO', 'COMPLETO', 'APROBADO'].includes(p.estado));
     if (existing) {
       return existing.data_syllabus?.metadata?.tipo_syllabus as 'COMPLETO' | 'BASICO' | null | undefined;
     }
@@ -77,6 +77,7 @@
 
   const estadoCounts = $derived.by(() => ({
     all: programas.length,
+    borrador: programas.filter((p) => p.estado === 'BORRADOR').length,
     basico: programas.filter((p) => p.estado === 'BASICO_COMPLETO').length,
     completo: programas.filter((p) => p.estado === 'COMPLETO').length,
     aprobado: programas.filter((p) => p.estado === 'APROBADO').length,

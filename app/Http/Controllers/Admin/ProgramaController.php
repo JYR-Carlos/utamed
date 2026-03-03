@@ -10,6 +10,7 @@ use App\Models\Curso\Unidad;
 use App\Models\Agenda\Actividad;
 use App\Services\ProgramaService;
 use App\Support\Permissions;
+use App\Traits\ParsesSyllabus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -29,6 +30,7 @@ use Inertia\Inertia;
  */
 class ProgramaController extends Controller
 {
+    use ParsesSyllabus;
     /**
      * Lista los programas DE UN CURSO ESPECÍFICO para el modal/sidebar view
      * Retorna JSON con lista formateada para el frontend
@@ -39,14 +41,16 @@ class ProgramaController extends Controller
         $this->authorize('view', $curso);
 
         $programas = Programa::where('id_curso', $curso->id_curso)
-            ->with(['creator' => function ($q) {
-                $q->select('id_usuario', 'nombre_completo');
-            }, 'reviewer' => function ($q) {
-                $q->select('id_usuario', 'nombre_completo');
-            }])
+            ->with(['creator', 'reviewer'])
             ->orderBy('fecha_creacion', 'desc')
             ->get()
             ->map(function ($p) {
+                $creatorName = $p->creator
+                    ? trim(collect([$p->creator->nombre1, $p->creator->nombre2, $p->creator->apellido1, $p->creator->apellido2])->filter()->implode(' '))
+                    : null;
+                $reviewerName = $p->reviewer
+                    ? trim(collect([$p->reviewer->nombre1, $p->reviewer->nombre2, $p->reviewer->apellido1, $p->reviewer->apellido2])->filter()->implode(' '))
+                    : null;
                 return [
                     'id_programa' => $p->id_programa,
                     'version_programa' => $p->version_programa,
@@ -58,11 +62,11 @@ class ProgramaController extends Controller
                     'completenessPercentage' => $p->getCompletenessPercentage(),
                     'creator' => [
                         'id_usuario' => $p->creator?->id_usuario,
-                        'nombre_completo' => $p->creator?->nombre_completo,
+                        'nombre_completo' => $creatorName,
                     ],
                     'reviewer' => [
                         'id_usuario' => $p->reviewer?->id_usuario,
-                        'nombre_completo' => $p->reviewer?->nombre_completo,
+                        'nombre_completo' => $reviewerName,
                     ],
                 ];
             });
@@ -122,164 +126,6 @@ class ProgramaController extends Controller
     }
 
     /**
-     * Convierte data_syllabus de estructura IX-secciones a estructura de SeccionPrograma
-     */
-    private function parseSecciones(array $data): array
-    {
-        // El data_syllabus tiene estructura: { metadata: {...}, secciones: { I: {...}, II: {...}, ..., IX: {...} } }
-        // Extraer secciones del contenedor
-        $seccionesData = $data['secciones'] ?? $data;
-        
-        $romanos = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
-        $nombres = [
-            'I' => 'Identificación',
-            'II' => 'Presentación',
-            'III' => 'Estándares',
-            'IV' => 'Competencias',
-            'V' => 'Evaluación Diagnóstica',
-            'VI' => 'Unidades',
-            'VII' => 'Planificación',
-            'VIII' => 'Recursos',
-            'IX' => 'Aspectos Administrativos',
-        ];
-
-        $secciones = [];
-        foreach ($romanos as $idx => $romano) {
-            // Extract seccion data and then get contenido
-            $seccionData = $seccionesData[$romano] ?? [];
-            $contenido = $seccionData['contenido'] ?? [];
-            
-            // Convertir contenido a formato de contenidos_programa
-            $contenidosPrograma = $this->extraeContenidos($contenido, $romano);
-
-            $seccion = [
-                'nombre_seccion' => $nombres[$romano] ?? "Sección $romano",
-                'numeral_romano' => $romano,
-                'orden' => $idx + 1,
-                'contenidos_programa' => $contenidosPrograma,
-            ];
-
-            // For section IX, add structured component data
-            if ($romano === 'IX') {
-                $seccion['componentes'] = $contenido['tabla_componentes'] ?? [];
-                $seccion['ponderacion_optativa'] = $contenido['ponderacion_optativa'] ?? [];
-            }
-
-            $secciones[] = $seccion;
-        }
-
-        return $secciones;
-    }
-
-    /**
-     * Extrae contenidos de cada sección para mostrar en el modal
-     */
-    private function extraeContenidos(array $contenido, string $seccionId): array
-    {
-        $contenidos = [];
-
-        if (empty($contenido)) {
-            return [['texto_contenido' => '', 'orden_item' => 1]];
-        }
-
-        // Serializar cada sección de forma legible
-        switch ($seccionId) {
-            case 'I':
-                $text = sprintf(
-                    "Asignatura: %s\nCódigo: %s\nCréditos SCT: %s\nHoras Cátedra: %s, Taller: %s, Lab: %s\nCategoría: %s",
-                    $contenido['nombre_asignatura'] ?? '',
-                    $contenido['codigo'] ?? '',
-                    $contenido['creditos_sct'] ?? '',
-                    $contenido['horas']['catedra'] ?? 0,
-                    $contenido['horas']['taller'] ?? 0,
-                    $contenido['horas']['laboratorio'] ?? 0,
-                    $contenido['categoria'] ?? ''
-                );
-                break;
-
-            case 'II':
-            case 'III':
-                $text = $contenido['texto'] ?? '';
-                break;
-
-            case 'IV':
-                $esp = implode("\n", array_map(fn($c) => "• " . ($c['titulo'] ?? ''), $contenido['competencias_especificas'] ?? []));
-                $gen = implode("\n", array_map(fn($c) => "• " . ($c['titulo'] ?? ''), $contenido['competencias_genericas'] ?? []));
-                $sub = implode("\n", array_map(fn($c) => "• " . ($c['titulo'] ?? ''), $contenido['subcompetencias'] ?? []));
-                $text = "Específicas:\n$esp\n\nGenéricas:\n$gen\n\nSub:\n$sub";
-                break;
-
-            case 'V':
-                $text = implode("\n", array_map(
-                    fn($i) => "• " . ($i['titulo'] ?? '') . ": " . ($i['descripcion'] ?? ''),
-                    $contenido['items'] ?? []
-                ));
-                break;
-
-            case 'VI':
-                $unidadesText = array_map(function ($u) {
-                    $resultados = implode("\n  ", array_map(
-                        fn($r) => "• " . ($r['resultado'] ?? ''),
-                        $u['resultados_aprendizaje'] ?? []
-                    ));
-                    return sprintf(
-                        "Unidad %d: %s\nContenidos: %s\nResultados:\n  %s",
-                        $u['numero'] ?? 0,
-                        $u['titulo'] ?? '',
-                        implode(", ", array_map(fn($c) => $c['item'] ?? '', $u['contenidos_items'] ?? [])),
-                        $resultados
-                    );
-                }, $contenido['unidades'] ?? []);
-                $text = implode("\n\n", $unidadesText);
-                break;
-
-            case 'VII':
-                $resultados = implode("\n", array_map(
-                    fn($r) => "• " . ($r['resultado'] ?? ''),
-                    $contenido['resultados_aprendizaje']['items'] ?? []
-                ));
-                $text = sprintf(
-                    "Resultados de Aprendizaje:\n%s\n\nMetodología:\n%s\n\nEvaluación:\n%s",
-                    $resultados,
-                    $contenido['metodologia']['tipo_estrategia'] ?? '',
-                    $contenido['evaluacion']['tipo_evaluacion'] ?? ''
-                );
-                break;
-
-            case 'VIII':
-                $text = implode("\n", array_map(
-                    fn($r) => "• " . ($r['descripcion'] ?? '') . " (" . ($r['tipo'] ?? '') . ")",
-                    $contenido['recursos'] ?? []
-                ));
-                break;
-
-            case 'IX':
-                $componentes = implode("\n", array_map(
-                    fn($c) => sprintf("• %s: %s%%, Acta: %s, Oblig: %s, Asist: %s%%",
-                        $c['componente'] ?? '',
-                        $c['porcentaje'] ?? 0,
-                        $c['genera_acta'] ? 'Sí' : 'No',
-                        $c['aprobacion_obligatoria'] ? 'Sí' : 'No',
-                        $c['asistencia_obligatoria'] ?? 0
-                    ),
-                    $contenido['tabla_componentes'] ?? []
-                ));
-                $text = sprintf(
-                    "Normativa:\n%s\n\nPonderación Optativa: %s%%\n\nComponentes:\n%s",
-                    $contenido['descripcion'] ?? '',
-                    $contenido['ponderacion_optativa']['porcentaje'] ?? 0,
-                    $componentes
-                );
-                break;
-
-            default:
-                $text = '';
-        }
-
-        return [['texto_contenido' => $text, 'orden_item' => 1]];
-    }
-
-    /**
      * Retorna el programa activo en vista Inertia para revisión
      */
     public function show(Curso $curso)
@@ -319,36 +165,55 @@ class ProgramaController extends Controller
             })->values()->toArray();
         }
 
-        // Parse sections for display - parseSecciones already processes contenidos
-        $secciones = $this->parseSecciones($programa->data_syllabus);
-        
-        // Convert contenidos_programa to contenidos for Svelte component compatibility
-        foreach ($secciones as &$seccion) {
-            $seccion['contenidos'] = $seccion['contenidos_programa'];
-            unset($seccion['contenidos_programa']);
-        }
-        unset($seccion); // Break reference
+        // Cargar relaciones del programa para nombre de creador/revisor
+        $programa->loadMissing(['creator', 'reviewer']);
 
-        return Inertia::render('admin/Programas/ReviewPrograma', [
-            'programa' => [
-                'id_programa' => $programa->id_programa,
-                'version_programa' => $programa->version_programa,
-                'estado' => $programa->estado,
-                'data_syllabus' => [
-                    'secciones' => $secciones,
-                ],
-                'fecha_creacion' => $programa->fecha_creacion,
-                'creado_por' => $programa->autor?->nombre ?? 'N/A',
-            ],
+        // Normalizar data_syllabus al contrato que espera ProgramaDocument
+        $rawSyllabus = is_array($programa->data_syllabus)
+            ? $programa->data_syllabus
+            : json_decode($programa->data_syllabus, true);
+
+        $secciones = $this->parseSecciones($rawSyllabus ?? []);
+
+        $asignatura = $curso->asignacionPlan?->asignatura;
+
+        return Inertia::render('docente/Programa', [
             'curso' => [
-                'id_curso' => $curso->id_curso,
-                'nombre' => $curso->nombre,
-                'cod_curso' => $curso->cod_curso,
-                'id_contexto' => $curso->id_contexto,
-                'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre,
-                'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre,
+                'id_curso'                      => $curso->id_curso,
+                'nombre'                        => $curso->nombre,
+                'cod_curso'                     => $curso->cod_curso,
+                'id_asignacion_plan'            => $curso->id_asignacion_plan,
+                'id_contexto'                   => $curso->id_contexto,
+                'asignatura_nombre'             => $asignatura?->nombre,
+                'carrera_nombre'                => $curso->asignacionPlan?->plan?->carrera?->nombre,
+                'asignatura'                    => $asignatura,
+                'fecha_limite_entrega_basico'   => $curso->fecha_limite_entrega_basico,
+                'fecha_limite_entrega_syllabus' => $curso->fecha_limite_entrega_syllabus,
             ],
+            'programa' => [
+                'id_programa'      => $programa->id_programa,
+                'version_programa' => $programa->version_programa,
+                'estado'           => $programa->estado,
+                'creado_por'       => $programa->creado_por,
+                'revisado_por'     => $programa->revisado_por,
+                'fecha_creacion'   => $programa->fecha_creacion,
+                'secciones'        => $secciones,
+                'creator'  => $programa->creator  ? [
+                    'id_usuario'      => $programa->creator->id_usuario,
+                    'nombre_completo' => trim(collect([$programa->creator->nombre1, $programa->creator->nombre2, $programa->creator->apellido1, $programa->creator->apellido2])->filter()->implode(' ')),
+                ] : null,
+                'reviewer' => $programa->reviewer ? [
+                    'id_usuario'      => $programa->reviewer->id_usuario,
+                    'nombre_completo' => trim(collect([$programa->reviewer->nombre1, $programa->reviewer->nombre2, $programa->reviewer->apellido1, $programa->reviewer->apellido2])->filter()->implode(' ')),
+                ] : null,
+            ],
+            'asignatura'      => $asignatura,
+            'canEdit'         => false,
+            'canApprove'      => $user->can('approve', $programa),
             'userPermissions' => $userPermissions,
+            'layoutType'      => 'admin',
+            'backUrl'         => '/admin/cursos',
+            'userId'          => $user->id_usuario,
         ]);
     }
 
@@ -470,8 +335,8 @@ class ProgramaController extends Controller
         // Validar permiso para esta sección específica
         $this->validatePermissionForSeccion($user, $seccionId, $programa->id_curso);
 
-        // Validar que el programa esté en estado editable (BASICO_COMPLETO o COMPLETO)
-        if (!in_array($programa->estado, ['BASICO_COMPLETO', 'COMPLETO'])) {
+        // Validar que el programa esté en estado editable (BORRADOR, BASICO_COMPLETO o COMPLETO)
+        if (!in_array($programa->estado, ['BORRADOR', 'BASICO_COMPLETO', 'COMPLETO'])) {
             return response()->json([
                 'error' => "No se puede editar un programa en estado {$programa->estado}"
             ], 422);
@@ -551,10 +416,17 @@ class ProgramaController extends Controller
         $this->authorize('approve', $programa);
 
         try {
-            // Validar que el programa esté en estado editable (antes de aprobación)
-            if (!in_array($programa->estado, ['BASICO_COMPLETO', 'COMPLETO'])) {
+            // Solo se puede aprobar la versión COMPLETO (tipo_syllabus = COMPLETO, estado = COMPLETO)
+            // La versión BASICO no requiere aprobación; se marca directamente como BASICO_COMPLETO.
+            if ($programa->estado !== 'COMPLETO') {
                 return response()->json([
-                    'error' => "El programa debe estar en estado BASICO_COMPLETO o COMPLETO para ser aprobado. Estado actual: {$programa->estado}"
+                    'error' => "Solo se puede aprobar un programa en estado COMPLETO. Estado actual: {$programa->estado}"
+                ], 422);
+            }
+
+            if ($programa->getTipoSyllabus() !== 'COMPLETO') {
+                return response()->json([
+                    'error' => 'La versión básica (BASICO) no requiere aprobación.'
                 ], 422);
             }
 
@@ -618,7 +490,7 @@ class ProgramaController extends Controller
             ->whereNull('fecha_eliminacion');
 
         // Filtro por estado - nuevos estados
-        $estadosValidos = ['BASICO_COMPLETO', 'COMPLETO', 'APROBADO', 'PUBLICADO'];
+        $estadosValidos = ['BORRADOR', 'BASICO_COMPLETO', 'COMPLETO', 'APROBADO', 'PUBLICADO'];
         if ($estado && in_array($estado, $estadosValidos)) {
             $query->where('estado', $estado);
         }
@@ -658,6 +530,12 @@ class ProgramaController extends Controller
                 ->whereNull('fecha_eliminacion')->count(),
             'publicados' => Programa::where('estado', 'PUBLICADO')
                 ->whereNull('fecha_eliminacion')->count(),
+            'borradores' => Programa::where('estado', 'BORRADOR')
+                ->whereNull('fecha_eliminacion')->count(),
+            // Aliases para compatibilidad con vista Programas.svelte
+            'pendientes' => Programa::whereIn('estado', ['BASICO_COMPLETO', 'COMPLETO'])
+                ->whereNull('fecha_eliminacion')->count(),
+            'rechazados' => 0,  // estado eliminado del nuevo flujo
             'total' => Programa::whereNull('fecha_eliminacion')->count(),
         ];
 
@@ -672,6 +550,98 @@ class ProgramaController extends Controller
             'stats' => $stats,
             'estado_filtro' => $estado,
             'tipo_filtro' => $tipo,
+        ]);
+    }
+
+    /**
+     * Vista de Syllabus: lista de cursos con su programa/syllabus, estado y fechas límite.
+     * Exclusivo para administradores.
+     * GET /admin/syllabus
+     */
+    public function syllabusIndex(Request $request)
+    {
+        $this->authorize('viewAny', Programa::class);
+
+        $busqueda  = $request->query('q', '');
+        $semestre  = $request->query('semestre', '');
+        $agno      = $request->query('agno', '');
+
+        $query = Curso::query()
+            ->with([
+                'asignacionPlan.asignatura',
+                'asignacionPlan.plan.carrera',
+                'programas' => fn ($q) => $q->where('es_actual', true)->whereNull('fecha_eliminacion'),
+            ])
+            ->whereNull('fecha_eliminacion');
+
+        if ($busqueda) {
+            $query->where(function ($q) use ($busqueda) {
+                $q->where('nombre', 'ilike', "%{$busqueda}%")
+                  ->orWhere('cod_curso', 'ilike', "%{$busqueda}%");
+            });
+        }
+
+        if ($semestre) {
+            $query->where('semestre_real', $semestre);
+        }
+
+        if ($agno) {
+            $query->where('agno_real', $agno);
+        }
+
+        $cursos = $query->orderBy('nombre')->paginate(20, ['*'], 'page', $request->query('page', 1));
+
+        $cursosData = $cursos->map(function (Curso $c) {
+            $programa = $c->programas->first();
+
+            // Tipo de syllabus: BASICO, COMPLETO, o null (sin programa)
+            $tipoSyllabus = $programa ? $programa->getTipoSyllabus() : null;
+            $estadoPrograma = $programa ? $programa->estado : null;
+
+            return [
+                'id_curso'                      => $c->id_curso,
+                'cod_curso'                     => $c->cod_curso,
+                'nombre'                        => $c->nombre,
+                'agno_real'                     => $c->agno_real,
+                'semestre_real'                 => $c->semestre_real,
+                'asignatura'                    => $c->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+                'carrera'                       => $c->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
+                'fecha_limite_entrega_basico'   => $c->fecha_limite_entrega_basico?->toIso8601String(),
+                'fecha_limite_entrega_syllabus' => $c->fecha_limite_entrega_syllabus?->toIso8601String(),
+                'programa' => $programa ? [
+                    'id_programa'      => $programa->id_programa,
+                    'estado'           => $estadoPrograma,
+                    'tipo_syllabus'    => $tipoSyllabus,
+                    'version_programa' => $programa->version_programa,
+                    'completud'        => $programa->getCompletenessPercentage(),
+                ] : null,
+            ];
+        });
+
+        // Opciones de filtro
+        $semestres = Curso::whereNull('fecha_eliminacion')
+            ->whereNotNull('semestre_real')
+            ->distinct()->pluck('semestre_real')->sort()->values();
+
+        $agnos = Curso::whereNull('fecha_eliminacion')
+            ->whereNotNull('agno_real')
+            ->distinct()->pluck('agno_real')->sortDesc()->values();
+
+        return Inertia::render('admin/Syllabus', [
+            'cursos'     => $cursosData,
+            'pagination' => [
+                'current_page' => $cursos->currentPage(),
+                'last_page'    => $cursos->lastPage(),
+                'total'        => $cursos->total(),
+                'per_page'     => $cursos->perPage(),
+            ],
+            'filters'    => [
+                'q'        => $busqueda,
+                'semestre' => $semestre,
+                'agno'     => $agno,
+            ],
+            'semestres'  => $semestres,
+            'agnos'      => $agnos,
         ]);
     }
 
@@ -730,6 +700,26 @@ class ProgramaController extends Controller
 
             return redirect()->back()->with('error', 'Error al rechazar el programa: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Actualiza las fechas límite de entrega del básico y/o el syllabus completo.
+     * SOLO ADMIN puede hacer esto.
+     */
+    public function updateDeadlines(Request $request, Curso $curso)
+    {
+        $this->authorize('viewAny', Programa::class);
+
+        $validated = $request->validate([
+            'fecha_limite_entrega_basico'   => 'nullable|date',
+            'fecha_limite_entrega_syllabus' => 'nullable|date|after_or_equal:fecha_limite_entrega_basico',
+        ], [
+            'fecha_limite_entrega_syllabus.after_or_equal' => 'La fecha límite del syllabus debe ser igual o posterior a la del básico.',
+        ]);
+
+        $curso->update($validated);
+
+        return redirect()->back()->with('success', 'Fechas límite actualizadas correctamente.');
     }
 
     /**
@@ -794,8 +784,8 @@ class ProgramaController extends Controller
                 'contenido.horas.laboratorio' => 'required|integer|min:0',
                 'contenido.categoria' => 'required|string',
             ],
-            'II' => ['contenido.texto' => 'required|string|min:100'],
-            'III' => ['contenido.texto' => 'required|string|min:100'],
+            'II' => ['contenido.texto' => 'nullable|string'],
+            'III' => ['contenido.texto' => 'nullable|string'],
             'IV' => [
                 'contenido.competencias_especificas' => 'required|array|min:1',
                 'contenido.competencias_genericas' => 'required|array|min:1',
@@ -853,6 +843,8 @@ class ProgramaController extends Controller
             'secciones.VI.contenido.unidades.*.titulo' => 'nullable|string',
             'secciones.VI.contenido.unidades.*.contenidos_items' => 'nullable|array',
             'secciones.VI.contenido.unidades.*.contenidos_items.*.item' => 'nullable|string',
+            'secciones.VI.contenido.unidades.*.resultados_aprendizaje' => 'nullable|array',
+            'secciones.VI.contenido.unidades.*.resultados_aprendizaje.*.resultado' => 'nullable|string',
             
             // Sección VII: Actividades de Aprendizaje - Permitir enviar vacío para rellenar después
             'secciones.VII.contenido.actividades' => 'nullable|array',
@@ -887,7 +879,7 @@ class ProgramaController extends Controller
             'secciones.II.contenido.texto' => 'nullable|string',
             
             // Sección III: Estándares
-            'secciones.III.contenido.texto' => 'required|string|min:100',
+            'secciones.III.contenido.texto' => 'nullable|string',
             
             // Sección IV: Competencias
             'secciones.IV.contenido.competencias_especificas' => 'required|array|min:1',
@@ -908,6 +900,8 @@ class ProgramaController extends Controller
             'secciones.VI.contenido.unidades.*.titulo' => 'nullable|string',
             'secciones.VI.contenido.unidades.*.contenidos_items' => 'nullable|array',
             'secciones.VI.contenido.unidades.*.contenidos_items.*.item' => 'nullable|string',
+            'secciones.VI.contenido.unidades.*.resultados_aprendizaje' => 'nullable|array',
+            'secciones.VI.contenido.unidades.*.resultados_aprendizaje.*.resultado' => 'nullable|string',
             
             // Sección VII: Planificación
             'secciones.VII.contenido.resultados_aprendizaje.titulo' => 'required|string',
@@ -961,8 +955,8 @@ class ProgramaController extends Controller
             return;
         }
 
-        // Eliminar unidades existentes del curso para evitar duplicados
-        Unidad::where('id_curso', $curso->id_curso)->delete();
+        // IDs de unidades que quedan tras el upsert (para eliminar las que ya no están en el syllabus)
+        $keptIds = [];
 
         foreach ($unidadesData as $uData) {
             $titulo = trim($uData['titulo'] ?? '');
@@ -970,18 +964,43 @@ class ProgramaController extends Controller
                 continue;
             }
 
-            Unidad::create([
-                'num_unidad'  => $uData['numero'] ?? null,
-                'nombre'      => $titulo,
-                'descripcion' => $uData['contenidos_items'][0]['item'] ?? null,
-                'id_curso'    => $curso->id_curso,
-            ]);
+            $numUnidad = $uData['numero'] ?? null;
 
-            Log::info('Unidad creada desde syllabus', [
-                'nombre'   => $titulo,
-                'id_curso' => $curso->id_curso,
-            ]);
+            // Buscar por num_unidad primero, luego por nombre — así se reutilizan las existentes
+            $unidad = $numUnidad
+                ? Unidad::where('id_curso', $curso->id_curso)->where('num_unidad', $numUnidad)->first()
+                : null;
+
+            if (!$unidad) {
+                $unidad = Unidad::where('id_curso', $curso->id_curso)->where('nombre', $titulo)->first();
+            }
+
+            if ($unidad) {
+                // Actualizar datos sin cambiar el id_unidad (preserva FK de actividades)
+                $unidad->update([
+                    'num_unidad'  => $numUnidad ?? $unidad->num_unidad,
+                    'nombre'      => $titulo,
+                    'descripcion' => $uData['contenidos_items'][0]['item'] ?? $unidad->descripcion,
+                ]);
+                Log::info('Unidad actualizada desde syllabus', ['id_unidad' => $unidad->id_unidad, 'nombre' => $titulo]);
+            } else {
+                $unidad = Unidad::create([
+                    'num_unidad'  => $numUnidad,
+                    'nombre'      => $titulo,
+                    'descripcion' => $uData['contenidos_items'][0]['item'] ?? null,
+                    'id_curso'    => $curso->id_curso,
+                ]);
+                Log::info('Unidad creada desde syllabus', ['id_unidad' => $unidad->id_unidad, 'nombre' => $titulo]);
+            }
+
+            $keptIds[] = $unidad->id_unidad;
         }
+
+        // Eliminar unidades que ya no aparecen en el syllabus, SOLO si no tienen actividades asociadas
+        Unidad::where('id_curso', $curso->id_curso)
+            ->whereNotIn('id_unidad', $keptIds)
+            ->whereDoesntHave('actividades')
+            ->delete();
     }
 
     private function createActividadesFromSyllabus(Curso $curso, array $actividadesData)
@@ -1044,6 +1063,71 @@ class ProgramaController extends Controller
             Log::error("Error creando actividades: {$e->getMessage()}", [
                 'trace' => $e->getTraceAsString(),
             ]);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // INSTANCIACIÓN (Admin crea el espacio vacío; el docente lo rellena después)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Instancia un programa vacío para el curso.
+     *
+     * El administrador crea el "contenedor" en estado BORRADOR.
+     * El docente luego completa las secciones y lo marca como listo:
+     *   - básico  → llama a completar-basico   → BASICO_COMPLETO (visible sin aprobación)
+     *   - completo → llama a enviar            → COMPLETO (requiere aprobación)
+     *
+     * POST /admin/cursos/{curso}/programa/instanciar
+     * Body: { tipo_syllabus: 'BASICO'|'COMPLETO' }
+     */
+    public function instantiar(Request $request, Curso $curso)
+    {
+        $user = Auth::user();
+
+        $this->authorize('create', [Programa::class, $curso]);
+
+        $validated = $request->validate([
+            'tipo_syllabus' => 'required|in:BASICO,COMPLETO',
+        ]);
+
+        try {
+            $programa = ProgramaService::instantiate(
+                $curso,
+                $user instanceof \App\Models\Usuario\Usuario ? $user : null,
+                $validated['tipo_syllabus']
+            );
+
+            Log::info('Programa instanciado', [
+                'id_programa'     => $programa->id_programa,
+                'id_curso'        => $curso->id_curso,
+                'tipo_syllabus'   => $validated['tipo_syllabus'],
+                'instanciado_por' => $user->id_usuario,
+                'version'         => $programa->version_programa,
+            ]);
+
+            return response()->json([
+                'message' => 'Programa instanciado correctamente. El docente puede comenzar a completarlo.',
+                'programa' => [
+                    'id_programa'           => $programa->id_programa,
+                    'version_programa'      => $programa->version_programa,
+                    'estado'                => $programa->estado,
+                    'tipo_syllabus'         => $programa->getTipoSyllabus(),
+                    'fecha_creacion'        => $programa->fecha_creacion,
+                    'fecha_limite_basico'   => $curso->fecha_limite_entrega_basico,
+                    'fecha_limite_completo' => $curso->fecha_limite_entrega_syllabus,
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error al instanciar programa', [
+                'error'    => $e->getMessage(),
+                'id_curso' => $curso->id_curso,
+            ]);
+
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 422);
         }
     }
 }

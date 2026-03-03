@@ -21,6 +21,14 @@
     label: string;
     description: string;
     count?: number;
+    context_id?: number;
+  }
+
+  interface RoleAssignment {
+    id_rol: number;
+    nombre: string;
+    id_contexto: number | null;
+    contexto_display?: string | null;
   }
 
   interface ContextObject {
@@ -41,6 +49,14 @@
     descripcion?: string;
     /** Tipos de contexto válidos para asignar este permiso (ej: ['GLOBAL', 'CURSO']) */
     valid_context_types?: string[];
+  }
+
+  interface RoleDetailPerm {
+    id_permiso: number;
+    slug: string;
+    nombre: string;
+    descripcion?: string;
+    puede_delegar_permisos: boolean;
   }
 
   type FlowType = 'role' | 'permission' | null;
@@ -88,6 +104,16 @@
   let contextTypes = $state<ContextType[]>([]);
   let contextObjects = $state<ContextObject[]>([]);
   let contextObjectsLoading = $state(false);
+
+  // ─── Current user assignments ──────────────────────────────────────────
+  let userCurrentRoleAssignments = $state<RoleAssignment[]>([]);
+
+  // ─── Role detail panel ────────────────────────────────────────────────
+  let roleDetailOpen = $state(false);
+  let roleDetailTarget = $state<RoleAssignment | null>(null);
+  let roleDetailPerms = $state<RoleDetailPerm[]>([]);
+  let roleDetailRoleName = $state('');
+  let roleDetailLoading = $state(false);
 
   // ─── Search filters ───────────────────────────────────────────────────
   let roleSearch = $state('');
@@ -138,6 +164,36 @@
       default:
         return false;
     }
+  });
+
+  /** Unique role names currently assigned (for the step-2 banner) */
+  let userCurrentRoles = $derived.by(() => {
+    const seen = new Set<number>();
+    return userCurrentRoleAssignments.filter((a) => {
+      if (seen.has(a.id_rol)) return false;
+      seen.add(a.id_rol);
+      return true;
+    });
+  });
+
+  /**
+   * True when the currently selected role is already assigned in the
+   * context the user just chose — would trigger a 23P01 exclusion conflict.
+   */
+  let isDuplicateAssignment = $derived.by(() => {
+    if (flow !== 'role' || !selectedRole || !selectedContextType) return false;
+
+    // Resolve the context_id that will be used for the INSERT
+    let resolvedContextId: number | null = null;
+    if (selectedContextType.key === 'GLOBAL') {
+      resolvedContextId = selectedContextType.context_id ?? null;
+    } else if (selectedContextObject) {
+      resolvedContextId = selectedContextObject.context_id;
+    } else {
+      return false; // context object not yet chosen
+    }
+
+    return userCurrentRoleAssignments.some((a) => a.id_rol === selectedRole!.id_rol && a.id_contexto === resolvedContextId);
   });
 
   let filteredRoles = $derived.by(() => {
@@ -232,6 +288,12 @@
     permSearch = '';
     contextObjectSearch = '';
     _lastCtxKey = '';
+    userCurrentRoleAssignments = [];
+    roleDetailOpen = false;
+    roleDetailTarget = null;
+    roleDetailPerms = [];
+    roleDetailRoleName = '';
+    roleDetailLoading = false;
   }
 
   function goNext() {
@@ -287,10 +349,11 @@
     isLoading = true;
     errorMsg = '';
     try {
-      const [rolesRes, permsRes, ctxRes] = await Promise.all([
+      const [rolesRes, permsRes, ctxRes, userPermsRes] = await Promise.all([
         fetch('/admin/assignment/roles'),
         fetch('/admin/assignment/permissions'),
         fetch('/admin/assignment/context-types'),
+        fetch(`/admin/usuarios/${usuario.id_usuario}/permissions`),
       ]);
 
       if (!rolesRes.ok || !permsRes.ok || !ctxRes.ok) {
@@ -300,6 +363,11 @@
       roles = await rolesRes.json();
       permissions = await permsRes.json();
       contextTypes = await ctxRes.json();
+
+      if (userPermsRes.ok) {
+        const userPermsData = await userPermsRes.json();
+        userCurrentRoleAssignments = Array.isArray(userPermsData.roles) ? userPermsData.roles : [];
+      }
     } catch (e) {
       errorMsg = e instanceof Error ? e.message : String(e);
     } finally {
@@ -320,6 +388,25 @@
       errorMsg = e instanceof Error ? e.message : String(e);
     } finally {
       contextObjectsLoading = false;
+    }
+  }
+
+  async function openRoleDetail(asignacion: RoleAssignment) {
+    roleDetailTarget = asignacion;
+    roleDetailOpen = true;
+    roleDetailLoading = true;
+    roleDetailPerms = [];
+    roleDetailRoleName = asignacion.nombre;
+    try {
+      const res = await fetch(`/admin/assignment/roles/${asignacion.id_rol}/detail`);
+      if (!res.ok) throw new Error('Error al cargar detalles del rol');
+      const data = await res.json();
+      roleDetailPerms = data.permisos ?? [];
+      roleDetailRoleName = data.nombre ?? asignacion.nombre;
+    } catch (_) {
+      // panel shows empty state on error
+    } finally {
+      roleDetailLoading = false;
     }
   }
 
@@ -599,6 +686,37 @@
               <!-- ═════════════════════════════════════════ -->
             {:else if currentStep === 2}
               {#if flow === 'role'}
+                <!-- Current roles banner -->
+                <div class="mb-5 p-3.5 rounded-xl border border-purple-200 bg-purple-50">
+                  <p class="text-xs font-semibold text-purple-600 uppercase tracking-wider mb-2">Roles asignados actualmente</p>
+                  {#if userCurrentRoles.length === 0}
+                    <span class="text-sm text-gray-400 italic">Sin rol asignado</span>
+                  {:else}
+                    <div class="flex flex-wrap gap-2">
+                      {#each userCurrentRoles as asignacion}
+                        <button
+                          onclick={() => openRoleDetail(asignacion)}
+                          title="Ver permisos de este rol"
+                          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-200 hover:border-purple-400 transition-colors cursor-pointer"
+                        >
+                          <span>👔</span>
+                          {asignacion.nombre}
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            class="opacity-60"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+                          >
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+
                 <!-- Search -->
                 <div class="relative mb-4 max-w-md">
                   <svg
@@ -877,6 +995,35 @@
               <!-- STEP 4: Parameters & Confirm             -->
               <!-- ═════════════════════════════════════════ -->
             {:else if currentStep === 4}
+              <!-- Duplicate role+context warning -->
+              {#if isDuplicateAssignment}
+                <div class="mb-5 bg-orange-50 border border-orange-300 text-orange-800 rounded-xl p-4 flex items-start gap-3">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    class="flex-shrink-0 mt-0.5 text-orange-500"
+                    ><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><line
+                      x1="12"
+                      y1="9"
+                      x2="12"
+                      y2="13"
+                    /><line x1="12" y1="17" x2="12.01" y2="17" /></svg
+                  >
+                  <div>
+                    <p class="text-sm font-semibold">El usuario ya tiene este rol en ese contexto</p>
+                    <p class="text-xs mt-0.5">
+                      Existe una asignación vigente de <strong>{selectedRole?.nombre}</strong> en el contexto seleccionado. Intentar guardar fallará por
+                      restricción de solapamiento. Revoca o espera a que expire la asignación actual antes de crear una nueva.
+                    </p>
+                  </div>
+                </div>
+              {/if}
+
               <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
                 <!-- Left: Parameters (3 cols) -->
                 <div class="lg:col-span-3 flex flex-col gap-6">
@@ -1067,6 +1214,108 @@
                 </div>
               </div>
             {/if}
+          </div>
+        {/if}
+
+        <!-- ════════════════════════════════════════ -->
+        <!-- ROLE DETAIL OVERLAY PANEL               -->
+        <!-- Opens when a role chip is clicked        -->
+        <!-- ════════════════════════════════════════ -->
+        {#if roleDetailOpen}
+          <div class="absolute inset-0 bg-white z-10 flex flex-col overflow-hidden">
+            <!-- Panel header -->
+            <div class="px-8 py-4 border-b border-gray-200 bg-purple-50 flex items-center gap-3 flex-shrink-0">
+              <span class="text-2xl">👔</span>
+              <div class="flex-1 min-w-0">
+                <p class="text-xs font-semibold text-purple-600 uppercase tracking-wider">Detalle de rol</p>
+                <h3 class="text-lg font-bold text-gray-900 truncate">{roleDetailRoleName}</h3>
+              </div>
+              <button
+                onclick={() => (roleDetailOpen = false)}
+                class="p-2 rounded-lg hover:bg-purple-100 transition text-gray-400 hover:text-gray-600 border-none bg-transparent cursor-pointer flex-shrink-0"
+                aria-label="Cerrar detalle"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  ><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+                >
+              </button>
+            </div>
+
+            <!-- Panel body (scrollable) -->
+            <div class="flex-1 overflow-y-auto px-8 py-5 flex flex-col gap-6">
+              <!-- Contexts where this role is assigned to the user -->
+              <div>
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Contextos asignados al usuario</p>
+                <div class="flex flex-wrap gap-2">
+                  {#each userCurrentRoleAssignments.filter((a) => a.id_rol === roleDetailTarget?.id_rol) as asig}
+                    {@const isGlobal = asig.id_contexto === contextTypes.find((ct) => ct.key === 'GLOBAL')?.context_id}
+                    <span
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border {isGlobal
+                        ? 'bg-blue-50 text-blue-800 border-blue-200'
+                        : 'bg-gray-50 text-gray-700 border-gray-200'}"
+                    >
+                      {isGlobal ? '🌐' : '🏷️'}
+                      {asig.contexto_display ?? (isGlobal ? 'Global' : 'Contexto #' + asig.id_contexto)}
+                    </span>
+                  {/each}
+                </div>
+              </div>
+
+              <!-- Permissions of this role -->
+              <div>
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  Permisos incluidos en este rol
+                  {#if !roleDetailLoading}
+                    <span class="ml-1.5 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-bold">{roleDetailPerms.length}</span>
+                  {/if}
+                </p>
+
+                {#if roleDetailLoading}
+                  <div class="flex items-center gap-2 py-6 text-gray-400 text-sm">
+                    <div class="w-5 h-5 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin"></div>
+                    Cargando permisos…
+                  </div>
+                {:else if roleDetailPerms.length === 0}
+                  <p class="text-sm text-gray-400 italic py-4">Este rol no tiene permisos asignados o es el SuperAdmin (permisos implícitos).</p>
+                {:else}
+                  <div class="flex flex-col gap-1.5">
+                    {#each roleDetailPerms as perm}
+                      <div class="flex items-start gap-3 px-4 py-3 rounded-lg border border-gray-100 bg-gray-50 hover:bg-gray-100 transition-colors">
+                        <span class="text-base flex-shrink-0 mt-0.5">{perm.slug === '*' ? '⚡' : '🔐'}</span>
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-sm font-semibold text-gray-800">{perm.nombre}</span>
+                            {#if perm.puede_delegar_permisos}
+                              <span
+                                class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200"
+                                >delegable</span
+                              >
+                            {/if}
+                          </div>
+                          <div class="text-xs font-mono text-purple-600 mt-0.5">{perm.slug}</div>
+                          {#if perm.descripcion}
+                            <div class="text-xs text-gray-500 mt-1">{perm.descripcion}</div>
+                          {/if}
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            </div>
+
+            <!-- Panel footer -->
+            <div class="px-8 py-3 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+              <button
+                onclick={() => (roleDetailOpen = false)}
+                class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 transition cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  ><polyline points="15 18 9 12 15 6" /></svg
+                >
+                Volver a selección de rol
+              </button>
+            </div>
           </div>
         {/if}
       </div>

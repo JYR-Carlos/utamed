@@ -6,6 +6,7 @@ use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -47,15 +48,53 @@ class FortifyServiceProvider extends ServiceProvider
         // Custom Authentication Logic (Email OR Username)
         Fortify::authenticateUsing(function (Request $request) {
             $input = $request->input('email'); // Form field is still named 'email' for compatibility
-            $user = \App\Models\Usuario\Usuario::where('email', $input)
-                ->orWhere('username', $input)
-                ->first();
 
-            if ($user && \Illuminate\Support\Facades\Hash::check($request->password, $user->passhash)) {
+            Log::channel('single')->info('[LOGIN] Intento de login', [
+                'input' => $input,
+                'ip'    => $request->ip(),
+            ]);
+
+            try {
+                $user = \App\Models\Usuario\Usuario::where('email', $input)
+                    ->orWhere('username', $input)
+                    ->first();
+
+                if (!$user) {
+                    Log::channel('single')->warning('[LOGIN] Usuario no encontrado', ['input' => $input]);
+                    return null;
+                }
+
+                Log::channel('single')->info('[LOGIN] Usuario encontrado', [
+                    'id'              => $user->id_usuario,
+                    'username'        => $user->username,
+                    'esta_activo'     => $user->esta_activo,
+                    'passhash_length' => strlen($user->passhash ?? ''),
+                ]);
+
+                $passwordOk = \Illuminate\Support\Facades\Hash::check($request->password, $user->passhash);
+
+                if (!$passwordOk) {
+                    Log::channel('single')->warning('[LOGIN] Contraseña incorrecta', [
+                        'id'       => $user->id_usuario,
+                        'username' => $user->username,
+                    ]);
+                    return null;
+                }
+
+                Log::channel('single')->info('[LOGIN] Autenticación exitosa', [
+                    'id'       => $user->id_usuario,
+                    'username' => $user->username,
+                ]);
+
                 return $user;
+            } catch (\Throwable $e) {
+                Log::channel('single')->error('[LOGIN] Excepción durante autenticación', [
+                    'message' => $e->getMessage(),
+                    'file'    => $e->getFile(),
+                    'line'    => $e->getLine(),
+                ]);
+                return null;
             }
-
-            return null; // Return null if auth fails
         });
     }
 
@@ -102,7 +141,10 @@ class FortifyServiceProvider extends ServiceProvider
         RateLimiter::for('login', function (Request $request) {
             $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())) . '|' . $request->ip());
 
-            return Limit::perMinute(5)->by($throttleKey);
+            // En local se usa un límite más holgado para no bloquear durante desarrollo
+            $maxAttempts = app()->isLocal() ? 20 : 5;
+
+            return Limit::perMinute($maxAttempts)->by($throttleKey);
         });
     }
 }

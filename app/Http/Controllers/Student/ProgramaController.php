@@ -35,11 +35,13 @@ class ProgramaController extends Controller
                 ->with('error', 'No estás inscrito en este curso');
         }
 
-        // Obtener programa aprobado con relaciones eager-loaded
+        // Obtener el mejor programa visible: APROBADO tiene preferencia; si no, BASICO_COMPLETO
+        // (versión básica ya completada es pública sin necesidad de aprobación)
         $programa = Programa::where('id_curso', $curso->id_curso)
-            ->where('estado', 'APROBADO')
+            ->whereIn('estado', ['APROBADO', 'BASICO_COMPLETO'])
             ->where('es_actual', true)
             ->with('autor')
+            ->orderByRaw("CASE estado WHEN 'APROBADO' THEN 0 WHEN 'BASICO_COMPLETO' THEN 1 ELSE 2 END")
             ->first();
 
         // Obtener permisos especiales del usuario para el contexto del curso (si está configurado)
@@ -72,10 +74,12 @@ class ProgramaController extends Controller
                 'carrera' => $curso->asignacionPlan?->plan?->carrera,
             ];
 
-            return Inertia::render('student/Courses/Programa', [
+            return Inertia::render('docente/Programa', [
                 'programa' => null,
                 'curso' => $cursoData,
                 'userPermissions' => $userPermissions,
+                'layoutType' => 'estudiante',
+                'backUrl'    => "/estudiante/cursos/{$curso->id_curso}",
             ]);
         }
 
@@ -102,13 +106,13 @@ class ProgramaController extends Controller
 
         // Formatear datos
         $programaData = [
-            'id_programa' => $programa->id_programa,
-            'id_curso' => $programa->id_curso,
-            'version' => $programa->version_programa,
-            'estado' => $programa->estado,
-            'secciones' => $secciones,
-            'creado_por' => $programa->autor?->nombre,
-            'fecha_creacion' => $programa->fecha_creacion,
+            'id_programa'     => $programa->id_programa,
+            'id_curso'        => $programa->id_curso,
+            'version_programa' => $programa->version_programa,
+            'estado'          => $programa->estado,
+            'secciones'       => $secciones,
+            'creado_por'      => $programa->autor?->nombre,
+            'fecha_creacion'  => $programa->fecha_creacion,
         ];
 
         $cursoData = [
@@ -119,10 +123,12 @@ class ProgramaController extends Controller
             'carrera' => $curso->asignacionPlan?->plan?->carrera,
         ];
 
-        return Inertia::render('student/Courses/Programa', [
-            'programa' => $programaData,
-            'curso' => $cursoData,
+        return Inertia::render('docente/Programa', [
+            'programa'   => $programaData,
+            'curso'      => $cursoData,
             'userPermissions' => $userPermissions,
+            'layoutType' => 'estudiante',
+            'backUrl'    => "/estudiante/cursos/{$curso->id_curso}",
         ]);
     }
 

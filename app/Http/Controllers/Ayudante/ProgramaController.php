@@ -55,7 +55,7 @@ class ProgramaController extends Controller
                 ->with('error', 'El curso no tiene contexto configurado');
         }
 
-        $rolAyudante = Rol::where('nombre', 'ayudante')->first();
+        $rolAyudante = Rol::whereRaw('LOWER(nombre) = ?', ['ayudante'])->first();
         
         if (!$rolAyudante) {
             return redirect()->route('ayudante.cursos.index')
@@ -110,7 +110,7 @@ class ProgramaController extends Controller
                 ->with('error', 'El curso no tiene contexto configurado');
         }
 
-        $rolAyudante = Rol::where('nombre', 'ayudante')->first();
+        $rolAyudante = Rol::whereRaw('LOWER(nombre) = ?', ['ayudante'])->first();
         
         if (!$rolAyudante) {
             return redirect()->route('ayudante.cursos.index')
@@ -330,7 +330,7 @@ class ProgramaController extends Controller
         }
 
         // Buscar en UsuarioRolAsignacion: este usuario con rol "ayudante" en este contexto
-        $rolAyudante = Rol::where('nombre', 'ayudante')->first();
+        $rolAyudante = Rol::whereRaw('LOWER(nombre) = ?', ['ayudante'])->first();
         
         if (!$rolAyudante) {
             return redirect()->route('ayudante.cursos.index')
@@ -386,7 +386,7 @@ class ProgramaController extends Controller
 
             $asignatura = $curso->asignacionPlan?->asignatura;
 
-            return Inertia::render('ayudante/Courses/Programa', [
+            return Inertia::render('docente/Programa', [
                 'programa' => null,
                 'curso' => [
                     'id_curso'           => $curso->id_curso,
@@ -403,8 +403,10 @@ class ProgramaController extends Controller
                     'horas_taller'       => $asignatura?->horas_taller,
                     'horas_laboratorio'  => $asignatura?->horas_laboratorio,
                 ],
-                'mode' => $mode,
+                'mode'           => $mode,
                 'userPermissions' => $userPermissions,
+                'layoutType'     => 'ayudante',
+                'backUrl'        => "/ayudante/cursos/{$curso->id_curso}",
             ]);
         }
 
@@ -431,15 +433,15 @@ class ProgramaController extends Controller
 
         $asignatura = $curso->asignacionPlan?->asignatura;
 
-        return Inertia::render('ayudante/Courses/Programa', [
+        return Inertia::render('docente/Programa', [
             'programa' => [
-                'id_programa'    => $programa->id_programa,
-                'id_curso'       => $programa->id_curso,
-                'version'        => $programa->version_programa,
-                'estado'         => $programa->estado,
-                'secciones'      => $secciones,
-                'creado_por'     => $programa->autor?->nombre,
-                'fecha_creacion' => $programa->fecha_creacion,
+                'id_programa'     => $programa->id_programa,
+                'id_curso'        => $programa->id_curso,
+                'version_programa' => $programa->version_programa,
+                'estado'          => $programa->estado,
+                'secciones'       => $secciones,
+                'creado_por'      => $programa->autor?->nombre,
+                'fecha_creacion'  => $programa->fecha_creacion,
             ],
             'curso' => [
                 'id_curso'           => $curso->id_curso,
@@ -456,8 +458,10 @@ class ProgramaController extends Controller
                 'horas_taller'       => $asignatura?->horas_taller,
                 'horas_laboratorio'  => $asignatura?->horas_laboratorio,
             ],
-            'mode' => $mode,
+            'mode'           => $mode,
             'userPermissions' => $userPermissions,
+            'layoutType'     => 'ayudante',
+            'backUrl'        => "/ayudante/cursos/{$curso->id_curso}",
         ]);
     }
 

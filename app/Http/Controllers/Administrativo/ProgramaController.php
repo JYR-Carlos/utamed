@@ -7,12 +7,14 @@ use App\Models\Administrativo\Programa;
 use App\Models\Curso\Curso;
 use App\Services\ProgramaService;
 use App\Services\SyllabusStructure;
+use App\Traits\ParsesSyllabus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 
 class ProgramaController extends Controller
 {
+    use ParsesSyllabus;
     /**
      * Store a newly created resource in storage.
      * 
@@ -126,13 +128,6 @@ class ProgramaController extends Controller
 
             $secciones = $this->parseSecciones($dataSyllabus);
 
-            // Renombrar contenidos_programa → contenidos para la vista
-            foreach ($secciones as &$seccion) {
-                $seccion['contenidos'] = $seccion['contenidos_programa'];
-                unset($seccion['contenidos_programa']);
-            }
-            unset($seccion);
-
             $programaData = [
                 'id_programa'      => $programa->id_programa,
                 'version_programa' => $programa->version_programa,
@@ -155,166 +150,30 @@ class ProgramaController extends Controller
 
         return \Inertia\Inertia::render('docente/Programa', [
             'curso' => [
-                'id_curso'           => $curso->id_curso,
-                'nombre'             => $curso->nombre,
-                'cod_curso'          => $curso->cod_curso,
-                'id_asignacion_plan' => $curso->id_asignacion_plan,
-                'id_contexto'        => $curso->id_contexto,
-                'asignatura_nombre'  => $asignatura?->nombre,
-                'carrera_nombre'     => $curso->asignacionPlan?->plan?->carrera?->nombre,
-                'asignatura'         => $asignatura,
-                'carrera'            => $curso->asignacionPlan?->plan?->carrera,
-                'creditos_sct'       => $asignatura?->creditos_sct,
-                'horas_catedra'      => $asignatura?->horas_catedra,
-                'horas_taller'       => $asignatura?->horas_taller,
-                'horas_laboratorio'  => $asignatura?->horas_laboratorio,
+                'id_curso'                    => $curso->id_curso,
+                'nombre'                      => $curso->nombre,
+                'cod_curso'                   => $curso->cod_curso,
+                'id_asignacion_plan'          => $curso->id_asignacion_plan,
+                'id_contexto'                 => $curso->id_contexto,
+                'asignatura_nombre'           => $asignatura?->nombre,
+                'carrera_nombre'              => $curso->asignacionPlan?->plan?->carrera?->nombre,
+                'asignatura'                  => $asignatura,
+                'carrera'                     => $curso->asignacionPlan?->plan?->carrera,
+                'creditos_sct'                => $asignatura?->creditos_sct,
+                'horas_catedra'               => $asignatura?->horas_catedra,
+                'horas_taller'                => $asignatura?->horas_taller,
+                'horas_laboratorio'           => $asignatura?->horas_laboratorio,
+                'fecha_limite_entrega_basico'    => $curso->fecha_limite_entrega_basico,
+                'fecha_limite_entrega_syllabus'  => $curso->fecha_limite_entrega_syllabus,
             ],
             'programa'        => $programaData,
             'asignatura'      => $asignatura,
             'canApprove'      => $canApprove,
             'canEdit'         => $canEdit,
             'userPermissions' => $userPermissions,
+            'layoutType'      => 'docente',
+            'backUrl'         => '/docente/cursos',
         ]);
-    }
-
-    /**
-     * Convierte data_syllabus de estructura IX-secciones a array de SeccionPrograma.
-     */
-    private function parseSecciones(array $data): array
-    {
-        $seccionesData = $data['secciones'] ?? $data;
-
-        $romanos = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
-        $nombres = [
-            'I'    => 'Identificación',
-            'II'   => 'Presentación',
-            'III'  => 'Estándares',
-            'IV'   => 'Competencias',
-            'V'    => 'Evaluación Diagnóstica',
-            'VI'   => 'Unidades',
-            'VII'  => 'Planificación',
-            'VIII' => 'Recursos',
-            'IX'   => 'Aspectos Administrativos',
-        ];
-
-        $secciones = [];
-        foreach ($romanos as $idx => $romano) {
-            $seccionData      = $seccionesData[$romano] ?? [];
-            $contenido        = $seccionData['contenido'] ?? [];
-            $contenidosPrograma = $this->extraeContenidos($contenido, $romano);
-
-            $seccion = [
-                'nombre_seccion'     => $nombres[$romano] ?? "Sección $romano",
-                'numeral_romano'     => $romano,
-                'orden'              => $idx + 1,
-                'contenidos_programa' => $contenidosPrograma,
-            ];
-
-            if ($romano === 'IX') {
-                $seccion['componentes']          = $contenido['tabla_componentes'] ?? [];
-                $seccion['ponderacion_optativa'] = $contenido['ponderacion_optativa'] ?? [];
-            }
-
-            $secciones[] = $seccion;
-        }
-
-        return $secciones;
-    }
-
-    private function extraeContenidos(array $contenido, string $seccionId): array
-    {
-        if (empty($contenido)) {
-            return [['texto_contenido' => '', 'orden_item' => 1]];
-        }
-
-        switch ($seccionId) {
-            case 'I':
-                $text = sprintf(
-                    "Asignatura: %s\nCódigo: %s\nCréditos SCT: %s\nHoras Cátedra: %s, Taller: %s, Lab: %s\nCategoría: %s",
-                    $contenido['nombre_asignatura'] ?? '',
-                    $contenido['codigo'] ?? '',
-                    $contenido['creditos_sct'] ?? '',
-                    $contenido['horas']['catedra'] ?? 0,
-                    $contenido['horas']['taller'] ?? 0,
-                    $contenido['horas']['laboratorio'] ?? 0,
-                    $contenido['categoria'] ?? ''
-                );
-                break;
-            case 'II':
-            case 'III':
-                $text = $contenido['texto'] ?? '';
-                break;
-            case 'IV':
-                $esp = implode("\n", array_map(fn($c) => '• ' . ($c['titulo'] ?? ''), $contenido['competencias_especificas'] ?? []));
-                $gen = implode("\n", array_map(fn($c) => '• ' . ($c['titulo'] ?? ''), $contenido['competencias_genericas'] ?? []));
-                $sub = implode("\n", array_map(fn($c) => '• ' . ($c['titulo'] ?? ''), $contenido['subcompetencias'] ?? []));
-                $text = "Específicas:\n$esp\n\nGenéricas:\n$gen\n\nSub:\n$sub";
-                break;
-            case 'V':
-                $text = implode("\n", array_map(
-                    fn($i) => '• ' . ($i['titulo'] ?? '') . ': ' . ($i['descripcion'] ?? ''),
-                    $contenido['items'] ?? []
-                ));
-                break;
-            case 'VI':
-                $unidadesText = array_map(function ($u) {
-                    $resultados = implode("\n  ", array_map(
-                        fn($r) => '• ' . ($r['resultado'] ?? ''),
-                        $u['resultados_aprendizaje'] ?? []
-                    ));
-                    return sprintf(
-                        "Unidad %d: %s\nContenidos: %s\nResultados:\n  %s",
-                        $u['numero'] ?? 0,
-                        $u['titulo'] ?? '',
-                        implode(', ', array_map(fn($c) => $c['item'] ?? '', $u['contenidos_items'] ?? [])),
-                        $resultados
-                    );
-                }, $contenido['unidades'] ?? []);
-                $text = implode("\n\n", $unidadesText);
-                break;
-            case 'VII':
-                $resultados = implode("\n", array_map(
-                    fn($r) => '• ' . ($r['resultado'] ?? ''),
-                    $contenido['resultados_aprendizaje']['items'] ?? []
-                ));
-                $text = sprintf(
-                    "Resultados de Aprendizaje:\n%s\n\nMetodología:\n%s\n\nEvaluación:\n%s",
-                    $resultados,
-                    $contenido['metodologia']['tipo_estrategia'] ?? '',
-                    $contenido['evaluacion']['tipo_evaluacion'] ?? ''
-                );
-                break;
-            case 'VIII':
-                $text = implode("\n", array_map(
-                    fn($r) => '• ' . ($r['recurso'] ?? ''),
-                    $contenido['recursos'] ?? []
-                ));
-                break;
-            case 'IX':
-                $text = sprintf(
-                    "Asistencia mín.: %s%%\nReprobación: %s\nNota mínima aprobación: %s",
-                    $contenido['porcentaje_asistencia_minima'] ?? '',
-                    $contenido['condicion_reprobacion'] ?? '',
-                    $contenido['nota_minima_aprobacion'] ?? ''
-                );
-                break;
-            default:
-                $text = json_encode($contenido, JSON_UNESCAPED_UNICODE);
-        }
-
-        return [['texto_contenido' => $text ?? '', 'orden_item' => 1]];
-    }
-
-    /**
-     * @deprecated Use $user->can() with ProgramaPolicy instead
-     */
-    private function isJefeDeCarrera($user): bool
-    {
-        return $user->rolesAsignados()
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->whereIn('nombre', ['jefe de carrera', 'coordinador de carrera'])
-            ->exists();
     }
 
     /**
@@ -368,6 +227,68 @@ class ProgramaController extends Controller
 
         return Redirect::route('docente.cursos.programa.show', $curso->id_curso)
             ->with('warning', 'Programa rechazado. Se devolvió a estado de borrador para revisión.');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TRANSICIONES DE ESTADO (llamadas por el docente)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Marca la versión básica del programa como completada (BORRADOR → BASICO_COMPLETO).
+     *
+     * Una vez completada, la versión básica es visible para alumnos, docentes y administradores
+     * sin requerir aprobación.
+     *
+     * PUT /docente/cursos/{curso}/programa/completar-basico
+     */
+    public function completarBasico(Curso $curso)
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        $programa = Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->firstOrFail();
+
+        $this->authorize('update', $programa);
+
+        try {
+            $programa = \App\Services\ProgramaService::marcarBasicoCompleto($programa);
+
+            return Redirect::route('docente.cursos.programa.show', $curso->id_curso)
+                ->with('success', 'Versión básica marcada como completada. Ahora es visible para los alumnos.');
+
+        } catch (\Exception $e) {
+            return Redirect::back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Envía el programa completo para revisión y aprobación (BORRADOR|BASICO_COMPLETO → COMPLETO).
+     *
+     * Solo la versión COMPLETO requiere aprobación por parte del administrador.
+     * Si el programa era BASICO, se convierte automáticamente a COMPLETO.
+     *
+     * PUT /docente/cursos/{curso}/programa/enviar
+     */
+    public function enviarParaRevision(Curso $curso)
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        $programa = Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->firstOrFail();
+
+        $this->authorize('update', $programa);
+
+        try {
+            $programa = \App\Services\ProgramaService::enviarParaRevision($programa);
+
+            return Redirect::route('docente.cursos.programa.show', $curso->id_curso)
+                ->with('success', 'Programa enviado para revisión. El administrador lo revisará y aprobará.');
+
+        } catch (\Exception $e) {
+            return Redirect::back()->with('error', $e->getMessage());
+        }
     }
 
     /**

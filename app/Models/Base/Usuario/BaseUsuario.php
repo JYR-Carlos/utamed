@@ -210,7 +210,7 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
             'id_usuario',
             'id_rol'
         )
-            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('id_ura', 'id_contexto', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
     }
 
     public function usuariosQueAsignanMisRoles()

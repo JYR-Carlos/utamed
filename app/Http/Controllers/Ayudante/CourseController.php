@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Ayudante;
 
 use App\Http\Controllers\Controller;
 use App\Models\Usuario\Usuario;
+use App\Models\Usuario\Rol;
+use App\Models\Usuario\UsuarioRolAsignacion;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+
 class CourseController extends Controller
 {
     public function index()
@@ -13,12 +16,17 @@ class CourseController extends Controller
         /** @var Usuario $user */
         $user = Auth::user();
 
-        // Obtener cursos donde es Ayudante
-        $contextosAsignados = $user->rolesAsignados()
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->whereIn('nombre', ['ayudante'])
-            ->pluck('id_contexto');
+        // Obtener cursos donde es Ayudante — consulta directa a UsuarioRolAsignacion
+        // porque rolesAsignados() no expone id_contexto en el pivot
+        $rolAyudante = Rol::whereRaw('LOWER(nombre) = ?', ['ayudante'])->first();
+
+        $contextosAsignados = $rolAyudante
+            ? UsuarioRolAsignacion::where('id_usuario', $user->id_usuario)
+                ->where('id_rol', $rolAyudante->id_rol)
+                ->where('esta_activo', true)
+                ->where('fue_eliminado', false)
+                ->pluck('id_contexto')
+            : collect();
 
         $cursosInscritos = \App\Models\Curso\Curso::whereIn('id_contexto', $contextosAsignados)
             ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera'])
@@ -66,7 +74,7 @@ class CourseController extends Controller
             ->where('id_contexto', $curso->id_contexto)
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
-            ->whereHas('rol', fn($q) => $q->where('nombre', 'ayudante'))
+            ->whereHas('rol', fn($q) => $q->whereRaw('LOWER(nombre) = ?', ['ayudante']))
             ->exists();
 
         if (!$esAyudante) {

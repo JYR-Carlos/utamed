@@ -44,8 +44,10 @@
         Incompleto - Faltan {100 - percentage}%
       {:else if percentage < 100}
         Casi completo - Faltan {100 - percentage}%
-      {:else}
+      {:else if tipo === 'COMPLETO'}
         ✓ Listo para aprobación
+      {:else}
+        ✓ Básico completo
       {/if}
     </p>
   {/if}

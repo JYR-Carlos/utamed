@@ -47,7 +47,13 @@
   }
 
   const seccionI = $derived(secciones.find((s) => s.numeral_romano === 'I'));
-  const seccionesRest = $derived(secciones.filter((s) => s.numeral_romano !== 'I'));
+  const seccionesRest = $derived(
+    secciones.filter((s) => {
+      if (s.numeral_romano === 'I') return false;
+      const items = s.contenidos || s.contenidos_programa || [];
+      return items.some((c) => c.texto_contenido?.trim());
+    }),
+  );
 </script>
 
 <!-- Sección I: Identificación (tabla) -->

@@ -37,16 +37,17 @@ class IsAdmin
             return redirect('/login');
         }
 
-        // Un usuario es admin si tiene rol Administrador o SuperAdmin activo
+        // Un usuario es admin si tiene rol SuperAdmin activo O tiene el permiso wildcard '*'
         $allRoles = $user->getAllRoles();
         \Illuminate\Support\Facades\Log::info('IsAdmin Middleware Check', [
             'user_id' => $user->id_usuario,
             'username' => $user->username,
             'all_roles' => $allRoles,
-            'has_superadmin' => $user->hasRole('SuperAdmin'),
+            'has_superadmin_role' => $user->hasRole('SuperAdmin'),
+            'is_super_admin' => $user->isSuperAdmin(),
         ]);
 
-        $isAdmin = $user->hasRole('SuperAdmin');
+        $isAdmin = $user->hasRole('SuperAdmin') || $user->isSuperAdmin();
 
         if (!$isAdmin) {
             return redirect()->route('dashboard')->with('error', 'No tienes permisos para acceder a esta sección. Acceso restringido a administradores.');

@@ -42,7 +42,10 @@
 
   const isAdmin = $derived(userRole === 'admin' || userRole === 'administrator' || userRole === 'Admin');
 
-  const canEdit = $derived((userId === programa.creado_por || isAdmin) && (programa.estado === 'BASICO_COMPLETO' || programa.estado === 'COMPLETO'));
+  const canEdit = $derived(
+    (userId === programa.creado_por || isAdmin) &&
+      (programa.estado === 'BORRADOR' || programa.estado === 'BASICO_COMPLETO' || programa.estado === 'COMPLETO'),
+  );
 
   const requiredSecciones = $derived(
     programa.data_syllabus?.metadata?.tipo_syllabus === 'BASICO'

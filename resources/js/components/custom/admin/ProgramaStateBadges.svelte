@@ -11,6 +11,13 @@
 
   let badge = $derived.by(() => {
     switch (estado) {
+      case 'BORRADOR':
+        return {
+          iconType: 'clock',
+          label: 'Borrador',
+          color: 'bg-yellow-100 text-yellow-700 border-yellow-300',
+          contentClass: 'text-yellow-700',
+        };
       case 'BASICO_COMPLETO':
         return {
           iconType: 'clock',

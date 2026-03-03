@@ -78,6 +78,7 @@ export function truncate(text: string, length: number, suffix = '...'): string {
  */
 export function formatState(state: string): string {
     const stateMap: Record<string, string> = {
+        BORRADOR: 'Borrador',
         BASICO_COMPLETO: 'Básico Completo',
         COMPLETO: 'Completo',
         APROBADO: 'Aprobado',
@@ -108,6 +109,8 @@ export function formatTipoSyllabus(tipo: string): string {
  */
 export function getEstadoColorClass(estado: string): string {
     switch (estado) {
+        case 'BORRADOR':
+            return 'bg-yellow-100 text-yellow-800 border-yellow-300';
         case 'BASICO_COMPLETO':
             return 'bg-blue-100 text-blue-800 border-blue-300';
         case 'COMPLETO':

@@ -13,6 +13,22 @@ use App\Models\Base\Administrativo\BasePrograma;
 class Programa extends BasePrograma
 {
     /**
+     * Campos asignables en masa (extiende los del BasePrograma)
+     */
+    protected $fillable = [
+        'version_programa',
+        'estado',
+        'data_syllabus',
+        'creado_por',
+        'revisado_por',
+        'id_curso',
+        'es_actual',
+        'fecha_creacion',
+        'fecha_entrega',
+        'fecha_revision',
+    ];
+
+    /**
      * Casting de atributos
      * 
      * El campo data_syllabus es JSONB y se castea automáticamente
@@ -24,6 +40,8 @@ class Programa extends BasePrograma
         'fecha_modificacion' => 'datetime',
         'fecha_eliminacion' => 'datetime',
         'fecha_aprobacion' => 'datetime',
+        'fecha_entrega' => 'datetime',
+        'fecha_revision' => 'datetime',
         'es_actual' => 'boolean',
     ];
 
@@ -160,11 +178,33 @@ class Programa extends BasePrograma
     /**
      * Check if programa can be edited
      * 
+     * BORRADOR: admin/docente creó el programa pero aún no está completo
+     * BASICO_COMPLETO: versión básica completada (visible para alumnos), puede convertirse a completo
+     * COMPLETO: versión completa enviada para revisión, editable hasta ser aprobada
+     *
      * @return bool
      */
     public function isEditable(): bool
     {
-        return in_array($this->estado, ['BASICO_COMPLETO', 'COMPLETO']);
+        return in_array($this->estado, ['BORRADOR', 'BASICO_COMPLETO', 'COMPLETO']);
+    }
+
+    /**
+     * Check if programa is in BORRADOR state (draft, empty or incomplete)
+     *
+     * @return bool
+     */
+    public function isBorrador(): bool
+    {
+        return $this->estado === 'BORRADOR';
+    }
+
+    /**
+     * Check if the program was instantiated by admin (BORRADOR with empty/minimal syllabus)
+     */
+    public function isInstanciado(): bool
+    {
+        return $this->estado === 'BORRADOR';
     }
 
     /**

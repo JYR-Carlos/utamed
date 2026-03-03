@@ -17,6 +17,7 @@
   let searchTerm = $state('');
   let searchResults = $state<any[]>([]);
   let isSearching = $state(false);
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Permissions Modal State
   let showPermissionsModal = $state(false);
@@ -46,7 +47,10 @@
   }
 
   async function searchUsers() {
-    if (searchTerm.length < 3) return;
+    if (searchTerm.length < 3) {
+      searchResults = [];
+      return;
+    }
     isSearching = true;
     searchResults = [];
 
@@ -61,24 +65,26 @@
         },
       });
 
-      console.log('Response status:', res.status);
-
       if (!res.ok) {
         const text = await res.text();
         console.error('HTTP Error:', res.status, text.substring(0, 200));
         return;
       }
 
-      const text = await res.text();
-      console.log('Response text:', text.substring(0, 300));
-
-      const data = JSON.parse(text);
-      console.log('Search results:', data);
+      const data = await res.json();
       searchResults = Array.isArray(data) ? data : [];
     } catch (error) {
       console.error('Error searching assistants:', error);
     } finally {
       isSearching = false;
+    }
+  }
+
+  function onSearchInput() {
+    searchResults = [];
+    if (debounceTimer) clearTimeout(debounceTimer);
+    if (searchTerm.length >= 3) {
+      debounceTimer = setTimeout(() => searchUsers(), 350);
     }
   }
 
@@ -108,10 +114,13 @@
   }
 
   function removeMember(member: any) {
-    if (!confirm(`¿Quitar a ${member.nombre_completo} del equipo?`)) return;
+    const displayName = member.nombre ?? member.nombre_completo ?? 'este miembro';
+    const rolLabel = member.role_name ? ` (${member.role_name})` : '';
+    if (!confirm(`¿Quitar a ${displayName}${rolLabel} del equipo?`)) return;
 
     isLoading = true;
     router.delete(`/${urlPrefix}/cursos/${curso.id_curso}/team/${member.id_usuario}`, {
+      data: { role_name: member.role_name ?? null },
       preserveScroll: true,
       onSuccess: () => {
         loadTeamMembers();
@@ -153,9 +162,9 @@
             <input
               type="text"
               bind:value={searchTerm}
-              placeholder="Buscar usuario por nombre o RUT..."
+              placeholder="Buscar por nombre o RUT..."
               class="search-input"
-              oninput={() => (searchResults = [])}
+              oninput={onSearchInput}
               onkeydown={(e) => e.key === 'Enter' && searchUsers()}
             />
             <button onclick={searchUsers} class="btn-search" disabled={isSearching || searchTerm.length < 3}>
@@ -168,13 +177,15 @@
               {#each searchResults as result}
                 <div class="result-item">
                   <div class="user-info">
-                    <span class="user-name">{result.nombre || result.nombre1} {result.apellido || result.apellido1}</span>
+                    <span class="user-name">{result.nombre_completo}</span>
                     <span class="user-rut">{result.rut}</span>
                   </div>
                   <button onclick={() => addMember(result)} class="btn-add">Agregar</button>
                 </div>
               {/each}
             </div>
+          {:else if !isSearching && searchTerm.length >= 3}
+            <p class="text-sm text-gray-500 italic mt-2">No se encontraron usuarios con ese nombre o RUT.</p>
           {/if}
         </div>
 

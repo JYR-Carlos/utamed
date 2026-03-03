@@ -41,13 +41,42 @@
 
   const isAdmin = $derived(userRole === 'admin' || userRole === 'administrator' || userRole === 'Admin');
 
-  const canEdit = $derived((userId === programa.creado_por || isAdmin) && (programa.estado === 'BASICO_COMPLETO' || programa.estado === 'COMPLETO'));
+  const canEdit = $derived(
+    (userId === programa.creado_por || isAdmin) &&
+      (programa.estado === 'BORRADOR' || programa.estado === 'BASICO_COMPLETO' || programa.estado === 'COMPLETO'),
+  );
 
   const requiredSecciones = $derived(
     programa.data_syllabus?.metadata?.tipo_syllabus === 'BASICO'
       ? ['I', 'II', 'VI', 'VII', 'VIII']
       : ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'],
   );
+
+  // ── Section metadata ────────────────────────────────────────────────
+  const SECTION_TITLES: Record<string, string> = {
+    I: 'Identificación',
+    II: 'Presentación',
+    III: 'Estándares',
+    IV: 'Competencias',
+    V: 'Evaluación Diagnóstica',
+    VI: 'Unidades',
+    VII: 'Planificación',
+    VIII: 'Recursos',
+    IX: 'Aspectos Administrativos',
+  };
+
+  /**
+   * Returns true if `value` contains at least one non-empty leaf.
+   * Treats empty strings, empty arrays and empty objects as empty.
+   */
+  function hasContent(value: unknown): boolean {
+    if (value == null) return false;
+    if (typeof value === 'string') return value.trim().length > 0;
+    if (typeof value === 'number' || typeof value === 'boolean') return true;
+    if (Array.isArray(value)) return value.length > 0 && value.some(hasContent);
+    if (typeof value === 'object') return Object.values(value as object).some(hasContent);
+    return false;
+  }
 
   function startEditing() {
     editedSyllabus = JSON.parse(JSON.stringify(programa.data_syllabus));
@@ -200,24 +229,131 @@
       <h2 class="text-xl font-bold text-slate-900 mb-4">Contenido del Syllabus</h2>
 
       {#if programa.data_syllabus?.secciones}
-        <div class="space-y-6">
-          {#each requiredSecciones as seccion}
-            {@const content = programa.data_syllabus.secciones?.[seccion]}
-            <div class="border-l-4 border-blue-500 pl-4 py-2">
-              <h3 class="text-lg font-bold text-slate-900">
-                Sección {seccion}
-              </h3>
+        {@const filledSecciones = requiredSecciones.filter((s) => hasContent(programa.data_syllabus.secciones?.[s]?.contenido))}
+        {#if filledSecciones.length === 0}
+          <p class="text-slate-500 italic">Ninguna sección tiene contenido aún.</p>
+        {:else}
+          <div class="space-y-6">
+            {#each filledSecciones as seccion}
+              {@const c = programa.data_syllabus.secciones![seccion].contenido}
+              <div class="border-l-4 border-blue-500 pl-4 py-2">
+                <h3 class="text-lg font-bold text-slate-900 mb-3">
+                  {seccion}. {SECTION_TITLES[seccion] ?? `Sección ${seccion}`}
+                </h3>
 
-              {#if content?.contenido}
-                <div class="mt-2 text-slate-700 whitespace-pre-wrap">
-                  {JSON.stringify(content.contenido, null, 2)}
-                </div>
-              {:else}
-                <p class="text-slate-500 italic mt-2">Sin contenido</p>
-              {/if}
-            </div>
-          {/each}
-        </div>
+                <!-- I: Identificación -->
+                {#if seccion === 'I'}
+                  <dl class="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                    {#if c.nombre_asignatura}<div class="contents">
+                        <dt class="text-slate-500 font-medium">Asignatura</dt>
+                        <dd class="text-slate-800">{c.nombre_asignatura}</dd>
+                      </div>{/if}
+                    {#if c.codigo}<div class="contents">
+                        <dt class="text-slate-500 font-medium">Código</dt>
+                        <dd class="text-slate-800">{c.codigo}</dd>
+                      </div>{/if}
+                    {#if c.creditos_sct}<div class="contents">
+                        <dt class="text-slate-500 font-medium">Créditos SCT</dt>
+                        <dd class="text-slate-800">{c.creditos_sct}</dd>
+                      </div>{/if}
+                    {#if c.categoria}<div class="contents">
+                        <dt class="text-slate-500 font-medium">Categoría</dt>
+                        <dd class="text-slate-800">{c.categoria}</dd>
+                      </div>{/if}
+                    {#if c.horas}
+                      <div class="contents">
+                        <dt class="text-slate-500 font-medium">Horas</dt>
+                        <dd class="text-slate-800">
+                          {[
+                            c.horas.catedra && `Cátedra: ${c.horas.catedra}`,
+                            c.horas.taller && `Taller: ${c.horas.taller}`,
+                            c.horas.laboratorio && `Lab: ${c.horas.laboratorio}`,
+                          ]
+                            .filter(Boolean)
+                            .join(' | ')}
+                        </dd>
+                      </div>
+                    {/if}
+                  </dl>
+
+                  <!-- II: Presentación -->
+                {:else if seccion === 'II'}
+                  <p class="text-slate-700 text-sm whitespace-pre-wrap leading-relaxed">{c.texto}</p>
+
+                  <!-- VI: Unidades -->
+                {:else if seccion === 'VI' && c.unidades}
+                  <div class="space-y-4">
+                    {#each c.unidades as unidad}
+                      <div class="bg-slate-50 rounded-lg p-4">
+                        <p class="text-sm font-semibold text-slate-800 mb-2">Unidad {unidad.numero}: {unidad.titulo}</p>
+                        {#if unidad.contenidos_items?.length}
+                          <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Contenidos</p>
+                          <ul class="list-disc list-inside space-y-1">
+                            {#each unidad.contenidos_items as ci}
+                              <li class="text-sm text-slate-700">{ci.item}</li>
+                            {/each}
+                          </ul>
+                        {/if}
+                        {#if unidad.resultados_aprendizaje?.length}
+                          <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mt-2 mb-1">Resultados de aprendizaje</p>
+                          <ul class="list-disc list-inside space-y-1">
+                            {#each unidad.resultados_aprendizaje as ra}
+                              <li class="text-sm text-slate-700">{ra.resultado}</li>
+                            {/each}
+                          </ul>
+                        {/if}
+                      </div>
+                    {/each}
+                  </div>
+
+                  <!-- VII: Planificación -->
+                {:else if seccion === 'VII'}
+                  {#if c.actividades?.length}
+                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Actividades</p>
+                    <ul class="space-y-1">
+                      {#each c.actividades as act}
+                        <li class="text-sm text-slate-700 flex gap-2">
+                          <span class="text-slate-400 capitalize">[{act.tipo}]</span>
+                          <span>{act.nombre}</span>
+                        </li>
+                      {/each}
+                    </ul>
+                  {/if}
+                  {#if c.evaluaciones_items?.length}
+                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mt-3 mb-2">Evaluaciones</p>
+                    <ul class="list-disc list-inside space-y-1">
+                      {#each c.evaluaciones_items as ei}<li class="text-sm text-slate-700">{ei.item}</li>{/each}
+                    </ul>
+                  {/if}
+                  {#if c.metodologia_items?.length}
+                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mt-3 mb-2">Metodología</p>
+                    <ul class="list-disc list-inside space-y-1">
+                      {#each c.metodologia_items as mi}<li class="text-sm text-slate-700">{mi.item}</li>{/each}
+                    </ul>
+                  {/if}
+
+                  <!-- VIII: Recursos -->
+                {:else if seccion === 'VIII' && c.recursos?.length}
+                  <ul class="space-y-1">
+                    {#each c.recursos as r}
+                      <li class="text-sm text-slate-700">
+                        {#if r.url}<a href={r.url} target="_blank" class="text-blue-600 hover:underline">{r.titulo ?? r.url}</a>{:else}{r.titulo ??
+                            r}{/if}
+                        {#if r.tipo}<span class="ml-2 text-xs text-slate-400">[{r.tipo}]</span>{/if}
+                      </li>
+                    {/each}
+                  </ul>
+
+                  <!-- Fallback for other sections (III–V, IX) -->
+                {:else if typeof c === 'string'}
+                  <p class="text-slate-700 text-sm whitespace-pre-wrap">{c}</p>
+                {:else}
+                  <pre class="text-xs text-slate-600 bg-slate-50 rounded p-3 overflow-x-auto">{JSON.stringify(c, null, 2)}</pre>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
       {:else}
         <p class="text-slate-500 italic">Sin contenido disponible</p>
       {/if}

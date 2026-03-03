@@ -18,6 +18,7 @@
     LayoutGrid,
     Users,
     Building2,
+    ScrollText,
   } from 'lucide-svelte';
   import type { SidebarCourse } from '@/types';
   import { hasPermission } from '@/services/permissionValidator';
@@ -29,10 +30,11 @@
   let ayudanteCourses = $derived(($page.props.auth?.ayudante_courses as SidebarCourse[]) || []);
 
   // ── Role flags ────────────────────────────────────────────────
+  let isSuperAdmin = $derived(($page.props.auth?.is_super_admin as boolean) || false);
   let isDocente = $derived(authRoles.some((r) => ['Docente', 'docente'].includes(r)));
   let isEstudiante = $derived(authRoles.some((r) => ['Estudiante', 'estudiante'].includes(r)));
   let isAyudante = $derived(authRoles.some((r) => ['Ayudante', 'ayudante'].includes(r)));
-  let isAdmin = $derived(authRoles.some((r) => ['Administrador', 'SuperAdmin', 'Super Admin'].includes(r)) || authRoles.length === 0);
+  let isAdmin = $derived(isSuperAdmin || authRoles.some((r) => ['Administrador', 'SuperAdmin', 'Super Admin'].includes(r)) || authRoles.length === 0);
 
   // ── Período académico ─────────────────────────────────────────
   const now = new Date();
@@ -357,7 +359,7 @@
         </Link>
       </div>
       <div class="px-4 flex flex-col gap-1">
-        {#each [{ href: '/admin/usuarios', icon: Users, label: 'Usuarios' }, { href: '/admin/facultades', icon: Building2, label: 'Facultades' }, { href: '/admin/carreras', icon: GraduationCap, label: 'Carreras' }, { href: '/admin/asignaturas', icon: BookOpen, label: 'Asignaturas' }, { href: '/admin/planes', icon: ClipboardList, label: 'Planes de Estudio' }, { href: '/admin/cursos', icon: BookOpen, label: 'Cursos Ofertados' }, { href: '/admin/inscripciones_cursos', icon: Users, label: 'Inscripciones' }] as item}
+        {#each [{ href: '/admin/usuarios', icon: Users, label: 'Usuarios' }, { href: '/admin/facultades', icon: Building2, label: 'Facultades' }, { href: '/admin/carreras', icon: GraduationCap, label: 'Carreras' }, { href: '/admin/asignaturas', icon: BookOpen, label: 'Asignaturas' }, { href: '/admin/planes', icon: ClipboardList, label: 'Planes de Estudio' }, { href: '/admin/cursos', icon: BookOpen, label: 'Cursos Ofertados' }, { href: '/admin/inscripciones_cursos', icon: Users, label: 'Inscripciones' }, { href: '/admin/syllabus', icon: ScrollText, label: 'Syllabus' }] as item}
           <Link
             href={item.href}
             class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-all group"

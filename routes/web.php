@@ -63,6 +63,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     // Programa (Syllabus) routes MUST come before cursos resource to avoid route collision
     Route::get('programas', [AdminProgramaController::class, 'index'])
         ->name('programas.index');
+    Route::get('syllabus', [AdminProgramaController::class, 'syllabusIndex'])
+        ->name('syllabus.index');
     Route::get('cursos/{curso}/programas', [AdminProgramaController::class, 'indexByCurso'])
         ->name('cursos.programas.index');
     Route::get('cursos/{curso}/programa/json', [AdminProgramaController::class, 'getJson'])
@@ -77,6 +79,10 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('cursos.programa.aprobar');
     Route::put('cursos/{curso}/programa/rechazar', [AdminProgramaController::class, 'reject'])
         ->name('cursos.programa.rechazar');
+    Route::put('cursos/{curso}/programa/fechas', [AdminProgramaController::class, 'updateDeadlines'])
+        ->name('cursos.programa.fechas');
+    Route::post('cursos/{curso}/programa/instanciar', [AdminProgramaController::class, 'instantiar'])
+        ->name('cursos.programa.instanciar');
 
     // Secciones routes - Get componentes from sections
     Route::get('cursos/{curso}/secciones', [AdminSeccionController::class, 'indexByCurso'])
@@ -118,6 +124,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('assignment.context-objects');
     Route::get('assignment/roles', [AssignmentWizardController::class, 'getRoles'])
         ->name('assignment.roles');
+    Route::get('assignment/roles/{roleId}/detail', [AssignmentWizardController::class, 'getRoleDetail'])
+        ->name('assignment.roles.detail');
     Route::get('assignment/permissions', [AssignmentWizardController::class, 'getPermissions'])
         ->name('assignment.permissions');
     Route::post('usuarios/{usuario}/assign-role', [AssignmentWizardController::class, 'assignRole'])
@@ -227,6 +235,11 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
         ->name('cursos.programa.show');
     Route::delete('cursos/{curso}/programa', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'destroy'])
         ->name('cursos.programa.destroy');
+    // Estado transitions: docente marks basic as done, or sends complete for review
+    Route::put('cursos/{curso}/programa/completar-basico', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'completarBasico'])
+        ->name('cursos.programa.completar-basico');
+    Route::put('cursos/{curso}/programa/enviar', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'enviarParaRevision'])
+        ->name('cursos.programa.enviar');
     
     // Secciones (for programa components auto-populate)
     Route::get('cursos/{curso}/secciones', [AdminSeccionController::class, 'indexByCurso'])

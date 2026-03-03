@@ -239,13 +239,13 @@ class ProgramaService
 
     /**
      * Cambia el estado del programa
-     * Estados válidos: BASICO_COMPLETO, COMPLETO, APROBADO, PUBLICADO
+     * Estados válidos: BORRADOR, BASICO_COMPLETO, COMPLETO, APROBADO, PUBLICADO
      */
     public static function changeStatus(
         Programa $programa,
         string $newStatus
     ): Programa {
-        $validStatuses = ['BASICO_COMPLETO', 'COMPLETO', 'APROBADO', 'PUBLICADO'];
+        $validStatuses = ['BORRADOR', 'BASICO_COMPLETO', 'COMPLETO', 'APROBADO', 'PUBLICADO'];
 
         if (!in_array($newStatus, $validStatuses)) {
             throw new \InvalidArgumentException(
@@ -254,6 +254,132 @@ class ProgramaService
         }
 
         $programa->update(['estado' => $newStatus]);
+        return $programa->fresh();
+    }
+
+    /**
+     * Instancia un programa vacío (shell) para un curso.
+     * 
+     * El administrador (o docente) crea el "contenedor" del programa en estado BORRADOR.
+     * El docente luego lo completa sección por sección y lo marca como listo.
+     *
+     * @param Curso    $curso        Curso al que pertenece el programa
+     * @param Usuario  $createdBy    Usuario que instancia (generalmente el administrador)
+     * @param string   $tipoSyllabus 'BASICO' | 'COMPLETO'
+     * @throws \Exception Si ya existe un programa activo que no permite nueva versión
+     * @return Programa
+     */
+    public static function instantiate(
+        Curso $curso,
+        Usuario $createdBy,
+        string $tipoSyllabus = 'BASICO'
+    ): Programa {
+        if (!in_array($tipoSyllabus, ['BASICO', 'COMPLETO'])) {
+            throw new \InvalidArgumentException("tipo_syllabus debe ser 'BASICO' o 'COMPLETO'");
+        }
+
+        return DB::transaction(function () use ($curso, $createdBy, $tipoSyllabus) {
+            $existing = Programa::where('id_curso', $curso->id_curso)
+                ->where('es_actual', true)
+                ->first();
+
+            // No permitir nueva instanciación si ya hay un programa activo pendiente de completar
+            if ($existing && in_array($existing->estado, ['BORRADOR', 'BASICO_COMPLETO', 'COMPLETO'])) {
+                throw new \Exception(
+                    'Ya existe un programa activo en estado "' . $existing->estado . '" para este curso. ' .
+                    'Aprueba o elimina el programa existente antes de instanciar uno nuevo.'
+                );
+            }
+
+            $newVersion = $existing ? $existing->version_programa + 1 : 1;
+
+            if ($existing) {
+                $existing->update(['es_actual' => false]);
+            }
+
+            // Estructura base generada desde los datos del curso (Content vacío por sección)
+            $syllabus = SyllabusStructure::for($curso);
+            $syllabus['metadata']['tipo_syllabus'] = $tipoSyllabus;
+
+            return Programa::create([
+                'id_curso'         => $curso->id_curso,
+                'version_programa' => $newVersion,
+                'estado'           => 'BORRADOR',
+                'data_syllabus'    => $syllabus,
+                'creado_por'       => $createdBy->id_usuario,
+                'es_actual'        => true,
+                'fecha_creacion'   => now(),
+            ]);
+        });
+    }
+
+    /**
+     * Marca la versión básica del programa como completada (BORRADOR → BASICO_COMPLETO).
+     * 
+     * Una vez en BASICO_COMPLETO el programa es visible para alumnos, docentes y administradores.
+     * No requiere aprobación.
+     *
+     * @throws \Exception Si el programa no puede transicionar
+     */
+    public static function marcarBasicoCompleto(Programa $programa): Programa
+    {
+        if (!in_array($programa->estado, ['BORRADOR'])) {
+            throw new \Exception(
+                "Solo se puede completar la versión básica desde estado BORRADOR. " .
+                "Estado actual: {$programa->estado}"
+            );
+        }
+
+        if ($programa->getTipoSyllabus() !== 'BASICO') {
+            throw new \Exception(
+                "Este programa es de tipo " . $programa->getTipoSyllabus() . ". " .
+                "Use 'enviarParaRevision' para programas COMPLETO."
+            );
+        }
+
+        $programa->update([
+            'estado'         => 'BASICO_COMPLETO',
+            'fecha_entrega'  => now(),
+        ]);
+
+        return $programa->fresh();
+    }
+
+    /**
+     * Envía el programa completo para revisión (BORRADOR|BASICO_COMPLETO → COMPLETO).
+     * 
+     * Solo el programa COMPLETO requiere aprobación por parte del administrador/jefe.
+     * La fecha de entrega queda registrada para control de plazos.
+     *
+     * @throws \Exception Si el programa no puede transicionar
+     */
+    public static function enviarParaRevision(Programa $programa): Programa
+    {
+        if (!in_array($programa->estado, ['BORRADOR', 'BASICO_COMPLETO'])) {
+            throw new \Exception(
+                "Solo se puede enviar para revisión desde estado BORRADOR o BASICO_COMPLETO. " .
+                "Estado actual: {$programa->estado}"
+            );
+        }
+
+        if ($programa->getTipoSyllabus() !== 'COMPLETO') {
+            // Actualizar tipo cuando se promueve desde BASICO
+            DB::transaction(function () use ($programa) {
+                $data = $programa->data_syllabus ?? [];
+                $data['metadata']['tipo_syllabus'] = 'COMPLETO';
+                $programa->update([
+                    'estado'         => 'COMPLETO',
+                    'data_syllabus'  => $data,
+                    'fecha_entrega'  => now(),
+                ]);
+            });
+        } else {
+            $programa->update([
+                'estado'        => 'COMPLETO',
+                'fecha_entrega' => now(),
+            ]);
+        }
+
         return $programa->fresh();
     }
 

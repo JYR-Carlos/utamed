@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Ayudante;
 
 use App\Http\Controllers\Controller;
 use App\Models\Usuario\Usuario;
+use App\Models\Usuario\Rol;
+use App\Models\Usuario\UsuarioRolAsignacion;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+
 class DashboardController extends Controller
 {
     public function index()
@@ -13,12 +16,17 @@ class DashboardController extends Controller
         /** @var Usuario $user */
         $user = Auth::user();
 
-        // Get available courses where they are assistant
-        $contextosAsignados = $user->rolesAsignados()
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->whereIn('nombre', ['ayudante'])
-            ->pluck('id_contexto');
+        // Obtener cursos donde es Ayudante — consulta directa a UsuarioRolAsignacion
+        // porque rolesAsignados() no expone id_contexto en el pivot
+        $rolAyudante = Rol::whereRaw('LOWER(nombre) = ?', ['ayudante'])->first();
+
+        $contextosAsignados = $rolAyudante
+            ? UsuarioRolAsignacion::where('id_usuario', $user->id_usuario)
+                ->where('id_rol', $rolAyudante->id_rol)
+                ->where('esta_activo', true)
+                ->where('fue_eliminado', false)
+                ->pluck('id_contexto')
+            : collect();
 
         $ayudanteCourses = \App\Models\Curso\Curso::whereIn('id_contexto', $contextosAsignados)
             ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera'])

@@ -8,7 +8,7 @@ use App\Models\Usuario\Permiso;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
 use App\Services\Authorization\GlobalContextService;
-use App\Support\PermissionContextConstraints;
+use App\Services\Authorization\PermissionContextConstraints;
 use App\Support\Permissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -32,11 +32,14 @@ class AssignmentWizardController extends Controller
    */
   public function getContextTypes()
   {
+    $globalContextId = app(GlobalContextService::class)->getContextId();
+
     $types = [
       [
         'key' => 'GLOBAL',
         'label' => 'Global (todo el sistema)',
         'description' => 'Aplica en todos los contextos del sistema',
+        'context_id' => $globalContextId,
       ],
     ];
 
@@ -134,6 +137,40 @@ class AssignmentWizardController extends Controller
       ->values();
 
     return response()->json($roles);
+  }
+
+  /**
+   * GET /admin/assignment/roles/{roleId}/detail
+   *
+   * Retorna el nombre del rol y la lista de permisos que tiene asignados.
+   * Se usa para el panel de detalle al hacer clic en un chip de rol.
+   *
+   * @param  int  $roleId  ID del rol
+   */
+  public function getRoleDetail(int $roleId)
+  {
+    $rol = Rol::findOrFail($roleId);
+
+    $permisos = \Illuminate\Support\Facades\DB::table('usuario.asignacion_rol_permiso as arp')
+      ->join('usuario.permiso as p', 'p.id_permiso', '=', 'arp.id_permiso')
+      ->where('arp.id_rol', $roleId)
+      ->select('p.id_permiso', 'p.slug', 'p.nombre', 'p.descripcion', 'arp.puede_delegar_permisos')
+      ->orderBy('p.slug')
+      ->get()
+      ->map(fn($row) => [
+        'id_permiso'             => $row->id_permiso,
+        'slug'                   => $row->slug,
+        'nombre'                 => $row->nombre,
+        'descripcion'            => $row->descripcion,
+        'puede_delegar_permisos' => (bool) $row->puede_delegar_permisos,
+      ])
+      ->values();
+
+    return response()->json([
+      'id_rol'   => $rol->id_rol,
+      'nombre'   => $rol->nombre,
+      'permisos' => $permisos,
+    ]);
   }
 
   /**
@@ -242,6 +279,22 @@ class AssignmentWizardController extends Controller
         'success' => false,
         'message' => $e->getMessage(),
       ], 403);
+    } catch (\Illuminate\Database\QueryException $e) {
+      // SQLSTATE 23P01 = exclusion_violation (restricción uq_no_solapar_roles)
+      if ($e->getCode() === '23P01') {
+        return response()->json([
+          'success' => false,
+          'message' => "El usuario ya tiene el rol '{$rol->nombre}' asignado en ese contexto con un período que se superpone. Revoca o modifica la asignación existente antes de crear una nueva.",
+        ], 409);
+      }
+      Log::error("AssignRole QueryException: " . $e->getMessage(), [
+        'user_id' => $usuarioId,
+        'payload' => $validated,
+      ]);
+      return response()->json([
+        'success' => false,
+        'message' => 'Error de base de datos al asignar rol: ' . $e->getMessage(),
+      ], 500);
     } catch (\Exception $e) {
       Log::error("AssignRole Error: " . $e->getMessage(), [
         'trace' => $e->getTraceAsString(),

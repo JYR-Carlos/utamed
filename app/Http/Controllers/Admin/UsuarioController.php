@@ -743,15 +743,26 @@ class UsuarioController extends Controller
         // Buscar usuario cuyo permisos obtener
         $usuario = Usuario::findOrFail($id);
 
-        // Obtener contexto global (actualmente solo soportamos permisos globales)
-        // TODO: Agregar soporte para contextos específicos (Cursos, Carreras, Facultades, etc.)
+        // Obtener contexto global
         $idContexto = app(GlobalContextService::class)->getContextId();
 
-        // Obtener todos los IDs de rol asignado al usuario
-        $idRoles = array_column(
-            $usuario->getAllRoles($idContexto),
-            'id'
-        );
+        // Obtener TODAS las asignaciones de rol activas (todos los contextos)
+        // Incluye id_contexto y contexto_display cargados via relaciones Eloquent
+        $idRoles = UsuarioRolAsignacion::with(['rol', 'contexto'])
+            ->where('id_usuario', $usuario->id_usuario)
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->whereNull('fecha_fin_real')
+            ->where('fecha_fin_planificada', '>=', now())
+            ->get()
+            ->map(fn($ura) => [
+                'id_rol'           => $ura->id_rol,
+                'nombre'           => $ura->rol?->nombre,
+                'id_contexto'      => $ura->id_contexto,
+                'contexto_display' => $ura->contexto?->contexto_display,
+            ])
+            ->values()
+            ->toArray();
 
         // Obtener todos los permisos especiales del usuario
         $specialPermissions = array_values(

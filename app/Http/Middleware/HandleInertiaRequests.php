@@ -102,6 +102,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user,
                 'roles' => $roles,
+                'is_super_admin' => $user?->isSuperAdmin() ?? false,
                 'docente' => $docente,
                 'estudiante' => $estudiante,
                 'docente_courses' => $docente ? \App\Models\Curso\Curso::join('curso.seccion', 'curso.curso.id_curso', '=', 'curso.seccion.id_curso')
@@ -132,12 +133,12 @@ class HandleInertiaRequests extends Middleware
                         'nombre' => $c->nombre,
                         'cod_curso' => $c->cod_curso,
                     ]) : [],
-                'ayudante_courses' => ($estudiante && in_array('ayudante', $roles))
+                'ayudante_courses' => (in_array('ayudante', array_map('strtolower', $roles)))
                     ? \App\Models\Curso\Curso::whereIn('id_contexto', 
                         \App\Models\Usuario\UsuarioRolAsignacion::where('id_usuario', $user->id_usuario)
                             ->where('esta_activo', true)
                             ->where('fue_eliminado', false)
-                            ->whereHas('rol', fn($q) => $q->where('nombre', 'ayudante'))
+                            ->whereHas('rol', fn($q) => $q->whereRaw('LOWER(nombre) = ?', ['ayudante']))
                             ->pluck('id_contexto')
                     )
                     ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto')

@@ -2,6 +2,7 @@
 
 namespace App\Http\Responses;
 
+use Illuminate\Support\Facades\Log;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 
 class LoginResponse implements LoginResponseContract
@@ -16,17 +17,36 @@ class LoginResponse implements LoginResponseContract
     {
         $user = auth()->user();
 
-        // Redirect based on role
-        if ($user->docente) {
-            return redirect()->route('docente.dashboard');
-        }
+        Log::channel('single')->info('[LOGIN REDIRECT] Determinando redirección', [
+            'id'               => $user->id_usuario,
+            'username'         => $user->username,
+            'tiene_docente'    => (bool) $user->docente,
+            'tiene_estudiante' => (bool) $user->estudiante,
+        ]);
 
-        // Logic for Admin (not docente, not estudiante)
-        if (!$user->estudiante) {
-            return redirect()->route('admin.usuarios.index');
-        }
+        try {
+            // Redirect based on role
+            if ($user->docente) {
+                Log::channel('single')->info('[LOGIN REDIRECT] → docente.dashboard');
+                return redirect()->route('docente.dashboard');
+            }
 
-        // Fallback to default dashboard
-        return redirect()->intended(config('fortify.home'));
+            // Logic for Admin (not docente, not estudiante)
+            if (!$user->estudiante) {
+                Log::channel('single')->info('[LOGIN REDIRECT] → admin.usuarios.index');
+                return redirect()->route('admin.usuarios.index');
+            }
+
+            // Fallback to default dashboard
+            Log::channel('single')->info('[LOGIN REDIRECT] → fortify.home fallback');
+            return redirect()->intended(config('fortify.home'));
+        } catch (\Throwable $e) {
+            Log::channel('single')->error('[LOGIN REDIRECT] Excepción en redirección', [
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+            ]);
+            throw $e;
+        }
     }
 }

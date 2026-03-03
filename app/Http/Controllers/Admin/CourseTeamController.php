@@ -138,10 +138,27 @@ class CourseTeamController extends Controller
 
         $this->ensureContext($curso);
 
-        $rol = Rol::where('nombre', $validated['role_name'])->first();
+        // Restricción por tipo de usuario que asigna:
+        // - Docente: solo puede asignar rol 'ayudante'
+        // - Admin: puede asignar cualquier rol excepto SuperAdmin
+        /** @var Usuario $currentUser */
+        $currentUser = Auth::user();
+        $isDocente = $currentUser && $currentUser->docente;
 
-        // Security Check: For now, just ensuring we don't overwrite existing
-        // In future: Check if auth user has permission to assign this role.
+        if ($isDocente) {
+            $rolesPermitidos = ['ayudante'];
+            if (!in_array(strtolower($validated['role_name']), $rolesPermitidos)) {
+                return back()->with('error', 'Como docente solo puedes asignar el rol de Ayudante.');
+            }
+        } else {
+            // Admin no puede asignar SuperAdmin
+            $rolesProhibidos = ['superadmin', 'super admin'];
+            if (in_array(strtolower($validated['role_name']), $rolesProhibidos)) {
+                return back()->with('error', 'No puedes asignar el rol SuperAdmin.');
+            }
+        }
+
+        $rol = Rol::where('nombre', $validated['role_name'])->first();
 
         // Check for existing assignment (including soft deleted)
         $existingAssignment = UsuarioRolAsignacion::where('id_usuario', $validated['id_usuario'])
@@ -175,15 +192,16 @@ class CourseTeamController extends Controller
     /**
      * Remueve un miembro del equipo de un curso (marca su asignación como inactiva y eliminada).
      * 
-     * Desactiva todas las asignaciones de rol activas del usuario en el contexto del curso,
-     * registrando la fecha de eliminación real para auditoría. Mantiene registros históricos
-     * mediante soft delete pattern (fue_eliminado = true).
+     * Si se pasa `role_name` en el cuerpo de la petición, elimina solo esa asignación de rol.
+     * Si no se pasa, elimina todas las asignaciones del usuario en el contexto (comportamiento legacy).
+     * Registra la fecha de eliminación real para auditoría (soft delete pattern).
      * 
+     * @param  Request  $request  Opcional: role_name del rol a eliminar
      * @param  Curso    $curso    Curso del cual remover el miembro
      * @param  Usuario  $usuario  Usuario a remover del equipo
      * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de éxito
      */
-    public function destroy(Curso $curso, Usuario $usuario)
+    public function destroy(Request $request, Curso $curso, Usuario $usuario)
     {
         $this->authorize('manageTeam', $curso);
 
@@ -191,13 +209,25 @@ class CourseTeamController extends Controller
             return back()->with('error', 'El curso no tiene un contexto asignado.');
         }
 
-        UsuarioRolAsignacion::where('id_contexto', $curso->id_contexto)
+        $query = UsuarioRolAsignacion::where('id_contexto', $curso->id_contexto)
             ->where('id_usuario', $usuario->id_usuario)
-            ->update([
-                'esta_activo' => false,
-                'fue_eliminado' => true,
-                'fecha_fin_real' => now()
-            ]);
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false);
+
+        // Si se especifica un rol concreto, solo se elimina esa asignación
+        $roleName = $request->input('role_name');
+        if ($roleName) {
+            $rol = Rol::where('nombre', $roleName)->first();
+            if ($rol) {
+                $query->where('id_rol', $rol->id_rol);
+            }
+        }
+
+        $query->update([
+            'esta_activo' => false,
+            'fue_eliminado' => true,
+            'fecha_fin_real' => now()
+        ]);
 
         return back()->with('success', 'Miembro removido exitosamente.');
     }
@@ -588,7 +618,7 @@ class CourseTeamController extends Controller
 
         try {
             // Obtener el ID del rol 'ayudante'
-            $ayudanteRole = Rol::where('nombre', 'ayudante')->first();
+            $ayudanteRole = Rol::whereRaw('LOWER(nombre) = ?', ['ayudante'])->first();
 
             if (!$ayudanteRole) {
                 return response()->json([]);
@@ -604,12 +634,12 @@ class CourseTeamController extends Controller
                     ->toArray();
             }
 
-            // Buscar en la tabla Usuario
+            // Buscar en la tabla Usuario — cualquier usuario activo puede ser ayudante
             $usuarios = Usuario::where('esta_activo', true)
-                ->whereHas('estudiante') // Only students can be assistants
                 ->whereNotIn('id_usuario', $existingMemberIds)
                 ->where(function ($query) use ($searchTerm) {
                     $query->where('nombre1', 'ILIKE', "%{$searchTerm}%")
+                        ->orWhere('nombre2', 'ILIKE', "%{$searchTerm}%")
                         ->orWhere('apellido1', 'ILIKE', "%{$searchTerm}%")
                         ->orWhere('apellido2', 'ILIKE', "%{$searchTerm}%")
                         ->orWhere('rut', 'ILIKE', "%{$searchTerm}%")
@@ -620,12 +650,18 @@ class CourseTeamController extends Controller
 
             // Formatear resultados
             $results = $usuarios->map(function ($user) {
+                $nombreCompleto = trim(collect([
+                    $user->nombre1,
+                    $user->nombre2,
+                    $user->apellido1,
+                    $user->apellido2,
+                ])->filter()->implode(' '));
+
                 return [
-                    'id_usuario' => $user->id_usuario,
-                    'nombre1' => $user->nombre1,
-                    'apellido1' => $user->apellido1,
-                    'rut' => $user->rut,
-                    'username' => $user->username,
+                    'id_usuario'     => $user->id_usuario,
+                    'nombre_completo' => $nombreCompleto ?: $user->username,
+                    'rut'            => $user->rut ?? '',
+                    'username'       => $user->username,
                 ];
             });
 
