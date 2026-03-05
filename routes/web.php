@@ -104,6 +104,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     // Curso routes
     Route::get('cursos/{plan}/asignaturas-disponibles', [CursoController::class, 'getAsignaturasByPlan'])
         ->name('cursos.asignaturas-disponibles');
+    Route::get('asignaturas/{asignatura}/docentes-sugeridos', [CursoController::class, 'getDocentesSugeridos'])
+        ->name('asignaturas.docentes-sugeridos');
 
     // Additional usuario routes
     Route::post('usuarios/{usuario}/change-password', [UsuarioController::class, 'changePassword'])
@@ -134,6 +136,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('usuarios.assign-permission');
 
     // Detalle Malla (AsignacionPlan) routes
+    Route::get('planes/{plan}/asignaturas/json', [AsignacionPlanController::class, 'mallaJson'])
+        ->name('planes.asignaturas.json');
     Route::get('planes/{plan}/asignaturas', [AsignacionPlanController::class, 'index'])
         ->name('planes.asignaturas.index');
     Route::post('planes/{plan}/asignaturas', [AsignacionPlanController::class, 'store'])
@@ -166,6 +170,10 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('cursos.team.sync-permissions');
 
     // Student Course Enrollments (Inscripciones de Estudiantes en Cursos)
+    Route::post('inscripciones_cursos/bulk', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'storeBulk'])
+        ->name('inscripciones_cursos.bulk');
+    Route::patch('inscripciones_cursos/{inscripcionCurso}/estado', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'updateEstado'])
+        ->name('inscripciones_cursos.estado');
     Route::resource('inscripciones_cursos', \App\Http\Controllers\Admin\InscripcionCursoController::class);
     Route::get('inscripciones_cursos/ajax/disponibles', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'getEstudiantesDisponibles'])
         ->name('inscripciones_cursos.disponibles');
@@ -226,6 +234,15 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::put('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'update'])->name('cursos.actividades.update');
     Route::delete('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'destroy'])->name('cursos.actividades.destroy');
 
+    // Activity evaluation (grading groups and individual students)
+    Route::get('cursos/{curso}/actividades/{actividad}/evaluacion', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'showEvaluacion'])->name('cursos.actividades.evaluacion');
+    Route::post('cursos/{curso}/actividades/{actividad}/grupos', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'storeGrupo'])->name('cursos.actividades.grupos.store');
+    Route::put('cursos/{curso}/actividades/{actividad}/grupos/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'updateGrupo'])->name('cursos.actividades.grupos.update');
+    Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'deleteGrupo'])->name('cursos.actividades.grupos.delete');
+    Route::post('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/integrantes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'addIntegrante'])->name('cursos.actividades.integrantes.store');
+    Route::put('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/integrantes/{asignado}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'updateIntegrante'])->name('cursos.actividades.integrantes.update');
+    Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/integrantes/{asignado}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'removeIntegrante'])->name('cursos.actividades.integrantes.delete');
+
     // Program Management
     Route::post('cursos/{curso}/programa', [AdminProgramaController::class, 'store'])
         ->name('cursos.programa.store');
@@ -264,6 +281,9 @@ Route::prefix('estudiante')->middleware(['auth', 'verified', 'is_estudiante'])->
 
     // Programa (Syllabus) View - MUST be before generic {curso} route
     Route::get('cursos/{curso}/programa', [\App\Http\Controllers\Student\ProgramaController::class, 'show'])->name('cursos.programa.show');
+
+    // Activities view - MUST be before generic {curso} route
+    Route::get('cursos/{curso}/actividades', [\App\Http\Controllers\Student\ActivityController::class, 'index'])->name('cursos.actividades.index');
 
     Route::get('cursos/{curso}', [\App\Http\Controllers\Student\CourseController::class, 'show'])->name('cursos.show');
 });

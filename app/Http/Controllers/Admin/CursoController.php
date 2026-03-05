@@ -9,8 +9,11 @@ use App\Http\Resources\CursoResource;
 use App\Http\Resources\SeccionResource;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Seccion;
+use App\Models\Administrativo\Asignatura;
+use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Plan;
 use App\Models\Curso\TipoSeccion;
+use App\Models\Usuario\Docente;
 use App\Services\CursoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -47,7 +50,9 @@ class CursoController extends Controller
         $cursos = Curso::query()
             ->with([
                 'asignacionPlan.asignatura',
-                'asignacionPlan.plan.carrera'
+                'asignacionPlan.plan.carrera',
+                'secciones.docente.usuario',
+                'secciones.tipoSeccion',
             ])
             ->when($request->search, function ($query, $search) {
                 $query->where('nombre', 'ilike', "%{$search}%")
@@ -63,10 +68,12 @@ class CursoController extends Controller
 
         $planes = Plan::with('carrera')->get();
         $tipos_seccion = TipoSeccion::all();
+        $carreras = Carrera::orderBy('nombre')->get(['id_carrera', 'nombre', 'jornada', 'sede']);
 
         return Inertia::render('admin/Cursos', [
             'cursos' => CursoResource::collection($cursos),
             'planes' => $planes,
+            'carreras' => $carreras,
             'tipos_seccion' => $tipos_seccion,
             'availableRoles' => [],
             'availablePermissions' => [],
@@ -183,7 +190,7 @@ class CursoController extends Controller
     }
 
     /**
-     * Get subjects for a specific plan (for cascading select).
+     * Get subjects for a specific plan (for cascading select), including semestre/agno pivot.
      */
     public function getAsignaturasByPlan(Plan $plan)
     {
@@ -195,14 +202,66 @@ class CursoController extends Controller
                 'asignatura.nombre',
                 'asignatura.creditos_sct'
             )
+            ->withPivot('agno_planificado', 'semestre_planificado', 'tipo_ramo')
+            ->orderBy('asignacion_plan.agno_planificado')
+            ->orderBy('asignacion_plan.semestre_planificado')
             ->orderBy('asignatura.cod_asignatura')
-            ->get();
+            ->get()
+            ->map(fn ($a) => [
+                'id_asignatura'        => $a->id_asignatura,
+                'cod_asignatura'       => $a->cod_asignatura,
+                'nombre'               => $a->nombre,
+                'creditos_sct'         => $a->creditos_sct,
+                'agno_planificado'     => $a->pivot->agno_planificado,
+                'semestre_planificado' => $a->pivot->semestre_planificado,
+                'tipo_ramo'            => $a->pivot->tipo_ramo,
+            ]);
 
         return response()->json($asignaturas);
     }
 
     /**
-     * Get docentes with their user information (for dropdowns).
+     * Retorna docentes sugeridos para una asignatura.
+     * Históricamente la han impartido primero, luego el resto.
+     */
+    public function getDocentesSugeridos(Asignatura $asignatura)
+    {
+        $historicos = Docente::with('usuario')
+            ->whereHas('secciones.curso.asignacionPlan', fn ($q) =>
+                $q->where('id_asignatura', $asignatura->id_asignatura)
+            )
+            ->orderBy('id_docente')
+            ->get();
+
+        $historicosIds = $historicos->pluck('id_docente');
+
+        $otros = Docente::with('usuario')
+            ->whereNotIn('id_docente', $historicosIds)
+            ->orderBy('id_docente')
+            ->get();
+
+        $format = fn ($d) => [
+            'id_docente'      => $d->id_docente,
+            'nombre_completo' => trim(
+                ($d->usuario->nombre1  ?? '') . ' ' .
+                ($d->usuario->nombre2  ?? '') . ' ' .
+                ($d->usuario->apellido1 ?? '') . ' ' .
+                ($d->usuario->apellido2 ?? '')
+            ),
+            'email'  => $d->usuario->email  ?? null,
+            'grado'  => $d->grado,
+            'titulo' => $d->titulo,
+            'cargo'  => $d->cargo,
+        ];
+
+        return response()->json([
+            'historicos' => $historicos->map($format)->values(),
+            'otros'      => $otros->map($format)->values(),
+        ]);
+    }
+
+    /**
+     * Get all docentes.
      */
     public function getDocentes()
     {

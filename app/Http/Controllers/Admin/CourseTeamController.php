@@ -618,7 +618,7 @@ class CourseTeamController extends Controller
 
         try {
             // Obtener el ID del rol 'ayudante'
-            $ayudanteRole = Rol::whereRaw('LOWER(nombre) = ?', ['ayudante'])->first();
+            $ayudanteRole = Rol::where('nombre', 'ilike', 'ayudante')->first();
 
             if (!$ayudanteRole) {
                 return response()->json([]);

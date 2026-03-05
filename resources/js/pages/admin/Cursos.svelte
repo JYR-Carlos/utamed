@@ -30,8 +30,20 @@
   import SyllabusModal from '@/components/custom/admin/SyllabusModal.svelte';
   import SyllabusTypeSelector from '@/components/custom/admin/SyllabusTypeSelector.svelte';
   import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
+  import CursoWizardModal from '@/components/custom/admin/CursoWizardModal.svelte';
   import axios, { AxiosError } from 'axios';
-  import type { Curso, Asignatura, Plan, Docente, PaginatedResponse, CursoFormData, Seccion, TipoSeccion, Programa } from '@/types/admin.types';
+  import type {
+    Curso,
+    Asignatura,
+    Carrera,
+    Plan,
+    Docente,
+    PaginatedResponse,
+    CursoFormData,
+    Seccion,
+    TipoSeccion,
+    Programa,
+  } from '@/types/admin.types';
 
   /**
    * Props recibidas del servidor.
@@ -43,6 +55,8 @@
     asignaturas: Asignatura[];
     /** Planes disponibles para filtrar/asignar cursos */
     planes: Plan[];
+    /** Carreras disponibles (para el wizard) */
+    carreras: Carrera[];
     /** Roles disponibles para asignar a miembros del equipo */
     availableRoles: any[];
     /** Permisos especiales disponibles */
@@ -53,9 +67,10 @@
     tipos_seccion: TipoSeccion[];
   }
 
-  let { cursos, asignaturas, planes, filters, availableRoles = [], availablePermissions = {}, tipos_seccion = [] }: Props = $props();
+  let { cursos, asignaturas, planes, carreras = [], filters, availableRoles = [], availablePermissions = {}, tipos_seccion = [] }: Props = $props();
 
   let showModal = $state(false);
+  let showWizardModal = $state(false);
   let showDeleteDialog = $state(false);
   let showTeamModal = $state(false);
   let showInscriptionModal = $state(false);
@@ -72,6 +87,20 @@
   let availableAsignaturas = $state<Asignatura[]>([]);
   let loadingAsignaturas = $state(false);
   let editingDocenteId = $state<number | undefined>(undefined);
+
+  // ── Quick-View Modal ──────────────────────────────────────────────────────
+  let quickViewItem = $state<Curso | null>(null);
+  let quickViewType = $state<'asignatura' | 'docente' | null>(null);
+
+  function openQuickView(item: Curso, type: 'asignatura' | 'docente') {
+    quickViewItem = item;
+    quickViewType = type;
+  }
+
+  function closeQuickView() {
+    quickViewItem = null;
+    quickViewType = null;
+  }
 
   // ── Derived: Detect existing syllabus type from curso program ────────────────
   let existingSyllabusType = $derived.by(() => {
@@ -229,20 +258,22 @@
   }
 
   function openCreateModal() {
-    editingCurso = null;
-    formData = {
-      id_asignatura: 0,
-      id_plan: 0,
-      cod_curso: 0,
-      nombre: '',
-      fecha_inicio: '',
-      numero_semestre: undefined,
-      agno_real: new Date().getFullYear(),
-      semestre_real: 1,
-    };
-    availableAsignaturas = [];
-    loadDocentes();
-    showModal = true;
+    showWizardModal = true;
+  }
+
+  function handleWizardSubmit(data: CursoFormData & { id_docente_sugerido?: number }) {
+    isLoading = true;
+    router.post('/admin/cursos', data as any, {
+      onSuccess: () => {
+        showWizardModal = false;
+        isLoading = false;
+      },
+      onError: (errors) => {
+        console.error('Error creating curso via wizard:', errors);
+        alert('Error al crear curso: ' + JSON.stringify(errors));
+        isLoading = false;
+      },
+    });
   }
 
   function openEditModal(curso: Curso) {
@@ -583,8 +614,141 @@
       onCustomAction={openTeamModal}
       customActionLabel="Equipo"
       onSyllabus={openSyllabusModal}
-    />
+    >
+      {#snippet cellSnippet({ item, column })}
+        {#if column.key === 'asignatura_nombre'}
+          <button
+            onclick={() => openQuickView(item, 'asignatura')}
+            class="text-blue-600 hover:text-blue-800 hover:underline text-left text-sm font-medium transition-colors"
+            title="Ver detalle de asignatura"
+          >
+            {item.asignatura_nombre ?? '-'}
+          </button>
+        {:else if column.key === 'docente_nombre'}
+          {#if item.docente_nombre}
+            <button
+              onclick={() => openQuickView(item, 'docente')}
+              class="text-indigo-600 hover:text-indigo-800 hover:underline text-left text-sm font-medium transition-colors"
+              title="Ver detalle del docente"
+            >
+              {item.docente_nombre}
+            </button>
+          {:else}
+            <span class="text-xs text-gray-400 italic">Sin asignar</span>
+          {/if}
+        {:else}
+          {item[column.key] ?? '-'}
+        {/if}
+      {/snippet}
+    </DataTable>
   </div>
+
+  <!-- ── Quick-View Modal ────────────────────────────────────────────────── -->
+  {#if quickViewItem && quickViewType}
+    <!-- Backdrop -->
+    <button class="fixed inset-0 bg-black/40 z-40 cursor-default" onclick={closeQuickView} aria-label="Cerrar"></button>
+
+    <!-- Panel -->
+    <div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+      <div class="flex justify-between items-start mb-5">
+        {#if quickViewType === 'asignatura'}
+          <div>
+            <p class="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-0.5">Asignatura</p>
+            <h3 class="text-lg font-bold text-gray-900">{quickViewItem.asignatura_nombre ?? '—'}</h3>
+            <p class="text-sm text-gray-500">{quickViewItem.cod_asignatura ?? ''}</p>
+          </div>
+        {:else}
+          <div>
+            <p class="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-0.5">Docente responsable</p>
+            <h3 class="text-lg font-bold text-gray-900">{quickViewItem.docente_nombre ?? '—'}</h3>
+            <p class="text-sm text-gray-500">{quickViewItem.docente_email ?? ''}</p>
+          </div>
+        {/if}
+        <button
+          onclick={closeQuickView}
+          class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+          aria-label="Cerrar"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg
+          >
+        </button>
+      </div>
+
+      {#if quickViewType === 'asignatura'}
+        <!-- Asignatura detail grid -->
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div class="bg-blue-50 rounded-xl p-3 text-center">
+            <p class="text-2xl font-bold text-blue-700">{quickViewItem.creditos_sct ?? '—'}</p>
+            <p class="text-xs text-blue-600 mt-0.5">Créditos SCT</p>
+          </div>
+          <div class="bg-slate-50 rounded-xl p-3 text-center">
+            <p class="text-2xl font-bold text-slate-700">{quickViewItem.numero_semestre ?? '—'}</p>
+            <p class="text-xs text-slate-600 mt-0.5">Semestre</p>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Distribución de horas</p>
+          {#each [{ label: 'Cátedra', value: quickViewItem.horas_catedra }, { label: 'Taller', value: quickViewItem.horas_taller }, { label: 'Laboratorio', value: quickViewItem.horas_laboratorio }, { label: 'Dirigidas', value: quickViewItem.horas_dirigidas }, { label: 'Autónomas', value: quickViewItem.horas_autonomas }] as hora}
+            {#if hora.value != null}
+              <div class="flex justify-between items-center text-sm py-1.5 border-b border-gray-100 last:border-0">
+                <span class="text-gray-600">{hora.label}</span>
+                <span class="font-semibold text-gray-900">{hora.value} h</span>
+              </div>
+            {/if}
+          {/each}
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-gray-100">
+          <p class="text-xs text-gray-500">
+            Carrera: <span class="font-medium text-gray-700">{quickViewItem.carrera_nombre ?? '—'}</span>
+          </p>
+        </div>
+      {:else}
+        <!-- Docente detail -->
+        <div class="space-y-3">
+          {#if quickViewItem.docente_cargo}
+            <div class="flex justify-between items-center text-sm py-1.5 border-b border-gray-100">
+              <span class="text-gray-600">Cargo</span>
+              <span class="font-medium text-gray-900">{quickViewItem.docente_cargo}</span>
+            </div>
+          {/if}
+          {#if quickViewItem.docente_email}
+            <div class="flex justify-between items-center text-sm py-1.5 border-b border-gray-100">
+              <span class="text-gray-600">Email</span>
+              <a href="mailto:{quickViewItem.docente_email}" class="font-medium text-blue-600 hover:underline">{quickViewItem.docente_email}</a>
+            </div>
+          {/if}
+          <div class="flex justify-between items-center text-sm py-1.5 border-b border-gray-100">
+            <span class="text-gray-600">Asignatura</span>
+            <span class="font-medium text-gray-900">{quickViewItem.asignatura_nombre ?? '—'}</span>
+          </div>
+          <div class="flex justify-between items-center text-sm py-1.5">
+            <span class="text-gray-600">Carrera</span>
+            <span class="font-medium text-gray-900">{quickViewItem.carrera_nombre ?? '—'}</span>
+          </div>
+        </div>
+      {/if}
+
+      <div class="mt-5 flex justify-end">
+        <button
+          onclick={closeQuickView}
+          class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+        >
+          Cerrar
+        </button>
+      </div>
+    </div>
+  {/if}
 
   <!-- Syllabus Type Selector Modal (Programa type selection) -->
   {#if showSyllabusTypeSelector && syllabusTargetCurso}
@@ -646,7 +810,18 @@
     <CourseTeamModal bind:isOpen={showTeamModal} onClose={closeTeamModal} curso={managingTeamCurso} />
   {/if}
 
-  <FormModal bind:isOpen={showModal} title={editingCurso ? 'Editar Curso' : 'Nuevo Curso'} onClose={closeModal} onSubmit={handleSubmit} {isLoading}>
+  <!-- Wizard para creación de nuevo curso -->
+  <CursoWizardModal
+    isOpen={showWizardModal}
+    {carreras}
+    {isLoading}
+    onClose={() => {
+      showWizardModal = false;
+    }}
+    onSubmit={handleWizardSubmit}
+  />
+
+  <FormModal bind:isOpen={showModal} title="Editar Curso" onClose={closeModal} onSubmit={handleSubmit} {isLoading}>
     <div class="form-group">
       <label for="plan" class="form-label">Plan (Malla) *</label>
       <select

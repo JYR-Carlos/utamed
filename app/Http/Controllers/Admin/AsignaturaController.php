@@ -27,7 +27,8 @@ class AsignaturaController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Asignatura::select(['id_asignatura', 'cod_asignatura', 'nombre', 'creditos_sct']);
+        $query = Asignatura::select(['id_asignatura', 'cod_asignatura', 'nombre', 'creditos_sct'])
+            ->withCount('asignacionPlanes as planes_count');
 
         // Search functionality
         if ($request->filled('search')) {

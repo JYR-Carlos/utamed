@@ -111,9 +111,10 @@ class UsuarioController extends Controller
             if ($sqlColumn) {
                 $q->orderBy($sqlColumn, $sortDir);
             } else {
-                $q->orderByRaw(
-                    "CONCAT(usuario.apellido1, ' ', usuario.apellido2, ' ', usuario.nombre1, ' ', usuario.nombre2)"
-                );
+                $q->orderBy('usuario.apellido1')
+                  ->orderBy('usuario.apellido2')
+                  ->orderBy('usuario.nombre1')
+                  ->orderBy('usuario.nombre2');
             }
             $usuarios = $q->paginate($request->input('per_page', 15))->withQueryString();
         }
@@ -150,9 +151,10 @@ class UsuarioController extends Controller
             if ($sqlColumn) {
                 $q->orderBy($sqlColumn, $sortDir);
             } else {
-                $q->orderByRaw(
-                    "CONCAT(usuario.apellido1, ' ', usuario.apellido2, ' ', usuario.nombre1, ' ', usuario.nombre2)"
-                );
+                $q->orderBy('usuario.apellido1')
+                  ->orderBy('usuario.apellido2')
+                  ->orderBy('usuario.nombre1')
+                  ->orderBy('usuario.nombre2');
             }
             $usuarios = $q->paginate($request->input('per_page', 15))->withQueryString();
         }

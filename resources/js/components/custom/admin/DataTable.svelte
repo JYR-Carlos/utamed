@@ -1,5 +1,6 @@
 <script lang="ts">
   import { router, page } from '@inertiajs/svelte';
+  import type { Snippet } from 'svelte';
   import type { PaginatedResponse } from '@/types/admin.types';
 
   interface Props {
@@ -13,6 +14,10 @@
     customActionLabel?: string;
     onSyllabus?: (item: any) => void;
     searchPlaceholder?: string;
+    /** Optional Svelte 5 snippet for custom cell rendering.
+     *  Receives { item, column } and should return cell content.
+     *  Falls back to plain text for unhandled columns. */
+    cellSnippet?: Snippet<[{ item: any; column: { key: string; label: string } }]>;
   }
 
   let {
@@ -26,6 +31,7 @@
     customActionLabel = 'Ver',
     onSyllabus,
     searchPlaceholder = 'Buscar...',
+    cellSnippet,
   }: Props = $props();
 
   let searchTerm = $state('');
@@ -253,7 +259,11 @@
             <tr class="hover:bg-gray-50 transition-colors">
               {#each columns as column}
                 <td class="px-4 py-3 border-b border-gray-100 text-sm text-gray-900 align-middle">
-                  {getDisplayValue(item, column.key)}
+                  {#if cellSnippet}
+                    {@render cellSnippet({ item, column })}
+                  {:else}
+                    {getDisplayValue(item, column.key)}
+                  {/if}
                 </td>
               {/each}
               {#if onEdit || onDelete || onPasswordChange || onToggleActive || onCustomAction || onSyllabus}

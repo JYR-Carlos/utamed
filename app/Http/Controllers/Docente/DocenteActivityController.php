@@ -4,11 +4,16 @@ namespace App\Http\Controllers\Docente;
 
 use App\Http\Controllers\Controller;
 use App\Models\Agenda\Actividad;
+use App\Models\Agenda\ActividadAsignada;
+use App\Models\Agenda\AsignadoActividad;
+use App\Models\Agenda\EstadoActividad;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Seccion;
 use App\Models\Curso\Unidad;
+use App\Models\Usuario\Contexto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
@@ -54,26 +59,30 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes permiso para acceder a este curso.');
         }
 
-        // Get activities for this course
-        $actividades = Actividad::where('id_curso', $curso->id_curso)
+        // Get activities for this course via seccion relationship (actividad has no id_curso column)
+        $actividades = Actividad::whereHas('seccion', fn($q) => $q->where('id_curso', $curso->id_curso))
+            ->with(['seccion.tipoSeccion', 'unidad'])
             ->orderBy('fecha_limite', 'asc')
             ->get();
 
         // Get sections for dropdown
         $secciones = Seccion::where('id_curso', $curso->id_curso)
-            ->where('es_plantilla', false)
+            ->with('tipoSeccion')
             ->get();
 
         // Get units for dropdown
         $unidades = Unidad::where('id_curso', $curso->id_curso)
-            ->where('es_plantilla', false)
             ->get();
+
+        // Get estados for display
+        $estados = EstadoActividad::all();
 
         return Inertia::render('docente/Actividades', [
             'curso' => $curso,
             'actividades' => $actividades,
             'secciones' => $secciones,
             'unidades' => $unidades,
+            'estados' => $estados,
         ]);
     }
 
@@ -110,12 +119,15 @@ class DocenteActivityController extends Controller
             'id_unidad' => 'required|integer',
         ]);
 
-        // Add the course ID
-        $validated['id_curso'] = $curso->id_curso;
         $validated['es_plantilla'] = false;
 
         // Create the activity
         try {
+            $contexto = Contexto::create([
+                'contexto_display' => 'Actividad: ' . $validated['nombre'],
+            ]);
+            $validated['id_contexto'] = $contexto->id_contexto;
+
             $actividad = Actividad::create($validated);
             
             return redirect()->back()->with('success', "Actividad '{$actividad->nombre}' creada correctamente.");
@@ -148,8 +160,9 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes permiso para editar esta actividad.');
         }
 
-        // Verify the activity belongs to this course
-        if ($actividad->id_curso !== $curso->id_curso) {
+        // Verify the activity belongs to this course through its seccion
+        $actividadCursoId = $actividad->seccion?->id_curso;
+        if ($actividadCursoId && $actividadCursoId !== $curso->id_curso) {
             abort(404, 'Actividad no encontrada en este curso.');
         }
 
@@ -198,8 +211,9 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes permiso para eliminar esta actividad.');
         }
 
-        // Verify the activity belongs to this course
-        if ($actividad->id_curso !== $curso->id_curso) {
+        // Verify the activity belongs to this course through its seccion
+        $actividadCursoId = $actividad->seccion?->id_curso;
+        if ($actividadCursoId && $actividadCursoId !== $curso->id_curso) {
             abort(404, 'Actividad no encontrada en este curso.');
         }
 
@@ -261,5 +275,253 @@ class DocenteActivityController extends Controller
         ->get(['id_actividad', 'nombre', 'fecha_limite']);
 
         return response()->json($actividades);
+    }
+
+    // =========================================================================
+    // EVALUACIÓN / CALIFICACIÓN
+    // =========================================================================
+
+    /**
+     * Muestra la vista de evaluación de una actividad:
+     * grupos (actividad_asignada) con sus integrantes y notas.
+     */
+    public function showEvaluacion(Curso $curso, Actividad $actividad)
+    {
+        $user = Auth::user();
+
+        if (!$user->docente) {
+            abort(403, 'No tienes un perfil docente.');
+        }
+
+        $isDocente = $curso->secciones()
+            ->where('id_docente', $user->docente->id_docente)
+            ->exists();
+
+        if (!$isDocente && !$user->is_admin) {
+            abort(403, 'No tienes permiso para acceder a este curso.');
+        }
+
+        $actividad->load(['seccion.tipoSeccion', 'unidad']);
+
+        // Grupos con sus integrantes cargados
+        $grupos = ActividadAsignada::where('id_actividad', $actividad->id_actividad)
+            ->with([
+                'estadoActividad',
+                'asignadoActividades.estudiante.usuario',
+            ])
+            ->get()
+            ->map(fn($g) => [
+                'grupo'          => $g->grupo,
+                'nota'           => $g->nota,
+                'id_estado'      => $g->id_estado,
+                'estado'         => $g->estadoActividad ? [
+                    'id_estado'  => $g->estadoActividad->id_estado,
+                    'titulo'     => $g->estadoActividad->titulo,
+                ] : null,
+                'integrantes'    => $g->asignadoActividades->map(fn($a) => [
+                    'id_asignado_actividad' => $a->id_asignado_actividad,
+                    'id_estudiante'         => $a->id_estudiante,
+                    'nota_individual'       => $a->nota_individual,
+                    'diferencia_decimas'    => $a->diferencia_decimas,
+                    'nombre_completo'       => trim(
+                        ($a->estudiante?->usuario?->nombre1 ?? '') . ' ' .
+                        ($a->estudiante?->usuario?->nombre2 ?? '') . ' ' .
+                        ($a->estudiante?->usuario?->apellido1 ?? '') . ' ' .
+                        ($a->estudiante?->usuario?->apellido2 ?? '')
+                    ),
+                ])->values(),
+            ])
+            ->values();
+
+        // Estudiantes inscritos en la sección de esta actividad (para agregar a grupos)
+        $estudiantesDisponibles = collect();
+        if ($actividad->id_seccion) {
+            $estudiantesDisponibles = DB::table('curso.inscripcion_seccion as is')
+                ->join('usuario.estudiante as e', 'e.id_estudiante', '=', 'is.id_estudiante')
+                ->join('usuario.usuario as u', 'u.id_usuario', '=', 'e.id_usuario')
+                ->where('is.id_seccion', $actividad->id_seccion)
+                ->select(
+                    'e.id_estudiante',
+                    DB::raw("TRIM(CONCAT(u.nombre1,' ',COALESCE(u.nombre2,''),' ',u.apellido1,' ',COALESCE(u.apellido2,''))) as nombre_completo"),
+                    'u.email'
+                )
+                ->orderBy('u.apellido1')
+                ->get();
+        }
+
+        $estados = EstadoActividad::all(['id_estado', 'titulo', 'descripcion']);
+
+        return Inertia::render('docente/ActividadEvaluacion', [
+            'curso'                 => $curso,
+            'actividad'             => $actividad,
+            'grupos'                => $grupos,
+            'estudiantesDisponibles' => $estudiantesDisponibles,
+            'estados'               => $estados,
+        ]);
+    }
+
+    /**
+     * Crea un grupo (actividad_asignada) para una actividad.
+     * Si se envía id_estudiante inicial, lo agrega también.
+     */
+    public function storeGrupo(Request $request, Curso $curso, Actividad $actividad)
+    {
+        $this->autorizarDocenteCurso($curso);
+
+        $validated = $request->validate([
+            'id_estado'    => 'required|integer|exists:agenda.estado_actividad,id_estado',
+            'nota'         => 'nullable|numeric|min:0|max:10',
+            'id_estudiante' => 'nullable|integer|exists:usuario.estudiante,id_estudiante',
+        ]);
+
+        return DB::transaction(function () use ($validated, $actividad) {
+            $grupo = ActividadAsignada::create([
+                'id_actividad' => $actividad->id_actividad,
+                'id_estado'    => $validated['id_estado'],
+                'nota'         => $validated['nota'] ?? null,
+            ]);
+
+            if (!empty($validated['id_estudiante'])) {
+                AsignadoActividad::create([
+                    'grupo'         => $grupo->grupo,
+                    'id_estudiante' => $validated['id_estudiante'],
+                ]);
+            }
+
+            return redirect()->back()->with('success', 'Grupo creado correctamente.');
+        });
+    }
+
+    /**
+     * Actualiza la nota grupal y/o el estado de un grupo.
+     */
+    public function updateGrupo(Request $request, Curso $curso, Actividad $actividad, int $grupo)
+    {
+        $this->autorizarDocenteCurso($curso);
+
+        $grupoModel = ActividadAsignada::where('grupo', $grupo)
+            ->where('id_actividad', $actividad->id_actividad)
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'nota'      => 'nullable|numeric|min:0|max:10',
+            'id_estado' => 'required|integer|exists:agenda.estado_actividad,id_estado',
+        ]);
+
+        $grupoModel->update($validated);
+
+        return redirect()->back()->with('success', 'Grupo actualizado correctamente.');
+    }
+
+    /**
+     * Elimina un grupo y todos sus integrantes asignados.
+     */
+    public function deleteGrupo(Curso $curso, Actividad $actividad, int $grupo)
+    {
+        $this->autorizarDocenteCurso($curso);
+
+        $grupoModel = ActividadAsignada::where('grupo', $grupo)
+            ->where('id_actividad', $actividad->id_actividad)
+            ->firstOrFail();
+
+        return DB::transaction(function () use ($grupoModel) {
+            AsignadoActividad::where('grupo', $grupoModel->grupo)->delete();
+            $grupoModel->delete();
+            return redirect()->back()->with('success', 'Grupo eliminado.');
+        });
+    }
+
+    /**
+     * Agrega un integrante a un grupo.
+     */
+    public function addIntegrante(Request $request, Curso $curso, Actividad $actividad, int $grupo)
+    {
+        $this->autorizarDocenteCurso($curso);
+
+        // Verificar que el grupo pertenece a esta actividad
+        ActividadAsignada::where('grupo', $grupo)
+            ->where('id_actividad', $actividad->id_actividad)
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'id_estudiante' => 'required|integer|exists:usuario.estudiante,id_estudiante',
+        ]);
+
+        // Verificar que no está ya en este grupo
+        $exists = AsignadoActividad::where('grupo', $grupo)
+            ->where('id_estudiante', $validated['id_estudiante'])
+            ->exists();
+
+        if ($exists) {
+            return redirect()->back()->withErrors(['error' => 'El estudiante ya está en este grupo.']);
+        }
+
+        AsignadoActividad::create([
+            'grupo'         => $grupo,
+            'id_estudiante' => $validated['id_estudiante'],
+        ]);
+
+        return redirect()->back()->with('success', 'Integrante agregado al grupo.');
+    }
+
+    /**
+     * Actualiza la nota individual de un integrante.
+     */
+    public function updateIntegrante(Request $request, Curso $curso, Actividad $actividad, int $grupo, AsignadoActividad $asignado)
+    {
+        $this->autorizarDocenteCurso($curso);
+
+        if ($asignado->grupo !== $grupo) {
+            abort(404, 'Integrante no encontrado en este grupo.');
+        }
+
+        $validated = $request->validate([
+            'nota_individual'    => 'nullable|numeric|min:0|max:10',
+            'diferencia_decimas' => 'nullable|integer|min:-10|max:10',
+        ]);
+
+        $asignado->update($validated);
+
+        return redirect()->back()->with('success', 'Nota individual actualizada.');
+    }
+
+    /**
+     * Elimina un integrante de un grupo.
+     */
+    public function removeIntegrante(Curso $curso, Actividad $actividad, int $grupo, AsignadoActividad $asignado)
+    {
+        $this->autorizarDocenteCurso($curso);
+
+        if ($asignado->grupo !== $grupo) {
+            abort(404, 'Integrante no encontrado en este grupo.');
+        }
+
+        $asignado->delete();
+
+        return redirect()->back()->with('success', 'Integrante eliminado del grupo.');
+    }
+
+    // =========================================================================
+    // HELPER PRIVADO
+    // =========================================================================
+
+    /**
+     * Verifica que el usuario autenticado es docente del curso (o admin).
+     */
+    private function autorizarDocenteCurso(Curso $curso): void
+    {
+        $user = Auth::user();
+
+        if (!$user->docente) {
+            abort(403, 'No tienes un perfil docente.');
+        }
+
+        $isDocente = $curso->secciones()
+            ->where('id_docente', $user->docente->id_docente)
+            ->exists();
+
+        if (!$isDocente && !$user->is_admin) {
+            abort(403, 'No tienes permiso para gestionar este curso.');
+        }
     }
 }

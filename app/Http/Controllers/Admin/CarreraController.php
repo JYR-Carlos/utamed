@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Departamento;
 use App\Models\Administrativo\Facultad;
+use App\Services\CarreraService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -23,35 +25,59 @@ use Inertia\Inertia;
  */
 class CarreraController extends Controller
 {
+    public function __construct(private readonly CarreraService $carreraService)
+    {
+    }
+
     /**
      * Muestra un listado paginado de carreras con búsqueda y filtros.
      * Display a listing of carreras.
      */
     public function index(Request $request)
     {
-        $query = Carrera::query()
-            ->select(['id_carrera', 'nombre', 'id_departamento', 'jornada', 'sede'])
+        // Filtro de estado: 'active' (por defecto) solo muestra activas; 'all' incluye discontinuadas
+        $status = $request->input('status', 'active');
+
+        $query = $status === 'all' ? Carrera::withTrashed() : Carrera::query();
+
+        $query->select([
+                'id_carrera',
+                'nombre',
+                'id_departamento',
+                'id_contexto',
+                'jornada',
+                'sede',
+                'modalidad',
+                'fecha_eliminacion',
+            ])
+            ->withCount([
+                // Planes activos — SoftDeletes global scope ya excluye las eliminadas
+                'planes as planes_activos_count',
+            ])
+            ->withCount([
+                // has_director: existe un usuario con rol 'Jefe de Carrera' activo
+                // en el contexto de tipo 'carrera' de esta carrera específica.
+                'jefesDeCarreraActivos as has_director',
+            ])
             ->with([
                 'departamento:id_departamento,nombre,id_facultad',
-                'departamento.facultad:id_facultad,nombre'
+                'departamento.facultad:id_facultad,nombre',
             ]);
 
-        // 2. Búsqueda con ilike (Recuerda crear el índice GIN que mencionamos)
+        // Búsqueda con ilike
         if ($request->filled('search')) {
             $query->where('nombre', 'ilike', "%{$request->search}%");
         }
 
-        // 3. Filtros optimizados
+        // Filtro de jerarquía
         if ($request->filled('id_departamento')) {
             $query->where('id_departamento', $request->id_departamento);
         }
 
         if ($request->filled('id_facultad')) {
-            // Filtramos a través de la relación de forma eficiente
             $query->whereHas(
                 'departamento',
-                fn($q) =>
-                $q->where('id_facultad', $request->id_facultad)
+                fn($q) => $q->where('id_facultad', $request->id_facultad)
             );
         }
 
@@ -60,10 +86,9 @@ class CarreraController extends Controller
             ->withQueryString();
 
         return Inertia::render('admin/Carreras', [
-            'carreras' => $carreras,
-            // Usamos map para enviar solo lo que el combo necesita
+            'carreras'   => $carreras,
             'facultades' => Facultad::select(['id_facultad', 'nombre'])->orderBy('nombre')->get(),
-            'filters' => $request->only(['search', 'id_departamento', 'id_facultad'])
+            'filters'    => $request->only(['search', 'id_departamento', 'id_facultad', 'status']),
         ]);
     }
 
@@ -94,10 +119,12 @@ class CarreraController extends Controller
         ]);
 
         try {
-            $carrera = Carrera::create($validated);
+            /** @var \App\Models\Usuario\Usuario $actor */
+            $actor = Auth::user();
+            $this->carreraService->create($validated, $actor);
 
             return redirect()->route('admin.carreras.index')
-                ->with('success', 'Carrera creada exitosamente.');
+                ->with('success', 'Carrera creada. El contexto de permisos RBAC se ha generado automáticamente.');
         } catch (\Exception $e) {
             return back()->with('error', 'Error al crear carrera: ' . $e->getMessage());
         }
@@ -114,17 +141,18 @@ class CarreraController extends Controller
     }
 
     /**
-     * Actualiza los datos de una carrera.
+     * Actualiza los datos mutables de una carrera.
+     * id_departamento e id_contexto son inmutables post-creación:
+     * cambiarlos rompería la constraint uq_carrera_departamento y la herencia RBAC.
      */
     public function update(Request $request, Carrera $carrera)
     {
         $validated = $request->validate([
-            'nombre' => 'required|string|max:255',
-            'jornada' => 'nullable|string|max:100',
-            'sede' => 'nullable|string|max:100',
+            'nombre'    => 'required|string|max:255',
+            'jornada'   => 'nullable|string|max:100',
+            'sede'      => 'nullable|string|max:100',
             'modalidad' => 'nullable|string|max:100',
-            'id_departamento' => ['required', Rule::exists(Departamento::class, 'id_departamento')],
-            'id_facultad' => ['required', Rule::exists(Facultad::class, 'id_facultad')],
+            // id_departamento y id_facultad son intencionalmente omitidos (read-only post-creación)
         ]);
 
         $carrera->update($validated);
@@ -134,18 +162,19 @@ class CarreraController extends Controller
     }
 
     /**
-     * Elimina una carrera.
+     * Discontinua (soft-delete) una carrera.
+     * Establece fecha_eliminacion = now(). El historial académico se preserva.
      */
     public function destroy(Carrera $carrera)
     {
         try {
-            $carrera->delete();
+            $carrera->delete(); // SoftDeletes → sets fecha_eliminacion = now()
 
             return redirect()->route('admin.carreras.index')
-                ->with('success', 'Carrera eliminada exitosamente.');
+                ->with('success', 'Carrera discontinuada. El historial académico se mantiene intacto.');
         } catch (\Exception $e) {
             return redirect()->route('admin.carreras.index')
-                ->with('error', 'No se puede eliminar la carrera porque tiene planes o estudiantes asociados.');
+                ->with('error', 'No se pudo discontinuar la carrera: ' . $e->getMessage());
         }
     }
 }

@@ -55,10 +55,15 @@ export interface Carrera {
     modalidad?: string;
     id_departamento: number;
     id_facultad: number;
+    id_contexto?: number;
     departamento?: Departamento;
     fecha_creacion?: string;
     fecha_modificacion?: string;
-    fecha_eliminacion?: string;
+    fecha_eliminacion?: string | null;
+    /** Computed by the controller: count of plans without fecha_eliminacion */
+    planes_activos_count?: number;
+    /** Computed: true if a user with rol='Jefe de Carrera' has an active assignment in this carrera's context (tipo_contexto.categoria='carrera') */
+    has_director?: boolean;
 }
 
 export interface Plan {
@@ -98,6 +103,8 @@ export interface Asignatura {
     horas_dirigidas?: number;
     /** Autonomous study hours */
     horas_autonomas?: number;
+    /** Number of study plans using this subject (withCount) */
+    planes_count?: number;
     /** Creation timestamp */
     fecha_creacion?: string;
     /** Last modification timestamp */
@@ -156,6 +163,16 @@ export interface Curso {
     nombre?: string;
     asignatura_nombre?: string;
     cod_asignatura?: string;
+    creditos_sct?: number;
+    horas_catedra?: number;
+    horas_taller?: number;
+    horas_laboratorio?: number;
+    horas_dirigidas?: number;
+    horas_autonomas?: number;
+    carrera_nombre?: string;
+    docente_nombre?: string;
+    docente_email?: string;
+    docente_cargo?: string;
     fecha_inicio?: string;
     fecha_fin?: string;
     indice_grupo?: number;

@@ -19,6 +19,12 @@ class CursoResource extends JsonResource
             ->where('es_actual', true)
             ->first();
 
+        // Docente de la sección Cátedra (para mostrar en tabla)
+        $seccionCatedra = $this->relationLoaded('secciones')
+            ? $this->secciones->first(fn($s) => optional($s?->tipoSeccion)->tipo === 'Cátedra')
+            : null;
+        $docenteUser = $seccionCatedra?->docente?->usuario;
+
         return [
             'id_curso' => $this->id_curso,
             'cod_curso' => $this->cod_curso,
@@ -38,10 +44,22 @@ class CursoResource extends JsonResource
             'fecha_modificacion' => $this->fecha_modificacion,
             
             // Computed properties for table display
-            'asignatura_nombre' => $this->asignacionPlan?->asignatura?->nombre,
-            'carrera_nombre' => $this->asignacionPlan?->plan?->carrera?->nombre,
-            'numero_semestre' => $this->asignacionPlan?->semestre_planificado,
-            'docente_nombre' => null, // Docentes are in secciones, not cursos
+            'asignatura_nombre'    => $this->asignacionPlan?->asignatura?->nombre,
+            'carrera_nombre'       => $this->asignacionPlan?->plan?->carrera?->nombre,
+            'numero_semestre'      => $this->asignacionPlan?->semestre_planificado,
+            'docente_nombre'       => $docenteUser
+                ? trim(($docenteUser->nombre1 ?? '') . ' ' . ($docenteUser->apellido1 ?? ''))
+                : null,
+            'docente_email'        => $docenteUser?->email,
+            'docente_cargo'        => $seccionCatedra?->docente?->cargo,
+            // Asignatura details for quick-view modal
+            'cod_asignatura'       => $this->asignacionPlan?->asignatura?->cod_asignatura,
+            'creditos_sct'         => $this->asignacionPlan?->asignatura?->creditos_sct,
+            'horas_catedra'        => $this->asignacionPlan?->asignatura?->horas_catedra,
+            'horas_taller'         => $this->asignacionPlan?->asignatura?->horas_taller,
+            'horas_laboratorio'    => $this->asignacionPlan?->asignatura?->horas_laboratorio,
+            'horas_dirigidas'      => $this->asignacionPlan?->asignatura?->horas_dirigidas,
+            'horas_autonomas'      => $this->asignacionPlan?->asignatura?->horas_autonomas,
             
             // Programa information
             'has_programa' => $programa !== null,

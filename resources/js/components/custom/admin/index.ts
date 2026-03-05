@@ -8,3 +8,5 @@ export { default as FormModal } from './FormModal.svelte';
 export { default as DeleteConfirmation } from './DeleteConfirmation.svelte';
 export { default as CourseTeamModal } from './CourseTeamModal.svelte';
 export { default as PermissionsModal } from './PermissionsModal.svelte';
+export { default as MallaSlideOver } from './MallaSlideOver.svelte';
+export { default as CursoWizardModal } from './CursoWizardModal.svelte';

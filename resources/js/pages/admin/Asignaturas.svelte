@@ -55,7 +55,8 @@
 	const columns = [
 		{ key: 'cod_asignatura', label: 'Código' },
 		{ key: 'nombre', label: 'Nombre' },
-		{ key: 'creditos_sct', label: 'Créditos SCT' }
+		{ key: 'creditos_sct', label: 'Créditos SCT' },
+		{ key: 'planes_count', label: 'Uso en Planes' }
 	];
 
 	function openCreateModal() {
@@ -150,7 +151,19 @@
 		</button>
 	</div>
 
-	<DataTable data={asignaturas} {columns} onEdit={openEditModal} onDelete={openDeleteDialog} />
+	<DataTable data={asignaturas} {columns} onEdit={openEditModal} onDelete={openDeleteDialog}>
+		{#snippet cellSnippet({ item, column })}
+			{#if column.key === 'planes_count'}
+				{@const count = item.planes_count ?? 0}
+				<span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full
+					{count > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}">
+					{count > 0 ? `Utilizada en ${count} plan${count === 1 ? '' : 'es'}` : 'Sin asignar'}
+				</span>
+			{:else}
+				{item[column.key] ?? '-'}
+			{/if}
+		{/snippet}
+	</DataTable>
 </div>
 
 <FormModal
@@ -160,6 +173,19 @@
 	onSubmit={handleSubmit}
 	isLoading={$formData.processing}
 >
+	<!-- Advertencia de impacto cuando la asignatura ya está en uso -->
+	{#if editingAsignatura && (editingAsignatura.planes_count ?? 0) > 0}
+		<div class="mb-4 flex gap-3 items-start bg-amber-50 border border-amber-300 rounded-lg px-4 py-3">
+			<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500 mt-0.5 shrink-0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+			<div>
+				<p class="text-sm font-semibold text-amber-800">Impacto en cascada</p>
+				<p class="text-xs text-amber-700 mt-0.5">
+					Esta asignatura está utilizada en <strong>{editingAsignatura.planes_count} plan{editingAsignatura.planes_count === 1 ? '' : 'es'} de estudio</strong>.
+					Cualquier cambio en el nombre, código o créditos afectará directamente a todos los cursos derivados.
+				</p>
+			</div>
+		</div>
+	{/if}
 	<div class="form-row">
 		<div class="form-group">
 			<label for="cod_asignatura" class="form-label">Código</label>

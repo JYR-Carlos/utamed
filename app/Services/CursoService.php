@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Curso\Curso;
+use App\Models\Curso\Seccion;
+use App\Models\Curso\TipoSeccion;
 use App\Models\Administrativo\AsignacionPlan;
 use App\Models\Usuario\Contexto;
 use Illuminate\Database\Eloquent\Model;
@@ -43,7 +45,23 @@ class CursoService
             // Set fecha_fin to 6 months after fecha_inicio
             $cursoData['fecha_fin'] = $this->calculateFechaFin($cursoData['fecha_inicio']);
 
-            return Curso::create($cursoData);
+            $curso = Curso::create($cursoData);
+
+            // Auto-create "Cátedra" section with suggested docente when provided
+            if (!empty($data['id_docente_sugerido'])) {
+                $tipoSeccion = TipoSeccion::whereRaw("LOWER(tipo) LIKE '%catedra%' OR LOWER(tipo) LIKE '%cátedra%'")->first()
+                    ?? TipoSeccion::first();
+
+                if ($tipoSeccion) {
+                    Seccion::create([
+                        'id_curso'        => $curso->id_curso,
+                        'id_tipo_seccion' => $tipoSeccion->id_tipo_seccion,
+                        'id_docente'      => $data['id_docente_sugerido'],
+                    ]);
+                }
+            }
+
+            return $curso;
         });
     }
 

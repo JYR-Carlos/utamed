@@ -26,6 +26,27 @@ use Illuminate\Support\Facades\Log;
 class AsignacionPlanController extends Controller
 {
     /**
+     * Retorna los datos de la malla en formato JSON (para el panel slide-over del frontend).
+     */
+    public function mallaJson(Plan $plan)
+    {
+        $plan->load(['carrera', 'asignacionPlanes' => function ($q) {
+            $q->with('asignatura');
+        }]);
+
+        $plan->setAttribute('creditos_sct_totales', $plan->calculateTotalCredits());
+
+        $malla = $plan->asignacionPlanes->groupBy(
+            fn($item) => "{$item->agno_planificado}-{$item->semestre_planificado}"
+        );
+
+        return response()->json([
+            'plan' => $plan,
+            'malla' => $malla,
+        ]);
+    }
+
+    /**
      * Muestra el detalle de la malla curricular de un plan, mostrando datos ya sea del plan o de las asignaturas asignadas.
      */
     public function index(Request $request, Plan $plan)

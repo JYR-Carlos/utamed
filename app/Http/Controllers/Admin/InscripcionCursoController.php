@@ -12,6 +12,7 @@ use App\Models\Usuario\Estudiante;
 use App\Services\InscripcionCursoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 /**
@@ -228,6 +229,69 @@ class InscripcionCursoController extends Controller
             ]);
             return back()->withErrors(['error' => 'Error al eliminar la inscripción: ' . $e->getMessage()]);
         }
+    }
+
+    /**
+     * Actualiza solo el estado de una inscripción (máquina de estados).
+     * Endpoint: PATCH /admin/inscripciones_cursos/{inscripcionCurso}/estado
+     */
+    public function updateEstado(Request $request, InscripcionCurso $inscripcionCurso)
+    {
+        $this->authorize('update', $inscripcionCurso);
+
+        $validated = $request->validate([
+            'estado_inscripcion' => ['required', Rule::in(['INSCRITO', 'RETIRADO', 'ANULADO', 'SUSPENDIDO'])],
+        ]);
+
+        $inscripcionCurso->update(['estado_inscripcion' => $validated['estado_inscripcion']]);
+        $inscripcionCurso->load('estudiante.usuario', 'curso');
+
+        return response()->json([
+            'inscripcion' => new InscripcionCursoResource($inscripcionCurso),
+        ]);
+    }
+
+    /**
+     * Inscribe múltiples estudiantes en un curso de una sola vez.
+     * Endpoint: POST /admin/inscripciones_cursos/bulk
+     */
+    public function storeBulk(Request $request)
+    {
+        $this->authorize('create', InscripcionCurso::class);
+
+        $validated = $request->validate([
+            'id_curso'         => ['required', 'integer', Rule::exists(\App\Models\Curso\Curso::class, 'id_curso')],
+            'id_estudiantes'   => ['required', 'array', 'min:1'],
+            'id_estudiantes.*' => ['integer', Rule::exists(\App\Models\Usuario\Estudiante::class, 'id_estudiante')],
+        ]);
+
+        $created = [];
+        $skipped = [];
+
+        foreach ($validated['id_estudiantes'] as $idEstudiante) {
+            $exists = InscripcionCurso::where('id_curso', $validated['id_curso'])
+                ->where('id_estudiante', $idEstudiante)
+                ->exists();
+
+            if ($exists) {
+                $skipped[] = $idEstudiante;
+                continue;
+            }
+
+            try {
+                $inscripcion = $this->inscripcionService->create([
+                    'id_curso'      => $validated['id_curso'],
+                    'id_estudiante' => $idEstudiante,
+                ]);
+                $inscripcion->load('estudiante.usuario', 'curso');
+                $created[] = new InscripcionCursoResource($inscripcion);
+            } catch (\Exception $e) {
+                Log::error('storeBulk error for estudiante ' . $idEstudiante . ': ' . $e->getMessage());
+                $skipped[] = $idEstudiante;
+            }
+        }
+
+        return response()->json(['created' => $created, 'skipped' => $skipped]);
     }
 
     /**
