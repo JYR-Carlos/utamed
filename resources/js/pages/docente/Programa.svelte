@@ -504,7 +504,14 @@
               <h3 class="text-lg font-semibold text-blue-900 mb-2">Crear Programa de Cátedra</h3>
               <p class="text-sm text-blue-800">Inicia la creación del programa básico de la asignatura.</p>
             </div>
-            <Button variant="default" size="lg" onclick={() => { selectedSyllabusType = 'simplified'; isSyllabusModalOpen = true; }}>
+            <Button
+              variant="default"
+              size="lg"
+              onclick={() => {
+                selectedSyllabusType = 'simplified';
+                isSyllabusModalOpen = true;
+              }}
+            >
               <Plus class="mr-2 size-5" />
               Crear Programa
             </Button>

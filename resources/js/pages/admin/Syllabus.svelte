@@ -587,7 +587,12 @@
 </Dialog.Root>
 
 <!-- ─── Diálogo crear programa ───────────────────────────────────────────── -->
-<Dialog.Root open={crearDialog.open} onOpenChange={(v) => { if (!v) cerrarCrearDialog(); }}>
+<Dialog.Root
+  open={crearDialog.open}
+  onOpenChange={(v) => {
+    if (!v) cerrarCrearDialog();
+  }}
+>
   <Dialog.Content class="max-w-sm">
     <Dialog.Header>
       <Dialog.Title class="flex items-center gap-2 text-slate-900">
@@ -601,8 +606,10 @@
 
     <div class="space-y-4 py-2">
       <!-- Tipo determinado automáticamente por las fechas definidas -->
-      <div class="flex items-center gap-3 p-3 rounded-lg border
-        {crearDialog.tipo === 'BASICO' ? 'border-blue-200 bg-blue-50' : 'border-indigo-200 bg-indigo-50'}">
+      <div
+        class="flex items-center gap-3 p-3 rounded-lg border
+        {crearDialog.tipo === 'BASICO' ? 'border-blue-200 bg-blue-50' : 'border-indigo-200 bg-indigo-50'}"
+      >
         {#if crearDialog.tipo === 'BASICO'}
           <span class="inline-block w-3 h-3 rounded-full bg-blue-400 shrink-0"></span>
           <div>

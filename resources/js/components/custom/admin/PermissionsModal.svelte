@@ -752,7 +752,9 @@
                   {:else}
                     <div class="flex flex-wrap gap-2">
                       {#each userCurrentRoleAssignments as asignacion}
-                        <span class="inline-flex items-center gap-1.5 pl-3 pr-1 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 border border-purple-300">
+                        <span
+                          class="inline-flex items-center gap-1.5 pl-3 pr-1 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 border border-purple-300"
+                        >
                           <button
                             onclick={() => openRoleDetail(asignacion)}
                             title="Ver permisos de este rol"
@@ -770,7 +772,15 @@
                             title="Revocar este rol"
                             class="ml-1 w-5 h-5 rounded-full flex items-center justify-center bg-purple-200 hover:bg-red-200 hover:text-red-700 text-purple-600 border-none cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="3"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+                            >
                           </button>
                         </span>
                       {/each}
@@ -861,7 +871,15 @@
                             class:hover:bg-red-300={!perm.esta_permitido}
                             class:text-red-600={!perm.esta_permitido}
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="3"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+                            >
                           </button>
                         </span>
                       {/each}

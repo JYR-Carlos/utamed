@@ -363,9 +363,7 @@
       // Determinar tipo desde data_syllabus.metadata.tipo_syllabus ("BASICO" | "COMPLETO")
       // normalizado a los valores del frontend ('simplified' | 'complete')
       const metaTipo = (data.programa?.data_syllabus?.metadata?.tipo_syllabus ?? '') as string;
-      const normalizedStoredType =
-        metaTipo === 'BASICO' ? 'simplified' :
-        metaTipo === 'COMPLETO' ? 'complete' : '';
+      const normalizedStoredType = metaTipo === 'BASICO' ? 'simplified' : metaTipo === 'COMPLETO' ? 'complete' : '';
 
       // Inferir desde qué secciones existen en el JSONB (formato nuevo: objeto con claves romanas)
       const hasComplexSections = !!(raw.III || raw.IV || raw.V || raw.IX);
@@ -949,7 +947,8 @@
           <button
             onclick={loadPrograma}
             class="mt-3 px-4 py-2 text-slate-700 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
-          >Reintentar</button>
+            >Reintentar</button
+          >
         </div>
       {:else}
         <!-- Step indicator - Dynamic carousel showing only visible steps -->
@@ -1039,7 +1038,13 @@
         <div class="flex-1 overflow-y-auto px-6 py-6">
           {#if isEditMode && programaData?.estado === 'APROBADO'}
             <div class="p-3 rounded-lg bg-amber-50 border border-amber-200 flex gap-2 items-start mb-4">
-              <svg class="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+              <svg class="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"
+                ><path
+                  fill-rule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clip-rule="evenodd"
+                /></svg
+              >
               <div>
                 <p class="font-medium text-sm text-amber-900">Programa Aprobado</p>
                 <p class="text-xs text-amber-800 mt-0.5">Este programa ya fue aprobado. Guardar generará una nueva versión en borrador.</p>
@@ -1135,7 +1140,17 @@
                   <span class="inline-block w-4 h-4 border-2 border-slate-300 border-t-green-600 rounded-full animate-spin"></span>
                   Aprobando...
                 {:else}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg
+                  >
                   Aprobar
                 {/if}
               </button>
