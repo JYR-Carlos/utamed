@@ -56,6 +56,12 @@ class RoleAndPermissionSeeder extends Seeder
             ['creado_por' => $admin->id_usuario]
         );
 
+        // Crear rol Estudiante (se asigna automáticamente al inscribir en un curso)
+        Rol::firstOrCreate(
+            ['nombre' => 'Estudiante'],
+            ['creado_por' => $admin->id_usuario]
+        );
+
         // Asignar rol al admin
         $now = now();
         $future = now()->addDays(36500);  // ~100 años para inicialización del sistema

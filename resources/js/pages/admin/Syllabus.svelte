@@ -2,12 +2,13 @@
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import { router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
-  import { BookOpen, Calendar, Clock, CheckCircle2, AlertCircle, FileText, Edit, X, Search, ChevronDown } from 'lucide-svelte';
+  import { BookOpen, Calendar, Clock, CheckCircle2, AlertCircle, FileText, Edit, X, Search, Plus } from 'lucide-svelte';
   import * as Card from '@/components/ui/card';
   import * as Dialog from '@/components/ui/dialog';
   import { Button } from '@/components/ui/button';
   import { Input } from '@/components/ui/input';
   import { Label } from '@/components/ui/label';
+  import DatePickerCL from '@/components/custom/common/DatePickerCL.svelte';
 
   // ─── Props ───────────────────────────────────────────────────────────────
   interface CursoSyllabus {
@@ -71,12 +72,59 @@
     router.get('/admin/syllabus', {});
   }
 
+  // ─── Diálogo crear programa ──────────────────────────────────────────────
+  interface CrearDialog {
+    open: boolean;
+    curso: CursoSyllabus | null;
+    tipo: 'BASICO' | 'COMPLETO';
+    saving: boolean;
+    error: string;
+  }
+
+  let crearDialog = $state<CrearDialog>({
+    open: false,
+    curso: null,
+    tipo: 'BASICO',
+    saving: false,
+    error: '',
+  });
+
+  function abrirCrearDialog(curso: CursoSyllabus) {
+    // Auto-select type based on which date is set:
+    // - Solo fecha básica → BASICO
+    // - Fecha completa (con o sin básica) → COMPLETO
+    // - Sin fechas → BASICO por defecto
+    const tipo = curso.fecha_limite_entrega_syllabus ? 'COMPLETO' : 'BASICO';
+    crearDialog = { open: true, curso, tipo, saving: false, error: '' };
+  }
+
+  function cerrarCrearDialog() {
+    crearDialog = { ...crearDialog, open: false, curso: null };
+  }
+
+  function crearPrograma() {
+    const curso = crearDialog.curso;
+    if (!curso) return;
+    crearDialog = { ...crearDialog, saving: true, error: '' };
+    router.post(
+      `/admin/cursos/${curso.id_curso}/programa/instanciar`,
+      { tipo_syllabus: crearDialog.tipo },
+      {
+        onSuccess: () => cerrarCrearDialog(),
+        onError: (errors) => {
+          const msg = Object.values(errors).flat().join('. ');
+          crearDialog = { ...crearDialog, saving: false, error: msg };
+        },
+      },
+    );
+  }
+
   // ─── Diálogo de fechas ───────────────────────────────────────────────────
   interface FechasDialog {
     open: boolean;
     curso: CursoSyllabus | null;
-    fechaBasico: string;
-    fechaCompleto: string;
+    modo: 'basico' | 'completo';
+    fecha: string;
     saving: boolean;
     error: string;
   }
@@ -84,18 +132,29 @@
   let dialog = $state<FechasDialog>({
     open: false,
     curso: null,
-    fechaBasico: '',
-    fechaCompleto: '',
+    modo: 'basico',
+    fecha: '',
     saving: false,
     error: '',
   });
 
-  function abrirDialogFechas(curso: CursoSyllabus) {
+  function abrirDialogBasico(curso: CursoSyllabus) {
     dialog = {
       open: true,
       curso,
-      fechaBasico: isoToInputDate(curso.fecha_limite_entrega_basico),
-      fechaCompleto: isoToInputDate(curso.fecha_limite_entrega_syllabus),
+      modo: 'basico',
+      fecha: isoToInputDate(curso.fecha_limite_entrega_basico),
+      saving: false,
+      error: '',
+    };
+  }
+
+  function abrirDialogCompleto(curso: CursoSyllabus) {
+    dialog = {
+      open: true,
+      curso,
+      modo: 'completo',
+      fecha: isoToInputDate(curso.fecha_limite_entrega_syllabus),
       saving: false,
       error: '',
     };
@@ -106,34 +165,44 @@
   }
 
   function guardarFechas() {
-    if (!dialog.curso) return;
+    const curso = dialog.curso;
+    if (!curso) return;
 
     dialog = { ...dialog, saving: true, error: '' };
 
-    router.put(
-      `/admin/cursos/${dialog.curso.id_curso}/programa/fechas`,
-      {
-        fecha_limite_entrega_basico: dialog.fechaBasico || null,
-        fecha_limite_entrega_syllabus: dialog.fechaCompleto || null,
+    const payload =
+      dialog.modo === 'basico' ? { fecha_limite_entrega_basico: dialog.fecha || null } : { fecha_limite_entrega_syllabus: dialog.fecha || null };
+
+    router.put(`/admin/cursos/${curso.id_curso}/programa/fechas`, payload, {
+      onSuccess: () => {
+        dialog = { ...dialog, open: false, saving: false };
       },
-      {
-        onSuccess: () => {
-          dialog = { ...dialog, open: false, saving: false };
-        },
-        onError: (errors) => {
-          const msg = Object.values(errors).flat().join('. ');
-          dialog = { ...dialog, saving: false, error: msg };
-        },
+      onError: (errors) => {
+        const msg = Object.values(errors).flat().join('. ');
+        dialog = { ...dialog, saving: false, error: msg };
       },
-    );
+    });
   }
 
   // ─── Utilidades de fecha ─────────────────────────────────────────────────
 
-  /** Convierte ISO string → valor de <input type="date"> (YYYY-MM-DD) */
+  /** Convierte ISO string → "YYYY-MM-DD" para el DatePicker */
   function isoToInputDate(iso: string | null): string {
     if (!iso) return '';
-    return iso.substring(0, 10);
+    return iso.slice(0, 10);
+  }
+
+  /** DD-MM-AAAA → YYYY-MM-DD (para enviar al servidor) — ya no necesario con DatePickerCL */
+
+  /**
+   * Parsea una fecha ISO del servidor como fecha local (sin conversión UTC).
+   * El servidor envía "2026-03-03T00:00:00.000000Z" (UTC), pero la fecha
+   * representa un día del calendario chileno. Se extrae YYYY-MM-DD y se
+   * construye como fecha local para evitar el desfase de zona horaria.
+   */
+  function parseLocalDate(iso: string): Date {
+    const [year, month, day] = iso.slice(0, 10).split('-').map(Number);
+    return new Date(year, month - 1, day);
   }
 
   /** Días restantes desde hoy hasta `iso`. Negativo = pasado. */
@@ -141,15 +210,14 @@
     if (!iso) return null;
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    const target = new Date(iso);
-    target.setHours(0, 0, 0, 0);
+    const target = parseLocalDate(iso);
     return Math.round((target.getTime() - now.getTime()) / 86_400_000);
   }
 
   /** Formato legible de fecha */
   function formatFecha(iso: string | null): string {
     if (!iso) return '—';
-    return new Date(iso).toLocaleDateString('es-EC', {
+    return parseLocalDate(iso).toLocaleDateString('es-CL', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -175,8 +243,8 @@
       return { tipo: 'definir-completo' };
     }
 
-    // 2. Si el syllabus es versión básica EN PROGRESO y tiene fecha básico → días restantes básico
-    if (c.fecha_limite_entrega_basico && c.programa && c.programa.tipo_syllabus === 'BASICO') {
+    // 2. Si tiene fecha básico definida (y el básico aún no está completo) → días restantes básico
+    if (c.fecha_limite_entrega_basico) {
       return { tipo: 'dias-basico', dias: diasRestantes(c.fecha_limite_entrega_basico) };
     }
 
@@ -396,7 +464,7 @@
                     </div>
                   {:else if accion.tipo === 'definir-completo'}
                     <button
-                      onclick={() => abrirDialogFechas(curso)}
+                      onclick={() => abrirDialogCompleto(curso)}
                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
                     >
                       <Calendar size={13} />
@@ -405,7 +473,7 @@
                   {:else}
                     <!-- definir-basico (default) -->
                     <button
-                      onclick={() => abrirDialogFechas(curso)}
+                      onclick={() => abrirDialogBasico(curso)}
                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                     >
                       <Calendar size={13} />
@@ -425,7 +493,13 @@
                       Ver / Editar
                     </a>
                   {:else}
-                    <span class="text-slate-300 text-xs">Sin programa</span>
+                    <button
+                      onclick={() => abrirCrearDialog(curso)}
+                      class="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-800 font-medium text-xs"
+                    >
+                      <Plus size={13} />
+                      Crear syllabus
+                    </button>
                   {/if}
                 </td>
               </tr>
@@ -462,8 +536,8 @@
   <Dialog.Content class="max-w-md">
     <Dialog.Header>
       <Dialog.Title class="flex items-center gap-2 text-slate-900">
-        <Clock size={18} class="text-blue-600" />
-        Fechas límite de entrega
+        <Clock size={18} class={dialog.modo === 'basico' ? 'text-blue-600' : 'text-indigo-600'} />
+        {dialog.modo === 'basico' ? 'Fecha límite — Syllabus básico' : 'Fecha límite — Syllabus completo'}
       </Dialog.Title>
       <Dialog.Description class="text-slate-500 text-sm">
         {dialog.curso?.nombre ?? ''}
@@ -471,25 +545,30 @@
     </Dialog.Header>
 
     <div class="space-y-5 py-2">
-      <!-- Fecha básico -->
-      <div class="space-y-1.5">
-        <Label for="fecha-basico" class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-          <span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-400"></span>
-          Fecha límite — Syllabus básico
-        </Label>
-        <Input id="fecha-basico" type="date" bind:value={dialog.fechaBasico} class="text-sm" />
-        <p class="text-xs text-slate-400">Plazo que tiene el docente para entregar la versión básica (5 secciones).</p>
-      </div>
-
-      <!-- Fecha completo -->
-      <div class="space-y-1.5">
-        <Label for="fecha-completo" class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-          <span class="inline-block w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
-          Fecha límite — Syllabus completo
-        </Label>
-        <Input id="fecha-completo" type="date" bind:value={dialog.fechaCompleto} min={dialog.fechaBasico || undefined} class="text-sm" />
-        <p class="text-xs text-slate-400">Plazo para la versión completa (9 secciones). Debe ser igual o posterior al básico.</p>
-      </div>
+      {#if dialog.modo === 'basico'}
+        <div class="space-y-1.5">
+          <Label for="fecha-basico" class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-400"></span>
+            Fecha límite — Syllabus básico
+          </Label>
+          <DatePickerCL id="fecha-basico" value={dialog.fecha || null} onchange={(v) => (dialog = { ...dialog, fecha: v ?? '' })} />
+          <p class="text-xs text-slate-400">Plazo que tiene el docente para entregar la versión básica (5 secciones).</p>
+        </div>
+      {:else}
+        <div class="space-y-1.5">
+          <Label for="fecha-completo" class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
+            Fecha límite — Syllabus completo
+          </Label>
+          <DatePickerCL
+            id="fecha-completo"
+            value={dialog.fecha || null}
+            minValue={dialog.curso?.fecha_limite_entrega_basico ? isoToInputDate(dialog.curso.fecha_limite_entrega_basico) : null}
+            onchange={(v) => (dialog = { ...dialog, fecha: v ?? '' })}
+          />
+          <p class="text-xs text-slate-400">Plazo para la versión completa (9 secciones). Debe ser igual o posterior al básico.</p>
+        </div>
+      {/if}
 
       {#if dialog.error}
         <p class="text-sm text-red-600 bg-red-50 rounded-md px-3 py-2 border border-red-200">
@@ -502,6 +581,54 @@
       <Button variant="ghost" onclick={cerrarDialog} disabled={dialog.saving}>Cancelar</Button>
       <Button onclick={guardarFechas} disabled={dialog.saving} class="bg-blue-600 hover:bg-blue-700">
         {dialog.saving ? 'Guardando…' : 'Guardar fechas'}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
+
+<!-- ─── Diálogo crear programa ───────────────────────────────────────────── -->
+<Dialog.Root open={crearDialog.open} onOpenChange={(v) => { if (!v) cerrarCrearDialog(); }}>
+  <Dialog.Content class="max-w-sm">
+    <Dialog.Header>
+      <Dialog.Title class="flex items-center gap-2 text-slate-900">
+        <Plus size={18} class="text-emerald-600" />
+        Crear syllabus
+      </Dialog.Title>
+      <Dialog.Description class="text-slate-500 text-sm">
+        {crearDialog.curso?.nombre ?? ''}
+      </Dialog.Description>
+    </Dialog.Header>
+
+    <div class="space-y-4 py-2">
+      <!-- Tipo determinado automáticamente por las fechas definidas -->
+      <div class="flex items-center gap-3 p-3 rounded-lg border
+        {crearDialog.tipo === 'BASICO' ? 'border-blue-200 bg-blue-50' : 'border-indigo-200 bg-indigo-50'}">
+        {#if crearDialog.tipo === 'BASICO'}
+          <span class="inline-block w-3 h-3 rounded-full bg-blue-400 shrink-0"></span>
+          <div>
+            <p class="text-sm font-medium text-slate-800">Syllabus básico</p>
+            <p class="text-xs text-slate-500">5 secciones obligatorias. El docente podrá completarlo antes de la fecha límite.</p>
+          </div>
+        {:else}
+          <span class="inline-block w-3 h-3 rounded-full bg-indigo-400 shrink-0"></span>
+          <div>
+            <p class="text-sm font-medium text-slate-800">Syllabus completo</p>
+            <p class="text-xs text-slate-500">9 secciones. Toma los datos de la versión básica y la completa.</p>
+          </div>
+        {/if}
+      </div>
+
+      {#if crearDialog.error}
+        <p class="text-sm text-red-600 bg-red-50 rounded-md px-3 py-2 border border-red-200">
+          {crearDialog.error}
+        </p>
+      {/if}
+    </div>
+
+    <Dialog.Footer class="gap-2">
+      <Button variant="ghost" onclick={cerrarCrearDialog} disabled={crearDialog.saving}>Cancelar</Button>
+      <Button onclick={crearPrograma} disabled={crearDialog.saving} class="bg-emerald-600 hover:bg-emerald-700">
+        {crearDialog.saving ? 'Creando…' : 'Crear syllabus'}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

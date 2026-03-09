@@ -5,9 +5,13 @@ namespace App\Services;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
 use App\Models\Usuario\Estudiante;
+use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
+use App\Models\Usuario\UsuarioRolAsignacion;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -28,7 +32,11 @@ class InscripcionCursoService
             $data['estado_inscripcion'] ??= 'INSCRITO';
             $data['num_intento'] ??= 1;
 
-            return InscripcionCurso::create($data);
+            $inscripcion = InscripcionCurso::create($data);
+
+            $this->assignEstudianteRoleCurso($inscripcion);
+
+            return $inscripcion;
         });
     }
 
@@ -49,7 +57,9 @@ class InscripcionCursoService
     public function delete(InscripcionCurso $inscripcion): bool
     {
         return DB::transaction(function () use ($inscripcion) {
-            return $inscripcion->delete();
+            $this->revokeEstudianteRoleCurso($inscripcion);
+
+            return (bool) $inscripcion->delete();
         });
     }
 
@@ -173,6 +183,94 @@ class InscripcionCursoService
             ->with(['curso', 'estudiante.usuario'])
             ->orderBy('fecha_inscripcion', 'desc')
             ->paginate($perPage, ['*'], 'page', $filters['page'] ?? 1);
+    }
+
+    /**
+     * Asigna el rol 'Estudiante' al usuario en el contexto del curso inscrito.
+     */
+    private function assignEstudianteRoleCurso(InscripcionCurso $inscripcion): void
+    {
+        try {
+            $inscripcion->load(['curso', 'estudiante']);
+            $curso = $inscripcion->curso;
+            $estudiante = $inscripcion->estudiante;
+
+            if (!$curso || !$curso->id_contexto || !$estudiante || !$estudiante->id_usuario) {
+                Log::warning('No se pudo asignar rol Estudiante: falta contexto o usuario.', [
+                    'id_inscripcion_curso' => $inscripcion->id_inscripcion_curso,
+                ]);
+                return;
+            }
+
+            $actorId = Auth::id() ?? $estudiante->id_usuario;
+            $rol = Rol::firstOrCreate(
+                ['nombre' => 'Estudiante'],
+                ['creado_por' => $actorId]
+            );
+
+            $already = UsuarioRolAsignacion::where('id_usuario', $estudiante->id_usuario)
+                ->where('id_contexto', $curso->id_contexto)
+                ->where('id_rol', $rol->id_rol)
+                ->where('esta_activo', true)
+                ->where('fue_eliminado', false)
+                ->exists();
+
+            if (!$already) {
+                $now = Carbon::now();
+                UsuarioRolAsignacion::create([
+                    'id_usuario'                => $estudiante->id_usuario,
+                    'id_rol'                    => $rol->id_rol,
+                    'id_contexto'               => $curso->id_contexto,
+                    'asignado_por'              => $actorId,
+                    'fecha_inicio_planificada'  => $now,
+                    'fecha_fin_planificada'     => $now->copy()->addYears(100),
+                    'fecha_fin_real'            => null,
+                    'fue_eliminado'             => false,
+                    'esta_activo'               => true,
+                    'creado_por'                => $actorId,
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error asignando rol Estudiante en curso: ' . $e->getMessage(), [
+                'id_inscripcion_curso' => $inscripcion->id_inscripcion_curso,
+            ]);
+        }
+    }
+
+    /**
+     * Revoca el rol 'Estudiante' del usuario en el contexto del curso al eliminar la inscripción.
+     */
+    private function revokeEstudianteRoleCurso(InscripcionCurso $inscripcion): void
+    {
+        try {
+            $inscripcion->loadMissing(['curso', 'estudiante']);
+            $curso = $inscripcion->curso;
+            $estudiante = $inscripcion->estudiante;
+
+            if (!$curso || !$curso->id_contexto || !$estudiante || !$estudiante->id_usuario) {
+                return;
+            }
+
+            $rol = Rol::where('nombre', 'Estudiante')->first();
+            if (!$rol) {
+                return;
+            }
+
+            UsuarioRolAsignacion::where('id_usuario', $estudiante->id_usuario)
+                ->where('id_contexto', $curso->id_contexto)
+                ->where('id_rol', $rol->id_rol)
+                ->where('esta_activo', true)
+                ->where('fue_eliminado', false)
+                ->update([
+                    'esta_activo'    => false,
+                    'fecha_fin_real' => Carbon::now(),
+                    'eliminado_por'  => Auth::id(),
+                ]);
+        } catch (\Exception $e) {
+            Log::error('Error revocando rol Estudiante en curso: ' . $e->getMessage(), [
+                'id_inscripcion_curso' => $inscripcion->id_inscripcion_curso,
+            ]);
+        }
     }
 
     /**

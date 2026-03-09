@@ -24,8 +24,11 @@
   const hasRole = (requiredRoles: string[]) => {
     if (requiredRoles.includes('*')) return true;
     if (isSuperAdmin) return true;
-    if (authRoles.includes('SuperAdmin') || authRoles.includes('Super Admin')) return true;
-    return authRoles.some((r) => requiredRoles.includes(r));
+    if (authRoles.includes('SuperAdmin') || authRoles.includes('Super Admin') || authRoles.includes('superadmin')) return true;
+    // Normalize comparison - convert both to lowercase
+    const normalizedAuthRoles = authRoles.map((r) => r.toLowerCase());
+    const normalizedRequiredRoles = requiredRoles.map((r) => r.toLowerCase());
+    return normalizedAuthRoles.some((r) => normalizedRequiredRoles.includes(r));
   };
 
   // Redirigir docentes al dashboard de docentes si están en la admin

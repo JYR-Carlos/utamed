@@ -581,13 +581,16 @@
 </script>
 
 <AdminLayout>
-  <div class="page-container">
-    <div class="page-header">
+  <div class="p-8 max-w-6xl mx-auto">
+    <div class="flex justify-between items-start mb-8">
       <div>
-        <h1 class="page-title">Cursos</h1>
-        <p class="page-description">Gestión de cursos y asignación de docentes</p>
+        <h1 class="text-3xl font-bold text-gray-900 mb-1">Cursos</h1>
+        <p class="text-sm text-gray-500">Gestión de cursos y asignación de docentes</p>
       </div>
-      <button onclick={openCreateModal} class="btn-primary">
+      <button
+        onclick={openCreateModal}
+        class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95"
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="20"
@@ -775,7 +778,13 @@
 
   <!-- Toast Notification -->
   {#if toast}
-    <div class="toast toast-{toast.type}" role="status" aria-live="polite">
+    <div
+      role="status"
+      aria-live="polite"
+      class="fixed bottom-6 right-6 z-[10000] flex items-center gap-2.5 px-5 py-3 rounded-xl text-sm font-medium shadow-xl {toast.type === 'success'
+        ? 'bg-green-50 border border-green-200 text-green-800'
+        : 'bg-red-50 border border-red-200 text-red-700'}"
+    >
       {#if toast.type === 'success'}
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -822,12 +831,12 @@
   />
 
   <FormModal bind:isOpen={showModal} title="Editar Curso" onClose={closeModal} onSubmit={handleSubmit} {isLoading}>
-    <div class="form-group">
-      <label for="plan" class="form-label">Plan (Malla) *</label>
+    <div class="mb-4">
+      <label for="plan" class="block text-sm font-medium text-gray-700 mb-2">Plan (Malla) *</label>
       <select
         id="plan"
         bind:value={formData.id_plan}
-        class="form-input"
+        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         onchange={() => {
           formData.id_asignatura = 0; // Reset asignatura when plan changes
           loadAsignaturasByPlan(formData.id_plan);
@@ -837,15 +846,21 @@
         <option value={0}>Seleccione un plan</option>
         {#each planes as plan}
           <option value={plan.id_plan}>
-            {plan.carrera?.nombre} - {plan.agno} v{plan.version}
+            {plan.carrera?.nombre} - {plan.agno} v{plan.version_plan}
           </option>
         {/each}
       </select>
     </div>
 
-    <div class="form-group">
-      <label for="asignatura" class="form-label">Asignatura *</label>
-      <select id="asignatura" bind:value={formData.id_asignatura} class="form-input" disabled={formData.id_plan === 0 || loadingAsignaturas} required>
+    <div class="mb-4">
+      <label for="asignatura" class="block text-sm font-medium text-gray-700 mb-2">Asignatura *</label>
+      <select
+        id="asignatura"
+        bind:value={formData.id_asignatura}
+        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        disabled={formData.id_plan === 0 || loadingAsignaturas}
+        required
+      >
         <option value={0}>
           {#if formData.id_plan === 0}
             Primero seleccione un plan
@@ -865,53 +880,91 @@
       </select>
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label for="cod_curso" class="form-label">Código de Curso *</label>
-        <input id="cod_curso" type="number" bind:value={formData.cod_curso} class="form-input" placeholder="Ej: 12345" required />
+    <div class="grid grid-cols-2 gap-4">
+      <div class="mb-4">
+        <label for="cod_curso" class="block text-sm font-medium text-gray-700 mb-2">Código de Curso *</label>
+        <input
+          id="cod_curso"
+          type="number"
+          bind:value={formData.cod_curso}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          placeholder="Ej: 12345"
+          required
+        />
       </div>
     </div>
 
-    <div class="form-group">
-      <label for="nombre" class="form-label">Nombre del Curso</label>
-      <input id="nombre" type="text" bind:value={formData.nombre} class="form-input" placeholder="Nombre personalizado (opcional)" />
+    <div class="mb-4">
+      <label for="nombre" class="block text-sm font-medium text-gray-700 mb-2">Nombre del Curso</label>
+      <input
+        id="nombre"
+        type="text"
+        bind:value={formData.nombre}
+        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        placeholder="Nombre personalizado (opcional)"
+      />
     </div>
 
-    <div class="form-group">
-      <label for="fecha_inicio" class="form-label">Fecha de Inicio</label>
-      <input id="fecha_inicio" type="date" bind:value={formData.fecha_inicio} class="form-input" />
+    <div class="mb-4">
+      <label for="fecha_inicio" class="block text-sm font-medium text-gray-700 mb-2">Fecha de Inicio</label>
+      <input
+        id="fecha_inicio"
+        type="date"
+        bind:value={formData.fecha_inicio}
+        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      />
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label for="agno_real" class="form-label">Año Real *</label>
-        <input id="agno_real" type="number" bind:value={formData.agno_real} class="form-input" min="2000" max="2100" required />
+    <div class="grid grid-cols-2 gap-4">
+      <div class="mb-4">
+        <label for="agno_real" class="block text-sm font-medium text-gray-700 mb-2">Año Real *</label>
+        <input
+          id="agno_real"
+          type="number"
+          bind:value={formData.agno_real}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          min="2000"
+          max="2100"
+          required
+        />
       </div>
-      <div class="form-group">
-        <label for="semestre_real" class="form-label">Semestre Real *</label>
-        <select id="semestre_real" bind:value={formData.semestre_real} class="form-input" required>
+      <div class="mb-4">
+        <label for="semestre_real" class="block text-sm font-medium text-gray-700 mb-2">Semestre Real *</label>
+        <select
+          id="semestre_real"
+          bind:value={formData.semestre_real}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          required
+        >
           <option value={1}>1</option>
           <option value={2}>2</option>
         </select>
       </div>
     </div>
 
-    <div class="form-group">
-      <div class="form-label">Secciones del Curso</div>
+    <div class="mb-4">
+      <div class="block text-sm font-medium text-gray-700 mb-2">Secciones del Curso</div>
       {#if loadingSecciones}
         <p>Cargando secciones...</p>
       {:else}
-        <div class="secciones-list">
+        <div class="flex flex-col gap-3 mb-8">
           {#each currentSecciones as seccion, i (seccion.id_seccion || 'new-' + i)}
-            <div class="seccion-item">
-              <div class="seccion-info">
-                <span class="badget">{seccion.tipo_seccion?.tipo || 'Sección'}</span>
+            <div class="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <div class="min-w-[120px]">
+                <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold"
+                  >{seccion.tipo_seccion?.tipo || 'Sección'}</span
+                >
               </div>
-              <div class="seccion-docente">
+              <div class="flex-1">
                 {#if seccion.id_docente}
-                  <div class="docente-display">
-                    <span class="docente-name">{seccion.docente?.nombre_completo || 'Sin nombre'}</span>
-                    <button type="button" class="btn-edit-docente" aria-label="Editar docente" onclick={() => toggleEditDocente(seccion)}>
+                  <div class="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-md">
+                    <span class="flex-1 text-sm text-slate-800 font-medium">{seccion.docente?.nombre_completo || 'Sin nombre'}</span>
+                    <button
+                      type="button"
+                      class="p-1 text-sky-600 bg-transparent border-0 cursor-pointer rounded flex items-center justify-center hover:bg-sky-100 transition-colors"
+                      aria-label="Editar docente"
+                      onclick={() => toggleEditDocente(seccion)}
+                    >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="16"
@@ -927,10 +980,15 @@
                     </button>
                   </div>
                 {:else}
-                  <span class="docente-empty">Sin docente asignado</span>
+                  <span class="text-sm text-slate-400 italic">Sin docente asignado</span>
                 {/if}
               </div>
-              <button type="button" class="btn-icon" onclick={() => deleteSeccion(seccion.id_seccion)} title="Eliminar Sección">
+              <button
+                type="button"
+                class="p-2 text-red-500 bg-transparent border-0 cursor-pointer rounded-md flex items-center justify-center hover:bg-red-50"
+                onclick={() => deleteSeccion(seccion.id_seccion)}
+                title="Eliminar Sección"
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="16"
@@ -950,10 +1008,14 @@
         </div>
 
         {#if showEditDocente && editingSeccion}
-          <div class="edit-docente-form">
-            <div class="form-group">
+          <div class="p-4 bg-gray-50 border-2 border-blue-500 rounded-lg my-4">
+            <div class="mb-4">
               <label for="docente-select-{editingSeccion.id_seccion}">Asignar Docente a {editingSeccion.tipo_seccion?.tipo || 'Sección'}</label>
-              <select id="docente-select-{editingSeccion.id_seccion}" bind:value={editingDocenteId} class="form-input">
+              <select
+                id="docente-select-{editingSeccion.id_seccion}"
+                bind:value={editingDocenteId}
+                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              >
                 <option value={null}>Sin docente</option>
                 {#each docentes as docente}
                   <option value={docente.id_docente}>{docente.nombre_completo}</option>
@@ -962,43 +1024,47 @@
             </div>
 
             {#if selectedDocenteDetails}
-              <div class="docente-details-panel">
-                <h5>Información del Docente</h5>
-                <div class="details-grid">
-                  <div class="detail-item">
-                    <span class="detail-label">Nombre Completo:</span>
-                    <span class="detail-value">{selectedDocenteDetails.nombre_completo || 'Sin nombre'}</span>
+              <div class="p-4 bg-sky-50 border border-blue-200 rounded-lg my-4">
+                <h5 class="text-sm font-semibold text-blue-800 mb-4 mt-0">Información del Docente</h5>
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="flex flex-col gap-1">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Nombre Completo:</span>
+                    <span class="text-sm text-slate-800 font-medium">{selectedDocenteDetails.nombre_completo || 'Sin nombre'}</span>
                   </div>
                   {#if selectedDocenteDetails.email}
-                    <div class="detail-item">
-                      <span class="detail-label">Email:</span>
-                      <span class="detail-value">{selectedDocenteDetails.email}</span>
+                    <div class="flex flex-col gap-1">
+                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Email:</span>
+                      <span class="text-sm text-slate-800 font-medium">{selectedDocenteDetails.email}</span>
                     </div>
                   {/if}
                   {#if selectedDocenteDetails.grado}
-                    <div class="detail-item">
-                      <span class="detail-label">Grado:</span>
-                      <span class="detail-value">{selectedDocenteDetails.grado}</span>
+                    <div class="flex flex-col gap-1">
+                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Grado:</span>
+                      <span class="text-sm text-slate-800 font-medium">{selectedDocenteDetails.grado}</span>
                     </div>
                   {/if}
                   {#if selectedDocenteDetails.titulo}
-                    <div class="detail-item">
-                      <span class="detail-label">Título:</span>
-                      <span class="detail-value">{selectedDocenteDetails.titulo}</span>
+                    <div class="flex flex-col gap-1">
+                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Título:</span>
+                      <span class="text-sm text-slate-800 font-medium">{selectedDocenteDetails.titulo}</span>
                     </div>
                   {/if}
                   {#if selectedDocenteDetails.cargo}
-                    <div class="detail-item">
-                      <span class="detail-label">Cargo:</span>
-                      <span class="detail-value">{selectedDocenteDetails.cargo}</span>
+                    <div class="flex flex-col gap-1">
+                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Cargo:</span>
+                      <span class="text-sm text-slate-800 font-medium">{selectedDocenteDetails.cargo}</span>
                     </div>
                   {/if}
                 </div>
               </div>
             {/if}
 
-            <div class="form-actions">
-              <button type="button" class="btn-primary" onclick={saveDocente}>
+            <div class="flex gap-3 mt-4">
+              <button
+                type="button"
+                class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95"
+                onclick={saveDocente}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="16"
@@ -1015,7 +1081,11 @@
                 >
                 Guardar
               </button>
-              <button type="button" class="btn-secondary" onclick={cancelEditDocente}>
+              <button
+                type="button"
+                class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-md font-medium cursor-pointer transition-all hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                onclick={cancelEditDocente}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="16"
@@ -1035,12 +1105,12 @@
           </div>
         {/if}
 
-        <div class="add-seccion-form">
-          <h4>Agregar Sección</h4>
-          <div class="form-row">
+        <div class="p-4 bg-slate-50 border border-dashed border-slate-300 rounded-lg">
+          <h4 class="text-sm font-semibold text-slate-600 mt-0 mb-4">Agregar Sección</h4>
+          <div class="grid grid-cols-2 gap-4">
             <select
               bind:value={newSeccionData.id_tipo_seccion}
-              class="form-input"
+              class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               disabled={availableTiposSeccion.length === 0 || currentSecciones.length >= 3}
             >
               <option value={undefined}>
@@ -1056,7 +1126,11 @@
                 <option value={tipo.id_tipo_seccion}>{tipo.tipo}</option>
               {/each}
             </select>
-            <select bind:value={newSeccionData.id_docente} class="form-input" disabled={currentSecciones.length >= 3}>
+            <select
+              bind:value={newSeccionData.id_docente}
+              class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              disabled={currentSecciones.length >= 3}
+            >
               <option value={undefined}>Docente (Opcional)</option>
               {#each docentes as docente}
                 <option value={docente.id_docente}>{docente.nombre_completo}</option>
@@ -1064,7 +1138,7 @@
             </select>
             <button
               type="button"
-              class="btn-primary"
+              class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95"
               onclick={addSeccion}
               disabled={!newSeccionData.id_tipo_seccion || loadingSecciones || currentSecciones.length >= 3}
             >
@@ -1100,403 +1174,4 @@
     onCancel={closeDeleteDialog}
     {isLoading}
   />
-
-  <style>
-    .page-container {
-      padding: 2rem;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 2rem;
-    }
-
-    .page-title {
-      font-size: 1.875rem;
-      font-weight: 700;
-      color: #111827;
-      margin: 0 0 0.25rem 0;
-    }
-
-    .page-description {
-      color: #6b7280;
-      font-size: 0.875rem;
-      margin: 0;
-    }
-
-    .btn-primary {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.625rem 1.25rem;
-      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 6px rgba(59, 130, 246, 0.4);
-    }
-
-    .form-group {
-      margin-bottom: 1rem;
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-
-    .form-label {
-      display: block;
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: #374151;
-      margin-bottom: 0.5rem;
-    }
-
-    .form-input {
-      width: 100%;
-      padding: 0.625rem 0.875rem;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: 0.875rem;
-      color: #111827;
-      background-color: white;
-      transition: all 0.2s;
-    }
-
-    .form-input:focus {
-      outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-    .secciones-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      margin-bottom: 2rem;
-    }
-
-    .seccion-item {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.75rem;
-      background-color: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-    }
-
-    .seccion-info {
-      min-width: 120px;
-    }
-
-    .badget {
-      /* Correcting badge class name */
-      display: inline-block;
-      padding: 0.25rem 0.75rem;
-      background-color: #e0e7ff;
-      color: #4338ca;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-
-    .seccion-docente {
-      flex: 1;
-    }
-
-    .seccion-docente select {
-      margin-bottom: 0;
-    }
-
-    .btn-icon {
-      padding: 0.5rem;
-      color: #ef4444;
-      background: none;
-      border: none;
-      cursor: pointer;
-      border-radius: 0.375rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .btn-icon:hover {
-      background-color: #fee2e2;
-    }
-
-    .add-seccion-form {
-      padding: 1rem;
-      background-color: #f8fafc;
-      border: 1px dashed #cbd5e1;
-      border-radius: 0.5rem;
-    }
-
-    .add-seccion-form h4 {
-      margin-top: 0;
-      margin-bottom: 1rem;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: #475569;
-    }
-
-    .btn-secondary {
-      background-color: #ffffff;
-      border: 1px solid #cbd5e1;
-      color: #475569;
-      padding: 0.5rem 1rem;
-      border-radius: 0.375rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-secondary:hover:not(:disabled) {
-      background-color: #f1f5f9;
-      border-color: #94a3b8;
-    }
-
-    .btn-secondary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .form-actions {
-      display: flex;
-      gap: 1rem;
-      margin-top: 2rem;
-      padding-top: 2rem;
-      border-top: 1px solid #e5e7eb;
-    }
-
-    .btn-action {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.625rem 1.25rem;
-      border: 1px solid #d1d5db;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
-      font-weight: 500;
-      background-color: #ffffff;
-      color: #374151;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-action:hover {
-      background-color: #f9fafb;
-      border-color: #9ca3af;
-    }
-
-    .btn-inscriptions {
-      background-color: #eff6ff;
-      color: #1e40af;
-      border-color: #93c5fd;
-    }
-
-    .btn-inscriptions:hover {
-      background-color: #dbeafe;
-      border-color: #60a5fa;
-    }
-
-    /* ── Toast notification ───────────────────────────────── */
-    .toast {
-      position: fixed;
-      bottom: 1.5rem;
-      right: 1.5rem;
-      z-index: 10000;
-      display: flex;
-      align-items: center;
-      gap: 0.625rem;
-      padding: 0.75rem 1.25rem;
-      border-radius: 10px;
-      font-size: 0.875rem;
-      font-weight: 500;
-      box-shadow:
-        0 8px 24px rgba(0, 0, 0, 0.12),
-        0 2px 8px rgba(0, 0, 0, 0.08);
-      animation: toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
-    }
-
-    .toast-success {
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      color: #166534;
-    }
-
-    .toast-error {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #dc2626;
-    }
-
-    @keyframes toast-in {
-      from {
-        opacity: 0;
-        transform: translateY(12px) scale(0.96);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    /* ── Docente Display and Edit ──────────────────────── */
-    .docente-display {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem;
-      background-color: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.375rem;
-    }
-
-    .docente-name {
-      flex: 1;
-      font-size: 0.875rem;
-      color: #1e293b;
-      font-weight: 500;
-    }
-
-    .docente-empty {
-      font-size: 0.875rem;
-      color: #94a3b8;
-      font-style: italic;
-    }
-
-    .btn-edit-docente {
-      padding: 0.25rem;
-      color: #0284c7;
-      background: none;
-      border: none;
-      cursor: pointer;
-      border-radius: 0.25rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background-color 0.2s;
-    }
-
-    .btn-edit-docente:hover {
-      background-color: #e0f2fe;
-    }
-
-    .edit-docente-form {
-      padding: 1rem;
-      background-color: #fafafa;
-      border: 2px solid #3b82f6;
-      border-radius: 0.5rem;
-      margin: 1rem 0;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-    }
-
-    .form-group label {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: #1e293b;
-    }
-
-    .form-group .form-input {
-      padding: 0.625rem 0.75rem;
-      border: 1px solid #cbd5e1;
-      border-radius: 0.375rem;
-      font-size: 0.875rem;
-    }
-
-    .form-actions {
-      display: flex;
-      gap: 0.75rem;
-      margin-top: 1rem;
-    }
-
-    .btn-primary {
-      background-color: #3b82f6;
-      color: #ffffff;
-      padding: 0.625rem 1.25rem;
-      border: none;
-      border-radius: 0.375rem;
-      font-weight: 500;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      transition: all 0.2s;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background-color: #2563eb;
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .mr-2 {
-      margin-right: 0.5rem;
-    }
-
-    /* ── Docente Details Panel ────────────────────────── */
-    .docente-details-panel {
-      padding: 1rem;
-      background-color: #f0f9ff;
-      border: 1px solid #bfdbfe;
-      border-radius: 0.5rem;
-      margin: 1rem 0;
-    }
-
-    .docente-details-panel h5 {
-      margin: 0 0 1rem 0;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: #1e40af;
-    }
-
-    .details-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-
-    .detail-item {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-
-    .detail-label {
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .detail-value {
-      font-size: 0.875rem;
-      color: #1e293b;
-      font-weight: 500;
-    }
-  </style>
 </AdminLayout>

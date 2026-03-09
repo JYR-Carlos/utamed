@@ -26,9 +26,10 @@ use Illuminate\Support\Facades\Log;
 class AsignacionPlanController extends Controller
 {
     /**
-     * Retorna los datos de la malla en formato JSON (para el panel slide-over del frontend).
+     * Prepara los datos de la malla (carga relaciones y organiza por período).
+     * Método privado reutilizado por mallaJson() e index().
      */
-    public function mallaJson(Plan $plan)
+    private function prepareMallaData(Plan $plan): array
     {
         $plan->load(['carrera', 'asignacionPlanes' => function ($q) {
             $q->with('asignatura');
@@ -40,6 +41,17 @@ class AsignacionPlanController extends Controller
             fn($item) => "{$item->agno_planificado}-{$item->semestre_planificado}"
         );
 
+        return compact('plan', 'malla');
+    }
+
+    /**
+     * Retorna los datos de la malla en formato JSON (para el panel slide-over del frontend).
+     * Lazy loading on-demand desde Planes.svelte al hacer click en "Ver Malla".
+     */
+    public function mallaJson(Plan $plan)
+    {
+        ['plan' => $plan, 'malla' => $malla] = $this->prepareMallaData($plan);
+
         return response()->json([
             'plan' => $plan,
             'malla' => $malla,
@@ -48,27 +60,17 @@ class AsignacionPlanController extends Controller
 
     /**
      * Muestra el detalle de la malla curricular de un plan, mostrando datos ya sea del plan o de las asignaturas asignadas.
+     * Endpoint principal para edición de malla en DetalleMalla.svelte.
      */
     public function index(Request $request, Plan $plan)
     {
-        $plan->load(['carrera', 'asignacionPlanes' => function($q) {
-            $q-> with('asignatura');
-        }]);
-
-        $plan->setAttribute('creditos_sct_totales', $plan->calculateTotalCredits());
-
-        // Organize by año and semestre
-        $malla = $plan->asignacionPlanes->groupBy(fn($item) => 
-        "{$item->agno_planificado}-{$item->semestre_planificado}");
-
-
+        ['plan' => $plan, 'malla' => $malla] = $this->prepareMallaData($plan);
 
         return Inertia::render('admin/DetalleMalla', [
             'plan' => $plan,
             'malla' => $malla,
-            'asignaturas' => Inertia::lazy(fn () => 
-            Asignatura::orderBy('cod_asignatura')
-            ->get(['id_asignatura', 'cod_asignatura', 'nombre', 'creditos_sct']))
+            'asignaturas' => Asignatura::orderBy('cod_asignatura')
+                ->get(['id_asignatura', 'cod_asignatura', 'nombre', 'creditos_sct'])
         ]);
     }
 

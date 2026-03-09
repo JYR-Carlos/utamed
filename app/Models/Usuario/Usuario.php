@@ -236,6 +236,21 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
+     * Obtener todos los permisos del usuario agrupados por contexto en una sola query.
+     *
+     * Evita el problema N+1 cuando se necesitan permisos para múltiples contextos
+     * (p. ej. sidebar de ayudante con varios cursos asignados).
+     *
+     * @return \Illuminate\Support\Collection<int, \Illuminate\Support\Collection> Colección indexada por id_contexto
+     */
+    public function getAllPermissionsGroupedByContext(): \Illuminate\Support\Collection
+    {
+        return app(PermissionValidator::class)
+            ->getUserPermissions($this)
+            ->groupBy('id_contexto');
+    }
+
+    /**
      * Obtener todos los roles (nombre e id) del usuario.
      * 
      * Permite filtrar por contexto específico.

@@ -25,10 +25,22 @@
   }
 
   interface RoleAssignment {
+    id_ura: number;
     id_rol: number;
     nombre: string;
     id_contexto: number | null;
     contexto_display?: string | null;
+  }
+
+  interface SpecialPermissionAssignment {
+    id_upe?: number;
+    id_permiso: number;
+    slug: string | null;
+    nombre: string | null;
+    id_contexto: number;
+    contexto_display?: string | null;
+    esta_permitido: boolean;
+    puede_delegar: boolean;
   }
 
   interface ContextObject {
@@ -107,6 +119,7 @@
 
   // ─── Current user assignments ──────────────────────────────────────────
   let userCurrentRoleAssignments = $state<RoleAssignment[]>([]);
+  let userCurrentSpecialPermissions = $state<SpecialPermissionAssignment[]>([]);
 
   // ─── Role detail panel ────────────────────────────────────────────────
   let roleDetailOpen = $state(false);
@@ -289,6 +302,7 @@
     contextObjectSearch = '';
     _lastCtxKey = '';
     userCurrentRoleAssignments = [];
+    userCurrentSpecialPermissions = [];
     roleDetailOpen = false;
     roleDetailTarget = null;
     roleDetailPerms = [];
@@ -367,6 +381,7 @@
       if (userPermsRes.ok) {
         const userPermsData = await userPermsRes.json();
         userCurrentRoleAssignments = Array.isArray(userPermsData.roles) ? userPermsData.roles : [];
+        userCurrentSpecialPermissions = Array.isArray(userPermsData.special_permissions) ? userPermsData.special_permissions : [];
       }
     } catch (e) {
       errorMsg = e instanceof Error ? e.message : String(e);
@@ -463,6 +478,49 @@
       errorMsg = e instanceof Error ? e.message : String(e);
     } finally {
       isSaving = false;
+    }
+  }
+
+  let isRevoking = $state(false);
+
+  async function revokeRole(asignacion: RoleAssignment) {
+    if (!confirm(`¿Revocar el rol "${asignacion.nombre}"${asignacion.contexto_display ? ` en ${asignacion.contexto_display}` : ''}?`)) return;
+    isRevoking = true;
+    errorMsg = '';
+    try {
+      const res = await fetch(`/admin/usuarios/${usuario.id_usuario}/roles/${asignacion.id_ura}`, {
+        method: 'DELETE',
+        headers: { 'X-XSRF-TOKEN': getXsrfToken(), Accept: 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      userCurrentRoleAssignments = userCurrentRoleAssignments.filter((r) => r.id_ura !== asignacion.id_ura);
+      successMsg = data.message || 'Rol revocado.';
+    } catch (e) {
+      errorMsg = e instanceof Error ? e.message : String(e);
+    } finally {
+      isRevoking = false;
+    }
+  }
+
+  async function revokePermission(perm: SpecialPermissionAssignment) {
+    if (!perm.id_upe) return;
+    if (!confirm(`¿Revocar el permiso "${perm.nombre ?? perm.slug}"${perm.contexto_display ? ` en ${perm.contexto_display}` : ''}?`)) return;
+    isRevoking = true;
+    errorMsg = '';
+    try {
+      const res = await fetch(`/admin/usuarios/${usuario.id_usuario}/permissions/${perm.id_upe}`, {
+        method: 'DELETE',
+        headers: { 'X-XSRF-TOKEN': getXsrfToken(), Accept: 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      userCurrentSpecialPermissions = userCurrentSpecialPermissions.filter((p) => p.id_upe !== perm.id_upe);
+      successMsg = data.message || 'Permiso revocado.';
+    } catch (e) {
+      errorMsg = e instanceof Error ? e.message : String(e);
+    } finally {
+      isRevoking = false;
     }
   }
 </script>
@@ -693,25 +751,28 @@
                     <span class="text-sm text-gray-400 italic">Sin rol asignado</span>
                   {:else}
                     <div class="flex flex-wrap gap-2">
-                      {#each userCurrentRoles as asignacion}
-                        <button
-                          onclick={() => openRoleDetail(asignacion)}
-                          title="Ver permisos de este rol"
-                          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-200 hover:border-purple-400 transition-colors cursor-pointer"
-                        >
-                          <span>👔</span>
-                          {asignacion.nombre}
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            class="opacity-60"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+                      {#each userCurrentRoleAssignments as asignacion}
+                        <span class="inline-flex items-center gap-1.5 pl-3 pr-1 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 border border-purple-300">
+                          <button
+                            onclick={() => openRoleDetail(asignacion)}
+                            title="Ver permisos de este rol"
+                            class="inline-flex items-center gap-1.5 bg-transparent border-none cursor-pointer text-inherit font-inherit p-0"
                           >
-                        </button>
+                            <span>👔</span>
+                            {asignacion.nombre}
+                            {#if asignacion.contexto_display}
+                              <span class="text-purple-500 text-xs">({asignacion.contexto_display})</span>
+                            {/if}
+                          </button>
+                          <button
+                            onclick={() => revokeRole(asignacion)}
+                            disabled={isRevoking}
+                            title="Revocar este rol"
+                            class="ml-1 w-5 h-5 rounded-full flex items-center justify-center bg-purple-200 hover:bg-red-200 hover:text-red-700 text-purple-600 border-none cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          </button>
+                        </span>
                       {/each}
                     </div>
                   {/if}
@@ -764,6 +825,50 @@
                   {/if}
                 </div>
               {:else if flow === 'permission'}
+                <!-- Current special permissions banner -->
+                <div class="mb-5 p-3.5 rounded-xl border border-amber-200 bg-amber-50">
+                  <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">Permisos especiales asignados actualmente</p>
+                  {#if userCurrentSpecialPermissions.length === 0}
+                    <span class="text-sm text-gray-400 italic">Sin permisos especiales asignados</span>
+                  {:else}
+                    <div class="flex flex-wrap gap-2">
+                      {#each userCurrentSpecialPermissions as perm}
+                        <span
+                          class="inline-flex items-center gap-1.5 pl-3 pr-1 py-1 rounded-full text-sm font-medium border"
+                          class:bg-green-100={perm.esta_permitido}
+                          class:text-green-800={perm.esta_permitido}
+                          class:border-green-300={perm.esta_permitido}
+                          class:bg-red-100={!perm.esta_permitido}
+                          class:text-red-800={!perm.esta_permitido}
+                          class:border-red-300={!perm.esta_permitido}
+                          title={perm.contexto_display ? `Contexto: ${perm.contexto_display}` : 'Contexto global'}
+                        >
+                          <span>{perm.esta_permitido ? '✅' : '🚫'}</span>
+                          <span>{perm.nombre ?? perm.slug}</span>
+                          {#if perm.contexto_display}
+                            <span class="opacity-60 text-xs">({perm.contexto_display})</span>
+                          {/if}
+                          <button
+                            onclick={() => revokePermission(perm)}
+                            disabled={isRevoking || !perm.id_upe}
+                            title="Revocar este permiso"
+                            class="ml-1 w-5 h-5 rounded-full flex items-center justify-center border-none cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            class:bg-green-200={perm.esta_permitido}
+                            class:hover:bg-red-200={perm.esta_permitido}
+                            class:hover:text-red-700={perm.esta_permitido}
+                            class:text-green-600={perm.esta_permitido}
+                            class:bg-red-200={!perm.esta_permitido}
+                            class:hover:bg-red-300={!perm.esta_permitido}
+                            class:text-red-600={!perm.esta_permitido}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          </button>
+                        </span>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+
                 <!-- Search -->
                 <div class="relative mb-4 max-w-md">
                   <svg

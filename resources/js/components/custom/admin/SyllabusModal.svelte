@@ -50,9 +50,10 @@
     onClose: () => void;
     onSuccess: (programa: Programa) => void;
     syllabusType?: 'simplified' | 'combined' | 'complete' | null;
+    canApprove?: boolean;
   }
 
-  let { isOpen = $bindable(), curso, onClose, onSuccess, syllabusType = null }: Props = $props();
+  let { isOpen = $bindable(), curso, onClose, onSuccess, syllabusType = null, canApprove = false }: Props = $props();
 
   // ── Syllabus Type tracking ───────────────────────────────────────────────
   let selectedSyllabusType = $state<'simplified' | 'combined' | 'complete' | null>(null);
@@ -76,6 +77,7 @@
   let editedSections = $state<SeccionPrograma[]>([]);
   let isSaving = $state(false);
   let isApproving = $state(false);
+  let isEditMode = $state(false);
   let viewError = $state('');
 
   // ── Wizard state (9 secciones) ───────────────────────────────────────────────
@@ -138,10 +140,9 @@
   });
 
   // Determinar si el programa puede ser editado
-  // Solo editable si: modo view Y estado NO es APROBADO
+  // Solo editable si: programa en estado NO APROBADO
   let isEditable = $derived.by(() => {
-    if (mode !== 'view') return true; // En modo wizard siempre es editable
-    if (!programaData) return true; // Si no hay datos, permitir
+    if (!isEditMode || !programaData) return true; // Nuevo programa siempre editable
     return programaData.estado !== 'APROBADO'; // Deshabilitar si está aprobado
   });
 
@@ -240,21 +241,14 @@
     // Intentar obtener código desde diferentes fuentes
     codigo = String(curso?.cod_curso ?? '');
 
-    // Cargar datos de créditos y horas desde asignacionPlan.asignatura si está disponible
-    const asignatura = (curso as any)?.asignacionPlan?.asignatura;
+    // Buscar créditos/horas en orden: campos directos → asignatura embebida → asignacionPlan.asignatura
+    const c = curso as any;
+    const asignatura = c?.asignatura ?? c?.asignacionPlan?.asignatura;
 
-    if (asignatura) {
-      creditos_sct = String(asignatura.creditos_sct ?? '');
-      horas_catedra = String(asignatura.horas_catedra ?? '');
-      horas_taller = String(asignatura.horas_taller ?? '');
-      horas_laboratorio = String(asignatura.horas_laboratorio ?? '');
-    } else {
-      // Fallback a campos directos en curso (si existen)
-      creditos_sct = String((curso as any)?.creditos_sct ?? '');
-      horas_catedra = String((curso as any)?.horas_catedra ?? '');
-      horas_taller = String((curso as any)?.horas_taller ?? '');
-      horas_laboratorio = String((curso as any)?.horas_laboratorio ?? '');
-    }
+    creditos_sct = String(c?.creditos_sct ?? asignatura?.creditos_sct ?? '');
+    horas_catedra = String(c?.horas_catedra ?? asignatura?.horas_catedra ?? '');
+    horas_taller = String(c?.horas_taller ?? asignatura?.horas_taller ?? '');
+    horas_laboratorio = String(c?.horas_laboratorio ?? asignatura?.horas_laboratorio ?? '');
 
     // Cargar secciones del curso para Sección IX
     loadCursoSecciones();
@@ -291,20 +285,116 @@
     }
   }
 
+  /**
+   * Pre-fills all wizard fields from a JSONB secciones object.
+   */
+  function prefillWizardFromData(raw: Record<string, any>) {
+    const cI = raw?.I?.contenido ?? {};
+    if (cI.nombre_asignatura) nombre_asignatura = cI.nombre_asignatura;
+    if (cI.codigo) codigo = String(cI.codigo);
+    if (cI.creditos_sct != null) creditos_sct = String(cI.creditos_sct);
+    if (cI.horas?.catedra != null) horas_catedra = String(cI.horas.catedra);
+    if (cI.horas?.taller != null) horas_taller = String(cI.horas.taller);
+    if (cI.horas?.laboratorio != null) horas_laboratorio = String(cI.horas.laboratorio);
+    if (cI.categoria) categoria = cI.categoria;
+
+    const cII = raw?.II?.contenido ?? {};
+    if (cII.texto) presentacion = cII.texto;
+
+    const cIII = raw?.III?.contenido ?? {};
+    if (cIII.texto) estandares = cIII.texto;
+
+    const cIV = raw?.IV?.contenido ?? {};
+    if (Array.isArray(cIV.competencias_especificas) && cIV.competencias_especificas.length > 0)
+      competencias_especificas = cIV.competencias_especificas.map((c: any) => ({ titulo: c.titulo ?? '' }));
+    if (Array.isArray(cIV.competencias_genericas) && cIV.competencias_genericas.length > 0)
+      competencias_genericas = cIV.competencias_genericas.map((c: any) => ({ titulo: c.titulo ?? '' }));
+    if (Array.isArray(cIV.subcompetencias) && cIV.subcompetencias.length > 0)
+      subcompetencias = cIV.subcompetencias.map((s: any) => ({ titulo: s.titulo ?? '' }));
+
+    const cV = raw?.V?.contenido ?? {};
+    if (Array.isArray(cV.items) && cV.items.length > 0)
+      items_evaluacion = cV.items.map((i: any) => ({ titulo: i.titulo ?? '', descripcion: i.descripcion ?? '' }));
+
+    const cVI = raw?.VI?.contenido ?? {};
+    if (Array.isArray(cVI.unidades) && cVI.unidades.length > 0) {
+      unidades = cVI.unidades.map((u: any) => ({
+        numero: u.numero ?? 1,
+        titulo: u.titulo ?? '',
+        contenidos: u.contenidos_items?.[0]?.item ?? '',
+        resultados_aprendizaje:
+          Array.isArray(u.resultados_aprendizaje) && u.resultados_aprendizaje.length > 0
+            ? u.resultados_aprendizaje.map((r: any) => ({ resultado: r.resultado ?? '' }))
+            : [{ resultado: '' }],
+      }));
+    }
+
+    const cVII = raw?.VII?.contenido ?? {};
+    if (cVII.metodologia?.tipo_estrategia) metodologia = cVII.metodologia.tipo_estrategia;
+    if (cVII.evaluacion?.tipo_evaluacion) evaluacion = cVII.evaluacion.tipo_evaluacion;
+
+    const cVIII = raw?.VIII?.contenido ?? {};
+    if (Array.isArray(cVIII.recursos) && cVIII.recursos.length > 0)
+      recursos = cVIII.recursos.map((r: any) => ({ descripcion: r.descripcion ?? '', tipo: r.tipo ?? 'Libro', ubicacion: r.ubicacion ?? '' }));
+
+    const cIX = raw?.IX?.contenido ?? {};
+    if (cIX.descripcion) normativa_curso = cIX.descripcion;
+    if (cIX.ponderacion_optativa?.porcentaje != null) ponderacion_optativa = String(cIX.ponderacion_optativa.porcentaje);
+    if (Array.isArray(cIX.tabla_componentes) && cIX.tabla_componentes.length > 0)
+      componentes = cIX.tabla_componentes.map((c: any) => ({
+        componente: c.componente ?? '',
+        porcentaje: c.porcentaje ?? 0,
+        genera_acta: c.genera_acta ?? false,
+        aprobacion_obligatoria: c.aprobacion_obligatoria ?? false,
+        asistencia_obligatoria: c.asistencia_obligatoria ?? 0,
+      }));
+  }
+
   async function loadPrograma() {
     if (!curso) return;
     loadingPrograma = true;
     viewError = '';
     try {
-      // Usar endpoint JSON separado para obtener datos del programa
       const basePath = getBasePath();
       const { data } = await axios.get(`${basePath}/${curso.id_curso}/programa/json`);
       programaData = data.programa;
-      // Deep-clone to a mutable editing copy
-      editedSections = (data.programa?.secciones ?? []).map((s: SeccionPrograma) => ({
-        ...s,
-        contenidos_programa: (Array.isArray(s.contenidos_programa) ? s.contenidos_programa : []).map((c: any) => ({ ...c })),
-      }));
+      const raw: Record<string, any> = data.programa?.data_syllabus?.secciones ?? {};
+
+      // Determinar tipo desde data_syllabus.metadata.tipo_syllabus ("BASICO" | "COMPLETO")
+      // normalizado a los valores del frontend ('simplified' | 'complete')
+      const metaTipo = (data.programa?.data_syllabus?.metadata?.tipo_syllabus ?? '') as string;
+      const normalizedStoredType =
+        metaTipo === 'BASICO' ? 'simplified' :
+        metaTipo === 'COMPLETO' ? 'complete' : '';
+
+      // Inferir desde qué secciones existen en el JSONB (formato nuevo: objeto con claves romanas)
+      const hasComplexSections = !!(raw.III || raw.IV || raw.V || raw.IX);
+      const inferredType: 'simplified' | 'complete' = hasComplexSections ? 'complete' : 'simplified';
+
+      if (normalizedStoredType) {
+        selectedSyllabusType = normalizedStoredType as 'simplified' | 'complete';
+      } else if (syllabusType && syllabusType !== 'combined') {
+        selectedSyllabusType = syllabusType;
+      } else {
+        selectedSyllabusType = inferredType;
+      }
+
+      prefillWizardFromData(raw);
+
+      // Rellenar créditos/horas desde el objeto curso cuando no estén en el JSONB
+      if (!nombre_asignatura) nombre_asignatura = curso?.asignatura_nombre ?? '';
+      if (!codigo) codigo = String(curso?.cod_curso ?? '');
+      const c = curso as any;
+      const asig = c?.asignatura ?? c?.asignacionPlan?.asignatura;
+      if (!creditos_sct) creditos_sct = String(c?.creditos_sct ?? asig?.creditos_sct ?? '');
+      if (!horas_catedra) horas_catedra = String(c?.horas_catedra ?? asig?.horas_catedra ?? '');
+      if (!horas_taller) horas_taller = String(c?.horas_taller ?? asig?.horas_taller ?? '');
+      if (!horas_laboratorio) horas_laboratorio = String(c?.horas_laboratorio ?? asig?.horas_laboratorio ?? '');
+
+      isEditMode = true;
+      mode = 'wizard';
+      step = 1;
+      loadCursoActividades();
     } catch (err) {
       console.error('Error cargando programa JSON:', err);
       viewError = 'Error cargando el programa. Intente de nuevo.';
@@ -326,43 +416,7 @@
       });
 
       const raw: Record<string, any> = data.programa?.data_syllabus?.secciones ?? {};
-
-      // Sección I — Identificación
-      const cI = raw?.I?.contenido ?? {};
-      if (cI.nombre_asignatura) nombre_asignatura = cI.nombre_asignatura;
-      if (cI.codigo) codigo = String(cI.codigo);
-      if (cI.creditos_sct != null) creditos_sct = String(cI.creditos_sct);
-      if (cI.horas?.catedra != null) horas_catedra = String(cI.horas.catedra);
-      if (cI.horas?.taller != null) horas_taller = String(cI.horas.taller);
-      if (cI.horas?.laboratorio != null) horas_laboratorio = String(cI.horas.laboratorio);
-      if (cI.categoria) categoria = cI.categoria;
-
-      // Sección II — Presentación
-      const cII = raw?.II?.contenido ?? {};
-      if (cII.texto) presentacion = cII.texto;
-
-      // Sección VI — Unidades
-      const cVI = raw?.VI?.contenido ?? {};
-      if (Array.isArray(cVI.unidades) && cVI.unidades.length > 0) {
-        unidades = cVI.unidades.map((u: any) => ({
-          numero: u.numero ?? 1,
-          titulo: u.titulo ?? '',
-          contenidos: u.contenidos_items?.[0]?.item ?? '',
-          resultados_aprendizaje:
-            Array.isArray(u.resultados_aprendizaje) && u.resultados_aprendizaje.length > 0 ? u.resultados_aprendizaje : [{ resultado: '' }],
-        }));
-      }
-
-      // Sección VIII — Recursos
-      const cVIII = raw?.VIII?.contenido ?? {};
-      if (Array.isArray(cVIII.recursos) && cVIII.recursos.length > 0) {
-        recursos = cVIII.recursos.map((r: any) => ({
-          descripcion: r.descripcion ?? '',
-          tipo: r.tipo ?? 'Libro',
-          ubicacion: r.ubicacion ?? '',
-        }));
-      }
-
+      prefillWizardFromData(raw);
       console.log('✅ Pre-relleno desde BASICO completado');
     } catch (err) {
       console.warn('No se pudo pre-cargar datos del programa básico, iniciando en blanco:', err);
@@ -388,6 +442,7 @@
     programaData = null;
     editedSections = [];
     isSaving = false;
+    isEditMode = false;
     viewError = '';
     step = 1;
     isGenerating = false;
@@ -484,6 +539,14 @@
     } finally {
       isApproving = false;
     }
+  }
+
+  // ── Regenerate from scratch (admin only) ────────────────────────────────────
+  function handleRegenerateFromScratch() {
+    resetAll();
+    mode = 'wizard';
+    step = 1;
+    initializeWizard();
   }
 
   // ── Wizard helpers ───────────────────────────────────────────────────────────
@@ -817,12 +880,12 @@
         </div>
         <div class="flex-1 min-w-0">
           <h2 id="syllabus-modal-title" class="text-lg font-bold text-slate-900">
-            {mode === 'view' ? 'Programa de Cátedra' : 'Crear Programa'}
+            {isEditMode ? 'Programa de Cátedra' : 'Nuevo Programa de Cátedra'}
           </h2>
           <p class="text-sm text-slate-500 truncate">{curso.asignatura_nombre ?? `Curso ${curso.cod_curso}`}</p>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
-          {#if mode === 'view' && programaData}
+          {#if isEditMode && programaData}
             {#if programaData.estado === 'BORRADOR'}
               <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
                 <svg
@@ -872,151 +935,22 @@
         </div>
       </div>
 
-      <!-- VIEW / EDIT MODE (existing programa) -->
-      {#if mode === 'view'}
+      <!-- PROGRAM WIZARD (create / edit) -->
+      {#if loadingPrograma}
+        <div class="flex-1 flex flex-col items-center justify-center py-12 gap-2">
+          <div class="w-4 h-4 border-2 border-slate-300 border-t-blue-600 rounded-full animate-spin"></div>
+          <span class="text-sm text-slate-500">Cargando programa...</span>
+        </div>
+      {:else if viewError}
         <div class="flex-1 overflow-y-auto px-6 py-6">
-          {#if loadingPrograma}
-            <div class="flex flex-col items-center justify-center py-12 gap-2">
-              <div class="w-4 h-4 border-2 border-slate-300 border-t-blue-600 rounded-full animate-spin"></div>
-              <span class="text-sm text-slate-500">Cargando programa...</span>
-            </div>
-          {:else if viewError}
-            <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm" role="alert">
-              {viewError}
-            </div>
-            <button
-              onclick={loadPrograma}
-              class="mt-3 px-4 py-2 text-slate-700 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
-              >Reintentar</button
-            >
-          {:else if editedSections.length === 0}
-            <div class="text-center py-8 px-4">
-              <p class="text-slate-600 mb-4">No se encontraron secciones en este programa.</p>
-              <button
-                type="button"
-                onclick={() => {
-                  mode = 'wizard';
-                  step = 1;
-                }}
-                class="px-4 py-2 text-slate-700 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
-              >
-                Regenerar programa
-              </button>
-            </div>
-          {:else}
-            <!-- Alert if program is approved and cannot be edited -->
-            {#if programaData && programaData.estado === 'APROBADO'}
-              <div class="p-4 rounded-lg bg-amber-50 border border-amber-200 mb-4 flex gap-3">
-                <div class="flex-shrink-0">
-                  <svg class="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fill-rule="evenodd"
-                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <p class="font-medium text-amber-900">Programa Aprobado</p>
-                  <p class="text-sm text-amber-800 mt-1">
-                    Este programa ha sido aprobado y no puede ser editado. Para realizar cambios, debe regenerarse desde cero.
-                  </p>
-                </div>
-              </div>
-            {/if}
-            <!-- Editable sections -->
-            <div class="space-y-3">
-              {#each editedSections as sec, i}
-                <div class="rounded-lg border border-slate-200 p-4 space-y-2">
-                  <div class="flex items-center gap-2 mb-3">
-                    {#if sec.numeral_romano}
-                      <span class="text-sm font-bold text-slate-400">{sec.numeral_romano}.</span>
-                    {/if}
-                    <span class="text-sm font-semibold text-slate-700">{sec.nombre_seccion}</span>
-                  </div>
-                  <textarea
-                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
-                    rows="3"
-                    placeholder="Sin contenido — escribe aquí para agregar texto..."
-                    value={joinContents(sec)}
-                    oninput={(e) => updateSectionContent(i, (e.target as HTMLTextAreaElement).value)}
-                    disabled={!isEditable}
-                  ></textarea>
-                </div>
-              {/each}
-            </div>
-          {/if}
-        </div>
-        <!-- View mode footer -->
-        <div class="flex items-center justify-between px-6 py-4 border-t border-slate-100">
-          <button
-            type="button"
-            onclick={() => {
-              mode = 'wizard';
-              step = 1;
-            }}
-            class="px-4 py-2 text-slate-700 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors disabled:opacity-50"
-            disabled={isSaving || isApproving}
-          >
-            Regenerar desde cero
-          </button>
-          <div class="flex gap-2">
-            {#if programaData?.estado === 'BORRADOR'}
-              <button
-                type="button"
-                onclick={handleApprove}
-                disabled={isApproving || isSaving}
-                class="px-4 py-2 text-green-700 bg-white border border-green-300 rounded-lg text-sm font-medium hover:bg-green-50 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-              >
-                {#if isApproving}
-                  <span class="inline-block w-4 h-4 border-2 border-slate-300 border-t-green-600 rounded-full animate-spin"></span>
-                  Aprobando...
-                {:else}
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg
-                  >
-                  Aprobar Programa
-                {/if}
-              </button>
-            {/if}
-            <button
-              type="button"
-              onclick={handleSaveEdits}
-              disabled={isSaving || loadingPrograma || isApproving || !isEditable}
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:bg-blue-300 inline-flex items-center gap-2"
-            >
-              {#if isSaving}
-                <span class="inline-block w-4 h-4 border-2 border-slate-300 border-t-white rounded-full animate-spin"></span>
-                Guardando...
-              {:else}
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg
-                >
-                Guardar cambios
-              {/if}
-            </button>
+          <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm" role="alert">
+            {viewError}
           </div>
+          <button
+            onclick={loadPrograma}
+            class="mt-3 px-4 py-2 text-slate-700 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
+          >Reintentar</button>
         </div>
-
-        <!-- ══════════════════════════════════════════════════════════ -->
-        <!-- WIZARD MODE (create from scratch)                          -->
-        <!-- ══════════════════════════════════════════════════════════ -->
       {:else}
         <!-- Step indicator - Dynamic carousel showing only visible steps -->
         <div class="px-4 py-3 flex-shrink-0 border-b border-slate-100 bg-slate-50">
@@ -1103,6 +1037,15 @@
         </div>
 
         <div class="flex-1 overflow-y-auto px-6 py-6">
+          {#if isEditMode && programaData?.estado === 'APROBADO'}
+            <div class="p-3 rounded-lg bg-amber-50 border border-amber-200 flex gap-2 items-start mb-4">
+              <svg class="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+              <div>
+                <p class="font-medium text-sm text-amber-900">Programa Aprobado</p>
+                <p class="text-xs text-amber-800 mt-0.5">Este programa ya fue aprobado. Guardar generará una nueva versión en borrador.</p>
+              </div>
+            </div>
+          {/if}
           <ProgramaWizardSteps
             {step}
             bind:codigo
@@ -1152,59 +1095,90 @@
 
         <!-- Footer -->
         <div class="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 flex-shrink-0 gap-3">
-          <button
-            type="button"
-            onclick={() => {
-              if (step === 1 && curso?.has_programa) {
-                mode = 'view';
-              } else {
-                const idx = STEPS.findIndex((s) => s.id === step);
-                if (idx > 0) step = STEPS[idx - 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
-              }
-            }}
-            disabled={isGenerating}
-            class="px-3 py-2 rounded-lg text-sm font-medium bg-white border border-gray-300 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            ← {step === 1 && curso?.has_programa ? 'Ver existente' : 'Atrás'}
-          </button>
-
-          <!-- Show Next button only if not at the last step -->
-          {#if STEPS.findIndex((s) => s.id === step) < STEPS.length - 1}
+          <div class="flex items-center gap-2">
+            {#if isEditMode && canApprove}
+              <button
+                type="button"
+                onclick={handleRegenerateFromScratch}
+                disabled={isGenerating}
+                class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+              >
+                Regenerar...
+              </button>
+            {/if}
             <button
               type="button"
               onclick={() => {
                 const idx = STEPS.findIndex((s) => s.id === step);
-                if (idx < STEPS.length - 1) {
-                  step = STEPS[idx + 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                if (idx > 0) {
+                  step = STEPS[idx - 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                } else {
+                  handleClose();
                 }
               }}
-              disabled={(step === 1 && !step1Valid) ||
-                (step === 2 && !step2Valid) ||
-                (step === 3 && !step3Valid) ||
-                (step === 4 && !step4Valid) ||
-                (step === 5 && !step5Valid) ||
-                (step === 6 && !step6Valid) ||
-                (step === 7 && !step7Valid) ||
-                (step === 8 && !step8Valid) ||
-                (step === 9 && !step9Valid)}
-              class="px-3 py-2 rounded-lg text-sm font-medium bg-blue-600 border-none text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
-            >
-              Siguiente →
-            </button>
-          {:else}
-            <!-- Show Save button when at the last step or beyond -->
-            <button
-              type="button"
-              onclick={handleGenerate}
               disabled={isGenerating}
-              class="px-3 py-2 rounded-lg text-sm font-medium bg-blue-600 border-none text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
+              class="px-3 py-2 rounded-lg text-sm font-medium bg-white border border-gray-300 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {#if isGenerating}
-                <span class="inline-block w-4 h-4 border-2 border-slate-300 border-t-white rounded-full animate-spin"></span>
-              {/if}
-              Generar Programa
+              {#if STEPS.findIndex((s) => s.id === step) === 0}Cancelar{:else}← Atrás{/if}
             </button>
-          {/if}
+          </div>
+
+          <div class="flex items-center gap-2">
+            {#if canApprove && isEditMode && programaData?.estado === 'BORRADOR'}
+              <button
+                type="button"
+                onclick={handleApprove}
+                disabled={isApproving || isGenerating}
+                class="px-3 py-2 text-green-700 bg-white border border-green-300 rounded-lg text-sm font-medium hover:bg-green-50 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {#if isApproving}
+                  <span class="inline-block w-4 h-4 border-2 border-slate-300 border-t-green-600 rounded-full animate-spin"></span>
+                  Aprobando...
+                {:else}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                  Aprobar
+                {/if}
+              </button>
+            {/if}
+
+            <!-- Show Next button only if not at the last step -->
+            {#if STEPS.findIndex((s) => s.id === step) < STEPS.length - 1}
+              <button
+                type="button"
+                onclick={() => {
+                  const idx = STEPS.findIndex((s) => s.id === step);
+                  if (idx < STEPS.length - 1) {
+                    step = STEPS[idx + 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                  }
+                }}
+                disabled={(step === 1 && !step1Valid) ||
+                  (step === 2 && !step2Valid) ||
+                  (step === 3 && !step3Valid) ||
+                  (step === 4 && !step4Valid) ||
+                  (step === 5 && !step5Valid) ||
+                  (step === 6 && !step6Valid) ||
+                  (step === 7 && !step7Valid) ||
+                  (step === 8 && !step8Valid) ||
+                  (step === 9 && !step9Valid)}
+                class="px-3 py-2 rounded-lg text-sm font-medium bg-blue-600 border-none text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
+              >
+                Siguiente →
+              </button>
+            {:else}
+              <!-- Show Save button when at the last step -->
+              <button
+                type="button"
+                onclick={handleGenerate}
+                disabled={isGenerating || !isEditable}
+                class="px-3 py-2 rounded-lg text-sm font-medium bg-blue-600 border-none text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
+              >
+                {#if isGenerating}
+                  <span class="inline-block w-4 h-4 border-2 border-slate-300 border-t-white rounded-full animate-spin"></span>
+                {/if}
+                {isEditMode ? 'Guardar cambios' : 'Generar Programa'}
+              </button>
+            {/if}
+          </div>
         </div>
       {/if}
     </div>

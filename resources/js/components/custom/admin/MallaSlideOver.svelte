@@ -62,7 +62,7 @@
       <h2 class="slideover-title">Malla Curricular</h2>
       {#if plan}
         <p class="slideover-subtitle">
-          {plan.carrera?.nombre ?? ''} — Año {plan.agno} v{plan.version}
+          {plan.carrera?.nombre ?? ''} — Año {plan.agno} v{plan.version_plan}
         </p>
       {/if}
     </div>
@@ -354,10 +354,6 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
-  }
-
-  .year-section {
-    /* border-top: 2px solid #e5e7eb; */
   }
 
   .year-heading {

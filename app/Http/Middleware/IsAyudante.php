@@ -6,7 +6,6 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Usuario\Usuario;
 
 /**
  * Middleware para validar que el usuario autenticado es ayudante.

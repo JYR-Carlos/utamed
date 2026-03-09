@@ -18,6 +18,7 @@
    * - administrativo.asignacion_plan: Asignaturas asignadas al plan
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
+  import { router } from '@inertiajs/svelte';
   import DataTable from '@/components/custom/admin/DataTable.svelte';
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
@@ -53,15 +54,16 @@
   let formData = $state<PlanFormData>({
     id_carrera: 0,
     agno: new Date().getFullYear(),
-    version: 1,
+    version_plan: 1,
   });
 
   const columns = [
     { key: 'id_plan', label: 'ID' },
     { key: 'carrera.nombre', label: 'Carrera' },
     { key: 'agno', label: 'Año' },
-    { key: 'version', label: 'Versión' },
+    { key: 'version_plan', label: 'Versión' },
     { key: 'creditos_sct_totales', label: 'Créditos SCT' },
+    { key: 'malla', label: 'Malla' },
   ];
 
   function openCreateModal() {
@@ -69,7 +71,7 @@
     formData = {
       id_carrera: 0,
       agno: new Date().getFullYear(),
-      version: 1,
+      version_plan: 1,
     };
     showModal = true;
   }
@@ -79,7 +81,7 @@
     formData = {
       id_carrera: plan.id_carrera,
       agno: plan.agno,
-      version: plan.version,
+      version_plan: plan.version_plan,
     };
     showModal = true;
   }
@@ -164,16 +166,44 @@
   function closeMallaPanel() {
     showMallaPanel = false;
   }
+
+  function editarMalla(plan: Plan) {
+    router.visit(`/admin/planes/${plan.id_plan}/asignaturas`);
+  }
 </script>
 
+{#snippet cellSnippet({ item, column }: { item: Plan; column: { key: string; label: string } })}
+  {#if column.key === 'malla'}
+    <div class="flex gap-2">
+      <button
+        onclick={() => verMalla(item)}
+        class="px-2.5 py-1 border border-indigo-300 hover:border-indigo-400 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[0.73rem] font-medium cursor-pointer transition-all"
+      >
+        Ver Malla
+      </button>
+      <button
+        onclick={() => editarMalla(item)}
+        class="px-2.5 py-1 border border-green-300 hover:border-green-400 bg-green-50 hover:bg-green-100 text-green-700 rounded text-[0.73rem] font-medium cursor-pointer transition-all"
+      >
+        Editar Malla
+      </button>
+    </div>
+  {:else}
+    {column.key.split('.').reduce((v: any, k: string) => v?.[k], item) ?? '-'}
+  {/if}
+{/snippet}
+
 <AdminLayout>
-  <div class="page-container">
-    <div class="page-header">
+  <div class="p-8 max-w-6xl mx-auto">
+    <div class="flex justify-between items-start mb-8">
       <div>
-        <h1 class="page-title">Planes de Estudio</h1>
-        <p class="page-description">Gestión de planes de estudio por carrera</p>
+        <h1 class="text-3xl font-bold text-gray-900 mb-1">Planes de Estudio</h1>
+        <p class="text-sm text-gray-500">Gestión de planes de estudio por carrera</p>
       </div>
-      <button onclick={openCreateModal} class="btn-primary">
+      <button
+        onclick={openCreateModal}
+        class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95"
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="20"
@@ -192,13 +222,18 @@
       </button>
     </div>
 
-    <DataTable data={planes} {columns} onEdit={openEditModal} onDelete={openDeleteDialog} onCustomAction={verMalla} customActionLabel="Ver Malla" />
+    <DataTable data={planes} {columns} onEdit={openEditModal} onDelete={openDeleteDialog} {cellSnippet} />
   </div>
 
   <FormModal bind:isOpen={showModal} title={editingPlan ? 'Editar Plan' : 'Nuevo Plan'} onClose={closeModal} onSubmit={handleSubmit} {isLoading}>
-    <div class="form-group">
-      <label for="carrera" class="form-label">Carrera *</label>
-      <select id="carrera" bind:value={formData.id_carrera} class="form-input" required>
+    <div class="mb-4">
+      <label for="carrera" class="block text-sm font-medium text-gray-700 mb-2">Carrera *</label>
+      <select
+        id="carrera"
+        bind:value={formData.id_carrera}
+        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        required
+      >
         <option value={0}>Seleccione una carrera</option>
         {#each carreras as carrera}
           <option value={carrera.id_carrera}>{carrera.nombre}</option>
@@ -206,23 +241,40 @@
       </select>
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label for="agno" class="form-label">Año *</label>
-        <input id="agno" type="number" bind:value={formData.agno} class="form-input" min="1900" max="2100" placeholder="Ej: 2024" required />
+    <div class="grid grid-cols-2 gap-4">
+      <div class="mb-4">
+        <label for="agno" class="block text-sm font-medium text-gray-700 mb-2">Año *</label>
+        <input
+          id="agno"
+          type="number"
+          bind:value={formData.agno}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          min="1900"
+          max="2100"
+          placeholder="Ej: 2024"
+          required
+        />
       </div>
 
-      <div class="form-group">
-        <label for="version" class="form-label">Versión *</label>
-        <input id="version" type="number" bind:value={formData.version} class="form-input" min="1" placeholder="Ej: 1" required />
+      <div class="mb-4">
+        <label for="version_plan" class="block text-sm font-medium text-gray-700 mb-2">Versión *</label>
+        <input
+          id="version_plan"
+          type="number"
+          bind:value={formData.version_plan}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          min="1"
+          placeholder="Ej: 1"
+          required
+        />
       </div>
     </div>
 
-    <div class="form-group">
-      <label for="creditos" class="form-label">Créditos SCT Totales</label>
-      <div class="credits-display">
-        <span class="credits-value">{editingPlan?.creditos_sct_totales || 0}</span>
-        <span class="credits-note">(Calculado automáticamente)</span>
+    <div class="mb-4">
+      <label for="creditos" class="block text-sm font-medium text-gray-700 mb-2">Créditos SCT Totales</label>
+      <div class="flex items-center gap-3 p-4 bg-gray-50 border border-gray-200 rounded-md">
+        <span class="text-2xl font-bold text-blue-500">{editingPlan?.creditos_sct_totales || 0}</span>
+        <span class="text-xs text-gray-500 italic">(Calculado automáticamente)</span>
       </div>
     </div>
   </FormModal>
@@ -237,109 +289,4 @@
   />
 
   <MallaSlideOver isOpen={showMallaPanel} plan={mallaPlan} malla={mallaData} isLoading={mallaLoading} onClose={closeMallaPanel} />
-
-  <style>
-    .page-container {
-      padding: 2rem;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 2rem;
-    }
-
-    .page-title {
-      font-size: 1.875rem;
-      font-weight: 700;
-      color: #111827;
-      margin: 0 0 0.25rem 0;
-    }
-
-    .page-description {
-      color: #6b7280;
-      font-size: 0.875rem;
-      margin: 0;
-    }
-
-    .btn-primary {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.625rem 1.25rem;
-      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 6px rgba(59, 130, 246, 0.4);
-    }
-
-    .form-group {
-      margin-bottom: 1rem;
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-
-    .form-label {
-      display: block;
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: #374151;
-      margin-bottom: 0.5rem;
-    }
-
-    .form-input {
-      width: 100%;
-      padding: 0.625rem 0.875rem;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: 0.875rem;
-      color: #111827;
-      background-color: white;
-      transition: all 0.2s;
-    }
-
-    .form-input:focus {
-      outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-
-    .credits-display {
-      padding: 0.75rem 1rem;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .credits-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #3b82f6;
-    }
-
-    .credits-note {
-      font-size: 0.75rem;
-      color: #6b7280;
-      font-style: italic;
-    }
-  </style>
 </AdminLayout>

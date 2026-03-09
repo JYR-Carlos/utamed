@@ -13,7 +13,7 @@
   interface Plan {
     id_plan: number;
     agno: number;
-    version: number;
+    version_plan: number;
     carrera?: { nombre: string };
   }
   interface AsignaturaOption {
@@ -313,7 +313,7 @@
           <span class="step-num" class:filled={currentStep > 2}>2</span>
           <span class="step-head-label">Plan de Estudio</span>
           {#if selectedPlan}
-            <span class="step-chip">{selectedPlan.carrera?.nombre ?? ''} {selectedPlan.agno} v{selectedPlan.version}</span>
+            <span class="step-chip">{selectedPlan.carrera?.nombre ?? ''} {selectedPlan.agno} v{selectedPlan.version_plan}</span>
             <button
               type="button"
               class="step-change"
@@ -341,7 +341,7 @@
                   <button type="button" class="option-row" onclick={() => onSelectPlan(p)}>
                     <span class="option-row-icon">📋</span>
                     <div>
-                      <div class="option-row-name">Plan {p.agno} — versión {p.version}</div>
+                      <div class="option-row-name">Plan {p.agno} — versión {p.version_plan}</div>
                       {#if p.carrera}
                         <div class="option-row-sub">{p.carrera.nombre}</div>
                       {/if}
@@ -976,9 +976,6 @@
     gap: 1rem;
   }
 
-  .asig-year-group {
-  }
-
   .asig-year-badge {
     display: inline-block;
     background: #1e3a8a;
@@ -1057,8 +1054,6 @@
   }
 
   /* ── Docentes ── */
-  .docentes-section {
-  }
 
   .docentes-hint {
     font-size: 0.8125rem;

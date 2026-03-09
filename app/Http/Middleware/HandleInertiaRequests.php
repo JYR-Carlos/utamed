@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\UserCoursesService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -25,35 +26,15 @@ use Inertia\Middleware;
  */
 class HandleInertiaRequests extends Middleware
 {
-    /**
-     * The root template that's loaded on the first page visit.
-     *
-     * @see https://inertiajs.com/server-side-setup#root-template
-     *
-     * @var string
-     */
     protected $rootView = 'app';
 
-    /**
-     * Determines the current asset version.
-     *
-     * @see https://inertiajs.com/asset-versioning
-     */
+    public function __construct(private UserCoursesService $userCourses) {}
+
     public function version(Request $request): ?string
     {
         return parent::version($request);
     }
 
-    /**
-     * Define the props that are shared by default.
-     * 
-     * Comparte información de usuario, roles, permisos y datos globales con cada response.
-     * Los datos aquí están disponibles en todos los componentes Svelte/React.
-     *
-     * @see https://inertiajs.com/shared-data
-     *
-     * @return array<string, mixed>  Datos compartidos con frontend
-     */
     public function share(Request $request): array
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
@@ -62,112 +43,50 @@ class HandleInertiaRequests extends Middleware
         $user = $request->user();
         $docente = null;
         $estudiante = null;
+        $allAyudantePerms = null;
 
         if ($user) {
             $user->load([
                 'rolesAsignados' => fn($q) => $q->where('esta_activo', true)
                     ->where('fue_eliminado', false),
                 'docente',
-                'estudiante'
+                'estudiante',
             ]);
-            // Fetch active roles for Global context (ID 5) or all active roles if strict context not required yet.
-            // For dashboard purposes, we usually want "What is this user system-wide?".
-            // We'll fetch ALL active assignments for now.
-            // 2. Ahora procesamos sobre la COLECCIÓN (en memoria), no sobre el Query Builder
-            $roles = $user->rolesAsignados // <--- Sin paréntesis (), usamos la colección ya cargada
+
+            $roles = $user->rolesAsignados
                 ->pluck('nombre')
                 ->values()
                 ->toArray();
 
-            \Illuminate\Support\Facades\Log::info('HandleInertiaRequests - User roles:', [
-                'user_id' => $user->id_usuario,
-                'roles_count' => count($roles),
-                'roles' => $roles,
-                'assignments' => $user->rolesAsignados->toArray()
-            ]);
-
-            // \Log::info('HandleInertiaRequests - User Roles:', ['id' => $user->id_usuario, 'roles' => $roles]);
-
-            // 3. Ya están cargados, así que esto no dispara más SQL
             $docente = $user->docente;
             $estudiante = $user->estudiante;
-            $estudiante = $user->estudiante;
-        }
 
+            // Pre-cargar permisos agrupados por contexto si es ayudante (evita N+1)
+            if (in_array('ayudante', array_map('strtolower', $roles))) {
+                $allAyudantePerms = $user->getAllPermissionsGroupedByContext();
+            }
+        }
 
         return [
             ...parent::share($request),
-            'name' => config('app.name'),
+            'name'  => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
-            'auth' => [
-                'user' => $user,
-                'roles' => $roles,
+            'auth'  => [
+                'user'          => $user,
+                'roles'         => $roles,
                 'is_super_admin' => $user?->isSuperAdmin() ?? false,
-                'docente' => $docente,
-                'estudiante' => $estudiante,
-                'docente_courses' => $docente ? \App\Models\Curso\Curso::join('curso.seccion', 'curso.curso.id_curso', '=', 'curso.seccion.id_curso')
-                    ->where('curso.seccion.id_docente', $docente->id_docente)
-                    ->distinct()
-                    ->select('curso.curso.id_curso', 'curso.curso.nombre', 'curso.curso.cod_curso')
-                    ->with(['asignacionPlan.plan.carrera'])
-                    ->get()
-                    ->map(function ($curso) {
-                        return [
-                            'id_curso' => $curso->id_curso,
-                            'nombre' => $curso->nombre,
-                            'cod_curso' => $curso->cod_curso,
-                            'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
-                            'tiene_programa' => \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)->exists(),
-                        ];
-                    })
-                    ->values() : [],
-                'estudiante_courses' => $estudiante ? \App\Models\Curso\InscripcionSeccion::where('id_estudiante', $estudiante->id_estudiante)
-                    ->with('seccion.curso')
-                    ->get()
-                    ->pluck('seccion.curso')
-                    ->filter()
-                    ->unique('id_curso')
-                    ->values()
-                    ->map(fn($c) => [
-                        'id_curso' => $c->id_curso,
-                        'nombre' => $c->nombre,
-                        'cod_curso' => $c->cod_curso,
-                    ]) : [],
-                'ayudante_courses' => (in_array('ayudante', array_map('strtolower', $roles)))
-                    ? \App\Models\Curso\Curso::whereIn('id_contexto', 
-                        \App\Models\Usuario\UsuarioRolAsignacion::where('id_usuario', $user->id_usuario)
-                            ->where('esta_activo', true)
-                            ->where('fue_eliminado', false)
-                            ->whereHas('rol', fn($q) => $q->whereRaw('LOWER(nombre) = ?', ['ayudante']))
-                            ->pluck('id_contexto')
-                    )
-                    ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto')
-                    ->get()
-                    ->map(function ($c) use ($user) {
-                        $userPermissions = $user->getAllPermissions($c->id_contexto);
-                        $userPermissions = collect($userPermissions)->map(function ($perm) {
-                            return [
-                                'id_permiso' => $perm['id_permiso'],
-                                'slug' => $perm['slug'],
-                                'esta_permitido' => (bool)$perm['esta_permitido'],
-                            ];
-                        })->values()->toArray();
-                        return [
-                            'id_curso' => $c->id_curso,
-                            'nombre' => $c->nombre,
-                            'cod_curso' => $c->cod_curso,
-                            'tiene_programa' => \App\Models\Administrativo\Programa::where('id_curso', $c->id_curso)->exists(),
-                            'userPermissions' => $userPermissions,
-                        ];
-                    })
-                    ->unique('id_curso')
-                    ->values() : [],
-
+                'docente'       => $docente,
+                'estudiante'    => $estudiante,
+                'docente_courses'    => $docente   ? $this->userCourses->getDocenteCourses($docente)                         : [],
+                'estudiante_courses' => $estudiante ? $this->userCourses->getEstudianteCourses($estudiante)                  : [],
+                'ayudante_courses'   => in_array('ayudante', array_map('strtolower', $roles))
+                                        ? $this->userCourses->getAyudanteCourses($user, $allAyudantePerms)
+                                        : [],
             ],
             'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => fn() => $request->session()->get('success'),
-                'error' => fn() => $request->session()->get('error'),
+                'error'   => fn() => $request->session()->get('error'),
             ],
         ];
     }

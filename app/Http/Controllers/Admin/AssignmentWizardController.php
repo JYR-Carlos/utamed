@@ -7,6 +7,8 @@ use App\Enums\ContextualModelType;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
+use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Services\Authorization\GlobalContextService;
 use App\Services\Authorization\PermissionContextConstraints;
 use App\Support\Permissions;
@@ -447,5 +449,55 @@ class AssignmentWizardController extends Controller
       }
     }
     return null;
+  }
+
+  /**
+   * DELETE /admin/usuarios/{usuario}/roles/{ura}
+   *
+   * Revoca una asignación de rol (URA) de un usuario.
+   */
+  public function revokeRole($usuarioId, $uraId)
+  {
+    $usuario = Usuario::findOrFail($usuarioId);
+    $ura = UsuarioRolAsignacion::findOrFail($uraId);
+
+    if ((int) $ura->id_usuario !== (int) $usuario->id_usuario) {
+      return response()->json(['success' => false, 'message' => 'La asignación no pertenece a este usuario.'], 403);
+    }
+
+    try {
+      $usuario->invalidateRole($uraId);
+      return response()->json(['success' => true, 'message' => 'Rol revocado correctamente.']);
+    } catch (\App\Exceptions\DontHavePermissionException $e) {
+      return response()->json(['success' => false, 'message' => $e->getMessage()], 403);
+    } catch (\Exception $e) {
+      Log::error('revokeRole error: ' . $e->getMessage(), ['ura_id' => $uraId, 'user_id' => $usuarioId]);
+      return response()->json(['success' => false, 'message' => 'Error al revocar rol: ' . $e->getMessage()], 500);
+    }
+  }
+
+  /**
+   * DELETE /admin/usuarios/{usuario}/permissions/{upe}
+   *
+   * Revoca un permiso especial (UPE) de un usuario.
+   */
+  public function revokePermission($usuarioId, $upeId)
+  {
+    $usuario = Usuario::findOrFail($usuarioId);
+    $upe = UsuarioPermisoEspecial::findOrFail($upeId);
+
+    if ((int) $upe->id_usuario !== (int) $usuario->id_usuario) {
+      return response()->json(['success' => false, 'message' => 'El permiso no pertenece a este usuario.'], 403);
+    }
+
+    try {
+      $usuario->invalidatePermission($upeId);
+      return response()->json(['success' => true, 'message' => 'Permiso revocado correctamente.']);
+    } catch (\App\Exceptions\DontHavePermissionException $e) {
+      return response()->json(['success' => false, 'message' => $e->getMessage()], 403);
+    } catch (\Exception $e) {
+      Log::error('revokePermission error: ' . $e->getMessage(), ['upe_id' => $upeId, 'user_id' => $usuarioId]);
+      return response()->json(['success' => false, 'message' => 'Error al revocar permiso: ' . $e->getMessage()], 500);
+    }
   }
 }

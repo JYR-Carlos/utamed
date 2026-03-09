@@ -60,7 +60,10 @@ class CarreraController extends Controller
                 'jefesDeCarreraActivos as has_director',
             ])
             ->with([
-                'departamento:id_departamento,nombre,id_facultad',
+                'departamento' => function($q) {
+                    $q->withTrashed()
+                        ->select('id_departamento', 'nombre', 'id_facultad', 'fecha_eliminacion');
+                },
                 'departamento.facultad:id_facultad,nombre',
             ]);
 
@@ -135,7 +138,13 @@ class CarreraController extends Controller
      */
     public function show(Carrera $carrera)
     {
-        $carrera->load(['departamento', 'departamento.facultad', 'planes']);
+        $carrera->load([
+            'departamento' => function($q) {
+                $q->withTrashed();
+            },
+            'departamento.facultad',
+            'planes'
+        ]);
 
         return response()->json($carrera);
     }

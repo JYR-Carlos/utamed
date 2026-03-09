@@ -6,7 +6,6 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Usuario\Usuario;
 /**
  * Middleware para validar que el usuario autenticado es docente.
  * 
@@ -35,10 +34,8 @@ class IsDocente
             return redirect('/login');
         }
 
-        $isDocente = $user->hasRole('Docente');
-
         // Un usuario debe ser docente para acceder a estas rutas
-        if (!$user->hasAnyRole(['Docente'])) {
+        if (!$user->hasRole('Docente')) {
             return redirect('/dashboard')->with('error', 'No tienes permisos para acceder a esta sección. Acceso restringido a docentes.');
         }
     

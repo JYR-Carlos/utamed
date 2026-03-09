@@ -134,6 +134,10 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('usuarios.assign-role');
     Route::post('usuarios/{usuario}/assign-permission', [AssignmentWizardController::class, 'assignPermission'])
         ->name('usuarios.assign-permission');
+    Route::delete('usuarios/{usuario}/roles/{ura}', [AssignmentWizardController::class, 'revokeRole'])
+        ->name('usuarios.revoke-role');
+    Route::delete('usuarios/{usuario}/permissions/{upe}', [AssignmentWizardController::class, 'revokePermission'])
+        ->name('usuarios.revoke-permission');
 
     // Detalle Malla (AsignacionPlan) routes
     Route::get('planes/{plan}/asignaturas/json', [AsignacionPlanController::class, 'mallaJson'])

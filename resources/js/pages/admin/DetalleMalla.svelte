@@ -1,806 +1,619 @@
 <script lang="ts">
-	/**
-	 * Modal para gestionar detalles de la malla curricular.
-	 * 
-	 * Permite a administradores agregar, editar y eliminar asignaturas
-	 * de un plan de estudios específico.
-	 * 
-	 * Características:
-	 * - Búsqueda y filtrado de asignaturas
-	 * - Validación de tipos de dato (tipo_ramo: null o integer)
-	 * - Organización por año y semestre planificado
-	 * - Manejo de errores con display en modal
-	 * - Confirmación antes de eliminación
-	 * 
-	 * Tablas relacionadas:
-	 * - administrativo.asignacion_plan: Relación asignatura-plan
-	 * - administrativo.asignatura: Información de asignaturas
-	 * - administrativo.plan: Información de planes curriculares
-	 */
-	import { router } from '@inertiajs/svelte';
-	import type { Plan, Asignatura, AsignacionPlan, AsignacionPlanFormData, MallaData } from '@/types/admin.types';
-	import AdminLayout from '@/layouts/AdminLayout.svelte';
-	import FormModal from '@/components/custom/admin/FormModal.svelte';
-	import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
+  import { router } from '@inertiajs/svelte';
+  import type { Plan, Asignatura, AsignacionPlan, MallaData } from '@/types/admin.types';
+  import AdminLayout from '@/layouts/AdminLayout.svelte';
+  import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
+  import FormModal from '@/components/custom/admin/FormModal.svelte';
 
-	/**
-	 * Props recibidas del servidor (Inertia).
-	 */
-	interface Props {
-		/** Plan académico que se está editando */
-		plan: Plan;
-		/** Datos de la malla actual organizados por período */
-		malla: MallaData;
-		/** Lista de asignaturas disponibles para asignar */
-		asignaturas: Asignatura[];
-		/** Mensajes flash del servidor (éxito/error) */
-		flash?: {
-			error?: string;
-			success?: string;
-		};
-	}
+  interface Props {
+    plan: Plan;
+    malla: MallaData;
+    asignaturas: Asignatura[];
+    flash?: { error?: string; success?: string };
+  }
 
-	let { plan, malla, asignaturas, flash }: Props = $props();
+  let { plan, malla, asignaturas = [], flash }: Props = $props();
 
-	let showModal = $state(false);
-	let showDeleteDialog = $state(false);
-	let isLoading = $state(false);
-	let editingAsignacion = $state<AsignacionPlan | null>(null);
-	let deletingAsignacion = $state<AsignacionPlan | null>(null);
-	let modalError = $state<string | null>(null);
+  // ── Left column: catalog ─────────────────────────────────────────────────
+  let searchTerm = $state('');
+  let currentPage = $state(1);
+  const PAGE_SIZE = 15;
 
-	let formData = $state<AsignacionPlanFormData>({
-		id_asignatura: 0,
-		agno_planificado: 1,
-		semestre_planificado: 1,
-		tipo_ramo: ''
-	});
+  const assignedIds = $derived.by(() => {
+    const ids = new Set<number>();
+    Object.values(malla ?? {}).forEach((list) => list.forEach((a) => ids.add(a.id_asignatura)));
+    return ids;
+  });
 
-	let searchTerm = $state('');
-	let showAsignaturasDropdown = $state(false);
+  const filteredAsignaturas = $derived.by(() => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return asignaturas;
+    return asignaturas.filter((a) => a.cod_asignatura.toLowerCase().includes(term) || a.nombre.toLowerCase().includes(term));
+  });
 
-	// Filter asignaturas by search term
-	const filteredAsignaturas = $derived.by(() => {
-		if (!searchTerm.trim()) {
-			return asignaturas;
-		}
-		
-		const term = searchTerm.toLowerCase();
-		return asignaturas.filter(a => 
-			a.cod_asignatura.toLowerCase().includes(term) ||
-			a.nombre.toLowerCase().includes(term)
-		);
-	});
+  $effect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    filteredAsignaturas;
+    currentPage = 1;
+  });
 
-	// Organize malla by year
-	const mallaByYear = $derived(() => {
-		const years: { [year: number]: { semestre1: AsignacionPlan[], semestre2: AsignacionPlan[] } } = {};
-		
-		Object.entries(malla).forEach(([key, asignaciones]) => {
-			asignaciones.forEach(asig => {
-				if (!years[asig.agno_planificado]) {
-					years[asig.agno_planificado] = { semestre1: [], semestre2: [] };
-				}
-				if (asig.semestre_planificado === 1) {
-					years[asig.agno_planificado].semestre1.push(asig);
-				} else {
-					years[asig.agno_planificado].semestre2.push(asig);
-				}
-			});
-		});
-		
-		return years;
-	});
+  const totalPages = $derived(Math.max(1, Math.ceil(filteredAsignaturas.length / PAGE_SIZE)));
 
-	function openCreateModal() {
-		editingAsignacion = null;
-		modalError = null;
-		formData = {
-			id_asignatura: 0,
-			agno_planificado: 1,
-			semestre_planificado: 1,
-			tipo_ramo: ''
-		};
-		showModal = true;
-	}
+  const pagedAsignaturas = $derived(filteredAsignaturas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE));
 
-	function openEditModal(asignacion: AsignacionPlan) {
-		editingAsignacion = asignacion;
-		modalError = null;
-		formData = {
-			id_asignatura: asignacion.id_asignatura,
-			agno_planificado: asignacion.agno_planificado,
-			semestre_planificado: asignacion.semestre_planificado,
-			tipo_ramo: asignacion.tipo_ramo || ''
-		};
-		showModal = true;
-	}
+  // ── Inline assign form ───────────────────────────────────────────────────
+  let assigningId = $state<number | null>(null);
+  let assignForm = $state({ agno_planificado: 1, semestre_planificado: 1 });
+  let assignLoading = $state(false);
+  let assignError = $state<string | null>(null);
 
-	function closeModal() {
-		showModal = false;
-		editingAsignacion = null;
-		searchTerm = '';
-		showAsignaturasDropdown = false;
-		modalError = null;
-	}
+  function startAssign(asignatura: Asignatura) {
+    assigningId = asignatura.id_asignatura;
+    assignForm = { agno_planificado: 1, semestre_planificado: 1 };
+    assignError = null;
+  }
 
-	function handleSubmit() {
-		if (formData.id_asignatura === 0) {
-			modalError = 'Debes seleccionar una asignatura';
-			return;
-		}
+  function cancelAssign() {
+    assigningId = null;
+    assignError = null;
+  }
 
-		isLoading = true;
+  function confirmAssign() {
+    if (!assigningId) return;
+    assignLoading = true;
+    assignError = null;
+    router.post(
+      `/admin/planes/${plan.id_plan}/asignaturas`,
+      { id_asignatura: assigningId, ...assignForm },
+      {
+        onSuccess: () => {
+          assignLoading = false;
+          assigningId = null;
+        },
+        onError: () => {
+          assignLoading = false;
+          assignError = 'Error al asignar. Inténtalo de nuevo.';
+        },
+      },
+    );
+  }
 
-		if (editingAsignacion) {
-			router.put(`/admin/planes/${plan.id_plan}/asignaturas/${editingAsignacion.id_asignatura}`, formData, {
-				onSuccess: () => {
-					closeModal();
-					isLoading = false;
-				},
-				onError: (errors) => {
-					isLoading = false;
-					modalError = 'Error al actualizar la asignación. Intenta de nuevo.';
-					console.error('Update errors:', errors);
-				}
-			});
-		} else {
-			router.post(`/admin/planes/${plan.id_plan}/asignaturas`, formData, {
-				onSuccess: () => {
-					closeModal();
-					isLoading = false;
-				},
-				onError: (errors) => {
-					isLoading = false;
-					modalError = 'Error al asignar la asignatura. Verifica los datos e intenta de nuevo.';
-					console.error('Create errors:', errors);
-				}
-			});
-		}
-	}
+  // ── Right column: malla ──────────────────────────────────────────────────
+  const mallaByYear = $derived.by(() => {
+    const years: Record<number, { semestre1: AsignacionPlan[]; semestre2: AsignacionPlan[] }> = {};
+    Object.values(malla).forEach((list) => {
+      list.forEach((asig) => {
+        if (!years[asig.agno_planificado]) {
+          years[asig.agno_planificado] = { semestre1: [], semestre2: [] };
+        }
+        if (asig.semestre_planificado === 1) {
+          years[asig.agno_planificado].semestre1.push(asig);
+        } else {
+          years[asig.agno_planificado].semestre2.push(asig);
+        }
+      });
+    });
+    return years;
+  });
 
-	function openDeleteDialog(asignacion: AsignacionPlan) {
-		deletingAsignacion = asignacion;
-		showDeleteDialog = true;
-	}
+  const sortedYears = $derived(Object.entries(mallaByYear).sort(([a], [b]) => Number(a) - Number(b)));
 
-	function closeDeleteDialog() {
-		showDeleteDialog = false;
-		deletingAsignacion = null;
-	}
+  const totalAssigned = $derived(Object.values(malla).reduce((sum, list) => sum + list.length, 0));
 
-	function handleDelete() {
-		if (!deletingAsignacion) return;
+  const totalCredits = $derived(
+    Object.values(malla)
+      .flat()
+      .reduce((sum, a) => sum + (a.asignatura?.creditos_sct ?? 0), 0),
+  );
 
-		isLoading = true;
-		router.delete(`/admin/planes/${plan.id_plan}/asignaturas/${deletingAsignacion.id_asignatura}`, {
-			onSuccess: () => {
-				closeDeleteDialog();
-				isLoading = false;
-			},
-			onError: () => {
-				isLoading = false;
-			}
-		});
-	}
+  // ── Edit modal ───────────────────────────────────────────────────────────
+  let showEditModal = $state(false);
+  let editingAsignacion = $state<AsignacionPlan | null>(null);
+  let editForm = $state({ agno_planificado: 1, semestre_planificado: 1, tipo_ramo: '' });
+  let editLoading = $state(false);
+  let editError = $state<string | null>(null);
+
+  function openEditModal(asignacion: AsignacionPlan) {
+    editingAsignacion = asignacion;
+    editForm = {
+      agno_planificado: asignacion.agno_planificado,
+      semestre_planificado: asignacion.semestre_planificado,
+      tipo_ramo: asignacion.tipo_ramo ?? '',
+    };
+    editError = null;
+    showEditModal = true;
+  }
+
+  function closeEditModal() {
+    showEditModal = false;
+    editingAsignacion = null;
+    editError = null;
+  }
+
+  function handleEdit() {
+    if (!editingAsignacion) return;
+    editLoading = true;
+    router.put(`/admin/planes/${plan.id_plan}/asignaturas/${editingAsignacion.id_asignatura}`, editForm, {
+      onSuccess: () => {
+        closeEditModal();
+        editLoading = false;
+      },
+      onError: () => {
+        editLoading = false;
+        editError = 'Error al actualizar la asignación.';
+      },
+    });
+  }
+
+  // ── Delete ───────────────────────────────────────────────────────────────
+  let showDeleteDialog = $state(false);
+  let deletingAsignacion = $state<AsignacionPlan | null>(null);
+  let deleteLoading = $state(false);
+
+  function openDeleteDialog(asignacion: AsignacionPlan) {
+    deletingAsignacion = asignacion;
+    showDeleteDialog = true;
+  }
+
+  function closeDeleteDialog() {
+    showDeleteDialog = false;
+    deletingAsignacion = null;
+  }
+
+  function handleDelete() {
+    if (!deletingAsignacion) return;
+    deleteLoading = true;
+    router.delete(`/admin/planes/${plan.id_plan}/asignaturas/${deletingAsignacion.id_asignatura}`, {
+      onSuccess: () => {
+        closeDeleteDialog();
+        deleteLoading = false;
+      },
+      onError: () => {
+        deleteLoading = false;
+      },
+    });
+  }
 </script>
 
 <AdminLayout>
-	<div class="page-container">
-		<!-- Header -->
-		<div class="page-header">
-			<div>
-				<h1 class="page-title">Malla Curricular</h1>
-				<p class="page-description">
-					{plan.carrera?.nombre} - Año {plan.agno} v{plan.version}
-				</p>
-			</div>
-			<div class="header-actions">
-				<div class="credits-badge">
-					<span class="credits-label">Total Créditos SCT:</span>
-					<span class="credits-value">{plan.creditos_sct_totales || 0}</span>
-				</div>
-				<button onclick={openCreateModal} class="btn-primary">
-					+ Agregar Asignatura
-				</button>
-			</div>
-		</div>
+  <!-- ── Page header ─────────────────────────────────────────────────────── -->
+  <div class="mb-6 flex items-start justify-between gap-4">
+    <div>
+      <a href="/admin/planes" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-2 transition-colors">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"><polyline points="15 18 9 12 15 6" /></svg
+        >
+        Volver a Planes
+      </a>
+      <h1 class="text-2xl font-bold text-gray-900">Editar Malla Curricular</h1>
+      <p class="text-sm text-gray-500 mt-0.5">
+        {plan.carrera?.nombre ?? ''} · Año {plan.agno} · v{plan.version_plan}
+      </p>
+    </div>
+    <div class="flex items-center gap-3 shrink-0">
+      <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-center">
+        <p class="text-xs text-blue-600 font-medium uppercase tracking-wide">Créditos SCT</p>
+        <p class="text-2xl font-bold text-blue-700">{totalCredits}</p>
+      </div>
+      <div class="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-center">
+        <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Asignaturas</p>
+        <p class="text-2xl font-bold text-gray-700">{totalAssigned}</p>
+      </div>
+    </div>
+  </div>
 
-		<!-- Malla Grid -->
-		<div class="malla-container">
-			{#each Object.entries(mallaByYear()).sort(([a], [b]) => Number(a) - Number(b)) as [year, semesters]}
-				<div class="year-section">
-					<h2 class="year-title">Año {year}</h2>
-					<div class="semesters-grid">
-						<!-- Semestre 1 -->
-						<div class="semester-column">
-							<h3 class="semester-title">Semestre 1</h3>
-							<div class="asignaturas-list">
-								{#if semesters.semestre1.length === 0}
-									<p class="empty-message">Sin asignaturas</p>
-								{:else}
-									{#each semesters.semestre1 as asignacion}
-										<div class="asignatura-card">
-											<div class="asignatura-header">
-												<span class="asignatura-code">{asignacion.asignatura?.cod_asignatura}</span>
-												<span class="asignatura-credits">{asignacion.asignatura?.creditos_sct || 0} SCT</span>
-											</div>
-											<p class="asignatura-name">{asignacion.asignatura?.nombre}</p>
-											{#if asignacion.tipo_ramo}
-												<span class="asignatura-type">{asignacion.tipo_ramo}</span>
-											{/if}
-											<div class="asignatura-actions">
-												<button onclick={() => openEditModal(asignacion)} class="btn-edit">Editar</button>
-												<button onclick={() => openDeleteDialog(asignacion)} class="btn-delete">Eliminar</button>
-											</div>
-										</div>
-									{/each}
-								{/if}
-							</div>
-						</div>
+  <!-- ── Flash messages ─────────────────────────────────────────────────── -->
+  {#if flash?.success}
+    <div class="mb-4 flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg
+      >
+      {flash.success}
+    </div>
+  {/if}
+  {#if flash?.error}
+    <div class="mb-4 flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg
+      >
+      {flash.error}
+    </div>
+  {/if}
 
-						<!-- Semestre 2 -->
-						<div class="semester-column">
-							<h3 class="semester-title">Semestre 2</h3>
-							<div class="asignaturas-list">
-								{#if semesters.semestre2.length === 0}
-									<p class="empty-message">Sin asignaturas</p>
-								{:else}
-									{#each semesters.semestre2 as asignacion}
-										<div class="asignatura-card">
-											<div class="asignatura-header">
-												<span class="asignatura-code">{asignacion.asignatura?.cod_asignatura}</span>
-												<span class="asignatura-credits">{asignacion.asignatura?.creditos_sct || 0} SCT</span>
-											</div>
-											<p class="asignatura-name">{asignacion.asignatura?.nombre}</p>
-											{#if asignacion.tipo_ramo}
-												<span class="asignatura-type">{asignacion.tipo_ramo}</span>
-											{/if}
-											<div class="asignatura-actions">
-												<button onclick={() => openEditModal(asignacion)} class="btn-edit">Editar</button>
-												<button onclick={() => openDeleteDialog(asignacion)} class="btn-delete">Eliminar</button>
-											</div>
-										</div>
-									{/each}
-								{/if}
-							</div>
-						</div>
-					</div>
-				</div>
-			{/each}
+  <!-- ── Two-column layout ──────────────────────────────────────────────── -->
+  <div
+    class="grid grid-cols-[5fr_7fr] gap-0 border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm"
+    style="height: calc(100vh - 14rem);"
+  >
+    <!-- ═══ LEFT: Catálogo de asignaturas ════════════════════════════════ -->
+    <div class="flex flex-col border-r border-gray-200 overflow-hidden">
+      <!-- Header -->
+      <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 shrink-0">
+        <h2 class="text-sm font-semibold text-gray-700 mb-2">
+          Catálogo de Asignaturas
+          <span class="ml-1 text-xs font-normal text-gray-400">({filteredAsignaturas.length} resultados)</span>
+        </h2>
+        <div class="relative">
+          <svg
+            class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+          >
+          <input
+            type="text"
+            placeholder="Buscar por código o nombre..."
+            bind:value={searchTerm}
+            class="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 bg-white"
+          />
+        </div>
+      </div>
 
-			{#if Object.keys(mallaByYear()).length === 0}
-				<div class="empty-state">
-					<p>No hay asignaturas asignadas a este plan.</p>
-					<button onclick={openCreateModal} class="btn-primary">Agregar Primera Asignatura</button>
-				</div>
-			{/if}
-		</div>
-	</div>
+      <!-- Subject list -->
+      <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
+        {#if pagedAsignaturas.length === 0}
+          <div class="flex flex-col items-center justify-center py-16 text-gray-400">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="36"
+              height="36"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="mb-3"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+            >
+            <p class="text-sm">Sin resultados</p>
+          </div>
+        {:else}
+          {#each pagedAsignaturas as asignatura (asignatura.id_asignatura)}
+            {@const isAssigned = assignedIds.has(asignatura.id_asignatura)}
+            {@const isExpanded = assigningId === asignatura.id_asignatura}
+            <div class="transition-colors {isExpanded ? 'bg-blue-50' : 'hover:bg-gray-50'}">
+              <!-- Subject row -->
+              <div class="flex items-center gap-2 px-4 py-2.5">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-0.5">
+                    <span class="font-mono text-xs font-bold text-blue-600 shrink-0">{asignatura.cod_asignatura}</span>
+                    {#if isAssigned}
+                      <span class="text-[10px] font-medium bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full shrink-0">Asignada</span>
+                    {/if}
+                  </div>
+                  <p class="text-sm text-gray-800 font-medium truncate leading-tight">{asignatura.nombre}</p>
+                  <p class="text-xs text-gray-400 mt-0.5">{asignatura.creditos_sct ?? 0} créditos SCT</p>
+                </div>
+                {#if !isAssigned}
+                  {#if isExpanded}
+                    <button
+                      onclick={cancelAssign}
+                      class="shrink-0 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors border-0 cursor-pointer bg-transparent"
+                      title="Cancelar"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+                      >
+                    </button>
+                  {:else}
+                    <button
+                      onclick={() => startAssign(asignatura)}
+                      class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-xs font-medium border-0 cursor-pointer transition-colors"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg
+                      >
+                      Asignar
+                    </button>
+                  {/if}
+                {/if}
+              </div>
 
-	<!-- Add/Edit Modal -->
-	<FormModal
-		bind:isOpen={showModal}
-		title={editingAsignacion ? 'Editar Asignación' : 'Agregar Asignatura'}
-		onClose={closeModal}
-		onSubmit={handleSubmit}
-		{isLoading}
-	>
-		{#if modalError}
-			<div class="error-alert">
-				<div class="error-icon">⚠️</div>
-				<div class="error-content">
-					<p class="error-title">Error</p>
-					<p class="error-message">{modalError}</p>
-				</div>
-			</div>
-		{/if}
+              <!-- Inline assign form (expands when clicked) -->
+              {#if isExpanded}
+                <div class="px-4 pb-3 border-t border-blue-200 bg-blue-50">
+                  {#if assignError}
+                    <p class="text-xs text-red-600 py-1.5">{assignError}</p>
+                  {/if}
+                  <div class="flex items-end gap-2 pt-2.5">
+                    <div class="flex-1">
+                      <label for="assign-agno" class="block text-xs font-medium text-gray-600 mb-1">Año</label>
+                      <select bind:value={assignForm.agno_planificado} id="assign-agno">
+                        {#each Array.from({ length: 10 }, (_, i) => i + 1) as y}
+                          <option value={y}>{y}</option>
+                        {/each}
+                      </select>
+                    </div>
+                    <div class="flex-1">
+                      <label for="assign-semestre" class="block text-xs font-medium text-gray-600 mb-1">Semestre</label>
+                      <select bind:value={assignForm.semestre_planificado} id="assign-semestre">
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                      </select>
+                    </div>
+                    <button
+                      onclick={confirmAssign}
+                      disabled={assignLoading}
+                      class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-md text-xs font-semibold border-0 cursor-pointer transition-colors whitespace-nowrap"
+                    >
+                      {assignLoading ? 'Asignando...' : '✓ Confirmar'}
+                    </button>
+                  </div>
+                </div>
+              {/if}
+            </div>
+          {/each}
+        {/if}
+      </div>
 
-		<div class="form-group">
-			<label for="id_asignatura" class="form-label">Asignatura *</label>
-			<div class="asignatura-search-container">
-				<input
-					type="text"
-					placeholder="Ponga el código/nombre o prefijo de la asignatura"
-					bind:value={searchTerm}
-					onfocus={() => showAsignaturasDropdown = true}
-					onblur={() => setTimeout(() => showAsignaturasDropdown = false, 200)}
-					class="search-input form-input"
-					disabled={!!editingAsignacion}
-				/>
-				
-				{#if showAsignaturasDropdown && filteredAsignaturas.length > 0}
-					<div class="asignaturas-dropdown">
-						{#each filteredAsignaturas as asignatura}
-							<button
-								type="button"
-								class="dropdown-item"
-								onclick={() => {
-									formData.id_asignatura = asignatura.id_asignatura;
-									searchTerm = `${asignatura.cod_asignatura} - ${asignatura.nombre}`;
-									showAsignaturasDropdown = false;
-								}}
-								disabled={!!editingAsignacion}
-							>
-								<div class="dropdown-item-code">{asignatura.cod_asignatura}</div>
-								<div class="dropdown-item-info">
-									<div class="dropdown-item-name">{asignatura.nombre}</div>
-									<div class="dropdown-item-credits">{asignatura.creditos_sct || 0} créditos SCT</div>
-								</div>
-							</button>
-						{/each}
-					</div>
-				{:else if showAsignaturasDropdown && searchTerm.trim() && filteredAsignaturas.length === 0}
-					<div class="asignaturas-dropdown empty">
-						<p class="no-results">No se encontraron asignaturas</p>
-					</div>
-				{/if}
-			</div>
-		</div>
+      <!-- Pagination -->
+      <div class="px-4 py-2.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between shrink-0">
+        <span class="text-xs text-gray-500">
+          Página {currentPage} de {totalPages}
+        </span>
+        <div class="flex gap-1">
+          <button
+            onclick={() => (currentPage = Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            class="px-2.5 py-1 text-xs border border-gray-300 rounded bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            >Anterior</button
+          >
+          <button
+            onclick={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            class="px-2.5 py-1 text-xs border border-gray-300 rounded bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            >Siguiente</button
+          >
+        </div>
+      </div>
+    </div>
 
-		<div class="form-row">
-			<div class="form-group">
-				<label for="agno_planificado" class="form-label">Año *</label>
-				<select
-					id="agno_planificado"
-					bind:value={formData.agno_planificado}
-					class="form-input"
-					required
-				>
-					{#each Array.from({ length: 10 }, (_, i) => i + 1) as year}
-						<option value={year}>{year}</option>
-					{/each}
-				</select>
-			</div>
+    <!-- ═══ RIGHT: Malla del plan ════════════════════════════════════════ -->
+    <div class="flex flex-col overflow-hidden">
+      <!-- Header -->
+      <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 shrink-0">
+        <h2 class="text-sm font-semibold text-gray-700">Malla del Plan</h2>
+        <p class="text-xs text-gray-400 mt-0.5">Asignaturas organizadas por año y semestre</p>
+      </div>
 
-			<div class="form-group">
-				<label for="semestre_planificado" class="form-label">Semestre *</label>
-				<select
-					id="semestre_planificado"
-					bind:value={formData.semestre_planificado}
-					class="form-input"
-					required
-				>
-					<option value={1}>1</option>
-					<option value={2}>2</option>
-				</select>
-			</div>
-		</div>
+      <!-- Malla content -->
+      <div class="flex-1 overflow-y-auto p-5">
+        {#if sortedYears.length === 0}
+          <div class="flex flex-col items-center justify-center h-full text-gray-400">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="mb-3"
+              ><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line
+                x1="16"
+                y1="13"
+                x2="8"
+                y2="13"
+              /><line x1="16" y1="17" x2="8" y2="17" /></svg
+            >
+            <p class="text-sm font-medium">Sin asignaturas asignadas</p>
+            <p class="text-xs mt-1">Usa el catálogo de la izquierda para agregar asignaturas</p>
+          </div>
+        {:else}
+          <div class="flex flex-col gap-5">
+            {#each sortedYears as [year, semesters]}
+              <div class="border border-gray-200 rounded-lg overflow-hidden">
+                <!-- Year header -->
+                <div class="px-4 py-2 bg-gray-800 text-white text-sm font-semibold">
+                  Año {year}
+                  <span class="ml-2 text-xs font-normal text-gray-400">
+                    ({semesters.semestre1.length + semesters.semestre2.length} asignaturas)
+                  </span>
+                </div>
 
-		<div class="form-group">
-			<label for="tipo_ramo" class="form-label">Tipo de Ramo</label>
-			<select
-				id="tipo_ramo"
-				bind:value={formData.tipo_ramo}
-				class="form-input"
-			>
-				<option value="">Seleccione un tipo (opcional)</option>
-				<option value="Electivo Profesional">Electivo Profesional</option>
-				<option value="Plan Común">Plan Común</option>
-				<option value="Formación Profesional">Formación Profesional</option>
-			</select>
-		</div>
-	</FormModal>
+                <!-- Semesters grid -->
+                <div class="grid grid-cols-2 divide-x divide-gray-200">
+                  <!-- Semestre 1 -->
+                  <div class="p-3">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+                      Semestre 1
+                    </p>
+                    <div class="flex flex-col gap-2">
+                      {#if semesters.semestre1.length === 0}
+                        <p class="text-xs text-gray-300 italic py-2 text-center">Sin asignaturas</p>
+                      {:else}
+                        {#each semesters.semestre1 as asignacion}
+                          <div class="bg-white border border-gray-200 rounded-md p-2.5 hover:border-blue-300 transition-colors">
+                            <div class="flex items-start justify-between gap-2 mb-1">
+                              <span class="font-mono text-xs font-bold text-blue-600">{asignacion.asignatura?.cod_asignatura}</span>
+                              <span class="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">
+                                {asignacion.asignatura?.creditos_sct ?? 0} SCT
+                              </span>
+                            </div>
+                            <p class="text-xs text-gray-800 font-medium leading-snug mb-1.5">{asignacion.asignatura?.nombre}</p>
+                            {#if asignacion.tipo_ramo}
+                              <span class="inline-block text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mb-1.5"
+                                >{asignacion.tipo_ramo}</span
+                              >
+                            {/if}
+                            <div class="flex gap-1.5">
+                              <button
+                                onclick={() => openEditModal(asignacion)}
+                                class="px-2 py-1 bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-700 border-0 rounded text-[11px] font-medium cursor-pointer transition-colors"
+                                >Editar</button
+                              >
+                              <button
+                                onclick={() => openDeleteDialog(asignacion)}
+                                class="px-2 py-1 bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-600 border-0 rounded text-[11px] font-medium cursor-pointer transition-colors"
+                                >Quitar</button
+                              >
+                            </div>
+                          </div>
+                        {/each}
+                      {/if}
+                    </div>
+                  </div>
 
-	<!-- Delete Confirmation -->
-	<DeleteConfirmation
-		bind:isOpen={showDeleteDialog}
-		title="¿Eliminar Asignatura del Plan?"
-		message="Esta acción no se puede deshacer. La asignatura será removida de este plan."
-		onConfirm={handleDelete}
-		onCancel={closeDeleteDialog}
-		{isLoading}
-	/>
+                  <!-- Semestre 2 -->
+                  <div class="p-3">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span>
+                      Semestre 2
+                    </p>
+                    <div class="flex flex-col gap-2">
+                      {#if semesters.semestre2.length === 0}
+                        <p class="text-xs text-gray-300 italic py-2 text-center">Sin asignaturas</p>
+                      {:else}
+                        {#each semesters.semestre2 as asignacion}
+                          <div class="bg-white border border-gray-200 rounded-md p-2.5 hover:border-indigo-300 transition-colors">
+                            <div class="flex items-start justify-between gap-2 mb-1">
+                              <span class="font-mono text-xs font-bold text-indigo-600">{asignacion.asignatura?.cod_asignatura}</span>
+                              <span class="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">
+                                {asignacion.asignatura?.creditos_sct ?? 0} SCT
+                              </span>
+                            </div>
+                            <p class="text-xs text-gray-800 font-medium leading-snug mb-1.5">{asignacion.asignatura?.nombre}</p>
+                            {#if asignacion.tipo_ramo}
+                              <span class="inline-block text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mb-1.5"
+                                >{asignacion.tipo_ramo}</span
+                              >
+                            {/if}
+                            <div class="flex gap-1.5">
+                              <button
+                                onclick={() => openEditModal(asignacion)}
+                                class="px-2 py-1 bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-700 border-0 rounded text-[11px] font-medium cursor-pointer transition-colors"
+                                >Editar</button
+                              >
+                              <button
+                                onclick={() => openDeleteDialog(asignacion)}
+                                class="px-2 py-1 bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-600 border-0 rounded text-[11px] font-medium cursor-pointer transition-colors"
+                                >Quitar</button
+                              >
+                            </div>
+                          </div>
+                        {/each}
+                      {/if}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Edit modal ─────────────────────────────────────────────────────── -->
+  <FormModal bind:isOpen={showEditModal} title="Editar Asignación" onClose={closeEditModal} onSubmit={handleEdit} isLoading={editLoading}>
+    {#if editError}
+      <div class="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">{editError}</div>
+    {/if}
+    {#if editingAsignacion}
+      <p class="mb-4 text-sm text-gray-600">
+        <span class="font-mono font-bold text-blue-600">{editingAsignacion.asignatura?.cod_asignatura}</span>
+        — {editingAsignacion.asignatura?.nombre}
+      </p>
+    {/if}
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div>
+        <label for="edit-agno" class="block text-sm font-medium text-gray-700 mb-1.5">Año *</label>
+        <select
+          bind:value={editForm.agno_planificado}
+          id="edit-agno"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 bg-white"
+          required
+        >
+          {#each Array.from({ length: 10 }, (_, i) => i + 1) as y}
+            <option value={y}>{y}</option>
+          {/each}
+        </select>
+      </div>
+      <div>
+        <label for="edit-semestre" class="block text-sm font-medium text-gray-700 mb-1.5">Semestre *</label>
+        <select
+          bind:value={editForm.semestre_planificado}
+          id="edit-semestre"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 bg-white"
+          required
+        >
+          <option value={1}>1</option>
+          <option value={2}>2</option>
+        </select>
+      </div>
+    </div>
+    <div>
+      <label for="edit-tipo-ramo" class="block text-sm font-medium text-gray-700 mb-1.5">Tipo de Ramo</label>
+      <select
+        bind:value={editForm.tipo_ramo}
+        id="edit-tipo-ramo"
+        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 bg-white"
+      >
+        <option value="">Sin tipo (opcional)</option>
+        <option value="Electivo Profesional">Electivo Profesional</option>
+        <option value="Plan Común">Plan Común</option>
+        <option value="Formación Profesional">Formación Profesional</option>
+      </select>
+    </div>
+  </FormModal>
+
+  <!-- ── Delete confirmation ────────────────────────────────────────────── -->
+  <DeleteConfirmation
+    bind:isOpen={showDeleteDialog}
+    title="¿Quitar Asignatura del Plan?"
+    message="La asignatura será removida de esta malla. Esta acción no se puede deshacer."
+    onConfirm={handleDelete}
+    onCancel={closeDeleteDialog}
+    isLoading={deleteLoading}
+  />
 </AdminLayout>
-
-<style>
-	.page-container {
-		padding: 2rem;
-		max-width: 1400px;
-		margin: 0 auto;
-	}
-
-	.page-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		margin-bottom: 2rem;
-		gap: 2rem;
-	}
-
-	.page-title {
-		font-size: 1.875rem;
-		font-weight: 700;
-		color: #111827;
-		margin: 0;
-	}
-
-	.page-description {
-		color: #6b7280;
-		margin-top: 0.5rem;
-		font-size: 1rem;
-	}
-
-	.header-actions {
-		display: flex;
-		gap: 1rem;
-		align-items: center;
-	}
-
-	.credits-badge {
-		background: #eff6ff;
-		padding: 0.75rem 1.5rem;
-		border-radius: 8px;
-		border: 2px solid #3b82f6;
-	}
-
-	.credits-label {
-		color: #1e40af;
-		font-size: 0.875rem;
-		font-weight: 500;
-		margin-right: 0.5rem;
-	}
-
-	.credits-value {
-		color: #1e40af;
-		font-size: 1.5rem;
-		font-weight: 700;
-	}
-
-	.btn-primary {
-		padding: 0.75rem 1.5rem;
-		background: #3b82f6;
-		color: white;
-		border: none;
-		border-radius: 6px;
-		font-weight: 600;
-		cursor: pointer;
-		transition: background 0.2s;
-		white-space: nowrap;
-	}
-
-	.btn-primary:hover {
-		background: #2563eb;
-	}
-
-	.malla-container {
-		display: flex;
-		flex-direction: column;
-		gap: 2rem;
-	}
-
-	.year-section {
-		background: white;
-		border-radius: 12px;
-		padding: 1.5rem;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-	}
-
-	.year-title {
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: #111827;
-		margin: 0 0 1.5rem 0;
-		padding-bottom: 0.75rem;
-		border-bottom: 2px solid #e5e7eb;
-	}
-
-	.semesters-grid {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 1.5rem;
-	}
-
-	.semester-column {
-		min-height: 200px;
-	}
-
-	.semester-title {
-		font-size: 1.125rem;
-		font-weight: 600;
-		color: #374151;
-		margin: 0 0 1rem 0;
-		padding: 0.5rem 0.75rem;
-		background: #f9fafb;
-		border-radius: 6px;
-	}
-
-	.asignaturas-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-
-	.asignatura-card {
-		background: #f9fafb;
-		border: 1px solid #e5e7eb;
-		border-radius: 8px;
-		padding: 1rem;
-		transition: all 0.2s;
-	}
-
-	.asignatura-card:hover {
-		border-color: #3b82f6;
-		box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
-	}
-
-	.asignatura-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 0.5rem;
-	}
-
-	.asignatura-code {
-		font-family: 'Courier New', monospace;
-		font-weight: 600;
-		color: #3b82f6;
-		font-size: 0.875rem;
-	}
-
-	.asignatura-credits {
-		background: #dbeafe;
-		color: #1e40af;
-		padding: 0.25rem 0.75rem;
-		border-radius: 12px;
-		font-size: 0.75rem;
-		font-weight: 600;
-	}
-
-	.asignatura-name {
-		color: #111827;
-		font-weight: 500;
-		margin: 0 0 0.5rem 0;
-		font-size: 0.875rem;
-	}
-
-	.asignatura-type {
-		display: inline-block;
-		background: #f3f4f6;
-		color: #6b7280;
-		padding: 0.25rem 0.5rem;
-		border-radius: 4px;
-		font-size: 0.75rem;
-		margin-bottom: 0.5rem;
-	}
-
-	.asignatura-actions {
-		display: flex;
-		gap: 0.5rem;
-		margin-top: 0.75rem;
-	}
-
-	.btn-edit,
-	.btn-delete {
-		padding: 0.375rem 0.75rem;
-		border: none;
-		border-radius: 4px;
-		font-size: 0.75rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.btn-edit {
-		background: #eff6ff;
-		color: #1d4ed8;
-	}
-
-	.btn-edit:hover {
-		background: #dbeafe;
-	}
-
-	.btn-delete {
-		background: #fef2f2;
-		color: #dc2626;
-	}
-
-	.btn-delete:hover {
-		background: #fee2e2;
-	}
-
-	.empty-message {
-		color: #9ca3af;
-		text-align: center;
-		padding: 2rem 1rem;
-		font-style: italic;
-	}
-
-	.empty-state {
-		text-align: center;
-		padding: 4rem 2rem;
-		background: white;
-		border-radius: 12px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-	}
-
-	.empty-state p {
-		color: #6b7280;
-		margin-bottom: 1.5rem;
-		font-size: 1.125rem;
-	}
-
-	.form-row {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 1rem;
-	}
-
-	.form-group {
-		margin-bottom: 1rem;
-	}
-
-	.form-label {
-		display: block;
-		font-weight: 500;
-		color: #374151;
-		margin-bottom: 0.5rem;
-		font-size: 0.875rem;
-	}
-
-	.form-input {
-		width: 100%;
-		padding: 0.625rem 0.875rem;
-		border: 1px solid #d1d5db;
-		border-radius: 6px;
-		font-size: 0.875rem;
-		color: #111827;
-		background-color: white;
-		transition: all 0.2s;
-	}
-
-	.form-input:focus {
-		outline: none;
-		border-color: #3b82f6;
-		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-	}
-
-	.form-input:disabled {
-		background: #f3f4f6;
-		cursor: not-allowed;
-	}
-
-	.asignatura-search-container {
-		position: relative;
-	}
-
-	.search-input {
-		font-size: 0.875rem;
-	}
-
-	.asignaturas-dropdown {
-		position: absolute;
-		top: 100%;
-		left: 0;
-		right: 0;
-		background: white;
-		border: 1px solid #d1d5db;
-		border-top: none;
-		border-radius: 0 0 6px 6px;
-		max-height: 300px;
-		overflow-y: auto;
-		z-index: 10;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-	}
-
-	.asignaturas-dropdown.empty {
-		padding: 1rem;
-		text-align: center;
-	}
-
-	.no-results {
-		color: #9ca3af;
-		font-size: 0.875rem;
-		margin: 0;
-	}
-
-	.dropdown-item {
-		width: 100%;
-		padding: 0.75rem 0.875rem;
-		border: none;
-		background: white;
-		text-align: left;
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		transition: background 0.2s;
-		border-bottom: 1px solid #f3f4f6;
-	}
-
-	.dropdown-item:last-child {
-		border-bottom: none;
-	}
-
-	.dropdown-item:hover {
-		background: #f0f9ff;
-	}
-
-	.dropdown-item:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.dropdown-item-code {
-		font-family: 'Courier New', monospace;
-		font-weight: 600;
-		color: #3b82f6;
-		font-size: 0.875rem;
-		min-width: 80px;
-	}
-
-	.dropdown-item-info {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.dropdown-item-name {
-		color: #111827;
-		font-weight: 500;
-		font-size: 0.875rem;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.dropdown-item-credits {
-		color: #9ca3af;
-		font-size: 0.75rem;
-		margin-top: 0.25rem;
-	}
-
-	@media (max-width: 768px) {
-		.page-header {
-			flex-direction: column;
-		}
-
-		.header-actions {
-			width: 100%;
-			flex-direction: column;
-		}
-
-		.semesters-grid {
-			grid-template-columns: 1fr;
-		}
-
-		.form-row {
-			grid-template-columns: 1fr;
-		}
-	}
-
-.error-alert {
-	display: flex;
-	gap: 1rem;
-	padding: 1rem;
-	background-color: #fef2f2;
-	border: 1px solid #fecaca;
-	border-radius: 8px;
-	margin-bottom: 1rem;
-	align-items: flex-start;
-}
-
-.error-icon {
-	font-size: 1.5rem;
-	flex-shrink: 0;
-}
-
-.error-content {
-	flex: 1;
-	min-width: 0;
-}
-
-.error-title {
-	margin: 0 0 0.25rem 0;
-	color: #dc2626;
-	font-weight: 600;
-	font-size: 0.875rem;
-}
-
-.error-message {
-	margin: 0;
-	color: #991b1b;
-	font-size: 0.875rem;
-	line-height: 1.5;
-	word-break: break-word;
-}
-</style>

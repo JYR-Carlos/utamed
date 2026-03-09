@@ -26,6 +26,12 @@
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import { router, page, useForm } from '@inertiajs/svelte';
   import FormModal from '@/components/custom/admin/FormModal.svelte';
+  import ConfirmationModal from '@/components/admin/ConfirmationModal.svelte';
+  import StatusBadge from '@/components/admin/StatusBadge.svelte';
+  import AttriBadges from '@/components/admin/AttriBadges.svelte';
+  import PaginationControls from '@/components/admin/PaginationControls.svelte';
+  import { useFilteredList } from '@/lib/composables/useFilteredList';
+  import { PAGINATION_OPTIONS, DEFAULT_PER_PAGE, STATUS_OPTIONS } from '@/constants/admin';
   import type { Carrera, Facultad, Departamento, PaginatedResponse } from '@/types/admin.types';
 
   interface Props {
@@ -41,81 +47,23 @@
 
   let { carreras, facultades, filters }: Props = $props();
 
-  // ── URL / navigation helpers ──────────────────────────────────────────────
-  function urlParams(): URLSearchParams {
-    return new URL($page.url, window.location.origin).searchParams;
-  }
-  const currentPath = $derived(new URL($page.url, window.location.origin).pathname);
-
-  function navigate(extra: Record<string, string | number | undefined>) {
-    const params: Record<string, string> = {};
-    urlParams().forEach((v, k) => {
-      params[k] = v;
-    });
-    for (const [k, v] of Object.entries(extra)) {
-      if (v === undefined || v === '') delete params[k];
-      else params[k] = String(v);
-    }
-    delete params['page']; // reset to page 1 on any filter change
-    router.get(currentPath, params, { preserveState: true, preserveScroll: true });
-  }
-
-  // ── Search ────────────────────────────────────────────────────────────────
-  let searchTerm = $state(filters.search ?? '');
-  function handleSearch() {
-    navigate({ search: searchTerm || undefined });
-  }
-
-  // ── Status toggle (persisted in URL) ──────────────────────────────────────
-  const statusParam = $derived(urlParams().get('status') ?? 'active');
-  function setStatus(s: 'active' | 'all') {
-    navigate({ status: s });
-  }
-
-  // ── Per-page ──────────────────────────────────────────────────────────────
-  const perPageOptions = [10, 15, 25, 50];
-  const currentPerPage = $derived(Number(urlParams().get('per_page') ?? '15'));
-  function changePerPage(v: number) {
-    navigate({ per_page: String(v) });
-  }
-
-  // ── Pagination ────────────────────────────────────────────────────────────
-  function goToPage(p: number) {
-    const params: Record<string, string> = {};
-    urlParams().forEach((v, k) => {
-      params[k] = v;
-    });
-    params['page'] = String(p);
-    router.get(currentPath, params, { preserveState: true, preserveScroll: true });
-  }
-
-  // Sliding window of page buttons (max 5 shown, with ellipsis)
-  type PageBtn = { type: 'page'; n: number } | { type: 'ellipsis'; id: string };
-  const pageButtons = $derived.by((): PageBtn[] => {
-    const cur = carreras.current_page,
-      last = carreras.last_page;
-    if (last <= 1) return [];
-    const ws = Math.max(1, Math.min(cur - 2, last - 4));
-    const we = Math.min(last, ws + 4);
-    const btns: PageBtn[] = [];
-    if (ws > 1) {
-      btns.push({ type: 'page', n: 1 });
-      if (ws > 2) btns.push({ type: 'ellipsis', id: 'l' });
-    }
-    for (let i = ws; i <= we; i++) btns.push({ type: 'page', n: i });
-    if (we < last) {
-      if (we < last - 1) btns.push({ type: 'ellipsis', id: 'r' });
-      btns.push({ type: 'page', n: last });
-    }
-    return btns;
+  // ────── Composable para filtros ──────
+  const { searchTerm, status, perPage, currentPage, setSearch, setStatus, setPerPage, goToPage, navigate } = useFilteredList({
+    pathname: '/admin/carreras',
+    defaultPerPage: DEFAULT_PER_PAGE,
   });
 
-  // ── Modal state ───────────────────────────────────────────────────────────
-  let showModal = $state(false);
-  let showDiscontinuarDialog = $state(false);
-  let editingCarrera = $state<Carrera | null>(null);
-  let discontinuandoCarrera = $state<Carrera | null>(null);
+  // ────── Estado de UI agrupado ──────
+  let uiState = $state({
+    showFormModal: false,
+    showConfirmDialog: false,
+    editingCarrera: null as Carrera | null,
+    discontinuingCarrera: null as Carrera | null,
+  });
+
   let departamentos = $state<Departamento[]>([]);
+  let toast = $state<{ msg: string; type: 'success' | 'error' } | null>(null);
+  let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   const formData = useForm({
     nombre: '',
@@ -126,29 +74,36 @@
     id_facultad: 0,
   });
 
-  async function loadDepartamentos(id_facultad: number) {
+  async function loadDepartamentos(id_facultad: number, includeDeleted = false) {
     if (!id_facultad) {
       departamentos = [];
       return;
     }
     try {
       const r = await fetch(`/admin/facultades/${id_facultad}/departamentos`);
-      departamentos = await r.json();
+      let depts = await r.json();
+
+      // En modo creación, filtrar solo departamentos activos
+      if (!includeDeleted) {
+        depts = depts.filter((dept: Departamento) => !dept.fecha_eliminacion);
+      }
+
+      departamentos = depts;
     } catch {
       departamentos = [];
     }
   }
 
   function openCreateModal() {
-    editingCarrera = null;
+    uiState.editingCarrera = null;
     $formData.reset();
     $formData.clearErrors();
     departamentos = [];
-    showModal = true;
+    uiState.showFormModal = true;
   }
 
   async function openEditModal(carrera: Carrera) {
-    editingCarrera = carrera;
+    uiState.editingCarrera = carrera;
     $formData.defaults({
       nombre: carrera.nombre,
       jornada: carrera.jornada ?? '',
@@ -158,50 +113,53 @@
       id_facultad: carrera.id_facultad,
     });
     $formData.reset();
-    await loadDepartamentos(carrera.id_facultad);
-    showModal = true;
+    await loadDepartamentos(carrera.id_facultad, true); // Incluir eliminados en modo edición
+    uiState.showFormModal = true;
   }
 
   function handleSubmit() {
-    const url = editingCarrera ? `/admin/carreras/${editingCarrera.id_carrera}` : '/admin/carreras';
-    const method = editingCarrera ? ('put' as const) : ('post' as const);
-    $formData[method](url, {
+    const url = uiState.editingCarrera ? `/admin/carreras/${uiState.editingCarrera.id_carrera}` : '/admin/carreras';
+    const opts = {
       onSuccess: () => {
-        showModal = false;
-        editingCarrera = null;
+        uiState.showFormModal = false;
+        uiState.editingCarrera = null;
         departamentos = [];
       },
-    });
+    };
+    if (uiState.editingCarrera) {
+      $formData.put(url, opts);
+    } else {
+      $formData.post(url, opts);
+    }
   }
 
   // Reload departamentos only in create mode (faculty is read-only when editing)
   $effect(() => {
-    if ($formData.id_facultad && !editingCarrera) {
+    if ($formData.id_facultad && !uiState.editingCarrera) {
       loadDepartamentos($formData.id_facultad);
     }
   });
 
   function openDiscontinuarDialog(carrera: Carrera) {
     if (carrera.fecha_eliminacion) return;
-    discontinuandoCarrera = carrera;
-    showDiscontinuarDialog = true;
+    uiState.discontinuingCarrera = carrera;
+    uiState.showConfirmDialog = true;
   }
 
   function handleDiscontinuar() {
-    if (!discontinuandoCarrera) return;
-    $formData.delete(`/admin/carreras/${discontinuandoCarrera.id_carrera}`, {
+    if (!uiState.discontinuingCarrera) return;
+    $formData.delete(`/admin/carreras/${uiState.discontinuingCarrera.id_carrera}`, {
       onSuccess: () => {
-        showDiscontinuarDialog = false;
-        discontinuandoCarrera = null;
+        uiState.showConfirmDialog = false;
+        uiState.discontinuingCarrera = null;
       },
     });
   }
 
-  // ── Flash toast ───────────────────────────────────────────────────────────
+  // ────── Flash messages y toast ──────
   const flashSuccess = $derived(($page.props as any).flash?.success as string | undefined);
   const flashError = $derived(($page.props as any).flash?.error as string | undefined);
-  let toast = $state<{ msg: string; type: 'success' | 'error' } | null>(null);
-  let toastTimer: ReturnType<typeof setTimeout> | null = null;
+
   $effect(() => {
     const msg = flashSuccess ?? flashError;
     if (!msg) return;
@@ -246,13 +204,13 @@
         <div class="flex gap-2 flex-1 min-w-[200px]">
           <input
             type="text"
-            bind:value={searchTerm}
+            bind:value={$searchTerm}
             placeholder="Buscar carrera..."
-            onkeydown={(e) => e.key === 'Enter' && handleSearch()}
+            onkeydown={(e) => e.key === 'Enter' && setSearch($searchTerm)}
             class="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
           />
           <button
-            onclick={handleSearch}
+            onclick={() => setSearch($searchTerm)}
             class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition cursor-pointer"
           >
             Buscar
@@ -262,14 +220,14 @@
         <!-- Status toggle (URL-persistent) -->
         <div class="flex rounded-lg border border-gray-200 overflow-hidden text-[13px] font-medium shadow-sm">
           <button
-            onclick={() => setStatus('active')}
-            class={`px-3 py-1.5 transition cursor-pointer ${statusParam === 'active' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            onclick={() => setStatus(STATUS_OPTIONS.ACTIVE)}
+            class={`px-3 py-1.5 transition cursor-pointer ${$status === STATUS_OPTIONS.ACTIVE ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
           >
             Solo Activos
           </button>
           <button
-            onclick={() => setStatus('all')}
-            class={`px-3 py-1.5 border-l border-gray-200 transition cursor-pointer ${statusParam === 'all' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            onclick={() => setStatus(STATUS_OPTIONS.ALL)}
+            class={`px-3 py-1.5 border-l border-gray-200 transition cursor-pointer ${$status === STATUS_OPTIONS.ALL ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
           >
             Todos
           </button>
@@ -277,11 +235,11 @@
 
         <!-- Per-page -->
         <select
-          value={currentPerPage}
-          onchange={(e) => changePerPage(Number((e.target as HTMLSelectElement).value))}
+          value={$perPage}
+          onchange={(e) => setPerPage(Number((e.target as HTMLSelectElement).value))}
           class="px-2 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 cursor-pointer focus:outline-none focus:border-blue-400 transition"
         >
-          {#each perPageOptions as opt}
+          {#each PAGINATION_OPTIONS as opt}
             <option value={opt}>{opt} por página</option>
           {/each}
         </select>
@@ -323,38 +281,20 @@
 
                   <!-- Atributos: sede | jornada | modalidad badges -->
                   <td class="px-4 py-3 align-middle">
-                    <div class="flex flex-wrap gap-1">
-                      {#if carrera.sede}
-                        <span
-                          class="inline-block px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 text-[11px] font-medium border border-violet-100 leading-tight"
-                        >
-                          {carrera.sede}
-                        </span>
-                      {/if}
-                      {#if carrera.jornada}
-                        <span
-                          class="inline-block px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 text-[11px] font-medium border border-sky-100 leading-tight"
-                        >
-                          {carrera.jornada}
-                        </span>
-                      {/if}
-                      {#if carrera.modalidad}
-                        <span
-                          class="inline-block px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[11px] font-medium border border-emerald-100 leading-tight"
-                        >
-                          {carrera.modalidad}
-                        </span>
-                      {/if}
-                      {#if !carrera.sede && !carrera.jornada && !carrera.modalidad}
-                        <span class="text-gray-300 text-[11px]">—</span>
-                      {/if}
-                    </div>
+                    <AttriBadges sede={carrera.sede} jornada={carrera.jornada} modalidad={carrera.modalidad} />
                   </td>
 
                   <!-- Departamento + Facultad -->
                   <td class="px-4 py-3 align-middle">
-                    <div class="text-gray-900 text-[13px] font-medium leading-snug">
+                    <div
+                      class={`text-[13px] font-medium leading-snug ${carrera.departamento?.fecha_eliminacion ? 'line-through text-gray-400' : 'text-gray-900'}`}
+                    >
                       {carrera.departamento?.nombre ?? '—'}
+                      {#if carrera.departamento?.fecha_eliminacion}
+                        <span class="text-[10px] font-semibold uppercase tracking-wide ml-1 px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
+                          Eliminado
+                        </span>
+                      {/if}
                     </div>
                     {#if carrera.departamento?.facultad?.nombre}
                       <div class="text-[11px] text-gray-400 mt-0.5 leading-snug">
@@ -420,21 +360,10 @@
 
                   <!-- Estado del registro -->
                   <td class="px-4 py-3 align-middle">
-                    {#if carrera.fecha_eliminacion}
-                      <span
-                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 text-[11px] font-semibold border border-gray-200 whitespace-nowrap"
-                      >
-                        <span class="w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0"></span>
-                        Discontinuada
-                      </span>
-                    {:else}
-                      <span
-                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-[11px] font-semibold border border-green-100 whitespace-nowrap"
-                      >
-                        <span class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></span>
-                        Activa
-                      </span>
-                    {/if}
+                    <StatusBadge
+                      status={carrera.fecha_eliminacion ? 'discontinued' : 'active'}
+                      label={carrera.fecha_eliminacion ? 'Discontinuada' : 'Activa'}
+                    />
                   </td>
 
                   <!-- Acciones -->
@@ -492,57 +421,24 @@
       </div>
 
       <!-- Pagination -->
-      <div class="px-4 py-3 flex items-center justify-between border-t border-gray-100 flex-wrap gap-3 bg-gray-50/40">
-        <span class="text-sm text-gray-500 shrink-0">
-          {#if carreras.total === 0}
-            Sin resultados
-          {:else if carreras.to - carreras.from + 1 === carreras.total}
-            {carreras.total} registro{carreras.total === 1 ? '' : 's'}
-          {:else}
-            {carreras.from}–{carreras.to} de {carreras.total}
-          {/if}
-        </span>
-        {#if carreras.last_page > 1}
-          <div class="flex items-center gap-1 ml-auto">
-            <button
-              onclick={() => goToPage(carreras.current_page - 1)}
-              disabled={carreras.current_page === 1}
-              class="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              ←
-            </button>
-            {#each pageButtons as btn}
-              {#if btn.type === 'ellipsis'}
-                <span class="px-1 text-gray-400 text-sm select-none">…</span>
-              {:else}
-                <button
-                  onclick={() => goToPage(btn.n)}
-                  class={`min-w-[2rem] h-8 px-2 text-sm rounded-md border transition cursor-pointer ${btn.n === carreras.current_page ? 'bg-blue-500 border-blue-500 text-white font-semibold' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-                >
-                  {btn.n}
-                </button>
-              {/if}
-            {/each}
-            <button
-              onclick={() => goToPage(carreras.current_page + 1)}
-              disabled={carreras.current_page === carreras.last_page}
-              class="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              →
-            </button>
-          </div>
-        {/if}
-      </div>
+      <PaginationControls
+        currentPage={carreras.current_page}
+        lastPage={carreras.last_page}
+        from={carreras.from}
+        to={carreras.to}
+        total={carreras.total}
+        onPageChange={goToPage}
+      />
     </div>
   </div>
 
   <!-- ── Create / Edit Modal ─────────────────────────────────────────────────── -->
   <FormModal
-    bind:isOpen={showModal}
-    title={editingCarrera ? 'Editar Carrera' : 'Nueva Carrera'}
+    bind:isOpen={uiState.showFormModal}
+    title={uiState.editingCarrera ? 'Editar Carrera' : 'Nueva Carrera'}
     onClose={() => {
-      showModal = false;
-      editingCarrera = null;
+      uiState.showFormModal = false;
+      uiState.editingCarrera = null;
       departamentos = [];
     }}
     onSubmit={handleSubmit}
@@ -607,9 +503,9 @@
       <label for="facultad" class="block text-sm font-medium text-gray-700 mb-1.5">
         Facultad <span class="text-red-500">*</span>
       </label>
-      {#if editingCarrera}
+      {#if uiState.editingCarrera}
         <div class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-600 flex items-center justify-between">
-          <span>{editingCarrera.departamento?.facultad?.nombre ?? '—'}</span>
+          <span>{uiState.editingCarrera.departamento?.facultad?.nombre ?? '—'}</span>
           <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded">Inmutable</span>
         </div>
       {:else}
@@ -632,9 +528,9 @@
       <label for="departamento" class="block text-sm font-medium text-gray-700 mb-1.5">
         Departamento <span class="text-red-500">*</span>
       </label>
-      {#if editingCarrera}
+      {#if uiState.editingCarrera}
         <div class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-600 flex items-center justify-between">
-          <span>{editingCarrera.departamento?.nombre ?? '—'}</span>
+          <span>{uiState.editingCarrera.departamento?.nombre ?? '—'}</span>
           <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded">Inmutable</span>
         </div>
         <p class="mt-1 text-[11px] text-gray-400">
@@ -650,7 +546,9 @@
         >
           <option value={0}>Seleccione un departamento</option>
           {#each departamentos as dep}
-            <option value={dep.id_departamento}>{dep.nombre}</option>
+            <option value={dep.id_departamento} disabled={!!dep.fecha_eliminacion && !uiState.editingCarrera}>
+              {dep.nombre}{dep.fecha_eliminacion ? ' (Eliminado)' : ''}
+            </option>
           {/each}
         </select>
       {/if}
@@ -658,98 +556,44 @@
   </FormModal>
 
   <!-- ── Discontinuar Modal ──────────────────────────────────────────────────── -->
-  {#if showDiscontinuarDialog && discontinuandoCarrera}
-    <div
-      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 modal-fade"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="discontinuar-title"
-    >
-      <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-        <!-- Header -->
-        <div class="p-5 border-b border-gray-100 flex items-start gap-3">
-          <div class="shrink-0 w-10 h-10 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg
-            >
-          </div>
-          <div>
-            <h3 id="discontinuar-title" class="text-[15px] font-bold text-gray-900">Discontinuar Carrera</h3>
-            <p class="text-sm text-gray-500 mt-0.5">{discontinuandoCarrera.nombre}</p>
-          </div>
-        </div>
-
-        <!-- Impact notice (read-only) -->
-        <div class="p-5">
-          <div class="flex gap-3 bg-blue-50 border border-blue-100 rounded-lg p-4 text-[13px] text-blue-800 leading-relaxed">
-            <svg
-              class="shrink-0 mt-0.5 text-blue-500"
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg
-            >
-            <div>
-              <p class="font-semibold mb-1">Impacto de esta acción</p>
-              <p>
-                Esta acción establecerá una <strong>fecha de eliminación (Soft Delete)</strong>. La carrera no admitirá nuevos planes, pero el
-                historial académico de los estudiantes actuales se mantendrá intacto. La carrera seguirá visible en el sistema con estado
-                <strong>Discontinuada</strong>.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="px-5 pb-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onclick={() => {
-              showDiscontinuarDialog = false;
-              discontinuandoCarrera = null;
-            }}
-            disabled={$formData.processing}
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50 cursor-pointer"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onclick={handleDiscontinuar}
-            disabled={$formData.processing}
-            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-amber-700 hover:bg-amber-800 rounded-lg transition disabled:opacity-50 cursor-pointer"
-          >
-            {#if $formData.processing}
-              <svg class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                ><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path
-                  class="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                ></path></svg
-              >
-              Procesando…
-            {:else}
-              Confirmar Discontinuación
-            {/if}
-          </button>
-        </div>
+  <ConfirmationModal
+    isOpen={uiState.showConfirmDialog && uiState.discontinuingCarrera !== null}
+    icon="warning"
+    title="Discontinuar Carrera"
+    message={uiState.discontinuingCarrera?.nombre || ''}
+    isLoading={$formData.processing}
+    isDangerous={true}
+    confirmLabel="Confirmar Discontinuación"
+    onCancel={() => {
+      uiState.showConfirmDialog = false;
+      uiState.discontinuingCarrera = null;
+    }}
+    onConfirm={handleDiscontinuar}
+  >
+    <div class="flex gap-3 bg-blue-50 border border-blue-100 rounded-lg p-4 text-[13px] text-blue-800 leading-relaxed">
+      <svg
+        class="shrink-0 mt-0.5 text-blue-500"
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg
+      >
+      <div>
+        <p class="font-semibold mb-1">Impacto de esta acción</p>
+        <p>
+          Esta acción establecerá una <strong>fecha de eliminación (Soft Delete)</strong>. La carrera no admitirá nuevos planes, pero el historial
+          académico de los estudiantes actuales se mantendrá intacto. La carrera seguirá visible en el sistema con estado
+          <strong>Discontinuada</strong>.
+        </p>
       </div>
     </div>
-  {/if}
+  </ConfirmationModal>
 
   <!-- ── Toast ───────────────────────────────────────────────────────────────── -->
   {#if toast}

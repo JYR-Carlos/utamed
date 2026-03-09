@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { usePage } from '@inertiajs/svelte';
+  import { router } from '@inertiajs/svelte';
   import { Button } from '@/components/ui/button';
   import { Card } from '@/components/ui/card';
   import { Plus, Save, X, AlertCircle, Info } from 'lucide-svelte';
-  import { router } from '@inertiajs/svelte';
   import ProgramaStateBadges from '@/components/custom/admin/ProgramaStateBadges.svelte';
   import CompletenessProgressBar from '@/components/custom/admin/CompletenessProgressBar.svelte';
 
@@ -53,7 +52,7 @@
       : ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'],
   );
 
-  async function handleSave() {
+  function handleSave() {
     error = '';
     success = '';
 
@@ -64,35 +63,22 @@
 
     isSaving = true;
 
-    try {
-      const response = await fetch(`/admin/programas/${programa.id_programa}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+    router.put(
+      `/admin/programas/${programa.id_programa}`,
+      { data_syllabus: editedSyllabus },
+      {
+        onSuccess: () => {
+          success = 'Programa guardado exitosamente';
+          router.reload();
         },
-        body: JSON.stringify({
-          data_syllabus: editedSyllabus,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        error = data.error || 'Error al guardar los cambios';
-        return;
-      }
-
-      success = 'Programa guardado exitosamente';
-
-      // Reload after 2 seconds
-      setTimeout(() => {
-        router.reload();
-      }, 2000);
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Error desconocido';
-    } finally {
-      isSaving = false;
-    }
+        onError: (errors) => {
+          error = Object.values(errors).flat().join('. ') || 'Error al guardar los cambios';
+        },
+        onFinish: () => {
+          isSaving = false;
+        },
+      },
+    );
   }
 
   function handleCancel() {
@@ -116,7 +102,6 @@
         break;
       }
     }
-    editedSyllabus = editedSyllabus; // Trigger reactivity
   }
 </script>
 

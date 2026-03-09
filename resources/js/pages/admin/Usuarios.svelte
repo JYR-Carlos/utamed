@@ -31,6 +31,7 @@
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import PermissionsModal from '@/components/custom/admin/PermissionsModal.svelte';
   import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
+  import UserForm from '@/components/admin/UserForm.svelte';
   import type {
     UsuarioItem,
     Carrera,
@@ -40,6 +41,124 @@
     AdministradorFormData,
     UsuarioData,
   } from '@/types/admin.types';
+
+  // ====== CONSTANTES Y TIPOS ======
+  const UserType = {
+    STUDENT: 'estudiante',
+    TEACHER: 'docente',
+    ADMIN: 'administrador',
+  } as const;
+
+  type UserType = (typeof UserType)[keyof typeof UserType];
+  type UserFormData = EstudianteFormData | DocenteFormData | AdministradorFormData;
+
+  const USER_TYPE_LABELS: Record<UserType, string> = {
+    [UserType.STUDENT]: 'Estudiante',
+    [UserType.TEACHER]: 'Docente',
+    [UserType.ADMIN]: 'Administrador',
+  };
+
+  const COLUMN_CONFIGS: Record<UserType, Array<{ key: string; label: string }>> = {
+    [UserType.STUDENT]: [
+      { key: 'estudiante.id_estudiante', label: 'ID' },
+      { key: 'usuario.rut', label: 'RUT' },
+      { key: 'usuario.nombre1', label: 'Nombre' },
+      { key: 'usuario.apellido1', label: 'Apellido' },
+      { key: 'estudiante.agno_ingreso', label: 'Año Ingreso' },
+      { key: 'estudiante.carrera.nombre', label: 'Carrera' },
+    ],
+    [UserType.TEACHER]: [
+      { key: 'docente.id_docente', label: 'ID' },
+      { key: 'usuario.rut', label: 'RUT' },
+      { key: 'usuario.nombre1', label: 'Nombre' },
+      { key: 'usuario.apellido1', label: 'Apellido' },
+      { key: 'docente.grado', label: 'Grado' },
+      { key: 'docente.cargo', label: 'Cargo' },
+    ],
+    [UserType.ADMIN]: [
+      { key: 'usuario.id_usuario', label: 'ID' },
+      { key: 'usuario.rut', label: 'RUT' },
+      { key: 'usuario.username', label: 'Usuario' },
+      { key: 'usuario.nombre1', label: 'Nombre' },
+      { key: 'usuario.apellido1', label: 'Apellido' },
+      { key: 'usuario.email', label: 'Email' },
+    ],
+  };
+
+  // ====== FUNCIONES AUXILIARES ======
+  function getUsuarioId(item: UsuarioItem, tipo: UserType): number {
+    switch (tipo) {
+      case UserType.STUDENT:
+        return item.estudiante?.id_estudiante || 0;
+      case UserType.TEACHER:
+        return item.docente?.id_docente || 0;
+      case UserType.ADMIN:
+        return item.usuario.id_usuario;
+    }
+  }
+
+  function createEmptyFormData(tipo: UserType): UserFormData {
+    const baseData = {
+      rut: '',
+      nombre1: '',
+      nombre2: '',
+      apellido1: '',
+      apellido2: '',
+      email: '',
+      username: '',
+      password: '',
+    };
+
+    if (tipo === UserType.STUDENT) {
+      return {
+        ...baseData,
+        agno_ingreso: undefined,
+        id_carrera: undefined,
+      } as EstudianteFormData;
+    } else if (tipo === UserType.TEACHER) {
+      return {
+        ...baseData,
+        grado: '',
+        titulo: '',
+        cargo: '',
+      } as DocenteFormData;
+    }
+    return baseData as AdministradorFormData;
+  }
+
+  function loadFormDataFromItem(item: UsuarioItem, tipo: UserType): UserFormData {
+    const baseData = {
+      rut: item.usuario.rut || '',
+      nombre1: item.usuario.nombre1 || '',
+      nombre2: item.usuario.nombre2 || '',
+      apellido1: item.usuario.apellido1 || '',
+      apellido2: item.usuario.apellido2 || '',
+      email: item.usuario.email || '',
+      username: '',
+      password: '',
+    };
+
+    if (tipo === UserType.STUDENT) {
+      return {
+        ...baseData,
+        agno_ingreso: item.estudiante?.agno_ingreso,
+        id_carrera: item.estudiante?.id_carrera,
+      } as EstudianteFormData;
+    } else if (tipo === UserType.TEACHER) {
+      return {
+        ...baseData,
+        grado: item.docente?.grado || '',
+        titulo: item.docente?.titulo || '',
+        cargo: item.docente?.cargo || '',
+      } as DocenteFormData;
+    }
+    return baseData as AdministradorFormData;
+  }
+
+  function handleError(context: string, errors: any) {
+    console.error(`Error ${context}:`, errors);
+    alert(`Error al ${context}: ` + JSON.stringify(errors));
+  }
 
   /**
    * Props recibidas del servidor.
@@ -64,168 +183,42 @@
   let showModal = $state(false);
   let showDeleteDialog = $state(false);
   let showPasswordModal = $state(false);
+  let showPermissionsModal = $state(false);
   let isLoading = $state(false);
   let editingUsuario = $state<UsuarioItem | null>(null);
   let deletingUsuario = $state<UsuarioItem | null>(null);
   let changingPasswordUsuario = $state<UsuarioItem | null>(null);
+  let permissionsUser = $state<UsuarioData | null>(null);
 
-  // Use $derived to fix lint warning about tipo reference
-  let currentTipo = $derived(tipo);
+  let currentTipo = $derived(tipo as UserType);
+  let currentFormData = $state<UserFormData>(createEmptyFormData('estudiante' as UserType));
 
-  let estudianteFormData = $state<EstudianteFormData>({
-    rut: '',
-    nombre1: '',
-    nombre2: '',
-    apellido1: '',
-    apellido2: '',
-    email: '',
-    agno_ingreso: undefined,
-    id_carrera: undefined,
-    username: '',
-    password: '',
+  // Actualizar formulario cuando cambia el tipo
+  $effect(() => {
+    if (!editingUsuario && showModal) {
+      currentFormData = createEmptyFormData(currentTipo);
+    }
   });
 
-  let docenteFormData = $state<DocenteFormData>({
-    rut: '',
-    nombre1: '',
-    nombre2: '',
-    apellido1: '',
-    apellido2: '',
-    email: '',
-    grado: '',
-    titulo: '',
-    cargo: '',
-    username: '',
+  let passwordFormData = $state({
     password: '',
+    password_confirmation: '',
   });
 
-  let administradorFormData = $state<AdministradorFormData>({
-    rut: '',
-    nombre1: '',
-    nombre2: '',
-    apellido1: '',
-    apellido2: '',
-    email: '',
-    username: '',
-    password: '',
-  });
-
-  const estudianteColumns = [
-    { key: 'estudiante.id_estudiante', label: 'ID' },
-    { key: 'usuario.rut', label: 'RUT' },
-    { key: 'usuario.nombre1', label: 'Nombre' },
-    { key: 'usuario.apellido1', label: 'Apellido' },
-    { key: 'estudiante.agno_ingreso', label: 'Año Ingreso' },
-    { key: 'estudiante.carrera.nombre', label: 'Carrera' },
-  ];
-
-  const docenteColumns = [
-    { key: 'docente.id_docente', label: 'ID' },
-    { key: 'usuario.rut', label: 'RUT' },
-    { key: 'usuario.nombre1', label: 'Nombre' },
-    { key: 'usuario.apellido1', label: 'Apellido' },
-    { key: 'docente.grado', label: 'Grado' },
-    { key: 'docente.cargo', label: 'Cargo' },
-  ];
-
-  const administradorColumns = [
-    { key: 'usuario.id_usuario', label: 'ID' },
-    { key: 'usuario.rut', label: 'RUT' },
-    { key: 'usuario.username', label: 'Usuario' },
-    { key: 'usuario.nombre1', label: 'Nombre' },
-    { key: 'usuario.apellido1', label: 'Apellido' },
-    { key: 'usuario.email', label: 'Email' },
-  ];
-
-  function switchTipo(newTipo: 'estudiante' | 'docente' | 'administrador') {
+  // ====== FUNCIONES DE MANEJO DE EVENTOS ======
+  function switchTipo(newTipo: UserType) {
     router.get('/admin/usuarios', { tipo: newTipo }, { preserveState: false });
   }
 
   function openCreateModal() {
     editingUsuario = null;
-    if (currentTipo === 'estudiante') {
-      estudianteFormData = {
-        rut: '',
-        nombre1: '',
-        nombre2: '',
-        apellido1: '',
-        apellido2: '',
-        email: '',
-        agno_ingreso: undefined,
-        id_carrera: undefined,
-        username: '',
-        password: '',
-      };
-    } else if (currentTipo === 'docente') {
-      docenteFormData = {
-        rut: '',
-        nombre1: '',
-        nombre2: '',
-        apellido1: '',
-        apellido2: '',
-        email: '',
-        grado: '',
-        titulo: '',
-        cargo: '',
-        username: '',
-        password: '',
-      };
-    } else {
-      administradorFormData = {
-        rut: '',
-        nombre1: '',
-        nombre2: '',
-        apellido1: '',
-        apellido2: '',
-        email: '',
-        username: '',
-        password: '',
-      };
-    }
+    currentFormData = createEmptyFormData(currentTipo);
     showModal = true;
   }
 
   function openEditModal(item: UsuarioItem) {
     editingUsuario = item;
-    if (currentTipo === 'estudiante') {
-      estudianteFormData = {
-        rut: item.usuario.rut || '',
-        nombre1: item.usuario.nombre1 || '',
-        nombre2: item.usuario.nombre2 || '',
-        apellido1: item.usuario.apellido1 || '',
-        apellido2: item.usuario.apellido2 || '',
-        email: item.usuario.email || '',
-        agno_ingreso: item.estudiante?.agno_ingreso,
-        id_carrera: item.estudiante?.id_carrera,
-        username: '',
-        password: '',
-      };
-    } else if (currentTipo === 'docente') {
-      docenteFormData = {
-        rut: item.usuario.rut || '',
-        nombre1: item.usuario.nombre1 || '',
-        nombre2: item.usuario.nombre2 || '',
-        apellido1: item.usuario.apellido1 || '',
-        apellido2: item.usuario.apellido2 || '',
-        email: item.usuario.email || '',
-        grado: item.docente?.grado || '',
-        titulo: item.docente?.titulo || '',
-        cargo: item.docente?.cargo || '',
-        username: '',
-        password: '',
-      };
-    } else {
-      administradorFormData = {
-        rut: item.usuario.rut || '',
-        nombre1: item.usuario.nombre1 || '',
-        nombre2: item.usuario.nombre2 || '',
-        apellido1: item.usuario.apellido1 || '',
-        apellido2: item.usuario.apellido2 || '',
-        email: item.usuario.email || '',
-        username: '',
-        password: '',
-      };
-    }
+    currentFormData = loadFormDataFromItem(item, currentTipo);
     showModal = true;
   }
 
@@ -236,40 +229,28 @@
 
   function handleSubmit() {
     isLoading = true;
-
-    const formData = currentTipo === 'estudiante' ? estudianteFormData : currentTipo === 'docente' ? docenteFormData : administradorFormData;
-    const dataToSend = { ...formData, tipo: currentTipo };
+    const dataToSend = { ...currentFormData, tipo: currentTipo };
 
     if (editingUsuario) {
-      const id =
-        currentTipo === 'estudiante'
-          ? editingUsuario.estudiante!.id_estudiante
-          : currentTipo === 'docente'
-            ? editingUsuario.docente!.id_docente
-            : editingUsuario.usuario.id_usuario;
-
+      const id = getUsuarioId(editingUsuario, currentTipo);
       router.put(`/admin/usuarios/${id}`, dataToSend, {
         onSuccess: () => {
-          console.log('Usuario updated successfully');
           closeModal();
           isLoading = false;
         },
         onError: (errors) => {
-          console.error('Error updating usuario:', errors);
-          alert('Error al actualizar usuario: ' + JSON.stringify(errors));
+          handleError('actualizar usuario', errors);
           isLoading = false;
         },
       });
     } else {
       router.post('/admin/usuarios', dataToSend, {
         onSuccess: () => {
-          console.log('Usuario created successfully');
           closeModal();
           isLoading = false;
         },
         onError: (errors) => {
-          console.error('Error creating usuario:', errors);
-          alert('Error al crear usuario: ' + JSON.stringify(errors));
+          handleError('crear usuario', errors);
           isLoading = false;
         },
       });
@@ -290,12 +271,7 @@
     if (!deletingUsuario) return;
 
     isLoading = true;
-    const id =
-      currentTipo === 'estudiante'
-        ? deletingUsuario.estudiante!.id_estudiante
-        : currentTipo === 'docente'
-          ? deletingUsuario.docente!.id_docente
-          : deletingUsuario.usuario.id_usuario;
+    const id = getUsuarioId(deletingUsuario, currentTipo);
 
     router.delete(`/admin/usuarios/${id}`, {
       data: { tipo: currentTipo },
@@ -304,34 +280,22 @@
         isLoading = false;
       },
       onError: (errors) => {
-        console.error('Error deleting usuario:', errors);
-        alert('Error al eliminar usuario: ' + JSON.stringify(errors));
+        handleError('eliminar usuario', errors);
         isLoading = false;
       },
     });
   }
 
-  let passwordFormData = $state({
-    password: '',
-    password_confirmation: '',
-  });
-
   function openPasswordModal(usuario: UsuarioItem) {
     changingPasswordUsuario = usuario;
-    passwordFormData = {
-      password: '',
-      password_confirmation: '',
-    };
+    passwordFormData = { password: '', password_confirmation: '' };
     showPasswordModal = true;
   }
 
   function closePasswordModal() {
     showPasswordModal = false;
     changingPasswordUsuario = null;
-    passwordFormData = {
-      password: '',
-      password_confirmation: '',
-    };
+    passwordFormData = { password: '', password_confirmation: '' };
   }
 
   function handlePasswordChange() {
@@ -346,8 +310,7 @@
         isLoading = false;
       },
       onError: (errors) => {
-        console.error('Error changing password:', errors);
-        alert('Error al cambiar contraseña: ' + JSON.stringify(errors));
+        handleError('cambiar contraseña', errors);
         isLoading = false;
       },
     });
@@ -355,23 +318,10 @@
 
   function handleToggleActive(usuario: UsuarioItem) {
     const id = usuario.usuario.id_usuario;
-
-    router.post(
-      `/admin/usuarios/${id}/toggle-active`,
-      {},
-      {
-        preserveScroll: true,
-      },
-    );
+    router.post(`/admin/usuarios/${id}/toggle-active`, {}, { preserveScroll: true });
   }
 
-  // Permissions Modal Logic
-  let showPermissionsModal = $state(false);
-  let permissionsUser = $state<UsuarioData | null>(null);
-
   function openPermissionsModal(item: UsuarioItem) {
-    // PermissionsModal expects an object with { id_usuario, username }.
-    // We pass item.usuario directly (the UsuarioData sub-object).
     permissionsUser = item.usuario;
     showPermissionsModal = true;
   }
@@ -383,13 +333,16 @@
 </script>
 
 <AdminLayout>
-  <div class="page-container">
-    <div class="page-header">
+  <div class="p-8 max-w-6xl mx-auto">
+    <div class="flex justify-between items-start mb-6">
       <div>
-        <h1 class="page-title">Usuarios</h1>
-        <p class="page-description">Gestión de estudiantes, docentes y administradores</p>
+        <h1 class="text-3xl font-bold text-gray-900 mb-1">Usuarios</h1>
+        <p class="text-sm text-gray-500">Gestión de estudiantes, docentes y administradores</p>
       </div>
-      <button onclick={openCreateModal} class="btn-primary">
+      <button
+        onclick={openCreateModal}
+        class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95"
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="20"
@@ -404,19 +357,40 @@
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
-        Nuevo {currentTipo === 'estudiante' ? 'Estudiante' : currentTipo === 'docente' ? 'Docente' : 'Administrador'}
+        Nuevo {USER_TYPE_LABELS[currentTipo]}
       </button>
     </div>
 
-    <div class="tipo-selector">
-      <button class="tipo-btn" class:active={currentTipo === 'estudiante'} onclick={() => switchTipo('estudiante')}> Estudiantes </button>
-      <button class="tipo-btn" class:active={currentTipo === 'docente'} onclick={() => switchTipo('docente')}> Docentes </button>
-      <button class="tipo-btn" class:active={currentTipo === 'administrador'} onclick={() => switchTipo('administrador')}> Administradores </button>
+    <div class="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit mb-6">
+      <button
+        onclick={() => switchTipo(UserType.STUDENT)}
+        class={currentTipo === UserType.STUDENT
+          ? 'px-5 py-2 border-0 rounded-md font-medium cursor-pointer transition-all bg-white text-blue-500 shadow-sm'
+          : 'px-5 py-2 border-0 rounded-md font-medium cursor-pointer transition-all bg-transparent text-gray-500 hover:text-gray-700'}
+      >
+        Estudiantes
+      </button>
+      <button
+        onclick={() => switchTipo(UserType.TEACHER)}
+        class={currentTipo === UserType.TEACHER
+          ? 'px-5 py-2 border-0 rounded-md font-medium cursor-pointer transition-all bg-white text-blue-500 shadow-sm'
+          : 'px-5 py-2 border-0 rounded-md font-medium cursor-pointer transition-all bg-transparent text-gray-500 hover:text-gray-700'}
+      >
+        Docentes
+      </button>
+      <button
+        onclick={() => switchTipo(UserType.ADMIN)}
+        class={currentTipo === UserType.ADMIN
+          ? 'px-5 py-2 border-0 rounded-md font-medium cursor-pointer transition-all bg-white text-blue-500 shadow-sm'
+          : 'px-5 py-2 border-0 rounded-md font-medium cursor-pointer transition-all bg-transparent text-gray-500 hover:text-gray-700'}
+      >
+        Administradores
+      </button>
     </div>
 
     <DataTable
       data={usuarios}
-      columns={currentTipo === 'estudiante' ? estudianteColumns : currentTipo === 'docente' ? docenteColumns : administradorColumns}
+      columns={COLUMN_CONFIGS[currentTipo]}
       onEdit={openEditModal}
       onDelete={openDeleteDialog}
       onPasswordChange={openPasswordModal}
@@ -438,358 +412,17 @@
 
   <FormModal
     bind:isOpen={showModal}
-    title={editingUsuario
-      ? `Editar ${currentTipo === 'estudiante' ? 'Estudiante' : currentTipo === 'docente' ? 'Docente' : 'Administrador'}`
-      : `Nuevo ${currentTipo === 'estudiante' ? 'Estudiante' : currentTipo === 'docente' ? 'Docente' : 'Administrador'}`}
+    title={editingUsuario ? `Editar ${USER_TYPE_LABELS[currentTipo]}` : `Nuevo ${USER_TYPE_LABELS[currentTipo]}`}
     onClose={closeModal}
     onSubmit={handleSubmit}
     {isLoading}
   >
-    {#if currentTipo === 'estudiante'}
-      <!-- Estudiante Form -->
-      <div class="form-group">
-        <label for="rut" class="form-label">RUT *</label>
-        <input id="rut" type="text" bind:value={estudianteFormData.rut} class="form-input" placeholder="Ej: 12345678-9" required />
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="nombre1" class="form-label">Primer Nombre *</label>
-          <input id="nombre1" type="text" bind:value={estudianteFormData.nombre1} class="form-input" placeholder="Ej: Juan" required />
-        </div>
-
-        <div class="form-group">
-          <label for="nombre2" class="form-label">Segundo Nombre</label>
-          <input id="nombre2" type="text" bind:value={estudianteFormData.nombre2} class="form-input" placeholder="Ej: Carlos" />
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="apellido1" class="form-label">Primer Apellido *</label>
-          <input id="apellido1" type="text" bind:value={estudianteFormData.apellido1} class="form-input" placeholder="Ej: González" required />
-        </div>
-
-        <div class="form-group">
-          <label for="apellido2" class="form-label">Segundo Apellido</label>
-          <input id="apellido2" type="text" bind:value={estudianteFormData.apellido2} class="form-input" placeholder="Ej: Pérez" />
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="email_estudiante" class="form-label">Email</label>
-        <input
-          id="email_estudiante"
-          type="email"
-          bind:value={estudianteFormData.email}
-          class="form-input"
-          placeholder="Ej: juan.gonzalez@ejemplo.com"
-        />
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="agno_ingreso" class="form-label">Año de Ingreso</label>
-          <input
-            id="agno_ingreso"
-            type="number"
-            bind:value={estudianteFormData.agno_ingreso}
-            class="form-input"
-            min="1900"
-            max="2100"
-            placeholder="Ej: 2024"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="carrera" class="form-label">Carrera</label>
-          <select id="carrera" bind:value={estudianteFormData.id_carrera} class="form-input">
-            <option value={undefined}>Sin carrera</option>
-            {#each carreras as carrera}
-              <option value={carrera.id_carrera}>{carrera.nombre}</option>
-            {/each}
-          </select>
-        </div>
-      </div>
-
-      {#if !editingUsuario}
-        <div class="form-divider"></div>
-        <p class="form-section-title">Credenciales de Acceso</p>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="username" class="form-label">Usuario *</label>
-            <input
-              id="username"
-              type="text"
-              bind:value={estudianteFormData.username}
-              class="form-input"
-              placeholder="Máx. 10 caracteres"
-              maxlength="10"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="password" class="form-label">Contraseña *</label>
-            <input
-              id="password"
-              type="password"
-              bind:value={estudianteFormData.password}
-              class="form-input"
-              placeholder="Mín. 6 caracteres"
-              minlength="6"
-              required
-            />
-          </div>
-        </div>
-      {/if}
-    {:else if currentTipo === 'docente'}
-      <!-- Docente Form -->
-      <div class="form-group">
-        <label for="rut_docente" class="form-label">RUT *</label>
-        <input id="rut_docente" type="text" bind:value={docenteFormData.rut} class="form-input" placeholder="Ej: 12345678-9" required />
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="nombre1_docente" class="form-label">Primer Nombre *</label>
-          <input id="nombre1_docente" type="text" bind:value={docenteFormData.nombre1} class="form-input" placeholder="Ej: Juan" required />
-        </div>
-
-        <div class="form-group">
-          <label for="nombre2_docente" class="form-label">Segundo Nombre</label>
-          <input id="nombre2_docente" type="text" bind:value={docenteFormData.nombre2} class="form-input" placeholder="Ej: Carlos" />
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="apellido1_docente" class="form-label">Primer Apellido *</label>
-          <input id="apellido1_docente" type="text" bind:value={docenteFormData.apellido1} class="form-input" placeholder="Ej: González" required />
-        </div>
-
-        <div class="form-group">
-          <label for="apellido2_docente" class="form-label">Segundo Apellido</label>
-          <input id="apellido2_docente" type="text" bind:value={docenteFormData.apellido2} class="form-input" placeholder="Ej: Pérez" />
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="email_docente" class="form-label">Email</label>
-        <input id="email_docente" type="email" bind:value={docenteFormData.email} class="form-input" placeholder="Ej: juan.gonzalez@ejemplo.com" />
-      </div>
-
-      <div class="form-group">
-        <label for="titulo_docente" class="form-label">Título</label>
-        <input id="titulo_docente" type="text" bind:value={docenteFormData.titulo} class="form-input" placeholder="Ej: Ingeniero Civil" />
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="grado_docente" class="form-label">Grado Académico</label>
-          <input id="grado_docente" type="text" bind:value={docenteFormData.grado} class="form-input" placeholder="Ej: Doctor en Medicina" />
-        </div>
-
-        <div class="form-group">
-          <label for="cargo_docente" class="form-label">Cargo</label>
-          <input id="cargo_docente" type="text" bind:value={docenteFormData.cargo} class="form-input" placeholder="Ej: Profesor Titular" />
-        </div>
-      </div>
-
-      {#if !editingUsuario}
-        <div class="form-divider"></div>
-        <p class="form-section-title">Credenciales de Acceso</p>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="username_docente" class="form-label">Usuario *</label>
-            <input
-              id="username_docente"
-              type="text"
-              bind:value={docenteFormData.username}
-              class="form-input"
-              placeholder="Máx. 10 caracteres"
-              maxlength="10"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="password_docente" class="form-label">Contraseña *</label>
-            <input
-              id="password_docente"
-              type="password"
-              bind:value={docenteFormData.password}
-              class="form-input"
-              placeholder="Mín. 6 caracteres"
-              minlength="6"
-              required
-            />
-          </div>
-        </div>
-      {/if}
-    {:else if currentTipo === 'administrador'}
-      <!-- Administrador Form -->
-      <div class="form-row">
-        <div class="form-group">
-          <label for="rut" class="form-label">RUT *</label>
-          <input id="rut" type="text" bind:value={administradorFormData.rut} class="form-input" placeholder="Ej: 12345678-9" required />
-        </div>
-
-        <div class="form-group">
-          <label for="email" class="form-label">Email</label>
-          <input id="email" type="email" bind:value={administradorFormData.email} class="form-input" placeholder="Ej: admin@uta.cl" />
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="nombre1" class="form-label">Primer Nombre *</label>
-          <input id="nombre1" type="text" bind:value={administradorFormData.nombre1} class="form-input" placeholder="Ej: Juan" required />
-        </div>
-
-        <div class="form-group">
-          <label for="nombre2" class="form-label">Segundo Nombre</label>
-          <input id="nombre2" type="text" bind:value={administradorFormData.nombre2} class="form-input" placeholder="Ej: Carlos" />
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="apellido1" class="form-label">Primer Apellido *</label>
-          <input id="apellido1" type="text" bind:value={administradorFormData.apellido1} class="form-input" placeholder="Ej: Pérez" required />
-        </div>
-
-        <div class="form-group">
-          <label for="apellido2" class="form-label">Segundo Apellido</label>
-          <input id="apellido2" type="text" bind:value={administradorFormData.apellido2} class="form-input" placeholder="Ej: García" />
-        </div>
-      </div>
-
-      {#if !editingUsuario}
-        <div class="form-divider"></div>
-        <p class="form-section-title">Credenciales de Acceso</p>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="username" class="form-label">Usuario *</label>
-            <input
-              id="username"
-              type="text"
-              bind:value={administradorFormData.username}
-              class="form-input"
-              placeholder="Máx. 30 caracteres"
-              maxlength="30"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="password" class="form-label">Contraseña *</label>
-            <input
-              id="password"
-              type="password"
-              bind:value={administradorFormData.password}
-              class="form-input"
-              placeholder="Mín. 6 caracteres"
-              minlength="6"
-              required
-            />
-          </div>
-        </div>
-      {/if}
-    {:else}
-      <!-- Docente Form -->
-      <div class="form-group">
-        <label for="rut" class="form-label">RUT *</label>
-        <input id="rut" type="text" bind:value={docenteFormData.rut} class="form-input" placeholder="Ej: 12345678-9" required />
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="nombre1_docente_2" class="form-label">Primer Nombre *</label>
-          <input id="nombre1_docente_2" type="text" bind:value={docenteFormData.nombre1} class="form-input" placeholder="Ej: Juan" required />
-        </div>
-
-        <div class="form-group">
-          <label for="nombre2_docente_2" class="form-label">Segundo Nombre</label>
-          <input id="nombre2_docente_2" type="text" bind:value={docenteFormData.nombre2} class="form-input" placeholder="Ej: Carlos" />
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="apellido1_docente_2" class="form-label">Primer Apellido *</label>
-          <input id="apellido1_docente_2" type="text" bind:value={docenteFormData.apellido1} class="form-input" placeholder="Ej: González" required />
-        </div>
-
-        <div class="form-group">
-          <label for="apellido2_docente_2" class="form-label">Segundo Apellido</label>
-          <input id="apellido2_docente_2" type="text" bind:value={docenteFormData.apellido2} class="form-input" placeholder="Ej: Pérez" />
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="email_docente_2" class="form-label">Email</label>
-        <input id="email_docente_2" type="email" bind:value={docenteFormData.email} class="form-input" placeholder="Ej: juan.gonzalez@ejemplo.com" />
-      </div>
-
-      <div class="form-group">
-        <label for="titulo_2" class="form-label">Título</label>
-        <input id="titulo_2" type="text" bind:value={docenteFormData.titulo} class="form-input" placeholder="Ej: Ingeniero Civil" />
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="grado" class="form-label">Grado Académico</label>
-          <input id="grado" type="text" bind:value={docenteFormData.grado} class="form-input" placeholder="Ej: Doctor en Medicina" />
-        </div>
-
-        <div class="form-group">
-          <label for="cargo" class="form-label">Cargo</label>
-          <input id="cargo" type="text" bind:value={docenteFormData.cargo} class="form-input" placeholder="Ej: Profesor Titular" />
-        </div>
-      </div>
-
-      {#if !editingUsuario}
-        <div class="form-divider"></div>
-        <p class="form-section-title">Credenciales de Acceso</p>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="username" class="form-label">Usuario *</label>
-            <input
-              id="username"
-              type="text"
-              bind:value={docenteFormData.username}
-              class="form-input"
-              placeholder="Máx. 10 caracteres"
-              maxlength="10"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="password" class="form-label">Contraseña *</label>
-            <input
-              id="password"
-              type="password"
-              bind:value={docenteFormData.password}
-              class="form-input"
-              placeholder="Mín. 6 caracteres"
-              minlength="6"
-              required
-            />
-          </div>
-        </div>
-      {/if}
-    {/if}
+    <UserForm formData={currentFormData} tipo={currentTipo} isEditing={!!editingUsuario} {carreras} />
   </FormModal>
 
   <DeleteConfirmation
     bind:isOpen={showDeleteDialog}
-    title="¿Eliminar {currentTipo === 'estudiante' ? 'Estudiante' : currentTipo === 'docente' ? 'Docente' : 'Administrador'}?"
+    title="¿Eliminar {USER_TYPE_LABELS[currentTipo]}?"
     message="Esta acción no se puede deshacer. Si el usuario tiene registros asociados, no podrá ser eliminado."
     onConfirm={handleDelete}
     onCancel={closeDeleteDialog}
@@ -798,157 +431,30 @@
 
   <!-- Password Change Modal -->
   <FormModal bind:isOpen={showPasswordModal} title="Cambiar Contraseña" onClose={closePasswordModal} onSubmit={handlePasswordChange} {isLoading}>
-    <div class="form-group">
-      <label for="new_password" class="form-label">Nueva Contraseña *</label>
+    <div class="mb-4">
+      <label for="new_password" class="block text-sm font-medium text-gray-700 mb-2">Nueva Contraseña *</label>
       <input
         id="new_password"
         type="password"
         bind:value={passwordFormData.password}
-        class="form-input"
+        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         placeholder="Mín. 6 caracteres"
         minlength="6"
         required
       />
     </div>
 
-    <div class="form-group">
-      <label for="password_confirmation" class="form-label">Confirmar Contraseña *</label>
+    <div class="mb-4">
+      <label for="password_confirmation" class="block text-sm font-medium text-gray-700 mb-2">Confirmar Contraseña *</label>
       <input
         id="password_confirmation"
         type="password"
         bind:value={passwordFormData.password_confirmation}
-        class="form-input"
+        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         placeholder="Repita la contraseña"
         minlength="6"
         required
       />
     </div>
   </FormModal>
-
-  <style>
-    .page-container {
-      padding: 2rem;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 1.5rem;
-    }
-
-    .page-title {
-      font-size: 1.875rem;
-      font-weight: 700;
-      color: #111827;
-      margin: 0 0 0.25rem 0;
-    }
-
-    .page-description {
-      color: #6b7280;
-      font-size: 0.875rem;
-      margin: 0;
-    }
-
-    .btn-primary {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.625rem 1.25rem;
-      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 6px rgba(59, 130, 246, 0.4);
-    }
-
-    .tipo-selector {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1.5rem;
-      padding: 0.25rem;
-      background: #f3f4f6;
-      border-radius: 8px;
-      width: fit-content;
-    }
-
-    .tipo-btn {
-      padding: 0.5rem 1.25rem;
-      background: transparent;
-      border: none;
-      border-radius: 6px;
-      font-weight: 500;
-      color: #6b7280;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .tipo-btn.active {
-      background: white;
-      color: #3b82f6;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-
-    .tipo-btn:hover:not(.active) {
-      color: #374151;
-    }
-
-    .form-group {
-      margin-bottom: 1rem;
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-
-    .form-label {
-      display: block;
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: #374151;
-      margin-bottom: 0.5rem;
-    }
-
-    .form-input {
-      width: 100%;
-      padding: 0.625rem 0.875rem;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: 0.875rem;
-      color: #111827;
-      background-color: white;
-      transition: all 0.2s;
-    }
-
-    .form-input:focus {
-      outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-
-    .form-divider {
-      height: 1px;
-      background: #e5e7eb;
-      margin: 1.5rem 0 1rem 0;
-    }
-
-    .form-section-title {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: #374151;
-      margin: 0 0 1rem 0;
-    }
-  </style>
 </AdminLayout>

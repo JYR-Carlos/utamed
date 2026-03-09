@@ -15,3 +15,9 @@ Este esquema contiene las tablas:
    - Describe niveles de los logs (ERROR, WARNING, INFO)
    - Registra el mensaje especificado por el desarrollador
    - El contexto se basa en la variable afectada, IP o metadata adicional
+2. log_db: 
+   - Permite identificar y asociar los log del sistema en los cambios de la base de datos. 
+   - Almacena el estado anterior y posterior.
+
+# Sobre los logs
+Laravel tiene canales de logs, la utilidad de estos radica en el tipo de log que se va almacenar. 

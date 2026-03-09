@@ -32,7 +32,9 @@ class FacultadController extends Controller
     {
         $this->authorize('viewAny', Facultad::class);
 
-        $query = Facultad::query();
+        $query = Facultad::with(['departamentos' => function($q) {
+            $q->withTrashed();
+        }]);
 
         if ($request->has('search')) {
             $search = $request->input('search');
@@ -82,7 +84,9 @@ class FacultadController extends Controller
     {
         $this->authorize('view', $facultad);
 
-        $facultad->load('departamentos');
+        $facultad->load(['departamentos' => function($q) {
+            $q->withTrashed();
+        }]);
 
         return response()->json($facultad);
     }

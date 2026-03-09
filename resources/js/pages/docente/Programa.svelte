@@ -12,7 +12,7 @@
   import type { BreadcrumbItem } from '@/types';
   import type { Curso, Asignatura, Programa } from '@/types/admin.types';
   import SyllabusModal from '@/components/custom/admin/SyllabusModal.svelte';
-  import SyllabusTypeSelector from '@/components/custom/admin/SyllabusTypeSelector.svelte';
+  import DatePickerCL from '@/components/custom/common/DatePickerCL.svelte';
   import ProgramaDocument from '@/components/custom/common/ProgramaDocument.svelte';
   import { toast } from 'svelte-sonner';
   import { hasPermission } from '@/services/permissionValidator';
@@ -78,8 +78,12 @@
     ...curso,
     asignatura_nombre: asignatura?.nombre ?? (curso as any)?.asignatura_nombre ?? curso?.nombre,
     has_programa: !!programa,
+    // Embed asignatura fields so SyllabusModal.initializeWizard can read them
+    creditos_sct: asignatura?.creditos_sct ?? curso?.creditos_sct,
+    horas_catedra: asignatura?.horas_catedra ?? curso?.horas_catedra,
+    horas_taller: asignatura?.horas_taller ?? (asignatura as any)?.horas_taller ?? curso?.horas_taller,
+    horas_laboratorio: asignatura?.horas_laboratorio ?? (asignatura as any)?.horas_laboratorio ?? curso?.horas_laboratorio,
   });
-  let isSyllabusTypeOpen = $state(false);
   let isSyllabusModalOpen = $state(false);
   let selectedSyllabusType = $state<'simplified' | 'combined' | 'complete' | null>(null);
   let isLoading = $state(false);
@@ -92,26 +96,19 @@
 
   console.log('📄 Docente Programa.svelte - programa recibido:', programa);
 
-  function openSyllabusTypeSelector() {
-    isSyllabusTypeOpen = true;
-    selectedSyllabusType = null;
-  }
-
   function openCompleteWizard() {
     // Salta el selector y abre directamente el wizard COMPLETO pre-poblado desde BASICO
     selectedSyllabusType = 'combined';
-    isSyllabusTypeOpen = false;
     isSyllabusModalOpen = true;
   }
 
-  function closeSyllabusTypeSelector() {
-    isSyllabusTypeOpen = false;
-    selectedSyllabusType = null;
+  function openEditBasico() {
+    selectedSyllabusType = 'simplified';
+    isSyllabusModalOpen = true;
   }
 
-  function handleSyllabusTypeSelect(type: 'simplified' | 'combined' | 'complete') {
-    selectedSyllabusType = type;
-    isSyllabusTypeOpen = false;
+  function openEditCompleto() {
+    selectedSyllabusType = 'complete';
     isSyllabusModalOpen = true;
   }
 
@@ -127,15 +124,26 @@
   }
 
   // ── Deadline display ──────────────────────────────────────────────────────
+  /**
+   * Parsea una fecha de límite de entrega como fecha local (sin conversión UTC).
+   * Las fechas vienen del servidor en UTC (ej. "2026-03-03T00:00:00.000000Z"),
+   * pero representan fechas del calendario en Chile. Se extrae solo la parte
+   * YYYY-MM-DD y se construye como fecha local para evitar el desfase de zona horaria.
+   */
+  function parseDeadlineDate(val: string): Date {
+    const [year, month, day] = val.slice(0, 10).split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
   /** ISO/timestamp → localised string */
   function formatDeadline(val: string | null | undefined): string {
     if (!val) return '';
-    return new Date(val).toLocaleDateString('es-CL', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    return parseDeadlineDate(val).toLocaleDateString('es-CL', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
   }
 
   function daysLeft(val: string | null | undefined): number | null {
     if (!val) return null;
-    const diff = Math.ceil((new Date(val).getTime() - Date.now()) / 86_400_000);
+    const diff = Math.ceil((parseDeadlineDate(val).getTime() - Date.now()) / 86_400_000);
     return diff;
   }
 
@@ -160,6 +168,7 @@
   });
 
   // ── Admin: deadline editor ─────────────────────────────────────────────────
+  /** ISO string → "YYYY-MM-DD" para el DatePicker */
   function toDateInput(val: string | null | undefined): string {
     if (!val) return '';
     return val.slice(0, 10);
@@ -167,18 +176,18 @@
 
   function formatDate(val: string | null | undefined): string {
     if (!val) return '—';
-    return new Date(val).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
+    return parseDeadlineDate(val).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   function isOverdue(val: string | null | undefined): boolean {
     if (!val) return false;
-    return new Date(val) < new Date();
+    return parseDeadlineDate(val) < new Date();
   }
 
   let editingDates = $state(false);
   let isSavingDates = $state(false);
-  let dateBasico = $state<string>(toDateInput((curso as any).fecha_limite_entrega_basico));
-  let dateSyllabus = $state<string>(toDateInput((curso as any).fecha_limite_entrega_syllabus));
+  let dateBasico = $state<string | null>(toDateInput((curso as any).fecha_limite_entrega_basico) || null);
+  let dateSyllabus = $state<string | null>(toDateInput((curso as any).fecha_limite_entrega_syllabus) || null);
 
   function saveDates() {
     isSavingDates = true;
@@ -200,8 +209,8 @@
   }
 
   function cancelDateEdit() {
-    dateBasico = toDateInput((curso as any).fecha_limite_entrega_basico);
-    dateSyllabus = toDateInput((curso as any).fecha_limite_entrega_syllabus);
+    dateBasico = toDateInput((curso as any).fecha_limite_entrega_basico) || null;
+    dateSyllabus = toDateInput((curso as any).fecha_limite_entrega_syllabus) || null;
     editingDates = false;
   }
 
@@ -211,13 +220,12 @@
   let showRejectionReason = $state(false);
   let rejectionReason = $state('');
 
-  const canApprovePrograma = $derived(
-    canApprove || hasPermission(userPermissions, 'cursos/programas:*') || hasPermission(userPermissions, 'cursos/programas:crear'),
-  );
+  const canApprovePrograma = $derived(canApprove);
 
   const showActionPanel = $derived(
     layoutType === 'admin' &&
-      ((programa?.estado === 'COMPLETO' && canApprovePrograma) || programa?.estado === 'APROBADO' || programa?.estado === 'BASICO_COMPLETO'),
+      canApprovePrograma &&
+      (programa?.estado === 'COMPLETO' || programa?.estado === 'APROBADO' || programa?.estado === 'BASICO_COMPLETO'),
   );
 
   function handleApprove() {
@@ -333,24 +341,19 @@
                 Fecha límite — Básico
                 <span class="text-xs text-gray-400 font-normal ml-1">(plazo para entregar el programa básico)</span>
               </label>
-              <input
-                id="admin-date-basico"
-                type="date"
-                bind:value={dateBasico}
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <DatePickerCL id="admin-date-basico" value={dateBasico} onchange={(v) => (dateBasico = v)} disabled={isSavingDates} />
             </div>
             <div>
               <label for="admin-date-syllabus" class="block text-sm font-medium text-gray-700 mb-1">
                 Fecha límite — Syllabus completo
                 <span class="text-xs text-gray-400 font-normal ml-1">(debe ser posterior al básico)</span>
               </label>
-              <input
+              <DatePickerCL
                 id="admin-date-syllabus"
-                type="date"
-                bind:value={dateSyllabus}
-                min={dateBasico || undefined}
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={dateSyllabus}
+                minValue={dateBasico}
+                onchange={(v) => (dateSyllabus = v)}
+                disabled={isSavingDates}
               />
             </div>
           </div>
@@ -456,7 +459,7 @@
       <!-- Documento del programa -->
       <ProgramaDocument {secciones} {metadata}>
         {#snippet actions()}
-          {#if canEditPrograma}
+          {#if canEditPrograma && layoutType !== 'admin'}
             {#if programa.estado === 'BASICO_COMPLETO'}
               <div class="mt-8 flex flex-col items-center gap-3 pt-6 border-t border-slate-200">
                 <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 w-full max-w-xl text-center">
@@ -470,7 +473,7 @@
                   </button>
                 </div>
                 <button
-                  onclick={openSyllabusTypeSelector}
+                  onclick={openEditBasico}
                   class="flex items-center gap-2 px-4 py-1.5 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
                 >
                   <Edit2 size={14} />
@@ -478,13 +481,14 @@
                 </button>
               </div>
             {:else if programa.estado !== 'APROBADO'}
+              {@const esTipoBasico = programa.data_syllabus?.metadata?.tipo_syllabus === 'BASICO'}
               <div class="mt-8 flex justify-center pt-6 border-t border-slate-200">
                 <button
-                  onclick={openSyllabusTypeSelector}
+                  onclick={esTipoBasico ? openEditBasico : openEditCompleto}
                   class="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
                   <Edit2 size={18} />
-                  Editar Contenidos
+                  {esTipoBasico ? 'Editar programa básico' : 'Editar Contenidos'}
                 </button>
               </div>
             {/if}
@@ -498,9 +502,9 @@
           <div class="flex items-center justify-between">
             <div>
               <h3 class="text-lg font-semibold text-blue-900 mb-2">Crear Programa de Cátedra</h3>
-              <p class="text-sm text-blue-800">Inicia la creación del programa seleccionando el tipo de syllabus que deseas.</p>
+              <p class="text-sm text-blue-800">Inicia la creación del programa básico de la asignatura.</p>
             </div>
-            <Button variant="default" size="lg" onclick={openSyllabusTypeSelector}>
+            <Button variant="default" size="lg" onclick={() => { selectedSyllabusType = 'simplified'; isSyllabusModalOpen = true; }}>
               <Plus class="mr-2 size-5" />
               Crear Programa
             </Button>
@@ -581,16 +585,6 @@
       </div>
     {/if}
 
-    <!-- SyllabusTypeSelector para elegir tipo de programa -->
-    {#if isSyllabusTypeOpen}
-      <SyllabusTypeSelector
-        bind:isOpen={isSyllabusTypeOpen}
-        onClose={closeSyllabusTypeSelector}
-        onSelect={handleSyllabusTypeSelect}
-        existingSyllabusType={programa?.estado === 'BASICO_COMPLETO' ? 'BASICO' : programa ? 'COMPLETO' : null}
-      />
-    {/if}
-
     <!-- Syllabus Modal Editor -->
     {#if isSyllabusModalOpen}
       <SyllabusModal
@@ -599,6 +593,7 @@
         syllabusType={selectedSyllabusType}
         onClose={closeSyllabusModal}
         onSuccess={layoutType === 'admin' ? handleAdminSyllabusSuccess : handleSyllabusSuccess}
+        canApprove={canApprovePrograma}
       />
     {/if}
   </div>

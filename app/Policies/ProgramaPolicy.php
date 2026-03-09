@@ -255,31 +255,28 @@ class ProgramaPolicy extends BaseProgramaPolicy
     /**
      * Determina si el usuario puede aprobar un programa.
      * 
-     * **SOLO administradores pueden aprobar.**
-     * Ni docentes ni jefes de carrera pueden aprobar programas.
+     * Administradores y Jefes de Carrera pueden aprobar.
      */
     public function approve(Usuario $user, Programa $model): bool
     {
-        // Solo administradores pueden aprobar
         return $user->rolesAsignados()
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
-            ->whereIn('nombre', ['Administrador', 'SuperAdmin', 'Super Admin', 'Admin'])
+            ->whereIn('nombre', ['Administrador', 'SuperAdmin', 'Super Admin', 'Admin', 'Jefe de Carrera'])
             ->exists();
     }
 
     /**
      * Determina si el usuario puede rechazar un programa.
      * 
-     * **SOLO administradores pueden rechazar.**
+     * Administradores y Jefes de Carrera pueden rechazar.
      */
     public function reject(Usuario $user, Programa $model): bool
     {
-        // Solo administradores pueden rechazar
         return $user->rolesAsignados()
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
-            ->whereIn('nombre', ['Administrador', 'SuperAdmin', 'Super Admin', 'Admin'])
+            ->whereIn('nombre', ['Administrador', 'SuperAdmin', 'Super Admin', 'Admin', 'Jefe de Carrera'])
             ->exists();
     }
 }

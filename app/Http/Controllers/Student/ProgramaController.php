@@ -240,16 +240,26 @@ class ProgramaController extends Controller
                 break;
 
             case 'VII':
-                $resultados = implode("\n", array_map(
-                    fn($r) => "• " . ($r['resultado'] ?? ''),
-                    $contenido['resultados_aprendizaje']['items'] ?? []
-                ));
-                $text = sprintf(
-                    "Resultados de Aprendizaje:\n%s\n\nMetodología:\n%s\n\nEvaluación:\n%s",
-                    $resultados,
-                    $contenido['metodologia']['tipo_estrategia'] ?? '',
-                    $contenido['evaluacion']['tipo_evaluacion'] ?? ''
-                );
+                if (!empty($contenido['actividades'])) {
+                    // BASICO format: only has an activities list
+                    $actividadesList = implode("\n", array_map(
+                        fn($a) => "• " . ($a['nombre'] ?? '') . " (" . ($a['tipo'] ?? '') . ")",
+                        $contenido['actividades']
+                    ));
+                    $text = "Actividades:\n" . $actividadesList;
+                } else {
+                    // Full/complete format: has resultados, metodologia, evaluacion
+                    $resultados = implode("\n", array_map(
+                        fn($r) => "• " . ($r['resultado'] ?? ''),
+                        $contenido['resultados_aprendizaje']['items'] ?? []
+                    ));
+                    $text = sprintf(
+                        "Resultados de Aprendizaje:\n%s\n\nMetodología:\n%s\n\nEvaluación:\n%s",
+                        $resultados,
+                        $contenido['metodologia']['tipo_estrategia'] ?? '',
+                        $contenido['evaluacion']['tipo_evaluacion'] ?? ''
+                    );
+                }
                 break;
 
             case 'VIII':

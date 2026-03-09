@@ -18,6 +18,8 @@ export interface Facultad {
     nombre: string;
     /** Associated permission context identifier */
     id_contexto?: number;
+    /** Associated departments (eager loaded) */
+    departamentos?: Departamento[];
     /** Creation timestamp */
     fecha_creacion?: string;
     /** Last modification timestamp */
@@ -70,7 +72,7 @@ export interface Plan {
     id_plan: number;
     id_carrera: number;
     agno: number;
-    version: number;
+    version_plan: number;
     creditos_sct_totales?: number;
     carrera?: Carrera;
     fecha_creacion?: string;
@@ -417,7 +419,7 @@ export interface CarreraFormData {
 export interface PlanFormData {
     id_carrera: number;
     agno: number;
-    version: number;
+    version_plan: number;
     creditos_sct_totales?: number;
     [key: string]: FormDataConvertible;
 }

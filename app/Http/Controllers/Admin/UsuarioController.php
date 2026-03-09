@@ -758,6 +758,7 @@ class UsuarioController extends Controller
             ->where('fecha_fin_planificada', '>=', now())
             ->get()
             ->map(fn($ura) => [
+                'id_ura'           => $ura->id_ura,
                 'id_rol'           => $ura->id_rol,
                 'nombre'           => $ura->rol?->nombre,
                 'id_contexto'      => $ura->id_contexto,
@@ -766,13 +767,26 @@ class UsuarioController extends Controller
             ->values()
             ->toArray();
 
-        // Obtener todos los permisos especiales del usuario
-        $specialPermissions = array_values(
-            $usuario->getAllPermissions(
-                $idContexto,
-                PermissionTypeEnum::ESPECIAL
-            )
-        );
+        // Obtener todos los permisos especiales activos del usuario (todos los contextos)
+        $specialPermissions = UsuarioPermisoEspecial::with(['permiso', 'contexto'])
+            ->where('id_usuario', $usuario->id_usuario)
+            ->where('esta_activo', true)
+            ->where('fue_borrado', false)
+            ->whereNull('fecha_fin_real')
+            ->where('fecha_fin_planificada', '>=', now())
+            ->get()
+            ->map(fn($upe) => [
+                'id_upe'           => $upe->id_upe,
+                'id_permiso'       => $upe->id_permiso,
+                'slug'             => $upe->permiso?->slug,
+                'nombre'           => $upe->permiso?->nombre,
+                'id_contexto'      => $upe->id_contexto,
+                'contexto_display' => $upe->contexto?->contexto_display,
+                'esta_permitido'   => (bool) $upe->esta_permitido,
+                'puede_delegar'    => (bool) $upe->puede_delegar,
+            ])
+            ->values()
+            ->toArray();
 
         // Obtener roles disponibles (todos excepto SuperAdmin) - transformar a array limpio
         $availableRoles = Rol::whereNotIn('nombre', ['SuperAdmin', 'Super Admin'])

@@ -52,13 +52,26 @@
   let filteredDocente = $derived(docenteCourses.filter((c) => !searchQuery || c.nombre.toLowerCase().includes(searchQuery.toLowerCase())));
   let filteredEstudiante = $derived(estudianteCourses.filter((c) => !searchQuery || c.nombre.toLowerCase().includes(searchQuery.toLowerCase())));
   let filteredAyudante = $derived(ayudanteCourses.filter((c) => !searchQuery || c.nombre.toLowerCase().includes(searchQuery.toLowerCase())));
+
+  // ── Admin menu items ──────────────────────────────────────
+  const adminMenuItems: Array<{ href: string; icon: any; label: string }> = [
+    { href: '/admin/usuarios', icon: Users, label: 'Usuarios' },
+    { href: '/admin/facultades', icon: Building2, label: 'Facultades' },
+    { href: '/admin/departamentos', icon: Folder, label: 'Departamentos' },
+    { href: '/admin/carreras', icon: GraduationCap, label: 'Carreras' },
+    { href: '/admin/asignaturas', icon: BookOpen, label: 'Asignaturas' },
+    { href: '/admin/planes', icon: ClipboardList, label: 'Planes de Estudio' },
+    { href: '/admin/cursos', icon: BookOpen, label: 'Cursos Ofertados' },
+    { href: '/admin/inscripciones_cursos', icon: Users, label: 'Inscripciones' },
+    { href: '/admin/syllabus', icon: ScrollText, label: 'Syllabus' },
+  ];
 </script>
 
 <div class="h-full flex flex-col bg-white text-slate-700">
   <!-- ── Header: Logo ─────────────────────────────────────── -->
   <div class="border-b border-slate-100 py-4 px-6">
     <div class="flex items-center gap-3">
-      <AppLogo class="h-8 w-8" />
+      <AppLogo clx|ass="h-8 w-8" />
       <div class="flex flex-col">
         <span class="font-extrabold text-slate-900 text-lg leading-none tracking-tight">UTAMED</span>
         <span class="text-[10px] text-slate-500 font-bold tracking-widest uppercase mt-1">Sistema de Gestión</span>
@@ -359,7 +372,7 @@
         </Link>
       </div>
       <div class="px-4 flex flex-col gap-1">
-        {#each [{ href: '/admin/usuarios', icon: Users, label: 'Usuarios' }, { href: '/admin/facultades', icon: Building2, label: 'Facultades' }, { href: '/admin/carreras', icon: GraduationCap, label: 'Carreras' }, { href: '/admin/asignaturas', icon: BookOpen, label: 'Asignaturas' }, { href: '/admin/planes', icon: ClipboardList, label: 'Planes de Estudio' }, { href: '/admin/cursos', icon: BookOpen, label: 'Cursos Ofertados' }, { href: '/admin/inscripciones_cursos', icon: Users, label: 'Inscripciones' }, { href: '/admin/syllabus', icon: ScrollText, label: 'Syllabus' }] as item}
+        {#each adminMenuItems as item}
           <Link
             href={item.href}
             class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-all group"

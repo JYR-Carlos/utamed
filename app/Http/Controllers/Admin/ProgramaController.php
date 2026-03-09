@@ -208,7 +208,7 @@ class ProgramaController extends Controller
                 ] : null,
             ],
             'asignatura'      => $asignatura,
-            'canEdit'         => false,
+            'canEdit'         => $user->can('update', $programa),
             'canApprove'      => $user->can('approve', $programa),
             'userPermissions' => $userPermissions,
             'layoutType'      => 'admin',
@@ -711,11 +711,19 @@ class ProgramaController extends Controller
         $this->authorize('viewAny', Programa::class);
 
         $validated = $request->validate([
-            'fecha_limite_entrega_basico'   => 'nullable|date',
-            'fecha_limite_entrega_syllabus' => 'nullable|date|after_or_equal:fecha_limite_entrega_basico',
-        ], [
-            'fecha_limite_entrega_syllabus.after_or_equal' => 'La fecha límite del syllabus debe ser igual o posterior a la del básico.',
+            'fecha_limite_entrega_basico'   => 'sometimes|nullable|date',
+            'fecha_limite_entrega_syllabus' => 'sometimes|nullable|date',
         ]);
+
+        // Cross-field: syllabus date must be >= basic date, using DB fallback
+        $basico   = $validated['fecha_limite_entrega_basico']   ?? $curso->fecha_limite_entrega_basico;
+        $syllabus = $validated['fecha_limite_entrega_syllabus'] ?? $curso->fecha_limite_entrega_syllabus;
+
+        if ($basico && $syllabus && $syllabus < $basico) {
+            return back()->withErrors([
+                'fecha_limite_entrega_syllabus' => 'La fecha límite del syllabus debe ser igual o posterior a la del básico.',
+            ]);
+        }
 
         $curso->update($validated);
 
@@ -1106,18 +1114,7 @@ class ProgramaController extends Controller
                 'version'         => $programa->version_programa,
             ]);
 
-            return response()->json([
-                'message' => 'Programa instanciado correctamente. El docente puede comenzar a completarlo.',
-                'programa' => [
-                    'id_programa'           => $programa->id_programa,
-                    'version_programa'      => $programa->version_programa,
-                    'estado'                => $programa->estado,
-                    'tipo_syllabus'         => $programa->getTipoSyllabus(),
-                    'fecha_creacion'        => $programa->fecha_creacion,
-                    'fecha_limite_basico'   => $curso->fecha_limite_entrega_basico,
-                    'fecha_limite_completo' => $curso->fecha_limite_entrega_syllabus,
-                ],
-            ]);
+            return redirect()->back()->with('success', 'Programa instanciado correctamente. El docente puede comenzar a completarlo.');
 
         } catch (\Exception $e) {
             Log::error('Error al instanciar programa', [
@@ -1125,9 +1122,7 @@ class ProgramaController extends Controller
                 'id_curso' => $curso->id_curso,
             ]);
 
-            return response()->json([
-                'error' => $e->getMessage(),
-            ], 422);
+            return redirect()->back()->withErrors(['error' => $e->getMessage()]);
         }
     }
 }

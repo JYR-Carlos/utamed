@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { usePage } from '@inertiajs/svelte';
-  import { page } from '@inertiajs/svelte';
   import ProgramasListView from '@/components/custom/admin/ProgramasListView.svelte';
 
   interface Programa {

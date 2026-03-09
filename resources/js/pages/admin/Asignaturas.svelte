@@ -83,11 +83,9 @@
   }
 
   function handleSubmit() {
-    const url = editingAsignatura ? `/admin/asignaturas/{editingAsignatura.id_asignatura}` : '/admin/asignaturas';
+    const url = editingAsignatura ? `/admin/asignaturas/${editingAsignatura.id_asignatura}` : '/admin/asignaturas';
 
-    const method = editingAsignatura ? 'put' : 'post';
-
-    $formData[method](url, {
+    const opts = {
       onSuccess: () => {
         showModal = false;
         editingAsignatura = null;
@@ -95,7 +93,13 @@
       onError: () => {
         console.error('Error al guardar la asignatura:', formData.errors);
       },
-    });
+    };
+
+    if (editingAsignatura) {
+      $formData.put(url, opts);
+    } else {
+      $formData.post(url, opts);
+    }
   }
 
   function openDeleteDialog(asignatura: Asignatura) {
@@ -119,13 +123,13 @@
 </script>
 
 <AdminLayout>
-  <div class="page-container">
-    <div class="page-header">
+  <div class="p-8 max-w-6xl mx-auto">
+    <div class="flex justify-between items-start mb-8">
       <div>
-        <h1 class="page-title">Asignaturas</h1>
-        <p class="page-description">Gestión del catálogo de asignaturas</p>
+        <h1 class="text-3xl font-bold text-gray-900 mb-1">Asignaturas</h1>
+        <p class="text-sm text-gray-500">Gestión del catálogo de asignaturas</p>
       </div>
-      <button onclick={openCreateModal} class="btn-primary">
+      <button onclick={openCreateModal} class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="20"
@@ -194,14 +198,14 @@
         </div>
       </div>
     {/if}
-    <div class="form-row">
-      <div class="form-group">
-        <label for="cod_asignatura" class="form-label">Código</label>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="mb-4">
+        <label for="cod_asignatura" class="block text-sm font-medium text-gray-700 mb-2">Código</label>
         <input
           id="cod_asignatura"
           type="text"
           bind:value={$formData.cod_asignatura}
-          class="form-input"
+          
           class:border-red-500={$formData.errors.cod_asignatura}
           placeholder="Ej: MED101"
           required
@@ -211,13 +215,13 @@
         {/if}
       </div>
 
-      <div class="form-group">
-        <label for="creditos_sct" class="form-label">Créditos SCT</label>
+      <div class="mb-4">
+        <label for="creditos_sct" class="block text-sm font-medium text-gray-700 mb-2">Créditos SCT</label>
         <input
           id="creditos_sct"
           type="number"
           bind:value={$formData.creditos_sct}
-          class="form-input"
+          
           class:border-red-500={$formData.errors.creditos_sct}
           min="0"
         />
@@ -227,13 +231,13 @@
       </div>
     </div>
 
-    <div class="form-group">
-      <label for="nombre" class="form-label">Nombre</label>
+    <div class="mb-4">
+      <label for="nombre" class="block text-sm font-medium text-gray-700 mb-2">Nombre</label>
       <input
         id="nombre"
         type="text"
         bind:value={$formData.nombre}
-        class="form-input"
+        
         class:border-red-500={$formData.errors.nombre}
         placeholder="Ej: Anatomía Humana"
         required
@@ -243,38 +247,38 @@
       {/if}
     </div>
 
-    <div class="form-group">
-      <label for="descripcion" class="form-label">Descripción</label>
-      <textarea id="descripcion" bind:value={$formData.descripcion} class="form-input" rows="3" placeholder="Descripción de la asignatura"></textarea>
+    <div class="mb-4">
+      <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+      <textarea id="descripcion" bind:value={$formData.descripcion}  rows="3" placeholder="Descripción de la asignatura"></textarea>
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label for="horas_catedra" class="form-label">Horas Cátedra</label>
-        <input id="horas_catedra" type="number" bind:value={$formData.horas_catedra} class="form-input" min="0" />
+    <div class="grid grid-cols-2 gap-4">
+      <div class="mb-4">
+        <label for="horas_catedra" class="block text-sm font-medium text-gray-700 mb-2">Horas Cátedra</label>
+        <input id="horas_catedra" type="number" bind:value={$formData.horas_catedra}  min="0" />
       </div>
 
-      <div class="form-group">
-        <label for="horas_taller" class="form-label">Horas Taller</label>
-        <input id="horas_taller" type="number" bind:value={$formData.horas_taller} class="form-input" min="0" />
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label for="horas_laboratorio" class="form-label">Horas Laboratorio</label>
-        <input id="horas_laboratorio" type="number" bind:value={$formData.horas_laboratorio} class="form-input" min="0" />
-      </div>
-
-      <div class="form-group">
-        <label for="horas_dirigidas" class="form-label">Horas Dirigidas</label>
-        <input id="horas_dirigidas" type="number" bind:value={$formData.horas_dirigidas} class="form-input" min="0" />
+      <div class="mb-4">
+        <label for="horas_taller" class="block text-sm font-medium text-gray-700 mb-2">Horas Taller</label>
+        <input id="horas_taller" type="number" bind:value={$formData.horas_taller}  min="0" />
       </div>
     </div>
 
-    <div class="form-group">
-      <label for="horas_autonomas" class="form-label">Horas Autónomas</label>
-      <input id="horas_autonomas" type="number" bind:value={$formData.horas_autonomas} class="form-input" min="0" />
+    <div class="grid grid-cols-2 gap-4">
+      <div class="mb-4">
+        <label for="horas_laboratorio" class="block text-sm font-medium text-gray-700 mb-2">Horas Laboratorio</label>
+        <input id="horas_laboratorio" type="number" bind:value={$formData.horas_laboratorio}  min="0" />
+      </div>
+
+      <div class="mb-4">
+        <label for="horas_dirigidas" class="block text-sm font-medium text-gray-700 mb-2">Horas Dirigidas</label>
+        <input id="horas_dirigidas" type="number" bind:value={$formData.horas_dirigidas}  min="0" />
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label for="horas_autonomas" class="block text-sm font-medium text-gray-700 mb-2">Horas Autónomas</label>
+      <input id="horas_autonomas" type="number" bind:value={$formData.horas_autonomas}  min="0" />
     </div>
   </FormModal>
 
@@ -286,92 +290,4 @@
     onCancel={() => (showDeleteDialog = false)}
     isLoading={$formData.processing}
   />
-
-  <style>
-    .page-container {
-      padding: 2rem;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 2rem;
-    }
-
-    .page-title {
-      font-size: 1.875rem;
-      font-weight: 700;
-      color: #111827;
-      margin: 0 0 0.25rem 0;
-    }
-
-    .page-description {
-      color: #6b7280;
-      font-size: 0.875rem;
-      margin: 0;
-    }
-
-    .btn-primary {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.625rem 1.25rem;
-      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 6px rgba(59, 130, 246, 0.4);
-    }
-
-    .form-group {
-      margin-bottom: 1rem;
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-
-    .form-label {
-      display: block;
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: #374151;
-      margin-bottom: 0.5rem;
-    }
-
-    .form-input {
-      width: 100%;
-      padding: 0.625rem 0.875rem;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: 0.875rem;
-      color: #111827;
-      background-color: white;
-      transition: all 0.2s;
-    }
-
-    .form-input:focus {
-      outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-
-    textarea.form-input {
-      resize: vertical;
-      font-family: inherit;
-    }
-  </style>
 </AdminLayout>
