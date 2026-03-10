@@ -44,7 +44,7 @@ abstract class BaseEstadoActividad extends CustomBaseModel
             'id_estado',
             'id_actividad'
         )
-            ->withPivot('grupo', 'nota');
+            ->withPivot('grupo', 'nota', 'id_actividad', 'id_estado');
     }
 
 }

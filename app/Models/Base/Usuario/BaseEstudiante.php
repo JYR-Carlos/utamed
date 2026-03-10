@@ -72,7 +72,7 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
             'id_estudiante',
             'grupo'
         )
-            ->withPivot('id_asignado_actividad', 'nota_individual', 'diferencia_decimas');
+            ->withPivot('id_asignado_actividad', 'nota_individual', 'diferencia_decimas', 'grupo', 'id_estudiante');
     }
 
     public function cursosInscritos()
@@ -83,7 +83,7 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
             'id_estudiante',
             'id_curso'
         )
-            ->withPivot('id_inscripcion_curso', 'cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
+            ->withPivot('id_inscripcion_curso', 'cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial', 'id_curso', 'id_estudiante');
     }
 
     public function seccionesInscritas()
@@ -94,7 +94,7 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
             'id_estudiante',
             'id_seccion'
         )
-            ->withPivot('id_inscripcion_seccion', 'nota_seccion');
+            ->withPivot('id_inscripcion_seccion', 'nota_seccion', 'id_estudiante', 'id_seccion');
     }
 
 }

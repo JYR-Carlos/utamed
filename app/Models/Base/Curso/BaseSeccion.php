@@ -77,7 +77,7 @@ abstract class BaseSeccion extends CustomBaseModel implements HasOwnedContext
             'id_seccion',
             'id_estudiante'
         )
-            ->withPivot('id_inscripcion_seccion', 'nota_seccion');
+            ->withPivot('id_inscripcion_seccion', 'nota_seccion', 'id_estudiante', 'id_seccion');
     }
 
     /**

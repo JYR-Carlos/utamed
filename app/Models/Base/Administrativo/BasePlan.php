@@ -61,7 +61,7 @@ abstract class BasePlan extends CustomBaseModel implements HasOwnedContext
             'id_plan',
             'id_asignatura'
         )
-            ->withPivot('id_asignacion_plan', 'agno_planificado', 'semestre_planificado', 'tipo_ramo');
+            ->withPivot('id_asignacion_plan', 'agno_planificado', 'semestre_planificado', 'tipo_ramo', 'id_plan', 'id_asignatura');
     }
 
     /**

@@ -63,7 +63,7 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
             'id_rol',
             'id_permiso'
         )
-            ->withPivot('id_asignacion_rol_permiso', 'puede_delegar_permisos');
+            ->withPivot('id_asignacion_rol_permiso', 'puede_delegar_permisos', 'id_rol', 'id_permiso');
     }
 
     public function usuariosConRolAsignado()
@@ -74,7 +74,7 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
             'id_rol',
             'id_usuario'
         )
-            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'id_contexto', 'id_rol', 'id_usuario', 'esta_activo', 'creado_por', 'eliminado_por');
     }
 
     public function contextosConEsteRol()
@@ -85,7 +85,7 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
             'id_rol',
             'id_contexto'
         )
-            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'id_contexto', 'id_rol', 'id_usuario', 'esta_activo', 'creado_por', 'eliminado_por');
     }
 
 }

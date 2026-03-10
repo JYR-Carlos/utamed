@@ -63,7 +63,7 @@ abstract class BaseActividadAsignada extends CustomBaseModel implements HasOwned
             'grupo',
             'id_estudiante'
         )
-            ->withPivot('id_asignado_actividad', 'nota_individual', 'diferencia_decimas');
+            ->withPivot('id_asignado_actividad', 'nota_individual', 'diferencia_decimas', 'grupo', 'id_estudiante');
     }
 
     /**

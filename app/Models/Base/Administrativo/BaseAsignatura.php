@@ -60,7 +60,7 @@ abstract class BaseAsignatura extends CustomBaseModel implements HasContext
             'id_asignatura',
             'id_plan'
         )
-            ->withPivot('id_asignacion_plan', 'agno_planificado', 'semestre_planificado', 'tipo_ramo');
+            ->withPivot('id_asignacion_plan', 'agno_planificado', 'semestre_planificado', 'tipo_ramo', 'id_plan', 'id_asignatura');
     }
 
 }

@@ -50,7 +50,7 @@ abstract class BasePermiso extends CustomBaseModel
             'id_permiso',
             'id_rol'
         )
-            ->withPivot('id_asignacion_rol_permiso', 'puede_delegar_permisos');
+            ->withPivot('id_asignacion_rol_permiso', 'puede_delegar_permisos', 'id_rol', 'id_permiso');
     }
 
     public function usuariosConPermisoEspecial()
@@ -61,7 +61,7 @@ abstract class BasePermiso extends CustomBaseModel
             'id_permiso',
             'id_usuario'
         )
-            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'id_permiso', 'id_contexto', 'id_usuario', 'esta_activo', 'creado_por', 'eliminado_por');
     }
 
     public function contextosConEstePermiso()
@@ -72,7 +72,7 @@ abstract class BasePermiso extends CustomBaseModel
             'id_permiso',
             'id_contexto'
         )
-            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'id_permiso', 'id_contexto', 'id_usuario', 'esta_activo', 'creado_por', 'eliminado_por');
     }
 
 }

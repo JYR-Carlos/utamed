@@ -22,7 +22,8 @@ abstract class BaseContexto extends CustomBaseModel
     protected $fillable = [
         'id_contexto',
         'contexto_display',
-        'id_tipo_contexto'
+        'id_tipo_contexto',
+        'id_contexto_padre'
     ];
 
 
@@ -32,6 +33,12 @@ abstract class BaseContexto extends CustomBaseModel
     {
         $instance = new \App\Models\Usuario\TipoContexto();
         return new BelongsTo($instance->newQuery(), $this, 'id_tipo_contexto', 'id_tipo_contexto', 'tipoContexto');
+    }
+
+    public function contextoPadre()
+    {
+        $instance = new \App\Models\Usuario\Contexto();
+        return new BelongsTo($instance->newQuery(), $this, 'id_contexto_padre', 'id_contexto', 'contextoPadre');
     }
 
     // Relaciones inversas
@@ -61,6 +68,11 @@ abstract class BaseContexto extends CustomBaseModel
         return $this->hasOne(\App\Models\Curso\Curso::class, 'id_contexto', 'id_contexto');
     }
 
+    public function subContextos()
+    {
+        return $this->hasMany(\App\Models\Usuario\Contexto::class, 'id_contexto_padre', 'id_contexto');
+    }
+
     public function usuarioPermisoEspeciales()
     {
         return $this->hasMany(\App\Models\Usuario\UsuarioPermisoEspecial::class, 'id_contexto', 'id_contexto');
@@ -81,7 +93,7 @@ abstract class BaseContexto extends CustomBaseModel
             'id_contexto',
             'id_usuario'
         )
-            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'id_permiso', 'id_contexto', 'id_usuario', 'esta_activo', 'creado_por', 'eliminado_por');
     }
 
     public function permisosEspecialesEnContexto()
@@ -92,7 +104,7 @@ abstract class BaseContexto extends CustomBaseModel
             'id_contexto',
             'id_permiso'
         )
-            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'esta_activo');
+            ->withPivot('id_upe', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'esta_permitido', 'puede_delegar', 'fecha_fin_real', 'fue_borrado', 'id_permiso', 'id_contexto', 'id_usuario', 'esta_activo', 'creado_por', 'eliminado_por');
     }
 
     public function usuariosConRolEnContexto()
@@ -103,7 +115,7 @@ abstract class BaseContexto extends CustomBaseModel
             'id_contexto',
             'id_usuario'
         )
-            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'id_contexto', 'id_rol', 'id_usuario', 'esta_activo', 'creado_por', 'eliminado_por');
     }
 
     public function rolesEnContexto()
@@ -114,7 +126,7 @@ abstract class BaseContexto extends CustomBaseModel
             'id_contexto',
             'id_rol'
         )
-            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'esta_activo');
+            ->withPivot('id_ura', 'asignado_por', 'fecha_inicio_planificada', 'fecha_fin_planificada', 'fecha_fin_real', 'fue_eliminado', 'id_contexto', 'id_rol', 'id_usuario', 'esta_activo', 'creado_por', 'eliminado_por');
     }
 
 }

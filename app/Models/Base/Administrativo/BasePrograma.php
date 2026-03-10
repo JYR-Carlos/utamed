@@ -34,7 +34,9 @@ abstract class BasePrograma extends CustomBaseModel implements HasOwnedContext
         'creado_por',
         'revisado_por',
         'id_curso',
-        'es_actual'
+        'es_actual',
+        'fecha_entrega',
+        'fecha_revision'
     ];
 
 

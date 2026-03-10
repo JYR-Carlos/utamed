@@ -42,7 +42,7 @@ abstract class BaseDocente extends CustomBaseModel implements HasContext
 
     // Relaciones inversas
 
-    public function secciones()
+    public function seccionesQueDicta()
     {
         return $this->hasMany(\App\Models\Curso\Seccion::class, 'id_docente', 'id_docente');
     }

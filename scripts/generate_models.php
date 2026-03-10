@@ -188,7 +188,7 @@ $basePolicyDir = $policyDir . '/Base';
 //   '_self' => [                           ← belongsTo: Relaciones EN esta tabla
 //     '{local_key}' => '{nombre_metodo_belongs}',
 //   ],
-//   '{OtraTabla}' => [                     ← hasMany/hasOne: Relaciones DESDE otra tabla
+//   '{OtroSchema}.{OtraTabla}' => [        ← hasMany/hasOne: Relaciones DESDE otra tabla
 //     '{foreign_key}' => '{nombre_metodo_has}',
 //   ],
 // ]
@@ -243,7 +243,7 @@ $relationNames = [
 
   // Usuario crea Roles (evitar conflicto con belongsToMany)
   'usuario.rol' => [
-    'usuario' => [
+    'usuario.usuario' => [
       'creado_por' => 'rolesCreados',
     ],
   ],
@@ -255,7 +255,7 @@ $relationNames = [
       'id_usuario' => 'receptor',   // belongsTo: usuario que recibe el permiso
       'eliminado_por' => 'borrador', // belongsTo: usuario que borra el permiso
     ],
-    'usuario' => [
+    'usuario.usuario' => [
       'id_usuario' => 'asignacionesRolRecibidas',  // Usuario recibe roles
       'creado_por' => 'asignacionesRolRealizadas',  // Usuario asigna roles
       'eliminado_por' => 'asignacionesRolEliminadas' // Usuario que borra roles
@@ -269,7 +269,7 @@ $relationNames = [
       'id_usuario' => 'receptor',   // belongsTo: usuario que recibe el permiso
       'eliminado_por' => 'borrador', // belongsTo: usuario que borra el permiso
     ],
-    'usuario' => [
+    'usuario.usuario' => [
       'id_usuario' => 'permisosEspecialesRecibidos', // Usuario recibe permisos
       'creado_por' => 'permisosEspecialesAsignados', // Usuario asigna permisos
       'eliminado_por' => 'permisosEspecialesEliminados' // Usuario que borra permisos
@@ -281,15 +281,24 @@ $relationNames = [
     '_self' => [
       'creado_por' => 'autor',
     ],
-    'usuario' => [
+    'usuario.usuario' => [
       'creado_por' => 'programasCreados',
     ],
   ],
 
   // seccion: Docente enseña secciones
   'curso.seccion' => [
-    'docente' => [
+    'usuario.docente' => [
       'id_docente' => 'seccionesQueDicta',
+    ],
+  ],
+
+  'usuario.contexto' => [
+    '_self' => [
+      'id_contexto_padre' => 'contextoPadre', // belongsTo: contexto padre (si existe)
+    ],
+    'usuario.contexto' => [
+      'id_contexto_padre' => 'subContextos', // hasMany: subcontextos que referencian este contexto como padre
     ],
   ],
 
@@ -388,11 +397,11 @@ $manualPivotTables = [
   // asignacion_plan: Asignatura ↔ Plan
   'administrativo.asignacion_plan' => [
     'relation_names' => [
-      'asignatura' => [
-        'plan' => 'planes', // asignatura->planes()
+      'administrativo.asignatura' => [
+        'administrativo.plan' => 'planes', // asignatura->planes()
       ],
-      'plan' => [
-        'asignatura' => 'asignaturas', // plan->asignaturas()
+      'administrativo.plan' => [
+        'administrativo.asignatura' => 'asignaturas', // plan->asignaturas()
       ],
     ],
   ],
@@ -400,11 +409,11 @@ $manualPivotTables = [
   // inscripcion_curso: Curso ↔ Estudiante
   'curso.inscripcion_curso' => [
     'relation_names' => [
-      'curso' => [
-        'estudiante' => 'estudiantesInscritos', // curso->estudiantesInscritos()
+      'curso.curso' => [
+        'usuario.estudiante' => 'estudiantesInscritos', // curso->estudiantesInscritos()
       ],
-      'estudiante' => [
-        'curso' => 'cursosInscritos', // estudiante->cursosInscritos()
+      'usuario.estudiante' => [
+        'curso.curso' => 'cursosInscritos', // estudiante->cursosInscritos()
       ],
     ],
   ],
@@ -414,8 +423,8 @@ $manualPivotTables = [
     'relation_names' => [
       // Solo especificamos estado_actividad -> actividad
       // Omitimos actividad para no generar relaciones inversas desde actividad
-      'estado_actividad' => [
-        'actividad' => 'actividadesConEstado', // estadoActividad->actividadesConEstado()
+      'agenda.estado_actividad' => [
+        'agenda.actividad' => 'actividadesConEstado', // estadoActividad->actividadesConEstado()
       ],
     ],
   ],
@@ -423,11 +432,11 @@ $manualPivotTables = [
   // asignado_actividad: actividad_asignada ↔ Estudiante
   'agenda.asignado_actividad' => [
     'relation_names' => [
-      'actividad_asignada' => [
-        'estudiante' => 'estudiantesAsignados', // actividadAsignada->estudiantesAsignados()
+      'agenda.actividad_asignada' => [
+        'usuario.estudiante' => 'estudiantesAsignados', // actividadAsignada->estudiantesAsignados()
       ],
-      'estudiante' => [
-        'actividad_asignada' => 'actividadesAsignadas', // estudiante->actividadesAsignadas()
+      'usuario.estudiante' => [
+        'agenda.actividad_asignada' => 'actividadesAsignadas', // estudiante->actividadesAsignadas()
       ],
     ],
   ],
@@ -435,11 +444,11 @@ $manualPivotTables = [
   // asignacion_rol_permiso: Rol ↔ Permiso
   'usuario.asignacion_rol_permiso' => [
     'relation_names' => [
-      'rol' => [
-        'permiso' => 'permisos', // rol->permisos()
+      'usuario.rol' => [
+        'usuario.permiso' => 'permisos', // rol->permisos()
       ],
-      'permiso' => [
-        'rol' => 'roles', // permiso->roles()
+      'usuario.permiso' => [
+        'usuario.rol' => 'roles', // permiso->roles()
       ],
     ],
   ],
@@ -451,12 +460,12 @@ $manualPivotTables = [
   // inscripcion_seccion: Estudiante ↔ Seccion (también involucra Curso)
   'curso.inscripcion_seccion' => [
     'relation_names' => [
-      'estudiante' => [
-        'seccion' => 'seccionesInscritas', // estudiante->seccionesInscritas()
+      'usuario.estudiante' => [
+        'curso.seccion' => 'seccionesInscritas', // estudiante->seccionesInscritas()
         // No genera relación con Curso porque ya existe en inscripcion_curso
       ],
-      'seccion' => [
-        'estudiante' => 'estudiantesInscritos', // seccion->estudiantesInscritos()
+      'curso.seccion' => [
+        'usuario.estudiante' => 'estudiantesInscritos', // seccion->estudiantesInscritos()
       ],
     ],
   ],
@@ -464,8 +473,8 @@ $manualPivotTables = [
   // usuario_permiso_especial: Usuario ↔ Usuario ↔ Permiso ↔ Contexto (múltiples FKs a Usuario)
   'usuario.usuario_permiso_especial' => [
     'relation_names' => [
-      'usuario' => [
-        'usuario' => [
+      'usuario.usuario' => [
+        'usuario.usuario' => [
           // los pivots desde usuario que recibe
           [
             'method_name' => 'usuariosQueAsignanMisPermisos',
@@ -500,16 +509,16 @@ $manualPivotTables = [
             'foreign_key' => 'creado_por'
           ],
         ],
-        'permiso' => 'permisosEspeciales',
-        'contexto' => 'contextosConPermisoEspecial',
+        'usuario.permiso' => 'permisosEspeciales',
+        'usuario.contexto' => 'contextosConPermisoEspecial',
       ],
-      'permiso' => [
-        'usuario' => 'usuariosConPermisoEspecial', // permiso->usuariosConPermisoEspecial()
-        'contexto' => 'contextosConEstePermiso',   // permiso->contextosConEstePermiso()
+      'usuario.permiso' => [
+        'usuario.usuario' => 'usuariosConPermisoEspecial', // permiso->usuariosConPermisoEspecial()
+        'usuario.contexto' => 'contextosConEstePermiso',   // permiso->contextosConEstePermiso()
       ],
-      'contexto' => [
-        'usuario' => 'usuariosConPermisoEspecialEnContexto', // contexto->usuariosConPermisoEspecialEnContexto()
-        'permiso' => 'permisosEspecialesEnContexto',         // contexto->permisosEspecialesEnContexto()
+      'usuario.contexto' => [
+        'usuario.usuario' => 'usuariosConPermisoEspecialEnContexto', // contexto->usuariosConPermisoEspecialEnContexto()
+        'usuario.permiso' => 'permisosEspecialesEnContexto',         // contexto->permisosEspecialesEnContexto()
       ],
     ],
   ],
@@ -517,8 +526,8 @@ $manualPivotTables = [
   // usuario_rol_asignacion: Usuario ↔ Rol ↔ Contexto (múltiples FKs a Usuario)
   'usuario.usuario_rol_asignacion' => [
     'relation_names' => [
-      'usuario' => [
-        'usuario' => [
+      'usuario.usuario' => [
+        'usuario.usuario' => [
           // de usuario que recibe el rol
           [
             'method_name' => 'usuariosQueAsignanMisRoles',
@@ -553,16 +562,16 @@ $manualPivotTables = [
             'foreign_key' => 'creado_por'
           ],
         ],
-        'rol' => 'rolesAsignados',
-        'contexto' => 'contextosConRolAsignado',
+        'usuario.rol' => 'rolesAsignados',
+        'usuario.contexto' => 'contextosConRolAsignado',
       ],
-      'rol' => [
-        'usuario' => 'usuariosConRolAsignado', // rol->usuariosConRolAsignado()
-        'contexto' => 'contextosConEsteRol',   // rol->contextosConEsteRol()
+      'usuario.rol' => [
+        'usuario.usuario' => 'usuariosConRolAsignado', // rol->usuariosConRolAsignado()
+        'usuario.contexto' => 'contextosConEsteRol',   // rol->contextosConEsteRol()
       ],
-      'contexto' => [
-        'usuario' => 'usuariosConRolEnContexto', // contexto->usuariosConRolEnContexto()
-        'rol' => 'rolesEnContexto',              // contexto->rolesEnContexto()
+      'usuario.contexto' => [
+        'usuario.usuario' => 'usuariosConRolEnContexto', // contexto->usuariosConRolEnContexto()
+        'usuario.rol' => 'rolesEnContexto',              // contexto->rolesEnContexto()
       ],
     ],
   ],
@@ -1814,9 +1823,21 @@ EOL;
 
       // Intentar obtener nombre personalizado de la configuración
       $customName = null;
-      $sourceTableKey = $inverseFk['source_schema'] . '.' . $inverseFk['source_table'];
-      if (isset($relationNames[$sourceTableKey][$className][$inverseFk['source_columns']])) {
-        $customName = $relationNames[$sourceTableKey][$className][$inverseFk['source_columns']];
+      $sourceTableKey =
+        $inverseFk['source_schema'] . '.' . $inverseFk['source_table'];
+      $targetTableKey = $currentTableKey;  // $currentTableKey contains schema.table of the TARGET
+      if (
+        isset(
+        $relationNames
+        [$sourceTableKey]
+        [$targetTableKey]
+        [$inverseFk['source_columns']]
+      )
+      ) {
+        $customName =
+          $relationNames[$sourceTableKey]
+          [$targetTableKey]
+          [$inverseFk['source_columns']];
       }
 
       // Nombre del método
@@ -2033,14 +2054,12 @@ EOL;
 
       $allPivotCols = array_map(fn($c) => $c->column_name, $pivotColumns);
 
-      // Recolectar todas las columnas FK para excluirlas de withPivot
-      $allFkCols = [];
-      foreach ($allFks as $fk) {
-        $allFkCols = array_merge($allFkCols, explode(',', $fk['local_columns']));
-      }
-      $allFkCols = array_unique($allFkCols);
-
-      $excludeCols = array_merge($allFkCols, ['created_at', 'updated_at', 'fecha_creacion', 'fecha_modificacion', 'fecha_eliminacion']);
+      // Excluir solo las columnas de timestamp, no las FKs
+      // Las FKs pueden ser necesarias para relaciones a través del pivot (ej: id_contexto)
+      $excludeCols = array_merge(
+        [],  // No excluir ninguna FK
+        [$createdAtColumn, $updatedAtColumn, $softDeleteColumnName],  
+      );
       $additionalCols = array_diff($allPivotCols, $excludeCols);
 
       // Obtener sufijo automático si está configurado
@@ -2088,10 +2107,14 @@ EOL;
         // Si hay relation_names especificado, solo generar si está ahí listado explícitamente (actúa como whitelist)
         if (is_array($pivotConfig) && isset($pivotConfig['relation_names'])) {
           $hasExplicitConfig = false;
-          // Buscar usando nombres de tabla en minúsculas (como están en la config)
-          $currentTableLower = strtolower($tableName);
-          $relatedTableLower = strtolower($relatedTable);
-          if (isset($pivotConfig['relation_names'][$currentTableLower][$relatedTableLower])) {
+          // Buscar usando schema.tabla format
+          $currentTableKey = strtolower($schema) . '.' . strtolower($tableName);
+          $relatedTableKey = strtolower($otherFk['schema']) . '.' . strtolower($relatedTable);
+          if (
+            isset($pivotConfig['relation_names']
+            [$currentTableKey]
+            [$relatedTableKey])
+          ) {
             $hasExplicitConfig = true;
           }
           // Si tiene relation_names pero esta tabla NO está en la config, saltar SOLO si no hay auto_suffix
@@ -2102,11 +2125,21 @@ EOL;
 
         // Verificar si hay configuración personalizada para esta relación
         $customConfig = null;
-        // Buscar usando nombres de tabla en minúsculas (como están en la config)
-        $currentTableLower = strtolower($tableName);
-        $relatedTableLower = strtolower($relatedTable);
-        if (is_array($pivotConfig) && isset($pivotConfig['relation_names'][$currentTableLower][$relatedTableLower])) {
-          $customConfig = $pivotConfig['relation_names'][$currentTableLower][$relatedTableLower];
+        // Buscar usando schema.tabla format
+        $currentTableKey = strtolower($schema) . '.' . strtolower($tableName);
+        $relatedTableKey = strtolower($otherFk['schema']) . '.' . strtolower($relatedTable);
+        if
+        (
+          is_array($pivotConfig)
+          &&
+          isset($pivotConfig['relation_names']
+          [$currentTableKey]
+          [$relatedTableKey])
+        ) {
+          $customConfig =
+            $pivotConfig['relation_names']
+            [$currentTableKey]
+            [$relatedTableKey];
         }
 
         // Determinar qué relaciones generar
@@ -2781,7 +2814,7 @@ foreach ($policyConfigs as $pc) {
   $modelNs = $pc['namespace'];
   $modelImports .= "use {$modelNs}\\{$class};\n";
   $policyImports .= "use App\\Policies\\{$class}Policy;\n";
-  $policyArray .= "        {$class}::class => {$class}Policy::class,\n";
+  $policyArray .= "{$tab}{$tab}{$class}::class => {$class}Policy::class,\n";
 }
 
 $authProviderPath = app_path('Providers/AuthServiceProvider.php');

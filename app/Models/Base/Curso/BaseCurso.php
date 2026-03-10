@@ -39,6 +39,8 @@ abstract class BaseCurso extends CustomBaseModel implements HasOwnedContext
         'estado_interno',
         'estado_acta',
         'es_plantilla',
+        'fecha_limite_entrega_basico',
+        'fecha_limite_entrega_syllabus',
         'id_asignacion_plan',
         'id_curso_padre',
         'version_plantilla',
@@ -103,7 +105,7 @@ abstract class BaseCurso extends CustomBaseModel implements HasOwnedContext
             'id_curso',
             'id_estudiante'
         )
-            ->withPivot('id_inscripcion_curso', 'cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial');
+            ->withPivot('id_inscripcion_curso', 'cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial', 'id_curso', 'id_estudiante');
     }
 
 }
