@@ -57,6 +57,22 @@ $config = [
         "docente"
     ],
     'max_depth' => 5,
+
+    // Relaciones de contexto padre cuyo camino es indirecto (sin FK directa entre tablas directas).
+    // Clave: schema.tabla hijo (tabla directa). Valor: array con el camino completo hasta el padre.
+    // El último elemento del array es la tabla directa padre final.
+    // Se fusionan con las FK autodetectadas en PASO 1.5; las auto-detectadas sobreescriben en conflicto.
+    'manual_parent_context' => [
+        'curso.curso' => [
+            'administrativo.asignacion_plan',
+            'administrativo.plan',
+            'administrativo.carrera',       // contexto padre final
+        ],
+        'agenda.actividad' => [
+            'curso.seccion',
+            'curso.curso',                  // contexto padre final
+        ],
+    ],
 ];
 
 section("⚙️  CONFIGURACIÓN", [
@@ -160,6 +176,33 @@ unset($tableData, $fk); // Romper referencias
 step("Foreign Keys cargadas: " . array_sum(array_map('count', array_column($dataStructure, 'fks'))));
 
 // ==================================================================================
+// PASO 1.5: DETECTAR FKs ENTRE TABLAS DIRECTAS (JERARQUÍA AUTODETECTADA)
+// ==================================================================================
+
+step("Detectando relaciones entre tablas directas...");
+
+// Auto-detectado: FK directa entre dos tablas directas
+// Mapa: childFullName => parentFullName (string)
+$autoDetectedParentContextEntries = [];
+foreach ($tablesWithContext as $childFull => $_) {
+    foreach ($dataStructure[$childFull]['fks'] ?? [] as $col => $targetFull) {
+        if (isset($tablesWithContext[$targetFull]) && $targetFull !== $childFull) {
+            $childLabel = $dataStructure[$childFull]['table'];
+            $parentLabel = $dataStructure[$targetFull]['table'];
+            $autoDetectedParentContextEntries[$childFull] = $targetFull;
+        }
+    }
+}
+
+// Construir mapa combinado: childFullName => string|array (path completo hasta padre final)
+// Las entradas auto sobreescriben las manuales si coinciden en la misma tabla hijo.
+$parentContextMap = array_merge($config['manual_parent_context'], $autoDetectedParentContextEntries);
+
+$autoCount = count($autoDetectedParentContextEntries);
+$manualCount = count($config['manual_parent_context']);
+step("parent_context_map: " . count($parentContextMap) . " entradas ({$autoCount} auto-detectadas, {$manualCount} manuales)");
+
+// ==================================================================================
 // PASO 2: ALGORITMO DE DETECCIÓN
 // ==================================================================================
 
@@ -178,11 +221,9 @@ function detectContextPath($table, $dataStructure, $tablesWithContext, $maxDepth
     // Inicializar con FKs directos
     if (!empty($dataStructure[$table]['fks'])) {
         foreach ($dataStructure[$table]['fks'] as $target) {
-            $parts = explode('.', $target);
-            $targetTableName = end($parts); // Extraer nombre de tabla
             $queue[] = [
                 'current' => $target,
-                'path' => [$targetTableName],
+                'path' => [$target], // nombre completo schema.tabla
                 'visited' => [$table, $target],
             ];
         }
@@ -215,12 +256,9 @@ function detectContextPath($table, $dataStructure, $tablesWithContext, $maxDepth
                 $newVisited = $node['visited'];
                 $newVisited[] = $nextTarget;
 
-                $nextParts = explode('.', $nextTarget);
-                $nextTableName = end($nextParts); // Extraer nombre de tabla
-
                 $queue[] = [
                     'current' => $nextTarget,
-                    'path' => array_merge($node['path'], [$nextTableName]),
+                    'path' => array_merge($node['path'], [$nextTarget]), // nombre completo
                     'visited' => $newVisited,
                 ];
             }
@@ -303,29 +341,52 @@ section("📝 CONFIGURACIÓN GENERADA");
 // Obtener primera columna de contexto (asumiendo solo una)
 $contextFilterColumn = current($config['context_columns']);
 
-$output = outputConfig($results, $contextFilterColumn, $filteredTables);
+$output = outputConfig($results, $contextFilterColumn, $filteredTables, $parentContextMap, $autoDetectedParentContextEntries);
 
 echo $output;
 
-// Procesar argumentos de línea de comandos
-$outputFile = null;
-foreach ($argv as $i => $arg) {
-    if (($arg === '--output-file' || $arg === '-o') && isset($argv[$i + 1])) {
-        $outputFile = $argv[$i + 1];
-        break;
-    }
+// Respaldar archivo anterior si existe, luego generar el nuevo
+$filePath = __DIR__ . '/generated_context_hierarchies.php';
+$backup = backupIfExists($filePath);
+
+if ($backup) {
+    echo "\n✅ Respaldo anterior guardado en: $backup";
 }
 
-// Guardar a archivo si se especificó
-if ($outputFile) {
-    file_put_contents($outputFile, $output);
-    echo "\n✅ Guardado en: $outputFile\n";
-}
+file_put_contents($filePath, $output);
+echo "\n✅ Nuevo archivo generado en: $filePath\n";
 
 // ==================================================================================
 // FUNCIONES
 // ==================================================================================
 
+/**
+ * Respalda el archivo si existe, agregando sufijo -OLD-<timestamp>
+ * @return string|null Ruta del backup creado, o null si el archivo no existe
+ */
+function backupIfExists(string $filePath): ?string
+{
+    if (!file_exists($filePath)) {
+        return null;
+    }
+
+    // Extraer extensión y nombre base
+    $pathInfo = pathinfo($filePath);
+    $dir = $pathInfo['dirname'];
+    $filename = $pathInfo['filename'];
+    $extension = $pathInfo['extension'] ?? '';
+
+    // Generar timestamp con zona UTC
+    $timestamp = (new DateTime('now', new DateTimeZone('UTC')))->format('Y-m-d_H-i-s');
+
+    // Construir ruta del respaldo
+    $backupPath = $dir . '/' . $filename . '-OLD-' . $timestamp . ($extension ? '.' . $extension : '');
+
+    // Renombrar archivo original
+    rename($filePath, $backupPath);
+
+    return $backupPath;
+}
 
 /**
  * Filtra tablas según prefijos o nombres específicos
@@ -361,49 +422,73 @@ function shouldFilterTable($tableName, $filterPrefixes = [], $filterTables = [])
     return [false, null];
 }
 
-function outputConfig($results, $contextColumnName, $filteredTables = [])
+function outputConfig($results, $contextColumnName, $filteredTables = [], $parentContextMap = [], $autoDetectedMap = [])
 {
     /**
      * Genera configuración PHP usando heredoc (formato limpio y legible)
+     *
+     * $parentContextMap: [schema.tabla => null|string|array]
+     *   null   → raíz (no tiene padre)
+     *   string → FK directa al padre (schema.tabla del padre)
+     *   array  → ruta indirecta [intermedio1, intermedio2, ..., padreDirecto]
+     * $autoDetectedMap: [schema.tabla => schema.tabla] — sólo FK directas auto-detectadas
      */
 
-    // Generar sección direct
+    $tab = '    '; // 4 espacios para indentación
+
+    // ── Sección 'direct' (parent: null | 'schema.tabla' | ['s.t',...] ) ───────
     $directLines = [];
-    foreach ($results['direct'] as $table => $config) {
-        $directLines[] = "        '$table' => '{$config['name']}',";
+    foreach ($results['direct'] as $table => $cfg) {
+        $typeName = $cfg['name'];
+        if (!array_key_exists($table, $parentContextMap)) {
+            // Raíz (no hay entrada en el mapa → sin padre)
+            $directLines[] = "{$tab}{$tab}'$table' => [";
+            $directLines[] = "{$tab}{$tab}{$tab}'contextTypeName' => '$typeName',";
+            $directLines[] = "{$tab}{$tab}{$tab}'parent' => null, // raíz";
+            $directLines[] = "{$tab}{$tab}],";
+        } elseif (is_array($parentContextMap[$table])) {
+            // Ruta indirecta manual
+            $pathItems = "'" . implode("', '", $parentContextMap[$table]) . "'";
+            $directLines[] = "{$tab}{$tab}'$table' => [";
+            $directLines[] = "{$tab}{$tab}{$tab}'contextTypeName' => '$typeName',";
+            $directLines[] = "{$tab}{$tab}{$tab}'parent' => [{$pathItems}], // manual (ruta indirecta)";
+            $directLines[] = "{$tab}{$tab}],";
+        } else {
+            // FK directa auto-detectada
+            $parentFull = $parentContextMap[$table];
+            $directLines[] = "{$tab}{$tab}'$table' => [";
+            $directLines[] = "{$tab}{$tab}{$tab}'contextTypeName' => '$typeName',";
+            $directLines[] = "{$tab}{$tab}{$tab}'parent' => '$parentFull', // auto (FK directa)";
+            $directLines[] = "{$tab}{$tab}],";
+        }
     }
     $directBlock = implode("\n", $directLines);
 
-    // Generar sección hierarchical
+    // ── Sección 'hierarchical' ────────────────────────────────────────────────
     $hierarchicalLines = [];
     foreach ($results['hierarchical'] as $table => $config) {
-        // SIEMPRE usar doble array para consistencia
         $paths = $config['paths'];
-        $pathStrings = [];
-        foreach ($paths as $path) {
+        $hierarchicalLines[] = "{$tab}{$tab}'$table' => [";
+        foreach ($paths as $i => $path) {
             $pathStr = "['" . implode("', '", $path) . "']";
-            $pathStrings[] = $pathStr;
+            $comma = ($i < count($paths) - 1) ? ',' : '';
+            $hierarchicalLines[] = "{$tab}{$tab}{$tab}" . $pathStr . $comma;
         }
-        $hierarchicalLines[] = "        '$table' => [";
-        foreach ($pathStrings as $i => $pathStr) {
-            $comma = ($i < count($pathStrings) - 1) ? ',' : '';
-            $hierarchicalLines[] = "            " . $pathStr . $comma;
-        }
-        $hierarchicalLines[] = "        ],";
+        $hierarchicalLines[] = "{$tab}{$tab}],";
     }
     $hierarchicalBlock = implode("\n", $hierarchicalLines);
 
-    // Generar sección global
+    // Generar sección global (lista indexada de schema.tabla)
     $globalLines = [];
     foreach ($results['global'] as $table => $config) {
-        $globalLines[] = "        '$table' => '{$config['name']}',";
+        $globalLines[] = "{$tab}{$tab}'$table',";
     }
     $globalBlock = implode("\n", $globalLines);
 
     // Generar sección complex
     $complexLines = [];
     foreach ($results['complex'] as $table => $_) {
-        $complexLines[] = "        // '$table', // TODO: revisar manualmente";
+        $complexLines[] = "{$tab}{$tab}// '$table', // TODO: revisar manualmente";
     }
     $complexBlock = implode("\n", $complexLines);
 
@@ -422,21 +507,33 @@ function outputConfig($results, $contextColumnName, $filteredTables = [])
 <?php
 
 // GENERADO AUTOMÁTICAMENTE - REVISAR Y AJUSTAR SI ES NECESARIO
+// Para regenerar: php scripts/analyze_context_hierarchies.php
 
-\$contextHierarchies = [
-    'context_column' => '$contextColumnName',
-    'direct' => [
+return [
+{$tab}'context_column' => '$contextColumnName',
+
+{$tab}// Tablas que poseen id_contexto directamente.
+{$tab}// 'parent': null (raíz), string (FK directa, schema.tabla), o array (ruta indirecta hasta padre).
+{$tab}// 'contextTypeName': nombre corto del tipo de contexto (usarse en lugar de extraer de schema.tabla).
+{$tab}'direct' => [
 $directBlock
-    ],
-    'hierarchical' => [
-$hierarchicalBlock
-    ],
-    'global' => [
+{$tab}],
+
+{$tab}// Tablas sin id_contexto propias que aplican a nivel global.
+{$tab}// Lista de nombres completos schema.tabla.
+{$tab}'global' => [
 $globalBlock
-    ],
-    'complex' => [
+{$tab}],
+
+{$tab}// Tablas sin id_contexto propio que llegan a un contexto vía FK chain.
+{$tab}// Los pasos de cada camino usan nombres completos schema.tabla.
+{$tab}'hierarchical' => [
+$hierarchicalBlock
+{$tab}],
+
+{$tab}'complex' => [
 $complexBlock
-    ],
+{$tab}],
 ];
 $filteredBlock
 PHP;

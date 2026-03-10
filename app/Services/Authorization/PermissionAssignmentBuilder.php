@@ -8,10 +8,11 @@ use Illuminate\Support\Collection;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Contexto;
-use App\Models\Usuario\TipoContexto;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 
 use App\Contracts\HasOwnedContext;
+use App\Contracts\PermissionBuilderStart;
+use App\Contracts\PermissionBuilderReady;
 use App\Enums\ContextualModelType;
 use App\Enums\ContextType;
 use App\Services\ContextResolver;
@@ -24,6 +25,15 @@ use \Illuminate\Database\RecordNotFoundException;
 /**
  * Builder declarativo para asignar permisos individuales (UPE) a un usuario.
  *
+ * Implementa un step builder de dos fases:
+ *   1. PermissionBuilderStart — selección de contexto (on, onAllCurrentInstances, onEveryInstance, onAllChildrenOf)
+ *   2. PermissionBuilderReady — configuración y guardado (for, waitFor, revoke, canDelegate, save)
+ *
+ * Esto previene encadenamientos inválidos en tiempo de análisis estático:
+ *   ->on($carrera)->onEveryInstance()      // ERROR: on() devuelve PermissionBuilderReady, que no tiene onEveryInstance()
+ *   ->onEveryInstance()->on($carrera)      // ERROR: idem
+ *   ->onAllChildrenOf($x)->onEveryInstance() // ERROR: idem
+ *
  * Se persiste automaticamente al finalizar la cadena (via __destruct).
  *
  * @example GRANT con duracion y delegacion:
@@ -32,13 +42,19 @@ use \Illuminate\Database\RecordNotFoundException;
  * @example DENY explicito (revocar acceso):
  *   $user->givePermission($permiso)->on($facultad)->for(30)->revoke();
  *
- * @example Asignar a todos los contextos del tipo Facultad:
- *   $user->givePermission($permiso)->onAll(Facultad::class)->for(60);
+ * @example Asignar a todas las instancias actuales del tipo Facultad:
+ *   $user->givePermission($permiso)->onAllCurrentInstances(ContextualModelType::FACULTAD)->for(60);
+ *
+ * @example Asignar en contexto global (cubre toda la jerarquía por herencia):
+ *   $user->givePermission($permiso)->onEveryInstance()->for(30);
+ *
+ * @example Asignar sobre hijos de un padre (herencia propaga):
+ *   $user->givePermission($permiso)->onAllChildrenOf($facultad, ContextualModelType::CARRERA)->for(60);
  *
  * @example Con inicio diferido (esperar 5 dias antes de activar):
  *   $user->givePermission($permiso)->on($recurso)->for(30)->waitFor(5);
  */
-class PermissionAssignmentBuilder
+class PermissionAssignmentBuilder implements PermissionBuilderStart, PermissionBuilderReady
 {
   /** @var int[] IDs de contexto sobre los que se creara el permiso */
   private array $contextIds = [];
@@ -73,20 +89,22 @@ class PermissionAssignmentBuilder
   /**
    * Resolver el contexto desde una instancia o arreglo de recursos.
    *
+   * Para asignar a múltiples instancias, usa un arreglo: ->on([$a, $b])
+   *
    * @param HasOwnedContext|HasOwnedContext[] $resources Instancia o arreglo de recursos con contexto propio (ej: $facultad, [$carreraA, $carreraB])
    * @throws \InvalidArgumentException Si algún elemento del array no implementa HasOwnedContext
    * @throws \InvalidArgumentException Si el permiso no es compatible con el tipo de contexto
    */
-  public function on(HasOwnedContext|array $resources): static
+  public function on(HasOwnedContext|array $resources): PermissionBuilderReady
   {
     $resolver = app(ContextResolver::class);
 
-    foreach (is_array($resources) ? $resources : [$resources] as $resource) {
+    foreach (\is_array($resources) ? $resources : [$resources] as $resource) {
       if (!$resource instanceof HasOwnedContext) {
-        $class = is_object($resource) ? get_class($resource) : gettype($resource);
+        $class = \is_object($resource) ? \get_class($resource) : \gettype($resource);
         throw new \InvalidArgumentException(
           "->on() sólo acepta modelos con contexto propio (HasOwnedContext). "
-          . "'{$class}' es un modelo global — usa ->onAll(ContextualModelType::...) "
+          . "'{$class}' es un modelo global — usa ->onAllCurrentInstances(ContextualModelType::...) "
           . "o asigna el permiso directamente sin contexto."
         );
       }
@@ -94,7 +112,7 @@ class PermissionAssignmentBuilder
       // Validar tempranamente que el permiso sea compatible con este recurso (OPCIÓN 2)
       $rawContextTypes = $resolver->getModelContextTypes($resource);
       $contextTypeEnums = array_values(array_filter(
-        array_map(fn($t) => ContextType::tryFrom($t), $rawContextTypes)
+        array_map(ContextType::tryFrom(...), $rawContextTypes)
       ));
       if (
         !empty($contextTypeEnums)
@@ -140,22 +158,22 @@ class PermissionAssignmentBuilder
   /**
    * Especificar un contexto directamente por su ID.
    *
-   * Útil para asignar permisos a modelos globales donde el contexto
-   * se resuelve desde el servicio global (ej: al crear usuarios).
+   * Escape hatch para casos donde se tiene el ID del contexto
+   * pero no la instancia del modelo.
    *
    * @param int|int[] $contextIds ID o IDs del contexto
    * @example
    *   $user->givePermission($perm)->inContext($globalContextId)->for(30);
    * @throws \InvalidArgumentException Si el permiso no es compatible con el tipo de contexto
    */
-  public function inContext(int|array $contextIds): static
+  public function inContext(int|array $contextIds): PermissionBuilderReady
   {
-    $ids = is_array($contextIds) ? $contextIds : [$contextIds];
+    $ids = \is_array($contextIds) ? $contextIds : [$contextIds];
 
     // Validar tempranamente que el permiso sea compatible con cada contexto (OPCIÓN 2)
     foreach ($ids as $contextId) {
       $context = Contexto::find($contextId);
-      if ($context && $context->tipoContexto) {
+      if ($context?->tipoContexto) {
         $contextType = ContextType::from($context->tipoContexto->categoria);
 
         if (
@@ -174,20 +192,20 @@ class PermissionAssignmentBuilder
       }
     }
 
-    $this->contextIds = array_unique(array_merge($this->contextIds, $ids));
+    $this->contextIds = array_unique([...$this->contextIds, ...$ids]);
+    ;
 
     return $this;
   }
 
   /**
-   * Asignar el permiso al contexto global.
-   *
-   * Útil para permisos que aplican a nivel sistema sin restricción de contexto.
+   * Asignar al contexto global — cubre por herencia TODA la jerarquía.
+   * Crea 1 solo registro UPE en el contexto global.
    *
    * @example
-   *   $user->givePermission($perm)->inGlobalContext()->for(30);
+   *   $user->givePermission($perm)->onEveryInstance()->for(30);
    */
-  public function inGlobalContext(): static
+  public function onEveryInstance(): PermissionBuilderReady
   {
     $globalContextId = app(GlobalContextService::class)->getContextId();
     return $this->inContext($globalContextId);
@@ -207,20 +225,19 @@ class PermissionAssignmentBuilder
   }
 
   /**
-   * Asignar el permiso a TODOS los contextos del tipo dado.
+   * Asignar el permiso a TODAS las instancias actuales en BD del tipo dado.
+   * Crea un registro UPE por cada contexto existente del tipo (N registros).
    *
    * Usa el enum ContextualModelType para garantizar en tiempo de compilación
    * que sólo se pasan modelos que poseen un contexto real (tipo 'direct').
    *
    * @see ContextualModelType
-   * @example $user->givePermission($perm)->onAll(ContextualModelType::CARRERA)->for(60);
+   * @example $user->givePermission($perm)->onAllCurrentInstances(ContextualModelType::CARRERA)->for(60);
    *
    * @param ContextualModelType $modelType Tipo de modelo contextual
    * @throws \InvalidArgumentException Si el permiso no es compatible con este tipo de contexto
-   * 
-   * // FIX: onAll() deberia asignar al contexto global y validate deberia tener en cuenta eso
    */
-  public function onAll(ContextualModelType $modelType): static
+  public function onAllCurrentInstances(ContextualModelType $modelType): PermissionBuilderReady
   {
     $category = strtolower(class_basename($modelType->value));
     $contextTypeEnum = ContextType::from($category);
@@ -232,19 +249,75 @@ class PermissionAssignmentBuilder
       );
     }
 
-    // Buscar el tipo de contexto por la categoría
-    $tipoId = TipoContexto::
-      where('categoria', $category)
-      ->value('id_tipo_contexto');
+    // Todos los contextos del tipo dado via ContextQueryBuilder
+    $ids = $contextTypeEnum->query()->strict()->toIds();
 
-    // Todos los contextos del tipo extraído, del modelo propio solamente
-    $ids = $tipoId
-      ? Contexto::where('id_tipo_contexto', $tipoId)
-        ->pluck('id_contexto')
-        ->all()
-      : [];
+    $this->contextIds = [...$this->contextIds, ...$ids];
 
-    $this->contextIds = array_merge($this->contextIds, $ids);
+    return $this;
+  }
+
+  /**
+   * Asignar sobre el contexto del padre — la herencia propaga a todos
+   * los $childType que pertenezcan a $parent.
+   *
+   * Internamente graba el permiso en el contexto del padre (1 solo UPE).
+   * La herencia de contextos hace el resto: el permiso cubre automáticamente
+   * todos los hijos del tipo indicado.
+   *
+   * El valor agregado es la validación: confirma que $childType es realmente
+   * un descendiente del tipo de $parent en la jerarquía de contextos.
+   *
+   * @param HasOwnedContext     $parent    Modelo padre (ej: $facultad)
+   * @param ContextualModelType $childType Tipo hijo que se quiere cubrir (ej: ContextualModelType::CARRERA)
+   * @throws \InvalidArgumentException Si $childType no es descendiente del tipo de $parent
+   * @throws \InvalidArgumentException Si el permiso no es compatible con el tipo de contexto del padre
+   *
+   * @example
+   *   // "Dar permiso sobre todas las carreras de esta facultad"
+   *   $user->givePermission($perm)->onAllChildrenOf($facultad, ContextualModelType::CARRERA)->for(60);
+   */
+  public function onAllChildrenOf(HasOwnedContext $parent, ContextualModelType $childType): PermissionBuilderReady
+  {
+    $resolver = app(ContextResolver::class);
+
+    // 1. Resolver el tipo de contexto del padre
+    $parentContextTypes = $resolver->getModelContextTypes($parent);
+    $parentContextTypeEnum = ContextType::tryFrom($parentContextTypes[0] ?? '');
+
+    if (!$parentContextTypeEnum) {
+      throw new \InvalidArgumentException(
+        'No se pudo determinar el tipo de contexto del padre: ' . \get_class($parent)
+      );
+    }
+
+    // 2. Resolver el tipo de contexto del child
+    $childCategory = strtolower(class_basename($childType->value));
+    $childContextTypeEnum = ContextType::from($childCategory);
+
+    // 3. Validar que el childType es descendiente del tipo del padre
+    if (!$parentContextTypeEnum->isAncestorOf($childContextTypeEnum)) {
+      throw new \InvalidArgumentException(
+        "'{$childContextTypeEnum->value}' no es un descendiente de "
+        . "'{$parentContextTypeEnum->value}' en la jerarquía de contextos. "
+        . "Descendientes válidos: "
+        . implode(', ', array_map(
+          fn(ContextType $t) => $t->value,
+          $parentContextTypeEnum->descendantTypes()
+        ))
+      );
+    }
+
+    // 4. Validar compatibilidad del permiso con el contexto del padre
+    if (!PermissionContextConstraints::isValidAssignment($this->permissionSlug, $parentContextTypeEnum)) {
+      throw new \InvalidArgumentException(
+        PermissionContextConstraints::invalidAssignmentMessage($this->permissionSlug, $parentContextTypeEnum)
+      );
+    }
+
+    // 5. Grabar en el contexto del padre (la herencia propaga a los hijos)
+    $ids = $resolver->getModelContextId($parent);
+    $this->contextIds = array_unique([...$this->contextIds, ...$ids]);
 
     return $this;
   }
@@ -418,7 +491,7 @@ class PermissionAssignmentBuilder
 
     if (empty($this->contextIds)) {
       throw new \InvalidArgumentException(
-        'Debe especificar un contexto usando ->on($recurso) o ->onAll($class) antes de guardar.'
+        'Debe especificar un contexto usando ->on($recurso), ->onAllCurrentInstances($type) o ->onEveryInstance() antes de guardar.'
       );
     }
 
@@ -442,18 +515,20 @@ class PermissionAssignmentBuilder
       'creado_por' => $this->actor->id_usuario,
     ];
 
-    if (count($this->contextIds) === 1) {
-      return UsuarioPermisoEspecial::create(
-        array_merge($payload, ['id_contexto' => $this->contextIds[0]])
-      );
+    if (\count($this->contextIds) === 1) {
+      return UsuarioPermisoEspecial::create([
+        ...$payload,
+        'id_contexto' => $this->contextIds[0]
+      ]);
     }
 
     $records = collect();
     foreach ($this->contextIds as $contextId) {
       $records->push(
-        UsuarioPermisoEspecial::create(
-          array_merge($payload, ['id_contexto' => $contextId])
-        )
+        UsuarioPermisoEspecial::create([
+          ...$payload,
+          'id_contexto' => $contextId
+        ])
       );
     }
 

@@ -12,9 +12,10 @@
 //
 // CONTEXTOS VÁLIDOS:
 //   Por defecto, cada permiso es GLOBAL (sin contexto específico).
-//   Para permisos que aplican a contextos específicos (ej: facultades, cursos; 
-//   definidos de antemano en la tabla "tipo_contextos"), se indica el tipo 
-//   de contexto en el atributo especial '_valid_context' del recurso raíz. 
+//   Para permisos que aplican a contextos específicos, se indica el tipo 
+//   de contexto en el atributo especial '_valid_context' del recurso raíz.
+//   Estos deben corresponder al mapeo generado/configurado en generated_context_hierarchies.php (contextTypeName) 
+//   que a su vez, son los tipos definidos en '$ctxTypes' de este archivo. 
 //   
 //   Esto habilita la asignación de permisos en contextos específicos de ese tipo, 
 //   ej: asignar cursos:ver en el contexto de un Curso específico, 
@@ -24,26 +25,25 @@
 //
 // FORMATO:
 //   'recursoRaiz' => [
-//     '_valid_context' => 'tipo_contexto',
-//       // Tipo de contexto propio del recurso (nombre de tabla en generated_context_hierarchies.php).
+//     '_valid_context' => $ctxTypes['carrera'],
+//       // Tipo de contexto propio del recurso (contextTypeName en generated_context_hierarchies.php).
 //       // Todas las _actions de este grupo (y sub-grupos) se pueden asignar en ese tipo
-//       // de contexto o en GLOBAL. Sin este atributo: solo GLOBAL.
-//
-//     '_valid_parent_context' => 'tipo_contexto_padre',
-//       // Tipo de contexto del contenedor padre del recurso.
-//       // Requerido cuando '_parent_actions' está definido en este recurso o sub-recursos.
-//       // Ej: 'cursos' pertenecen a 'carrera' → _valid_parent_context = 'carrera'.
+//       // de contexto, en su jerarquía superior y al contexto GLOBAL. 
+//       // Si no se especifica este atributo: solo a GLOBAL.
 //
 //     '_actions' => ['accion1', 'accion2'],
 //       // Acciones que se realizan SOBRE una instancia de este recurso.
 //       // Contexto válido: ['GLOBAL', _valid_context (propio o heredado del ancestro)].
 //       // Ej: cursos:ver → válido en GLOBAL o en el contexto del Curso específico.
 //
-//     '_parent_actions' => ['accionX'],
+//     '_parent_actions' => ['accion1, ...'],
 //       // Acciones que se realizan DESDE el contexto padre (ej: crear un recurso
-//       // dentro de un contenedor). Requiere '_valid_parent_context' definido.
-//       // Contexto válido: ['GLOBAL', _valid_parent_context].
-//       // Ej: cursos:crear → válido en GLOBAL o en el contexto de una Carrera.
+//       // dentro de un contenedor).
+//       // Contexto válido: ['GLOBAL', _valid_context del padre inmediato y su jerarquía superior].
+//       // Ej: cursos:crear → válido en GLOBAL, o en el contexto de una Carrera, o en cualquier contexto superior.
+//
+//     (NOTA) Los tipos de contexto válidos padre para cada permiso se derivan 
+//            automáticamente de la jerarquía de contextos generada en generated_context_hierarchies.php.
 //
 //     'subrecurso' => [ '_actions' => [...] ],
 //       // Sub-grupos anidados heredan el _valid_context del ancestro más cercano.
@@ -59,6 +59,28 @@
 //   usuario/permisos/roles:ver  → Permissions::USUARIO_PERMISOS_ROLES_VER
 // ==================================================================================
 
+// Cargar la jerarquía generada para constantes de tipo de contexto.
+/** @var array $hierarchies */
+$hierarchies = require __DIR__ . '/generated_context_hierarchies.php';
+
+// Derivar mapa tipo_corto => 'schema.tabla' para _valid_context_types.
+// Auto-sincronizado con generated_context_hierarchies.php — no hay strings duplicados.
+
+// Tipo global (Sistema) — fuente de verdad para el nombre del tipo raíz absoluto
+$globalContextTypeName = 'global';
+$contextTypeMappings = [$globalContextTypeName => 'GLOBAL']; // para el generador
+
+// Arreglo para los tipos de contexto
+$modelContextType = [];  // para esta configuracion. no especificar _valid_context para "GLOBAL"
+
+// Tipos de contexto directo
+foreach ($hierarchies['direct'] as $tableName => $tableContextConfig) {
+  // Ejemplo: 'carrera' => 'administrativo.carrera'
+  $contextTypeMappings[$tableContextConfig['contextTypeName']] = $tableName;
+  // Ejemplo: 'administrativo.carrera' => 'carrera'
+  $modelContextType[$tableName] = $tableContextConfig['contextTypeName']; // invertido
+}
+
 return [
 
   // ===========================================================================
@@ -69,14 +91,9 @@ return [
   // archivo DEBEN estar definidos aquí. El generador lanzará error si no.
   //
   // Formato: 'tipo' => 'tabla_referenciada_en_bd'
-  '_valid_context_types' => [
-    'global'       => 'GLOBAL',
-    'facultad'     => 'administrativo.facultad',
-    'departamento' => 'administrativo.departamento',
-    'carrera'      => 'administrativo.carrera',
-    'curso'        => 'curso.curso',
-    'actividad'    => 'actividad.actividad',
-  ],
+  // Auto-derivado de generated_context_hierarchies.php (ver bloque de inicialización arriba).
+  '_global_context_type' => $globalContextTypeName,
+  '_valid_context_types' => $contextTypeMappings,
 
   // ===========================================================================
   // USUARIOS
@@ -120,7 +137,7 @@ return [
   // ESTRUCTURA ACADÉMICA
   // ===========================================================================
   'facultades' => [
-    '_valid_context' => 'facultad',
+    '_valid_context' => $modelContextType['administrativo.facultad'],
     '_parent_actions' => [
       'crear',
       'eliminar'
@@ -132,8 +149,7 @@ return [
   ],
 
   'departamentos' => [
-    '_valid_context' => 'departamento',
-    '_valid_parent_context' => 'facultad',
+    '_valid_context' => $modelContextType['administrativo.departamento'],
     '_parent_actions' => [
       'crear',
       'eliminar'
@@ -145,8 +161,7 @@ return [
   ],
 
   'carreras' => [
-    '_valid_context' => 'carrera',
-    '_valid_parent_context' => 'departamento',
+    '_valid_context' => $modelContextType['administrativo.carrera'],
     '_parent_actions' => [
       'crear',
       'eliminar'
@@ -156,7 +171,6 @@ return [
       'editar',
     ],
     'planes' => [
-      '_valid_parent_context' => 'carrera',
       '_parent_actions' => [
         'crear',
         'eliminar'
@@ -188,8 +202,7 @@ return [
   // CURSOS
   // ===========================================================================
   'cursos' => [
-    '_valid_context' => 'curso',
-    '_valid_parent_context' => 'carrera',
+    '_valid_context' => $modelContextType['curso.curso'],
     '_parent_actions' => [
       'crear',
       'crear_plantilla',

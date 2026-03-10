@@ -374,12 +374,11 @@ class AssignmentWizardController extends Controller
     }
 
     try {
-      $builder = $usuario->givePermission($permissionEnum);
+      $starter = $usuario->givePermission($permissionEnum);
 
       // Resolver contexto ($contextType ya fue validado arriba)
       if ($contextType === ContextType::GLOBAL) {
-        $globalContextId = app(GlobalContextService::class)->getContextId();
-        $builder->inContext($globalContextId);
+        $ready = $starter->onEveryInstance();
       } else {
         $enumCase = $this->resolveContextualModelType($contextType->name);
         if (!$enumCase) {
@@ -391,7 +390,7 @@ class AssignmentWizardController extends Controller
 
         $modelClass = $enumCase->modelClass();
         $model = $modelClass::findOrFail($validated['context_object_id']);
-        $builder->on($model);
+        $ready = $starter->on($model);
       }
 
       // Fechas
@@ -402,28 +401,28 @@ class AssignmentWizardController extends Controller
 
         if ($start->isAfter(now())) {
           $waitDays = (int) now()->diffInDays($start);
-          $builder->waitFor($waitDays);
+          $ready->waitFor($waitDays);
         }
 
-        $builder->for($days);
+        $ready->for($days);
       } elseif ($validated['end_date']) {
         $days = (int) now()->diffInDays(\Carbon\Carbon::parse($validated['end_date']));
-        $builder->for($days);
+        $ready->for($days);
       } else {
-        $builder->for(365);
+        $ready->for(365);
       }
 
       // Allow / Deny
       if (!$validated['allowed']) {
-        $builder->revoke();
+        $ready->revoke();
       }
 
       // Delegation
       if ($validated['can_delegate'] ?? false) {
-        $builder->canDelegate();
+        $ready->canDelegate();
       }
 
-      $result = $builder->save();
+      $result = $ready->save();
 
       return response()->json([
         'success' => true,

@@ -876,10 +876,10 @@ test('permiso delegable en múltiples contextos se valida correctamente', functi
         ->canDelegate()
         ->save();
 
-    expect($upeCurso)->toBeInstanceOf(\App\Models\Usuario\UsuarioPermisoEspecial::class);
+    expect($upeCurso)->toBeInstanceOf(UsuarioPermisoEspecial::class);
     expect($upeCurso->puede_delegar)->toBeTrue();
 
-    expect($upeCarrera)->toBeInstanceOf(\App\Models\Usuario\UsuarioPermisoEspecial::class);
+    expect($upeCarrera)->toBeInstanceOf(UsuarioPermisoEspecial::class);
     expect($upeCarrera->puede_delegar)->toBeTrue();
 });
 

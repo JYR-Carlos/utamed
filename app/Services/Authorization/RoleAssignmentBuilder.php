@@ -64,17 +64,23 @@ class RoleAssignmentBuilder
   {
     $resolver = app(ContextResolver::class);
 
-    foreach (is_array($resources) ? $resources : [$resources] as $resource) {
+    foreach (\is_array($resources) ? $resources : [$resources] as $resource) {
+
+      // Si el objeto no implementa HasOwnedContext, 
+      // no tiene contexto propio y no se puede resolver un ID de contexto válido
+      // Entonces no es válido usar ->on() con ese recurso
+      /** @see HasOwnedContext */
       if (!$resource instanceof HasOwnedContext) {
-        $class = is_object($resource) ? get_class($resource) : gettype($resource);
+        $class = \is_object($resource) ? \get_class($resource) : \gettype($resource);
         throw new \InvalidArgumentException(
           "->on() sólo acepta modelos con contexto propio (HasOwnedContext). "
           . "'{$class}' es un modelo global — usa ->onAll(ContextualModelType::...) "
           . "o asigna el rol directamente sin contexto."
         );
       }
+
       $ids = $resolver->getModelContextId($resource);
-      $this->contextIds = array_unique(array_merge($this->contextIds, $ids));
+      $this->contextIds = array_unique([...$this->contextIds, ...$ids]);
     }
 
     return $this;
@@ -86,14 +92,15 @@ class RoleAssignmentBuilder
    * Útil para asignar roles a modelos globales donde el contexto
    * se resuelve desde el servicio global (ej: al crear usuarios).
    *
-   * @param int|int[] $contextIds ID o IDs del contexto
-   * @example
+   * @example 
    *   $user->giveRole($rol)->inContext($globalContextId)->for(365);
+   * 
+   * @param int|int[] $contextIds ID o IDs del contexto
    */
   public function inContext(int|array $contextIds): static
   {
-    $ids = is_array($contextIds) ? $contextIds : [$contextIds];
-    $this->contextIds = array_unique(array_merge($this->contextIds, $ids));
+    $ids = \is_array($contextIds) ? $contextIds : [$contextIds];
+    $this->contextIds = array_unique([...$this->contextIds, ...$ids]);
 
     return $this;
   }
@@ -115,9 +122,10 @@ class RoleAssignmentBuilder
   /**
    * Especificar quién realiza la asignación (sobrescribe el actor autenticado).
    *
-   * @param Usuario $actor Usuario que realiza la asignación
    * @example
    *   $user->giveRole($rol)->on($recurso)->as($admin)->for(60);
+   * 
+   * @param Usuario $actor Usuario que realiza la asignación
    */
   public function as(Usuario $actor): static
   {
@@ -135,8 +143,6 @@ class RoleAssignmentBuilder
    * @example $user->giveRole($rol)->onAll(ContextualModelType::FACULTAD)->for(30);
    *
    * @param ContextualModelType $modelType Tipo de modelo contextual
-   * 
-   * // FIX: onAll() deberia asignar al contexto global y validate deberia tener en cuenta eso
    */
   public function onAll(ContextualModelType $modelType): static
   {
@@ -148,7 +154,7 @@ class RoleAssignmentBuilder
       ? Contexto::where('id_tipo_contexto', $tipoId)->pluck('id_contexto')->all()
       : [];
 
-    $this->contextIds = array_unique(array_merge($this->contextIds, $ids));
+    $this->contextIds = array_unique([...$this->contextIds, ...$ids]);
 
     return $this;
   }
@@ -219,10 +225,7 @@ class RoleAssignmentBuilder
    * explicitamente si se necesita acceso a los modelos creados.
    *
    * Valida previamente que el actor tenga autorización para asignar el rol.
-   * 
-   * // FIX: esta funcion no valida el par contexto:permiso, porque son un conjunto de permisos
-   * decidir si validarlos todos o hacer otra cosa. 
-   * (quiza redefinir el concepto de rol, conjunto de permisos especiales en vez de permisos)
+   * Además de validar si la combinación de permiso/contexto sea válida.
    *
    * @return UsuarioRolAsignacion|Collection<int, UsuarioRolAsignacion>
    * @throws \InvalidArgumentException Si no se especifico ningun contexto
@@ -257,9 +260,9 @@ class RoleAssignmentBuilder
       'creado_por' => $this->actor->id_usuario,
     ];
 
-    if (count($this->contextIds) === 1) {
+    if (\count($this->contextIds) === 1) {
       return UsuarioRolAsignacion::create(
-        array_merge($payload, ['id_contexto' => $this->contextIds[0]])
+        [...$payload, 'id_contexto' => $this->contextIds[0]]
       );
     }
 
@@ -267,7 +270,7 @@ class RoleAssignmentBuilder
     foreach ($this->contextIds as $contextId) {
       $records->push(
         UsuarioRolAsignacion::create(
-          array_merge($payload, ['id_contexto' => $contextId])
+          [...$payload, 'id_contexto' => $contextId]
         )
       );
     }

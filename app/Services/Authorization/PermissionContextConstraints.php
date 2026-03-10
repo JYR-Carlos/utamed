@@ -27,18 +27,14 @@ final class PermissionContextConstraints
 {
     /**
      * Retorna los tipos de contexto válidos para un permiso dado.
+     * 
      * Lee config/permission-context-metadata.php generado automáticamente.
      *
-     * Ejemplos:
-     *   Permissions::CURSOS_VER                      → ['global', 'curso', 'carrera', 'departamento', 'facultad']
-     * 
-     *   Permissions::CURSOS_CREAR                    → ['global', 'carrera']  (_parent_action)
-     * 
-     *   Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR → ['global', 'curso', ...]
-     * 
-     *   Permissions::USUARIOS_VER                    → ['global'] (global context)
-     * 
-     *   Permissions::GLOBAL_WILDCARD                 → ['global'] (global context)
+     * @example Permissions::CURSOS_VER                      → ['global', 'curso', 'carrera', 'departamento', 'facultad']
+     * @example Permissions::CURSOS_CREAR                    → ['global', 'carrera']  (_parent_action)
+     * @example Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR → ['global', 'curso', ...]
+     * @example Permissions::USUARIOS_VER                    → ['global'] (global context)
+     * @example Permissions::GLOBAL_WILDCARD                 → ['global'] (global context)
      *
      * @param  Permissions $permission
      * @return ContextType[]
@@ -52,14 +48,14 @@ final class PermissionContextConstraints
 
         return array_values(array_filter(
             array_map(
-                fn(string $v) => ContextType::tryFrom($v),
+                ContextType::tryFrom(...),
                 $raw
             )
         ));
     }
 
     /**
-     * Verifica si una pareja permiso↔tipo_de_contexto es válida para asignación.
+     * Verifica si una pareja (permiso <-> tipo_de_contexto) es válida su asignación.
      *
      * @param Permissions $permission
      * @param ContextType $contextType
@@ -67,7 +63,7 @@ final class PermissionContextConstraints
      */
     public static function isValidAssignment(Permissions $permission, ContextType $contextType): bool
     {
-        return in_array($contextType, self::validContextTypesFor($permission), true);
+        return \in_array($contextType, self::validContextTypesFor($permission), true);
     }
 
     /**
@@ -132,7 +128,7 @@ final class PermissionContextConstraints
 
         return array_values(array_filter(
             $contextTypes,
-            fn(ContextType $type) => !in_array($type, $valid, true)
+            fn(ContextType $type) => !\in_array($type, $valid, true)
         ));
     }
 

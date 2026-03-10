@@ -39,7 +39,8 @@ class ContextResolver
 
     public function __construct(
         protected GlobalContextService $globalContextService
-    ) {}
+    ) {
+    }
 
     /**
      * Cargar los mappings del archivo
@@ -56,8 +57,8 @@ class ContextResolver
 
         if (!file_exists($configPath)) {
             throw new RuntimeException(
-                "Context mappings file not found: $configPath\n"
-                . "Run: php scripts/generate_models.php"
+                "Context mappings file not found: {$configPath}\n" .
+                "Run: php scripts/generate_models.php"
             );
         }
 
@@ -218,10 +219,6 @@ class ContextResolver
      * 
      * @param object $model Instancia del modelo
      * @return object|null Modelo padre que define el contexto, o null si es directo o global
-     * 
-     * // FIX: no retorna bien los contextos padre jerárquicos directos
-     * deberia retornar el padre del directo y cuando no tiene, el global
-     * para los globales deberia retornar null, no el global (porque no tiene sentido)
      */
     public function getParentContextModel($model): ?object
     {
@@ -405,7 +402,7 @@ class ContextResolver
         $currentModel = $model;
 
         // Iterar hasta el penúltimo paso
-        for ($i = 0; $i < count($path) - 1; $i++) {
+        for ($i = 0; $i < \count($path) - 1; $i++) {
             $step = $path[$i];
             $methodName = $step['method'] ?? null;
 
@@ -465,8 +462,8 @@ class ContextResolver
         // Obtener Schema y Model Name
         // Estructura: App\Models\Administrativo\Carrera
         // Queremos: Administrativo\Carrera
-        $schema = $parts[count($parts) - 2] ?? 'Unknown';
-        $modelName = $parts[count($parts) - 1] ?? 'Unknown';
+        $schema = $parts[\count($parts) - 2] ?? 'Unknown';
+        $modelName = $parts[\count($parts) - 1] ?? 'Unknown';
 
         return "{$schema}\\{$modelName}";
     }

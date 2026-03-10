@@ -594,10 +594,7 @@ $contextConfig = [];
 $contextConfigPath = __DIR__ . '/generated_context_hierarchies.php';
 
 if (file_exists($contextConfigPath)) {
-  // Cargar y extraer $contextHierarchies
-  $contextHierarchies = [];
-  include $contextConfigPath; // importar el archivo que define $contextHierarchies
-  $contextConfig = $contextHierarchies ?? [];
+  $contextConfig = include $contextConfigPath; // archivo devuelve el array directamente
   echo color("✓ Configuración de contextos cargada desde scripts/generated_context_hierarchies.php\n", 'green');
 } else {
   echo color("⚠ Configuración de contextos no encontrada en scripts/generated_context_hierarchies.php\n", 'yellow');
@@ -609,10 +606,14 @@ if (file_exists($contextConfigPath)) {
 // El archivo generado usa nombres de tabla reales (Asignacion_Plan), 
 // usamos esos valores directamente sin conversión
 $modelsWithContext = [];
-foreach (['direct', 'hierarchical', 'global'] as $contextType) {
+foreach (['direct', 'hierarchical'] as $contextType) {
   foreach ($contextConfig[$contextType] ?? [] as $tableKey => $value) {
     $modelsWithContext[$tableKey] = $contextType;
   }
+}
+// global is an indexed list of schema.table strings (no redundant short-name value)
+foreach ($contextConfig['global'] ?? [] as $tableKey) {
+  $modelsWithContext[$tableKey] = 'global';
 }
 
 // Cargar mappings generados con rutas y métodos (para scopes jerárquicos)
@@ -3047,7 +3048,7 @@ PHP;
   }
 
   $contextTypeValidator = function (array $node, string $path) use (&$contextTypeValidator, $validContextTypes): void {
-    foreach (['_valid_context', '_valid_parent_context'] as $key) {
+    foreach (['_valid_context'] as $key) {
       if (isset($node[$key])) {
         $val = $node[$key];
         if (!isset($validContextTypes[$val])) {
@@ -3060,13 +3061,15 @@ PHP;
       }
     }
     foreach ($node as $subKey => $subValue) {
-      if ($subKey[0] === '_' || !is_array($subValue)) continue;
+      if ($subKey[0] === '_' || !is_array($subValue))
+        continue;
       $contextTypeValidator($subValue, "{$path}.{$subKey}");
     }
   };
 
   foreach ($permDefs as $rootKey => $rootValue) {
-    if ($rootKey[0] === '_' || !is_array($rootValue)) continue;
+    if ($rootKey[0] === '_' || !is_array($rootValue))
+      continue;
     $contextTypeValidator($rootValue, $rootKey);
   }
 
@@ -3117,43 +3120,131 @@ PHP;
   }
   $contextTypeCases = rtrim($contextTypeCases);
 
-  $contextTypeContent = <<<PHP
-<?php
+  // ──────────────────────────────────────────────────────────────────────────
+  // Generar ContextType::parentMap() — datos de jerarquía type-safe
+  // ──────────────────────────────────────────────────────────────────────────
+  //
+  // Estructura del mapa generado:
+  //   'tipo' => self::TIPO_PADRE,  (para tipos subordinados)
+  //   'global' => null             (raíz absoluta)
+  //
+  // Reglas de construcción:
+  //   1. GLOBAL siempre → null (es la raíz absoluta del sistema)
+  //   2. Tipos raíz (parent=null) → self::GLOBAL (su padre inmediato es el contexto global)
+  //   3. Tipos subordinados → resuelven su padre del mapa de jerarquía (generated_context_hierarchies.php)
+  //
+  // Cadena canónica de ejemplo:
+  //   ACTIVIDAD → CURSO → CARRERA → DEPARTAMENTO → FACULTAD → GLOBAL → null
+  //
+  // Beneficios:
+  //   • Type-safe: devuelve ContextType|null, eliminando strings mágicos
+  //   • Regenerable: auto-derivado de generated_context_hierarchies.php sin configuración manual
+  //   • Centralizado: única fuente de verdad para la jerarquía
+  //   • Consumo: ContextHierarchyResolverService usa esto directamente (O(1) lookup)
+  //
+  // ──────────────────────────────────────────────────────────────────────────
 
-namespace App\Enums;
+  $globalCtxTypeName = $permDefs['_global_context_type'] ?? 'global';
+  $globalCtxUpper = strtoupper($globalCtxTypeName);
+  $parentMapPhpEntries = '';
 
-/**
- * Tipos de contexto válidos para asignación de permisos y roles.
- *
- * AUTOGENERADO desde {$permissionsConfigRelative} — NO EDITAR MANUALMENTE.
- * Para agregar tipos, editar {$permissionsConfigRelative} y regenerar con:
- *   php scripts/generate_models.php
- *
- * Los valores de backing string corresponden EXACTAMENTE a la columna
- * `categoria` de la tabla `usuario.tipo_contexto` en la base de datos.
- *
- * Úsala en PermissionContextConstraints para eliminar magic strings y
- * garantizar en tiempo de compilación que sólo se pasan tipos válidos:
- *
- * @example
- *   // Beneficios type-safe, IDE-friendly y con autocompletado:
- *   PermissionContextConstraints::isValidAssignment(\$perm, ContextType::CARRERA);
- *
- *   // Para convertir desde DB:
- *   \$contextType = ContextType::from(\$context->tipoContexto->categoria);
- */
-enum ContextType: string
-{
+  // RAÍZ ABSOLUTA: El contexto global no tiene padre
+  $parentMapPhpEntries .= "{$tab}{$tab}{$tab}'{$globalCtxTypeName}' => null,\n";
+
+  // PROCESAR TODOS LOS TIPOS: derivar su padre inmediato en la jerarquía
+  foreach ($contextConfig['direct'] ?? [] as $fullName => $cfg) {
+    $ctxType = $cfg['contextTypeName'];
+    $parentVal = $cfg['parent'] ?? null;
+
+    // Resolver el tipo padre inmediato
+    if ($parentVal === null) {
+      // CASO 1: Tipo raíz (sin padre explícito en la jerarquía)
+      // Su padre es el contexto global (raíz del árbol de tipos)
+      $parentExpr = "self::{$globalCtxUpper}";
+    } else {
+      // CASO 2: Tipo subordinado
+      // Extraer el tipo padre del mapa de contextos
+      // parentVal puede ser:
+      //   - string: 'tabla.nombre' (un único padre directo)
+      //   - array: ['tabla.ruta1', 'tabla.ruta2', ...] (múltiples rutas, usar la última)
+      $finalParent = is_array($parentVal) ? end($parentVal) : $parentVal;
+
+      // Extraer contextTypeName del tipo padre
+      // Prioridad: leer del config, fallback a explode() para robustez
+      $parentCtxName = $contextConfig['direct'][$finalParent]['contextTypeName']
+        ?? explode('.', $finalParent, 2)[1];
+
+      $parentExpr = 'self::' . strtoupper($parentCtxName);
+    }
+
+    // EMITIR: 'tipo_string' => self::TIPO_PADRE,
+    $parentMapPhpEntries .= "{$tab}{$tab}{$tab}'{$ctxType}' => {$parentExpr},\n";
+  }
+
+  $parentMapPhpEntries = rtrim($parentMapPhpEntries);
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Inyectar sección autogenerada en ContextType.php entre marcadores
+  //
+  // El archivo tiene dos secciones con reglas distintas:
+  //   1. ENTRE @autogenerated:start / @autogenerated:end:
+  //      cases del enum + parentMap() — SE SOBRESCRIBE en cada regeneración
+  //   2. FUERA de los marcadores:
+  //      métodos de jerarquía (implementación manual) — NO se toca
+  //
+  // Si el archivo no existe o le faltan los marcadores: el generador avisa
+  // y no modifica nada (el desarrollador debe restaurar desde git).
+  // ──────────────────────────────────────────────────────────────────────────
+  $markerStart = "{$tab}// @autogenerated:start";
+  $markerEnd   = "{$tab}// @autogenerated:end";
+
+  $generatedSection = <<<SECTION
 {$contextTypeCases}
-}
-PHP;
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // MAPA DE JERARQUÍA — regenerado desde scripts/generated_context_hierarchies.php
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Mapa estático de valor de contexto → tipo padre inmediato (self), o null si es raíz.
+     *
+     * • Tipos raíz concretos (ej: facultad) apuntan a self::GLOBAL.
+     * • El propio GLOBAL apunta a null (raíz absoluta del árbol).
+     *
+     * Consumido internamente por immediateParent() — no invocar directamente.
+     *
+     * @return array<string, self|null>
+     */
+    public static function parentMap(): array
+    {
+        return [
+{$parentMapPhpEntries}
+        ];
+    }
+SECTION;
 
   if (!$dryRun) {
     if (!is_dir(app_path('Enums'))) {
       mkdir(app_path('Enums'), 0755, true);
     }
-    file_put_contents($contextTypeOutPath, $contextTypeContent);
-    echo color("  ✓ app/Enums/ContextType.php (" . count($allContextTypes) . " tipos: " . implode(', ', $allContextTypes) . ")\n", 'green');
+    if (!file_exists($contextTypeOutPath)) {
+      echo color("  ⚠ app/Enums/ContextType.php no existe — no se puede regenerar la sección autogenerada\n", 'yellow');
+      echo "    Restaurar desde git o crear manualmente con los marcadores @autogenerated:start / @autogenerated:end\n";
+    } else {
+      $existing = file_get_contents($contextTypeOutPath);
+      $startPos = strpos($existing, $markerStart);
+      $endPos   = strpos($existing, $markerEnd);
+      if ($startPos === false || $endPos === false) {
+        echo color("  ⚠ ContextType.php no tiene marcadores @autogenerated — archivo no modificado\n", 'yellow');
+      } else {
+        // Preservar todo antes del marcador de inicio (inclusive) y todo desde el marcador de fin
+        $beforeSection = substr($existing, 0, $startPos + strlen($markerStart) + 1); // +1 para \n
+        $afterSection  = substr($existing, $endPos); // desde @autogenerated:end en adelante
+        $updated = $beforeSection . $generatedSection . "\n" . $afterSection;
+        file_put_contents($contextTypeOutPath, $updated);
+        echo color("  ✓ app/Enums/ContextType.php (" . count($allContextTypes) . " tipos: " . implode(', ', $allContextTypes) . ")\n", 'green');
+      }
+    }
   } else {
     echo "    [DRY-RUN] ContextType: " . relativePath($contextTypeOutPath, $projectRoot) . "\n";
     echo "    [DRY-RUN] Tipos detectados: " . implode(', ', $allContextTypes) . "\n";
@@ -3217,18 +3308,15 @@ foreach ($contextConfig['direct'] ?? [] as $modelKey => $contextType) {
   ];
 }
 
-// Agregar contextos 'global'
-foreach ($contextConfig['global'] ?? [] as $modelKey => $contextType) {
-  // Convertir clave a formato de modelo Laravel (Schema\ModelName)
-  // Formato entrada: 'usuario.estudiante' (2 partes)
+// Agregar contextos 'global' (lista indexada de schema.tabla)
+foreach ($contextConfig['global'] ?? [] as $modelKey) {
   $parts = explode('.', $modelKey);
   if (count($parts) === 2) {
     $schemaName = Str::studly($parts[0]); // usuario -> Usuario
     $tableName = $parts[1];
     $modelName = Str::studly($tableName); // estudiante -> Estudiante
-    $modelKeyFormatted = $schemaName . '\\' . $modelName; // Usuario\Estudiante (var_export lo escapa)
+    $modelKeyFormatted = $schemaName . '\\' . $modelName;
   } else {
-    // Fallback para formato antiguo de 3 partes
     $modelKeyFormatted = $modelKey;
   }
 
@@ -3260,16 +3348,16 @@ foreach ($contextConfig['hierarchical'] ?? [] as $modelKey => $configPaths) {
 
     // Por cada paso en el camino... (ej: ['Plan', 'Carrera', 'Departamento'])
     foreach ($path as $stepIdx => $targetTableName) {
-      // targetTableName es el nombre de tabla real (ej: 'Plan')
-      // Buscar en $tableRelationMappings[currentTableKey] qué método va a esa tabla
+      // targetTableName es schema.tabla completo (ej: 'administrativo.plan')
+      // Extraer solo el nombre de tabla para convertir a nombre de modelo
+      $tableNamePart = str_contains($targetTableName, '.') ? explode('.', $targetTableName, 2)[1] : $targetTableName;
       $foundMethodName = null;
       $targetTableFullKey = null;
 
       if (isset($tableRelationMappings[$currentTableKey]['methods'])) {
         foreach ($tableRelationMappings[$currentTableKey]['methods'] as $methodName => $targetModel) {
           // targetModel es el nombre de modelo (ej: 'Plan')
-          // Convertir targetTableName a modelo para comparar
-          $expectedModel = Str::studly($targetTableName);
+          $expectedModel = Str::studly($tableNamePart);
           if ($targetModel === $expectedModel) {
             $foundMethodName = $methodName;
             // Convertir nombre de modelo a nombre de tabla, luego a clave completa
@@ -3296,7 +3384,7 @@ foreach ($contextConfig['hierarchical'] ?? [] as $modelKey => $configPaths) {
 
       // Agregar paso
       $pathSteps[] = [
-        'target' => Str::studly($targetTableName), // Guardar nombre de modelo
+        'target' => Str::studly($tableNamePart), // nombre de modelo (ej: 'Plan')
         'method' => $foundMethodName
       ];
 
@@ -3345,7 +3433,7 @@ echo "\n";
 // ==================================================================================
 //
 // Genera app/Enums/ContextualModelType.php con un case por cada modelo 'direct'.
-// Este enum es el tipo aceptado por ->onAll(), eliminando strings mágicos.
+// Este enum es el tipo aceptado por ->onAllCurrentInstances(), eliminando strings mágicos.
 // ==================================================================================
 
 echo color("Generando ContextualModelType enum...\n", 'bold');
@@ -3388,15 +3476,15 @@ namespace App\Enums;
  * Estos son los "anclas" de contexto: modelos que tienen un id_contexto
  * directo en su tabla y son el destino final de todos los caminos jerárquicos.
  *
- * Úsala en ->onAll() para eliminar strings mágicos y garantizar en tiempo de
+ * Úsala en ->onAllCurrentInstances() para eliminar strings mágicos y garantizar en tiempo de
  * compilación que sólo se pasan modelos que poseen un contexto real:
  *
  * @example
  *   // Antes (string mágico, sin verificación):
- *   \$user->givePermission(\$perm)->onAll(Carrera::class)->for(30);
+ *   \$user->givePermission(\$perm)->onAllCurrentInstances(Carrera::class)->for(30);
  *
  *   // Después (type-safe, IDE-friendly):
- *   \$user->givePermission(\$perm)->onAll(ContextualModelType::CARRERA)->for(30);
+ *   \$user->givePermission(\$perm)->onAllCurrentInstances(ContextualModelType::CARRERA)->for(30);
  */
 enum ContextualModelType: string
 {
@@ -3467,19 +3555,19 @@ $pcmOutPath = config_path('permission-context-metadata.php');
 if (empty($permDefs)) {
   echo color("  \u26a0 \$permDefs no disponible \u2014 asegúrate de ejecutar PASO 9 (Permissions.php) antes\n", 'yellow');
 } else {
-  // Construir mapa de herencia de tipos de contexto desde las definiciones de permisos.
-  // Sube por _valid_parent_context de cada nodo raíz para determinar la cadena de ancestros.
-  // Ej: ['CURSO' => 'CARRERA', 'CARRERA' => 'FACULTAD']
-  // Ver: database-model\init_scripts\03-inserts\01-crear-contextos-permisos.sql
+  // Derivar mapa de herencia desde 'direct[*][parent]' en generated_context_hierarchies.php.
+  // Ej: ['curso' => 'carrera', 'carrera' => 'departamento', 'departamento' => 'facultad']
   $contextParentMap = [];
-  foreach ($permDefs as $root => $groupDef) {
-    if (!is_array($groupDef))
+  foreach ($contextConfig['direct'] ?? [] as $fullName => $cfg) {
+    if (!array_key_exists('parent', $cfg) || $cfg['parent'] === null)
       continue;
-    if (isset($groupDef['_valid_context']) && isset($groupDef['_valid_parent_context'])) {
-      $childCtx = strtolower($groupDef['_valid_context']);
-      $parentCtx = strtolower($groupDef['_valid_parent_context']);
-      $contextParentMap[$childCtx] = $parentCtx;
-    }
+    $parentVal = $cfg['parent'];
+    $finalParent = is_array($parentVal) ? end($parentVal) : $parentVal;
+    $contextParentMap[$cfg['contextTypeName']] = $contextConfig['direct'][$finalParent]['contextTypeName'] ?? explode('.', $finalParent, 2)[1];
+  }
+
+  if (empty($contextParentMap)) {
+    echo color("  ⚠ Ningún direct[] tiene 'parent' en generated_context_hierarchies.php — la herencia de contextos no funcionará correctamente\n", 'yellow');
   }
 
   // Resolver la cadena completa de tipos de contexto desde un tipo dado hasta la raíz.
@@ -3499,15 +3587,23 @@ if (empty($permDefs)) {
   // Recolector de slugs con _no_inherit (no expanden ancestros al validar en runtime)
   $noInheritSlugs = [];
 
-  $flattenContexts = function (array $node, string $path, ?string $inheritedOwnCtx = null) use (&$flattenContexts, &$getAncestorChain, &$noInheritSlugs): array {
+  $flattenContexts = function (array $node, string $path, ?string $inheritedOwnCtx = null) use (&$flattenContexts, &$getAncestorChain, &$noInheritSlugs, &$contextParentMap): array {
     $result = [];
 
     $ownCtx = isset($node['_valid_context'])
       ? strtolower($node['_valid_context'])
       : $inheritedOwnCtx;
-    $parentCtx = isset($node['_valid_parent_context'])
-      ? strtolower($node['_valid_parent_context'])
-      : null;
+    // Auto-derive parent context from hierarchy map (no longer read from _valid_parent_context):
+    //   - Node with own _valid_context: parent = contextParentMap[ownCtx] (null if root)
+    //   - Sub-node inheriting ctx (e.g. 'planes' under 'carreras'): parent = inherited ctx
+    //     (its _parent_actions are valid in the inherited ctx, which is its own parent)
+    if (isset($node['_valid_context'])) {
+      $parentCtx = $contextParentMap[strtolower($node['_valid_context'])] ?? null;
+    } elseif ($inheritedOwnCtx !== null) {
+      $parentCtx = $inheritedOwnCtx;
+    } else {
+      $parentCtx = null;
+    }
     $noInherit = !empty($node['_no_inherit']);
 
     $hasActions = !empty($node['_actions']) || !empty($node['_parent_actions']);

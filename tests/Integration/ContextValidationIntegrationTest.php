@@ -4,7 +4,7 @@
  * Integration Test: Context Validation en PermissionAssignmentBuilder + PermissionContextConstraints
  *
  * Prueba la validación de compatibilidad permiso↔contexto en dos capas:
- *   - OPCIÓN 2 (Fail-fast): Validación temprana en on(), onAll(), inContext()
+ *   - OPCIÓN 2 (Fail-fast): Validación temprana en on(), onAllCurrentInstances(), inContext()
  *   - OPCIÓN 1 (Pre-persist): Validación en save() via validateContextCompatibility()
  *
  * También cubre PermissionContextConstraints:
@@ -556,62 +556,62 @@ describe('PermissionAssignmentBuilder — Validación temprana en on()', functio
 });
 
 // ============================================================================
-// GRUPO 8: PermissionAssignmentBuilder — Validación temprana en onAll() (OPCIÓN 2)
+// GRUPO 8: PermissionAssignmentBuilder — Validación temprana en onAllCurrentInstances() (OPCIÓN 2)
 // ============================================================================
 
-describe('PermissionAssignmentBuilder — Validación temprana en onAll()', function () {
+describe('PermissionAssignmentBuilder — Validación temprana en onAllCurrentInstances()', function () {
 
-  test('onAll() acepta tipo compatible (carreras:ver + CARRERA)', function () {
+  test('onAllCurrentInstances() acepta tipo compatible (carreras:ver + CARRERA)', function () {
     $result = $this->recipient
       ->givePermission(Permissions::CARRERAS_VER)
-      ->onAll(ContextualModelType::CARRERA)
+      ->onAllCurrentInstances(ContextualModelType::CARRERA)
       ->save();
 
     expect($result)->not->toBeEmpty();
   });
 
-  test('onAll() acepta tipo compatible (facultades:editar + FACULTAD)', function () {
+  test('onAllCurrentInstances() acepta tipo compatible (facultades:editar + FACULTAD)', function () {
     $result = $this->recipient
       ->givePermission(Permissions::FACULTADES_EDITAR)
-      ->onAll(ContextualModelType::FACULTAD)
+      ->onAllCurrentInstances(ContextualModelType::FACULTAD)
       ->save();
 
     expect($result)->not->toBeEmpty();
   });
 
-  test('onAll() lanza InvalidArgumentException si el tipo es incompatible (carreras:ver + CURSO)', function () {
+  test('onAllCurrentInstances() lanza InvalidArgumentException si el tipo es incompatible (carreras:ver + CURSO)', function () {
     // CURSO no es ancestro de CARRERA → incompatible con carreras:ver
     expect(
       fn() =>
       $this->recipient
         ->givePermission(Permissions::CARRERAS_VER)
-        ->onAll(ContextualModelType::CURSO)
+        ->onAllCurrentInstances(ContextualModelType::CURSO)
     )->toThrow(\InvalidArgumentException::class);
   });
 
-  test('onAll() lanza InvalidArgumentException si tipo incompatible (facultades:ver + CARRERA)', function () {
+  test('onAllCurrentInstances() lanza InvalidArgumentException si tipo incompatible (facultades:ver + CARRERA)', function () {
     expect(
       fn() =>
       $this->recipient
         ->givePermission(Permissions::FACULTADES_VER)
-        ->onAll(ContextualModelType::CARRERA)
+        ->onAllCurrentInstances(ContextualModelType::CARRERA)
     )->toThrow(\InvalidArgumentException::class);
   });
 
-  test('onAll() lanza InvalidArgumentException para permisos GLOBAL-only (usuarios:ver + CARRERA)', function () {
+  test('onAllCurrentInstances() lanza InvalidArgumentException para permisos GLOBAL-only (usuarios:ver + CARRERA)', function () {
     expect(
       fn() =>
       $this->recipient
         ->givePermission(Permissions::USUARIOS_VER)
-        ->onAll(ContextualModelType::CARRERA)
+        ->onAllCurrentInstances(ContextualModelType::CARRERA)
     )->toThrow(\InvalidArgumentException::class);
   });
 
-  test('el mensaje de error de onAll() es descriptivo', function () {
+  test('el mensaje de error de onAllCurrentInstances() es descriptivo', function () {
     try {
       $this->recipient
         ->givePermission(Permissions::USUARIOS_VER)
-        ->onAll(ContextualModelType::FACULTAD);
+        ->onAllCurrentInstances(ContextualModelType::FACULTAD);
       $this->fail('Se esperaba InvalidArgumentException');
     } catch (\InvalidArgumentException $e) {
       expect($e->getMessage())->toContain('usuarios:ver');
@@ -679,15 +679,15 @@ describe('PermissionAssignmentBuilder — Validación temprana en inContext()', 
 });
 
 // ============================================================================
-// GRUPO 10: PermissionAssignmentBuilder — inGlobalContext() (OPCIÓN 2)
+// GRUPO 10: PermissionAssignmentBuilder — onEveryInstance() (OPCIÓN 2)
 // ============================================================================
 
-describe('PermissionAssignmentBuilder — inGlobalContext()', function () {
+describe('PermissionAssignmentBuilder — onEveryInstance()', function () {
 
-  test('inGlobalContext() funciona para permisos GLOBAL-only (usuarios:ver)', function () {
+  test('onEveryInstance() funciona para permisos GLOBAL-only (usuarios:ver)', function () {
     $upe = $this->recipient
       ->givePermission(Permissions::USUARIOS_VER)
-      ->inGlobalContext()
+      ->onEveryInstance()
       ->save();
 
     $globalContextId = app(GlobalContextService::class)->getContextId();
@@ -695,11 +695,11 @@ describe('PermissionAssignmentBuilder — inGlobalContext()', function () {
     expect($upe->id_contexto)->toBe($globalContextId);
   });
 
-  test('inGlobalContext() funciona para permisos que aceptan GLOBAL entre otros', function () {
+  test('onEveryInstance() funciona para permisos que aceptan GLOBAL entre otros', function () {
     // carreras:ver acepta GLOBAL + CARRERA
     $upe = $this->recipient
       ->givePermission(Permissions::CARRERAS_VER)
-      ->inGlobalContext()
+      ->onEveryInstance()
       ->save();
 
     expect($upe)->toBeInstanceOf(UsuarioPermisoEspecial::class);
@@ -821,10 +821,10 @@ describe('Consistency — Ambas capas coinciden en resultado', function () {
 
 describe('Edge Cases', function () {
 
-  test('permiso con contexto GLOBAL puede asignarse via inGlobalContext', function () {
+  test('permiso con contexto GLOBAL puede asignarse via onEveryInstance', function () {
     $upe = $this->recipient
       ->givePermission(Permissions::USUARIOS_CREAR)
-      ->inGlobalContext()
+      ->onEveryInstance()
       ->save();
 
     expect($upe->id_contexto)->toBe($this->contextoGlobal_id);

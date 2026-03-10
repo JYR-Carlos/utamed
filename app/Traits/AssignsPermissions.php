@@ -8,6 +8,7 @@ use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Services\Authorization\PermissionAssignmentBuilder;
+use App\Contracts\PermissionBuilderStart;
 use App\Services\Authorization\RoleAssignmentBuilder;
 use App\Services\Authorization\PermissionValidator;
 use App\Exceptions\DontHavePermissionException;
@@ -24,16 +25,21 @@ trait AssignsPermissions
   /**
    * Inicia un builder fluido para asignar un permiso individual (UPE) al usuario.
    *
+   * Devuelve PermissionBuilderStart. El IDE ofrece solo los métodos de contexto.
+   * Tras elegir contexto, transita a PermissionBuilderReady para configurar y guardar.
+   *
    * @example $user->givePermission(Permissions::CURSOS_VER)->on($facultad)->for(30)->canDelegate();
    * @example $user->givePermission(Permissions::CURSOS_EDITAR)->on($curso)->for(15)->revoke();
-   * @example $user->givePermission(Permissions::CURSOS_CREAR)->onAll(Facultad::class)->for(60);
+   * @example $user->givePermission(Permissions::CURSOS_CREAR)->onAllCurrentInstances(ContextualModelType::FACULTAD)->for(60);
+   * @example $user->givePermission(Permissions::USUARIOS_VER)->onEveryInstance()->for(30);
    *
    * @param  Permissions $permissionSlug Enum del permiso desde App\Support\Permissions (ej: Permissions::CURSOS_VER)
-   * @return PermissionAssignmentBuilder
+   * @return PermissionBuilderStart
    * @throws \RuntimeException Si no hay un usuario autenticado
    */
-  public function givePermission(Permissions $permissionSlug): PermissionAssignmentBuilder
+  public function givePermission(Permissions $permissionSlug): PermissionBuilderStart
   {
+    /** @var \App\Models\Usuario\Usuario $actor */
     $actor = Auth::user();
 
     if (!$actor) {
@@ -55,6 +61,7 @@ trait AssignsPermissions
    */
   public function giveRole(Rol $rol): RoleAssignmentBuilder
   {
+    /** @var \App\Models\Usuario\Usuario $actor */
     $actor = Auth::user();
 
     if (!$actor) {
@@ -80,6 +87,7 @@ trait AssignsPermissions
    */
   public function invalidatePermission(int $upeId, ?self $actor = null): void
   {
+    /** @var \App\Models\Usuario\Usuario $actor */
     $actor ??= Auth::user();
 
     /** @var UsuarioPermisoEspecial $upe */
@@ -122,6 +130,7 @@ trait AssignsPermissions
    */
   public function invalidateRole(int $uraId, ?self $actor = null): void
   {
+    /** @var \App\Models\Usuario\Usuario $actor */
     $actor ??= Auth::user();
 
     /** @var UsuarioRolAsignacion $ura */

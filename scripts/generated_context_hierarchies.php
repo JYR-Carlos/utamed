@@ -1,59 +1,86 @@
 <?php
 
 // GENERADO AUTOMÁTICAMENTE - REVISAR Y AJUSTAR SI ES NECESARIO
+// Para regenerar: php scripts/analyze_context_hierarchies.php -o scripts/generated_context_hierarchies.php
 
-$contextHierarchies = [
+return [
     'context_column' => 'id_contexto',
+
+    // Tablas que poseen id_contexto directamente.
+    // 'parent': null (raíz), string (FK directa, schema.tabla), o array (ruta indirecta hasta padre).
+    // 'contextTypeName': nombre corto del tipo de contexto (usarse en lugar de extraer de schema.tabla).
     'direct' => [
-        'administrativo.carrera' => 'carrera',
-        'administrativo.departamento' => 'departamento',
-        'administrativo.facultad' => 'facultad',
-        'agenda.actividad' => 'actividad',
-        'curso.curso' => 'curso',
+        'administrativo.carrera' => [
+            'contextTypeName' => 'carrera',
+            'parent' => 'administrativo.departamento', // auto (FK directa)
+        ],
+        'administrativo.departamento' => [
+            'contextTypeName' => 'departamento',
+            'parent' => 'administrativo.facultad', // auto (FK directa)
+        ],
+        'administrativo.facultad' => [
+            'contextTypeName' => 'facultad',
+            'parent' => null, // raíz
+        ],
+        'agenda.actividad' => [
+            'contextTypeName' => 'actividad',
+            'parent' => ['curso.seccion', 'curso.curso'], // manual (ruta indirecta)
+        ],
+        'curso.curso' => [
+            'contextTypeName' => 'curso',
+            'parent' => ['administrativo.asignacion_plan', 'administrativo.plan', 'administrativo.carrera'], // manual (ruta indirecta)
+        ],
     ],
+
+    // Tablas sin id_contexto propias que aplican a nivel global.
+    // Lista de nombres completos schema.tabla.
+    'global' => [
+        'administrativo.asignatura',
+        'usuario.docente',
+        'usuario.estudiante',
+        'usuario.rol',
+        'usuario.usuario',
+    ],
+
+    // Tablas sin id_contexto propio que llegan a un contexto vía FK chain.
+    // Los pasos de cada camino usan nombres completos schema.tabla.
     'hierarchical' => [
         'administrativo.asignacion_plan' => [
-            ['plan', 'carrera']
+            ['administrativo.plan', 'administrativo.carrera']
         ],
         'administrativo.plan' => [
-            ['carrera']
+            ['administrativo.carrera']
         ],
         'administrativo.programa' => [
-            ['curso']
+            ['curso.curso']
         ],
         'agenda.actividad_asignada' => [
-            ['actividad']
+            ['agenda.actividad']
         ],
         'agenda.asignado_actividad' => [
-            ['actividad_asignada', 'actividad'],
-            ['estudiante', 'carrera']
+            ['agenda.actividad_asignada', 'agenda.actividad'],
+            ['usuario.estudiante', 'administrativo.carrera']
         ],
         'curso.asistencia' => [
-            ['inscripcion_seccion', 'estudiante', 'carrera'],
-            ['inscripcion_seccion', 'seccion', 'curso']
+            ['curso.inscripcion_seccion', 'usuario.estudiante', 'administrativo.carrera'],
+            ['curso.inscripcion_seccion', 'curso.seccion', 'curso.curso']
         ],
         'curso.inscripcion_curso' => [
-            ['curso'],
-            ['estudiante', 'carrera']
+            ['curso.curso'],
+            ['usuario.estudiante', 'administrativo.carrera']
         ],
         'curso.inscripcion_seccion' => [
-            ['estudiante', 'carrera'],
-            ['seccion', 'curso']
+            ['usuario.estudiante', 'administrativo.carrera'],
+            ['curso.seccion', 'curso.curso']
         ],
         'curso.seccion' => [
-            ['curso']
+            ['curso.curso']
         ],
         'curso.unidad' => [
-            ['curso']
+            ['curso.curso']
         ],
     ],
-    'global' => [
-        'administrativo.asignatura' => 'asignatura',
-        'usuario.docente' => 'docente',
-        'usuario.estudiante' => 'estudiante',
-        'usuario.rol' => 'rol',
-        'usuario.usuario' => 'usuario',
-    ],
+
     'complex' => [
         // 'agenda.agenda', // TODO: revisar manualmente
     ],

@@ -17,15 +17,15 @@ use App\Models\Curso\Curso;
  * Estos son los "anclas" de contexto: modelos que tienen un id_contexto
  * directo en su tabla y son el destino final de todos los caminos jerárquicos.
  *
- * Úsala en ->onAll() para eliminar strings mágicos y garantizar en tiempo de
+ * Úsala en ->onAllCurrentInstances() para eliminar strings mágicos y garantizar en tiempo de
  * compilación que sólo se pasan modelos que poseen un contexto real:
  *
  * @example
  *   // Antes (string mágico, sin verificación):
- *   $user->givePermission($perm)->onAll(Carrera::class)->for(30);
+ *   $user->givePermission($perm)->onAllCurrentInstances(Carrera::class)->for(30);
  *
  *   // Después (type-safe, IDE-friendly):
- *   $user->givePermission($perm)->onAll(ContextualModelType::CARRERA)->for(30);
+ *   $user->givePermission($perm)->onAllCurrentInstances(ContextualModelType::CARRERA)->for(30);
  */
 enum ContextualModelType: string
 {

@@ -152,7 +152,7 @@ class PermissionValidator
         $grantedContextsURA = $this->getGrantedContextsFromRoles($user, $permission);
 
         // 4. Combinar: (UPE + URA) - DENY
-        $allGranted = array_unique(array_merge($grantedContextsUPE, $grantedContextsURA));
+        $allGranted = array_unique(...$grantedContextsUPE, ...$grantedContextsURA);
         $result = array_values(array_diff($allGranted, $deniedContexts));
 
         // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:contexts:{$permission->value}:0", $result)
@@ -201,7 +201,7 @@ class PermissionValidator
 
             if (!$castedPermission) {
                 // no agregarlo a la lista y continuar con el siguiente permiso
-                Log::error('Permiso en la BD malformado: ' . $perm->slug);
+                Log::error("Permiso en la BD malformado: {$perm->slug}");
                 // TODO: tratar este error
                 return null;
             }
@@ -331,11 +331,11 @@ class PermissionValidator
         $noInherit = $permission !== null && $this->isNoInheritPermission($permission);
 
         // Tratar el contexto explícito como array 
-        $explicit = is_array($contextId) ? $contextId : [$contextId];
+        $explicit = \is_array($contextId) ? $contextId : [$contextId];
 
         if ($noInherit) {
             // Si el permiso es no-inherit, no expandir con ancestros, solo usar los explícitos + global
-            return array_values(array_unique(array_merge($explicit, [$globalContextId])));
+            return array_values(array_unique(...$explicit, $globalContextId));
         } else {
             // Si no, expandir con ancestros usando la función SQL
             return $this->expandWithAncestors($explicit, $globalContextId, $permission);
@@ -367,7 +367,7 @@ class PermissionValidator
 
         if ($noInherit) {
             // Si el permiso es no-inherit, no expandir con ancestros, solo usar los de recurso + global
-            return array_values(array_unique(array_merge($contextIds, [$globalContextId])));
+            return array_values(array_unique(...$contextIds, $globalContextId));
         } else {
             // Si no, expandir con ancestros usando la función SQL
             return $this->expandWithAncestors($contextIds, $globalContextId, $permission);
@@ -418,7 +418,7 @@ class PermissionValidator
             if ($shouldFilterTypes) {
                 $ancestorsWithTypes = array_filter(
                     $ancestorsWithTypes,
-                    fn($ctx) => in_array($ctx['categoria'], $validTypes, true)
+                    fn($ctx) => \in_array($ctx['categoria'], $validTypes, true)
                 );
             }
 
@@ -513,7 +513,7 @@ class PermissionValidator
             $castedPermission = Permissions::tryFrom($result->slug);
 
             if (!$castedPermission) {
-                Log::error('Permiso en la BD malformado: ' . $result->slug);
+                Log::error("Permiso en la BD malformado: {$result->slug}");
                 continue;
             }
 

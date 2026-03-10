@@ -6,9 +6,10 @@
  * Prueba la API fluida de asignacion de permisos y roles sobre BD real.
  *
  * Cubre:
- *   - PermissionAssignmentBuilder: on(), onAll(), for(), waitFor(), revoke(), canDelegate(), save()
+ *   - PermissionAssignmentBuilder: on(), onAllCurrentInstances(), onEveryInstance(), onAllChildrenOf(), for(), waitFor(), revoke(), canDelegate(), save()
  *   - RoleAssignmentBuilder:       on(), onAll(), for(), waitFor(), save()
  *   - AssignsPermissions:          givePermission(), giveRole(), invalidatePermission(), invalidateRole()
+ *   - Step builder pattern:        PermissionBuilderStart -> PermissionBuilderReady
  *   - Auto-save via __destruct
  *   - Flag $saved (no doble persistencia)
  *
@@ -26,6 +27,8 @@ use App\Models\Usuario\Contexto;
 use App\Models\Usuario\TipoContexto;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Contracts\PermissionBuilderStart;
+use App\Contracts\PermissionBuilderReady;
 use App\Services\Authorization\PermissionAssignmentBuilder;
 use App\Services\Authorization\RoleAssignmentBuilder;
 use App\Support\Permissions;
@@ -251,15 +254,22 @@ describe('PermissionAssignmentBuilder — on() y campos base', function () {
     expect($result->pluck('id_contexto')->all())->toContain($this->carreraB->id_contexto);
   });
 
-  test('on() con arreglo y on() individual acumulan sin duplicados', function () {
-    $result = $this->recipient
+  test('on() con arreglo y onEveryInstance() pueden combinarse indirectamente (2 builders)', function () {
+    // En el nuevo pattern, no se pueden encadenar context methods.
+    // Si se necesitan ambos, se crean 2 builders separados.
+    $resultA = $this->recipient
       ->givePermission($this->permiso)
       ->on([$this->carreraA, $this->carreraB])
-      ->inGlobalContext()
       ->save();
 
-    expect($result)->toBeInstanceOf(\Illuminate\Support\Collection::class);
-    expect($result)->toHaveCount(3);
+    $resultB = $this->recipient
+      ->givePermission($this->permiso)
+      ->onEveryInstance()
+      ->save();
+
+    expect($resultA)->toBeInstanceOf(\Illuminate\Support\Collection::class);
+    expect($resultA)->toHaveCount(2);
+    expect($resultB)->toBeInstanceOf(UsuarioPermisoEspecial::class);
   });
 
   test('on() con arreglo que contiene duplicados no crea registros duplicados', function () {
@@ -272,11 +282,10 @@ describe('PermissionAssignmentBuilder — on() y campos base', function () {
     expect($result)->toBeInstanceOf(UsuarioPermisoEspecial::class);
   });
 
-  test('llamadas multiples a on() acumulan contextos y devuelve Collection', function () {
+  test('on() con arreglo maneja múltiples instancias (reemplaza múltiples ->on())', function () {
     $result = $this->recipient
       ->givePermission($this->permiso)
-      ->on($this->carreraA)
-      ->on($this->carreraB)
+      ->on([$this->carreraA, $this->carreraB])
       ->save();
 
     expect($result)->toBeInstanceOf(\Illuminate\Support\Collection::class);
@@ -433,12 +442,12 @@ describe('PermissionAssignmentBuilder — for() y waitFor()', function () {
 });
 
 // ============================================================================
-// GRUPO 4: PermissionAssignmentBuilder — onAll()
+// GRUPO 4: PermissionAssignmentBuilder — onAllCurrentInstances() y onEveryInstance()
 // ============================================================================
 
-describe('PermissionAssignmentBuilder — onAll()', function () {
+describe('PermissionAssignmentBuilder — onAllCurrentInstances() y onEveryInstance()', function () {
 
-  test('onAll(ContextualModelType::CARRERA) crea un UPE por cada contexto del tipo Carrera', function () {
+  test('onAllCurrentInstances(ContextualModelType::CARRERA) crea un UPE por cada contexto del tipo Carrera', function () {
     $tipoId = TipoContexto::where('categoria', 'carrera')->value('id_tipo_contexto');
     $totalCarrerasAB = $tipoId ? Contexto::where('id_tipo_contexto', $tipoId)->count() : 0;
 
@@ -447,7 +456,7 @@ describe('PermissionAssignmentBuilder — onAll()', function () {
 
     $result = $this->recipient
       ->givePermission($this->permiso)
-      ->onAll(ContextualModelType::CARRERA)
+      ->onAllCurrentInstances(ContextualModelType::CARRERA)
       ->save();
 
     expect($result)->toBeInstanceOf(\Illuminate\Support\Collection::class);
@@ -457,18 +466,15 @@ describe('PermissionAssignmentBuilder — onAll()', function () {
     expect($result->pluck('id_usuario')->unique()->all())->toBe([$this->recipient->id_usuario]);
   });
 
-  test('onAll() y on() son acumulables', function () {
-    $tipoId = TipoContexto::where('categoria', 'carrera')->value('id_tipo_contexto');
-    $totalCarreras = $tipoId ? Contexto::where('id_tipo_contexto', $tipoId)->count() : 0;
-    $expectedTotal = $totalCarreras + 1; // + el contexto global
-
-    $result = $this->recipient
+  test('onEveryInstance() crea 1 UPE en contexto global', function () {
+    $upe = $this->recipient
       ->givePermission($this->permiso)
-      ->onAll(ContextualModelType::CARRERA)
-      ->inGlobalContext()
+      ->onEveryInstance()
       ->save();
 
-    expect($result->count())->toBe($expectedTotal);
+    $globalContextId = app(\App\Services\Authorization\GlobalContextService::class)->getContextId();
+    expect($upe)->toBeInstanceOf(UsuarioPermisoEspecial::class);
+    expect($upe->id_contexto)->toBe($globalContextId);
   });
 });
 
@@ -789,8 +795,9 @@ describe('AssignsPermissions — actor por defecto via Auth::user()', function (
 
 describe('Tipos de retorno de los builders', function () {
 
-  test('givePermission() devuelve una instancia de PermissionAssignmentBuilder', function () {
+  test('givePermission() devuelve una instancia de PermissionBuilderStart', function () {
     $builder = $this->recipient->givePermission($this->permiso);
+    expect($builder)->toBeInstanceOf(PermissionBuilderStart::class);
     expect($builder)->toBeInstanceOf(PermissionAssignmentBuilder::class);
     // destruir sin guardar (sin contexto)
     $builder->__destruct();
@@ -814,8 +821,7 @@ describe('Tipos de retorno de los builders', function () {
   test('save() con varios contextos devuelve Collection de modelos UPE', function () {
     $result = $this->recipient
       ->givePermission($this->permiso)
-      ->on($this->carreraA)
-      ->on($this->carreraB)
+      ->on([$this->carreraA, $this->carreraB])
       ->save();
 
     expect($result)->toBeInstanceOf(\Illuminate\Support\Collection::class);
@@ -840,5 +846,139 @@ describe('Tipos de retorno de los builders', function () {
 
     expect($result)->toBeInstanceOf(\Illuminate\Support\Collection::class);
     $result->each(fn($item) => expect($item)->toBeInstanceOf(UsuarioRolAsignacion::class));
+  });
+});
+
+// ============================================================================
+// GRUPO 12: onAllChildrenOf() — asignación jerárquica por tipo hijo
+// ============================================================================
+
+describe('PermissionAssignmentBuilder — onAllChildrenOf()', function () {
+
+  test('onAllChildrenOf() válido: crea UPE en el contexto del modelo padre', function () {
+    $upe = $this->recipient
+      ->givePermission(Permissions::CARRERAS_VER, $this->actor)
+      ->onAllChildrenOf($this->facultad, ContextualModelType::CARRERA)
+      ->save();
+
+    expect($upe)->toBeInstanceOf(UsuarioPermisoEspecial::class);
+    expect($upe->id_contexto)->toBe($this->facultad->id_contexto);
+    expect($upe->id_usuario)->toBe($this->recipient->id_usuario);
+  });
+
+  test('onAllChildrenOf() lanza InvalidArgumentException cuando childType no es descendiente del padre', function () {
+    // CARRERA no es ancestro de FACULTAD — jerarquía inversa
+    expect(
+      fn() =>
+      $this->recipient
+        ->givePermission(Permissions::CARRERAS_VER, $this->actor)
+        ->onAllChildrenOf($this->carreraA, ContextualModelType::FACULTAD)
+    )->toThrow(\InvalidArgumentException::class);
+  });
+
+  test('onAllChildrenOf() mensaje de error incluye descendientes válidos del tipo del padre', function () {
+    $caught = null;
+    try {
+      $this->recipient
+        ->givePermission(Permissions::CARRERAS_VER, $this->actor)
+        ->onAllChildrenOf($this->carreraA, ContextualModelType::FACULTAD);
+    } catch (\InvalidArgumentException $e) {
+      $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    // carrera tiene como descendientes: curso y actividad
+    expect($caught->getMessage())->toContain('carrera'); // tipo del padre
+    expect($caught->getMessage())->toContain('curso');   // descendiente válido
+  });
+
+  test('onAllChildrenOf() lanza excepción cuando childType es el mismo tipo que el padre (no reflexivo)', function () {
+    // CARRERA no es ancestro de CARRERA
+    expect(
+      fn() =>
+      $this->recipient
+        ->givePermission(Permissions::CARRERAS_VER, $this->actor)
+        ->onAllChildrenOf($this->carreraA, ContextualModelType::CARRERA)
+    )->toThrow(\InvalidArgumentException::class);
+  });
+
+  test('onAllChildrenOf() lanza InvalidArgumentException cuando el permiso no acepta el contexto del padre', function () {
+    // cursos:crear solo acepta ['global', 'carrera'] — FACULTAD no es válido
+    expect(
+      fn() =>
+      $this->recipient
+        ->givePermission(Permissions::CURSOS_CREAR, $this->actor)
+        ->onAllChildrenOf($this->facultad, ContextualModelType::CARRERA)
+    )->toThrow(\InvalidArgumentException::class);
+  });
+
+  test('onAllChildrenOf() devuelve PermissionBuilderReady para encadenar for()/save()', function () {
+    $ready = $this->recipient
+      ->givePermission(Permissions::CARRERAS_VER, $this->actor)
+      ->onAllChildrenOf($this->facultad, ContextualModelType::CARRERA);
+
+    expect($ready)->toBeInstanceOf(PermissionBuilderReady::class);
+    $ready->save();
+  });
+});
+
+// ============================================================================
+// GRUPO 13: Step-builder — transición PermissionBuilderStart → PermissionBuilderReady
+// ============================================================================
+
+describe('Step-builder — métodos de contexto devuelven PermissionBuilderReady', function () {
+
+  test('on() devuelve PermissionBuilderReady', function () {
+    $ready = $this->recipient
+      ->givePermission($this->permiso, $this->actor)
+      ->on($this->carreraA);
+
+    expect($ready)->toBeInstanceOf(PermissionBuilderReady::class);
+    $ready->save();
+  });
+
+  test('onAllCurrentInstances() devuelve PermissionBuilderReady', function () {
+    $ready = $this->recipient
+      ->givePermission($this->permiso, $this->actor)
+      ->onAllCurrentInstances(ContextualModelType::CARRERA);
+
+    expect($ready)->toBeInstanceOf(PermissionBuilderReady::class);
+    $ready->save();
+  });
+
+  test('onEveryInstance() devuelve PermissionBuilderReady', function () {
+    $ready = $this->recipient
+      ->givePermission($this->permiso, $this->actor)
+      ->onEveryInstance(ContextualModelType::CARRERA);
+
+    expect($ready)->toBeInstanceOf(PermissionBuilderReady::class);
+    $ready->save();
+  });
+
+  test('onAllChildrenOf() devuelve PermissionBuilderReady', function () {
+    $ready = $this->recipient
+      ->givePermission(Permissions::CARRERAS_VER, $this->actor)
+      ->onAllChildrenOf($this->facultad, ContextualModelType::CARRERA);
+
+    expect($ready)->toBeInstanceOf(PermissionBuilderReady::class);
+    $ready->save();
+  });
+
+  test('inContext() devuelve PermissionBuilderReady', function () {
+    $ready = $this->recipient
+      ->givePermission($this->permiso, $this->actor)
+      ->inContext($this->carreraA->id_contexto);
+
+    expect($ready)->toBeInstanceOf(PermissionBuilderReady::class);
+    $ready->save();
+  });
+
+  test('givePermission() devuelve PermissionBuilderStart antes de elegir contexto', function () {
+    $builder = $this->recipient->givePermission($this->permiso, $this->actor);
+
+    expect($builder)->toBeInstanceOf(PermissionBuilderStart::class);
+    expect($builder)->toBeInstanceOf(PermissionAssignmentBuilder::class);
+
+    $builder->__destruct(); // limpiar sin guardar
   });
 });
