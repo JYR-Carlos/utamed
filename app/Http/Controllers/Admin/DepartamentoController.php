@@ -26,7 +26,13 @@ class DepartamentoController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Departamento::with('facultad');
+        $query = Departamento::with([
+            'facultad',
+            'carreras' => fn($q) => $q->whereNull('fecha_eliminacion')
+                ->select(['id_carrera', 'nombre', 'jornada', 'sede', 'modalidad', 'id_departamento', 'fecha_eliminacion']),
+        ])->withCount([
+            'carreras as carreras_count' => fn($q) => $q->whereNull('fecha_eliminacion'),
+        ]);
 
         // Search functionality
         if ($request->has('search')) {

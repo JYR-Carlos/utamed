@@ -750,7 +750,7 @@ class UsuarioController extends Controller
 
         // Obtener TODAS las asignaciones de rol activas (todos los contextos)
         // Incluye id_contexto y contexto_display cargados via relaciones Eloquent
-        $idRoles = UsuarioRolAsignacion::with(['rol', 'contexto'])
+        $idRoles = UsuarioRolAsignacion::with(['rol', 'contexto.curso'])
             ->where('id_usuario', $usuario->id_usuario)
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
@@ -763,12 +763,13 @@ class UsuarioController extends Controller
                 'nombre'           => $ura->rol?->nombre,
                 'id_contexto'      => $ura->id_contexto,
                 'contexto_display' => $ura->contexto?->contexto_display,
+                'curso_nombre'     => $ura->contexto?->curso?->nombre,
             ])
             ->values()
             ->toArray();
 
         // Obtener todos los permisos especiales activos del usuario (todos los contextos)
-        $specialPermissions = UsuarioPermisoEspecial::with(['permiso', 'contexto'])
+        $specialPermissions = UsuarioPermisoEspecial::with(['permiso', 'contexto.curso'])
             ->where('id_usuario', $usuario->id_usuario)
             ->where('esta_activo', true)
             ->where('fue_borrado', false)
@@ -782,6 +783,7 @@ class UsuarioController extends Controller
                 'nombre'           => $upe->permiso?->nombre,
                 'id_contexto'      => $upe->id_contexto,
                 'contexto_display' => $upe->contexto?->contexto_display,
+                'curso_nombre'     => $upe->contexto?->curso?->nombre,
                 'esta_permitido'   => (bool) $upe->esta_permitido,
                 'puede_delegar'    => (bool) $upe->puede_delegar,
             ])

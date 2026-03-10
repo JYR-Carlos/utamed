@@ -69,27 +69,43 @@ class AsignacionPlanController extends Controller
         return Inertia::render('admin/DetalleMalla', [
             'plan' => $plan,
             'malla' => $malla,
-            'asignaturas' => Asignatura::orderBy('cod_asignatura')
+            'asignaturas' => Asignatura::active() // Solo versiones activas
+                ->orderBy('cod_asignatura')
                 ->get(['id_asignatura', 'cod_asignatura', 'nombre', 'creditos_sct'])
         ]);
     }
 
     /**
      * Asignar una asignatura a un plan.
+     * 
+     * Solo permite asignar versiones ACTIVAS de asignaturas.
      */
     public function store(Request $request, Plan $plan)
     {
+        // Preparar datos: castear tipo_ramo a null si está vacío
+        $requestData = $request->all();
+        if (empty($requestData['tipo_ramo'])) {
+            $requestData['tipo_ramo'] = null;
+        } else {
+            $requestData['tipo_ramo'] = (int) $requestData['tipo_ramo'];
+        }
+        $request->merge($requestData);
+
         $validated = $request->validate([
-            'id_asignatura' => ['required', Rule::exists(Asignatura::class, 'id_asignatura')],
+            'id_asignatura' => ['required', function ($attribute, $value, $fail) {
+                // Validar que la asignatura existe Y es una versión activa
+                $asignatura = Asignatura::where('id_asignatura', $value)
+                    ->active() // Solo versiones no eliminadas
+                    ->first();
+                
+                if (!$asignatura) {
+                    $fail('La asignatura seleccionada no es válida o ha sido reemplazada por una versión más reciente.');
+                }
+            }],
             'agno_planificado' => 'required|integer|min:1|max:10',
             'semestre_planificado' => 'required|integer|in:1,2',
             'tipo_ramo' => 'nullable|integer',
         ]);
-
-        // Se deja en null el atributo 'tipo_ramo',  05-02-2026 TABLA AUN NO DEFINIDA 'TIPO_RAMO'
-        if (isset($validated['tipo_ramo']) && $validated['tipo_ramo'] === '') {
-            $validated['tipo_ramo'] = null;
-        }
 
         // Check if already assigned to THIS PLAN (allows recycling from other plans)
         $exists = AsignacionPlan::where('id_plan', $plan->id_plan)
@@ -135,16 +151,23 @@ class AsignacionPlanController extends Controller
      */
     public function update(Request $request, Plan $plan, Asignatura $asignatura)
     {
+        $validated = []; // Inicializar para evitar error en catch
+
         try {
+            // Preparar datos: castear tipo_ramo a null si está vacío
+            $requestData = $request->all();
+            if (empty($requestData['tipo_ramo'])) {
+                $requestData['tipo_ramo'] = null;
+            } else {
+                $requestData['tipo_ramo'] = (int) $requestData['tipo_ramo'];
+            }
+            $request->merge($requestData);
+
             $validated = $request->validate([
                 'agno_planificado' => 'required|integer|min:1|max:10',
                 'semestre_planificado' => 'required|integer|in:1,2',
                 'tipo_ramo' => 'nullable|integer',
             ]);
-            // Se deja en null el atributo 'tipo_ramo',  05-02-2026 TABLA AUN NO DEFINIDA 'TIPO_RAMO'
-            if (isset($validated['tipo_ramo']) && $validated['tipo_ramo'] === '') {
-                $validated['tipo_ramo'] = null;
-            }
 
             $asignacion = AsignacionPlan::where('id_plan', $plan->id_plan)
                 ->where('id_asignatura', $asignatura->id_asignatura)

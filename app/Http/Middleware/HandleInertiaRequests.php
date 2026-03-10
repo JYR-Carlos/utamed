@@ -10,33 +10,114 @@ use Inertia\Middleware;
 /**
  * Middleware Inertia.js para compartir datos por defecto en cada response.
  * 
- * Configura el middleware de Inertia que:
- * - Define vista raíz (app.html)
- * - Gestiona versionado de assets para cache-busting
- * - Comparte datos globales (usuario, roles, permisos, quote inspirador) con toda solicitud
+ * ¿QUÉ HACE?
+ * -----------
+ * Este middleware se ejecuta en CADA petición HTTP y automáticamente comparte datos
+ * globales con todas las páginas frontend. Es como un "contenedor de props global"
+ * que Inertia.js inyecta en todas las vistas Svelte sin que tengas que pasarlos
+ * explícitamente desde cada controlador.
  * 
- * Datos compartidos automáticamente en cada página:
- * - user: Usuario autenticado con relaciones cargadas
- * - roles: Array de nombres de roles asignados al usuario
- * - docente: Perfil docente si existe
- * - estudiante: Perfil estudiante si existe
- * - auth.user, auth.roles: Duplicados para compatibilidad frontend
- * - flash: Mensajes flash de sesión
- * - message, author: Quote inspirador generado aleatoriamente
+ * FLUJO DE DATOS:
+ * ---------------
+ * 1. Usuario hace petición (GET /dashboard, POST /cursos, etc.)
+ * 2. Laravel procesa la solicitud
+ * 3. Inertia intercepta la respuesta con este middleware
+ * 4. share() genera los datos globales (usuario, roles, cursos, etc.)
+ * 5. Los datos se envían al frontend en el JSON response
+ * 6. Svelte recibe automaticamente estos props en cualquier página
+ * 
+ * DATOS COMPARTIDOS GLOBALMENTE:
+ * ------------------------------
+ * - auth.user: Usuario autenticado completo ({id, nombre, email, etc})
+ * - auth.roles: Array de nombres de roles ([Docente, Admin, Ayudante])
+ * - auth.is_super_admin: Boolean indicando si es SuperAdmin
+ * - auth.docente: Objeto Docente si el usuario es docente
+ * - auth.estudiante: Objeto Estudiante si el usuario es estudiante
+ * - auth.docente_courses: Cursos donde dicta el docente
+ * - auth.estudiante_courses: Cursos donde está inscrito el estudiante
+ * - auth.ayudante_courses: Cursos donde asiste como ayudante
+ * - flash.success: Mensajes de éxito desde sesión
+ * - flash.error: Mensajes de error desde sesión
+ * - quote: Quote inspirador aleatorio {message, author}
+ * - sidebarOpen: Estado persistente de la barra lateral
+ * 
+ * ACCESO DESDE FRONTEND:
+ * ----------------------
+ * En cualquier página Svelte puedes acceder a estos datos:
+ * 
+ * import { page } from '@inertiajs/svelte';
+ * 
+ * let user = $derived($page.props.auth.user);
+ * let roles = $derived($page.props.auth.roles);
+ * let cursos = $derived($page.props.auth.docente_courses);
+ * let successMsg = $derived($page.props.flash.success);
+ * 
+ * EJEMPLO DE RESPUESTA JSON:
+ * --------------------------
+ * {
+ *   "component": "Dashboard",
+ *   "props": {
+ *     "auth": {
+ *       "user": {
+ *         "id_usuario": 1,
+ *         "nombre1": "Juan",
+ *         "email": "juan@utamed.cl"
+ *       },
+ *       "roles": ["Docente", "Ayudante"],
+ *       "docente": {...},
+ *       "docente_courses": [{id_curso: 1, nombre: "Intro a BD"}]
+ *     },
+ *     "flash": {"success": "Curso actualizado"},
+ *     "quote": {"message": "The only...", "author": "Steve Jobs"}
+ *   },
+ *   "url": "/dashboard",
+ *   "version": "abc123..."
+ * }
+ * 
+ * OPTIMIZACIONES:
+ * ----------------
+ * - Pre-cargamos relaciones (eager loading) para evitar N+1 queries
+ * - Para ayudantes, pre-cachamos permisos por contexto
+ * - Solo cargamos datos activos (roles no eliminados)
  */
 class HandleInertiaRequests extends Middleware
 {
+    /**
+     * Vista raíz que renderiza las páginas Svelte
+     * Definida en resources/views/app.html
+     */
     protected $rootView = 'app';
 
+    /**
+     * Inyectamos servicio para cargar cursos del usuario
+     */
     public function __construct(private UserCoursesService $userCourses) {}
 
+    /**
+     * Versión de assets para cache-busting
+     * 
+     * Laravel genera un hash de los assets y lo compara con el cliente.
+     * Si no coinciden, Inertia recarga automáticamente los assets nuevos.
+     * Esto evita que los usuarios tengan versiones cacheadas de JS/CSS desactualizado.
+     */
     public function version(Request $request): ?string
     {
         return parent::version($request);
     }
 
+    /**
+     * Método principal que comparte datos globales con cada respuesta
+     * 
+     * Se ejecuta en CADA petición HTTP antes de renderizar la página.
+     * Retorna un array que Inertia mezcla automáticamente con los props
+     * específicos enviados desde cada controlador.
+     * 
+     * @param Request $request Objeto de la solicitud HTTP
+     * @return array Props globales compartidos
+     */
     public function share(Request $request): array
     {
+        // Generar quote inspirador aleatorio para mostrar en sidebars/footers
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
         $roles = [];
@@ -45,7 +126,9 @@ class HandleInertiaRequests extends Middleware
         $estudiante = null;
         $allAyudantePerms = null;
 
+        // Si el usuario está autenticado, cargar sus relaciones
         if ($user) {
+            // Eager load para evitar N+1 queries (ej: no cargar roles en un loop)
             $user->load([
                 'rolesAsignados' => fn($q) => $q->where('esta_activo', true)
                     ->where('fue_eliminado', false),
@@ -53,41 +136,64 @@ class HandleInertiaRequests extends Middleware
                 'estudiante',
             ]);
 
+            // Extraer nombres de roles simplemente para el frontend
             $roles = $user->rolesAsignados
                 ->pluck('nombre')
                 ->values()
                 ->toArray();
 
+            // Guardar referencias al perfil actual del usuario
             $docente = $user->docente;
             $estudiante = $user->estudiante;
 
-            // Pre-cargar permisos agrupados por contexto si es ayudante (evita N+1)
+            // OPTIMIZACIÓN: Pre-cargar permisos por contexto solo si es ayudante
+            // (evita N+1 queries cuando el frontend necesita verificar permisos)
             if (in_array('ayudante', array_map('strtolower', $roles))) {
                 $allAyudantePerms = $user->getAllPermissionsGroupedByContext();
             }
         }
 
+        // Retornar array de props compartidos que Inertia inyectará en TODAS las páginas
         return [
-            ...parent::share($request),
-            'name'  => config('app.name'),
+            ...parent::share($request),  // Props base de Inertia (errors, component, etc)
+            
+            'name'  => config('app.name'),  // Nombre de la aplicación (UTAMED)
+            
+            // Quote inspirador (opcional, para UI)
             'quote' => ['message' => trim($message), 'author' => trim($author)],
+            
+            // OBJETO AUTH: Toda la información del usuario autenticado
             'auth'  => [
-                'user'          => $user,
-                'roles'         => $roles,
-                'is_super_admin' => $user?->isSuperAdmin() ?? false,
-                'docente'       => $docente,
-                'estudiante'    => $estudiante,
-                'docente_courses'    => $docente   ? $this->userCourses->getDocenteCourses($docente)                         : [],
-                'estudiante_courses' => $estudiante ? $this->userCourses->getEstudianteCourses($estudiante)                  : [],
+                'user'          => $user,  // Usuario completo con todas sus propiedades
+                'roles'         => $roles,  // Array de strings: ['Docente', 'Admin']
+                'is_super_admin' => $user?->isSuperAdmin() ?? false,  // Boolean
+                'docente'       => $docente,  // Objeto Docente si aplica, null si no
+                'estudiante'    => $estudiante,  // Objeto Estudiante si aplica
+                
+                // CURSOS: Pre-cargados según el rol del usuario
+                // Cada controlador puede acceder a esto sin hacer queries adicionales
+                'docente_courses'    => $docente 
+                    ? $this->userCourses->getDocenteCourses($docente)  // Cursos donde dicta
+                    : [],
+                    
+                'estudiante_courses' => $estudiante 
+                    ? $this->userCourses->getEstudianteCourses($estudiante)  // Cursos inscritos
+                    : [],
+                    
                 'ayudante_courses'   => in_array('ayudante', array_map('strtolower', $roles))
-                                        ? $this->userCourses->getAyudanteCourses($user, $allAyudantePerms)
-                                        : [],
+                    ? $this->userCourses->getAyudanteCourses($user, $allAyudantePerms)  // Cursos donde asiste
+                    : [],
             ],
+            
+            // STATE: Estado persistente de UI (ej: sidebar abierto/cerrado)
             'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            
+            // FLASH MESSAGES: Mensajes de una solicitud anterior (login, error, etc)
             'flash' => [
-                'success' => fn() => $request->session()->get('success'),
+                'success' => fn() => $request->session()->get('success'),  // Lazy evaluation
                 'error'   => fn() => $request->session()->get('error'),
             ],
         ];
+    
     }
 }

@@ -30,6 +30,7 @@
     nombre: string;
     id_contexto: number | null;
     contexto_display?: string | null;
+    curso_nombre?: string | null;
   }
 
   interface SpecialPermissionAssignment {
@@ -39,6 +40,7 @@
     nombre: string | null;
     id_contexto: number;
     contexto_display?: string | null;
+    curso_nombre?: string | null;
     esta_permitido: boolean;
     puede_delegar: boolean;
   }
@@ -762,8 +764,10 @@
                           >
                             <span>👔</span>
                             {asignacion.nombre}
-                            {#if asignacion.contexto_display}
-                              <span class="text-purple-500 text-xs">({asignacion.contexto_display})</span>
+                            {#if asignacion.contexto_display || asignacion.curso_nombre}
+                              <span class="text-purple-500 text-xs">
+                                ({asignacion.contexto_display}{asignacion.curso_nombre ? ` - ${asignacion.curso_nombre}` : ''})
+                              </span>
                             {/if}
                           </button>
                           <button
@@ -851,12 +855,16 @@
                           class:bg-red-100={!perm.esta_permitido}
                           class:text-red-800={!perm.esta_permitido}
                           class:border-red-300={!perm.esta_permitido}
-                          title={perm.contexto_display ? `Contexto: ${perm.contexto_display}` : 'Contexto global'}
+                          title={perm.contexto_display || perm.curso_nombre
+                            ? `Contexto: ${perm.contexto_display}${perm.curso_nombre ? ` - ${perm.curso_nombre}` : ''}`
+                            : 'Contexto global'}
                         >
                           <span>{perm.esta_permitido ? '✅' : '🚫'}</span>
                           <span>{perm.nombre ?? perm.slug}</span>
-                          {#if perm.contexto_display}
-                            <span class="opacity-60 text-xs">({perm.contexto_display})</span>
+                          {#if perm.contexto_display || perm.curso_nombre}
+                            <span class="opacity-60 text-xs">
+                              ({perm.contexto_display}{perm.curso_nombre ? ` - ${perm.curso_nombre}` : ''})
+                            </span>
                           {/if}
                           <button
                             onclick={() => revokePermission(perm)}

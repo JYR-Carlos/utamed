@@ -128,8 +128,14 @@
       <div>
         <h1 class="text-3xl font-bold text-gray-900 mb-1">Asignaturas</h1>
         <p class="text-sm text-gray-500">Gestión del catálogo de asignaturas</p>
+        <p class="text-xs text-blue-600 mt-2 font-medium">
+          💡 Al editar una asignatura se crea una nueva versión. Esto preserva el historial de cambios.
+        </p>
       </div>
-      <button onclick={openCreateModal} class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95">
+      <button
+        onclick={openCreateModal}
+        class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95"
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="20"
@@ -167,14 +173,14 @@
 
   <FormModal
     bind:isOpen={showModal}
-    title={editingAsignatura ? 'Editar Asignatura' : 'Nueva Asignatura'}
+    title={editingAsignatura ? 'Crear Nueva Versión de Asignatura' : 'Nueva Asignatura'}
     onClose={() => (showModal = false)}
     onSubmit={handleSubmit}
     isLoading={$formData.processing}
   >
-    <!-- Advertencia de impacto cuando la asignatura ya está en uso -->
-    {#if editingAsignatura && (editingAsignatura.planes_count ?? 0) > 0}
-      <div class="mb-4 flex gap-3 items-start bg-amber-50 border border-amber-300 rounded-lg px-4 py-3">
+    <!-- Advertencia de versionado cuando se está editando -->
+    {#if editingAsignatura}
+      <div class="mb-4 flex gap-3 items-start bg-blue-50 border border-blue-300 rounded-lg px-4 py-3">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="18"
@@ -185,15 +191,14 @@
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
-          class="text-amber-500 mt-0.5 shrink-0"
-          ><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg
+          class="text-blue-500 mt-0.5 shrink-0"
+          ><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg
         >
         <div>
-          <p class="text-sm font-semibold text-amber-800">Impacto en cascada</p>
-          <p class="text-xs text-amber-700 mt-0.5">
-            Esta asignatura está utilizada en <strong
-              >{editingAsignatura.planes_count} plan{editingAsignatura.planes_count === 1 ? '' : 'es'} de estudio</strong
-            >. Cualquier cambio en el nombre, código o créditos afectará directamente a todos los cursos derivados.
+          <p class="text-sm font-semibold text-blue-800">Creando nueva versión</p>
+          <p class="text-xs text-blue-700 mt-0.5">
+            Los cambios crearán una <strong>nueva versión</strong> de la asignatura. La versión anterior será marcada como histórica. Esto preserva el historial
+            completo de cambios.
           </p>
         </div>
       </div>
@@ -205,7 +210,7 @@
           id="cod_asignatura"
           type="text"
           bind:value={$formData.cod_asignatura}
-          
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           class:border-red-500={$formData.errors.cod_asignatura}
           placeholder="Ej: MED101"
           required
@@ -221,7 +226,7 @@
           id="creditos_sct"
           type="number"
           bind:value={$formData.creditos_sct}
-          
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           class:border-red-500={$formData.errors.creditos_sct}
           min="0"
         />
@@ -237,7 +242,7 @@
         id="nombre"
         type="text"
         bind:value={$formData.nombre}
-        
+        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         class:border-red-500={$formData.errors.nombre}
         placeholder="Ej: Anatomía Humana"
         required
@@ -249,36 +254,72 @@
 
     <div class="mb-4">
       <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
-      <textarea id="descripcion" bind:value={$formData.descripcion}  rows="3" placeholder="Descripción de la asignatura"></textarea>
+      <textarea
+        id="descripcion"
+        bind:value={$formData.descripcion}
+        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        rows="3"
+        placeholder="Descripción de la asignatura"
+      ></textarea>
     </div>
 
     <div class="grid grid-cols-2 gap-4">
       <div class="mb-4">
         <label for="horas_catedra" class="block text-sm font-medium text-gray-700 mb-2">Horas Cátedra</label>
-        <input id="horas_catedra" type="number" bind:value={$formData.horas_catedra}  min="0" />
+        <input
+          id="horas_catedra"
+          type="number"
+          bind:value={$formData.horas_catedra}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          min="0"
+        />
       </div>
 
       <div class="mb-4">
         <label for="horas_taller" class="block text-sm font-medium text-gray-700 mb-2">Horas Taller</label>
-        <input id="horas_taller" type="number" bind:value={$formData.horas_taller}  min="0" />
+        <input
+          id="horas_taller"
+          type="number"
+          bind:value={$formData.horas_taller}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          min="0"
+        />
       </div>
     </div>
 
     <div class="grid grid-cols-2 gap-4">
       <div class="mb-4">
         <label for="horas_laboratorio" class="block text-sm font-medium text-gray-700 mb-2">Horas Laboratorio</label>
-        <input id="horas_laboratorio" type="number" bind:value={$formData.horas_laboratorio}  min="0" />
+        <input
+          id="horas_laboratorio"
+          type="number"
+          bind:value={$formData.horas_laboratorio}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          min="0"
+        />
       </div>
 
       <div class="mb-4">
         <label for="horas_dirigidas" class="block text-sm font-medium text-gray-700 mb-2">Horas Dirigidas</label>
-        <input id="horas_dirigidas" type="number" bind:value={$formData.horas_dirigidas}  min="0" />
+        <input
+          id="horas_dirigidas"
+          type="number"
+          bind:value={$formData.horas_dirigidas}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          min="0"
+        />
       </div>
     </div>
 
     <div class="mb-4">
       <label for="horas_autonomas" class="block text-sm font-medium text-gray-700 mb-2">Horas Autónomas</label>
-      <input id="horas_autonomas" type="number" bind:value={$formData.horas_autonomas}  min="0" />
+      <input
+        id="horas_autonomas"
+        type="number"
+        bind:value={$formData.horas_autonomas}
+        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        min="0"
+      />
     </div>
   </FormModal>
 

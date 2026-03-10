@@ -161,4 +161,25 @@ class InscripcionCursoPolicy extends BaseInscripcionCursoPolicy
         // Solo admins pueden eliminar inscripciones
         return $user->is_admin;
     }
+
+    /**
+     * Determina si el usuario puede exportar inscripciones a CSV.
+     *
+     * @param Usuario $user
+     * @return bool
+     */
+    public function export(Usuario $user): bool
+    {
+        // Admins pueden exportar todo
+        if ($user->is_admin) {
+            return true;
+        }
+
+        // Docentes pueden exportar inscripciones de sus propios cursos
+        if ($user->docente) {
+            return true;
+        }
+
+        return false;
+    }
 }

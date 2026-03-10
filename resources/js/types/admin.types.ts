@@ -41,6 +41,10 @@ export interface Departamento {
     nombre: string;
     /** Related faculty object (eager loaded) */
     facultad?: Facultad;
+    /** Active carreras nested (eager loaded for row expansion) */
+    carreras?: Carrera[];
+    /** Count of active (non-deleted) carreras — computed by controller */
+    carreras_count?: number;
     /** Creation timestamp */
     fecha_creacion?: string;
     /** Last modification timestamp */

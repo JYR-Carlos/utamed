@@ -14,6 +14,19 @@
 
   let { plan, malla, asignaturas = [], flash }: Props = $props();
 
+  // Mapeo de tipo_ramo: número -> texto
+  const tipoRamoLabels: Record<number | string, string> = {
+    1: 'Electivo Profesional',
+    2: 'Plan Común',
+    3: 'Formación Profesional',
+  };
+
+  function getTipoRamoLabel(tipoRamo: any): string {
+    if (!tipoRamo) return '';
+    const key = typeof tipoRamo === 'number' ? tipoRamo : parseInt(String(tipoRamo));
+    return tipoRamoLabels[key] || String(tipoRamo);
+  }
+
   // ── Left column: catalog ─────────────────────────────────────────────────
   let searchTerm = $state('');
   let currentPage = $state(1);
@@ -109,7 +122,11 @@
   // ── Edit modal ───────────────────────────────────────────────────────────
   let showEditModal = $state(false);
   let editingAsignacion = $state<AsignacionPlan | null>(null);
-  let editForm = $state({ agno_planificado: 1, semestre_planificado: 1, tipo_ramo: '' });
+  let editForm = $state<{ agno_planificado: number; semestre_planificado: number; tipo_ramo: number | null | string }>({
+    agno_planificado: 1,
+    semestre_planificado: 1,
+    tipo_ramo: '',
+  });
   let editLoading = $state(false);
   let editError = $state<string | null>(null);
 
@@ -118,7 +135,7 @@
     editForm = {
       agno_planificado: asignacion.agno_planificado,
       semestre_planificado: asignacion.semestre_planificado,
-      tipo_ramo: asignacion.tipo_ramo ?? '',
+      tipo_ramo: asignacion.tipo_ramo ? asignacion.tipo_ramo : '',
     };
     editError = null;
     showEditModal = true;
@@ -133,7 +150,17 @@
   function handleEdit() {
     if (!editingAsignacion) return;
     editLoading = true;
-    router.put(`/admin/planes/${plan.id_plan}/asignaturas/${editingAsignacion.id_asignatura}`, editForm, {
+    // Convertir tipo_ramo: cadena vacía o null -> null, cadena numérica -> número
+    let tipoRamoValue: number | null = null;
+    if (editForm.tipo_ramo && editForm.tipo_ramo !== '') {
+      tipoRamoValue = typeof editForm.tipo_ramo === 'number' ? editForm.tipo_ramo : parseInt(String(editForm.tipo_ramo));
+    }
+    const dataToSend = {
+      agno_planificado: editForm.agno_planificado,
+      semestre_planificado: editForm.semestre_planificado,
+      tipo_ramo: tipoRamoValue,
+    };
+    router.put(`/admin/planes/${plan.id_plan}/asignaturas/${editingAsignacion.id_asignatura}`, dataToSend, {
       onSuccess: () => {
         closeEditModal();
         editLoading = false;
@@ -483,7 +510,7 @@
                             <p class="text-xs text-gray-800 font-medium leading-snug mb-1.5">{asignacion.asignatura?.nombre}</p>
                             {#if asignacion.tipo_ramo}
                               <span class="inline-block text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mb-1.5"
-                                >{asignacion.tipo_ramo}</span
+                                >{getTipoRamoLabel(asignacion.tipo_ramo)}</span
                               >
                             {/if}
                             <div class="flex gap-1.5">
@@ -525,7 +552,7 @@
                             <p class="text-xs text-gray-800 font-medium leading-snug mb-1.5">{asignacion.asignatura?.nombre}</p>
                             {#if asignacion.tipo_ramo}
                               <span class="inline-block text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mb-1.5"
-                                >{asignacion.tipo_ramo}</span
+                                >{getTipoRamoLabel(asignacion.tipo_ramo)}</span
                               >
                             {/if}
                             <div class="flex gap-1.5">
@@ -600,9 +627,9 @@
         class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 bg-white"
       >
         <option value="">Sin tipo (opcional)</option>
-        <option value="Electivo Profesional">Electivo Profesional</option>
-        <option value="Plan Común">Plan Común</option>
-        <option value="Formación Profesional">Formación Profesional</option>
+        <option value={1}>Electivo Profesional</option>
+        <option value={2}>Plan Común</option>
+        <option value={3}>Formación Profesional</option>
       </select>
     </div>
   </FormModal>
