@@ -13,6 +13,7 @@ use App\Models\Usuario\UsuarioPermisoEspecial;
 
 use App\Contracts\HasOwnedContext;
 use App\Enums\ContextualModelType;
+use App\Enums\ContextType;
 use App\Services\ContextResolver;
 use App\Support\Permissions;
 use App\Services\Authorization\PermissionContextConstraints;
@@ -91,15 +92,46 @@ class PermissionAssignmentBuilder
       }
 
       // Validar tempranamente que el permiso sea compatible con este recurso (OPCIÓN 2)
-      $contextType = $resolver->getContextType($resource);
-      if ($contextType && !PermissionContextConstraints::isValidAssignment($this->permissionSlug->value, $contextType)) {
+      $rawContextTypes = $resolver->getModelContextTypes($resource);
+      $contextTypeEnums = array_values(array_filter(
+        array_map(fn($t) => ContextType::tryFrom($t), $rawContextTypes)
+      ));
+      if (
+        !empty($contextTypeEnums)
+        &&
+        !PermissionContextConstraints::isAnyTypeValid(
+          $this->permissionSlug,
+          $contextTypeEnums
+        )
+      ) {
+        $valid = implode(
+          ', ',
+          array_map(
+            fn(ContextType $t) => $t->value,
+            PermissionContextConstraints::validContextTypesFor(
+              $this->permissionSlug
+            )
+          )
+        );
+
+        $invalid = implode(
+          ', ',
+          array_map(
+            fn(ContextType $ct) => $ct->value,
+            $contextTypeEnums
+          )
+        );
+
         throw new \InvalidArgumentException(
-          PermissionContextConstraints::invalidAssignmentMessage($this->permissionSlug->value, $contextType)
+          "El permiso '{$this->permissionSlug->value}' no puede asignarse a un contexto de tipo '{$invalid}'. "
+          . "Tipos de contexto válidos: {$valid}."
         );
       }
 
-      $ids = $resolver->getContextId($resource);
-      $this->contextIds = array_unique(array_merge($this->contextIds, $ids));
+      $ids = $resolver->getModelContextId($resource);
+      $this->contextIds = array_unique(
+        array_merge($this->contextIds, $ids)
+      );
     }
 
     return $this;
@@ -124,10 +156,19 @@ class PermissionAssignmentBuilder
     foreach ($ids as $contextId) {
       $context = Contexto::find($contextId);
       if ($context && $context->tipoContexto) {
-        $contextType = $context->tipoContexto->categoria;
-        if (!PermissionContextConstraints::isValidAssignment($this->permissionSlug->value, $contextType)) {
+        $contextType = ContextType::from($context->tipoContexto->categoria);
+
+        if (
+          !PermissionContextConstraints::isValidAssignment(
+            $this->permissionSlug,
+            $contextType
+          )
+        ) {
           throw new \InvalidArgumentException(
-            PermissionContextConstraints::invalidAssignmentMessage($this->permissionSlug->value, $contextType)
+            PermissionContextConstraints::invalidAssignmentMessage(
+              $this->permissionSlug,
+              $contextType
+            )
           );
         }
       }
@@ -182,11 +223,12 @@ class PermissionAssignmentBuilder
   public function onAll(ContextualModelType $modelType): static
   {
     $category = strtolower(class_basename($modelType->value));
+    $contextTypeEnum = ContextType::from($category);
 
     // Validar tempranamente que el permiso sea compatible (OPCIÓN 2)
-    if (!PermissionContextConstraints::isValidAssignment($this->permissionSlug->value, $category)) {
+    if (!PermissionContextConstraints::isValidAssignment($this->permissionSlug, $contextTypeEnum)) {
       throw new \InvalidArgumentException(
-        PermissionContextConstraints::invalidAssignmentMessage($this->permissionSlug->value, $category)
+        PermissionContextConstraints::invalidAssignmentMessage($this->permissionSlug, $contextTypeEnum)
       );
     }
 
@@ -336,10 +378,10 @@ class PermissionAssignmentBuilder
         );
       }
 
-      $contextType = $context->tipoContexto->categoria;
-      if (!PermissionContextConstraints::isValidAssignment($this->permissionSlug->value, $contextType)) {
+      $contextType = ContextType::from($context->tipoContexto->categoria);
+      if (!PermissionContextConstraints::isValidAssignment($this->permissionSlug, $contextType)) {
         throw new \InvalidArgumentException(
-          PermissionContextConstraints::invalidAssignmentMessage($this->permissionSlug->value, $contextType)
+          PermissionContextConstraints::invalidAssignmentMessage($this->permissionSlug, $contextType)
         );
       }
     }

@@ -63,24 +63,55 @@ beforeEach(function () {
     }
 
     // ========== INICIALIZAR BD SI ESTÁ VACÍA ==========
-    // Crear contexto global si no existe (id_contexto es GENERATED ALWAYS, usar first o create sin id)
-    $tipoSystem = TipoContexto::firstOrCreate(
-        [
-            'categoria' => 'system',
-            'tabla_referenciada' => 'GLOBAL'
-        ],
+    // Crear todos los tipos de contexto necesarios
+    TipoContexto::firstOrCreate(
+        ['categoria' => 'global'],
+        ['tabla_referenciada' => 'GLOBAL']
+    );
+    TipoContexto::firstOrCreate(
+        ['categoria' => 'facultad'],
+        ['tabla_referenciada' => 'administrativo.facultad']
+    );
+    TipoContexto::firstOrCreate(
+        ['categoria' => 'departamento'],
+        ['tabla_referenciada' => 'administrativo.departamento']
+    );
+    TipoContexto::firstOrCreate(
+        ['categoria' => 'carrera'],
+        ['tabla_referenciada' => 'administrativo.carrera']
+    );
+    TipoContexto::firstOrCreate(
+        ['categoria' => 'plan'],
+        ['tabla_referenciada' => 'administrativo.plan']
+    );
+    TipoContexto::firstOrCreate(
+        ['categoria' => 'curso'],
+        ['tabla_referenciada' => 'curso.curso']
+    );
+    TipoContexto::firstOrCreate(
+        ['categoria' => 'actividad'],
+        ['tabla_referenciada' => 'curso.actividad']
     );
 
-    $contextoGlobal = DB::transaction(function () use ($tipoSystem) {
-        return Contexto::firstOrCreate(
-            [
-                'contexto_display' => 'Contexto Global | Solo Permisos Administrativos'
-            ],
-            [
-                'id_tipo_contexto' => $tipoSystem->id_tipo_contexto,
-            ]
-        );
-    });
+    // Obtener TipoContexto global
+    $tipoSystem = TipoContexto::where('categoria', 'global')->first();
+
+    // Obtener o crear Contexto global (reutilizar si ya existe)
+    $contextoGlobal = Contexto::where('contexto_display', 'Contexto Global | Solo Permisos Administrativos')
+        ->first();
+
+    if (!$contextoGlobal) {
+        $contextoGlobal = Contexto::create([
+            'contexto_display' => 'Contexto Global | Solo Permisos Administrativos',
+            'id_tipo_contexto' => $tipoSystem->id_tipo_contexto,
+        ]);
+    } else {
+        // Asegurar que tiene el tipo correcto
+        if ($contextoGlobal->id_tipo_contexto !== $tipoSystem->id_tipo_contexto) {
+            $contextoGlobal->update(['id_tipo_contexto' => $tipoSystem->id_tipo_contexto]);
+        }
+    }
+
     $this->contextoGlobal_id = $contextoGlobal->id_contexto;
 
     // Crear usuario admin sistema para creado_por si no existe
@@ -186,13 +217,13 @@ beforeEach(function () {
     ], 'id_asignatura');
 
     // Crear AsignacionPlan (vincula asignatura con plan)
-    DB::table('asignacion_plan')->insert([
+    $asignacionPlanId = DB::table('asignacion_plan')->insertGetId([
         'id_asignatura' => $asignaturaId,
         'id_plan' => $this->plan->id_plan,
         'agno_planificado' => 1,
         'semestre_planificado' => 1,
         'fecha_creacion' => now()
-    ]);
+    ], 'id_asignacion_plan');
 
     // Crear Curso (id_contexto se crea automáticamente por trigger)
     $this->curso = Curso::create([
@@ -202,10 +233,36 @@ beforeEach(function () {
         'agno_real' => 2023,
         'semestre_real' => 1,
         'estado_interno' => 'Activo',
-        'id_plan' => $this->plan->id_plan,
-        'id_asignatura' => $asignaturaId
+        'id_asignacion_plan' => $asignacionPlanId,
     ]);
     $this->curso->refresh(); // Trigger sets id_contexto
+
+    // ========== CREAR PERMISOS NECESARIOS ==========
+    // Crear todos los permisos usados en los tests
+    $permisoWildcard = Permiso::where('slug', '*')->firstOrCreate(
+        ['slug' => '*'],
+        ['nombre' => 'Super Admin Access', 'descripcion' => 'Sistema']
+    );
+
+    $permisoVerCurso = Permiso::where('slug', Permissions::CURSOS_VER->value)->firstOrCreate(
+        ['slug' => Permissions::CURSOS_VER->value],
+        ['nombre' => 'Ver Cursos', 'descripcion' => 'Docencia']
+    );
+
+    $permisoCrearCurso = Permiso::where('slug', Permissions::CURSOS_CREAR->value)->firstOrCreate(
+        ['slug' => Permissions::CURSOS_CREAR->value],
+        ['nombre' => 'Crear Cursos', 'descripcion' => 'Administrativo']
+    );
+
+    $permisoEditarCurso = Permiso::where('slug', Permissions::CURSOS_EDITAR->value)->firstOrCreate(
+        ['slug' => Permissions::CURSOS_EDITAR->value],
+        ['nombre' => 'Editar Cursos', 'descripcion' => 'Administrativo']
+    );
+
+    $permisoVerCarrera = Permiso::where('slug', Permissions::CARRERAS_VER->value)->firstOrCreate(
+        ['slug' => Permissions::CARRERAS_VER->value],
+        ['nombre' => 'Ver Carreras', 'descripcion' => 'Administrativo']
+    );
 
     // ========== USUARIO 1: SUPERADMIN (tiene '*') ==========
     $this->superadmin = Usuario::create([
@@ -239,11 +296,6 @@ beforeEach(function () {
     UsuarioRolAsignacion::create($uraData);
 
     // Asignar permiso '*' al superadmin vía UPE (permiso especial)
-    $permisoWildcard = Permiso::where('slug', '*')->firstOrCreate(
-        ['slug' => '*'],
-        ['nombre' => 'Super Admin Access', 'descripcion' => 'Sistema']
-    );
-
     UsuarioPermisoEspecial::create([
         'id_usuario' => $this->superadmin->id_usuario,
         'id_permiso' => $permisoWildcard->id_permiso,
@@ -273,15 +325,6 @@ beforeEach(function () {
     ]);
 
     // Asignar permiso 'cursos:ver' a rol Profesor (vía AsignaciónRolPermiso)
-    $permisoVerCurso = Permiso::where(
-        'slug',
-        Permissions::CURSOS_VER->value
-    )
-        ->firstOrCreate(
-            ['slug' => Permissions::CURSOS_VER->value],
-            ['nombre' => 'Ver Cursos', 'descripcion' => 'Docencia']
-        );
-
     $this->rolProfesor->permisos()->attach($permisoVerCurso->id_permiso, [
         'puede_delegar_permisos' => false
     ]);
@@ -332,11 +375,6 @@ beforeEach(function () {
     ]);
 
     // Asignar permisos: 'cursos:crear' y 'cursos:ver' al rol Coordinador
-    $permisoCrearCurso = Permiso::where('slug', Permissions::CURSOS_CREAR->value)->firstOrCreate(
-        ['slug' => Permissions::CURSOS_CREAR->value],
-        ['nombre' => 'Crear Cursos', 'descripcion' => 'Administrativo']
-    );
-
     $this->rolCoordinador->permisos()->attach([
         $permisoVerCurso->id_permiso => ['puede_delegar_permisos' => false],
         $permisoCrearCurso->id_permiso => ['puede_delegar_permisos' => true]
@@ -531,15 +569,15 @@ test('contextos se resuelven correctamente', function () {
     $resolver = app(\App\Services\ContextResolver::class);
 
     // Carrera tiene contexto directo
-    $contextosCarrera = $resolver->getContextId($this->carrera);
+    $contextosCarrera = $resolver->getModelContextId($this->carrera);
     expect($contextosCarrera)->toContain($this->carrera->id_contexto);
 
     // Curso tiene contexto directo
-    $contextosCurso = $resolver->getContextId($this->curso);
+    $contextosCurso = $resolver->getModelContextId($this->curso);
     expect($contextosCurso)->toBe($contextosCurso); // Curso tiene su propio contexto
 
     // Usuario tiene contexto global - ahora retorna el ID del contexto global desde GlobalContextService
-    $contextosUsuario = $resolver->getContextId($this->profesor);
+    $contextosUsuario = $resolver->getModelContextId($this->profesor);
     // Global models now resolve to the global context ID via GlobalContextService
     expect($contextosUsuario)->toBe([$this->contextoGlobal_id]);
 });

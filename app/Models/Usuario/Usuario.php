@@ -57,6 +57,19 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
+     * Verificar permiso con resolución automática de contexto desde un recurso.
+     * 
+     * @param Permissions $slug Slug del permiso
+     * @param HasContext|null $resource Instancia del modelo (opcional)
+     * @return bool
+     */
+    public function hasPermissionFor(Permissions $slug, ?HasContext $resource = null): bool
+    {
+        return app(PermissionValidator::class)
+            ->validate($this, $slug, $resource);
+    }
+
+    /**
      * Check if user has a specific permission in a given context.
      * 
      * NOTA: Método existente refactorizado para usar PermissionValidator.
@@ -150,21 +163,6 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
 
         // Retornar true si todos los roles buscados están en los roles del usuario
         return count(array_intersect($normalizedRoles, $roleNames)) === count($normalizedRoles);
-    }
-
-
-
-    /**
-     * Verificar permiso con resolución automática de contexto desde un recurso.
-     * 
-     * @param Permissions $permission Slug del permiso
-     * @param HasContext|null $resource Instancia del modelo (opcional)
-     * @return bool
-     */
-    public function hasPermissionFor(Permissions $permission, ?HasContext $resource = null): bool
-    {
-        return app(PermissionValidator::class)
-            ->validate($this, $permission, $resource);
     }
 
     /**

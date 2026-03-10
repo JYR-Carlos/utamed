@@ -32,6 +32,7 @@ use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Enums\ContextualModelType;
 use App\Support\Permissions;
+use App\Enums\ContextType;
 use App\Services\Authorization\PermissionAssignmentBuilder;
 use App\Services\Authorization\PermissionContextConstraints;
 use App\Services\Authorization\GlobalContextService;
@@ -48,7 +49,7 @@ uses(TestCase::class);
 beforeEach(function () {
   // ---- Seed tipo_contexto ----
   TipoContexto::firstOrCreate(
-    ['categoria' => 'system'],
+    ['categoria' => 'global'],
     ['tabla_referenciada' => 'GLOBAL']
   );
   TipoContexto::firstOrCreate(
@@ -69,7 +70,7 @@ beforeEach(function () {
   );
 
   // ---- Contexto global ----
-  $tipoSystem = TipoContexto::where('categoria', 'system')->first();
+  $tipoSystem = TipoContexto::where('categoria', 'global')->first();
   $contextoGlobal = DB::transaction(fn() => Contexto::firstOrCreate(
     ['contexto_display' => 'Contexto Global | Solo Permisos Administrativos'],
     ['id_tipo_contexto' => $tipoSystem->id_tipo_contexto]
@@ -205,81 +206,86 @@ beforeEach(function () {
 
 describe('PermissionContextConstraints — validContextTypesFor()', function () {
 
-  test('retorna tipos válidos para permisos de carreras (GLOBAL + CARRERA)', function () {
-    $types = PermissionContextConstraints::validContextTypesFor('carreras:ver');
-    expect($types)->toContain('GLOBAL');
-    expect($types)->toContain('CARRERA');
-    expect($types)->not->toContain('CURSO');
-    expect($types)->not->toContain('FACULTAD');
+  test('retorna tipos válidos para permisos de carreras (GLOBAL + CARRERA + DEPARTAMENTO + FACULTAD)', function () {
+    // carreras:ver acepta el contexto propio y toda la cadena de ancestros contextuales
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::CARRERAS_VER);
+    expect($types)->toContain(ContextType::GLOBAL);
+    expect($types)->toContain(ContextType::CARRERA);
+    expect($types)->toContain(ContextType::DEPARTAMENTO);
+    expect($types)->toContain(ContextType::FACULTAD);
+    expect($types)->not->toContain(ContextType::CURSO); // CURSO no es ancestro de CARRERA
   });
 
   test('retorna tipos válidos para permisos de facultades (GLOBAL + FACULTAD)', function () {
-    $types = PermissionContextConstraints::validContextTypesFor('facultades:ver');
-    expect($types)->toContain('GLOBAL');
-    expect($types)->toContain('FACULTAD');
-    expect($types)->not->toContain('CARRERA');
-    expect($types)->not->toContain('CURSO');
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::FACULTADES_VER);
+    expect($types)->toContain(ContextType::GLOBAL);
+    expect($types)->toContain(ContextType::FACULTAD);
+    expect($types)->not->toContain(ContextType::CARRERA);
+    expect($types)->not->toContain(ContextType::CURSO);
   });
 
-  test('retorna tipos válidos para permisos de cursos (GLOBAL + CURSO)', function () {
-    $types = PermissionContextConstraints::validContextTypesFor('cursos:ver');
-    expect($types)->toContain('GLOBAL');
-    expect($types)->toContain('CURSO');
-    expect($types)->not->toContain('CARRERA');
-    expect($types)->not->toContain('FACULTAD');
+  test('retorna tipos válidos para permisos de cursos (GLOBAL + CURSO + cadena de ancestros)', function () {
+    // cursos:ver acepta el contexto propio y toda la cadena: carrera → departamento → facultad
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::CURSOS_VER);
+    expect($types)->toContain(ContextType::GLOBAL);
+    expect($types)->toContain(ContextType::CURSO);
+    expect($types)->toContain(ContextType::CARRERA);
+    expect($types)->toContain(ContextType::DEPARTAMENTO);
+    expect($types)->toContain(ContextType::FACULTAD);
   });
 
   test('permisos de usuarios solo admiten contexto GLOBAL', function () {
-    $types = PermissionContextConstraints::validContextTypesFor('usuarios:ver');
-    expect($types)->toBe(['GLOBAL']);
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::USUARIOS_VER);
+    expect($types)->toBe([ContextType::GLOBAL]);
   });
 
   test('permiso wildcard (*) solo admite contexto GLOBAL', function () {
-    $types = PermissionContextConstraints::validContextTypesFor('*');
-    expect($types)->toBe(['GLOBAL']);
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::GLOBAL_WILDCARD);
+    expect($types)->toBe([ContextType::GLOBAL]);
   });
 
-  test('carreras:crear admite GLOBAL + FACULTAD (parent_action)', function () {
-    $types = PermissionContextConstraints::validContextTypesFor('carreras:crear');
-    expect($types)->toContain('GLOBAL');
-    expect($types)->toContain('FACULTAD');
-    expect($types)->not->toContain('CARRERA');
+  test('carreras:crear admite GLOBAL + DEPARTAMENTO (parent_action)', function () {
+    // carreras:crear → el parent contextual de carrera es departamento
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::CARRERAS_CREAR);
+    expect($types)->toContain(ContextType::GLOBAL);
+    expect($types)->toContain(ContextType::DEPARTAMENTO);
+    expect($types)->not->toContain(ContextType::CARRERA);
+    expect($types)->not->toContain(ContextType::FACULTAD); // facultad no es el parent directo
   });
 
   test('cursos:crear admite GLOBAL + CARRERA (parent_action)', function () {
-    $types = PermissionContextConstraints::validContextTypesFor('cursos:crear');
-    expect($types)->toContain('GLOBAL');
-    expect($types)->toContain('CARRERA');
-    expect($types)->not->toContain('CURSO');
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::CURSOS_CREAR);
+    expect($types)->toContain(ContextType::GLOBAL);
+    expect($types)->toContain(ContextType::CARRERA);
+    expect($types)->not->toContain(ContextType::CURSO);
   });
 
-  test('slug desconocido retorna fallback GLOBAL', function () {
-    $types = PermissionContextConstraints::validContextTypesFor('slug:inexistente');
-    expect($types)->toBe(['GLOBAL']);
+  test('permisos con sub-recursos heredan el contexto del padre y sus ancestros', function () {
+    // cursos/inscripciones:ver → GLOBAL + CURSO + cadena de ancestros (carrera, departamento, facultad)
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::CURSOS_INSCRIPCIONES_VER);
+    expect($types)->toContain(ContextType::GLOBAL);
+    expect($types)->toContain(ContextType::CURSO);
+    expect($types)->toContain(ContextType::CARRERA); // ancestro contextual de curso
+
+    // carreras/planes:editar → GLOBAL + CARRERA + cadena de ancestros (departamento, facultad)
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::CARRERAS_PLANES_EDITAR);
+    expect($types)->toContain(ContextType::GLOBAL);
+    expect($types)->toContain(ContextType::CARRERA);
+    expect($types)->toContain(ContextType::FACULTAD); // ancestro contextual de carrera
   });
 
-  test('permisos con sub-recursos heredan el contexto del padre', function () {
-    // cursos/inscripciones:ver → GLOBAL + CURSO
-    $types = PermissionContextConstraints::validContextTypesFor('cursos/inscripciones:ver');
-    expect($types)->toContain('GLOBAL');
-    expect($types)->toContain('CURSO');
+  test('wildcards de módulo heredan contexto del nodo y sus ancestros', function () {
+    // cursos:* → GLOBAL + CURSO + cadena ancestros
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::CURSOS_ALL);
+    expect($types)->toContain(ContextType::GLOBAL);
+    expect($types)->toContain(ContextType::CURSO);
+    expect($types)->toContain(ContextType::CARRERA); // ancestro contextual de curso
+    expect($types)->toContain(ContextType::FACULTAD); // ancestro contextual
 
-    // carreras/planes:editar → GLOBAL + CARRERA
-    $types = PermissionContextConstraints::validContextTypesFor('carreras/planes:editar');
-    expect($types)->toContain('GLOBAL');
-    expect($types)->toContain('CARRERA');
-  });
-
-  test('wildcards de módulo heredan contexto del nodo', function () {
-    // cursos:* → GLOBAL + CURSO
-    $types = PermissionContextConstraints::validContextTypesFor('cursos:*');
-    expect($types)->toContain('GLOBAL');
-    expect($types)->toContain('CURSO');
-
-    // facultades:* → GLOBAL + FACULTAD
-    $types = PermissionContextConstraints::validContextTypesFor('facultades:*');
-    expect($types)->toContain('GLOBAL');
-    expect($types)->toContain('FACULTAD');
+    // facultades:* → GLOBAL + FACULTAD (facultad no tiene ancestros contextuales)
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::FACULTADES_ALL);
+    expect($types)->toContain(ContextType::GLOBAL);
+    expect($types)->toContain(ContextType::FACULTAD);
   });
 });
 
@@ -290,76 +296,43 @@ describe('PermissionContextConstraints — validContextTypesFor()', function () 
 describe('PermissionContextConstraints — isValidAssignment()', function () {
 
   test('carreras:ver es válido en contexto CARRERA', function () {
-    expect(PermissionContextConstraints::isValidAssignment('carreras:ver', 'CARRERA'))->toBeTrue();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CARRERAS_VER, ContextType::CARRERA))->toBeTrue();
   });
 
   test('carreras:ver es válido en contexto GLOBAL', function () {
-    expect(PermissionContextConstraints::isValidAssignment('carreras:ver', 'GLOBAL'))->toBeTrue();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CARRERAS_VER, ContextType::GLOBAL))->toBeTrue();
   });
 
-  test('carreras:ver NO es válido en contexto CURSO', function () {
-    expect(PermissionContextConstraints::isValidAssignment('carreras:ver', 'CURSO'))->toBeFalse();
+  test('carreras:ver NO es válido en contexto CURSO (no es ancestro de carrera)', function () {
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CARRERAS_VER, ContextType::CURSO))->toBeFalse();
   });
 
-  test('carreras:ver NO es válido en contexto FACULTAD', function () {
-    expect(PermissionContextConstraints::isValidAssignment('carreras:ver', 'FACULTAD'))->toBeFalse();
+  test('carreras:ver es válido en contextos ancestros (DEPARTAMENTO, FACULTAD)', function () {
+    // Nueva regla: se puede asignar un permiso en el contexto del padre
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CARRERAS_VER, ContextType::DEPARTAMENTO))->toBeTrue();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CARRERAS_VER, ContextType::FACULTAD))->toBeTrue();
   });
 
-  test('cursos:ver es válido en contexto CURSO pero no CARRERA', function () {
-    expect(PermissionContextConstraints::isValidAssignment('cursos:ver', 'CURSO'))->toBeTrue();
-    expect(PermissionContextConstraints::isValidAssignment('cursos:ver', 'CARRERA'))->toBeFalse();
+  test('cursos:ver es válido en contexto CURSO y en sus ancestros contextuales', function () {
+    // Nueva regla: se permite asignar permisos de hijos a padres contextuales
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CURSOS_VER, ContextType::CURSO))->toBeTrue();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CURSOS_VER, ContextType::CARRERA))->toBeTrue();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CURSOS_VER, ContextType::DEPARTAMENTO))->toBeTrue();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CURSOS_VER, ContextType::FACULTAD))->toBeTrue();
   });
 
   test('usuarios:ver solo es válido en GLOBAL', function () {
-    expect(PermissionContextConstraints::isValidAssignment('usuarios:ver', 'GLOBAL'))->toBeTrue();
-    expect(PermissionContextConstraints::isValidAssignment('usuarios:ver', 'CARRERA'))->toBeFalse();
-    expect(PermissionContextConstraints::isValidAssignment('usuarios:ver', 'FACULTAD'))->toBeFalse();
-    expect(PermissionContextConstraints::isValidAssignment('usuarios:ver', 'CURSO'))->toBeFalse();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::USUARIOS_VER, ContextType::GLOBAL))->toBeTrue();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::USUARIOS_VER, ContextType::CARRERA))->toBeFalse();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::USUARIOS_VER, ContextType::FACULTAD))->toBeFalse();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::USUARIOS_VER, ContextType::CURSO))->toBeFalse();
   });
 
-  test('la comparación es case-insensitive (recibe minúsculas)', function () {
-    expect(PermissionContextConstraints::isValidAssignment('carreras:ver', 'carrera'))->toBeTrue();
-    expect(PermissionContextConstraints::isValidAssignment('facultades:ver', 'facultad'))->toBeTrue();
-    expect(PermissionContextConstraints::isValidAssignment('cursos:ver', 'curso'))->toBeTrue();
-  });
-
-  test('carreras:crear es válido en FACULTAD (parent_action) pero no en CARRERA', function () {
-    expect(PermissionContextConstraints::isValidAssignment('carreras:crear', 'FACULTAD'))->toBeTrue();
-    expect(PermissionContextConstraints::isValidAssignment('carreras:crear', 'CARRERA'))->toBeFalse();
-  });
-
-  test('isValidAssignment normaliza "system" como GLOBAL (categoria DB del contexto global)', function () {
-    // tipo_contexto.categoria = 'system' para el contexto global en la BD
-    // El config usa 'GLOBAL' como tipo válido → normalizeContextType('system') = 'GLOBAL'
-    expect(PermissionContextConstraints::isValidAssignment('usuarios:ver', 'system'))->toBeTrue();
-    expect(PermissionContextConstraints::isValidAssignment('*', 'system'))->toBeTrue();
-    expect(PermissionContextConstraints::isValidAssignment('carreras:ver', 'system'))->toBeTrue(); // carreras:ver acepta GLOBAL
-    expect(PermissionContextConstraints::isValidAssignment('cursos:ver', 'system'))->toBeTrue();   // cursos:ver acepta GLOBAL
-  });
-});
-
-// ============================================================================
-// GRUPO 2.5: PermissionContextConstraints — normalizeContextType()
-// ============================================================================
-
-describe('PermissionContextConstraints — normalizeContextType()', function () {
-
-  test('normaliza "system" a "GLOBAL"', function () {
-    expect(PermissionContextConstraints::normalizeContextType('system'))->toBe('GLOBAL');
-    expect(PermissionContextConstraints::normalizeContextType('SYSTEM'))->toBe('GLOBAL');
-    expect(PermissionContextConstraints::normalizeContextType('System'))->toBe('GLOBAL');
-  });
-
-  test('normaliza tipos de contexto regulares a mayúsculas sin alias', function () {
-    expect(PermissionContextConstraints::normalizeContextType('carrera'))->toBe('CARRERA');
-    expect(PermissionContextConstraints::normalizeContextType('facultad'))->toBe('FACULTAD');
-    expect(PermissionContextConstraints::normalizeContextType('curso'))->toBe('CURSO');
-    expect(PermissionContextConstraints::normalizeContextType('departamento'))->toBe('DEPARTAMENTO');
-  });
-
-  test('tipos ya en mayúsculas pasan sin cambio', function () {
-    expect(PermissionContextConstraints::normalizeContextType('GLOBAL'))->toBe('GLOBAL');
-    expect(PermissionContextConstraints::normalizeContextType('CARRERA'))->toBe('CARRERA');
+  test('carreras:crear es válido en DEPARTAMENTO (parent_action) pero no en CARRERA ni FACULTAD', function () {
+    // carreras:crear → parent contextual es departamento (no facultad)
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CARRERAS_CREAR, ContextType::DEPARTAMENTO))->toBeTrue();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CARRERAS_CREAR, ContextType::CARRERA))->toBeFalse();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CARRERAS_CREAR, ContextType::FACULTAD))->toBeFalse();
   });
 });
 
@@ -370,23 +343,25 @@ describe('PermissionContextConstraints — normalizeContextType()', function () 
 describe('PermissionContextConstraints — invalidAssignmentMessage()', function () {
 
   test('el mensaje incluye el slug del permiso', function () {
-    $msg = PermissionContextConstraints::invalidAssignmentMessage('carreras:ver', 'CURSO');
+    $msg = PermissionContextConstraints::invalidAssignmentMessage(Permissions::CARRERAS_VER, ContextType::CURSO);
     expect($msg)->toContain("'carreras:ver'");
   });
 
   test('el mensaje incluye el tipo de contexto inválido', function () {
-    $msg = PermissionContextConstraints::invalidAssignmentMessage('carreras:ver', 'CURSO');
-    expect($msg)->toContain("'CURSO'");
+    $msg = PermissionContextConstraints::invalidAssignmentMessage(Permissions::CARRERAS_VER, ContextType::CURSO);
+    expect($msg)->toContain("'curso'");
   });
 
   test('el mensaje incluye los tipos válidos', function () {
-    $msg = PermissionContextConstraints::invalidAssignmentMessage('carreras:ver', 'CURSO');
-    expect($msg)->toContain('GLOBAL');
-    expect($msg)->toContain('CARRERA');
+    $msg = PermissionContextConstraints::invalidAssignmentMessage(Permissions::CARRERAS_VER, ContextType::CURSO);
+    expect($msg)->toContain('global');
+    expect($msg)->toContain('carrera');
+    expect($msg)->toContain('departamento');
+    expect($msg)->toContain('facultad');
   });
 
   test('el mensaje es legible y descriptivo', function () {
-    $msg = PermissionContextConstraints::invalidAssignmentMessage('usuarios:ver', 'FACULTAD');
+    $msg = PermissionContextConstraints::invalidAssignmentMessage(Permissions::USUARIOS_VER, ContextType::FACULTAD);
     expect($msg)->toContain('no puede asignarse');
     expect($msg)->toContain('Tipos de contexto válidos');
   });
@@ -399,29 +374,25 @@ describe('PermissionContextConstraints — invalidAssignmentMessage()', function
 describe('PermissionContextConstraints — getInvalidTypes()', function () {
 
   test('retorna vacío cuando todos los tipos son válidos', function () {
-    $invalid = PermissionContextConstraints::getInvalidTypes('carreras:ver', ['GLOBAL', 'CARRERA']);
+    $invalid = PermissionContextConstraints::getInvalidTypes(Permissions::CARRERAS_VER, [ContextType::GLOBAL , ContextType::CARRERA]);
     expect($invalid)->toBeEmpty();
   });
 
   test('retorna los tipos inválidos cuando hay mezcla', function () {
-    $invalid = PermissionContextConstraints::getInvalidTypes('carreras:ver', ['GLOBAL', 'CURSO', 'FACULTAD']);
-    expect($invalid)->toContain('CURSO');
-    expect($invalid)->toContain('FACULTAD');
-    expect($invalid)->not->toContain('GLOBAL');
+    // carreras:ver acepta GLOBAL, CARRERA, DEPARTAMENTO, FACULTAD — no acepta CURSO
+    $invalid = PermissionContextConstraints::getInvalidTypes(Permissions::CARRERAS_VER, [ContextType::GLOBAL , ContextType::CURSO, ContextType::FACULTAD]);
+    expect($invalid)->toContain(ContextType::CURSO);       // inválido: no es ancestro de carrera
+    expect($invalid)->not->toContain(ContextType::GLOBAL); // válido
+    expect($invalid)->not->toContain(ContextType::FACULTAD); // ahora válido (ancestro contextual)
   });
 
   test('retorna todos cuando ninguno es válido', function () {
-    $invalid = PermissionContextConstraints::getInvalidTypes('usuarios:ver', ['CARRERA', 'FACULTAD', 'CURSO']);
+    $invalid = PermissionContextConstraints::getInvalidTypes(Permissions::USUARIOS_VER, [ContextType::CARRERA, ContextType::FACULTAD, ContextType::CURSO]);
     expect($invalid)->toHaveCount(3);
   });
 
   test('maneja array vacío correctamente', function () {
-    $invalid = PermissionContextConstraints::getInvalidTypes('carreras:ver', []);
-    expect($invalid)->toBeEmpty();
-  });
-
-  test('es case-insensitive con los tipos', function () {
-    $invalid = PermissionContextConstraints::getInvalidTypes('carreras:ver', ['carrera', 'global']);
+    $invalid = PermissionContextConstraints::getInvalidTypes(Permissions::CARRERAS_VER, []);
     expect($invalid)->toBeEmpty();
   });
 });
@@ -433,19 +404,19 @@ describe('PermissionContextConstraints — getInvalidTypes()', function () {
 describe('PermissionContextConstraints — areAllTypesValid()', function () {
 
   test('retorna true cuando todos los tipos son válidos', function () {
-    expect(PermissionContextConstraints::areAllTypesValid('carreras:ver', ['GLOBAL', 'CARRERA']))->toBeTrue();
+    expect(PermissionContextConstraints::areAllTypesValid(Permissions::CARRERAS_VER, [ContextType::GLOBAL , ContextType::CARRERA]))->toBeTrue();
   });
 
   test('retorna false si al menos uno es inválido', function () {
-    expect(PermissionContextConstraints::areAllTypesValid('carreras:ver', ['GLOBAL', 'CURSO']))->toBeFalse();
+    expect(PermissionContextConstraints::areAllTypesValid(Permissions::CARRERAS_VER, [ContextType::GLOBAL , ContextType::CURSO]))->toBeFalse();
   });
 
   test('retorna true para array vacío', function () {
-    expect(PermissionContextConstraints::areAllTypesValid('carreras:ver', []))->toBeTrue();
+    expect(PermissionContextConstraints::areAllTypesValid(Permissions::CARRERAS_VER, []))->toBeTrue();
   });
 
   test('retorna false cuando ninguno es válido', function () {
-    expect(PermissionContextConstraints::areAllTypesValid('usuarios:ver', ['CARRERA', 'CURSO', 'FACULTAD']))->toBeFalse();
+    expect(PermissionContextConstraints::areAllTypesValid(Permissions::USUARIOS_VER, [ContextType::CARRERA, ContextType::CURSO, ContextType::FACULTAD]))->toBeFalse();
   });
 });
 
@@ -456,27 +427,27 @@ describe('PermissionContextConstraints — areAllTypesValid()', function () {
 describe('PermissionContextConstraints — diagnoseAssignment()', function () {
 
   test('retorna diagnóstico válido para asignación correcta', function () {
-    $diag = PermissionContextConstraints::diagnoseAssignment('carreras:ver', 'CARRERA');
+    $diag = PermissionContextConstraints::diagnoseAssignment(Permissions::CARRERAS_VER, ContextType::CARRERA);
 
     expect($diag)->toBeArray();
     expect($diag['slug'])->toBe('carreras:ver');
-    expect($diag['contextType'])->toBe('CARRERA');
+    expect($diag['contextType'])->toBe('carrera');
     expect($diag['valid'])->toBeTrue();
-    expect($diag['validTypes'])->toContain('CARRERA');
+    expect($diag['validTypes'])->toContain('carrera');
     expect($diag['message'])->toContain('✓');
   });
 
   test('retorna diagnóstico inválido para asignación incorrecta', function () {
-    $diag = PermissionContextConstraints::diagnoseAssignment('carreras:ver', 'CURSO');
+    $diag = PermissionContextConstraints::diagnoseAssignment(Permissions::CARRERAS_VER, ContextType::CURSO);
 
     expect($diag['valid'])->toBeFalse();
     expect($diag['message'])->toContain('no puede asignarse');
-    expect($diag['validTypes'])->toContain('CARRERA');
-    expect($diag['validTypes'])->not->toContain('CURSO');
+    expect($diag['validTypes'])->toContain('carrera');
+    expect($diag['validTypes'])->not->toContain('curso');
   });
 
   test('incluye todos los campos requeridos en la estructura', function () {
-    $diag = PermissionContextConstraints::diagnoseAssignment('usuarios:ver', 'GLOBAL');
+    $diag = PermissionContextConstraints::diagnoseAssignment(Permissions::USUARIOS_VER, ContextType::GLOBAL);
 
     expect($diag)->toHaveKeys(['slug', 'contextType', 'valid', 'validTypes', 'message']);
   });
@@ -509,12 +480,12 @@ describe('PermissionAssignmentBuilder — Validación temprana en on()', functio
     expect($upe->id_contexto)->toBe($this->facultad->id_contexto);
   });
 
-  test('on() lanza InvalidArgumentException si el contexto es incompatible (carreras:ver + facultad)', function () {
-    // carreras:ver acepta GLOBAL + CARRERA, NO FACULTAD
+  test('on() lanza InvalidArgumentException si el contexto es incompatible (usuarios:ver + facultad)', function () {
+    // usuarios:ver solo acepta GLOBAL, por lo tanto facultad es incompatible
     expect(
       fn() =>
       $this->recipient
-        ->givePermission(Permissions::CARRERAS_VER)
+        ->givePermission(Permissions::USUARIOS_VER)
         ->on($this->facultad)
     )->toThrow(\InvalidArgumentException::class);
   });
@@ -530,12 +501,12 @@ describe('PermissionAssignmentBuilder — Validación temprana en on()', functio
   });
 
   test('on() con array detecta incompatibilidad en el primer recurso inválido', function () {
-    // carreras:ver no acepta FACULTAD
+    // facultades:ver no acepta CARRERA ni DEPARTAMENTO
     expect(
       fn() =>
       $this->recipient
-        ->givePermission(Permissions::CARRERAS_VER)
-        ->on([$this->facultad, $this->carrera])
+        ->givePermission(Permissions::FACULTADES_VER)
+        ->on([$this->facultad, $this->carrera]) // carrera no es válida para facultades:ver
     )->toThrow(\InvalidArgumentException::class);
   });
 
@@ -561,11 +532,11 @@ describe('PermissionAssignmentBuilder — Validación temprana en on()', functio
   test('el mensaje de error de on() incluye información del permiso y contexto', function () {
     try {
       $this->recipient
-        ->givePermission(Permissions::CARRERAS_VER)
-        ->on($this->facultad);
+        ->givePermission(Permissions::FACULTADES_VER)
+        ->on($this->carrera); // carrera no es válida para facultades:ver
       $this->fail('Se esperaba InvalidArgumentException');
     } catch (\InvalidArgumentException $e) {
-      expect($e->getMessage())->toContain('carreras:ver');
+      expect($e->getMessage())->toContain('facultades:ver');
       expect($e->getMessage())->toContain('Tipos de contexto válidos');
     }
   });
@@ -608,12 +579,13 @@ describe('PermissionAssignmentBuilder — Validación temprana en onAll()', func
     expect($result)->not->toBeEmpty();
   });
 
-  test('onAll() lanza InvalidArgumentException si el tipo es incompatible (carreras:ver + FACULTAD)', function () {
+  test('onAll() lanza InvalidArgumentException si el tipo es incompatible (carreras:ver + CURSO)', function () {
+    // CURSO no es ancestro de CARRERA → incompatible con carreras:ver
     expect(
       fn() =>
       $this->recipient
         ->givePermission(Permissions::CARRERAS_VER)
-        ->onAll(ContextualModelType::FACULTAD)
+        ->onAll(ContextualModelType::CURSO)
     )->toThrow(\InvalidArgumentException::class);
   });
 
@@ -676,22 +648,22 @@ describe('PermissionAssignmentBuilder — Validación temprana en inContext()', 
   });
 
   test('inContext() lanza InvalidArgumentException si el contexto es de tipo incompatible', function () {
-    // carreras:ver acepta GLOBAL + CARRERA, NO FACULTAD
+    // facultades:ver solo acepta GLOBAL + FACULTAD, no acepta CARRERA
     expect(
       fn() =>
       $this->recipient
-        ->givePermission(Permissions::CARRERAS_VER)
-        ->inContext($this->facultad->id_contexto)
+        ->givePermission(Permissions::FACULTADES_VER)
+        ->inContext($this->carrera->id_contexto)
     )->toThrow(\InvalidArgumentException::class);
   });
 
   test('inContext() con array de IDs valida cada uno individualmente', function () {
-    // carreras:ver NO acepta contexto de facultad
+    // facultades:ver NO acepta contexto de carrera
     expect(
       fn() =>
       $this->recipient
-        ->givePermission(Permissions::CARRERAS_VER)
-        ->inContext([$this->carrera->id_contexto, $this->facultad->id_contexto])
+        ->givePermission(Permissions::FACULTADES_VER)
+        ->inContext([$this->facultad->id_contexto, $this->carrera->id_contexto])
     )->toThrow(\InvalidArgumentException::class);
   });
 
@@ -805,8 +777,8 @@ describe('Consistency — Ambas capas coinciden en resultado', function () {
 
     try {
       $this->recipient
-        ->givePermission(Permissions::CARRERAS_VER)
-        ->on($this->facultad)
+        ->givePermission(Permissions::FACULTADES_VER) // solo acepta GLOBAL + FACULTAD
+        ->on($this->carrera) // carrera es incompatible
         ->save();
     } catch (\InvalidArgumentException) {
       // Esperado
@@ -818,7 +790,7 @@ describe('Consistency — Ambas capas coinciden en resultado', function () {
 
   test('PermissionContextConstraints::isValidAssignment coincide con validación del builder', function () {
     // Verificar que la validación estática y la del builder dan el mismo resultado
-    $isValid = PermissionContextConstraints::isValidAssignment('carreras:ver', 'carrera');
+    $isValid = PermissionContextConstraints::isValidAssignment(Permissions::CARRERAS_VER, ContextType::CARRERA);
     expect($isValid)->toBeTrue();
 
     // Y que el builder acepta lo mismo
@@ -830,14 +802,15 @@ describe('Consistency — Ambas capas coinciden en resultado', function () {
   });
 
   test('PermissionContextConstraints::isValidAssignment FALSE coincide con rechazo del builder', function () {
-    $isValid = PermissionContextConstraints::isValidAssignment('carreras:ver', 'facultad');
+    // facultades:ver no acepta CARRERA → isValidAssignment retorna false y el builder lanza excepción
+    $isValid = PermissionContextConstraints::isValidAssignment(Permissions::FACULTADES_VER, ContextType::CARRERA);
     expect($isValid)->toBeFalse();
 
     expect(
       fn() =>
       $this->recipient
-        ->givePermission(Permissions::CARRERAS_VER)
-        ->on($this->facultad)
+        ->givePermission(Permissions::FACULTADES_VER)
+        ->on($this->carrera)
     )->toThrow(\InvalidArgumentException::class);
   });
 });
@@ -846,7 +819,7 @@ describe('Consistency — Ambas capas coinciden en resultado', function () {
 // GRUPO 13: Edge Cases — Casos borde y configuraciones especiales
 // ============================================================================
 
-describe('Edge Cases — Comportamiento en escenarios límite', function () {
+describe('Edge Cases', function () {
 
   test('permiso con contexto GLOBAL puede asignarse via inGlobalContext', function () {
     $upe = $this->recipient
@@ -858,120 +831,112 @@ describe('Edge Cases — Comportamiento en escenarios límite', function () {
   });
 
   test('wildcard global (*) solo acepta contexto global', function () {
-    // Permissions::GLOBAL_WILDCARD = '*' → validContextTypesFor('*') = ['GLOBAL']
-    $types = PermissionContextConstraints::validContextTypesFor('*');
-    expect($types)->toBe(['GLOBAL']);
-    expect(PermissionContextConstraints::isValidAssignment('*', 'CARRERA'))->toBeFalse();
-    expect(PermissionContextConstraints::isValidAssignment('*', 'GLOBAL'))->toBeTrue();
-  });
-
-  test('diagnoseAssignment retorna estructura completa para edge cases', function () {
-    $diag = PermissionContextConstraints::diagnoseAssignment('slug:no_existe', 'TIPO_RANDOM');
-
-    expect($diag['slug'])->toBe('slug:no_existe');
-    expect($diag['contextType'])->toBe('TIPO_RANDOM');
-    // Slug desconocido → fallback a GLOBAL → TIPO_RANDOM no es GLOBAL → inválido
-    expect($diag['valid'])->toBeFalse();
-    expect($diag['validTypes'])->toBe(['GLOBAL']);
+    // Permissions::GLOBAL_WILDCARD = '*' → validContextTypesFor('*') = [ContextType::GLOBAL]
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::GLOBAL_WILDCARD);
+    expect($types)->toBe([ContextType::GLOBAL]);
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::GLOBAL_WILDCARD, ContextType::CARRERA))->toBeFalse();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::GLOBAL_WILDCARD, ContextType::GLOBAL))->toBeTrue();
   });
 
   test('getInvalidTypes maneja tipos mixtos correctamente', function () {
-    // cursos:ver acepta GLOBAL + CURSO
-    $invalid = PermissionContextConstraints::getInvalidTypes('cursos:ver', [
-      'GLOBAL',       // válido
-      'CURSO',        // válido
-      'CARRERA',      // inválido
-      'DEPARTAMENTO', // inválido
-      'FACULTAD',     // inválido
+    // usuarios:ver solo acepta GLOBAL — todos los demás son inválidos
+    $invalid = PermissionContextConstraints::getInvalidTypes(Permissions::USUARIOS_VER, [
+      ContextType::GLOBAL ,       // válido
+      ContextType::CARRERA,       // inválido
+      ContextType::DEPARTAMENTO,  // inválido
+      ContextType::FACULTAD,      // inválido
     ]);
 
     expect($invalid)->toHaveCount(3);
-    expect(array_values($invalid))->toEqualCanonicalizing(['CARRERA', 'DEPARTAMENTO', 'FACULTAD']);
+    expect(array_values($invalid))->toEqualCanonicalizing([ContextType::CARRERA, ContextType::DEPARTAMENTO, ContextType::FACULTAD]);
   });
 
   test('permisos de sub-recurso profundo validan correctamente', function () {
-    // cursos/actividades/grupos:crear → GLOBAL + CURSO
-    $types = PermissionContextConstraints::validContextTypesFor('cursos/actividades/grupos:crear');
-    expect($types)->toContain('GLOBAL');
-    expect($types)->toContain('CURSO');
-    expect($types)->not->toContain('CARRERA');
+    // cursos/actividades/grupos:crear → GLOBAL + CURSO + cadena de ancestros
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR);
+    expect($types)->toContain(ContextType::GLOBAL);
+    expect($types)->toContain(ContextType::CURSO);
+    expect($types)->toContain(ContextType::CARRERA); // ancestro contextual de curso
+    expect($types)->toContain(ContextType::FACULTAD); // ancestro contextual
 
-    expect(PermissionContextConstraints::isValidAssignment('cursos/actividades/grupos:crear', 'CURSO'))->toBeTrue();
-    expect(PermissionContextConstraints::isValidAssignment('cursos/actividades/grupos:crear', 'CARRERA'))->toBeFalse();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, ContextType::CURSO))->toBeTrue();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, ContextType::CARRERA))->toBeTrue();
   });
 
   test('permisos de programas de curso validan en contexto CURSO', function () {
-    $types = PermissionContextConstraints::validContextTypesFor('cursos/programas:agregar');
-    expect($types)->toContain('CURSO');
-    expect($types)->toContain('GLOBAL');
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::CURSOS_PROGRAMAS_AGREGAR);
+    expect($types)->toContain(ContextType::CURSO);
+    expect($types)->toContain(ContextType::GLOBAL);
   });
 });
 
 // ============================================================================
-// GRUPO 14: Tablas de verdad — Matriz completa permiso × contexto
+// GRUPO 14: Tablas de verdad — Matriz completa permiso x contexto
 // ============================================================================
 
-describe('Matriz de compatibilidad — Permisos representativos × Tipos de contexto', function () {
+describe('Matriz de compatibilidad — Permisos representativos x Tipos de contexto', function () {
 
   /**
    * Verifica una matriz completa de combinaciones permiso/contexto.
    * 
-   * Formato: [slug, contextType, expectedValid]
+   * Formato: [Permissions case, contextType, expectedValid]
    */
   $matrix = [
-    // Permisos de carreras
-    ['carreras:ver', 'CARRERA', true],
-    ['carreras:ver', 'GLOBAL', true],
-    ['carreras:ver', 'FACULTAD', false],
-    ['carreras:ver', 'CURSO', false],
-    ['carreras:ver', 'DEPARTAMENTO', false],
+    // Permisos de carreras (acepta propio + ancestros: departamento, facultad)
+    [Permissions::CARRERAS_VER, ContextType::CARRERA, true],
+    [Permissions::CARRERAS_VER, ContextType::GLOBAL , true],
+    [Permissions::CARRERAS_VER, ContextType::DEPARTAMENTO, true],  // ancestro contextual de carrera
+    [Permissions::CARRERAS_VER, ContextType::FACULTAD, true],  // ancestro contextual de carrera
+    [Permissions::CARRERAS_VER, ContextType::CURSO, false], // curso NO es ancestro de carrera
 
-    // Permisos de carreras:crear (parent_action → FACULTAD)
-    ['carreras:crear', 'FACULTAD', true],
-    ['carreras:crear', 'GLOBAL', true],
-    ['carreras:crear', 'CARRERA', false],
-    ['carreras:crear', 'CURSO', false],
+    // Permisos de carreras:crear (parent_action → departamento)
+    [Permissions::CARRERAS_CREAR, ContextType::DEPARTAMENTO, true],
+    [Permissions::CARRERAS_CREAR, ContextType::GLOBAL , true],
+    [Permissions::CARRERAS_CREAR, ContextType::CARRERA, false],
+    [Permissions::CARRERAS_CREAR, ContextType::FACULTAD, false], // facultad no es el parent directo
+    [Permissions::CARRERAS_CREAR, ContextType::CURSO, false],
 
-    // Permisos de facultades
-    ['facultades:ver', 'FACULTAD', true],
-    ['facultades:ver', 'GLOBAL', true],
-    ['facultades:ver', 'CARRERA', false],
-    ['facultades:ver', 'CURSO', false],
+    // Permisos de facultades (solo propio, no tiene ancestros contextuales)
+    [Permissions::FACULTADES_VER, ContextType::FACULTAD, true],
+    [Permissions::FACULTADES_VER, ContextType::GLOBAL , true],
+    [Permissions::FACULTADES_VER, ContextType::CARRERA, false],
+    [Permissions::FACULTADES_VER, ContextType::CURSO, false],
 
-    // Permisos de cursos
-    ['cursos:ver', 'CURSO', true],
-    ['cursos:ver', 'GLOBAL', true],
-    ['cursos:ver', 'CARRERA', false],
-    ['cursos:ver', 'FACULTAD', false],
+    // Permisos de cursos (acepta propio + toda la cadena ancestral)
+    [Permissions::CURSOS_VER, ContextType::CURSO, true],
+    [Permissions::CURSOS_VER, ContextType::GLOBAL , true],
+    [Permissions::CURSOS_VER, ContextType::CARRERA, true],  // ancestro contextual de curso
+    [Permissions::CURSOS_VER, ContextType::DEPARTAMENTO, true],  // ancestro contextual
+    [Permissions::CURSOS_VER, ContextType::FACULTAD, true],  // ancestro contextual
 
-    // Permisos de cursos:crear (parent_action → CARRERA)
-    ['cursos:crear', 'CARRERA', true],
-    ['cursos:crear', 'GLOBAL', true],
-    ['cursos:crear', 'CURSO', false],
-    ['cursos:crear', 'FACULTAD', false],
+    // Permisos de cursos:crear (parent_action → carrera)
+    [Permissions::CURSOS_CREAR, ContextType::CARRERA, true],
+    [Permissions::CURSOS_CREAR, ContextType::GLOBAL , true],
+    [Permissions::CURSOS_CREAR, ContextType::CURSO, false],
+    [Permissions::CURSOS_CREAR, ContextType::FACULTAD, false],
 
     // Permisos de usuarios (solo GLOBAL)
-    ['usuarios:ver', 'GLOBAL', true],
-    ['usuarios:ver', 'CARRERA', false],
-    ['usuarios:ver', 'FACULTAD', false],
-    ['usuarios:ver', 'CURSO', false],
+    [Permissions::USUARIOS_VER, ContextType::GLOBAL , true],
+    [Permissions::USUARIOS_VER, ContextType::CARRERA, false],
+    [Permissions::USUARIOS_VER, ContextType::FACULTAD, false],
+    [Permissions::USUARIOS_VER, ContextType::CURSO, false],
 
-    // Permisos de departamentos
-    ['departamentos:ver', 'DEPARTAMENTO', true],
-    ['departamentos:ver', 'GLOBAL', true],
-    ['departamentos:ver', 'CARRERA', false],
-    ['departamentos:ver', 'FACULTAD', false],
+    // Permisos de departamentos (acepta propio + ancestros: facultad)
+    [Permissions::DEPARTAMENTOS_VER, ContextType::DEPARTAMENTO, true],
+    [Permissions::DEPARTAMENTOS_VER, ContextType::GLOBAL , true],
+    [Permissions::DEPARTAMENTOS_VER, ContextType::FACULTAD, true],  // ancestro contextual de departamento
+    [Permissions::DEPARTAMENTOS_VER, ContextType::CARRERA, false], // carrera no es ancestro de departamento
 
     // Wildcard
-    ['*', 'GLOBAL', true],
-    ['*', 'CARRERA', false],
-    ['*', 'FACULTAD', false],
+    [Permissions::GLOBAL_WILDCARD, ContextType::GLOBAL , true],
+    [Permissions::GLOBAL_WILDCARD, ContextType::CARRERA, false],
+    [Permissions::GLOBAL_WILDCARD, ContextType::FACULTAD, false],
   ];
 
-  foreach ($matrix as [$slug, $contextType, $expectedValid]) {
+  foreach ($matrix as [$permission, $contextType, $expectedValid]) {
     $label = $expectedValid ? '✓' : '✗';
-    test("{$label} {$slug} × {$contextType} → " . ($expectedValid ? 'válido' : 'inválido'), function () use ($slug, $contextType, $expectedValid) {
-      expect(PermissionContextConstraints::isValidAssignment($slug, $contextType))->toBe($expectedValid);
+    test("{$label} {$permission->value} × {$contextType->value} → " . ($expectedValid ? 'válido' : 'inválido'), function () use ($permission, $contextType, $expectedValid) {
+      expect(PermissionContextConstraints::isValidAssignment($permission, $contextType))->toBe($expectedValid);
     });
   }
 });

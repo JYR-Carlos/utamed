@@ -2058,7 +2058,7 @@ EOL;
       // Las FKs pueden ser necesarias para relaciones a través del pivot (ej: id_contexto)
       $excludeCols = array_merge(
         [],  // No excluir ninguna FK
-        [$createdAtColumn, $updatedAtColumn, $softDeleteColumnName],  
+        [$createdAtColumn, $updatedAtColumn, $softDeleteColumnName],
       );
       $additionalCols = array_diff($allPivotCols, $excludeCols);
 
@@ -2899,7 +2899,7 @@ if (!file_exists($permissionsConfigPath)) {
           $slugs[] = [$prefix, $action];
         }
       } elseif (str_starts_with($key, '_')) {
-        // Skip other special keys (_valid_contexts, _valid_parent_context, etc.)
+        // Skip other special keys (_valid_context, _valid_parent_context, etc.)
         continue;
       } elseif (is_array($value)) {
         $child = $prefix ? "{$prefix}/{$key}" : $key;
@@ -3026,6 +3026,137 @@ PHP;
     echo color("  ✓ app/Support/Permissions.php\n", 'green');
   } else {
     echo "    [DRY-RUN] Permissions: " . relativePath($permissionsOutPath, $projectRoot) . "\n";
+  }
+
+  // ==================================================================================
+  // PASO 9.3: VALIDAR QUE TODOS LOS PERMISOS USEN TIPOS DE CONTEXTO CONFIGURADOS
+  // ==================================================================================
+  //
+  // OBJETIVO: Asegurar que cada '_valid_context' y '_valid_parent_context' en el
+  // árbol de permisos use un tipo declarado en '_valid_context_types'.
+  // Lanza RuntimeException con la ruta exacta si encuentra un tipo no configurado.
+  // ==================================================================================
+
+  echo color("Validando tipos de contexto en permisos...\n", 'bold');
+
+  $validContextTypes = $permDefs['_valid_context_types'] ?? null;
+  if ($validContextTypes === null) {
+    throw new \RuntimeException(
+      "❌ permissions_config.php no tiene '_valid_context_types'. Agrégalo como primera clave del array.\n"
+    );
+  }
+
+  $contextTypeValidator = function (array $node, string $path) use (&$contextTypeValidator, $validContextTypes): void {
+    foreach (['_valid_context', '_valid_parent_context'] as $key) {
+      if (isset($node[$key])) {
+        $val = $node[$key];
+        if (!isset($validContextTypes[$val])) {
+          $valid = implode(', ', array_keys($validContextTypes));
+          throw new \RuntimeException(
+            "❌ Tipo de contexto inválido en '{$path}.{$key}': '{$val}'.\n" .
+            "   Tipos configurados en '_valid_context_types': {$valid}\n"
+          );
+        }
+      }
+    }
+    foreach ($node as $subKey => $subValue) {
+      if ($subKey[0] === '_' || !is_array($subValue)) continue;
+      $contextTypeValidator($subValue, "{$path}.{$subKey}");
+    }
+  };
+
+  foreach ($permDefs as $rootKey => $rootValue) {
+    if ($rootKey[0] === '_' || !is_array($rootValue)) continue;
+    $contextTypeValidator($rootValue, $rootKey);
+  }
+
+  echo color("  ✓ Todos los permisos usan tipos de contexto válidos\n", 'green');
+
+  // ==================================================================================
+  // PASO 9.5: GENERAR app/Enums/ContextType.php (Enum de tipos de contexto)
+  // ==================================================================================
+  //
+  // OBJETIVO: Leer los tipos de contexto declarados explícitamente en
+  // '_valid_context_types' de permissions_config.php y generar un enum PHP con
+  // backing string para cada tipo. Elimina magic strings en validaciones de contexto.
+  //
+  // EJEMPLO:
+  //   ContextType::CARRERA->value          → 'carrera'
+  //   ContextType::GLOBAL->value           → 'global'
+  //
+  // FUENTE: Clave '_valid_context_types' en permissions_config.php (validada en PASO 9.3).
+  // REGENERACIÓN: El archivo SE SOBRESCRIBE en cada ejecución.
+  // ==================================================================================
+
+  echo color("Generando ContextType.php...\n", 'bold');
+
+  $contextTypeOutPath = app_path('Enums/ContextType.php');
+
+  // Leer tipos desde config — ya validados en PASO 9.3
+  $allContextTypes = array_keys($permDefs['_valid_context_types']);
+  sort($allContextTypes); // orden alfabético
+  // Mover 'global' al frente
+  $allContextTypes = array_merge(['global'], array_diff($allContextTypes, ['global']));
+
+  // Descripciones para cada tipo de contexto conocido
+  $contextTypeDescriptions = [
+    'global' => 'Contexto global — aplica a nivel sistema sin restricción de entidad',
+    'facultad' => 'Contexto de facultad — restricción a una facultad específica',
+    'departamento' => 'Contexto de departamento — restricción a un departamento específico',
+    'carrera' => 'Contexto de carrera — restricción a una carrera específica',
+    'curso' => 'Contexto de curso — restricción a un curso específico',
+  ];
+
+  // Generar casos del enum
+  $contextTypeCases = '';
+  foreach ($allContextTypes as $ctxType) {
+    $caseName = strtoupper($ctxType);
+    $description = $contextTypeDescriptions[$ctxType] ?? "Contexto de tipo '{$ctxType}'";
+    $contextTypeCases .= "{$tab}// {$description}\n";
+    $contextTypeCases .= "{$tab}case {$caseName} = '{$ctxType}';\n\n";
+  }
+  $contextTypeCases = rtrim($contextTypeCases);
+
+  $contextTypeContent = <<<PHP
+<?php
+
+namespace App\Enums;
+
+/**
+ * Tipos de contexto válidos para asignación de permisos y roles.
+ *
+ * AUTOGENERADO desde {$permissionsConfigRelative} — NO EDITAR MANUALMENTE.
+ * Para agregar tipos, editar {$permissionsConfigRelative} y regenerar con:
+ *   php scripts/generate_models.php
+ *
+ * Los valores de backing string corresponden EXACTAMENTE a la columna
+ * `categoria` de la tabla `usuario.tipo_contexto` en la base de datos.
+ *
+ * Úsala en PermissionContextConstraints para eliminar magic strings y
+ * garantizar en tiempo de compilación que sólo se pasan tipos válidos:
+ *
+ * @example
+ *   // Beneficios type-safe, IDE-friendly y con autocompletado:
+ *   PermissionContextConstraints::isValidAssignment(\$perm, ContextType::CARRERA);
+ *
+ *   // Para convertir desde DB:
+ *   \$contextType = ContextType::from(\$context->tipoContexto->categoria);
+ */
+enum ContextType: string
+{
+{$contextTypeCases}
+}
+PHP;
+
+  if (!$dryRun) {
+    if (!is_dir(app_path('Enums'))) {
+      mkdir(app_path('Enums'), 0755, true);
+    }
+    file_put_contents($contextTypeOutPath, $contextTypeContent);
+    echo color("  ✓ app/Enums/ContextType.php (" . count($allContextTypes) . " tipos: " . implode(', ', $allContextTypes) . ")\n", 'green');
+  } else {
+    echo "    [DRY-RUN] ContextType: " . relativePath($contextTypeOutPath, $projectRoot) . "\n";
+    echo "    [DRY-RUN] Tipos detectados: " . implode(', ', $allContextTypes) . "\n";
   }
 }
 
@@ -3317,13 +3448,16 @@ echo "\n";
 //   slug_de_permiso => [tipos_de_contexto_validos...]
 //
 // Reglas de resolución (aplicadas con recorsión del árbol):
-//   _valid_contexts       (en el nodo o ancestro) → contexto "propio"
+//   _valid_context       (en el nodo o ancestro) → contexto "propio"
 //   _valid_parent_context (en el nodo)            → contexto del padre para _parent_actions
-//   _actions              → ['GLOBAL', ownCtx]    o ['GLOBAL'] si no hay ownCtx
-//   _parent_actions       → ['GLOBAL', parentCtx] o ['GLOBAL'] si no hay parentCtx
+//   _actions              → ['global', ownCtx]    o ['global'] si no hay ownCtx
+//   _parent_actions       → ['global', parentCtx] o ['global'] si no hay parentCtx
 //   :* wildcards          → generados automáticamente por cada nodo con acciones
 //
 // REGENERACIÓN: El archivo SE SOBRESCRIBE en cada ejecución.
+//
+// ACTUALMENTE SOLO SOPORTA UN CONTEXTO VÁLIDO POR NODO, Y UNO VÁLIDO POR PADRE.
+//
 // ==================================================================================
 
 echo color("Generando permission-context-metadata.php...\n", 'bold');
@@ -3333,31 +3467,79 @@ $pcmOutPath = config_path('permission-context-metadata.php');
 if (empty($permDefs)) {
   echo color("  \u26a0 \$permDefs no disponible \u2014 asegúrate de ejecutar PASO 9 (Permissions.php) antes\n", 'yellow');
 } else {
-  $flattenContexts = function (array $node, string $path, ?string $inheritedOwnCtx = null) use (&$flattenContexts): array {
+  // Construir mapa de herencia de tipos de contexto desde las definiciones de permisos.
+  // Sube por _valid_parent_context de cada nodo raíz para determinar la cadena de ancestros.
+  // Ej: ['CURSO' => 'CARRERA', 'CARRERA' => 'FACULTAD']
+  // Ver: database-model\init_scripts\03-inserts\01-crear-contextos-permisos.sql
+  $contextParentMap = [];
+  foreach ($permDefs as $root => $groupDef) {
+    if (!is_array($groupDef))
+      continue;
+    if (isset($groupDef['_valid_context']) && isset($groupDef['_valid_parent_context'])) {
+      $childCtx = strtolower($groupDef['_valid_context']);
+      $parentCtx = strtolower($groupDef['_valid_parent_context']);
+      $contextParentMap[$childCtx] = $parentCtx;
+    }
+  }
+
+  // Resolver la cadena completa de tipos de contexto desde un tipo dado hasta la raíz.
+  // Retorna array ordenado de más específico a más general, sin incluir GLOBAL
+  // (GLOBAL siempre se antepone por separado).
+  // Ej: getAncestorChain('CURSO') → ['CURSO', 'CARRERA', 'FACULTAD']
+  $getAncestorChain = function (string $ctxType) use (&$contextParentMap): array {
+    $chain = [];
+    $current = $ctxType;
+    while ($current !== null && !in_array($current, $chain)) {
+      $chain[] = $current;
+      $current = $contextParentMap[$current] ?? null;
+    }
+    return $chain;
+  };
+
+  // Recolector de slugs con _no_inherit (no expanden ancestros al validar en runtime)
+  $noInheritSlugs = [];
+
+  $flattenContexts = function (array $node, string $path, ?string $inheritedOwnCtx = null) use (&$flattenContexts, &$getAncestorChain, &$noInheritSlugs): array {
     $result = [];
 
-    $ownCtx = isset($node['_valid_contexts'])
-      ? strtoupper($node['_valid_contexts'])
+    $ownCtx = isset($node['_valid_context'])
+      ? strtolower($node['_valid_context'])
       : $inheritedOwnCtx;
     $parentCtx = isset($node['_valid_parent_context'])
-      ? strtoupper($node['_valid_parent_context'])
+      ? strtolower($node['_valid_parent_context'])
       : null;
+    $noInherit = !empty($node['_no_inherit']);
 
     $hasActions = !empty($node['_actions']) || !empty($node['_parent_actions']);
 
-    // Wildcard :* para este nivel (usa el contexto propio)
+    // Wildcard :* para este nivel (usa contexto propio + cadena de ancestros)
     if ($hasActions) {
-      $result["{$path}:*"] = $ownCtx ? ['GLOBAL', $ownCtx] : ['GLOBAL'];
+      $types = $ownCtx
+        ? array_merge(['global'], $getAncestorChain($ownCtx))
+        : ['global'];
+      $result["{$path}:*"] = array_values(array_unique($types));
+      if ($noInherit)
+        $noInheritSlugs[] = "{$path}:*";
     }
 
-    // _actions → contexto propio (o heredado)
+    // _actions → contexto propio + cadena completa de ancestros
     foreach ($node['_actions'] ?? [] as $action) {
-      $result["{$path}:{$action}"] = $ownCtx ? ['GLOBAL', $ownCtx] : ['GLOBAL'];
+      $types = $ownCtx
+        ? array_merge(['global'], $getAncestorChain($ownCtx))
+        : ['global'];
+      $result["{$path}:{$action}"] = array_values(array_unique($types));
+      if ($noInherit)
+        $noInheritSlugs[] = "{$path}:{$action}";
     }
 
-    // _parent_actions → contexto padre explícito
+    // _parent_actions → solo contexto padre (sin cadena de ancestros del padre)
     foreach ($node['_parent_actions'] ?? [] as $action) {
-      $result["{$path}:{$action}"] = $parentCtx ? ['GLOBAL', $parentCtx] : ['GLOBAL'];
+      $result["{$path}:{$action}"] = $parentCtx ? ['global', $parentCtx] : ['global'];
+    }
+
+    // _no_inherit_actions → acciones individuales que no heredan contexto
+    foreach ($node['_no_inherit_actions'] ?? [] as $action) {
+      $noInheritSlugs[] = "{$path}:{$action}";
     }
 
     // Recursión: subnodos heredan ownCtx
@@ -3378,7 +3560,7 @@ if (empty($permDefs)) {
     $allPermContexts = array_merge($allPermContexts, $flattenContexts($groupDef, $root));
   }
   // Wildcard global
-  $allPermContexts['*'] = ['GLOBAL'];
+  $allPermContexts['*'] = ['global'];
 
   // Construir entradas del array PHP
   $pcmEntries = '';
@@ -3394,16 +3576,48 @@ if (empty($permDefs)) {
 // Fuente de verdad: scripts/permissions_config.php
 //
 // Mapa plano: slug_de_permiso => tipos_de_contexto_válidos[]
+// El tipo sigue la convención definida seguida por la tabla usuario.contexto columna "categoria"
 //
 // Resolución:
-//   _actions        → ['GLOBAL', _valid_contexts del nodo/ancestro]
-//   _parent_actions → ['GLOBAL', _valid_parent_context del nodo]
-//   Sin contexto    → ['GLOBAL']
-//   Wildcards :*    → contexto propio del nodo
+//   _actions        → ['global', _valid_context del nodo/ancestro, ...cadena de ancestros]
+//   _parent_actions → ['global', _valid_parent_context del nodo]
+//   Sin contexto    → ['global']
+//   Wildcards :*    → contexto propio del nodo + cadena de ancestros
+//
+// La cadena de ancestros se infiere recursivamente via _valid_parent_context de los nodos raíz.
+// Ej: cursos._valid_parent_context = 'carrera', carreras._valid_parent_context = 'facultad'
+//   → cursos:ver = ['global', 'curso', 'carrera', 'departamento', 'facultad']
+//
+// NOTA: Los permisos con contexto válido 'GLOBAL' (por defecto no poseen el atributo)
+// NO pueden definir _parent_actions porque no existe un "padre del padre" en la jerarquía de contextos.
+// Los _parent_actions solo tienen sentido en contextos jerárquicos donde hay ancestros definidos.
 //
 // Consumido por: App\\Support\\PermissionContextConstraints
 return [
 {$pcmEntries}];
+PHP;
+
+  // Construir config/permission-no-inherit.php con slugs que NO expanden ancestros en runtime
+  $noInheritEntries = '';
+  $noInheritSlugs = array_unique($noInheritSlugs);
+  sort($noInheritSlugs);
+  foreach ($noInheritSlugs as $slug) {
+    $noInheritEntries .= "{$tab}'{$slug}',\n";
+  }
+
+  $noInheritContent = <<<PHP
+<?php
+
+// AUTOGENERADO por scripts/generate_models.php — NO EDITAR MANUALMENTE.
+// Fuente de verdad: scripts/permissions_config.php (_no_inherit, _no_inherit_actions)
+//
+// Lista de slugs que NO expanden la cadena de contextos ancestros en runtime.
+// Cuando un permiso está en esta lista, PermissionValidator solo verifica
+// el contexto exacto del recurso, sin subir por id_contexto_padre.
+//
+// Consumido por: App\\Services\\Authorization\\PermissionValidator
+return [
+{$noInheritEntries}];
 PHP;
 
   if (!$dryRun) {
@@ -3412,8 +3626,15 @@ PHP;
     } else {
       echo color("⚠ Error al guardar permission-context-metadata.php\n", 'red');
     }
+    $noInheritOutPath = config_path('permission-no-inherit.php');
+    if (file_put_contents($noInheritOutPath, $noInheritContent)) {
+      echo color("✓ permission-no-inherit.php guardado en: " . relativePath($noInheritOutPath, $projectRoot) . "\n", 'green');
+    } else {
+      echo color("⚠ Error al guardar permission-no-inherit.php\n", 'red');
+    }
   } else {
     echo "[DRY-RUN] permission-context-metadata.php: " . relativePath($pcmOutPath, $projectRoot) . "\n";
+    echo "[DRY-RUN] permission-no-inherit.php: " . relativePath(config_path('permission-no-inherit.php'), $projectRoot) . "\n";
   }
 }
 

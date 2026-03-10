@@ -17,7 +17,6 @@
 
 use Carbon\Carbon;
 use App\Models\Administrativo\Facultad;
-use App\Models\Administrativo\Departamento;
 use App\Models\Administrativo\Carrera;
 use App\Models\Usuario\Usuario;
 use App\Enums\ContextualModelType;
@@ -43,7 +42,7 @@ uses(TestCase::class);
 beforeEach(function () {
   // ---- Seed tipo_contexto (la BD de testing no ejecuta inserts) ----
   TipoContexto::firstOrCreate(
-    ['categoria' => 'system'],
+    ['categoria' => 'global'],
     ['tabla_referenciada' => 'GLOBAL']
   );
   TipoContexto::firstOrCreate(
@@ -60,10 +59,10 @@ beforeEach(function () {
   );
 
   // ---- Contexto global (requerido por FK de algunos registros) ----
-  $tipoSystem = TipoContexto::where('categoria', 'system')->first();
+  $tipoGlobal = TipoContexto::where('categoria', 'global')->first();
   $contextoGlobal = DB::transaction(fn() => Contexto::firstOrCreate(
     ['contexto_display' => 'Contexto Global | Solo Permisos Administrativos'],
-    ['id_tipo_contexto' => $tipoSystem->id_tipo_contexto]
+    ['id_tipo_contexto' => $tipoGlobal->id_tipo_contexto]
   ));
   $this->contextoGlobal_id = $contextoGlobal->id_contexto;
 

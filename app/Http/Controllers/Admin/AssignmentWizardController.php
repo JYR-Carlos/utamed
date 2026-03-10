@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Enums\ContextualModelType;
+use App\Enums\ContextType;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
@@ -160,17 +161,17 @@ class AssignmentWizardController extends Controller
       ->orderBy('p.slug')
       ->get()
       ->map(fn($row) => [
-        'id_permiso'             => $row->id_permiso,
-        'slug'                   => $row->slug,
-        'nombre'                 => $row->nombre,
-        'descripcion'            => $row->descripcion,
+        'id_permiso' => $row->id_permiso,
+        'slug' => $row->slug,
+        'nombre' => $row->nombre,
+        'descripcion' => $row->descripcion,
         'puede_delegar_permisos' => (bool) $row->puede_delegar_permisos,
       ])
       ->values();
 
     return response()->json([
-      'id_rol'   => $rol->id_rol,
-      'nombre'   => $rol->nombre,
+      'id_rol' => $rol->id_rol,
+      'nombre' => $rol->nombre,
       'permisos' => $permisos,
     ]);
   }
@@ -185,11 +186,16 @@ class AssignmentWizardController extends Controller
     $permissions = Permiso::orderBy('slug')
       ->get()
       ->map(fn($p) => [
-        'id_permiso'          => $p->id_permiso,
-        'slug'                => $p->slug,
-        'nombre'              => $p->nombre,
-        'descripcion'         => $p->descripcion,
-        'valid_context_types' => PermissionContextConstraints::validContextTypesFor($p->slug),
+        'id_permiso' => $p->id_permiso,
+        'slug' => $p->slug,
+        'nombre' => $p->nombre,
+        'descripcion' => $p->descripcion,
+        'valid_context_types' => array_map(
+          fn($t) => $t->value,
+          PermissionContextConstraints::validContextTypesFor(
+            Permissions::from($p->slug)
+          )
+        ),
       ]);
 
     // Agrupar por módulo (primer segmento del slug, antes de ":" o "/")
@@ -343,41 +349,44 @@ class AssignmentWizardController extends Controller
     // Resolver el slug del permiso desde su ID
     $permiso = Permiso::findOrFail(id: $validated['permission_id']);
 
-    // Validar que el tipo de contexto sea válido para este permiso
-    $contextType = strtoupper($validated['context_type']);
-    if (!PermissionContextConstraints::isValidAssignment($permiso->slug, $contextType)) {
-      return response()->json([
-        'success' => false,
-        'message' => PermissionContextConstraints::invalidAssignmentMessage($permiso->slug, $contextType),
-      ], 422);
-    }
-
-    // Buscar el caso del enum Permissions que coincida con el slug
-    $permissionEnum = null;
-    foreach (Permissions::cases() as $case) {
-      if ($case->value === $permiso->slug) {
-        $permissionEnum = $case;
-        break;
-      }
-    }
-
+    // Resolver el enum Permissions desde el slug de la BD
+    $permissionEnum = Permissions::tryFrom($permiso->slug);
     if (!$permissionEnum) {
       return response()->json([
         'error' => "No se encontró el enum de permiso para slug '{$permiso->slug}'",
       ], 400);
     }
 
+    // Validar que el tipo de contexto sea válido para este permiso
+    $contextTypeString = strtolower($validated['context_type']);
+    $contextType = ContextType::tryFrom($contextTypeString);
+    if ($contextType === null) {
+      return response()->json([
+        'success' => false,
+        'message' => "Tipo de contexto inválido: '{$contextTypeString}'.",
+      ], 422);
+    }
+    if (!PermissionContextConstraints::isValidAssignment($permissionEnum, $contextType)) {
+      return response()->json([
+        'success' => false,
+        'message' => PermissionContextConstraints::invalidAssignmentMessage($permissionEnum, $contextType),
+      ], 422);
+    }
+
     try {
       $builder = $usuario->givePermission($permissionEnum);
 
       // Resolver contexto ($contextType ya fue validado arriba)
-      if ($contextType === 'GLOBAL') {
+      if ($contextType === ContextType::GLOBAL) {
         $globalContextId = app(GlobalContextService::class)->getContextId();
         $builder->inContext($globalContextId);
       } else {
-        $enumCase = $this->resolveContextualModelType($contextType);
+        $enumCase = $this->resolveContextualModelType($contextType->name);
         if (!$enumCase) {
-          return response()->json(['error' => 'Tipo de contexto no válido'], 400);
+          return response()->json(
+            ['error' => 'Tipo de contexto no válido'],
+            400
+          );
         }
 
         $modelClass = $enumCase->modelClass();

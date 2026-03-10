@@ -44,16 +44,6 @@ trait HasBasePolicyMethods
     return null;
   }
 
-  /**
-   * Verifica si el usuario es superadmin.
-   * 
-   * @deprecated Usar directamente $user->isSuperAdmin() en su lugar.
-   */
-  protected function isSuperAdmin(Usuario $user): bool
-  {
-    return $user->isSuperAdmin();
-  }
-
   // =========================================================
   // HOOKS CUSTOMIZABLES (Patrón 1)
   // Sobrescribir en la Extended Policy para lógica extra.

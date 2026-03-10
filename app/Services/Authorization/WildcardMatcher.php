@@ -80,9 +80,13 @@ class WildcardMatcher
      * Verificar si un recurso es descendiente (hijo, nieto, etc.) de otro recurso.
      *
      * 'cursos/inscripciones'      es descendiente de 'cursos'              ✓
+     * 
      * 'cursos/actividades/grupos' es descendiente de 'cursos'              ✓
+     * 
      * 'cursos/actividades/grupos' es descendiente de 'cursos/actividades'  ✓
+     * 
      * 'cursos'                    NO es descendiente de 'cursos'           (mismo nivel)
+     * 
      * 'cursos'                    NO es descendiente de 'cursos/sub'       (dirección inversa)
      *
      * @param string $requestedResource Ruta del recurso solicitado (ej: 'cursos/inscripciones')
@@ -103,9 +107,12 @@ class WildcardMatcher
      * Soporta rutas anidadas.
      *
      * 'facultad:editar'            → 'facultad'
+     * 
      * 'cursos/inscripciones:ver'   → 'cursos/inscripciones'
+     * 
      * 'facultad:*'                 → 'facultad'
-     * '*'                          → '*'
+     * 
+     * '\*'                          → '\*'
      *
      * @param Permissions $slug
      * @return string
@@ -124,8 +131,11 @@ class WildcardMatcher
      * Extraer los segmentos de la ruta del recurso.
      *
      * 'cursos/inscripciones:ver'       → ['cursos', 'inscripciones']
+     * 
      * 'cursos/actividades/grupos:ver'  → ['cursos', 'actividades', 'grupos']
+     *
      * 'facultad:ver'                   → ['facultad']
+     *
      * '*'                              → ['*']
      *
      * @param Permissions $slug
@@ -141,9 +151,12 @@ class WildcardMatcher
      * Extraer la acción del slug (parte después de ':').
      *
      * 'facultad:editar'           → 'editar'
+     * 
      * 'cursos/inscripciones:ver'  → 'ver'
-     * 'facultad:*'                → '*'
-     * '*'                         → null
+     *
+     * 'facultad:\*'                → '\*'
+     *
+     * '\*'                         → null
      *
      * @param Permissions $slug
      * @return string|null

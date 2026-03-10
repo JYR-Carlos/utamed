@@ -14,7 +14,7 @@
 //   Por defecto, cada permiso es GLOBAL (sin contexto específico).
 //   Para permisos que aplican a contextos específicos (ej: facultades, cursos; 
 //   definidos de antemano en la tabla "tipo_contextos"), se indica el tipo 
-//   de contexto en el atributo especial '_valid_contexts' del recurso raíz. 
+//   de contexto en el atributo especial '_valid_context' del recurso raíz. 
 //   
 //   Esto habilita la asignación de permisos en contextos específicos de ese tipo, 
 //   ej: asignar cursos:ver en el contexto de un Curso específico, 
@@ -24,7 +24,7 @@
 //
 // FORMATO:
 //   'recursoRaiz' => [
-//     '_valid_contexts' => 'tipo_contexto',
+//     '_valid_context' => 'tipo_contexto',
 //       // Tipo de contexto propio del recurso (nombre de tabla en generated_context_hierarchies.php).
 //       // Todas las _actions de este grupo (y sub-grupos) se pueden asignar en ese tipo
 //       // de contexto o en GLOBAL. Sin este atributo: solo GLOBAL.
@@ -36,7 +36,7 @@
 //
 //     '_actions' => ['accion1', 'accion2'],
 //       // Acciones que se realizan SOBRE una instancia de este recurso.
-//       // Contexto válido: ['GLOBAL', _valid_contexts (propio o heredado del ancestro)].
+//       // Contexto válido: ['GLOBAL', _valid_context (propio o heredado del ancestro)].
 //       // Ej: cursos:ver → válido en GLOBAL o en el contexto del Curso específico.
 //
 //     '_parent_actions' => ['accionX'],
@@ -46,7 +46,7 @@
 //       // Ej: cursos:crear → válido en GLOBAL o en el contexto de una Carrera.
 //
 //     'subrecurso' => [ '_actions' => [...] ],
-//       // Sub-grupos anidados heredan el _valid_contexts del ancestro más cercano.
+//       // Sub-grupos anidados heredan el _valid_context del ancestro más cercano.
 //   ],
 //
 // Para agregar permisos: editar este archivo y correr:
@@ -60,6 +60,23 @@
 // ==================================================================================
 
 return [
+
+  // ===========================================================================
+  // TIPOS DE CONTEXTO VÁLIDOS
+  // ===========================================================================
+  // Fuente de verdad para todos los tipos de contexto del sistema.
+  // Todos los valores en '_valid_context' y '_valid_parent_context' de este
+  // archivo DEBEN estar definidos aquí. El generador lanzará error si no.
+  //
+  // Formato: 'tipo' => 'tabla_referenciada_en_bd'
+  '_valid_context_types' => [
+    'global'       => 'GLOBAL',
+    'facultad'     => 'administrativo.facultad',
+    'departamento' => 'administrativo.departamento',
+    'carrera'      => 'administrativo.carrera',
+    'curso'        => 'curso.curso',
+    'actividad'    => 'actividad.actividad',
+  ],
 
   // ===========================================================================
   // USUARIOS
@@ -103,45 +120,50 @@ return [
   // ESTRUCTURA ACADÉMICA
   // ===========================================================================
   'facultades' => [
-    '_valid_contexts' => 'facultad',
+    '_valid_context' => 'facultad',
+    '_parent_actions' => [
+      'crear',
+      'eliminar'
+    ],
     '_actions' => [
       'ver',
-      'crear',
       'editar',
-      'eliminar'
     ],
   ],
 
   'departamentos' => [
-    '_valid_contexts' => 'departamento',
+    '_valid_context' => 'departamento',
+    '_valid_parent_context' => 'facultad',
+    '_parent_actions' => [
+      'crear',
+      'eliminar'
+    ],
     '_actions' => [
       'ver',
-      'crear',
       'editar',
-      'eliminar'
     ],
   ],
 
   'carreras' => [
-    '_valid_contexts' => 'carrera',
-    '_valid_parent_context' => 'facultad',
+    '_valid_context' => 'carrera',
+    '_valid_parent_context' => 'departamento',
     '_parent_actions' => [
       'crear',
+      'eliminar'
     ],
     '_actions' => [
       'ver',
       'editar',
-      'eliminar'
     ],
     'planes' => [
       '_valid_parent_context' => 'carrera',
       '_parent_actions' => [
         'crear',
+        'eliminar'
       ],
       '_actions' => [
         'editar',
-        'eliminar',
-        'asignacion_asignaturas'
+        'asignacion_asignaturas',
       ],
 
       'ver' => [
@@ -166,7 +188,7 @@ return [
   // CURSOS
   // ===========================================================================
   'cursos' => [
-    '_valid_contexts' => 'curso',
+    '_valid_context' => 'curso',
     '_valid_parent_context' => 'carrera',
     '_parent_actions' => [
       'crear',

@@ -35,14 +35,25 @@ uses(TestCase::class);
 
 beforeEach(function () {
 
-  // ---- Contexto global (necesario para UsuarioPermisoEspecial) ----
+  // Obtener TipoContexto global
   $tipoSystem = TipoContexto::firstOrCreate(
-    ['categoria' => 'system', 'tabla_referenciada' => 'GLOBAL']
-  );
-  $contextoGlobal = DB::transaction(fn() => Contexto::firstOrCreate(
+    ['categoria' => 'global'],
+    ['nombre' => 'Global']
+  )->first();
+
+  // Obtener o crear Contexto global (reutilizar si ya existe)
+  $contextoGlobal = Contexto::firstOrCreate(
     ['contexto_display' => 'Contexto Global | Solo Permisos Administrativos'],
     ['id_tipo_contexto' => $tipoSystem->id_tipo_contexto]
-  ));
+  );
+
+  // Asegurar que tiene el tipo correcto
+  if ($contextoGlobal->id_tipo_contexto !== $tipoSystem->id_tipo_contexto) {
+    $contextoGlobal->update(
+      ['id_tipo_contexto' => $tipoSystem->id_tipo_contexto]
+    );
+  }
+
   $this->contextoGlobal_id = $contextoGlobal->id_contexto;
 
   // ---- Usuario sistema (necesario para FK creado_por) ----
@@ -130,13 +141,13 @@ beforeEach(function () {
     'fecha_modificacion' => now(),
   ], 'id_asignatura');
 
-  DB::table('asignacion_plan')->insert([
+  $asignacionPlanId = DB::table('asignacion_plan')->insertGetId([
     'id_asignatura' => $asignaturaId,
     'id_plan' => $this->plan->id_plan,
     'agno_planificado' => 1,
     'semestre_planificado' => 1,
     'fecha_creacion' => now(),
-  ]);
+  ], 'id_asignacion_plan');
 
   // Curso con id_contexto generado por trigger
   $this->curso = Curso::create([
@@ -146,8 +157,7 @@ beforeEach(function () {
     'agno_real' => 2024,
     'semestre_real' => 1,
     'estado_interno' => 'Activo',
-    'id_plan' => $this->plan->id_plan,
-    'id_asignatura' => $asignaturaId,
+    'id_asignacion_plan' => $asignacionPlanId,
   ]);
   $this->curso->refresh(); // trigger genera id_contexto
 

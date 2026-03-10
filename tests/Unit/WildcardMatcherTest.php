@@ -1,21 +1,22 @@
 <?php
 
 use App\Services\Authorization\WildcardMatcher;
+use App\Support\Permissions;
 
 // ============================================================================
 // TESTS DE MATCHING BÁSICO
 // ============================================================================
 
 test('match exacto retorna true', function () {
-    expect(WildcardMatcher::matches('facultad:ver', 'facultad:ver'))->toBeTrue();
-    expect(WildcardMatcher::matches('curso:editar', 'curso:editar'))->toBeTrue();
-    expect(WildcardMatcher::matches('estudiante:eliminar', 'estudiante:eliminar'))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::FACULTADES_VER, Permissions::FACULTADES_VER))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_EDITAR, Permissions::CURSOS_EDITAR))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_DESHABILITAR, Permissions::USUARIOS_DESHABILITAR))->toBeTrue();
 });
 
 test('match diferente retorna false', function () {
-    expect(WildcardMatcher::matches('facultad:ver', 'facultad:editar'))->toBeFalse();
-    expect(WildcardMatcher::matches('curso:ver', 'facultad:ver'))->toBeFalse();
-    expect(WildcardMatcher::matches('estudiante:crear', 'curso:crear'))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::FACULTADES_VER, Permissions::FACULTADES_EDITAR))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_VER, Permissions::FACULTADES_VER))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_CREAR, Permissions::CURSOS_CREAR))->toBeFalse();
 });
 
 // ============================================================================
@@ -23,16 +24,15 @@ test('match diferente retorna false', function () {
 // ============================================================================
 
 test('wildcard global (*) coincide con cualquier slug', function () {
-    expect(WildcardMatcher::matches('facultad:ver', '*'))->toBeTrue();
-    expect(WildcardMatcher::matches('curso:editar', '*'))->toBeTrue();
-    expect(WildcardMatcher::matches('estudiante:eliminar', '*'))->toBeTrue();
-    expect(WildcardMatcher::matches('cualquier:cosa', '*'))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::FACULTADES_VER, Permissions::GLOBAL_WILDCARD))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_EDITAR, Permissions::GLOBAL_WILDCARD))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_DESHABILITAR, Permissions::GLOBAL_WILDCARD))->toBeTrue();
 });
 
 test('isGlobalWildcard detecta * correctamente', function () {
-    expect(WildcardMatcher::isGlobalWildcard('*'))->toBeTrue();
-    expect(WildcardMatcher::isGlobalWildcard('facultad:*'))->toBeFalse();
-    expect(WildcardMatcher::isGlobalWildcard('facultad:ver'))->toBeFalse();
+    expect(WildcardMatcher::isGlobalWildcard(Permissions::GLOBAL_WILDCARD))->toBeTrue();
+    expect(WildcardMatcher::isGlobalWildcard(Permissions::FACULTADES_ALL))->toBeFalse();
+    expect(WildcardMatcher::isGlobalWildcard(Permissions::FACULTADES_VER))->toBeFalse();
 });
 
 // ============================================================================
@@ -40,23 +40,22 @@ test('isGlobalWildcard detecta * correctamente', function () {
 // ============================================================================
 
 test('wildcard de recurso coincide con cualquier acción del mismo recurso', function () {
-    expect(WildcardMatcher::matches('facultad:ver', 'facultad:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('facultad:editar', 'facultad:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('facultad:eliminar', 'facultad:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('facultad:crear', 'facultad:*'))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::FACULTADES_VER, Permissions::FACULTADES_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::FACULTADES_EDITAR, Permissions::FACULTADES_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::FACULTADES_ELIMINAR, Permissions::FACULTADES_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::FACULTADES_CREAR, Permissions::FACULTADES_ALL))->toBeTrue();
 });
 
 test('wildcard de recurso NO coincide con otros recursos', function () {
-    expect(WildcardMatcher::matches('curso:ver', 'facultad:*'))->toBeFalse();
-    expect(WildcardMatcher::matches('estudiante:editar', 'curso:*'))->toBeFalse();
-    expect(WildcardMatcher::matches('plan:eliminar', 'carrera:*'))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_VER, Permissions::FACULTADES_ALL))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_EDITAR, Permissions::CURSOS_ALL))->toBeFalse();
 });
 
 test('isResourceWildcard detecta recurso:* correctamente', function () {
-    expect(WildcardMatcher::isResourceWildcard('facultad:*'))->toBeTrue();
-    expect(WildcardMatcher::isResourceWildcard('curso:*'))->toBeTrue();
-    expect(WildcardMatcher::isResourceWildcard('*'))->toBeFalse();
-    expect(WildcardMatcher::isResourceWildcard('facultad:ver'))->toBeFalse();
+    expect(WildcardMatcher::isResourceWildcard(Permissions::FACULTADES_ALL))->toBeTrue();
+    expect(WildcardMatcher::isResourceWildcard(Permissions::CURSOS_ALL))->toBeTrue();
+    expect(WildcardMatcher::isResourceWildcard(Permissions::GLOBAL_WILDCARD))->toBeFalse();
+    expect(WildcardMatcher::isResourceWildcard(Permissions::FACULTADES_VER))->toBeFalse();
 });
 
 // ============================================================================
@@ -64,17 +63,17 @@ test('isResourceWildcard detecta recurso:* correctamente', function () {
 // ============================================================================
 
 test('extractResource obtiene la parte del recurso correctamente', function () {
-    expect(WildcardMatcher::extractResource('facultad:ver'))->toBe('facultad');
-    expect(WildcardMatcher::extractResource('curso:editar'))->toBe('curso');
-    expect(WildcardMatcher::extractResource('estudiante:*'))->toBe('estudiante');
-    expect(WildcardMatcher::extractResource('*'))->toBe('*');
+    expect(WildcardMatcher::extractResource(Permissions::FACULTADES_VER))->toBe('facultades');
+    expect(WildcardMatcher::extractResource(Permissions::CURSOS_EDITAR))->toBe('cursos');
+    expect(WildcardMatcher::extractResource(Permissions::USUARIOS_ALL))->toBe('usuarios');
+    expect(WildcardMatcher::extractResource(Permissions::GLOBAL_WILDCARD))->toBe('*');
 });
 
 test('extractAction obtiene la parte de la acción correctamente', function () {
-    expect(WildcardMatcher::extractAction('facultad:ver'))->toBe('ver');
-    expect(WildcardMatcher::extractAction('curso:editar'))->toBe('editar');
-    expect(WildcardMatcher::extractAction('estudiante:*'))->toBe('*');
-    expect(WildcardMatcher::extractAction('*'))->toBeNull();
+    expect(WildcardMatcher::extractAction(Permissions::FACULTADES_VER))->toBe('ver');
+    expect(WildcardMatcher::extractAction(Permissions::CURSOS_EDITAR))->toBe('editar');
+    expect(WildcardMatcher::extractAction(Permissions::USUARIOS_ALL))->toBe('*');
+    expect(WildcardMatcher::extractAction(Permissions::GLOBAL_WILDCARD))->toBeNull();
 });
 
 // ============================================================================
@@ -82,17 +81,17 @@ test('extractAction obtiene la parte de la acción correctamente', function () {
 // ============================================================================
 
 test('toResourceWildcard convierte slug a wildcard de recurso', function () {
-    expect(WildcardMatcher::toResourceWildcard('facultad:ver'))->toBe('facultad:*');
-    expect(WildcardMatcher::toResourceWildcard('curso:editar'))->toBe('curso:*');
-    expect(WildcardMatcher::toResourceWildcard('estudiante:eliminar'))->toBe('estudiante:*');
+    expect(WildcardMatcher::toResourceWildcard(Permissions::FACULTADES_VER))->toBe(Permissions::FACULTADES_ALL->value);
+    expect(WildcardMatcher::toResourceWildcard(Permissions::CURSOS_EDITAR))->toBe(Permissions::CURSOS_ALL->value);
+    expect(WildcardMatcher::toResourceWildcard(Permissions::USUARIOS_DESHABILITAR))->toBe(Permissions::USUARIOS_ALL->value);
 });
 
 test('toResourceWildcard con wildcard global retorna el mismo', function () {
-    expect(WildcardMatcher::toResourceWildcard('*'))->toBe('*');
+    expect(WildcardMatcher::toResourceWildcard(Permissions::GLOBAL_WILDCARD))->toBe(Permissions::GLOBAL_WILDCARD->value);
 });
 
 test('toResourceWildcard con wildcard de recurso retorna el mismo', function () {
-    expect(WildcardMatcher::toResourceWildcard('facultad:*'))->toBe('facultad:*');
+    expect(WildcardMatcher::toResourceWildcard(Permissions::FACULTADES_ALL))->toBe(Permissions::FACULTADES_ALL->value);
 });
 
 // ============================================================================
@@ -100,25 +99,25 @@ test('toResourceWildcard con wildcard de recurso retorna el mismo', function () 
 // ============================================================================
 
 test('getPriority retorna 1 para match exacto', function () {
-    expect(WildcardMatcher::getPriority('facultad:ver', 'facultad:ver'))->toBe(1);
-    expect(WildcardMatcher::getPriority('curso:editar', 'curso:editar'))->toBe(1);
+    expect(WildcardMatcher::getPriority(Permissions::FACULTADES_VER, Permissions::FACULTADES_VER))->toBe(1);
+    expect(WildcardMatcher::getPriority(Permissions::CURSOS_EDITAR, Permissions::CURSOS_EDITAR))->toBe(1);
 });
 
 test('getPriority retorna 2 para wildcard de recurso', function () {
-    expect(WildcardMatcher::getPriority('facultad:ver', 'facultad:*'))->toBe(2);
-    expect(WildcardMatcher::getPriority('curso:editar', 'curso:*'))->toBe(2);
+    expect(WildcardMatcher::getPriority(Permissions::FACULTADES_VER, Permissions::FACULTADES_ALL))->toBe(2);
+    expect(WildcardMatcher::getPriority(Permissions::CURSOS_EDITAR, Permissions::CURSOS_ALL))->toBe(2);
 });
 
 test('getPriority retorna 4 para wildcard global', function () {
-    expect(WildcardMatcher::getPriority('facultad:ver', '*'))->toBe(4);
-    expect(WildcardMatcher::getPriority('curso:editar', '*'))->toBe(4);
+    expect(WildcardMatcher::getPriority(Permissions::FACULTADES_VER, Permissions::GLOBAL_WILDCARD))->toBe(4);
+    expect(WildcardMatcher::getPriority(Permissions::CURSOS_EDITAR, Permissions::GLOBAL_WILDCARD))->toBe(4);
 });
 
 test('getPriority retorna 999 para slugs no relacionados', function () {
     // getPriority se usa DESPUÉS de verificar matches(), 
     // solo retorna 999 si no hay match exacto, ni es wildcard
-    expect(WildcardMatcher::getPriority('facultad:ver', 'curso:ver'))->toBe(999);
-    expect(WildcardMatcher::getPriority('facultad:ver', 'curso:editar'))->toBe(999);
+    expect(WildcardMatcher::getPriority(Permissions::FACULTADES_VER, Permissions::CURSOS_VER))->toBe(999);
+    expect(WildcardMatcher::getPriority(Permissions::FACULTADES_VER, Permissions::CURSOS_EDITAR))->toBe(999);
 });
 
 // ============================================================================
@@ -127,33 +126,32 @@ test('getPriority retorna 999 para slugs no relacionados', function () {
 
 test('caso real: admin de facultad con wildcard puede hacer todo en facultad', function () {
     // Admin tiene permiso 'facultad:*'
-    $tienePermiso = WildcardMatcher::matches('facultad:ver', 'facultad:*');
+    $tienePermiso = WildcardMatcher::matches(Permissions::FACULTADES_VER, Permissions::FACULTADES_ALL);
     expect($tienePermiso)->toBeTrue();
 
-    $tienePermiso = WildcardMatcher::matches('facultad:editar', 'facultad:*');
+    $tienePermiso = WildcardMatcher::matches(Permissions::FACULTADES_EDITAR, Permissions::FACULTADES_ALL);
     expect($tienePermiso)->toBeTrue();
 
-    $tienePermiso = WildcardMatcher::matches('facultad:eliminar', 'facultad:*');
+    $tienePermiso = WildcardMatcher::matches(Permissions::FACULTADES_ELIMINAR, Permissions::FACULTADES_ALL);
     expect($tienePermiso)->toBeTrue();
 
     // Pero NO puede hacer cosas en otros recursos
-    $tienePermiso = WildcardMatcher::matches('curso:ver', 'facultad:*');
+    $tienePermiso = WildcardMatcher::matches(Permissions::CURSOS_VER, Permissions::FACULTADES_ALL);
     expect($tienePermiso)->toBeFalse();
 });
 
 test('caso real: superadmin con * puede hacer todo', function () {
     // Superadmin tiene permiso '*'
-    expect(WildcardMatcher::matches('facultad:ver', '*'))->toBeTrue();
-    expect(WildcardMatcher::matches('curso:editar', '*'))->toBeTrue();
-    expect(WildcardMatcher::matches('estudiante:eliminar', '*'))->toBeTrue();
-    expect(WildcardMatcher::matches('cualquier:accion', '*'))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::FACULTADES_VER, Permissions::GLOBAL_WILDCARD))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_EDITAR, Permissions::GLOBAL_WILDCARD))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_DESHABILITAR, Permissions::GLOBAL_WILDCARD))->toBeTrue();
 });
 
 test('caso real: usuario con permiso específico solo puede esa acción', function () {
-    // Usuario solo tiene 'facultad:ver'
-    expect(WildcardMatcher::matches('facultad:ver', 'facultad:ver'))->toBeTrue();
-    expect(WildcardMatcher::matches('facultad:editar', 'facultad:ver'))->toBeFalse();
-    expect(WildcardMatcher::matches('curso:ver', 'facultad:ver'))->toBeFalse();
+    // Usuario solo tiene Permissions::FACULTADES_VER
+    expect(WildcardMatcher::matches(Permissions::FACULTADES_VER, Permissions::FACULTADES_VER))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::FACULTADES_EDITAR, Permissions::FACULTADES_VER))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_VER, Permissions::FACULTADES_VER))->toBeFalse();
 });
 
 // ============================================================================
@@ -161,19 +159,18 @@ test('caso real: usuario con permiso específico solo puede esa acción', functi
 // ============================================================================
 
 test('match exacto de slug anidado retorna true', function () {
-    expect(WildcardMatcher::matches('cursos/inscripciones:ver', 'cursos/inscripciones:ver'))->toBeTrue();
-    expect(WildcardMatcher::matches('usuarios/permisos/roles:gestionar', 'usuarios/permisos/roles:gestionar'))->toBeTrue();
-    expect(WildcardMatcher::matches('cursos/actividades/grupos:crear', 'cursos/actividades/grupos:crear'))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::CURSOS_INSCRIPCIONES_VER))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR, Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR))->toBeTrue();
 });
 
 test('match exacto de slug anidado con acción diferente retorna false', function () {
-    expect(WildcardMatcher::matches('cursos/inscripciones:ver', 'cursos/inscripciones:editar'))->toBeFalse();
-    expect(WildcardMatcher::matches('usuarios/permisos/roles:ver', 'usuarios/permisos/roles:crear'))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::CURSOS_INSCRIPCIONES_ELIMINAR_INSCRIPCIONES))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_ROLES_VER, Permissions::USUARIOS_PERMISOS_ROLES_CREAR))->toBeFalse();
 });
 
 test('slug anidado no coincide con slug plano del mismo nombre base', function () {
-    expect(WildcardMatcher::matches('cursos/inscripciones:ver', 'cursos:ver'))->toBeFalse();
-    expect(WildcardMatcher::matches('cursos/inscripciones:ver', 'inscripciones:ver'))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::CURSOS_VER))->toBeFalse();
 });
 
 // ============================================================================
@@ -181,15 +178,15 @@ test('slug anidado no coincide con slug plano del mismo nombre base', function (
 // ============================================================================
 
 test('wildcard de recurso anidado coincide con cualquier acción del mismo recurso', function () {
-    expect(WildcardMatcher::matches('cursos/inscripciones:ver', 'cursos/inscripciones:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('cursos/inscripciones:eliminar_inscripciones', 'cursos/inscripciones:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('usuarios/permisos/roles:gestionar', 'usuarios/permisos/roles:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('cursos/actividades/grupos:crear', 'cursos/actividades/grupos:*'))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::CURSOS_INSCRIPCIONES_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_INSCRIPCIONES_ELIMINAR_INSCRIPCIONES, Permissions::CURSOS_INSCRIPCIONES_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR, Permissions::USUARIOS_PERMISOS_ROLES_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, Permissions::CURSOS_ACTIVIDADES_GRUPOS_ALL))->toBeTrue();
 });
 
 test('wildcard de recurso anidado NO coincide con otro recurso del mismo nivel', function () {
-    expect(WildcardMatcher::matches('cursos/secciones:ver', 'cursos/inscripciones:*'))->toBeFalse();
-    expect(WildcardMatcher::matches('usuarios/permisos/individuales:ver', 'usuarios/permisos/roles:*'))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_SECCIONES_VER, Permissions::CURSOS_INSCRIPCIONES_ALL))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_INDIVIDUALES_VER_DISPONIBLES, Permissions::USUARIOS_PERMISOS_ROLES_ALL))->toBeFalse();
 });
 
 // ============================================================================
@@ -197,35 +194,37 @@ test('wildcard de recurso anidado NO coincide con otro recurso del mismo nivel',
 // ============================================================================
 
 test('wildcard de recurso padre hereda a hijos directos', function () {
-    // 'cursos:*' debe matchear cualquier acción en cualquier subrecrurso de cursos
-    expect(WildcardMatcher::matches('cursos/inscripciones:ver', 'cursos:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('cursos/secciones:crear', 'cursos:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('cursos/unidades:editar', 'cursos:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('cursos/actividades:eliminar', 'cursos:*'))->toBeTrue();
+    // 'cursos:*' debe matchear cualquier acción en cualquier subrecurso de cursos
+    expect(WildcardMatcher::matches(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::CURSOS_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_SECCIONES_CREAR, Permissions::CURSOS_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_UNIDADES_EDITAR, Permissions::CURSOS_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_ACTIVIDADES_ELIMINAR, Permissions::CURSOS_ALL))->toBeTrue();
 });
 
 test('wildcard de recurso padre hereda a nietos y profundidades arbitrarias', function () {
-    expect(WildcardMatcher::matches('cursos/actividades/grupos:ver', 'cursos:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('usuarios/permisos/roles:gestionar', 'usuarios:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('usuarios/permisos/individuales:ver_disponibles', 'usuarios:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('cursos/actividades/grupos:crear', 'cursos/actividades:*'))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_ACTIVIDADES_GRUPOS_VER, Permissions::CURSOS_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR, Permissions::USUARIOS_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_INDIVIDUALES_VER_DISPONIBLES, Permissions::USUARIOS_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, Permissions::CURSOS_ACTIVIDADES_ALL))->toBeTrue();
 });
 
 test('wildcard de recurso padre NO hereda en dirección inversa', function () {
     // 'cursos/inscripciones:*' NO debe matchear 'cursos:ver' (cursos es el padre, no el hijo)
-    expect(WildcardMatcher::matches('cursos:ver', 'cursos/inscripciones:*'))->toBeFalse();
-    expect(WildcardMatcher::matches('usuarios:ver', 'usuarios/permisos:*'))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_VER, Permissions::CURSOS_INSCRIPCIONES_ALL))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_VER, Permissions::USUARIOS_PERMISOS_ALL))->toBeFalse();
 });
 
 test('wildcard de recurso padre NO hereda a recursos del mismo nivel con prefijo similar', function () {
-    // 'cursos:*' NO debe matchear 'cursos_extra:ver' (no es hijo, solo tiene prefijo similar)
-    expect(WildcardMatcher::matches('cursos_extra:ver', 'cursos:*'))->toBeFalse();
-    expect(WildcardMatcher::matches('cursosV2/inscripciones:ver', 'cursos:*'))->toBeFalse();
+    // Nota: Los slugs 'cursos_extra:ver' y 'cursosv2/inscripciones:ver' no existen en el enum
+    // Por lo que no pueden ser probados directamente con el método matches que espera Permissions
+    // Sin embargo, isDescendantResource acepta strings
+    expect(WildcardMatcher::isDescendantResource('cursos_extra', 'cursos'))->toBeFalse();
+    expect(WildcardMatcher::isDescendantResource('cursosv2/inscripciones', 'cursos'))->toBeFalse();
 });
 
 test('wildcard de recurso plano NO matchea recursos anidados (solo hereda con :*)', function () {
     // 'cursos:ver' (acción específica, no wildcard) NO matchea 'cursos/inscripciones:ver'
-    expect(WildcardMatcher::matches('cursos/inscripciones:ver', 'cursos:ver'))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::CURSOS_VER))->toBeFalse();
 });
 
 // ============================================================================
@@ -233,28 +232,28 @@ test('wildcard de recurso plano NO matchea recursos anidados (solo hereda con :*
 // ============================================================================
 
 test('extractResource soporta rutas anidadas', function () {
-    expect(WildcardMatcher::extractResource('cursos/inscripciones:ver'))->toBe('cursos/inscripciones');
-    expect(WildcardMatcher::extractResource('usuarios/permisos/roles:gestionar'))->toBe('usuarios/permisos/roles');
-    expect(WildcardMatcher::extractResource('cursos/actividades/grupos:*'))->toBe('cursos/actividades/grupos');
+    expect(WildcardMatcher::extractResource(Permissions::CURSOS_INSCRIPCIONES_VER))->toBe('cursos/inscripciones');
+    expect(WildcardMatcher::extractResource(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR))->toBe('usuarios/permisos/roles');
+    expect(WildcardMatcher::extractResource(Permissions::CURSOS_ACTIVIDADES_GRUPOS_ALL))->toBe('cursos/actividades/grupos');
 });
 
 test('extractAction soporta slugs anidados', function () {
-    expect(WildcardMatcher::extractAction('cursos/inscripciones:ver'))->toBe('ver');
-    expect(WildcardMatcher::extractAction('cursos/inscripciones:*'))->toBe('*');
-    expect(WildcardMatcher::extractAction('usuarios/permisos/roles:gestionar'))->toBe('gestionar');
+    expect(WildcardMatcher::extractAction(Permissions::CURSOS_INSCRIPCIONES_VER))->toBe('ver');
+    expect(WildcardMatcher::extractAction(Permissions::CURSOS_INSCRIPCIONES_ALL))->toBe('*');
+    expect(WildcardMatcher::extractAction(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR))->toBe('gestionar');
 });
 
 test('extractResourceSegments retorna los segmentos de la ruta', function () {
-    expect(WildcardMatcher::extractResourceSegments('cursos/inscripciones:ver'))->toBe(['cursos', 'inscripciones']);
-    expect(WildcardMatcher::extractResourceSegments('cursos/actividades/grupos:crear'))->toBe(['cursos', 'actividades', 'grupos']);
-    expect(WildcardMatcher::extractResourceSegments('facultad:ver'))->toBe(['facultad']);
-    expect(WildcardMatcher::extractResourceSegments('*'))->toBe(['*']);
+    expect(WildcardMatcher::extractResourceSegments(Permissions::CURSOS_INSCRIPCIONES_VER))->toBe(['cursos', 'inscripciones']);
+    expect(WildcardMatcher::extractResourceSegments(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR))->toBe(['cursos', 'actividades', 'grupos']);
+    expect(WildcardMatcher::extractResourceSegments(Permissions::FACULTADES_VER))->toBe(['facultades']);
+    expect(WildcardMatcher::extractResourceSegments(Permissions::GLOBAL_WILDCARD))->toBe(['*']);
 });
 
 test('toResourceWildcard preserva la ruta anidada completa', function () {
-    expect(WildcardMatcher::toResourceWildcard('cursos/inscripciones:ver'))->toBe('cursos/inscripciones:*');
-    expect(WildcardMatcher::toResourceWildcard('usuarios/permisos/roles:gestionar'))->toBe('usuarios/permisos/roles:*');
-    expect(WildcardMatcher::toResourceWildcard('cursos/inscripciones:*'))->toBe('cursos/inscripciones:*');
+    expect(WildcardMatcher::toResourceWildcard(Permissions::CURSOS_INSCRIPCIONES_VER))->toBe(Permissions::CURSOS_INSCRIPCIONES_ALL->value);
+    expect(WildcardMatcher::toResourceWildcard(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR))->toBe(Permissions::USUARIOS_PERMISOS_ROLES_ALL->value);
+    expect(WildcardMatcher::toResourceWildcard(Permissions::CURSOS_INSCRIPCIONES_ALL))->toBe(Permissions::CURSOS_INSCRIPCIONES_ALL->value);
 });
 
 // ============================================================================
@@ -284,7 +283,7 @@ test('isDescendantResource retorna false para dirección inversa', function () {
 
 test('isDescendantResource retorna false para prefijos parciales sin separador', function () {
     expect(WildcardMatcher::isDescendantResource('cursos_extra', 'cursos'))->toBeFalse();
-    expect(WildcardMatcher::isDescendantResource('cursosV2/sub', 'cursos'))->toBeFalse();
+    expect(WildcardMatcher::isDescendantResource('cursosv2/sub', 'cursos'))->toBeFalse();
 });
 
 // ============================================================================
@@ -292,20 +291,20 @@ test('isDescendantResource retorna false para prefijos parciales sin separador',
 // ============================================================================
 
 test('getPriority retorna 1 para match exacto anidado', function () {
-    expect(WildcardMatcher::getPriority('cursos/inscripciones:ver', 'cursos/inscripciones:ver'))->toBe(1);
-    expect(WildcardMatcher::getPriority('usuarios/permisos/roles:gestionar', 'usuarios/permisos/roles:gestionar'))->toBe(1);
+    expect(WildcardMatcher::getPriority(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::CURSOS_INSCRIPCIONES_VER))->toBe(1);
+    expect(WildcardMatcher::getPriority(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR, Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR))->toBe(1);
 });
 
 test('getPriority retorna 2 para wildcard del mismo recurso anidado', function () {
-    expect(WildcardMatcher::getPriority('cursos/inscripciones:ver', 'cursos/inscripciones:*'))->toBe(2);
-    expect(WildcardMatcher::getPriority('usuarios/permisos/roles:gestionar', 'usuarios/permisos/roles:*'))->toBe(2);
+    expect(WildcardMatcher::getPriority(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::CURSOS_INSCRIPCIONES_ALL))->toBe(2);
+    expect(WildcardMatcher::getPriority(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR, Permissions::USUARIOS_PERMISOS_ROLES_ALL))->toBe(2);
 });
 
 test('getPriority retorna 3 para wildcard de recurso ancestro', function () {
-    expect(WildcardMatcher::getPriority('cursos/inscripciones:ver', 'cursos:*'))->toBe(3);
-    expect(WildcardMatcher::getPriority('cursos/actividades/grupos:crear', 'cursos:*'))->toBe(3);
-    expect(WildcardMatcher::getPriority('usuarios/permisos/roles:gestionar', 'usuarios:*'))->toBe(3);
-    expect(WildcardMatcher::getPriority('cursos/actividades/grupos:crear', 'cursos/actividades:*'))->toBe(3);
+    expect(WildcardMatcher::getPriority(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::CURSOS_ALL))->toBe(3);
+    expect(WildcardMatcher::getPriority(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, Permissions::CURSOS_ALL))->toBe(3);
+    expect(WildcardMatcher::getPriority(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR, Permissions::USUARIOS_ALL))->toBe(3);
+    expect(WildcardMatcher::getPriority(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, Permissions::CURSOS_ACTIVIDADES_ALL))->toBe(3);
 });
 
 // ============================================================================
@@ -315,34 +314,34 @@ test('getPriority retorna 3 para wildcard de recurso ancestro', function () {
 test('caso real: director puede gestionar todo en cursos con cursos:*', function () {
     // Director tiene permiso 'cursos:*'
     foreach ([
-        'cursos/inscripciones:ver',
-        'cursos/inscripciones:inscribir_alumnos',
-        'cursos/inscripciones:eliminar_inscripciones',
-        'cursos/secciones:ver',
-        'cursos/secciones:crear',
-        'cursos/unidades:ver',
-        'cursos/actividades:ver',
-        'cursos/actividades:evaluar',
-        'cursos/actividades/grupos:ver',
-        'cursos/actividades/grupos:crear',
+        Permissions::CURSOS_INSCRIPCIONES_VER,
+        Permissions::CURSOS_INSCRIPCIONES_INSCRIBIR_ALUMNOS,
+        Permissions::CURSOS_INSCRIPCIONES_ELIMINAR_INSCRIPCIONES,
+        Permissions::CURSOS_SECCIONES_VER,
+        Permissions::CURSOS_SECCIONES_CREAR,
+        Permissions::CURSOS_UNIDADES_VER,
+        Permissions::CURSOS_ACTIVIDADES_VER,
+        Permissions::CURSOS_ACTIVIDADES_EVALUAR,
+        Permissions::CURSOS_ACTIVIDADES_GRUPOS_VER,
+        Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR,
     ] as $slug) {
-        expect(WildcardMatcher::matches($slug, 'cursos:*'))
-            ->toBeTrue("Se esperaba match de '$slug' con 'cursos:*'");
+        expect(WildcardMatcher::matches($slug, Permissions::CURSOS_ALL))
+            ->toBeTrue("Se esperaba match de '{$slug->value}' con " . Permissions::CURSOS_ALL->value);
     }
 });
 
 test('caso real: admin de permisos puede gestionar roles con usuarios/permisos/roles:*', function () {
-    expect(WildcardMatcher::matches('usuarios/permisos/roles:gestionar', 'usuarios/permisos/roles:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('usuarios/permisos/roles:ver', 'usuarios/permisos/roles:*'))->toBeTrue();
-    expect(WildcardMatcher::matches('usuarios/permisos/roles:crear', 'usuarios/permisos/roles:*'))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR, Permissions::USUARIOS_PERMISOS_ROLES_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_ROLES_VER, Permissions::USUARIOS_PERMISOS_ROLES_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_ROLES_CREAR, Permissions::USUARIOS_PERMISOS_ROLES_ALL))->toBeTrue();
     // Pero NO puede gestionar permisos individuales
-    expect(WildcardMatcher::matches('usuarios/permisos/individuales:gestionar', 'usuarios/permisos/roles:*'))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_INDIVIDUALES_GESTIONAR, Permissions::USUARIOS_PERMISOS_ROLES_ALL))->toBeFalse();
 });
 
 test('caso real: wildcard global matchea slugs anidados', function () {
-    expect(WildcardMatcher::matches('cursos/inscripciones:ver', '*'))->toBeTrue();
-    expect(WildcardMatcher::matches('usuarios/permisos/roles:gestionar', '*'))->toBeTrue();
-    expect(WildcardMatcher::matches('cursos/actividades/grupos:crear', '*'))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::GLOBAL_WILDCARD))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR, Permissions::GLOBAL_WILDCARD))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, Permissions::GLOBAL_WILDCARD))->toBeTrue();
 });
 
 // ============================================================================
@@ -350,74 +349,84 @@ test('caso real: wildcard global matchea slugs anidados', function () {
 // ============================================================================
 
 test('generatePermissionPatterns genera patrones para slug simple', function () {
-    $patterns = WildcardMatcher::generatePermissionPatterns('facultad:ver');
+    $patterns = WildcardMatcher::generatePermissionPatterns(Permissions::FACULTADES_VER);
     expect($patterns)->toBe([
-        'facultad:ver',      // exacto
-        'facultad:*',        // wildcard recurso
-        '*',                 // wildcard global
+        Permissions::FACULTADES_VER->value,      // exacto
+        Permissions::FACULTADES_ALL->value,      // wildcard recurso
+        Permissions::GLOBAL_WILDCARD->value,     // wildcard global
     ]);
 });
 
 test('generatePermissionPatterns genera patrones para slug anidado 2 niveles', function () {
-    $patterns = WildcardMatcher::generatePermissionPatterns('cursos/inscripciones:ver');
+    $patterns = WildcardMatcher::generatePermissionPatterns(Permissions::CURSOS_INSCRIPCIONES_VER);
     expect($patterns)->toBe([
-        'cursos/inscripciones:ver',     // exacto
-        'cursos/inscripciones:*',       // wildcard mismo recurso
-        'cursos:*',                     // wildcard ancestro
-        '*',                            // wildcard global
+        Permissions::CURSOS_INSCRIPCIONES_VER->value,     // exacto
+        Permissions::CURSOS_INSCRIPCIONES_ALL->value,     // wildcard mismo recurso
+        Permissions::CURSOS_ALL->value,                   // wildcard ancestro
+        Permissions::GLOBAL_WILDCARD->value,              // wildcard global
     ]);
 });
 
 test('generatePermissionPatterns genera patrones para slug anidado 3 niveles', function () {
-    $patterns = WildcardMatcher::generatePermissionPatterns('cursos/actividades/grupos:crear');
+    $patterns = WildcardMatcher::generatePermissionPatterns(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR);
     expect($patterns)->toBe([
-        'cursos/actividades/grupos:crear',      // exacto
-        'cursos/actividades/grupos:*',          // wildcard mismo recurso
-        'cursos/actividades:*',                 // wildcard ancestro 1
-        'cursos:*',                             // wildcard ancestro 2
-        '*',                                    // wildcard global
+        Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR->value,      // exacto
+        Permissions::CURSOS_ACTIVIDADES_GRUPOS_ALL->value,        // wildcard mismo recurso
+        Permissions::CURSOS_ACTIVIDADES_ALL->value,               // wildcard ancestro 1
+        Permissions::CURSOS_ALL->value,                           // wildcard ancestro 2
+        Permissions::GLOBAL_WILDCARD->value,                      // wildcard global
     ]);
 });
 
 test('generatePermissionPatterns genera patrones para slug anidado profundo', function () {
-    $patterns = WildcardMatcher::generatePermissionPatterns('usuarios/permisos/roles/miembros:gestionar');
+    // Nota: Solo probamos con slugs que existen en el enum
+    $patterns = WildcardMatcher::generatePermissionPatterns(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR);
     expect($patterns)->toBe([
-        'usuarios/permisos/roles/miembros:gestionar',       // exacto
-        'usuarios/permisos/roles/miembros:*',               // wildcard mismo recurso
-        'usuarios/permisos/roles:*',                        // wildcard ancestro 1
-        'usuarios/permisos:*',                              // wildcard ancestro 2
-        'usuarios:*',                                       // wildcard ancestro 3
-        '*',                                                // wildcard global
+        Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR->value,       // exacto
+        Permissions::USUARIOS_PERMISOS_ROLES_ALL->value,             // wildcard mismo recurso
+        Permissions::USUARIOS_PERMISOS_ALL->value,                   // wildcard ancestro 1
+        Permissions::USUARIOS_ALL->value,                            // wildcard ancestro 2
+        Permissions::GLOBAL_WILDCARD->value,                         // wildcard global
     ]);
 });
 
 test('generatePermissionPatterns con wildcard global', function () {
-    $patterns = WildcardMatcher::generatePermissionPatterns('*');
+    $patterns = WildcardMatcher::generatePermissionPatterns(Permissions::GLOBAL_WILDCARD);
     expect($patterns)->toBe([
-        '*',       // exacto (que es global)
+        Permissions::GLOBAL_WILDCARD->value,       // exacto (que es global)
     ]);
 });
 
 test('todos los patrones generados coinciden con el permiso solicitado', function () {
-    $requested = 'cursos/actividades/grupos:crear';
+    $requested = Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR;
     $patterns = WildcardMatcher::generatePermissionPatterns($requested);
+    $requestedValue = $requested->value;
 
     // Todos los patrones deben matchear el permiso solicitado
     foreach ($patterns as $pattern) {
-        expect(WildcardMatcher::matches($requested, $pattern))
-            ->toBeTrue("Se esperaba match de {$requested} con {$pattern}");
+        // Convert pattern back to enum if it's a valid enum value
+        $permissionEnum = Permissions::tryFrom($pattern);
+        if ($permissionEnum) {
+            expect(WildcardMatcher::matches($requested, $permissionEnum))
+                ->toBeTrue("Se esperaba match de {$requestedValue} con {$pattern}");
+        }
     }
 });
 
 test('patrones generados están en orden de especificidad descendente', function () {
-    $requested = 'cursos/inscripciones:ver';
+    $requested = Permissions::CURSOS_INSCRIPCIONES_VER;
     $patterns = WildcardMatcher::generatePermissionPatterns($requested);
+    $requestedValue = $requested->value;
 
     $prevPriority = -1;
     foreach ($patterns as $pattern) {
-        $priority = WildcardMatcher::getPriority($requested, $pattern);
-        expect($priority >= $prevPriority)->toBeTrue("Patrón {$pattern} con prioridad {$priority} no está en orden");
-        $prevPriority = $priority;
+        // Convert pattern back to enum if it's a valid enum value
+        $permissionEnum = Permissions::tryFrom($pattern);
+        if ($permissionEnum) {
+            $priority = WildcardMatcher::getPriority($requested, $permissionEnum);
+            expect($priority >= $prevPriority)->toBeTrue("Patrón {$pattern} con prioridad {$priority} no está en orden");
+            $prevPriority = $priority;
+        }
     }
 });
 
@@ -433,9 +442,9 @@ test('caso real: permiso específico DENY gana sobre GRANT ancestro general', fu
     // Solicita: cursos/inscripciones:ver
     // Resultado: DENY gana
 
-    $requested = 'cursos/inscripciones:ver';
-    $grantPattern = 'cursos:*';          // prioridad 3
-    $denyPattern = 'cursos/inscripciones:*';   // prioridad 2
+    $requested = Permissions::CURSOS_INSCRIPCIONES_VER;
+    $grantPattern = Permissions::CURSOS_ALL;          // prioridad 3
+    $denyPattern = Permissions::CURSOS_INSCRIPCIONES_ALL;   // prioridad 2
 
     $grantPriority = WildcardMatcher::getPriority($requested, $grantPattern);
     $denyPriority = WildcardMatcher::getPriority($requested, $denyPattern);
@@ -444,12 +453,12 @@ test('caso real: permiso específico DENY gana sobre GRANT ancestro general', fu
 });
 
 test('caso real: exacta siempre gana', function () {
-    $requested = 'cursos/inscripciones:ver';
+    $requested = Permissions::CURSOS_INSCRIPCIONES_VER;
 
-    $exactPriority = WildcardMatcher::getPriority($requested, 'cursos/inscripciones:ver');
-    $wildcardPriority = WildcardMatcher::getPriority($requested, 'cursos/inscripciones:*');
-    $ancestorPriority = WildcardMatcher::getPriority($requested, 'cursos:*');
-    $globalPriority = WildcardMatcher::getPriority($requested, '*');
+    $exactPriority = WildcardMatcher::getPriority($requested, Permissions::CURSOS_INSCRIPCIONES_VER);
+    $wildcardPriority = WildcardMatcher::getPriority($requested, Permissions::CURSOS_INSCRIPCIONES_ALL);
+    $ancestorPriority = WildcardMatcher::getPriority($requested, Permissions::CURSOS_ALL);
+    $globalPriority = WildcardMatcher::getPriority($requested, Permissions::GLOBAL_WILDCARD);
 
     expect($exactPriority < $wildcardPriority)->toBeTrue();
     expect($exactPriority < $ancestorPriority)->toBeTrue();

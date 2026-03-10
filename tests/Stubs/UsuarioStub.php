@@ -13,7 +13,7 @@ use App\Services\Authorization\PermissionValidator;
 class Usuario
 {
     public $id_usuario;
-    
+
     public function getAttribute($key)
     {
         if ($key === 'id_usuario') {
@@ -23,13 +23,24 @@ class Usuario
     }
 
     /**
+     * Requerido por las Policies base (HasBasePolicyMethods::before) que comprueban
+     * superadmin antes de evaluar cualquier método de la Policy.
+     * El stub no es superadmin por defecto; los tests de superadmin usan slug '*' directo.
+     */
+    public function isSuperAdmin(): bool
+    {
+        return false;
+    }
+
+    /**
      * Verificar permiso con resolución automática de contexto desde un recurso.
+     * Espeja la implementación real del modelo Usuario.
      * 
-     * @param string $permission Slug del permiso
+     * @param \App\Support\Permissions $permission Enum del permiso
      * @param HasContext|null $resource Instancia del modelo (opcional)
      * @return bool
      */
-    public function hasPermissionFor(string $permission, ?HasContext $resource = null): bool
+    public function hasPermissionFor(\App\Support\Permissions $permission, ?HasContext $resource = null): bool
     {
         return app(PermissionValidator::class)
             ->validate($this, $permission, $resource);
@@ -37,46 +48,41 @@ class Usuario
 
     /**
      * Override del método can() de Laravel para integrar con el sistema de permisos.
+     * Espeja la implementación real del modelo Usuario:
      * 
-     * FLUJO DE AUTORIZACIÓN:
-     * 1. PRIORIDAD: Policies registradas en AuthServiceProvider
-     *    - Si existe Policy para el modelo, Laravel la ejecuta automáticamente
-     *    - La Policy internamente debe usar PermissionValidator
+     * - Enum Permissions o slug con ':' → PermissionValidator directo (Policy NO aplica)
+     * - Habilidad estándar ('view', 'create') → Gate (Policy system)
      * 
-     * 2. FALLBACK: PermissionValidator directo (solo si NO hay Policy)
-     *    - Para slugs de permisos ('recurso:accion') sin Policy registrada
-     *    - Permite usar $user->can('facultad:ver', $facultad) sin Policy
-     * 
-     * @param string $ability Nombre de la habilidad ('view', 'create') o slug ('facultad:ver')
-     * @param array|mixed $arguments Argumentos (modelo, contexto, etc.)
+     * @param string|\App\Support\Permissions $ability
+     * @param array|mixed $arguments
      * @return bool
      */
     public function can($ability, $arguments = []): bool
     {
-        // Para tests, simplificar: parent::can() siempre retorna false (no hay Gate real)
-        // Entonces pasamos directo al fallback
-        
-        // Verificar si es un slug de permiso (contiene ':' o es wildcard global '*')
-        if (str_contains($ability, ':') || $ability === '*') {
+        // Normalizar: si ya es un enum Permissions, ir directo al validador
+        if ($ability instanceof \App\Support\Permissions) {
             $model = is_array($arguments) ? ($arguments[0] ?? null) : $arguments;
-            
-            // Verificar si existe una Policy registrada para el modelo
-            if (is_object($model)) {
-                $gate = app(\Illuminate\Contracts\Auth\Access\Gate::class);
-                
-                // Si hay Policy, respetar su decisión (false)
-                if ($gate->getPolicyFor($model) !== null) {
-                    return false;
-                }
-            }
-            
-            // No hay Policy registrada, usar PermissionValidator como fallback
             $resource = ($model instanceof HasContext) ? $model : null;
             return $this->hasPermissionFor($ability, $resource);
         }
-        
-        // Para habilidades estándar sin Policy, retornar false
-        return false;
+
+        // String slug (contiene ':') o wildcard global ('*'): PermissionValidator directo
+        $isSlug = str_contains($ability, ':');
+        $isWildcard = $ability === \App\Support\Permissions::GLOBAL_WILDCARD->value;
+
+        if ($isSlug || $isWildcard) {
+            $permission = \App\Support\Permissions::tryFrom($ability);
+            if ($permission === null) {
+                return false;
+            }
+            $model = is_array($arguments) ? ($arguments[0] ?? null) : $arguments;
+            $resource = ($model instanceof HasContext) ? $model : null;
+            return $this->hasPermissionFor($permission, $resource);
+        }
+
+        // Habilidad estándar: delegar al Gate con $this como usuario (igual que Authorizable::can)
+        // Gate::forUser($this) → Gate busca Policy del modelo → llama $policy->method($this, $model)
+        return \Illuminate\Support\Facades\Gate::forUser($this)->check($ability, $arguments);
     }
 }
 

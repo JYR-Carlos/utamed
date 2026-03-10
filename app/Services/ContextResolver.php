@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Services\Authorization\GlobalContextService;
 use App\Support\ContextColumnConfig;
+use App\Enums\ContextType;
+use RuntimeException;
 
 /**
  * Servicio para resolver contextos de modelos
@@ -44,7 +46,7 @@ class ContextResolver
      * 
      * @return array
      */
-    protected function loadMappings(): array
+    protected function loadGeneratedContextMappings(): array
     {
         if ($this->mappings !== null) {
             return $this->mappings;
@@ -53,7 +55,7 @@ class ContextResolver
         $configPath = config_path('generated-context-mappings.php');
 
         if (!file_exists($configPath)) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 "Context mappings file not found: $configPath\n"
                 . "Run: php scripts/generate_models.php"
             );
@@ -66,24 +68,24 @@ class ContextResolver
     }
 
     /**
-     * Obtener todos los IDs de contexto de un modelo
+     * Obtener todos los IDs de contexto configurados para un modelo
      * 
      * Para modelos con múltiples caminos de contexto (ej: InscripcionCurso),
      * retorna un array con todos los IDs únicos encontrados.
      * 
+     * @throws RuntimeException Al no encontrar un mapping válido
      * @param object $model Instancia del modelo
-     * @return array Array de IDs de contexto (vacío si no tiene contextos)
+     * @return array Array de IDs de contexto 
      * 
-     * //FIX: todos deberian retornar al menos el contexto global, 
-     * incluso los directos (para validar permisos globales)
      */
-    public function getContextId($model): array
+    public function getModelContextId($model): array
     {
         $modelKey = $this->getModelKey($model);
-        $mappings = $this->loadMappings();
+        $mappings = $this->loadGeneratedContextMappings();
 
         if (!isset($mappings[$modelKey])) {
-            return [];
+            \Log::warning("ContextResolver: No mapping found for model $modelKey");
+            throw new RuntimeException("No context mapping found for model: $modelKey");
         }
 
         $mapping = $mappings[$modelKey];
@@ -115,55 +117,100 @@ class ContextResolver
     }
 
     /**
-     * Obtener el tipo de contexto de un modelo
-     * 
-     * Nota: Aunque un modelo puede tener múltiples paths, todos deberían
-     * apuntar al mismo tipo de contexto (ej: 'carrera'). Retorna el primer
-     * tipo encontrado.
-     * 
-     * // FIX: esta descripcion esta mal
-     * puede haber modelos con multiples paths que apunten a contextos de distinto tipo (ej: carrera y facultad)
-     * //FIX: deberia retornar un array de tipos
-     * // TODO: check utilidad
-     * actualmente no se usa en nada importante, solo como accesor opcional
-     * 
+     * Obtener todos los tipos de contexto de un modelo.
+     *
+     * Para modelos con múltiples paths jerárquicos (ej: InscripcionCurso),
+     * puede retornar más de un tipo (ej: ['curso', 'carrera']).
+     *
+     * @throws RuntimeException Al no encontrar un mapping válido
      * @param object $model Instancia del modelo
-     * @return string|null (ej: 'carrera', 'curso', 'departamento')
+     * @return string[] (ej: ['carrera'], ['curso', 'carrera'])
      */
-    public function getContextType($model): ?string
+    public function getModelContextTypes($model): array
     {
         $modelKey = $this->getModelKey($model);
-        $mappings = $this->loadMappings();
+        $mappings = $this->loadGeneratedContextMappings();
 
         if (!isset($mappings[$modelKey])) {
-            return null;
+            \Log::warning("ContextResolver: No mapping found for model $modelKey");
+            throw new RuntimeException("No context mapping found for model: $modelKey");
         }
 
         $mapping = $mappings[$modelKey];
 
         // Modelos con contexto directo
         if ($mapping['type'] === 'direct') {
-            // Retorna el tipo del modelo actual (ej: 'carrera', 'curso')
-            return $this->inferContextType($modelKey);
+            return [$this->inferContextType($modelKey)];
         }
 
-        // Modelos con contexto global (sin contexto)
+        // Modelos con contexto global (sin contexto propio)
         if ($mapping['type'] === 'global') {
-            // TODO: check si esto esta bien
-            return null;
+            return [];
         }
 
-        // Modelos con contexto jerárquico - seguir rutas hasta encontrar un directo
+        // Modelos con contexto jerárquico - acumular tipos de TODOS los paths
+        $contextTypes = [];
         if ($mapping['type'] === 'hierarchical' && !empty($mapping['paths'])) {
-            foreach ($mapping['paths'] as $pathIndex => $path) {
+            foreach ($mapping['paths'] as $path) {
                 $contextType = $this->followPathType($model, $path, $mappings);
                 if ($contextType !== null) {
-                    return $contextType;
+                    $contextTypes[] = $contextType;
                 }
             }
         }
 
-        return null;
+        return array_values(array_unique($contextTypes));
+    }
+
+    /**
+     * Obtener todos los IDs de contexto ancestros de un contexto dado.
+     *
+     * Sube la cadena de id_contexto_padre hasta llegar a la raíz.
+     * Retorna el array ordenado de más cercano a más lejano,
+     * incluyendo el contexto original.
+     *
+     * @param int $contextId ID del contexto de partida
+     * @return int[]
+     */
+    public function getAncestorContextIds(int $contextId): array
+    {
+        $rows = \Illuminate\Support\Facades\DB::select(
+            'SELECT id_contexto, nivel, categoria FROM usuario.fn_obtener_ids_contexto_ancestros(?)',
+            [$contextId]
+        );
+
+        if (empty($rows)) {
+            return [$contextId];
+        }
+
+        return array_map(fn($row) => (int) $row->id_contexto, $rows);
+    }
+
+    /**
+     * Obtener la cadena de ancestros con sus tipos de contexto (tipificados).
+     *
+     * Similar a getAncestorContextIds() pero retorna también el ContextType enum
+     * de cada contexto en la cadena, con type-safety desde la BD.
+     *
+     * @param int $contextId ID del contexto de partida
+     * @return array<int, array{id_contexto: int, nivel: int, categoria: ContextType}>
+     */
+    public function getAncestorContextsWithType(int $contextId): array
+    {
+        $rows = \Illuminate\Support\Facades\DB::select(
+            'SELECT id_contexto, nivel, categoria FROM usuario.fn_obtener_ids_contexto_ancestros(?)',
+            [$contextId]
+        );
+
+        if (empty($rows)) {
+            return [['id_contexto' => $contextId, 'nivel' => 0, 'categoria' => null]];
+        }
+
+        return array_map(fn($row) => [
+            'id_contexto' => (int) $row->id_contexto,
+            'nivel' => (int) $row->nivel,
+            'categoria' => ContextType::from($row->categoria),
+        ], $rows);
     }
 
     /**
@@ -172,14 +219,14 @@ class ContextResolver
      * @param object $model Instancia del modelo
      * @return object|null Modelo padre que define el contexto, o null si es directo o global
      * 
-     * // FIX: no retorna bien los contextos padre jerarquicos directos
+     * // FIX: no retorna bien los contextos padre jerárquicos directos
      * deberia retornar el padre del directo y cuando no tiene, el global
      * para los globales deberia retornar null, no el global (porque no tiene sentido)
      */
     public function getParentContextModel($model): ?object
     {
         $modelKey = $this->getModelKey($model);
-        $mappings = $this->loadMappings();
+        $mappings = $this->loadGeneratedContextMappings();
 
         if (!isset($mappings[$modelKey])) {
             return null;
@@ -220,46 +267,63 @@ class ContextResolver
      */
     protected function followPath($model, array $path, array $mappings): ?int
     {
+        // Inicializar el modelo actual con el que se pasó como parámetro
         $currentModel = $model;
 
+        // Iterar sobre cada paso en la cadena de relaciones (ej: ['post' => 'user' => 'role'])
         foreach ($path as $step) {
+            // Obtener el nombre del método de relación (ej: 'user', 'post', etc.)
+            // Si no existe, asignar null
             $methodName = $step['method'] ?? null;
+
+            // Obtener el nombre de la clase destino (ej: 'App\Models\User')
+            // NO se usa en este método, pero está disponible en el array de configuración
             $targetClass = $step['target'] ?? null;
 
+            // Si no hay un nombre de método definido, no se puede continuar
             if (!$methodName) {
                 return null;
             }
 
-            // Llamar al método de relación para obtener el modelo relacionado
+            // Validar que el modelo actual tenga un método con ese nombre
+            // (verifica que exista la relación)
             if (!method_exists($currentModel, $methodName)) {
                 return null;
             }
 
+            // Llamar el método de relación para obtener el modelo relacionado
+            // Ej: $currentModel->user() retorna el Usuario relacionado
             $currentModel = $currentModel->$methodName;
 
+            // Si la relación retorna null (no hay modelo relacionado), parar aquí
             if ($currentModel === null) {
                 return null;
             }
 
-            // Si es una colección, tomaremos el primero
+            // Si la relación retorna una colección (relación 1:N), tomar el primer elemento
             if ($currentModel instanceof \Illuminate\Database\Eloquent\Collection) {
+                // Si la colección está vacía, no hay nada que retornar
                 if ($currentModel->isEmpty()) {
                     return null;
                 }
+                // Extraer el primer modelo de la colección
                 $currentModel = $currentModel->first();
             }
         }
 
-        // El modelo resultante debería ser directo
+        // Cuando se terminan todos los pasos, obtener la clave única del modelo final
+        // Formato: 'Schema\NombreModelo' (ej: 'Administrativo\Carrera')
         $finalModelKey = $this->getModelKey($currentModel);
 
+        // Verificar que el modelo final sea un tipo "direct" (tiene context_id directo)
+        // Y extraer su ID de contexto de la columna configurada (usualmente 'id_contexto')
         if (isset($mappings[$finalModelKey]) && $mappings[$finalModelKey]['type'] === 'direct') {
             return $currentModel->getAttribute($this->contextColumn);
         }
 
+        // Si llegó a un modelo que no es "directo", retornar null (no tiene contexto)
         return null;
     }
-
     /**
      * Seguir una ruta de relaciones para obtener el tipo de contexto
      * 
@@ -270,41 +334,58 @@ class ContextResolver
      */
     protected function followPathType($model, array $path, array $mappings): ?string
     {
+        // Inicializar el modelo actual con el que se pasó como parámetro
         $currentModel = $model;
 
+        // Iterar sobre cada paso en la cadena de relaciones (ej: ['post' => 'user' => 'role'])
         foreach ($path as $step) {
+            // Obtener el nombre del método de relación (ej: 'user', 'post', 'carrera', etc.)
+            // Si no existe en el array, asignar null
             $methodName = $step['method'] ?? null;
 
+            // Si no hay un nombre de método definido, no se puede continuar
             if (!$methodName) {
                 return null;
             }
 
+            // Validar que el modelo actual tenga un método con ese nombre
+            // (verifica que exista la relación)
             if (!method_exists($currentModel, $methodName)) {
                 return null;
             }
 
+            // Llamar el método de relación para obtener el modelo relacionado
+            // Ej: $currentModel->carrera() retorna la Carrera relacionada
             $currentModel = $currentModel->$methodName;
 
+            // Si la relación retorna null (no hay modelo relacionado), parar aquí
             if ($currentModel === null) {
                 return null;
             }
 
-            // Si es una colección, tomaremos el primero
+            // Si la relación retorna una colección (relación 1:N), tomar el primer elemento
             if ($currentModel instanceof \Illuminate\Database\Eloquent\Collection) {
+                // Si la colección está vacía, no hay nada que retornar
                 if ($currentModel->isEmpty()) {
                     return null;
                 }
+                // Extraer el primer modelo de la colección
                 $currentModel = $currentModel->first();
             }
         }
 
-        // El modelo resultante debería ser directo
+        // Cuando se terminan todos los pasos, obtener la clave única del modelo final
+        // Formato: 'Schema\NombreModelo' (ej: 'Administrativo\Carrera')
         $finalModelKey = $this->getModelKey($currentModel);
 
+        // Verificar que el modelo final sea un tipo "direct" (tiene context_id directo)
+        // Si es directo, inferir el tipo de contexto del nombre del modelo
+        // Ej: 'Administrativo\Carrera' → 'carrera'
         if (isset($mappings[$finalModelKey]) && $mappings[$finalModelKey]['type'] === 'direct') {
             return $this->inferContextType($finalModelKey);
         }
 
+        // Si llegó a un modelo que no es "directo", retornar null (no es un tipo válido)
         return null;
     }
 

@@ -4,6 +4,8 @@ namespace App\Contracts;
 
 use Illuminate\Database\Eloquent\Model;
 
+use App\Enums\ContextType;
+
 /**
  * Interfaz para modelos con soporte de contextos jerárquicos
  * 
@@ -31,13 +33,14 @@ interface HasContext
     public function getContextId(): array;
 
     /**
-     * Obtiene el tipo de contexto para este modelo
-     * 
-     * A partir del contexto obtenido, determina el tipo (ej: 'carrera', 'curso')
-     * 
-     * @return string|null
+     * Obtiene los tipos de contexto para este modelo.
+     *
+     * Para modelos jerárquicos con múltiples rutas puede retornar más de un tipo.
+     * Para modelos globales retorna [].
+     *
+     * @return array<ContextType> (ej: [ContextType::CARRERA], [ContextType::CURSO, ContextType::CARRERA])
      */
-    public function getContextType(): ?string;
+    public function getContextTypes(): array;
 
     /**
      * Obtiene el modelo padre que define el contexto

@@ -73,7 +73,7 @@ class RoleAssignmentBuilder
           . "o asigna el rol directamente sin contexto."
         );
       }
-      $ids = $resolver->getContextId($resource);
+      $ids = $resolver->getModelContextId($resource);
       $this->contextIds = array_unique(array_merge($this->contextIds, $ids));
     }
 

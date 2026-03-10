@@ -25,6 +25,17 @@ class Carrera implements HasOwnedContext
     }
 
     /**
+     * Magic getter para permitir acceso a propiedades: id es alias de id_contexto
+     */
+    public function __get($key)
+    {
+        if ($key === 'id') {
+            return $this->attributes['id_contexto'] ?? null;
+        }
+        return $this->getAttribute($key);
+    }
+
+    /**
      * Obtiene el ID del contexto para este modelo
      */
     public function getContextId(): array
@@ -34,11 +45,11 @@ class Carrera implements HasOwnedContext
     }
 
     /**
-     * Obtiene el tipo de contexto para este modelo
+     * Obtiene los tipos de contexto para este modelo
      */
-    public function getContextType(): ?string
+    public function getContextTypes(): array
     {
-        return 'carrera';
+        return ['carrera'];
     }
 
     /**

@@ -41,17 +41,17 @@ class GlobalContextService
     try {
       return Contexto::whereHas(
         'tipoContexto',
-        fn($q) => $q->where('tabla_referenciada', 'GLOBAL')
+        fn($q) => $q->where('categoria', 'global')
       )->soleValue('id_contexto');
     } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
       throw new \RuntimeException(
         "Contexto global no encontrado. Verifica que exista un registro en " .
-        "tipo_contexto con tabla_referenciada='GLOBAL' y su contexto asociado."
+        "tipo_contexto con categoria='global' y su contexto asociado."
       );
     } catch (\Illuminate\Database\MultipleRecordsFoundException) {
       throw new \RuntimeException(
         "Múltiples contextos globales encontrados: configuración corrupta. " .
-        "Solo puede existir UN registro en tipo_contexto con tabla_referenciada='GLOBAL'."
+        "Solo puede existir UN registro en tipo_contexto con categoria='global'."
       );
     }
   }

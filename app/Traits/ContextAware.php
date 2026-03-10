@@ -11,7 +11,7 @@ use App\Services\ContextResolver;
  * 
  * Proporciona:
  * - getContextId(): Obtiene el ID de contexto del modelo
- * - getContextType(): Obtiene el tipo de contexto (ej: 'carrera', 'curso')
+ * - getContextTypes(): Obtiene los tipos de contexto del modelo (ej: ['carrera'])
  * 
  * FUNCIONAMIENTO:
  * 
@@ -38,8 +38,8 @@ use App\Services\ContextResolver;
  *    
  *    // En la aplicación
  *    $seccion = Seccion::find(1);
- *    $contextId = $seccion->getContextId();      // array (ej: [42])
- *    $contextType = $seccion->getContextType();  // string ('curso')
+ *    $contextId    = $seccion->getContextId();    // array (ej: [42])
+ *    $contextTypes = $seccion->getContextTypes(); // array (ej: ['curso'])
  */
 trait ContextAware
 {
@@ -55,17 +55,20 @@ trait ContextAware
      */
     public function getContextId(): array
     {
-        return app(ContextResolver::class)->getContextId($this);
+        return app(ContextResolver::class)->getModelContextId($this);
     }
 
     /**
-     * Obtener el tipo de contexto del modelo
-     * 
-     * @return string|null (ej: 'carrera', 'curso')
+     * Obtener todos los tipos de contexto del modelo.
+     *
+     * Para modelos jerárquicos con múltiples rutas puede retornar más de un tipo.
+     * Para modelos globales retorna [].
+     *
+     * @return array<string> (ej: ['carrera'], ['curso', 'carrera'])
      */
-    public function getContextType(): ?string
+    public function getContextTypes(): array
     {
-        return app(ContextResolver::class)->getContextType($this);
+        return app(ContextResolver::class)->getModelContextTypes($this);
     }
 
     /**

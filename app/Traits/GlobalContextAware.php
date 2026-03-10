@@ -4,6 +4,8 @@ namespace App\Traits;
 
 use App\Services\Authorization\GlobalContextService;
 
+use App\Enums\ContextType;
+
 /**
  * Trait GlobalContextAware
  *
@@ -35,11 +37,11 @@ trait GlobalContextAware
   /**
    * Los modelos globales no tienen un tipo de contexto propio.
    *
-   * @return null
+   * @return array<ContextType> Siempre vacío para modelos globales.
    */
-  public function getContextType(): ?string
+  public function getContextTypes(): array
   {
-    return null;
+    return [];
   }
 
   /**
