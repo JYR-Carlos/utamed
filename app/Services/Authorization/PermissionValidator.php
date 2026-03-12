@@ -335,7 +335,7 @@ class PermissionValidator
 
         if ($noInherit) {
             // Si el permiso es no-inherit, no expandir con ancestros, solo usar los explícitos + global
-            return array_values(array_unique(...$explicit, $globalContextId));
+            return array_values(array_unique([...$explicit, $globalContextId]));
         } else {
             // Si no, expandir con ancestros usando la función SQL
             return $this->expandWithAncestors($explicit, $globalContextId, $permission);
@@ -367,7 +367,7 @@ class PermissionValidator
 
         if ($noInherit) {
             // Si el permiso es no-inherit, no expandir con ancestros, solo usar los de recurso + global
-            return array_values(array_unique(...$contextIds, $globalContextId));
+            return array_values(array_unique([...$contextIds, $globalContextId]));
         } else {
             // Si no, expandir con ancestros usando la función SQL
             return $this->expandWithAncestors($contextIds, $globalContextId, $permission);
