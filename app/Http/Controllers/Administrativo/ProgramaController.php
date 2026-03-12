@@ -23,6 +23,7 @@ class ProgramaController extends Controller
      */
     public function store(Request $request, Curso $curso)
     {
+        /** @var \App\Models\Usuario\Usuario $user */
         $user = Auth::user();
 
         // Validar que el docente tiene acceso a este curso
@@ -32,10 +33,7 @@ class ProgramaController extends Controller
         // Esto incluye: ser docente asignado + tener permisos específicos
         if (!$user->is_admin) {
             // Para docentes, validar directamente via policy
-            $programaPolicy = new \App\Policies\ProgramaPolicy();
-            if (!$programaPolicy->create($user, $curso)) {
-                abort(403, 'No tienes permiso para crear programas en este curso');
-            }
+            $this->authorize('create', Programa::class);
         }
 
         // Validar si se envían secciones
@@ -58,6 +56,8 @@ class ProgramaController extends Controller
         }
 
         try {
+            /** @var \App\Models\Usuario\Usuario $user */
+            $user = Auth::user();
             $programa = ProgramaService::generateProgramaWithSyllabus(
                 $curso,
                 $user,
@@ -97,16 +97,12 @@ class ProgramaController extends Controller
         $user = Auth::user();
         $canApprove = false;
 
-        // Calcular canEdit sin pasar por BaseProgramaPolicy::update() que tiene un bug
-        // con Permissions enum vs string. En su lugar replicamos la lógica directamente:
-        // - Admin siempre puede editar
+        // Calcular canEdit: - Admin siempre puede editar
         // - Docente asignado al curso puede editar si el programa no está APROBADO
-        $isAdmin = $user->rolesAsignados()
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->whereIn('nombre', ['Administrador', 'SuperAdmin', 'Super Admin', 'Admin'])
-            ->exists();
-
+        /** @var \App\Models\Usuario\Usuario $user */
+        $user = Auth::user();
+        
+        $isAdmin = $user->is_admin;
         $isAssignedDocente = $user->docente
             ? $user->docente->secciones()->where('id_curso', $curso->id_curso)->exists()
             : false;
@@ -116,6 +112,8 @@ class ProgramaController extends Controller
         $canEdit = $editableState && ($isAdmin || $isAssignedDocente);
 
         if ($programa) {
+            /** @var \App\Models\Usuario\Usuario $user */
+            $user = Auth::user();
             $canApprove = $user->can('approve', $programa);
         }
 
@@ -138,6 +136,8 @@ class ProgramaController extends Controller
         }
 
         // Permisos del usuario en el contexto del curso
+        /** @var \App\Models\Usuario\Usuario $user */
+        $user = Auth::user();
         $userPermissions = collect($user->getAllPermissions($curso->id_contexto))->map(fn($p) => [
             'id_permiso'    => $p['id_permiso'],
             'slug'          => $p['slug'],

@@ -5,26 +5,7 @@
   import { Plus, Save, X, AlertCircle, Info } from 'lucide-svelte';
   import ProgramaStateBadges from '@/components/custom/admin/ProgramaStateBadges.svelte';
   import CompletenessProgressBar from '@/components/custom/admin/CompletenessProgressBar.svelte';
-
-  interface Programa {
-    id_programa: number;
-    version_programa: number;
-    estado: string;
-    creado_por: number;
-    revisado_por?: number;
-    fecha_creacion: string;
-    data_syllabus: {
-      metadata?: {
-        tipo_syllabus: string;
-        curso?: string;
-        asignatura?: string;
-        creditos?: number;
-      };
-      secciones?: Record<string, any>;
-    };
-    completenessPercentage?: number;
-    creator?: { id_usuario: number; nombre_completo: string };
-  }
+  import type { Programa } from '@/types/admin.types';
 
   interface Props {
     programa: Programa;

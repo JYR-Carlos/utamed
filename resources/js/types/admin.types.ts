@@ -150,17 +150,33 @@ export interface Programa {
     /** Course this programa belongs to */
     id_curso: number;
     /** Whether this is a template programa (draft) */
-    es_plantilla: boolean;
+    es_plantilla?: boolean;
     /** Whether this is the current active programa */
-    es_actual: boolean;
+    es_actual?: boolean;
     /** Whether it is a draft or approved */
     estado: string;
     /** Version number (increments on regeneration) */
     version_programa: number;
     /** ISO timestamp of creation */
-    fecha_creacion?: string;
+    fecha_creacion: string;
     /** User who created the programa */
-    creado_por?: number;
+    creado_por: number;
+    /** User who reviewed the programa */
+    revisado_por?: number;
+    /** JSONB structure containing syllabus data */
+    data_syllabus?: {
+        metadata?: {
+            tipo_syllabus: string;
+            curso?: string;
+            asignatura?: string;
+            creditos?: number;
+        };
+        secciones?: Record<string, any>;
+    };
+    /** Completeness percentage (0-100) */
+    completenessPercentage?: number;
+    /** Creator user information */
+    creator?: { id_usuario: number; nombre_completo: string };
 }
 
 export interface Curso {

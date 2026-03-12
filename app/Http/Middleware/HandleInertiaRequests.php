@@ -112,6 +112,10 @@ class HandleInertiaRequests extends Middleware
      * Retorna un array que Inertia mezcla automáticamente con los props
      * específicos enviados desde cada controlador.
      * 
+     * OPTIMIZACIÓN: Diferencia entre GET (navegación) y POST/PUT/DELETE (acciones)
+     * - GET: Carga todos los datos (user, roles, cursos, permisos)
+     * - POST/PUT/DELETE: Carga mínimo (user, roles) para evitar queries innecesarias
+     * 
      * @param Request $request Objeto de la solicitud HTTP
      * @return array Props globales compartidos
      */
@@ -153,6 +157,10 @@ class HandleInertiaRequests extends Middleware
             }
         }
 
+        // OPTIMIZACIÓN: Solo cargar datos costosos en GET requests (navegación)
+        // Para POST/PUT/DELETE, minimizar queries de lectura
+        $isNavigationRequest = $request->method() === 'GET';
+
         // Retornar array de props compartidos que Inertia inyectará en TODAS las páginas
         return [
             ...parent::share($request),  // Props base de Inertia (errors, component, etc)
@@ -170,29 +178,36 @@ class HandleInertiaRequests extends Middleware
                 'docente'       => $docente,  // Objeto Docente si aplica, null si no
                 'estudiante'    => $estudiante,  // Objeto Estudiante si aplica
                 
-                // CURSOS: Pre-cargados según el rol del usuario
+                // CURSOS: Pre-cargados SOLO en GET requests (navegación)
+                // Para acciones (POST/PUT/DELETE), no necesitamos pre-cargar
                 // Cada controlador puede acceder a esto sin hacer queries adicionales
-                'docente_courses'    => $docente 
+                'docente_courses'    => $isNavigationRequest && $docente
                     ? $this->userCourses->getDocenteCourses($docente)  // Cursos donde dicta
                     : [],
                     
-                'estudiante_courses' => $estudiante 
+                'estudiante_courses' => $isNavigationRequest && $estudiante
                     ? $this->userCourses->getEstudianteCourses($estudiante)  // Cursos inscritos
                     : [],
                     
-                'ayudante_courses'   => in_array('ayudante', array_map('strtolower', $roles))
+                'ayudante_courses'   => $isNavigationRequest && in_array('ayudante', array_map('strtolower', $roles))
                     ? $this->userCourses->getAyudanteCourses($user, $allAyudantePerms)  // Cursos donde asiste
                     : [],
             ],
             
             // STATE: Estado persistente de UI (ej: sidebar abierto/cerrado)
-            'sidebarOpen' => !$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            // Solo en GET requests (navegación)
+            'sidebarOpen' => $isNavigationRequest 
+                ? (!$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true')
+                : null,
             
             // FLASH MESSAGES: Mensajes de una solicitud anterior (login, error, etc)
             'flash' => [
                 'success' => fn() => $request->session()->get('success'),  // Lazy evaluation
                 'error'   => fn() => $request->session()->get('error'),
             ],
+
+            // LOGIN ERROR: Errores específicos de autenticación (RUT_NOT_FOUND, PASSWORD_INCORRECT, etc)
+            'loginError' => fn() => $request->session()->pull('login_error'),
         ];
     
     }

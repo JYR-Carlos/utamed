@@ -94,5 +94,33 @@ class UsuarioFactory extends Factory
                 'docente'
             );
     }
-}
 
+    /**
+     * Generar RUT formateado (XX.XXX.XXX-X)
+     * @return string RUT con puntos y guión
+     */
+    public static function getRUTFormatted(): string
+    {
+        return ChileanNameGenerator::generarRUT();
+    }
+
+    /**
+     * Generar RUT normalizado (sin puntos ni guiones: XXXXXXXX-X)
+     * @return string RUT sin puntos, solo con guión final
+     */
+    public static function getRUTNormalized(): string
+    {
+        $rut = self::getRUTFormatted();
+        return preg_replace('/\./', '', $rut); // Remove dots only
+    }
+
+    /**
+     * Generar RUT totalmente limpio (solo número y dígito verificador: XXXXXXXXX)
+     * @return string RUT completamente limpio
+     */
+    public static function getRUTPlain(): string
+    {
+        $rut = self::getRUTFormatted();
+        return preg_replace('/[.\-]/', '', $rut); // Remove dots and hyphen
+    }
+}

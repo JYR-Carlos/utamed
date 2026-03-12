@@ -194,8 +194,9 @@ class DontHavePermissionException extends \RuntimeException
         $displayValue = null;
 
         foreach ($displayAttrs as $attr) {
-            if ($object->getAttribute($attr) !== null) {
-                $displayValue = $object->getAttribute($attr);
+            $value = $object->$attr ?? null;
+            if ($value !== null) {
+                $displayValue = $value;
                 break;
             }
         }

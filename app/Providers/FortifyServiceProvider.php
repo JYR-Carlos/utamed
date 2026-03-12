@@ -45,23 +45,30 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
 
-        // Custom Authentication Logic (Email OR Username)
+        // Custom Authentication Logic (RUT only)
         Fortify::authenticateUsing(function (Request $request) {
-            $input = $request->input('email'); // Form field is still named 'email' for compatibility
+            // Field is named 'email' for Fortify compatibility, but contains the RUT
+            $rutInput = $request->input('email');
+
+            // Normalize: strip dots and dash so both sides are comparable
+            // e.g. "11.111.111-1" or "11111111-1" or "111111111" all normalize to "111111111"
+            $normalizedInput = preg_replace('/[.\-]/', '', $rutInput ?? '');
 
             Log::channel('single')->info('[LOGIN] Intento de login', [
-                'input' => $input,
-                'ip'    => $request->ip(),
+                'rut_input'      => $rutInput,
+                'rut_normalized' => $normalizedInput,
+                'ip'             => $request->ip(),
             ]);
 
             try {
-                $user = \App\Models\Usuario\Usuario::where('email', $input)
-                    ->orWhere('username', $input)
-                    ->first();
+                $user = \App\Models\Usuario\Usuario::whereRaw(
+                    "REPLACE(REPLACE(rut, '.', ''), '-', '') = ?",
+                    [$normalizedInput]
+                )->first();
 
                 if (!$user) {
-                    Log::channel('single')->warning('[LOGIN] Usuario no encontrado', ['input' => $input]);
-                    return null;
+                    Log::channel('single')->warning('[LOGIN] Usuario no encontrado', ['rut_normalized' => $normalizedInput]);
+                    throw new \App\Exceptions\LoginException(\App\Enums\LoginErrorCode::RUT_NOT_FOUND);
                 }
 
                 Log::channel('single')->info('[LOGIN] Usuario encontrado', [
@@ -71,6 +78,13 @@ class FortifyServiceProvider extends ServiceProvider
                     'passhash_length' => strlen($user->passhash ?? ''),
                 ]);
 
+                // Validar que el usuario está activo
+                if (!$user->esta_activo) {
+                    Log::channel('single')->warning('[LOGIN] Usuario inactivo', ['id' => $user->id_usuario]);
+                    throw new \App\Exceptions\LoginException(\App\Enums\LoginErrorCode::USER_INACTIVE);
+                }
+
+                // Validar contraseña
                 $passwordOk = \Illuminate\Support\Facades\Hash::check($request->password, $user->passhash);
 
                 if (!$passwordOk) {
@@ -78,7 +92,7 @@ class FortifyServiceProvider extends ServiceProvider
                         'id'       => $user->id_usuario,
                         'username' => $user->username,
                     ]);
-                    return null;
+                    throw new \App\Exceptions\LoginException(\App\Enums\LoginErrorCode::PASSWORD_INCORRECT);
                 }
 
                 Log::channel('single')->info('[LOGIN] Autenticación exitosa', [
@@ -87,13 +101,15 @@ class FortifyServiceProvider extends ServiceProvider
                 ]);
 
                 return $user;
+            } catch (\App\Exceptions\LoginException $e) {
+                throw $e;
             } catch (\Throwable $e) {
                 Log::channel('single')->error('[LOGIN] Excepción durante autenticación', [
                     'message' => $e->getMessage(),
                     'file'    => $e->getFile(),
                     'line'    => $e->getLine(),
                 ]);
-                return null;
+                throw new \App\Exceptions\LoginException(\App\Enums\LoginErrorCode::RUT_NOT_FOUND);
             }
         });
     }

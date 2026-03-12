@@ -21,22 +21,7 @@
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
   import { Plus, Edit2, Trash2, ArrowLeft, Users, ClipboardList } from 'lucide-svelte';
-
-  /**
-   * Interface para un objeto Actividad.
-   */
-  interface Actividad {
-    id_actividad: number;
-    nombre: string;
-    fecha_limite: string;
-    tipo_actividad: number;
-    tipo_entrega: string;
-    es_grupal: boolean;
-    max_integrantes: number;
-    visible: boolean;
-    id_seccion: number;
-    id_unidad: number;
-  }
+  import type { Actividad } from '@/types/actividad';
 
   interface Props {
     curso: any;
@@ -153,28 +138,34 @@
 </script>
 
 <DocenteLayout>
-  <div class="page-container">
+  <div class="p-8 max-w-5xl mx-auto">
     <!-- Header with back button -->
-    <div class="page-header">
-      <div class="header-top">
-        <Link href="/docente/cursos" class="back-button">
+    <div class="mb-8">
+      <div class="mb-4">
+        <Link href="/docente/cursos" class="inline-flex items-center gap-2 text-blue-500 font-medium hover:text-blue-600 transition-colors py-2">
           <ArrowLeft size={20} />
           Mis Cursos
         </Link>
       </div>
-      <div class="header-content">
+      <div class="flex justify-between items-start gap-4">
         <div>
-          <h1 class="page-title">Actividades del Curso</h1>
-          <p class="page-description">
+          <h1 class="text-3xl font-bold text-gray-900 mb-0">Actividades del Curso</h1>
+          <p class="text-gray-600 text-base mt-2">
             {curso.cod_asignatura} - {curso.asignatura_nombre}
           </p>
         </div>
         <div class="flex gap-3">
-          <Link href={`/docente/inscripciones?id_curso=${curso.id_curso}`} class="btn-secondary">
-            <Users size={20} class="mr-2" />
+          <Link
+            href={`/docente/inscripciones?id_curso=${curso.id_curso}`}
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 text-gray-900 border border-gray-300 rounded-md font-medium hover:bg-gray-200 transition-all"
+          >
+            <Users size={20} />
             Inscripciones
           </Link>
-          <button onclick={openCreateModal} class="btn-primary">
+          <button
+            onclick={openCreateModal}
+            class="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-colors whitespace-nowrap"
+          >
             <Plus size={20} />
             Nueva Actividad
           </button>
@@ -183,13 +174,16 @@
     </div>
 
     <!-- Activities List -->
-    <div class="actividades-container">
+    <div>
       {#if actividades.length === 0}
-        <div class="empty-state">
-          <div class="empty-icon">📋</div>
-          <h3>No hay actividades creadas</h3>
-          <p>Crea tu primera actividad para este curso</p>
-          <button onclick={openCreateModal} class="btn-secondary">
+        <div class="text-center p-16 bg-white rounded-xl border border-gray-200">
+          <div class="text-5xl mb-4">📋</div>
+          <h3 class="text-xl text-gray-900 font-semibold mb-2">No hay actividades creadas</h3>
+          <p class="text-gray-600 mb-6">Crea tu primera actividad para este curso</p>
+          <button
+            onclick={openCreateModal}
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 text-gray-900 border border-gray-300 rounded-md font-medium hover:bg-gray-200 transition-all"
+          >
             <Plus size={18} />
             Crear Actividad
           </button>
@@ -197,38 +191,46 @@
       {:else}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {#each actividades as actividad}
-            <div class="activity-card">
-              <div class="activity-header">
-                <div class="activity-title-section">
-                  <h3 class="activity-name">{actividad.nombre}</h3>
+            <div class="bg-white border border-gray-200 rounded-xl p-6 hover:border-blue-500 hover:shadow-lg transition-all flex flex-col">
+              <div class="flex justify-between items-start mb-4">
+                <div class="flex items-center gap-3 flex-1">
+                  <h3 class="text-lg font-semibold text-gray-900">{actividad.nombre}</h3>
                   {#if actividad.visible}
-                    <span class="badge badge-visible">Visible</span>
+                    <span class="inline-block text-xs font-medium px-3 py-1 bg-green-100 text-green-900 rounded-full">Visible</span>
                   {:else}
-                    <span class="badge badge-hidden">Oculta</span>
+                    <span class="inline-block text-xs font-medium px-3 py-1 bg-red-100 text-red-900 rounded-full">Oculta</span>
                   {/if}
                 </div>
-                <div class="activity-actions-inline">
-                  <button onclick={() => openEditModal(actividad)} class="btn-icon-small" title="Editar">
+                <div class="flex gap-2">
+                  <button
+                    onclick={() => openEditModal(actividad)}
+                    class="p-2 bg-transparent border border-gray-200 rounded-md text-gray-600 hover:bg-gray-100 hover:text-blue-500 hover:border-blue-500 transition-all"
+                    title="Editar"
+                  >
                     <Edit2 size={18} />
                   </button>
-                  <button onclick={() => openDeleteDialog(actividad)} class="btn-icon-small btn-delete-small" title="Eliminar">
+                  <button
+                    onclick={() => openDeleteDialog(actividad)}
+                    class="p-2 bg-transparent border border-gray-200 rounded-md text-gray-600 hover:bg-gray-100 hover:text-red-600 hover:border-red-600 transition-all"
+                    title="Eliminar"
+                  >
                     <Trash2 size={18} />
                   </button>
                 </div>
               </div>
 
-              <div class="activity-details">
-                <div class="detail-row">
-                  <span class="label">Tipo:</span>
-                  <span class="value">{actividad.tipo_actividad}</span>
+              <div class="flex flex-col gap-3 mb-4 flex-1">
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-600 font-medium">Tipo:</span>
+                  <span class="text-gray-900 font-medium">{actividad.tipo_actividad}</span>
                 </div>
-                <div class="detail-row">
-                  <span class="label">Entrega:</span>
-                  <span class="value capitalize">{actividad.tipo_entrega}</span>
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-600 font-medium">Entrega:</span>
+                  <span class="text-gray-900 font-medium capitalize">{actividad.tipo_entrega}</span>
                 </div>
-                <div class="detail-row">
-                  <span class="label">Modalidad:</span>
-                  <span class="value">
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-600 font-medium">Modalidad:</span>
+                  <span class="text-gray-900 font-medium">
                     {#if actividad.es_grupal}
                       👥 Grupal (máx. {actividad.max_integrantes} personas)
                     {:else}
@@ -236,18 +238,24 @@
                     {/if}
                   </span>
                 </div>
-                <div class="detail-row highlight">
-                  <span class="label">Fecha Límite:</span>
-                  <span class="value date">{formatDate(actividad.fecha_limite)}</span>
+                <div class="flex justify-between text-sm bg-blue-50 px-3 py-2 rounded-md border-l-4 border-blue-500">
+                  <span class="text-gray-600 font-medium">Fecha Límite:</span>
+                  <span class="text-blue-600 font-semibold">{formatDate(actividad.fecha_limite)}</span>
                 </div>
               </div>
 
-              <div class="activity-footer">
-                <Link href={`/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/evaluacion`} class="btn-evaluar">
+              <div class="flex gap-2">
+                <Link
+                  href={`/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/evaluacion`}
+                  class="flex-1 inline-flex items-center justify-center gap-1 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-md font-semibold text-blue-700 hover:bg-blue-100 hover:border-blue-500 transition-all text-sm no-underline"
+                >
                   <ClipboardList size={16} />
                   Evaluar
                 </Link>
-                <button onclick={() => openEditModal(actividad)} class="btn-edit-full">
+                <button
+                  onclick={() => openEditModal(actividad)}
+                  class="flex-1 inline-flex items-center justify-center gap-1 px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-md font-medium text-gray-900 hover:bg-gray-200 hover:border-blue-500 hover:text-blue-600 transition-all text-sm"
+                >
                   <Edit2 size={16} />
                   Editar
                 </button>
@@ -267,20 +275,38 @@
     onSubmit={handleSubmit}
     {isLoading}
   >
-    <div class="form-group">
-      <label for="nombre" class="form-label">Nombre de la Actividad *</label>
-      <input id="nombre" type="text" bind:value={formData.nombre} class="form-input" placeholder="Ej: Tarea 1, Evaluación Parcial" required />
+    <div class="mb-4">
+      <label for="nombre" class="block font-medium text-gray-700 mb-2 text-sm">Nombre de la Actividad *</label>
+      <input
+        id="nombre"
+        type="text"
+        bind:value={formData.nombre}
+        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100 transition-all"
+        placeholder="Ej: Tarea 1, Evaluación Parcial"
+        required
+      />
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label for="fecha_limite" class="form-label">Fecha Límite *</label>
-        <input id="fecha_limite" type="date" bind:value={formData.fecha_limite} class="form-input" required />
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="mb-4">
+        <label for="fecha_limite" class="block font-medium text-gray-700 mb-2 text-sm">Fecha Límite *</label>
+        <input
+          id="fecha_limite"
+          type="date"
+          bind:value={formData.fecha_limite}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100 transition-all"
+          required
+        />
       </div>
 
-      <div class="form-group">
-        <label for="tipo_entrega" class="form-label">Tipo de Entrega *</label>
-        <select id="tipo_entrega" bind:value={formData.tipo_entrega} class="form-input" required>
+      <div class="mb-4">
+        <label for="tipo_entrega" class="block font-medium text-gray-700 mb-2 text-sm">Tipo de Entrega *</label>
+        <select
+          id="tipo_entrega"
+          bind:value={formData.tipo_entrega}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100 transition-all"
+          required
+        >
           <option value="online">En línea</option>
           <option value="presencial">Presencial</option>
           <option value="hibrido">Híbrido</option>
@@ -288,10 +314,15 @@
       </div>
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label for="id_seccion" class="form-label">Sección *</label>
-        <select id="id_seccion" bind:value={formData.id_seccion} class="form-input" required>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="mb-4">
+        <label for="id_seccion" class="block font-medium text-gray-700 mb-2 text-sm">Sección *</label>
+        <select
+          id="id_seccion"
+          bind:value={formData.id_seccion}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100 transition-all"
+          required
+        >
           <option value={0}>Seleccione una sección</option>
           {#each secciones as seccion}
             <option value={seccion.id_seccion}>
@@ -301,9 +332,14 @@
         </select>
       </div>
 
-      <div class="form-group">
-        <label for="id_unidad" class="form-label">Unidad *</label>
-        <select id="id_unidad" bind:value={formData.id_unidad} class="form-input" required>
+      <div class="mb-4">
+        <label for="id_unidad" class="block font-medium text-gray-700 mb-2 text-sm">Unidad *</label>
+        <select
+          id="id_unidad"
+          bind:value={formData.id_unidad}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100 transition-all"
+          required
+        >
           <option value={0}>Seleccione una unidad</option>
           {#each unidades as unidad}
             <option value={unidad.id_unidad}>
@@ -314,23 +350,30 @@
       </div>
     </div>
 
-    <div class="form-group">
-      <label class="checkbox-label">
-        <input type="checkbox" bind:checked={formData.es_grupal} class="checkbox-input" />
+    <div class="mb-4">
+      <label class="flex items-center gap-2 text-gray-700 text-sm cursor-pointer">
+        <input type="checkbox" bind:checked={formData.es_grupal} class="w-4.5 h-4.5 cursor-pointer" />
         <span>Es una actividad grupal</span>
       </label>
     </div>
 
     {#if formData.es_grupal}
-      <div class="form-group">
-        <label for="max_integrantes" class="form-label">Máximo de Integrantes</label>
-        <input id="max_integrantes" type="number" bind:value={formData.max_integrantes} class="form-input" min="2" max="100" />
+      <div class="mb-4">
+        <label for="max_integrantes" class="block font-medium text-gray-700 mb-2 text-sm">Máximo de Integrantes</label>
+        <input
+          id="max_integrantes"
+          type="number"
+          bind:value={formData.max_integrantes}
+          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100 transition-all"
+          min="2"
+          max="100"
+        />
       </div>
     {/if}
 
-    <div class="form-group">
-      <label class="checkbox-label">
-        <input type="checkbox" bind:checked={formData.visible} class="checkbox-input" />
+    <div class="mb-4">
+      <label class="flex items-center gap-2 text-gray-700 text-sm cursor-pointer">
+        <input type="checkbox" bind:checked={formData.visible} class="w-4.5 h-4.5 cursor-pointer" />
         <span>Visible para estudiantes</span>
       </label>
     </div>
@@ -346,351 +389,3 @@
     {isLoading}
   />
 </DocenteLayout>
-
-<style>
-  .page-container {
-    padding: 2rem;
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-
-  .page-header {
-    margin-bottom: 2rem;
-  }
-
-  .header-top {
-    margin-bottom: 1rem;
-  }
-
-  :global(.back-button) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #3b82f6;
-    font-weight: 500;
-    text-decoration: none;
-    padding: 0.5rem 0;
-    transition: color 0.2s;
-  }
-
-  :global(.back-button:hover) {
-    color: #2563eb;
-  }
-
-  .header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .page-title {
-    font-size: 1.875rem;
-    font-weight: 700;
-    color: #111827;
-    margin: 0;
-  }
-
-  .page-description {
-    color: #6b7280;
-    font-size: 1rem;
-    margin-top: 0.5rem;
-  }
-
-  .btn-primary {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    background: #3b82f6;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-    white-space: nowrap;
-  }
-
-  .btn-primary:hover {
-    background: #2563eb;
-  }
-
-  .actividades-container {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .empty-state {
-    text-align: center;
-    padding: 4rem 2rem;
-    background: white;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
-  }
-
-  .empty-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-  }
-
-  .empty-state h3 {
-    color: #111827;
-    font-size: 1.25rem;
-    margin: 0 0 0.5rem 0;
-  }
-
-  .empty-state p {
-    color: #6b7280;
-    margin-bottom: 1.5rem;
-  }
-
-  .btn-secondary {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.625rem 1.25rem;
-    background: #f3f4f6;
-    color: #111827;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-secondary:hover {
-    background: #e5e7eb;
-  }
-
-  .activity-card {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 1.5rem;
-    transition: all 0.2s;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .activity-card:hover {
-    border-color: #3b82f6;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
-  }
-
-  .activity-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1rem;
-  }
-
-  .activity-title-section {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex: 1;
-  }
-
-  .activity-name {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: #111827;
-    margin: 0;
-  }
-
-  .badge {
-    display: inline-block;
-    font-size: 0.75rem;
-    font-weight: 500;
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-  }
-
-  .badge-visible {
-    background: #d1fae5;
-    color: #065f46;
-  }
-
-  .badge-hidden {
-    background: #fee2e2;
-    color: #991b1b;
-  }
-
-  .activity-actions-inline {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .btn-icon-small {
-    padding: 0.5rem;
-    background: transparent;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    color: #6b7280;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-icon-small:hover {
-    background: #f3f4f6;
-    color: #3b82f6;
-    border-color: #3b82f6;
-  }
-
-  .btn-delete-small:hover {
-    color: #dc2626;
-    border-color: #dc2626;
-  }
-
-  .activity-details {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-    flex: 1;
-  }
-
-  .detail-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.5rem 0;
-    font-size: 0.875rem;
-  }
-
-  .detail-row.highlight {
-    background: #f0f9ff;
-    padding: 0.75rem;
-    border-radius: 6px;
-    border-left: 3px solid #3b82f6;
-  }
-
-  .label {
-    color: #6b7280;
-    font-weight: 500;
-  }
-
-  .value {
-    color: #111827;
-    font-weight: 500;
-  }
-
-  .value.date {
-    color: #3b82f6;
-    font-weight: 600;
-  }
-
-  .capitalize {
-    text-transform: capitalize;
-  }
-
-  .activity-footer {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  :global(.btn-evaluar) {
-    flex: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    padding: 0.625rem;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 6px;
-    font-weight: 600;
-    color: #1d4ed8;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-decoration: none;
-    font-size: 0.875rem;
-  }
-
-  :global(.btn-evaluar:hover) {
-    background: #dbeafe;
-    border-color: #3b82f6;
-  }
-
-  .btn-edit-full {
-    flex: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    padding: 0.625rem;
-    background: #f3f4f6;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-weight: 500;
-    color: #111827;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-edit-full:hover {
-    background: #e5e7eb;
-    border-color: #3b82f6;
-    color: #3b82f6;
-  }
-
-  .form-group {
-    margin-bottom: 1rem;
-  }
-
-  .form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-  }
-
-  .form-label {
-    display: block;
-    font-weight: 500;
-    color: #374151;
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
-  }
-
-  .form-input {
-    width: 100%;
-    padding: 0.625rem 0.875rem;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    color: #111827;
-    background-color: white;
-    transition: all 0.2s;
-  }
-
-  .form-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  }
-
-  .checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #374151;
-    font-size: 0.875rem;
-    cursor: pointer;
-  }
-
-  .checkbox-input {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-  }
-
-  @media (max-width: 768px) {
-    .header-content {
-      flex-direction: column;
-    }
-
-    .form-row {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>

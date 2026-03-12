@@ -243,7 +243,7 @@
     if (flow !== 'permission' || !selectedPermission?.valid_context_types?.length) {
       return contextTypes;
     }
-    return contextTypes.filter((ct) => selectedPermission.valid_context_types!.includes(ct.key));
+    return contextTypes.filter((ct) => selectedPermission!.valid_context_types.includes(ct.key));
   });
 
   let today = $derived(new Date().toISOString().split('T')[0]);

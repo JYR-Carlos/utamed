@@ -59,8 +59,7 @@
     let isAdmin    = $derived(
         roles.includes('SuperAdmin') ||
         roles.includes('Super Admin') ||
-        roles.includes('Administrador') ||
-        roles.length === 0
+        roles.includes('Administrador')
     );
 
     // Actividad reciente (mock representativo)

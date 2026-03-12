@@ -13,50 +13,7 @@
   import { untrack } from 'svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import { ArrowLeft, Plus, Trash2, UserPlus, Save, Users, User, BookOpen } from 'lucide-svelte';
-
-  // ---------------------------------------------------------------------------
-  // Types
-  // ---------------------------------------------------------------------------
-  interface Integrante {
-    id_asignado_actividad: number;
-    id_estudiante: number;
-    nombre_completo: string;
-    nota_individual: number | null;
-    diferencia_decimas: number | null;
-  }
-
-  interface Grupo {
-    grupo: number;
-    nota: number | null;
-    id_estado: number | null;
-    estado: { id_estado: number; titulo: string } | null;
-    integrantes: Integrante[];
-  }
-
-  interface Estado {
-    id_estado: number;
-    titulo: string;
-    descripcion: string | null;
-  }
-
-  interface EstudianteDisponible {
-    id_estudiante: number;
-    nombre_completo: string;
-    email: string;
-  }
-
-  interface Actividad {
-    id_actividad: number;
-    nombre: string;
-    fecha_limite: string;
-    tipo_actividad: number;
-    tipo_entrega: string;
-    es_grupal: boolean;
-    max_integrantes: number;
-    visible: boolean;
-    seccion: { id_seccion: number; tipo: string } | null;
-    unidad: { id_unidad: number; nombre: string } | null;
-  }
+  import type { Actividad, Integrante, Grupo, Estado, EstudianteDisponible } from '@/types/actividad';
 
   interface Props {
     curso: { id_curso: number; cod_curso?: string; asignatura_nombre?: string; nombre?: string };

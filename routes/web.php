@@ -41,22 +41,32 @@ Route::get('dashboard', function () {
         return redirect()->route('ayudante.dashboard');
     }
 
-    return Inertia::render('Dashboard', [
-        'stats' => [
-            'usuarios' => \App\Models\Usuario\Usuario::count(),
-            'cursos_total' => \App\Models\Curso\Curso::count(),
-            'cursos_pendientes' => \App\Models\Curso\Curso::where('estado_interno', 'ABIERTO')
-                ->where(function ($query) {
-                    $query->where('estado_acta', '!=', 'ENVIADO')
-                        ->orWhereNull('estado_acta');
-                })
-                ->count(),
-            'facultades' => \App\Models\Administrativo\Facultad::count(),
-            'carreras' => \App\Models\Administrativo\Carrera::count(),
-        ],
-    ]);
+    // Solo admins y superadmins llegan aquí
+    if ($user->hasRole('Administrador') || $user->hasRole('SuperAdmin')) {
+        return Inertia::render('Dashboard', [
+            'stats' => [
+                'usuarios' => \App\Models\Usuario\Usuario::count(),
+                'cursos_total' => \App\Models\Curso\Curso::count(),
+                'cursos_pendientes' => \App\Models\Curso\Curso::where('estado_interno', 'ABIERTO')
+                    ->where(function ($query) {
+                        $query->where('estado_acta', '!=', 'ENVIADO')
+                            ->orWhereNull('estado_acta');
+                    })
+                    ->count(),
+                'facultades' => \App\Models\Administrativo\Facultad::count(),
+                'carreras' => \App\Models\Administrativo\Carrera::count(),
+            ],
+        ]);
+    }
+
+    // Usuario autenticado sin ningún rol asignado
+    return redirect()->route('sin-rol');
 
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::get('sin-rol', function () {
+    return Inertia::render('SinRol');
+})->middleware(['auth'])->name('sin-rol');
 
 // Admin Routes
 Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admin.')->group(function () {
