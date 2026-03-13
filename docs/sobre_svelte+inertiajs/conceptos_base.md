@@ -1,12 +1,3 @@
-# Borrador (reunion)
-- Nombrar temas de los props y como se propagan, en qué parte del backend se envían y el frontend como lo llama.
-- Como funciona el tema del log, autorización y proteccion ante errores.
-- Explicar las funciones que el administrador posee y que archivos están implicados.
-
-Orden de la reunión:
-1. Nombrar la comunicación entre backend y frontend con inertiajs (props y rutas, wayfinder: como generar o que genera -> mostrar flujo).
-2. Poner ejemplo usuario
-3. Mostrar lo avanzando.
 # Tecnologías utilizadas
 - Tailwindcss
 - Svelte
@@ -17,7 +8,7 @@ Orden de la reunión:
 # Conceptos Básicos
 InertiaJs es un protocolo de comunicación entre frontend y backend, sirve como adaptador entre svelte y laravel. Se debe comprender que inertiajs no es un framework, es una herramientas más con el cual podrás trabajar en este proyecto para que las peticiones puedan ser contestadas por el backend.
 
-Para ello utiliza los 'props', que funcionan como 'contenedores' dentro de un response JSON. 
+Para la transferencia de datos entre laravel y svelte se utiliza los 'props', que funcionan como 'contenedores' dentro de un response JSON. 
 
 ``` cmd
 REQUEST
@@ -35,7 +26,7 @@ X-Inertia: true
 
 {
     "component": "Event",
-    "props": {
+    "props": { 
         "errors": {},
         "event": {
             "id": 80,
@@ -232,35 +223,3 @@ database-model/
 │   Renderiza página          │
 └─────────────────────────────┘
 ``` 
-
-
-# Administrador
-## Pages
-### Usuarios  
-
-Las variables reutilizables (props) recibidas son:
-``` TS
-  interface Props {
-    /** Usuarios paginados según tipo seleccionado */
-    usuarios: PaginatedResponse<UsuarioItem>;
-    /** Tipo de usuario a mostrar: estudiante, docente o administrador */
-    tipo: 'estudiante' | 'docente' | 'administrador';
-    /** Carreras disponibles (para asignar a estudiantes) */
-    carreras: Carrera[];
-    /** Roles disponibles para asignar a usuarios */
-    availableRoles: any[];
-    /** Permisos especiales disponibles por módulo */
-    availablePermissions: Record<string, any[]>;
-    /** Filtros de búsqueda/tipo */
-    filters: { search?: string; tipo?: string };
-  }
-```
-
-
-### Facultades
-### Carreras
-### Asignaturas
-### Planes de Estudio
-### Cursos Ofertados
-### Inscripciones
-### Syllabus

@@ -45,13 +45,7 @@
     };
   }
 
-  type ErrorCode =
-    | 'RUT_NOT_FOUND'
-    | 'PASSWORD_INCORRECT'
-    | 'USER_INACTIVE'
-    | 'EMAIL_NOT_VERIFIED'
-    | 'RATE_LIMIT_EXCEEDED'
-    | null;
+  type ErrorCode = 'RUT_NOT_FOUND' | 'PASSWORD_INCORRECT' | 'USER_INACTIVE' | 'EMAIL_NOT_VERIFIED' | 'RATE_LIMIT_EXCEEDED' | null;
 
   let { status, canResetPassword, canRegister, loginError }: Props = $props();
   let showPassword = $state(false);
@@ -269,9 +263,7 @@
             class="border-border bg-transparent data-[state=checked]:bg-primary data-[state=checked]:border-primary disabled:opacity-50"
           />
           <div class="text-xs text-muted-foreground cursor-pointer hover:text-foreground" class:opacity-50={isRateLimited || processing}>
-            <Label for="remember" class="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-              Mantenerme conectado
-            </Label>
+            <Label for="remember" class="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Mantenerme conectado</Label>
           </div>
         </div>
 

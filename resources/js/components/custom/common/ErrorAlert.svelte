@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * Componente de alerta de error para login diferenciado.
-   * 
+   *
    * Muestra errores de autenticación con:
    * - Ícono contextualizado (AlertCircle, Lock, Ban, Mail, Clock)
    * - Mensaje amigable en español
@@ -12,12 +12,7 @@
 
   import { AlertCircle, Lock, Ban, Mail, Clock } from 'lucide-svelte';
 
-  type ErrorCode =
-    | 'RUT_NOT_FOUND'
-    | 'PASSWORD_INCORRECT'
-    | 'USER_INACTIVE'
-    | 'EMAIL_NOT_VERIFIED'
-    | 'RATE_LIMIT_EXCEEDED';
+  type ErrorCode = 'RUT_NOT_FOUND' | 'PASSWORD_INCORRECT' | 'USER_INACTIVE' | 'EMAIL_NOT_VERIFIED' | 'RATE_LIMIT_EXCEEDED';
 
   interface Props {
     /** Código de error específico */
@@ -71,11 +66,7 @@
   const Icon = $derived(details.icon);
 </script>
 
-<div
-  class={`flex items-start gap-3 p-4 rounded-xl border-2 ${details.bgColor} ${details.borderColor}`}
-  role="alert"
-  aria-live="polite"
->
+<div class={`flex items-start gap-3 p-4 rounded-xl border-2 ${details.bgColor} ${details.borderColor}`} role="alert" aria-live="polite">
   <div class="flex-shrink-0 mt-0.5">
     <Icon class="h-5 w-5 text-red-600" />
   </div>
