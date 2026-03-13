@@ -13,6 +13,10 @@
  * Uso: php scripts/generate_permissions_sql.php
  */
 
+// Cargar autoloaders y bootstrap de Laravel
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+
 // Cargar la configuración
 $configPath = __DIR__ . '/permissions_config.php';
 $config = require $configPath;
@@ -205,5 +209,12 @@ foreach ($permisos as $perm) {
     $count++;
 }
 
-echo "\n✅ Generación completada exitosamente\n";
-echo "📌 NOTA: Las asignaciones de permisos a roles se mantienen en la sección WITH de la migración\n";
+echo "\n✅ Generación de PERMISOS completada exitosamente\n";
+
+// ============================================================
+// GENERAR ROLES AUTOMÁTICAMENTE
+// ============================================================
+
+require_once __DIR__ . '/generate_roles_sql.php';
+
+\GenerateRolesSql\generateRolesSql();

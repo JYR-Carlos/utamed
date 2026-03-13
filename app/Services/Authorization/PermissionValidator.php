@@ -388,7 +388,7 @@ class PermissionValidator
         if ($noInheritSlugs === null) {
             $noInheritSlugs = config('permission-no-inherit', []);
         }
-        return in_array($permission->value, $noInheritSlugs, strict: true);
+        return \in_array($permission->value, $noInheritSlugs, strict: true);
     }
 
     /**

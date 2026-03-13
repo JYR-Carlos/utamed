@@ -16,7 +16,7 @@
   import ProgramaDocument from '@/components/custom/common/ProgramaDocument.svelte';
   import { toast } from 'svelte-sonner';
   import { hasPermission } from '@/services/permissionValidator';
-  import type { Permission } from '@/types/permissions.types';
+  import type { Permission } from '@/types/permissions/permissions';
 
   interface Props {
     curso: Curso & { asignatura?: Asignatura | null };

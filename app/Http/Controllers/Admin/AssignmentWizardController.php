@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Enums\ContextualModelType;
 use App\Enums\ContextType;
+use App\Models\Usuario\Contexto;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
@@ -31,37 +32,53 @@ class AssignmentWizardController extends Controller
    * GET /admin/assignment/context-types
    *
    * Retorna los tipos de contexto disponibles para asignar roles/permisos.
-   * Incluye "GLOBAL" como opción especial + los 5 tipos de ContextualModelType.
+   * Usa ContextType enum directamente (source of truth para frontend).
+   * - key: nombre uppercase para debugging
+   * - value: valor lowercase del enum (para castear en frontend)
    */
   public function getContextTypes()
   {
     $globalContextId = app(GlobalContextService::class)->getContextId();
+    $types = [];
 
-    $types = [
-      [
-        'key' => 'GLOBAL',
-        'label' => 'Global (todo el sistema)',
-        'description' => 'Aplica en todos los contextos del sistema',
-        'context_id' => $globalContextId,
-      ],
-    ];
+    foreach (ContextType::cases() as $case) {
+      // Usamos directamente $case->value (ej: 'global', 'curso')
+      $count = null;
+      
+      if ($case !== ContextType::GLOBAL) {
+        $count = Contexto::whereHas('tipoContexto', function ($query) use ($case) {
+          $query->where('categoria', $case->value);
+        })->count();
+      }
 
-    foreach (ContextualModelType::cases() as $case) {
-      $modelClass = $case->modelClass();
-      $count = $modelClass::count();
-      $label = match ($case->name) {
-        'CARRERA' => 'Carrera',
-        'DEPARTAMENTO' => 'Departamento',
-        'FACULTAD' => 'Facultad',
-        'ACTIVIDAD' => 'Actividad',
-        'CURSO' => 'Curso',
-        default => $case->name,
+      // Etiquetas y descripciones específicas para cada tipo de contexto (frontend)
+      // TODO: establecer esta info en la db o en el enum mismo para evitar hardcodear aquí
+      $label = match ($case) {
+        ContextType::GLOBAL => 'Global (todo el sistema)',
+        ContextType::CARRERA => 'Carrera',
+        ContextType::DEPARTAMENTO => 'Departamento',
+        ContextType::FACULTAD => 'Facultad',
+        ContextType::ACTIVIDAD => 'Actividad',
+        ContextType::CURSO => 'Curso',
+        default => ucfirst($case->value),
       };
 
+      // Descripciones para ayudar al usuario a entender cada opción
+      // TODO: también esto podría venir de la bd o del enum para evitar hardcodear
+      $description = match ($case) {
+        ContextType::GLOBAL => 'Aplica en todos los contextos del sistema',
+        default => "Asignar en un(a) {$label} específico(a)",
+      };
+
+      // Mapeo de valores
       $types[] = [
-        'key' => $case->name,
+        // Claves para formar el enum en frontend
+        'key' => $case->name,   // 'GLOBAL', 'CURSO', etc.
+        'value' => $case->value, // 'global', 'curso', etc.
+        // Información adicional para mostrar en el frontend
         'label' => $label,
-        'description' => "Asignar en un(a) {$label} específico(a)",
+        'description' => $description,
+        'context_id' => $case === ContextType::GLOBAL ? $globalContextId : null,
         'count' => $count,
       ];
     }
@@ -133,9 +150,13 @@ class AssignmentWizardController extends Controller
     $roles = Rol::whereNotIn('nombre', ['SuperAdmin', 'Super Admin'])
       ->orderBy('nombre')
       ->get()
-      ->map(fn($rol) => [
+      ->map(fn(Rol $rol) => [
         'id_rol' => $rol->id_rol,
         'nombre' => $rol->nombre,
+        'valid_assignment_context_types' => array_map(
+          fn($ct) => $ct->value,
+          $rol->getCompatibleContexts()
+        ),
       ])
       ->values();
 

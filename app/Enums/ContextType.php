@@ -94,7 +94,7 @@ enum ContextType: string
             'global' => null,
             'carrera' => self::DEPARTAMENTO,
             'departamento' => self::FACULTAD,
-            'facultad' => self::GLOBAL ,
+            'facultad' => self::GLOBAL,
             'actividad' => self::CURSO,
             'curso' => self::CARRERA,
         ];

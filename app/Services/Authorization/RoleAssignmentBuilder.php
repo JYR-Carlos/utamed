@@ -12,7 +12,10 @@ use App\Models\Usuario\Contexto;
 use App\Models\Usuario\TipoContexto;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Services\ContextResolver;
+use App\Services\Authorization\PermissionContextConstraints;
+use App\Support\Permissions;
 use App\Exceptions\DontHavePermissionException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Builder declarativo para asignar roles (URA) a un usuario.
@@ -219,16 +222,92 @@ class RoleAssignmentBuilder
   }
 
   /**
+   * Obtiene los permisos del rol desde la BD, convertidos a enums Permissions.
+   *
+   * @return Permissions[]
+   * @throws \InvalidArgumentException Si el rol no tiene permisos asignados
+   * @throws \ValueError Si algún slug no existe en el enum Permissions
+   */
+  private function fetchRolePermissionsAsEnums(): array
+  {
+    $permissionSlugs = DB::table('usuario.asignacion_rol_permiso')
+      ->join('usuario.permiso', 'usuario.asignacion_rol_permiso.id_permiso', '=', 'usuario.permiso.id_permiso')
+      ->where('usuario.asignacion_rol_permiso.id_rol', $this->rol->id_rol)
+      ->pluck('usuario.permiso.slug')
+      ->all();
+
+    if (empty($permissionSlugs)) {
+      throw new \InvalidArgumentException(
+        "El rol '{$this->rol->nombre}' no tiene permisos asignados en la BD."
+      );
+    }
+
+    // Convertir slugs a enums Permissions
+    return array_map(
+      Permissions::from(...),
+      $permissionSlugs
+    );
+  }
+
+  /**
+   * Validar que todos los permisos del rol sean válidos en los contextos de asignación.
+   * 
+   * Obtiene los permisos del rol desde la BD y valida que todos sean
+   * compatibles con los contextos de asignación especificados.
+   * 
+   * @throws \InvalidArgumentException Si hay incompatibilidad de contextos
+   */
+  private function validateRoleContextCompatibility(): void
+  {
+    if (empty($this->contextIds)) {
+      return; // Se validará después en save()
+    }
+
+    // 1. Obtener los permisos del rol desde la BD (ya convertidos a enums)
+    $rolePermissions = $this->fetchRolePermissionsAsEnums();
+
+    // 2. Calcular una sola vez los tipos de contexto válidos para estos permisos
+    $validContextTypes = PermissionContextConstraints::getCompatibleContexts($rolePermissions);
+
+    // 3. Verificar que TODOS los contextos de asignación sean compatibles
+    $invalidContexts = collect($this->contextIds)
+      ->map(PermissionContextConstraints::getContextTypeById(...))
+      ->reject(fn($type) => \in_array($type, $validContextTypes))
+      ->all();
+
+    // dd($invalidContexts, $validContextTypes);
+
+    // 4. Si hay contextos inválidos, lanzar excepción con detalle
+    if (!empty($invalidContexts)) {
+      // Transformamos los arrays de Enums en arrays de strings (valores)
+      $invalidNames = array_map(fn($enum) => $enum->value, $invalidContexts);
+      $validNames = array_map(fn($enum) => $enum->value, $validContextTypes);
+
+      // Unimos con comas para el mensaje
+      $contextsStr = implode(', ', $invalidNames);
+      $validStr = !empty($validNames) ? implode(', ', $validNames) : 'ninguno';
+
+      throw new \InvalidArgumentException(
+        "No se puede asignar el rol '{$this->rol->nombre}' al tipo de contexto: [{$contextsStr}].\n"
+        . "Según sus permisos, este rol solo permite asignaciones en: [{$validStr}]."
+      );
+    }
+
+    // 5. Si se llega aquí, todos los contextos son compatibles con los permisos del rol
+  }
+
+  /**
    * Persiste los registros URA en la base de datos.
    *
    * Se llama automaticamente en __destruct. Puede invocarse
    * explicitamente si se necesita acceso a los modelos creados.
    *
-   * Valida previamente que el actor tenga autorización para asignar el rol.
-   * Además de validar si la combinación de permiso/contexto sea válida.
+   * Valida previamente que:
+   * - El actor tenga autorización para asignar el rol
+   * - El rol sea compatible con los contextos especificados
    *
    * @return UsuarioRolAsignacion|Collection<int, UsuarioRolAsignacion>
-   * @throws \InvalidArgumentException Si no se especifico ningun contexto
+   * @throws \InvalidArgumentException Si no se especifico ningun contexto o hay incompatibilidad
    * @throws DontHavePermissionException Si el actor no tiene autorización
    */
   public function save(): UsuarioRolAsignacion|Collection
@@ -239,6 +318,11 @@ class RoleAssignmentBuilder
 
     // Validar que el actor tenga autorización ANTES de persistir
     $this->validateActorAuthorization();
+
+    // Validar que el rol sea compatible con los contextos de asignación
+    if (!empty($this->contextIds)) {
+      $this->validateRoleContextCompatibility();
+    }
 
     $this->saved = true;
 

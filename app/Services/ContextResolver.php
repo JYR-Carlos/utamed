@@ -62,7 +62,7 @@ class ContextResolver
             );
         }
 
-        $this->mappings = include $configPath;
+        $this->mappings = require $configPath;
         $this->contextColumn = ContextColumnConfig::contextColumn();
 
         return $this->mappings;

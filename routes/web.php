@@ -97,7 +97,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     // Secciones routes - Get componentes from sections
     Route::get('cursos/{curso}/secciones', [AdminSeccionController::class, 'indexByCurso'])
         ->name('cursos.secciones.index');
-    
+
     // Actividades routes - Get activities for program wizard
     Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getBysCursoJson'])
         ->name('cursos.actividades.json');
@@ -123,7 +123,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::post('usuarios/{usuario}/toggle-active', [UsuarioController::class, 'toggleActive'])
         ->name('usuarios.toggle-active');
 
-    // Permissions Routes (legacy)
+    // User Permissions Routes
     Route::get('usuarios/{usuario}/permissions', [UsuarioController::class, 'getUserPermissions'])
         ->name('usuarios.permissions');
     Route::post('usuarios/{usuario}/sync-permissions', [UsuarioController::class, 'syncPermissions'])
@@ -271,7 +271,7 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
         ->name('cursos.programa.completar-basico');
     Route::put('cursos/{curso}/programa/enviar', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'enviarParaRevision'])
         ->name('cursos.programa.enviar');
-    
+
     // Secciones (for programa components auto-populate)
     Route::get('cursos/{curso}/secciones', [AdminSeccionController::class, 'indexByCurso'])
         ->name('cursos.secciones.index');

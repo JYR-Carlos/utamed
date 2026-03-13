@@ -1,7 +1,6 @@
 /**
  * Type definitions for Permission system
  */
-
 export interface Permission {
     id_permiso: number;
     slug: string;

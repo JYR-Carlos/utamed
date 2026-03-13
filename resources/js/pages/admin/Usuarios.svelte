@@ -15,21 +15,12 @@
    * - Modal para cambiar contraseña
    * - Modal para asignar roles y permisos especiales (RBAC)
    * - Confirmación antes de eliminación
-   *
-   * Tablas relacionadas:
-   * - usuario.usuario: Datos base de usuarios
-   * - usuario.estudiante: Perfil de estudiante con carrera
-   * - usuario.docente: Perfil de docente con grado/título/cargo
-   * - usuario.rol: Roles disponibles del sistema
-   * - usuario.permiso: Permisos especiales asignables
-   * - usuario.usuario_rol_asignación: Asignaciones de roles
-   * - usuario.usuario_permiso_especial: Asignaciones de permisos
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import { router } from '@inertiajs/svelte';
   import DataTable from '@/components/custom/admin/DataTable.svelte';
   import FormModal from '@/components/custom/admin/FormModal.svelte';
-  import PermissionsModal from '@/components/custom/admin/PermissionsModal.svelte';
+  import PermissionsModal from '@/components/custom/admin/permissions-modal/PermissionsModal.svelte';
   import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
   import UserForm from '@/components/admin/UserForm.svelte';
   import type {
@@ -170,15 +161,9 @@
     tipo: 'estudiante' | 'docente' | 'administrador';
     /** Carreras disponibles (para asignar a estudiantes) */
     carreras: Carrera[];
-    /** Roles disponibles para asignar a usuarios */
-    availableRoles: any[];
-    /** Permisos especiales disponibles por módulo */
-    availablePermissions: Record<string, any[]>;
-    /** Filtros de búsqueda/tipo */
-    filters: { search?: string; tipo?: string };
   }
 
-  let { usuarios, tipo, carreras, filters, availableRoles = [], availablePermissions = {} }: Props = $props();
+  let { usuarios, tipo, carreras }: Props = $props();
 
   let showModal = $state(false);
   let showDeleteDialog = $state(false);
@@ -341,7 +326,7 @@
       </div>
       <button
         onclick={openCreateModal}
-        class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95"
+        class="inline-flex items-center gap-2 px-5 py-2.5 bg-linear-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -405,8 +390,6 @@
       bind:isOpen={showPermissionsModal}
       onClose={closePermissionsModal}
       usuario={permissionsUser}
-      {availableRoles}
-      {availablePermissions}
     />
   {/if}
 

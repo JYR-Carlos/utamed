@@ -1,18 +1,18 @@
 /**
  * Frontend Permission Validator
- * 
+ *
  * Valida permisos del usuario en el frontend usando la misma lógica de wildcards
  * que el backend (WildcardMatcher).
- * 
+ *
  * Uso:
  * import { hasPermission } from '@/services/permissionValidator';
- * 
+ *
  * if (hasPermission(userPermissions, 'cursos/programas:crear')) {
  *   // Usuario puede crear programas
  * }
  */
 
-import type { Permission } from '@/types/permissions.types';
+import type { Permission } from '@/types/permissions/permissions';
 
 const SEPARATOR = ':';
 const RESOURCE_SEPARATOR = '/';
@@ -25,11 +25,11 @@ const GLOBAL_WILDCARD = '*';
  * 'cursos/programas:*' → 'cursos/programas'
  */
 function extractResource(slug: string): string {
-    if (slug === GLOBAL_WILDCARD) {
-        return GLOBAL_WILDCARD;
-    }
-    const parts = slug.split(SEPARATOR, 2);
-    return parts[0] ?? '';
+  if (slug === GLOBAL_WILDCARD) {
+    return GLOBAL_WILDCARD;
+  }
+  const parts = slug.split(SEPARATOR, 2);
+  return parts[0] ?? '';
 }
 
 /**
@@ -39,29 +39,29 @@ function extractResource(slug: string): string {
  * 'facultad:*' → '*'
  */
 function extractAction(slug: string): string | null {
-    if (slug === GLOBAL_WILDCARD) {
-        return null;
-    }
-    const parts = slug.split(SEPARATOR, 2);
-    return parts[1] ?? null;
+  if (slug === GLOBAL_WILDCARD) {
+    return null;
+  }
+  const parts = slug.split(SEPARATOR, 2);
+  return parts[1] ?? null;
 }
 
 /**
  * Verificar si es wildcard global ('*')
  */
 function isGlobalWildcard(slug: string): boolean {
-    return slug === GLOBAL_WILDCARD;
+  return slug === GLOBAL_WILDCARD;
 }
 
 /**
  * Verificar si es wildcard de recurso ('recurso:*' o 'recurso/sub:*')
  */
 function isResourceWildcard(slug: string): boolean {
-    if (isGlobalWildcard(slug)) {
-        return false;
-    }
-    const action = extractAction(slug);
-    return action === GLOBAL_WILDCARD;
+  if (isGlobalWildcard(slug)) {
+    return false;
+  }
+  const action = extractAction(slug);
+  return action === GLOBAL_WILDCARD;
 }
 
 /**
@@ -71,10 +71,10 @@ function isResourceWildcard(slug: string): boolean {
  * 'cursos' es descendiente de 'cursos' ✗
  */
 function isDescendantResource(requestedResource: string, ancestorResource: string): boolean {
-    if (requestedResource === ancestorResource) {
-        return false;
-    }
-    return requestedResource.startsWith(ancestorResource + RESOURCE_SEPARATOR);
+  if (requestedResource === ancestorResource) {
+    return false;
+  }
+  return requestedResource.startsWith(ancestorResource + RESOURCE_SEPARATOR);
 }
 
 /**
@@ -85,32 +85,32 @@ function isDescendantResource(requestedResource: string, ancestorResource: strin
  * 'cursos/inscripciones:ver' coincide con 'cursos/inscripciones:ver' ✓
  */
 function matches(requestedSlug: string, patternSlug: string): boolean {
-    // Match exacto
-    if (requestedSlug === patternSlug) {
-        return true;
+  // Match exacto
+  if (requestedSlug === patternSlug) {
+    return true;
+  }
+
+  // Wildcard global
+  if (isGlobalWildcard(patternSlug)) {
+    return true;
+  }
+
+  // Wildcard de recurso
+  if (isResourceWildcard(patternSlug)) {
+    const requestedResource = extractResource(requestedSlug);
+    const patternResource = extractResource(patternSlug);
+
+    // Match exacto del recurso (mismo nivel)
+    if (requestedResource === patternResource) {
+      return true;
     }
 
-    // Wildcard global
-    if (isGlobalWildcard(patternSlug)) {
-        return true;
-    }
+    // Match ancestro: el patrón cubre todos los descendientes
+    // 'cursos:*' matchea 'cursos/inscripciones:ver'
+    return isDescendantResource(requestedResource, patternResource);
+  }
 
-    // Wildcard de recurso
-    if (isResourceWildcard(patternSlug)) {
-        const requestedResource = extractResource(requestedSlug);
-        const patternResource = extractResource(patternSlug);
-
-        // Match exacto del recurso (mismo nivel)
-        if (requestedResource === patternResource) {
-            return true;
-        }
-
-        // Match ancestro: el patrón cubre todos los descendientes
-        // 'cursos:*' matchea 'cursos/inscripciones:ver'
-        return isDescendantResource(requestedResource, patternResource);
-    }
-
-    return false;
+  return false;
 }
 
 /**
@@ -125,131 +125,117 @@ function matches(requestedSlug: string, patternSlug: string): boolean {
  * ]
  */
 function generatePermissionPatterns(slug: string): string[] {
-    const resource = extractResource(slug);
-    const action = extractAction(slug);
+  const resource = extractResource(slug);
+  const action = extractAction(slug);
 
-    const patterns: string[] = [];
+  const patterns: string[] = [];
 
-    // 1. Match exacto
-    patterns.push(slug);
+  // 1. Match exacto
+  patterns.push(slug);
 
-    // 2. Wildcard del mismo recurso (recurso:*)
-    if (action !== null) {
-        patterns.push(resource + SEPARATOR + GLOBAL_WILDCARD);
+  // 2. Wildcard del mismo recurso (recurso:*)
+  if (action !== null) {
+    patterns.push(resource + SEPARATOR + GLOBAL_WILDCARD);
+  }
+
+  // 3. Wildcards ancestros (recurso_padre:*, etc.)
+  const segments = resource.split(RESOURCE_SEPARATOR);
+
+  if (segments.length > 1) {
+    for (let i = segments.length - 1; i > 0; i--) {
+      const ancestorPath = segments.slice(0, i).join(RESOURCE_SEPARATOR);
+      patterns.push(ancestorPath + SEPARATOR + GLOBAL_WILDCARD);
     }
+  }
 
-    // 3. Wildcards ancestros (recurso_padre:*, etc.)
-    const segments = resource.split(RESOURCE_SEPARATOR);
+  // 4. Wildcard global
+  patterns.push(GLOBAL_WILDCARD);
 
-    if (segments.length > 1) {
-        for (let i = segments.length - 1; i > 0; i--) {
-            const ancestorPath = segments.slice(0, i).join(RESOURCE_SEPARATOR);
-            patterns.push(ancestorPath + SEPARATOR + GLOBAL_WILDCARD);
-        }
-    }
-
-    // 4. Wildcard global
-    patterns.push(GLOBAL_WILDCARD);
-
-    return [...new Set(patterns)]; // Remover duplicados
+  return [...new Set(patterns)]; // Remover duplicados
 }
 
 /**
  * Validar si un usuario tiene permiso para ejecutar una acción
- * 
+ *
  * @param userPermissions Array de permisos del usuario (desde API)
  * @param requestedSlug Permiso solicitado (ej: 'cursos/programas:ver')
  * @param mustBeAllowed Si true, solo retorna true si esta_permitido === true
  * @returns boolean true si tiene permiso
- * 
+ *
  * Ejemplo:
  * const hasViewPerm = hasPermission(userPerms, 'cursos/programas:ver');
- * const canDelegate = hasPermission(userPerms, 'cursos/programas:crear', true) && 
+ * const canDelegate = hasPermission(userPerms, 'cursos/programas:crear', true) &&
  *                     userPerms.find(p => p.slug === 'cursos/programas:*')?.puede_delegar;
  */
-export function hasPermission(
-    userPermissions: Permission[],
-    requestedSlug: string,
-    mustBeAllowed: boolean = true
-): boolean {
-    if (!userPermissions || userPermissions.length === 0) {
-        return false;
-    }
-
-    // Generar todos los patrones válidos para el permiso solicitado
-    const patterns = generatePermissionPatterns(requestedSlug);
-
-    // Buscar si algún patrón coincide con un permiso del usuario
-    for (const pattern of patterns) {
-        for (const userPerm of userPermissions) {
-            if (matches(requestedSlug, userPerm.slug)) {
-                // Si debe estar permitido explícitamente, verificar esta_permitido
-                if (mustBeAllowed && userPerm.esta_permitido !== true) {
-                    continue;
-                }
-
-                return true;
-            }
-        }
-    }
-
+export function hasPermission(userPermissions: Permission[], requestedSlug: string, mustBeAllowed: boolean = true): boolean {
+  if (!userPermissions || userPermissions.length === 0) {
     return false;
+  }
+
+  // Generar todos los patrones válidos para el permiso solicitado
+  const patterns = generatePermissionPatterns(requestedSlug);
+
+  // Buscar si algún patrón coincide con un permiso del usuario
+  for (const pattern of patterns) {
+    for (const userPerm of userPermissions) {
+      if (matches(requestedSlug, userPerm.slug)) {
+        // Si debe estar permitido explícitamente, verificar esta_permitido
+        if (mustBeAllowed && userPerm.esta_permitido !== true) {
+          continue;
+        }
+
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 /**
  * Validar múltiples permisos (ANY - al menos uno)
- * 
+ *
  * @param userPermissions Array de permisos del usuario
  * @param requestedSlugs Array de slugs de permisos
  * @returns boolean true si tiene AL MENOS UNO de los permisos
  */
-export function hasAnyPermission(
-    userPermissions: Permission[],
-    requestedSlugs: string[]
-): boolean {
-    return requestedSlugs.some((slug) => hasPermission(userPermissions, slug));
+export function hasAnyPermission(userPermissions: Permission[], requestedSlugs: string[]): boolean {
+  return requestedSlugs.some((slug) => hasPermission(userPermissions, slug));
 }
 
 /**
  * Validar múltiples permisos (ALL - todos)
- * 
+ *
  * @param userPermissions Array de permisos del usuario
  * @param requestedSlugs Array de slugs de permisos
  * @returns boolean true si tiene TODOS los permisos
  */
-export function hasAllPermissions(
-    userPermissions: Permission[],
-    requestedSlugs: string[]
-): boolean {
-    return requestedSlugs.every((slug) => hasPermission(userPermissions, slug));
+export function hasAllPermissions(userPermissions: Permission[], requestedSlugs: string[]): boolean {
+  return requestedSlugs.every((slug) => hasPermission(userPermissions, slug));
 }
 
 /**
  * Validar permiso con soporte para alias comunes
  * Mapea acciones comunes del dominio a slugs de permisos
- * 
+ *
  * @param userPermissions Array de permisos del usuario
  * @param action Acción a validar: 'create', 'read', 'update', 'delete', etc.
  * @param resource Recurso: 'programa', 'syllabus', etc.
  * @returns boolean true si tiene permiso
  */
-export function can(
-    userPermissions: Permission[],
-    action: string,
-    resource: string = 'programa'
-): boolean {
-    // Mapear acciones comunes a slugs de permisos
-    const actionMap: Record<string, string> = {
-        create: 'crear',
-        read: 'ver',
-        update: 'editar',
-        delete: 'eliminar',
-    };
+export function can(userPermissions: Permission[], action: string, resource: string = 'programa'): boolean {
+  // Mapear acciones comunes a slugs de permisos
+  const actionMap: Record<string, string> = {
+    create: 'crear',
+    read: 'ver',
+    update: 'editar',
+    delete: 'eliminar',
+  };
 
-    const mappedAction = actionMap[action] || action;
+  const mappedAction = actionMap[action] || action;
 
-    // Construir slug del permiso
-    const slug = `cursos/${resource}:${mappedAction}`;
+  // Construir slug del permiso
+  const slug = `cursos/${resource}:${mappedAction}`;
 
-    return hasPermission(userPermissions, slug);
+  return hasPermission(userPermissions, slug);
 }

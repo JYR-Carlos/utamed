@@ -1,7 +1,7 @@
 <script lang="ts">
   import { router } from '@inertiajs/svelte';
   import type { Curso } from '@/types/admin.types';
-  import PermissionsModal from './PermissionsModal.svelte';
+  import PermissionsModal from './permissions-modal/PermissionsModal.svelte';
 
   interface Props {
     isOpen: boolean;

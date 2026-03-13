@@ -4,7 +4,7 @@
   import { Link } from '@inertiajs/svelte';
   import { BookOpen, Plus } from 'lucide-svelte';
   import { hasPermission } from '@/services/permissionValidator';
-  import type { Permission } from '@/types/permissions.types';
+  import type { Permission } from '@/types/permissions/permissions';
 
   interface Props {
     cursos: Array<{

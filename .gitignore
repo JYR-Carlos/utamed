@@ -37,3 +37,9 @@ database_dump.sql
 *.sql.gz
 local_backup.sql
 db_backup_*.sql
+
+# local files
+/temp/**
+/backup/**
+/logs/**
+todo.*

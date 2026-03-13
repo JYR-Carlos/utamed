@@ -6,7 +6,7 @@
   import { hasPermission } from '@/services/permissionValidator';
   import ProgramaDetailView from '@/components/custom/admin/ProgramaDetailView.svelte';
   import SyllabusModal from '@/components/custom/admin/SyllabusModal.svelte';
-  import type { Permission } from '@/types/permissions.types';
+  import type { Permission } from '@/types/permissions/permissions';
 
   interface Props {
     programa: any;

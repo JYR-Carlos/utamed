@@ -118,7 +118,7 @@ class UsuarioController extends Controller
             }
             $usuarios = $q->paginate($request->input('per_page', 15))->withQueryString();
         }
-        
+
         // ==================== DOCENTES ====================
         // Recuperar docentes con sus datos de usuario
         elseif ($tipo === 'docente') {
@@ -152,9 +152,9 @@ class UsuarioController extends Controller
                 $q->orderBy($sqlColumn, $sortDir);
             } else {
                 $q->orderBy('usuario.apellido1')
-                  ->orderBy('usuario.apellido2')
-                  ->orderBy('usuario.nombre1')
-                  ->orderBy('usuario.nombre2');
+                    ->orderBy('usuario.apellido2')
+                    ->orderBy('usuario.nombre1')
+                    ->orderBy('usuario.nombre2');
             }
             $usuarios = $q->paginate($request->input('per_page', 15))->withQueryString();
         }
@@ -207,18 +207,12 @@ class UsuarioController extends Controller
 
         // Cargar datos complementarios para el frontend
         $carreras = Carrera::orderBy('nombre')->get();
-        $availableRoles = Rol::orderBy('nombre')->get();
-        // Group permissions by module -> Grouped as 'General' for frontend display
-        $availablePermissions = Permiso::orderBy('slug')->get()->groupBy(fn() => 'General');
 
         // Renderizar vista Inertia con todos los datos
         return Inertia::render('admin/Usuarios', [
             'usuarios' => $usuarios,
             'tipo' => $tipo,
             'carreras' => $carreras,
-            'availableRoles' => $availableRoles,
-            'availablePermissions' => $availablePermissions,
-            'filters' => $request->only(['search', 'tipo'])
         ]);
     }
 
@@ -732,38 +726,35 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Obtiene todos los roles y permisos especiales asignados a un usuario en contexto Global.
+     * Obtiene las asignaciones actuales de roles y permisos especiales de un usuario.
      * 
-     * Resuelve o crea contexto Global si no existe, luego recupera asignaciones activas.
-     * Retorna JSON con array de IDs de rol y array de permisos especiales.
+     * Retorna SOLO las asignaciones activas del usuario en todos los contextos.
+     * Los roles y permisos disponibles para asignar se obtienen desde otros endpoints.
      * 
-     * @param  int  $id  ID del usuario cuyo permisos obtener
-     * @return \Illuminate\Http\JsonResponse  JSON con roles e permisos activos
+     * @param  Usuario  $usuario  El usuario cuyas asignaciones obtener
+     * @return \Illuminate\Http\JsonResponse  JSON con roles y permisos asignados actualmente
      */
-    public function getUserPermissions($id)
+    public function getUserPermissions(Usuario $usuario)
     {
-        // Buscar usuario cuyo permisos obtener
-        $usuario = Usuario::findOrFail($id);
-
-        // Obtener contexto global
-        $idContexto = app(GlobalContextService::class)->getContextId();
-
         // Obtener TODAS las asignaciones de rol activas (todos los contextos)
-        // Incluye id_contexto y contexto_display cargados via relaciones Eloquent
-        $idRoles = UsuarioRolAsignacion::with(['rol', 'contexto.curso'])
+        $roles = UsuarioRolAsignacion::with(['rol', 'contexto.curso', 'asignador'])
             ->where('id_usuario', $usuario->id_usuario)
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
             ->whereNull('fecha_fin_real')
             ->where('fecha_fin_planificada', '>=', now())
             ->get()
+            // @formatter:off
             ->map(fn($ura) => [
-                'id_ura'           => $ura->id_ura,
-                'id_rol'           => $ura->id_rol,
-                'nombre'           => $ura->rol?->nombre,
-                'id_contexto'      => $ura->id_contexto,
-                'contexto_display' => $ura->contexto?->contexto_display,
-                'curso_nombre'     => $ura->contexto?->curso?->nombre,
+                'id_ura'                   => $ura->id_ura,
+                'id_rol'                   => $ura->id_rol,
+                'nombre'                   => $ura->rol?->nombre,
+                'id_contexto'              => $ura->id_contexto,
+                'contexto_display'         => $ura->contexto?->contexto_display,
+                'curso_nombre'             => $ura->contexto?->curso?->nombre,
+                'fecha_inicio_planificada' => $ura->fecha_inicio_planificada,
+                'fecha_fin_planificada'    => $ura->fecha_fin_planificada,
+                'creado_por_nombre'        => trim(($ura->asignador?->nombre1 ?? '') . ' ' . ($ura->asignador?->apellido1 ?? '')),
             ])
             ->values()
             ->toArray();
@@ -776,6 +767,7 @@ class UsuarioController extends Controller
             ->whereNull('fecha_fin_real')
             ->where('fecha_fin_planificada', '>=', now())
             ->get()
+            // @formatter:off
             ->map(fn($upe) => [
                 'id_upe'           => $upe->id_upe,
                 'id_permiso'       => $upe->id_permiso,
@@ -790,31 +782,10 @@ class UsuarioController extends Controller
             ->values()
             ->toArray();
 
-        // Obtener roles disponibles (todos excepto SuperAdmin) - transformar a array limpio
-        $availableRoles = Rol::whereNotIn('nombre', ['SuperAdmin', 'Super Admin'])
-            ->orderBy('nombre')
-            ->get()
-            ->map(fn($rol) => [
-                'id_rol' => $rol->id_rol,
-                'nombre' => $rol->nombre
-            ])
-            ->values();
-
-        // Obtener permisos disponibles (para admin, retornar todos)
-        $availablePermissions = \App\Models\Usuario\Permiso::all()
-            ->map(fn($p) => [
-                'id_permiso' => $p->id_permiso,
-                'slug' => $p->slug,
-                'nombre' => $p->nombre
-            ])
-            ->groupBy(fn() => 'Docencia');
-
         // Retornar JSON con datos actuales y disponibles
         return response()->json([
-            'roles' => $idRoles,
+            'roles' => $roles,
             'special_permissions' => $specialPermissions,
-            'available_roles' => $availableRoles,
-            'available_permissions' => $availablePermissions,
         ]);
     }
 
@@ -825,13 +796,13 @@ class UsuarioController extends Controller
      * Registra cambios para auditoría. Transaccional.
      * 
      * @param  Request  $request  Datos: roles (array de ids), special_permissions (array de id_permiso => bool)
-     * @param  int      $id       ID del usuario cuyo permisos sincronizar
+     * @param  Usuario  $usuario  El usuario cuyo permisos sincronizar
      * @return \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse  JSON o redirección
      */
-    public function syncPermissions(Request $request, $id)
+    public function syncPermissions(Request $request, Usuario $usuario)
     {
         // Log para debugging
-        Log::info("SyncPermissions called for user $id");
+        Log::info("SyncPermissions called for user $usuario->id_usuario");
         Log::info("Payload: " . print_r($request->all(), true));
 
         // Validar roles e permisos especiales desde el request
@@ -847,9 +818,6 @@ class UsuarioController extends Controller
                 fn($sp) => is_array($sp) && ($sp['can_delegate'] ?? false) === true
             ))
         ]);
-
-        // Recuperar usuario a sincronizar
-        $usuario = Usuario::findOrFail($id);
 
         // Obtener contexto global
         // TODO: Ampliar para soportar sincronización multi-contexto

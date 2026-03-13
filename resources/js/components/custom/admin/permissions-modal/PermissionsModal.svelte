@@ -1,48 +1,36 @@
 <script lang="ts">
-  import type { UsuarioData } from '@/types';
+  import {
+    getContextTypes,
+    getPermissions,
+    getRoles,
+  } from '@/actions/App/Http/Controllers/Admin/AssignmentWizardController';
+  import { getUserPermissions } from '@/actions/App/Http/Controllers/Admin/UsuarioController';
+  import type {
+    ContextTypeResponse,
+    PermissionGroupResponse,
+    RolResponse,
+    UsuarioData,
+    GetUserPermissionsResponse,
+    UserRoleAssignment,
+    UserSpecialPermissionAssignment,
+    PermissionDetail,
+  } from '@/types';
+  import { ContextType } from '@/types/permissions';
+  import {
+    getLabel,
+    getDescription,
+    compareContextTypes,
+    isRoot,
+    isGlobalContext,
+  } from '@/utils/contextType.utils';
+  import { SvelteSet } from 'svelte/reactivity';
 
   // ─── Types ────────────────────────────────────────────────────────────
   interface Props {
     isOpen: boolean;
     onClose: () => void;
     usuario: UsuarioData;
-    /** @deprecated Use the wizard flow instead */
-    availableRoles?: any[];
-    /** @deprecated Use the wizard flow instead */
-    availablePermissions?: Record<string, any[]>;
-    loadPath?: string;
-    savePath?: string;
     hideRoles?: boolean;
-    isCourseContext?: boolean;
-  }
-
-  interface ContextType {
-    key: string;
-    label: string;
-    description: string;
-    count?: number;
-    context_id?: number;
-  }
-
-  interface RoleAssignment {
-    id_ura: number;
-    id_rol: number;
-    nombre: string;
-    id_contexto: number | null;
-    contexto_display?: string | null;
-    curso_nombre?: string | null;
-  }
-
-  interface SpecialPermissionAssignment {
-    id_upe?: number;
-    id_permiso: number;
-    slug: string | null;
-    nombre: string | null;
-    id_contexto: number;
-    contexto_display?: string | null;
-    curso_nombre?: string | null;
-    esta_permitido: boolean;
-    puede_delegar: boolean;
   }
 
   interface ContextObject {
@@ -51,18 +39,13 @@
     context_id: number;
   }
 
-  interface RoleItem {
-    id_rol: number;
-    nombre: string;
-  }
-
   interface PermissionItem {
     id_permiso: number;
     slug: string;
     nombre: string;
     descripcion?: string;
-    /** Tipos de contexto válidos para asignar este permiso (ej: ['GLOBAL', 'CURSO']) */
-    valid_context_types?: string[];
+    /** Tipos de contexto válidos para asignar este permiso (enum instances) */
+    valid_context_types?: ContextType[];
   }
 
   interface RoleDetailPerm {
@@ -73,20 +56,17 @@
     puede_delegar_permisos: boolean;
   }
 
+  /**
+   * ContextType transformado con instancia del enum para type-safety
+   */
+  interface ContextTypeWithEnum extends ContextTypeResponse {
+    type: ContextType;
+  }
+
   type FlowType = 'role' | 'permission' | null;
 
   // ─── Props ────────────────────────────────────────────────────────────
-  let {
-    isOpen = $bindable(),
-    onClose,
-    usuario,
-    availableRoles: _legacyRoles = [],
-    availablePermissions: _legacyPerms = {},
-    loadPath = '',
-    savePath = '',
-    hideRoles = false,
-    isCourseContext = false,
-  }: Props = $props();
+  let { isOpen = $bindable(), onClose, usuario, hideRoles = false }: Props = $props();
 
   // ─── Wizard State ─────────────────────────────────────────────────────
   let currentStep = $state(1);
@@ -95,11 +75,11 @@
   let isAnimating = $state(false);
 
   // Step 2 selections
-  let selectedRole = $state<RoleItem | null>(null);
-  let selectedPermission = $state<PermissionItem | null>(null);
+  let selectedRole = $state<RolResponse | null>(null);
+  let selectedPermission = $state<PermissionDetail | null>(null);
 
   // Step 3 selections (context)
-  let selectedContextType = $state<ContextType | null>(null);
+  let selectedContextType = $state<ContextTypeWithEnum | null>(null);
   let selectedContextObject = $state<ContextObject | null>(null);
 
   // Step 4 parameters
@@ -113,19 +93,19 @@
   let isSaving = $state(false);
   let errorMsg = $state('');
   let successMsg = $state('');
-  let roles = $state<RoleItem[]>([]);
-  let permissions = $state<Record<string, PermissionItem[]>>({});
-  let contextTypes = $state<ContextType[]>([]);
+  let roles = $state<RolResponse[]>([]);
+  let permissions = $state<PermissionGroupResponse>({});
+  let contextTypes = $state<ContextTypeWithEnum[]>([]);
   let contextObjects = $state<ContextObject[]>([]);
   let contextObjectsLoading = $state(false);
 
   // ─── Current user assignments ──────────────────────────────────────────
-  let userCurrentRoleAssignments = $state<RoleAssignment[]>([]);
-  let userCurrentSpecialPermissions = $state<SpecialPermissionAssignment[]>([]);
+  let userCurrentRoleAssignments = $state<UserRoleAssignment[]>([]);
+  let userCurrentSpecialPermissions = $state<UserSpecialPermissionAssignment[]>([]);
 
   // ─── Role detail panel ────────────────────────────────────────────────
   let roleDetailOpen = $state(false);
-  let roleDetailTarget = $state<RoleAssignment | null>(null);
+  let roleDetailTarget = $state<UserRoleAssignment | null>(null);
   let roleDetailPerms = $state<RoleDetailPerm[]>([]);
   let roleDetailRoleName = $state('');
   let roleDetailLoading = $state(false);
@@ -134,6 +114,32 @@
   let roleSearch = $state('');
   let permSearch = $state('');
   let contextObjectSearch = $state('');
+
+  // ─── Tooltip positioning ──────────────────────────────────────────────
+  // FIX: el tooltip se desincroniza, no funciona sobre el texto
+  let tooltipX = $state(0);
+  let tooltipY = $state(0);
+  let showTooltip = $state(false);
+  let currentDuplicateAssignment = $state<UserRoleAssignment | null>(null);
+
+  function handleMouseMove(e: MouseEvent) {
+    tooltipX = e.clientX + 20;
+    tooltipY = e.clientY - 20;
+  }
+
+  function showDuplicateTooltip(obj: ContextObject) {
+    if (!isContextObjectDuplicate(obj)) return;
+    const assignment = getDuplicateAssignment(obj);
+    if (assignment) {
+      currentDuplicateAssignment = assignment;
+      showTooltip = true;
+    }
+  }
+
+  function hideTooltip() {
+    showTooltip = false;
+    currentDuplicateAssignment = null;
+  }
 
   // ─── Derived ──────────────────────────────────────────────────────────
   let totalSteps = $derived(4);
@@ -147,9 +153,12 @@
         };
       case 2:
         return {
-          heading: flow === 'role' ? 'Selecciona el rol a asignar' : 'Selecciona el permiso a asignar',
+          heading:
+            flow === 'role' ? 'Selecciona el rol a asignar' : 'Selecciona el permiso a asignar',
           subtitle:
-            flow === 'role' ? 'Un rol agrupa varios permisos relacionados' : 'Un permiso especial otorga acceso granular a una acción específica',
+            flow === 'role'
+              ? 'Un rol agrupa varios permisos relacionados'
+              : 'Un permiso especial otorga acceso granular a una acción específica',
         };
       case 3:
         return {
@@ -173,7 +182,10 @@
       case 2:
         return flow === 'role' ? selectedRole !== null : selectedPermission !== null;
       case 3:
-        return selectedContextType !== null && (selectedContextType.key === 'GLOBAL' || selectedContextObject !== null);
+        return (
+          selectedContextType !== null &&
+          (selectedContextType.type === ContextType.GLOBAL || selectedContextObject !== null)
+        );
       case 4:
         return true;
       default:
@@ -183,7 +195,7 @@
 
   /** Unique role names currently assigned (for the step-2 banner) */
   let userCurrentRoles = $derived.by(() => {
-    const seen = new Set<number>();
+    const seen = new SvelteSet<number>();
     return userCurrentRoleAssignments.filter((a) => {
       if (seen.has(a.id_rol)) return false;
       seen.add(a.id_rol);
@@ -200,7 +212,7 @@
 
     // Resolve the context_id that will be used for the INSERT
     let resolvedContextId: number | null = null;
-    if (selectedContextType.key === 'GLOBAL') {
+    if (selectedContextType.type === ContextType.GLOBAL) {
       resolvedContextId = selectedContextType.context_id ?? null;
     } else if (selectedContextObject) {
       resolvedContextId = selectedContextObject.context_id;
@@ -208,8 +220,32 @@
       return false; // context object not yet chosen
     }
 
-    return userCurrentRoleAssignments.some((a) => a.id_rol === selectedRole!.id_rol && a.id_contexto === resolvedContextId);
+    return userCurrentRoleAssignments.some(
+      (a) => a.id_rol === selectedRole!.id_rol && a.id_contexto === resolvedContextId,
+    );
   });
+
+  /**
+   * Verifica si un contexto específico causaría conflicto de solapamiento
+   */
+  function isContextObjectDuplicate(obj: ContextObject): boolean {
+    if (flow !== 'role' || !selectedRole || !selectedContextType) return false;
+    return userCurrentRoleAssignments.some(
+      (a) => a.id_rol === selectedRole!.id_rol && a.id_contexto === obj.context_id,
+    );
+  }
+
+  /**
+   * Obtiene la asignación duplicada para un contexto específico
+   */
+  function getDuplicateAssignment(obj: ContextObject): UserRoleAssignment | null {
+    if (flow !== 'role' || !selectedRole || !selectedContextType) return null;
+    return (
+      userCurrentRoleAssignments.find(
+        (a) => a.id_rol === selectedRole!.id_rol && a.id_contexto === obj.context_id,
+      ) || null
+    );
+  }
 
   let filteredRoles = $derived.by(() => {
     if (!roleSearch.trim()) return roles;
@@ -219,12 +255,18 @@
 
   let filteredPermissions = $derived.by(() => {
     if (!permSearch.trim()) return permissions;
+
     const q = permSearch.toLowerCase();
+
     const result: Record<string, PermissionItem[]> = {};
+
     for (const [mod, perms] of Object.entries(permissions)) {
-      const filtered = perms.filter((p) => p.nombre.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q));
+      const filtered = perms.filter(
+        (p) => p.nombre.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q),
+      );
       if (filtered.length > 0) result[mod] = filtered;
     }
+
     return result;
   });
 
@@ -237,13 +279,30 @@
   /**
    * Cuando el flujo es 'permission' y hay un permiso seleccionado con valid_context_types,
    * filtra los tipos de contexto disponibles en el paso 3 para mostrar solo los válidos.
-   * Para el flujo 'role', muestra todos los tipos (los roles son genéricos entre contextos).
+   * Cuando el flujo es 'role' y hay un rol seleccionado con valid_assignment_context_types,
+   * filtra los tipos de contexto disponibles para mostrar solo los compatibles.
+   *
+   * Ordenados jerárquicamente usando compareContextTypes para consistencia.
    */
   let availableContextTypes = $derived.by(() => {
-    if (flow !== 'permission' || !selectedPermission?.valid_context_types?.length) {
-      return contextTypes;
+    let filtered = contextTypes;
+
+    // Para permisos: filtrar por valid_context_types
+    if (flow === 'permission' && selectedPermission?.valid_context_types?.length) {
+      filtered = contextTypes.filter((ct) =>
+        selectedPermission?.valid_context_types!.includes(ct.type),
+      );
     }
-    return contextTypes.filter((ct) => selectedPermission!.valid_context_types.includes(ct.key));
+
+    // Para roles: filtrar por valid_assignment_context_types
+    else if (flow === 'role' && selectedRole?.valid_assignment_context_types?.length) {
+      filtered = contextTypes.filter((ct) =>
+        selectedRole?.valid_assignment_context_types!.includes(ct.type),
+      );
+    }
+
+    // Ordenar jerárquicamente
+    return [...filtered].sort((a, b) => compareContextTypes(a.type, b.type));
   });
 
   let today = $derived(new Date().toISOString().split('T')[0]);
@@ -264,23 +323,44 @@
   });
 
   // Load context objects when context type changes
-  let _lastCtxKey = '';
+  let _lastCtxValue = '';
   $effect(() => {
-    const key = selectedContextType?.key ?? '';
-    if (key && key !== 'GLOBAL' && key !== _lastCtxKey) {
-      _lastCtxKey = key;
-      loadContextObjects(key);
+    const value = selectedContextType?.value ?? '';
+    if (
+      value &&
+      selectedContextType &&
+      !isGlobalContext(selectedContextType.type) &&
+      value !== _lastCtxValue
+    ) {
+      _lastCtxValue = value;
+      loadContextObjects(value);
     }
   });
 
-  // Cuando el permiso cambia, resetear selectedContextType si ya no es válido
+  // Cuando el permiso o rol cambia, resetear selectedContextType si ya no es válido
   $effect(() => {
-    if (flow === 'permission' && selectedContextType && selectedPermission?.valid_context_types?.length) {
-      if (!selectedPermission.valid_context_types.includes(selectedContextType.key)) {
+    if (
+      flow === 'permission' &&
+      selectedContextType &&
+      selectedPermission?.valid_context_types?.length
+    ) {
+      if (!selectedPermission.valid_context_types.includes(selectedContextType.type)) {
         selectedContextType = null;
         selectedContextObject = null;
         contextObjects = [];
-        _lastCtxKey = '';
+        _lastCtxValue = '';
+      }
+    }
+    if (
+      flow === 'role' &&
+      selectedContextType &&
+      selectedRole?.valid_assignment_context_types?.length
+    ) {
+      if (!selectedRole.valid_assignment_context_types.includes(selectedContextType.type)) {
+        selectedContextType = null;
+        selectedContextObject = null;
+        contextObjects = [];
+        _lastCtxValue = '';
       }
     }
   });
@@ -302,7 +382,7 @@
     roleSearch = '';
     permSearch = '';
     contextObjectSearch = '';
-    _lastCtxKey = '';
+    _lastCtxValue = '';
     userCurrentRoleAssignments = [];
     userCurrentSpecialPermissions = [];
     roleDetailOpen = false;
@@ -341,7 +421,7 @@
         selectedContextType = null;
         selectedContextObject = null;
         contextObjects = [];
-        _lastCtxKey = '';
+        _lastCtxValue = '';
       }
       currentStep = Math.max(currentStep - 1, 1);
       setTimeout(() => (isAnimating = false), 50);
@@ -361,30 +441,69 @@
     );
   }
 
+  async function apiFetch<T>(url: string): Promise<T> {
+    // $inspect(url);
+    console.log('Fetching:', url);
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: Falló la petición a ${url}`);
+    }
+    return (await response.json()) as T;
+  }
+
   async function loadInitialData() {
     isLoading = true;
     errorMsg = '';
     try {
       const [rolesRes, permsRes, ctxRes, userPermsRes] = await Promise.all([
-        fetch('/admin/assignment/roles'),
-        fetch('/admin/assignment/permissions'),
-        fetch('/admin/assignment/context-types'),
-        fetch(`/admin/usuarios/${usuario.id_usuario}/permissions`),
+        apiFetch<RolResponse[]>(getRoles().url),
+        apiFetch<PermissionGroupResponse>(getPermissions().url),
+        apiFetch<ContextTypeResponse[]>(getContextTypes().url),
+        apiFetch<GetUserPermissionsResponse>(getUserPermissions(usuario.id_usuario).url),
       ]);
 
-      if (!rolesRes.ok || !permsRes.ok || !ctxRes.ok) {
-        throw new Error('Error al cargar datos del servidor');
-      }
+      // Cargar datos disponibles para asignar (desde los endpoints globales)
+      // Transformar roles para convertir valid_assignment_context_types a enum instances
+      roles = rolesRes.map((rol) => ({
+        ...rol,
+        valid_assignment_context_types: (rol.valid_assignment_context_types || []).map(
+          (value) => ContextType[value.toUpperCase() as keyof typeof ContextType],
+        ),
+      }));
+      // Transformar permissions para convertir valid_context_types a enum instances
+      // permsRes es PermissionGroupResponse ({[module: string]: PermissionDetail[]})
+      permissions = Object.fromEntries(
+        Object.entries(permsRes).map(([key, perms]) => [
+          key,
+          (perms || []).map((p) => ({
+            ...p,
+            valid_context_types: (p.valid_context_types || []).map(
+              (value: string) => ContextType[value.toUpperCase() as keyof typeof ContextType],
+            ),
+          })),
+        ]),
+      ) as PermissionGroupResponse;
+      // Transformar contextTypes para incluir instancia del enum
+      // Agregar fallbacks usando utils en caso de que backend no devuelva etiquetas completas
+      contextTypes = ctxRes.map((ct) => {
+        const type = ContextType[ct.value.toUpperCase() as keyof typeof ContextType];
+        return {
+          ...ct,
+          type,
+          label: ct.label || getLabel(type),
+          description: ct.description || getDescription(type),
+          count: ct.count,
+        };
+      });
 
-      roles = await rolesRes.json();
-      permissions = await permsRes.json();
-      contextTypes = await ctxRes.json();
+      console.log(contextTypes);
 
-      if (userPermsRes.ok) {
-        const userPermsData = await userPermsRes.json();
-        userCurrentRoleAssignments = Array.isArray(userPermsData.roles) ? userPermsData.roles : [];
-        userCurrentSpecialPermissions = Array.isArray(userPermsData.special_permissions) ? userPermsData.special_permissions : [];
-      }
+      // Cargar asignaciones ACTUALES del usuario (solo del endpoint específico del usuario)
+      userCurrentRoleAssignments = Array.isArray(userPermsRes.roles) ? userPermsRes.roles : [];
+      // $inspect(userCurrentRoleAssignments);
+      userCurrentSpecialPermissions = Array.isArray(userPermsRes.special_permissions)
+        ? userPermsRes.special_permissions
+        : [];
     } catch (e) {
       errorMsg = e instanceof Error ? e.message : String(e);
     } finally {
@@ -408,7 +527,7 @@
     }
   }
 
-  async function openRoleDetail(asignacion: RoleAssignment) {
+  async function openRoleDetail(asignacion: UserRoleAssignment) {
     roleDetailTarget = asignacion;
     roleDetailOpen = true;
     roleDetailLoading = true;
@@ -420,8 +539,6 @@
       const data = await res.json();
       roleDetailPerms = data.permisos ?? [];
       roleDetailRoleName = data.nombre ?? asignacion.nombre;
-    } catch (_) {
-      // panel shows empty state on error
     } finally {
       roleDetailLoading = false;
     }
@@ -444,8 +561,11 @@
           headers,
           body: JSON.stringify({
             role_id: selectedRole.id_rol,
-            context_type: selectedContextType?.key ?? 'GLOBAL',
-            context_object_id: selectedContextType?.key === 'GLOBAL' ? null : selectedContextObject?.id,
+            context_type: selectedContextType?.value ?? 'global',
+            context_object_id:
+              selectedContextType && !isGlobalContext(selectedContextType.type)
+                ? selectedContextObject?.id
+                : null,
             start_date: startDate || null,
             end_date: endDate || null,
           }),
@@ -460,8 +580,11 @@
           headers,
           body: JSON.stringify({
             permission_id: selectedPermission.id_permiso,
-            context_type: selectedContextType?.key ?? 'GLOBAL',
-            context_object_id: selectedContextType?.key === 'GLOBAL' ? null : selectedContextObject?.id,
+            context_type: selectedContextType?.value ?? 'global',
+            context_object_id:
+              selectedContextType && !isGlobalContext(selectedContextType.type)
+                ? selectedContextObject?.id
+                : null,
             start_date: startDate || null,
             end_date: endDate || null,
             allowed: permAllowed,
@@ -485,19 +608,31 @@
 
   let isRevoking = $state(false);
 
-  async function revokeRole(asignacion: RoleAssignment) {
-    if (!confirm(`¿Revocar el rol "${asignacion.nombre}"${asignacion.contexto_display ? ` en ${asignacion.contexto_display}` : ''}?`)) return;
+  async function revokeRole(asignacion: UserRoleAssignment) {
+    if (
+      !confirm(
+        `¿Revocar el rol "${asignacion.nombre}"${asignacion.contexto_display ? ` en ${asignacion.contexto_display}` : ''}?`,
+      )
+    )
+      return;
     isRevoking = true;
     errorMsg = '';
     try {
       const res = await fetch(`/admin/usuarios/${usuario.id_usuario}/roles/${asignacion.id_ura}`, {
         method: 'DELETE',
-        headers: { 'X-XSRF-TOKEN': getXsrfToken(), Accept: 'application/json' },
+        headers: {
+          'X-XSRF-TOKEN': getXsrfToken(),
+          Accept: 'application/json',
+        },
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
-      userCurrentRoleAssignments = userCurrentRoleAssignments.filter((r) => r.id_ura !== asignacion.id_ura);
+      userCurrentRoleAssignments = userCurrentRoleAssignments.filter(
+        (r) => r.id_ura !== asignacion.id_ura,
+      );
       successMsg = data.message || 'Rol revocado.';
+      // Recargar después de revocar
+      await loadInitialData();
     } catch (e) {
       errorMsg = e instanceof Error ? e.message : String(e);
     } finally {
@@ -505,20 +640,32 @@
     }
   }
 
-  async function revokePermission(perm: SpecialPermissionAssignment) {
+  async function revokePermission(perm: UserSpecialPermissionAssignment) {
     if (!perm.id_upe) return;
-    if (!confirm(`¿Revocar el permiso "${perm.nombre ?? perm.slug}"${perm.contexto_display ? ` en ${perm.contexto_display}` : ''}?`)) return;
+    if (
+      !confirm(
+        `¿Revocar el permiso "${perm.nombre ?? perm.slug}"${perm.contexto_display ? ` en ${perm.contexto_display}` : ''}?`,
+      )
+    )
+      return;
     isRevoking = true;
     errorMsg = '';
     try {
       const res = await fetch(`/admin/usuarios/${usuario.id_usuario}/permissions/${perm.id_upe}`, {
         method: 'DELETE',
-        headers: { 'X-XSRF-TOKEN': getXsrfToken(), Accept: 'application/json' },
+        headers: {
+          'X-XSRF-TOKEN': getXsrfToken(),
+          Accept: 'application/json',
+        },
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
-      userCurrentSpecialPermissions = userCurrentSpecialPermissions.filter((p) => p.id_upe !== perm.id_upe);
+      userCurrentSpecialPermissions = userCurrentSpecialPermissions.filter(
+        (p) => p.id_upe !== perm.id_upe,
+      );
       successMsg = data.message || 'Permiso revocado.';
+      // Recargar después de revocar
+      await loadInitialData();
     } catch (e) {
       errorMsg = e instanceof Error ? e.message : String(e);
     } finally {
@@ -543,11 +690,15 @@
       <!-- ════════════════════════════════ -->
       <!-- HEADER                          -->
       <!-- ════════════════════════════════ -->
-      <div class="px-8 py-5 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex-shrink-0">
+      <div
+        class="px-8 py-5 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex-shrink-0"
+      >
         <div class="flex justify-between items-start">
           <div class="flex-1">
             <div class="flex items-center gap-2 mb-1.5">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+              <span
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"
+              >
                 {usuario?.username || 'Usuario'}
               </span>
               {#if flow}
@@ -562,8 +713,12 @@
                 </span>
               {/if}
             </div>
-            <p class="text-xs text-gray-500 font-semibold tracking-widest uppercase">Paso {currentStep} de {totalSteps}</p>
-            <h2 class="text-xl font-bold text-gray-900 mt-0.5 leading-snug">{stepTitles.heading}</h2>
+            <p class="text-xs text-gray-500 font-semibold tracking-widest uppercase">
+              Paso {currentStep} de {totalSteps}
+            </p>
+            <h2 class="text-xl font-bold text-gray-900 mt-0.5 leading-snug">
+              {stepTitles.heading}
+            </h2>
             <p class="text-sm text-gray-500 mt-0.5">{stepTitles.subtitle}</p>
           </div>
           <button
@@ -580,14 +735,15 @@
               stroke="currentColor"
               stroke-width="2"
               stroke-linecap="round"
-              stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+              stroke-linejoin="round"
+              ><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
             >
           </button>
         </div>
 
         <!-- Step Progress Bar -->
         <div class="flex gap-2 mt-4">
-          {#each Array(totalSteps) as _, i}
+          {#each Array(totalSteps), i (i)}
             <div
               class="h-1.5 flex-1 rounded-full transition-all duration-500 ease-out"
               class:bg-blue-500={i + 1 <= currentStep}
@@ -603,7 +759,9 @@
       <div class="flex-1 overflow-hidden relative">
         <!-- Error Banner -->
         {#if errorMsg}
-          <div class="mx-8 mt-4 bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 text-sm flex items-start gap-2">
+          <div
+            class="mx-8 mt-4 bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 text-sm flex items-start gap-2"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="16"
@@ -613,10 +771,17 @@
               stroke="currentColor"
               stroke-width="2"
               class="flex-shrink-0 mt-0.5"
-              ><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg
+              ><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line
+                x1="9"
+                y1="9"
+                x2="15"
+                y2="15"
+              /></svg
             >
             <span class="flex-1">{errorMsg}</span>
-            <button onclick={() => (errorMsg = '')} class="text-red-400 hover:text-red-600 border-none bg-transparent cursor-pointer text-base"
+            <button
+              onclick={() => (errorMsg = '')}
+              class="text-red-400 hover:text-red-600 border-none bg-transparent cursor-pointer text-base"
               >✕</button
             >
           </div>
@@ -624,7 +789,9 @@
 
         <!-- Success Banner -->
         {#if successMsg}
-          <div class="mx-8 mt-4 bg-green-50 text-green-700 p-3 rounded-lg border border-green-200 text-sm flex items-start gap-2">
+          <div
+            class="mx-8 mt-4 bg-green-50 text-green-700 p-3 rounded-lg border border-green-200 text-sm flex items-start gap-2"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="16"
@@ -643,7 +810,9 @@
         {#if isLoading && currentStep === 1}
           <div class="flex items-center justify-center h-64 text-gray-400">
             <div class="flex flex-col items-center gap-3">
-              <div class="w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+              <div
+                class="w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"
+              ></div>
               <span class="text-sm">Cargando datos...</span>
             </div>
           </div>
@@ -686,18 +855,31 @@
                   <div>
                     <h3 class="text-lg font-bold text-gray-900">Asignar Rol</h3>
                     <p class="text-sm text-gray-500 mt-1">
-                      Agrupa múltiples permisos relacionados.<br />Ideal para asignar funciones completas.
+                      Agrupa múltiples permisos relacionados.<br />Ideal para asignar funciones
+                      completas.
                     </p>
                   </div>
                   {#if hideRoles}
-                    <div class="absolute inset-0 bg-white/60 rounded-xl flex items-center justify-center">
-                      <span class="text-xs text-gray-400 font-medium">No disponible en este contexto</span>
+                    <div
+                      class="absolute inset-0 bg-white/60 rounded-xl flex items-center justify-center"
+                    >
+                      <span class="text-xs text-gray-400 font-medium"
+                        >No disponible en este contexto</span
+                      >
                     </div>
                   {/if}
                   {#if flow === 'role'}
-                    <div class="absolute top-3 right-3 w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"
-                        ><polyline points="20 6 9 17 4 12" /></svg
+                    <div
+                      class="absolute top-3 right-3 w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
                       >
                     </div>
                   {/if}
@@ -732,9 +914,17 @@
                     </p>
                   </div>
                   {#if flow === 'permission'}
-                    <div class="absolute top-3 right-3 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"
-                        ><polyline points="20 6 9 17 4 12" /></svg
+                    <div
+                      class="absolute top-3 right-3 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg
                       >
                     </div>
                   {/if}
@@ -748,7 +938,9 @@
               {#if flow === 'role'}
                 <!-- Current roles banner -->
                 <div class="mb-5 p-3.5 rounded-xl border border-purple-200 bg-purple-50">
-                  <p class="text-xs font-semibold text-purple-600 uppercase tracking-wider mb-2">Roles asignados actualmente</p>
+                  <p class="text-xs font-semibold text-purple-600 uppercase tracking-wider mb-2">
+                    Roles asignados actualmente
+                  </p>
                   {#if userCurrentRoles.length === 0}
                     <span class="text-sm text-gray-400 italic">Sin rol asignado</span>
                   {:else}
@@ -766,7 +958,9 @@
                             {asignacion.nombre}
                             {#if asignacion.contexto_display || asignacion.curso_nombre}
                               <span class="text-purple-500 text-xs">
-                                ({asignacion.contexto_display}{asignacion.curso_nombre ? ` - ${asignacion.curso_nombre}` : ''})
+                                ({asignacion.contexto_display}{asignacion.curso_nombre
+                                  ? ` - ${asignacion.curso_nombre}`
+                                  : ''})
                               </span>
                             {/if}
                           </button>
@@ -783,7 +977,13 @@
                               viewBox="0 0 24 24"
                               fill="none"
                               stroke="currentColor"
-                              stroke-width="3"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+                              stroke-width="3"
+                              ><line x1="18" y1="6" x2="6" y2="18" /><line
+                                x1="6"
+                                y1="6"
+                                x2="18"
+                                y2="18"
+                              /></svg
                             >
                           </button>
                         </span>
@@ -803,7 +1003,12 @@
                     stroke="currentColor"
                     stroke-width="2"
                     class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                    ><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+                    ><circle cx="11" cy="11" r="8" /><line
+                      x1="21"
+                      y1="21"
+                      x2="16.65"
+                      y2="16.65"
+                    /></svg
                   >
                   <input
                     type="text"
@@ -815,7 +1020,9 @@
 
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {#if filteredRoles.length === 0}
-                    <div class="col-span-full text-center py-10 text-gray-400 text-sm">No se encontraron roles.</div>
+                    <div class="col-span-full text-center py-10 text-gray-400 text-sm">
+                      No se encontraron roles.
+                    </div>
                   {:else}
                     {#each filteredRoles as rol}
                       <button
@@ -841,9 +1048,13 @@
               {:else if flow === 'permission'}
                 <!-- Current special permissions banner -->
                 <div class="mb-5 p-3.5 rounded-xl border border-amber-200 bg-amber-50">
-                  <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">Permisos especiales asignados actualmente</p>
+                  <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">
+                    Permisos especiales asignados actualmente
+                  </p>
                   {#if userCurrentSpecialPermissions.length === 0}
-                    <span class="text-sm text-gray-400 italic">Sin permisos especiales asignados</span>
+                    <span class="text-sm text-gray-400 italic"
+                      >Sin permisos especiales asignados</span
+                    >
                   {:else}
                     <div class="flex flex-wrap gap-2">
                       {#each userCurrentSpecialPermissions as perm}
@@ -863,7 +1074,9 @@
                           <span>{perm.nombre ?? perm.slug}</span>
                           {#if perm.contexto_display || perm.curso_nombre}
                             <span class="opacity-60 text-xs">
-                              ({perm.contexto_display}{perm.curso_nombre ? ` - ${perm.curso_nombre}` : ''})
+                              ({perm.contexto_display}{perm.curso_nombre
+                                ? ` - ${perm.curso_nombre}`
+                                : ''})
                             </span>
                           {/if}
                           <button
@@ -886,7 +1099,13 @@
                               viewBox="0 0 24 24"
                               fill="none"
                               stroke="currentColor"
-                              stroke-width="3"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+                              stroke-width="3"
+                              ><line x1="18" y1="6" x2="6" y2="18" /><line
+                                x1="6"
+                                y1="6"
+                                x2="18"
+                                y2="18"
+                              /></svg
                             >
                           </button>
                         </span>
@@ -906,7 +1125,12 @@
                     stroke="currentColor"
                     stroke-width="2"
                     class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                    ><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+                    ><circle cx="11" cy="11" r="8" /><line
+                      x1="21"
+                      y1="21"
+                      x2="16.65"
+                      y2="16.65"
+                    /></svg
                   >
                   <input
                     type="text"
@@ -917,30 +1141,41 @@
                 </div>
 
                 <div class="flex flex-col gap-5 max-h-[420px] overflow-y-auto pr-1">
-                  {#each Object.entries(filteredPermissions) as [mod, perms]}
+                  {#each Object.entries(filteredPermissions) as [mod, perms] (mod)}
                     <div>
-                      <h4 class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2 border-b border-gray-100 pb-1.5">
+                      <h4
+                        class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2 border-b border-gray-100 pb-1.5"
+                      >
                         {mod}
                       </h4>
                       <div class="flex flex-col gap-1">
-                        {#each perms as perm}
+                        {#each perms as perm (perm.id_permiso)}
                           <button
                             class="flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all text-left cursor-pointer text-sm bg-white"
-                            class:border-amber-400={selectedPermission?.id_permiso === perm.id_permiso}
+                            class:border-amber-400={selectedPermission?.id_permiso ===
+                              perm.id_permiso}
                             class:bg-amber-50={selectedPermission?.id_permiso === perm.id_permiso}
                             class:font-medium={selectedPermission?.id_permiso === perm.id_permiso}
-                            class:text-amber-800={selectedPermission?.id_permiso === perm.id_permiso}
-                            class:border-gray-100={selectedPermission?.id_permiso !== perm.id_permiso}
-                            class:hover:border-amber-300={selectedPermission?.id_permiso !== perm.id_permiso}
-                            class:hover:bg-amber-100={selectedPermission?.id_permiso !== perm.id_permiso}
+                            class:text-amber-800={selectedPermission?.id_permiso ===
+                              perm.id_permiso}
+                            class:border-gray-100={selectedPermission?.id_permiso !==
+                              perm.id_permiso}
+                            class:hover:border-amber-300={selectedPermission?.id_permiso !==
+                              perm.id_permiso}
+                            class:hover:bg-amber-100={selectedPermission?.id_permiso !==
+                              perm.id_permiso}
                             onclick={() => (selectedPermission = perm)}
                           >
                             <span class="flex-shrink-0 text-base">
                               {selectedPermission?.id_permiso === perm.id_permiso ? '🟡' : '⚪'}
                             </span>
                             <div class="flex-1 min-w-0">
-                              <div class="font-medium truncate">{perm.nombre}</div>
-                              <div class="text-xs text-gray-400 font-mono">{perm.slug}</div>
+                              <div class="font-medium truncate">
+                                {perm.nombre}
+                              </div>
+                              <div class="text-xs text-gray-400 font-mono">
+                                {perm.slug}
+                              </div>
                             </div>
                             {#if selectedPermission?.id_permiso === perm.id_permiso}
                               <svg
@@ -951,7 +1186,8 @@
                                 fill="none"
                                 stroke="currentColor"
                                 stroke-width="2"
-                                class="text-amber-500 flex-shrink-0"><polyline points="20 6 9 17 4 12" /></svg
+                                class="text-amber-500 flex-shrink-0"
+                                ><polyline points="20 6 9 17 4 12" /></svg
                               >
                             {/if}
                           </button>
@@ -961,7 +1197,9 @@
                   {/each}
 
                   {#if Object.keys(filteredPermissions).length === 0}
-                    <div class="text-center py-10 text-gray-400 text-sm">No se encontraron permisos.</div>
+                    <div class="text-center py-10 text-gray-400 text-sm">
+                      No se encontraron permisos.
+                    </div>
                   {/if}
                 </div>
               {/if}
@@ -975,46 +1213,63 @@
                 <div>
                   <h4 class="text-sm font-semibold text-gray-600 mb-3">Tipo de contexto</h4>
                   {#if flow === 'permission' && selectedPermission?.valid_context_types && selectedPermission.valid_context_types.length < contextTypes.length}
-                    <p class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+                    <p
+                      class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2"
+                    >
                       Solo se muestran los tipos válidos para
                       <span class="font-mono font-semibold">{selectedPermission.slug}</span>.
                     </p>
                   {/if}
+                  {#if flow === 'role' && selectedRole?.valid_assignment_context_types && selectedRole.valid_assignment_context_types.length < contextTypes.length}
+                    <p
+                      class="text-xs text-purple-600 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 mb-2"
+                    >
+                      Solo se muestran los contextos donde el rol
+                      <span class="font-mono font-semibold">{selectedRole.nombre}</span> puede ser asignado.
+                    </p>
+                  {/if}
                   <div class="flex flex-col gap-2">
-                    {#each availableContextTypes as ctxType}
+                    {#each availableContextTypes as ctxType (ctxType.value)}
                       <button
                         class="flex items-center gap-3 p-3.5 rounded-lg border-2 transition-all text-left cursor-pointer bg-white"
-                        class:border-blue-400={selectedContextType?.key === ctxType.key}
-                        class:bg-blue-50={selectedContextType?.key === ctxType.key}
-                        class:ring-1={selectedContextType?.key === ctxType.key}
-                        class:ring-blue-200={selectedContextType?.key === ctxType.key}
-                        class:border-gray-200={selectedContextType?.key !== ctxType.key}
-                        class:hover:border-blue-300={selectedContextType?.key !== ctxType.key}
-                        class:hover:bg-blue-100={selectedContextType?.key !== ctxType.key}
+                        class:border-blue-400={selectedContextType?.type === ctxType.type}
+                        class:bg-blue-50={selectedContextType?.type === ctxType.type}
+                        class:ring-1={selectedContextType?.type === ctxType.type}
+                        class:ring-blue-200={selectedContextType?.type === ctxType.type}
+                        class:border-gray-200={selectedContextType?.type !== ctxType.type}
+                        class:hover:border-blue-300={selectedContextType?.type !== ctxType.type}
+                        class:hover:bg-blue-100={selectedContextType?.type !== ctxType.type}
                         onclick={() => {
                           selectedContextType = ctxType;
-                          if (ctxType.key === 'GLOBAL') {
+                          if (ctxType.type === ContextType.GLOBAL) {
                             selectedContextObject = null;
                           }
                         }}
                       >
                         <span class="text-xl flex-shrink-0">
-                          {#if ctxType.key === 'GLOBAL'}🌐
-                          {:else if ctxType.key === 'FACULTAD'}🏛️
-                          {:else if ctxType.key === 'DEPARTAMENTO'}🏢
-                          {:else if ctxType.key === 'CARRERA'}🎓
-                          {:else if ctxType.key === 'CURSO'}📚
-                          {:else if ctxType.key === 'ACTIVIDAD'}📋
+                          {#if ctxType.type === ContextType.GLOBAL}🌐
+                          {:else if ctxType.type === ContextType.FACULTAD}🏛️
+                          {:else if ctxType.type === ContextType.DEPARTAMENTO}🏢
+                          {:else if ctxType.type === ContextType.CARRERA}🎓
+                          {:else if ctxType.type === ContextType.CURSO}📚
+                          {:else if ctxType.type === ContextType.ACTIVIDAD}📋
                           {:else}📦{/if}
                         </span>
                         <div class="flex-1 min-w-0">
-                          <div class="font-medium text-gray-900 text-sm">{ctxType.label}</div>
-                          <div class="text-xs text-gray-400 truncate">{ctxType.description}</div>
+                          <div class="font-medium text-gray-900 text-sm">
+                            {ctxType.label}
+                          </div>
+                          <div class="text-xs text-gray-400 truncate">
+                            {ctxType.description}
+                          </div>
                         </div>
                         {#if ctxType.count !== undefined}
-                          <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full flex-shrink-0">{ctxType.count}</span>
+                          <span
+                            class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full flex-shrink-0"
+                            >{ctxType.count}</span
+                          >
                         {/if}
-                        {#if selectedContextType?.key === ctxType.key}
+                        {#if selectedContextType?.type === ctxType.type}
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
                             width="18"
@@ -1023,7 +1278,8 @@
                             fill="none"
                             stroke="currentColor"
                             stroke-width="2"
-                            class="text-blue-500 flex-shrink-0"><polyline points="20 6 9 17 4 12" /></svg
+                            class="text-blue-500 flex-shrink-0"
+                            ><polyline points="20 6 9 17 4 12" /></svg
                           >
                         {/if}
                       </button>
@@ -1033,7 +1289,7 @@
 
                 <!-- Right: Specific Object -->
                 <div>
-                  {#if selectedContextType && selectedContextType.key !== 'GLOBAL'}
+                  {#if selectedContextType && !isGlobalContext(selectedContextType.type)}
                     <h4 class="text-sm font-semibold text-gray-600 mb-3">
                       Selecciona {selectedContextType.label}
                     </h4>
@@ -1048,7 +1304,12 @@
                         stroke="currentColor"
                         stroke-width="2"
                         class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                        ><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg
+                        ><circle cx="11" cy="11" r="8" /><line
+                          x1="21"
+                          y1="21"
+                          x2="16.65"
+                          y2="16.65"
+                        /></svg
                       >
                       <input
                         type="text"
@@ -1061,46 +1322,110 @@
                     <div class="flex flex-col gap-1.5 max-h-[340px] overflow-y-auto pr-1">
                       {#if contextObjectsLoading}
                         <div class="text-center py-8 text-gray-400 text-sm">
-                          <div class="w-6 h-6 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-2"></div>
+                          <div
+                            class="w-6 h-6 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-2"
+                          ></div>
                           Cargando...
                         </div>
                       {:else if filteredContextObjects.length === 0}
-                        <div class="text-center py-8 text-gray-400 text-sm">No se encontraron resultados.</div>
+                        <div class="text-center py-8 text-gray-400 text-sm">
+                          No se encontraron resultados.
+                        </div>
                       {:else}
-                        {#each filteredContextObjects as obj}
-                          <button
-                            class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-all cursor-pointer text-sm bg-white"
-                            class:border-blue-400={selectedContextObject?.id === obj.id}
-                            class:bg-blue-50={selectedContextObject?.id === obj.id}
-                            class:font-medium={selectedContextObject?.id === obj.id}
-                            class:border-gray-200={selectedContextObject?.id !== obj.id}
-                            class:hover:border-blue-300={selectedContextObject?.id !== obj.id}
-                            class:hover:bg-blue-100={selectedContextObject?.id !== obj.id}
-                            onclick={() => (selectedContextObject = obj)}
-                          >
-                            <span class="text-gray-400 text-xs font-mono w-8 text-right flex-shrink-0">#{obj.id}</span>
-                            <span class="flex-1 truncate">{obj.label}</span>
-                            {#if selectedContextObject?.id === obj.id}
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                class="text-blue-500 flex-shrink-0"><polyline points="20 6 9 17 4 12" /></svg
+                        {#each filteredContextObjects as obj (obj.id)}
+                          {@const hasDuplicate = isContextObjectDuplicate(obj)}
+                          <div class="relative group">
+                            <button
+                              class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-all text-sm bg-white w-full"
+                              class:cursor-pointer={!hasDuplicate}
+                              class:cursor-not-allowed={hasDuplicate}
+                              class:border-blue-400={selectedContextObject?.id === obj.id &&
+                                !hasDuplicate}
+                              class:bg-blue-50={selectedContextObject?.id === obj.id &&
+                                !hasDuplicate}
+                              class:ring-1={selectedContextObject?.id === obj.id}
+                              class:ring-blue-200={selectedContextObject?.id === obj.id &&
+                                !hasDuplicate}
+                              class:ring-orange-200={selectedContextObject?.id === obj.id &&
+                                hasDuplicate}
+                              class:font-medium={(selectedContextObject?.id === obj.id &&
+                                !hasDuplicate) ||
+                                hasDuplicate}
+                              class:border-orange-400={hasDuplicate &&
+                                selectedContextObject?.id !== obj.id}
+                              class:bg-orange-50={hasDuplicate &&
+                                selectedContextObject?.id !== obj.id}
+                              class:hover:border-orange-300={hasDuplicate &&
+                                selectedContextObject?.id !== obj.id}
+                              class:hover:bg-orange-100={hasDuplicate &&
+                                selectedContextObject?.id !== obj.id}
+                              class:border-orange-500={hasDuplicate &&
+                                selectedContextObject?.id === obj.id}
+                              class:bg-orange-100={hasDuplicate &&
+                                selectedContextObject?.id === obj.id}
+                              class:hover:border-orange-600={hasDuplicate &&
+                                selectedContextObject?.id === obj.id}
+                              class:hover:bg-orange-200={hasDuplicate &&
+                                selectedContextObject?.id === obj.id}
+                              class:border-gray-200={selectedContextObject?.id !== obj.id &&
+                                !hasDuplicate}
+                              class:hover:border-blue-300={selectedContextObject?.id !== obj.id &&
+                                !hasDuplicate}
+                              class:hover:bg-blue-100={selectedContextObject?.id !== obj.id &&
+                                !hasDuplicate}
+                              disabled={hasDuplicate}
+                              onmousemove={hasDuplicate ? handleMouseMove : undefined}
+                              onmouseenter={hasDuplicate
+                                ? () => showDuplicateTooltip(obj)
+                                : undefined}
+                              onmouseleave={hasDuplicate ? hideTooltip : undefined}
+                              onclick={() => (selectedContextObject = obj)}
+                            >
+                              <span
+                                class="text-gray-400 text-xs font-mono w-8 text-right flex-shrink-0"
+                                >#{obj.id}</span
                               >
-                            {/if}
-                          </button>
+                              <span class="flex-1 truncate">{obj.label}</span>
+                              {#if hasDuplicate}
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke-width="1.5"
+                                  stroke="currentColor"
+                                  class="size-5 flex-shrink-0 text-orange-600"
+                                >
+                                  <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                                  />
+                                </svg>
+                              {:else if selectedContextObject?.id === obj.id}
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  stroke-width="2"
+                                  class="text-blue-500 flex-shrink-0"
+                                  ><polyline points="20 6 9 17 4 12" /></svg
+                                >
+                              {/if}
+                            </button>
+                          </div>
                         {/each}
                       {/if}
                     </div>
-                  {:else if selectedContextType?.key === 'GLOBAL'}
+                  {:else if selectedContextType?.type === ContextType.GLOBAL}
                     <div class="flex flex-col items-center justify-center py-16 text-center">
                       <span class="text-5xl mb-3">🌐</span>
                       <p class="text-sm font-medium text-gray-600">Contexto Global</p>
-                      <p class="text-xs text-gray-400 mt-1">Se aplicará en todo el sistema sin restricción de objeto</p>
+                      <p class="text-xs text-gray-400 mt-1">
+                        Se aplicará en todo el sistema sin restricción de objeto
+                      </p>
                     </div>
                   {:else}
                     <div class="flex items-center justify-center py-16 text-center text-gray-300">
@@ -1128,7 +1453,9 @@
             {:else if currentStep === 4}
               <!-- Duplicate role+context warning -->
               {#if isDuplicateAssignment}
-                <div class="mb-5 bg-orange-50 border border-orange-300 text-orange-800 rounded-xl p-4 flex items-start gap-3">
+                <div
+                  class="mb-5 bg-orange-50 border border-orange-300 text-orange-800 rounded-xl p-4 flex items-start gap-3"
+                >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="18"
@@ -1138,18 +1465,23 @@
                     stroke="currentColor"
                     stroke-width="2"
                     class="flex-shrink-0 mt-0.5 text-orange-500"
-                    ><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><line
+                    ><path
+                      d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                    /><line x1="12" y1="9" x2="12" y2="13" /><line
                       x1="12"
-                      y1="9"
-                      x2="12"
-                      y2="13"
-                    /><line x1="12" y1="17" x2="12.01" y2="17" /></svg
+                      y1="17"
+                      x2="12.01"
+                      y2="17"
+                    /></svg
                   >
                   <div>
-                    <p class="text-sm font-semibold">El usuario ya tiene este rol en ese contexto</p>
+                    <p class="text-sm font-semibold">
+                      El usuario ya tiene este rol en ese contexto
+                    </p>
                     <p class="text-xs mt-0.5">
-                      Existe una asignación vigente de <strong>{selectedRole?.nombre}</strong> en el contexto seleccionado. Intentar guardar fallará por
-                      restricción de solapamiento. Revoca o espera a que expire la asignación actual antes de crear una nueva.
+                      Existe una asignación vigente de <strong>{selectedRole?.nombre}</strong> en el contexto
+                      seleccionado. Intentar guardar fallará por restricción de solapamiento. Revoca o
+                      espera a que expire la asignación actual antes de crear una nueva.
                     </p>
                   </div>
                 </div>
@@ -1163,7 +1495,10 @@
                     <h4 class="text-sm font-semibold text-gray-600 mb-3">Vigencia</h4>
                     <div class="grid grid-cols-2 gap-4">
                       <div>
-                        <label for="wizard-start-date" class="block text-xs font-medium text-gray-500 mb-1.5">Fecha inicio</label>
+                        <label
+                          for="wizard-start-date"
+                          class="block text-xs font-medium text-gray-500 mb-1.5">Fecha inicio</label
+                        >
                         <input
                           id="wizard-start-date"
                           type="date"
@@ -1173,7 +1508,10 @@
                         />
                       </div>
                       <div>
-                        <label for="wizard-end-date" class="block text-xs font-medium text-gray-500 mb-1.5">Fecha fin</label>
+                        <label
+                          for="wizard-end-date"
+                          class="block text-xs font-medium text-gray-500 mb-1.5">Fecha fin</label
+                        >
                         <input
                           id="wizard-end-date"
                           type="date"
@@ -1189,7 +1527,9 @@
                   <!-- Permission-only parameters -->
                   {#if flow === 'permission'}
                     <div class="border-t border-gray-100 pt-5">
-                      <h4 class="text-sm font-semibold text-gray-600 mb-4">Configuración del permiso</h4>
+                      <h4 class="text-sm font-semibold text-gray-600 mb-4">
+                        Configuración del permiso
+                      </h4>
 
                       <!-- Allowed / Denied toggle -->
                       <div class="flex items-center gap-4 mb-5">
@@ -1221,7 +1561,11 @@
                         <span class="text-sm text-gray-600 w-28 flex-shrink-0">Puede delegar:</span>
                         <label class="flex items-center gap-3 cursor-pointer select-none">
                           <div class="relative inline-flex">
-                            <input type="checkbox" bind:checked={permCanDelegate} class="sr-only peer" />
+                            <input
+                              type="checkbox"
+                              bind:checked={permCanDelegate}
+                              class="sr-only peer"
+                            />
                             <div
                               class="w-11 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-blue-200 rounded-full peer peer-checked:bg-blue-500 transition-colors"
                             ></div>
@@ -1230,7 +1574,9 @@
                             ></div>
                           </div>
                           <span class="text-sm text-gray-600">
-                            {permCanDelegate ? 'Sí, puede re-delegar este permiso' : 'No puede delegar'}
+                            {permCanDelegate
+                              ? 'Sí, puede re-delegar este permiso'
+                              : 'No puede delegar'}
                           </span>
                         </label>
                       </div>
@@ -1240,7 +1586,9 @@
 
                 <!-- Right: Summary Card (2 cols) -->
                 <div class="lg:col-span-2">
-                  <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl border border-gray-200 p-5 sticky top-0">
+                  <div
+                    class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl border border-gray-200 p-5 sticky top-0"
+                  >
                     <h4 class="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -1250,7 +1598,9 @@
                         fill="none"
                         stroke="currentColor"
                         stroke-width="2"
-                        ><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line
+                        ><path
+                          d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                        /><polyline points="14 2 14 8 20 8" /><line
                           x1="16"
                           y1="13"
                           x2="8"
@@ -1295,7 +1645,7 @@
                       <div class="flex justify-between items-center">
                         <span class="text-gray-500">Contexto</span>
                         <span class="font-medium text-gray-900 text-right max-w-[160px] truncate">
-                          {#if selectedContextType?.key === 'GLOBAL'}
+                          {#if selectedContextType?.type === ContextType.GLOBAL}
                             🌐 Global
                           {:else}
                             {selectedContextType?.label}
@@ -1303,7 +1653,7 @@
                         </span>
                       </div>
 
-                      {#if selectedContextType?.key !== 'GLOBAL' && selectedContextObject}
+                      {#if selectedContextType && !isGlobalContext(selectedContextType.type) && selectedContextObject}
                         <div class="flex justify-between items-center">
                           <span class="text-gray-500">Objeto</span>
                           <span class="font-medium text-gray-900 text-right max-w-[160px] truncate">
@@ -1321,7 +1671,12 @@
                       </div>
                       <div class="flex justify-between items-center">
                         <span class="text-gray-500">Fin</span>
-                        <span class:text-gray-900={!!endDate} class:text-gray-400={!endDate} class:font-medium={!!endDate} class:text-xs={!endDate}>
+                        <span
+                          class:text-gray-900={!!endDate}
+                          class:text-gray-400={!endDate}
+                          class:font-medium={!!endDate}
+                          class:text-xs={!endDate}
+                        >
                           {endDate || '1 año (por defecto)'}
                         </span>
                       </div>
@@ -1331,13 +1686,19 @@
                         <div class="border-t border-gray-200 my-1"></div>
                         <div class="flex justify-between items-center">
                           <span class="text-gray-500">Acción</span>
-                          <span class="font-semibold" class:text-green-600={permAllowed} class:text-red-600={!permAllowed}>
+                          <span
+                            class="font-semibold"
+                            class:text-green-600={permAllowed}
+                            class:text-red-600={!permAllowed}
+                          >
                             {permAllowed ? '🟢 Permitir' : '🔴 Denegar'}
                           </span>
                         </div>
                         <div class="flex justify-between items-center">
                           <span class="text-gray-500">Delegable</span>
-                          <span class="font-medium text-gray-900">{permCanDelegate ? 'Sí' : 'No'}</span>
+                          <span class="font-medium text-gray-900"
+                            >{permCanDelegate ? 'Sí' : 'No'}</span
+                          >
                         </div>
                       {/if}
                     </div>
@@ -1355,18 +1716,31 @@
         {#if roleDetailOpen}
           <div class="absolute inset-0 bg-white z-10 flex flex-col overflow-hidden">
             <!-- Panel header -->
-            <div class="px-8 py-4 border-b border-gray-200 bg-purple-50 flex items-center gap-3 flex-shrink-0">
+            <div
+              class="px-8 py-4 border-b border-gray-200 bg-purple-50 flex items-center gap-3 flex-shrink-0"
+            >
               <span class="text-2xl">👔</span>
               <div class="flex-1 min-w-0">
-                <p class="text-xs font-semibold text-purple-600 uppercase tracking-wider">Detalle de rol</p>
-                <h3 class="text-lg font-bold text-gray-900 truncate">{roleDetailRoleName}</h3>
+                <p class="text-xs font-semibold text-purple-600 uppercase tracking-wider">
+                  Detalle de rol
+                </p>
+                <h3 class="text-lg font-bold text-gray-900 truncate">
+                  {roleDetailRoleName}
+                </h3>
               </div>
               <button
                 onclick={() => (roleDetailOpen = false)}
                 class="p-2 rounded-lg hover:bg-purple-100 transition text-gray-400 hover:text-gray-600 border-none bg-transparent cursor-pointer flex-shrink-0"
                 aria-label="Cerrar detalle"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
                   ><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
                 >
               </button>
@@ -1376,17 +1750,22 @@
             <div class="flex-1 overflow-y-auto px-8 py-5 flex flex-col gap-6">
               <!-- Contexts where this role is assigned to the user -->
               <div>
-                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Contextos asignados al usuario</p>
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  Contextos asignados al usuario
+                </p>
                 <div class="flex flex-wrap gap-2">
-                  {#each userCurrentRoleAssignments.filter((a) => a.id_rol === roleDetailTarget?.id_rol) as asig}
-                    {@const isGlobal = asig.id_contexto === contextTypes.find((ct) => ct.key === 'GLOBAL')?.context_id}
+                  {#each userCurrentRoleAssignments.filter((a) => a.id_rol === roleDetailTarget?.id_rol) as asig (asig.id_ura)}
+                    {@const isGlobal =
+                      asig.id_contexto ===
+                      contextTypes.find((ct) => ct.type === ContextType.GLOBAL)?.context_id}
                     <span
                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border {isGlobal
                         ? 'bg-blue-50 text-blue-800 border-blue-200'
                         : 'bg-gray-50 text-gray-700 border-gray-200'}"
                     >
                       {isGlobal ? '🌐' : '🏷️'}
-                      {asig.contexto_display ?? (isGlobal ? 'Global' : 'Contexto #' + asig.id_contexto)}
+                      {asig.contexto_display ??
+                        (isGlobal ? 'Global' : 'Contexto #' + asig.id_contexto)}
                     </span>
                   {/each}
                 </div>
@@ -1397,22 +1776,33 @@
                 <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   Permisos incluidos en este rol
                   {#if !roleDetailLoading}
-                    <span class="ml-1.5 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-bold">{roleDetailPerms.length}</span>
+                    <span
+                      class="ml-1.5 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-bold"
+                      >{roleDetailPerms.length}</span
+                    >
                   {/if}
                 </p>
 
                 {#if roleDetailLoading}
                   <div class="flex items-center gap-2 py-6 text-gray-400 text-sm">
-                    <div class="w-5 h-5 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin"></div>
+                    <div
+                      class="w-5 h-5 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin"
+                    ></div>
                     Cargando permisos…
                   </div>
                 {:else if roleDetailPerms.length === 0}
-                  <p class="text-sm text-gray-400 italic py-4">Este rol no tiene permisos asignados o es el SuperAdmin (permisos implícitos).</p>
+                  <p class="text-sm text-gray-400 italic py-4">
+                    Este rol no tiene permisos asignados o es el SuperAdmin (permisos implícitos).
+                  </p>
                 {:else}
                   <div class="flex flex-col gap-1.5">
-                    {#each roleDetailPerms as perm}
-                      <div class="flex items-start gap-3 px-4 py-3 rounded-lg border border-gray-100 bg-gray-50 hover:bg-gray-100 transition-colors">
-                        <span class="text-base flex-shrink-0 mt-0.5">{perm.slug === '*' ? '⚡' : '🔐'}</span>
+                    {#each roleDetailPerms as perm (perm.id_permiso)}
+                      <div
+                        class="flex items-start gap-3 px-4 py-3 rounded-lg border border-gray-100 bg-gray-50 hover:bg-gray-100 transition-colors"
+                      >
+                        <span class="text-base flex-shrink-0 mt-0.5"
+                          >{perm.slug === '*' ? '⚡' : '🔐'}</span
+                        >
                         <div class="flex-1 min-w-0">
                           <div class="flex items-center gap-2 flex-wrap">
                             <span class="text-sm font-semibold text-gray-800">{perm.nombre}</span>
@@ -1423,9 +1813,13 @@
                               >
                             {/if}
                           </div>
-                          <div class="text-xs font-mono text-purple-600 mt-0.5">{perm.slug}</div>
+                          <div class="text-xs font-mono text-purple-600 mt-0.5">
+                            {perm.slug}
+                          </div>
                           {#if perm.descripcion}
-                            <div class="text-xs text-gray-500 mt-1">{perm.descripcion}</div>
+                            <div class="text-xs text-gray-500 mt-1">
+                              {perm.descripcion}
+                            </div>
                           {/if}
                         </div>
                       </div>
@@ -1441,8 +1835,14 @@
                 onclick={() => (roleDetailOpen = false)}
                 class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 transition cursor-pointer"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                  ><polyline points="15 18 9 12 15 6" /></svg
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"><polyline points="15 18 9 12 15 6" /></svg
                 >
                 Volver a selección de rol
               </button>
@@ -1454,7 +1854,9 @@
       <!-- ════════════════════════════════ -->
       <!-- FOOTER NAV                      -->
       <!-- ════════════════════════════════ -->
-      <div class="px-8 py-4 border-t border-gray-200 bg-white flex justify-between items-center flex-shrink-0">
+      <div
+        class="px-8 py-4 border-t border-gray-200 bg-white flex justify-between items-center flex-shrink-0"
+      >
         <div>
           {#if currentStep > 1}
             <button
@@ -1462,8 +1864,14 @@
               class="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition cursor-pointer border-none"
               disabled={isSaving}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                ><polyline points="15 18 9 12 15 6" /></svg
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"><polyline points="15 18 9 12 15 6" /></svg
               >
               Atrás
             </button>
@@ -1489,8 +1897,14 @@
               disabled={!canGoNext || isSaving}
             >
               Siguiente
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                ><polyline points="9 18 15 12 9 6" /></svg
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"><polyline points="9 18 15 12 9 6" /></svg
               >
             </button>
           {:else}
@@ -1500,16 +1914,30 @@
               disabled={isSaving || !!successMsg}
             >
               {#if isSaving}
-                <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <div
+                  class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"
+                ></div>
                 Guardando...
               {:else if successMsg}
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                  ><polyline points="20 6 9 17 4 12" /></svg
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg
                 >
                 Guardado
               {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                  ><polyline points="20 6 9 17 4 12" /></svg
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg
                 >
                 Confirmar y Guardar
               {/if}
@@ -1519,4 +1947,31 @@
       </div>
     </div>
   </div>
+
+  <!-- Floating tooltip anchored to mouse cursor (bottom-left corner) -->
+  {#if showTooltip && currentDuplicateAssignment}
+    <div
+      class="fixed bg-orange-900 text-orange-50 text-xs rounded-lg px-3 py-2 shadow-lg z-9999 pointer-events-none max-w-xs"
+      style="left: {tooltipX}px; top: {tooltipY}px; transform: translateY(-100%); font-size: 12px;"
+      role="tooltip"
+    >
+      <p class="font-semibold mb-1">Conflicto detectado</p>
+      <p class="mb-2">
+        Existe una asignación vigente de <strong>{selectedRole?.nombre}</strong> en este contexto.
+      </p>
+      <div class="text-orange-100 space-y-1 mb-2">
+        <p>
+          <strong>Vigencia:</strong>
+          {currentDuplicateAssignment.fecha_inicio_planificada} a {currentDuplicateAssignment.fecha_fin_planificada}
+        </p>
+        <p>
+          <strong>Asignado por:</strong>
+          {currentDuplicateAssignment.creado_por_nombre}
+        </p>
+      </div>
+      <p class="text-orange-100">
+        Revoca o espera a que expire la asignación actual antes de crear una nueva.
+      </p>
+    </div>
+  {/if}
 {/if}

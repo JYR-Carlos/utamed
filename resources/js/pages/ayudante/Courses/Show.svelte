@@ -6,7 +6,7 @@
   import * as Button from '@/components/ui/button';
   import { BookOpen, FileText, ArrowRight, Plus } from 'lucide-svelte';
   import { hasPermission } from '@/services/permissionValidator';
-  import type { Permission } from '@/types/permissions.types';
+  import type { Permission } from '@/types/permissions/permissions';
 
   interface Props {
     id_curso: number;

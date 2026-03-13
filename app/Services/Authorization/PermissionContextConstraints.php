@@ -26,6 +26,49 @@ use App\Support\Permissions;
 final class PermissionContextConstraints
 {
     /**
+     * Carga metadata de contextos válidos para cada permiso desde config.
+     *
+     * @return array<string, string[]> Asociativo: permiso_slug => [context_types]
+     * @throws \RuntimeException Si el archivo de configuración no existe
+     */
+    private static function loadPermissionMetadata(): array
+    {
+        $configPath = config_path('permission-context-metadata.php');
+
+        if (!file_exists($configPath)) {
+            throw new \RuntimeException(
+                "Permission metadata file not found: {$configPath}\n" .
+                "Run: php scripts/generate_permissions_sql.php"
+            );
+        }
+
+        return require $configPath;
+    }
+
+    /**
+     * Obtiene el tipo de contexto (categoria) dado su ID.
+     *
+     * @param int $contextId ID del contexto
+     * @return ContextType Categoria del tipo de contexto (ej: 'global', 'carrera', etc.)
+     * @throws \InvalidArgumentException Si el contexto no existe
+     */
+    public static function getContextTypeById(int $contextId): ContextType
+    {
+        $contextType = \Illuminate\Support\Facades\DB::table('usuario.contexto')
+            ->join('usuario.tipo_contexto', 'usuario.contexto.id_tipo_contexto', '=', 'usuario.tipo_contexto.id_tipo_contexto')
+            ->where('usuario.contexto.id_contexto', $contextId)
+            ->value('usuario.tipo_contexto.categoria');
+
+        if ($contextType === null) {
+            throw new \InvalidArgumentException(
+                "No se encontró el contexto con ID {$contextId}"
+            );
+        }
+
+        return ContextType::from($contextType);
+    }
+
+    /**
      * Retorna los tipos de contexto válidos para un permiso dado.
      * 
      * Lee config/permission-context-metadata.php generado automáticamente.
@@ -176,5 +219,98 @@ final class PermissionContextConstraints
                 ? "✓ Asignación válida"
                 : self::invalidAssignmentMessage($permission, $contextType),
         ];
+    }
+
+    /**
+     * Calcula la intersección de tipos de contexto válidos para un conjunto de permisos.
+     *
+     * Un contexto es válido para el conjunto si es válido para TODOS los permisos.
+     *
+     * @param Permissions[] $permissions Array de permisos del enum
+     *
+     * @return ContextType[] Contextos válidos como enums
+     * @throws \InvalidArgumentException Si el array está vacío
+     *
+     * @example
+     *   $compatible = PermissionContextConstraints::getCompatibleContexts([
+     *       Permissions::CURSOS_CREAR, // ['global', 'carrera', 'departamento', 'facultad']
+     *       Permissions::CURSOS_VER, // ['global', 'curso', 'carrera', 'departamento', 'facultad']
+     *   ]);
+     *   // Devuelve: [ContextType::GLOBAL, ContextType::CARRERA, ContextType::DEPARTAMENTO, ContextType::FACULTAD]
+     */
+    public static function getCompatibleContexts(array $permissions): array
+    {
+        if (empty($permissions)) {
+            throw new \InvalidArgumentException('El array de permisos está vacío');
+        }
+
+        // Obtener contextos válidos (como strings) para cada permiso
+        $metadata = self::loadPermissionMetadata();
+        $allContexts = array_map(
+            fn(Permissions $perm) => $metadata[$perm->value] ?? ['global'],
+            $permissions
+        );
+
+        // Calcular intersección: retener solo contextos válidos en TODOS los permisos
+        $compatible = $allContexts[0];
+        foreach (\array_slice($allContexts, 1) as $contexts) {
+            $compatible = array_intersect($compatible, $contexts);
+        }
+
+        // Convertir strings a ContextType enums y retornar
+        try {
+            // return array_values(array_map(ContextType::from(...), $compatible));
+            return collect($compatible)
+                ->map(ContextType::from(...))
+                ->values()
+                ->all();
+
+        } catch (\ValueError $e) {
+            \Log::error(
+                "Error al convertir contextos compatibles a enums: " . $e->getMessage(),
+                ['compatible_contexts' => $compatible]
+            );
+            throw new \Exception("Error al obtener contextos compatibles: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Verifica si un rol puede ser asignado a un tipo de contexto específico.
+     *
+     * @param Permissions[] $rolePermissions Array de permisos del enum
+     * @param ContextType $targetContext Tipo de contexto destino
+     *
+     * @return bool true si todos los permisos del rol son válidos en ese contexto
+     * @throws \InvalidArgumentException Si el array está vacío
+     */
+    public static function isCompatibleWithContext(
+        array $rolePermissions,
+        ContextType $targetContext
+    ): bool {
+        $compatibleContexts = self::getCompatibleContexts($rolePermissions);
+        return \in_array($targetContext, $compatibleContexts, true);
+    }
+
+    /**
+     * Obtiene una descripción legible de dónde puede asignarse un rol.
+     *
+     * @param Permissions[] $rolePermissions Array de permisos del enum
+     * @return string Descripción formateada
+     *
+     * @throws \InvalidArgumentException Si el array está vacío
+     */
+    public static function getCompatibilityDescription(array $rolePermissions): string
+    {
+        $contexts = self::getCompatibleContexts($rolePermissions);
+        if (empty($contexts)) {
+            return '❌ Este rol no puede asignarse a ningún contexto (permisos incompatibles)';
+        }
+
+        $formatted = implode(', ', array_map(
+            fn(ContextType $ctx) => "'{$ctx->value}'",
+            $contexts
+        ));
+
+        return "✓ Asignación válida en: {$formatted}";
     }
 }
