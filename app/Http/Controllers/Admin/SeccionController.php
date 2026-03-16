@@ -8,9 +8,15 @@ use App\Http\Requests\UpdateSeccionRequest;
 use App\Http\Resources\SeccionResource;
 use App\Models\Curso\Seccion;
 use App\Models\Curso\Curso;
+use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Models\Usuario\Rol;
+use App\Models\Usuario\Docente;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 /**
  * Controlador para la gestión de secciones de un curso.
@@ -103,6 +109,14 @@ class SeccionController extends Controller
                 'porcentaje_asistencia_obligatoria' => 0
             ]);
 
+            // Asignar rol de Docente al usuario en el contexto del curso
+            if ($validated['id_docente'] && $curso->id_contexto) {
+                $this->assignDocenteRolCurso(
+                    $validated['id_docente'],
+                    $curso->id_contexto
+                );
+            }
+
             if ($request->wantsJson()) {
                 return response()->json(['message' => 'Sección creada exitosamente.', 'seccion' => new SeccionResource($seccion->load(['tipoSeccion', 'docente.usuario']))]);
             }
@@ -130,10 +144,22 @@ class SeccionController extends Controller
         $validated = $request->validated();
 
         try {
+            // Obtener el ID del contexto del curso
+            $seccion->load('curso');
+            $cursoContextoId = $seccion->curso?->id_contexto;
+
             $seccion->update([
                 'id_tipo_seccion' => $validated['id_tipo_seccion'],
                 'id_docente' => $validated['id_docente']
             ]);
+
+            // Si se asignó un nuevo docente, asignar rol en el curso
+            if ($validated['id_docente'] && $cursoContextoId) {
+                $this->assignDocenteRolCurso(
+                    $validated['id_docente'],
+                    $cursoContextoId
+                );
+            }
 
             if ($request->wantsJson()) {
                 return response()->json(['message' => 'Sección actualizada exitosamente.', 'seccion' => new SeccionResource($seccion->fresh(['tipoSeccion', 'docente.usuario']))]);
@@ -169,6 +195,67 @@ class SeccionController extends Controller
                 return response()->json(['error' => 'Error al eliminar la sección: ' . $e->getMessage()], 500);
             }
             return back()->with('error', 'Error al eliminar la sección: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Asigna el rol 'Docente' al usuario en el contexto del curso.
+     * 
+     * Detecta si el docente ya tiene este rol en el contexto y lo crea solo si no existe.
+     * 
+     * @param  int  $idDocente  ID del docente
+     * @param  int  $idContextoCurso  ID del contexto del curso
+     * @return void
+     */
+    private function assignDocenteRolCurso(int $idDocente, int $idContextoCurso): void
+    {
+        try {
+            $docente = Docente::find($idDocente);
+            if (!$docente || !$docente->id_usuario) {
+                Log::warning('No se pudo asignar rol Docente: docente no encontrado.', [
+                    'id_docente' => $idDocente,
+                ]);
+                return;
+            }
+
+            $actorId = Auth::id() ?? $docente->id_usuario;
+            $rol = Rol::firstOrCreate(
+                ['nombre' => 'Docente'],
+                ['creado_por' => $actorId]
+            );
+
+            // Verificar si ya tiene el rol (evitar duplicados)
+            $already = UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
+                ->where('id_contexto', $idContextoCurso)
+                ->where('id_rol', $rol->id_rol)
+                ->where('esta_activo', true)
+                ->where('fue_eliminado', false)
+                ->exists();
+
+            if (!$already) {
+                $now = Carbon::now();
+                UsuarioRolAsignacion::create([
+                    'id_usuario'                => $docente->id_usuario,
+                    'id_rol'                    => $rol->id_rol,
+                    'id_contexto'               => $idContextoCurso,
+                    'asignado_por'              => $actorId,
+                    'fecha_inicio_planificada'  => $now,
+                    'fecha_fin_planificada'     => $now->copy()->addYears(100),
+                    'fecha_fin_real'            => null,
+                    'fue_eliminado'             => false,
+                    'esta_activo'               => true,
+                    'creado_por'                => $actorId,
+                ]);
+                Log::info('Rol Docente asignado en curso', [
+                    'id_usuario' => $docente->id_usuario,
+                    'id_contexto_curso' => $idContextoCurso,
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error asignando rol Docente en curso: ' . $e->getMessage(), [
+                'id_docente' => $idDocente,
+                'id_contexto_curso' => $idContextoCurso,
+            ]);
         }
     }
 }
