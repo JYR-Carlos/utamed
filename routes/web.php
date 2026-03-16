@@ -218,6 +218,16 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
 // Docente Routes
 Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('docente.')->group(function () {
     Route::get('dashboard', [\App\Http\Controllers\Docente\DashboardController::class, 'index'])->name('dashboard');
+    Route::prefix('jefe-carrera')->name('jefe-carrera.')->group(function () {
+        Route::get('dashboard', [\App\Http\Controllers\Docente\JefeCarreraController::class, 'dashboard'])
+            ->name('dashboard');
+        Route::get('seguimiento', [\App\Http\Controllers\Docente\JefeCarreraController::class, 'seguimiento'])
+            ->name('seguimiento');
+        Route::post('programas/{programaId}/aprobar', [\App\Http\Controllers\Docente\JefeCarreraController::class, 'aprobarPrograma'])
+            ->name('programas.aprobar');
+        Route::post('programas/{programaId}/rechazar', [\App\Http\Controllers\Docente\JefeCarreraController::class, 'rechazarPrograma'])
+            ->name('programas.rechazar');
+    });
     Route::get('cursos', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'index'])->name('cursos.index');
 
     // Team management (reuse admin course team endpoints but under docente prefix if needed, 

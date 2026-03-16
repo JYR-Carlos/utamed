@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Docente;
 
 use App\Http\Controllers\Controller;
+use App\Models\Administrativo\Carrera;
 use App\Models\Usuario\Usuario;
+use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Seccion;
 use Illuminate\Support\Facades\Auth;
@@ -47,6 +49,22 @@ class DashboardController extends Controller
         // Obtener los cursos a través de las secciones del docente
         $docente = $user->docente;
 
+        $asignacionJefatura = UsuarioRolAsignacion::query()
+            ->where('id_usuario', $user->id_usuario)
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->whereHas('rol', fn($q) => $q->where('nombre', 'Jefe de Carrera'))
+            ->whereHas('contexto.tipoContexto', fn($q) => $q->where('categoria', 'carrera'))
+            ->latest('id_ura')
+            ->first();
+
+        $carreraJefatura = $asignacionJefatura
+            ? Carrera::query()
+                ->select('id_carrera', 'nombre', 'id_contexto')
+                ->where('id_contexto', $asignacionJefatura->id_contexto)
+                ->first()
+            : null;
+
         // Obtener cursos usando JOIN con secciones (relación: Docente → Secciones → Cursos)
         $cursos = Curso::join('curso.seccion', 'curso.curso.id_curso', '=', 'curso.seccion.id_curso')
             ->where('curso.seccion.id_docente', $docente->id_docente)
@@ -81,6 +99,14 @@ class DashboardController extends Controller
                 'nombre_completo' => trim("{$user->nombre1} {$user->apellido1}"),
             ],
             'cursos' => $cursos,
+            'jefatura' => [
+                'has_access' => (bool) $asignacionJefatura,
+                'id_contexto' => $asignacionJefatura?->id_contexto,
+                'carrera' => $carreraJefatura ? [
+                    'id_carrera' => $carreraJefatura->id_carrera,
+                    'nombre' => $carreraJefatura->nombre,
+                ] : null,
+            ],
         ]);
     }
 }

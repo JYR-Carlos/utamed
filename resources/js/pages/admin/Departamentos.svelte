@@ -20,7 +20,13 @@
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
-  import type { Departamento, Carrera, Facultad, PaginatedResponse, DepartamentoFormData } from '@/types/admin.types';
+  import type {
+    Departamento,
+    Carrera,
+    Facultad,
+    PaginatedResponse,
+    DepartamentoFormData,
+  } from '@/types/admin.types';
 
   /**
    * Props recibidas del servidor.
@@ -38,7 +44,14 @@
     canDelete?: boolean;
   }
 
-  let { departamentos, facultades, filters, canCreate = false, canEdit = false, canDelete = false }: Props = $props();
+  let {
+    departamentos,
+    facultades,
+    filters,
+    canCreate = false,
+    canEdit = false,
+    canDelete = false,
+  }: Props = $props();
 
   const flashSuccess = $derived(($page.props as any).flash?.success as string | undefined);
   const flashError = $derived(($page.props as any).flash?.error as string | undefined);
@@ -141,7 +154,7 @@
 </script>
 
 <AdminLayout>
-  <div class="p-8 max-w-6xl mx-auto">
+  <div>
     <div class="flex justify-between items-start mb-8">
       <div>
         <h1 class="text-3xl font-bold text-gray-900 mb-1">Departamentos</h1>
@@ -172,10 +185,20 @@
     </div>
 
     {#if flashSuccess}
-      <div class="px-4 py-3 rounded-md text-sm mb-4 bg-green-50 border border-green-200 text-green-800" role="alert">{flashSuccess}</div>
+      <div
+        class="px-4 py-3 rounded-md text-sm mb-4 bg-green-50 border border-green-200 text-green-800"
+        role="alert"
+      >
+        {flashSuccess}
+      </div>
     {/if}
     {#if flashError}
-      <div class="px-4 py-3 rounded-md text-sm mb-4 bg-red-50 border border-red-200 text-red-800" role="alert">{flashError}</div>
+      <div
+        class="px-4 py-3 rounded-md text-sm mb-4 bg-red-50 border border-red-200 text-red-800"
+        role="alert"
+      >
+        {flashError}
+      </div>
     {/if}
 
     <!-- Data Grid con Row Expansion -->
@@ -197,7 +220,9 @@
             {@const carrerasCount = departamento.carreras_count ?? 0}
             {@const isDiscontinuado = !!departamento.fecha_eliminacion}
             <!-- Main row -->
-            <tr class={`transition-colors ${isDiscontinuado ? 'opacity-60 bg-gray-50/40' : 'hover:bg-gray-50'}`}>
+            <tr
+              class={`transition-colors ${isDiscontinuado ? 'opacity-60 bg-gray-50/40' : 'hover:bg-gray-50'}`}
+            >
               <!-- Expand toggle -->
               <td class="pl-3 pr-1 py-3 text-center">
                 {#if !isDiscontinuado && carrerasCount > 0}
@@ -227,14 +252,18 @@
               </td>
               <!-- Nombre -->
               <td class="px-4 py-3">
-                <span class={`font-medium ${isDiscontinuado ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                <span
+                  class={`font-medium ${isDiscontinuado ? 'line-through text-gray-400' : 'text-gray-900'}`}
+                >
                   {departamento.nombre}
                 </span>
               </td>
               <!-- Facultad -->
               <td class="px-4 py-3">
                 {#if departamento.facultad}
-                  <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium border border-blue-100">
+                  <span
+                    class="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium border border-blue-100"
+                  >
                     {departamento.facultad.nombre}
                   </span>
                 {:else}
@@ -245,7 +274,9 @@
               <td class="px-4 py-3">
                 <span
                   class={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                    carrerasCount > 0 ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-gray-100 text-gray-500'
+                    carrerasCount > 0
+                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+                      : 'bg-gray-100 text-gray-500'
                   }`}
                 >
                   <svg
@@ -268,7 +299,9 @@
               <!-- Estado -->
               <td class="px-4 py-3">
                 {#if isDiscontinuado}
-                  <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-500 text-xs font-semibold">
+                  <span
+                    class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-500 text-xs font-semibold"
+                  >
                     <span class="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block"></span>
                     Discontinuado
                   </span>
@@ -288,7 +321,8 @@
                     {#if canEdit}
                       <button
                         onclick={() => openEditModal(departamento)}
-                        class="text-blue-600 hover:text-blue-800 font-medium text-xs border-0 bg-transparent cursor-pointer">Editar</button
+                        class="text-blue-600 hover:text-blue-800 font-medium text-xs border-0 bg-transparent cursor-pointer"
+                        >Editar</button
                       >
                     {/if}
                     {#if canDelete}
@@ -298,21 +332,27 @@
                           class="relative group inline-flex"
                           title="Debe reasignar o discontinuar las carreras asociadas antes de cerrar este departamento."
                         >
-                          <button disabled class="text-gray-300 font-medium text-xs border-0 bg-transparent cursor-not-allowed select-none"
+                          <button
+                            disabled
+                            class="text-gray-300 font-medium text-xs border-0 bg-transparent cursor-not-allowed select-none"
                             >Discontinuar</button
                           >
                           <!-- Tooltip -->
                           <span
                             class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded-md bg-gray-800 px-2.5 py-1.5 text-[11px] leading-snug text-white opacity-0 group-hover:opacity-100 transition-opacity z-50 text-center shadow-lg"
                           >
-                            Debe reasignar o discontinuar las carreras asociadas antes de cerrar este departamento.
-                            <span class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></span>
+                            Debe reasignar o discontinuar las carreras asociadas antes de cerrar
+                            este departamento.
+                            <span
+                              class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"
+                            ></span>
                           </span>
                         </span>
                       {:else}
                         <button
                           onclick={() => openDeleteDialog(departamento)}
-                          class="text-red-500 hover:text-red-700 font-medium text-xs border-0 bg-transparent cursor-pointer">Discontinuar</button
+                          class="text-red-500 hover:text-red-700 font-medium text-xs border-0 bg-transparent cursor-pointer"
+                          >Discontinuar</button
                         >
                       {/if}
                     {/if}
@@ -326,14 +366,18 @@
             {#if isExpanded && !isDiscontinuado}
               <tr class="bg-indigo-50/40">
                 <td colspan="6" class="px-0 py-0">
-                  <div class="border-l-4 border-indigo-300 ml-9 mr-4 my-2 rounded-md overflow-hidden">
+                  <div
+                    class="border-l-4 border-indigo-300 ml-9 mr-4 my-2 rounded-md overflow-hidden"
+                  >
                     <table class="w-full text-xs">
                       <thead class="bg-indigo-100/60">
                         <tr>
                           <th class="px-4 py-2 text-left font-semibold text-indigo-700">Carrera</th>
                           <th class="px-4 py-2 text-left font-semibold text-indigo-700">Jornada</th>
                           <th class="px-4 py-2 text-left font-semibold text-indigo-700">Sede</th>
-                          <th class="px-4 py-2 text-left font-semibold text-indigo-700">Modalidad</th>
+                          <th class="px-4 py-2 text-left font-semibold text-indigo-700"
+                            >Modalidad</th
+                          >
                           <th class="px-4 py-2 text-left font-semibold text-indigo-700"></th>
                         </tr>
                       </thead>
@@ -401,7 +445,10 @@
       <label for="facultad" class="block text-sm font-medium text-gray-700 mb-2">
         Facultad
         {#if editingDepartamento}
-          <span class="ml-1 text-[11px] font-normal text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">No modificable</span>
+          <span
+            class="ml-1 text-[11px] font-normal text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded"
+            >No modificable</span
+          >
         {/if}
       </label>
       <select
@@ -421,7 +468,9 @@
         {/each}
       </select>
       {#if editingDepartamento}
-        <p class="mt-1 text-[11px] text-gray-500">La facultad de un departamento no puede cambiarse una vez creado.</p>
+        <p class="mt-1 text-[11px] text-gray-500">
+          La facultad de un departamento no puede cambiarse una vez creado.
+        </p>
       {/if}
     </div>
   </FormModal>

@@ -32,12 +32,26 @@ class DashboardController extends Controller
         // Obtener las inscripciones del estudiante
         $inscripciones = InscripcionCurso::where('id_estudiante', $estudiante->id_estudiante)
             ->where('estado_inscripcion', 'INSCRITO')
-            ->with(['curso.asignacionPlan.asignatura', 'curso.asignacionPlan.plan.carrera'])
+            ->with([
+                'curso.asignacionPlan.asignatura',
+                'curso.asignacionPlan.plan.carrera',
+                'curso.secciones.docente.usuario'  // Cargar docentes de cada sección
+            ])
             ->get();
 
         // Transformar datos para la vista
         $cursosData = $inscripciones->map(function ($inscripcion) {
             $curso = $inscripcion->curso;
+            
+            // Obtener el nombre del primer docente, o mostrar "(sin docente asignado)"
+            $profesor = '(sin docente asignado)';
+            if ($curso->secciones && $curso->secciones->count() > 0) {
+                $primerDocente = $curso->secciones->first()?->docente;
+                if ($primerDocente && $primerDocente->usuario) {
+                    $profesor = trim("{$primerDocente->usuario->nombre1} {$primerDocente->usuario->apellido1}");
+                }
+            }
+            
             return [
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
@@ -46,14 +60,15 @@ class DashboardController extends Controller
                 'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                 'fecha_inicio' => $curso->fecha_inicio,
                 'fecha_fin' => $curso->fecha_fin,
+                'profesor' => $profesor,
             ];
         });
 
         // Check if user is also Ayudante
         $isAyudante = $user->rolesAsignados()
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->whereIn('nombre', ['ayudante'])
+            ->wherePivot('esta_activo', true)
+            ->wherePivot('fue_eliminado', false)
+            ->whereIn('rol.nombre', ['Ayudante'])
             ->exists();
 
         return Inertia::render('student/Dashboard', [

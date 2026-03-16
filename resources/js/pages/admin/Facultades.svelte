@@ -38,7 +38,13 @@
     canDelete?: boolean;
   }
 
-  let { facultades, filters, canCreate = false, canEdit = false, canDelete = false }: Props = $props();
+  let {
+    facultades,
+    filters,
+    canCreate = false,
+    canEdit = false,
+    canDelete = false,
+  }: Props = $props();
 
   const flashSuccess = $derived(($page.props as any).flash?.success as string | undefined);
   const flashError = $derived(($page.props as any).flash?.error as string | undefined);
@@ -183,7 +189,7 @@
 </script>
 
 <AdminLayout>
-  <div class="p-8 max-w-6xl mx-auto">
+  <div>
     <div class="flex justify-between items-start mb-8">
       <div>
         <h1 class="text-3xl font-bold text-gray-900 mb-1">Facultades</h1>
@@ -214,10 +220,20 @@
     </div>
 
     {#if flashSuccess}
-      <div class="px-4 py-3 rounded-md text-sm mb-4 bg-green-50 border border-green-200 text-green-800" role="alert">{flashSuccess}</div>
+      <div
+        class="px-4 py-3 rounded-md text-sm mb-4 bg-green-50 border border-green-200 text-green-800"
+        role="alert"
+      >
+        {flashSuccess}
+      </div>
     {/if}
     {#if flashError}
-      <div class="px-4 py-3 rounded-md text-sm mb-4 bg-red-50 border border-red-200 text-red-800" role="alert">{flashError}</div>
+      <div
+        class="px-4 py-3 rounded-md text-sm mb-4 bg-red-50 border border-red-200 text-red-800"
+        role="alert"
+      >
+        {flashError}
+      </div>
     {/if}
 
     <!-- Tabla expandible de Facultades -->
@@ -233,7 +249,9 @@
         </thead>
         <tbody class="divide-y divide-gray-200">
           {#each facultades.data as facultad (facultad.id_facultad)}
-            <tr class={`hover:bg-gray-50 ${facultad.fecha_eliminacion ? 'opacity-60 bg-gray-50/40' : ''}`}>
+            <tr
+              class={`hover:bg-gray-50 ${facultad.fecha_eliminacion ? 'opacity-60 bg-gray-50/40' : ''}`}
+            >
               <td class="px-6 py-3">
                 <button
                   onclick={() => toggleRow(facultad.id_facultad)}
@@ -250,18 +268,30 @@
               <td class="px-6 py-3 text-gray-600">{facultad.id_facultad}</td>
               <td class="px-6 py-3 text-gray-900 font-medium">
                 <div class="flex items-center gap-2">
-                  <span class={`${facultad.fecha_eliminacion ? 'line-through text-gray-400' : ''}`}>{facultad.nombre}</span>
+                  <span class={`${facultad.fecha_eliminacion ? 'line-through text-gray-400' : ''}`}
+                    >{facultad.nombre}</span
+                  >
                   {#if facultad.fecha_eliminacion}
-                    <span class="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600"> Eliminada </span>
+                    <span
+                      class="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600"
+                    >
+                      Eliminada
+                    </span>
                   {/if}
                 </div>
               </td>
               <td class="px-6 py-3 flex items-center gap-2">
                 {#if canEdit && !facultad.fecha_eliminacion}
-                  <button onclick={() => openEditModal(facultad)} class="text-blue-600 hover:text-blue-800 font-medium text-xs">Editar</button>
+                  <button
+                    onclick={() => openEditModal(facultad)}
+                    class="text-blue-600 hover:text-blue-800 font-medium text-xs">Editar</button
+                  >
                 {/if}
                 {#if canDelete && !facultad.fecha_eliminacion}
-                  <button onclick={() => openDeleteDialog(facultad)} class="text-red-600 hover:text-red-800 font-medium text-xs">Eliminar</button>
+                  <button
+                    onclick={() => openDeleteDialog(facultad)}
+                    class="text-red-600 hover:text-red-800 font-medium text-xs">Eliminar</button
+                  >
                 {/if}
                 {#if facultad.fecha_eliminacion}
                   <span class="text-gray-300 text-[11px] italic">No disponible</span>
@@ -292,21 +322,31 @@
                           <thead class="bg-gray-50">
                             <tr>
                               <th class="px-4 py-2 text-left font-semibold text-gray-700">ID</th>
-                              <th class="px-4 py-2 text-left font-semibold text-gray-700">Nombre Departamento</th>
-                              <th class="px-4 py-2 text-left font-semibold text-gray-700">Acciones</th>
+                              <th class="px-4 py-2 text-left font-semibold text-gray-700"
+                                >Nombre Departamento</th
+                              >
+                              <th class="px-4 py-2 text-left font-semibold text-gray-700"
+                                >Acciones</th
+                              >
                             </tr>
                           </thead>
                           <tbody class="divide-y divide-gray-100">
                             {#each facultad.departamentos as dept (dept.id_departamento)}
-                              <tr class={`hover:bg-gray-50 ${dept.fecha_eliminacion ? 'opacity-60 bg-gray-50/40' : ''}`}>
+                              <tr
+                                class={`hover:bg-gray-50 ${dept.fecha_eliminacion ? 'opacity-60 bg-gray-50/40' : ''}`}
+                              >
                                 <td class="px-4 py-2 text-gray-600">{dept.id_departamento}</td>
                                 <td class="px-4 py-2">
                                   <div class="flex items-center gap-2">
-                                    <span class={`text-gray-900 ${dept.fecha_eliminacion ? 'line-through text-gray-400' : ''}`}>
+                                    <span
+                                      class={`text-gray-900 ${dept.fecha_eliminacion ? 'line-through text-gray-400' : ''}`}
+                                    >
                                       {dept.nombre}
                                     </span>
                                     {#if dept.fecha_eliminacion}
-                                      <span class="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
+                                      <span
+                                        class="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600"
+                                      >
                                         Eliminado
                                       </span>
                                     {/if}
@@ -314,7 +354,9 @@
                                 </td>
                                 <td class="px-4 py-2">
                                   {#if dept.fecha_eliminacion}
-                                    <span class="text-gray-300 text-[11px] italic">No disponible</span>
+                                    <span class="text-gray-300 text-[11px] italic"
+                                      >No disponible</span
+                                    >
                                   {:else}
                                     <button
                                       onclick={() => deleteDepartamento(dept.id_departamento)}
@@ -331,7 +373,9 @@
                         </table>
                       </div>
                     {:else}
-                      <div class="text-center py-4 text-gray-500 text-sm">No hay departamentos. Haz clic en "Agregar" para crear uno.</div>
+                      <div class="text-center py-4 text-gray-500 text-sm">
+                        No hay departamentos. Haz clic en "Agregar" para crear uno.
+                      </div>
                     {/if}
                   </div>
                 </td>
@@ -380,7 +424,9 @@
     </div>
 
     <div class="mb-4">
-      <label for="dept-nombre" class="block text-sm font-medium text-gray-700 mb-2">Nombre del Departamento</label>
+      <label for="dept-nombre" class="block text-sm font-medium text-gray-700 mb-2"
+        >Nombre del Departamento</label
+      >
       <input
         id="dept-nombre"
         type="text"

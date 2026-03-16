@@ -4,10 +4,14 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\Usuario\Usuario;
+use App\Models\Usuario\Rol;
+use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
+use App\Models\Administrativo\Programa;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+
 class CourseController extends Controller
 {
     public function index()
@@ -21,28 +25,72 @@ class CourseController extends Controller
 
         $estudiante = $user->estudiante;
 
-        // Obtener inscripciones del estudiante
+        // ── Cursos como Estudiante ────────────────────────────────────────────
         $inscripciones = $estudiante->inscripcionCursos()
-            ->where('estado_inscripcion', 'INSCRITO') // Asumiendo estado para cursos activos
+            ->where('estado_inscripcion', 'INSCRITO')
             ->with(['curso.asignacionPlan.asignatura', 'curso.asignacionPlan.plan.carrera'])
             ->get();
 
-        $cursosData = $inscripciones->map(function ($inscripcion) {
+        $cursosEstudiante = $inscripciones->map(function ($inscripcion) {
             $curso = $inscripcion->curso;
-            return [
-                'id_curso' => $curso->id_curso,
-                'nombre' => $curso->nombre,
-                'cod_curso' => $curso->cod_curso,
-                'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
-                'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
-                'fecha_inicio' => $curso->fecha_inicio,
-                'fecha_fin' => $curso->fecha_fin,
-            ];
+            return $this->formatCurso($curso, 'Estudiante');
         });
 
+        // ── Cursos como Ayudante ──────────────────────────────────────────────
+        $rolAyudante = Rol::whereRaw('LOWER(nombre) = ?', ['ayudante'])->first();
+
+        $idsEstudiante = $cursosEstudiante->pluck('id_curso')->toArray();
+
+        $cursosAyudante = collect();
+        if ($rolAyudante) {
+            $contextosAsignados = UsuarioRolAsignacion::where('id_usuario', $user->id_usuario)
+                ->where('id_rol', $rolAyudante->id_rol)
+                ->where('esta_activo', true)
+                ->where('fue_eliminado', false)
+                ->pluck('id_contexto');
+
+            if ($contextosAsignados->isNotEmpty()) {
+                $cursosAyudante = Curso::whereIn('id_contexto', $contextosAsignados)
+                    ->whereNotIn('id_curso', $idsEstudiante)
+                    ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera'])
+                    ->get()
+                    ->map(fn($curso) => $this->formatCurso($curso, 'Ayudante'));
+            }
+        }
+
+        $todos = $cursosEstudiante->concat($cursosAyudante)->values();
+
+        $semestre = $todos->first()?['semestre_real'] ?? 1: 1;
+        $agno     = $todos->first()?['agno_real']     ?? now()->year: now()->year;
+
         return Inertia::render('student/Courses/Index', [
-            'cursos' => $cursosData,
+            'cursos'   => $todos,
+            'semestre' => $semestre,
+            'agno'     => $agno,
         ]);
+    }
+
+    private function formatCurso(Curso $curso, string $rol): array
+    {
+        $tieneProg = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)
+            ->whereIn('estado', ['APROBADO', 'BASICO_COMPLETO'])
+            ->where('es_actual', true)
+            ->exists();
+
+        return [
+            'id_curso'         => $curso->id_curso,
+            'nombre'           => $curso->nombre,
+            'cod_curso'        => $curso->cod_curso,
+            'asignatura_nombre'=> $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+            'carrera_nombre'   => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
+            'fecha_inicio'     => $curso->fecha_inicio,
+            'fecha_fin'        => $curso->fecha_fin,
+            'semestre_real'    => $curso->semestre_real,
+            'agno_real'        => $curso->agno_real,
+            'letra_grupo'      => $curso->letra_grupo,
+            'rol'              => $rol,
+            'tiene_programa'   => $tieneProg,
+        ];
     }
 
     public function show(Curso $curso)

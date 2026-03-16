@@ -1,245 +1,349 @@
 <script lang="ts">
-    /**
-     * Dashboard del estudiante - Vista Unificada (Hybrid)
-     */
-    import StudentLayout from '@/layouts/StudentLayout.svelte';
-    import type { BreadcrumbItem, SidebarCourse } from '@/types';
-    import { Link, page } from '@inertiajs/svelte';
-    import { BookOpen, Clock, GraduationCap, TrendingUp, Calendar, AlertCircle, FileText, CheckCircle2 } from 'lucide-svelte';
+  /**
+   * Dashboard del estudiante - Vista Bento Grid
+   */
+  import StudentLayout from '@/layouts/StudentLayout.svelte';
+  import type { BreadcrumbItem, SidebarCourse } from '@/types';
+  import { Link, page } from '@inertiajs/svelte';
+  import { Sparkles, Calendar } from 'lucide-svelte';
+  import ProfileCard from '@/components/student/ProfileCard.svelte';
+  import CourseCard from '@/components/student/CourseCard.svelte';
+  import AyudantiaCard from '@/components/student/AyudantiaCard.svelte';
 
-    /**
-     * Props recibidas del servidor.
-     */
-    interface Props {
-        estudiante: {
-            id_estudiante: number;
-            rut: string;
-            id_usuario: number;
-        };
-        cursos: Array<{
-            id_curso: number;
-            nombre: string;
-            cod_curso: string;
-            asignatura_nombre: string;
-            carrera_nombre: string;
-            fecha_inicio: string;
-            fecha_fin?: string;
-        }>;
-        stats: {
-            total_cursos: number;
-            nombre_completo: string;
-        };
-        isAyudante?: boolean;
-    }
-
-    let { estudiante, cursos, stats, isAyudante = false }: Props = $props();
-
-    const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Dashboard', href: '/estudiante/dashboard' }
-    ];
-
-    // Get TA courses from shared props
-    let ayudanteCourses = $derived(($page.props.auth?.ayudante_courses as SidebarCourse[]) || []);
-    
-    // Mock data for UI demo (as per prompt)
-    const academicStats = {
-        average: 6.5,
-        attendance: 92,
-        nextDeadline: {
-            course: 'Taller de Diseño',
-            date: 'Mañana',
-            task: 'Entrega Final'
-        }
+  /**
+   * Props recibidas del servidor.
+   */
+  interface Props {
+    estudiante: {
+      id_estudiante: number;
+      rut: string;
+      id_usuario: number;
     };
+    cursos: Array<{
+      id_curso: number;
+      nombre: string;
+      cod_curso: string;
+      asignatura_nombre: string;
+      carrera_nombre: string;
+      fecha_inicio: string;
+      fecha_fin?: string;
+      profesor: string;
+    }>;
+    stats: {
+      total_cursos: number;
+      nombre_completo: string;
+    };
+    isAyudante?: boolean;
+  }
 
-    function getRandomProgress() {
-        return Math.floor(Math.random() * (85 - 15) + 15);
-    }
+  let { estudiante, cursos, stats, isAyudante = false }: Props = $props();
+
+  const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/estudiante/dashboard' }];
+
+  // State
+  let modoAyudante = $state(false);
+  let anoAcademico = $state('2026');
+  let semestre = $state('1');
+
+  // Get TA courses from shared props
+  let ayudanteCourses = $derived(($page.props.auth?.ayudante_courses as SidebarCourse[]) || []);
+
+  // Colores para los cursos (rotativos)
+  const colorGradients = [
+    'from-purple-600 to-purple-400',
+    'from-cyan-600 to-cyan-400',
+    'from-orange-600 to-orange-400',
+    'from-pink-600 to-pink-400',
+    'from-emerald-600 to-emerald-400',
+  ];
+
+  // Mapear cursos a formato CourseCard
+  const cursosEnriquecidos = $derived(
+    cursos.map((curso, index) => ({
+      ...curso,
+      progreso: Math.floor(Math.random() * (90 - 30) + 30),
+      color: colorGradients[index % colorGradients.length],
+      iconColor: 'text-white',
+    })),
+  );
+
+  // Enriquecer cursos de ayudantía con colores y campos de presentación
+  const ayudanteCursosEnriquecidos = $derived(
+    ayudanteCourses.map((curso, index) => ({
+      ...curso,
+      estudiantes: 0,
+      proximaSesion: '—',
+      color: colorGradients[index % colorGradients.length],
+      iconColor: 'text-white',
+    })),
+  );
+
+  // Get auth data
+  const authUser = $derived(($page.props.auth as any)?.user);
+  const nombreCompleto = $derived(stats?.nombre_completo || authUser?.name || 'Estudiante');
+  const rut = $derived(estudiante?.rut || '20.000.000-0');
+
+  // Parse full name
+  const nameParts = $derived.by(() => {
+    const parts = nombreCompleto.split(' ');
+    return {
+      nombre: parts[0] || '',
+      apellido1: parts[1] || '',
+      apellido2: parts[2] || '',
+    };
+  });
+
+  // Calculate average progress
+  const progresoPromedio = $derived(
+    cursosEnriquecidos.length > 0
+      ? Math.round(
+          cursosEnriquecidos.reduce((acc, c) => acc + c.progreso, 0) / cursosEnriquecidos.length,
+        )
+      : 0,
+  );
 </script>
 
 <StudentLayout {breadcrumbs}>
-    <div class="p-8 max-w-[1600px] mx-auto space-y-10">
-        
-        <!-- 1. Academic Overview (Top) -->
-        <section>
-            <div class="flex items-center justify-between mb-6">
-                <div>
-                    <h1 class="text-2xl font-bold text-slate-900">Hola, {stats.nombre_completo.split(' ')[0]} 👋</h1>
-                    <p class="text-slate-500 font-medium">Aquí tienes tu resumen académico de hoy.</p>
-                </div>
-                <div class="hidden md:flex items-center gap-2 text-sm text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-                    <Calendar size={16} />
-                    <span>Semestre 1 - 2026</span>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Weighted Average -->
-                <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-                    <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <TrendingUp size={80} class="text-emerald-500" />
-                    </div>
-                    <div class="relative z-10">
-                        <div class="flex items-center gap-3 mb-2">
-                            <div class="p-2 bg-emerald-50 rounded-lg text-emerald-600">
-                                <GraduationCap size={20} />
-                            </div>
-                            <span class="text-sm font-bold text-slate-500 uppercase tracking-wider">Promedio Ponderado</span>
-                        </div>
-                        <div class="flex items-baseline gap-2">
-                            <span class="text-4xl font-extrabold text-slate-900">{academicStats.average}</span>
-                            <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Excelencia</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Global Attendance -->
-                <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-                    <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <CheckCircle2 size={80} class="text-blue-500" />
-                    </div>
-                    <div class="relative z-10">
-                        <div class="flex items-center gap-3 mb-2">
-                            <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
-                                <Clock size={20} />
-                            </div>
-                            <span class="text-sm font-bold text-slate-500 uppercase tracking-wider">Asistencia Global</span>
-                        </div>
-                        <div class="flex items-baseline gap-2">
-                            <span class="text-4xl font-extrabold text-slate-900">{academicStats.attendance}%</span>
-                            <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Regular</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Next Deadline -->
-                <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-                     <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <AlertCircle size={80} class="text-amber-500" />
-                    </div>
-                    <div class="relative z-10">
-                        <div class="flex items-center gap-3 mb-2">
-                            <div class="p-2 bg-amber-50 rounded-lg text-amber-600">
-                                <AlertCircle size={20} />
-                            </div>
-                            <span class="text-sm font-bold text-slate-500 uppercase tracking-wider">Próxima Entrega</span>
-                        </div>
-                        <div>
-                            <p class="text-lg font-bold text-slate-900 leading-tight">{academicStats.nextDeadline.task}</p>
-                            <p class="text-sm text-slate-500 font-medium">{academicStats.nextDeadline.course}</p>
-                            <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 border border-amber-100 text-xs font-bold text-amber-700">
-                                <Clock size={12} />
-                                {academicStats.nextDeadline.date}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- 2. Teaching Assistant Zone (Hybrid Feature) -->
-        {#if isAyudante && ayudanteCourses.length > 0}
-            <section class="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div class="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 md:p-8">
-                     <div class="flex items-center gap-3 mb-6">
-                        <div class="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
-                            <BookOpen size={24} />
-                        </div>
-                        <div>
-                            <h2 class="text-xl font-bold text-indigo-950">Panel de Ayudante</h2>
-                            <p class="text-indigo-600/80 text-sm font-medium">Gestiona tus ayudantías asignadas</p>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {#each ayudanteCourses as curso}
-                            <div class="bg-white p-5 rounded-xl border border-indigo-100/50 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all group">
-                                <div class="flex justify-between items-start mb-4">
-                                    <div class="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                        <BookOpen size={20} />
-                                    </div>
-                                    <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200">TA</span>
-                                </div>
-                                <h3 class="font-bold text-slate-900 text-lg mb-1 leading-tight">{curso.nombre}</h3>
-                                <p class="text-xs text-slate-500 font-medium mb-4">Código: {curso.cod_curso || 'N/A'}</p>
-                                
-                                <div class="grid grid-cols-2 gap-2 mt-auto">
-                                    <Link href={`/ayudante/cursos/${curso.id_curso}/notas`} class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition-colors">
-                                        <FileText size={14} /> Notas
-                                    </Link>
-                                    <Link href={`/ayudante/cursos/${curso.id_curso}/actividades`} class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors">
-                                        <Calendar size={14} /> Actividad
-                                    </Link>
-                                </div>
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-            </section>
-        {/if}
-
-        <!-- 3. My Learning Path (Main Grid) -->
-        <section>
-            <div class="flex items-center justify-between mb-6">
-                <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <BookOpen class="text-slate-400" size={24} />
-                    Mis Cursos <span class="text-slate-400 font-normal text-lg">· Semestre 1 2026</span>
-                </h2>
-            </div>
-
-            {#if cursos.length > 0}
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {#each cursos as curso}
-                        {@const progress = getRandomProgress()}
-                        <Link 
-                            href={`/estudiante/cursos/${curso.id_curso}`}
-                            class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group flex flex-col h-full"
-                        >
-                            <!-- Header -->
-                            <div class="flex justify-between items-start mb-3">
-                                <span class="text-[10px] font-bold px-2 py-1 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
-                                    {curso.cod_curso}
-                                </span>
-                                <!-- Download Syllabus Icon (Mock) -->
-                                <button class="text-slate-300 hover:text-slate-600 transition-colors p-1" title="Descargar Programa">
-                                    <FileText size={16} />
-                                </button>
-                            </div>
-
-                            <!-- Content -->
-                            <div class="mb-4 flex-1">
-                                <h3 class="font-bold text-slate-900 text-lg leading-tight mb-1 group-hover:text-blue-600 transition-colors">
-                                    {curso.asignatura_nombre}
-                                </h3>
-                                <p class="text-xs text-slate-500">{curso.carrera_nombre}</p>
-                            </div>
-
-                            <!-- Footer / Progress -->
-                            <div class="mt-auto">
-                                <div class="flex justify-between text-xs font-semibold text-slate-500 mb-1.5">
-                                    <span>Progreso</span>
-                                    <span>{progress}%</span>
-                                </div>
-                                <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                    <div 
-                                        class="h-full bg-blue-500 rounded-full transition-all duration-1000 ease-out group-hover:bg-blue-600"
-                                        style="width: {progress}%"
-                                    ></div>
-                                </div>
-                            </div>
-                        </Link>
-                    {/each}
-                </div>
-            {:else}
-                <div class="bg-slate-50 rounded-xl border border-slate-200 border-dashed p-12 text-center">
-                    <div class="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                        <BookOpen class="text-slate-300" size={32} />
-                    </div>
-                    <h3 class="text-lg font-bold text-slate-900 mb-1">No tienes cursos inscritos</h3>
-                    <p class="text-slate-500 text-sm">Los cursos en los que te inscribas aparecerán aquí.</p>
-                </div>
-            {/if}
-        </section>
-
+  <div class="min-h-screen bg-white relative overflow-hidden">
+    <!-- Animated background blobs -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none">
+      <div
+        class="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/5 rounded-full blur-3xl animate-pulse"
+      />
+      <div
+        class="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-600/5 rounded-full blur-3xl animate-pulse"
+        style="animation-delay: 1s"
+      />
+      <div
+        class="absolute top-1/2 right-1/3 w-96 h-96 bg-orange-600/5 rounded-full blur-3xl animate-pulse"
+        style="animation-delay: 2s"
+      />
     </div>
+
+    <div class="relative max-w-[1800px] mx-auto p-8">
+      <!-- Header -->
+      <div class="mb-8">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="p-2 rounded-xl bg-gradient-to-br from-purple-600 to-cyan-600">
+            <Sparkles class="w-6 h-6 text-white" />
+          </div>
+          <h1
+            class="text-4xl font-bold bg-gradient-to-r from-purple-400 via-cyan-400 to-orange-400 bg-clip-text text-transparent"
+          >
+            Utamed
+          </h1>
+        </div>
+        <p class="text-gray-500 ml-14">Plataforma académica · Diseño Multimedia</p>
+      </div>
+
+      <!-- Bento Grid Layout -->
+      <div class="grid grid-cols-12 gap-6">
+        <!-- Left Sidebar - Profile & Filters -->
+        <div class="col-span-12 lg:col-span-3 space-y-6">
+          <!-- Profile Card -->
+          <ProfileCard
+            nombre={nameParts.nombre}
+            apellido1={nameParts.apellido1}
+            apellido2={nameParts.apellido2}
+            {rut}
+          />
+
+          <!-- Mode Switcher (solo visible si el usuario es ayudante) -->
+          {#if isAyudante}
+            <div
+              class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600/5 via-cyan-600/5 to-orange-600/5 p-[1px]"
+            >
+              <div
+                class="relative rounded-3xl bg-white backdrop-blur-xl p-6 border border-gray-200"
+              >
+                <div
+                  class="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent rounded-3xl"
+                />
+
+                <div class="relative space-y-4">
+                  <h4 class="text-sm text-gray-700 mb-3 font-medium">Modo de Vista</h4>
+
+                  <div class="relative flex rounded-2xl bg-gray-100 p-1">
+                    <div
+                      class={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 transition-transform duration-300 ${
+                        modoAyudante ? 'translate-x-[calc(100%+8px)]' : 'translate-x-0'
+                      }`}
+                    />
+                    <button
+                      onclick={() => (modoAyudante = false)}
+                      class={`relative z-10 flex-1 py-2 text-sm font-medium transition-colors ${
+                        !modoAyudante ? 'text-white' : 'text-gray-600'
+                      }`}
+                    >
+                      Alumno
+                    </button>
+                    <button
+                      onclick={() => (modoAyudante = true)}
+                      class={`relative z-10 flex-1 py-2 text-sm font-medium transition-colors ${
+                        modoAyudante ? 'text-white' : 'text-gray-600'
+                      }`}
+                    >
+                      Ayudante
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {/if}
+
+          <!-- Temporal Context Selectors -->
+          <div
+            class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600/5 via-cyan-600/5 to-orange-600/5 p-[1px]"
+          >
+            <div class="relative rounded-3xl bg-white backdrop-blur-xl p-6 border border-gray-200">
+              <div
+                class="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent rounded-3xl"
+              />
+
+              <div class="relative space-y-4">
+                <div class="flex items-center gap-2 mb-4">
+                  <Calendar class="w-4 h-4 text-purple-600" />
+                  <h4 class="text-sm text-gray-700 font-medium">Periodo Académico</h4>
+                </div>
+
+                <!-- Año Selector -->
+                <div class="space-y-2">
+                  <label class="text-xs text-gray-600 font-medium">Año</label>
+                  <select
+                    bind:value={anoAcademico}
+                    class="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
+                  >
+                    <option value="2026">2026</option>
+                    <option value="2025">2025</option>
+                    <option value="2024">2024</option>
+                  </select>
+                </div>
+
+                <!-- Semestre Selector -->
+                <div class="space-y-2">
+                  <label class="text-xs text-gray-600 font-medium">Semestre</label>
+                  <div class="grid grid-cols-2 gap-2">
+                    <button
+                      onclick={() => (semestre = '1')}
+                      class={`py-3 rounded-xl font-medium text-sm transition-all ${
+                        semestre === '1'
+                          ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Sem 1
+                    </button>
+                    <button
+                      onclick={() => (semestre = '2')}
+                      class={`py-3 rounded-xl font-medium text-sm transition-all ${
+                        semestre === '2'
+                          ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Sem 2
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats Card -->
+          <div
+            class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600/5 via-cyan-600/5 to-orange-600/5 p-[1px]"
+          >
+            <div class="relative rounded-3xl bg-white backdrop-blur-xl p-6 border border-gray-200">
+              <div
+                class="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent rounded-3xl"
+              />
+
+              <div class="relative space-y-3">
+                <h4 class="text-sm text-gray-700 mb-4 font-medium">Resumen</h4>
+
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-gray-600">Total Cursos</span>
+                  <span
+                    class="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold"
+                  >
+                    {modoAyudante ? ayudanteCursosEnriquecidos.length : cursosEnriquecidos.length}
+                  </span>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-gray-600">Promedio Progreso</span>
+                  <span class="text-sm font-semibold text-gray-900">
+                    {modoAyudante ? '—' : `${progresoPromedio}%`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Content - Courses/Ayudantías Grid -->
+        <div class="col-span-12 lg:col-span-9">
+          <div class="mb-6">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-2">
+              {modoAyudante ? 'Mis Ayudantías' : 'Mis Cursos'}
+            </h2>
+            <p class="text-gray-600">
+              {modoAyudante
+                ? `Gestionando ${ayudanteCursosEnriquecidos.length} ayudantía${ayudanteCursosEnriquecidos.length !== 1 ? 's' : ''}`
+                : `${cursosEnriquecidos.length} asignaturas inscritas · Semestre ${semestre} ${anoAcademico}`}
+            </p>
+          </div>
+
+          <!-- Bento Grid - Asymmetric Layout -->
+          {#if !modoAyudante}
+            {#if cursosEnriquecidos.length > 0}
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
+                {#each cursosEnriquecidos as curso, index}
+                  <div class={index === 0 ? 'md:col-span-2 md:row-span-1' : ''}>
+                    <CourseCard {...curso} />
+                  </div>
+                {/each}
+              </div>
+            {:else}
+              <div class="rounded-3xl border border-gray-200 bg-gray-50 p-12 text-center">
+                <div class="mb-4 flex justify-center">
+                  <div class="rounded-full bg-gray-100 p-4">
+                    <svg class="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                      <path
+                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <h3 class="mb-2 text-lg font-bold text-gray-900">No tienes cursos inscritos</h3>
+                <p class="text-gray-600">Los cursos en los que te inscribas aparecerán aquí.</p>
+              </div>
+            {/if}
+          {:else if ayudanteCursosEnriquecidos.length > 0}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
+              {#each ayudanteCursosEnriquecidos as ayudantia, index}
+                <div class={index === 0 ? 'md:col-span-2' : ''}>
+                  <AyudantiaCard {...ayudantia} />
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <div class="rounded-3xl border border-gray-200 bg-gray-50 p-12 text-center">
+              <div class="mb-4 flex justify-center">
+                <div class="rounded-full bg-gray-100 p-4">
+                  <svg class="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <h3 class="mb-2 text-lg font-bold text-gray-900">No tienes ayudantías asignadas</h3>
+              <p class="text-gray-600">Los cursos donde eres ayudante aparecerán aquí.</p>
+            </div>
+          {/if}
+        </div>
+      </div>
+    </div>
+  </div>
 </StudentLayout>

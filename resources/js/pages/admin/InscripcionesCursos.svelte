@@ -27,7 +27,13 @@
     semestre_real?: number;
   }
 
-  type EstadoInscripcion = 'INSCRITO' | 'RETIRADO' | 'ANULADO' | 'SUSPENDIDO' | 'APROBADO' | 'REPROBADO';
+  type EstadoInscripcion =
+    | 'INSCRITO'
+    | 'RETIRADO'
+    | 'ANULADO'
+    | 'SUSPENDIDO'
+    | 'APROBADO'
+    | 'REPROBADO';
 
   interface RosterItem {
     id_inscripcion_curso: number;
@@ -61,7 +67,9 @@
   let { inscripciones, cursos, filters }: Props = $props();
 
   // ── State machine config ───────────────────────────────────────────────────
-  const TRANSITIONS: Partial<Record<EstadoInscripcion, { label: string; next: EstadoInscripcion; icon: string }[]>> = {
+  const TRANSITIONS: Partial<
+    Record<EstadoInscripcion, { label: string; next: EstadoInscripcion; icon: string }[]>
+  > = {
     INSCRITO: [
       { label: 'Marcar Retirado', next: 'RETIRADO', icon: '⏸' },
       { label: 'Anular inscripción', next: 'ANULADO', icon: '✕' },
@@ -89,7 +97,9 @@
   // ── Mode detection ─────────────────────────────────────────────────────────
   const activeCursoId = $derived(filters.id_curso ? Number(filters.id_curso) : null);
   const isRosterMode = $derived(activeCursoId !== null);
-  const selectedCurso = $derived(activeCursoId ? (cursos.find((c) => c.id_curso === activeCursoId) ?? null) : null);
+  const selectedCurso = $derived(
+    activeCursoId ? (cursos.find((c) => c.id_curso === activeCursoId) ?? null) : null,
+  );
 
   // ── Roster state ───────────────────────────────────────────────────────────
   let roster = $state<RosterItem[]>([]);
@@ -133,13 +143,18 @@
     item._saving = true;
     item._prevEstado = prev;
     try {
-      const { data: json } = await axios.patch(`/admin/inscripciones_cursos/${item.id_inscripcion_curso}/estado`, { estado_inscripcion: next });
+      const { data: json } = await axios.patch(
+        `/admin/inscripciones_cursos/${item.id_inscripcion_curso}/estado`,
+        { estado_inscripcion: next },
+      );
       const idx = roster.findIndex((r) => r.id_inscripcion_curso === item.id_inscripcion_curso);
       if (idx !== -1) roster[idx] = { ...roster[idx], ...(json.inscripcion ?? {}), _saving: false };
     } catch (e) {
       item.estado_inscripcion = prev;
       item._saving = false;
-      const msg = (e as any)?.response?.data?.message ?? (e instanceof Error ? e.message : 'Error al cambiar estado');
+      const msg =
+        (e as any)?.response?.data?.message ??
+        (e instanceof Error ? e.message : 'Error al cambiar estado');
       showToast(msg, 'error');
     }
   }
@@ -158,7 +173,9 @@
       ? disponibles
       : disponibles.filter((e) => {
           const term = studentSearch.toLowerCase();
-          return `${e.usuario?.nombre1 ?? ''} ${e.usuario?.apellido1 ?? ''} ${e.usuario?.username ?? ''}`.toLowerCase().includes(term);
+          return `${e.usuario?.nombre1 ?? ''} ${e.usuario?.apellido1 ?? ''} ${e.usuario?.username ?? ''}`
+            .toLowerCase()
+            .includes(term);
         }),
   );
 
@@ -170,9 +187,12 @@
     disponibles = [];
     loadingDisponibles = true;
     try {
-      const res = await fetch(`/admin/inscripciones_cursos/ajax/disponibles?id_curso=${activeCursoId}`, {
-        headers: { Accept: 'application/json' },
-      });
+      const res = await fetch(
+        `/admin/inscripciones_cursos/ajax/disponibles?id_curso=${activeCursoId}`,
+        {
+          headers: { Accept: 'application/json' },
+        },
+      );
       if (!res.ok) throw new Error('Error al cargar estudiantes');
       const json = await res.json();
       disponibles = json.estudiantes ?? [];
@@ -219,7 +239,10 @@
       );
     } catch (e) {
       const err = (e as any)?.response?.data;
-      bulkContextError = err?.errors?.id_estudiantes?.[0] ?? err?.message ?? (e instanceof Error ? e.message : 'Error de red.');
+      bulkContextError =
+        err?.errors?.id_estudiantes?.[0] ??
+        err?.message ??
+        (e instanceof Error ? e.message : 'Error de red.');
     } finally {
       submittingBulk = false;
     }
@@ -264,7 +287,9 @@
     isDeleting = true;
     router.delete(`/admin/inscripciones_cursos/${deletingItem.id_inscripcion_curso}`, {
       onSuccess: () => {
-        roster = roster.filter((r) => r.id_inscripcion_curso !== deletingItem!.id_inscripcion_curso);
+        roster = roster.filter(
+          (r) => r.id_inscripcion_curso !== deletingItem!.id_inscripcion_curso,
+        );
         showDeleteDialog = false;
         deletingItem = null;
         isDeleting = false;
@@ -317,7 +342,7 @@
 <AdminLayout>
   {#if isRosterMode}
     <!-- ══════════════════════════════════════════════════ ROSTER MODE ══ -->
-    <div class="py-7 px-8 max-w-[1100px] mx-auto">
+    <div class="max-w-[1100px]">
       <nav class="mb-4">
         <button
           onclick={backToSelector}
@@ -353,7 +378,9 @@
               </p>
             {/if}
           </div>
-          <div class="flex flex-col items-center bg-green-50 border-[1.5px] border-green-200 rounded-[10px] px-3.5 py-2">
+          <div
+            class="flex flex-col items-center bg-green-50 border-[1.5px] border-green-200 rounded-[10px] px-3.5 py-2"
+          >
             <div class="flex items-baseline gap-0.5">
               <span class="text-xl font-extrabold text-green-600">{inscritoCount}</span>
               <span class="text-sm text-gray-400">/</span>
@@ -407,7 +434,9 @@
 
       {#if loadingRoster}
         <div class="flex items-center justify-center gap-3 py-12 text-gray-500">
-          <div class="w-5 h-5 border-[2.5px] border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+          <div
+            class="w-5 h-5 border-[2.5px] border-gray-200 border-t-blue-500 rounded-full animate-spin"
+          ></div>
           <span>Cargando roster…</span>
         </div>
       {:else if rosterError}
@@ -421,7 +450,9 @@
         </div>
       {:else if roster.length === 0}
         <div class="flex flex-col items-center gap-4 py-16 text-center">
-          <p class="text-gray-500 text-[0.9375rem]">Este curso no tiene estudiantes inscritos aún.</p>
+          <p class="text-gray-500 text-[0.9375rem]">
+            Este curso no tiene estudiantes inscritos aún.
+          </p>
           <button
             onclick={openAddModal}
             class="inline-flex items-center gap-1.5 px-[1.125rem] py-[0.55rem] bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 rounded-lg text-sm font-medium cursor-pointer transition-all shadow-sm no-underline hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -433,22 +464,28 @@
           <table class="w-full border-collapse text-sm">
             <thead>
               <tr class="bg-slate-50">
-                <th class="px-4 py-3 text-left text-[0.6875rem] font-bold text-gray-500 uppercase tracking-[0.04em] border-b border-gray-200"
+                <th
+                  class="px-4 py-3 text-left text-[0.6875rem] font-bold text-gray-500 uppercase tracking-[0.04em] border-b border-gray-200"
                   >Estudiante</th
                 >
-                <th class="px-4 py-3 text-left text-[0.6875rem] font-bold text-gray-500 uppercase tracking-[0.04em] border-b border-gray-200"
+                <th
+                  class="px-4 py-3 text-left text-[0.6875rem] font-bold text-gray-500 uppercase tracking-[0.04em] border-b border-gray-200"
                   >Usuario</th
                 >
-                <th class="px-4 py-3 text-left text-[0.6875rem] font-bold text-gray-500 uppercase tracking-[0.04em] border-b border-gray-200"
+                <th
+                  class="px-4 py-3 text-left text-[0.6875rem] font-bold text-gray-500 uppercase tracking-[0.04em] border-b border-gray-200"
                   >Fecha Inscripción</th
                 >
-                <th class="px-4 py-3 text-center text-[0.6875rem] font-bold text-gray-500 uppercase tracking-[0.04em] border-b border-gray-200"
+                <th
+                  class="px-4 py-3 text-center text-[0.6875rem] font-bold text-gray-500 uppercase tracking-[0.04em] border-b border-gray-200"
                   >Intentos</th
                 >
-                <th class="px-4 py-3 text-center text-[0.6875rem] font-bold text-gray-500 uppercase tracking-[0.04em] border-b border-gray-200"
+                <th
+                  class="px-4 py-3 text-center text-[0.6875rem] font-bold text-gray-500 uppercase tracking-[0.04em] border-b border-gray-200"
                   >Promedio</th
                 >
-                <th class="px-4 py-3 text-left text-[0.6875rem] font-bold text-gray-500 uppercase tracking-[0.04em] border-b border-gray-200"
+                <th
+                  class="px-4 py-3 text-left text-[0.6875rem] font-bold text-gray-500 uppercase tracking-[0.04em] border-b border-gray-200"
                   >Estado</th
                 >
                 <th class="px-4 py-3 border-b border-gray-200"></th>
@@ -460,16 +497,31 @@
                 {@const transitions = TRANSITIONS[item.estado_inscripcion] ?? []}
                 {@const dimCls = cfg.rowCls === 'dimmed' ? 'opacity-60' : ''}
                 {@const voidCls = cfg.rowCls === 'voided' ? 'opacity-40 line-through' : ''}
-                <tr class={idx < roster.length - 1 ? 'border-b border-slate-100' : ''} class:opacity-60={item._saving}>
-                  <td class="px-4 py-3 align-middle flex items-center gap-2.5 min-w-[160px] {dimCls} {voidCls}">
-                    <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 text-[0.6875rem] font-bold flex items-center justify-center shrink-0">
+                <tr
+                  class={idx < roster.length - 1 ? 'border-b border-slate-100' : ''}
+                  class:opacity-60={item._saving}
+                >
+                  <td
+                    class="px-4 py-3 align-middle flex items-center gap-2.5 min-w-[160px] {dimCls} {voidCls}"
+                  >
+                    <div
+                      class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 text-[0.6875rem] font-bold flex items-center justify-center shrink-0"
+                    >
                       {initials(item)}
                     </div>
                     <span class="font-medium text-gray-900">{studentName(item)}</span>
                   </td>
-                  <td class="px-4 py-3 align-middle font-mono text-[0.8125rem] text-gray-500 {dimCls} {voidCls}">{studentUsername(item)}</td>
-                  <td class="px-4 py-3 align-middle whitespace-nowrap text-gray-500 {dimCls} {voidCls}">{item.fecha_inscripcion ?? '—'}</td>
-                  <td class="px-4 py-3 align-middle text-center text-gray-700 {dimCls}">{item.num_intento}</td>
+                  <td
+                    class="px-4 py-3 align-middle font-mono text-[0.8125rem] text-gray-500 {dimCls} {voidCls}"
+                    >{studentUsername(item)}</td
+                  >
+                  <td
+                    class="px-4 py-3 align-middle whitespace-nowrap text-gray-500 {dimCls} {voidCls}"
+                    >{item.fecha_inscripcion ?? '—'}</td
+                  >
+                  <td class="px-4 py-3 align-middle text-center text-gray-700 {dimCls}"
+                    >{item.num_intento}</td
+                  >
                   <td class="px-4 py-3 align-middle text-center text-gray-700 {dimCls}"
                     >{item.promedio_parcial != null ? item.promedio_parcial : '—'}</td
                   >
@@ -480,7 +532,11 @@
                           type="button"
                           class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border-0 cursor-pointer transition-opacity whitespace-nowrap disabled:cursor-wait {cfg.cls}"
                           class:animate-pulse={item._saving}
-                          onclick={() => (openMenuId = openMenuId === item.id_inscripcion_curso ? null : item.id_inscripcion_curso)}
+                          onclick={() =>
+                            (openMenuId =
+                              openMenuId === item.id_inscripcion_curso
+                                ? null
+                                : item.id_inscripcion_curso)}
                           disabled={item._saving}
                         >
                           {cfg.label}
@@ -500,7 +556,11 @@
                         </button>
                         {#if openMenuId === item.id_inscripcion_curso}
                           <!-- svelte-ignore a11y_no_static_element_interactions -->
-                          <div class="fixed inset-0 z-10" onclick={() => (openMenuId = null)} role="presentation"></div>
+                          <div
+                            class="fixed inset-0 z-10"
+                            onclick={() => (openMenuId = null)}
+                            role="presentation"
+                          ></div>
                           <div
                             class="absolute top-[calc(100%+6px)] left-0 z-20 bg-white border border-gray-200 rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.12)] min-w-[185px] overflow-hidden"
                           >
@@ -542,7 +602,9 @@
                         stroke-linejoin="round"
                       >
                         <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        <path
+                          d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                        />
                       </svg>
                     </button>
                   </td>
@@ -564,10 +626,14 @@
         aria-modal="true"
         aria-label="Agregar Estudiantes"
       >
-        <div class="flex justify-between items-start px-6 pt-5 pb-4 border-b border-slate-100 shrink-0">
+        <div
+          class="flex justify-between items-start px-6 pt-5 pb-4 border-b border-slate-100 shrink-0"
+        >
           <div>
             <h2 class="text-[1.0625rem] font-bold text-gray-900 m-0">Agregar Estudiantes</h2>
-            <p class="text-[0.8125rem] text-gray-500 mt-0.5 mb-0">{selectedCurso ? cursoDisplayName(selectedCurso) : ''}</p>
+            <p class="text-[0.8125rem] text-gray-500 mt-0.5 mb-0">
+              {selectedCurso ? cursoDisplayName(selectedCurso) : ''}
+            </p>
           </div>
           <button
             class="p-1.5 border-0 bg-transparent rounded-md text-gray-400 cursor-pointer hover:bg-gray-100 hover:text-gray-900 transition-all"
@@ -636,23 +702,39 @@
         <div class="overflow-y-auto flex-1 min-h-0">
           {#if loadingDisponibles}
             <div class="flex items-center justify-center gap-3 py-10 text-gray-500">
-              <div class="w-5 h-5 border-[2.5px] border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+              <div
+                class="w-5 h-5 border-[2.5px] border-gray-200 border-t-blue-500 rounded-full animate-spin"
+              ></div>
               <span>Buscando estudiantes disponibles…</span>
             </div>
           {:else if disponibles.length === 0}
-            <p class="py-10 text-center text-gray-500 text-sm">Todos los estudiantes ya están inscritos en este curso.</p>
+            <p class="py-10 text-center text-gray-500 text-sm">
+              Todos los estudiantes ya están inscritos en este curso.
+            </p>
           {:else if filteredDisponibles.length === 0}
-            <p class="py-10 text-center text-gray-500 text-sm">Sin resultados para «{studentSearch}».</p>
+            <p class="py-10 text-center text-gray-500 text-sm">
+              Sin resultados para «{studentSearch}».
+            </p>
           {:else}
-            <label class="flex items-center gap-2.5 px-5 py-2.5 border-b border-slate-100 cursor-pointer hover:bg-gray-50">
-              <input type="checkbox" checked={selectedIds.size === filteredDisponibles.length} onchange={toggleAll} />
-              <span class="text-sm font-medium text-gray-700">Seleccionar todos <small>({filteredDisponibles.length})</small></span>
+            <label
+              class="flex items-center gap-2.5 px-5 py-2.5 border-b border-slate-100 cursor-pointer hover:bg-gray-50"
+            >
+              <input
+                type="checkbox"
+                checked={selectedIds.size === filteredDisponibles.length}
+                onchange={toggleAll}
+              />
+              <span class="text-sm font-medium text-gray-700"
+                >Seleccionar todos <small>({filteredDisponibles.length})</small></span
+              >
             </label>
             <div class="divide-y divide-slate-100">
               {#each filteredDisponibles as e (e.id_estudiante)}
                 <!-- svelte-ignore a11y_click_events_have_key_events -->
                 <label
-                  class="flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-colors {selectedIds.has(e.id_estudiante)
+                  class="flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-colors {selectedIds.has(
+                    e.id_estudiante,
+                  )
                     ? 'bg-blue-50'
                     : 'hover:bg-gray-50'}"
                   onclick={() => toggleSelect(e.id_estudiante)}
@@ -664,11 +746,17 @@
                     onchange={() => toggleSelect(e.id_estudiante)}
                     onclick={(ev) => ev.stopPropagation()}
                   />
-                  <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-[0.625rem] font-bold flex items-center justify-center shrink-0">
-                    {((e.usuario?.nombre1?.[0] ?? '') + (e.usuario?.apellido1?.[0] ?? '')).toUpperCase() || '?'}
+                  <div
+                    class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-[0.625rem] font-bold flex items-center justify-center shrink-0"
+                  >
+                    {(
+                      (e.usuario?.nombre1?.[0] ?? '') + (e.usuario?.apellido1?.[0] ?? '')
+                    ).toUpperCase() || '?'}
                   </div>
                   <div class="flex flex-col min-w-0">
-                    <span class="text-sm font-medium text-gray-900 truncate">{disponibleName(e)}</span>
+                    <span class="text-sm font-medium text-gray-900 truncate"
+                      >{disponibleName(e)}</span
+                    >
                     <span class="text-xs text-gray-500">{e.usuario?.username ?? ''}</span>
                   </div>
                 </label>
@@ -678,7 +766,9 @@
         </div>
 
         <div class="px-6 py-4 border-t border-slate-100 flex justify-between items-center shrink-0">
-          <span class="text-sm text-gray-500">{selectedIds.size} seleccionado{selectedIds.size !== 1 ? 's' : ''}</span>
+          <span class="text-sm text-gray-500"
+            >{selectedIds.size} seleccionado{selectedIds.size !== 1 ? 's' : ''}</span
+          >
           <div class="flex gap-2.5">
             <button
               type="button"
@@ -692,7 +782,8 @@
               disabled={selectedIds.size === 0 || submittingBulk}
               onclick={submitBulk}
             >
-              {#if submittingBulk}<span class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"
+              {#if submittingBulk}<span
+                  class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"
                 ></span>Inscribiendo…{:else}Confirmar Inscripción{/if}
             </button>
           </div>
@@ -701,10 +792,12 @@
     {/if}
   {:else}
     <!-- ═══════════════════════════════════ COURSE SELECTOR MODE ══ -->
-    <div class="py-7 px-8 max-w-[1100px] mx-auto">
+    <div class="max-w-[1100px]">
       <div class="mb-5">
         <h1 class="text-[1.625rem] font-bold text-gray-900 mb-0.5 mt-0">Inscripciones de Cursos</h1>
-        <p class="text-[0.8125rem] text-gray-500 m-0">Selecciona un Curso Ofertado para gestionar su lista de alumnos.</p>
+        <p class="text-[0.8125rem] text-gray-500 m-0">
+          Selecciona un Curso Ofertado para gestionar su lista de alumnos.
+        </p>
       </div>
 
       <div class="relative mb-5">
@@ -731,7 +824,9 @@
       </div>
 
       {#if filteredCursos.length === 0}
-        <p class="text-gray-500 text-[0.9375rem]">{courseSearch ? `Sin resultados para «${courseSearch}».` : 'No hay cursos disponibles.'}</p>
+        <p class="text-gray-500 text-[0.9375rem]">
+          {courseSearch ? `Sin resultados para «${courseSearch}».` : 'No hay cursos disponibles.'}
+        </p>
       {:else}
         <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
           {#each filteredCursos as c (c.id_curso)}
@@ -742,10 +837,14 @@
             >
               <div class="flex justify-between items-center mb-1.5">
                 <span class="text-xs font-mono font-semibold text-blue-600">{c.cod_curso}</span>
-                {#if c.agno_real}<span class="text-xs text-gray-400">{c.agno_real} S{c.semestre_real}</span>{/if}
+                {#if c.agno_real}<span class="text-xs text-gray-400"
+                    >{c.agno_real} S{c.semestre_real}</span
+                  >{/if}
               </div>
               <h3 class="font-semibold text-gray-900 text-sm mb-1">{cursoDisplayName(c)}</h3>
-              {#if c.carrera_nombre}<p class="text-xs text-gray-500 mb-2.5">{c.carrera_nombre}</p>{/if}
+              {#if c.carrera_nombre}<p class="text-xs text-gray-500 mb-2.5">
+                  {c.carrera_nombre}
+                </p>{/if}
               <div class="flex items-center gap-1 text-xs font-medium text-blue-500 mt-2">
                 Ver Roster
                 <svg
@@ -785,7 +884,8 @@
     <div
       role="status"
       aria-live="polite"
-      class="fixed bottom-6 right-6 z-[10000] flex items-center gap-2.5 px-5 py-3 rounded-xl text-sm font-medium shadow-xl {toast.type === 'success'
+      class="fixed bottom-6 right-6 z-[10000] flex items-center gap-2.5 px-5 py-3 rounded-xl text-sm font-medium shadow-xl {toast.type ===
+      'success'
         ? 'bg-green-50 border border-green-200 text-green-800'
         : 'bg-red-50 border border-red-200 text-red-700'}"
     >

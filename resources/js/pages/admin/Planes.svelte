@@ -23,7 +23,13 @@
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
   import MallaSlideOver from '@/components/custom/admin/MallaSlideOver.svelte';
-  import type { Plan, Carrera, PaginatedResponse, PlanFormData, MallaData } from '@/types/admin.types';
+  import type {
+    Plan,
+    Carrera,
+    PaginatedResponse,
+    PlanFormData,
+    MallaData,
+  } from '@/types/admin.types';
 
   /**
    * Props recibidas del servidor.
@@ -194,7 +200,7 @@
 {/snippet}
 
 <AdminLayout>
-  <div class="p-8 max-w-6xl mx-auto">
+  <div>
     <div class="flex justify-between items-start mb-8">
       <div>
         <h1 class="text-3xl font-bold text-gray-900 mb-1">Planes de Estudio</h1>
@@ -222,10 +228,22 @@
       </button>
     </div>
 
-    <DataTable data={planes} {columns} onEdit={openEditModal} onDelete={openDeleteDialog} {cellSnippet} />
+    <DataTable
+      data={planes}
+      {columns}
+      onEdit={openEditModal}
+      onDelete={openDeleteDialog}
+      {cellSnippet}
+    />
   </div>
 
-  <FormModal bind:isOpen={showModal} title={editingPlan ? 'Editar Plan' : 'Nuevo Plan'} onClose={closeModal} onSubmit={handleSubmit} {isLoading}>
+  <FormModal
+    bind:isOpen={showModal}
+    title={editingPlan ? 'Editar Plan' : 'Nuevo Plan'}
+    onClose={closeModal}
+    onSubmit={handleSubmit}
+    {isLoading}
+  >
     <div class="mb-4">
       <label for="carrera" class="block text-sm font-medium text-gray-700 mb-2">Carrera *</label>
       <select
@@ -257,7 +275,9 @@
       </div>
 
       <div class="mb-4">
-        <label for="version_plan" class="block text-sm font-medium text-gray-700 mb-2">Versión *</label>
+        <label for="version_plan" class="block text-sm font-medium text-gray-700 mb-2"
+          >Versión *</label
+        >
         <input
           id="version_plan"
           type="number"
@@ -271,9 +291,13 @@
     </div>
 
     <div class="mb-4">
-      <label for="creditos" class="block text-sm font-medium text-gray-700 mb-2">Créditos SCT Totales</label>
+      <label for="creditos" class="block text-sm font-medium text-gray-700 mb-2"
+        >Créditos SCT Totales</label
+      >
       <div class="flex items-center gap-3 p-4 bg-gray-50 border border-gray-200 rounded-md">
-        <span class="text-2xl font-bold text-blue-500">{editingPlan?.creditos_sct_totales || 0}</span>
+        <span class="text-2xl font-bold text-blue-500"
+          >{editingPlan?.creditos_sct_totales || 0}</span
+        >
         <span class="text-xs text-gray-500 italic">(Calculado automáticamente)</span>
       </div>
     </div>
@@ -288,5 +312,11 @@
     {isLoading}
   />
 
-  <MallaSlideOver isOpen={showMallaPanel} plan={mallaPlan} malla={mallaData} isLoading={mallaLoading} onClose={closeMallaPanel} />
+  <MallaSlideOver
+    isOpen={showMallaPanel}
+    plan={mallaPlan}
+    malla={mallaData}
+    isLoading={mallaLoading}
+    onClose={closeMallaPanel}
+  />
 </AdminLayout>

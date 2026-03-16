@@ -83,7 +83,9 @@
   }
 
   function handleSubmit() {
-    const url = editingAsignatura ? `/admin/asignaturas/${editingAsignatura.id_asignatura}` : '/admin/asignaturas';
+    const url = editingAsignatura
+      ? `/admin/asignaturas/${editingAsignatura.id_asignatura}`
+      : '/admin/asignaturas';
 
     const opts = {
       onSuccess: () => {
@@ -123,13 +125,14 @@
 </script>
 
 <AdminLayout>
-  <div class="p-8 max-w-6xl mx-auto">
+  <div>
     <div class="flex justify-between items-start mb-8">
       <div>
         <h1 class="text-3xl font-bold text-gray-900 mb-1">Asignaturas</h1>
         <p class="text-sm text-gray-500">Gestión del catálogo de asignaturas</p>
         <p class="text-xs text-blue-600 mt-2 font-medium">
-          💡 Al editar una asignatura se crea una nueva versión. Esto preserva el historial de cambios.
+          💡 Al editar una asignatura se crea una nueva versión. Esto preserva el historial de
+          cambios.
         </p>
       </div>
       <button
@@ -180,7 +183,9 @@
   >
     <!-- Advertencia de versionado cuando se está editando -->
     {#if editingAsignatura}
-      <div class="mb-4 flex gap-3 items-start bg-blue-50 border border-blue-300 rounded-lg px-4 py-3">
+      <div
+        class="mb-4 flex gap-3 items-start bg-blue-50 border border-blue-300 rounded-lg px-4 py-3"
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="18"
@@ -192,20 +197,27 @@
           stroke-linecap="round"
           stroke-linejoin="round"
           class="text-blue-500 mt-0.5 shrink-0"
-          ><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg
+          ><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line
+            x1="12"
+            y1="8"
+            x2="12.01"
+            y2="8"
+          /></svg
         >
         <div>
           <p class="text-sm font-semibold text-blue-800">Creando nueva versión</p>
           <p class="text-xs text-blue-700 mt-0.5">
-            Los cambios crearán una <strong>nueva versión</strong> de la asignatura. La versión anterior será marcada como histórica. Esto preserva el historial
-            completo de cambios.
+            Los cambios crearán una <strong>nueva versión</strong> de la asignatura. La versión anterior
+            será marcada como histórica. Esto preserva el historial completo de cambios.
           </p>
         </div>
       </div>
     {/if}
     <div class="grid grid-cols-2 gap-4">
       <div class="mb-4">
-        <label for="cod_asignatura" class="block text-sm font-medium text-gray-700 mb-2">Código</label>
+        <label for="cod_asignatura" class="block text-sm font-medium text-gray-700 mb-2"
+          >Código</label
+        >
         <input
           id="cod_asignatura"
           type="text"
@@ -221,7 +233,9 @@
       </div>
 
       <div class="mb-4">
-        <label for="creditos_sct" class="block text-sm font-medium text-gray-700 mb-2">Créditos SCT</label>
+        <label for="creditos_sct" class="block text-sm font-medium text-gray-700 mb-2"
+          >Créditos SCT</label
+        >
         <input
           id="creditos_sct"
           type="number"
@@ -253,7 +267,9 @@
     </div>
 
     <div class="mb-4">
-      <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+      <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-2"
+        >Descripción</label
+      >
       <textarea
         id="descripcion"
         bind:value={$formData.descripcion}
@@ -265,7 +281,9 @@
 
     <div class="grid grid-cols-2 gap-4">
       <div class="mb-4">
-        <label for="horas_catedra" class="block text-sm font-medium text-gray-700 mb-2">Horas Cátedra</label>
+        <label for="horas_catedra" class="block text-sm font-medium text-gray-700 mb-2"
+          >Horas Cátedra</label
+        >
         <input
           id="horas_catedra"
           type="number"
@@ -276,7 +294,9 @@
       </div>
 
       <div class="mb-4">
-        <label for="horas_taller" class="block text-sm font-medium text-gray-700 mb-2">Horas Taller</label>
+        <label for="horas_taller" class="block text-sm font-medium text-gray-700 mb-2"
+          >Horas Taller</label
+        >
         <input
           id="horas_taller"
           type="number"
@@ -289,7 +309,9 @@
 
     <div class="grid grid-cols-2 gap-4">
       <div class="mb-4">
-        <label for="horas_laboratorio" class="block text-sm font-medium text-gray-700 mb-2">Horas Laboratorio</label>
+        <label for="horas_laboratorio" class="block text-sm font-medium text-gray-700 mb-2"
+          >Horas Laboratorio</label
+        >
         <input
           id="horas_laboratorio"
           type="number"
@@ -300,7 +322,9 @@
       </div>
 
       <div class="mb-4">
-        <label for="horas_dirigidas" class="block text-sm font-medium text-gray-700 mb-2">Horas Dirigidas</label>
+        <label for="horas_dirigidas" class="block text-sm font-medium text-gray-700 mb-2"
+          >Horas Dirigidas</label
+        >
         <input
           id="horas_dirigidas"
           type="number"
@@ -312,7 +336,9 @@
     </div>
 
     <div class="mb-4">
-      <label for="horas_autonomas" class="block text-sm font-medium text-gray-700 mb-2">Horas Autónomas</label>
+      <label for="horas_autonomas" class="block text-sm font-medium text-gray-700 mb-2"
+        >Horas Autónomas</label
+      >
       <input
         id="horas_autonomas"
         type="number"

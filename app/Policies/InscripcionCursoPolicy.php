@@ -58,7 +58,7 @@ class InscripcionCursoPolicy extends BaseInscripcionCursoPolicy
 
         // Docente puede ver si dicta una sección en el curso
         if ($user->docente) {
-            $dictaSecciones = $user->docente->secciones()
+            $dictaSecciones = $user->docente->seccionesQueDicta()
                 ->where('id_curso', $inscripcion->id_curso)
                 ->exists();
 
@@ -113,7 +113,7 @@ class InscripcionCursoPolicy extends BaseInscripcionCursoPolicy
 
         // Docente solo puede crear si dicta una sección en el curso
         if ($user->docente) {
-            $dictaSecciones = $user->docente->secciones()
+            $dictaSecciones = $user->docente->seccionesQueDicta()
                 ->where('id_curso', $idCurso)
                 ->exists();
 
@@ -139,7 +139,7 @@ class InscripcionCursoPolicy extends BaseInscripcionCursoPolicy
 
         // Docente puede actualizar si dicta una sección en el curso
         if ($user->docente) {
-            $dictaSecciones = $user->docente->secciones()
+            $dictaSecciones = $user->docente->seccionesQueDicta()
                 ->where('id_curso', $inscripcion->id_curso)
                 ->exists();
 

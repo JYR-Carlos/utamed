@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
+use App\Models\Usuario\Contexto;
 use App\Models\Usuario\Estudiante;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
@@ -65,55 +66,139 @@ class InscripcionCursoService
 
     /**
      * Obtiene estudiantes disponibles (no inscritos) en un curso.
-     * Auto-crea perfiles de Estudiante para usuarios con rol estudiante que no tengan perfil.
+     * 
+     * Lógica:
+     * 1. Obtiene la carrera del curso (navegando contexto)
+     * 2. Obtiene TODOS los estudiantes de esa carrera (sin validar roles)
+     * 3. Excluye los ya inscritos en el curso
+     * 4. Retorna la lista (roles se asignan al inscribirse)
      */
     public function getEstudiantesDisponibles(int $idCurso): Collection
     {
-        // Get estudiante ids already inscribed in this course
+        // Get course and its context
+        $curso = Curso::with('contexto')->find($idCurso);
+        if (!$curso || !$curso->id_contexto) {
+            Log::warning('Curso no encontrado o sin contexto', ['id_curso' => $idCurso]);
+            return collect();
+        }
+
+        // Get the carrera associated with this course's context
+        $carrera = $this->getCarreraFromCurso($curso);
+        if (!$carrera) {
+            Log::warning('No se pudo determinar carrera para curso', ['id_curso' => $idCurso]);
+            return collect();
+        }
+
+        Log::info('getEstudiantesDisponibles', [
+            'id_curso' => $idCurso,
+            'id_carrera' => $carrera->id_carrera,
+            'carrera_nombre' => $carrera->nombre
+        ]);
+
+        // Get estudiante ids already inscribed
         $inscritosIds = InscripcionCurso::where('id_curso', $idCurso)
             ->pluck('id_estudiante')
             ->toArray();
 
-        // Get available estudiantes (with existing profiles)
+        // Get ALL estudiantes from this carrera (regardless of roles)
         $estudiantes = Estudiante::query()
             ->with('usuario:id_usuario,nombre1,apellido1,username')
+            ->where('id_carrera', $carrera->id_carrera)
             ->whereNotIn('id_estudiante', $inscritosIds)
             ->orderBy('id_estudiante')
             ->get();
 
-        // Find users with 'estudiante' role but no Estudiante profile and auto-create
-        $usuariosConRolEstudiante = $this->findUsersWithStudentRoleWithoutProfile();
-
-        // Auto-create Estudiante profiles for users with student role
-        foreach ($usuariosConRolEstudiante as $usuario) {
-            try {
-                $nuevoEstudiante = Estudiante::create([
-                    'id_usuario' => $usuario->id_usuario,
-                    'rut' => $usuario->rut,
-                    'nombre_completo' => trim(($usuario->nombre1 ?? '') . ' ' . ($usuario->apellido1 ?? '')),
-                    'agno_ingreso' => now()->year,
-                    'id_carrera' => null,
-                    'id_contexto' => null
-                ]);
-
-                // Add to collection if not already inscribed
-                if (!in_array($nuevoEstudiante->id_estudiante, $inscritosIds)) {
-                    $nuevoEstudiante->load('usuario:id_usuario,nombre1,apellido1,username');
-                    $estudiantes->push($nuevoEstudiante);
-                }
-
-                Log::info('Auto-created Estudiante profile', [
-                    'id_usuario' => $usuario->id_usuario,
-                    'id_estudiante' => $nuevoEstudiante->id_estudiante
-                ]);
-            } catch (\Exception $e) {
-                Log::error('Error auto-creating Estudiante profile: ' . $e->getMessage(), [
-                    'id_usuario' => $usuario->id_usuario
-                ]);
-            }
-        }
+        Log::info('Estudiantes disponibles encontrados', [
+            'total' => $estudiantes->count(),
+            'id_carrera' => $carrera->id_carrera
+        ]);
 
         return $estudiantes;
+    }
+
+    /**     * Navega hacia arriba en la jerarquía de contextos para encontrar la CARRERA.
+     * 
+     * @param Curso $curso
+     * @return ?\App\Models\Administrativo\Carrera
+     */
+    private function getCarreraFromCurso($curso): ?\App\Models\Administrativo\Carrera
+    {
+        if (!$curso->contexto) {
+            return null;
+        }
+
+        $contexto = $curso->contexto;
+        $maxIteraciones = 10;
+        $iteraciones = 0;
+
+        while ($contexto && $iteraciones < $maxIteraciones) {
+            $contexto->load('tipoContexto', 'carrera');
+
+            // Si este contexto tiene carrera asociada, retornarla
+            if ($contexto->carrera) {
+                return $contexto->carrera;
+            }
+
+            // Subir un nivel en la jerarquía
+            if ($contexto->id_contexto_padre) {
+                $contexto = Contexto::find($contexto->id_contexto_padre);
+            } else {
+                break;
+            }
+
+            $iteraciones++;
+        }
+
+        return null;
+    }
+
+    /**     * Navega hacia arriba en la jerarquía de contextos para encontrar el contexto de CARRERA.
+     */
+    private function getCarreraContextoFromCurso($contexto): ?\App\Models\Usuario\Contexto
+    {
+        $actual = $contexto;
+        $maxIteraciones = 10;
+        $iteraciones = 0;
+
+        while ($actual && $iteraciones < $maxIteraciones) {
+            $actual->load('tipoContexto');
+
+            // Si encontramos carrera, retornar
+            if ($actual->tipoContexto && strtolower($actual->tipoContexto->tipo) === 'carrera') {
+                return $actual;
+            }
+
+            // Navegar hacia el padre
+            if ($actual->id_contexto_padre) {
+                $actual = $actual->contextoPadre;
+            } else {
+                break;
+            }
+
+            $iteraciones++;
+        }
+
+        // Si no encontramos carrera, retornar el contexto actual (podría ser global)
+        return $actual;
+    }
+
+    /**
+     * Obtiene todos los IDs de contexto en la jerarquía hacia arriba (incluyendo el actual).
+     */
+    private function getContextoHierarchyIds(int $idContexto): array
+    {
+        $ids = [$idContexto];
+        $actual = \App\Models\Usuario\Contexto::find($idContexto);
+        $maxIteraciones = 10;
+        $iteraciones = 0;
+
+        while ($actual && $actual->id_contexto_padre && $iteraciones < $maxIteraciones) {
+            $ids[] = $actual->id_contexto_padre;
+            $actual = \App\Models\Usuario\Contexto::find($actual->id_contexto_padre);
+            $iteraciones++;
+        }
+
+        return $ids;
     }
 
     /**

@@ -318,7 +318,7 @@
 </script>
 
 <AdminLayout>
-  <div class="p-8 max-w-6xl mx-auto">
+  <div>
     <div class="flex justify-between items-start mb-6">
       <div>
         <h1 class="text-3xl font-bold text-gray-900 mb-1">Usuarios</h1>
@@ -395,12 +395,19 @@
 
   <FormModal
     bind:isOpen={showModal}
-    title={editingUsuario ? `Editar ${USER_TYPE_LABELS[currentTipo]}` : `Nuevo ${USER_TYPE_LABELS[currentTipo]}`}
+    title={editingUsuario
+      ? `Editar ${USER_TYPE_LABELS[currentTipo]}`
+      : `Nuevo ${USER_TYPE_LABELS[currentTipo]}`}
     onClose={closeModal}
     onSubmit={handleSubmit}
     {isLoading}
   >
-    <UserForm formData={currentFormData} tipo={currentTipo} isEditing={!!editingUsuario} {carreras} />
+    <UserForm
+      formData={currentFormData}
+      tipo={currentTipo}
+      isEditing={!!editingUsuario}
+      {carreras}
+    />
   </FormModal>
 
   <DeleteConfirmation
@@ -413,9 +420,17 @@
   />
 
   <!-- Password Change Modal -->
-  <FormModal bind:isOpen={showPasswordModal} title="Cambiar Contraseña" onClose={closePasswordModal} onSubmit={handlePasswordChange} {isLoading}>
+  <FormModal
+    bind:isOpen={showPasswordModal}
+    title="Cambiar Contraseña"
+    onClose={closePasswordModal}
+    onSubmit={handlePasswordChange}
+    {isLoading}
+  >
     <div class="mb-4">
-      <label for="new_password" class="block text-sm font-medium text-gray-700 mb-2">Nueva Contraseña *</label>
+      <label for="new_password" class="block text-sm font-medium text-gray-700 mb-2"
+        >Nueva Contraseña *</label
+      >
       <input
         id="new_password"
         type="password"
@@ -428,7 +443,9 @@
     </div>
 
     <div class="mb-4">
-      <label for="password_confirmation" class="block text-sm font-medium text-gray-700 mb-2">Confirmar Contraseña *</label>
+      <label for="password_confirmation" class="block text-sm font-medium text-gray-700 mb-2"
+        >Confirmar Contraseña *</label
+      >
       <input
         id="password_confirmation"
         type="password"

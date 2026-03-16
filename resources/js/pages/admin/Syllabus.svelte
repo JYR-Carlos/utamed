@@ -2,7 +2,18 @@
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import { router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
-  import { BookOpen, Calendar, Clock, CheckCircle2, AlertCircle, FileText, Edit, X, Search, Plus } from 'lucide-svelte';
+  import {
+    BookOpen,
+    Calendar,
+    Clock,
+    CheckCircle2,
+    AlertCircle,
+    FileText,
+    Edit,
+    X,
+    Search,
+    Plus,
+  } from 'lucide-svelte';
   import * as Card from '@/components/ui/card';
   import * as Dialog from '@/components/ui/dialog';
   import { Button } from '@/components/ui/button';
@@ -171,7 +182,9 @@
     dialog = { ...dialog, saving: true, error: '' };
 
     const payload =
-      dialog.modo === 'basico' ? { fecha_limite_entrega_basico: dialog.fecha || null } : { fecha_limite_entrega_syllabus: dialog.fecha || null };
+      dialog.modo === 'basico'
+        ? { fecha_limite_entrega_basico: dialog.fecha || null }
+        : { fecha_limite_entrega_syllabus: dialog.fecha || null };
 
     router.put(`/admin/cursos/${curso.id_curso}/programa/fechas`, payload, {
       onSuccess: () => {
@@ -239,7 +252,11 @@
     }
 
     // 3. Si el básico ya está terminado (BASICO_COMPLETO) → button definir fecha completo
-    if (c.programa && (c.programa.estado === 'BASICO_COMPLETO' || (c.programa.tipo_syllabus !== 'BASICO' && c.programa.estado !== 'BORRADOR'))) {
+    if (
+      c.programa &&
+      (c.programa.estado === 'BASICO_COMPLETO' ||
+        (c.programa.tipo_syllabus !== 'BASICO' && c.programa.estado !== 'BORRADOR'))
+    ) {
       return { tipo: 'definir-completo' };
     }
 
@@ -272,14 +289,16 @@
 </script>
 
 <AdminLayout {breadcrumbs}>
-  <div class="container mx-auto px-4 py-8 max-w-7xl">
+  <div class="container mx-auto max-w-7xl">
     <!-- Encabezado -->
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-slate-900 mb-1 flex items-center gap-3">
         <BookOpen class="text-blue-600" size={32} />
         Syllabus de Cursos
       </h1>
-      <p class="text-slate-500 text-sm">Gestión de syllabus y fechas límite de entrega. Solo administradores.</p>
+      <p class="text-slate-500 text-sm">
+        Gestión de syllabus y fechas límite de entrega. Solo administradores.
+      </p>
     </div>
 
     <!-- Filtros -->
@@ -291,7 +310,12 @@
             <Label class="text-xs text-slate-500 mb-1 block">Buscar curso</Label>
             <div class="relative">
               <Search class="absolute left-2.5 top-2.5 text-slate-400" size={15} />
-              <Input bind:value={searchQ} placeholder="Nombre o código…" class="pl-8 h-9" onkeydown={(e) => e.key === 'Enter' && aplicarFiltros()} />
+              <Input
+                bind:value={searchQ}
+                placeholder="Nombre o código…"
+                class="pl-8 h-9"
+                onkeydown={(e) => e.key === 'Enter' && aplicarFiltros()}
+              />
             </div>
           </div>
 
@@ -336,7 +360,9 @@
 
     <!-- Total -->
     <p class="text-sm text-slate-500 mb-4">
-      {pagination.total} curso{pagination.total !== 1 ? 's' : ''} encontrado{pagination.total !== 1 ? 's' : ''}
+      {pagination.total} curso{pagination.total !== 1 ? 's' : ''} encontrado{pagination.total !== 1
+        ? 's'
+        : ''}
     </p>
 
     <!-- Tabla -->
@@ -367,16 +393,25 @@
             {#each cursos as curso (curso.id_curso)}
               {@const accion = getAccion(curso)}
               {@const badge = curso.programa
-                ? (estadoBadge[curso.programa.estado] ?? { label: curso.programa.estado, cls: 'bg-slate-100 text-slate-700' })
+                ? (estadoBadge[curso.programa.estado] ?? {
+                    label: curso.programa.estado,
+                    cls: 'bg-slate-100 text-slate-700',
+                  })
                 : null}
 
               <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                 <!-- Curso / Asignatura -->
                 <td class="py-3 px-4">
                   <p class="font-medium text-slate-900 leading-tight">{curso.nombre}</p>
-                  <p class="text-xs text-slate-500 mt-0.5">{curso.cod_curso} · {curso.asignatura}</p>
+                  <p class="text-xs text-slate-500 mt-0.5">
+                    {curso.cod_curso} · {curso.asignatura}
+                  </p>
                   {#if curso.agno_real || curso.semestre_real}
-                    <p class="text-xs text-slate-400">{curso.agno_real ?? ''}{curso.semestre_real ? ` · ${curso.semestre_real}` : ''}</p>
+                    <p class="text-xs text-slate-400">
+                      {curso.agno_real ?? ''}{curso.semestre_real
+                        ? ` · ${curso.semestre_real}`
+                        : ''}
+                    </p>
                   {/if}
                 </td>
 
@@ -388,7 +423,9 @@
                 <!-- Estado syllabus -->
                 <td class="py-3 px-4">
                   {#if badge}
-                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium {badge.cls}">
+                    <span
+                      class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium {badge.cls}"
+                    >
                       <CheckCircle2 size={11} />
                       {badge.label}
                     </span>
@@ -399,7 +436,9 @@
                       </p>
                     {/if}
                   {:else}
-                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-100 text-zinc-500">
+                    <span
+                      class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-100 text-zinc-500"
+                    >
                       <AlertCircle size={11} />
                       Sin syllabus
                     </span>
@@ -444,7 +483,11 @@
                     >
                       <span class="text-lg font-bold">{d < 0 ? 0 : d}</span>
                       <span class="text-[10px] font-medium">
-                        {d < 0 ? 'Plazo básico vencido' : d === 1 ? 'día p. básico' : 'días p. básico'}
+                        {d < 0
+                          ? 'Plazo básico vencido'
+                          : d === 1
+                            ? 'día p. básico'
+                            : 'días p. básico'}
                       </span>
                     </div>
                   {:else if accion.tipo === 'dias-completo'}
@@ -459,7 +502,11 @@
                     >
                       <span class="text-lg font-bold">{d < 0 ? 0 : d}</span>
                       <span class="text-[10px] font-medium">
-                        {d < 0 ? 'Plazo completo vencido' : d === 1 ? 'día p. completo' : 'días p. completo'}
+                        {d < 0
+                          ? 'Plazo completo vencido'
+                          : d === 1
+                            ? 'día p. completo'
+                            : 'días p. completo'}
                       </span>
                     </div>
                   {:else if accion.tipo === 'definir-completo'}
@@ -516,7 +563,9 @@
           <button
             onclick={() => irAPagina(p)}
             class="w-9 h-9 rounded border text-sm font-medium transition-colors
-              {p === pagination.current_page ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}"
+              {p === pagination.current_page
+              ? 'bg-blue-600 text-white border-blue-600'
+              : 'border-slate-300 text-slate-700 hover:bg-slate-100'}"
           >
             {p}
           </button>
@@ -537,7 +586,9 @@
     <Dialog.Header>
       <Dialog.Title class="flex items-center gap-2 text-slate-900">
         <Clock size={18} class={dialog.modo === 'basico' ? 'text-blue-600' : 'text-indigo-600'} />
-        {dialog.modo === 'basico' ? 'Fecha límite — Syllabus básico' : 'Fecha límite — Syllabus completo'}
+        {dialog.modo === 'basico'
+          ? 'Fecha límite — Syllabus básico'
+          : 'Fecha límite — Syllabus completo'}
       </Dialog.Title>
       <Dialog.Description class="text-slate-500 text-sm">
         {dialog.curso?.nombre ?? ''}
@@ -547,26 +598,42 @@
     <div class="space-y-5 py-2">
       {#if dialog.modo === 'basico'}
         <div class="space-y-1.5">
-          <Label for="fecha-basico" class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+          <Label
+            for="fecha-basico"
+            class="text-sm font-medium text-slate-700 flex items-center gap-1.5"
+          >
             <span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-400"></span>
             Fecha límite — Syllabus básico
           </Label>
-          <DatePickerCL id="fecha-basico" value={dialog.fecha || null} onchange={(v) => (dialog = { ...dialog, fecha: v ?? '' })} />
-          <p class="text-xs text-slate-400">Plazo que tiene el docente para entregar la versión básica (5 secciones).</p>
+          <DatePickerCL
+            id="fecha-basico"
+            value={dialog.fecha || null}
+            onchange={(v) => (dialog = { ...dialog, fecha: v ?? '' })}
+          />
+          <p class="text-xs text-slate-400">
+            Plazo que tiene el docente para entregar la versión básica (5 secciones).
+          </p>
         </div>
       {:else}
         <div class="space-y-1.5">
-          <Label for="fecha-completo" class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+          <Label
+            for="fecha-completo"
+            class="text-sm font-medium text-slate-700 flex items-center gap-1.5"
+          >
             <span class="inline-block w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
             Fecha límite — Syllabus completo
           </Label>
           <DatePickerCL
             id="fecha-completo"
             value={dialog.fecha || null}
-            minValue={dialog.curso?.fecha_limite_entrega_basico ? isoToInputDate(dialog.curso.fecha_limite_entrega_basico) : null}
+            minValue={dialog.curso?.fecha_limite_entrega_basico
+              ? isoToInputDate(dialog.curso.fecha_limite_entrega_basico)
+              : null}
             onchange={(v) => (dialog = { ...dialog, fecha: v ?? '' })}
           />
-          <p class="text-xs text-slate-400">Plazo para la versión completa (9 secciones). Debe ser igual o posterior al básico.</p>
+          <p class="text-xs text-slate-400">
+            Plazo para la versión completa (9 secciones). Debe ser igual o posterior al básico.
+          </p>
         </div>
       {/if}
 
@@ -579,7 +646,11 @@
 
     <Dialog.Footer class="gap-2">
       <Button variant="ghost" onclick={cerrarDialog} disabled={dialog.saving}>Cancelar</Button>
-      <Button onclick={guardarFechas} disabled={dialog.saving} class="bg-blue-600 hover:bg-blue-700">
+      <Button
+        onclick={guardarFechas}
+        disabled={dialog.saving}
+        class="bg-blue-600 hover:bg-blue-700"
+      >
         {dialog.saving ? 'Guardando…' : 'Guardar fechas'}
       </Button>
     </Dialog.Footer>
@@ -608,19 +679,25 @@
       <!-- Tipo determinado automáticamente por las fechas definidas -->
       <div
         class="flex items-center gap-3 p-3 rounded-lg border
-        {crearDialog.tipo === 'BASICO' ? 'border-blue-200 bg-blue-50' : 'border-indigo-200 bg-indigo-50'}"
+        {crearDialog.tipo === 'BASICO'
+          ? 'border-blue-200 bg-blue-50'
+          : 'border-indigo-200 bg-indigo-50'}"
       >
         {#if crearDialog.tipo === 'BASICO'}
           <span class="inline-block w-3 h-3 rounded-full bg-blue-400 shrink-0"></span>
           <div>
             <p class="text-sm font-medium text-slate-800">Syllabus básico</p>
-            <p class="text-xs text-slate-500">5 secciones obligatorias. El docente podrá completarlo antes de la fecha límite.</p>
+            <p class="text-xs text-slate-500">
+              5 secciones obligatorias. El docente podrá completarlo antes de la fecha límite.
+            </p>
           </div>
         {:else}
           <span class="inline-block w-3 h-3 rounded-full bg-indigo-400 shrink-0"></span>
           <div>
             <p class="text-sm font-medium text-slate-800">Syllabus completo</p>
-            <p class="text-xs text-slate-500">9 secciones. Toma los datos de la versión básica y la completa.</p>
+            <p class="text-xs text-slate-500">
+              9 secciones. Toma los datos de la versión básica y la completa.
+            </p>
           </div>
         {/if}
       </div>
@@ -633,8 +710,14 @@
     </div>
 
     <Dialog.Footer class="gap-2">
-      <Button variant="ghost" onclick={cerrarCrearDialog} disabled={crearDialog.saving}>Cancelar</Button>
-      <Button onclick={crearPrograma} disabled={crearDialog.saving} class="bg-emerald-600 hover:bg-emerald-700">
+      <Button variant="ghost" onclick={cerrarCrearDialog} disabled={crearDialog.saving}
+        >Cancelar</Button
+      >
+      <Button
+        onclick={crearPrograma}
+        disabled={crearDialog.saving}
+        class="bg-emerald-600 hover:bg-emerald-700"
+      >
         {crearDialog.saving ? 'Creando…' : 'Crear syllabus'}
       </Button>
     </Dialog.Footer>

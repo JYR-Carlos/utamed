@@ -52,7 +52,7 @@ class ProgramaPolicy extends BaseProgramaPolicy
         }
 
         // Verificar si el docente tiene sección en el curso del programa
-        return $user->docente->secciones()
+        return $user->docente->seccionesQueDicta()
             ->where('id_curso', $programa->id_curso)
             ->exists();
     }
@@ -72,7 +72,7 @@ class ProgramaPolicy extends BaseProgramaPolicy
         }
 
         // Verificar si el docente tiene sección en el curso
-        return $user->docente->secciones()
+        return $user->docente->seccionesQueDicta()
             ->where('id_curso', $curso->id_curso)
             ->exists();
     }

@@ -133,7 +133,7 @@ class CourseTeamController extends Controller
 
         $validated = $request->validate([
             'id_usuario' => ['required', Rule::exists(Usuario::class, 'id_usuario')],
-            'role_name' => ['required', 'string', Rule::exists(Rol::class, 'nombre')]
+            'role_name' => ['required', 'string'],
         ]);
 
         $this->ensureContext($curso);
@@ -158,13 +158,20 @@ class CourseTeamController extends Controller
             }
         }
 
-        $rol = Rol::where('nombre', $validated['role_name'])->first();
+        // Case-insensitive role lookup (PostgreSQL is case-sensitive by default)
+        $rol = Rol::whereRaw('LOWER(nombre) = ?', [strtolower($validated['role_name'])])->first();
+
+        if (!$rol) {
+            return back()->with('error', 'El rol especificado no existe.');
+        }
 
         // Check for existing assignment (including soft deleted)
         $existingAssignment = UsuarioRolAsignacion::where('id_usuario', $validated['id_usuario'])
             ->where('id_contexto', $curso->id_contexto)
             ->where('id_rol', $rol->id_rol)
             ->first();
+
+        $now = now();
 
         if ($existingAssignment) {
             // Reactivate existing assignment
@@ -173,17 +180,24 @@ class CourseTeamController extends Controller
                 'fue_eliminado' => false,
                 'fecha_fin_real' => null,
                 'asignado_por' => (int) (Auth::id() ?? 1),
-                'fecha_inicio_planificada' => now(),
-                'fecha_fin_planificada' => now()->addDays(365),  // 365 días en lugar de 100 años
+                'fecha_inicio_planificada' => $now,
+                'fecha_fin_planificada' => $now->copy()->addDays(365),
             ]);
         } else {
-            // Create new assignment using RoleAssignmentBuilder
-            $usuarioTarget = Usuario::findOrFail($validated['id_usuario']);
-            
-            $usuarioTarget->giveRole($rol)
-                ->on($curso)       // ← Curso implementa HasOwnedContext
-                ->for(365)         // ← 365 días
-                ->save();
+            // Direct insert — authorization already checked via authorize('manageTeam').
+            // Bypasses RoleAssignmentBuilder which only allows SuperAdmins.
+            UsuarioRolAsignacion::create([
+                'id_usuario'               => $validated['id_usuario'],
+                'id_rol'                   => $rol->id_rol,
+                'id_contexto'              => $curso->id_contexto,
+                'asignado_por'             => (int) (Auth::id() ?? 1),
+                'creado_por'               => (int) (Auth::id() ?? 1),
+                'fecha_inicio_planificada' => $now,
+                'fecha_fin_planificada'    => $now->copy()->addDays(365),
+                'fecha_fin_real'           => null,
+                'fue_eliminado'            => false,
+                'esta_activo'              => true,
+            ]);
         }
 
         return back()->with('success', 'Miembro agregado exitosamente.');

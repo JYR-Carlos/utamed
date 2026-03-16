@@ -67,7 +67,16 @@
     tipos_seccion: TipoSeccion[];
   }
 
-  let { cursos, asignaturas, planes, carreras = [], filters, availableRoles = [], availablePermissions = {}, tipos_seccion = [] }: Props = $props();
+  let {
+    cursos,
+    asignaturas,
+    planes,
+    carreras = [],
+    filters,
+    availableRoles = [],
+    availablePermissions = {},
+    tipos_seccion = [],
+  }: Props = $props();
 
   let showModal = $state(false);
   let showWizardModal = $state(false);
@@ -196,7 +205,10 @@
 
       // Verificar si data.data existe
       if (!data.data) {
-        console.warn('⚠️ [loadDocentes] data.data no existe. Estructura recibida:', Object.keys(data));
+        console.warn(
+          '⚠️ [loadDocentes] data.data no existe. Estructura recibida:',
+          Object.keys(data),
+        );
         if (Array.isArray(data)) {
           console.log('⚠️ [loadDocentes] La respuesta es un array directo, procesando...');
           docentes = data.map((docente: any) => ({
@@ -344,7 +356,10 @@
 
       // Mostrar un alert con el error detallado
       const errorData = axiosError?.response?.data as any;
-      const errorMessage = errorData?.error || errorData?.message || (error instanceof Error ? error.message : 'Error desconocido');
+      const errorMessage =
+        errorData?.error ||
+        errorData?.message ||
+        (error instanceof Error ? error.message : 'Error desconocido');
       const errorFile = errorData?.error_file || '';
       const errorTrace = errorData?.trace ? '\n\nStack Trace:\n' + errorData.trace : '';
 
@@ -355,13 +370,20 @@
   }
 
   // Computed: Tipos de sección disponibles (excluyendo los ya agregados)
-  let availableTiposSeccion = $derived(tipos_seccion.filter((t) => !currentSecciones.some((s) => s.id_tipo_seccion === t.id_tipo_seccion)));
+  let availableTiposSeccion = $derived(
+    tipos_seccion.filter(
+      (t) => !currentSecciones.some((s) => s.id_tipo_seccion === t.id_tipo_seccion),
+    ),
+  );
 
   async function addSeccion() {
     if (!editingCurso || !newSeccionData.id_tipo_seccion) return;
 
     try {
-      const response = await axios.post(`/admin/cursos/${editingCurso.id_curso}/secciones`, newSeccionData);
+      const response = await axios.post(
+        `/admin/cursos/${editingCurso.id_curso}/secciones`,
+        newSeccionData,
+      );
       if (response.data.seccion) {
         currentSecciones = [...currentSecciones, response.data.seccion];
         // Reset form
@@ -369,7 +391,10 @@
       }
     } catch (error) {
       console.error('Error adding seccion:', error);
-      const message = error instanceof AxiosError ? error.response?.data?.error || error.message : 'Error desconocido';
+      const message =
+        error instanceof AxiosError
+          ? error.response?.data?.error || error.message
+          : 'Error desconocido';
       alert('Error al agregar sección: ' + message);
     }
   }
@@ -382,7 +407,10 @@
       currentSecciones = currentSecciones.filter((s) => s.id_seccion !== seccionId);
     } catch (error) {
       console.error('Error deleting seccion:', error);
-      const message = error instanceof AxiosError ? error.response?.data?.error || error.message : 'Error desconocido';
+      const message =
+        error instanceof AxiosError
+          ? error.response?.data?.error || error.message
+          : 'Error desconocido';
       alert('Error al eliminar sección: ' + message);
     }
   }
@@ -396,7 +424,10 @@
       // Optionally show success toast
     } catch (error) {
       console.error('Error updating seccion:', error);
-      const message = error instanceof AxiosError ? error.response?.data?.error || error.message : 'Error desconocido';
+      const message =
+        error instanceof AxiosError
+          ? error.response?.data?.error || error.message
+          : 'Error desconocido';
       alert('Error al actualizar sección: ' + message);
     }
   }
@@ -552,7 +583,9 @@
   }
 
   function closeSyllabusTypeSelector() {
-    console.log('❌ closeSyllabusTypeSelector - cerrando selector sin cambiar selectedSyllabusType');
+    console.log(
+      '❌ closeSyllabusTypeSelector - cerrando selector sin cambiar selectedSyllabusType',
+    );
     showSyllabusTypeSelector = false;
     // NO resetear selectedSyllabusType aquí - solo se resetea en closeSyllabusModal
   }
@@ -581,7 +614,7 @@
 </script>
 
 <AdminLayout>
-  <div class="p-8 max-w-6xl mx-auto">
+  <div>
     <div class="flex justify-between items-start mb-8">
       <div>
         <h1 class="text-3xl font-bold text-gray-900 mb-1">Cursos</h1>
@@ -649,20 +682,32 @@
   <!-- ── Quick-View Modal ────────────────────────────────────────────────── -->
   {#if quickViewItem && quickViewType}
     <!-- Backdrop -->
-    <button class="fixed inset-0 bg-black/40 z-40 cursor-default" onclick={closeQuickView} aria-label="Cerrar"></button>
+    <button
+      class="fixed inset-0 bg-black/40 z-40 cursor-default"
+      onclick={closeQuickView}
+      aria-label="Cerrar"
+    ></button>
 
     <!-- Panel -->
-    <div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div
+      class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+    >
       <div class="flex justify-between items-start mb-5">
         {#if quickViewType === 'asignatura'}
           <div>
-            <p class="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-0.5">Asignatura</p>
-            <h3 class="text-lg font-bold text-gray-900">{quickViewItem.asignatura_nombre ?? '—'}</h3>
+            <p class="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-0.5">
+              Asignatura
+            </p>
+            <h3 class="text-lg font-bold text-gray-900">
+              {quickViewItem.asignatura_nombre ?? '—'}
+            </h3>
             <p class="text-sm text-gray-500">{quickViewItem.cod_asignatura ?? ''}</p>
           </div>
         {:else}
           <div>
-            <p class="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-0.5">Docente responsable</p>
+            <p class="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-0.5">
+              Docente responsable
+            </p>
             <h3 class="text-lg font-bold text-gray-900">{quickViewItem.docente_nombre ?? '—'}</h3>
             <p class="text-sm text-gray-500">{quickViewItem.docente_email ?? ''}</p>
           </div>
@@ -700,10 +745,14 @@
         </div>
 
         <div class="space-y-2">
-          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Distribución de horas</p>
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Distribución de horas
+          </p>
           {#each [{ label: 'Cátedra', value: quickViewItem.horas_catedra }, { label: 'Taller', value: quickViewItem.horas_taller }, { label: 'Laboratorio', value: quickViewItem.horas_laboratorio }, { label: 'Dirigidas', value: quickViewItem.horas_dirigidas }, { label: 'Autónomas', value: quickViewItem.horas_autonomas }] as hora}
             {#if hora.value != null}
-              <div class="flex justify-between items-center text-sm py-1.5 border-b border-gray-100 last:border-0">
+              <div
+                class="flex justify-between items-center text-sm py-1.5 border-b border-gray-100 last:border-0"
+              >
                 <span class="text-gray-600">{hora.label}</span>
                 <span class="font-semibold text-gray-900">{hora.value} h</span>
               </div>
@@ -713,7 +762,9 @@
 
         <div class="mt-4 pt-3 border-t border-gray-100">
           <p class="text-xs text-gray-500">
-            Carrera: <span class="font-medium text-gray-700">{quickViewItem.carrera_nombre ?? '—'}</span>
+            Carrera: <span class="font-medium text-gray-700"
+              >{quickViewItem.carrera_nombre ?? '—'}</span
+            >
           </p>
         </div>
       {:else}
@@ -728,7 +779,10 @@
           {#if quickViewItem.docente_email}
             <div class="flex justify-between items-center text-sm py-1.5 border-b border-gray-100">
               <span class="text-gray-600">Email</span>
-              <a href="mailto:{quickViewItem.docente_email}" class="font-medium text-blue-600 hover:underline">{quickViewItem.docente_email}</a>
+              <a
+                href="mailto:{quickViewItem.docente_email}"
+                class="font-medium text-blue-600 hover:underline">{quickViewItem.docente_email}</a
+              >
             </div>
           {/if}
           <div class="flex justify-between items-center text-sm py-1.5 border-b border-gray-100">
@@ -781,7 +835,8 @@
     <div
       role="status"
       aria-live="polite"
-      class="fixed bottom-6 right-6 z-[10000] flex items-center gap-2.5 px-5 py-3 rounded-xl text-sm font-medium shadow-xl {toast.type === 'success'
+      class="fixed bottom-6 right-6 z-[10000] flex items-center gap-2.5 px-5 py-3 rounded-xl text-sm font-medium shadow-xl {toast.type ===
+      'success'
         ? 'bg-green-50 border border-green-200 text-green-800'
         : 'bg-red-50 border border-red-200 text-red-700'}"
     >
@@ -808,7 +863,12 @@
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
-          ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg
+          ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
+            x1="12"
+            y1="16"
+            x2="12.01"
+            y2="16"
+          /></svg
         >
       {/if}
       {toast.msg}
@@ -816,7 +876,11 @@
   {/if}
 
   {#if managingTeamCurso}
-    <CourseTeamModal bind:isOpen={showTeamModal} onClose={closeTeamModal} curso={managingTeamCurso} />
+    <CourseTeamModal
+      bind:isOpen={showTeamModal}
+      onClose={closeTeamModal}
+      curso={managingTeamCurso}
+    />
   {/if}
 
   <!-- Wizard para creación de nuevo curso -->
@@ -830,7 +894,13 @@
     onSubmit={handleWizardSubmit}
   />
 
-  <FormModal bind:isOpen={showModal} title="Editar Curso" onClose={closeModal} onSubmit={handleSubmit} {isLoading}>
+  <FormModal
+    bind:isOpen={showModal}
+    title="Editar Curso"
+    onClose={closeModal}
+    onSubmit={handleSubmit}
+    {isLoading}
+  >
     <div class="mb-4">
       <label for="plan" class="block text-sm font-medium text-gray-700 mb-2">Plan (Malla) *</label>
       <select
@@ -853,7 +923,9 @@
     </div>
 
     <div class="mb-4">
-      <label for="asignatura" class="block text-sm font-medium text-gray-700 mb-2">Asignatura *</label>
+      <label for="asignatura" class="block text-sm font-medium text-gray-700 mb-2"
+        >Asignatura *</label
+      >
       <select
         id="asignatura"
         bind:value={formData.id_asignatura}
@@ -882,7 +954,9 @@
 
     <div class="grid grid-cols-2 gap-4">
       <div class="mb-4">
-        <label for="cod_curso" class="block text-sm font-medium text-gray-700 mb-2">Código de Curso *</label>
+        <label for="cod_curso" class="block text-sm font-medium text-gray-700 mb-2"
+          >Código de Curso *</label
+        >
         <input
           id="cod_curso"
           type="number"
@@ -895,7 +969,9 @@
     </div>
 
     <div class="mb-4">
-      <label for="nombre" class="block text-sm font-medium text-gray-700 mb-2">Nombre del Curso</label>
+      <label for="nombre" class="block text-sm font-medium text-gray-700 mb-2"
+        >Nombre del Curso</label
+      >
       <input
         id="nombre"
         type="text"
@@ -906,7 +982,9 @@
     </div>
 
     <div class="mb-4">
-      <label for="fecha_inicio" class="block text-sm font-medium text-gray-700 mb-2">Fecha de Inicio</label>
+      <label for="fecha_inicio" class="block text-sm font-medium text-gray-700 mb-2"
+        >Fecha de Inicio</label
+      >
       <input
         id="fecha_inicio"
         type="date"
@@ -917,7 +995,9 @@
 
     <div class="grid grid-cols-2 gap-4">
       <div class="mb-4">
-        <label for="agno_real" class="block text-sm font-medium text-gray-700 mb-2">Año Real *</label>
+        <label for="agno_real" class="block text-sm font-medium text-gray-700 mb-2"
+          >Año Real *</label
+        >
         <input
           id="agno_real"
           type="number"
@@ -929,7 +1009,9 @@
         />
       </div>
       <div class="mb-4">
-        <label for="semestre_real" class="block text-sm font-medium text-gray-700 mb-2">Semestre Real *</label>
+        <label for="semestre_real" class="block text-sm font-medium text-gray-700 mb-2"
+          >Semestre Real *</label
+        >
         <select
           id="semestre_real"
           bind:value={formData.semestre_real}
@@ -951,14 +1033,19 @@
           {#each currentSecciones as seccion, i (seccion.id_seccion || 'new-' + i)}
             <div class="flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
               <div class="min-w-[120px]">
-                <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold"
+                <span
+                  class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold"
                   >{seccion.tipo_seccion?.tipo || 'Sección'}</span
                 >
               </div>
               <div class="flex-1">
                 {#if seccion.id_docente}
-                  <div class="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-md">
-                    <span class="flex-1 text-sm text-slate-800 font-medium">{seccion.docente?.nombre_completo || 'Sin nombre'}</span>
+                  <div
+                    class="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-md"
+                  >
+                    <span class="flex-1 text-sm text-slate-800 font-medium"
+                      >{seccion.docente?.nombre_completo || 'Sin nombre'}</span
+                    >
                     <button
                       type="button"
                       class="p-1 text-sky-600 bg-transparent border-0 cursor-pointer rounded flex items-center justify-center hover:bg-sky-100 transition-colors"
@@ -973,8 +1060,8 @@
                         fill="none"
                         stroke="currentColor"
                         stroke-width="2"
-                        ><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path
-                          d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                        ><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                        ></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
                         ></path></svg
                       >
                     </button>
@@ -999,7 +1086,8 @@
                   stroke-width="2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  ><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                  ><polyline points="3 6 5 6 21 6"></polyline><path
+                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
                   ></path></svg
                 >
               </button>
@@ -1010,7 +1098,9 @@
         {#if showEditDocente && editingSeccion}
           <div class="p-4 bg-gray-50 border-2 border-blue-500 rounded-lg my-4">
             <div class="mb-4">
-              <label for="docente-select-{editingSeccion.id_seccion}">Asignar Docente a {editingSeccion.tipo_seccion?.tipo || 'Sección'}</label>
+              <label for="docente-select-{editingSeccion.id_seccion}"
+                >Asignar Docente a {editingSeccion.tipo_seccion?.tipo || 'Sección'}</label
+              >
               <select
                 id="docente-select-{editingSeccion.id_seccion}"
                 bind:value={editingDocenteId}
@@ -1025,34 +1115,56 @@
 
             {#if selectedDocenteDetails}
               <div class="p-4 bg-sky-50 border border-blue-200 rounded-lg my-4">
-                <h5 class="text-sm font-semibold text-blue-800 mb-4 mt-0">Información del Docente</h5>
+                <h5 class="text-sm font-semibold text-blue-800 mb-4 mt-0">
+                  Información del Docente
+                </h5>
                 <div class="grid grid-cols-2 gap-4">
                   <div class="flex flex-col gap-1">
-                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Nombre Completo:</span>
-                    <span class="text-sm text-slate-800 font-medium">{selectedDocenteDetails.nombre_completo || 'Sin nombre'}</span>
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide"
+                      >Nombre Completo:</span
+                    >
+                    <span class="text-sm text-slate-800 font-medium"
+                      >{selectedDocenteDetails.nombre_completo || 'Sin nombre'}</span
+                    >
                   </div>
                   {#if selectedDocenteDetails.email}
                     <div class="flex flex-col gap-1">
-                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Email:</span>
-                      <span class="text-sm text-slate-800 font-medium">{selectedDocenteDetails.email}</span>
+                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide"
+                        >Email:</span
+                      >
+                      <span class="text-sm text-slate-800 font-medium"
+                        >{selectedDocenteDetails.email}</span
+                      >
                     </div>
                   {/if}
                   {#if selectedDocenteDetails.grado}
                     <div class="flex flex-col gap-1">
-                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Grado:</span>
-                      <span class="text-sm text-slate-800 font-medium">{selectedDocenteDetails.grado}</span>
+                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide"
+                        >Grado:</span
+                      >
+                      <span class="text-sm text-slate-800 font-medium"
+                        >{selectedDocenteDetails.grado}</span
+                      >
                     </div>
                   {/if}
                   {#if selectedDocenteDetails.titulo}
                     <div class="flex flex-col gap-1">
-                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Título:</span>
-                      <span class="text-sm text-slate-800 font-medium">{selectedDocenteDetails.titulo}</span>
+                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide"
+                        >Título:</span
+                      >
+                      <span class="text-sm text-slate-800 font-medium"
+                        >{selectedDocenteDetails.titulo}</span
+                      >
                     </div>
                   {/if}
                   {#if selectedDocenteDetails.cargo}
                     <div class="flex flex-col gap-1">
-                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Cargo:</span>
-                      <span class="text-sm text-slate-800 font-medium">{selectedDocenteDetails.cargo}</span>
+                      <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide"
+                        >Cargo:</span
+                      >
+                      <span class="text-sm text-slate-800 font-medium"
+                        >{selectedDocenteDetails.cargo}</span
+                      >
                     </div>
                   {/if}
                 </div>
@@ -1076,8 +1188,10 @@
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   class="mr-2"
-                  ><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"
-                  ></polyline><polyline points="7 3 7 8 15 8"></polyline></svg
+                  ><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
+                  ></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline
+                    points="7 3 7 8 15 8"
+                  ></polyline></svg
                 >
                 Guardar
               </button>
@@ -1097,7 +1211,8 @@
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   class="mr-2"
-                  ><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg
+                  ><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"
+                  ></line><line x1="9" y1="9" x2="15" y2="15"></line></svg
                 >
                 Cancelar
               </button>
@@ -1140,7 +1255,9 @@
               type="button"
               class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95"
               onclick={addSeccion}
-              disabled={!newSeccionData.id_tipo_seccion || loadingSecciones || currentSecciones.length >= 3}
+              disabled={!newSeccionData.id_tipo_seccion ||
+                loadingSecciones ||
+                currentSecciones.length >= 3}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -1153,13 +1270,16 @@
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 class="mr-2"
-                ><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg
+                ><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"
+                ></line><line x1="8" y1="12" x2="16" y2="12"></line></svg
               >
               Agregar
             </button>
           </div>
           {#if currentSecciones.length >= 3}
-            <p class="text-sm text-red-500 mt-2">Este curso ya tiene el máximo de 3 secciones permitidas.</p>
+            <p class="text-sm text-red-500 mt-2">
+              Este curso ya tiene el máximo de 3 secciones permitidas.
+            </p>
           {/if}
         </div>
       {/if}

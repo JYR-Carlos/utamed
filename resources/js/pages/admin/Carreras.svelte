@@ -48,7 +48,17 @@
   let { carreras, facultades, filters }: Props = $props();
 
   // ────── Composable para filtros ──────
-  const { searchTerm, status, perPage, currentPage, setSearch, setStatus, setPerPage, goToPage, navigate } = useFilteredList({
+  const {
+    searchTerm,
+    status,
+    perPage,
+    currentPage,
+    setSearch,
+    setStatus,
+    setPerPage,
+    goToPage,
+    navigate,
+  } = useFilteredList({
     pathname: '/admin/carreras',
     defaultPerPage: DEFAULT_PER_PAGE,
   });
@@ -118,7 +128,9 @@
   }
 
   function handleSubmit() {
-    const url = uiState.editingCarrera ? `/admin/carreras/${uiState.editingCarrera.id_carrera}` : '/admin/carreras';
+    const url = uiState.editingCarrera
+      ? `/admin/carreras/${uiState.editingCarrera.id_carrera}`
+      : '/admin/carreras';
     const opts = {
       onSuccess: () => {
         uiState.showFormModal = false;
@@ -170,7 +182,7 @@
 </script>
 
 <AdminLayout>
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+  <div class="max-w-7xl mx-auto">
     <!-- ── Page header ─────────────────────────────────────────────────────── -->
     <div class="flex items-start justify-between mb-6">
       <div>
@@ -190,7 +202,8 @@
           stroke="currentColor"
           stroke-width="2.5"
           stroke-linecap="round"
-          stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg
+          stroke-linejoin="round"
+          ><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg
         >
         Nueva Carrera
       </button>
@@ -199,7 +212,9 @@
     <!-- ── Table card ──────────────────────────────────────────────────────── -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <!-- Toolbar -->
-      <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3 bg-gray-50/60">
+      <div
+        class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3 bg-gray-50/60"
+      >
         <!-- Search -->
         <div class="flex gap-2 flex-1 min-w-[200px]">
           <input
@@ -218,7 +233,9 @@
         </div>
 
         <!-- Status toggle (URL-persistent) -->
-        <div class="flex rounded-lg border border-gray-200 overflow-hidden text-[13px] font-medium shadow-sm">
+        <div
+          class="flex rounded-lg border border-gray-200 overflow-hidden text-[13px] font-medium shadow-sm"
+        >
           <button
             onclick={() => setStatus(STATUS_OPTIONS.ACTIVE)}
             class={`px-3 py-1.5 transition cursor-pointer ${$status === STATUS_OPTIONS.ACTIVE ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
@@ -250,19 +267,42 @@
         <table class="w-full border-collapse text-sm">
           <thead>
             <tr class="bg-gray-50 border-b border-gray-200">
-              <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400">Nombre</th>
-              <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400">Atributos</th>
-              <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 whitespace-nowrap">Departamento</th>
-              <th class="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-400 whitespace-nowrap">Planes Activos</th>
-              <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 whitespace-nowrap">Estado RBAC</th>
-              <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400">Estado</th>
-              <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400">Acciones</th>
+              <th
+                class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400"
+                >Nombre</th
+              >
+              <th
+                class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400"
+                >Atributos</th
+              >
+              <th
+                class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 whitespace-nowrap"
+                >Departamento</th
+              >
+              <th
+                class="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-400 whitespace-nowrap"
+                >Planes Activos</th
+              >
+              <th
+                class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 whitespace-nowrap"
+                >Estado RBAC</th
+              >
+              <th
+                class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400"
+                >Estado</th
+              >
+              <th
+                class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400"
+                >Acciones</th
+              >
             </tr>
           </thead>
           <tbody>
             {#if carreras.data.length === 0}
               <tr>
-                <td colspan="7" class="px-4 py-14 text-center text-gray-400 text-sm"> No se encontraron resultados </td>
+                <td colspan="7" class="px-4 py-14 text-center text-gray-400 text-sm">
+                  No se encontraron resultados
+                </td>
               </tr>
             {:else}
               {#each carreras.data as carrera}
@@ -276,12 +316,18 @@
                     >
                       {carrera.nombre}
                     </div>
-                    <div class="text-[11px] text-gray-400 font-mono mt-0.5">#{carrera.id_carrera}</div>
+                    <div class="text-[11px] text-gray-400 font-mono mt-0.5">
+                      #{carrera.id_carrera}
+                    </div>
                   </td>
 
                   <!-- Atributos: sede | jornada | modalidad badges -->
                   <td class="px-4 py-3 align-middle">
-                    <AttriBadges sede={carrera.sede} jornada={carrera.jornada} modalidad={carrera.modalidad} />
+                    <AttriBadges
+                      sede={carrera.sede}
+                      jornada={carrera.jornada}
+                      modalidad={carrera.modalidad}
+                    />
                   </td>
 
                   <!-- Departamento + Facultad -->
@@ -291,7 +337,9 @@
                     >
                       {carrera.departamento?.nombre ?? '—'}
                       {#if carrera.departamento?.fecha_eliminacion}
-                        <span class="text-[10px] font-semibold uppercase tracking-wide ml-1 px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
+                        <span
+                          class="text-[10px] font-semibold uppercase tracking-wide ml-1 px-1.5 py-0.5 rounded bg-gray-200 text-gray-600"
+                        >
                           Eliminado
                         </span>
                       {/if}
@@ -351,7 +399,12 @@
                           stroke-width="2"
                           stroke-linecap="round"
                           stroke-linejoin="round"
-                          ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg
+                          ><circle cx="12" cy="12" r="10" /><line
+                            x1="12"
+                            y1="8"
+                            x2="12"
+                            y2="12"
+                          /><line x1="12" y1="16" x2="12.01" y2="16" /></svg
                         >
                         Sin Jefe de Carrera
                       </span>
@@ -383,7 +436,9 @@
                           stroke-width="2"
                           stroke-linecap="round"
                           stroke-linejoin="round"
-                          ><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path
+                          ><path
+                            d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                          /><path
                             d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
                           /></svg
                         >
@@ -404,12 +459,20 @@
                             stroke="currentColor"
                             stroke-width="2"
                             stroke-linecap="round"
-                            stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg
+                            stroke-linejoin="round"
+                            ><circle cx="12" cy="12" r="10" /><line
+                              x1="4.93"
+                              y1="4.93"
+                              x2="19.07"
+                              y2="19.07"
+                            /></svg
                           >
                           Discontinuar
                         </button>
                       {:else}
-                        <span class="px-2.5 py-1.5 text-gray-300 text-[11px] italic select-none">Discontinuada</span>
+                        <span class="px-2.5 py-1.5 text-gray-300 text-[11px] italic select-none"
+                          >Discontinuada</span
+                        >
                       {/if}
                     </div>
                   </td>
@@ -488,7 +551,8 @@
 
     <!-- Modalidad -->
     <div class="mb-4">
-      <label for="modalidad" class="block text-sm font-medium text-gray-700 mb-1.5">Modalidad</label>
+      <label for="modalidad" class="block text-sm font-medium text-gray-700 mb-1.5">Modalidad</label
+      >
       <input
         id="modalidad"
         type="text"
@@ -504,9 +568,14 @@
         Facultad <span class="text-red-500">*</span>
       </label>
       {#if uiState.editingCarrera}
-        <div class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-600 flex items-center justify-between">
+        <div
+          class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-600 flex items-center justify-between"
+        >
           <span>{uiState.editingCarrera.departamento?.facultad?.nombre ?? '—'}</span>
-          <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded">Inmutable</span>
+          <span
+            class="text-[10px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded"
+            >Inmutable</span
+          >
         </div>
       {:else}
         <select
@@ -529,12 +598,18 @@
         Departamento <span class="text-red-500">*</span>
       </label>
       {#if uiState.editingCarrera}
-        <div class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-600 flex items-center justify-between">
+        <div
+          class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-600 flex items-center justify-between"
+        >
           <span>{uiState.editingCarrera.departamento?.nombre ?? '—'}</span>
-          <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded">Inmutable</span>
+          <span
+            class="text-[10px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded"
+            >Inmutable</span
+          >
         </div>
         <p class="mt-1 text-[11px] text-gray-400">
-          La jerarquía estructural no puede modificarse después de la creación para preservar la integridad RBAC.
+          La jerarquía estructural no puede modificarse después de la creación para preservar la
+          integridad RBAC.
         </p>
       {:else}
         <select
@@ -546,7 +621,10 @@
         >
           <option value={0}>Seleccione un departamento</option>
           {#each departamentos as dep}
-            <option value={dep.id_departamento} disabled={!!dep.fecha_eliminacion && !uiState.editingCarrera}>
+            <option
+              value={dep.id_departamento}
+              disabled={!!dep.fecha_eliminacion && !uiState.editingCarrera}
+            >
               {dep.nombre}{dep.fecha_eliminacion ? ' (Eliminado)' : ''}
             </option>
           {/each}
@@ -570,7 +648,9 @@
     }}
     onConfirm={handleDiscontinuar}
   >
-    <div class="flex gap-3 bg-blue-50 border border-blue-100 rounded-lg p-4 text-[13px] text-blue-800 leading-relaxed">
+    <div
+      class="flex gap-3 bg-blue-50 border border-blue-100 rounded-lg p-4 text-[13px] text-blue-800 leading-relaxed"
+    >
       <svg
         class="shrink-0 mt-0.5 text-blue-500"
         xmlns="http://www.w3.org/2000/svg"
@@ -582,13 +662,19 @@
         stroke-width="2"
         stroke-linecap="round"
         stroke-linejoin="round"
-        ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg
+        ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
+          x1="12"
+          y1="16"
+          x2="12.01"
+          y2="16"
+        /></svg
       >
       <div>
         <p class="font-semibold mb-1">Impacto de esta acción</p>
         <p>
-          Esta acción establecerá una <strong>fecha de eliminación (Soft Delete)</strong>. La carrera no admitirá nuevos planes, pero el historial
-          académico de los estudiantes actuales se mantendrá intacto. La carrera seguirá visible en el sistema con estado
+          Esta acción establecerá una <strong>fecha de eliminación (Soft Delete)</strong>. La
+          carrera no admitirá nuevos planes, pero el historial académico de los estudiantes actuales
+          se mantendrá intacto. La carrera seguirá visible en el sistema con estado
           <strong>Discontinuada</strong>.
         </p>
       </div>
@@ -623,11 +709,20 @@
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
-          ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg
+          ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
+            x1="12"
+            y1="16"
+            x2="12.01"
+            y2="16"
+          /></svg
         >
       {/if}
       <span class="flex-1">{toast.msg}</span>
-      <button onclick={() => (toast = null)} class="shrink-0 opacity-50 hover:opacity-100 transition cursor-pointer" aria-label="Cerrar">
+      <button
+        onclick={() => (toast = null)}
+        class="shrink-0 opacity-50 hover:opacity-100 transition cursor-pointer"
+        aria-label="Cerrar"
+      >
         <svg
           class="w-3.5 h-3.5"
           xmlns="http://www.w3.org/2000/svg"

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { X, BookOpen, BookMarked, BookPlus } from 'lucide-svelte';
+  import { fade, scale } from 'svelte/transition';
 
   interface Props {
     isOpen: boolean;
@@ -48,7 +49,10 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if isOpen}
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+  <div 
+    class="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+    transition:fade={{ duration: 150 }}
+  >
     <div
       class="bg-white rounded-xl shadow-2xl max-w-2xl w-full"
       role="dialog"
@@ -58,6 +62,7 @@
         if (e.key === 'Escape') onClose();
         e.stopPropagation();
       }}
+      transition:scale={{ duration: 200, opacity: 0.5 }}
     >
       <!-- Header -->
       <div class="flex items-center justify-between p-6 border-b border-slate-200">

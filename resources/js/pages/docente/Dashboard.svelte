@@ -20,6 +20,7 @@
         CheckCircle2,
         Clock,
         Sparkles,
+        ShieldCheck,
     } from 'lucide-svelte';
 
     interface Curso {
@@ -42,9 +43,17 @@
             nombre_completo: string;
         };
         cursos?: Curso[];
+        jefatura?: {
+            has_access: boolean;
+            id_contexto?: number | null;
+            carrera?: {
+                id_carrera: number;
+                nombre: string;
+            } | null;
+        };
     }
 
-    let { docente, stats, cursos = [] }: Props = $props();
+    let { docente, stats, cursos = [], jefatura }: Props = $props();
 
     let sharedCourses = $derived(($page.props.auth as any)?.docente_courses ?? []);
     let allCursos = $derived(cursos.length > 0 ? cursos : sharedCourses);
@@ -73,6 +82,16 @@
                 </p>
             </div>
             <div class="flex gap-2 items-center shrink-0">
+                {#if jefatura?.has_access}
+                    <a
+                        href="/docente/jefe-carrera/dashboard"
+                        class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors no-underline"
+                        title="Entrar a ambiente Jefe de Carrera"
+                    >
+                        <ShieldCheck size={15} />
+                        Entrar a Jefatura
+                    </a>
+                {/if}
                 <button class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold border border-slate-200 bg-white text-slate-500 opacity-60 cursor-not-allowed" disabled title="Próximamente">
                     <Bell size={15} />
                     Notificaciones

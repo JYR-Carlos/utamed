@@ -45,7 +45,7 @@
 
 <div class="flex items-center justify-between flex-wrap gap-3">
   <!-- Info -->
-  <span class="text-sm text-gray-500 shrink-0">
+  <span class="text-sm text-gray-500 shrink-0 px-4">
     {#if total === 0}
       Sin resultados
     {:else if to - from + 1 === total}

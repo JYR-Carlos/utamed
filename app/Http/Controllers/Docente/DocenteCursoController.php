@@ -56,7 +56,7 @@ class DocenteCursoController extends Controller
             ->where('curso.seccion.id_docente', $user->docente->id_docente)
             ->distinct()
             ->select('curso.curso.*')
-            ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera'])
+            ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera', 'secciones.inscripcionSecciones'])
             ->orderBy('curso.curso.fecha_inicio', 'desc')
             ->get()
             ->map(function ($curso) {
@@ -68,18 +68,25 @@ class DocenteCursoController extends Controller
                 // Determinar el semestre: usar semestre_real si existe, sino usar 1 como default
                 $semestre = $curso->semestre_real ?? 1;
 
+                // Calcular total de estudiantes inscritos en el curso (todas sus secciones)
+                $totalEstudiantes = $curso->secciones->sum(function ($seccion) {
+                    return $seccion->inscripcionSecciones->count();
+                });
+
                 return [
                     'id_curso' => $curso->id_curso,
                     'nombre' => $curso->nombre,
                     'cod_curso' => $curso->cod_curso,
                     'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                     'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? 'N/A',
+                    'plan_nombre' => $curso->asignacionPlan?->plan?->nombre ?? 'N/A',
                     'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                     'fecha_inicio' => $curso->fecha_inicio,
                     'fecha_fin' => $curso->fecha_fin,
                     'tiene_programa' => $tienePrograma,
                     'es_plantilla' => $curso->es_plantilla,
-                    'semestre_real' => $semestre
+                    'semestre_real' => $semestre,
+                    'total_estudiantes' => $totalEstudiantes
                 ];
             });
 
