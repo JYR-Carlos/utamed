@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Models\usuario;
+namespace App\Models\Usuario;
 
-use App\Models\Base\usuario\BaseUsuarioRolAsignacion;
+use App\Models\Base\Usuario\BaseUsuarioRolAsignacion;
 
 /**
  * Modelo UsuarioRolAsignacion
