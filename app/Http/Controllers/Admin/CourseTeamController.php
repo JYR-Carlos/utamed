@@ -533,32 +533,7 @@ class CourseTeamController extends Controller
                         try {
                             // Get the permission enum case - use ONLY the direct permission, don't expand wildcards
                             // This way, if user assigns programas:* (ID 64), we save ID 64, not all its expanded components
-                            $permissionEnumOrArray = \App\Support\Permissions::fromSlug($permiso->slug);
-                            
-                            // If it returns an array (multiple matching cases), find the one that matches permId exactly
-                            $permissionEnum = $permissionEnumOrArray;
-                            if (is_array($permissionEnumOrArray)) {
-                                // Search for the exact permission case that corresponds to $permId
-                                $matchedCase = null;
-                                foreach ($permissionEnumOrArray as $case) {
-                                    // Find permission in DB by enum value to get its ID
-                                    $foundPerm = \App\Models\Usuario\Permiso::where('slug', $case->value)->first();
-                                    
-                                    if ($foundPerm && $foundPerm->id_permiso === $permId) {
-                                        $matchedCase = $case;
-                                        break;
-                                    }
-                                }
-                                
-                                // If we found an exact match, use it
-                                // Otherwise fall back to the original enum we loaded
-                                if ($matchedCase) {
-                                    $permissionEnum = $matchedCase;
-                                } else {
-                                    // Shouldn't happen but fallback to from() for specific slug
-                                    $permissionEnum = \App\Support\Permissions::from($permiso->slug);
-                                }
-                            }
+                            $permissionEnum = \App\Support\Permissions::from($permiso->slug);
                             
                             try {
                                 $builder = $usuario->givePermission($permissionEnum)

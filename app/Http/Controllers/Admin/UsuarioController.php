@@ -232,6 +232,14 @@ class UsuarioController extends Controller
         // Determinar tipo de usuario a crear y delegar al método correspondiente
         $tipo = $request->input('tipo');
 
+
+        // Formateo del rut a 00000000-0 para evitar problemas de validación y formato
+        if ($request->has('rut')) {
+            $rut = $request->input('rut');
+            $formattedRut = $this->formatRut($rut);
+            $request->merge(['rut' => $formattedRut]);
+        }
+        
         if ($tipo === 'estudiante') {
             return $this->storeEstudiante($request);
         } elseif ($tipo === 'docente') {
@@ -241,6 +249,22 @@ class UsuarioController extends Controller
         }
     }
 
+    private function formatRut($rut) {
+        // Eliminar puntos y guiones
+        $cleanRut = preg_replace('/[.\-]/', '', $rut);
+
+        // Validar formato básico (dígitos + dígito verificador)
+        if (!preg_match('/^\d{7,8}[0-9kK]$/', $cleanRut)) {
+            return $rut; // Retornar sin formatear si no es válido
+        }
+
+        // Extraer cuerpo y dígito verificador
+        $body = substr($cleanRut, 0, -1);
+        $dv = strtoupper(substr($cleanRut, -1));
+
+        // Formatear con guion formato 00000000-0 (sin puntos)
+        return "{$body}-{$dv}";
+    }
     /**
      * Crea nuevo usuario Estudiante de forma transaccional.
      * 

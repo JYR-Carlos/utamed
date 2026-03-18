@@ -45,7 +45,13 @@
     };
   }
 
-  type ErrorCode = 'RUT_NOT_FOUND' | 'PASSWORD_INCORRECT' | 'USER_INACTIVE' | 'EMAIL_NOT_VERIFIED' | 'RATE_LIMIT_EXCEEDED' | null;
+  type ErrorCode =
+    | 'RUT_NOT_FOUND'
+    | 'PASSWORD_INCORRECT'
+    | 'USER_INACTIVE'
+    | 'EMAIL_NOT_VERIFIED'
+    | 'RATE_LIMIT_EXCEEDED'
+    | null;
 
   let { status, canResetPassword, canRegister, loginError }: Props = $props();
   let showPassword = $state(false);
@@ -63,7 +69,16 @@
   $effect(() => {
     if (loginError?.code) {
       const code = loginError.code as ErrorCode;
-      if (code && ['RUT_NOT_FOUND', 'PASSWORD_INCORRECT', 'USER_INACTIVE', 'EMAIL_NOT_VERIFIED', 'RATE_LIMIT_EXCEEDED'].includes(code)) {
+      if (
+        code &&
+        [
+          'RUT_NOT_FOUND',
+          'PASSWORD_INCORRECT',
+          'USER_INACTIVE',
+          'EMAIL_NOT_VERIFIED',
+          'RATE_LIMIT_EXCEEDED',
+        ].includes(code)
+      ) {
         errorCode = code;
         if (code === 'RATE_LIMIT_EXCEEDED' && loginError.retry_after) {
           startRateLimitTimer(loginError.retry_after);
@@ -91,7 +106,11 @@
     // Fallback: intentar inferir del mensaje de error
     if (response?.email) {
       const errorMsg = String(response.email).toLowerCase();
-      if (errorMsg.includes('no existe') || errorMsg.includes('not found') || errorMsg.includes('rut')) {
+      if (
+        errorMsg.includes('no existe') ||
+        errorMsg.includes('not found') ||
+        errorMsg.includes('rut')
+      ) {
         return 'RUT_NOT_FOUND';
       }
     }
@@ -168,7 +187,50 @@
   });
 
   // Deshabilitar inputs si hay rate limit
-  const isRateLimited = $derived(errorCode === 'RATE_LIMIT_EXCEEDED' && (rateLimitRetryAfter ?? 0) > 0);
+  const isRateLimited = $derived(
+    errorCode === 'RATE_LIMIT_EXCEEDED' && (rateLimitRetryAfter ?? 0) > 0,
+  );
+
+  // Formatea el RUT al formato 00000000-0 (sin puntos)
+  function formatRut(rut: string): string {
+    // Eliminar puntos y guiones
+    const cleanRut = rut.replace(/[.\-]/g, '');
+
+    // Validar formato básico (7-8 dígitos + dígito verificador o K)
+    if (!/^\d{7,8}[0-9kK]?$/.test(cleanRut)) {
+      return rut; // Retornar sin formatear si no es válido
+    }
+
+    // Si tiene menos de 8 dígitos antes del verificador, no formatear aún
+    if (cleanRut.length < 8) {
+      return cleanRut;
+    }
+
+    // Extraer cuerpo y dígito verificador
+    const body = cleanRut.slice(0, -1);
+    const dv = cleanRut.slice(-1).toUpperCase();
+
+    // Formatear como 00000000-0 (sin puntos)
+    return `${body}-${dv}`;
+  }
+
+  // Manejar cambios en el input de RUT
+  function handleRutInput(e: Event) {
+    const target = e.target as HTMLInputElement;
+    const formatted = formatRut(target.value);
+    if (formatted !== target.value) {
+      target.value = formatted;
+      $form.data.email = formatted;
+    }
+  }
+
+  // Valida que el RUT tenga el formato correcto
+  function isValidRutFormat(rut: string): boolean {
+    const cleanRut = rut.replace(/[.\-]/g, '');
+    return /^\d{8}[0-9kK]$/.test(cleanRut);
+  }
+
+  let rutValid = $derived(isValidRutFormat($form.data.email));
 </script>
 
 <svelte:head>
@@ -200,23 +262,38 @@
               name="email"
               type="text"
               required
+              maxlength="10"
               tabindex={1}
               autocomplete="off"
-              placeholder="11.111.111-1"
+              placeholder="11111111-1"
               disabled={isRateLimited || processing}
               bind:value={$form.data.email}
+              oninput={handleRutInput}
               class="w-full bg-secondary/30 border border-border rounded-2xl px-5 py-4 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/50 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
+          {#if $form.data.email && !rutValid}
+            <p class="text-xs text-red-600">
+              RUT debe tener 8 dígitos + dígito verificador (formato: 12345678-K)
+            </p>
+          {:else if $form.data.email && rutValid}
+            <p class="text-xs text-green-600">Formato válido</p>
+          {/if}
         </div>
 
         <!-- Password Field -->
         <div class="space-y-2">
           <div class="flex justify-between items-center px-1">
-            <label for="password" class="text-sm font-medium text-muted-foreground"> Contraseña </label>
+            <label for="password" class="text-sm font-medium text-muted-foreground">
+              Contraseña
+            </label>
             {#if canResetPassword}
               <div class={isRateLimited ? 'opacity-50 pointer-events-none' : ''}>
-                <TextLink href={request().url} class="text-xs text-muted-foreground hover:text-primary transition-colors" tabindex={5}>
+                <TextLink
+                  href={request().url}
+                  class="text-xs text-muted-foreground hover:text-primary transition-colors"
+                  tabindex={5}
+                >
                   ¿Olvidaste tu contraseña?
                 </TextLink>
               </div>
@@ -262,8 +339,15 @@
             tabindex={3}
             class="border-border bg-transparent data-[state=checked]:bg-primary data-[state=checked]:border-primary disabled:opacity-50"
           />
-          <div class="text-xs text-muted-foreground cursor-pointer hover:text-foreground" class:opacity-50={isRateLimited || processing}>
-            <Label for="remember" class="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Mantenerme conectado</Label>
+          <div
+            class="text-xs text-muted-foreground cursor-pointer hover:text-foreground"
+            class:opacity-50={isRateLimited || processing}
+          >
+            <Label
+              for="remember"
+              class="text-xs text-muted-foreground cursor-pointer hover:text-foreground"
+              >Mantenerme conectado</Label
+            >
           </div>
         </div>
 
@@ -279,14 +363,19 @@
           {isRateLimited ? `Bloqueado por ${rateLimitRetryAfter}s` : 'Entrar al Portal'}
         </Button>
 
-        <div class="mt-6 p-6 rounded-2xl bg-secondary/20 border border-dashed border-border text-center space-y-3">
+        <div
+          class="mt-6 p-6 rounded-2xl bg-secondary/20 border border-dashed border-border text-center space-y-3"
+        >
           <p class="text-sm text-foreground font-medium">Información de Acceso</p>
           <p class="text-xs text-muted-foreground leading-relaxed">
-            Como parte de nuestra comunidad académica, tus credenciales han sido enviadas previamente a tu correo institucional.
+            Como parte de nuestra comunidad académica, tus credenciales han sido enviadas
+            previamente a tu correo institucional.
           </p>
           <p class="text-xs font-medium text-muted-foreground">
             ¿Problemas para entrar? <br />
-            <a href="mailto:soporte@uta.cl" class="text-primary hover:underline transition-all">Contactar a soporte: soporte@uta.cl</a>
+            <a href="mailto:soporte@uta.cl" class="text-primary hover:underline transition-all"
+              >Contactar a soporte: soporte@uta.cl</a
+            >
           </p>
         </div>
       </div>
