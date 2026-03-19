@@ -494,6 +494,19 @@ $manualPivotTables = [
       'usuario.estudiante' => [
         'curso.componente' => 'componentesInscritos', // estudiante->componentesInscritos()
         // No genera relación con Curso porque ya existe en inscripcion_curso
+        'curso.componente' => 'componentesInscritos', // estudiante->componentesInscritos()
+      ],
+      'curso.componente' => [
+        'usuario.estudiante' => 'estudiantesInscritos', // componente->estudiantesInscritos()
+      ],
+    ],
+  ],
+
+  // docente_componente: Docente ↔ Componente (relación M-M)
+  'curso.docente_componente' => [
+    'relation_names' => [
+      'usuario.docente' => [
+        'curso.componente' => 'componentesQueDicta', // docente->componentesQueDicta()
       ],
       'curso.seccion' => [
         'usuario.estudiante' => 'estudiantesInscritos', // seccion->estudiantesInscritos()
