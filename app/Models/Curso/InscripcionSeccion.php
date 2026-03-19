@@ -2,7 +2,6 @@
 
 namespace App\Models\Curso;
 
-use App\Extensions\Compoships\BelongsTo as CompoBelongsTo;
 use App\Models\Base\Curso\BaseInscripcionSeccion;
 
 /**
@@ -10,6 +9,8 @@ use App\Models\Base\Curso\BaseInscripcionSeccion;
  * 
  * Extiende de BaseInscripcionSeccion (auto-generado)
  * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
+ * 
+ * @deprecated Renamed a InscripcionComponente
  */
 class InscripcionSeccion extends BaseInscripcionSeccion
 {

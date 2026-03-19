@@ -29,6 +29,13 @@ return array (
     array (
     ),
   ),
+  'Curso\\Componente' => 
+  array (
+    'type' => 'direct',
+    'paths' => 
+    array (
+    ),
+  ),
   'Curso\\Curso' => 
   array (
     'type' => 'direct',
@@ -106,7 +113,7 @@ return array (
       ),
     ),
   ),
-  'Administrativo\\Programa' => 
+  'Curso\\Programa' => 
   array (
     'type' => 'hierarchical',
     'paths' => 
@@ -178,8 +185,21 @@ return array (
       array (
         0 => 
         array (
-          'target' => 'InscripcionSeccion',
-          'method' => 'inscripcionSeccion',
+          'target' => 'InscripcionComponente',
+          'method' => 'inscripcionComponente',
+        ),
+        1 => 
+        array (
+          'target' => 'Componente',
+          'method' => 'componente',
+        ),
+      ),
+      1 => 
+      array (
+        0 => 
+        array (
+          'target' => 'InscripcionComponente',
+          'method' => 'inscripcionComponente',
         ),
         1 => 
         array (
@@ -192,22 +212,32 @@ return array (
           'method' => 'carrera',
         ),
       ),
+    ),
+  ),
+  'Curso\\InscripcionComponente' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
+      array (
+        0 => 
+        array (
+          'target' => 'Componente',
+          'method' => 'componente',
+        ),
+      ),
       1 => 
       array (
         0 => 
         array (
-          'target' => 'InscripcionSeccion',
-          'method' => 'inscripcionSeccion',
+          'target' => 'Estudiante',
+          'method' => 'estudiante',
         ),
         1 => 
         array (
-          'target' => 'Seccion',
-          'method' => 'seccion',
-        ),
-        2 => 
-        array (
-          'target' => 'Curso',
-          'method' => 'curso',
+          'target' => 'Carrera',
+          'method' => 'carrera',
         ),
       ),
     ),
@@ -236,54 +266,6 @@ return array (
         array (
           'target' => 'Carrera',
           'method' => 'carrera',
-        ),
-      ),
-    ),
-  ),
-  'Curso\\InscripcionSeccion' => 
-  array (
-    'type' => 'hierarchical',
-    'paths' => 
-    array (
-      0 => 
-      array (
-        0 => 
-        array (
-          'target' => 'Estudiante',
-          'method' => 'estudiante',
-        ),
-        1 => 
-        array (
-          'target' => 'Carrera',
-          'method' => 'carrera',
-        ),
-      ),
-      1 => 
-      array (
-        0 => 
-        array (
-          'target' => 'Seccion',
-          'method' => 'seccion',
-        ),
-        1 => 
-        array (
-          'target' => 'Curso',
-          'method' => 'curso',
-        ),
-      ),
-    ),
-  ),
-  'Curso\\Seccion' => 
-  array (
-    'type' => 'hierarchical',
-    'paths' => 
-    array (
-      0 => 
-      array (
-        0 => 
-        array (
-          'target' => 'Curso',
-          'method' => 'curso',
         ),
       ),
     ),

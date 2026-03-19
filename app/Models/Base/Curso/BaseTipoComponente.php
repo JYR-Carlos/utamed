@@ -9,16 +9,14 @@ use App\Extensions\Compoships\BelongsTo;
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
- * 
- * @deprecated Renamed a TipoComponente
  */
-abstract class BaseTipoSeccion extends CustomBaseModel
+abstract class BaseTipoComponente extends CustomBaseModel
 {
     use Compoships;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'tipo_seccion';
-    protected $primaryKey = 'id_tipo_seccion';
+    protected $table = 'tipo_componente';
+    protected $primaryKey = 'id_tipo_componente';
     public $incrementing = true;
 
     protected $fillable = [
@@ -30,9 +28,9 @@ abstract class BaseTipoSeccion extends CustomBaseModel
 
     // Relaciones inversas
 
-    public function secciones()
+    public function componentes()
     {
-        return $this->hasMany(\App\Models\Curso\Seccion::class, 'id_tipo_seccion', 'id_tipo_seccion');
+        return $this->hasMany(\App\Models\Curso\Componente::class, 'id_tipo_componente', 'id_tipo_componente');
     }
 
 }

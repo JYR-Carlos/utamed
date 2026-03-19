@@ -9,6 +9,8 @@ use App\Models\Base\Curso\BaseTipoSeccion;
  * 
  * Extiende de BaseTipoSeccion (auto-generado)
  * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
+ * 
+ * @deprecated Renamed a TipoComponente
  */
 class TipoSeccion extends BaseTipoSeccion
 {

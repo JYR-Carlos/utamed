@@ -63,6 +63,11 @@ abstract class BaseContexto extends CustomBaseModel
         return $this->hasOne(\App\Models\Agenda\Actividad::class, 'id_contexto', 'id_contexto');
     }
 
+    public function componente()
+    {
+        return $this->hasOne(\App\Models\Curso\Componente::class, 'id_contexto', 'id_contexto');
+    }
+
     public function curso()
     {
         return $this->hasOne(\App\Models\Curso\Curso::class, 'id_contexto', 'id_contexto');

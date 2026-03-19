@@ -2,17 +2,15 @@
 
 namespace App\Models\Curso;
 
-use App\Models\Base\Curso\BaseSeccion;
+use App\Models\Base\Curso\BaseDocenteComponente;
 
 /**
- * Modelo Seccion
+ * Modelo DocenteComponente
  * 
- * Extiende de BaseSeccion (auto-generado)
+ * Extiende de BaseDocenteComponente (auto-generado)
  * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
- * 
- * @deprecated Renamed a Componente
  */
-class Seccion extends BaseSeccion
+class DocenteComponente extends BaseDocenteComponente
 {
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados

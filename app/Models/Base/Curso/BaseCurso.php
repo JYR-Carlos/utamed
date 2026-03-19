@@ -42,6 +42,7 @@ abstract class BaseCurso extends CustomBaseModel implements HasOwnedContext
         'fecha_limite_entrega_basico',
         'fecha_limite_entrega_syllabus',
         'id_asignacion_plan',
+        'id_docente_titular',
         'id_curso_padre',
         'version_plantilla',
         'letra_grupo'
@@ -62,6 +63,12 @@ abstract class BaseCurso extends CustomBaseModel implements HasOwnedContext
         return new BelongsTo($instance->newQuery(), $this, 'id_asignacion_plan', 'id_asignacion_plan', 'asignacionPlan');
     }
 
+    public function docenteTitular()
+    {
+        $instance = new \App\Models\Usuario\Docente();
+        return new BelongsTo($instance->newQuery(), $this, 'id_docente_titular', 'id_docente', 'docenteTitular');
+    }
+
     public function curso()
     {
         $instance = new \App\Models\Curso\Curso();
@@ -70,9 +77,9 @@ abstract class BaseCurso extends CustomBaseModel implements HasOwnedContext
 
     // Relaciones inversas
 
-    public function programas()
+    public function componentes()
     {
-        return $this->hasMany(\App\Models\Administrativo\Programa::class, 'id_curso', 'id_curso');
+        return $this->hasMany(\App\Models\Curso\Componente::class, 'id_curso', 'id_curso');
     }
 
     public function cursos()
@@ -85,9 +92,9 @@ abstract class BaseCurso extends CustomBaseModel implements HasOwnedContext
         return $this->hasMany(\App\Models\Curso\InscripcionCurso::class, 'id_curso', 'id_curso');
     }
 
-    public function secciones()
+    public function programas()
     {
-        return $this->hasMany(\App\Models\Curso\Seccion::class, 'id_curso', 'id_curso');
+        return $this->hasMany(\App\Models\Curso\Programa::class, 'id_curso', 'id_curso');
     }
 
     public function unidades()

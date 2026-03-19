@@ -6,6 +6,7 @@ use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Departamento;
 use App\Models\Administrativo\Facultad;
 use App\Models\Agenda\Actividad;
+use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
 
 /**
@@ -33,6 +34,7 @@ enum ContextualModelType: string
     case DEPARTAMENTO = Departamento::class;
     case FACULTAD = Facultad::class;
     case ACTIVIDAD = Actividad::class;
+    case COMPONENTE = Componente::class;
     case CURSO = Curso::class;
 
     /**

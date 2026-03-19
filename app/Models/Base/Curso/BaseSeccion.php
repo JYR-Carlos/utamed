@@ -12,6 +12,8 @@ use App\Traits\QueryScopes\FiltersContextScope;
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
+ * 
+ * @deprecated Renamed a Componente
  */
 abstract class BaseSeccion extends CustomBaseModel implements HasOwnedContext
 {

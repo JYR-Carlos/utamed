@@ -1,7 +1,7 @@
 <?php
 
 // GENERADO AUTOMÁTICAMENTE - REVISAR Y AJUSTAR SI ES NECESARIO
-// Para regenerar: php scripts/analyze_context_hierarchies.php -o scripts/generated_context_hierarchies.php
+// Para regenerar: php scripts/analyze_context_hierarchies.php
 
 return [
     'context_column' => 'id_contexto',
@@ -24,7 +24,11 @@ return [
         ],
         'agenda.actividad' => [
             'contextTypeName' => 'actividad',
-            'parent' => ['curso.seccion', 'curso.curso'], // manual (ruta indirecta)
+            'parent' => 'curso.componente', // auto (FK directa)
+        ],
+        'curso.componente' => [
+            'contextTypeName' => 'componente',
+            'parent' => 'curso.curso', // auto (FK directa)
         ],
         'curso.curso' => [
             'contextTypeName' => 'curso',
@@ -51,7 +55,7 @@ return [
         'administrativo.plan' => [
             ['administrativo.carrera']
         ],
-        'administrativo.programa' => [
+        'curso.programa' => [
             ['curso.curso']
         ],
         'agenda.actividad_asignada' => [
@@ -62,19 +66,16 @@ return [
             ['usuario.estudiante', 'administrativo.carrera']
         ],
         'curso.asistencia' => [
-            ['curso.inscripcion_seccion', 'usuario.estudiante', 'administrativo.carrera'],
-            ['curso.inscripcion_seccion', 'curso.seccion', 'curso.curso']
+            ['curso.inscripcion_componente', 'curso.componente'],
+            ['curso.inscripcion_componente', 'usuario.estudiante', 'administrativo.carrera']
+        ],
+        'curso.inscripcion_componente' => [
+            ['curso.componente'],
+            ['usuario.estudiante', 'administrativo.carrera']
         ],
         'curso.inscripcion_curso' => [
             ['curso.curso'],
             ['usuario.estudiante', 'administrativo.carrera']
-        ],
-        'curso.inscripcion_seccion' => [
-            ['usuario.estudiante', 'administrativo.carrera'],
-            ['curso.seccion', 'curso.curso']
-        ],
-        'curso.seccion' => [
-            ['curso.curso']
         ],
         'curso.unidad' => [
             ['curso.curso']
@@ -90,10 +91,18 @@ return [
 // TABLAS FILTRADAS (Excluidas por prefijo o configuración):
 // - administrativo.vw_usuarios_completo: Prefijo filtrado
 // - agenda.estado_actividad: Prefijo filtrado
-// - curso.tipo_seccion: Prefijo filtrado
+// - curso.tipo_componente: Prefijo filtrado
 // - usuario.asignacion_rol_permiso: Tabla filtrada
+// - usuario.cache: Tabla filtrada
+// - usuario.cache_locks: Tabla filtrada
 // - usuario.contexto: Tabla filtrada
+// - usuario.failed_jobs: Tabla filtrada
+// - usuario.job_batches: Tabla filtrada
+// - usuario.jobs: Tabla filtrada
+// - usuario.migrations: Tabla filtrada
+// - usuario.password_reset_tokens: Tabla filtrada
 // - usuario.permiso: Tabla filtrada
+// - usuario.sessions: Tabla filtrada
 // - usuario.tipo_contexto: Prefijo filtrado
 // - usuario.usuario_permiso_especial: Tabla filtrada
 // - usuario.usuario_rol_asignacion: Tabla filtrada

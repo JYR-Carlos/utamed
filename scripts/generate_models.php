@@ -237,9 +237,27 @@ $basePolicyDir = $policyDir . '/Base';
 //
 
 $relationNames = [
-  // ===========================================================================================
-  // CONFIGURACIÓN CORREGIDA BASADA EN ANÁLISIS DEL DICCIONARIO DE DATOS
-  // ===========================================================================================
+  // Titularidad Curso 
+  'curso.curso' => [
+    '_self' => [
+      'id_docente_titular' => 'docenteTitular', // curso->docenteTitular()
+    ],
+    'usuario.docente' => [
+      'id_docente_titular' => 'cursosQueTitula', // docente->cursosQueTitula()
+    ],
+  ],
+
+  // Programa: Usuario crea + revisa
+  'curso.programa' => [
+    '_self' => [
+      'creado_por' => 'autor', // belongsTo: usuario que creó el programa
+      'revisado_por' => 'revisor', // belongsTo: usuario que revisó el programa
+    ],
+    'usuario.usuario' => [
+      'creado_por' => 'programasCreados', // hasMany en Usuario: programas creados por el usuario
+      'revisado_por' => 'programasRevisados', // hasMany en Usuario: programas revisados por el usuario
+    ],
+  ],
 
   // Usuario crea Roles (evitar conflicto con belongsToMany)
   'usuario.rol' => [
@@ -453,15 +471,28 @@ $manualPivotTables = [
     ],
   ],
 
+  // cursos colegiados
+  // docente_componente: Docente ↔ Componente
+  'curso.docente_componente' => [
+    'relation_names' => [
+      'usuario.docente' => [
+        'curso.componente' => 'componentesQueDicta', // docente->componentesQueDicta()
+      ],
+      'curso.componente' => [
+        'usuario.docente' => 'docentes', // componente->docentes()
+      ],
+    ],
+  ],
+
   // ===========================================================================================
   // PIVOTS COMPLEJOS (3+ FKs o múltiples FKs a misma tabla)
   // ===========================================================================================
 
-  // inscripcion_seccion: Estudiante ↔ Seccion (también involucra Curso)
-  'curso.inscripcion_seccion' => [
+  // inscripcion_componente: Estudiante ↔ Componente (también involucra Curso)
+  'curso.inscripcion_componente' => [
     'relation_names' => [
       'usuario.estudiante' => [
-        'curso.seccion' => 'seccionesInscritas', // estudiante->seccionesInscritas()
+        'curso.componente' => 'componentesInscritos', // estudiante->componentesInscritos()
         // No genera relación con Curso porque ya existe en inscripcion_curso
       ],
       'curso.seccion' => [

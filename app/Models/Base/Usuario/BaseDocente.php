@@ -42,9 +42,27 @@ abstract class BaseDocente extends CustomBaseModel implements HasContext
 
     // Relaciones inversas
 
-    public function seccionesQueDicta()
+    public function cursosQueTitula()
     {
-        return $this->hasMany(\App\Models\Curso\Seccion::class, 'id_docente', 'id_docente');
+        return $this->hasMany(\App\Models\Curso\Curso::class, 'id_docente_titular', 'id_docente');
+    }
+
+    public function docenteComponentes()
+    {
+        return $this->hasMany(\App\Models\Curso\DocenteComponente::class, 'id_docente', 'id_docente');
+    }
+
+    // Relaciones muchos-a-muchos
+
+    public function componentesQueDicta()
+    {
+        return $this->belongsToMany(
+            \App\Models\Curso\Componente::class,
+            'docente_componente',
+            'id_docente',
+            'id_componente'
+        )
+            ->withPivot('id_docente_componente', 'id_docente', 'id_componente');
     }
 
 }

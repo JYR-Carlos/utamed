@@ -65,6 +65,9 @@ enum ContextType: string
     // Contexto de carrera — restricción a una carrera específica
     case CARRERA = 'carrera';
 
+    // Contexto de tipo 'componente'
+    case COMPONENTE = 'componente';
+
     // Contexto de curso — restricción a un curso específico
     case CURSO = 'curso';
 
@@ -95,7 +98,8 @@ enum ContextType: string
             'carrera' => self::DEPARTAMENTO,
             'departamento' => self::FACULTAD,
             'facultad' => self::GLOBAL,
-            'actividad' => self::CURSO,
+            'actividad' => self::COMPONENTE,
+            'componente' => self::CURSO,
             'curso' => self::CARRERA,
         ];
     }

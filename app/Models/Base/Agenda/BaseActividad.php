@@ -33,7 +33,7 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
         'es_grupal',
         'max_integrantes',
         'es_plantilla',
-        'id_seccion',
+        'id_componente',
         'id_unidad'
     ];
 
@@ -46,10 +46,10 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
         return new BelongsTo($instance->newQuery(), $this, 'id_contexto', 'id_contexto', 'contexto');
     }
 
-    public function seccion()
+    public function componente()
     {
-        $instance = new \App\Models\Curso\Seccion();
-        return new BelongsTo($instance->newQuery(), $this, 'id_seccion', 'id_seccion', 'seccion');
+        $instance = new \App\Models\Curso\Componente();
+        return new BelongsTo($instance->newQuery(), $this, 'id_componente', 'id_componente', 'componente');
     }
 
     public function unidad()

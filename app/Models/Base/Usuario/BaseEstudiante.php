@@ -52,14 +52,14 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
         return $this->hasMany(\App\Models\Agenda\AsignadoActividad::class, 'id_estudiante', 'id_estudiante');
     }
 
+    public function inscripcionComponentes()
+    {
+        return $this->hasMany(\App\Models\Curso\InscripcionComponente::class, 'id_estudiante', 'id_estudiante');
+    }
+
     public function inscripcionCursos()
     {
         return $this->hasMany(\App\Models\Curso\InscripcionCurso::class, 'id_estudiante', 'id_estudiante');
-    }
-
-    public function inscripcionSecciones()
-    {
-        return $this->hasMany(\App\Models\Curso\InscripcionSeccion::class, 'id_estudiante', 'id_estudiante');
     }
 
     // Relaciones muchos-a-muchos
@@ -75,6 +75,17 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
             ->withPivot('id_asignado_actividad', 'nota_individual', 'diferencia_decimas', 'grupo', 'id_estudiante');
     }
 
+    public function componentesInscritos()
+    {
+        return $this->belongsToMany(
+            \App\Models\Curso\Componente::class,
+            'inscripcion_componente',
+            'id_estudiante',
+            'id_componente'
+        )
+            ->withPivot('id_inscripcion_componente', 'nota_componente', 'id_estudiante', 'id_componente');
+    }
+
     public function cursosInscritos()
     {
         return $this->belongsToMany(
@@ -84,17 +95,6 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
             'id_curso'
         )
             ->withPivot('id_inscripcion_curso', 'cod_inscripcion_uta', 'num_intento', 'fecha_inscripcion', 'estado_inscripcion', 'promedio_parcial', 'id_curso', 'id_estudiante');
-    }
-
-    public function seccionesInscritas()
-    {
-        return $this->belongsToMany(
-            \App\Models\Curso\Seccion::class,
-            'inscripcion_seccion',
-            'id_estudiante',
-            'id_seccion'
-        )
-            ->withPivot('id_inscripcion_seccion', 'nota_seccion', 'id_estudiante', 'id_seccion');
     }
 
 }

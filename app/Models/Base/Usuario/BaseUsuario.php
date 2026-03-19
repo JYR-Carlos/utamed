@@ -48,12 +48,12 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
 
     public function programasCreados()
     {
-        return $this->hasMany(\App\Models\Administrativo\Programa::class, 'creado_por', 'id_usuario');
+        return $this->hasMany(\App\Models\Curso\Programa::class, 'creado_por', 'id_usuario');
     }
 
-    public function programas()
+    public function programasRevisados()
     {
-        return $this->hasMany(\App\Models\Administrativo\Programa::class, 'revisado_por', 'id_usuario');
+        return $this->hasMany(\App\Models\Curso\Programa::class, 'revisado_por', 'id_usuario');
     }
 
     public function docente()
