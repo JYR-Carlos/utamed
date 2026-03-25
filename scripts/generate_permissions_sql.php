@@ -212,6 +212,64 @@ foreach ($permisos as $perm) {
 echo "\n✅ Generación de PERMISOS completada exitosamente\n";
 
 // ============================================================
+// VALIDAR TUPLAS EN ROLES_CONFIG
+// ============================================================
+
+echo "\n🔍 VALIDANDO ESTRUCTURA DE TUPLAS EN ROLES_CONFIG...\n\n";
+
+$rolesConfigPath = __DIR__ . '/roles_config.php';
+$rolesConfig = require $rolesConfigPath;
+
+if (!is_array($rolesConfig) || empty($rolesConfig)) {
+    echo "❌ Error: roles_config.php debe retornar un array no vacío\n";
+    exit(1);
+}
+
+$tuplesValidationErrors = [];
+
+foreach ($rolesConfig as $roleName => $permissions) {
+    if (!is_array($permissions)) {
+        $tuplesValidationErrors[] = "Rol '{$roleName}': Permisos debe ser un array";
+        continue;
+    }
+
+    foreach ($permissions as $idx => $tuple) {
+        if (!is_array($tuple) || count($tuple) !== 2) {
+            $tuplesValidationErrors[] = "Rol '{$roleName}', índice {$idx}: "
+                . "Permiso debe ser tupla [Permission enum, boolean]";
+            continue;
+        }
+
+        $permission = $tuple[0];
+        $puedeDelegrar = $tuple[1];
+
+        if (!($permission instanceof \App\Support\Permissions)) {
+            $tuplesValidationErrors[] = "Rol '{$roleName}', índice {$idx}: "
+                . "Primer elemento debe ser Permissions enum, recibido: " . gettype($permission);
+        }
+
+        if (!is_bool($puedeDelegrar)) {
+            $tuplesValidationErrors[] = "Rol '{$roleName}', índice {$idx}: "
+                . "Segundo elemento debe ser boolean, recibido: " . gettype($puedeDelegrar);
+        }
+    }
+}
+
+if (!empty($tuplesValidationErrors)) {
+    echo "❌ ERRORES EN ESTRUCTURA DE TUPLAS:\n";
+    echo str_repeat("-", 80) . "\n";
+    foreach ($tuplesValidationErrors as $error) {
+        echo "  ❌ {$error}\n";
+    }
+    echo str_repeat("-", 80) . "\n";
+    echo "\n⚠️  Revisar roles_config.php y asegurar que cada permiso sea:\n";
+    echo "    [Permissions::PERMISO, true/false]  # true = puede delegarse, false = no\n\n";
+    exit(1);
+}
+
+echo "✅ Todas las tuplas en roles_config.php son válidas\n\n";
+
+// ============================================================
 // GENERAR ROLES AUTOMÁTICAMENTE
 // ============================================================
 

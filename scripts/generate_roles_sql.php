@@ -64,22 +64,45 @@ function generateRolesSql(): void
       exit(1);
     }
 
-    // Validar que sean instancias de Permissions enum
-    foreach ($permissions as $permission) {
-      if (!($permission instanceof \App\Support\Permissions)) {
-        echo "❌ Error: Todos los permisos deben ser instancias de Permissions enum\n"
-          . "Rol '{$roleName}' contiene: " . var_export($permission, true) . "\n";
+    // Validar que sean tuplas [Permission enum, boolean]
+    $parsedPermissions = [];
+    $permEnumsOnly = [];  // Para getCompatibleContexts() que espera solo enums
+
+    foreach ($permissions as $idx => $tuple) {
+      if (!is_array($tuple) || count($tuple) !== 2) {
+        echo "❌ Error: Permiso inválido en rol '{$roleName}' en índice {$idx}.\n"
+          . "   Esperado: [Permissions::PERMISO, boolean]\n"
+          . "   Recibido: " . var_export($tuple, true) . "\n";
         exit(1);
       }
+
+      $permission = $tuple[0];
+      $puedeDelegrar = $tuple[1];
+
+      if (!($permission instanceof \App\Support\Permissions)) {
+        echo "❌ Error: Primer elemento de tupla debe ser Permissions enum\n"
+          . "Rol '{$roleName}', índice {$idx}: " . var_export($permission, true) . "\n";
+        exit(1);
+      }
+
+      if (!is_bool($puedeDelegrar)) {
+        echo "❌ Error: Segundo elemento de tupla debe ser boolean (true/false)\n"
+          . "Rol '{$roleName}', índice {$idx}: " . var_export($puedeDelegrar, true) . "\n";
+        exit(1);
+      }
+
+      $parsedPermissions[] = $tuple;
+      $permEnumsOnly[] = $permission;
     }
 
     $rolesData[$roleName] = [
       'nombre' => $roleName,
-      'permisos' => $permissions,  // Preservar enums, no slugs
-      'cantidad_permisos' => count($permissions),
+      'permisos' => $parsedPermissions,  // Array de tuplas [Permission enum, puede_delegar boolean]
+      'permisos_enums_only' => $permEnumsOnly,  // Para funciones que solo necesitan enums
+      'cantidad_permisos' => count($parsedPermissions),
     ];
 
-    $totalPermisos += count($permissions);
+    $totalPermisos += count($parsedPermissions);
   }
 
   echo "✅ Se extrajeron " . count($rolesData) . " roles\n";
@@ -95,7 +118,7 @@ function generateRolesSql(): void
 
   foreach ($rolesData as $roleName => $data) {
     try {
-      $compatibleContexts = \App\Services\Authorization\PermissionContextConstraints::getCompatibleContexts($data['permisos']);
+      $compatibleContexts = \App\Services\Authorization\PermissionContextConstraints::getCompatibleContexts($data['permisos_enums_only']);
 
       if (empty($compatibleContexts)) {
         $validationErrors[] = "Role '{$roleName}': No tiene contextos compatibles. "
@@ -134,7 +157,7 @@ function generateRolesSql(): void
   echo str_repeat("-", 80) . "\n";
 
   foreach ($rolesData as $data) {
-    $firstPerm = isset($data['permisos'][0]) ? $data['permisos'][0]->value : '(ninguno)';
+    $firstPerm = isset($data['permisos'][0]) ? $data['permisos'][0][0]->value : '(ninguno)';
     printf(
       "| %-30s | %-20d | %-20s |\n",
       substr($data['nombre'], 0, 28),
@@ -173,7 +196,7 @@ function generateRolesSql(): void
     $previewPerms = array_slice($permisos, 0, 3);
     $remaining = count($permisos) - 3;
 
-    $permLabels = array_map(fn($p) => $p->value, $previewPerms);
+    $permLabels = array_map(fn($p) => $p[0]->value, $previewPerms);
     $previewStr = implode(', ', $permLabels);
     if ($remaining > 0) {
       $previewStr .= ", ... +" . $remaining;
@@ -235,42 +258,59 @@ function generateRolesSqlContent(array $rolesData): string
   $sql .= "\$\$;\n\n";
 
   // ============================================================
-  // Parte 2: Asignar permisos a roles
+  // Parte 2: Asignar permisos a roles (una statement por rol)
   // ============================================================
   $sql .= "-- ===============================================================================\n";
   $sql .= "-- PARTE 2: Asignación de Permisos a Roles (usuario.asignacion_rol_permiso)\n";
   $sql .= "-- ===============================================================================\n\n";
 
   foreach ($rolesData as $roleName => $data) {
-    $permisos = $data['permisos'];
-    $sql .= "-- Rol: {$roleName} ({$data['cantidad_permisos']} permisos)\n";
-    $sql .= "INSERT INTO usuario.asignacion_rol_permiso (\n";
-    $sql .= "    id_rol,\n";
-    $sql .= "    id_permiso,\n";
-    $sql .= "    puede_delegar_permisos\n";
-    $sql .= ")\n";
-    $sql .= "SELECT r.id_rol, p.id_permiso, " . ($roleName === 'SuperAdmin' ? 'TRUE' : 'FALSE') . "\n";
-    $sql .= "FROM usuario.rol r\n";
-    $sql .= "    CROSS JOIN usuario.permiso p\n";
-    $sql .= "WHERE r.nombre = '" . str_replace("'", "''", $roleName) . "'\n";
-    $sql .= "    AND p.slug IN (\n";
+    $permisosConConfig = $data['permisos'];  // Array de tuplas [Permission enum, puede_delegar boolean]
 
-    $permInserts = array_map(function ($perm) {
-      $slug = $perm instanceof \App\Support\Permissions ? $perm->value : $perm;
-      return "        '" . str_replace("'", "''", $slug) . "'";
-    }, $permisos);
-    $sql .= implode(",\n", $permInserts) . "\n";
+    // Agrupar por puede_delegar para optimizar: un SELECT por (rol, puede_delegar)
+    $agrupadoPorDelegacion = [];
+    foreach ($permisosConConfig as $permConfig) {
+      $permission = $permConfig[0];  // Enum
+      $puedeDelegrar = $permConfig[1];  // Boolean
 
-    $sql .= "    )\n";
-    $sql .= "    AND NOT EXISTS (\n";
-    $sql .= "        SELECT 1\n";
-    $sql .= "        FROM usuario.asignacion_rol_permiso x\n";
-    $sql .= "        WHERE x.id_rol = r.id_rol\n";
-    $sql .= "            AND x.id_permiso = p.id_permiso\n";
-    $sql .= "    );\n\n";
+      $puedeDelegrarStr = $puedeDelegrar ? 'TRUE' : 'FALSE';
+      if (!isset($agrupadoPorDelegacion[$puedeDelegrarStr])) {
+        $agrupadoPorDelegacion[$puedeDelegrarStr] = [];
+      }
+      $agrupadoPorDelegacion[$puedeDelegrarStr][] = $permission;
+    }
+
+    // Generar un INSERT per rol con múltiples SELECT unidos por UNION ALL
+    $selectClauses = [];
+    foreach ($agrupadoPorDelegacion as $puedeDelegrar => $permisos) {
+      $slugs = array_map(function ($perm) {
+        $slug = $perm instanceof \App\Support\Permissions ? $perm->value : $perm;
+        return "        '" . str_replace("'", "''", $slug) . "'";
+      }, $permisos);
+
+      $selectClauses[] = "SELECT r.id_rol, p.id_permiso, {$puedeDelegrar}\nFROM usuario.rol r\n    CROSS JOIN usuario.permiso p\nWHERE r.nombre = '" . str_replace("'", "''", $roleName) . "'\n    AND p.slug IN (\n" . implode(",\n", $slugs) . "\n    )\n    AND NOT EXISTS (\n        SELECT 1\n        FROM usuario.asignacion_rol_permiso x\n        WHERE x.id_rol = r.id_rol\n            AND x.id_permiso = p.id_permiso\n    )";
+    }
+
+    if (!empty($selectClauses)) {
+      $sql .= "-- Rol: {$roleName} ({$data['cantidad_permisos']} permisos)\n";
+      $sql .= "INSERT INTO usuario.asignacion_rol_permiso (\n";
+      $sql .= "    id_rol,\n";
+      $sql .= "    id_permiso,\n";
+      $sql .= "    puede_delegar_permisos\n";
+      $sql .= ")\n";
+      $sql .= implode("\nUNION ALL\n", $selectClauses) . ";\n\n";
+    }
   }
 
   return $sql;
+}
+
+// ============================================================
+// Ejecutar si se llama directamente
+// ============================================================
+
+if (php_sapi_name() === 'cli' && basename(__FILE__) === basename($argv[0] ?? '')) {
+  generateRolesSql();
 }
 
 // ============================================================
