@@ -52,6 +52,10 @@ class CourseController extends Controller
                 'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                 'fecha_inicio' => $curso->fecha_inicio,
                 'fecha_fin' => $curso->fecha_fin,
+                'semestre_real' => $curso->semestre_real ?? 1,
+                'agno_real' => $curso->agno_real ?? now()->year,
+                'letra_grupo' => $curso->letra_grupo,
+                'total_estudiantes' => 0,
                 'userPermissions' => $userPermissions,
             ];
         });

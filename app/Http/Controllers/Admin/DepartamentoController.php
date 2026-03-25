@@ -56,7 +56,10 @@ class DepartamentoController extends Controller
         return Inertia::render('admin/Departamentos', [
             'departamentos' => $departamentos,
             'facultades' => $facultades,
-            'filters' => $request->only(['search', 'id_facultad'])
+            'filters' => $request->only(['search', 'id_facultad']),
+            'canCreate' => auth()->check(),
+            'canEdit' => auth()->check(),
+            'canDelete' => auth()->check(),
         ]);
     }
 

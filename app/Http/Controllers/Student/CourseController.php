@@ -26,8 +26,8 @@ class CourseController extends Controller
         $estudiante = $user->estudiante;
 
         // ── Cursos como Estudiante ────────────────────────────────────────────
+        // Obtener todas las inscripciones activas del estudiante
         $inscripciones = $estudiante->inscripcionCursos()
-            ->where('estado_inscripcion', 'INSCRITO')
             ->with(['curso.asignacionPlan.asignatura', 'curso.asignacionPlan.plan.carrera'])
             ->get();
 

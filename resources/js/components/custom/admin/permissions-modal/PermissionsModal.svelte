@@ -247,6 +247,13 @@
     );
   }
 
+  /**
+   * Verifica si un permiso especial ya está asignado al usuario
+   */
+  function isPermissionAlreadyAssigned(perm: PermissionItem): boolean {
+    return userCurrentSpecialPermissions.some((a) => a.id_permiso === perm.id_permiso);
+  }
+
   let filteredRoles = $derived.by(() => {
     if (!roleSearch.trim()) return roles;
     const q = roleSearch.toLowerCase();
@@ -398,9 +405,14 @@
     isAnimating = true;
     setTimeout(() => {
       currentStep = Math.min(currentStep + 1, totalSteps);
-      // Set default date when entering step 4
+      // Set default dates when entering step 4
       if (currentStep === 4 && !startDate) {
         startDate = today;
+
+        // Calculate endDate as 1 year after startDate
+        const start = new Date(today);
+        start.setFullYear(start.getFullYear() + 1);
+        endDate = start.toISOString().split('T')[0]; // Format YYYY-MM-DD
       }
       setTimeout(() => (isAnimating = false), 50);
     }, 200);
@@ -597,7 +609,8 @@
         successMsg = data.message || 'Permiso asignado correctamente.';
       }
 
-      // Brief success flash then close
+      // Reload data to show updated assignments, then close
+      await loadInitialData();
       setTimeout(() => onClose(), 1200);
     } catch (e) {
       errorMsg = e instanceof Error ? e.message : String(e);
@@ -1150,6 +1163,7 @@
                       </h4>
                       <div class="flex flex-col gap-1">
                         {#each perms as perm (perm.id_permiso)}
+                          {@const alreadyAssigned = isPermissionAlreadyAssigned(perm)}
                           <button
                             class="flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all text-left cursor-pointer text-sm bg-white"
                             class:border-amber-400={selectedPermission?.id_permiso ===
@@ -1177,7 +1191,23 @@
                                 {perm.slug}
                               </div>
                             </div>
-                            {#if selectedPermission?.id_permiso === perm.id_permiso}
+                            {#if alreadyAssigned}
+                              <span
+                                class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 text-green-700 text-[11px] font-semibold flex-shrink-0 border border-green-200"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="12"
+                                  height="12"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  stroke-width="3"
+                                  ><polyline points="20 6 9 17 4 12"></polyline></svg
+                                >
+                                Asignado
+                              </span>
+                            {:else if selectedPermission?.id_permiso === perm.id_permiso}
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 width="16"

@@ -20,7 +20,7 @@
   }
 
   let {
-    isOpen,
+    isOpen = $bindable(),
     title,
     message,
     icon = 'warning',
@@ -73,7 +73,9 @@
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
       <!-- Header -->
       <div class="p-5 border-b border-gray-100 flex items-start gap-3">
-        <div class="shrink-0 w-10 h-10 rounded-lg {config.bg} border {config.border} flex items-center justify-center {config.text}">
+        <div
+          class="shrink-0 w-10 h-10 rounded-lg {config.bg} border {config.border} flex items-center justify-center {config.text}"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="20"
@@ -124,9 +126,25 @@
             : 'bg-blue-700 hover:bg-blue-800'}"
         >
           {#if isLoading}
-            <svg class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            <svg
+              class="w-3.5 h-3.5 animate-spin"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              ></path>
             </svg>
             Procesando…
           {:else}
