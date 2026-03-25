@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# 1. Obtener la ruta y el hash del submódulo que cambió en este push
+SUBMODULE_PATH="database-model"
+# Hash que el repo padre quiere registrar
+REMOTE_HASH=$(git ls-tree HEAD $SUBMODULE_PATH | awk '{print $3}')
+
+# 2. Verificar si ese hash existe en el servidor del subrepo
+echo "🔍 Validando integridad de $SUBMODULE_PATH..." >&2
+
+cd "$SUBMODULE_PATH" || exit 1
+
+if ! git merge-base --is-ancestor "$REMOTE_HASH" origin/main 2>/dev/null; then
+    # 2. Bloque de error de alto impacto visual
+    echo " " >&2
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2
+    echo "🚨  ERROR DE INTEGRIDAD EN EL SUBMÓDULO  🚨" >&2
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2
+    echo " " >&2
+    echo "  El commit del modelo no está en el servidor:" >&2
+    echo "  ID: $REMOTE_HASH" >&2
+    echo " " >&2
+    echo "  👉 ACCIÓN REQUERIDA:" >&2
+    echo "     1. Entra a la carpeta: cd $SUBMODULE_PATH" >&2
+    echo "     2. Sube los cambios: git push origin main" >&2
+    echo "     3. Vuelve aquí y reintenta el Push de utamed." >&2
+    echo " " >&2
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2
+    echo " " >&2
+    exit 1
+fi
+cd ..
+
+exit 0

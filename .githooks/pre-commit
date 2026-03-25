@@ -1,0 +1,7 @@
+#!/bin/sh
+# .githooks/pre-commit
+STAGED_SUBMODULE=$(git diff --cached --submodule | grep 'Submodule' | grep 'database-model')
+
+if [ ! -z "$STAGED_SUBMODULE" ]; then
+    echo "⚠️  Estás actualizando el puntero de database-model."
+fi
