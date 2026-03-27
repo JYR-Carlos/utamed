@@ -16,10 +16,9 @@
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import { router } from '@inertiajs/svelte';
-  import CourseTeamModal from '@/components/custom/admin/CourseTeamModal.svelte';
-  import SyllabusModal from '@/components/custom/admin/SyllabusModal.svelte';
-  import SyllabusTypeSelector from '@/components/custom/admin/SyllabusTypeSelector.svelte';
-  import CursoWizardModal from '@/components/custom/admin/CursoWizardModal.svelte';
+  import SyllabusModal from '@/modules/resources/programa/components/SyllabusModal.svelte';
+  import SyllabusTypeSelector from '@/modules/resources/programa/components/SyllabusTypeSelector.svelte';
+  import { CourseTeamModal, CursoWizardModal } from '@/modules/resources/curso/components';
   // ── Componentes modulares FASE 1 ──
   import CursoForm from '@/modules/resources/curso/components/cursoForm.svelte';
   import CursoDeleteConfirm from '@/modules/resources/curso/components/cursoDeleteConfirm.svelte';

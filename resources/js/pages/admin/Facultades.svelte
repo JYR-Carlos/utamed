@@ -16,17 +16,17 @@
    */
   import { router, page } from '@inertiajs/svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
-  import FacultadList from '../../modules/resources/facultad/components/facultadList.svelte';
-  import FacultadForm from '../../modules/resources/facultad/components/facultadForm.svelte';
-  import DepartamentoModal from '../../modules/resources/facultad/components/departamentoModal.svelte';
-  import FacultadDeleteConfirm from '../../modules/resources/facultad/components/facultadDeleteConfirm.svelte';
+  import FacultadList from '@/modules/resources/facultad/components/facultadList.svelte';
+  import FacultadForm from '@/modules/resources/facultad/components/facultadForm.svelte';
+  import DepartamentoModal from '@/modules/resources/facultad/components/departamentoModal.svelte';
+  import FacultadDeleteConfirm from '@/modules/resources/facultad/components/facultadDeleteConfirm.svelte';
   import {
     createFacultad,
     updateFacultad,
     deleteFacultad,
     createDepartamento,
     deleteDepartamento,
-  } from '../../modules/resources/facultad/services/facultadApi';
+  } from '@/modules/resources/facultad/services/facultadApi';
   import type { Facultad, PaginatedResponse, FacultadFormData } from '@/types/admin.types';
 
   /**

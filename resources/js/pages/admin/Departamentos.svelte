@@ -15,14 +15,14 @@
    */
   import { page } from '@inertiajs/svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
-  import DepartamentoList from '../../modules/resources/departamento/components/departamentoList.svelte';
-  import DepartamentoForm from '../../modules/resources/departamento/components/departamentoForm.svelte';
-  import DepartamentoDeleteConfirm from '../../modules/resources/departamento/components/departamentoDeleteConfirm.svelte';
+  import DepartamentoList from '@/modules/resources/departamento/components/departamentoList.svelte';
+  import DepartamentoForm from '@/modules/resources/departamento/components/departamentoForm.svelte';
+  import DepartamentoDeleteConfirm from '@/modules/resources/departamento/components/departamentoDeleteConfirm.svelte';
   import {
     createDepartamento,
     updateDepartamento,
     deleteDepartamento,
-  } from '../../modules/resources/departamento/services/departamentoApi';
+  } from '@/modules/resources/departamento/services/departamentoApi';
   import type {
     Departamento,
     Facultad,

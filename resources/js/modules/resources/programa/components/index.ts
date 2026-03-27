@@ -1,0 +1,12 @@
+/**
+ * Barrel export para los componentes del módulo Programa.
+ */
+
+export { default as SyllabusModal } from './SyllabusModal.svelte';
+export { default as SyllabusTypeSelector } from './SyllabusTypeSelector.svelte';
+export { default as ProgramaStateBadges } from './ProgramaStateBadges.svelte';
+export { default as ProgramaActionButtons } from './ProgramaActionButtons.svelte';
+export { default as ProgramaDetailView } from './ProgramaDetailView.svelte';
+export { default as ProgramasListView } from './ProgramasListView.svelte';
+export { default as ProgramaWizardSteps } from './ProgramaWizardSteps.svelte';
+export { default as ProgramaDocument } from './ProgramaDocument.svelte';

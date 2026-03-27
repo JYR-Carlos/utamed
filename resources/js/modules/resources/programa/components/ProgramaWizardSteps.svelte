@@ -38,12 +38,7 @@
     existingActividades?: { id_actividad: number; nombre: string; fecha_limite: string }[];
 
     // Sección VI: Unidades
-    unidades: {
-      numero: number;
-      titulo: string;
-      contenidos: string;
-      resultados_aprendizaje: { resultado: string }[];
-    }[];
+    unidades: { numero: number; titulo: string; contenidos: string; resultados_aprendizaje: { resultado: string }[] }[];
 
     // Sección VII: Planificación
     resultados_aprendizaje: { resultado: string }[];
@@ -109,22 +104,20 @@
     {#if syllabusType === 'simplified'}
       <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 mb-4">
         <p class="text-sm text-blue-800">
-          <strong>Modo Simplificado:</strong> Estamos en la <strong>Edición Simplificada</strong>.
-          Completa solo los campos esenciales para una creación rápida.
+          <strong>Modo Simplificado:</strong> Estamos en la <strong>Edición Simplificada</strong>. Completa solo los campos esenciales para una
+          creación rápida.
         </p>
       </div>
     {:else if syllabusType === 'combined'}
       <div class="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4">
         <p class="text-sm text-amber-800">
-          <strong>Modo Combinado:</strong> Continuarás desde tu edición simplificada y ahora completarás
-          todos los detalles.
+          <strong>Modo Combinado:</strong> Continuarás desde tu edición simplificada y ahora completarás todos los detalles.
         </p>
       </div>
     {:else if syllabusType === 'complete'}
       <div class="rounded-lg bg-green-50 border border-green-200 p-3 mb-4">
         <p class="text-sm text-green-800">
-          <strong>Syllabus Completo:</strong> Crearás todas las 9 secciones con información detallada.
-          Asegúrate de tener toda la información disponible.
+          <strong>Syllabus Completo:</strong> Crearás todas las 9 secciones con información detallada. Asegúrate de tener toda la información disponible.
         </p>
       </div>
     {/if}
@@ -175,9 +168,7 @@
     </div>
 
     <div class="space-y-1.5">
-      <label for="categoria-select" class="block text-sm font-semibold text-slate-700"
-        >Categoría</label
-      >
+      <label for="categoria-select" class="block text-sm font-semibold text-slate-700">Categoría</label>
       <select
         id="categoria-select"
         bind:value={categoria}
@@ -194,9 +185,7 @@
       <div class="block text-sm font-semibold text-slate-700">Horas de Dedicación</div>
       <div class="grid grid-cols-3 gap-3">
         <div class="space-y-1">
-          <label for="horas-catedra-input" class="block text-xs text-slate-600"
-            >Cátedra <span class="text-red-500">*</span></label
-          >
+          <label for="horas-catedra-input" class="block text-xs text-slate-600">Cátedra <span class="text-red-500">*</span></label>
           <input
             id="horas-catedra-input"
             type="number"
@@ -216,9 +205,7 @@
           />
         </div>
         <div class="space-y-1">
-          <label for="horas-laboratorio-input" class="block text-xs text-slate-600"
-            >Laboratorio</label
-          >
+          <label for="horas-laboratorio-input" class="block text-xs text-slate-600">Laboratorio</label>
           <input
             id="horas-laboratorio-input"
             type="number"
@@ -265,9 +252,7 @@
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-6">
     <div>
       <h3 class="text-lg font-semibold text-slate-900 truncate">🎯 IV. Competencias</h3>
-      <p class="text-sm text-slate-500 mt-0.5">
-        Competencias específicas, genéricas y subcompetencias
-      </p>
+      <p class="text-sm text-slate-500 mt-0.5">Competencias específicas, genéricas y subcompetencias</p>
     </div>
 
     <div class="space-y-3">
@@ -287,14 +272,7 @@
               onclick={() => (competencias_especificas = removeItem(competencias_especificas, i))}
               class="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 ><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
               >
             </button>
@@ -303,8 +281,7 @@
       {/each}
       <button
         type="button"
-        onclick={() =>
-          (competencias_especificas = addItem(competencias_especificas, { titulo: '' }))}
+        onclick={() => (competencias_especificas = addItem(competencias_especificas, { titulo: '' }))}
         class="text-sm text-blue-600 hover:underline">+ Agregar competencia específica</button
       >
     </div>
@@ -326,14 +303,7 @@
               onclick={() => (competencias_genericas = removeItem(competencias_genericas, i))}
               class="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 ><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
               >
             </button>
@@ -363,23 +333,14 @@
             onclick={() => (subcompetencias = removeItem(subcompetencias, i))}
             class="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
               ><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
             >
           </button>
         </div>
       {/each}
-      <button
-        type="button"
-        onclick={() => (subcompetencias = addItem(subcompetencias, { titulo: '' }))}
-        class="text-sm text-blue-600 hover:underline">+ Agregar subcompetencia</button
+      <button type="button" onclick={() => (subcompetencias = addItem(subcompetencias, { titulo: '' }))} class="text-sm text-blue-600 hover:underline"
+        >+ Agregar subcompetencia</button
       >
     </div>
   </div>
@@ -388,9 +349,7 @@
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
     <div>
       <h3 class="text-lg font-semibold text-slate-900 truncate">📊 V. Evaluación Diagnóstica</h3>
-      <p class="text-sm text-slate-500 mt-0.5">
-        Preguntas o ítems para evaluar conocimientos previos
-      </p>
+      <p class="text-sm text-slate-500 mt-0.5">Preguntas o ítems para evaluar conocimientos previos</p>
     </div>
     <div class="space-y-3">
       {#each items_evaluacion as item, i}
@@ -408,20 +367,16 @@
             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
           ></textarea>
           {#if items_evaluacion.length > 1}
-            <button
-              type="button"
-              onclick={() => (items_evaluacion = removeItem(items_evaluacion, i))}
-              class="text-xs text-red-600 hover:underline">Eliminar</button
+            <button type="button" onclick={() => (items_evaluacion = removeItem(items_evaluacion, i))} class="text-xs text-red-600 hover:underline"
+              >Eliminar</button
             >
           {/if}
         </div>
       {/each}
       <button
         type="button"
-        onclick={() =>
-          (items_evaluacion = addItem(items_evaluacion, { titulo: '', descripcion: '' }))}
-        class="w-full px-3 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 text-sm"
-        >+ Agregar ítem</button
+        onclick={() => (items_evaluacion = addItem(items_evaluacion, { titulo: '', descripcion: '' }))}
+        class="w-full px-3 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 text-sm">+ Agregar ítem</button
       >
     </div>
   </div>
@@ -433,13 +388,9 @@
       <h3 class="text-lg font-semibold text-slate-900 truncate mb-3">📖 VI. Unidades</h3>
       <div class="space-y-4">
         {#each unidades as unit, i}
-          <div
-            class="rounded-lg border border-slate-200 p-4 space-y-3 border-l-4 border-l-blue-600"
-          >
+          <div class="rounded-lg border border-slate-200 p-4 space-y-3 border-l-4 border-l-blue-600">
             <div class="flex items-center justify-between">
-              <span class="text-sm font-semibold text-slate-700"
-                >U{unit.numero}. {unit.titulo || 'Unidad'}</span
-              >
+              <span class="text-sm font-semibold text-slate-700">U{unit.numero}. {unit.titulo || 'Unidad'}</span>
               {#if unidades.length > 1}
                 <button
                   type="button"
@@ -454,13 +405,7 @@
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    stroke-width="2"
-                    ><line x1="18" y1="6" x2="6" y2="18" /><line
-                      x1="6"
-                      y1="6"
-                      x2="18"
-                      y2="18"
-                    /></svg
+                    stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
                   >
                 </button>
               {/if}
@@ -479,9 +424,7 @@
               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             ></textarea>
             <div class="bg-blue-50 p-3 rounded-lg space-y-2">
-              <h5 class="text-sm font-semibold text-slate-700">
-                Resultados de Aprendizaje U{unit.numero}
-              </h5>
+              <h5 class="text-sm font-semibold text-slate-700">Resultados de Aprendizaje U{unit.numero}</h5>
               {#each unit.resultados_aprendizaje as ra, raIdx}
                 <div class="flex gap-2">
                   <input
@@ -494,10 +437,7 @@
                     <button
                       type="button"
                       onclick={() => {
-                        unit.resultados_aprendizaje = removeItem(
-                          unit.resultados_aprendizaje,
-                          raIdx,
-                        );
+                        unit.resultados_aprendizaje = removeItem(unit.resultados_aprendizaje, raIdx);
                         unidades = [...unidades];
                       }}
                       title="Eliminar resultado"
@@ -510,13 +450,7 @@
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        stroke-width="2"
-                        ><line x1="18" y1="6" x2="6" y2="18" /><line
-                          x1="6"
-                          y1="6"
-                          x2="18"
-                          y2="18"
-                        /></svg
+                        stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
                       >
                     </button>
                   {/if}
@@ -525,9 +459,7 @@
               <button
                 type="button"
                 onclick={() => {
-                  unit.resultados_aprendizaje = addItem(unit.resultados_aprendizaje, {
-                    resultado: '',
-                  });
+                  unit.resultados_aprendizaje = addItem(unit.resultados_aprendizaje, { resultado: '' });
                   unidades = [...unidades];
                 }}
                 class="text-xs text-blue-600 hover:underline"
@@ -540,12 +472,7 @@
         <button
           type="button"
           onclick={() =>
-            (unidades = addItem(unidades, {
-              numero: unidades.length + 1,
-              titulo: '',
-              contenidos: '',
-              resultados_aprendizaje: [{ resultado: '' }],
-            }))}
+            (unidades = addItem(unidades, { numero: unidades.length + 1, titulo: '', contenidos: '', resultados_aprendizaje: [{ resultado: '' }] }))}
           class="w-full px-3 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 text-sm font-medium"
         >
           + Nueva unidad
@@ -555,15 +482,10 @@
 
     <!-- Actividades (subsección) -->
     <div class="border-t-4 border-t-amber-200 pt-6">
-      <h3 class="text-lg font-semibold text-slate-900 truncate mb-3">
-        ✅ Actividades de Aprendizaje
-      </h3>
-      <p class="text-sm text-slate-500 mb-4">
-        Asocia actividades existentes o crea nuevas relacionadas a las unidades
-      </p>
+      <h3 class="text-lg font-semibold text-slate-900 truncate mb-3">✅ Actividades de Aprendizaje</h3>
+      <p class="text-sm text-slate-500 mb-4">Asocia actividades existentes o crea nuevas relacionadas a las unidades</p>
       <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mb-4">
-        💡 Las nuevas actividades se asocian a una unidad específica. Puedes omitir este campo y
-        rellenarlo después.
+        💡 Las nuevas actividades se asocian a una unidad específica. Puedes omitir este campo y rellenarlo después.
       </p>
 
       <!-- Selector de actividades existentes -->
@@ -578,23 +500,14 @@
                   if (!actividades.some((a) => a.id_actividad === act.id_actividad)) {
                     actividades = [
                       ...actividades,
-                      {
-                        id_actividad: act.id_actividad,
-                        nombre: act.nombre,
-                        tipo: 'tarea',
-                        id_unidad: null,
-                        id_seccion: null,
-                        nombre_unidad: '',
-                      },
+                      { id_actividad: act.id_actividad, nombre: act.nombre, tipo: 'tarea', id_unidad: null, id_seccion: null, nombre_unidad: '' },
                     ];
                   }
                 }}
                 class="w-full px-3 py-2 text-left text-sm rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors"
               >
                 <div class="font-medium text-slate-800">{act.nombre}</div>
-                <div class="text-xs text-slate-600">
-                  Límite: {new Date(act.fecha_limite).toLocaleDateString('es-ES')}
-                </div>
+                <div class="text-xs text-slate-600">Límite: {new Date(act.fecha_limite).toLocaleDateString('es-ES')}</div>
               </button>
             {/each}
           </div>
@@ -604,17 +517,13 @@
       <!-- Actividades seleccionadas/creadas -->
       <div class="space-y-3">
         <h4 class="text-sm font-semibold text-slate-700">
-          ✅ Actividades:{' '}<span class="text-xs font-normal text-slate-500"
-            >({actividades.length})</span
-          >
+          ✅ Actividades:{' '}<span class="text-xs font-normal text-slate-500">({actividades.length})</span>
         </h4>
         {#each actividades as act, i}
           <div class="rounded-lg border border-slate-200 p-4 space-y-3 bg-slate-50">
             <div class="grid grid-cols-3 gap-3">
               <div>
-                <label for="act-nombre-{i}" class="block text-sm font-semibold text-slate-700 mb-1"
-                  >Nombre</label
-                >
+                <label for="act-nombre-{i}" class="block text-sm font-semibold text-slate-700 mb-1">Nombre</label>
                 <input
                   id="act-nombre-{i}"
                   type="text"
@@ -624,9 +533,7 @@
                 />
               </div>
               <div>
-                <label for="act-tipo-{i}" class="block text-sm font-semibold text-slate-700 mb-1"
-                  >Tipo</label
-                >
+                <label for="act-tipo-{i}" class="block text-sm font-semibold text-slate-700 mb-1">Tipo</label>
                 <select
                   bind:value={act.tipo}
                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -640,9 +547,7 @@
                 </select>
               </div>
               <div>
-                <label for="act-unidad-{i}" class="block text-sm font-semibold text-slate-700 mb-1"
-                  >Unidad</label
-                >
+                <label for="act-unidad-{i}" class="block text-sm font-semibold text-slate-700 mb-1">Unidad</label>
                 <select
                   bind:value={act.nombre_unidad}
                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -655,11 +560,7 @@
               </div>
             </div>
             {#if actividades.length > 1}
-              <button
-                type="button"
-                onclick={() => (actividades = removeItem(actividades, i))}
-                class="text-xs text-red-600 hover:underline"
-              >
+              <button type="button" onclick={() => (actividades = removeItem(actividades, i))} class="text-xs text-red-600 hover:underline">
                 ✕ Eliminar
               </button>
             {/if}
@@ -687,20 +588,14 @@
   <!-- Sección VI: Unidades -->
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
     <div>
-      <h3 class="text-lg font-semibold text-slate-900 truncate">
-        📖 VI. Unidades y Resultados de Aprendizaje
-      </h3>
-      <p class="text-sm text-slate-500 mt-0.5">
-        Estructura temática y resultados esperados por unidad
-      </p>
+      <h3 class="text-lg font-semibold text-slate-900 truncate">📖 VI. Unidades y Resultados de Aprendizaje</h3>
+      <p class="text-sm text-slate-500 mt-0.5">Estructura temática y resultados esperados por unidad</p>
     </div>
     <div class="space-y-4">
       {#each unidades as unit, i}
         <div class="rounded-lg border border-slate-200 p-4 space-y-3 border-l-4 border-l-blue-600">
           <div class="flex items-center justify-between">
-            <span class="text-sm font-semibold text-slate-700"
-              >U{unit.numero}. {unit.titulo || 'Unidad'}</span
-            >
+            <span class="text-sm font-semibold text-slate-700">U{unit.numero}. {unit.titulo || 'Unidad'}</span>
             {#if unidades.length > 1}
               <button
                 type="button"
@@ -708,14 +603,7 @@
                 title="Eliminar unidad"
                 class="text-red-600 hover:bg-red-50 p-1 rounded"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                   ><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
                 >
               </button>
@@ -740,9 +628,7 @@
 
           <!-- Resultados de Aprendizaje por Unidad -->
           <div class="bg-blue-50 p-3 rounded-lg space-y-2">
-            <h5 class="text-sm font-semibold text-slate-700">
-              Resultados de Aprendizaje U{unit.numero}
-            </h5>
+            <h5 class="text-sm font-semibold text-slate-700">Resultados de Aprendizaje U{unit.numero}</h5>
             {#each unit.resultados_aprendizaje as ra, raIdx}
               <div class="flex gap-2">
                 <input
@@ -768,13 +654,7 @@
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
-                      stroke-width="2"
-                      ><line x1="18" y1="6" x2="6" y2="18" /><line
-                        x1="6"
-                        y1="6"
-                        x2="18"
-                        y2="18"
-                      /></svg
+                      stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
                     >
                   </button>
                 {/if}
@@ -783,9 +663,7 @@
             <button
               type="button"
               onclick={() => {
-                unit.resultados_aprendizaje = addItem(unit.resultados_aprendizaje, {
-                  resultado: '',
-                });
+                unit.resultados_aprendizaje = addItem(unit.resultados_aprendizaje, { resultado: '' });
                 unidades = [...unidades];
               }}
               class="text-xs text-blue-600 hover:underline"
@@ -798,12 +676,7 @@
       <button
         type="button"
         onclick={() =>
-          (unidades = addItem(unidades, {
-            numero: unidades.length + 1,
-            titulo: '',
-            contenidos: '',
-            resultados_aprendizaje: [{ resultado: '' }],
-          }))}
+          (unidades = addItem(unidades, { numero: unidades.length + 1, titulo: '', contenidos: '', resultados_aprendizaje: [{ resultado: '' }] }))}
         class="w-full px-3 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 text-sm font-medium"
       >
         + Nueva unidad
@@ -815,16 +688,12 @@
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
     <div>
       <h3 class="text-lg font-semibold text-slate-900 truncate">📅 VII. Planificación</h3>
-      <p class="text-sm text-slate-500 mt-0.5">
-        Metodología, evaluación y resultados de aprendizaje
-      </p>
+      <p class="text-sm text-slate-500 mt-0.5">Metodología, evaluación y resultados de aprendizaje</p>
     </div>
 
     <div class="space-y-3">
       <div>
-        <div class="block text-sm font-semibold text-slate-700 mb-2">
-          Resultados de Aprendizaje Consolidados
-        </div>
+        <div class="block text-sm font-semibold text-slate-700 mb-2">Resultados de Aprendizaje Consolidados</div>
         <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
           {#if resultados_aprendizaje.length > 0}
             <ul class="space-y-1.5">
@@ -836,22 +705,18 @@
               {/each}
             </ul>
             <p class="text-xs text-slate-500 mt-2 italic">
-              Estos resultados se consolidan automáticamente desde las unidades (Sección VI).
-              Edítalos en cada unidad si es necesario.
+              Estos resultados se consolidan automáticamente desde las unidades (Sección VI). Edítalos en cada unidad si es necesario.
             </p>
           {:else}
             <p class="text-sm text-slate-500 italic">
-              No hay resultados de aprendizaje definidos. Agrega contenidos y resultados en las
-              unidades (Sección VI).
+              No hay resultados de aprendizaje definidos. Agrega contenidos y resultados en las unidades (Sección VI).
             </p>
           {/if}
         </div>
       </div>
 
       <div>
-        <label for="metodologia-textarea" class="block text-sm font-semibold text-slate-700 mb-2"
-          >Metodología</label
-        >
+        <label for="metodologia-textarea" class="block text-sm font-semibold text-slate-700 mb-2">Metodología</label>
         <textarea
           id="metodologia-textarea"
           bind:value={metodologia}
@@ -862,9 +727,7 @@
       </div>
 
       <div>
-        <label for="evaluacion-textarea" class="block text-sm font-semibold text-slate-700 mb-2"
-          >Evaluación</label
-        >
+        <label for="evaluacion-textarea" class="block text-sm font-semibold text-slate-700 mb-2">Evaluación</label>
         <textarea
           id="evaluacion-textarea"
           bind:value={evaluacion}
@@ -891,10 +754,7 @@
             placeholder="Descripción del recurso"
             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
           />
-          <select
-            bind:value={rec.tipo}
-            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-          >
+          <select bind:value={rec.tipo} class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
             <option>Libro</option>
             <option>Documentación Online</option>
             <option>Video</option>
@@ -908,21 +768,15 @@
             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
           />
           {#if recursos.length > 2}
-            <button
-              type="button"
-              onclick={() => (recursos = removeItem(recursos, i))}
-              class="text-xs text-red-600 hover:underline">Eliminar</button
-            >
+            <button type="button" onclick={() => (recursos = removeItem(recursos, i))} class="text-xs text-red-600 hover:underline">Eliminar</button>
           {/if}
         </div>
       {/each}
       {#if recursos.length < 10}
         <button
           type="button"
-          onclick={() =>
-            (recursos = addItem(recursos, { descripcion: '', tipo: 'Libro', ubicacion: '' }))}
-          class="w-full px-3 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 text-sm"
-          >+ Agregar recurso</button
+          onclick={() => (recursos = addItem(recursos, { descripcion: '', tipo: 'Libro', ubicacion: '' }))}
+          class="w-full px-3 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 text-sm">+ Agregar recurso</button
         >
       {/if}
     </div>
@@ -932,20 +786,14 @@
   <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
     <div>
       <h3 class="text-lg font-semibold text-slate-900 truncate">⚙️ IX. Aspectos Administrativos</h3>
-      <p class="text-sm text-slate-500 mt-0.5">
-        Información administrativa y componentes de evaluación
-      </p>
+      <p class="text-sm text-slate-500 mt-0.5">Información administrativa y componentes de evaluación</p>
       <p class="text-xs text-blue-600 mt-2 p-2 bg-blue-50 rounded">
-        📌 Los componentes de evaluación se cargan automáticamente desde las secciones del curso.
-        Puedes editarlos aquí si es necesario.
+        📌 Los componentes de evaluación se cargan automáticamente desde las secciones del curso. Puedes editarlos aquí si es necesario.
       </p>
     </div>
 
     <div>
-      <label
-        for="ponderacion-optativa-input"
-        class="block text-sm font-semibold text-slate-700 mb-2">Ponderación Optativa (%)</label
-      >
+      <label for="ponderacion-optativa-input" class="block text-sm font-semibold text-slate-700 mb-2">Ponderación Optativa (%)</label>
       <input
         id="ponderacion-optativa-input"
         type="number"
@@ -966,12 +814,8 @@
               <th class="px-3 py-2 text-left font-semibold text-slate-700">Componente</th>
               <th class="px-3 py-2 text-center font-semibold text-slate-700">Genera Acta</th>
               <th class="px-3 py-2 text-center font-semibold text-slate-700">Porcentaje %</th>
-              <th class="px-3 py-2 text-center font-semibold text-slate-700"
-                >Aprobación Obligatoria</th
-              >
-              <th class="px-3 py-2 text-center font-semibold text-slate-700"
-                >Asistencia Obligatoria %</th
-              >
+              <th class="px-3 py-2 text-center font-semibold text-slate-700">Aprobación Obligatoria</th>
+              <th class="px-3 py-2 text-center font-semibold text-slate-700">Asistencia Obligatoria %</th>
               <th class="px-3 py-2 text-center font-semibold text-slate-700">Acciones</th>
             </tr>
           </thead>
@@ -1000,11 +844,7 @@
                   />
                 </td>
                 <td class="px-3 py-2 text-center">
-                  <input
-                    type="checkbox"
-                    bind:checked={comp.aprobacion_obligatoria}
-                    class="w-4 h-4 rounded"
-                  />
+                  <input type="checkbox" bind:checked={comp.aprobacion_obligatoria} class="w-4 h-4 rounded" />
                 </td>
                 <td class="px-3 py-2">
                   <input
@@ -1018,11 +858,7 @@
                 </td>
                 <td class="px-3 py-2 text-center">
                   {#if componentes.length > 1}
-                    <button
-                      type="button"
-                      onclick={() => (componentes = removeItem(componentes, i))}
-                      class="text-xs text-red-600 hover:underline"
-                    >
+                    <button type="button" onclick={() => (componentes = removeItem(componentes, i))} class="text-xs text-red-600 hover:underline">
                       Eliminar
                     </button>
                   {/if}
@@ -1042,15 +878,12 @@
             aprobacion_obligatoria: false,
             asistencia_obligatoria: 0,
           }))}
-        class="w-full px-3 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 text-sm"
-        >+ Agregar componente</button
+        class="w-full px-3 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 text-sm">+ Agregar componente</button
       >
     </div>
 
     <div>
-      <label for="normativa-textarea" class="block text-sm font-semibold text-slate-700 mb-2"
-        >Normativa del Curso</label
-      >
+      <label for="normativa-textarea" class="block text-sm font-semibold text-slate-700 mb-2">Normativa del Curso</label>
       <textarea
         id="normativa-textarea"
         bind:value={normativa_curso}
@@ -1062,15 +895,10 @@
 
     <!-- Actividades (subsección al final para COMPLETO) -->
     <div class="border-t-4 border-t-orange-200 pt-6 mt-6">
-      <h3 class="text-lg font-semibold text-slate-900 truncate mb-3">
-        ✅ Actividades de Aprendizaje (Opcional)
-      </h3>
-      <p class="text-sm text-slate-500 mb-4">
-        Asocia actividades existentes o crea nuevas relacionadas a las unidades
-      </p>
+      <h3 class="text-lg font-semibold text-slate-900 truncate mb-3">✅ Actividades de Aprendizaje (Opcional)</h3>
+      <p class="text-sm text-slate-500 mb-4">Asocia actividades existentes o crea nuevas relacionadas a las unidades</p>
       <p class="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded p-2 mb-4">
-        💡 Las nuevas actividades se asocian a una unidad específica. Puedes omitir este campo y
-        rellenarlo después.
+        💡 Las nuevas actividades se asocian a una unidad específica. Puedes omitir este campo y rellenarlo después.
       </p>
 
       <!-- Selector de actividades existentes -->
@@ -1085,23 +913,14 @@
                   if (!actividades.some((a) => a.id_actividad === act.id_actividad)) {
                     actividades = [
                       ...actividades,
-                      {
-                        id_actividad: act.id_actividad,
-                        nombre: act.nombre,
-                        tipo: 'tarea',
-                        id_unidad: null,
-                        id_seccion: null,
-                        nombre_unidad: '',
-                      },
+                      { id_actividad: act.id_actividad, nombre: act.nombre, tipo: 'tarea', id_unidad: null, id_seccion: null, nombre_unidad: '' },
                     ];
                   }
                 }}
                 class="w-full px-3 py-2 text-left text-sm rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors"
               >
                 <div class="font-medium text-slate-800">{act.nombre}</div>
-                <div class="text-xs text-slate-600">
-                  Límite: {new Date(act.fecha_limite).toLocaleDateString('es-ES')}
-                </div>
+                <div class="text-xs text-slate-600">Límite: {new Date(act.fecha_limite).toLocaleDateString('es-ES')}</div>
               </button>
             {/each}
           </div>
@@ -1111,17 +930,13 @@
       <!-- Actividades seleccionadas/creadas -->
       <div class="space-y-3">
         <h4 class="text-sm font-semibold text-slate-700">
-          ✅ Actividades:{' '}<span class="text-xs font-normal text-slate-500"
-            >({actividades.length})</span
-          >
+          ✅ Actividades:{' '}<span class="text-xs font-normal text-slate-500">({actividades.length})</span>
         </h4>
         {#each actividades as act, i}
           <div class="rounded-lg border border-slate-200 p-4 space-y-3 bg-slate-50">
             <div class="grid grid-cols-3 gap-3">
               <div>
-                <label for="act-nombre-{i}" class="block text-sm font-semibold text-slate-700 mb-1"
-                  >Nombre</label
-                >
+                <label for="act-nombre-{i}" class="block text-sm font-semibold text-slate-700 mb-1">Nombre</label>
                 <input
                   id="act-nombre-{i}"
                   type="text"
@@ -1131,9 +946,7 @@
                 />
               </div>
               <div>
-                <label for="act-tipo-{i}" class="block text-sm font-semibold text-slate-700 mb-1"
-                  >Tipo</label
-                >
+                <label for="act-tipo-{i}" class="block text-sm font-semibold text-slate-700 mb-1">Tipo</label>
                 <select
                   bind:value={act.tipo}
                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1147,9 +960,7 @@
                 </select>
               </div>
               <div>
-                <label for="act-unidad-{i}" class="block text-sm font-semibold text-slate-700 mb-1"
-                  >Unidad</label
-                >
+                <label for="act-unidad-{i}" class="block text-sm font-semibold text-slate-700 mb-1">Unidad</label>
                 <select
                   bind:value={act.nombre_unidad}
                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1162,11 +973,7 @@
               </div>
             </div>
             {#if actividades.length > 1}
-              <button
-                type="button"
-                onclick={() => (actividades = removeItem(actividades, i))}
-                class="text-xs text-red-600 hover:underline"
-              >
+              <button type="button" onclick={() => (actividades = removeItem(actividades, i))} class="text-xs text-red-600 hover:underline">
                 ✕ Eliminar
               </button>
             {/if}

@@ -19,15 +19,15 @@
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import { router, page, useForm } from '@inertiajs/svelte';
-  import CarreraList from '../../modules/resources/carrera/components/carreraList.svelte';
-  import CarreraForm from '../../modules/resources/carrera/components/carreraForm.svelte';
-  import CarreraDiscontinueConfirm from '../../modules/resources/carrera/components/carreraDiscontinueConfirm.svelte';
+  import CarreraList from '@/modules/resources/carrera/components/carreraList.svelte';
+  import CarreraForm from '@/modules/resources/carrera/components/carreraForm.svelte';
+  import CarreraDiscontinueConfirm from '@/modules/resources/carrera/components/carreraDiscontinueConfirm.svelte';
   import {
     createCarrera,
     updateCarrera,
     discontinueCarrera,
     loadDepartamentos,
-  } from '../../modules/resources/carrera/services/carreraApi';
+  } from '@/modules/resources/carrera/services/carreraApi';
   import { useFilteredList } from '@/lib/composables/useFilteredList';
   import { PAGINATION_OPTIONS, DEFAULT_PER_PAGE, STATUS_OPTIONS } from '@/constants/admin';
   import type { Carrera, Facultad, Departamento, PaginatedResponse } from '@/types/admin.types';

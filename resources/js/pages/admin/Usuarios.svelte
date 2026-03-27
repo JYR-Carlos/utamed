@@ -18,11 +18,13 @@
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import { router } from '@inertiajs/svelte';
-  import DataTable from '@/components/custom/admin/DataTable.svelte';
-  import FormModal from '@/components/custom/admin/FormModal.svelte';
   import PermissionsModal from '@/components/custom/admin/permissions-modal/PermissionsModal.svelte';
-  import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
-  import UserForm from '@/components/admin/UserForm.svelte';
+  import {
+    UsuarioList,
+    UsuarioForm,
+    UsuarioDeleteConfirm,
+    PasswordChangeModal,
+  } from '@/modules/resources/usuario/components';
   import type {
     UsuarioItem,
     Carrera,
@@ -373,88 +375,49 @@
       </button>
     </div>
 
-    <DataTable
+    <UsuarioList
       data={usuarios}
-      columns={COLUMN_CONFIGS[currentTipo]}
+      userType={currentTipo}
       onEdit={openEditModal}
       onDelete={openDeleteDialog}
       onPasswordChange={openPasswordModal}
       onToggleActive={handleToggleActive}
-      onCustomAction={openPermissionsModal}
-      customActionLabel="Permisos"
+      onPermissions={openPermissionsModal}
     />
   </div>
 
   {#if showPermissionsModal && permissionsUser}
     <PermissionsModal
-      bind:isOpen={showPermissionsModal}
+      isOpen={showPermissionsModal}
       onClose={closePermissionsModal}
       usuario={permissionsUser}
     />
   {/if}
 
-  <FormModal
-    bind:isOpen={showModal}
-    title={editingUsuario
-      ? `Editar ${USER_TYPE_LABELS[currentTipo]}`
-      : `Nuevo ${USER_TYPE_LABELS[currentTipo]}`}
+  <UsuarioForm
+    isOpen={showModal}
+    {editingUsuario}
+    userType={currentTipo}
+    bind:formData={currentFormData}
+    {carreras}
+    {isLoading}
     onClose={closeModal}
     onSubmit={handleSubmit}
-    {isLoading}
-  >
-    <UserForm
-      formData={currentFormData}
-      tipo={currentTipo}
-      isEditing={!!editingUsuario}
-      {carreras}
-    />
-  </FormModal>
-
-  <DeleteConfirmation
-    bind:isOpen={showDeleteDialog}
-    title="¿Eliminar {USER_TYPE_LABELS[currentTipo]}?"
-    message="Esta acción no se puede deshacer. Si el usuario tiene registros asociados, no podrá ser eliminado."
-    onConfirm={handleDelete}
-    onCancel={closeDeleteDialog}
-    {isLoading}
   />
 
-  <!-- Password Change Modal -->
-  <FormModal
-    bind:isOpen={showPasswordModal}
-    title="Cambiar Contraseña"
+  <UsuarioDeleteConfirm
+    isOpen={showDeleteDialog}
+    userType={currentTipo}
+    {isLoading}
+    onConfirm={handleDelete}
+    onCancel={closeDeleteDialog}
+  />
+
+  <PasswordChangeModal
+    isOpen={showPasswordModal}
+    bind:passwordFormData
+    {isLoading}
     onClose={closePasswordModal}
     onSubmit={handlePasswordChange}
-    {isLoading}
-  >
-    <div class="mb-4">
-      <label for="new_password" class="block text-sm font-medium text-gray-700 mb-2"
-        >Nueva Contraseña *</label
-      >
-      <input
-        id="new_password"
-        type="password"
-        bind:value={passwordFormData.password}
-        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        placeholder="Mín. 6 caracteres"
-        minlength="6"
-        required
-      />
-    </div>
-
-    <div class="mb-4">
-      <label for="password_confirmation" class="block text-sm font-medium text-gray-700 mb-2"
-        >Confirmar Contraseña *</label
-      >
-      <input
-        id="password_confirmation"
-        type="password"
-        bind:value={passwordFormData.password_confirmation}
-        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        placeholder="Repita la contraseña"
-        minlength="6"
-        required
-      />
-    </div>
-  </FormModal>
+  />
 </AdminLayout>

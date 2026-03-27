@@ -14,8 +14,8 @@
   import { router, Link, usePage } from '@inertiajs/svelte';
   import { toast } from 'svelte-sonner';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
-  import CourseTeamModal from '@/components/custom/admin/CourseTeamModal.svelte';
-  import SyllabusModal from '@/components/custom/admin/SyllabusModal.svelte';
+  import { CourseTeamModal } from '@/modules/resources/curso/components';
+  import SyllabusModal from '@/modules/resources/programa/components/SyllabusModal.svelte';
   import CursoListRoleAware from '@/modules/resources/curso/components/cursoListRoleAware.svelte';
   import { usePermissions } from '@/lib/composables/usePermissions';
   import {

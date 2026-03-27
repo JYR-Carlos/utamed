@@ -8,12 +8,24 @@
   import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
   import { Button } from '@/components/ui/button';
   import { Badge } from '@/components/ui/badge';
-  import { ArrowLeft, Printer, AlertCircle, CheckCircle, Plus, Edit2, CalendarDays, Clock, Save, Pencil, X } from 'lucide-svelte';
+  import {
+    ArrowLeft,
+    Printer,
+    AlertCircle,
+    CheckCircle,
+    Plus,
+    Edit2,
+    CalendarDays,
+    Clock,
+    Save,
+    Pencil,
+    X,
+  } from 'lucide-svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Curso, Asignatura, Programa } from '@/types/admin.types';
-  import SyllabusModal from '@/components/custom/admin/SyllabusModal.svelte';
+  import SyllabusModal from '@/modules/resources/programa/components/SyllabusModal.svelte';
   import DatePickerCL from '@/components/custom/common/DatePickerCL.svelte';
-  import ProgramaDocument from '@/components/custom/common/ProgramaDocument.svelte';
+  import ProgramaDocument from '@/modules/resources/programa/components/ProgramaDocument.svelte';
   import { toast } from 'svelte-sonner';
   import { hasPermission } from '@/services/permissionValidator';
   import type { Permission } from '@/types/permissions/permissions';
@@ -81,8 +93,12 @@
     // Embed asignatura fields so SyllabusModal.initializeWizard can read them
     creditos_sct: asignatura?.creditos_sct ?? curso?.creditos_sct,
     horas_catedra: asignatura?.horas_catedra ?? curso?.horas_catedra,
-    horas_taller: asignatura?.horas_taller ?? (asignatura as any)?.horas_taller ?? curso?.horas_taller,
-    horas_laboratorio: asignatura?.horas_laboratorio ?? (asignatura as any)?.horas_laboratorio ?? curso?.horas_laboratorio,
+    horas_taller:
+      asignatura?.horas_taller ?? (asignatura as any)?.horas_taller ?? curso?.horas_taller,
+    horas_laboratorio:
+      asignatura?.horas_laboratorio ??
+      (asignatura as any)?.horas_laboratorio ??
+      curso?.horas_laboratorio,
   });
   let isSyllabusModalOpen = $state(false);
   let selectedSyllabusType = $state<'simplified' | 'combined' | 'complete' | null>(null);
@@ -91,7 +107,9 @@
 
   // Permisos: servidor ya calculó canEdit via policy; frontend puede complementar con permisos explícitos
   const canEditPrograma = $derived(
-    canEdit || hasPermission(userPermissions, 'cursos/programas:modificar:modulo_1') || hasPermission(userPermissions, 'cursos/programas:*'),
+    canEdit ||
+      hasPermission(userPermissions, 'cursos/programas:modificar:modulo_1') ||
+      hasPermission(userPermissions, 'cursos/programas:*'),
   );
 
   console.log('📄 Docente Programa.svelte - programa recibido:', programa);
@@ -138,7 +156,12 @@
   /** ISO/timestamp → localised string */
   function formatDeadline(val: string | null | undefined): string {
     if (!val) return '';
-    return parseDeadlineDate(val).toLocaleDateString('es-CL', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    return parseDeadlineDate(val).toLocaleDateString('es-CL', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
   }
 
   function daysLeft(val: string | null | undefined): number | null {
@@ -176,7 +199,11 @@
 
   function formatDate(val: string | null | undefined): string {
     if (!val) return '—';
-    return parseDeadlineDate(val).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
+    return parseDeadlineDate(val).toLocaleDateString('es-CL', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
   }
 
   function isOverdue(val: string | null | undefined): boolean {
@@ -186,8 +213,12 @@
 
   let editingDates = $state(false);
   let isSavingDates = $state(false);
-  let dateBasico = $state<string | null>(toDateInput((curso as any).fecha_limite_entrega_basico) || null);
-  let dateSyllabus = $state<string | null>(toDateInput((curso as any).fecha_limite_entrega_syllabus) || null);
+  let dateBasico = $state<string | null>(
+    toDateInput((curso as any).fecha_limite_entrega_basico) || null,
+  );
+  let dateSyllabus = $state<string | null>(
+    toDateInput((curso as any).fecha_limite_entrega_syllabus) || null,
+  );
 
   function saveDates() {
     isSavingDates = true;
@@ -225,17 +256,27 @@
   const showActionPanel = $derived(
     layoutType === 'admin' &&
       canApprovePrograma &&
-      (programa?.estado === 'COMPLETO' || programa?.estado === 'APROBADO' || programa?.estado === 'BASICO_COMPLETO'),
+      (programa?.estado === 'COMPLETO' ||
+        programa?.estado === 'APROBADO' ||
+        programa?.estado === 'BASICO_COMPLETO'),
   );
 
   function handleApprove() {
     isApproving = true;
-    router.put(`/admin/cursos/${curso.id_curso}/programa/aprobar`, {}, { onFinish: () => (isApproving = false) });
+    router.put(
+      `/admin/cursos/${curso.id_curso}/programa/aprobar`,
+      {},
+      { onFinish: () => (isApproving = false) },
+    );
   }
 
   function handleReject() {
     isRejecting = true;
-    router.put(`/admin/cursos/${curso.id_curso}/programa/rechazar`, { razon_rechazo: rejectionReason }, { onFinish: () => (isRejecting = false) });
+    router.put(
+      `/admin/cursos/${curso.id_curso}/programa/rechazar`,
+      { razon_rechazo: rejectionReason },
+      { onFinish: () => (isRejecting = false) },
+    );
   }
 
   function openAdminSyllabusModal() {
@@ -327,7 +368,12 @@
             <h2 class="text-base font-semibold text-gray-900">Fechas límite de entrega</h2>
           </div>
           {#if !editingDates}
-            <Button variant="ghost" size="sm" onclick={() => (editingDates = true)} class="gap-1.5 text-gray-600">
+            <Button
+              variant="ghost"
+              size="sm"
+              onclick={() => (editingDates = true)}
+              class="gap-1.5 text-gray-600"
+            >
               <Pencil class="h-3.5 w-3.5" />
               Editar
             </Button>
@@ -339,14 +385,23 @@
             <div>
               <label for="admin-date-basico" class="block text-sm font-medium text-gray-700 mb-1">
                 Fecha límite — Básico
-                <span class="text-xs text-gray-400 font-normal ml-1">(plazo para entregar el programa básico)</span>
+                <span class="text-xs text-gray-400 font-normal ml-1"
+                  >(plazo para entregar el programa básico)</span
+                >
               </label>
-              <DatePickerCL id="admin-date-basico" value={dateBasico} onchange={(v) => (dateBasico = v)} disabled={isSavingDates} />
+              <DatePickerCL
+                id="admin-date-basico"
+                value={dateBasico}
+                onchange={(v) => (dateBasico = v)}
+                disabled={isSavingDates}
+              />
             </div>
             <div>
               <label for="admin-date-syllabus" class="block text-sm font-medium text-gray-700 mb-1">
                 Fecha límite — Syllabus completo
-                <span class="text-xs text-gray-400 font-normal ml-1">(debe ser posterior al básico)</span>
+                <span class="text-xs text-gray-400 font-normal ml-1"
+                  >(debe ser posterior al básico)</span
+                >
               </label>
               <DatePickerCL
                 id="admin-date-syllabus"
@@ -358,11 +413,22 @@
             </div>
           </div>
           <div class="flex gap-2 mt-4 justify-end">
-            <Button variant="outline" size="sm" onclick={cancelDateEdit} disabled={isSavingDates} class="gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onclick={cancelDateEdit}
+              disabled={isSavingDates}
+              class="gap-1.5"
+            >
               <X class="h-3.5 w-3.5" />
               Cancelar
             </Button>
-            <Button size="sm" onclick={saveDates} disabled={isSavingDates} class="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
+            <Button
+              size="sm"
+              onclick={saveDates}
+              disabled={isSavingDates}
+              class="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+            >
               <Save class="h-3.5 w-3.5" />
               {isSavingDates ? 'Guardando...' : 'Guardar fechas'}
             </Button>
@@ -381,7 +447,9 @@
               {/if}
             </div>
             <div class="rounded-lg border border-gray-100 bg-gray-50 p-3">
-              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Syllabus completo</p>
+              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                Syllabus completo
+              </p>
               <p
                 class={`text-sm font-semibold ${isOverdue((curso as any).fecha_limite_entrega_syllabus) && programa?.estado === 'BASICO_COMPLETO' ? 'text-red-600' : 'text-gray-900'}`}
               >
@@ -393,7 +461,9 @@
             </div>
           </div>
           {#if !(curso as any).fecha_limite_entrega_basico && !(curso as any).fecha_limite_entrega_syllabus}
-            <p class="text-sm text-gray-400 italic mt-1">No se han definido fechas límite para este curso.</p>
+            <p class="text-sm text-gray-400 italic mt-1">
+              No se han definido fechas límite para este curso.
+            </p>
           {/if}
         {/if}
       </div>
@@ -411,15 +481,37 @@
             ? 'border-yellow-200 bg-yellow-50'
             : 'border-blue-200 bg-blue-50'}"
       >
-        <CalendarDays class="h-5 w-5 flex-shrink-0 mt-0.5 {overdue ? 'text-red-600' : urgent ? 'text-yellow-600' : 'text-blue-600'}" />
+        <CalendarDays
+          class="h-5 w-5 flex-shrink-0 mt-0.5 {overdue
+            ? 'text-red-600'
+            : urgent
+              ? 'text-yellow-600'
+              : 'text-blue-600'}"
+        />
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium {overdue ? 'text-red-900' : urgent ? 'text-yellow-900' : 'text-blue-900'}">{activeDeadline.label}</p>
-          <p class="text-sm {overdue ? 'text-red-700' : urgent ? 'text-yellow-700' : 'text-blue-700'} mt-0.5">
+          <p
+            class="text-sm font-medium {overdue
+              ? 'text-red-900'
+              : urgent
+                ? 'text-yellow-900'
+                : 'text-blue-900'}"
+          >
+            {activeDeadline.label}
+          </p>
+          <p
+            class="text-sm {overdue
+              ? 'text-red-700'
+              : urgent
+                ? 'text-yellow-700'
+                : 'text-blue-700'} mt-0.5"
+          >
             {formatDeadline(activeDeadline.value)}
             {#if days !== null}
               &nbsp;·&nbsp;
               {#if overdue}
-                <span class="font-semibold">Vencido hace {Math.abs(days)} día{Math.abs(days) !== 1 ? 's' : ''}</span>
+                <span class="font-semibold"
+                  >Vencido hace {Math.abs(days)} día{Math.abs(days) !== 1 ? 's' : ''}</span
+                >
               {:else if days === 0}
                 <span class="font-semibold">Vence hoy</span>
               {:else}
@@ -440,11 +532,15 @@
             <div class="flex items-center gap-3">
               <span class="text-sm font-medium text-muted-foreground">Estado:</span>
               {#if programa.estado === 'BORRADOR'}
-                <Badge variant="secondary" class="bg-yellow-100 text-yellow-800 border-yellow-200">Borrador</Badge>
+                <Badge variant="secondary" class="bg-yellow-100 text-yellow-800 border-yellow-200"
+                  >Borrador</Badge
+                >
               {:else if programa.estado === 'BASICO_COMPLETO'}
                 <Badge class="bg-amber-100 text-amber-800 border-amber-200">Básico Completo</Badge>
               {:else if programa.estado === 'ENVIADO' || programa.estado === 'COMPLETO'}
-                <Badge class="bg-blue-100 text-blue-800 border-blue-200">Pendiente de Aprobación</Badge>
+                <Badge class="bg-blue-100 text-blue-800 border-blue-200"
+                  >Pendiente de Aprobación</Badge
+                >
               {:else if programa.estado === 'APROBADO'}
                 <Badge class="bg-green-100 text-green-800 border-green-200">✅ Aprobado</Badge>
               {:else}
@@ -462,9 +558,14 @@
           {#if canEditPrograma && layoutType !== 'admin'}
             {#if programa.estado === 'BASICO_COMPLETO'}
               <div class="mt-8 flex flex-col items-center gap-3 pt-6 border-t border-slate-200">
-                <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 w-full max-w-xl text-center">
+                <div
+                  class="rounded-lg border border-amber-200 bg-amber-50 p-4 w-full max-w-xl text-center"
+                >
                   <p class="text-sm font-medium text-amber-900 mb-1">📝 Programa básico creado</p>
-                  <p class="text-sm text-amber-700 mb-3">Puedes completarlo con todas las secciones del programa completo (III, IV, V, VII, IX).</p>
+                  <p class="text-sm text-amber-700 mb-3">
+                    Puedes completarlo con todas las secciones del programa completo (III, IV, V,
+                    VII, IX).
+                  </p>
                   <button
                     onclick={openCompleteWizard}
                     class="inline-flex items-center gap-2 px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
@@ -502,7 +603,9 @@
           <div class="flex items-center justify-between">
             <div>
               <h3 class="text-lg font-semibold text-blue-900 mb-2">Crear Programa de Cátedra</h3>
-              <p class="text-sm text-blue-800">Inicia la creación del programa básico de la asignatura.</p>
+              <p class="text-sm text-blue-800">
+                Inicia la creación del programa básico de la asignatura.
+              </p>
             </div>
             <Button
               variant="default"
@@ -531,13 +634,18 @@
               <AlertCircle class="h-4 w-4" />
               <div>
                 <p class="font-medium">Syllabus completo pendiente de aprobación</p>
-                <p class="text-sm">El docente ha completado todas las secciones. Puedes aprobarlo o devolverlo para revisión.</p>
+                <p class="text-sm">
+                  El docente ha completado todas las secciones. Puedes aprobarlo o devolverlo para
+                  revisión.
+                </p>
               </div>
             </Alert>
 
             {#if showRejectionReason}
               <div>
-                <label for="rejection-reason" class="block text-sm font-medium text-gray-900 mb-2">Motivo (opcional)</label>
+                <label for="rejection-reason" class="block text-sm font-medium text-gray-900 mb-2"
+                  >Motivo (opcional)</label
+                >
                 <textarea
                   id="rejection-reason"
                   bind:value={rejectionReason}
@@ -549,7 +657,11 @@
             {/if}
 
             <div class="flex gap-3 pt-2">
-              <Button onclick={handleApprove} disabled={isApproving} class="flex-1 bg-green-600 hover:bg-green-700 text-white">
+              <Button
+                onclick={handleApprove}
+                disabled={isApproving}
+                class="flex-1 bg-green-600 hover:bg-green-700 text-white"
+              >
                 {isApproving ? 'Aprobando...' : 'Aprobar Syllabus'}
               </Button>
               <Button
@@ -563,7 +675,11 @@
                 {showRejectionReason ? 'Cancelar' : 'Devolver para revisión'}
               </Button>
               {#if showRejectionReason}
-                <Button onclick={handleReject} disabled={isRejecting} class="flex-1 bg-red-600 hover:bg-red-700 text-white">
+                <Button
+                  onclick={handleReject}
+                  disabled={isRejecting}
+                  class="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                >
                   {isRejecting ? 'Devolviendo...' : 'Confirmar'}
                 </Button>
               {/if}
@@ -578,15 +694,21 @@
             </div>
           </Alert>
         {:else if programa.estado === 'BASICO_COMPLETO'}
-          <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 flex items-center justify-between gap-4">
+          <div
+            class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 flex items-center justify-between gap-4"
+          >
             <div>
               <p class="font-medium text-emerald-900">✅ Programa básico entregado</p>
               <p class="text-sm text-emerald-700 mt-1">
-                La versión básica no requiere aprobación. Una vez que el docente complete el syllabus (secciones III–IX), aparecerá aquí para
-                aprobación.
+                La versión básica no requiere aprobación. Una vez que el docente complete el
+                syllabus (secciones III–IX), aparecerá aquí para aprobación.
               </p>
             </div>
-            <Button onclick={openAdminSyllabusModal} class="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0">Completar Syllabus</Button>
+            <Button
+              onclick={openAdminSyllabusModal}
+              class="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+              >Completar Syllabus</Button
+            >
           </div>
         {/if}
       </div>

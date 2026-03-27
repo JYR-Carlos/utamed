@@ -3,7 +3,7 @@
   import { Button } from '@/components/ui/button';
   import { Card } from '@/components/ui/card';
   import { Plus, Save, X, AlertCircle, Info } from 'lucide-svelte';
-  import ProgramaStateBadges from '@/components/custom/admin/ProgramaStateBadges.svelte';
+  import ProgramaStateBadges from '@/modules/resources/programa/components/ProgramaStateBadges.svelte';
   import CompletenessProgressBar from '@/components/custom/admin/CompletenessProgressBar.svelte';
   import type { Programa } from '@/types/admin.types';
 
@@ -15,16 +15,25 @@
 
   let { programa, userRole, userId }: Props = $props();
 
-  let editedSyllabus: any = $state({ metadata: {}, secciones: {} });
+  let editedSyllabus: any = $state<any>(null);
+  $effect.pre(() => {
+    if (editedSyllabus === null) {
+      editedSyllabus = programa?.data_syllabus ?? { metadata: {}, secciones: {} };
+    }
+  });
   let isSaving = $state(false);
   let error = $state('');
   let success = $state('');
 
-  const isAdmin = $derived(userRole === 'admin' || userRole === 'administrator' || userRole === 'Admin');
+  const isAdmin = $derived(
+    userRole === 'admin' || userRole === 'administrator' || userRole === 'Admin',
+  );
 
   const canEdit = $derived(
     (userId === programa.creado_por || isAdmin) &&
-      (programa.estado === 'BORRADOR' || programa.estado === 'BASICO_COMPLETO' || programa.estado === 'COMPLETO'),
+      (programa.estado === 'BORRADOR' ||
+        programa.estado === 'BASICO_COMPLETO' ||
+        programa.estado === 'COMPLETO'),
   );
 
   const requiredSecciones = $derived(
@@ -90,7 +99,12 @@
   <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
     <!-- Header -->
     <div class="mb-6">
-      <button onclick={() => history.back()} class="text-blue-600 hover:text-blue-800 flex items-center gap-2 mb-4"> ← Volver </button>
+      <button
+        onclick={() => history.back()}
+        class="text-blue-600 hover:text-blue-800 flex items-center gap-2 mb-4"
+      >
+        ← Volver
+      </button>
 
       <div class="flex justify-between items-start mb-4">
         <div>
@@ -146,7 +160,9 @@
       <Card class="p-4">
         <h3 class="text-sm font-semibold text-slate-700 mb-2">Tipo de Syllabus</h3>
         <p class="text-lg text-slate-900">
-          {programa.data_syllabus?.metadata?.tipo_syllabus === 'BASICO' ? 'Básico (5 secciones)' : 'Completo (9 secciones)'}
+          {programa.data_syllabus?.metadata?.tipo_syllabus === 'BASICO'
+            ? 'Básico (5 secciones)'
+            : 'Completo (9 secciones)'}
         </p>
       </Card>
 
@@ -160,7 +176,10 @@
 
     <!-- Completeness Progress -->
     <Card class="p-4 mb-6">
-      <CompletenessProgressBar percentage={programa.completenessPercentage || 0} tipo={programa.data_syllabus?.metadata?.tipo_syllabus || 'BASICO'} />
+      <CompletenessProgressBar
+        percentage={programa.completenessPercentage || 0}
+        tipo={programa.data_syllabus?.metadata?.tipo_syllabus || 'BASICO'}
+      />
     </Card>
 
     <!-- Conversion Notice -->
@@ -170,7 +189,8 @@
         <div>
           <h4 class="font-semibold text-amber-900">Nota importante</h4>
           <p class="text-amber-800 text-sm mt-1">
-            Si añade contenido a las secciones <strong>III, IV, V o IX</strong>, este programa se convertirá automáticamente a tipo
+            Si añade contenido a las secciones <strong>III, IV, V o IX</strong>, este programa se
+            convertirá automáticamente a tipo
             <strong>COMPLETO</strong>.
           </p>
         </div>
@@ -205,7 +225,9 @@
                     </pre>
                   </div>
                 {:else}
-                  <p class="text-slate-500 italic mt-2 text-sm">Sin contenido (opcional para tipo BASICO si no es obligatoria)</p>
+                  <p class="text-slate-500 italic mt-2 text-sm">
+                    Sin contenido (opcional para tipo BASICO si no es obligatoria)
+                  </p>
                 {/if}
               </div>
             {/each}
@@ -233,7 +255,12 @@
             <X size={18} class="mr-2" />
             Cancelar
           </Button>
-          <Button variant="default" onclick={handleSave} disabled={isSaving} class="bg-blue-600 hover:bg-blue-700">
+          <Button
+            variant="default"
+            onclick={handleSave}
+            disabled={isSaving}
+            class="bg-blue-600 hover:bg-blue-700"
+          >
             {#if isSaving}
               <span class="inline-block mr-2">⏳</span>
               Guardando...

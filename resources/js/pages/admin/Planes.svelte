@@ -19,10 +19,12 @@
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import { router } from '@inertiajs/svelte';
-  import DataTable from '@/components/custom/admin/DataTable.svelte';
-  import FormModal from '@/components/custom/admin/FormModal.svelte';
-  import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
-  import MallaSlideOver from '@/components/custom/admin/MallaSlideOver.svelte';
+  import {
+    PlanList,
+    PlanForm,
+    PlanDeleteConfirm,
+    MallaSlideOver,
+  } from '@/modules/resources/plan/components';
   import type {
     Plan,
     Carrera,
@@ -45,6 +47,7 @@
 
   let { planes, carreras, filters }: Props = $props();
 
+  // Modales
   let showModal = $state(false);
   let showDeleteDialog = $state(false);
   let isLoading = $state(false);
@@ -57,20 +60,12 @@
   let mallaPlan = $state<Plan | null>(null);
   let mallaData = $state<MallaData | null>(null);
 
+  // Formulario
   let formData = $state<PlanFormData>({
     id_carrera: 0,
     agno: new Date().getFullYear(),
     version_plan: 1,
   });
-
-  const columns = [
-    { key: 'id_plan', label: 'ID' },
-    { key: 'carrera.nombre', label: 'Carrera' },
-    { key: 'agno', label: 'Año' },
-    { key: 'version_plan', label: 'Versión' },
-    { key: 'creditos_sct_totales', label: 'Créditos SCT' },
-    { key: 'malla', label: 'Malla' },
-  ];
 
   function openCreateModal() {
     editingPlan = null;
@@ -228,88 +223,30 @@
       </button>
     </div>
 
-    <DataTable
+    <PlanList
       data={planes}
-      {columns}
       onEdit={openEditModal}
       onDelete={openDeleteDialog}
-      {cellSnippet}
+      onViewMalla={verMalla}
+      onEditMalla={editarMalla}
     />
   </div>
 
-  <FormModal
-    bind:isOpen={showModal}
-    title={editingPlan ? 'Editar Plan' : 'Nuevo Plan'}
+  <PlanForm
+    isOpen={showModal}
+    {editingPlan}
+    {carreras}
+    bind:formData
+    {isLoading}
     onClose={closeModal}
     onSubmit={handleSubmit}
+  />
+
+  <PlanDeleteConfirm
+    isOpen={showDeleteDialog}
     {isLoading}
-  >
-    <div class="mb-4">
-      <label for="carrera" class="block text-sm font-medium text-gray-700 mb-2">Carrera *</label>
-      <select
-        id="carrera"
-        bind:value={formData.id_carrera}
-        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        required
-      >
-        <option value={0}>Seleccione una carrera</option>
-        {#each carreras as carrera}
-          <option value={carrera.id_carrera}>{carrera.nombre}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div class="grid grid-cols-2 gap-4">
-      <div class="mb-4">
-        <label for="agno" class="block text-sm font-medium text-gray-700 mb-2">Año *</label>
-        <input
-          id="agno"
-          type="number"
-          bind:value={formData.agno}
-          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          min="1900"
-          max="2100"
-          placeholder="Ej: 2024"
-          required
-        />
-      </div>
-
-      <div class="mb-4">
-        <label for="version_plan" class="block text-sm font-medium text-gray-700 mb-2"
-          >Versión *</label
-        >
-        <input
-          id="version_plan"
-          type="number"
-          bind:value={formData.version_plan}
-          class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          min="1"
-          placeholder="Ej: 1"
-          required
-        />
-      </div>
-    </div>
-
-    <div class="mb-4">
-      <label for="creditos" class="block text-sm font-medium text-gray-700 mb-2"
-        >Créditos SCT Totales</label
-      >
-      <div class="flex items-center gap-3 p-4 bg-gray-50 border border-gray-200 rounded-md">
-        <span class="text-2xl font-bold text-blue-500"
-          >{editingPlan?.creditos_sct_totales || 0}</span
-        >
-        <span class="text-xs text-gray-500 italic">(Calculado automáticamente)</span>
-      </div>
-    </div>
-  </FormModal>
-
-  <DeleteConfirmation
-    bind:isOpen={showDeleteDialog}
-    title="¿Eliminar Plan?"
-    message="Esta acción no se puede deshacer. Si el plan tiene asignaturas asignadas, no podrá ser eliminado."
     onConfirm={handleDelete}
     onCancel={closeDeleteDialog}
-    {isLoading}
   />
 
   <MallaSlideOver

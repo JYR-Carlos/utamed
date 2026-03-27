@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ProgramasListView from '@/components/custom/admin/ProgramasListView.svelte';
+  import ProgramasListView from '@/modules/resources/programa/components/ProgramasListView.svelte';
 
   interface Programa {
     id_programa: number;
