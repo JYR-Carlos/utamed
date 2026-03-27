@@ -22,7 +22,7 @@
    * - onSyllabus: (curso: Curso) => void - Callback gestionar programa
    */
   import PaginationControls from '@/components/admin/PaginationControls.svelte';
-  import { Edit2, Trash2, Plus, Users, BookOpen } from 'lucide-svelte';
+  import { Edit2, Trash2, Plus, Users, BookOpen, Layers } from 'lucide-svelte';
   import type { Curso, PaginatedResponse } from '../types/curso.types';
 
   interface Props {
@@ -42,6 +42,7 @@
     onDelete?: (curso: Curso) => void;
     onTeam?: (curso: Curso) => void;
     onSyllabus?: (curso: Curso) => void;
+    onComponente?: (curso: Curso) => void;
   }
 
   let {
@@ -70,6 +71,7 @@
     onDelete = () => {},
     onTeam = () => {},
     onSyllabus = () => {},
+    onComponente = () => {},
   }: Props = $props();
 
   function handleSearch() {
@@ -241,6 +243,14 @@
                   >
                     <BookOpen size={14} />
                     Programa
+                  </button>
+                  <button
+                    onclick={() => onComponente(curso)}
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition font-medium text-xs"
+                    title="Agregar componente"
+                  >
+                    <Layers size={14} />
+                    Componente
                   </button>
                   <button
                     onclick={() => onDelete(curso)}

@@ -45,6 +45,7 @@
     numero_semestre: undefined,
     agno_real: new Date().getFullYear(),
     semestre_real: 1,
+    id_docente_sugerido: undefined,
   });
 
   let isSubmitting = $state(false);
@@ -61,6 +62,7 @@
         numero_semestre: editingCurso.numero_semestre,
         agno_real: editingCurso.asignacionPlan?.agno_planificado || new Date().getFullYear(),
         semestre_real: editingCurso.asignacionPlan?.semestre_planificado || 1,
+        id_docente_sugerido: editingCurso.id_docente_titular,
       };
     } else {
       formData = {
@@ -72,6 +74,7 @@
         numero_semestre: undefined,
         agno_real: new Date().getFullYear(),
         semestre_real: 1,
+        id_docente_sugerido: undefined,
       };
     }
   });
@@ -242,6 +245,26 @@
             bind:value={formData.numero_semestre}
             class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
           />
+        </div>
+
+        <!-- Docente Titular -->
+        <div>
+          <label for="id_docente_sugerido" class="block text-sm font-medium text-gray-700 mb-1">
+            Docente Titular {editingCurso ? '' : '*'}
+          </label>
+          <select
+            id="id_docente_sugerido"
+            bind:value={formData.id_docente_sugerido}
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
+          >
+            <option value={undefined}>Seleccionar docente</option>
+            {#each docentes as doc}
+              <option value={doc.id_docente}>
+                {doc.usuario?.nombre1 ?? ''}
+                {doc.usuario?.apellido1 ?? ''}{doc.cargo ? ` — ${doc.cargo}` : ''}
+              </option>
+            {/each}
+          </select>
         </div>
 
         <!-- Buttons -->

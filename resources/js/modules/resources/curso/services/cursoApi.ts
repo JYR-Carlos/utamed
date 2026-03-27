@@ -6,7 +6,7 @@
  */
 
 import { router } from '@inertiajs/svelte';
-import type { SeccionFormState, TipoSeccion, Docente, CursoFormData } from '../types/curso.types';
+import type { ComponenteFormState, TipoComponente, Docente, CursoFormData } from '../types/curso.types';
 
 /**
  * Opciones para las llamadas HTTP
@@ -55,24 +55,24 @@ export function deleteCurso(id: number, options: ApiOptions = {}) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Carga tipos de sección disponibles para seleccionar.
+ * Carga tipos de componente disponibles para seleccionar.
  */
-export async function loadTiposSeccion(): Promise<TipoSeccion[]> {
+export async function loadTiposComponente(): Promise<TipoComponente[]> {
     try {
-        const response = await fetch('/admin/tipos-seccion');
+        const response = await fetch('/admin/tipos-componente');
         if (!response.ok) {
-            console.error('Error cargando tipos de sección:', response.statusText);
+            console.error('Error cargando tipos de componente:', response.statusText);
             return [];
         }
         return await response.json();
     } catch (error) {
-        console.error('Error cargando tipos de sección:', error);
+        console.error('Error cargando tipos de componente:', error);
         return [];
     }
 }
 
 /**
- * Carga docentes disponibles para asignar a secciones.
+ * Carga docentes disponibles para asignar a componentes.
  */
 export async function loadDocentes(): Promise<Docente[]> {
     try {
@@ -89,34 +89,34 @@ export async function loadDocentes(): Promise<Docente[]> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SECCIONES
+// COMPONENTES
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Crea una nueva sección dentro de un curso.
+ * Crea un nuevo componente dentro de un curso.
  */
-export function createSeccion(cursoId: number, data: Record<string, any>, options: ApiOptions = {}) {
-    router.post(`/admin/cursos/${cursoId}/secciones`, data, {
+export function createComponente(cursoId: number, data: ComponenteFormState, options: ApiOptions = {}) {
+    router.post(`/admin/cursos/${cursoId}/componentes`, data as Record<string, any>, {
         onSuccess: options.onSuccess,
         onError: options.onError,
     });
 }
 
 /**
- * Actualiza una sección existente.
+ * Actualiza un componente existente.
  */
-export function updateSeccion(cursoId: number, seccionId: number, data: Record<string, any>, options: ApiOptions = {}) {
-    router.put(`/admin/cursos/${cursoId}/secciones/${seccionId}`, data, {
+export function updateComponente(cursoId: number, componenteId: number, data: ComponenteFormState, options: ApiOptions = {}) {
+    router.put(`/admin/cursos/${cursoId}/componentes/${componenteId}`, data as Record<string, any>, {
         onSuccess: options.onSuccess,
         onError: options.onError,
     });
 }
 
 /**
- * Elimina una sección (soft delete).
+ * Elimina un componente.
  */
-export function deleteSeccion(cursoId: number, seccionId: number, options: ApiOptions = {}) {
-    router.delete(`/admin/cursos/${cursoId}/secciones/${seccionId}`, {
+export function deleteComponente(cursoId: number, componenteId: number, options: ApiOptions = {}) {
+    router.delete(`/admin/cursos/${cursoId}/componentes/${componenteId}`, {
         onSuccess: options.onSuccess,
         onError: options.onError,
     });

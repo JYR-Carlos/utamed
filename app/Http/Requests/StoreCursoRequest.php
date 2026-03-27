@@ -29,7 +29,12 @@ class StoreCursoRequest extends FormRequest
             'nombre' => 'nullable|string|max:255',
             'fecha_inicio'        => 'nullable|date',
             'indice_grupo'        => 'nullable|integer|min:1',
-            'id_docente_sugerido' => 'nullable|integer|exists:docente,id_docente',
+            'id_docente_sugerido'               => 'required|integer|exists:docente,id_docente',
+            'id_tipo_componente_principal'      => 'required|integer|exists:tipo_componente,id_tipo_componente',
+            'genera_acta'                       => 'nullable|boolean',
+            'aprobacion_obligatoria'            => 'nullable|boolean',
+            'porcentaje_aprobacion'             => 'nullable|numeric|min:0|max:100',
+            'porcentaje_asistencia_obligatoria' => 'nullable|numeric|min:0|max:100',
         ];
     }
 

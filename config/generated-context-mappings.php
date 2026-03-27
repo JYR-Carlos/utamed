@@ -118,14 +118,6 @@ return array (
     'type' => 'hierarchical',
     'paths' => 
     array (
-      0 => 
-      array (
-        0 => 
-        array (
-          'target' => 'Curso',
-          'method' => 'curso',
-        ),
-      ),
     ),
   ),
   'Agenda\\ActividadAsignada' => 

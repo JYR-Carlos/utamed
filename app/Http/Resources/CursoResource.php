@@ -19,11 +19,11 @@ class CursoResource extends JsonResource
             ->where('es_actual', true)
             ->first();
 
-        // Docente de la sección Cátedra (para mostrar en tabla)
-        $seccionCatedra = $this->relationLoaded('secciones')
-            ? $this->secciones->first(fn($s) => optional($s?->tipoSeccion)->tipo === 'Cátedra')
+        // Docente del componente Cátedra (para mostrar en tabla)
+        $componenteCatedra = $this->relationLoaded('componentes')
+            ? $this->componentes->first(fn($c) => optional($c?->tipoComponente)->tipo === 'Cátedra')
             : null;
-        $docenteUser = $seccionCatedra?->docente?->usuario;
+        $docenteUser = $componenteCatedra?->docentesAsignados?->first()?->usuario;
 
         return [
             'id_curso' => $this->id_curso,
@@ -38,6 +38,7 @@ class CursoResource extends JsonResource
             'es_plantilla' => $this->es_plantilla,
             'id_asignacion_plan' => $this->id_asignacion_plan,
             'id_contexto' => $this->id_contexto,
+            'id_docente_titular' => $this->id_docente_titular,
             'id_curso_padre' => $this->id_curso_padre,
             'version_plantilla' => $this->version_plantilla,
             'fecha_creacion' => $this->fecha_creacion,
@@ -51,7 +52,7 @@ class CursoResource extends JsonResource
                 ? trim(($docenteUser->nombre1 ?? '') . ' ' . ($docenteUser->apellido1 ?? ''))
                 : null,
             'docente_email'        => $docenteUser?->email,
-            'docente_cargo'        => $seccionCatedra?->docente?->cargo,
+            'docente_cargo'        => $componenteCatedra?->docentesAsignados?->first()?->cargo,
             // Asignatura details for quick-view modal
             'cod_asignatura'       => $this->asignacionPlan?->asignatura?->cod_asignatura,
             'creditos_sct'         => $this->asignacionPlan?->asignatura?->creditos_sct,
@@ -68,7 +69,7 @@ class CursoResource extends JsonResource
             
             // Relationships
             'asignacionPlan' => new AsignacionPlanResource($this->whenLoaded('asignacionPlan')),
-            'secciones' => SeccionResource::collection($this->whenLoaded('secciones')),
+            'componentes' => ComponenteResource::collection($this->whenLoaded('componentes')),
             'inscripcionCursos' => InscripcionCursoResource::collection($this->whenLoaded('inscripcionCursos')),
         ];
     }

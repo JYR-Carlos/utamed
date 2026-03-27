@@ -3,8 +3,9 @@
 namespace App\Services;
 
 use App\Models\Curso\Curso;
-use App\Models\Curso\Seccion;
-use App\Models\Curso\TipoSeccion;
+use App\Models\Curso\Componente;
+use App\Models\Curso\DocenteComponente;
+use App\Models\Curso\TipoComponente;
 use App\Models\Administrativo\AsignacionPlan;
 use App\Models\Usuario\Contexto;
 use Illuminate\Database\Eloquent\Model;
@@ -34,12 +35,13 @@ class CursoService
 
             // Prepare curso data
             $cursoData = [
-                'cod_curso' => $data['cod_curso'],
-                'nombre' => $data['nombre'] ?? '',
-                'fecha_inicio' => $data['fecha_inicio'] ?? now()->format('Y-m-d'),
-                'id_asignacion_plan' => $asignacionPlan->id_asignacion_plan,
-                'id_contexto' => $contexto->id_contexto,
-                'indice_grupo' => $data['indice_grupo'] ?? 1,
+                'cod_curso'            => $data['cod_curso'],
+                'nombre'               => $data['nombre'] ?? '',
+                'fecha_inicio'         => $data['fecha_inicio'] ?? now()->format('Y-m-d'),
+                'id_asignacion_plan'   => $asignacionPlan->id_asignacion_plan,
+                'id_contexto'          => $contexto->id_contexto,
+                'indice_grupo'         => $data['indice_grupo'] ?? 1,
+                'id_docente_titular'   => $data['id_docente_sugerido'],
             ];
 
             // Set fecha_fin to 6 months after fecha_inicio
@@ -47,18 +49,26 @@ class CursoService
 
             $curso = Curso::create($cursoData);
 
-            // Auto-create "Cátedra" section with suggested docente when provided
-            if (!empty($data['id_docente_sugerido'])) {
-                $tipoSeccion = TipoSeccion::whereRaw("LOWER(tipo) LIKE '%catedra%' OR LOWER(tipo) LIKE '%cátedra%'")->first()
-                    ?? TipoSeccion::first();
+            // Find the chosen component type
+            $tipoComponente = TipoComponente::find($data['id_tipo_componente_principal']);
 
-                if ($tipoSeccion) {
-                    Seccion::create([
-                        'id_curso'        => $curso->id_curso,
-                        'id_tipo_seccion' => $tipoSeccion->id_tipo_seccion,
-                        'id_docente'      => $data['id_docente_sugerido'],
-                    ]);
-                }
+            if ($tipoComponente) {
+                $contextoComponente = $this->createOrUpdateContext($data['cod_curso'] . '-C');
+
+                $componente = Componente::create([
+                    'id_curso'                          => $curso->id_curso,
+                    'id_tipo_componente'                => $tipoComponente->id_tipo_componente,
+                    'id_contexto'                       => $contextoComponente->id_contexto,
+                    'genera_acta'                       => $data['genera_acta'] ?? true,
+                    'aprobacion_obligatoria'            => $data['aprobacion_obligatoria'] ?? false,
+                    'porcentaje_aprobacion'             => $data['porcentaje_aprobacion'] ?? 60.00,
+                    'porcentaje_asistencia_obligatoria' => $data['porcentaje_asistencia_obligatoria'] ?? 75.00,
+                ]);
+
+                DocenteComponente::create([
+                    'id_componente' => $componente->id_componente,
+                    'id_docente'    => $data['id_docente_sugerido'],
+                ]);
             }
 
             return $curso;
@@ -87,13 +97,17 @@ class CursoService
 
             // Prepare update data
             $updateData = [
-                'cod_curso' => $data['cod_curso'],
-                'nombre' => $data['nombre'] ?? '',
-                'fecha_inicio' => $data['fecha_inicio'] ?? $curso->fecha_inicio,
+                'cod_curso'          => $data['cod_curso'],
+                'nombre'             => $data['nombre'] ?? '',
+                'fecha_inicio'       => $data['fecha_inicio'] ?? $curso->fecha_inicio,
                 'id_asignacion_plan' => $asignacionPlan->id_asignacion_plan,
-                'id_contexto' => $contexto->id_contexto,
-                'indice_grupo' => $data['indice_grupo'] ?? $curso->indice_grupo,
+                'id_contexto'        => $contexto->id_contexto,
+                'indice_grupo'       => $data['indice_grupo'] ?? $curso->indice_grupo,
             ];
+
+            if (!empty($data['id_docente_sugerido'])) {
+                $updateData['id_docente_titular'] = $data['id_docente_sugerido'];
+            }
 
             // Recalculate fecha_fin if fecha_inicio changed
             if ($updateData['fecha_inicio'] !== $curso->fecha_inicio) {

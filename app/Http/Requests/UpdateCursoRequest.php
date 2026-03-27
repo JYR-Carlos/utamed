@@ -31,6 +31,7 @@ class UpdateCursoRequest extends FormRequest
             'nombre' => 'nullable|string|max:255',
             'fecha_inicio' => 'nullable|date',
             'indice_grupo' => 'nullable|integer|min:1',
+            'id_docente_sugerido' => 'nullable|integer|exists:docente,id_docente',
         ];
     }
 

@@ -6,13 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCursoRequest;
 use App\Http\Requests\UpdateCursoRequest;
 use App\Http\Resources\CursoResource;
-use App\Http\Resources\SeccionResource;
+use App\Http\Resources\ComponenteResource;
 use App\Models\Curso\Curso;
-use App\Models\Curso\Seccion;
+use App\Models\Curso\Componente;
 use App\Models\Administrativo\Asignatura;
 use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Plan;
-use App\Models\Curso\TipoSeccion;
+use App\Models\Curso\TipoComponente;
 use App\Models\Usuario\Docente;
 use App\Services\CursoService;
 use Illuminate\Http\Request;
@@ -51,8 +51,8 @@ class CursoController extends Controller
             ->with([
                 'asignacionPlan.asignatura',
                 'asignacionPlan.plan.carrera',
-                'secciones.docente.usuario',
-                'secciones.tipoSeccion',
+                'componentes.tipoComponente',
+                'componentes.docentesAsignados.usuario',
             ])
             ->when($request->search, function ($query, $search) {
                 $query->where('nombre', 'ilike', "%{$search}%")
@@ -67,14 +67,14 @@ class CursoController extends Controller
             ->withQueryString();
 
         $planes = Plan::with('carrera')->get();
-        $tipos_seccion = TipoSeccion::all();
+        $tipos_componente = TipoComponente::all();
         $carreras = Carrera::orderBy('nombre')->get(['id_carrera', 'nombre', 'jornada', 'sede']);
 
         return Inertia::render('admin/Cursos', [
             'cursos' => CursoResource::collection($cursos),
             'planes' => $planes,
             'carreras' => $carreras,
-            'tipos_seccion' => $tipos_seccion,
+            'tipos_componente' => $tipos_componente,
             'availableRoles' => [],
             'availablePermissions' => [],
             'filters' => $request->only(['search'])
@@ -124,28 +124,28 @@ class CursoController extends Controller
                 'id_curso' => $curso->id_curso
             ]);
             
-            $secciones = Seccion::where('id_curso', $curso->id_curso)
-                ->with(['docente.usuario', 'tipoSeccion'])
+            $componentes = Componente::where('id_curso', $curso->id_curso)
+                ->with(['docentesAsignados.usuario', 'tipoComponente'])
                 ->get();
             
-            Log::info("CursoController.show() - secciones cargadas", [
-                'cantidad_secciones' => $secciones->count()
+            Log::info("CursoController.show() - componentes cargados", [
+                'cantidad_componentes' => $componentes->count()
             ]);
             
             Log::info("CursoController.show() - transformando con resources");
             $cursoResource = new CursoResource($curso);
             Log::info("CursoController.show() - CursoResource creado");
             
-            $seccionesResource = SeccionResource::collection($secciones);
-            Log::info("CursoController.show() - SeccionResource collection creada");
+            $componentesResource = ComponenteResource::collection($componentes);
+            Log::info("CursoController.show() - ComponenteResource collection creada");
 
-            $tiposSeccion = TipoSeccion::all();
-            Log::info("CursoController.show() - tipos sección cargados");
+            $tiposComponente = TipoComponente::all();
+            Log::info("CursoController.show() - tipos componente cargados");
 
             return response()->json([
                 'curso' => $cursoResource,
-                'secciones' => $seccionesResource,
-                'tipos_seccion' => $tiposSeccion
+                'componentes' => $componentesResource,
+                'tipos_componente' => $tiposComponente
             ]);
         } catch (\Exception $e) {
             Log::error("❌ Error CRÍTICO en CursoController.show()", [
@@ -227,7 +227,7 @@ class CursoController extends Controller
     public function getDocentesSugeridos(Asignatura $asignatura)
     {
         $historicos = Docente::with('usuario')
-            ->whereHas('secciones.curso.asignacionPlan', fn ($q) =>
+            ->whereHas('docenteComponentes.componente.curso.asignacionPlan', fn ($q) =>
                 $q->where('id_asignatura', $asignatura->id_asignatura)
             )
             ->orderBy('id_docente')

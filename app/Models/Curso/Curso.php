@@ -27,6 +27,7 @@ class Curso extends BaseCurso
         'estado_acta',
         'es_plantilla',
         'id_asignacion_plan',
+        'id_docente_titular',
         'id_curso_padre',
         'version_plantilla',
         'letra_grupo',

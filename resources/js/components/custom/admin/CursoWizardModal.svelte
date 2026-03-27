@@ -8,7 +8,7 @@
    *  3. Seleccionar Asignatura (del plan, agrupada por año/semestre)
    *  4. Seleccionar Docente sugerido + ingresar datos del curso
    */
-  import type { Carrera, CursoFormData } from '@/types/admin.types';
+  import type { Carrera, CursoFormData, TipoComponente } from '@/types/admin.types';
 
   interface Plan {
     id_plan: number;
@@ -37,18 +37,20 @@
   interface Props {
     isOpen: boolean;
     carreras: Carrera[];
+    tiposComponente: TipoComponente[];
     isLoading: boolean;
     onClose: () => void;
     onSubmit: (data: CursoFormData & { id_docente_sugerido?: number }) => void;
   }
 
-  let { isOpen, carreras, isLoading, onClose, onSubmit }: Props = $props();
+  let { isOpen, carreras, tiposComponente, isLoading, onClose, onSubmit }: Props = $props();
 
   // ── Step state ──────────────────────────────────────────────────────────
   let selectedCarrera = $state<Carrera | null>(null);
   let selectedPlan = $state<Plan | null>(null);
   let selectedAsig = $state<AsignaturaOption | null>(null);
   let selectedDocente = $state<DocenteOption | null>(null);
+  let selectedTipoComponente = $state<TipoComponente | null>(null);
 
   // ── Fetched cascading data ───────────────────────────────────────────────
   let planes = $state<Plan[]>([]);
@@ -67,6 +69,11 @@
   let agnoReal = $state(new Date().getFullYear());
   let semestreReal = $state<1 | 2>(1);
   let asigSearch = $state('');
+  // Componente (Cátedra) settings
+  let generaActa = $state(true);
+  let aprobacionObligatoria = $state(false);
+  let porcentajeAprobacion = $state<number>(60);
+  let porcentajeAsistencia = $state<number>(75);
 
   // ── Computed current step (1–4) ──────────────────────────────────────────
   const currentStep = $derived(!selectedCarrera ? 1 : !selectedPlan ? 2 : !selectedAsig ? 3 : 4);
@@ -76,7 +83,9 @@
     const map: Record<number, { s1: AsignaturaOption[]; s2: AsignaturaOption[] }> = {};
     for (const a of asignaturas) {
       if (!map[a.agno_planificado]) map[a.agno_planificado] = { s1: [], s2: [] };
-      (a.semestre_planificado === 1 ? map[a.agno_planificado].s1 : map[a.agno_planificado].s2).push(a);
+      (a.semestre_planificado === 1 ? map[a.agno_planificado].s1 : map[a.agno_planificado].s2).push(
+        a,
+      );
     }
     return map;
   });
@@ -87,14 +96,22 @@
     if (!term) return asigByYear;
     const result: Record<number, { s1: AsignaturaOption[]; s2: AsignaturaOption[] }> = {};
     for (const [yr, sems] of Object.entries(asigByYear)) {
-      const s1 = sems.s1.filter((a) => a.cod_asignatura.toLowerCase().includes(term) || a.nombre.toLowerCase().includes(term));
-      const s2 = sems.s2.filter((a) => a.cod_asignatura.toLowerCase().includes(term) || a.nombre.toLowerCase().includes(term));
+      const s1 = sems.s1.filter(
+        (a) =>
+          a.cod_asignatura.toLowerCase().includes(term) || a.nombre.toLowerCase().includes(term),
+      );
+      const s2 = sems.s2.filter(
+        (a) =>
+          a.cod_asignatura.toLowerCase().includes(term) || a.nombre.toLowerCase().includes(term),
+      );
       if (s1.length || s2.length) result[Number(yr)] = { s1, s2 };
     }
     return result;
   });
 
-  const filteredCount = $derived(Object.values(filteredAsigByYear).reduce((n, s) => n + s.s1.length + s.s2.length, 0));
+  const filteredCount = $derived(
+    Object.values(filteredAsigByYear).reduce((n, s) => n + s.s1.length + s.s2.length, 0),
+  );
 
   // ── Cascade fetchers ────────────────────────────────────────────────────
   async function onSelectCarrera(carrera: Carrera) {
@@ -166,6 +183,7 @@
       selectedPlan = null;
       selectedAsig = null;
       selectedDocente = null;
+      selectedTipoComponente = null;
       planes = [];
       asignaturas = [];
       historicDocentes = [];
@@ -176,13 +194,17 @@
       agnoReal = new Date().getFullYear();
       semestreReal = 1;
       asigSearch = '';
+      generaActa = true;
+      aprobacionObligatoria = false;
+      porcentajeAprobacion = 60;
+      porcentajeAsistencia = 75;
     }
   });
 
   // ── Submit ───────────────────────────────────────────────────────────────
   function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
-    if (!selectedAsig || !selectedPlan || codCurso === '') return;
+    if (!selectedAsig || !selectedPlan || codCurso === '' || !selectedDocente || !selectedTipoComponente) return;
 
     onSubmit({
       id_asignatura: selectedAsig.id_asignatura,
@@ -194,6 +216,11 @@
       agno_real: agnoReal,
       semestre_real: semestreReal,
       id_docente_sugerido: selectedDocente?.id_docente,
+      id_tipo_componente_principal: selectedTipoComponente.id_tipo_componente,
+      genera_acta: generaActa,
+      aprobacion_obligatoria: aprobacionObligatoria,
+      porcentaje_aprobacion: porcentajeAprobacion,
+      porcentaje_asistencia_obligatoria: porcentajeAsistencia,
     } as any);
   }
 
@@ -265,259 +292,264 @@
       {/each}
     </div>
 
-    <!-- ── Scrollable body ── -->
-    <form class="wiz-body" onsubmit={handleSubmit}>
-      <!-- ══ Step 1: Carrera ══ -->
-      <section class="wiz-step" class:collapsed={currentStep > 1}>
-        <div class="step-head">
-          <span class="step-num" class:filled={currentStep > 1}>1</span>
-          <span class="step-head-label">Carrera</span>
-          {#if selectedCarrera}
-            <span class="step-chip">{selectedCarrera.nombre}</span>
-            <button
-              type="button"
-              class="step-change"
-              onclick={() => {
-                selectedCarrera = null;
-                selectedPlan = null;
-                selectedAsig = null;
-                selectedDocente = null;
-                planes = [];
-                asignaturas = [];
-              }}
-            >
-              Cambiar
-            </button>
-          {/if}
-        </div>
-
-        {#if currentStep === 1}
-          <div class="step-body">
-            <div class="option-grid">
-              {#each carreras as c}
-                <button type="button" class="option-card" onclick={() => onSelectCarrera(c)}>
-                  <span class="option-card-name">{c.nombre}</span>
-                  {#if c.sede || c.jornada}
-                    <span class="option-card-meta">{[c.sede, c.jornada].filter(Boolean).join(' · ')}</span>
-                  {/if}
-                </button>
-              {/each}
-            </div>
+    <!-- ── Scrollable body + footer ── -->
+    <form class="wiz-form-layout" onsubmit={handleSubmit}>
+      <div class="wiz-body">
+        <!-- ══ Step 1: Carrera ══ -->
+        <section class="wiz-step" class:collapsed={currentStep > 1}>
+          <div class="step-head">
+            <span class="step-num" class:filled={currentStep > 1}>1</span>
+            <span class="step-head-label">Carrera</span>
+            {#if selectedCarrera}
+              <span class="step-chip">{selectedCarrera.nombre}</span>
+              <button
+                type="button"
+                class="step-change"
+                onclick={() => {
+                  selectedCarrera = null;
+                  selectedPlan = null;
+                  selectedAsig = null;
+                  selectedDocente = null;
+                  planes = [];
+                  asignaturas = [];
+                }}
+              >
+                Cambiar
+              </button>
+            {/if}
           </div>
-        {/if}
-      </section>
 
-      <!-- ══ Step 2: Plan ══ -->
-      <section class="wiz-step" class:collapsed={currentStep > 2} class:locked={currentStep < 2}>
-        <div class="step-head">
-          <span class="step-num" class:filled={currentStep > 2}>2</span>
-          <span class="step-head-label">Plan de Estudio</span>
-          {#if selectedPlan}
-            <span class="step-chip">{selectedPlan.carrera?.nombre ?? ''} {selectedPlan.agno} v{selectedPlan.version_plan}</span>
-            <button
-              type="button"
-              class="step-change"
-              onclick={() => {
-                selectedPlan = null;
-                selectedAsig = null;
-                selectedDocente = null;
-                asignaturas = [];
-              }}
-            >
-              Cambiar
-            </button>
-          {/if}
-        </div>
-
-        {#if currentStep === 2}
-          <div class="step-body">
-            {#if loadingPlanes}
-              <div class="inline-spinner"></div>
-            {:else if planes.length === 0}
-              <p class="step-empty">Esta carrera no tiene planes de estudio activos.</p>
-            {:else}
-              <div class="option-list">
-                {#each planes as p}
-                  <button type="button" class="option-row" onclick={() => onSelectPlan(p)}>
-                    <span class="option-row-icon">📋</span>
-                    <div>
-                      <div class="option-row-name">Plan {p.agno} — versión {p.version_plan}</div>
-                      {#if p.carrera}
-                        <div class="option-row-sub">{p.carrera.nombre}</div>
-                      {/if}
-                    </div>
-                    <svg
-                      class="option-row-arrow"
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="m9 18 6-6-6-6" />
-                    </svg>
+          {#if currentStep === 1}
+            <div class="step-body">
+              <div class="option-grid">
+                {#each carreras as c}
+                  <button type="button" class="option-card" onclick={() => onSelectCarrera(c)}>
+                    <span class="option-card-name">{c.nombre}</span>
+                    {#if c.sede || c.jornada}
+                      <span class="option-card-meta"
+                        >{[c.sede, c.jornada].filter(Boolean).join(' · ')}</span
+                      >
+                    {/if}
                   </button>
                 {/each}
               </div>
-            {/if}
-          </div>
-        {/if}
-      </section>
-
-      <!-- ══ Step 3: Asignatura ══ -->
-      <section class="wiz-step" class:collapsed={currentStep > 3} class:locked={currentStep < 3}>
-        <div class="step-head">
-          <span class="step-num" class:filled={currentStep > 3}>3</span>
-          <span class="step-head-label">Asignatura</span>
-          {#if selectedAsig}
-            <span class="step-chip">{selectedAsig.cod_asignatura} – {selectedAsig.nombre}</span>
-            <button
-              type="button"
-              class="step-change"
-              onclick={() => {
-                selectedAsig = null;
-                selectedDocente = null;
-                historicDocentes = [];
-                otrosDocentes = [];
-              }}
-            >
-              Cambiar
-            </button>
+            </div>
           {/if}
-        </div>
+        </section>
 
-        {#if currentStep === 3}
-          <div class="step-body">
-            {#if loadingAsig}
-              <div class="inline-spinner"></div>
-            {:else if asignaturas.length === 0}
-              <p class="step-empty">Este plan no tiene asignaturas asignadas.</p>
-            {:else}
-              <div class="asig-search-bar">
-                <input type="search" bind:value={asigSearch} placeholder="Buscar por código o nombre…" class="asig-search-input" />
-              </div>
-              <div class="asig-scroll-area">
-                {#if filteredCount === 0}
-                  <p class="step-empty">No se encontraron resultados para &ldquo;{asigSearch}&rdquo;.</p>
-                {:else}
-                  <div class="asig-groups">
-                    {#each Object.entries(filteredAsigByYear).sort(([a], [b]) => Number(a) - Number(b)) as [yr, sems]}
-                      <div class="asig-year-group">
-                        <div class="asig-year-badge">Año {yr}</div>
-                        {#each [{ label: 'Semestre 1', list: sems.s1 }, { label: 'Semestre 2', list: sems.s2 }] as sem}
-                          {#if sem.list.length > 0}
-                            <div class="asig-sem-label">{sem.label}</div>
-                            <div class="asig-cards">
-                              {#each sem.list as a}
-                                <button type="button" class="asig-card" onclick={() => onSelectAsig(a)}>
-                                  <div class="asig-card-top">
-                                    <span class="asig-card-code">{a.cod_asignatura}</span>
-                                    {#if a.creditos_sct}
-                                      <span class="asig-card-sct">{a.creditos_sct} SCT</span>
-                                    {/if}
-                                  </div>
-                                  <div class="asig-card-name">{a.nombre}</div>
-                                  {#if a.tipo_ramo}
-                                    <div class="asig-card-tipo">{a.tipo_ramo}</div>
-                                  {/if}
-                                </button>
-                              {/each}
-                            </div>
-                          {/if}
-                        {/each}
-                      </div>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
+        <!-- ══ Step 2: Plan ══ -->
+        <section class="wiz-step" class:collapsed={currentStep > 2} class:locked={currentStep < 2}>
+          <div class="step-head">
+            <span class="step-num" class:filled={currentStep > 2}>2</span>
+            <span class="step-head-label">Plan de Estudio</span>
+            {#if selectedPlan}
+              <span class="step-chip"
+                >{selectedPlan.carrera?.nombre ?? ''}
+                {selectedPlan.agno} v{selectedPlan.version_plan}</span
+              >
+              <button
+                type="button"
+                class="step-change"
+                onclick={() => {
+                  selectedPlan = null;
+                  selectedAsig = null;
+                  selectedDocente = null;
+                  asignaturas = [];
+                }}
+              >
+                Cambiar
+              </button>
             {/if}
           </div>
-        {/if}
-      </section>
 
-      <!-- ══ Step 4: Docente + Datos ══ -->
-      <section class="wiz-step" class:locked={currentStep < 4}>
-        <div class="step-head">
-          <span class="step-num" class:filled={false}>4</span>
-          <span class="step-head-label">Docente y Datos del Curso</span>
-        </div>
-
-        {#if currentStep === 4}
-          <div class="step-body">
-            <!-- Docentes sugeridos -->
-            <div class="docentes-section">
-              <p class="docentes-hint">
-                {#if loadingDocentes}
-                  Buscando docentes sugeridos...
-                {:else if historicDocentes.length > 0}
-                  <strong>{historicDocentes.length}</strong> docente{historicDocentes.length > 1 ? 's han' : ' ha'} impartido esta asignatura anteriormente.
-                {:else}
-                  No hay historial previo. Selecciona cualquier docente.
-                {/if}
-              </p>
-
-              {#if loadingDocentes}
+          {#if currentStep === 2}
+            <div class="step-body">
+              {#if loadingPlanes}
                 <div class="inline-spinner"></div>
+              {:else if planes.length === 0}
+                <p class="step-empty">Esta carrera no tiene planes de estudio activos.</p>
               {:else}
-                <!-- Docentes históricos first -->
-                {#if historicDocentes.length > 0}
-                  <div class="docentes-group-label">
-                    <span class="badge-historico">Historial</span>
-                    Docentes que ya han impartido esta asignatura
-                  </div>
-                  <div class="docentes-list">
-                    {#each historicDocentes as d}
-                      <button
-                        type="button"
-                        class="docente-row"
-                        class:selected={selectedDocente?.id_docente === d.id_docente}
-                        onclick={() => (selectedDocente = selectedDocente?.id_docente === d.id_docente ? null : d)}
-                      >
-                        <div class="docente-avatar">{(d.nombre_completo?.[0] ?? '?').toUpperCase()}</div>
-                        <div class="docente-info">
-                          <div class="docente-name">{d.nombre_completo}</div>
-                          {#if d.cargo}<div class="docente-meta">{d.cargo}</div>{/if}
-                        </div>
-                        {#if selectedDocente?.id_docente === d.id_docente}
-                          <svg
-                            class="docente-check"
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
+                <div class="option-list">
+                  {#each planes as p}
+                    <button type="button" class="option-row" onclick={() => onSelectPlan(p)}>
+                      <span class="option-row-icon">📋</span>
+                      <div>
+                        <div class="option-row-name">Plan {p.agno} — versión {p.version_plan}</div>
+                        {#if p.carrera}
+                          <div class="option-row-sub">{p.carrera.nombre}</div>
                         {/if}
-                      </button>
-                    {/each}
-                  </div>
-                {/if}
+                      </div>
+                      <svg
+                        class="option-row-arrow"
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m9 18 6-6-6-6" />
+                      </svg>
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {/if}
+        </section>
 
-                <!-- Other docentes in collapsible or always shown -->
-                {#if otrosDocentes.length > 0}
-                  <details class="otros-docentes">
-                    <summary class="otros-label">
-                      Otros docentes <span class="otros-count">({otrosDocentes.length})</span>
-                    </summary>
-                    <div class="docentes-list mt-2">
-                      {#each otrosDocentes as d}
+        <!-- ══ Step 3: Asignatura ══ -->
+        <section class="wiz-step" class:collapsed={currentStep > 3} class:locked={currentStep < 3}>
+          <div class="step-head">
+            <span class="step-num" class:filled={currentStep > 3}>3</span>
+            <span class="step-head-label">Asignatura</span>
+            {#if selectedAsig}
+              <span class="step-chip">{selectedAsig.cod_asignatura} – {selectedAsig.nombre}</span>
+              <button
+                type="button"
+                class="step-change"
+                onclick={() => {
+                  selectedAsig = null;
+                  selectedDocente = null;
+                  historicDocentes = [];
+                  otrosDocentes = [];
+                }}
+              >
+                Cambiar
+              </button>
+            {/if}
+          </div>
+
+          {#if currentStep === 3}
+            <div class="step-body">
+              {#if loadingAsig}
+                <div class="inline-spinner"></div>
+              {:else if asignaturas.length === 0}
+                <p class="step-empty">Este plan no tiene asignaturas asignadas.</p>
+              {:else}
+                <div class="asig-search-bar">
+                  <input
+                    type="search"
+                    bind:value={asigSearch}
+                    placeholder="Buscar por código o nombre…"
+                    class="asig-search-input"
+                  />
+                </div>
+                <div class="asig-scroll-area">
+                  {#if filteredCount === 0}
+                    <p class="step-empty">
+                      No se encontraron resultados para &ldquo;{asigSearch}&rdquo;.
+                    </p>
+                  {:else}
+                    <div class="asig-groups">
+                      {#each Object.entries(filteredAsigByYear).sort(([a], [b]) => Number(a) - Number(b)) as [yr, sems]}
+                        <div class="asig-year-group">
+                          <div class="asig-year-badge">Año {yr}</div>
+                          {#each [{ label: 'Semestre 1', list: sems.s1 }, { label: 'Semestre 2', list: sems.s2 }] as sem}
+                            {#if sem.list.length > 0}
+                              <div class="asig-sem-label">{sem.label}</div>
+                              <div class="asig-cards">
+                                {#each sem.list as a}
+                                  <button
+                                    type="button"
+                                    class="asig-card"
+                                    onclick={() => onSelectAsig(a)}
+                                  >
+                                    <div class="asig-card-top">
+                                      <span class="asig-card-code">{a.cod_asignatura}</span>
+                                      {#if a.creditos_sct}
+                                        <span class="asig-card-sct">{a.creditos_sct} SCT</span>
+                                      {/if}
+                                    </div>
+                                    <div class="asig-card-name">{a.nombre}</div>
+                                    {#if a.tipo_ramo}
+                                      <div class="asig-card-tipo">{a.tipo_ramo}</div>
+                                    {/if}
+                                  </button>
+                                {/each}
+                              </div>
+                            {/if}
+                          {/each}
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+          {/if}
+        </section>
+
+        <!-- ══ Step 4: Docente + Datos ══ -->
+        <section class="wiz-step" class:locked={currentStep < 4}>
+          <div class="step-head">
+            <span class="step-num" class:filled={false}>4</span>
+            <span class="step-head-label">Docente y Datos del Curso</span>
+          </div>
+
+          {#if currentStep === 4}
+            <div class="step-body">
+              <div class="step4-scroll">
+
+              <!-- Tipo de Componente Principal -->
+              <div class="tipo-comp-section">
+                <p class="tipo-comp-label">¿Qué tipo de componente es el principal?</p>
+                <div class="tipo-comp-list">
+                  {#each tiposComponente as tc}
+                    <button
+                      type="button"
+                      class="tipo-comp-btn"
+                      class:selected={selectedTipoComponente?.id_tipo_componente === tc.id_tipo_componente}
+                      onclick={() => (selectedTipoComponente = tc)}
+                    >
+                      {tc.tipo}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+
+              <!-- Divider -->
+              <div class="fields-divider"></div>
+
+              <!-- Docentes sugeridos -->
+              <div class="docentes-section">
+                <p class="docentes-hint">
+                  {#if loadingDocentes}
+                    Buscando docentes sugeridos...
+                  {:else if historicDocentes.length > 0}
+                    <strong>{historicDocentes.length}</strong> docente{historicDocentes.length > 1
+                      ? 's han'
+                      : ' ha'} impartido esta asignatura anteriormente.
+                  {:else}
+                    No hay historial previo. Selecciona cualquier docente.
+                  {/if}
+                </p>
+
+                {#if loadingDocentes}
+                  <div class="inline-spinner"></div>
+                {:else}
+                  <!-- Docentes históricos first -->
+                  {#if historicDocentes.length > 0}
+                    <div class="docentes-group-label">
+                      <span class="badge-historico">Historial</span>
+                      Docentes que ya han impartido esta asignatura
+                    </div>
+                    <div class="docentes-list">
+                      {#each historicDocentes as d}
                         <button
                           type="button"
                           class="docente-row"
                           class:selected={selectedDocente?.id_docente === d.id_docente}
-                          onclick={() => (selectedDocente = selectedDocente?.id_docente === d.id_docente ? null : d)}
+                          onclick={() =>
+                            (selectedDocente =
+                              selectedDocente?.id_docente === d.id_docente ? null : d)}
                         >
-                          <div class="docente-avatar alt">{(d.nombre_completo?.[0] ?? '?').toUpperCase()}</div>
+                          <div class="docente-avatar">
+                            {(d.nombre_completo?.[0] ?? '?').toUpperCase()}
+                          </div>
                           <div class="docente-info">
                             <div class="docente-name">{d.nombre_completo}</div>
                             {#if d.cargo}<div class="docente-meta">{d.cargo}</div>{/if}
@@ -541,53 +573,182 @@
                         </button>
                       {/each}
                     </div>
-                  </details>
+                  {/if}
+
+                  <!-- Other docentes in collapsible or always shown -->
+                  {#if otrosDocentes.length > 0}
+                    <details class="otros-docentes">
+                      <summary class="otros-label">
+                        Otros docentes <span class="otros-count">({otrosDocentes.length})</span>
+                      </summary>
+                      <div class="docentes-list mt-2">
+                        {#each otrosDocentes as d}
+                          <button
+                            type="button"
+                            class="docente-row"
+                            class:selected={selectedDocente?.id_docente === d.id_docente}
+                            onclick={() =>
+                              (selectedDocente =
+                                selectedDocente?.id_docente === d.id_docente ? null : d)}
+                          >
+                            <div class="docente-avatar alt">
+                              {(d.nombre_completo?.[0] ?? '?').toUpperCase()}
+                            </div>
+                            <div class="docente-info">
+                              <div class="docente-name">{d.nombre_completo}</div>
+                              {#if d.cargo}<div class="docente-meta">{d.cargo}</div>{/if}
+                            </div>
+                            {#if selectedDocente?.id_docente === d.id_docente}
+                              <svg
+                                class="docente-check"
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            {/if}
+                          </button>
+                        {/each}
+                      </div>
+                    </details>
+                  {/if}
                 {/if}
-              {/if}
+              </div>
+
+              <!-- Divider -->
+              <div class="fields-divider"></div>
+
+              <!-- Remaining fields -->
+              <div class="fields-grid">
+                <div class="field">
+                  <label class="field-label" for="wiz-cod-curso">Código del Curso *</label>
+                  <input
+                    id="wiz-cod-curso"
+                    type="number"
+                    bind:value={codCurso}
+                    class="field-input"
+                    placeholder="Ej: 12345"
+                    required
+                  />
+                </div>
+
+                <div class="field">
+                  <label class="field-label" for="wiz-nombre">Nombre del Curso</label>
+                  <input
+                    id="wiz-nombre"
+                    type="text"
+                    bind:value={nombre}
+                    class="field-input"
+                    placeholder="Nombre personalizado (opcional)"
+                  />
+                </div>
+
+                <div class="field">
+                  <label class="field-label" for="wiz-fecha">Fecha de Inicio</label>
+                  <input id="wiz-fecha" type="date" bind:value={fechaInicio} class="field-input" />
+                </div>
+
+                <div class="field">
+                  <label class="field-label" for="wiz-agno">Año Real *</label>
+                  <input
+                    id="wiz-agno"
+                    type="number"
+                    bind:value={agnoReal}
+                    class="field-input"
+                    min="2000"
+                    max="2100"
+                    required
+                  />
+                </div>
+
+                <div class="field">
+                  <label class="field-label" for="wiz-semestre">Semestre Real *</label>
+                  <select id="wiz-semestre" bind:value={semestreReal} class="field-input" required>
+                    <option value={1}>1</option>
+                    <option value={2}>2</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Componente (Cátedra) settings -->
+              <div class="fields-section-title">Configuración del Componente</div>
+              <div class="fields-grid">
+                <div class="field">
+                  <label class="field-label" for="wiz-pct-aprobacion">% Aprobación *</label>
+                  <input
+                    id="wiz-pct-aprobacion"
+                    type="number"
+                    bind:value={porcentajeAprobacion}
+                    class="field-input"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    required
+                  />
+                </div>
+
+                <div class="field">
+                  <label class="field-label" for="wiz-pct-asistencia">% Asistencia Obligatoria *</label>
+                  <input
+                    id="wiz-pct-asistencia"
+                    type="number"
+                    bind:value={porcentajeAsistencia}
+                    class="field-input"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    required
+                  />
+                </div>
+
+                <div class="field field-checkbox">
+                  <label class="field-check-label">
+                    <input type="checkbox" bind:checked={generaActa} class="field-check" />
+                    Genera Acta
+                  </label>
+                </div>
+
+                <div class="field field-checkbox">
+                  <label class="field-check-label">
+                    <input type="checkbox" bind:checked={aprobacionObligatoria} class="field-check" />
+                    Aprobación Obligatoria
+                  </label>
+                </div>
+              </div>
+              </div>
             </div>
+          {/if}
+        </section>
+      </div>
 
-            <!-- Divider -->
-            <div class="fields-divider"></div>
-
-            <!-- Remaining fields -->
-            <div class="fields-grid">
-              <div class="field">
-                <label class="field-label" for="wiz-cod-curso">Código del Curso *</label>
-                <input id="wiz-cod-curso" type="number" bind:value={codCurso} class="field-input" placeholder="Ej: 12345" required />
-              </div>
-
-              <div class="field">
-                <label class="field-label" for="wiz-nombre">Nombre del Curso</label>
-                <input id="wiz-nombre" type="text" bind:value={nombre} class="field-input" placeholder="Nombre personalizado (opcional)" />
-              </div>
-
-              <div class="field">
-                <label class="field-label" for="wiz-fecha">Fecha de Inicio</label>
-                <input id="wiz-fecha" type="date" bind:value={fechaInicio} class="field-input" />
-              </div>
-
-              <div class="field">
-                <label class="field-label" for="wiz-agno">Año Real *</label>
-                <input id="wiz-agno" type="number" bind:value={agnoReal} class="field-input" min="2000" max="2100" required />
-              </div>
-
-              <div class="field">
-                <label class="field-label" for="wiz-semestre">Semestre Real *</label>
-                <select id="wiz-semestre" bind:value={semestreReal} class="field-input" required>
-                  <option value={1}>1</option>
-                  <option value={2}>2</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        {/if}
-      </section>
-
-      <!-- ── Footer ── -->
+      <!-- ── Footer (inside form so submit works) ── -->
       {#if currentStep === 4}
+        {#if !selectedTipoComponente}
+          <p class="docente-required-hint">Debes seleccionar el tipo de componente principal.</p>
+        {:else if !selectedDocente}
+          <p class="docente-required-hint">Debes seleccionar un docente para continuar.</p>
+        {/if}
         <div class="wiz-footer">
-          <button type="button" class="btn-cancel" onclick={onClose} disabled={isLoading}> Cancelar </button>
-          <button type="submit" class="btn-submit" disabled={isLoading || !selectedAsig || !selectedPlan || codCurso === ''}>
+          <button type="button" class="btn-cancel" onclick={onClose} disabled={isLoading}>
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            class="btn-submit"
+            disabled={isLoading ||
+              !selectedAsig ||
+              !selectedPlan ||
+              codCurso === '' ||
+              !selectedDocente ||
+              !selectedTipoComponente}
+          >
             {#if isLoading}
               <span class="btn-spinner"></span>
               Creando...
@@ -637,6 +798,7 @@
     flex-direction: column;
     overflow: hidden;
     animation: slideUp 0.18s ease;
+    padding-bottom: 0;
   }
 
   @keyframes slideUp {
@@ -754,7 +916,16 @@
     background: #3b82f6;
   }
 
-  /* ── Body ── */
+  /* ── Form layout wrapper ── */
+  .wiz-form-layout {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Body (scrollable) ── */
   .wiz-body {
     flex: 1;
     overflow-y: auto;
@@ -762,6 +933,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    min-height: 0;
   }
 
   /* ── Steps ── */
@@ -854,6 +1026,16 @@
   .step-body {
     padding: 1rem;
   }
+
+  /* Step 4 explicit scroll area — same pattern as .asig-scroll-area */
+  .step4-scroll {
+    max-height: 360px;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
+  }
+
   .step-empty {
     color: #9ca3af;
     font-size: 0.875rem;
@@ -1056,6 +1238,10 @@
 
   /* ── Docentes ── */
 
+  .docentes-section {
+    margin-bottom: 0.75rem;
+  }
+
   .docentes-hint {
     font-size: 0.8125rem;
     color: #374151;
@@ -1180,6 +1366,59 @@
   }
 
   /* ── Fields ── */
+  /* ── Tipo Componente selector ── */
+  .tipo-comp-section {
+    margin-bottom: 0.5rem;
+  }
+
+  .tipo-comp-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.625rem;
+  }
+
+  .tipo-comp-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .tipo-comp-btn {
+    padding: 0.5rem 1.125rem;
+    border: 2px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+  }
+
+  .tipo-comp-btn:hover {
+    border-color: #6366f1;
+    color: #4f46e5;
+  }
+
+  .tipo-comp-btn.selected {
+    border-color: #6366f1;
+    background: #eef2ff;
+    color: #4338ca;
+    font-weight: 700;
+  }
+
+  .fields-section-title {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 1rem 0 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e5e7eb;
+  }
+
   .fields-divider {
     border-top: 1px solid #e5e7eb;
     margin: 1rem 0;
@@ -1228,14 +1467,49 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 
+  .field-checkbox {
+    display: flex;
+    align-items: center;
+    padding-top: 1.5rem;
+  }
+
+  .field-check-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .field-check {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #3b82f6;
+  }
+
   /* ── Footer ── */
+  .docente-required-hint {
+    font-size: 0.8rem;
+    color: #b91c1c;
+    margin: 0.25rem 0 0;
+    padding: 0.4rem 0.75rem;
+    background: #fef2f2;
+    border-radius: 6px;
+    border: 1px solid #fecaca;
+  }
+
   .wiz-footer {
     display: flex;
     justify-content: flex-end;
     gap: 0.75rem;
-    padding-top: 1rem;
+    padding: 1rem 1.5rem;
     border-top: 1px solid #e5e7eb;
-    margin-top: 0.5rem;
+    background: #fff;
+    flex-shrink: 0;
   }
 
   .btn-cancel {

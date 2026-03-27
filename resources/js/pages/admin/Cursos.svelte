@@ -6,7 +6,7 @@
    * Refactorizado para usar componentes modulares:
    * - cursoList: Tabla de cursos
    * - cursoForm: Modal para crear/editar
-   * - seccionForm: Modal para secciones
+   * - componenteForm: Modal para componentes
    * - cursoDeleteConfirm: Confirmación de eliminación
    *
    * Mantiene:
@@ -24,8 +24,14 @@
   import CursoForm from '@/modules/resources/curso/components/cursoForm.svelte';
   import CursoDeleteConfirm from '@/modules/resources/curso/components/cursoDeleteConfirm.svelte';
   import CursoListAdmin from '@/modules/resources/curso/components/cursoListAdmin.svelte';
-  import SeccionForm from '@/modules/resources/curso/components/seccionForm.svelte';
-  import axios, { AxiosError } from 'axios';
+  import ComponenteForm from '@/modules/resources/curso/components/componenteForm.svelte';
+  import {
+    createCurso,
+    updateCurso,
+    deleteCurso,
+    createComponente,
+    updateComponente,
+  } from '@/modules/resources/curso/services/cursoApi';
   import type {
     Curso,
     Asignatura,
@@ -34,10 +40,10 @@
     Docente,
     PaginatedResponse,
     CursoFormData,
-    Seccion,
-    TipoSeccion,
+    TipoComponente,
     Programa,
   } from '@/types/admin.types';
+  import type { ComponenteFormState } from '@/modules/resources/curso/types/curso.types';
 
   /**
    * Props recibidas del servidor.
@@ -57,8 +63,8 @@
     availablePermissions: Record<string, any[]>;
     /** Filtros aplicados */
     filters: { search?: string; id_asignatura?: number };
-    /** Tipos de secciones disponibles (Cátedra, Problemas, etc.) */
-    tipos_seccion: TipoSeccion[];
+    /** Tipos de componente disponibles (Cátedra, Problemas, Laboratorio, etc.) */
+    tipos_componente: TipoComponente[];
   }
 
   let {
@@ -69,11 +75,12 @@
     filters,
     availableRoles = [],
     availablePermissions = {},
-    tipos_seccion = [],
+    tipos_componente = [],
   }: Props = $props();
 
   let showModal = $state(false);
   let showWizardModal = $state(false);
+  let showComponenteModal = $state(false);
   let showDeleteDialog = $state(false);
   let showTeamModal = $state(false);
   let showInscriptionModal = $state(false);
@@ -148,34 +155,9 @@
     }, 4500);
   }
 
-  let currentSecciones = $state<Seccion[]>([]);
-  let newSeccionData = $state({
-    id_tipo_seccion: undefined,
-    id_docente: undefined,
-  });
-  let loadingSecciones = $state(false);
-  let showEditDocente = $state(false);
-  let editingSeccion = $state<Seccion | null>(null);
+  import type { Componente } from '@/modules/resources/curso/types/curso.types';
 
-  let formData = $state<CursoFormData>({
-    id_asignatura: 0,
-    id_plan: 0,
-    cod_curso: 0,
-    nombre: '',
-    fecha_inicio: '',
-    numero_semestre: undefined,
-    agno_real: new Date().getFullYear(),
-    semestre_real: 1,
-  });
-
-  const columns = [
-    { key: 'id_curso', label: 'ID' },
-    { key: 'cod_curso', label: 'Código' },
-    { key: 'asignatura_nombre', label: 'Asignatura' },
-    { key: 'carrera_nombre', label: 'Carrera' },
-    { key: 'numero_semestre', label: 'Semestre' },
-    { key: 'docente_nombre', label: 'Docente' },
-  ];
+  let editingComponente = $state<Componente | null>(null);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // HELPERS
@@ -247,60 +229,26 @@
     }
   }
 
-  async function loadSecciones(cursoId: number) {
-    loadingSecciones = true;
-    try {
-      const response = await axios.get(`/admin/cursos/${cursoId}`);
-      if (response.data.secciones) {
-        currentSecciones = response.data.secciones;
-      }
-    } catch (error) {
-      console.error('Error loading secciones:', error);
-    } finally {
-      loadingSecciones = false;
-    }
-  }
 
-  async function deleteSeccion(cursoId: number, seccionId: number) {
-    if (!confirm('¿Estás seguro de eliminar esta sección?')) return;
-    try {
-      await axios.delete(`/admin/cursos/secciones/${seccionId}`);
-      await loadSecciones(cursoId);
-    } catch (error) {
-      console.error('Error deleting seccion:', error);
-      const message =
-        error instanceof AxiosError
-          ? error.response?.data?.error || error.message
-          : 'Error desconocido';
-      alert('Error al eliminar sección: ' + message);
-    }
-  }
 
   function openCreateModal() {
     showWizardModal = true;
   }
 
+  function openComponenteModal(curso: Curso) {
+    editingCurso = curso;
+    editingComponente = null;
+    showComponenteModal = true;
+  }
+
   function openEditModal(curso: Curso) {
     editingCurso = curso;
-    const id_asignatura = curso.asignacionPlan?.id_asignatura || 0;
     const id_plan = curso.asignacionPlan?.id_plan || 0;
-
-    formData = {
-      id_asignatura: id_asignatura,
-      id_plan: id_plan,
-      cod_curso: curso.cod_curso,
-      nombre: curso.nombre || '',
-      fecha_inicio: curso.fecha_inicio || '',
-      numero_semestre: curso.numero_semestre,
-      agno_real: new Date().getFullYear(),
-      semestre_real: 1,
-    };
 
     if (id_plan) {
       loadAsignaturasByPlan(id_plan);
     }
     loadDocentes();
-    loadSecciones(curso.id_curso);
     showModal = true;
   }
 
@@ -309,15 +257,15 @@
     editingCurso = null;
   }
 
-  function handleSubmit() {
-    if (formData.id_asignatura === 0 || formData.id_plan === 0 || !formData.cod_curso) {
+  function handleSubmit(data: CursoFormData) {
+    if (data.id_asignatura === 0 || data.id_plan === 0 || !data.cod_curso) {
       alert('Por favor complete los campos obligatorios (*)');
       return;
     }
 
     isLoading = true;
     if (editingCurso) {
-      router.put(`/admin/cursos/${editingCurso.id_curso}`, formData, {
+      updateCurso(editingCurso.id_curso, data, {
         onSuccess: () => {
           closeModal();
           isLoading = false;
@@ -329,7 +277,7 @@
         },
       });
     } else {
-      router.post('/admin/cursos', formData, {
+      createCurso(data, {
         onSuccess: () => {
           closeModal();
           isLoading = false;
@@ -356,7 +304,7 @@
   function handleDelete() {
     if (!deletingCurso) return;
     isLoading = true;
-    router.delete(`/admin/cursos/${deletingCurso.id_curso}`, {
+    deleteCurso(deletingCurso.id_curso, {
       onSuccess: () => {
         closeDeleteDialog();
         isLoading = false;
@@ -381,7 +329,7 @@
 
   function handleWizardSubmit(data: CursoFormData & { id_docente_sugerido?: number }) {
     isLoading = true;
-    router.post('/admin/cursos', data as any, {
+    createCurso(data, {
       onSuccess: () => {
         showWizardModal = false;
         isLoading = false;
@@ -492,6 +440,7 @@
       onDelete={openDeleteDialog}
       onTeam={openTeamModal}
       onSyllabus={openSyllabusModal}
+      onComponente={openComponenteModal}
     />
   </div>
 
@@ -703,6 +652,7 @@
   <CursoWizardModal
     isOpen={showWizardModal}
     {carreras}
+    tiposComponente={tipos_componente}
     {isLoading}
     onClose={() => {
       showWizardModal = false;
@@ -734,20 +684,47 @@
     {isLoading}
   />
 
-  <!-- SeccionForm Modal - Crear/Editar secciones -->
+  <!-- ComponenteForm Modal - Crear/Editar componentes -->
   {#if editingCurso}
-    <SeccionForm
-      bind:isOpen={showModal}
+    <ComponenteForm
+      bind:isOpen={showComponenteModal}
       cursoId={editingCurso.id_curso}
-      bind:editingSeccion
-      tiposSeccion={tipos_seccion}
+      bind:editingComponente
+      tiposComponente={tipos_componente}
       {docentes}
-      onSubmit={(data) => {
-        // Manejar submit de sección
-        console.log('Sección:', data);
+      onSubmit={(data: ComponenteFormState) => {
+        if (!editingCurso) return;
+        isLoading = true;
+        if (editingComponente) {
+          updateComponente(editingCurso.id_curso, editingComponente.id_componente, data, {
+            onSuccess: () => {
+              showComponenteModal = false;
+              editingComponente = null;
+              isLoading = false;
+              showToast('Componente actualizado', 'success');
+            },
+            onError: () => {
+              isLoading = false;
+              showToast('Error al actualizar componente', 'error');
+            },
+          });
+        } else {
+          createComponente(editingCurso.id_curso, data, {
+            onSuccess: () => {
+              showComponenteModal = false;
+              isLoading = false;
+              showToast('Componente creado', 'success');
+            },
+            onError: () => {
+              isLoading = false;
+              showToast('Error al crear componente', 'error');
+            },
+          });
+        }
       }}
       onClose={() => {
-        showModal = false;
+        showComponenteModal = false;
+        if (!showModal) editingCurso = null;
       }}
     />
   {/if}

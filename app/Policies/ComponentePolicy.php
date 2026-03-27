@@ -2,12 +2,12 @@
 
 namespace App\Policies;
 
-use App\Policies\Base\BaseSeccionPolicy;
+use App\Policies\Base\BaseComponentePolicy;
 use App\Models\Usuario\Usuario;
-use App\Models\Curso\Seccion;
+use App\Models\Curso\Componente;
 
 /**
- * Policy personalizada para Seccion.
+ * Policy personalizada para Componente.
  * Creada automáticamente como stub - NO se sobrescribe al regenerar.
  *
  * Patrones disponibles:
@@ -15,7 +15,7 @@ use App\Models\Curso\Seccion;
  *   2. Sobrescribir método + parent:: → tu lógica primero, base como fallback
  *   3. Sobrescribir sin parent::      → reemplaza la base completamente
  */
-class SeccionPolicy extends BaseSeccionPolicy
+class ComponentePolicy extends BaseComponentePolicy
 {
     // Sobrescribir métodos customXXX() o CRUD según sea necesario
 }

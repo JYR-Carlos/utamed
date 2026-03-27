@@ -201,6 +201,7 @@ export interface Curso {
     letra_grupo?: string;
     id_asignacion_plan: number;
     id_contexto: number;
+    id_docente_titular?: number;
     id_curso_padre?: number;
     version_plantilla?: number;
     numero_semestre?: number;
@@ -215,12 +216,12 @@ export interface Curso {
 }
 
 /**
- * TipoSeccion (Section Type) entity
- * Represents the type of a course section (e.g., Cátedra, Problemas, Laboratorio)
+ * TipoComponente (Component Type) entity
+ * Represents the type of a course component (e.g., Cátedra, Problemas, Laboratorio)
  */
-export interface TipoSeccion {
-    /** Unique identifier for the section type */
-    id_tipo_seccion: number;
+export interface TipoComponente {
+    /** Unique identifier for the component type */
+    id_tipo_componente: number;
     /** Type name (e.g., "Cátedra", "Problemas", "Laboratorio") */
     tipo: string;
     /** Creation timestamp */
@@ -230,29 +231,34 @@ export interface TipoSeccion {
 }
 
 /**
- * Seccion (Course Section) entity
- * Represents a specific section of a course (e.g., lecture, lab, workshop)
+ * Componente (Course Component) entity
+ * Represents a specific component of a course (e.g., lecture, lab, workshop)
  */
-export interface Seccion {
-    /** Unique identifier for the section */
-    id_seccion: number;
+export interface Componente {
+    /** Unique identifier for the component */
+    id_componente: number;
     /** Foreign key to the parent course */
     id_curso: number;
-    /** Foreign key to the section type */
-    id_tipo_seccion: number;
-    /** Foreign key to the assigned instructor (optional) */
-    id_docente?: number;
-    /** Related section type object (eager loaded) */
-    tipo_seccion?: TipoSeccion;
-    /** Related instructor object (eager loaded) */
-    docente?: Docente;
-    /** Creation timestamp */
-    fecha_creacion?: string;
-    /** Last modification timestamp */
-    fecha_modificacion?: string;
-    /** Soft delete timestamp */
-    fecha_eliminacion?: string;
+    /** Foreign key to the component type */
+    id_tipo_componente: number;
+    /** Related component type object (eager loaded) */
+    tipo_componente?: TipoComponente;
+    /** Assigned instructors via docente_componente pivot (eager loaded) */
+    docentes?: Docente[];
+    /** Percentage required to pass */
+    porcentaje_aprobacion?: number;
+    /** Whether attendance is required */
+    aprobacion_obligatoria?: boolean;
+    /** Whether this component generates a grade record */
+    genera_acta?: boolean;
+    /** Minimum attendance percentage */
+    porcentaje_asistencia_obligatoria?: number;
 }
+
+/** @deprecated Use Componente instead */
+export type Seccion = Componente;
+/** @deprecated Use TipoComponente instead */
+export type TipoSeccion = TipoComponente;
 
 export interface Usuario {
     id_usuario: number;
@@ -488,6 +494,13 @@ export interface CursoFormData {
     numero_semestre?: number;
     agno_real?: number;
     semestre_real?: number;
+    id_docente_sugerido?: number;
+    // Componente settings
+    id_tipo_componente_principal?: number;
+    genera_acta?: boolean;
+    aprobacion_obligatoria?: boolean;
+    porcentaje_aprobacion?: number;
+    porcentaje_asistencia_obligatoria?: number;
     [key: string]: FormDataConvertible;
 }
 
@@ -530,4 +543,10 @@ export interface AdministradorFormData {
     username: string;
     password: string;
     [key: string]: FormDataConvertible;
+}
+
+export interface ComponenteFormState {
+    id_tipo_componente: number;
+    /** Optional single docente to assign (stored in docente_componente pivot) */
+    id_docente?: number;
 }

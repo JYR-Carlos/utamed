@@ -13,10 +13,11 @@ use App\Models\Administrativo\Asignatura;
 use App\Models\Administrativo\AsignacionPlan;
 use App\Models\Administrativo\Programa;
 use App\Models\Curso\Curso;
-use App\Models\Curso\Seccion;
+use App\Models\Curso\Componente;
+use App\Models\Curso\DocenteComponente;
+use App\Models\Curso\InscripcionComponente;
 use App\Models\Curso\Unidad;
 use App\Models\Curso\InscripcionCurso;
-use App\Models\Curso\InscripcionSeccion;
 use App\Models\Curso\Asistencia;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Estudiante;
@@ -35,10 +36,11 @@ use App\Policies\AsignaturaPolicy;
 use App\Policies\AsignacionPlanPolicy;
 use App\Policies\ProgramaPolicy;
 use App\Policies\CursoPolicy;
-use App\Policies\SeccionPolicy;
+use App\Policies\ComponentePolicy;
+use App\Policies\DocenteComponentePolicy;
+use App\Policies\InscripcionComponentePolicy;
 use App\Policies\UnidadPolicy;
 use App\Policies\InscripcionCursoPolicy;
-use App\Policies\InscripcionSeccionPolicy;
 use App\Policies\AsistenciaPolicy;
 use App\Policies\UsuarioPolicy;
 use App\Policies\EstudiantePolicy;
@@ -71,10 +73,11 @@ class AuthServiceProvider extends ServiceProvider
         AsignacionPlan::class => AsignacionPlanPolicy::class,
         Programa::class => ProgramaPolicy::class,
         Curso::class => CursoPolicy::class,
-        Seccion::class => SeccionPolicy::class,
+        Componente::class => ComponentePolicy::class,
+        DocenteComponente::class => DocenteComponentePolicy::class,
+        InscripcionComponente::class => InscripcionComponentePolicy::class,
         Unidad::class => UnidadPolicy::class,
         InscripcionCurso::class => InscripcionCursoPolicy::class,
-        InscripcionSeccion::class => InscripcionSeccionPolicy::class,
         Asistencia::class => AsistenciaPolicy::class,
         Usuario::class => UsuarioPolicy::class,
         Estudiante::class => EstudiantePolicy::class,

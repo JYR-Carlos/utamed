@@ -158,10 +158,11 @@ $policyConfigs = [
 
   // ===== Curso =====
   ['namespace' => 'App\\Models\\Curso', 'class' => 'Curso', 'resource' => 'cursos'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'Seccion', 'resource' => 'cursos/secciones'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'Componente', 'resource' => 'cursos/componentes'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'DocenteComponente', 'resource' => 'cursos/docente_componentes'],
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'InscripcionComponente', 'resource' => 'cursos/inscripciones_componente'],
   ['namespace' => 'App\\Models\\Curso', 'class' => 'Unidad', 'resource' => 'cursos/unidades'],
   ['namespace' => 'App\\Models\\Curso', 'class' => 'InscripcionCurso', 'resource' => 'inscripciones_curso'],
-  ['namespace' => 'App\\Models\\Curso', 'class' => 'InscripcionSeccion', 'resource' => 'cursos/inscripciones_seccion'],
   ['namespace' => 'App\\Models\\Curso', 'class' => 'Asistencia', 'resource' => 'cursos/asistencias'],
 
   // ===== Usuario =====
@@ -304,11 +305,9 @@ $relationNames = [
     ],
   ],
 
-  // seccion: Docente enseña secciones
-  'curso.seccion' => [
-    'usuario.docente' => [
-      'id_docente' => 'seccionesQueDicta',
-    ],
+  // componente: Docentes enseñan componentes (relación ahora a través de docente_componente)
+  'curso.componente' => [
+    // Relación M-M con docentes a través de docente_componente table
   ],
 
   'usuario.contexto' => [
@@ -508,8 +507,8 @@ $manualPivotTables = [
       'usuario.docente' => [
         'curso.componente' => 'componentesQueDicta', // docente->componentesQueDicta()
       ],
-      'curso.seccion' => [
-        'usuario.estudiante' => 'estudiantesInscritos', // seccion->estudiantesInscritos()
+      'curso.componente' => [
+        'usuario.docente' => 'docentesAsignados', // componente->docentesAsignados()
       ],
     ],
   ],

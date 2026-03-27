@@ -11,7 +11,7 @@ use App\Http\Controllers\Admin\AsignaturaController;
 use App\Http\Controllers\Admin\AsignacionPlanController;
 use App\Http\Controllers\Admin\CursoController;
 use App\Http\Controllers\Admin\CourseTeamController;
-use App\Http\Controllers\Admin\SeccionController as AdminSeccionController;
+use App\Http\Controllers\Admin\ComponenteController as AdminSeccionController;
 use App\Http\Controllers\Admin\ProgramaController as AdminProgramaController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Admin\AssignmentWizardController;
@@ -94,9 +94,11 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::post('cursos/{curso}/programa/instanciar', [AdminProgramaController::class, 'instantiar'])
         ->name('cursos.programa.instanciar');
 
-    // Secciones routes - Get componentes from sections
-    Route::get('cursos/{curso}/secciones', [AdminSeccionController::class, 'indexByCurso'])
-        ->name('cursos.secciones.index');
+    // Componentes routes
+    Route::get('cursos/{curso}/componentes', [AdminSeccionController::class, 'indexByCurso'])
+        ->name('cursos.componentes.index');
+    Route::get('tipos-componente', fn() => \App\Models\Curso\TipoComponente::all())
+        ->name('tipos-componente.index');
 
     // Actividades routes - Get activities for program wizard
     Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getBysCursoJson'])
@@ -196,13 +198,13 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::get('inscripciones_cursos/export/csv', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'exportCsv'])
         ->name('inscripciones_cursos.export.csv');
 
-    // Section (Seccion) Management for Courses
-    Route::post('cursos/{curso}/secciones', [AdminSeccionController::class, 'store'])
-        ->name('cursos.secciones.store');
-    Route::put('cursos/secciones/{seccion}', [AdminSeccionController::class, 'update'])
-        ->name('cursos.secciones.update');
-    Route::delete('cursos/secciones/{seccion}', [AdminSeccionController::class, 'destroy'])
-        ->name('cursos.secciones.destroy');
+    // Componente Management for Courses
+    Route::post('cursos/{curso}/componentes', [AdminSeccionController::class, 'store'])
+        ->name('cursos.componentes.store');
+    Route::put('cursos/componentes/{componente}', [AdminSeccionController::class, 'update'])
+        ->name('cursos.componentes.update');
+    Route::delete('cursos/componentes/{componente}', [AdminSeccionController::class, 'destroy'])
+        ->name('cursos.componentes.destroy');
 
     // Helper endpoints for cascading selects
     Route::get('facultades/{facultad}/departamentos', [DepartamentoController::class, 'byFacultad'])
@@ -282,9 +284,9 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::put('cursos/{curso}/programa/enviar', [\App\Http\Controllers\Administrativo\ProgramaController::class, 'enviarParaRevision'])
         ->name('cursos.programa.enviar');
 
-    // Secciones (for programa components auto-populate)
-    Route::get('cursos/{curso}/secciones', [AdminSeccionController::class, 'indexByCurso'])
-        ->name('cursos.secciones.index');
+    // Componentes (for programa components auto-populate)
+    Route::get('cursos/{curso}/componentes', [AdminSeccionController::class, 'indexByCurso'])
+        ->name('cursos.componentes.index');
 
     // Student Enrollment (Inscripciones)
     Route::get('inscripciones', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'index'])->name('inscripciones.index');
@@ -325,7 +327,7 @@ Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name
     Route::post('cursos/{curso}/programa', [\App\Http\Controllers\Ayudante\ProgramaController::class, 'update'])->name('cursos.programa.update');
 
     // JSON endpoints used by SyllabusModal wizard
-    Route::get('cursos/{curso}/secciones', [AdminSeccionController::class, 'indexByCurso'])->name('cursos.secciones.index');
+    Route::get('cursos/{curso}/componentes', [AdminSeccionController::class, 'indexByCurso'])->name('cursos.componentes.index');
     Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getBysCursoJson'])->name('cursos.actividades.json');
 
     Route::get('cursos/{curso}', [\App\Http\Controllers\Ayudante\CourseController::class, 'show'])->name('cursos.show');
