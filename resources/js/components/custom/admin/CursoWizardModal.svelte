@@ -204,7 +204,14 @@
   // ── Submit ───────────────────────────────────────────────────────────────
   function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
-    if (!selectedAsig || !selectedPlan || codCurso === '' || !selectedDocente || !selectedTipoComponente) return;
+    if (
+      !selectedAsig ||
+      !selectedPlan ||
+      codCurso === '' ||
+      !selectedDocente ||
+      !selectedTipoComponente
+    )
+      return;
 
     onSubmit({
       id_asignatura: selectedAsig.id_asignatura,
@@ -493,96 +500,52 @@
           {#if currentStep === 4}
             <div class="step-body">
               <div class="step4-scroll">
-
-              <!-- Tipo de Componente Principal -->
-              <div class="tipo-comp-section">
-                <p class="tipo-comp-label">¿Qué tipo de componente es el principal?</p>
-                <div class="tipo-comp-list">
-                  {#each tiposComponente as tc}
-                    <button
-                      type="button"
-                      class="tipo-comp-btn"
-                      class:selected={selectedTipoComponente?.id_tipo_componente === tc.id_tipo_componente}
-                      onclick={() => (selectedTipoComponente = tc)}
-                    >
-                      {tc.tipo}
-                    </button>
-                  {/each}
+                <!-- Tipo de Componente Principal -->
+                <div class="tipo-comp-section">
+                  <p class="tipo-comp-label">¿Qué tipo de componente es el principal?</p>
+                  <div class="tipo-comp-list">
+                    {#each tiposComponente as tc}
+                      <button
+                        type="button"
+                        class="tipo-comp-btn"
+                        class:selected={selectedTipoComponente?.id_tipo_componente ===
+                          tc.id_tipo_componente}
+                        onclick={() => (selectedTipoComponente = tc)}
+                      >
+                        {tc.tipo}
+                      </button>
+                    {/each}
+                  </div>
                 </div>
-              </div>
 
-              <!-- Divider -->
-              <div class="fields-divider"></div>
+                <!-- Divider -->
+                <div class="fields-divider"></div>
 
-              <!-- Docentes sugeridos -->
-              <div class="docentes-section">
-                <p class="docentes-hint">
+                <!-- Docentes sugeridos -->
+                <div class="docentes-section">
+                  <p class="docentes-hint">
+                    {#if loadingDocentes}
+                      Buscando docentes sugeridos...
+                    {:else if historicDocentes.length > 0}
+                      <strong>{historicDocentes.length}</strong> docente{historicDocentes.length > 1
+                        ? 's han'
+                        : ' ha'} impartido esta asignatura anteriormente.
+                    {:else}
+                      No hay historial previo. Selecciona cualquier docente.
+                    {/if}
+                  </p>
+
                   {#if loadingDocentes}
-                    Buscando docentes sugeridos...
-                  {:else if historicDocentes.length > 0}
-                    <strong>{historicDocentes.length}</strong> docente{historicDocentes.length > 1
-                      ? 's han'
-                      : ' ha'} impartido esta asignatura anteriormente.
+                    <div class="inline-spinner"></div>
                   {:else}
-                    No hay historial previo. Selecciona cualquier docente.
-                  {/if}
-                </p>
-
-                {#if loadingDocentes}
-                  <div class="inline-spinner"></div>
-                {:else}
-                  <!-- Docentes históricos first -->
-                  {#if historicDocentes.length > 0}
-                    <div class="docentes-group-label">
-                      <span class="badge-historico">Historial</span>
-                      Docentes que ya han impartido esta asignatura
-                    </div>
-                    <div class="docentes-list">
-                      {#each historicDocentes as d}
-                        <button
-                          type="button"
-                          class="docente-row"
-                          class:selected={selectedDocente?.id_docente === d.id_docente}
-                          onclick={() =>
-                            (selectedDocente =
-                              selectedDocente?.id_docente === d.id_docente ? null : d)}
-                        >
-                          <div class="docente-avatar">
-                            {(d.nombre_completo?.[0] ?? '?').toUpperCase()}
-                          </div>
-                          <div class="docente-info">
-                            <div class="docente-name">{d.nombre_completo}</div>
-                            {#if d.cargo}<div class="docente-meta">{d.cargo}</div>{/if}
-                          </div>
-                          {#if selectedDocente?.id_docente === d.id_docente}
-                            <svg
-                              class="docente-check"
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="18"
-                              height="18"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2.5"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                            >
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          {/if}
-                        </button>
-                      {/each}
-                    </div>
-                  {/if}
-
-                  <!-- Other docentes in collapsible or always shown -->
-                  {#if otrosDocentes.length > 0}
-                    <details class="otros-docentes">
-                      <summary class="otros-label">
-                        Otros docentes <span class="otros-count">({otrosDocentes.length})</span>
-                      </summary>
-                      <div class="docentes-list mt-2">
-                        {#each otrosDocentes as d}
+                    <!-- Docentes históricos first -->
+                    {#if historicDocentes.length > 0}
+                      <div class="docentes-group-label">
+                        <span class="badge-historico">Historial</span>
+                        Docentes que ya han impartido esta asignatura
+                      </div>
+                      <div class="docentes-list">
+                        {#each historicDocentes as d}
                           <button
                             type="button"
                             class="docente-row"
@@ -591,7 +554,7 @@
                               (selectedDocente =
                                 selectedDocente?.id_docente === d.id_docente ? null : d)}
                           >
-                            <div class="docente-avatar alt">
+                            <div class="docente-avatar">
                               {(d.nombre_completo?.[0] ?? '?').toUpperCase()}
                             </div>
                             <div class="docente-info">
@@ -617,111 +580,171 @@
                           </button>
                         {/each}
                       </div>
-                    </details>
+                    {/if}
+
+                    <!-- Other docentes in collapsible or always shown -->
+                    {#if otrosDocentes.length > 0}
+                      <details class="otros-docentes">
+                        <summary class="otros-label">
+                          Otros docentes <span class="otros-count">({otrosDocentes.length})</span>
+                        </summary>
+                        <div class="docentes-list mt-2">
+                          {#each otrosDocentes as d}
+                            <button
+                              type="button"
+                              class="docente-row"
+                              class:selected={selectedDocente?.id_docente === d.id_docente}
+                              onclick={() =>
+                                (selectedDocente =
+                                  selectedDocente?.id_docente === d.id_docente ? null : d)}
+                            >
+                              <div class="docente-avatar alt">
+                                {(d.nombre_completo?.[0] ?? '?').toUpperCase()}
+                              </div>
+                              <div class="docente-info">
+                                <div class="docente-name">{d.nombre_completo}</div>
+                                {#if d.cargo}<div class="docente-meta">{d.cargo}</div>{/if}
+                              </div>
+                              {#if selectedDocente?.id_docente === d.id_docente}
+                                <svg
+                                  class="docente-check"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="18"
+                                  height="18"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  stroke-width="2.5"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                >
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              {/if}
+                            </button>
+                          {/each}
+                        </div>
+                      </details>
+                    {/if}
                   {/if}
-                {/if}
-              </div>
-
-              <!-- Divider -->
-              <div class="fields-divider"></div>
-
-              <!-- Remaining fields -->
-              <div class="fields-grid">
-                <div class="field">
-                  <label class="field-label" for="wiz-cod-curso">Código del Curso *</label>
-                  <input
-                    id="wiz-cod-curso"
-                    type="number"
-                    bind:value={codCurso}
-                    class="field-input"
-                    placeholder="Ej: 12345"
-                    required
-                  />
                 </div>
 
-                <div class="field">
-                  <label class="field-label" for="wiz-nombre">Nombre del Curso</label>
-                  <input
-                    id="wiz-nombre"
-                    type="text"
-                    bind:value={nombre}
-                    class="field-input"
-                    placeholder="Nombre personalizado (opcional)"
-                  />
+                <!-- Divider -->
+                <div class="fields-divider"></div>
+
+                <!-- Remaining fields -->
+                <div class="fields-grid">
+                  <div class="field">
+                    <label class="field-label" for="wiz-cod-curso">Código del Curso *</label>
+                    <input
+                      id="wiz-cod-curso"
+                      type="number"
+                      bind:value={codCurso}
+                      class="field-input"
+                      placeholder="Ej: 12345"
+                      required
+                    />
+                  </div>
+
+                  <div class="field">
+                    <label class="field-label" for="wiz-nombre">Nombre del Curso</label>
+                    <input
+                      id="wiz-nombre"
+                      type="text"
+                      bind:value={nombre}
+                      class="field-input"
+                      placeholder="Nombre personalizado (opcional)"
+                    />
+                  </div>
+
+                  <div class="field">
+                    <label class="field-label" for="wiz-fecha">Fecha de Inicio</label>
+                    <input
+                      id="wiz-fecha"
+                      type="date"
+                      bind:value={fechaInicio}
+                      class="field-input"
+                    />
+                  </div>
+
+                  <div class="field">
+                    <label class="field-label" for="wiz-agno">Año Real *</label>
+                    <input
+                      id="wiz-agno"
+                      type="number"
+                      bind:value={agnoReal}
+                      class="field-input"
+                      min="2000"
+                      max="2100"
+                      required
+                    />
+                  </div>
+
+                  <div class="field">
+                    <label class="field-label" for="wiz-semestre">Semestre Real *</label>
+                    <select
+                      id="wiz-semestre"
+                      bind:value={semestreReal}
+                      class="field-input"
+                      required
+                    >
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div class="field">
-                  <label class="field-label" for="wiz-fecha">Fecha de Inicio</label>
-                  <input id="wiz-fecha" type="date" bind:value={fechaInicio} class="field-input" />
-                </div>
+                <!-- Componente (Cátedra) settings -->
+                <div class="fields-section-title">Configuración del Componente</div>
+                <div class="fields-grid">
+                  <div class="field">
+                    <label class="field-label" for="wiz-pct-aprobacion">% Aprobación *</label>
+                    <input
+                      id="wiz-pct-aprobacion"
+                      type="number"
+                      bind:value={porcentajeAprobacion}
+                      class="field-input"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      required
+                    />
+                  </div>
 
-                <div class="field">
-                  <label class="field-label" for="wiz-agno">Año Real *</label>
-                  <input
-                    id="wiz-agno"
-                    type="number"
-                    bind:value={agnoReal}
-                    class="field-input"
-                    min="2000"
-                    max="2100"
-                    required
-                  />
-                </div>
+                  <div class="field">
+                    <label class="field-label" for="wiz-pct-asistencia"
+                      >% Asistencia Obligatoria *</label
+                    >
+                    <input
+                      id="wiz-pct-asistencia"
+                      type="number"
+                      bind:value={porcentajeAsistencia}
+                      class="field-input"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      required
+                    />
+                  </div>
 
-                <div class="field">
-                  <label class="field-label" for="wiz-semestre">Semestre Real *</label>
-                  <select id="wiz-semestre" bind:value={semestreReal} class="field-input" required>
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                  </select>
-                </div>
-              </div>
+                  <div class="field field-checkbox">
+                    <label class="field-check-label">
+                      <input type="checkbox" bind:checked={generaActa} class="field-check" />
+                      Genera Acta
+                    </label>
+                  </div>
 
-              <!-- Componente (Cátedra) settings -->
-              <div class="fields-section-title">Configuración del Componente</div>
-              <div class="fields-grid">
-                <div class="field">
-                  <label class="field-label" for="wiz-pct-aprobacion">% Aprobación *</label>
-                  <input
-                    id="wiz-pct-aprobacion"
-                    type="number"
-                    bind:value={porcentajeAprobacion}
-                    class="field-input"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    required
-                  />
+                  <div class="field field-checkbox">
+                    <label class="field-check-label">
+                      <input
+                        type="checkbox"
+                        bind:checked={aprobacionObligatoria}
+                        class="field-check"
+                      />
+                      Aprobación Obligatoria
+                    </label>
+                  </div>
                 </div>
-
-                <div class="field">
-                  <label class="field-label" for="wiz-pct-asistencia">% Asistencia Obligatoria *</label>
-                  <input
-                    id="wiz-pct-asistencia"
-                    type="number"
-                    bind:value={porcentajeAsistencia}
-                    class="field-input"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    required
-                  />
-                </div>
-
-                <div class="field field-checkbox">
-                  <label class="field-check-label">
-                    <input type="checkbox" bind:checked={generaActa} class="field-check" />
-                    Genera Acta
-                  </label>
-                </div>
-
-                <div class="field field-checkbox">
-                  <label class="field-check-label">
-                    <input type="checkbox" bind:checked={aprobacionObligatoria} class="field-check" />
-                    Aprobación Obligatoria
-                  </label>
-                </div>
-              </div>
               </div>
             </div>
           {/if}
@@ -1393,7 +1416,10 @@
     font-weight: 500;
     color: #374151;
     cursor: pointer;
-    transition: border-color 0.15s, background 0.15s, color 0.15s;
+    transition:
+      border-color 0.15s,
+      background 0.15s,
+      color 0.15s;
   }
 
   .tipo-comp-btn:hover {

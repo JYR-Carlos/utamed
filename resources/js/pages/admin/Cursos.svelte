@@ -229,8 +229,6 @@
     }
   }
 
-
-
   function openCreateModal() {
     showWizardModal = true;
   }
