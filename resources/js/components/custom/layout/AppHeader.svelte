@@ -177,10 +177,10 @@
                         >
                             <Avatar class="size-8 overflow-hidden rounded-full">
                                 {#if user.avatar}
-                                    <AvatarImage src={user.avatar} alt={user.name} />
+                                    <AvatarImage src={user.avatar} alt={user.nombre1} />
                                 {:else}
                                     <AvatarFallback class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white">
-                                        {getInitials(user.name || '')}
+                                        {getInitials(user.nombre1 || '')}
                                     </AvatarFallback>
                                 {/if}
                             </Avatar>

@@ -21,6 +21,12 @@
   import * as Command from '@/components/ui/command';
   import { onMount } from 'svelte';
   import { useSidebar } from '@/components/ui/sidebar/context.svelte';
+  import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import UserMenuContent from '../common/UserMenuContent.svelte';
+  import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+  import { Button } from '@/components/ui/button';
+  import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+  import { getInitials } from '@/hooks/useInitials';
 
   const sidebar = useSidebar();
 
@@ -150,7 +156,7 @@
       <span
         class="ml-auto hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-400"
       >
-        <span class="text-[12px] leading-none">⌘</span> K
+      <span class="text-[12px] leading-none">⌘</span> K
       </span>
     </button>
   </div>
@@ -181,27 +187,29 @@
       <Search size={18} />
       <span class="text-xs">Buscar</span>
     </button>
-    <button class="icon-btn flex items-center justify-center">
-      <Bell size={20} />
-      <span class="pulse-dot"></span>
-    </button>
 
     <button
       class="icon-btn hidden lg:flex items-center justify-center group relative"
-      onclick={() => (showSidebar = false)}
+      onclick={() => (showSidebar = !showSidebar)}
       title="Ocultar sidebar"
     >
-      <ChevronLeft size={20} class="group-hover:text-slate-900" />
+      {#if showSidebar}
+        <ChevronLeft size={20} class="group-hover:text-slate-900" />
+      {/if}
+      {#if !showSidebar}
+        <ChevronRight size={20} class="group-hover:text-slate-900" />
+      {/if}
     </button>
 
     <button
       class="icon-btn flex items-center justify-center group relative"
-      onclick={() => (showHeader = false)}
+      onclick={() => (showHeader = !showHeader)}
       title="Ocultar encabezado"
     >
       <ChevronUp size={20} class="group-hover:text-slate-900" />
     </button>
 
+    <!--
     <div class="user-pill group">
       <div class="avatar-sm">
         {user.nombre1?.[0] || user.username?.[0] || 'U'}
@@ -215,6 +223,31 @@
         class="ml-1 text-slate-400 group-hover:text-slate-600 transition-colors"
       />
     </div>
+    -->
+    <DropdownMenu>
+      <DropdownMenuTrigger>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="relative size-10 w-auto rounded-full p-1 focus-within:ring-2 focus-within:ring-primary"
+        >
+          <Avatar class="size-8 overflow-hidden rounded-full">
+            {#if user.avatar}
+              <AvatarImage src={user.avatar} alt={user.nombre1} />
+            {:else}
+              <AvatarFallback
+                class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white"
+              >
+                {getInitials(user.nombre1 || '')}
+              </AvatarFallback>
+            {/if}
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" class="w-56">
+        <UserMenuContent {user} />
+      </DropdownMenuContent>
+    </DropdownMenu>
   </div>
 </header>
 

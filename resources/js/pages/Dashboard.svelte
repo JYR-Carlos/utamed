@@ -66,6 +66,13 @@
     { usuario: 'Super Admin', username: 'superadmin@utamed...', actividad: 'Plan de estudio modificado', hecha: 'hace 2 d' },
   ];
 
+  const operaciones = [
+    { icon: UserPlus, label: 'Crear Nuevo Usuario', href: '/admin/usuarios', bg: 'bg-blue-500/40 hover:bg-blue-500/60' }, 
+    { icon: ShieldCheck, label: 'Gestionar Roles', href: '/admin/usuarios', bg: 'bg-indigo-500/40 hover:bg-indigo-500/60' },
+    //{ icon: CheckCircle2, label: 'Validar Datos', href: '/admin', bg: 'bg-violet-500/40 hover:bg-violet-500/60' }, 
+    //{ icon: FileText, label: 'Ver Auditoría', href: '/admin', bg: 'bg-purple-500/40 hover:bg-purple-500/60' }
+  ]
+
   // Sparkline paths decorativos (distintos por tarjeta)
   const sparklines = [
     'M0 20 Q10 15 20 18 Q30 21 40 14 Q50 8  60 12 Q70 16 80 10',
@@ -84,9 +91,9 @@
     <!-- Bienvenida -->
     <header class="mb-8">
       <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
-        ¡Hola, {user.nombre1 || 'Usuario'}! 👋
+        ¡Hola, {user.nombre1 || 'Usuario'}!
       </h1>
-      <p class="text-slate-500 mt-1 text-sm md:text-base">Aquí tienes un resumen ejecutivo de UTAMED.</p>
+      
     </header>
 
     <!-- Grid principal -->
@@ -94,24 +101,9 @@
       <!-- ── Columna izquierda / centro ── -->
       <div class="xl:col-span-9 space-y-6">
         {#if isAdmin}
-          <!-- Widgets ilustración superior -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <IllustrationWidget
-              title="Cambios Registrados"
-              description="Registro de auditoría: 156 cambios validados en el período actual."
-              color="purple"
-              icon={Users}
-              stats="156 registros"
-            />
-            <IllustrationWidget
-              title="Backups Sistema"
-              description="Último backup completado: hace 6 horas. Próximo: en 18 horas."
-              color="orange"
-              icon={Calendar}
-              stats="Automático"
-            />
-          </div>
-
+          <h2 class="text-xl">
+            Dashboard de Administrador
+          </h2>
           <!-- Tarjetas de estadísticas con sparklines -->
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {#each [{ label: 'Usuarios Activos', value: stats.usuarios, icon: Users, bg: 'bg-blue-50', text: 'text-blue-500', spark: sparklines[0], sparkColor: '#3b82f6' }, { label: 'Cursos Totales', value: stats.cursos_total, icon: BookOpen, bg: 'bg-orange-50', text: 'text-orange-500', spark: sparklines[1], sparkColor: '#f97316' }, { label: 'Cursos Activos (Sin Acta)', value: stats.cursos_pendientes, icon: Clock, bg: 'bg-amber-50', text: 'text-amber-500', spark: sparklines[2], sparkColor: '#f59e0b' }, { label: 'Nuevas Carreras', value: stats.carreras, icon: GraduationCap, bg: 'bg-emerald-50', text: 'text-emerald-500', spark: sparklines[3], sparkColor: '#10b981' }] as card}
@@ -133,50 +125,8 @@
             {/each}
           </div>
 
-          <!-- Salud del Sistema -->
-          <div>
-            <h2 class="text-lg font-bold text-slate-800 mb-4">Salud del Sistema</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <!-- Cambios registrados — card grande -->
-              <div
-                class="rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 text-white p-6 flex flex-col justify-between min-h-[140px] relative overflow-hidden shadow-lg shadow-purple-500/20"
-              >
-                <div class="absolute right-4 top-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-white/10"></div>
-                <div>
-                  <p class="text-xs font-semibold uppercase tracking-widest opacity-80">Cambios Registrados</p>
-                  <p class="text-5xl font-extrabold mt-1">156</p>
-                </div>
-                <div class="flex items-center gap-3 mt-4">
-                  <span class="text-xs bg-white/20 px-3 py-1 rounded-full font-medium">Audit</span>
-                  <button class="text-xs bg-white/20 hover:bg-white/30 transition px-3 py-1 rounded-full font-medium"> Ver Registros </button>
-                </div>
-              </div>
-
-              <!-- Backups Sistema -->
-              <div
-                class="rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 text-white p-6 flex flex-col justify-between min-h-[140px] relative overflow-hidden shadow-lg shadow-orange-500/20"
-              >
-                <div class="absolute right-4 top-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-white/10"></div>
-                <div>
-                  <p class="text-xs font-semibold uppercase tracking-widest opacity-80">Backups Sistema</p>
-                  <p class="text-sm opacity-90 mt-1">
-                    Último backup completado: hace 6 horas.<br />Próximo: en 18 horas.
-                  </p>
-                </div>
-                <div class="mt-4 space-y-1">
-                  <div class="flex justify-between text-xs font-medium opacity-90 mb-1">
-                    <span>Backups saludables</span>
-                    <span>100 %</span>
-                  </div>
-                  <div class="w-full bg-white/20 rounded-full h-2.5">
-                    <div class="bg-white rounded-full h-2.5 w-full"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Actividad Reciente -->
+          <!--
+          
           <SoftCard class="p-0 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 class="font-bold text-slate-800">Actividad Reciente</h3>
@@ -218,6 +168,7 @@
               </table>
             </div>
           </SoftCard>
+          -->
         {/if}
 
         <!-- Paneles de rol específico -->
@@ -274,7 +225,7 @@
           </SoftCard>
 
           <!-- Operaciones Principales -->
-          <div class="rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-6 text-white shadow-xl shadow-blue-500/25">
+          <div class="rounded-2xl bg-linear-to-br from-blue-600 to-purple-900 p-6 text-white shadow-xl shadow-blue-500/25">
             <div class="flex items-center gap-3 mb-5">
               <div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
                 <Users size={18} />
@@ -283,7 +234,7 @@
             </div>
 
             <div class="space-y-2.5">
-              {#each [{ icon: UserPlus, label: 'Crear Nuevo Usuario', href: '/admin/usuarios', bg: 'bg-blue-500/40 hover:bg-blue-500/60' }, { icon: ShieldCheck, label: 'Gestionar Roles', href: '/admin/usuarios', bg: 'bg-indigo-500/40 hover:bg-indigo-500/60' }, { icon: CheckCircle2, label: 'Validar Datos', href: '/admin', bg: 'bg-violet-500/40 hover:bg-violet-500/60' }, { icon: FileText, label: 'Ver Auditoría', href: '/admin', bg: 'bg-purple-500/40 hover:bg-purple-500/60' }] as op}
+              {#each operaciones as op}
                 <Link href={op.href} class="flex items-center gap-3 w-full {op.bg} transition-colors rounded-xl px-4 py-3 text-sm font-semibold">
                   <op.icon size={16} class="shrink-0" />
                   {op.label}

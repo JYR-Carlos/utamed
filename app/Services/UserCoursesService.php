@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Administrativo\Programa;
 use App\Models\Curso\Curso;
+use App\Models\Curso\InscripcionComponente;
 use App\Models\Curso\InscripcionSeccion;
 use App\Models\Usuario\Docente;
 use App\Models\Usuario\Estudiante;
@@ -54,7 +55,7 @@ class UserCoursesService
      */
     public function getEstudianteCourses(Estudiante $estudiante): array
     {
-        return InscripcionSeccion::where('id_estudiante', $estudiante->id_estudiante)
+        return InscripcionComponente::where('id_estudiante', $estudiante->id_estudiante)
             ->with('seccion.curso')
             ->get()
             ->pluck('seccion.curso')
