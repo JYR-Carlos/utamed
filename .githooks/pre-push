@@ -11,7 +11,7 @@ echo "🔍 Validando integridad de $SUBMODULE_PATH..." >&2
 cd "$SUBMODULE_PATH" || exit 1
 
 if ! git merge-base --is-ancestor "$REMOTE_HASH" origin/main 2>/dev/null; then
-    # 2. Bloque de error de alto impacto visual
+    # 3.A. Bloque de error de alto impacto visual
     echo " " >&2
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2
     echo "🚨  ERROR DE INTEGRIDAD EN EL SUBMÓDULO  🚨" >&2
@@ -30,5 +30,8 @@ if ! git merge-base --is-ancestor "$REMOTE_HASH" origin/main 2>/dev/null; then
     exit 1
 fi
 cd ..
+
+# 3.B. Si el hash existe, permitir el push
+echo "✅ Validación exitosa: El commit del modelo existe en el servidor." >&2
 
 exit 0
