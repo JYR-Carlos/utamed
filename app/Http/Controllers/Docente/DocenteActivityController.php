@@ -51,7 +51,7 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
 
-        $isDocente = $curso->secciones()
+        $isDocente = $curso->componentes()
             ->where('id_docente', $user->docente->id_docente)
             ->exists();
         
@@ -59,15 +59,15 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes permiso para acceder a este curso.');
         }
 
-        // Get activities for this course via seccion relationship (actividad has no id_curso column)
-        $actividades = Actividad::whereHas('seccion', fn($q) => $q->where('id_curso', $curso->id_curso))
-            ->with(['seccion.tipoSeccion', 'unidad'])
+        // Get activities for this course via componente relationship (actividad has no id_curso column)
+        $actividades = Actividad::whereHas('componente', fn($q) => $q->where('id_curso', $curso->id_curso))
+            ->with(['componente.tipoComponente', 'unidad'])
             ->orderBy('fecha_limite', 'asc')
             ->get();
 
-        // Get sections for dropdown
-        $secciones = Seccion::where('id_curso', $curso->id_curso)
-            ->with('tipoSeccion')
+        // Get componentes for dropdown
+        $componentes = Componente::where('id_curso', $curso->id_curso)
+            ->with('tipoComponente')
             ->get();
 
         // Get units for dropdown
@@ -80,7 +80,7 @@ class DocenteActivityController extends Controller
         return Inertia::render('docente/Actividades', [
             'curso' => $curso,
             'actividades' => $actividades,
-            'secciones' => $secciones,
+            'componentes' => $componentes,
             'unidades' => $unidades,
             'estados' => $estados,
         ]);
@@ -98,7 +98,7 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
         
-        $isDocente = $curso->secciones()
+        $isDocente = $curso->componentes()
             ->where('id_docente', $user->docente->id_docente)
             ->exists();
         
@@ -115,7 +115,7 @@ class DocenteActivityController extends Controller
             'es_grupal' => 'boolean',
             'max_integrantes' => 'integer|min:1|max:100',
             'visible' => 'boolean',
-            'id_seccion' => 'required|integer',
+            'id_componente' => 'required|integer',
             'id_unidad' => 'required|integer',
         ]);
 
@@ -152,7 +152,7 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
         
-        $isDocente = $curso->secciones()
+        $isDocente = $curso->componentes()
             ->where('id_docente', $user->docente->id_docente)
             ->exists();
         
@@ -160,8 +160,8 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes permiso para editar esta actividad.');
         }
 
-        // Verify the activity belongs to this course through its seccion
-        $actividadCursoId = $actividad->seccion?->id_curso;
+        // Verify the activity belongs to this course through its componente
+        $actividadCursoId = $actividad->componente?->id_curso;
         if ($actividadCursoId && $actividadCursoId !== $curso->id_curso) {
             abort(404, 'Actividad no encontrada en este curso.');
         }
@@ -174,7 +174,7 @@ class DocenteActivityController extends Controller
             'es_grupal' => 'boolean',
             'max_integrantes' => 'integer|min:1|max:100',
             'visible' => 'boolean',
-            'id_seccion' => 'required|integer',
+            'id_componente' => 'required|integer',
             'id_unidad' => 'required|integer',
         ]);
 
@@ -203,7 +203,7 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
         
-        $isDocente = $curso->secciones()
+        $isDocente = $curso->componentes()
             ->where('id_docente', $user->docente->id_docente)
             ->exists();
         
@@ -211,8 +211,8 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes permiso para eliminar esta actividad.');
         }
 
-        // Verify the activity belongs to this course through its seccion
-        $actividadCursoId = $actividad->seccion?->id_curso;
+        // Verify the activity belongs to this course through its componente
+        $actividadCursoId = $actividad->componente?->id_curso;
         if ($actividadCursoId && $actividadCursoId !== $curso->id_curso) {
             abort(404, 'Actividad no encontrada en este curso.');
         }
@@ -245,7 +245,7 @@ class DocenteActivityController extends Controller
         
         // Si es admin, permitir acceso directo
         if ($user->is_admin) {
-            $actividades = Actividad::whereHas('seccion', function($query) use ($curso) {
+            $actividades = Actividad::whereHas('componente', function($query) use ($curso) {
                 $query->where('id_curso', $curso->id_curso);
             })
             ->orderBy('fecha_limite', 'asc')
@@ -259,7 +259,7 @@ class DocenteActivityController extends Controller
             return response()->json(['error' => 'No tienes un perfil docente o administrativo.'], 403);
         }
 
-        $isDocente = $curso->secciones()
+        $isDocente = $curso->componentes()
             ->where('id_docente', $user->docente->id_docente)
             ->exists();
         
@@ -267,8 +267,8 @@ class DocenteActivityController extends Controller
             return response()->json(['error' => 'No tienes permiso para acceder a este curso.'], 403);
         }
 
-        // Get activities for this course through seccion relationship
-        $actividades = Actividad::whereHas('seccion', function($query) use ($curso) {
+        // Get activities for this course through componente relationship
+        $actividades = Actividad::whereHas('componente', function($query) use ($curso) {
             $query->where('id_curso', $curso->id_curso);
         })
         ->orderBy('fecha_limite', 'asc')
@@ -293,7 +293,7 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
 
-        $isDocente = $curso->secciones()
+        $isDocente = $curso->componentes()
             ->where('id_docente', $user->docente->id_docente)
             ->exists();
 
@@ -301,7 +301,7 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes permiso para acceder a este curso.');
         }
 
-        $actividad->load(['seccion.tipoSeccion', 'unidad']);
+        $actividad->load(['componente.tipoComponente', 'unidad']);
 
         // Grupos con sus integrantes cargados
         $grupos = ActividadAsignada::where('id_actividad', $actividad->id_actividad)
@@ -333,9 +333,9 @@ class DocenteActivityController extends Controller
             ])
             ->values();
 
-        // Estudiantes inscritos en la sección de esta actividad (para agregar a grupos)
+        // Estudiantes inscritos en el componente de esta actividad (para agregar a grupos)
         $estudiantesDisponibles = collect();
-        if ($actividad->id_seccion) {
+        if ($actividad->id_componente) {
             $estudiantesDisponibles = DB::table('curso.inscripcion_seccion as is')
                 ->join('usuario.estudiante as e', 'e.id_estudiante', '=', 'is.id_estudiante')
                 ->join('usuario.usuario as u', 'u.id_usuario', '=', 'e.id_usuario')

@@ -7,7 +7,6 @@ use App\Models\Administrativo\Carrera;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Curso\Curso;
-use App\Models\Curso\Seccion;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
@@ -65,12 +64,9 @@ class DashboardController extends Controller
                 ->first()
             : null;
 
-        // Obtener cursos usando JOIN con secciones (relación: Docente → Secciones → Cursos)
-        $cursos = Curso::join('curso.seccion', 'curso.curso.id_curso', '=', 'curso.seccion.id_curso')
-            ->where('curso.seccion.id_docente', $docente->id_docente)
-            ->distinct()
-            ->select('curso.curso.*')
-            ->whereNull('curso.curso.fecha_eliminacion')
+        // Obtener cursos donde el docente es titular
+        $cursos = Curso::where('id_docente_titular', $docente->id_docente)
+            ->whereNull('fecha_eliminacion')
             ->get()
             ->map(function ($curso) {
                 $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)

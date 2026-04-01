@@ -55,9 +55,9 @@ class CursoPolicy extends BaseCursoPolicy
             return false;
         }
 
-        // Verificar que el docente dicta al menos una sección en este curso
-        return $user->docente->seccionesQueDicta()
-            ->where('id_curso', $curso->id_curso)
+        // Verificar que el docente es titular del curso
+        return \App\Models\Curso\Curso::where('id_curso', $curso->id_curso)
+            ->where('id_docente_titular', $user->docente->id_docente)
             ->exists();
     }
 
@@ -93,10 +93,9 @@ class CursoPolicy extends BaseCursoPolicy
             return false;
         }
 
-        // Verificar que el docente dicta al menos una sección en este curso
-        // Solo docentes asignados al curso pueden acceder a sus programas
-        return $user->docente->seccionesQueDicta()
-            ->where('id_curso', $curso->id_curso)
+        // Verificar que el docente es titular del curso
+        return \App\Models\Curso\Curso::where('id_curso', $curso->id_curso)
+            ->where('id_docente_titular', $user->docente->id_docente)
             ->exists();
     }
 }

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Docente;
 
 use App\Http\Controllers\Controller;
 use App\Models\Curso\Curso;
-use App\Models\Curso\Seccion;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Contexto;
@@ -51,13 +50,10 @@ class DocenteCursoController extends Controller
         }
 
         // Obtener cursos a través de las secciones del docente
-        // La relación es: Docente → Secciones → Cursos
-        $cursos = Curso::join('curso.seccion', 'curso.curso.id_curso', '=', 'curso.seccion.id_curso')
-            ->where('curso.seccion.id_docente', $user->docente->id_docente)
-            ->distinct()
-            ->select('curso.curso.*')
-            ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera', 'secciones.inscripcionSecciones'])
-            ->orderBy('curso.curso.fecha_inicio', 'desc')
+        // Obtener cursos donde el docente es titular
+        $cursos = Curso::where('id_docente_titular', $user->docente->id_docente)
+            ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera', 'inscripcionCursos'])
+            ->orderBy('fecha_inicio', 'desc')
             ->get()
             ->map(function ($curso) {
                 // Verificar si existe algún programa para este curso
@@ -68,10 +64,8 @@ class DocenteCursoController extends Controller
                 // Determinar el semestre: usar semestre_real si existe, sino usar 1 como default
                 $semestre = $curso->semestre_real ?? 1;
 
-                // Calcular total de estudiantes inscritos en el curso (todas sus secciones)
-                $totalEstudiantes = $curso->secciones->sum(function ($seccion) {
-                    return $seccion->inscripcionSecciones->count();
-                });
+                // Calcular total de estudiantes inscritos en el curso
+                $totalEstudiantes = $curso->inscripcionCursos->count();
 
                 return [
                     'id_curso' => $curso->id_curso,
@@ -126,14 +120,11 @@ class DocenteCursoController extends Controller
         $curso->load([
             'asignacionPlan.asignatura',
             'asignacionPlan.plan.carrera',
-            'secciones.tipoSeccion',
-            'secciones.inscripcionSecciones'
+            'inscripcionCursos',
         ]);
 
         // Calcular estadísticas
-        $totalEstudiantes = $curso->secciones->reduce(function ($carry, $seccion) {
-            return $carry + $seccion->inscripcionSecciones->count();
-        }, 0);
+        $totalEstudiantes = $curso->inscripcionCursos->count();
         // Verificar si existe algún programa para este curso
         $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)
             ->whereNull('fecha_eliminacion')
@@ -160,13 +151,7 @@ class DocenteCursoController extends Controller
                     'nombre' => $curso->asignacionPlan?->plan?->nombre ?? 'N/A',
                     'carrera' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                 ],
-                'secciones' => $curso->secciones->map(function ($seccion) {
-                    return [
-                        'id_seccion' => $seccion->id_seccion,
-                        'tipo' => $seccion->tipoSeccion?->nombre ?? 'N/A',
-                        'total_estudiantes' => $seccion->inscripcionSecciones->count(),
-                    ];
-                }),
+                'secciones' => [],
                 'total_estudiantes' => $totalEstudiantes,
             ]
         ]);

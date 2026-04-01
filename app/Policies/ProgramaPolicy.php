@@ -5,7 +5,6 @@ namespace App\Policies;
 use App\Policies\Base\BaseProgramaPolicy;
 use App\Models\Usuario\Usuario;
 use App\Models\Administrativo\Programa;
-use App\Models\Curso\Seccion;
 
 /**
  * Policy personalizada para Programa.
@@ -51,9 +50,9 @@ class ProgramaPolicy extends BaseProgramaPolicy
             return false;
         }
 
-        // Verificar si el docente tiene sección en el curso del programa
-        return $user->docente->seccionesQueDicta()
-            ->where('id_curso', $programa->id_curso)
+        // Verificar si el docente es titular del curso del programa
+        return \App\Models\Curso\Curso::where('id_curso', $programa->id_curso)
+            ->where('id_docente_titular', $user->docente->id_docente)
             ->exists();
     }
 
@@ -71,9 +70,9 @@ class ProgramaPolicy extends BaseProgramaPolicy
             return false;
         }
 
-        // Verificar si el docente tiene sección en el curso
-        return $user->docente->seccionesQueDicta()
-            ->where('id_curso', $curso->id_curso)
+        // Verificar si el docente es titular del curso
+        return \App\Models\Curso\Curso::where('id_curso', $curso->id_curso)
+            ->where('id_docente_titular', $user->docente->id_docente)
             ->exists();
     }
 

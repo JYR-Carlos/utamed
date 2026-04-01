@@ -28,6 +28,7 @@
  */
 
 import { page as pageStore } from '@inertiajs/svelte';
+import { get } from 'svelte/store';
 import type { Permission } from '@/types/permissions.types';
 
 /**
@@ -46,9 +47,13 @@ export function usePermissions() {
      */
     const userPermissions = ((): Permission[] => {
         try {
-            const auth = (pageStore.data as any).auth;
+            const props = get(pageStore).props as any;
+            const auth = props?.auth;
+            // Super admin gets wildcard permission
+            if (auth?.is_super_admin) {
+                return ['*'] as Permission[];
+            }
             if (!auth?.user?.permissions) {
-                console.warn('[usePermissions] No permissions found in page.data.auth.user.permissions');
                 return [];
             }
             return auth.user.permissions as Permission[];

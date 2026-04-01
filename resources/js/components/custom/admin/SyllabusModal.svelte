@@ -13,7 +13,7 @@
   import ProgramaWizardSteps from './ProgramaWizardSteps.svelte';
   import type { Curso, Programa } from '@/types/admin.types';
   import {
-    loadSecciones,
+    loadComponentes,
     loadActividades,
     loadProgramaJson,
     savePrograma,
@@ -75,15 +75,8 @@
 
   // Sincronizar selectedSyllabusType cuando syllabusType prop cambie
   $effect(() => {
-    console.log('🔄 Effect en SyllabusModal: syllabusType prop cambió a:', syllabusType);
     // 'combined' = continuar BASICO → usar pasos COMPLETO (9 steps)
     selectedSyllabusType = syllabusType === 'combined' ? 'complete' : syllabusType;
-    console.log(
-      '🔄 selectedSyllabusType ahora es:',
-      selectedSyllabusType,
-      'STEPS.length:',
-      STEPS.length,
-    );
   });
 
   // ── Mode ────────────────────────────────────────────────────────────────────
@@ -245,21 +238,6 @@
 
   // ── Init on mount: decide mode and load data ─────────────────────────────────
   onMount(() => {
-    console.log(
-      '🔍 SyllabusModal onMount - syllabusType (prop):',
-      syllabusType,
-      'selectedSyllabusType:',
-      selectedSyllabusType,
-      'has_programa:',
-      curso?.has_programa,
-    );
-    console.log(
-      `📊 STEPS derivation test: selectedSyllabusType=${selectedSyllabusType}, STEPS.length=${STEPS.length}, ALL_STEPS.length=${ALL_STEPS.length}`,
-    );
-    console.log(
-      `📈 Contexto: modo wizard=${mode === 'wizard'}, curso_id=${curso?.id_curso}, curso_asignatura=${curso?.asignatura_nombre}`,
-    );
-
     // Si es 'combined' y existe un programa BASICO, iniciar wizard COMPLETO pre-poblado
     if (syllabusType === 'combined' && curso?.has_programa) {
       mode = 'wizard';
@@ -275,22 +253,13 @@
     // Si no existe programa, iniciar wizard
     else {
       mode = 'wizard';
-      console.log(
-        '✨ Modo WIZARD - inicializando nuevo programa',
-        'syllabusType:',
-        syllabusType,
-        'STEPS.length que se va a usar:',
-        STEPS.length,
-      );
       initializeWizard();
     }
 
     // Force update of selectedSyllabusType in case it hasn't been set by $effect yet
     const effectiveType = syllabusType === 'combined' ? 'complete' : syllabusType;
     if (selectedSyllabusType !== effectiveType) {
-      console.log('🔄 Forcing selectedSyllabusType sync:', effectiveType);
       selectedSyllabusType = effectiveType;
-      console.log(`📊 After sync: STEPS.length=${STEPS.length}`);
     }
   });
 
@@ -310,21 +279,21 @@
     horas_taller = String(c?.horas_taller ?? asignatura?.horas_taller ?? '');
     horas_laboratorio = String(c?.horas_laboratorio ?? asignatura?.horas_laboratorio ?? '');
 
-    // Cargar secciones del curso para Sección IX
-    loadCursoSecciones();
+    // Cargar componentes del curso para Sección IX
+    loadCursoComponentes();
     // Cargar actividades existentes del curso para Sección VII
     loadCursoActividades();
   }
 
-  async function loadCursoSecciones() {
+  async function loadCursoComponentes() {
     if (!curso) return;
     try {
-      const result = await loadSecciones(curso.id_curso, getBasePath());
-      if (result.secciones && result.secciones.length > 0) {
-        componentes = result.secciones;
+      const result = await loadComponentes(curso.id_curso, getBasePath());
+      if (result.componentes && result.componentes.length > 0) {
+        componentes = result.componentes;
       }
     } catch (error) {
-      console.warn('Error cargando secciones del curso:', error);
+      console.warn('Error cargando componentes del curso:', error);
     }
   }
 
@@ -334,7 +303,6 @@
       const data = await loadActividades(curso.id_curso, getBasePath());
       if (Array.isArray(data)) {
         existingActividades = data;
-        console.log('✅ Actividades cargadas:', existingActividades);
       }
     } catch (error) {
       console.warn('Error cargando actividades del curso:', error);
@@ -491,8 +459,8 @@
     if (!nombre_asignatura) nombre_asignatura = curso?.asignatura_nombre ?? '';
     if (!codigo) codigo = String(curso?.cod_curso ?? '');
 
-    // Cargar secciones y actividades del curso para los selectores del wizard
-    loadCursoSecciones();
+    // Cargar componentes y actividades del curso para los selectores del wizard
+    loadCursoComponentes();
     loadCursoActividades();
   }
 
@@ -790,17 +758,9 @@
     // For BASICO types, only return sections I, II, VI, VII, VIII (skip III, IV, V, IX)
     if (selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined') {
       const { III: _, IV: __, V: ___, IX: ____, ...basicSecciones } = baseSecciones;
-      console.log(
-        '📋 buildSecciones - BASICO mode, returning sections:',
-        Object.keys(basicSecciones),
-      );
       return basicSecciones;
     }
 
-    console.log(
-      '📋 buildSecciones - COMPLETO mode, returning all sections:',
-      Object.keys(baseSecciones),
-    );
     return baseSecciones;
   }
 

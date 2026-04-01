@@ -206,6 +206,7 @@ export interface Curso {
     version_plantilla?: number;
     numero_semestre?: number;
     asignacionPlan?: AsignacionPlan;
+    componentes?: Componente[];
     fecha_creacion?: string;
     fecha_modificacion?: string;
     fecha_eliminacion?: string;

@@ -218,7 +218,7 @@
     editingCarrera={uiState.editingCarrera}
     {departamentos}
     {facultades}
-    {formData}
+    bind:formData={$formData}
     isLoading={$formData.processing}
     onSubmit={handleSubmit}
     onClose={closeModal}

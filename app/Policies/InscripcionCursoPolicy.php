@@ -56,10 +56,10 @@ class InscripcionCursoPolicy extends BaseInscripcionCursoPolicy
             return true;
         }
 
-        // Docente puede ver si dicta una sección en el curso
+        // Docente puede ver si es titular del curso
         if ($user->docente) {
-            $dictaSecciones = $user->docente->seccionesQueDicta()
-                ->where('id_curso', $inscripcion->id_curso)
+            $dictaSecciones = \App\Models\Curso\Curso::where('id_curso', $inscripcion->id_curso)
+                ->where('id_docente_titular', $user->docente->id_docente)
                 ->exists();
 
             if ($dictaSecciones) {
@@ -111,10 +111,10 @@ class InscripcionCursoPolicy extends BaseInscripcionCursoPolicy
             return true;
         }
 
-        // Docente solo puede crear si dicta una sección en el curso
+        // Docente solo puede crear si es titular del curso
         if ($user->docente) {
-            $dictaSecciones = $user->docente->seccionesQueDicta()
-                ->where('id_curso', $idCurso)
+            $dictaSecciones = \App\Models\Curso\Curso::where('id_curso', $idCurso)
+                ->where('id_docente_titular', $user->docente->id_docente)
                 ->exists();
 
             return $dictaSecciones;
@@ -137,10 +137,10 @@ class InscripcionCursoPolicy extends BaseInscripcionCursoPolicy
             return true;
         }
 
-        // Docente puede actualizar si dicta una sección en el curso
+        // Docente puede actualizar si es titular del curso
         if ($user->docente) {
-            $dictaSecciones = $user->docente->seccionesQueDicta()
-                ->where('id_curso', $inscripcion->id_curso)
+            $dictaSecciones = \App\Models\Curso\Curso::where('id_curso', $inscripcion->id_curso)
+                ->where('id_docente_titular', $user->docente->id_docente)
                 ->exists();
 
             return $dictaSecciones;

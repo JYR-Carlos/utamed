@@ -22,12 +22,12 @@ const JSON_HEADERS = {
 // ─── Loaders ─────────────────────────────────────────────────────────────────
 
 /**
- * Carga las secciones (componentes) de un curso.
- * GET /{basePath}/{cursoId}/secciones
+ * Carga los componentes de un curso para la sección IX del programa.
+ * GET /{basePath}/{cursoId}/componentes
  */
-export async function loadSecciones(cursoId: number, basePath: string) {
-    const { data } = await axios.get(`${basePath}/${cursoId}/secciones`);
-    return data as { secciones: any[] };
+export async function loadComponentes(cursoId: number, basePath: string) {
+    const { data } = await axios.get(`${basePath}/${cursoId}/componentes`);
+    return data as { componentes: any[] };
 }
 
 /**

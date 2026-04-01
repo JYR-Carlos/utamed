@@ -11,7 +11,7 @@
    *
    * Refactorizado: Usa componente CursoListRoleAware para reutilizar lógica de vista
    */
-  import { router, Link, usePage } from '@inertiajs/svelte';
+  import { router, Link, page } from '@inertiajs/svelte';
   import { toast } from 'svelte-sonner';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import { CourseTeamModal } from '@/modules/resources/curso/components';
@@ -48,10 +48,13 @@
   // Unificar cursos (para la lista completa)
   let cursosAll = $derived([...cursosSemestre1, ...cursosSemestre2]);
 
-  // Permisos requeridos
+  // Permisos requeridos — fallback a rol Docente cuando no hay permisos granulares cargados
   const { can } = usePermissions();
-  const canManageTeam = can('CURSOS_DOCENTE_EQUIPO');
-  const canManageSyllabus = can('CURSOS_PROGRAMA');
+  const isDocente = $derived(
+    ((($page.props.auth as any)?.roles as string[]) ?? []).includes('Docente'),
+  );
+  const canManageTeam = $derived(can('CURSOS_DOCENTE_EQUIPO') || isDocente);
+  const canManageSyllabus = $derived(can('CURSOS_PROGRAMA') || isDocente);
 
   // Toggle persistente (localStorage)
   import { onMount } from 'svelte';

@@ -27,7 +27,7 @@
     editingCarrera?: Carrera | null;
     departamentos?: Departamento[];
     facultades?: Facultad[];
-    formData?: any; // useForm object
+    formData?: any; // useForm object - bindable
     isLoading?: boolean;
     onSubmit?: () => void;
     onClose?: () => void;
@@ -39,7 +39,7 @@
     editingCarrera = null,
     departamentos = [],
     facultades = [],
-    formData,
+    formData = $bindable(),
     isLoading = false,
     onSubmit = () => {},
     onClose = () => {},
@@ -49,6 +49,7 @@
   function handleFacultadChange(e: Event) {
     const target = e.target as HTMLSelectElement;
     const id = Number(target.value);
+    if (formData) formData.id_facultad = id;
     onFacultadChange(id);
   }
 </script>
@@ -69,12 +70,12 @@
       id="nombre"
       type="text"
       bind:value={formData.nombre}
-      class={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 transition ${formData.errors.nombre ? 'border-red-400 focus:border-red-400' : 'border-gray-300 focus:border-blue-400'}`}
+      class={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 transition ${formData?.errors?.nombre ? 'border-red-400 focus:border-red-400' : 'border-gray-300 focus:border-blue-400'}`}
       placeholder="Ej: Medicina"
       required
     />
-    {#if formData.errors.nombre}
-      <p class="mt-1 text-xs text-red-500">{formData.errors.nombre}</p>
+    {#if formData?.errors?.nombre}
+      <p class="mt-1 text-xs text-red-500">{formData?.errors?.nombre}</p>
     {/if}
   </div>
 

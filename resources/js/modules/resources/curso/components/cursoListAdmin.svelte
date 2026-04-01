@@ -22,8 +22,17 @@
    * - onSyllabus: (curso: Curso) => void - Callback gestionar programa
    */
   import PaginationControls from '@/components/admin/PaginationControls.svelte';
-  import { Edit2, Trash2, Plus, Users, BookOpen, Layers } from 'lucide-svelte';
-  import type { Curso, PaginatedResponse } from '../types/curso.types';
+  import {
+    Edit2,
+    Trash2,
+    Plus,
+    Users,
+    BookOpen,
+    Layers,
+    ChevronDown,
+    ChevronUp,
+  } from 'lucide-svelte';
+  import type { Curso, Componente, PaginatedResponse } from '../types/curso.types';
 
   interface Props {
     cursos?: PaginatedResponse<Curso>;
@@ -43,6 +52,8 @@
     onTeam?: (curso: Curso) => void;
     onSyllabus?: (curso: Curso) => void;
     onComponente?: (curso: Curso) => void;
+    onEditComponente?: (curso: Curso, componente: Componente) => void;
+    onDeleteComponente?: (curso: Curso, componente: Componente) => void;
   }
 
   let {
@@ -72,7 +83,30 @@
     onTeam = () => {},
     onSyllabus = () => {},
     onComponente = () => {},
+    onEditComponente = () => {},
+    onDeleteComponente = () => {},
   }: Props = $props();
+
+  let expandedRows = $state<number[]>([]);
+
+  function toggleExpand(cursoId: number) {
+    expandedRows = expandedRows.includes(cursoId)
+      ? expandedRows.filter((id) => id !== cursoId)
+      : [...expandedRows, cursoId];
+  }
+
+  function isExpanded(cursoId: number): boolean {
+    return expandedRows.includes(cursoId);
+  }
+
+  function getDocenteName(docente: any): string {
+    if (!docente) return 'Sin asignar';
+    return (
+      docente.nombre_completo ||
+      `${docente.nombre1 ?? ''} ${docente.apellido1 ?? ''}`.trim() ||
+      'Sin nombre'
+    );
+  }
 
   function handleSearch() {
     onSearch();
@@ -245,12 +279,23 @@
                     Programa
                   </button>
                   <button
-                    onclick={() => onComponente(curso)}
+                    onclick={() => toggleExpand(curso.id_curso)}
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition font-medium text-xs"
-                    title="Agregar componente"
+                    title="Ver componentes del curso"
                   >
                     <Layers size={14} />
-                    Componente
+                    Componentes
+                    {#if (curso.componentes?.length ?? 0) > 0}
+                      <span
+                        class="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-emerald-100 text-emerald-700 rounded-full"
+                        >{curso.componentes!.length}</span
+                      >
+                    {/if}
+                    {#if isExpanded(curso.id_curso)}
+                      <ChevronUp size={12} />
+                    {:else}
+                      <ChevronDown size={12} />
+                    {/if}
                   </button>
                   <button
                     onclick={() => onDelete(curso)}
@@ -263,6 +308,99 @@
                 </div>
               </td>
             </tr>
+            {#if isExpanded(curso.id_curso)}
+              <tr class="bg-emerald-50/20">
+                <td colspan="6" class="px-6 py-4 border-b border-emerald-100">
+                  <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                      <h4 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                        <Layers size={14} class="text-emerald-600" />
+                        Componentes — {curso.cod_curso}
+                      </h4>
+                      <button
+                        onclick={() => onComponente(curso)}
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+                      >
+                        <Plus size={14} />
+                        Agregar Componente
+                      </button>
+                    </div>
+
+                    {#if !curso.componentes || curso.componentes.length === 0}
+                      <p class="text-sm text-gray-500 italic py-2">
+                        Este curso no tiene componentes. Usa &ldquo;Agregar Componente&rdquo; para
+                        crear uno.
+                      </p>
+                    {:else}
+                      <table class="min-w-full text-sm">
+                        <thead>
+                          <tr class="border-b border-emerald-100">
+                            <th
+                              class="pb-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                              >Tipo</th
+                            >
+                            <th
+                              class="pb-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                              >Docente</th
+                            >
+                            <th
+                              class="pb-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                              >Genera Acta</th
+                            >
+                            <th
+                              class="pb-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                              >Acciones</th
+                            >
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-emerald-50">
+                          {#each curso.componentes as comp (comp.id_componente)}
+                            <tr class="hover:bg-emerald-50/50 transition">
+                              <td class="py-2 pr-6 font-medium text-gray-800">
+                                {comp.tipo_componente?.tipo ?? '—'}
+                              </td>
+                              <td class="py-2 pr-6 text-gray-600">
+                                {getDocenteName(comp.docentes?.[0])}
+                              </td>
+                              <td class="py-2 pr-6 text-center">
+                                {#if comp.genera_acta}
+                                  <span
+                                    class="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full"
+                                    >Sí</span
+                                  >
+                                {:else}
+                                  <span class="text-xs text-gray-400">—</span>
+                                {/if}
+                              </td>
+                              <td class="py-2 text-center">
+                                <div class="flex items-center justify-center gap-2">
+                                  <button
+                                    onclick={() => onEditComponente(curso, comp)}
+                                    class="inline-flex items-center gap-1 px-2 py-1 text-sky-600 hover:bg-sky-50 rounded transition text-xs font-medium"
+                                    title="Editar componente"
+                                  >
+                                    <Edit2 size={12} />
+                                    Editar
+                                  </button>
+                                  <button
+                                    onclick={() => onDeleteComponente(curso, comp)}
+                                    class="inline-flex items-center gap-1 px-2 py-1 text-red-600 hover:bg-red-50 rounded transition text-xs font-medium"
+                                    title="Eliminar componente"
+                                  >
+                                    <Trash2 size={12} />
+                                    Eliminar
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          {/each}
+                        </tbody>
+                      </table>
+                    {/if}
+                  </div>
+                </td>
+              </tr>
+            {/if}
           {/each}
         {/if}
       </tbody>

@@ -30,6 +30,7 @@
     deleteCurso,
     createComponente,
     updateComponente,
+    deleteComponente,
   } from '@/modules/resources/curso/services/cursoApi';
   import type {
     Curso,
@@ -235,7 +236,35 @@
   function openComponenteModal(curso: Curso) {
     editingCurso = curso;
     editingComponente = null;
+    loadDocentes();
     showComponenteModal = true;
+  }
+
+  function openEditComponenteModal(curso: Curso, componente: Componente) {
+    editingCurso = curso;
+    editingComponente = componente;
+    loadDocentes();
+    showComponenteModal = true;
+  }
+
+  function handleDeleteComponente(curso: Curso, componente: Componente) {
+    if (
+      !confirm(
+        `¿Eliminar el componente "${componente.tipo_componente?.tipo ?? 'este'}" del curso ${curso.cod_curso}?`,
+      )
+    )
+      return;
+    isLoading = true;
+    deleteComponente(curso.id_curso, componente.id_componente, {
+      onSuccess: () => {
+        isLoading = false;
+        showToast('Componente eliminado', 'success');
+      },
+      onError: () => {
+        isLoading = false;
+        showToast('Error al eliminar componente', 'error');
+      },
+    });
   }
 
   function openEditModal(curso: Curso) {
@@ -382,33 +411,6 @@
 
 <AdminLayout>
   <div>
-    <div class="flex justify-between items-start mb-8">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900 mb-1">Cursos</h1>
-        <p class="text-sm text-gray-500">Gestión de cursos y asignación de docentes</p>
-      </div>
-      <button
-        onclick={openCreateModal}
-        class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-        Nuevo Curso
-      </button>
-    </div>
-
     <!-- Tabla de cursos usando componente modular -->
     <CursoListAdmin
       {cursos}
@@ -438,6 +440,8 @@
       onTeam={openTeamModal}
       onSyllabus={openSyllabusModal}
       onComponente={openComponenteModal}
+      onEditComponente={openEditComponenteModal}
+      onDeleteComponente={handleDeleteComponente}
     />
   </div>
 

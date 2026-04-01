@@ -63,7 +63,7 @@ class ProgramaController extends Controller
             $curso->load([
                 'asignacionPlan.asignatura',
                 'asignacionPlan.plan.carrera',
-                'secciones.docente.usuario',
+                'componentes.docente.usuario',
             ]);
 
             $cursoData = [
@@ -74,8 +74,8 @@ class ProgramaController extends Controller
                 'carrera'    => $curso->asignacionPlan?->plan?->carrera,
             ];
 
-            $primerSeccion = $curso->secciones->first();
-            $docenteUsuario = $primerSeccion?->docente?->usuario;
+            $primerComponente = $curso->componentes->first();
+            $docenteUsuario = $primerComponente?->docente?->usuario;
 
             return Inertia::render('student/Courses/Syllabus', [
                 'programa' => null,
@@ -85,11 +85,11 @@ class ProgramaController extends Controller
             ]);
         }
 
-        // Cargar relaciones del curso (incluye secciones para obtener docente)
+        // Cargar relaciones del curso (incluye componentes para obtener docente)
         $curso->load([
             'asignacionPlan.asignatura',
             'asignacionPlan.plan.carrera',
-            'secciones.docente.usuario',
+            'componentes.docente.usuario',
         ]);
 
         // Procesar data_syllabus correctamente
@@ -139,9 +139,9 @@ class ProgramaController extends Controller
             'normativa'                => $secIX['descripcion'] ?? '',
         ];
 
-        // ── Docente (primer sección) ──────────────────────────────────────────
-        $primerSeccion = $curso->secciones->first();
-        $docenteUsuario = $primerSeccion?->docente?->usuario;
+        // ── Docente (primer componente) ──────────────────────────────────────────
+        $primerComponente = $curso->componentes->first();
+        $docenteUsuario = $primerComponente?->docente?->usuario;
         $docenteData = $docenteUsuario ? [
             'nombre' => $docenteUsuario->nombre,
             'email'  => $docenteUsuario->email,

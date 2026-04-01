@@ -10,3 +10,4 @@ export { default as ProgramaDetailView } from './ProgramaDetailView.svelte';
 export { default as ProgramasListView } from './ProgramasListView.svelte';
 export { default as ProgramaWizardSteps } from './ProgramaWizardSteps.svelte';
 export { default as ProgramaDocument } from './ProgramaDocument.svelte';
+export { default as CompletenessProgressBar } from './CompletenessProgressBar.svelte';

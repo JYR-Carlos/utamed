@@ -23,9 +23,11 @@ class ComponenteResource extends JsonResource
             ]),
             'docentes' => $this->whenLoaded('docentesAsignados', fn () =>
                 $this->docentesAsignados->map(fn ($docente) => [
-                    'id_docente' => $docente->id_docente,
-                    'nombre'     => $docente->usuario?->nombre ?? null,
-                    'apellido'   => $docente->usuario?->apellido ?? null,
+                    'id_docente'      => $docente->id_docente,
+                    'nombre_completo' => trim(($docente->usuario?->nombre1 ?? '') . ' ' . ($docente->usuario?->apellido1 ?? '')),
+                    'nombre1'         => $docente->usuario?->nombre1,
+                    'apellido1'       => $docente->usuario?->apellido1,
+                    'cargo'           => $docente->cargo,
                 ])
             ),
         ];

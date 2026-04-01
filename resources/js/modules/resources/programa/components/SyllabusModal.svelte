@@ -13,7 +13,7 @@
   import ProgramaWizardSteps from './ProgramaWizardSteps.svelte';
   import type { Curso, Programa } from '@/types/admin.types';
   import {
-    loadSecciones,
+    loadComponentes,
     loadActividades,
     loadProgramaJson,
     savePrograma,
@@ -61,17 +61,22 @@
     canApprove?: boolean;
   }
 
-  let { isOpen = $bindable(), curso, onClose, onSuccess, syllabusType = null, canApprove = false }: Props = $props();
+  let {
+    isOpen = $bindable(),
+    curso,
+    onClose,
+    onSuccess,
+    syllabusType = null,
+    canApprove = false,
+  }: Props = $props();
 
   // ── Syllabus Type tracking ───────────────────────────────────────────────
   let selectedSyllabusType = $state<'simplified' | 'combined' | 'complete' | null>(null);
 
   // Sincronizar selectedSyllabusType cuando syllabusType prop cambie
   $effect(() => {
-    console.log('🔄 Effect en SyllabusModal: syllabusType prop cambió a:', syllabusType);
     // 'combined' = continuar BASICO → usar pasos COMPLETO (9 steps)
     selectedSyllabusType = syllabusType === 'combined' ? 'complete' : syllabusType;
-    console.log('🔄 selectedSyllabusType ahora es:', selectedSyllabusType, 'STEPS.length:', STEPS.length);
   });
 
   // ── Mode ────────────────────────────────────────────────────────────────────
@@ -114,7 +119,9 @@
   let subcompetencias = $state<{ titulo: string }[]>([]);
 
   // Sección V: Evaluación Diagnóstica
-  let items_evaluacion = $state<{ titulo: string; descripcion: string }[]>([{ titulo: '', descripcion: '' }]);
+  let items_evaluacion = $state<{ titulo: string; descripcion: string }[]>([
+    { titulo: '', descripcion: '' },
+  ]);
 
   // Sección VII (BASICO): Actividades de Aprendizaje
   let actividades = $state<
@@ -126,13 +133,29 @@
       id_seccion?: number | null;
       nombre_unidad?: string;
     }[]
-  >([{ id_actividad: null, nombre: '', tipo: 'participación', id_unidad: null, id_seccion: null, nombre_unidad: '' }]);
-  let existingActividades = $state<{ id_actividad: number; nombre: string; fecha_limite: string }[]>([]);
+  >([
+    {
+      id_actividad: null,
+      nombre: '',
+      tipo: 'participación',
+      id_unidad: null,
+      id_seccion: null,
+      nombre_unidad: '',
+    },
+  ]);
+  let existingActividades = $state<
+    { id_actividad: number; nombre: string; fecha_limite: string }[]
+  >([]);
 
   // Sección VI: Unidades (con resultados de aprendizaje por unidad)
-  let unidades = $state<{ numero: number; titulo: string; contenidos: string; resultados_aprendizaje: { resultado: string }[] }[]>([
-    { numero: 1, titulo: '', contenidos: '', resultados_aprendizaje: [{ resultado: '' }] },
-  ]);
+  let unidades = $state<
+    {
+      numero: number;
+      titulo: string;
+      contenidos: string;
+      resultados_aprendizaje: { resultado: string }[];
+    }[]
+  >([{ numero: 1, titulo: '', contenidos: '', resultados_aprendizaje: [{ resultado: '' }] }]);
 
   // Sección VII: Planificación (consolida resultados de aprendizaje desde unidades)
   let consolidatedResults = $derived.by(() => {
@@ -166,8 +189,22 @@
   // Sección IX: Aspectos Administrativos
   let ponderacion_optativa = $state('0');
   let componentes = $state<
-    { componente: string; porcentaje: number; genera_acta: boolean; aprobacion_obligatoria: boolean; asistencia_obligatoria: number }[]
-  >([{ componente: '', porcentaje: 0, genera_acta: false, aprobacion_obligatoria: false, asistencia_obligatoria: 0 }]);
+    {
+      componente: string;
+      porcentaje: number;
+      genera_acta: boolean;
+      aprobacion_obligatoria: boolean;
+      asistencia_obligatoria: number;
+    }[]
+  >([
+    {
+      componente: '',
+      porcentaje: 0,
+      genera_acta: false,
+      aprobacion_obligatoria: false,
+      asistencia_obligatoria: 0,
+    },
+  ]);
   let normativa_curso = $state('');
 
   const ALL_STEPS = [
@@ -212,7 +249,9 @@
     console.log(
       `📊 STEPS derivation test: selectedSyllabusType=${selectedSyllabusType}, STEPS.length=${STEPS.length}, ALL_STEPS.length=${ALL_STEPS.length}`,
     );
-    console.log(`📈 Contexto: modo wizard=${mode === 'wizard'}, curso_id=${curso?.id_curso}, curso_asignatura=${curso?.asignatura_nombre}`);
+    console.log(
+      `📈 Contexto: modo wizard=${mode === 'wizard'}, curso_id=${curso?.id_curso}, curso_asignatura=${curso?.asignatura_nombre}`,
+    );
 
     // Si es 'combined' y existe un programa BASICO, iniciar wizard COMPLETO pre-poblado
     if (syllabusType === 'combined' && curso?.has_programa) {
@@ -229,16 +268,20 @@
     // Si no existe programa, iniciar wizard
     else {
       mode = 'wizard';
-      console.log('✨ Modo WIZARD - inicializando nuevo programa', 'syllabusType:', syllabusType, 'STEPS.length que se va a usar:', STEPS.length);
+      console.log(
+        '✨ Modo WIZARD - inicializando nuevo programa',
+        'syllabusType:',
+        syllabusType,
+        'STEPS.length que se va a usar:',
+        STEPS.length,
+      );
       initializeWizard();
     }
 
     // Force update of selectedSyllabusType in case it hasn't been set by $effect yet
     const effectiveType = syllabusType === 'combined' ? 'complete' : syllabusType;
     if (selectedSyllabusType !== effectiveType) {
-      console.log('🔄 Forcing selectedSyllabusType sync:', effectiveType);
       selectedSyllabusType = effectiveType;
-      console.log(`📊 After sync: STEPS.length=${STEPS.length}`);
     }
   });
 
@@ -258,21 +301,21 @@
     horas_taller = String(c?.horas_taller ?? asignatura?.horas_taller ?? '');
     horas_laboratorio = String(c?.horas_laboratorio ?? asignatura?.horas_laboratorio ?? '');
 
-    // Cargar secciones del curso para Sección IX
-    loadCursoSecciones();
+    // Cargar componentes del curso para Sección IX
+    loadCursoComponentes();
     // Cargar actividades existentes del curso para Sección VII
     loadCursoActividades();
   }
 
-  async function loadCursoSecciones() {
+  async function loadCursoComponentes() {
     if (!curso) return;
     try {
-      const result = await loadSecciones(curso.id_curso, getBasePath());
-      if (result.secciones && result.secciones.length > 0) {
-        componentes = result.secciones;
+      const result = await loadComponentes(curso.id_curso, getBasePath());
+      if (result.componentes && result.componentes.length > 0) {
+        componentes = result.componentes;
       }
     } catch (error) {
-      console.warn('Error cargando secciones del curso:', error);
+      console.warn('Error cargando componentes del curso:', error);
     }
   }
 
@@ -282,7 +325,6 @@
       const data = await loadActividades(curso.id_curso, getBasePath());
       if (Array.isArray(data)) {
         existingActividades = data;
-        console.log('✅ Actividades cargadas:', existingActividades);
       }
     } catch (error) {
       console.warn('Error cargando actividades del curso:', error);
@@ -310,15 +352,22 @@
 
     const cIV = raw?.IV?.contenido ?? {};
     if (Array.isArray(cIV.competencias_especificas) && cIV.competencias_especificas.length > 0)
-      competencias_especificas = cIV.competencias_especificas.map((c: any) => ({ titulo: c.titulo ?? '' }));
+      competencias_especificas = cIV.competencias_especificas.map((c: any) => ({
+        titulo: c.titulo ?? '',
+      }));
     if (Array.isArray(cIV.competencias_genericas) && cIV.competencias_genericas.length > 0)
-      competencias_genericas = cIV.competencias_genericas.map((c: any) => ({ titulo: c.titulo ?? '' }));
+      competencias_genericas = cIV.competencias_genericas.map((c: any) => ({
+        titulo: c.titulo ?? '',
+      }));
     if (Array.isArray(cIV.subcompetencias) && cIV.subcompetencias.length > 0)
       subcompetencias = cIV.subcompetencias.map((s: any) => ({ titulo: s.titulo ?? '' }));
 
     const cV = raw?.V?.contenido ?? {};
     if (Array.isArray(cV.items) && cV.items.length > 0)
-      items_evaluacion = cV.items.map((i: any) => ({ titulo: i.titulo ?? '', descripcion: i.descripcion ?? '' }));
+      items_evaluacion = cV.items.map((i: any) => ({
+        titulo: i.titulo ?? '',
+        descripcion: i.descripcion ?? '',
+      }));
 
     const cVI = raw?.VI?.contenido ?? {};
     if (Array.isArray(cVI.unidades) && cVI.unidades.length > 0) {
@@ -339,11 +388,16 @@
 
     const cVIII = raw?.VIII?.contenido ?? {};
     if (Array.isArray(cVIII.recursos) && cVIII.recursos.length > 0)
-      recursos = cVIII.recursos.map((r: any) => ({ descripcion: r.descripcion ?? '', tipo: r.tipo ?? 'Libro', ubicacion: r.ubicacion ?? '' }));
+      recursos = cVIII.recursos.map((r: any) => ({
+        descripcion: r.descripcion ?? '',
+        tipo: r.tipo ?? 'Libro',
+        ubicacion: r.ubicacion ?? '',
+      }));
 
     const cIX = raw?.IX?.contenido ?? {};
     if (cIX.descripcion) normativa_curso = cIX.descripcion;
-    if (cIX.ponderacion_optativa?.porcentaje != null) ponderacion_optativa = String(cIX.ponderacion_optativa.porcentaje);
+    if (cIX.ponderacion_optativa?.porcentaje != null)
+      ponderacion_optativa = String(cIX.ponderacion_optativa.porcentaje);
     if (Array.isArray(cIX.tabla_componentes) && cIX.tabla_componentes.length > 0)
       componentes = cIX.tabla_componentes.map((c: any) => ({
         componente: c.componente ?? '',
@@ -366,11 +420,14 @@
       // Determinar tipo desde data_syllabus.metadata.tipo_syllabus ("BASICO" | "COMPLETO")
       // normalizado a los valores del frontend ('simplified' | 'complete')
       const metaTipo = (result.programa?.data_syllabus?.metadata?.tipo_syllabus ?? '') as string;
-      const normalizedStoredType = metaTipo === 'BASICO' ? 'simplified' : metaTipo === 'COMPLETO' ? 'complete' : '';
+      const normalizedStoredType =
+        metaTipo === 'BASICO' ? 'simplified' : metaTipo === 'COMPLETO' ? 'complete' : '';
 
       // Inferir desde qué secciones existen en el JSONB (formato nuevo: objeto con claves romanas)
       const hasComplexSections = !!(raw.III || raw.IV || raw.V || raw.IX);
-      const inferredType: 'simplified' | 'complete' = hasComplexSections ? 'complete' : 'simplified';
+      const inferredType: 'simplified' | 'complete' = hasComplexSections
+        ? 'complete'
+        : 'simplified';
 
       if (normalizedStoredType) {
         selectedSyllabusType = normalizedStoredType as 'simplified' | 'complete';
@@ -390,7 +447,8 @@
       if (!creditos_sct) creditos_sct = String(c?.creditos_sct ?? asig?.creditos_sct ?? '');
       if (!horas_catedra) horas_catedra = String(c?.horas_catedra ?? asig?.horas_catedra ?? '');
       if (!horas_taller) horas_taller = String(c?.horas_taller ?? asig?.horas_taller ?? '');
-      if (!horas_laboratorio) horas_laboratorio = String(c?.horas_laboratorio ?? asig?.horas_laboratorio ?? '');
+      if (!horas_laboratorio)
+        horas_laboratorio = String(c?.horas_laboratorio ?? asig?.horas_laboratorio ?? '');
 
       isEditMode = true;
       mode = 'wizard';
@@ -423,8 +481,8 @@
     if (!nombre_asignatura) nombre_asignatura = curso?.asignatura_nombre ?? '';
     if (!codigo) codigo = String(curso?.cod_curso ?? '');
 
-    // Cargar secciones y actividades del curso para los selectores del wizard
-    loadCursoSecciones();
+    // Cargar componentes y actividades del curso para los selectores del wizard
+    loadCursoComponentes();
     loadCursoActividades();
   }
 
@@ -463,7 +521,9 @@
 
     items_evaluacion = [{ titulo: '', descripcion: '' }];
 
-    unidades = [{ numero: 1, titulo: '', contenidos: '', resultados_aprendizaje: [{ resultado: '' }] }];
+    unidades = [
+      { numero: 1, titulo: '', contenidos: '', resultados_aprendizaje: [{ resultado: '' }] },
+    ];
 
     metodologia = '';
     evaluacion = '';
@@ -474,7 +534,15 @@
     ];
 
     ponderacion_optativa = '0';
-    componentes = [{ componente: '', porcentaje: 0, genera_acta: false, aprobacion_obligatoria: false, asistencia_obligatoria: 0 }];
+    componentes = [
+      {
+        componente: '',
+        porcentaje: 0,
+        genera_acta: false,
+        aprobacion_obligatoria: false,
+        asistencia_obligatoria: 0,
+      },
+    ];
     normativa_curso = '';
   }
 
@@ -539,7 +607,15 @@
 
   // ── Wizard helpers ───────────────────────────────────────────────────────────
   function addUnidad() {
-    unidades = [...unidades, { numero: unidades.length + 1, titulo: '', contenidos: '', resultados_aprendizaje: [{ resultado: '' }] }];
+    unidades = [
+      ...unidades,
+      {
+        numero: unidades.length + 1,
+        titulo: '',
+        contenidos: '',
+        resultados_aprendizaje: [{ resultado: '' }],
+      },
+    ];
   }
 
   function removeUnidad(i: number) {
@@ -702,13 +778,12 @@
     };
 
     // For BASICO types, only return sections I, II, VI, VII, VIII (skip III, IV, V, IX)
+    // For BASICO types, only return sections I, II, VI, VII, VIII (skip III, IV, V, IX)
     if (selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined') {
       const { III: _, IV: __, V: ___, IX: ____, ...basicSecciones } = baseSecciones;
-      console.log('📋 buildSecciones - BASICO mode, returning sections:', Object.keys(basicSecciones));
       return basicSecciones;
     }
 
-    console.log('📋 buildSecciones - COMPLETO mode, returning all sections:', Object.keys(baseSecciones));
     return baseSecciones;
   }
 
@@ -749,7 +824,10 @@
 
   // Validation for each step
   let step1Valid = $derived(
-    nombre_asignatura.trim().length > 0 && codigo.trim().length > 0 && creditos_sct.trim().length > 0 && horas_catedra.trim().length > 0,
+    nombre_asignatura.trim().length > 0 &&
+      codigo.trim().length > 0 &&
+      creditos_sct.trim().length > 0 &&
+      horas_catedra.trim().length > 0,
   );
   let step2Valid = $derived(
     selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined'
@@ -758,7 +836,8 @@
   );
   let step3Valid = $derived(estandares.trim().length > 0);
   let step4Valid = $derived(
-    competencias_especificas.some((c) => c.titulo.trim().length > 0) && competencias_genericas.some((c) => c.titulo.trim().length > 0),
+    competencias_especificas.some((c) => c.titulo.trim().length > 0) &&
+      competencias_genericas.some((c) => c.titulo.trim().length > 0),
   );
   let step5Valid = $derived(items_evaluacion.some((i) => i.titulo.trim().length > 0));
   let step6Valid = $derived(
@@ -770,14 +849,18 @@
   let step7Valid = $derived(
     selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined'
       ? true // Actividades es completamente opcional en BASICO
-      : consolidatedResults.length > 0 && metodologia.trim().length > 0 && evaluacion.trim().length > 0,
+      : consolidatedResults.length > 0 &&
+          metodologia.trim().length > 0 &&
+          evaluacion.trim().length > 0,
   );
   let step8Valid = $derived(
     selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined'
       ? true // Recursos es opcional en BASICO
       : recursos.filter((r) => r.descripcion.trim().length > 0).length >= 2, // Requerido en COMPLETO
   );
-  let step9Valid = $derived(normativa_curso.trim().length > 0 && componentes.some((c) => c.componente.trim().length > 0));
+  let step9Valid = $derived(
+    normativa_curso.trim().length > 0 && componentes.some((c) => c.componente.trim().length > 0),
+  );
 
   // Helper: get the first content text of a section (for display)
   function firstContent(sec: SeccionPrograma): string {
@@ -803,7 +886,9 @@
       // Update the first / only content item; preserve any extra items
       editedSections[secIdx] = {
         ...sec,
-        contenidos_programa: sec.contenidos_programa.map((c, i) => (i === 0 ? { ...c, texto_contenido: text } : c)),
+        contenidos_programa: sec.contenidos_programa.map((c, i) =>
+          i === 0 ? { ...c, texto_contenido: text } : c,
+        ),
       };
     }
   }
@@ -823,10 +908,15 @@
   >
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col" onclick={(e) => e.stopPropagation()}>
+    <div
+      class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col"
+      onclick={(e) => e.stopPropagation()}
+    >
       <!-- ── Header ──────────────────────────────────────────────── -->
       <div class="flex items-center gap-3 px-6 py-5 border-b border-slate-100 flex-shrink-0">
-        <div class="flex items-center justify-center w-9 h-9 bg-blue-50 rounded-lg text-blue-600 flex-shrink-0">
+        <div
+          class="flex items-center justify-center w-9 h-9 bg-blue-50 rounded-lg text-blue-600 flex-shrink-0"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="18"
@@ -836,19 +926,26 @@
             stroke="currentColor"
             stroke-width="2.5"
             stroke-linecap="round"
-            stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg
+            stroke-linejoin="round"
+            ><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline
+              points="14 2 14 8 20 8"
+            /></svg
           >
         </div>
         <div class="flex-1 min-w-0">
           <h2 id="syllabus-modal-title" class="text-lg font-bold text-slate-900">
             {isEditMode ? 'Programa de Cátedra' : 'Nuevo Programa de Cátedra'}
           </h2>
-          <p class="text-sm text-slate-500 truncate">{curso.asignatura_nombre ?? `Curso ${curso.cod_curso}`}</p>
+          <p class="text-sm text-slate-500 truncate">
+            {curso.asignatura_nombre ?? `Curso ${curso.cod_curso}`}
+          </p>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
           {#if isEditMode && programaData}
             {#if programaData.estado === 'BORRADOR'}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+              <span
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800"
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="10"
@@ -859,12 +956,19 @@
                   stroke-width="2.5"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg
+                  ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
+                    x1="12"
+                    y1="16"
+                    x2="12.01"
+                    y2="16"
+                  /></svg
                 >
                 Borrador v{programaData.version_programa}
               </span>
             {:else}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800">
+              <span
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800"
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="10"
@@ -880,7 +984,12 @@
               </span>
             {/if}
           {/if}
-          <button type="button" onclick={handleClose} title="Cerrar" class="p-1 hover:bg-slate-100 rounded transition-colors">
+          <button
+            type="button"
+            onclick={handleClose}
+            title="Cerrar"
+            class="p-1 hover:bg-slate-100 rounded transition-colors"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="18"
@@ -890,7 +999,8 @@
               stroke="currentColor"
               stroke-width="2"
               stroke-linecap="round"
-              stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+              stroke-linejoin="round"
+              ><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
             >
           </button>
         </div>
@@ -899,12 +1009,17 @@
       <!-- PROGRAM WIZARD (create / edit) -->
       {#if loadingPrograma}
         <div class="flex-1 flex flex-col items-center justify-center py-12 gap-2">
-          <div class="w-4 h-4 border-2 border-slate-300 border-t-blue-600 rounded-full animate-spin"></div>
+          <div
+            class="w-4 h-4 border-2 border-slate-300 border-t-blue-600 rounded-full animate-spin"
+          ></div>
           <span class="text-sm text-slate-500">Cargando programa...</span>
         </div>
       {:else if viewError}
         <div class="flex-1 overflow-y-auto px-6 py-6">
-          <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm" role="alert">
+          <div
+            class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm"
+            role="alert"
+          >
             {viewError}
           </div>
           <button
@@ -1000,8 +1115,13 @@
 
         <div class="flex-1 overflow-y-auto px-6 py-6">
           {#if isEditMode && programaData?.estado === 'APROBADO'}
-            <div class="p-3 rounded-lg bg-amber-50 border border-amber-200 flex gap-2 items-start mb-4">
-              <svg class="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"
+            <div
+              class="p-3 rounded-lg bg-amber-50 border border-amber-200 flex gap-2 items-start mb-4"
+            >
+              <svg
+                class="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0"
+                fill="currentColor"
+                viewBox="0 0 20 20"
                 ><path
                   fill-rule="evenodd"
                   d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
@@ -1010,7 +1130,9 @@
               >
               <div>
                 <p class="font-medium text-sm text-amber-900">Programa Aprobado</p>
-                <p class="text-xs text-amber-800 mt-0.5">Este programa ya fue aprobado. Guardar generará una nueva versión en borrador.</p>
+                <p class="text-xs text-amber-800 mt-0.5">
+                  Este programa ya fue aprobado. Guardar generará una nueva versión en borrador.
+                </p>
               </div>
             </div>
           {/if}
@@ -1043,7 +1165,10 @@
           />
 
           {#if errorMsg}
-            <div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm mt-4" role="alert">
+            <div
+              class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm mt-4"
+              role="alert"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="15"
@@ -1054,7 +1179,12 @@
                 stroke-width="2"
                 stroke-linecap="round"
                 stroke-linejoin="round"
-                ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg
+                ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
+                  x1="12"
+                  y1="16"
+                  x2="12.01"
+                  y2="16"
+                /></svg
               >
               {errorMsg}
             </div>
@@ -1062,7 +1192,9 @@
         </div>
 
         <!-- Footer -->
-        <div class="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 flex-shrink-0 gap-3">
+        <div
+          class="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 flex-shrink-0 gap-3"
+        >
           <div class="flex items-center gap-2">
             {#if isEditMode && canApprove}
               <button
@@ -1100,7 +1232,9 @@
                 class="px-3 py-2 text-green-700 bg-white border border-green-300 rounded-lg text-sm font-medium hover:bg-green-50 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
               >
                 {#if isApproving}
-                  <span class="inline-block w-4 h-4 border-2 border-slate-300 border-t-green-600 rounded-full animate-spin"></span>
+                  <span
+                    class="inline-block w-4 h-4 border-2 border-slate-300 border-t-green-600 rounded-full animate-spin"
+                  ></span>
                   Aprobando...
                 {:else}
                   <svg
@@ -1151,7 +1285,9 @@
                 class="px-3 py-2 rounded-lg text-sm font-medium bg-blue-600 border-none text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
               >
                 {#if isGenerating}
-                  <span class="inline-block w-4 h-4 border-2 border-slate-300 border-t-white rounded-full animate-spin"></span>
+                  <span
+                    class="inline-block w-4 h-4 border-2 border-slate-300 border-t-white rounded-full animate-spin"
+                  ></span>
                 {/if}
                 {isEditMode ? 'Guardar cambios' : 'Generar Programa'}
               </button>

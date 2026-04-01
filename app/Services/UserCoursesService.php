@@ -31,10 +31,8 @@ class UserCoursesService
      */
     public function getDocenteCourses(Docente $docente): array
     {
-        return Curso::join('curso.seccion', 'curso.curso.id_curso', '=', 'curso.seccion.id_curso')
-            ->where('curso.seccion.id_docente', $docente->id_docente)
-            ->distinct()
-            ->select('curso.curso.id_curso', 'curso.curso.nombre', 'curso.curso.cod_curso')
+        return Curso::where('id_docente_titular', $docente->id_docente)
+            ->select('id_curso', 'nombre', 'cod_curso')
             ->with(['asignacionPlan.plan.carrera'])
             ->get()
             ->map(fn($curso) => [
@@ -56,9 +54,9 @@ class UserCoursesService
     public function getEstudianteCourses(Estudiante $estudiante): array
     {
         return InscripcionComponente::where('id_estudiante', $estudiante->id_estudiante)
-            ->with('seccion.curso')
+            ->with('componente.curso')
             ->get()
-            ->pluck('seccion.curso')
+            ->pluck('componente.curso')
             ->filter()
             ->unique('id_curso')
             ->values()

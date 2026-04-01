@@ -104,7 +104,7 @@ class ProgramaController extends Controller
         
         $isAdmin = $user->is_admin;
         $isAssignedDocente = $user->docente
-            ? $user->docente->seccionesQueDicta()->where('id_curso', $curso->id_curso)->exists()
+            ? \App\Models\Curso\Curso::where('id_curso', $curso->id_curso)->where('id_docente_titular', $user->docente->id_docente)->exists()
             : false;
 
         $editableState = !$programa || !in_array($programa->estado, ['APROBADO']);
