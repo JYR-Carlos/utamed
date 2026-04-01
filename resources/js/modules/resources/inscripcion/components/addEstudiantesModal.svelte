@@ -84,7 +84,7 @@
       const created = (json.created ?? []).length;
       const skipped = (json.skipped ?? []).length;
       const errors = (json.errors ?? []).length;
-      
+
       // Log de detalles para desarrollo
       if (skipped > 0 || errors > 0) {
         console.log('Detalles de inscripción:', {
@@ -93,23 +93,23 @@
           errors: json.errors,
         });
       }
-      
+
       // Construir mensaje detallado
       let message = '';
       if (created > 0) {
         message += `${created} estudiante${created !== 1 ? 's' : ''} inscrito${created !== 1 ? 's' : ''}.`;
       }
-      
+
       if (skipped > 0) {
         if (message) message += ' ';
         message += `${skipped} omitido${skipped !== 1 ? 's' : ''} (${json.skipped?.map((s: any) => s.razon || 'desconocido').join(', ') || 'sin detalles'}).`;
       }
-      
+
       if (errors > 0 && json.errors?.length > 0) {
         if (message) message += ' ';
         message += `Error${errors !== 1 ? 'es' : ''}: ${json.errors.map((e: any) => e.error_detail || e.razon).join('; ')}.`;
       }
-      
+
       close();
       onToast(message || 'No hay cambios', 'success');
     } catch (e) {

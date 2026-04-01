@@ -44,13 +44,13 @@
   function openMenu(e: MouseEvent) {
     const btn = e.currentTarget as HTMLButtonElement;
     const inscripcionId = parseInt(btn.dataset.inscripcionId || '0');
-    
+
     // Toggle: si ya está abierto, cerrarlo
     if (openMenuId === inscripcionId) {
       openMenuId = null;
       return;
     }
-    
+
     const rect = btn.getBoundingClientRect();
     menuPos = {
       x: rect.left,
@@ -58,7 +58,6 @@
     };
     openMenuId = inscripcionId;
   }
-
 </script>
 
 <svelte:window
@@ -317,11 +316,7 @@
 {#if openMenuId !== null}
   <!-- Overlay clickeable para cerrar menú -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="fixed inset-0 z-30"
-    onclick={() => (openMenuId = null)}
-    role="presentation"
-  ></div>
+  <div class="fixed inset-0 z-30" onclick={() => (openMenuId = null)} role="presentation"></div>
 
   <!-- Menú desplegable en posición fixed -->
   {@const firstItem = roster.find((r) => r.id_inscripcion_curso === openMenuId)}

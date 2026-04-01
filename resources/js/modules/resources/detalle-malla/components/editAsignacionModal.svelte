@@ -85,7 +85,9 @@
   {/if}
   {#if editingAsignacion}
     <p class="mb-4 text-sm text-gray-600">
-      <span class="font-mono font-bold text-blue-600">{editingAsignacion.asignatura?.cod_asignatura}</span>
+      <span class="font-mono font-bold text-blue-600"
+        >{editingAsignacion.asignatura?.cod_asignatura}</span
+      >
       — {editingAsignacion.asignatura?.nombre}
     </p>
   {/if}
@@ -104,7 +106,9 @@
       </select>
     </div>
     <div>
-      <label for="edit-semestre" class="block text-sm font-medium text-gray-700 mb-1.5">Semestre *</label>
+      <label for="edit-semestre" class="block text-sm font-medium text-gray-700 mb-1.5"
+        >Semestre *</label
+      >
       <select
         bind:value={editForm.semestre_planificado}
         id="edit-semestre"
@@ -117,7 +121,9 @@
     </div>
   </div>
   <div>
-    <label for="edit-tipo-ramo" class="block text-sm font-medium text-gray-700 mb-1.5">Tipo de Ramo</label>
+    <label for="edit-tipo-ramo" class="block text-sm font-medium text-gray-700 mb-1.5"
+      >Tipo de Ramo</label
+    >
     <select
       bind:value={editForm.tipo_ramo}
       id="edit-tipo-ramo"

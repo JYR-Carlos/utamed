@@ -5,7 +5,12 @@
   import MallaGrid from '@/modules/resources/detalle-malla/components/mallaGrid.svelte';
   import EditAsignacionModal from '@/modules/resources/detalle-malla/components/editAsignacionModal.svelte';
   import { deleteAsignacion } from '@/modules/resources/detalle-malla/services/mallaApi';
-  import type { Plan, Asignatura, AsignacionPlan, MallaData } from '@/modules/resources/detalle-malla/types/mallaCurricular.types';
+  import type {
+    Plan,
+    Asignatura,
+    AsignacionPlan,
+    MallaData,
+  } from '@/modules/resources/detalle-malla/types/mallaCurricular.types';
 
   interface Props {
     plan: Plan;
@@ -25,7 +30,9 @@
 
   const totalAssigned = $derived(Object.values(malla).reduce((sum, list) => sum + list.length, 0));
   const totalCredits = $derived(
-    Object.values(malla).flat().reduce((sum, a) => sum + (a.asignatura?.creditos_sct ?? 0), 0),
+    Object.values(malla)
+      .flat()
+      .reduce((sum, a) => sum + (a.asignatura?.creditos_sct ?? 0), 0),
   );
 
   // ── Edit ─────────────────────────────────────────────────────────────────
@@ -67,8 +74,21 @@
   <!-- ── Page header ─────────────────────────────────────────────────────── -->
   <div class="mb-6 flex items-start justify-between gap-4">
     <div>
-      <a href="/admin/planes" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-2 transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <a
+        href="/admin/planes"
+        class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-2 transition-colors"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <polyline points="15 18 9 12 15 6" />
         </svg>
         Volver a Planes
@@ -92,17 +112,46 @@
 
   <!-- ── Flash messages ─────────────────────────────────────────────────── -->
   {#if flash?.success}
-    <div class="mb-4 flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <div
+      class="mb-4 flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
         <polyline points="20 6 9 17 4 12" />
       </svg>
       {flash.success}
     </div>
   {/if}
   {#if flash?.error}
-    <div class="mb-4 flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+    <div
+      class="mb-4 flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
+          x1="12"
+          y1="16"
+          x2="12.01"
+          y2="16"
+        />
       </svg>
       {flash.error}
     </div>
@@ -113,12 +162,7 @@
     class="grid grid-cols-[5fr_7fr] gap-0 border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm"
     style="height: calc(100vh - 14rem);"
   >
-    <AsignaturasCatalogo
-      planId={plan.id_plan}
-      {asignaturas}
-      {assignedIds}
-      onAssigned={() => {}}
-    />
+    <AsignaturasCatalogo planId={plan.id_plan} {asignaturas} {assignedIds} onAssigned={() => {}} />
     <MallaGrid {malla} onEdit={openEditModal} onDelete={openDeleteDialog} />
   </div>
 
@@ -134,7 +178,10 @@
     title="¿Quitar Asignatura del Plan?"
     message="La asignatura será removida de esta malla. Esta acción no se puede deshacer."
     onConfirm={handleDelete}
-    onCancel={() => { showDeleteDialog = false; deletingAsignacion = null; }}
+    onCancel={() => {
+      showDeleteDialog = false;
+      deletingAsignacion = null;
+    }}
     isLoading={deleteLoading}
   />
 </AdminLayout>

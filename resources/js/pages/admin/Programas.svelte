@@ -4,7 +4,11 @@
   import type { BreadcrumbItem } from '@/types';
   import { CheckCircle, Clock, XCircle, Eye } from 'lucide-svelte';
   import * as Card from '@/components/ui/card';
-  import { cambiarEstadoFiltro, verPrograma, goToPage } from '@/modules/resources/programa/services/programaApi';
+  import {
+    cambiarEstadoFiltro,
+    verPrograma,
+    goToPage,
+  } from '@/modules/resources/programa/services/programaApi';
 
   interface Props {
     programas: Array<{
@@ -115,7 +119,9 @@
             <table class="w-full">
               <thead>
                 <tr class="border-b border-slate-200">
-                  <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700">Asignatura</th>
+                  <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700"
+                    >Asignatura</th
+                  >
                   <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700">Carrera</th>
                   <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700">Docente</th>
                   <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700">Estado</th>
@@ -130,7 +136,10 @@
                     <td class="py-3 px-4 text-slate-600 text-sm">{prog.carrera}</td>
                     <td class="py-3 px-4 text-slate-600 text-sm">{prog.docente}</td>
                     <td class="py-3 px-4">
-                      <span class="px-3 py-1 rounded-full text-xs font-medium {estadoConfig[prog.estado].color}">
+                      <span
+                        class="px-3 py-1 rounded-full text-xs font-medium {estadoConfig[prog.estado]
+                          .color}"
+                      >
                         {estadoConfig[prog.estado].label}
                       </span>
                     </td>
@@ -153,7 +162,9 @@
           </div>
         {:else}
           <div class="text-center py-12">
-            <p class="text-slate-600">No hay programas en estado {estadoConfig[estado_filtro].label}</p>
+            <p class="text-slate-600">
+              No hay programas en estado {estadoConfig[estado_filtro].label}
+            </p>
           </div>
         {/if}
       </Card.Content>

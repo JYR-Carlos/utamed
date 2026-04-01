@@ -143,7 +143,9 @@
 
           <!-- Código Inscripción UTA -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Código Inscripción UTA</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Código Inscripción UTA</label
+            >
             <input
               type="text"
               bind:value={formData.cod_inscripcion_uta}
@@ -170,7 +172,8 @@
 
           <!-- Estado Inscripción -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Estado de Inscripción</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Estado de Inscripción</label
+            >
             <select
               bind:value={formData.estado_inscripcion}
               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"

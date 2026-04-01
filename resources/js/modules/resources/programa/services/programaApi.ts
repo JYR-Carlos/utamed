@@ -110,15 +110,15 @@ export async function aprobarPrograma(cursoId: number, basePath: string): Promis
 // ─── Admin list navigation ───────────────────────────────────────────────────
 
 export function cambiarEstadoFiltro(estado: string) {
-  router.get(`/admin/programas?estado=${estado}`);
+    router.get(`/admin/programas?estado=${estado}`);
 }
 
 export function verPrograma(idCurso: number) {
-  router.get(`/admin/cursos/${idCurso}/programa/revisar`);
+    router.get(`/admin/cursos/${idCurso}/programa/revisar`);
 }
 
 export function goToPage(page: number, estado: string) {
-  router.get(`/admin/programas?page=${page}&estado=${estado}`);
+    router.get(`/admin/programas?page=${page}&estado=${estado}`);
 }
 
 /**
