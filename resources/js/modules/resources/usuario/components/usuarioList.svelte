@@ -25,7 +25,8 @@
 
   const COLUMN_CONFIGS: Record<UserType, Array<{ key: string; label: string }>> = {
     estudiante: [
-      { key: 'estudiante.id_estudiante', label: 'ID' },
+      { key: 'usuario.id_usuario', label: 'ID Usuario'},
+      { key: 'estudiante.id_estudiante', label: 'ID Estudiante' },
       { key: 'usuario.rut', label: 'RUT' },
       { key: 'usuario.nombre1', label: 'Nombre' },
       { key: 'usuario.apellido1', label: 'Apellido' },
@@ -33,7 +34,8 @@
       { key: 'estudiante.carrera.nombre', label: 'Carrera' },
     ],
     docente: [
-      { key: 'docente.id_docente', label: 'ID' },
+      { key: 'usuario.id_usuario', label: 'ID Usuario'},
+      { key: 'docente.id_docente', label: 'ID Docente' },
       { key: 'usuario.rut', label: 'RUT' },
       { key: 'usuario.nombre1', label: 'Nombre' },
       { key: 'usuario.apellido1', label: 'Apellido' },

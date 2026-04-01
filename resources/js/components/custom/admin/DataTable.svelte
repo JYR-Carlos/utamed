@@ -2,6 +2,7 @@
   import { router, page } from '@inertiajs/svelte';
   import type { Snippet } from 'svelte';
   import type { PaginatedResponse } from '@/types/admin.types';
+  import { sleep } from '@/lib';
 
   interface Props {
     data: PaginatedResponse<any>;
@@ -89,10 +90,11 @@
   }
 
   // ── Navigation ───────────────────────────────────────────────────────────
-  function handleSearch() {
+  async function handleSearch() {
     // Preserve tipo, sort, per_page — drop page (reset to 1)
     const params = currentParamsExcept('search', 'page');
     if (searchTerm) params.search = searchTerm;
+    await sleep(1000)
     router.get(currentPath, params, { preserveState: true, preserveScroll: true });
   }
 
@@ -151,7 +153,7 @@
       type="text"
       bind:value={searchTerm}
       placeholder={searchPlaceholder}
-      onkeydown={(e) => e.key === 'Enter' && handleSearch()}
+      onkeydown={ () => handleSearch()}
       class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-shadow"
     />
     <button
@@ -160,6 +162,74 @@
     >
       Buscar
     </button>
+  </div>
+  <!-- Pagination -->
+  <div class="px-4 py-3 flex items-center justify-between border-t border-gray-200 flex-wrap gap-3">
+    <!-- Left: record count info -->
+    <span class="text-sm text-gray-500 shrink-0">
+      {#if data.total === 0}
+        Sin resultados
+      {:else if data.to - data.from + 1 === data.total}
+        Mostrando {data.to} registro{data.to === 1 ? '' : 's'}
+      {:else}
+        Mostrando los elementos {data.from} a {data.to} de {data.total} registros
+      {/if}
+    </span>
+
+    <!-- Right: per-page + prev/page buttons/next -->
+    {#if data.last_page > 1 || data.total > 0}
+      <div class="flex items-center gap-2 ml-auto">
+        <!-- Per-page selector -->
+        <select
+          value={currentPerPage}
+          onchange={(e) => changePerPage(Number((e.target as HTMLSelectElement).value))}
+          class="px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white cursor-pointer focus:outline-none focus:border-blue-400 transition-colors"
+        >
+          {#each perPageOptions as opt}
+            <option value={opt}>{opt} por página</option>
+          {/each}
+        </select>
+
+        {#if data.last_page > 1}
+          <!-- Prev -->
+          <button
+            onclick={() => goToPage(data.current_page - 1)}
+            disabled={data.current_page === 1}
+            class="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-md cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Anterior
+          </button>
+
+          <!-- Sliding page buttons -->
+          <div class="flex items-center gap-1">
+            {#each pageButtons as btn}
+              {#if btn.type === 'ellipsis'}
+                <span class="px-1 text-sm text-gray-400 select-none">…</span>
+              {:else}
+                <button
+                  onclick={() => goToPage(btn.n)}
+                  class="min-w-[2rem] h-8 px-2 text-sm rounded-md border cursor-pointer transition-all
+                    {btn.n === data.current_page
+                    ? 'bg-blue-500 border-blue-500 text-white font-semibold'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'}"
+                >
+                  {btn.n}
+                </button>
+              {/if}
+            {/each}
+          </div>
+
+          <!-- Next -->
+          <button
+            onclick={() => goToPage(data.current_page + 1)}
+            disabled={data.current_page === data.last_page}
+            class="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-md cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Siguiente
+          </button>
+        {/if}
+      </div>
+    {/if}
   </div>
 
   <!-- Table -->
@@ -380,9 +450,9 @@
                       <button
                         onclick={() => onToggleActive?.(item)}
                         class="px-2.5 py-1 rounded text-[0.73rem] font-medium cursor-pointer transition-all border-0
-												       {item.esta_activo ? 'bg-blue-100 hover:bg-blue-200 text-blue-700' : 'bg-red-100 hover:bg-red-200 text-red-600'}"
+												       {item.usuario.esta_activo ? 'bg-blue-100 hover:bg-blue-200 text-blue-700' : 'bg-red-100 hover:bg-red-200 text-red-600'}"
                       >
-                        {item.esta_activo ? 'Activo' : 'Inactivo'}
+                        {item.usuario.esta_activo ? 'Activo' : 'Inactivo'}
                       </button>
                     {/if}
                   </div>
@@ -393,74 +463,5 @@
         {/if}
       </tbody>
     </table>
-  </div>
-
-  <!-- Pagination -->
-  <div class="px-4 py-3 flex items-center justify-between border-t border-gray-200 flex-wrap gap-3">
-    <!-- Left: record count info -->
-    <span class="text-sm text-gray-500 shrink-0">
-      {#if data.total === 0}
-        Sin resultados
-      {:else if data.to - data.from + 1 === data.total}
-        Mostrando {data.to} registro{data.to === 1 ? '' : 's'}
-      {:else}
-        Mostrando los elementos {data.from} a {data.to} de {data.total} registros
-      {/if}
-    </span>
-
-    <!-- Right: per-page + prev/page buttons/next -->
-    {#if data.last_page > 1 || data.total > 0}
-      <div class="flex items-center gap-2 ml-auto">
-        <!-- Per-page selector -->
-        <select
-          value={currentPerPage}
-          onchange={(e) => changePerPage(Number((e.target as HTMLSelectElement).value))}
-          class="px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white cursor-pointer focus:outline-none focus:border-blue-400 transition-colors"
-        >
-          {#each perPageOptions as opt}
-            <option value={opt}>{opt} por página</option>
-          {/each}
-        </select>
-
-        {#if data.last_page > 1}
-          <!-- Prev -->
-          <button
-            onclick={() => goToPage(data.current_page - 1)}
-            disabled={data.current_page === 1}
-            class="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-md cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Anterior
-          </button>
-
-          <!-- Sliding page buttons -->
-          <div class="flex items-center gap-1">
-            {#each pageButtons as btn}
-              {#if btn.type === 'ellipsis'}
-                <span class="px-1 text-sm text-gray-400 select-none">…</span>
-              {:else}
-                <button
-                  onclick={() => goToPage(btn.n)}
-                  class="min-w-[2rem] h-8 px-2 text-sm rounded-md border cursor-pointer transition-all
-                    {btn.n === data.current_page
-                    ? 'bg-blue-500 border-blue-500 text-white font-semibold'
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'}"
-                >
-                  {btn.n}
-                </button>
-              {/if}
-            {/each}
-          </div>
-
-          <!-- Next -->
-          <button
-            onclick={() => goToPage(data.current_page + 1)}
-            disabled={data.current_page === data.last_page}
-            class="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-md cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Siguiente
-          </button>
-        {/if}
-      </div>
-    {/if}
   </div>
 </div>
