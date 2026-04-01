@@ -22,8 +22,8 @@ if ! git merge-base --is-ancestor "$REMOTE_HASH" origin/main 2>/dev/null; then
     echo " " >&2
     echo "  👉 ACCIÓN REQUERIDA:" >&2
     echo "     1. Entra a la carpeta: cd $SUBMODULE_PATH" >&2
-    echo "     2. Sube los cambios: git push origin main" >&2
-    echo "     3. Vuelve aquí y reintenta el Push de utamed." >&2
+    echo "     2. Sube los cambios al submódulo con "git push"" >&2
+    echo "     3. Vuelve aquí y reintenta el push de utamed." >&2
     echo " " >&2
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2
     echo " " >&2
