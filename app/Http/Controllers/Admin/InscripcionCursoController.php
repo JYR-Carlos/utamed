@@ -267,31 +267,66 @@ class InscripcionCursoController extends Controller
 
         $created = [];
         $skipped = [];
+        $errors = [];
+
+        // Estados que bloquean re-inscripción (ya están activos)
+        $estadosActivos = ['INSCRITO', 'SUSPENDIDO', 'APROBADO', 'REPROBADO'];
 
         foreach ($validated['id_estudiantes'] as $idEstudiante) {
-            $exists = InscripcionCurso::where('id_curso', $validated['id_curso'])
+            // Verificar inscripción activa existente
+            $inscripcionExistente = InscripcionCurso::where('id_curso', $validated['id_curso'])
                 ->where('id_estudiante', $idEstudiante)
-                ->exists();
+                ->first();
 
-            if ($exists) {
-                $skipped[] = $idEstudiante;
+            if ($inscripcionExistente && in_array($inscripcionExistente->estado_inscripcion, $estadosActivos)) {
+                $skipped[] = [
+                    'id_estudiante' => $idEstudiante,
+                    'razon' => 'Ya inscrito',
+                    'estado' => $inscripcionExistente->estado_inscripcion,
+                ];
                 continue;
             }
 
             try {
-                $inscripcion = $this->inscripcionService->create([
-                    'id_curso'      => $validated['id_curso'],
-                    'id_estudiante' => $idEstudiante,
-                ]);
-                $inscripcion->load('estudiante.usuario', 'curso');
+                if ($inscripcionExistente) {
+                    // Re-inscripción: estudiante estaba ANULADO o RETIRADO
+                    $inscripcion = $this->inscripcionService->reEnroll($inscripcionExistente);
+                } else {
+                    $inscripcion = $this->inscripcionService->create([
+                        'id_curso'      => $validated['id_curso'],
+                        'id_estudiante' => $idEstudiante,
+                    ]);
+                    $inscripcion->load('estudiante.usuario', 'curso');
+                }
                 $created[] = new InscripcionCursoResource($inscripcion);
             } catch (\Exception $e) {
-                Log::error('storeBulk error for estudiante ' . $idEstudiante . ': ' . $e->getMessage());
-                $skipped[] = $idEstudiante;
+                Log::error('storeBulk error for estudiante ' . $idEstudiante, [
+                    'message'       => $e->getMessage(),
+                    'exception'     => class_basename($e),
+                    'file'          => $e->getFile(),
+                    'line'          => $e->getLine(),
+                    'trace'         => $e->getTraceAsString(),
+                    'id_curso'      => $validated['id_curso'],
+                    'inscripcion_existente_estado' => $inscripcionExistente?->estado_inscripcion,
+                ]);
+                $errors[] = [
+                    'id_estudiante' => $idEstudiante,
+                    'razon' => 'Error al crear/actualizar inscripción',
+                    'error_detail' => $e->getMessage(),
+                ];
+                $skipped[] = [
+                    'id_estudiante' => $idEstudiante,
+                    'razon' => 'Error',
+                    'error' => class_basename($e),
+                ];
             }
         }
 
-        return response()->json(['created' => $created, 'skipped' => $skipped]);
+        return response()->json([
+            'created' => $created,
+            'skipped' => $skipped,
+            'errors' => $errors,
+        ]);
     }
 
     /**

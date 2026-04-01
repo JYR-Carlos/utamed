@@ -3,9 +3,12 @@
 	 * Página para crear una nueva inscripción de estudiante en un curso.
 	 */
 	import AdminLayout from '@/layouts/AdminLayout.svelte';
-	import { router } from '@inertiajs/svelte';
 	import * as inscripciones_cursos from '@/routes/admin/inscripciones_cursos';
-	import axios, { AxiosError } from 'axios';
+	import {
+		fetchDisponibles,
+		storeInscripcion,
+		goToInscripcionesIndex,
+	} from '@/modules/resources/inscripcion/services/inscripcionApi';
 
 	interface Estudiante {
 		id_estudiante: number;
@@ -50,13 +53,7 @@
 
 	async function cargarEstudiantesDisponibles() {
 		try {
-			const response = await axios.get(
-			inscripciones_cursos.disponibles().url,
-				{
-					params: { id_curso: formData.id_curso }
-				}
-			);
-			estudiantesDisponibles = response.data.estudiantes || [];
+			estudiantesDisponibles = await fetchDisponibles(formData.id_curso);
 		} catch (error) {
 			console.error('Error loading available estudiantes:', error);
 			estudiantesDisponibles = [];
@@ -66,7 +63,7 @@
 	function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
 		
-		router.post(inscripciones_cursos.store().url, formData, {
+		storeInscripcion(formData, {
 			onStart: () => {
 				isSubmitting = true;
 				errorMessage = '';
@@ -80,15 +77,11 @@
 				errors = errs;
 				errorMessage = 'Por favor, verifica los errores en el formulario.';
 			},
-            onSuccess: () => {
-                // Success handling is usually automated by redirect, but we can double check here
-                console.log('Inscripción created successfully');
-            }
 		});
 	}
 
 	function handleCancel() {
-		router.get(inscripciones_cursos.index().url);
+		goToInscripcionesIndex();
 	}
 </script>
 

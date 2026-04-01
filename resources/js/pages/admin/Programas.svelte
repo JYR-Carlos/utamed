@@ -1,9 +1,10 @@
 <script lang="ts">
   import AdminLayout from '@/layouts/AdminLayout.svelte';
-  import { Link, router } from '@inertiajs/svelte';
+  import { Link } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import { CheckCircle, Clock, XCircle, Eye } from 'lucide-svelte';
   import * as Card from '@/components/ui/card';
+  import { cambiarEstadoFiltro, verPrograma, goToPage } from '@/modules/resources/programa/services/programaApi';
 
   interface Props {
     programas: Array<{
@@ -46,11 +47,11 @@
   };
 
   function cambiarEstado(estado: string) {
-    router.get(`/admin/programas?estado=${estado}`);
+    cambiarEstadoFiltro(estado);
   }
 
-  function verPrograma(idCurso: number) {
-    router.get(`/admin/cursos/${idCurso}/programa/revisar`);
+  function verProgramaHandler(idCurso: number) {
+    verPrograma(idCurso);
   }
 </script>
 
@@ -138,7 +139,7 @@
                     </td>
                     <td class="py-3 px-4 text-center">
                       <button
-                        onclick={() => verPrograma(prog.id_curso)}
+                        onclick={() => verProgramaHandler(prog.id_curso)}
                         class="flex items-center justify-center gap-1 text-blue-600 hover:text-blue-700 font-medium text-sm"
                       >
                         <Eye size={16} />
@@ -163,7 +164,7 @@
       <div class="flex justify-center gap-2 mt-6">
         {#each Array.from({ length: pagination.last_page }, (_, i) => i + 1) as page}
           <button
-            onclick={() => router.get(`/admin/programas?page=${page}&estado=${estado_filtro}`)}
+            onclick={() => goToPage(page, estado_filtro)}
             class="px-3 py-2 rounded border {page === pagination.current_page
               ? 'bg-blue-600 text-white border-blue-600'
               : 'border-slate-300 text-slate-700 hover:bg-slate-100'}"

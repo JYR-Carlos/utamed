@@ -12,6 +12,7 @@
  */
 
 import axios, { AxiosError } from 'axios';
+import { router } from '@inertiajs/svelte';
 import type { Programa, GuardarProgramaPayload, GenerarProgramaPayload, ProgramaFull } from '../types/programa.types';
 
 const JSON_HEADERS = {
@@ -106,7 +107,19 @@ export async function aprobarPrograma(cursoId: number, basePath: string): Promis
     await axios.put(`${basePath}/${cursoId}/programa/aprobar`);
 }
 
-// ─── Error util ──────────────────────────────────────────────────────────────
+// ─── Admin list navigation ───────────────────────────────────────────────────
+
+export function cambiarEstadoFiltro(estado: string) {
+  router.get(`/admin/programas?estado=${estado}`);
+}
+
+export function verPrograma(idCurso: number) {
+  router.get(`/admin/cursos/${idCurso}/programa/revisar`);
+}
+
+export function goToPage(page: number, estado: string) {
+  router.get(`/admin/programas?page=${page}&estado=${estado}`);
+}
 
 /**
  * Extrae un mensaje de error legible de una excepción de axios u otro error.

@@ -3,9 +3,12 @@
    * Página para editar una inscripción de estudiante en un curso.
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
-  import { router } from '@inertiajs/svelte';
-  import * as inscripciones_cursos from '@/routes/admin/inscripciones_cursos';
   import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
+  import {
+    updateInscripcionForm,
+    destroyInscripcionForm,
+    goToInscripcionesIndex,
+  } from '@/modules/resources/inscripcion/services/inscripcionApi';
 
   interface Usuario {
     nombre1: string;
@@ -61,7 +64,7 @@
     errorMessage = '';
     errors = {};
 
-    router.put(inscripciones_cursos.update(`${inscripcion.id_curso},${inscripcion.id_estudiante}`).url, formData, {
+    updateInscripcionForm(inscripcion.id_curso, inscripcion.id_estudiante, formData, {
       onError: (errs) => {
         errors = errs;
         errorMessage = 'Por favor, verifica los errores en el formulario.';
@@ -73,7 +76,7 @@
   }
 
   function handleCancel() {
-    router.get(inscripciones_cursos.index().url);
+    goToInscripcionesIndex();
   }
 
   let showDeleteConfirm = $state(false);
@@ -83,7 +86,7 @@
   }
 
   function confirmDelete() {
-    router.delete(inscripciones_cursos.destroy(`${inscripcion.id_curso},${inscripcion.id_estudiante}`).url);
+    destroyInscripcionForm(inscripcion.id_curso, inscripcion.id_estudiante);
   }
 
   function cancelDelete() {

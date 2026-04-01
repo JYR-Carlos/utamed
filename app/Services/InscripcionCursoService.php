@@ -65,55 +65,72 @@ class InscripcionCursoService
     }
 
     /**
-     * Obtiene estudiantes disponibles (no inscritos) en un curso.
-     * 
-     * Lógica:
-     * 1. Obtiene la carrera del curso (navegando contexto)
-     * 2. Obtiene TODOS los estudiantes de esa carrera (sin validar roles)
-     * 3. Excluye los ya inscritos en el curso
-     * 4. Retorna la lista (roles se asignan al inscribirse)
+     * Obtiene estudiantes disponibles para inscripción en un curso.
+     *
+     * Criterio único: el estudiante pertenece (id_carrera) a alguna carrera
+     * cuyo contexto está en la jerarquía de contextos del curso.
+     * No se evalúan roles; cualquier inscripción previa que no sea activa
+     * (INSCRITO, SUSPENDIDO, APROBADO, REPROBADO) permite re-inscripción.
      */
     public function getEstudiantesDisponibles(int $idCurso): Collection
     {
-        // Get course and its context
         $curso = Curso::with('contexto')->find($idCurso);
         if (!$curso || !$curso->id_contexto) {
             Log::warning('Curso no encontrado o sin contexto', ['id_curso' => $idCurso]);
             return collect();
         }
 
-        // Get the carrera associated with this course's context
-        $carrera = $this->getCarreraFromCurso($curso);
-        if (!$carrera) {
+        // ── Carreras cuyo contexto está en la jerarquía del curso ─────────
+        $contextIds = $this->getContextoHierarchyIds($curso->id_contexto);
+        $carreraIds = \App\Models\Administrativo\Carrera::whereIn('id_contexto', $contextIds)
+            ->pluck('id_carrera')
+            ->toArray();
+
+        if (empty($carreraIds)) {
             Log::warning('No se pudo determinar carrera para curso', ['id_curso' => $idCurso]);
             return collect();
         }
 
-        Log::info('getEstudiantesDisponibles', [
-            'id_curso' => $idCurso,
-            'id_carrera' => $carrera->id_carrera,
-            'carrera_nombre' => $carrera->nombre
-        ]);
-
-        // Get estudiante ids already inscribed
+        // ── Excluir solo estudiantes con inscripción activa ───────────────
+        $estadosActivos = ['INSCRITO', 'SUSPENDIDO', 'APROBADO', 'REPROBADO'];
         $inscritosIds = InscripcionCurso::where('id_curso', $idCurso)
+            ->whereIn('estado_inscripcion', $estadosActivos)
             ->pluck('id_estudiante')
             ->toArray();
 
-        // Get ALL estudiantes from this carrera (regardless of roles)
         $estudiantes = Estudiante::query()
             ->with('usuario:id_usuario,nombre1,apellido1,username')
-            ->where('id_carrera', $carrera->id_carrera)
+            ->whereIn('id_carrera', $carreraIds)
             ->whereNotIn('id_estudiante', $inscritosIds)
             ->orderBy('id_estudiante')
             ->get();
 
-        Log::info('Estudiantes disponibles encontrados', [
-            'total' => $estudiantes->count(),
-            'id_carrera' => $carrera->id_carrera
+        Log::info('Estudiantes disponibles', [
+            'total'      => $estudiantes->count(),
+            'id_curso'   => $idCurso,
+            'carreraIds' => $carreraIds,
         ]);
 
         return $estudiantes;
+    }
+
+    /**
+     * Re-inscribe un estudiante cuya inscripción previa fue ANULADA o RETIRADA.
+     * Actualiza el registro y reactiva el rol 'Estudiante' en el contexto del curso.
+     */
+    public function reEnroll(InscripcionCurso $inscripcion): InscripcionCurso
+    {
+        return DB::transaction(function () use ($inscripcion) {
+            $inscripcion->update([
+                'estado_inscripcion' => 'INSCRITO',
+                'num_intento'        => $inscripcion->num_intento + 1,
+                'fecha_inscripcion'  => now()->toDateString(),
+            ]);
+
+            $this->assignEstudianteRoleCurso($inscripcion);
+
+            return $inscripcion->fresh(['estudiante.usuario', 'curso']);
+        });
     }
 
     /**     * Navega hacia arriba en la jerarquía de contextos para encontrar la CARRERA.
@@ -293,14 +310,27 @@ class InscripcionCursoService
                 ['creado_por' => $actorId]
             );
 
-            $already = UsuarioRolAsignacion::where('id_usuario', $estudiante->id_usuario)
+            // Buscar fila existente (activa O previamente revocada)
+            $existente = UsuarioRolAsignacion::where('id_usuario', $estudiante->id_usuario)
                 ->where('id_contexto', $curso->id_contexto)
                 ->where('id_rol', $rol->id_rol)
-                ->where('esta_activo', true)
-                ->where('fue_eliminado', false)
-                ->exists();
+                ->first();
 
-            if (!$already) {
+            if ($existente) {
+                // Si ya está activa no hacer nada; si estaba revocada, reactivar
+                if (!$existente->esta_activo || $existente->fue_eliminado) {
+                    $existente->update([
+                        'esta_activo'               => true,
+                        'fue_eliminado'             => false,
+                        'fecha_fin_real'            => null,
+                        'eliminado_por'             => null,
+                        'fecha_inicio_planificada'  => Carbon::now(),
+                        'fecha_fin_planificada'     => Carbon::now()->addYears(100),
+                        'asignado_por'              => $actorId,
+                    ]);
+                }
+                // Si ya estaba activa y no eliminada, no se toca
+            } else {
                 $now = Carbon::now();
                 UsuarioRolAsignacion::create([
                     'id_usuario'                => $estudiante->id_usuario,

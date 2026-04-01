@@ -17,14 +17,19 @@
    * - Confirmación antes de eliminación
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
-  import { router } from '@inertiajs/svelte';
   import PermissionsModal from '@/components/custom/admin/permissions-modal/PermissionsModal.svelte';
   import {
     UsuarioList,
     UsuarioForm,
     UsuarioDeleteConfirm,
     PasswordChangeModal,
-  } from '@/modules/resources/usuario/components';
+    switchTipo as apiSwitchTipo,
+    createUsuario,
+    updateUsuario,
+    deleteUsuario,
+    changePassword,
+    toggleActive,
+  } from '@/modules/resources/usuario';
   import type {
     UsuarioItem,
     Carrera,
@@ -194,7 +199,7 @@
 
   // ====== FUNCIONES DE MANEJO DE EVENTOS ======
   function switchTipo(newTipo: UserType) {
-    router.get('/admin/usuarios', { tipo: newTipo }, { preserveState: false });
+    apiSwitchTipo(newTipo);
   }
 
   function openCreateModal() {
@@ -220,7 +225,7 @@
 
     if (editingUsuario) {
       const id = getUsuarioId(editingUsuario, currentTipo);
-      router.put(`/admin/usuarios/${id}`, dataToSend, {
+      updateUsuario(id, dataToSend, {
         onSuccess: () => {
           closeModal();
           isLoading = false;
@@ -231,7 +236,7 @@
         },
       });
     } else {
-      router.post('/admin/usuarios', dataToSend, {
+      createUsuario(dataToSend, {
         onSuccess: () => {
           closeModal();
           isLoading = false;
@@ -260,8 +265,7 @@
     isLoading = true;
     const id = getUsuarioId(deletingUsuario, currentTipo);
 
-    router.delete(`/admin/usuarios/${id}`, {
-      data: { tipo: currentTipo },
+    deleteUsuario(id, currentTipo, {
       onSuccess: () => {
         closeDeleteDialog();
         isLoading = false;
@@ -291,7 +295,7 @@
     isLoading = true;
     const id = changingPasswordUsuario.usuario.id_usuario;
 
-    router.post(`/admin/usuarios/${id}/change-password`, passwordFormData, {
+    changePassword(id, passwordFormData, {
       onSuccess: () => {
         closePasswordModal();
         isLoading = false;
@@ -304,8 +308,7 @@
   }
 
   function handleToggleActive(usuario: UsuarioItem) {
-    const id = usuario.usuario.id_usuario;
-    router.post(`/admin/usuarios/${id}/toggle-active`, {}, { preserveScroll: true });
+    toggleActive(usuario.usuario.id_usuario);
   }
 
   function openPermissionsModal(item: UsuarioItem) {

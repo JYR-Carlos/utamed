@@ -18,13 +18,17 @@
    * - administrativo.asignacion_plan: Asignaturas asignadas al plan
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
-  import { router } from '@inertiajs/svelte';
   import {
     PlanList,
     PlanForm,
     PlanDeleteConfirm,
     MallaSlideOver,
-  } from '@/modules/resources/plan/components';
+    createPlan,
+    updatePlan,
+    deletePlan,
+    visitEditarMalla,
+    fetchMalla,
+  } from '@/modules/resources/plan';
   import type {
     Plan,
     Carrera,
@@ -96,7 +100,7 @@
     isLoading = true;
 
     if (editingPlan) {
-      router.put(`/admin/planes/${editingPlan.id_plan}`, formData, {
+      updatePlan(editingPlan.id_plan, formData, {
         onSuccess: () => {
           closeModal();
           isLoading = false;
@@ -106,7 +110,7 @@
         },
       });
     } else {
-      router.post('/admin/planes', formData, {
+      createPlan(formData, {
         onSuccess: () => {
           closeModal();
           isLoading = false;
@@ -132,7 +136,7 @@
     if (!deletingPlan) return;
 
     isLoading = true;
-    router.delete(`/admin/planes/${deletingPlan.id_plan}`, {
+    deletePlan(deletingPlan.id_plan, {
       onSuccess: () => {
         closeDeleteDialog();
         isLoading = false;
@@ -150,11 +154,7 @@
     showMallaPanel = true;
 
     try {
-      const res = await fetch(`/admin/planes/${plan.id_plan}/asignaturas/json`, {
-        headers: { Accept: 'application/json' },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
+      const json = await fetchMalla(plan);
       mallaPlan = json.plan;
       mallaData = json.malla;
     } catch (err) {
@@ -169,7 +169,7 @@
   }
 
   function editarMalla(plan: Plan) {
-    router.visit(`/admin/planes/${plan.id_plan}/asignaturas`);
+    visitEditarMalla(plan.id_plan);
   }
 </script>
 
