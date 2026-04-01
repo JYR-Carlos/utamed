@@ -7,7 +7,9 @@
 
   let { percentage, tipo, showLabel = true }: Props = $props();
 
-  const requiredSections = $derived(tipo === 'BASICO' ? { count: 5, label: 'I, II, VI, VII, VIII' } : { count: 9, label: 'I-IX' });
+  const requiredSections = $derived(
+    tipo === 'BASICO' ? { count: 5, label: 'I, II, VI, VII, VIII' } : { count: 9, label: 'I-IX' },
+  );
 
   const isComplete = $derived(percentage >= 100);
   const progressColor = $derived.by(() => {
@@ -32,7 +34,10 @@
 
   <!-- Progress Bar -->
   <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-    <div class={`h-full transition-all duration-300 ease-out ${progressColor}`} style="width: {percentage}%"></div>
+    <div
+      class={`h-full transition-all duration-300 ease-out ${progressColor}`}
+      style="width: {percentage}%"
+    ></div>
   </div>
 
   <!-- Status Text -->

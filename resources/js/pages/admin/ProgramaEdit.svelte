@@ -3,7 +3,10 @@
   import { Button } from '@/components/ui/button';
   import { Card } from '@/components/ui/card';
   import { Plus, Save, X, AlertCircle, Info } from 'lucide-svelte';
-  import { ProgramaStateBadges, CompletenessProgressBar } from '@/modules/resources/programa/components';
+  import {
+    ProgramaStateBadges,
+    CompletenessProgressBar,
+  } from '@/modules/resources/programa/components';
   import type { Programa } from '@/types/admin.types';
 
   interface Props {
