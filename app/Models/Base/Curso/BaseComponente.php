@@ -73,7 +73,7 @@ abstract class BaseComponente extends CustomBaseModel implements HasOwnedContext
 
     // Relaciones muchos-a-muchos
 
-    public function docentes()
+    public function docentesAsignados()
     {
         return $this->belongsToMany(
             \App\Models\Usuario\Docente::class,
@@ -82,6 +82,17 @@ abstract class BaseComponente extends CustomBaseModel implements HasOwnedContext
             'id_docente'
         )
             ->withPivot('id_docente_componente', 'id_docente', 'id_componente');
+    }
+
+    public function estudiantesInscritos()
+    {
+        return $this->belongsToMany(
+            \App\Models\Usuario\Estudiante::class,
+            'inscripcion_componente',
+            'id_componente',
+            'id_estudiante'
+        )
+            ->withPivot('id_inscripcion_componente', 'nota_componente', 'id_estudiante', 'id_componente');
     }
 
 }

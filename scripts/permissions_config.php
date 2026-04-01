@@ -221,7 +221,7 @@ return [
       ],
     ],
 
-    'secciones' => [
+    'componentes' => [
       '_actions' => [
         'ver',
         'crear',

@@ -57,12 +57,12 @@ return [
     // Cursos > Inscripciones
     [Permissions::CURSOS_INSCRIPCIONES_VER, false],
 
-    // Cursos > Secciones
-    [Permissions::CURSOS_SECCIONES_VER, false],
-    [Permissions::CURSOS_SECCIONES_CREAR, false],
-    [Permissions::CURSOS_SECCIONES_CREAR_PLANTILLA, false],
-    [Permissions::CURSOS_SECCIONES_EDITAR, false],
-    [Permissions::CURSOS_SECCIONES_ELIMINAR, false],
+    // Cursos > Componentes
+    [Permissions::CURSOS_COMPONENTES_VER, false],
+    [Permissions::CURSOS_COMPONENTES_CREAR, false],
+    [Permissions::CURSOS_COMPONENTES_CREAR_PLANTILLA, false],
+    [Permissions::CURSOS_COMPONENTES_EDITAR, false],
+    [Permissions::CURSOS_COMPONENTES_ELIMINAR, false],
 
     // Cursos > Unidades
     [Permissions::CURSOS_UNIDADES_VER, false],
@@ -117,8 +117,8 @@ return [
     [Permissions::CURSOS_INSCRIPCIONES_INSCRIBIR_ALUMNOS, false],
     [Permissions::CURSOS_INSCRIPCIONES_ELIMINAR_INSCRIPCIONES, false],
 
-    // Cursos > Secciones y Unidades: ver
-    [Permissions::CURSOS_SECCIONES_VER, false],
+    // Cursos > Componentes y Unidades: ver
+    [Permissions::CURSOS_COMPONENTES_VER, false],
     [Permissions::CURSOS_UNIDADES_VER, false],
 
     // Cursos > Actividades: ver y evaluar
@@ -218,8 +218,8 @@ return [
     // Cursos: solo ver
     [Permissions::CURSOS_VER, false],
 
-    // Cursos > Secciones y Unidades: ver
-    [Permissions::CURSOS_SECCIONES_VER, false],
+    // Cursos > Componentes y Unidades: ver
+    [Permissions::CURSOS_COMPONENTES_VER, false],
     [Permissions::CURSOS_UNIDADES_VER, false],
 
     // Cursos > Actividades: ver y subir entregas
