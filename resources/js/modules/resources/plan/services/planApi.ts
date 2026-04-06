@@ -21,6 +21,7 @@ export function updatePlan(id: number, data: PlanFormData, options: ApiOptions =
 }
 
 export function deletePlan(id: number, options: ApiOptions = {}) {
+    console.log(`Deleting plan with ID ${id}`); // Debug log
     router.delete(`/admin/planes/${id}`, {
         onSuccess: options.onSuccess,
         onError: options.onError,

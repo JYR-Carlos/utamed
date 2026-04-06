@@ -44,7 +44,7 @@ class ComponenteController extends Controller
     public function indexByCurso(Curso $curso)
     {
         $componentes = Componente::where('id_curso', $curso->id_curso)
-            ->with(['tipoComponente', 'docentesAsignados.usuario'])
+            ->with(['tipoComponente', 'docenteComponentes.docente.usuario'])
             ->get();
 
         $componentes = $componentes->map(function ($componente) {
@@ -108,10 +108,12 @@ class ComponenteController extends Controller
             ]);
 
             // Asignar docente a través de la tabla pivot docente_componente
+            // El primero asignado es siempre es_titular = true
             if (!empty($validated['id_docente'])) {
                 DocenteComponente::create([
                     'id_componente' => $componente->id_componente,
                     'id_docente'    => $validated['id_docente'],
+                    'es_titular'    => true,
                 ]);
 
                 if ($curso->id_contexto) {
@@ -122,7 +124,7 @@ class ComponenteController extends Controller
             if ($request->wantsJson()) {
                 return response()->json([
                     'message'    => 'Componente creado exitosamente.',
-                    'componente' => new ComponenteResource($componente->load(['tipoComponente', 'docentesAsignados.usuario'])),
+                    'componente' => new ComponenteResource($componente->load(['tipoComponente', 'docenteComponentes.docente.usuario'])),
                 ]);
             }
             return back()->with('success', 'Componente creado exitosamente.');
@@ -164,6 +166,7 @@ class ComponenteController extends Controller
                     DocenteComponente::create([
                         'id_componente' => $componente->id_componente,
                         'id_docente'    => $validated['id_docente'],
+                        'es_titular'    => true,
                     ]);
 
                     if ($cursoContextoId) {
@@ -175,7 +178,7 @@ class ComponenteController extends Controller
             if ($request->wantsJson()) {
                 return response()->json([
                     'message'    => 'Componente actualizado exitosamente.',
-                    'componente' => new ComponenteResource($componente->fresh(['tipoComponente', 'docentesAsignados.usuario'])),
+                    'componente' => new ComponenteResource($componente->fresh(['tipoComponente', 'docenteComponentes.docente.usuario'])),
                 ]);
             }
             return back()->with('success', 'Componente actualizado exitosamente.');
@@ -210,6 +213,72 @@ class ComponenteController extends Controller
             }
             return back()->with('error', 'Error al eliminar el componente: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Agrega un docente adicional a un componente existente.
+     * El primer docente asignado es titular; los siguientes no lo son.
+     */
+    public function addDocente(Request $request, Componente $componente)
+    {
+        $validated = $request->validate([
+            'id_docente' => 'required|integer|exists:docente,id_docente',
+        ]);
+
+        if ($componente->docenteComponentes()->where('id_docente', $validated['id_docente'])->exists()) {
+            return response()->json(['error' => 'El docente ya está asignado a este componente.'], 422);
+        }
+
+        // Solo es titular si es el primero en el componente
+        $esTitular = $componente->docenteComponentes()->doesntExist();
+
+        $dc = DocenteComponente::create([
+            'id_componente' => $componente->id_componente,
+            'id_docente'    => $validated['id_docente'],
+            'es_titular'    => $esTitular,
+        ]);
+
+        $componente->load('curso');
+        if ($componente->curso?->id_contexto) {
+            $this->assignDocenteRolCurso($validated['id_docente'], $componente->curso->id_contexto);
+        }
+
+        $docente = Docente::with('usuario')->find($validated['id_docente']);
+
+        return response()->json([
+            'message' => 'Docente agregado exitosamente.',
+            'docente_componente' => [
+                'id_docente_componente' => $dc->id_docente_componente,
+                'id_docente'            => $dc->id_docente,
+                'es_titular'            => (bool) $dc->es_titular,
+                'nombre_completo'       => trim(($docente?->usuario?->nombre1 ?? '') . ' ' . ($docente?->usuario?->apellido1 ?? '')),
+                'cargo'                 => $docente?->cargo,
+            ],
+        ]);
+    }
+
+    /**
+     * Quita un docente de un componente.
+     * No se puede eliminar el único docente. Si se elimina el titular,
+     * el siguiente por orden de id_docente_componente asciende automáticamente.
+     */
+    public function removeDocente(Componente $componente, DocenteComponente $docenteComponente)
+    {
+        if ($componente->docenteComponentes()->count() <= 1) {
+            return response()->json(['error' => 'No se puede eliminar el único docente asignado.'], 422);
+        }
+
+        if ($docenteComponente->es_titular) {
+            $next = $componente->docenteComponentes()
+                ->where('id_docente_componente', '!=', $docenteComponente->id_docente_componente)
+                ->orderBy('id_docente_componente')
+                ->first();
+            $next?->update(['es_titular' => true]);
+        }
+
+        $docenteComponente->delete();
+
+        return response()->json(['message' => 'Docente eliminado del componente.']);
     }
 
     /**

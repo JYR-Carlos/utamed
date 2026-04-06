@@ -44,7 +44,7 @@ class PlanController extends Controller
 
         // Pagination
         // Calculate total SCT credits summing Asignatura.creditos_sct via AsignacionPlan
-        $planes = $query->orderBy('agno', 'desc')
+        $planes = $query->orderBy('agno_plan', 'desc')
             ->orderBy('version_plan', 'desc')
             ->withSum('asignaturas as creditos_sct_totales', 'creditos_sct')
             ->paginate($request->input('per_page', 15))
@@ -66,7 +66,7 @@ class PlanController extends Controller
     public function byCarrera(Carrera $carrera)
     {
         $planes = $carrera->planes()
-            ->orderBy('agno', 'desc')
+            ->orderBy('agno_plan', 'desc')
             ->orderBy('version_plan', 'desc')
             ->get();
 
@@ -80,7 +80,7 @@ class PlanController extends Controller
     {
         $validated = $request->validate([
             'id_carrera' => ['required', Rule::exists(Carrera::class, 'id_carrera')],
-            'agno' => 'required|integer|min:1900|max:2100',
+            'agno_plan' => 'required|integer|min:1900|max:2100',
             'version_plan' => 'required|integer|min:1',
         ]);
 
@@ -88,7 +88,7 @@ class PlanController extends Controller
             $plan = Plan::create($validated);
 
             return redirect()->route('admin.planes.index')
-                ->with('success', 'Plan creado exitosamente para el año ' . $validated['agno'] . ' versión ' . $validated['version_plan'] . '.');
+                ->with('success', 'Plan creado exitosamente para el año ' . $validated['agno_plan'] . ' versión ' . $validated['version_plan'] . '.');
         } catch (\Exception $e) {
             Log::error('Error al crear plan: ' . $e->getMessage(), [
                 'validated_data' => $validated,
@@ -117,7 +117,7 @@ class PlanController extends Controller
     {
         $validated = $request->validate([
             'id_carrera' => ['required', Rule::exists(Carrera::class, 'id_carrera')],
-            'agno' => 'required|integer|min:1900|max:2100',
+            'agno_plan' => 'required|integer|min:1900|max:2100',
             'version_plan' => 'required|integer|min:1',
         ]);
 
@@ -133,13 +133,19 @@ class PlanController extends Controller
     public function destroy(Plan $plan)
     {
         try {
+
+            Log::info('Deleting plan with ID ' . $plan->id_plan);
             $plan->delete();
 
             return redirect()->route('admin.planes.index')
                 ->with('success', 'Plan eliminado exitosamente.');
         } catch (\Exception $e) {
+            Log::error('Error al eliminar plan: ' . $e->getMessage(), [
+                'id_plan' => $plan->id_plan,
+                'exception' => $e,
+            ]);
             return redirect()->route('admin.planes.index')
-                ->with('error', 'No se puede eliminar el plan porque tiene asignaturas asignadas.');
+                ->with('error', 'No se puede eliminar el plan: ' . $e->getMessage());
         }
     }
 }

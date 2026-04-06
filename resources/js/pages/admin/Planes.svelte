@@ -67,7 +67,7 @@
   // Formulario
   let formData = $state<PlanFormData>({
     id_carrera: 0,
-    agno: new Date().getFullYear(),
+    agno_plan: new Date().getFullYear(),
     version_plan: 1,
   });
 
@@ -75,7 +75,7 @@
     editingPlan = null;
     formData = {
       id_carrera: 0,
-      agno: new Date().getFullYear(),
+      agno_plan: new Date().getFullYear(),
       version_plan: 1,
     };
     showModal = true;
@@ -85,7 +85,7 @@
     editingPlan = plan;
     formData = {
       id_carrera: plan.id_carrera,
-      agno: plan.agno,
+      agno_plan: new Date(plan.agno_plan).getFullYear(),
       version_plan: plan.version_plan,
     };
     showModal = true;

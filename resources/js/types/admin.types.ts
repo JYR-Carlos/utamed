@@ -75,7 +75,7 @@ export interface Carrera {
 export interface Plan {
     id_plan: number;
     id_carrera: number;
-    agno: number;
+    agno_plan: number;
     version_plan: number;
     creditos_sct_totales?: number;
     carrera?: Carrera;
@@ -232,6 +232,19 @@ export interface TipoComponente {
 }
 
 /**
+ * Docente asignado a un componente, incluyendo datos del pivot docente_componente.
+ */
+export interface DocenteAsignadoComponente {
+    id_docente_componente: number;
+    id_docente: number;
+    es_titular: boolean;
+    nombre_completo?: string;
+    nombre1?: string;
+    apellido1?: string;
+    cargo?: string;
+}
+
+/**
  * Componente (Course Component) entity
  * Represents a specific component of a course (e.g., lecture, lab, workshop)
  */
@@ -245,7 +258,7 @@ export interface Componente {
     /** Related component type object (eager loaded) */
     tipo_componente?: TipoComponente;
     /** Assigned instructors via docente_componente pivot (eager loaded) */
-    docentes?: Docente[];
+    docentes?: DocenteAsignadoComponente[];
     /** Percentage required to pass */
     porcentaje_aprobacion?: number;
     /** Whether attendance is required */
@@ -445,7 +458,7 @@ export interface CarreraFormData {
 
 export interface PlanFormData {
     id_carrera: number;
-    agno: number;
+    agno_plan: number;
     version_plan: number;
     creditos_sct_totales?: number;
     [key: string]: FormDataConvertible;
@@ -548,6 +561,6 @@ export interface AdministradorFormData {
 
 export interface ComponenteFormState {
     id_tipo_componente: number;
-    /** Optional single docente to assign (stored in docente_componente pivot) */
+    /** Docente inicial (solo para creación; será es_titular=true automáticamente) */
     id_docente?: number;
 }

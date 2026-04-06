@@ -3,7 +3,10 @@
    * Componente: Modal de Formulario de Componente
    *
    * Modal para crear o editar un componente dentro de un curso.
-   * Permite asignar tipo de componente y docente responsable.
+   * - CREAR: selecciona tipo de componente + docente titular inicial (opcional).
+   * - EDITAR: permite cambiar el tipo y gestionar la lista de docentes en tiempo real
+   *           (agregar / eliminar) sin recargar la página. El primer docente asignado
+   *           es siempre el titular (corona).
    *
    * Props:
    * - isOpen: boolean = $bindable() - Estado del modal
@@ -11,11 +14,17 @@
    * - editingComponente: Componente | null - Componente siendo editado (null = crear nuevo)
    * - tiposComponente: TipoComponente[] - Tipos de componente disponibles
    * - docentes: Docente[] - Docentes disponibles para asignar
-   * - onSubmit: (data: ComponenteFormState) => void - Callback submit
+   * - onSubmit: (data: ComponenteFormState) => void - Callback submit (solo tipo en edición)
    */
-  import { X } from 'lucide-svelte';
-  import type { Componente, TipoComponente, Docente } from '../types/curso.types';
+  import { X, Crown, Trash2, Plus } from 'lucide-svelte';
+  import type {
+    Componente,
+    TipoComponente,
+    Docente,
+    DocenteAsignadoComponente,
+  } from '../types/curso.types';
   import type { ComponenteFormState } from '../types/curso.types';
+  import { addDocenteComponente, removeDocenteComponente } from '../services/cursoApi';
 
   interface Props {
     isOpen?: boolean;
@@ -42,23 +51,70 @@
     id_docente: undefined,
   });
 
+  // Copia local de docentes asignados (se actualiza en tiempo real en modo edición)
+  let docentesAsignados = $state<DocenteAsignadoComponente[]>([]);
+  let nuevoDocenteId = $state<number | string>('');
+  let isAddingDocente = $state(false);
+  let errorMsg = $state<string | null>(null);
   let isSubmitting = $state(false);
 
-  // Sincronizar con editingComponente
+  // Sincronizar con editingComponente cuando se abre el modal
   $effect(() => {
     if (editingComponente) {
       formData = {
         id_tipo_componente: editingComponente.id_tipo_componente,
-        // Tomar el primer docente asignado si existe (relación ahora es M-M via pivot)
-        id_docente: editingComponente.docentes?.[0]?.id_docente,
-      };
-    } else {
-      formData = {
-        id_tipo_componente: 0,
         id_docente: undefined,
       };
+      docentesAsignados = [...(editingComponente.docentes ?? [])];
+    } else {
+      formData = { id_tipo_componente: 0, id_docente: undefined };
+      docentesAsignados = [];
     }
+    nuevoDocenteId = '';
+    errorMsg = null;
   });
+
+  // Docentes que todavía no están asignados al componente (para el selector de agregar)
+  const docentesDisponibles = $derived(
+    docentes.filter((d) => !docentesAsignados.some((da) => da.id_docente === d.id_docente)),
+  );
+
+  async function handleAddDocente() {
+    const id = Number(nuevoDocenteId);
+    if (!id || !editingComponente) return;
+
+    isAddingDocente = true;
+    errorMsg = null;
+
+    const result = await addDocenteComponente(editingComponente.id_componente, id);
+
+    if ('error' in result) {
+      errorMsg = result.error;
+    } else {
+      docentesAsignados = [...docentesAsignados, result.docente_componente];
+      nuevoDocenteId = '';
+    }
+
+    isAddingDocente = false;
+  }
+
+  async function handleRemoveDocente(dc: DocenteAsignadoComponente) {
+    if (!editingComponente) return;
+    errorMsg = null;
+
+    const result = await removeDocenteComponente(
+      editingComponente.id_componente,
+      dc.id_docente_componente,
+    );
+
+    if ('error' in result) {
+      errorMsg = result.error;
+    } else {
+      docentesAsignados = docentesAsignados.filter(
+        (d) => d.id_docente_componente !== dc.id_docente_componente,
+      );
+    }
+  }
 
   function handleSubmit(e: Event) {
     e.preventDefault();
@@ -104,7 +160,7 @@
       </div>
 
       <!-- Form -->
-      <form onsubmit={handleSubmit} class="p-6 space-y-4">
+      <form onsubmit={handleSubmit} class="p-6 space-y-5">
         <!-- Tipo Componente -->
         <div>
           <label for="id_tipo_componente" class="block text-sm font-medium text-gray-700 mb-1">
@@ -118,47 +174,112 @@
           >
             <option value={0}>Seleccionar tipo</option>
             {#each tiposComponente as tipo}
-              <option value={tipo.id_tipo_componente}>
-                {tipo.tipo}
-              </option>
+              <option value={tipo.id_tipo_componente}>{tipo.tipo}</option>
             {/each}
           </select>
         </div>
 
-        <!-- Docente -->
-        <div>
-          <label for="id_docente" class="block text-sm font-medium text-gray-700 mb-1">
-            Docente Responsable
-          </label>
-          <select
-            id="id_docente"
-            bind:value={formData.id_docente}
-            class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
-          >
-            <option value={undefined}>Sin asignar</option>
-            {#each docentes as doc}
-              <option value={doc.id_docente}>
-                {doc.nombre_completo || `${doc.nombre1} ${doc.apellido1}`}
-              </option>
-            {/each}
-          </select>
-        </div>
+        {#if !editingComponente}
+          <!-- CREAR: selector de docente titular inicial -->
+          <div>
+            <label for="id_docente" class="block text-sm font-medium text-gray-700 mb-1">
+              Docente Titular Inicial
+            </label>
+            <select
+              id="id_docente"
+              bind:value={formData.id_docente}
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
+            >
+              <option value={undefined}>Sin asignar</option>
+              {#each docentes as doc}
+                <option value={doc.id_docente}>
+                  {doc.nombre_completo || `${doc.nombre1 ?? ''} ${doc.apellido1 ?? ''}`.trim()}
+                </option>
+              {/each}
+            </select>
+          </div>
+        {:else}
+          <!-- EDITAR: gestión de docentes en tiempo real -->
+          <div>
+            <p class="block text-sm font-medium text-gray-700 mb-2">Docentes Asignados</p>
+
+            {#if errorMsg}
+              <p class="text-sm text-red-600 mb-2">{errorMsg}</p>
+            {/if}
+
+            <!-- Lista de docentes actuales -->
+            {#if docentesAsignados.length > 0}
+              <ul class="divide-y divide-gray-100 border border-gray-200 rounded-lg mb-3">
+                {#each docentesAsignados as dc (dc.id_docente_componente)}
+                  <li class="flex items-center gap-2 px-3 py-2">
+                    {#if dc.es_titular}
+                      <Crown size={14} class="text-amber-500 shrink-0" />
+                    {:else}
+                      <span class="w-3.5 shrink-0"></span>
+                    {/if}
+                    <span class="flex-1 text-sm text-gray-800 truncate">
+                      {dc.nombre_completo ||
+                        `${dc.nombre1 ?? ''} ${dc.apellido1 ?? ''}`.trim() ||
+                        `Docente #${dc.id_docente}`}
+                    </span>
+                    <button
+                      type="button"
+                      onclick={() => handleRemoveDocente(dc)}
+                      class="p-1 text-gray-400 hover:text-red-500 transition shrink-0"
+                      title="Quitar docente"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="text-sm text-gray-500 mb-3">Sin docentes asignados.</p>
+            {/if}
+
+            <!-- Agregar docente -->
+            {#if docentesDisponibles.length > 0}
+              <div class="flex gap-2">
+                <select
+                  bind:value={nuevoDocenteId}
+                  class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
+                >
+                  <option value="">Seleccionar docente…</option>
+                  {#each docentesDisponibles as doc}
+                    <option value={doc.id_docente}>
+                      {doc.nombre_completo || `${doc.nombre1 ?? ''} ${doc.apellido1 ?? ''}`.trim()}
+                    </option>
+                  {/each}
+                </select>
+                <button
+                  type="button"
+                  onclick={handleAddDocente}
+                  disabled={!nuevoDocenteId || isAddingDocente}
+                  class="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus size={14} />
+                  {isAddingDocente ? '…' : 'Agregar'}
+                </button>
+              </div>
+            {/if}
+          </div>
+        {/if}
 
         <!-- Buttons -->
-        <div class="flex justify-end gap-3 pt-4">
+        <div class="flex justify-end gap-3 pt-2">
           <button
             type="button"
             onclick={handleClose}
             class="px-4 py-2 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition font-medium"
           >
-            Cancelar
+            {editingComponente ? 'Cerrar' : 'Cancelar'}
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmitting ? 'Guardando...' : editingComponente ? 'Actualizar' : 'Crear'}
+            {isSubmitting ? 'Guardando...' : editingComponente ? 'Actualizar Tipo' : 'Crear'}
           </button>
         </div>
       </form>

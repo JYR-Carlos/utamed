@@ -12,9 +12,9 @@ use App\Models\Base\Curso\BaseDocenteComponente;
  */
 class DocenteComponente extends BaseDocenteComponente
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+    protected $fillable = [
+        'id_docente',
+        'id_componente',
+        'es_titular',
+    ];
 }

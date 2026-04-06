@@ -230,13 +230,17 @@ class InscripcionCursoService
     }
 
     /**
-     * Obtiene los cursos en los que un docente enseña.
+     * Obtiene los cursos en los que un docente participa,
+     * ya sea como titular del curso o asignado en algún componente.
      */
     public function getCursosByDocente(int $idDocente): Collection
     {
         return Curso::query()
-            ->whereHas('secciones', function ($query) use ($idDocente) {
-                $query->where('id_docente', $idDocente);
+            ->where(function ($q) use ($idDocente) {
+                $q->where('id_docente_titular', $idDocente)
+                    ->orWhereHas('componentes.docenteComponentes', function ($dq) use ($idDocente) {
+                        $dq->where('id_docente', $idDocente);
+                    });
             })
             ->orderBy('cod_curso')
             ->get();
@@ -249,10 +253,13 @@ class InscripcionCursoService
     {
         $query = InscripcionCurso::query();
 
-        // Si es docente, filtrar solo sus cursos
+        // Si es docente, filtrar solo sus cursos (titular o asignado por componente)
         if ($idDocente) {
-            $cursoIds = Curso::whereHas('secciones', function ($q) use ($idDocente) {
-                $q->where('id_docente', $idDocente);
+            $cursoIds = Curso::where(function ($q) use ($idDocente) {
+                $q->where('id_docente_titular', $idDocente)
+                    ->orWhereHas('componentes.docenteComponentes', function ($dq) use ($idDocente) {
+                        $dq->where('id_docente', $idDocente);
+                    });
             })->pluck('id_curso');
 
             $query->whereIn('id_curso', $cursoIds);

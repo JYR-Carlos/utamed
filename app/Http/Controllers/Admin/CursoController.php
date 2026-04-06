@@ -52,7 +52,7 @@ class CursoController extends Controller
                 'asignacionPlan.asignatura',
                 'asignacionPlan.plan.carrera',
                 'componentes.tipoComponente',
-                'componentes.docentesAsignados.usuario',
+                'componentes.docenteComponentes.docente.usuario',
             ])
             ->when($request->search, function ($query, $search) {
                 $query->where('nombre', 'ilike', "%{$search}%")
@@ -125,7 +125,7 @@ class CursoController extends Controller
             ]);
             
             $componentes = Componente::where('id_curso', $curso->id_curso)
-                ->with(['docentesAsignados.usuario', 'tipoComponente'])
+                ->with(['docenteComponentes.docente.usuario', 'tipoComponente'])
                 ->get();
             
             Log::info("CursoController.show() - componentes cargados", [

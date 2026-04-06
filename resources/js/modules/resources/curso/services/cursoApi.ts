@@ -6,7 +6,7 @@
  */
 
 import { router } from '@inertiajs/svelte';
-import type { ComponenteFormState, TipoComponente, Docente, CursoFormData } from '../types/curso.types';
+import type { ComponenteFormState, TipoComponente, Docente, CursoFormData, DocenteAsignadoComponente } from '../types/curso.types';
 
 /**
  * Opciones para las llamadas HTTP
@@ -120,4 +120,65 @@ export function deleteComponente(cursoId: number, componenteId: number, options:
         onSuccess: options.onSuccess,
         onError: options.onError,
     });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DOCENTES POR COMPONENTE (AJAX incremental, sin recarga de página)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Lee el token XSRF-TOKEN de la cookie para enviarlo como cabecera X-XSRF-TOKEN.
+ */
+function getXsrfToken(): string {
+    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+/**
+ * Resultado exitoso de addDocenteComponente.
+ */
+export interface AddDocenteResult {
+    message: string;
+    docente_componente: DocenteAsignadoComponente;
+}
+
+/**
+ * Agrega un docente a un componente.
+ * Devuelve { docente_componente } si éxito, o { error: string } si falla.
+ */
+export async function addDocenteComponente(
+    componenteId: number,
+    idDocente: number,
+): Promise<AddDocenteResult | { error: string }> {
+    const response = await fetch(`/admin/cursos/componentes/${componenteId}/docentes`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-XSRF-TOKEN': getXsrfToken(),
+            Accept: 'application/json',
+        },
+        body: JSON.stringify({ id_docente: idDocente }),
+    });
+    return response.json();
+}
+
+/**
+ * Quita un docente de un componente.
+ * Devuelve { message } si éxito, o { error: string } si falla (ej: único docente).
+ */
+export async function removeDocenteComponente(
+    componenteId: number,
+    idDocenteComponente: number,
+): Promise<{ message: string } | { error: string }> {
+    const response = await fetch(
+        `/admin/cursos/componentes/${componenteId}/docentes/${idDocenteComponente}`,
+        {
+            method: 'DELETE',
+            headers: {
+                'X-XSRF-TOKEN': getXsrfToken(),
+                Accept: 'application/json',
+            },
+        },
+    );
+    return response.json();
 }

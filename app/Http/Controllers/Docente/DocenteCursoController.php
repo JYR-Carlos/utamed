@@ -49,13 +49,17 @@ class DocenteCursoController extends Controller
             return redirect()->route('dashboard')->with('error', 'No tienes un perfil docente asociado.');
         }
 
-        // Obtener cursos a través de las secciones del docente
-        // Obtener cursos donde el docente es titular
-        $cursos = Curso::where('id_docente_titular', $user->docente->id_docente)
+        // Obtener cursos donde el docente participa (titular o asignado por componente)
+        $cursos = Curso::where(function ($q) use ($user) {
+                $q->where('id_docente_titular', $user->docente->id_docente)
+                    ->orWhereHas('componentes.docenteComponentes', function ($dq) use ($user) {
+                        $dq->where('id_docente', $user->docente->id_docente);
+                    });
+            })
             ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera', 'inscripcionCursos'])
             ->orderBy('fecha_inicio', 'desc')
             ->get()
-            ->map(function ($curso) {
+            ->map(function ($curso) use ($user) {
                 // Verificar si existe algún programa para este curso
                 $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)
                     ->whereNull('fecha_eliminacion')
@@ -80,7 +84,8 @@ class DocenteCursoController extends Controller
                     'tiene_programa' => $tienePrograma,
                     'es_plantilla' => $curso->es_plantilla,
                     'semestre_real' => $semestre,
-                    'total_estudiantes' => $totalEstudiantes
+                    'total_estudiantes' => $totalEstudiantes,
+                    'es_titular_curso' => $curso->id_docente_titular === $user->docente->id_docente,
                 ];
             });
 
@@ -116,6 +121,10 @@ class DocenteCursoController extends Controller
         // Verificar que el docente tenga acceso al curso usando la Policy
         $this->authorize('viewPrograma', $curso);
 
+        /** @var Usuario $user */
+        $user = Auth::user();
+        $idDocente = $user->docente->id_docente;
+
         // Cargar relaciones necesarias
         $curso->load([
             'asignacionPlan.asignatura',
@@ -130,6 +139,51 @@ class DocenteCursoController extends Controller
             ->whereNull('fecha_eliminacion')
             ->exists();
 
+        // --- Perspectiva de "mi grupo" ---
+        $esTitularCurso = $curso->id_docente_titular === $idDocente;
+
+        // Componentes donde el docente está asignado
+        $misComponentes = $curso->componentes()
+            ->whereHas('docenteComponentes', fn ($q) => $q->where('id_docente', $idDocente))
+            ->with([
+                'tipoComponente',
+                'docenteComponentes' => fn ($q) => $q->orderBy('id_docente_componente'),
+                'docenteComponentes.docente.usuario',
+            ])
+            ->get();
+
+        // Estudiantes inscritos en esos componentes
+        $misEstudiantes = \App\Models\Curso\InscripcionComponente::whereIn(
+                'id_componente',
+                $misComponentes->pluck('id_componente')
+            )
+            ->with(['estudiante.usuario', 'componente.tipoComponente'])
+            ->get()
+            ->map(fn ($ic) => [
+                'id_inscripcion_componente' => $ic->id_inscripcion_componente,
+                'id_componente'             => $ic->id_componente,
+                'tipo_componente'           => $ic->componente->tipoComponente->nombre ?? 'N/A',
+                'nota_componente'           => $ic->nota_componente,
+                'estudiante' => [
+                    'id_estudiante' => $ic->estudiante->id_estudiante,
+                    'nombre'        => trim(
+                        ($ic->estudiante->usuario->nombre1  ?? '') . ' ' .
+                        ($ic->estudiante->usuario->nombre2  ?? '') . ' ' .
+                        ($ic->estudiante->usuario->apellido1 ?? '') . ' ' .
+                        ($ic->estudiante->usuario->apellido2 ?? '')
+                    ),
+                    'username'      => $ic->estudiante->usuario->username ?? '',
+                ],
+            ]);
+
+        $misComponentesData = $misComponentes->map(fn ($c) => [
+            'id_componente'   => $c->id_componente,
+            'tipo_componente' => $c->tipoComponente->nombre ?? 'N/A',
+            'es_titular'      => $c->docenteComponentes->first()?->es_titular ?? false,
+            'total_docentes'  => $c->docenteComponentes->count(),
+            'total_estudiantes' => $misEstudiantes->where('id_componente', $c->id_componente)->count(),
+        ]);
+
         return Inertia::render('docente/CursoDetalle', [
             'curso' => [
                 'id_curso' => $curso->id_curso,
@@ -142,6 +196,7 @@ class DocenteCursoController extends Controller
                 'estado_interno' => $curso->estado_interno,
                 'es_plantilla' => $curso->es_plantilla,
                 'tiene_programa' => $tienePrograma,
+                'es_titular_curso' => $esTitularCurso,
                 'asignatura' => [
                     'nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                     'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? 'N/A',
@@ -153,7 +208,9 @@ class DocenteCursoController extends Controller
                 ],
                 'secciones' => [],
                 'total_estudiantes' => $totalEstudiantes,
-            ]
+            ],
+            'mis_componentes' => $misComponentesData->values(),
+            'mis_estudiantes' => $misEstudiantes->values(),
         ]);
     }
 

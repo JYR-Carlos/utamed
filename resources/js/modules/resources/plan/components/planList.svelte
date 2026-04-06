@@ -20,14 +20,18 @@
   const columns = [
     { key: 'id_plan', label: 'ID' },
     { key: 'carrera.nombre', label: 'Carrera' },
-    { key: 'agno', label: 'Año' },
+    { key: 'agno_plan', label: 'Año' },
     { key: 'version_plan', label: 'Versión' },
     { key: 'creditos_sct_totales', label: 'Créditos SCT' },
     { key: 'malla', label: 'Malla' },
   ];
 
   function getRawValue(item: Plan, key: string) {
-    return key.split('.').reduce((v: any, k: string) => v?.[k], item) ?? '-';
+    const value = key.split('.').reduce((v: any, k: string) => v?.[k], item);
+    if (key === 'agno_plan' && value) {
+      return new Date(value).getFullYear();
+    }
+    return value ?? '-';
   }
 </script>
 

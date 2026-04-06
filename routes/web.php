@@ -108,7 +108,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::resource('facultades', FacultadController::class);
     Route::resource('departamentos', DepartamentoController::class);
     Route::resource('carreras', CarreraController::class);
-    Route::resource('planes', PlanController::class);
+    Route::resource('planes', PlanController::class)->parameters(['planes' => 'plan']);
     Route::resource('asignaturas', AsignaturaController::class);
     Route::resource('cursos', CursoController::class);
     Route::resource('usuarios', UsuarioController::class);
@@ -205,6 +205,10 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('cursos.componentes.update');
     Route::delete('cursos/componentes/{componente}', [AdminSeccionController::class, 'destroy'])
         ->name('cursos.componentes.destroy');
+    Route::post('cursos/componentes/{componente}/docentes', [AdminSeccionController::class, 'addDocente'])
+        ->name('cursos.componentes.docentes.store');
+    Route::delete('cursos/componentes/{componente}/docentes/{docenteComponente}', [AdminSeccionController::class, 'removeDocente'])
+        ->name('cursos.componentes.docentes.destroy');
 
     // Helper endpoints for cascading selects
     Route::get('facultades/{facultad}/departamentos', [DepartamentoController::class, 'byFacultad'])

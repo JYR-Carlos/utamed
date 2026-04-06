@@ -13,6 +13,15 @@ use App\Models\Base\Administrativo\BasePlan;
 class Plan extends BasePlan
 {
     /**
+     * Override fillable to use the correct DB column name (agno_plan, not agno).
+     */
+    protected $fillable = [
+        'agno_plan',
+        'version_plan',
+        'id_carrera',
+    ];
+
+    /**
      * Override asignaturas to include soft delete check on pivot table.
      */
     public function asignaturas()
