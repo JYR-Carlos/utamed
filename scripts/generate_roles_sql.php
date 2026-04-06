@@ -296,7 +296,7 @@ function generateRolesSqlContent(array $rolesData): string
       $sql .= "INSERT INTO usuario.asignacion_rol_permiso (\n";
       $sql .= "    id_rol,\n";
       $sql .= "    id_permiso,\n";
-      $sql .= "    puede_delegar_permisos\n";
+      $sql .= "    puede_delegar_permiso\n";
       $sql .= ")\n";
       $sql .= implode("\nUNION ALL\n", $selectClauses) . ";\n\n";
     }
