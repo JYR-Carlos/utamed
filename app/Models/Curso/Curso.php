@@ -26,6 +26,7 @@ class Curso extends BaseCurso
         'estado_interno',
         'estado_acta',
         'es_plantilla',
+        'es_colegiado',
         'id_asignacion_plan',
         'id_docente_titular',
         'id_curso_padre',
@@ -47,6 +48,7 @@ class Curso extends BaseCurso
         'fecha_limite_entrega_basico' => 'datetime',
         'fecha_limite_entrega_syllabus' => 'datetime',
         'es_plantilla' => 'boolean',
+        'es_colegiado' => 'boolean',
     ];
 
     // Agrega aquí tus métodos personalizados

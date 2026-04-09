@@ -39,6 +39,7 @@ abstract class BaseCurso extends CustomBaseModel implements HasOwnedContext
         'estado_interno',
         'estado_acta',
         'es_plantilla',
+        'es_colegiado',
         'fecha_limite_entrega_basico',
         'fecha_limite_entrega_syllabus',
         'id_asignacion_plan',

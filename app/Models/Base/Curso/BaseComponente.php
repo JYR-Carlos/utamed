@@ -81,7 +81,7 @@ abstract class BaseComponente extends CustomBaseModel implements HasOwnedContext
             'id_componente',
             'id_docente'
         )
-            ->withPivot('id_docente_componente', 'id_docente', 'id_componente');
+            ->withPivot('id_docente_componente', 'es_titular', 'id_docente', 'id_componente');
     }
 
     public function estudiantesInscritos()

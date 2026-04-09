@@ -66,6 +66,7 @@ class PlanController extends Controller
     public function byCarrera(Carrera $carrera)
     {
         $planes = $carrera->planes()
+            ->with('carrera')
             ->orderBy('agno_plan', 'desc')
             ->orderBy('version_plan', 'desc')
             ->get();

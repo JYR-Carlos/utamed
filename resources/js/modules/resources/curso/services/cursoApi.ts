@@ -106,7 +106,7 @@ export function createComponente(cursoId: number, data: ComponenteFormState, opt
  * Actualiza un componente existente.
  */
 export function updateComponente(cursoId: number, componenteId: number, data: ComponenteFormState, options: ApiOptions = {}) {
-    router.put(`/admin/cursos/${cursoId}/componentes/${componenteId}`, data as Record<string, any>, {
+    router.put(`/admin/cursos/componentes/${componenteId}`, data as Record<string, any>, {
         onSuccess: options.onSuccess,
         onError: options.onError,
     });
@@ -116,7 +116,7 @@ export function updateComponente(cursoId: number, componenteId: number, data: Co
  * Elimina un componente.
  */
 export function deleteComponente(cursoId: number, componenteId: number, options: ApiOptions = {}) {
-    router.delete(`/admin/cursos/${cursoId}/componentes/${componenteId}`, {
+    router.delete(`/admin/cursos/componentes/${componenteId}`, {
         onSuccess: options.onSuccess,
         onError: options.onError,
     });
@@ -178,6 +178,51 @@ export async function removeDocenteComponente(
                 'X-XSRF-TOKEN': getXsrfToken(),
                 Accept: 'application/json',
             },
+        },
+    );
+    return response.json();
+}
+
+/**
+ * Cambia el titular de un componente.
+ */
+export async function setTitularComponente(
+    componenteId: number,
+    idDocenteComponente: number,
+): Promise<{ message: string } | { error: string }> {
+    const response = await fetch(
+        `/admin/cursos/componentes/${componenteId}/titular`,
+        {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-XSRF-TOKEN': getXsrfToken(),
+                Accept: 'application/json',
+            },
+            body: JSON.stringify({ id_docente_componente: idDocenteComponente }),
+        },
+    );
+    return response.json();
+}
+
+/**
+ * Cambia si un componente genera acta.
+ * Devuelve warning si se activa en un componente no principal.
+ */
+export async function toggleGeneraActa(
+    componenteId: number,
+    generaActa: boolean,
+): Promise<{ message: string; genera_acta: boolean; es_componente_principal: boolean; warning: string | null } | { error: string }> {
+    const response = await fetch(
+        `/admin/cursos/componentes/${componenteId}/genera-acta`,
+        {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-XSRF-TOKEN': getXsrfToken(),
+                Accept: 'application/json',
+            },
+            body: JSON.stringify({ genera_acta: generaActa }),
         },
     );
     return response.json();

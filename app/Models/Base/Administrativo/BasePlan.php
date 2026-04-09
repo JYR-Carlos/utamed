@@ -29,7 +29,7 @@ abstract class BasePlan extends CustomBaseModel implements HasOwnedContext
     public $incrementing = true;
 
     protected $fillable = [
-        'agno',
+        'agno_plan',
         'version_plan',
         'creditos_sct_totales',
         'id_carrera'

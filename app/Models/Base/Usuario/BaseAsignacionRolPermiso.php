@@ -20,7 +20,7 @@ abstract class BaseAsignacionRolPermiso extends CustomBaseModel
     public $incrementing = true;
 
     protected $fillable = [
-        'puede_delegar_permisos',
+        'puede_delegar_permiso',
         'id_rol',
         'id_permiso'
     ];

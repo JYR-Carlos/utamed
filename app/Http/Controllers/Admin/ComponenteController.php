@@ -9,6 +9,7 @@ use App\Http\Resources\ComponenteResource;
 use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
 use App\Models\Curso\DocenteComponente;
+use App\Models\Curso\TipoComponente;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Docente;
@@ -279,6 +280,65 @@ class ComponenteController extends Controller
         $docenteComponente->delete();
 
         return response()->json(['message' => 'Docente eliminado del componente.']);
+    }
+
+    /**
+     * Cambia el titular de un componente.
+     * Solo un docente puede ser titular a la vez.
+     */
+    public function setTitular(Request $request, Componente $componente)
+    {
+        $validated = $request->validate([
+            'id_docente_componente' => 'required|integer|exists:docente_componente,id_docente_componente',
+        ]);
+
+        $dc = DocenteComponente::where('id_docente_componente', $validated['id_docente_componente'])
+            ->where('id_componente', $componente->id_componente)
+            ->first();
+
+        if (!$dc) {
+            return response()->json(['error' => 'El docente no pertenece a este componente.'], 422);
+        }
+
+        // Quitar titular a todos los docentes del componente
+        DocenteComponente::where('id_componente', $componente->id_componente)
+            ->update(['es_titular' => false]);
+
+        // Asignar al nuevo titular
+        $dc->update(['es_titular' => true]);
+
+        return response()->json(['message' => 'Titular del componente actualizado.']);
+    }
+
+    /**
+     * Cambia si un componente genera acta.
+     * Valida la regla: solo la componente principal (mayor jerarquía) genera acta por defecto.
+     * Advierte al usuario si activa genera_acta en una componente no principal.
+     */
+    public function toggleGeneraActa(Request $request, Componente $componente)
+    {
+        $validated = $request->validate([
+            'genera_acta' => 'required|boolean',
+        ]);
+
+        $componente->load('tipoComponente');
+        $principal = TipoComponente::getComponentePrincipal($componente->id_curso);
+        $esComponentePrincipal = $principal && $principal->id_componente === $componente->id_componente;
+
+        $warning = null;
+        if ($validated['genera_acta'] && !$esComponentePrincipal) {
+            $warning = 'Atención: estás habilitando generación de acta en un componente que NO es el principal del curso. '
+                . 'Según la jerarquía (Cátedra > Taller > Laboratorio), solo el componente principal genera acta por defecto.';
+        }
+
+        $componente->update(['genera_acta' => $validated['genera_acta']]);
+
+        return response()->json([
+            'message' => 'Configuración de acta actualizada.',
+            'genera_acta' => (bool) $validated['genera_acta'],
+            'es_componente_principal' => $esComponentePrincipal,
+            'warning' => $warning,
+        ]);
     }
 
     /**

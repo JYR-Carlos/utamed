@@ -216,6 +216,10 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('cursos.componentes.docentes.store');
     Route::delete('cursos/componentes/{componente}/docentes/{docenteComponente}', [AdminSeccionController::class, 'removeDocente'])
         ->name('cursos.componentes.docentes.destroy');
+    Route::put('cursos/componentes/{componente}/titular', [AdminSeccionController::class, 'setTitular'])
+        ->name('cursos.componentes.titular');
+    Route::put('cursos/componentes/{componente}/genera-acta', [AdminSeccionController::class, 'toggleGeneraActa'])
+        ->name('cursos.componentes.genera-acta');
 
     // Helper endpoints for cascading selects
     Route::get('facultades/{facultad}/departamentos', [DepartamentoController::class, 'byFacultad'])
@@ -262,6 +266,7 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
         ->name('cursos.team.sync-permissions');
 
     // Course detail view
+    Route::get('cursos/{curso}/docentes', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'docentes'])->name('cursos.docentes');
     Route::get('cursos/{curso}', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'show'])->name('cursos.show');
 
     // Activity management for courses

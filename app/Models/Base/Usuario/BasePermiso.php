@@ -50,7 +50,7 @@ abstract class BasePermiso extends CustomBaseModel
             'id_permiso',
             'id_rol'
         )
-            ->withPivot('id_asignacion_rol_permiso', 'puede_delegar_permisos', 'id_rol', 'id_permiso');
+            ->withPivot('id_asignacion_rol_permiso', 'puede_delegar_permiso', 'id_rol', 'id_permiso');
     }
 
     public function usuariosConPermisoEspecial()

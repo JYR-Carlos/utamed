@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Policies\Base\BaseCursoPolicy;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Policy para autorización de operaciones sobre el modelo Curso.
@@ -14,10 +15,13 @@ use App\Models\Usuario\Usuario;
  * Implementa control de acceso basado en roles (RBAC) para gestión de equipos de curso.
  * Reemplaza la autorización insegura basada en path por validación robusta de permisos.
  * 
+ * AUDIT LOGGING: Registra intentos denegados cuando un usuario que fue profesor jefe
+ * intenta acceder después de ser reemplazado. Esto detecta intentos de acceso no autorizado.
+ * 
  * Reglas de autorización:
  * - Administradores: Acceso completo a todos los cursos
- * - Docentes: Solo cursos donde dictan al menos una sección
- * - Otros usuarios: Sin acceso
+ * - Docentes: SOLO cursos donde son el profesor jefe ACTUAL
+ * - Otros usuarios: Sin acceso (acceso revocado si eran jefes anteriormente)
  */
 class CursoPolicy extends BaseCursoPolicy
 {
@@ -26,8 +30,10 @@ class CursoPolicy extends BaseCursoPolicy
      * 
      * Valida que:
      * - Administradores tienen acceso completo
-     * - Docentes solo acceden a cursos donde dictan secciones
-     * - Se verifica mediante relación secciones() en modelo Docente
+     * - Docentes SOLO acceden si son el profesor jefe ACTUAL del curso
+     * - Si el docente fue reemplazado como jefe, pierde acceso inmediatamente
+     * 
+     * AUDIT: Registra accesos denegados de ex-jefes de curso (potencial IDOR)
      * 
      * @param  Usuario  $user   Usuario autenticado intentando acceder
      * @param  Curso    $curso  Curso cuyo equipo se intenta gestionar
@@ -55,10 +61,31 @@ class CursoPolicy extends BaseCursoPolicy
             return false;
         }
 
-        // Verificar que el docente es titular del curso
-        return \App\Models\Curso\Curso::where('id_curso', $curso->id_curso)
-            ->where('id_docente_titular', $user->docente->id_docente)
-            ->exists();
+        // Verificar que el docente es el ACTUAL profesor jefe del curso
+        // This is explicit and strict: only the current titular professor can manage
+        $isCurrentTitular = $curso->id_docente_titular === $user->docente->id_docente;
+        
+        // AUDIT LOG: Si es docente pero NO es titular actual, log potential IDOR attempt
+        if (!$isCurrentTitular) {
+            // Check if user WAS a previous titular (for detecting revocation)
+            Log::channel('seguridad')->warning(
+                'Acceso denegado: Intento de gestionar equipo sin ser profesor jefe actual',
+                [
+                    'evento' => 'ACCESO_DENEGADO_MANAGEAM_TEAM',
+                    'id_usuario' => $user->id_usuario,
+                    'email_usuario' => $user->email,
+                    'id_docente' => $user->docente->id_docente,
+                    'id_curso' => $curso->id_curso,
+                    'cod_curso' => $curso->cod_curso,
+                    'profesor_jefe_actual' => $curso->id_docente_titular,
+                    'timestamp' => now()->toIso8601String(),
+                    'ip' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ]
+            );
+        }
+        
+        return $isCurrentTitular;
     }
 
     /**
@@ -66,8 +93,10 @@ class CursoPolicy extends BaseCursoPolicy
      * 
      * Valida que:
      * - Administradores tienen acceso completo
-     * - Docentes solo acceden a cursos donde dictan secciones
-     * - Se rechaza acceso a cursos no asignados
+     * - Docentes SOLO acceden si son el profesor jefe ACTUAL del curso
+     * - Si el docente fue reemplazado como jefe, pierde acceso inmediatamente
+     * 
+     * AUDIT: Registra accesos denegados de ex-jefes de curso (potencial IDOR)
      * 
      * @param  Usuario  $user   Usuario autenticado intentando acceder
      * @param  Curso    $curso  Curso cuya información se intenta acceder
@@ -93,9 +122,29 @@ class CursoPolicy extends BaseCursoPolicy
             return false;
         }
 
-        // Verificar que el docente es titular del curso
-        return \App\Models\Curso\Curso::where('id_curso', $curso->id_curso)
-            ->where('id_docente_titular', $user->docente->id_docente)
-            ->exists();
+        // Verificar que el docente es el ACTUAL profesor jefe del curso
+        // This is explicit and strict: only the current titular professor can view/edit
+        $isCurrentTitular = $curso->id_docente_titular === $user->docente->id_docente;
+        
+        // AUDIT LOG: Si es docente pero NO es titular actual, log potential IDOR attempt
+        if (!$isCurrentTitular) {
+            Log::channel('seguridad')->warning(
+                'Acceso denegado: Intento de ver/editar programa sin ser profesor jefe actual',
+                [
+                    'evento' => 'ACCESO_DENEGADO_VIEWPROGRAMA',
+                    'id_usuario' => $user->id_usuario,
+                    'email_usuario' => $user->email,
+                    'id_docente' => $user->docente->id_docente,
+                    'id_curso' => $curso->id_curso,
+                    'cod_curso' => $curso->cod_curso,
+                    'profesor_jefe_actual' => $curso->id_docente_titular,
+                    'timestamp' => now()->toIso8601String(),
+                    'ip' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ]
+            );
+        }
+        
+        return $isCurrentTitular;
     }
 }

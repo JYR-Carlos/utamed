@@ -185,7 +185,7 @@
             <option value={0}>Seleccionar plan</option>
             {#each planes as plan}
               <option value={plan.id_plan}>
-                {plan.id_plan} - {plan.agno}
+                {plan.id_plan} - {plan.agno_plan}
               </option>
             {/each}
           </select>
@@ -199,6 +199,7 @@
           <input
             id="fecha_inicio"
             type="date"
+            lang="es"
             bind:value={formData.fecha_inicio}
             class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
           />

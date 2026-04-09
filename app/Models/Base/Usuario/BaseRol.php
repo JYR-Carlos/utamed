@@ -63,7 +63,7 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
             'id_rol',
             'id_permiso'
         )
-            ->withPivot('id_asignacion_rol_permiso', 'puede_delegar_permisos', 'id_rol', 'id_permiso');
+            ->withPivot('id_asignacion_rol_permiso', 'puede_delegar_permiso', 'id_rol', 'id_permiso');
     }
 
     public function usuariosConRolAsignado()

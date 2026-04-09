@@ -12,7 +12,7 @@
 
   interface Plan {
     id_plan: number;
-    agno: number;
+    agno_plan: number;
     version_plan: number;
     carrera?: { nombre: string };
   }
@@ -74,6 +74,7 @@
   let aprobacionObligatoria = $state(false);
   let porcentajeAprobacion = $state<number>(60);
   let porcentajeAsistencia = $state<number>(75);
+  let esColegiado = $state(false);
 
   // ── Computed current step (1–4) ──────────────────────────────────────────
   const currentStep = $derived(!selectedCarrera ? 1 : !selectedPlan ? 2 : !selectedAsig ? 3 : 4);
@@ -198,6 +199,7 @@
       aprobacionObligatoria = false;
       porcentajeAprobacion = 60;
       porcentajeAsistencia = 75;
+      esColegiado = false;
     }
   });
 
@@ -228,6 +230,7 @@
       aprobacion_obligatoria: aprobacionObligatoria,
       porcentaje_aprobacion: porcentajeAprobacion,
       porcentaje_asistencia_obligatoria: porcentajeAsistencia,
+      es_colegiado: esColegiado,
     } as any);
   }
 
@@ -352,7 +355,7 @@
             {#if selectedPlan}
               <span class="step-chip"
                 >{selectedPlan.carrera?.nombre ?? ''}
-                {selectedPlan.agno} v{selectedPlan.version_plan}</span
+                {selectedPlan.agno_plan} v{selectedPlan.version_plan}</span
               >
               <button
                 type="button"
@@ -381,7 +384,9 @@
                     <button type="button" class="option-row" onclick={() => onSelectPlan(p)}>
                       <span class="option-row-icon">📋</span>
                       <div>
-                        <div class="option-row-name">Plan {p.agno} — versión {p.version_plan}</div>
+                        <div class="option-row-name">
+                          Plan {p.agno_plan} — versión {p.version_plan}
+                        </div>
                         {#if p.carrera}
                           <div class="option-row-sub">{p.carrera.nombre}</div>
                         {/if}
@@ -662,6 +667,7 @@
                     <input
                       id="wiz-fecha"
                       type="date"
+                      lang="es"
                       bind:value={fechaInicio}
                       class="field-input"
                     />
@@ -743,6 +749,16 @@
                       />
                       Aprobación Obligatoria
                     </label>
+                  </div>
+
+                  <div class="field field-checkbox">
+                    <label class="field-check-label">
+                      <input type="checkbox" bind:checked={esColegiado} class="field-check" />
+                      Curso Colegiado
+                    </label>
+                    <p class="text-xs text-slate-500 mt-0.5 ml-6">
+                      Múltiples docentes por componente. Deberás configurar titular por componente.
+                    </p>
                   </div>
                 </div>
               </div>

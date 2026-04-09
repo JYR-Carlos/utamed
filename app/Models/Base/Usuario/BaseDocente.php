@@ -62,7 +62,7 @@ abstract class BaseDocente extends CustomBaseModel implements HasContext
             'id_docente',
             'id_componente'
         )
-            ->withPivot('id_docente_componente', 'id_docente', 'id_componente');
+            ->withPivot('id_docente_componente', 'es_titular', 'id_docente', 'id_componente');
     }
 
 }

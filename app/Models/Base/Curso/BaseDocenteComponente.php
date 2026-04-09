@@ -20,6 +20,7 @@ abstract class BaseDocenteComponente extends CustomBaseModel
     public $incrementing = true;
 
     protected $fillable = [
+        'es_titular',
         'id_docente',
         'id_componente'
     ];

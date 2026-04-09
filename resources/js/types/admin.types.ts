@@ -205,6 +205,7 @@ export interface Curso {
     id_curso_padre?: number;
     version_plantilla?: number;
     numero_semestre?: number;
+    es_colegiado?: boolean;
     asignacionPlan?: AsignacionPlan;
     componentes?: Componente[];
     fecha_creacion?: string;
@@ -224,8 +225,8 @@ export interface TipoComponente {
     /** Unique identifier for the component type */
     id_tipo_componente: number;
     /** Type name (e.g., "Cátedra", "Problemas", "Laboratorio") */
-    tipo: string;
-    /** Creation timestamp */
+    tipo: string;    /** Priority in the hierarchy: C\u00c1TEDRA(1) > TALLER(2) > LABORATORIO(3) */
+    prioridad?: number;    /** Creation timestamp */
     fecha_creacion?: string;
     /** Last modification timestamp */
     fecha_modificacion?: string;
@@ -515,6 +516,7 @@ export interface CursoFormData {
     aprobacion_obligatoria?: boolean;
     porcentaje_aprobacion?: number;
     porcentaje_asistencia_obligatoria?: number;
+    es_colegiado?: boolean;
     [key: string]: FormDataConvertible;
 }
 

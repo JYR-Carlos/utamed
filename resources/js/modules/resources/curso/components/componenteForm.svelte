@@ -24,7 +24,11 @@
     DocenteAsignadoComponente,
   } from '../types/curso.types';
   import type { ComponenteFormState } from '../types/curso.types';
-  import { addDocenteComponente, removeDocenteComponente } from '../services/cursoApi';
+  import {
+    addDocenteComponente,
+    removeDocenteComponente,
+    setTitularComponente,
+  } from '../services/cursoApi';
 
   interface Props {
     isOpen?: boolean;
@@ -55,6 +59,7 @@
   let docentesAsignados = $state<DocenteAsignadoComponente[]>([]);
   let nuevoDocenteId = $state<number | string>('');
   let isAddingDocente = $state(false);
+  let isSettingTitular = $state(false);
   let errorMsg = $state<string | null>(null);
   let isSubmitting = $state(false);
 
@@ -114,6 +119,29 @@
         (d) => d.id_docente_componente !== dc.id_docente_componente,
       );
     }
+  }
+
+  async function handleSetTitular(dc: DocenteAsignadoComponente) {
+    if (!editingComponente || dc.es_titular) return;
+    errorMsg = null;
+    isSettingTitular = true;
+
+    const result = await setTitularComponente(
+      editingComponente.id_componente,
+      dc.id_docente_componente,
+    );
+
+    if ('error' in result) {
+      errorMsg = result.error;
+    } else {
+      // Actualizar estado local: quitar titular a todos, poner al seleccionado
+      docentesAsignados = docentesAsignados.map((d) => ({
+        ...d,
+        es_titular: d.id_docente_componente === dc.id_docente_componente,
+      }));
+    }
+
+    isSettingTitular = false;
   }
 
   function handleSubmit(e: Event) {
@@ -215,12 +243,23 @@
                     {#if dc.es_titular}
                       <Crown size={14} class="text-amber-500 shrink-0" />
                     {:else}
-                      <span class="w-3.5 shrink-0"></span>
+                      <button
+                        type="button"
+                        onclick={() => handleSetTitular(dc)}
+                        disabled={isSettingTitular}
+                        class="shrink-0 p-0 text-gray-300 hover:text-amber-400 transition disabled:opacity-50"
+                        title="Hacer titular de este componente"
+                      >
+                        <Crown size={14} />
+                      </button>
                     {/if}
                     <span class="flex-1 text-sm text-gray-800 truncate">
                       {dc.nombre_completo ||
                         `${dc.nombre1 ?? ''} ${dc.apellido1 ?? ''}`.trim() ||
                         `Docente #${dc.id_docente}`}
+                      {#if dc.es_titular}
+                        <span class="text-xs text-amber-600 font-medium ml-1">(Titular)</span>
+                      {/if}
                     </span>
                     <button
                       type="button"

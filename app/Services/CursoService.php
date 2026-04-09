@@ -42,6 +42,7 @@ class CursoService
                 'id_contexto'          => $contexto->id_contexto,
                 'indice_grupo'         => $data['indice_grupo'] ?? 1,
                 'id_docente_titular'   => $data['id_docente_sugerido'],
+                'es_colegiado'         => $data['es_colegiado'] ?? false,
             ];
 
             // Set fecha_fin to 6 months after fecha_inicio
@@ -68,6 +69,7 @@ class CursoService
                 DocenteComponente::create([
                     'id_componente' => $componente->id_componente,
                     'id_docente'    => $data['id_docente_sugerido'],
+                    'es_titular'    => true,
                 ]);
             }
 
@@ -77,6 +79,8 @@ class CursoService
 
     /**
      * Update an existing course.
+     * 
+     * AUDIT: Tracks professor jefe changes and synchronizes access revocation
      *
      * @param Curso $curso
      * @param array $data
@@ -95,6 +99,9 @@ class CursoService
             // Update or create context
             $contexto = $this->createOrUpdateContext($data['cod_curso'], $curso->id_contexto);
 
+            // Store old docente_titular to sync with components
+            $oldDocenteTitularId = $curso->id_docente_titular;
+
             // Prepare update data
             $updateData = [
                 'cod_curso'          => $data['cod_curso'],
@@ -105,8 +112,10 @@ class CursoService
                 'indice_grupo'       => $data['indice_grupo'] ?? $curso->indice_grupo,
             ];
 
+            $newDocenteTitularId = null;
             if (!empty($data['id_docente_sugerido'])) {
-                $updateData['id_docente_titular'] = $data['id_docente_sugerido'];
+                $newDocenteTitularId = $data['id_docente_sugerido'];
+                $updateData['id_docente_titular'] = $newDocenteTitularId;
             }
 
             // Recalculate fecha_fin if fecha_inicio changed
@@ -115,6 +124,11 @@ class CursoService
             }
 
             $curso->update($updateData);
+
+            // Sync docente_titular roles in components if changed
+            if ($newDocenteTitularId !== null && $newDocenteTitularId !== $oldDocenteTitularId) {
+                $this->syncDocenteTitularInComponents($curso, $oldDocenteTitularId, $newDocenteTitularId);
+            }
 
             return $curso;
         });
@@ -180,5 +194,79 @@ class CursoService
         $fecha = new \DateTime($fechaInicio);
         $fecha->modify('+6 months');
         return $fecha->format('Y-m-d');
+    }
+
+    /**
+     * Synchronize docente_titular roles when professor jefe changes.
+     * 
+     * AUDIT LOG: Tracks all changes to professor jefe assignments
+     * 
+     * Removes old professor from titular roles in all course components
+     * and assigns the new professor as titular to all components.
+     * This ensures that when a course's titular professor changes, their
+     * access is revoked from all course components immediately.
+     *
+     * @param Curso $curso
+     * @param int $oldDocenteId
+     * @param int $newDocenteId
+     * @return void
+     */
+    private function syncDocenteTitularInComponents(Curso $curso, int $oldDocenteId, int $newDocenteId): void
+    {
+        // Get all components of this course
+        $componentes = Componente::where('id_curso', $curso->id_curso)->get();
+        
+        $logData = [
+            'evento' => 'CAMBIO_PROFESOR_JEFE',
+            'id_curso' => $curso->id_curso,
+            'cod_curso' => $curso->cod_curso,
+            'id_docente_anterior' => $oldDocenteId,
+            'id_docente_nuevo' => $newDocenteId,
+            'total_componentes' => $componentes->count(),
+            'timestamp' => now()->toIso8601String(),
+            'detalles' => []
+        ];
+
+        foreach ($componentes as $componente) {
+            $componenteLog = [
+                'id_componente' => $componente->id_componente,
+                'tipo_componente' => $componente->tipoComponente?->nombre ?? 'N/A',
+                'acciones' => []
+            ];
+
+            // Remove old docente from titular roles in this component
+            $removidoCount = DocenteComponente::where('id_componente', $componente->id_componente)
+                ->where('id_docente', $oldDocenteId)
+                ->where('es_titular', true)
+                ->delete();
+            
+            if ($removidoCount > 0) {
+                $componenteLog['acciones'][] = "REMOVIDO: Docente {$oldDocenteId} como titular (registros eliminados: {$removidoCount})";
+            }
+
+            // Add new docente as titular in this component (if not already present)
+            $existingDocenteComponente = DocenteComponente::where('id_componente', $componente->id_componente)
+                ->where('id_docente', $newDocenteId)
+                ->first();
+
+            if (!$existingDocenteComponente) {
+                // New docente not yet in component, add as titular
+                DocenteComponente::create([
+                    'id_componente' => $componente->id_componente,
+                    'id_docente'    => $newDocenteId,
+                    'es_titular'    => true,
+                ]);
+                $componenteLog['acciones'][] = "ASIGNADO: Docente {$newDocenteId} como titular (registro creado)";
+            } else {
+                // New docente already in component, just mark as titular
+                $existingDocenteComponente->update(['es_titular' => true]);
+                $componenteLog['acciones'][] = "ACTUALIZADO: Docente {$newDocenteId} marcado como titular";
+            }
+
+            $logData['detalles'][] = $componenteLog;
+        }
+
+        // Log the synchronization event
+        Log::channel('seguridad')->info('Sincronización de profesor jefe completada', $logData);
     }
 }

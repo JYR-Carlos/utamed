@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Docente;
 
 use App\Http\Controllers\Controller;
 use App\Models\Curso\Curso;
+use App\Models\Curso\DocenteComponente;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Contexto;
@@ -162,7 +163,7 @@ class DocenteCursoController extends Controller
             ->map(fn ($ic) => [
                 'id_inscripcion_componente' => $ic->id_inscripcion_componente,
                 'id_componente'             => $ic->id_componente,
-                'tipo_componente'           => $ic->componente->tipoComponente->nombre ?? 'N/A',
+                'tipo_componente'           => $ic->componente->tipoComponente->tipo ?? 'N/A',
                 'nota_componente'           => $ic->nota_componente,
                 'estudiante' => [
                     'id_estudiante' => $ic->estudiante->id_estudiante,
@@ -178,11 +179,45 @@ class DocenteCursoController extends Controller
 
         $misComponentesData = $misComponentes->map(fn ($c) => [
             'id_componente'   => $c->id_componente,
-            'tipo_componente' => $c->tipoComponente->nombre ?? 'N/A',
+            'tipo_componente' => $c->tipoComponente->tipo ?? 'N/A',
             'es_titular'      => $c->docenteComponentes->first()?->es_titular ?? false,
             'total_docentes'  => $c->docenteComponentes->count(),
             'total_estudiantes' => $misEstudiantes->where('id_componente', $c->id_componente)->count(),
         ]);
+
+        // --- Datos adicionales para el titular ---
+        $todosComponentesData = collect();
+
+        if ($esTitularCurso) {
+            // Todos los componentes del curso con sus docentes
+            $todosComponentes = $curso->componentes()
+                ->with([
+                    'tipoComponente',
+                    'docenteComponentes' => fn ($q) => $q->orderBy('es_titular', 'desc'),
+                    'docenteComponentes.docente.usuario',
+                    'inscripcionComponentes',
+                ])
+                ->get();
+
+            $todosComponentesData = $todosComponentes->map(fn ($c) => [
+                'id_componente'     => $c->id_componente,
+                'tipo_componente'   => $c->tipoComponente->tipo ?? 'N/A',
+                'total_estudiantes' => $c->inscripcionComponentes->count(),
+                'docentes' => $c->docenteComponentes->map(fn ($dc) => [
+                    'id_docente_componente' => $dc->id_docente_componente,
+                    'id_docente'            => $dc->id_docente,
+                    'id_usuario'            => $dc->docente?->usuario?->id_usuario,
+                    'nombre'                => trim(
+                        ($dc->docente?->usuario?->nombre1 ?? '') . ' ' .
+                        ($dc->docente?->usuario?->nombre2 ?? '') . ' ' .
+                        ($dc->docente?->usuario?->apellido1 ?? '') . ' ' .
+                        ($dc->docente?->usuario?->apellido2 ?? '')
+                    ),
+                    'es_titular' => $dc->es_titular,
+                ])->values(),
+            ]);
+
+        }
 
         return Inertia::render('docente/CursoDetalle', [
             'curso' => [
@@ -211,7 +246,145 @@ class DocenteCursoController extends Controller
             ],
             'mis_componentes' => $misComponentesData->values(),
             'mis_estudiantes' => $misEstudiantes->values(),
+            'todos_componentes' => $todosComponentesData->values(),
         ]);
+    }
+
+    /**
+     * Muestra la página de gestión de docentes del curso (solo titular).
+     *
+     * Incluye la lista de componentes con sus docentes asignados y la
+     * matriz de permisos sobre el syllabus/programa de cada colegiado.
+     */
+    public function docentes(Curso $curso)
+    {
+        $this->authorize('manageTeam', $curso);
+
+        /** @var Usuario $user */
+        $user = Auth::user();
+        $idDocente = $user->docente->id_docente;
+
+        $curso->load([
+            'asignacionPlan.asignatura',
+            'asignacionPlan.plan.carrera',
+        ]);
+
+        // Todos los componentes con docentes
+        $todosComponentes = $curso->componentes()
+            ->with([
+                'tipoComponente',
+                'docenteComponentes' => fn ($q) => $q->orderBy('es_titular', 'desc'),
+                'docenteComponentes.docente.usuario',
+                'inscripcionComponentes',
+            ])
+            ->get();
+
+        $todosComponentesData = $todosComponentes->map(fn ($c) => [
+            'id_componente'     => $c->id_componente,
+            'tipo_componente'   => $c->tipoComponente->tipo ?? 'N/A',
+            'total_estudiantes' => $c->inscripcionComponentes->count(),
+            'docentes' => $c->docenteComponentes->map(fn ($dc) => [
+                'id_docente_componente' => $dc->id_docente_componente,
+                'id_docente'            => $dc->id_docente,
+                'id_usuario'            => $dc->docente?->usuario?->id_usuario,
+                'nombre'                => trim(
+                    ($dc->docente?->usuario?->nombre1 ?? '') . ' ' .
+                    ($dc->docente?->usuario?->nombre2 ?? '') . ' ' .
+                    ($dc->docente?->usuario?->apellido1 ?? '') . ' ' .
+                    ($dc->docente?->usuario?->apellido2 ?? '')
+                ),
+                'es_titular' => $dc->es_titular,
+            ])->values(),
+        ]);
+
+        // Colegiados (excluyendo al titular del curso)
+        $colegiadosData = DocenteComponente::whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso))
+            ->with('docente.usuario')
+            ->get()
+            ->map(fn ($dc) => [
+                'id_docente'  => $dc->id_docente,
+                'id_usuario'  => $dc->docente?->usuario?->id_usuario,
+                'nombre'      => trim(
+                    ($dc->docente?->usuario?->nombre1 ?? '') . ' ' .
+                    ($dc->docente?->usuario?->nombre2 ?? '') . ' ' .
+                    ($dc->docente?->usuario?->apellido1 ?? '') . ' ' .
+                    ($dc->docente?->usuario?->apellido2 ?? '')
+                ),
+                'username'    => $dc->docente?->usuario?->username ?? '',
+                'es_titular'  => $dc->es_titular,
+            ])
+            ->filter(fn ($d) => $d['id_docente'] !== $idDocente)
+            ->unique('id_docente')
+            ->values();
+
+        // Matriz de permisos del syllabus por cada colegiado
+        $syllabusPermsMatrix = $this->buildSyllabusPermissionsMatrix($curso, $colegiadosData);
+
+        return Inertia::render('docente/DocentesCurso', [
+            'curso' => [
+                'id_curso'    => $curso->id_curso,
+                'nombre'      => $curso->nombre,
+                'cod_curso'   => $curso->cod_curso,
+                'asignatura'  => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+            ],
+            'todos_componentes' => $todosComponentesData->values(),
+            'colegiados'        => $colegiadosData->values(),
+            'syllabus_matrix'   => $syllabusPermsMatrix,
+        ]);
+    }
+
+    /**
+     * Construye la matriz de permisos del syllabus para cada colegiado:
+     * { permisos: [{slug, nombre}], docentes: [{id_usuario, perms: {slug: bool}}] }
+     */
+    private function buildSyllabusPermissionsMatrix(Curso $curso, $colegiados): array
+    {
+        // Permisos relevantes del syllabus
+        $syllabusSlugs = Permiso::where('slug', 'like', 'cursos/programas%')
+            ->orderBy('slug')
+            ->get();
+
+        $permisosList = $syllabusSlugs->map(fn ($p) => [
+            'id_permiso' => $p->id_permiso,
+            'slug'       => $p->slug,
+            'nombre'     => $p->nombre,
+        ])->values();
+
+        if (!$curso->id_contexto || $colegiados->isEmpty()) {
+            return ['permisos' => $permisosList, 'docentes' => []];
+        }
+
+        $idContexto = $curso->id_contexto;
+        $permisoIds = $syllabusSlugs->pluck('id_permiso')->toArray();
+
+        // Consultar permisos especiales activos de cada colegiado en el contexto del curso
+        $docentesPerms = [];
+        foreach ($colegiados as $col) {
+            $activePerms = UsuarioPermisoEspecial::where('id_usuario', $col['id_usuario'])
+                ->where('id_contexto', $idContexto)
+                ->whereIn('id_permiso', $permisoIds)
+                ->where('esta_activo', true)
+                ->where('fue_borrado', false)
+                ->get()
+                ->keyBy('id_permiso');
+
+            $permsMap = [];
+            foreach ($syllabusSlugs as $p) {
+                $upe = $activePerms->get($p->id_permiso);
+                $permsMap[$p->slug] = $upe ? (bool) $upe->esta_permitido : false;
+            }
+
+            $docentesPerms[] = [
+                'id_usuario' => $col['id_usuario'],
+                'nombre'     => $col['nombre'],
+                'perms'      => $permsMap,
+            ];
+        }
+
+        return [
+            'permisos' => $permisosList,
+            'docentes' => $docentesPerms,
+        ];
     }
 
 
@@ -333,14 +506,18 @@ class DocenteCursoController extends Controller
             return response()->json(['roles' => [], 'special_permissions' => []]);
         }
 
-        // ✅ Validar que usuario es miembro del equipo
+        // ✅ Validar que usuario es miembro del equipo o docente colegiado del curso
         $isMember = UsuarioRolAsignacion::where('id_contexto', $curso->id_contexto)
             ->where('id_usuario', $usuario->id_usuario)
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
             ->exists();
 
-        if (!$isMember) {
+        $isColegiadoDocente = DocenteComponente::whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso))
+            ->whereHas('docente', fn ($q) => $q->where('id_usuario', $usuario->id_usuario))
+            ->exists();
+
+        if (!$isMember && !$isColegiadoDocente) {
             return response()->json(['error' => 'Usuario no es miembro del equipo de este curso'], 404);
         }
 
@@ -420,6 +597,21 @@ class DocenteCursoController extends Controller
         // Security: A user cannot modify their own permissions (Issue 3)
         if ($usuario->id_usuario === $user->id_usuario) {
             return back()->with('error', 'No puedes modificar tus propios permisos.');
+        }
+
+        // Validar que el usuario target es miembro del equipo o docente colegiado del curso
+        $isMember = UsuarioRolAsignacion::where('id_contexto', $idContexto)
+            ->where('id_usuario', $usuario->id_usuario)
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->exists();
+
+        $isColegiadoDocente = DocenteComponente::whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso))
+            ->whereHas('docente', fn ($q) => $q->where('id_usuario', $usuario->id_usuario))
+            ->exists();
+
+        if (!$isMember && !$isColegiadoDocente) {
+            return back()->with('error', 'Usuario no es miembro del equipo de este curso.');
         }
 
         // Get delegable permissions FOR THIS CONTEXT to validate (Issue 2)
