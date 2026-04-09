@@ -21,6 +21,7 @@
   import {
     UsuarioList,
     UsuarioForm,
+    UsuarioImport,
     UsuarioDeleteConfirm,
     PasswordChangeModal,
     switchTipo as apiSwitchTipo,
@@ -39,13 +40,12 @@
     AdministradorFormData,
     UsuarioData,
   } from '@/types/admin.types';
+  import {
+    UserType
+  } from '@/types/usuarios/tipos'
+  import { untrack } from 'svelte';
 
-  // ====== CONSTANTES Y TIPOS ======
-  const UserType = {
-    STUDENT: 'estudiante',
-    TEACHER: 'docente',
-    ADMIN: 'administrador',
-  } as const;
+
 
   type UserType = (typeof UserType)[keyof typeof UserType];
   type UserFormData = EstudianteFormData | DocenteFormData | AdministradorFormData;
@@ -53,35 +53,11 @@
   const USER_TYPE_LABELS: Record<UserType, string> = {
     [UserType.STUDENT]: 'Estudiante',
     [UserType.TEACHER]: 'Docente',
-    [UserType.ADMIN]: 'Administrador',
+    [UserType.ADMIN]: 'Admin',
   };
 
-  const COLUMN_CONFIGS: Record<UserType, Array<{ key: string; label: string }>> = {
-    [UserType.STUDENT]: [
-      { key: 'estudiante.id_estudiante', label: 'ID' },
-      { key: 'usuario.rut', label: 'RUT' },
-      { key: 'usuario.nombre1', label: 'Nombre' },
-      { key: 'usuario.apellido1', label: 'Apellido' },
-      { key: 'estudiante.agno_ingreso', label: 'Año Ingreso' },
-      { key: 'estudiante.carrera.nombre', label: 'Carrera' },
-    ],
-    [UserType.TEACHER]: [
-      { key: 'docente.id_docente', label: 'ID' },
-      { key: 'usuario.rut', label: 'RUT' },
-      { key: 'usuario.nombre1', label: 'Nombre' },
-      { key: 'usuario.apellido1', label: 'Apellido' },
-      { key: 'docente.grado', label: 'Grado' },
-      { key: 'docente.cargo', label: 'Cargo' },
-    ],
-    [UserType.ADMIN]: [
-      { key: 'usuario.id_usuario', label: 'ID' },
-      { key: 'usuario.rut', label: 'RUT' },
-      { key: 'usuario.username', label: 'Usuario' },
-      { key: 'usuario.nombre1', label: 'Nombre' },
-      { key: 'usuario.apellido1', label: 'Apellido' },
-      { key: 'usuario.email', label: 'Email' },
-    ],
-  };
+  
+
 
   // ====== FUNCIONES AUXILIARES ======
   function getUsuarioId(item: UsuarioItem, tipo: UserType): number {
@@ -173,10 +149,12 @@
   let { usuarios, tipo, carreras }: Props = $props();
 
   let showModal = $state(false);
+  let showImportModal = $state(false);
   let showDeleteDialog = $state(false);
   let showPasswordModal = $state(false);
   let showPermissionsModal = $state(false);
   let isLoading = $state(false);
+  let fileToImport =$state<File | null>(null)
   let editingUsuario = $state<UsuarioItem | null>(null);
   let deletingUsuario = $state<UsuarioItem | null>(null);
   let changingPasswordUsuario = $state<UsuarioItem | null>(null);
@@ -197,7 +175,50 @@
     password_confirmation: '',
   });
 
+  // efect de autocompletado de rut
+  let searchTimeout: ReturnType<typeof setTimeout>;
+  let deshabilitarCampos = $state(false);
+
+  $effect(() => {
+    // Al leer currentFormData.rut aquí, el $effect solo se re-ejecutará cuando el RUT cambie.
+    const rutActual = currentFormData.rut;
+
+    // Solo buscamos si NO estamos editando, el modal está abierto y el RUT tiene un largo razonable
+    if (!editingUsuario && showModal && rutActual && rutActual.length >= 8) {
+      clearTimeout(searchTimeout);
+      
+      // Debounce de 500ms para esperar a que el usuario termine de escribir
+      searchTimeout = setTimeout(async () => {
+        try {
+          // Asegúrate de que esta URL coincida con tu ruta en web.php o api.php
+          const response = await fetch(`/admin/usuarios/buscar-por-rut?rut=${rutActual}`);
+          
+          if (response.ok) {
+            const usuarioDB = await response.json();
+            
+            if (usuarioDB) {
+              // Usamos untrack para actualizar el estado sin re-disparar efectos accidentalmente
+              deshabilitarCampos = true
+              untrack(() => {
+                currentFormData.nombre1 = usuarioDB.nombre1 || currentFormData.nombre1;
+                currentFormData.nombre2 = usuarioDB.nombre2 || currentFormData.nombre2;
+                currentFormData.apellido1 = usuarioDB.apellido1 || currentFormData.apellido1;
+                currentFormData.apellido2 = usuarioDB.apellido2 || currentFormData.apellido2;
+                currentFormData.email = usuarioDB.email || currentFormData.email;
+                currentFormData.username = usuarioDB.username || currentFormData.username;
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Error al autocompletar usuario por RUT:", error);
+        }
+      }, 500); 
+    }
+  });
+
+
   // ====== FUNCIONES DE MANEJO DE EVENTOS ======
+  
   function switchTipo(newTipo: UserType) {
     apiSwitchTipo(newTipo);
   }
@@ -206,6 +227,10 @@
     editingUsuario = null;
     currentFormData = createEmptyFormData(currentTipo);
     showModal = true;
+  }
+
+  function openImportModal() {
+    showImportModal = true;
   }
 
   function openEditModal(item: UsuarioItem) {
@@ -219,7 +244,7 @@
     editingUsuario = null;
   }
 
-  function handleSubmit() {
+  function handleAgregarSubmit() {
     isLoading = true;
     const dataToSend = { ...currentFormData, tipo: currentTipo };
 
@@ -247,6 +272,32 @@
         },
       });
     }
+    deshabilitarCampos = false;
+  }
+
+  function handleImportarSubmit() {
+    if (!fileToImport) {
+      alert("Por favor selecciona un archivo primero!!"); 
+      return;
+    }
+
+    isLoading = true;
+
+    router.post('/admin/usuarios/importar', { 
+      file: fileToImport,
+      tipo: currentTipo
+    }, {
+      forceFormData: true, 
+      onSuccess: () => {
+        closeModal();
+        isLoading = false;
+        fileToImport = null; 
+      },
+      onError: (errors) => {
+        handleError('importar usuarios', errors);
+        isLoading = false;
+      },
+    });
   }
 
   function openDeleteDialog(usuario: UsuarioItem) {
@@ -333,26 +384,36 @@
         <h1 class="text-3xl font-bold text-gray-900 mb-1">Usuarios</h1>
         <p class="text-sm text-gray-500">Gestión de estudiantes, docentes y administradores</p>
       </div>
-      <button
-        onclick={openCreateModal}
-        class="inline-flex items-center gap-2 px-5 py-2.5 bg-linear-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
+      <div class="flex gap-4">
+        <button
+          onclick={openCreateModal}
+          class="group relative flex items-center justify-start h-12 w-12 hover:w-48 bg-linear-to-br from-blue-500 to-blue-600 text-white rounded-full font-medium cursor-pointer transition-all duration-500 ease-in-out shadow-sm active:scale-95 overflow-hidden px-3"
         >
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-        Nuevo {USER_TYPE_LABELS[currentTipo]}
-      </button>
+          <div class="flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          </div>
+          <span class="ml-3 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-in-out">
+            Nuevo {USER_TYPE_LABELS[currentTipo]}
+          </span>
+        </button>
+
+        <button
+          onclick={openImportModal}
+          class="group relative flex items-center justify-start h-12 w-12 hover:w-56 bg-linear-to-br from-green-500 to-green-600 text-white rounded-full font-medium cursor-pointer transition-all duration-500 ease-in-out shadow-sm active:scale-95 overflow-hidden px-3"
+        >
+          <div class="flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
+            </svg>
+          </div>
+          <span class="ml-3 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out-in">
+            Importar {USER_TYPE_LABELS[currentTipo]}s
+          </span>
+        </button>
+      </div>
+      
     </div>
 
     <div class="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit mb-6">
@@ -408,9 +469,23 @@
     bind:formData={currentFormData}
     {carreras}
     {isLoading}
+    {deshabilitarCampos}
     onClose={closeModal}
-    onSubmit={handleSubmit}
+    onSubmit={handleAgregarSubmit}
   />
+
+  <UsuarioImport
+    isOpen={showImportModal}
+    userType={currentTipo}
+    isLoading={isLoading}
+    bind:file={fileToImport} 
+    onClose={() => {
+      showImportModal = false;
+      fileToImport = null;
+    }}
+    onSubmit={handleImportarSubmit}
+  />
+
 
   <UsuarioDeleteConfirm
     isOpen={showDeleteDialog}

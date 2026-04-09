@@ -64,6 +64,7 @@
         "lightningcss-linux-x64-gnu": "^1.30.2"
     },
     "dependencies": {
-        "@laravel/vite-plugin-wayfinder": "^0.1.7"
+        "@laravel/vite-plugin-wayfinder": "^0.1.7",
+        "xlsx": "^0.18.5"
     }
 }

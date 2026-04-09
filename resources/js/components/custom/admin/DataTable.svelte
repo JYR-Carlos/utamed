@@ -25,7 +25,7 @@
     data,
     columns,
     onEdit,
-    onDelete,
+
     onPasswordChange,
     onToggleActive,
     onCustomAction,
@@ -312,7 +312,7 @@
               </span>
             </th>
           {/each}
-          {#if onEdit || onDelete || onCustomAction || onSyllabus || onPasswordChange || onToggleActive}
+          {#if onEdit || onCustomAction || onSyllabus || onPasswordChange || onToggleActive}
             <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500 tracking-wide"> Acciones </th>
           {/if}
         </tr>
@@ -320,7 +320,7 @@
       <tbody>
         {#if data.data.length === 0}
           <tr>
-            <td colspan={columns.length + (onEdit || onDelete ? 1 : 0)} class="text-center text-gray-400 py-12 px-4">
+            <td colspan={columns.length + (onEdit ? 1 : 0)} class="text-center text-gray-400 py-12 px-4">
               No se encontraron resultados
             </td>
           </tr>
@@ -336,7 +336,7 @@
                   {/if}
                 </td>
               {/each}
-              {#if onEdit || onDelete || onPasswordChange || onToggleActive || onCustomAction || onSyllabus}
+              {#if onEdit || onPasswordChange || onToggleActive || onCustomAction || onSyllabus}
                 <td class="px-4 py-3 border-b border-gray-100 align-middle">
                   <div class="flex items-center gap-1.5 whitespace-nowrap">
                     <!-- P1: Syllabus -->
@@ -382,7 +382,7 @@
                     {/if}
 
                     <!-- Separator -->
-                    {#if (onSyllabus || onCustomAction) && (onEdit || onDelete)}
+                    {#if (onSyllabus || onCustomAction) && (onEdit)}
                       <div class="w-px h-5 bg-gray-200 mx-0.5 shrink-0"></div>
                     {/if}
 
@@ -411,29 +411,7 @@
                       </button>
                     {/if}
 
-                    <!-- P4: Delete -->
-                    {#if onDelete}
-                      <button
-                        onclick={() => onDelete?.(item)}
-                        title="Eliminar"
-                        class="inline-flex items-center justify-center p-1.5 bg-transparent hover:bg-red-50 text-gray-400 hover:text-red-600 rounded cursor-pointer transition-all border-0"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          ><polyline points="3 6 5 6 21 6" /><path
-                            d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-                          /></svg
-                        >
-                      </button>
-                    {/if}
+                   
 
                     <!-- Utility: password -->
                     {#if onPasswordChange}

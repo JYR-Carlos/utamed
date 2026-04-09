@@ -27,6 +27,7 @@
     editingUsuario: UsuarioItem | null;
     userType: UserType;
     formData: UserFormData;
+    deshabilitarCampos: boolean;
     carreras: Carrera[];
     isLoading: boolean;
     onClose: () => void;
@@ -38,6 +39,7 @@
     editingUsuario,
     userType,
     formData = $bindable(),
+    deshabilitarCampos,
     carreras,
     isLoading,
     onClose,
@@ -54,5 +56,5 @@
   {onSubmit}
   {isLoading}
 >
-  <UserForm {formData} tipo={userType} isEditing={!!editingUsuario} {carreras} />
+  <UserForm deshabilitarCampos={deshabilitarCampos} {formData} tipo={userType} isEditing={!!editingUsuario} {carreras} />
 </FormModal>

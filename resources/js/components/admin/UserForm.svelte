@@ -18,12 +18,13 @@
 
   interface Props {
     formData: UserFormData;
+    deshabilitarCampos: boolean;
     tipo: 'estudiante' | 'docente' | 'administrador';
     isEditing: boolean;
     carreras?: Carrera[];
   }
 
-  let { formData, tipo, isEditing, carreras = [] }: Props = $props();
+  let { formData, deshabilitarCampos,tipo, isEditing, carreras = [] }: Props = $props();
 
   const inputClass =
     'w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
@@ -39,7 +40,7 @@
     }
 
     // Si tiene menos de 8 dígitos antes del verificador, no formatear aún
-    if (cleanRut.length < 8) {
+    if (cleanRut.length < 9) {
       return cleanRut;
     }
 
@@ -54,7 +55,7 @@
   // Valida que el RUT tenga el formato correcto
   function isValidRutFormat(rut: string): boolean {
     const cleanRut = rut.replace(/[.\-]/g, '');
-    return /^\d{8}[0-9kK]$/.test(cleanRut);
+    return /^\d{7}[0-9kK]$/.test(cleanRut);
   }
 
   // Manejar cambios en el input de RUT
@@ -76,6 +77,9 @@
     <label for="rut" class="block text-sm font-medium text-gray-700">RUT *</label>
     <span class="text-xs text-gray-500">Formato: 12345678-K (8 dígitos + verificador)</span>
   </div>
+  {#if deshabilitarCampos}
+    mmmm
+  {/if}
   <input
     id="rut"
     type="text"
@@ -103,6 +107,7 @@
       bind:value={formData.nombre1}
       class={inputClass}
       placeholder="Ej: Juan"
+      readonly={deshabilitarCampos}
       required
     />
   </div>
@@ -114,6 +119,7 @@
       type="text"
       bind:value={formData.nombre2}
       class={inputClass}
+      readonly={deshabilitarCampos}
       placeholder="Ej: Carlos"
     />
   </div>
@@ -130,6 +136,7 @@
       bind:value={formData.apellido1}
       class={inputClass}
       placeholder="Ej: González"
+      readonly={deshabilitarCampos}
       required
     />
   </div>
@@ -143,6 +150,7 @@
       type="text"
       bind:value={formData.apellido2}
       class={inputClass}
+      readonly={deshabilitarCampos}
       placeholder="Ej: Pérez"
     />
   </div>
@@ -155,6 +163,7 @@
     type="email"
     bind:value={formData.email}
     class={inputClass}
+    readonly={deshabilitarCampos}
     placeholder="Ej: juan@ejemplo.com"
   />
 </div>
@@ -245,6 +254,7 @@
         placeholder={tipo === 'administrador' ? 'Máx. 30 caracteres' : 'Máx. 10 caracteres'}
         maxlength={tipo === 'administrador' ? 30 : 10}
         required
+        readonly={deshabilitarCampos}
       />
     </div>
 

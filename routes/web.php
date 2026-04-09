@@ -111,6 +111,13 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::resource('planes', PlanController::class)->parameters(['planes' => 'plan']);
     Route::resource('asignaturas', AsignaturaController::class);
     Route::resource('cursos', CursoController::class);
+
+    Route::get('usuarios/buscar-por-rut', [UsuarioController::class, 'buscarPorRut'])
+         ->name('usuarios.buscarPorRut');
+
+    Route::post('usuarios/importar', [UsuarioController::class, 'import'])
+        ->name('usuarios.importar');
+
     Route::resource('usuarios', UsuarioController::class);
 
     // Curso routes

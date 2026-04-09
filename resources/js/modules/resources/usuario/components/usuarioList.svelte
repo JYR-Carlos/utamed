@@ -59,7 +59,6 @@
   {data}
   {columns}
   {onEdit}
-  {onDelete}
   {onPasswordChange}
   {onToggleActive}
   onCustomAction={onPermissions}

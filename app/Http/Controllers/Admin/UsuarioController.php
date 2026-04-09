@@ -21,7 +21,10 @@ use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use App\Models\Usuario\Contexto;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use App\Http\Resources\UsuarioResource;
+use Maatwebsite\Excel\Facades\Excel;
+
 /**
  * Controlador para la gestión integral de usuarios del sistema.
  * 
@@ -249,6 +252,65 @@ class UsuarioController extends Controller
         }
     }
 
+    /**
+     * Dispatcher para importar usuarios según tipo especificado.
+     * * Valida que el request incluya el archivo con los datos correspondientes
+     * a cada rol
+     * * @param  \Illuminate\Http\Request  $request  Datos del usuario: tipo, rut, nombres, etc.
+     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
+     */
+    public function import(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,csv,xls|max:5120',
+            'tipo' => 'required|in:estudiante,docente,administrador'
+        ]);
+
+        try {
+            $filas = Excel::toArray(new \stdClass, $request->file('file'))[0];
+            array_shift($filas); // Quitar encabezados
+
+            DB::beginTransaction();
+            $contador = 0;
+
+            foreach ($filas as $indice => $fila) {
+                if (empty(array_filter($fila))) continue;
+
+                $numeroFilaExcel = $indice + 2; 
+                $datos = $this->mapearFila($fila, $request->tipo);
+                $this->validarFila($datos, $request->tipo, $numeroFilaExcel);
+
+                if ($request->tipo === 'estudiante') {
+                    $this->insertarEstudianteBd($datos);
+                } elseif ($request->tipo === 'docente') {
+                    $this->insertarDocenteBd($datos);
+                } elseif ($request->tipo === 'administrador') {
+                    $this->insertarAdministradorBd($datos);
+                }
+
+                $contador++;
+            }
+
+            DB::commit();
+
+            // Redirección exitosa a la vista del tipo de usuario importado
+            return redirect()->route('admin.usuarios.index', ['tipo' => $request->tipo])
+                ->with('success', "Se han importado {$contador} usuarios correctamente.");
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            // Retorna a la vista anterior con el primer error de validación encontrado
+            $primerError = collect($e->errors())->flatten()->first();
+            return back()->withErrors(['error' => $primerError])->withInput();
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error en importación masiva: ' . $e->getMessage());
+            // Retorna a la vista anterior con el error general del servidor
+            return back()->withErrors(['error' => 'Error al procesar el archivo: ' . $e->getMessage()]);
+        }
+    }
+
     private function formatRut($rut) {
         // Eliminar puntos y guiones
         $cleanRut = preg_replace('/[.\-]/', '', $rut);
@@ -277,55 +339,29 @@ class UsuarioController extends Controller
      */
     private function storeEstudiante(Request $request)
     {
-        // Validar datos del estudiante: identidad, contacto, carrera y credenciales
         $validated = $request->validate([
-            'rut' => 'required|string|max:20',
-            'nombre1' => 'required|string|max:100',
-            'nombre2' => 'nullable|string|max:100',
-            'apellido1' => 'required|string|max:100',
-            'apellido2' => 'nullable|string|max:100',
-            'email' => 'nullable|email|max:255',
+            'rut'          => 'required|string|max:20',
+            'nombre1'      => 'required|string|max:100',
+            'nombre2'      => 'nullable|string|max:100',
+            'apellido1'    => 'required|string|max:100',
+            'apellido2'    => 'nullable|string|max:100',
+            'email'        => 'nullable|email|max:255',
             'agno_ingreso' => 'nullable|integer|min:1900|max:2100',
-            'id_carrera' => ['nullable', Rule::exists(Carrera::class, 'id_carrera')],
-            'username' => ['required', 'string', 'max:10', Rule::unique(Usuario::class, 'username')],
-            'password' => 'required|string|min:6',
+            'id_carrera'   => ['nullable', Rule::exists(Carrera::class, 'id_carrera')],
+            'username'     => ['required', 'string', 'max:10', Rule::unique(Usuario::class, 'username')],
+            'password'     => 'required|string|min:6',
         ]);
 
         DB::beginTransaction();
         try {
-            // Crear registro base de usuario con credenciales
-            $usuario = Usuario::create([
-                'username' => $validated['username'],
-                'passhash' => Hash::make($validated['password']),
-                'rut' => $validated['rut'],
-                'nombre1' => $validated['nombre1'],
-                'nombre2' => $validated['nombre2'] ?? null,
-                'apellido1' => $validated['apellido1'],
-                'apellido2' => $validated['apellido2'] ?? null,
-                'email' => $validated['email'] ?? null,
-                'esta_activo' => true
-            ]);
-
-            // Vincular perfil de estudiante con carrera
-            Estudiante::create([
-                'id_usuario' => $usuario->id_usuario,
-                'agno_ingreso' => $validated['agno_ingreso'] ?? null,
-                'id_carrera' => $validated['id_carrera'] ?? null,
-            ]);
-
-            // Asignar rol de estudiante en contexto global
-            $this->assignRole($usuario, 'estudiante');
-
+            $this->insertarEstudianteBd($validated);
             DB::commit();
 
             return redirect()->route('admin.usuarios.index', ['tipo' => 'estudiante'])
                 ->with('success', 'Estudiante creado exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error creating estudiante: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
-                'data' => $validated
-            ]);
+            Log::error('Error creating estudiante: ' . $e->getMessage(), ['data' => $validated]);
             return back()->withErrors(['error' => 'Error al crear estudiante: ' . $e->getMessage()])->withInput();
         }
     }
@@ -342,57 +378,30 @@ class UsuarioController extends Controller
      */
     private function storeDocente(Request $request)
     {
-        // Validar datos del docente: identidad, contacto, grado académico y credenciales
         $validated = $request->validate([
-            'rut' => 'required|string|max:20',
-            'nombre1' => 'required|string|max:100',
-            'nombre2' => 'nullable|string|max:100',
+            'rut'       => 'required|string|max:20',
+            'nombre1'   => 'required|string|max:100',
+            'nombre2'   => 'nullable|string|max:100',
             'apellido1' => 'required|string|max:100',
             'apellido2' => 'nullable|string|max:100',
-            'email' => 'nullable|email|max:255',
-            'grado' => 'nullable|string|max:100',
-            'titulo' => 'nullable|string|max:255',
-            'cargo' => 'nullable|string|max:100',
-            'username' => ['required', 'string', 'max:10', Rule::unique(Usuario::class, 'username')],
-            'password' => 'required|string|min:6',
+            'email'     => 'nullable|email|max:255',
+            'grado'     => 'nullable|string|max:100',
+            'titulo'    => 'nullable|string|max:255',
+            'cargo'     => 'nullable|string|max:100',
+            'username'  => ['required', 'string', 'max:10', Rule::unique(Usuario::class, 'username')],
+            'password'  => 'required|string|min:6',
         ]);
 
         DB::beginTransaction();
         try {
-            // Crear registro base de usuario con credenciales
-            $usuario = Usuario::create([
-                'username' => $validated['username'],
-                'passhash' => Hash::make($validated['password']),
-                'rut' => $validated['rut'],
-                'nombre1' => $validated['nombre1'],
-                'nombre2' => $validated['nombre2'] ?? null,
-                'apellido1' => $validated['apellido1'],
-                'apellido2' => $validated['apellido2'] ?? null,
-                'email' => $validated['email'] ?? null,
-                'esta_activo' => true
-            ]);
-
-            // Vincular perfil de docente con datos académicos
-            Docente::create([
-                'id_usuario' => $usuario->id_usuario,
-                'grado' => $validated['grado'] ?? null,
-                'titulo' => $validated['titulo'] ?? null,
-                'cargo' => $validated['cargo'] ?? null,
-            ]);
-
-            // Asignar rol de docente en contexto global
-            $this->assignRole($usuario, 'docente');
-
+            $this->insertarDocenteBd($validated);
             DB::commit();
 
             return redirect()->route('admin.usuarios.index', ['tipo' => 'docente'])
                 ->with('success', 'Docente creado exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error creating docente: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
-                'data' => $validated
-            ]);
+            Log::error('Error creating docente: ' . $e->getMessage(), ['data' => $validated]);
             return back()->withErrors(['error' => 'Error al crear docente: ' . $e->getMessage()])->withInput();
         }
     }
@@ -408,36 +417,20 @@ class UsuarioController extends Controller
      */
     private function storeAdministrador(Request $request)
     {
-        // Validar datos del administrador: identidad, contacto y credenciales
         $validated = $request->validate([
-            'rut' => ['required', 'string', 'max:20', Rule::unique(Usuario::class, 'rut')],
-            'nombre1' => 'required|string|max:255',
-            'nombre2' => 'nullable|string|max:255',
+            'rut'       => ['required', 'string', 'max:20', Rule::unique(Usuario::class, 'rut')],
+            'nombre1'   => 'required|string|max:255',
+            'nombre2'   => 'nullable|string|max:255',
             'apellido1' => 'required|string|max:255',
             'apellido2' => 'nullable|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'username' => ['required', 'string', 'max:30', Rule::unique(Usuario::class, 'username')],
-            'password' => 'required|string|min:6',
+            'email'     => 'nullable|email|max:255',
+            'username'  => ['required', 'string', 'max:30', Rule::unique(Usuario::class, 'username')],
+            'password'  => 'required|string|min:6',
         ]);
 
         DB::beginTransaction();
         try {
-            // Crear usuario sin perfil específico (diferenciador de Estudiante/Docente)
-            $usuario = Usuario::create([
-                'username' => $validated['username'],
-                'passhash' => Hash::make($validated['password']),
-                'rut' => $validated['rut'],
-                'nombre1' => $validated['nombre1'],
-                'nombre2' => $validated['nombre2'] ?? null,
-                'apellido1' => $validated['apellido1'],
-                'apellido2' => $validated['apellido2'] ?? null,
-                'email' => $validated['email'] ?? null,
-                'esta_activo' => true,
-            ]);
-
-            // Asignar rol de SuperAdmin para acceso total
-            $this->assignRole($usuario, 'SuperAdmin');
-
+            $this->insertarAdministradorBd($validated);
             DB::commit();
 
             return redirect()->route('admin.usuarios.index', ['tipo' => 'administrador'])
@@ -449,6 +442,132 @@ class UsuarioController extends Controller
         }
     }
 
+    
+    /**
+     * BLOQUE DE INSERSIONES EN DB,
+     * USADO EN -storeEstudiante()
+     *          -storeDocente()
+     *          -storeAdministrador()
+     * 
+     * 
+     * 
+     */
+
+    
+    private function insertarUsuarioBaseBd(array $datos): Usuario
+    {   
+        $usuario = Usuario::
+            where('rut', $datos['rut'])->first();
+
+        if (!$usuario) {
+            $usuario = Usuario::create([
+                'username'    => $datos['username'],
+                'passhash'    => Hash::make($datos['password']),
+                'rut'         => $datos['rut'],
+                'nombre1'     => $datos['nombre1'],
+                'nombre2'     => $datos['nombre2'] ?? null,
+                'apellido1'   => $datos['apellido1'],
+                'apellido2'   => $datos['apellido2'] ?? null,
+                'email'       => $datos['email'] ?? null,
+                'esta_activo' => true
+            ]);
+        }
+        return $usuario;
+    }
+
+    private function insertarEstudianteBd(array $datos): Usuario
+    {
+        $usuario = $this->insertarUsuarioBaseBd($datos);
+
+        Estudiante::create([
+            'id_usuario'   => $usuario->id_usuario,
+            'agno_ingreso' => $datos['agno_ingreso'] ?? null,
+            'id_carrera'   => $datos['id_carrera'] ?? null,
+        ]);
+
+        $this->assignRole($usuario, 'estudiante');
+        return $usuario;
+    }
+
+    private function insertarDocenteBd(array $datos): Usuario
+    {
+        $usuario = $this->insertarUsuarioBaseBd($datos);
+
+        Docente::create([
+            'id_usuario' => $usuario->id_usuario,
+            'grado'      => $datos['grado'] ?? null,
+            'titulo'     => $datos['titulo'] ?? null,
+            'cargo'      => $datos['cargo'] ?? null,
+        ]);
+
+        $this->assignRole($usuario, 'docente');
+        return $usuario;
+    }
+
+    private function insertarAdministradorBd(array $datos): Usuario
+    {
+        $usuario = $this->insertarUsuarioBaseBd($datos);
+        $this->assignRole($usuario, 'SuperAdmin');
+        return $usuario;
+    }
+
+
+    private function mapearFila(array $fila, string $tipo): array
+    {
+        $datos = [
+            'rut'       => $fila[0] ?? null,
+            'nombre1'   => $fila[1] ?? null,
+            'nombre2'   => $fila[2] ?? null,
+            'apellido1' => $fila[3] ?? null,
+            'apellido2' => $fila[4] ?? null,
+            'email'     => $fila[5] ?? null,
+            'username'  => $fila[6] ?? null,
+            'password'  => $fila[7] ?? null,
+        ];
+
+        if ($tipo === 'estudiante') {
+            $datos['agno_ingreso'] = $fila[8] ?? null;
+            $datos['id_carrera']   = $fila[9] ?? null;
+        } elseif ($tipo === 'docente') {
+            $datos['grado']  = $fila[8] ?? null;
+            $datos['titulo'] = $fila[9] ?? null;
+            $datos['cargo']  = $fila[10] ?? null;
+        }
+
+        return $datos;
+    }
+
+    private function validarFila(array $datos, string $tipo, int $numeroFila)
+    {
+        $reglas = [
+            'rut'       => 'required|string|max:20',
+            'nombre1'   => 'required|string|max:100',
+            'apellido1' => 'required|string|max:100',
+            'username'  => ['required', 'string', 'max:30', Rule::unique(Usuario::class, 'username')], 
+            'password'  => 'required|string|min:6',
+            'email'     => 'nullable|email|max:255',
+        ];
+
+        if ($tipo === 'estudiante') {
+            $reglas['username'] = ['required', 'string', 'max:10', Rule::unique(Usuario::class, 'username')];
+            $reglas['agno_ingreso'] = 'nullable|integer|min:1900|max:2100';
+            $reglas['id_carrera'] = ['nullable', Rule::exists(Carrera::class, 'id_carrera')];
+        } elseif ($tipo === 'docente') {
+            $reglas['username'] = ['required', 'string', 'max:10', Rule::unique(Usuario::class, 'username')];
+            $reglas['grado'] = 'nullable|string|max:100';
+            $reglas['titulo'] = 'nullable|string|max:255';
+        }
+
+        $mensajes = [
+            'required' => "Fila {$numeroFila}: El campo :attribute es obligatorio.",
+            'unique'   => "Fila {$numeroFila}: El :attribute ya existe en el sistema.",
+            'exists'   => "Fila {$numeroFila}: El ID de carrera no existe.",
+        ];
+
+        Validator::make($datos, $reglas, $mensajes)->validate();
+    }
+
+    // FIN BLOQUE DE INSERCIONES EN DB
 
     /**
      * Obtiene detalles de un usuario específico según su tipo.
@@ -750,6 +869,22 @@ class UsuarioController extends Controller
     }
 
     /**
+     * BLOQUE DE FUNCIONES AUXILIARES
+     * 
+     */
+    public function buscarPorRut(Request $request)
+    {
+        $rut = $request->query('rut');
+        $usuario = Usuario::where('rut', $rut)->first();
+
+        if (!$usuario) {
+            return response()->json(null);
+        }
+
+        return response()->json($usuario);
+    }
+
+    /**
      * Obtiene las asignaciones actuales de roles y permisos especiales de un usuario.
      * 
      * Retorna SOLO las asignaciones activas del usuario en todos los contextos.
@@ -965,7 +1100,6 @@ class UsuarioController extends Controller
             DB::rollBack();
             Log::error("SyncPermissions Error: " . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
-                'user_id' => $id,
                 'payload' => $validated
             ]);
 
