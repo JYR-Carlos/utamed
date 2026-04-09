@@ -2,19 +2,13 @@
 
 namespace App\Models\Curso;
 
-
-
-
-use App\Models\Base\Curso\BaseInscripcionComponente;
 use App\Models\Base\Curso\BaseComponente;
 
 /**
  * Modelo Componente
  * 
- * Extiende de BaseComponente (auto-generado, table name: curso.componente)
+ * Extiende de BaseComponente (auto-generado)
  * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
- * 
- * @deprecated Renamed a InscripcionComponente
  */
 class Componente extends BaseComponente
 {
