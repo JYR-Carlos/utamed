@@ -1,2 +1,2 @@
-export { UsuarioList, UsuarioForm, UsuarioDeleteConfirm, PasswordChangeModal } from './components';
+export { UsuarioList, UsuarioForm, UsuarioDeleteConfirm, UsuarioImport, PasswordChangeModal } from './components';
 export * from './services/usuarioApi';
