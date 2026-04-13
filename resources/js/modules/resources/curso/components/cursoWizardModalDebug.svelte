@@ -15,7 +15,7 @@
   }
 
   let { isOpen, carreras, tiposComponente, isLoading, onClose, onSubmit }: Props = $props();
-  
+
   let currentStep = $state(1);
   let selectedCarrera = $state<Carrera | null>(null);
 
@@ -28,14 +28,14 @@
 
 {#if isOpen}
   <!-- Backdrop -->
-  <div 
-    class="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm" 
-    onclick={onClose} 
+  <div
+    class="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm"
+    onclick={onClose}
     role="presentation"
   ></div>
 
   <!-- Dialog -->
-  <div 
+  <div
     class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-white rounded-lg shadow-2xl w-[95vw] max-w-2xl max-h-[95vh] overflow-hidden flex flex-col"
     role="dialog"
     aria-modal="true"
@@ -45,9 +45,17 @@
     <div class="flex justify-between items-center p-6 border-b border-slate-200 flex-shrink-0">
       <div>
         <h2 class="text-xl font-bold text-slate-900">Nuevo Curso Ofertado</h2>
-        <p class="text-sm text-slate-500 mt-1">Step {currentStep}/4: {currentStep === 1 ? 'Carrera' : currentStep === 2 ? 'Plan' : currentStep === 3 ? 'Asignatura' : 'Docente'}</p>
+        <p class="text-sm text-slate-500 mt-1">
+          Step {currentStep}/4: {currentStep === 1
+            ? 'Carrera'
+            : currentStep === 2
+              ? 'Plan'
+              : currentStep === 3
+                ? 'Asignatura'
+                : 'Docente'}
+        </p>
       </div>
-      <button 
+      <button
         onclick={onClose}
         class="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-700"
         aria-label="Cerrar"
@@ -60,9 +68,9 @@
     <div class="flex-1 overflow-y-auto p-6">
       <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <p class="text-sm text-blue-900">
-          <strong>Debug Info:</strong><br/>
-          isOpen: {isOpen}<br/>
-          carreras.length: {carreras.length}<br/>
+          <strong>Debug Info:</strong><br />
+          isOpen: {isOpen}<br />
+          carreras.length: {carreras.length}<br />
           currentStep: {currentStep}
         </p>
       </div>
@@ -95,7 +103,10 @@
 
       {#if currentStep === 2}
         <div>
-          <button onclick={() => currentStep = 1} class="text-blue-600 hover:underline text-sm mb-4">← Volver</button>
+          <button
+            onclick={() => (currentStep = 1)}
+            class="text-blue-600 hover:underline text-sm mb-4">← Volver</button
+          >
           <h3 class="font-semibold text-lg mb-4">Plan seleccionado: {selectedCarrera?.nombre}</h3>
           <p class="text-slate-600">Paso 2 (próximamente: seleccionar plan)</p>
         </div>
