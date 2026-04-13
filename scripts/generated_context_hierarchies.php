@@ -1,4 +1,4 @@
-<?php
+    <?php
 
 // GENERADO AUTOMÁTICAMENTE - REVISAR Y AJUSTAR SI ES NECESARIO
 // Para regenerar: php scripts/analyze_context_hierarchies.php

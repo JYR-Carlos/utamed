@@ -60,6 +60,7 @@
 // ==================================================================================
 
 // Cargar la jerarquía generada para constantes de tipo de contexto.
+
 /** @var array $hierarchies */
 $hierarchies = require __DIR__ . '/generated_context_hierarchies.php';
 
@@ -221,16 +222,6 @@ return [
       ],
     ],
 
-    'componentes' => [
-      '_actions' => [
-        'ver',
-        'crear',
-        'crear_plantilla',
-        'editar',
-        'eliminar'
-      ],
-    ],
-
     'unidades' => [
       '_actions' => [
         'ver',
@@ -241,27 +232,13 @@ return [
       ],
     ],
 
-    'actividades' => [
-      '_actions' => [
-        'ver',
-        'crear',
-        'crear_plantilla',
-        'editar',
-        'eliminar',
-        'subir_entregas',
-        'evaluar',
-        'dar_feedback',
-        'enviar_recordatorios',
-        'descargar_entregas',
-      ],
-
-      'grupos' => [
-        '_actions' => ['ver', 'crear', 'editar', 'eliminar'],
-      ],
-    ],
-
     'programas' => [
-      '_actions' => ['ver', 'agregar', 'eliminar'],
+      '_actions' => [
+        'ver_todos',
+        'ver_ultimo',
+        'agregar',
+        'eliminar'
+      ],
 
       'modificar' => [
         '_actions' => [
@@ -276,6 +253,66 @@ return [
           'modulo_9',
         ],
       ]
+    ],
+  ],
+
+  'componentes' => [
+    '_valid_context' => $modelContextType['curso.componente'],
+    '_parent_actions' => [
+      'crear',
+      'crear_plantilla',
+      'eliminar',
+    ],
+    '_actions' => [
+      'ver',
+      'editar',
+    ],
+
+    'inscripciones' => [
+      '_actions' => [
+        'ver',
+        'inscribir_alumnos',
+        'eliminar_inscripciones'
+      ],
+    ],
+
+    'asistencia' => [
+      '_actions' => [
+        'ver',
+        'registrar',
+        'editar',
+        'eliminar'
+      ],
+    ],
+
+    'docentesColegiados' => [
+      '_actions' => [
+        'ver',
+        'agregar',
+        'eliminar'
+      ],
+    ],
+  ],
+
+  'actividades' => [
+    '_valid_context' => $modelContextType['agenda.actividad'],
+    '_actions' => [
+      'ver',
+      'editar',
+      'subir_entregas',
+      'evaluar',
+      'dar_feedback',
+      'enviar_recordatorios',
+      'descargar_entregas',
+    ],
+    '_parent_actions' => [
+      'crear',
+      'crear_plantilla',
+      'eliminar',
+    ],
+
+    'grupos' => [
+      '_actions' => ['ver', 'crear', 'editar', 'eliminar'],
     ],
   ],
 

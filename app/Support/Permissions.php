@@ -19,6 +19,26 @@ enum Permissions: string
     case GLOBAL_WILDCARD = WildcardMatcher::GLOBAL_WILDCARD;
 
 
+    // ACTIVIDADES
+    case ACTIVIDADES_ALL = 'actividades:*';
+    case ACTIVIDADES_CREAR = 'actividades:crear';
+    case ACTIVIDADES_CREAR_PLANTILLA = 'actividades:crear_plantilla';
+    case ACTIVIDADES_DAR_FEEDBACK = 'actividades:dar_feedback';
+    case ACTIVIDADES_DESCARGAR_ENTREGAS = 'actividades:descargar_entregas';
+    case ACTIVIDADES_EDITAR = 'actividades:editar';
+    case ACTIVIDADES_ELIMINAR = 'actividades:eliminar';
+    case ACTIVIDADES_ENVIAR_RECORDATORIOS = 'actividades:enviar_recordatorios';
+    case ACTIVIDADES_EVALUAR = 'actividades:evaluar';
+    case ACTIVIDADES_SUBIR_ENTREGAS = 'actividades:subir_entregas';
+    case ACTIVIDADES_VER = 'actividades:ver';
+
+    // ACTIVIDADES > GRUPOS
+    case ACTIVIDADES_GRUPOS_ALL = 'actividades/grupos:*';
+    case ACTIVIDADES_GRUPOS_CREAR = 'actividades/grupos:crear';
+    case ACTIVIDADES_GRUPOS_EDITAR = 'actividades/grupos:editar';
+    case ACTIVIDADES_GRUPOS_ELIMINAR = 'actividades/grupos:eliminar';
+    case ACTIVIDADES_GRUPOS_VER = 'actividades/grupos:ver';
+
     // ASIGNATURAS
     case ASIGNATURAS_ALL = 'asignaturas:*';
     case ASIGNATURAS_CREAR = 'asignaturas:crear';
@@ -45,6 +65,33 @@ enum Permissions: string
     case CARRERAS_PLANES_VER_VER_DETALLES = 'carreras/planes/ver:ver_detalles';
     case CARRERAS_PLANES_VER_VER_MALLA = 'carreras/planes/ver:ver_malla';
 
+    // COMPONENTES
+    case COMPONENTES_ALL = 'componentes:*';
+    case COMPONENTES_CREAR = 'componentes:crear';
+    case COMPONENTES_CREAR_PLANTILLA = 'componentes:crear_plantilla';
+    case COMPONENTES_EDITAR = 'componentes:editar';
+    case COMPONENTES_ELIMINAR = 'componentes:eliminar';
+    case COMPONENTES_VER = 'componentes:ver';
+
+    // COMPONENTES > ASISTENCIA
+    case COMPONENTES_ASISTENCIA_ALL = 'componentes/asistencia:*';
+    case COMPONENTES_ASISTENCIA_EDITAR = 'componentes/asistencia:editar';
+    case COMPONENTES_ASISTENCIA_ELIMINAR = 'componentes/asistencia:eliminar';
+    case COMPONENTES_ASISTENCIA_REGISTRAR = 'componentes/asistencia:registrar';
+    case COMPONENTES_ASISTENCIA_VER = 'componentes/asistencia:ver';
+
+    // COMPONENTES > DOCENTESCOLEGIADOS
+    case COMPONENTES_DOCENTESCOLEGIADOS_ALL = 'componentes/docentesColegiados:*';
+    case COMPONENTES_DOCENTESCOLEGIADOS_AGREGAR = 'componentes/docentesColegiados:agregar';
+    case COMPONENTES_DOCENTESCOLEGIADOS_ELIMINAR = 'componentes/docentesColegiados:eliminar';
+    case COMPONENTES_DOCENTESCOLEGIADOS_VER = 'componentes/docentesColegiados:ver';
+
+    // COMPONENTES > INSCRIPCIONES
+    case COMPONENTES_INSCRIPCIONES_ALL = 'componentes/inscripciones:*';
+    case COMPONENTES_INSCRIPCIONES_ELIMINAR_INSCRIPCIONES = 'componentes/inscripciones:eliminar_inscripciones';
+    case COMPONENTES_INSCRIPCIONES_INSCRIBIR_ALUMNOS = 'componentes/inscripciones:inscribir_alumnos';
+    case COMPONENTES_INSCRIPCIONES_VER = 'componentes/inscripciones:ver';
+
     // CURSOS
     case CURSOS_ALL = 'cursos:*';
     case CURSOS_CREAR = 'cursos:crear';
@@ -52,34 +99,6 @@ enum Permissions: string
     case CURSOS_EDITAR = 'cursos:editar';
     case CURSOS_ELIMINAR = 'cursos:eliminar';
     case CURSOS_VER = 'cursos:ver';
-
-    // CURSOS > ACTIVIDADES
-    case CURSOS_ACTIVIDADES_ALL = 'cursos/actividades:*';
-    case CURSOS_ACTIVIDADES_CREAR = 'cursos/actividades:crear';
-    case CURSOS_ACTIVIDADES_CREAR_PLANTILLA = 'cursos/actividades:crear_plantilla';
-    case CURSOS_ACTIVIDADES_DAR_FEEDBACK = 'cursos/actividades:dar_feedback';
-    case CURSOS_ACTIVIDADES_DESCARGAR_ENTREGAS = 'cursos/actividades:descargar_entregas';
-    case CURSOS_ACTIVIDADES_EDITAR = 'cursos/actividades:editar';
-    case CURSOS_ACTIVIDADES_ELIMINAR = 'cursos/actividades:eliminar';
-    case CURSOS_ACTIVIDADES_ENVIAR_RECORDATORIOS = 'cursos/actividades:enviar_recordatorios';
-    case CURSOS_ACTIVIDADES_EVALUAR = 'cursos/actividades:evaluar';
-    case CURSOS_ACTIVIDADES_SUBIR_ENTREGAS = 'cursos/actividades:subir_entregas';
-    case CURSOS_ACTIVIDADES_VER = 'cursos/actividades:ver';
-
-    // CURSOS > ACTIVIDADES > GRUPOS
-    case CURSOS_ACTIVIDADES_GRUPOS_ALL = 'cursos/actividades/grupos:*';
-    case CURSOS_ACTIVIDADES_GRUPOS_CREAR = 'cursos/actividades/grupos:crear';
-    case CURSOS_ACTIVIDADES_GRUPOS_EDITAR = 'cursos/actividades/grupos:editar';
-    case CURSOS_ACTIVIDADES_GRUPOS_ELIMINAR = 'cursos/actividades/grupos:eliminar';
-    case CURSOS_ACTIVIDADES_GRUPOS_VER = 'cursos/actividades/grupos:ver';
-
-    // CURSOS > COMPONENTES
-    case CURSOS_COMPONENTES_ALL = 'cursos/componentes:*';
-    case CURSOS_COMPONENTES_CREAR = 'cursos/componentes:crear';
-    case CURSOS_COMPONENTES_CREAR_PLANTILLA = 'cursos/componentes:crear_plantilla';
-    case CURSOS_COMPONENTES_EDITAR = 'cursos/componentes:editar';
-    case CURSOS_COMPONENTES_ELIMINAR = 'cursos/componentes:eliminar';
-    case CURSOS_COMPONENTES_VER = 'cursos/componentes:ver';
 
     // CURSOS > INSCRIPCIONES
     case CURSOS_INSCRIPCIONES_ALL = 'cursos/inscripciones:*';
@@ -91,7 +110,8 @@ enum Permissions: string
     case CURSOS_PROGRAMAS_ALL = 'cursos/programas:*';
     case CURSOS_PROGRAMAS_AGREGAR = 'cursos/programas:agregar';
     case CURSOS_PROGRAMAS_ELIMINAR = 'cursos/programas:eliminar';
-    case CURSOS_PROGRAMAS_VER = 'cursos/programas:ver';
+    case CURSOS_PROGRAMAS_VER_TODOS = 'cursos/programas:ver_todos';
+    case CURSOS_PROGRAMAS_VER_ULTIMO = 'cursos/programas:ver_ultimo';
 
     // CURSOS > PROGRAMAS > MODIFICAR
     case CURSOS_PROGRAMAS_MODIFICAR_ALL = 'cursos/programas/modificar:*';

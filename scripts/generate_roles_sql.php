@@ -53,14 +53,37 @@ function generateRolesSql(): void
   $rolesData = [];
   $totalPermisos = 0;
 
-  foreach ($rolesConfig as $roleName => $permissions) {
+  foreach ($rolesConfig as $roleName => $roleConfig) {
     if (!is_string($roleName)) {
       echo "❌ Error: Las claves de roles deben ser strings (nombre del rol)\n";
       exit(1);
     }
 
+    if (!is_array($roleConfig)) {
+      echo "❌ Error: Configuración del rol '{$roleName}' debe ser un array\n";
+      exit(1);
+    }
+
+    // Validar estructura requerida: 'es_administrativo' y 'permisos'
+    if (!isset($roleConfig['es_administrativo'])) {
+      echo "❌ Error: Rol '{$roleName}' debe tener la propiedad 'es_administrativo' (boolean)\n";
+      exit(1);
+    }
+
+    if (!isset($roleConfig['permisos'])) {
+      echo "❌ Error: Rol '{$roleName}' debe tener la propiedad 'permisos' (array)\n";
+      exit(1);
+    }
+
+    $esAdministrativo = $roleConfig['es_administrativo'];
+    if (!is_bool($esAdministrativo)) {
+      echo "❌ Error: Propiedad 'es_administrativo' del rol '{$roleName}' debe ser boolean (true/false)\n";
+      exit(1);
+    }
+
+    $permissions = $roleConfig['permisos'];
     if (!is_array($permissions)) {
-      echo "❌ Error: Permisos del rol '{$roleName}' debe ser un array\n";
+      echo "❌ Error: Propiedad 'permisos' del rol '{$roleName}' debe ser un array\n";
       exit(1);
     }
 
@@ -97,6 +120,7 @@ function generateRolesSql(): void
 
     $rolesData[$roleName] = [
       'nombre' => $roleName,
+      'es_administrativo' => $esAdministrativo,
       'permisos' => $parsedPermissions,  // Array de tuplas [Permission enum, puede_delegar boolean]
       'permisos_enums_only' => $permEnumsOnly,  // Para funciones que solo necesitan enums
       'cantidad_permisos' => count($parsedPermissions),
@@ -129,10 +153,27 @@ function generateRolesSql(): void
         printf("✓ %-25s → Asignable en: %s\n", $roleName, $contextsStr);
       }
     } catch (\InvalidArgumentException $e) {
-      $validationErrors[] = "Role '{$roleName}': " . $e->getMessage();
+      // Diferenciar entre warnings (permisos vacíos) y errores reales
+      if (strpos($e->getMessage(), 'El array de permisos está vacío') !== false) {
+        $validationWarnings[] = "Role '{$roleName}': " . $e->getMessage();
+        printf("⚠️  %-25s → Sin permisos (skipped)\n", $roleName);
+      } else {
+        $validationErrors[] = "Role '{$roleName}': " . $e->getMessage();
+      }
     }
   }
 
+  // Mostrar warnings (sin detener el proceso)
+  if (!empty($validationWarnings)) {
+    echo "\n⚠️  ADVERTENCIAS (roles sin permisos - serán omitidos):\n";
+    echo str_repeat("-", 80) . "\n";
+    foreach ($validationWarnings as $warning) {
+      echo "  ⚠️  {$warning}\n";
+    }
+    echo str_repeat("-", 80) . "\n\n";
+  }
+
+  // Mostrar errores (detienen el proceso)
   if (!empty($validationErrors)) {
     echo "\n❌ ERRORES DE VALIDACIÓN ENCONTRADOS:\n";
     echo str_repeat("-", 80) . "\n";
@@ -146,26 +187,28 @@ function generateRolesSql(): void
     exit(1);
   }
 
-  echo "\n✅ Todas las roles pasaron validación de contextos\n\n";
+  echo "✅ Validación de contextos completada\n\n";
 
   // ============================================================
   // Mostrar tabla de roles y permisos
   // ============================================================
   echo "📋 ROLES CONFIGURADOS:\n";
-  echo str_repeat("-", 80) . "\n";
-  printf("| %-30s | %-20s | %-20s |\n", "Rol", "Permisos", "Primer Permiso");
-  echo str_repeat("-", 80) . "\n";
+  echo str_repeat("-", 98) . "\n";
+  printf("| %-30s | %-20s | %-15s | %-20s |\n", "Rol", "Permisos", "Administrativo", "Primer Permiso");
+  echo str_repeat("-", 98) . "\n";
 
   foreach ($rolesData as $data) {
     $firstPerm = isset($data['permisos'][0]) ? $data['permisos'][0][0]->value : '(ninguno)';
+    $adminStr = $data['es_administrativo'] ? 'Si' : 'No';
     printf(
-      "| %-30s | %-20d | %-20s |\n",
+      "| %-30s | %-20d | %-15s | %-20s |\n",
       substr($data['nombre'], 0, 28),
       $data['cantidad_permisos'],
-      substr($firstPerm, 0, 18)
+      $adminStr,
+      substr($firstPerm, 0, 21)
     );
   }
-  echo str_repeat("-", 80) . "\n\n";
+  echo str_repeat("-", 98) . "\n\n";
 
   // ============================================================
   // GENERAR 11-roles-config.sql
@@ -189,7 +232,7 @@ function generateRolesSql(): void
   // Preview de permisos por rol
   // ============================================================
   echo "📋 PREVIEW DE PERMISOS ASIGNADOS:\n";
-  echo str_repeat("-", 80) . "\n";
+  echo str_repeat("-", 98) . "\n";
 
   foreach ($rolesData as $roleName => $data) {
     $permisos = $data['permisos'];
@@ -205,7 +248,7 @@ function generateRolesSql(): void
     printf("%-30s: %s\n", substr($roleName, 0, 28), $previewStr);
   }
 
-  echo str_repeat("-", 80) . "\n\n";
+  echo str_repeat("-", 98) . "\n\n";
   echo "✅ Generación de roles completada exitosamente\n";
   echo "📌 Ejecutar: php scripts/generate_permissions_sql.php\n";
   echo "    (Los roles se aplican automáticamente después)\n\n";
@@ -241,15 +284,18 @@ function generateRolesSqlContent(array $rolesData): string
   $sql .= "        RAISE EXCEPTION '11-roles-config.sql: No se encontró el usuario superadmin. Ejecutar 05-usuarios-base.sql primero.';\n";
   $sql .= "    END IF;\n\n";
   $sql .= "    -- Insertar roles solo si no existen ya\n";
-  $sql .= "    INSERT INTO usuario.rol (nombre, creado_por)\n";
-  $sql .= "    SELECT nombre, v_creado_por\n";
+  $sql .= "    INSERT INTO usuario.rol (nombre, es_administrativo, creado_por)\n";
+  $sql .= "    SELECT nombre, es_administrativo, v_creado_por\n";
   $sql .= "    FROM (VALUES\n";
 
   $roleNames = array_keys($rolesData);
-  $roleInserts = array_map(fn($name) => "        ('" . str_replace("'", "''", $name) . "')", $roleNames);
+  $roleInserts = array_map(function ($name) use ($rolesData) {
+    $adminVal = $rolesData[$name]['es_administrativo'] ? 'TRUE' : 'FALSE';
+    return "        ('" . str_replace("'", "''", $name) . "', {$adminVal})";
+  }, $roleNames);
   $sql .= implode(",\n", $roleInserts) . "\n";
 
-  $sql .= "    ) AS roles(nombre)\n";
+  $sql .= "    ) AS roles(nombre, es_administrativo)\n";
   $sql .= "    WHERE NOT EXISTS (\n";
   $sql .= "        SELECT 1 FROM usuario.rol r WHERE r.nombre = roles.nombre\n";
   $sql .= "    );\n\n";

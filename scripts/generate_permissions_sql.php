@@ -227,7 +227,24 @@ if (!is_array($rolesConfig) || empty($rolesConfig)) {
 
 $tuplesValidationErrors = [];
 
-foreach ($rolesConfig as $roleName => $permissions) {
+foreach ($rolesConfig as $roleName => $roleConfig) {
+    // Validar estructura requerida: 'es_administrativo' y 'permisos'
+    if (!is_array($roleConfig)) {
+        $tuplesValidationErrors[] = "Rol '{$roleName}': Configuración debe ser un array";
+        continue;
+    }
+
+    if (!isset($roleConfig['es_administrativo'])) {
+        $tuplesValidationErrors[] = "Rol '{$roleName}': Falta la propiedad 'es_administrativo' (boolean)";
+        continue;
+    }
+
+    if (!isset($roleConfig['permisos'])) {
+        $tuplesValidationErrors[] = "Rol '{$roleName}': Falta la propiedad 'permisos' (array)";
+        continue;
+    }
+
+    $permissions = $roleConfig['permisos'];
     if (!is_array($permissions)) {
         $tuplesValidationErrors[] = "Rol '{$roleName}': Permisos debe ser un array";
         continue;
