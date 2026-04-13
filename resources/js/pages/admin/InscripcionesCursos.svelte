@@ -15,10 +15,10 @@
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import { router } from '@inertiajs/svelte';
-  import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
   import CursoSelector from '@/modules/resources/inscripcion/components/cursoSelector.svelte';
   import RosterTable from '@/modules/resources/inscripcion/components/rosterTable.svelte';
   import AddEstudiantesModal from '@/modules/resources/inscripcion/components/addEstudiantesModal.svelte';
+  import InscripcionDeleteConfirm from '@/modules/resources/inscripcion/components/inscripcionDeleteConfirm.svelte';
   import {
     fetchRoster,
     patchEstado,
@@ -171,10 +171,8 @@
     <CursoSelector {cursos} onSelect={selectCurso} />
   {/if}
 
-  <DeleteConfirmation
+  <InscripcionDeleteConfirm
     bind:isOpen={showDeleteDialog}
-    title="¿Eliminar inscripción?"
-    message="Esta acción es permanente. Considera cambiar el estado a 'Retirado' o 'Anulado' en su lugar para mantener el historial."
     onConfirm={handleDelete}
     onCancel={() => {
       showDeleteDialog = false;

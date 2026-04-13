@@ -68,6 +68,7 @@
   let fechaInicio = $state('');
   let agnoReal = $state(new Date().getFullYear());
   let semestreReal = $state<1 | 2>(1);
+  let jefeImpartesClases = $state(true); // ← Nuevo: ¿El jefe dicta clases?
   let asigSearch = $state('');
   // Componente (Cátedra) settings
   let generaActa = $state(true);
@@ -78,6 +79,18 @@
 
   // ── Computed current step (1–4) ──────────────────────────────────────────
   const currentStep = $derived(!selectedCarrera ? 1 : !selectedPlan ? 2 : !selectedAsig ? 3 : 4);
+
+  // ── Debug logs ──────────────────────────────────────────────────────────────
+  $effect(() => {
+    if (isOpen) {
+      console.log('🎯 CursoWizardModal opened', {
+        isOpen,
+        carreras: carreras.length,
+        currentStep,
+        selectedCarrera: selectedCarrera?.nombre,
+      });
+    }
+  });
 
   // Grouped asignaturas by year → semester
   const asigByYear = $derived.by(() => {
@@ -194,6 +207,7 @@
       fechaInicio = '';
       agnoReal = new Date().getFullYear();
       semestreReal = 1;
+      jefeImpartesClases = true; // ← Reset
       asigSearch = '';
       generaActa = true;
       aprobacionObligatoria = false;
@@ -202,6 +216,22 @@
       esColegiado = false;
     }
   });
+
+  // ── Date helpers (dd/mm/aaaa ↔ yyyy-mm-dd) ────────────────────────────────
+  function handleDateInput(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    let v = input.value.replace(/\D/g, '').slice(0, 8);
+    if (v.length >= 3) v = v.slice(0, 2) + '/' + v.slice(2);
+    if (v.length >= 6) v = v.slice(0, 5) + '/' + v.slice(5);
+    fechaInicio = v;
+  }
+
+  function toIsoDate(dmy: string): string | undefined {
+    if (!dmy || dmy.length !== 10) return undefined;
+    const [d, m, y] = dmy.split('/');
+    if (!d || !m || !y) return undefined;
+    return `${y}-${m}-${d}`;
+  }
 
   // ── Submit ───────────────────────────────────────────────────────────────
   function handleSubmit(e: SubmitEvent) {
@@ -220,7 +250,7 @@
       id_plan: selectedPlan.id_plan,
       cod_curso: Number(codCurso),
       nombre: nombre || undefined,
-      fecha_inicio: fechaInicio || undefined,
+      fecha_inicio: toIsoDate(fechaInicio),
       numero_semestre: selectedAsig.agno_planificado,
       agno_real: agnoReal,
       semestre_real: semestreReal,
@@ -331,18 +361,24 @@
 
           {#if currentStep === 1}
             <div class="step-body">
-              <div class="option-grid">
-                {#each carreras as c}
-                  <button type="button" class="option-card" onclick={() => onSelectCarrera(c)}>
-                    <span class="option-card-name">{c.nombre}</span>
-                    {#if c.sede || c.jornada}
-                      <span class="option-card-meta"
-                        >{[c.sede, c.jornada].filter(Boolean).join(' · ')}</span
-                      >
-                    {/if}
-                  </button>
-                {/each}
-              </div>
+              {#if carreras.length === 0}
+                <div class="step-empty bg-yellow-50 border border-yellow-200 p-4 rounded">
+                  ⚠️ No hay carreras disponibles en el sistema.
+                </div>
+              {:else}
+                <div class="option-grid">
+                  {#each carreras as c (c.id_carrera)}
+                    <button type="button" class="option-card" onclick={() => onSelectCarrera(c)}>
+                      <span class="option-card-name">{c.nombre}</span>
+                      {#if c.sede || c.jornada}
+                        <span class="option-card-meta"
+                          >{[c.sede, c.jornada].filter(Boolean).join(' · ')}</span
+                        >
+                      {/if}
+                    </button>
+                  {/each}
+                </div>
+              {/if}
             </div>
           {/if}
         </section>
@@ -505,6 +541,40 @@
           {#if currentStep === 4}
             <div class="step-body">
               <div class="step4-scroll">
+                <!-- ¿El jefe imparte clases? -->
+                <div class="jefe-imparte-section">
+                  <p class="jefe-imparte-label">¿El jefe de curso imparte clases en este curso?</p>
+                  <p class="jefe-imparte-hint">
+                    Si selecciona NO, el jefe solo tendrá acceso administrativo y no estará asignado
+                    a ningún componente.
+                  </p>
+                  <div class="jefe-imparte-toggle">
+                    <label class="toggle-label">
+                      <input
+                        type="radio"
+                        name="jefe-imparte"
+                        value={true}
+                        bind:group={jefeImpartesClases}
+                        class="toggle-radio"
+                      />
+                      <span>Sí, imparte clases</span>
+                    </label>
+                    <label class="toggle-label">
+                      <input
+                        type="radio"
+                        name="jefe-imparte"
+                        value={false}
+                        bind:group={jefeImpartesClases}
+                        class="toggle-radio"
+                      />
+                      <span>No, solo administrativo</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="fields-divider"></div>
+
                 <!-- Tipo de Componente Principal -->
                 <div class="tipo-comp-section">
                   <p class="tipo-comp-label">¿Qué tipo de componente es el principal?</p>
@@ -666,10 +736,13 @@
                     <label class="field-label" for="wiz-fecha">Fecha de Inicio</label>
                     <input
                       id="wiz-fecha"
-                      type="date"
-                      lang="es"
-                      bind:value={fechaInicio}
+                      type="text"
+                      value={fechaInicio}
+                      oninput={handleDateInput}
                       class="field-input"
+                      placeholder="dd/mm/aaaa"
+                      maxlength="10"
+                      autocomplete="off"
                     />
                   </div>
 
@@ -769,32 +842,34 @@
 
       <!-- ── Footer (inside form so submit works) ── -->
       {#if currentStep === 4}
-        {#if !selectedTipoComponente}
-          <p class="docente-required-hint">Debes seleccionar el tipo de componente principal.</p>
-        {:else if !selectedDocente}
-          <p class="docente-required-hint">Debes seleccionar un docente para continuar.</p>
-        {/if}
         <div class="wiz-footer">
-          <button type="button" class="btn-cancel" onclick={onClose} disabled={isLoading}>
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            class="btn-submit"
-            disabled={isLoading ||
-              !selectedAsig ||
-              !selectedPlan ||
-              codCurso === '' ||
-              !selectedDocente ||
-              !selectedTipoComponente}
-          >
-            {#if isLoading}
-              <span class="btn-spinner"></span>
-              Creando...
-            {:else}
-              Crear Curso
-            {/if}
-          </button>
+          {#if !selectedTipoComponente}
+            <p class="docente-required-hint">Debes seleccionar el tipo de componente principal.</p>
+          {:else if !selectedDocente}
+            <p class="docente-required-hint">Debes seleccionar un docente para continuar.</p>
+          {/if}
+          <div class="wiz-footer-actions">
+            <button type="button" class="btn-cancel" onclick={onClose} disabled={isLoading}>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="btn-submit"
+              disabled={isLoading ||
+                !selectedAsig ||
+                !selectedPlan ||
+                codCurso === '' ||
+                !selectedDocente ||
+                !selectedTipoComponente}
+            >
+              {#if isLoading}
+                <span class="btn-spinner"></span>
+                Creando...
+              {:else}
+                Crear Curso
+              {/if}
+            </button>
+          </div>
         </div>
       {/if}
     </form>
@@ -832,7 +907,9 @@
     border-radius: 16px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
     width: min(740px, calc(100vw - 2rem));
+    height: 85dvh;
     max-height: 90dvh;
+    min-height: 400px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -957,7 +1034,7 @@
 
   /* ── Form layout wrapper ── */
   .wiz-form-layout {
-    flex: 1;
+    flex: 1 1 0;
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -966,13 +1043,16 @@
 
   /* ── Body (scrollable) ── */
   .wiz-body {
-    flex: 1;
+    flex: 1 1 0;
+    min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 1rem 1.5rem;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
   }
 
   /* ── Steps ── */
@@ -981,6 +1061,7 @@
     border-radius: 10px;
     overflow: hidden;
     transition: all 0.2s;
+    flex-shrink: 0;
   }
 
   .wiz-step.locked {
@@ -1066,13 +1147,9 @@
     padding: 1rem;
   }
 
-  /* Step 4 explicit scroll area — same pattern as .asig-scroll-area */
+  /* Step 4: sin scroll anidado — el outer .wiz-body maneja todo el scroll */
   .step4-scroll {
-    max-height: 360px;
-    overflow-y: auto;
     padding-right: 4px;
-    scrollbar-width: thin;
-    scrollbar-color: #d1d5db transparent;
   }
 
   .step-empty {
@@ -1405,6 +1482,52 @@
   }
 
   /* ── Fields ── */
+  /* ── ¿El jefe imparte clases? ── */
+  .jefe-imparte-section {
+    margin-bottom: 0.75rem;
+  }
+
+  .jefe-imparte-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.375rem;
+  }
+
+  .jefe-imparte-hint {
+    font-size: 0.8125rem;
+    color: #6b7280;
+    margin-bottom: 0.75rem;
+    margin-top: 0;
+  }
+
+  .jefe-imparte-toggle {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.8875rem;
+    font-weight: 500;
+    color: #374151;
+    user-select: none;
+  }
+
+  .toggle-radio {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+  }
+
+  .toggle-label:hover {
+    color: #1f2937;
+  }
+
   /* ── Tipo Componente selector ── */
   .tipo-comp-section {
     margin-bottom: 0.5rem;
@@ -1534,24 +1657,30 @@
   }
 
   /* ── Footer ── */
+  .wiz-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem 1rem;
+    border-top: 1px solid #e5e7eb;
+    background: #fff;
+    flex-shrink: 0;
+  }
+
+  .wiz-footer-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+
   .docente-required-hint {
     font-size: 0.8rem;
     color: #b91c1c;
-    margin: 0.25rem 0 0;
+    margin: 0;
     padding: 0.4rem 0.75rem;
     background: #fef2f2;
     border-radius: 6px;
     border: 1px solid #fecaca;
-  }
-
-  .wiz-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    padding: 1rem 1.5rem;
-    border-top: 1px solid #e5e7eb;
-    background: #fff;
-    flex-shrink: 0;
   }
 
   .btn-cancel {

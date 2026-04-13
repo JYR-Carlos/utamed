@@ -3,7 +3,7 @@
    * Página para editar una inscripción de estudiante en un curso.
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
-  import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
+  import InscripcionDeleteConfirm from '@/modules/resources/inscripcion/components/inscripcionDeleteConfirm.svelte';
   import {
     updateInscripcionForm,
     destroyInscripcionForm,
@@ -253,10 +253,8 @@
   </div>
 </AdminLayout>
 
-<DeleteConfirmation
+<InscripcionDeleteConfirm
   bind:isOpen={showDeleteConfirm}
-  title="¿Eliminar inscripción?"
-  message="Esta acción no se puede deshacer. La inscripción será eliminada permanentemente."
   onConfirm={confirmDelete}
   onCancel={cancelDelete}
 />

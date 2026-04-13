@@ -201,6 +201,22 @@
     }
   });
 
+  // ── Date helpers (dd/mm/aaaa ↔ yyyy-mm-dd) ────────────────────────────────
+  function handleDateInput(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    let v = input.value.replace(/\D/g, '').slice(0, 8);
+    if (v.length >= 3) v = v.slice(0, 2) + '/' + v.slice(2);
+    if (v.length >= 6) v = v.slice(0, 5) + '/' + v.slice(5);
+    fechaInicio = v;
+  }
+
+  function toIsoDate(dmy: string): string | undefined {
+    if (!dmy || dmy.length !== 10) return undefined;
+    const [d, m, y] = dmy.split('/');
+    if (!d || !m || !y) return undefined;
+    return `${y}-${m}-${d}`;
+  }
+
   // ── Submit ───────────────────────────────────────────────────────────────
   function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
@@ -218,7 +234,7 @@
       id_plan: selectedPlan.id_plan,
       cod_curso: Number(codCurso),
       nombre: nombre || undefined,
-      fecha_inicio: fechaInicio || undefined,
+      fecha_inicio: toIsoDate(fechaInicio),
       numero_semestre: selectedAsig.agno_planificado,
       agno_real: agnoReal,
       semestre_real: semestreReal,
@@ -300,8 +316,8 @@
     </div>
 
     <!-- ── Scrollable body + footer ── -->
-    <form class="wiz-form-layout" onsubmit={handleSubmit}>
-      <div class="wiz-body">
+    <form class="flex-1 min-h-0 flex flex-col overflow-hidden" onsubmit={handleSubmit}>
+      <div class="flex-1 min-h-0 overflow-y-auto p-4 px-6 flex flex-col gap-3">
         <!-- ══ Step 1: Carrera ══ -->
         <section class="wiz-step" class:collapsed={currentStep > 1}>
           <div class="step-head">
@@ -661,9 +677,13 @@
                     <label class="field-label" for="wiz-fecha">Fecha de Inicio</label>
                     <input
                       id="wiz-fecha"
-                      type="date"
-                      bind:value={fechaInicio}
+                      type="text"
+                      value={fechaInicio}
+                      oninput={handleDateInput}
                       class="field-input"
+                      placeholder="dd/mm/aaaa"
+                      maxlength="10"
+                      autocomplete="off"
                     />
                   </div>
 
@@ -753,32 +773,38 @@
 
       <!-- ── Footer (inside form so submit works) ── -->
       {#if currentStep === 4}
-        {#if !selectedTipoComponente}
-          <p class="docente-required-hint">Debes seleccionar el tipo de componente principal.</p>
-        {:else if !selectedDocente}
-          <p class="docente-required-hint">Debes seleccionar un docente para continuar.</p>
-        {/if}
-        <div class="wiz-footer">
-          <button type="button" class="btn-cancel" onclick={onClose} disabled={isLoading}>
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            class="btn-submit"
-            disabled={isLoading ||
-              !selectedAsig ||
-              !selectedPlan ||
-              codCurso === '' ||
-              !selectedDocente ||
-              !selectedTipoComponente}
-          >
-            {#if isLoading}
-              <span class="btn-spinner"></span>
-              Creando...
-            {:else}
-              Crear Curso
-            {/if}
-          </button>
+        <div class="shrink-0 border-t border-gray-200 bg-white">
+          {#if !selectedTipoComponente}
+            <p class="docente-required-hint mx-6 mt-3">
+              Debes seleccionar el tipo de componente principal.
+            </p>
+          {:else if !selectedDocente}
+            <p class="docente-required-hint mx-6 mt-3">
+              Debes seleccionar un docente para continuar.
+            </p>
+          {/if}
+          <div class="flex justify-end items-center gap-3 px-6 py-3">
+            <button type="button" class="btn-cancel" onclick={onClose} disabled={isLoading}>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="btn-submit"
+              disabled={isLoading ||
+                !selectedAsig ||
+                !selectedPlan ||
+                codCurso === '' ||
+                !selectedDocente ||
+                !selectedTipoComponente}
+            >
+              {#if isLoading}
+                <span class="btn-spinner"></span>
+                Creando...
+              {:else}
+                Crear Curso
+              {/if}
+            </button>
+          </div>
         </div>
       {/if}
     </form>
@@ -939,25 +965,7 @@
     background: #3b82f6;
   }
 
-  /* ── Form layout wrapper ── */
-  .wiz-form-layout {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  /* ── Body (scrollable) ── */
-  .wiz-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1rem 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    min-height: 0;
-  }
+  /* Form layout and body are now handled via Tailwind utility classes */
 
   /* ── Steps ── */
   .wiz-step {
@@ -1050,13 +1058,9 @@
     padding: 1rem;
   }
 
-  /* Step 4 explicit scroll area — same pattern as .asig-scroll-area */
+  /* Step 4: no nested scroll — outer .wiz-body handles all scrolling */
   .step4-scroll {
-    max-height: 360px;
-    overflow-y: auto;
     padding-right: 4px;
-    scrollbar-width: thin;
-    scrollbar-color: #d1d5db transparent;
   }
 
   .step-empty {
@@ -1517,25 +1521,15 @@
     accent-color: #3b82f6;
   }
 
-  /* ── Footer ── */
+  /* ── Footer hint ── */
   .docente-required-hint {
     font-size: 0.8rem;
     color: #b91c1c;
-    margin: 0.25rem 0 0;
+    margin: 0;
     padding: 0.4rem 0.75rem;
     background: #fef2f2;
     border-radius: 6px;
     border: 1px solid #fecaca;
-  }
-
-  .wiz-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    padding: 1rem 1.5rem;
-    border-top: 1px solid #e5e7eb;
-    background: #fff;
-    flex-shrink: 0;
   }
 
   .btn-cancel {

@@ -1,12 +1,10 @@
 /**
- * Admin module components
- * Reusable components for administrative functionality
+ * Admin shared UI primitives
+ * Generic reusable wrapper components — not resource-specific.
+ * Resource-specific components live in @/modules/resources/{resource}/components/
  */
 
-export { default as CourseTeamModal } from './CourseTeamModal.svelte';
-export { default as CursoWizardModal } from './CursoWizardModal.svelte';
 export { default as DataTable } from './DataTable.svelte';
 export { default as DeleteConfirmation } from './DeleteConfirmation.svelte';
 export { default as FormModal } from './FormModal.svelte';
-export { default as MallaSlideOver } from './MallaSlideOver.svelte';
 export { default as PermissionsModal } from './permissions-modal/PermissionsModal.svelte';

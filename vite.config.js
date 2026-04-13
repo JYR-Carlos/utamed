@@ -23,4 +23,25 @@ export default defineConfig({
             '@': path.resolve(__dirname, './resources/js'),
         },
     },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    // Vendor chunks
+                    if (id.includes('node_modules')) {
+                        if (id.includes('@inertiajs')) return 'inertia';
+                        if (id.includes('tailwindcss') || id.includes('@tailwindcss')) return 'tailwind';
+                        return 'vendor';
+                    }
+                    // Modular chunks
+                    if (id.includes('modules/resources')) return 'resources';
+                    if (id.includes('modules/admin')) return 'admin';
+                    if (id.includes('modules/docente')) return 'docente';
+                    if (id.includes('modules/estudiante')) return 'estudiante';
+                    if (id.includes('components')) return 'components';
+                },
+            },
+        },
+        chunkSizeWarningLimit: 1000, // Aumenta el límite temporalmente
+    },
 });

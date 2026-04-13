@@ -1,6 +1,6 @@
 <script lang="ts">
   import AdminLayout from '@/layouts/AdminLayout.svelte';
-  import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
+  import AsignacionDeleteConfirm from '@/modules/resources/detalle-malla/components/asignacionDeleteConfirm.svelte';
   import AsignaturasCatalogo from '@/modules/resources/detalle-malla/components/asignaturasCatalogo.svelte';
   import MallaGrid from '@/modules/resources/detalle-malla/components/mallaGrid.svelte';
   import EditAsignacionModal from '@/modules/resources/detalle-malla/components/editAsignacionModal.svelte';
@@ -173,10 +173,8 @@
     onSuccess={() => {}}
   />
 
-  <DeleteConfirmation
+  <AsignacionDeleteConfirm
     bind:isOpen={showDeleteDialog}
-    title="¿Quitar Asignatura del Plan?"
-    message="La asignatura será removida de esta malla. Esta acción no se puede deshacer."
     onConfirm={handleDelete}
     onCancel={() => {
       showDeleteDialog = false;
