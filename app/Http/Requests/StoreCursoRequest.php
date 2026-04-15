@@ -25,12 +25,13 @@ class StoreCursoRequest extends FormRequest
         return [
             'id_asignatura' => ['required', Rule::exists(Asignatura::class, 'id_asignatura')],
             'id_plan' => ['required', Rule::exists(Plan::class, 'id_plan')],
-            'cod_curso' => 'required|integer|unique:curso,cod_curso',
+            'cod_curso' => 'required|integer|min:1|max:999999999|unique:curso,cod_curso',
             'nombre' => 'nullable|string|max:255',
             'fecha_inicio'        => 'nullable|date',
             'indice_grupo'        => 'nullable|integer|min:1',
             'id_docente_sugerido'               => 'required|integer|exists:docente,id_docente',
             'id_tipo_componente_principal'      => 'required|integer|exists:tipo_componente,id_tipo_componente',
+            'jefe_imparte_clases'               => 'nullable|boolean',
             'genera_acta'                       => 'nullable|boolean',
             'aprobacion_obligatoria'            => 'nullable|boolean',
             'porcentaje_aprobacion'             => 'nullable|numeric|min:0|max:100',
@@ -51,7 +52,9 @@ class StoreCursoRequest extends FormRequest
             'id_plan.exists' => 'El plan seleccionado no existe',
             'cod_curso.required' => 'El código de curso es requerido',
             'cod_curso.integer' => 'El código de curso debe ser un número',
-            'cod_curso.unique' => 'Ya existe un curso con ese código',
+            'cod_curso.min'     => 'El código de curso debe ser mayor a 0',
+            'cod_curso.max'     => 'El código de curso no puede superar 999.999.999',
+            'cod_curso.unique'  => 'Ya existe un curso con ese código',
         ];
     }
 }

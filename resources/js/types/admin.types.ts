@@ -509,6 +509,7 @@ export interface CursoFormData {
     numero_semestre?: number;
     agno_real?: number;
     semestre_real?: number;
+    jefe_imparte_clases?: boolean;
     id_docente_sugerido?: number;
     // Componente settings
     id_tipo_componente_principal?: number;

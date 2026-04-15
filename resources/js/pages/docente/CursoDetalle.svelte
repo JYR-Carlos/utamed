@@ -28,8 +28,10 @@
     ChevronRight,
     Hash,
     Layers,
+    Shield,
   } from 'lucide-svelte';
   import { Separator } from '@/components/ui/separator';
+  import { SyllabusPermisosModal, ComponentePermisosModal } from '@/modules/resources/curso/components';
 
   interface Componente {
     id_componente: number;
@@ -102,6 +104,12 @@
 
   // Pestaña activa en la sección "Mi Grupo"
   let componenteActivo = $state<number | null>(null);
+
+  // ─── Modales de permisos ───
+  let showSyllabusPermisos = $state(false);
+  let showComponentePermisos = $state(false);
+  let componentePermisoId = $state<number>(0);
+  let componentePermisoTipo = $state('');
 
   $effect.pre(() => {
     if (componenteActivo === null && mis_componentes.length > 0) {
@@ -196,6 +204,16 @@
               >
                 <BookOpenCheck class="h-4 w-4" />
                 Programa
+              </Button>
+            {/if}
+            {#if curso.es_titular_curso}
+              <Button
+                variant="secondary"
+                onclick={() => (showSyllabusPermisos = true)}
+                class="gap-2 bg-white/10 text-white border-white/10 hover:bg-white/20"
+              >
+                <Shield class="h-4 w-4" />
+                Permisos Syllabus
               </Button>
             {/if}
             <Button
@@ -385,7 +403,7 @@
                   >
                     {comp.tipo_componente.slice(0, 3).toUpperCase()}
                   </div>
-                  <div class="min-w-0">
+                  <div class="min-w-0 flex-1">
                     <p class="text-sm font-medium text-slate-800 truncate">
                       {comp.tipo_componente}
                     </p>
@@ -393,6 +411,19 @@
                       {comp.docentes.length} doc. · {comp.total_estudiantes} est.
                     </p>
                   </div>
+                  {#if comp.docentes.length > 1}
+                    <button
+                      onclick={() => {
+                        componentePermisoId = comp.id_componente;
+                        componentePermisoTipo = comp.tipo_componente;
+                        showComponentePermisos = true;
+                      }}
+                      class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-indigo-100 text-slate-400 hover:text-indigo-600"
+                      title="Permisos del componente"
+                    >
+                      <Shield class="h-4 w-4" />
+                    </button>
+                  {/if}
                 </div>
               {/each}
             </div>
@@ -722,4 +753,27 @@
       {/if}
     {/if}
   </div>
+
+  <!-- ─── Modales de Permisos ─── -->
+  {#if curso.es_titular_curso}
+    <SyllabusPermisosModal
+      bind:isOpen={showSyllabusPermisos}
+      onClose={() => (showSyllabusPermisos = false)}
+      cursoId={curso.id_curso}
+      cursoNombre={curso.nombre}
+    />
+  {/if}
+
+  {#if componentePermisoId}
+    <ComponentePermisosModal
+      bind:isOpen={showComponentePermisos}
+      onClose={() => {
+        showComponentePermisos = false;
+        componentePermisoId = 0;
+      }}
+      cursoId={curso.id_curso}
+      componenteId={componentePermisoId}
+      tipoComponente={componentePermisoTipo}
+    />
+  {/if}
 </DocenteLayout>

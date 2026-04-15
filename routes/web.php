@@ -265,6 +265,18 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::post('cursos/{curso}/team/{usuario}/sync-permissions', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'syncMemberPermissions'])
         ->name('cursos.team.sync-permissions');
 
+    // ── Gestión de permisos granulares por el DT del curso ──────────────────
+    Route::get('cursos/{curso}/permisos-syllabus', [\App\Http\Controllers\Docente\CursoPermisosController::class, 'syllabusIndex'])
+        ->name('cursos.permisos-syllabus.index');
+    Route::post('cursos/{curso}/permisos-syllabus', [\App\Http\Controllers\Docente\CursoPermisosController::class, 'syllabusSync'])
+        ->name('cursos.permisos-syllabus.sync');
+
+    // ── Gestión de permisos en componente colegiado por el DT del componente
+    Route::get('cursos/{curso}/componentes/{componente}/permisos', [\App\Http\Controllers\Docente\CursoPermisosController::class, 'componenteIndex'])
+        ->name('cursos.componentes.permisos.index');
+    Route::post('cursos/{curso}/componentes/{componente}/permisos', [\App\Http\Controllers\Docente\CursoPermisosController::class, 'componenteSync'])
+        ->name('cursos.componentes.permisos.sync');
+
     // Course detail view
     Route::get('cursos/{curso}/docentes', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'docentes'])->name('cursos.docentes');
     Route::get('cursos/{curso}', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'show'])->name('cursos.show');

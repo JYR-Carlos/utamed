@@ -254,6 +254,7 @@
       numero_semestre: selectedAsig.agno_planificado,
       agno_real: agnoReal,
       semestre_real: semestreReal,
+      jefe_imparte_clases: jefeImpartesClases,
       id_docente_sugerido: selectedDocente?.id_docente,
       id_tipo_componente_principal: selectedTipoComponente.id_tipo_componente,
       genera_acta: generaActa,
@@ -713,10 +714,11 @@
                     <label class="field-label" for="wiz-cod-curso">Código del Curso *</label>
                     <input
                       id="wiz-cod-curso"
-                      type="number"
+                      type="text"
                       bind:value={codCurso}
                       class="field-input"
                       placeholder="Ej: 12345"
+                      maxlength="9"
                       required
                     />
                   </div>

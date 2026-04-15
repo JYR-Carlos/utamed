@@ -86,20 +86,29 @@ class CursoController extends Controller
      */
     public function store(StoreCursoRequest $request)
     {
+        Log::info('[CursoController@store] Iniciando creación de curso', [
+            'data' => $request->validated()
+        ]);
+
         try {
+            Log::info('[CursoController@store] Llamando a CursoService::create');
             $curso = $this->cursoService->create($request->validated());
+            Log::info('[CursoController@store] Curso creado exitosamente', ['id_curso' => $curso->id_curso]);
 
             return redirect()
                 ->route('admin.cursos.index')
                 ->with('success', 'Curso creado exitosamente.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::warning('[CursoController@store] ValidationException', ['errors' => $e->errors()]);
+            throw $e;
         } catch (\Exception $e) {
-            Log::error('Error creating curso: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
+            Log::error('[CursoController@store] Error inesperado: ' . $e->getMessage(), [
+                'exception' => get_class($e),
                 'data' => $request->validated()
             ]);
 
             return back()
-                ->withErrors(['error' => $e->getMessage()])
+                ->withErrors(['cod_curso' => 'Error al crear el curso: ' . $e->getMessage()])
                 ->withInput();
         }
     }

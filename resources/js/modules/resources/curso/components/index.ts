@@ -16,3 +16,5 @@ export { default as ComponenteForm } from './componenteForm.svelte';
 export { default as SeccionForm } from './seccionForm.svelte';
 export { default as CourseTeamModal } from './courseTeamModal.svelte';
 export { default as CursoWizardModal } from './cursoWizardModal.svelte';
+export { default as SyllabusPermisosModal } from './SyllabusPermisosModal.svelte';
+export { default as ComponentePermisosModal } from './ComponentePermisosModal.svelte';

@@ -66,11 +66,17 @@ class CursoService
                     'porcentaje_asistencia_obligatoria' => $data['porcentaje_asistencia_obligatoria'] ?? 75.00,
                 ]);
 
-                DocenteComponente::create([
-                    'id_componente' => $componente->id_componente,
-                    'id_docente'    => $data['id_docente_sugerido'],
-                    'es_titular'    => true,
-                ]);
+                // Solo asignar docente al componente si indica que imparte clases
+                // El jefe SIEMPRE tiene acceso administrativo (via id_docente_titular)
+                $jefeImpartesClases = $data['jefe_imparte_clases'] ?? true; // default: true (backward compat)
+                
+                if ($jefeImpartesClases) {
+                    DocenteComponente::create([
+                        'id_componente' => $componente->id_componente,
+                        'id_docente'    => $data['id_docente_sugerido'],
+                        'es_titular'    => true,
+                    ]);
+                }
             }
 
             return $curso;
