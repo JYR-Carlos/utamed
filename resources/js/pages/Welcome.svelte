@@ -62,7 +62,7 @@
             icon: UserCheck,
         },
         {
-            title: 'Construcción Social',
+            title: 'Construcción Social de Aprendizaje',
             description: 'Aprendizaje colaborativo en comunidad.',
             icon: Users2,
         }
@@ -83,9 +83,7 @@
     <nav class="fixed top-0 z-50 w-full bg-white/90 backdrop-blur-md border-b border-slate-100">
         <div class="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-12">
             <div class="flex items-center gap-3">
-                <div class="flex h-10 w-10 items-center justify-center bg-indigo-600 rounded-none transform rotate-3 shadow-sm">
-                    <AppLogoIcon class="size-6 fill-current text-white -rotate-3" />
-                </div>
+                <AppLogoIcon class="size-6 fill-current text-white -rotate-3" />
                 <div class="flex flex-col leading-none">
                     <span class="text-lg font-bold tracking-tight text-slate-900">UTAMed</span>
                     <span class="text-[0.6rem] uppercase tracking-widest text-slate-500 font-medium">Facultad de Diseño</span>
@@ -99,11 +97,7 @@
                         <ArrowRight size={16} class="group-hover:translate-x-1 transition-transform" />
                     </Link>
                 {:else}
-                    <div class="hidden md:flex gap-6 text-slate-500">
-                        <span class="cursor-default hover:text-slate-900 transition-colors">Programas</span>
-                        <span class="cursor-default hover:text-slate-900 transition-colors">Investigación</span>
-                        <span class="cursor-default hover:text-slate-900 transition-colors">Comunidad</span>
-                    </div>
+                    
                     <Link
                         href={login()}
                         class="px-6 py-2 bg-slate-900 text-white text-xs uppercase tracking-wider font-bold hover:bg-indigo-600 transition-colors rounded-sm"
@@ -160,16 +154,11 @@
                     <!-- Main Image Container -->
                     <div class="relative aspect-[4/3] bg-slate-200 overflow-hidden shadow-2xl shadow-slate-200 border-8 border-white">
                         <img 
-                            src="/students.jpg" 
+                            src="/banner-utamed.jpg" 
                             alt="Estudiantes de Diseño UTAMed" 
                             class="w-full h-full object-cover filter saturate-[.8] contrast-[1.1]"
                         />
-                        <!-- Overlay Text -->
-                        <div class="absolute bottom-0 left-0 bg-white/95 backdrop-blur-sm p-6 max-w-xs border-t border-r border-slate-100">
-                            <p class="text-sm font-serif italic text-slate-600">
-                                "El diseño no es solo lo que se ve y se siente. El diseño es cómo funciona."
-                            </p>
-                        </div>
+                        
                     </div>
                 </div>
             </div>
@@ -224,7 +213,8 @@
                     </div>
                     <p class="text-slate-500 text-sm max-w-xs leading-relaxed">
                         Universidad de Tarapacá.<br/>
-                        Comprometidos con la excelencia académica y la innovación educativa en la región.
+                        Escuela de Diseño e Innovación Tecnológica.<br/>
+                        Centro de Innovación Tecnoeducativa (CITE). 
                     </p>
                 </div>
                 
@@ -240,8 +230,7 @@
                 <div>
                     <h4 class="font-bold text-slate-900 text-sm mb-4 uppercase tracking-wider">Ayuda</h4>
                     <ul class="space-y-2 text-sm text-slate-500">
-                        <li><a href="mailto:soporte@uta.cl" class="hover:text-indigo-600 transition-colors font-medium">soporte@uta.cl</a></li>
-                        <li><span class="text-slate-400">Mesa de Ayuda D.I.T.</span></li>
+                        <li><a href="mailto:cite@gestion.uta.cl" class="hover:text-indigo-600 transition-colors font-medium">cite@gestion.uta.cl</a></li>
                     </ul>
                 </div>
             </div>

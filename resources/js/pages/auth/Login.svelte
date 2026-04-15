@@ -373,8 +373,8 @@
           </p>
           <p class="text-xs font-medium text-muted-foreground">
             ¿Problemas para entrar? <br />
-            <a href="mailto:soporte@uta.cl" class="text-primary hover:underline transition-all"
-              >Contactar a soporte: soporte@uta.cl</a
+            <a href="mailto:cite@gestion.uta.cl" class="text-primary hover:underline transition-all"
+              >Contactar a soporte: cite@gestion.uta.cl</a
             >
           </p>
         </div>

@@ -22,11 +22,7 @@
     <div class="mx-auto w-full max-w-sm lg:w-96" in:fly={{ y: 20, duration: 600, delay: 200 }}>
       <div class="mb-10 flex items-center gap-2">
         <Link href={home()} class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div
-            class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20"
-          >
-            <AppLogoIcon class="size-6 fill-current text-primary-foreground" />
-          </div>
+          <AppLogoIcon class="size-6 fill-current text-primary-foreground" />
           <span class="text-xl font-bold tracking-tight">UTAMed</span>
         </Link>
       </div>
@@ -76,9 +72,7 @@
           Bienvenido al <br />
           <span class="text-primary">portal académico</span>
         </h2>
-        <p class="text-muted-foreground text-lg opacity-80">
-          Tu puerta de entrada a la excelencia académica e innovación en la Universidad de Tarapacá.
-        </p>
+        
       </div>
 
       <!-- Illustration Container -->
@@ -86,7 +80,7 @@
         class="relative w-full max-w-2xl aspect-video drop-shadow-xl translate-y-4 rounded-3xl overflow-hidden border border-border bg-white"
         in:fly={{ y: 40, duration: 800, delay: 400 }}
       >
-        <img src="/students.jpg" alt="Estudiantes UTAMed" class="w-full h-full object-cover" />
+        <img src="/banner-utamed.jpg" alt="Estudiantes UTAMed" class="w-full h-full object-cover" />
       </div>
     </div>
 

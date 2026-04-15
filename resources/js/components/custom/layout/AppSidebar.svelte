@@ -9,6 +9,7 @@
   import AppLogo from './AppLogo.svelte';
   import { onMount } from 'svelte';
   import { router } from '@inertiajs/svelte';
+  import { AppLogoIcon } from '.';
 
   // Get roles from page props with Svelte 5 runes
   let authRoles = $derived(($page.props.auth?.roles as string[]) || []);
@@ -137,7 +138,7 @@
     <SidebarMenu>
       <SidebarMenuItem>
         <div class="flex items-center gap-2 min-w-0">
-          <AppLogo />
+          <AppLogoIcon class="size-6" />
           <div class="logo-text group-data-[state=collapsed]:hidden flex flex-col min-w-0">
             <span class="font-bold text-slate-900 text-base md:text-lg lg:text-xl leading-none truncate">UTAMED</span>
             <span class="text-[9px] md:text-[10px] lg:text-xs text-slate-500 font-bold tracking-wider uppercase mt-0.5 truncate"

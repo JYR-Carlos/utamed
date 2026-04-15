@@ -55,7 +55,7 @@
   // Valida que el RUT tenga el formato correcto
   function isValidRutFormat(rut: string): boolean {
     const cleanRut = rut.replace(/[.\-]/g, '');
-    return /^\d{7}[0-9kK]$/.test(cleanRut);
+    return /^\d{8}[0-9kK]$/.test(cleanRut) || /^\d{7}[0-9kK]$/.test(cleanRut);
   }
 
   // Manejar cambios en el input de RUT
@@ -77,9 +77,7 @@
     <label for="rut" class="block text-sm font-medium text-gray-700">RUT *</label>
     <span class="text-xs text-gray-500">Formato: 12345678-K (8 dígitos + verificador)</span>
   </div>
-  {#if deshabilitarCampos}
-    mmmm
-  {/if}
+  
   <input
     id="rut"
     type="text"
@@ -107,7 +105,6 @@
       bind:value={formData.nombre1}
       class={inputClass}
       placeholder="Ej: Juan"
-      readonly={deshabilitarCampos}
       required
     />
   </div>
@@ -119,7 +116,6 @@
       type="text"
       bind:value={formData.nombre2}
       class={inputClass}
-      readonly={deshabilitarCampos}
       placeholder="Ej: Carlos"
     />
   </div>
@@ -136,7 +132,6 @@
       bind:value={formData.apellido1}
       class={inputClass}
       placeholder="Ej: González"
-      readonly={deshabilitarCampos}
       required
     />
   </div>
@@ -150,7 +145,6 @@
       type="text"
       bind:value={formData.apellido2}
       class={inputClass}
-      readonly={deshabilitarCampos}
       placeholder="Ej: Pérez"
     />
   </div>
@@ -163,7 +157,6 @@
     type="email"
     bind:value={formData.email}
     class={inputClass}
-    readonly={deshabilitarCampos}
     placeholder="Ej: juan@ejemplo.com"
   />
 </div>
@@ -254,7 +247,6 @@
         placeholder={tipo === 'administrador' ? 'Máx. 30 caracteres' : 'Máx. 10 caracteres'}
         maxlength={tipo === 'administrador' ? 30 : 10}
         required
-        readonly={deshabilitarCampos}
       />
     </div>
 

@@ -73,7 +73,6 @@
         <header class="flex items-center justify-between gap-4 flex-wrap">
             <div class="flex flex-col gap-1">
                 <span class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-0.5 w-fit">
-                    <Sparkles size={12} />
                     {periodoActual}
                 </span>
                 <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">Portal Docente</h1>
@@ -225,7 +224,7 @@
             </section>
 
             <!-- Right Column: Sidebar Widgets -->
-            <aside class="lg:col-span-1 flex flex-col gap-4">
+            <aside class="lg:col-span-1 flex flex-col gap-4 pt-8">
 
                 <!-- Estado de Programas -->
                 <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">

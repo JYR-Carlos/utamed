@@ -8,6 +8,8 @@ use App\Models\Agenda\ActividadAsignada;
 use App\Models\Agenda\AsignadoActividad;
 use App\Models\Agenda\EstadoActividad;
 use App\Models\Curso\Curso;
+use App\Models\Curso\DocenteComponente;
+use App\Models\Curso\Componente;
 use App\Models\Curso\Seccion;
 use App\Models\Curso\Unidad;
 use App\Models\Usuario\Contexto;
@@ -50,11 +52,9 @@ class DocenteActivityController extends Controller
         if (!$user->docente) {
             abort(403, 'No tienes un perfil docente.');
         }
-
-        $isDocente = $curso->componentes()
-            ->where('id_docente', $user->docente->id_docente)
-            ->exists();
         
+        $isDocente =  self::isDocente($user->docente->id_docente);
+
         if (!$isDocente && !$user->is_admin) {
             abort(403, 'No tienes permiso para acceder a este curso.');
         }
@@ -98,9 +98,7 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
         
-        $isDocente = $curso->componentes()
-            ->where('id_docente', $user->docente->id_docente)
-            ->exists();
+        $isDocente =  self::isDocente($user->docente->id_docente);
         
         if (!$isDocente && !$user->is_admin) {
             abort(403, 'No tienes permiso para crear actividades en este curso.');
@@ -152,9 +150,7 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
         
-        $isDocente = $curso->componentes()
-            ->where('id_docente', $user->docente->id_docente)
-            ->exists();
+        $isDocente =  self::isDocente($user->docente->id_docente);
         
         if (!$isDocente && !$user->is_admin) {
             abort(403, 'No tienes permiso para editar esta actividad.');
@@ -203,9 +199,7 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
         
-        $isDocente = $curso->componentes()
-            ->where('id_docente', $user->docente->id_docente)
-            ->exists();
+        $isDocente =  self::isDocente($user->docente->id_docente);
         
         if (!$isDocente && !$user->is_admin) {
             abort(403, 'No tienes permiso para eliminar esta actividad.');
@@ -259,9 +253,7 @@ class DocenteActivityController extends Controller
             return response()->json(['error' => 'No tienes un perfil docente o administrativo.'], 403);
         }
 
-        $isDocente = $curso->componentes()
-            ->where('id_docente', $user->docente->id_docente)
-            ->exists();
+        $isDocente =  self::isDocente($user->docente->id_docente);
         
         if (!$isDocente) {
             return response()->json(['error' => 'No tienes permiso para acceder a este curso.'], 403);
@@ -293,9 +285,7 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
 
-        $isDocente = $curso->componentes()
-            ->where('id_docente', $user->docente->id_docente)
-            ->exists();
+        $isDocente =  self::isDocente($user->docente->id_docente);
 
         if (!$isDocente && !$user->is_admin) {
             abort(403, 'No tienes permiso para acceder a este curso.');
@@ -516,12 +506,17 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
 
-        $isDocente = $curso->secciones()
-            ->where('id_docente', $user->docente->id_docente)
-            ->exists();
-
+        $isDocente =  self::isDocente($user->docente->id_docente);
+        
         if (!$isDocente && !$user->is_admin) {
             abort(403, 'No tienes permiso para gestionar este curso.');
         }
+    }
+
+    private function isDocente($id_docente): bool
+    {
+        return DocenteComponente::
+            where('id_docente', $id_docente)
+            ->exists();
     }
 }

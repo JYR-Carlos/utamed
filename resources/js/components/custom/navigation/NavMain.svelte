@@ -43,7 +43,7 @@
             class="relative px-3 py-2.5 mx-2 rounded-lg transition-all duration-200 flex items-center gap-3 group-data-[state=collapsed]:px-2 group-data-[state=collapsed]:mx-0 {isActive(
               item.href,
             )
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 group-data-[state=collapsed]:bg-blue-600/0 group-data-[state=collapsed]:shadow-none group-data-[state=collapsed]:text-slate-600'
+              ? 'bg-primary-600 text-white shadow-lg shadow-blue-500/30 group-data-[state=collapsed]:bg-blue-600/0 group-data-[state=collapsed]:shadow-none group-data-[state=collapsed]:text-slate-600'
               : 'text-slate-600 hover:bg-slate-100 group-data-[state=collapsed]:hover:bg-transparent'}"
           >
             {#if item.icon}

@@ -80,7 +80,7 @@
             <p class="text-xs text-gray-500 mb-2.5">{c.carrera_nombre}</p>
           {/if}
           <div class="flex items-center gap-1 text-xs font-medium text-blue-500 mt-2">
-            Ver Roster
+            Ver Nómina
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="13"
