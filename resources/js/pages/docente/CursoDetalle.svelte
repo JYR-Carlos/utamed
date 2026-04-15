@@ -31,7 +31,10 @@
     Shield,
   } from 'lucide-svelte';
   import { Separator } from '@/components/ui/separator';
-  import { SyllabusPermisosModal, ComponentePermisosModal } from '@/modules/resources/curso/components';
+  import {
+    SyllabusPermisosModal,
+    ComponentePermisosModal,
+  } from '@/modules/resources/curso/components';
 
   interface Componente {
     id_componente: number;

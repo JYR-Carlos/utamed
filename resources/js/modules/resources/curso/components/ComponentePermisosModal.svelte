@@ -38,17 +38,17 @@
   let cellState = $state<Record<string, 'saving' | 'ok' | 'error'>>({});
 
   const LABELS: Record<string, string> = {
-    'actividades:evaluar':             'Poner notas',
-    'actividades:editar':              'Editar actividades',
-    'componentes/asistencia:registrar':'Registrar asistencia',
-    'componentes/asistencia:editar':   'Editar asistencia',
+    'actividades:evaluar': 'Poner notas',
+    'actividades:editar': 'Editar actividades',
+    'componentes/asistencia:registrar': 'Registrar asistencia',
+    'componentes/asistencia:editar': 'Editar asistencia',
   };
 
   const GROUPS: Record<string, string> = {
-    'actividades:evaluar':             'Notas',
-    'actividades:editar':              'Notas',
-    'componentes/asistencia:registrar':'Asistencia',
-    'componentes/asistencia:editar':   'Asistencia',
+    'actividades:evaluar': 'Notas',
+    'actividades:editar': 'Notas',
+    'componentes/asistencia:registrar': 'Asistencia',
+    'componentes/asistencia:editar': 'Asistencia',
   };
 
   function label(slug: string) {
@@ -154,9 +154,17 @@
         class="ml-4 p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
         aria-label="Cerrar"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-          fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-          stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg
+        >
       </button>
     </div>
 
@@ -164,37 +172,44 @@
     <div class="flex-1 overflow-auto p-6">
       {#if loading}
         <div class="flex items-center justify-center py-16 text-gray-400">
-          <svg class="animate-spin w-6 h-6 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <svg
+            class="animate-spin w-6 h-6 mr-2"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+            ></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
           </svg>
           Cargando permisos...
         </div>
-
       {:else if error}
         <div class="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
           {error}
         </div>
-
       {:else if docentes.length === 0}
         <div class="text-center py-16 text-gray-400 text-sm">
           No hay otros docentes asignados a este componente.
         </div>
-
       {:else}
         <div class="overflow-x-auto">
           <table class="w-full text-sm border-separate border-spacing-0">
             <thead>
               <!-- Encabezado de grupos -->
               <tr>
-                <th class="sticky left-0 bg-white border-b border-r border-gray-200 px-3 py-1"
-                    rowspan="2"></th>
+                <th
+                  class="sticky left-0 bg-white border-b border-r border-gray-200 px-3 py-1"
+                  rowspan="2"
+                ></th>
                 {#each Object.entries(groupedSlugs) as [groupName, permisos]}
                   <th
                     colspan={permisos.length}
                     class="text-center text-xs font-semibold uppercase tracking-wide
                            border-b border-gray-200 px-2 py-1
-                           {groupName === 'Notas' ? 'text-blue-600 bg-blue-50' : 'text-green-600 bg-green-50'}"
+                           {groupName === 'Notas'
+                      ? 'text-blue-600 bg-blue-50'
+                      : 'text-green-600 bg-green-50'}"
                   >
                     {groupName}
                   </th>
@@ -203,8 +218,10 @@
               <!-- Encabezado de permisos individuales -->
               <tr>
                 {#each slugs as permiso}
-                  <th class="text-center text-xs font-medium text-gray-600 px-3 py-2
-                             border-b border-gray-200 min-w-[110px] whitespace-nowrap">
+                  <th
+                    class="text-center text-xs font-medium text-gray-600 px-3 py-2
+                             border-b border-gray-200 min-w-[110px] whitespace-nowrap"
+                  >
                     {label(permiso.slug)}
                   </th>
                 {/each}
@@ -213,13 +230,17 @@
             <tbody>
               {#each docentes as docente, i}
                 <tr class={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td class="sticky left-0 font-medium text-gray-800 px-3 py-3
+                  <td
+                    class="sticky left-0 font-medium text-gray-800 px-3 py-3
                              border-b border-r border-gray-100
-                             {i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+                             {i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}"
+                  >
                     <div class="flex items-center gap-2">
                       {docente.nombre || `Usuario #${docente.id_usuario}`}
                       {#if docente.es_titular}
-                        <span class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                        <span
+                          class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium"
+                        >
                           Titular
                         </span>
                       {/if}
@@ -237,13 +258,17 @@
                         disabled={estado === 'saving'}
                         class="relative inline-flex items-center justify-center w-10 h-6 rounded-full
                                transition-colors focus:outline-none
-                               focus:ring-2 {isNotas ? 'focus:ring-blue-400' : 'focus:ring-green-400'}
+                               focus:ring-2 {isNotas
+                          ? 'focus:ring-blue-400'
+                          : 'focus:ring-green-400'}
                                {estado === 'saving' ? 'opacity-60 cursor-wait' : 'cursor-pointer'}
                                {aktivo
-                                 ? (isNotas ? 'bg-blue-500' : 'bg-green-500')
-                                 : 'bg-gray-200'}"
+                          ? isNotas
+                            ? 'bg-blue-500'
+                            : 'bg-green-500'
+                          : 'bg-gray-200'}"
                         aria-label="{aktivo ? 'Revocar' : 'Otorgar'} {label(permiso.slug)}"
-                        title="{aktivo ? 'Revocar' : 'Otorgar'}"
+                        title={aktivo ? 'Revocar' : 'Otorgar'}
                       >
                         <span
                           class="absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white shadow
