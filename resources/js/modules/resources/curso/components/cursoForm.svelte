@@ -53,12 +53,15 @@
   // Sincronizar con editingCurso
   $effect(() => {
     if (editingCurso) {
+      const fechaFormato = editingCurso.fecha_inicio
+        ? new Date(editingCurso.fecha_inicio).toISOString().split('T')[0]
+        : '';
       formData = {
         id_asignatura: editingCurso.asignacionPlan?.id_asignatura || 0,
         id_plan: editingCurso.asignacionPlan?.id_plan || 0,
         cod_curso: editingCurso.cod_curso,
         nombre: editingCurso.nombre || '',
-        fecha_inicio: editingCurso.fecha_inicio || '',
+        fecha_inicio: fechaFormato,
         numero_semestre: editingCurso.numero_semestre,
         agno_real: editingCurso.asignacionPlan?.agno_planificado || new Date().getFullYear(),
         semestre_real: editingCurso.asignacionPlan?.semestre_planificado || 1,

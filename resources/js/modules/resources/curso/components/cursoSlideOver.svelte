@@ -1,0 +1,435 @@
+<script lang="ts">
+  /**
+   * Componente: Slide-over de Gestión de Curso
+   *
+   * Panel lateral derecho (40% pantalla) que muestra detalles del curso
+   * con Progressive Disclosure en tres pestañas:
+   *   1. Secciones — sub-tabla de componentes + acción "+ Añadir Sección"
+   *   2. Equipo Docente — info del docente titular + botón "Gestionar equipo"
+   *   3. Configuración — datos de período, créditos y acceso al programa/syllabus
+   *
+   * Se activa haciendo clic en cualquier fila de la tabla principal.
+   * La tabla de fondo queda levemente oscurecida (backdrop) con blur mínimo.
+   */
+  import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight } from 'lucide-svelte';
+  import type { Curso, Componente } from '../types/curso.types';
+
+  interface Props {
+    isOpen?: boolean;
+    curso?: Curso | null;
+    onClose?: () => void;
+    onEdit?: (curso: Curso) => void;
+    onDelete?: (curso: Curso) => void;
+    onTeam?: (curso: Curso) => void;
+    onSyllabus?: (curso: Curso) => void;
+    onAddComponente?: (curso: Curso) => void;
+    onEditComponente?: (curso: Curso, comp: Componente) => void;
+    onDeleteComponente?: (curso: Curso, comp: Componente) => void;
+  }
+
+  let {
+    isOpen = $bindable(false),
+    curso = null,
+    onClose = () => {},
+    onEdit = () => {},
+    onDelete = () => {},
+    onTeam = () => {},
+    onSyllabus = () => {},
+    onAddComponente = () => {},
+    onEditComponente = () => {},
+    onDeleteComponente = () => {},
+  }: Props = $props();
+
+  type Tab = 'secciones' | 'equipo' | 'configuracion';
+  let activeTab = $state<Tab>('secciones');
+
+  // Reinicia la pestaña activa cada vez que se abre el panel
+  $effect(() => {
+    if (isOpen) activeTab = 'secciones';
+  });
+
+  function handleClose() {
+    isOpen = false;
+    onClose();
+  }
+
+  function handleBackdropKey(e: KeyboardEvent) {
+    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') handleClose();
+  }
+
+  function getDocenteName(comp: Componente): string {
+    const d = comp.docentes?.[0] as any;
+    if (!d) return 'Sin asignar';
+    return (
+      d.nombre_completo ||
+      `${d.nombre1 ?? ''} ${d.apellido1 ?? ''}`.trim() ||
+      'Sin nombre'
+    );
+  }
+
+  function getPeriodo(c: Curso): string {
+    const ap = c.asignacionPlan;
+    if (ap?.semestre_planificado && ap?.agno_planificado) {
+      return `Año ${ap.agno_planificado} · Semestre ${ap.semestre_planificado}`;
+    }
+    if (c.numero_semestre) return `Semestre ${c.numero_semestre}`;
+    return '—';
+  }
+
+  const TABS: { id: Tab; label: string }[] = [
+    { id: 'secciones', label: 'Secciones' },
+    { id: 'equipo', label: 'Equipo Docente' },
+    { id: 'configuracion', label: 'Configuración' },
+  ];
+</script>
+
+{#if isOpen && curso}
+  <!-- Backdrop -->
+  <!-- svelte-ignore a11y_interactive_supports_focus -->
+  <div
+    class="fixed inset-0 z-40 bg-gray-900/25 backdrop-blur-[1px]"
+    role="button"
+    aria-label="Cerrar panel"
+    onclick={handleClose}
+    onkeydown={handleBackdropKey}
+  ></div>
+
+  <!-- Panel lateral -->
+  <div
+    class="fixed top-0 right-0 z-50 h-full w-full max-w-[560px] bg-white shadow-2xl flex flex-col border-l border-gray-200 slideover-panel"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="slideover-title"
+  >
+    <!-- ── Header ──────────────────────────────────────────────────────────── -->
+    <div class="flex items-start gap-4 px-6 pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+      <div class="flex-1 min-w-0">
+        <p class="text-[11px] font-semibold text-blue-600 uppercase tracking-widest mb-1.5">
+          Gestión de Curso
+        </p>
+        <h2
+          id="slideover-title"
+          class="text-base font-bold text-gray-900 leading-snug"
+        >
+          {curso.asignatura_nombre || 'Curso sin nombre'}
+        </h2>
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2">
+          <span class="font-mono text-[11px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md">
+            {curso.cod_curso}
+          </span>
+          {#if curso.carrera_nombre}
+            <span class="flex items-center gap-0.5 text-xs text-gray-500">
+              <ChevronRight size={11} class="text-gray-300 flex-shrink-0" />
+              {curso.carrera_nombre}
+            </span>
+          {/if}
+          <span class="flex items-center gap-0.5 text-xs text-gray-400">
+            <ChevronRight size={11} class="text-gray-300 flex-shrink-0" />
+            {getPeriodo(curso)}
+          </span>
+        </div>
+      </div>
+      <button
+        onclick={handleClose}
+        class="mt-0.5 p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition flex-shrink-0"
+        aria-label="Cerrar panel"
+      >
+        <X size={17} />
+      </button>
+    </div>
+
+    <!-- ── Tabs ────────────────────────────────────────────────────────────── -->
+    <div class="flex border-b border-gray-100 px-6 flex-shrink-0" role="tablist">
+      {#each TABS as tab}
+        <button
+          role="tab"
+          aria-selected={activeTab === tab.id}
+          onclick={() => (activeTab = tab.id)}
+          class="relative py-3 px-1 mr-7 text-sm font-medium transition-colors outline-none
+            {activeTab === tab.id
+              ? 'text-blue-600'
+              : 'text-gray-500 hover:text-gray-800'}"
+        >
+          {tab.label}
+          {#if activeTab === tab.id}
+            <span
+              class="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600 rounded-t-full"
+            ></span>
+          {/if}
+        </button>
+      {/each}
+    </div>
+
+    <!-- ── Contenido (scrollable) ──────────────────────────────────────────── -->
+    <div class="flex-1 overflow-y-auto" role="tabpanel">
+      <!-- Tab 1: Secciones / Componentes -->
+      {#if activeTab === 'secciones'}
+        <div class="p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-800">
+              Secciones del Curso
+              {#if (curso.componentes?.length ?? 0) > 0}
+                <span
+                  class="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600"
+                >
+                  {curso.componentes!.length}
+                </span>
+              {/if}
+            </h3>
+            <button
+              onclick={() => onAddComponente(curso)}
+              class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:scale-[0.97] transition shadow-sm"
+            >
+              <Plus size={12} />
+              Añadir Sección
+            </button>
+          </div>
+
+          {#if !curso.componentes || curso.componentes.length === 0}
+            <div
+              class="flex flex-col items-center justify-center py-14 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200"
+            >
+              <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                <Plus size={18} class="text-gray-400" />
+              </div>
+              <p class="text-sm font-medium text-gray-600">Sin secciones</p>
+              <p class="text-xs text-gray-400 mt-1">
+                Añade secciones para organizar este curso.
+              </p>
+            </div>
+          {:else}
+            <div class="rounded-xl border border-gray-200 overflow-hidden">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th
+                      class="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
+                      >Tipo</th
+                    >
+                    <th
+                      class="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
+                      >Docente</th
+                    >
+                    <th
+                      class="px-4 py-2.5 text-center text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
+                      >Acta</th
+                    >
+                    <th
+                      class="px-4 py-2.5 text-right text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
+                      >Acciones</th
+                    >
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  {#each curso.componentes as comp (comp.id_componente)}
+                    <tr class="hover:bg-gray-50/80 transition-colors">
+                      <td class="px-4 py-3 font-medium text-gray-800">
+                        {comp.tipo_componente?.tipo ?? '—'}
+                      </td>
+                      <td class="px-4 py-3 text-gray-500 text-xs">
+                        {getDocenteName(comp)}
+                      </td>
+                      <td class="px-4 py-3 text-center">
+                        {#if comp.genera_acta}
+                          <span
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 border border-green-200"
+                            >Sí</span
+                          >
+                        {:else}
+                          <span class="text-gray-300 text-xs">—</span>
+                        {/if}
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        <div class="flex items-center justify-end gap-0.5">
+                          <button
+                            onclick={() => onEditComponente(curso, comp)}
+                            class="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition"
+                            title="Editar sección"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            onclick={() => onDeleteComponente(curso, comp)}
+                            class="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                            title="Eliminar sección"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
+        </div>
+
+      <!-- Tab 2: Equipo Docente -->
+      {:else if activeTab === 'equipo'}
+        <div class="p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-800">Equipo Docente</h3>
+            <button
+              onclick={() => onTeam(curso)}
+              class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100 transition"
+            >
+              <Users size={13} />
+              Gestionar equipo
+            </button>
+          </div>
+
+          {#if curso.docente_nombre}
+            <!-- Docente titular card -->
+            <div
+              class="flex items-center gap-3.5 p-4 rounded-xl border border-gray-200 bg-gray-50/60"
+            >
+              <div
+                class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-sm font-bold text-blue-600"
+              >
+                {(curso.docente_nombre || '?').charAt(0).toUpperCase()}
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-gray-900 truncate">
+                  {curso.docente_nombre}
+                </p>
+                {#if curso.docente_email}
+                  <p class="text-xs text-gray-500 truncate">{curso.docente_email}</p>
+                {/if}
+                {#if curso.docente_cargo}
+                  <p class="text-xs text-gray-400 mt-0.5">{curso.docente_cargo}</p>
+                {/if}
+              </div>
+              <span
+                class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100"
+              >
+                Titular
+              </span>
+            </div>
+
+            <p class="text-xs text-gray-400 text-center py-2">
+              Para ver todos los miembros del equipo, usa "Gestionar equipo".
+            </p>
+          {:else}
+            <div
+              class="flex flex-col items-center justify-center py-14 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200"
+            >
+              <Users size={28} class="text-gray-300 mb-2" />
+              <p class="text-sm font-medium text-gray-600">Sin docente asignado</p>
+              <p class="text-xs text-gray-400 mt-1">
+                Usa "Gestionar equipo" para asignar docentes.
+              </p>
+            </div>
+          {/if}
+        </div>
+
+      <!-- Tab 3: Configuración / Syllabus -->
+      {:else if activeTab === 'configuracion'}
+        <div class="p-6 space-y-5">
+          <h3 class="text-sm font-semibold text-gray-800">Configuración del Curso</h3>
+
+          <!-- Programa card -->
+          <div class="p-4 rounded-xl border border-gray-200 space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-gray-900">Programa Académico</p>
+                <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                  {#if curso.has_programa}
+                    Programa en estado
+                    <span class="font-medium capitalize">
+                      {curso.programa_estado?.toLowerCase().replace('_', ' ') ?? 'disponible'}.
+                    </span>
+                  {:else}
+                    No hay programa generado para este curso.
+                  {/if}
+                </p>
+              </div>
+              <button
+                onclick={() => onSyllabus(curso)}
+                class="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition"
+              >
+                <BookOpen size={13} />
+                {curso.has_programa ? 'Ver programa' : 'Crear programa'}
+              </button>
+            </div>
+          </div>
+
+          <!-- Metadata grid -->
+          <div>
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Datos del período
+            </p>
+            <div class="grid grid-cols-2 gap-3">
+              {#if curso.numero_semestre}
+                <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                  <p class="text-[11px] text-gray-400 mb-1">Semestre en malla</p>
+                  <p class="text-sm font-bold text-gray-900">{curso.numero_semestre}°</p>
+                </div>
+              {/if}
+              {#if curso.asignacionPlan?.agno_planificado}
+                <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                  <p class="text-[11px] text-gray-400 mb-1">Año académico</p>
+                  <p class="text-sm font-bold text-gray-900">{curso.asignacionPlan.agno_planificado}</p>
+                </div>
+              {/if}
+              {#if curso.asignacionPlan?.semestre_planificado}
+                <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                  <p class="text-[11px] text-gray-400 mb-1">Semestre planificado</p>
+                  <p class="text-sm font-bold text-gray-900">{curso.asignacionPlan.semestre_planificado}°</p>
+                </div>
+              {/if}
+              {#if curso.creditos_sct}
+                <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                  <p class="text-[11px] text-gray-400 mb-1">Créditos SCT</p>
+                  <p class="text-sm font-bold text-gray-900">{curso.creditos_sct}</p>
+                </div>
+              {/if}
+              {#if curso.es_colegiado !== undefined}
+                <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
+                  <p class="text-[11px] text-gray-400 mb-1">Colegiado</p>
+                  <p class="text-sm font-bold text-gray-900">{curso.es_colegiado ? 'Sí' : 'No'}</p>
+                </div>
+              {/if}
+            </div>
+          </div>
+        </div>
+      {/if}
+    </div>
+
+    <!-- ── Footer ──────────────────────────────────────────────────────────── -->
+    <div
+      class="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex-shrink-0"
+    >
+      <button
+        onclick={handleClose}
+        class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
+      >
+        Cerrar
+      </button>
+      <button
+        onclick={() => onEdit(curso)}
+        class="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:scale-[0.98] transition shadow-sm"
+      >
+        <Edit2 size={14} />
+        Editar curso
+      </button>
+    </div>
+  </div>
+{/if}
+
+<style>
+  @keyframes slide-in {
+    from {
+      transform: translateX(100%);
+      opacity: 0.8;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .slideover-panel {
+    animation: slide-in 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+</style>

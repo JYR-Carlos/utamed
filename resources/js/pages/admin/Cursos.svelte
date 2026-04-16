@@ -23,6 +23,7 @@
   import CursoForm from '@/modules/resources/curso/components/cursoForm.svelte';
   import CursoDeleteConfirm from '@/modules/resources/curso/components/cursoDeleteConfirm.svelte';
   import CursoListAdmin from '@/modules/resources/curso/components/cursoListAdmin.svelte';
+  import CursoSlideOver from '@/modules/resources/curso/components/cursoSlideOver.svelte';
   import ComponenteForm from '@/modules/resources/curso/components/componenteForm.svelte';
   import {
     createCurso,
@@ -105,6 +106,21 @@
 
   function getInitialSearch() {
     return filters?.search || '';
+  }
+
+  // ── Quick-View Modal ──────────────────────────────────────────────────────
+  // ── Slide-over ────────────────────────────────────────────────────────────
+  let showSlideOver = $state(false);
+  let slideOverCurso = $state<Curso | null>(null);
+
+  function openSlideOver(curso: Curso) {
+    slideOverCurso = curso;
+    showSlideOver = true;
+  }
+
+  function closeSlideOver() {
+    showSlideOver = false;
+    slideOverCurso = null;
   }
 
   // ── Quick-View Modal ──────────────────────────────────────────────────────
@@ -419,9 +435,7 @@
       {perPage}
       onSearchChange={(term: string) => {
         searchTerm = term;
-      }}
-      onSearch={() => {
-        router.get('/admin/cursos', { search: searchTerm, status });
+        router.get('/admin/cursos', { search: term, status });
       }}
       onStatusChange={(newStatus: string) => {
         status = newStatus;
@@ -435,13 +449,9 @@
         router.get('/admin/cursos', { search: searchTerm, status, per_page: perPage, page });
       }}
       onCreateNew={openCreateModal}
+      onManage={openSlideOver}
       onEdit={openEditModal}
       onDelete={openDeleteDialog}
-      onTeam={openTeamModal}
-      onSyllabus={openSyllabusModal}
-      onComponente={openComponenteModal}
-      onEditComponente={openEditComponenteModal}
-      onDeleteComponente={handleDeleteComponente}
     />
   </div>
 
@@ -640,6 +650,38 @@
       {toast.msg}
     </div>
   {/if}
+
+  <!-- Slide-over de gestión de curso -->
+  <CursoSlideOver
+    bind:isOpen={showSlideOver}
+    curso={slideOverCurso}
+    onClose={closeSlideOver}
+    onEdit={(curso) => {
+      closeSlideOver();
+      openEditModal(curso);
+    }}
+    onDelete={(curso) => {
+      closeSlideOver();
+      openDeleteDialog(curso);
+    }}
+    onTeam={(curso) => {
+      closeSlideOver();
+      openTeamModal(curso);
+    }}
+    onSyllabus={(curso) => {
+      closeSlideOver();
+      openSyllabusModal(curso);
+    }}
+    onAddComponente={(curso) => {
+      closeSlideOver();
+      openComponenteModal(curso);
+    }}
+    onEditComponente={(curso, comp) => {
+      closeSlideOver();
+      openEditComponenteModal(curso, comp);
+    }}
+    onDeleteComponente={handleDeleteComponente}
+  />
 
   {#if managingTeamCurso}
     <CourseTeamModal

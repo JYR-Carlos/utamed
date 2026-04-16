@@ -1,37 +1,17 @@
 <script lang="ts">
   /**
-   * Componente: Lista de Cursos (Admin)
+   * Componente: Lista de Cursos (Admin) — Rediseño Enterprise
    *
-   * Tabla expandible con toolbar para filtros, búsqueda, status toggle y paginación.
-   * Específicamente para la vista de administración con todas las funcionalidades.
-   *
-   * Props:
-   * - cursos: PaginatedResponse<Curso> - Datos paginados del servidor
-   * - searchTerm: string - Término de búsqueda actual
-   * - status: string - Filtro de estado (active/all)
-   * - perPage: number - Registros por página
-   * - paginationOptions: number[] - Opciones de per-page
-   * - statusOptions: {ACTIVE, ALL} - Opciones de estado
-   * - onSearchChange: (term: string) => void - Callback búsqueda
-   * - onStatusChange: (status: string) => void - Callback estado
-   * - onPerPageChange: (value: number) => void - Callback per-page
-   * - onPageChange: (page: number) => void - Callback cambio página
-   * - onEdit: (curso: Curso) => void - Callback editar
-   * - onDelete: (curso: Curso) => void - Callback eliminar
-   * - onTeam: (curso: Curso) => void - Callback gestionar equipo
-   * - onSyllabus: (curso: Curso) => void - Callback gestionar programa
+   * Data grid de alta densidad con:
+   * - Búsqueda en tiempo real (debounced)
+   * - Segmented control de estado (Activos / Históricos / Todos)
+   * - Badge de secciones y badge de estado de programa
+   * - Botón "Gestionar" que abre el slide-over
+   * - Menú kebab (⋮) para acciones secundarias (Editar, Eliminar)
    */
   import PaginationControls from '@/components/admin/PaginationControls.svelte';
-  import {
-    Edit2,
-    Trash2,
-    Plus,
-    Users,
-    BookOpen,
-    Layers,
-    ChevronDown,
-    ChevronUp,
-  } from 'lucide-svelte';
+  import { Plus, Search, MoreVertical, Edit2, Trash2 } from 'lucide-svelte';
+  import { untrack } from 'svelte';
   import type { Curso, Componente, PaginatedResponse } from '../types/curso.types';
 
   interface Props {
@@ -40,20 +20,17 @@
     status?: string;
     perPage?: number;
     paginationOptions?: readonly number[];
-    statusOptions?: { ACTIVE: string; ALL: string };
     onSearchChange?: (term: string) => void;
-    onSearch?: () => void;
     onStatusChange?: (status: string) => void;
     onPerPageChange?: (value: number) => void;
     onPageChange?: (page: number) => void;
     onCreateNew?: () => void;
+    /** Abre el slide-over de gestión */
+    onManage?: (curso: Curso) => void;
+    /** Desde menú kebab */
     onEdit?: (curso: Curso) => void;
+    /** Desde menú kebab */
     onDelete?: (curso: Curso) => void;
-    onTeam?: (curso: Curso) => void;
-    onSyllabus?: (curso: Curso) => void;
-    onComponente?: (curso: Curso) => void;
-    onEditComponente?: (curso: Curso, componente: Componente) => void;
-    onDeleteComponente?: (curso: Curso, componente: Componente) => void;
   }
 
   let {
@@ -71,345 +48,315 @@
     status = 'active',
     perPage = 15,
     paginationOptions = [15, 30, 50] as const,
-    statusOptions = { ACTIVE: 'active', ALL: 'all' },
     onSearchChange = () => {},
-    onSearch = () => {},
     onStatusChange = () => {},
     onPerPageChange = () => {},
     onPageChange = () => {},
     onCreateNew = () => {},
+    onManage = () => {},
     onEdit = () => {},
     onDelete = () => {},
-    onTeam = () => {},
-    onSyllabus = () => {},
-    onComponente = () => {},
-    onEditComponente = () => {},
-    onDeleteComponente = () => {},
   }: Props = $props();
 
-  let expandedRows = $state<number[]>([]);
+  // ── Búsqueda con debounce ──────────────────────────────────────────────────
+  // untrack() previene la advertencia de Svelte 5 "state_referenced_locally"
+  // ya que capturar el valor inicial del prop es el comportamiento deseado.
+  let localSearch = $state(untrack(() => searchTerm));
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function toggleExpand(cursoId: number) {
-    expandedRows = expandedRows.includes(cursoId)
-      ? expandedRows.filter((id) => id !== cursoId)
-      : [...expandedRows, cursoId];
+  function handleSearchInput(value: string) {
+    localSearch = value;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => onSearchChange(value), 350);
   }
 
-  function isExpanded(cursoId: number): boolean {
-    return expandedRows.includes(cursoId);
+  // ── Kebab menu ─────────────────────────────────────────────────────────────
+  let openKebabId = $state<number | null>(null);
+
+  function toggleKebab(id: number, e: MouseEvent) {
+    e.stopPropagation();
+    openKebabId = openKebabId === id ? null : id;
   }
 
-  function getDocenteName(docente: any): string {
-    if (!docente) return 'Sin asignar';
-    return (
-      docente.nombre_completo ||
-      `${docente.nombre1 ?? ''} ${docente.apellido1 ?? ''}`.trim() ||
-      'Sin nombre'
-    );
+  function closeKebab() {
+    openKebabId = null;
   }
 
-  function handleSearch() {
-    onSearch();
-  }
-
-  function handleStatusToggle(newStatus: string) {
-    onStatusChange(newStatus);
-  }
-
+  // ── Helpers ────────────────────────────────────────────────────────────────
   function handlePerPageChange(e: Event) {
     const target = e.target as HTMLSelectElement;
     onPerPageChange(Number(target.value));
   }
 
-  function handleSearchInput(e: Event) {
-    const target = e.target as HTMLInputElement;
-    onSearchChange(target.value);
+  function getSeccionesBadge(curso: Curso): { count: number; label: string } {
+    const count = curso.componentes?.length ?? 0;
+    return { count, label: count === 1 ? '1 Sección' : `${count} Secciones` };
   }
+
+  interface ProgramaBadge {
+    label: string;
+    cls: string;
+  }
+
+  function getProgramaBadge(curso: Curso): ProgramaBadge | null {
+    const estado = curso.programa_estado;
+    if (!estado || estado === 'SIN_PROGRAMA') return null;
+    const map: Record<string, ProgramaBadge> = {
+      BORRADOR: { label: 'Borrador', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+      BASICO_COMPLETO: { label: 'Básico', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+      COMPLETO: { label: 'Completo', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+      APROBADO: { label: 'Aprobado', cls: 'bg-green-50 text-green-700 border-green-200' },
+      ENVIADO: { label: 'Enviado', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
+    };
+    return map[estado] ?? { label: estado, cls: 'bg-gray-100 text-gray-600 border-gray-200' };
+  }
+
+  const STATUS_SEGMENTS = [
+    { label: 'Activos', value: 'active' },
+    { label: 'Históricos', value: 'inactive' },
+    { label: 'Todos', value: 'all' },
+  ] as const;
 </script>
 
-<!-- Tabla con toolbar -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-  <!-- Toolbar -->
-  <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3 bg-gray-50/60">
-    <!-- Search -->
-    <div class="flex gap-2 flex-1 min-w-[200px]">
+<svelte:window onclick={closeKebab} />
+
+<div class="flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+  <!-- ── Toolbar ──────────────────────────────────────────────────────────── -->
+  <div class="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3">
+    <!-- Búsqueda en tiempo real -->
+    <div class="relative flex-1 min-w-[220px] max-w-sm">
+      <Search
+        size={14}
+        class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+      />
       <input
         type="text"
-        bind:value={searchTerm}
-        placeholder="Buscar curso..."
-        onkeydown={(e) => e.key === 'Enter' && handleSearch()}
-        onchange={handleSearchInput}
-        class="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
+        value={localSearch}
+        oninput={(e) => handleSearchInput((e.target as HTMLInputElement).value)}
+        placeholder="Buscar por nombre o código..."
+        class="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
       />
-      <button
-        onclick={handleSearch}
-        class="px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-      >
-        Buscar
-      </button>
     </div>
 
-    <!-- Status Toggle -->
-    <div class="flex gap-2">
-      <button
-        onclick={() => handleStatusToggle(statusOptions.ACTIVE)}
-        class={`px-3 py-2 text-sm font-medium rounded-lg transition ${
-          status === statusOptions.ACTIVE
-            ? 'bg-blue-600 text-white'
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-        }`}
-      >
-        Vigentes
-      </button>
-      <button
-        onclick={() => handleStatusToggle(statusOptions.ALL)}
-        class={`px-3 py-2 text-sm font-medium rounded-lg transition ${
-          status === statusOptions.ALL
-            ? 'bg-blue-600 text-white'
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-        }`}
-      >
-        Todos
-      </button>
+    <!-- Segmented control de estado -->
+    <div class="flex items-center bg-gray-100 rounded-lg p-0.5 gap-px">
+      {#each STATUS_SEGMENTS as seg}
+        <button
+          onclick={() => onStatusChange(seg.value)}
+          class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-all {status === seg.value
+            ? 'bg-white text-gray-900 shadow-sm'
+            : 'text-gray-500 hover:text-gray-700'}"
+        >
+          {seg.label}
+        </button>
+      {/each}
     </div>
 
-    <!-- Per Page Selector -->
-    <div class="flex items-center gap-2">
-      <select
-        value={perPage}
-        onchange={handlePerPageChange}
-        class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
-      >
-        {#each paginationOptions as option}
-          <option value={option}>{option} por página</option>
-        {/each}
-      </select>
-    </div>
+    <!-- Per page -->
+    <select
+      value={perPage}
+      onchange={handlePerPageChange}
+      class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
+    >
+      {#each paginationOptions as opt}
+        <option value={opt}>{opt} / página</option>
+      {/each}
+    </select>
 
-    <!-- Crear Nuevo -->
+    <!-- Crear curso -->
     <button
       onclick={onCreateNew}
-      class="ml-auto px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+      class="ml-auto flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:scale-[0.98] transition shadow-sm"
     >
-      <Plus size={16} />
+      <Plus size={15} />
       Crear Curso
     </button>
   </div>
 
-  <!-- Tabla -->
+  <!-- ── Tabla ────────────────────────────────────────────────────────────── -->
   <div class="overflow-x-auto">
-    <table class="w-full">
-      <thead class="bg-gray-50 border-b border-gray-200">
-        <tr>
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-100 bg-gray-50/70">
           <th
-            class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-            >Código</th
-          >
-          <th
-            class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
+            class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
             >Asignatura</th
           >
           <th
-            class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
+            class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
             >Carrera</th
           >
           <th
-            class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-            >Docente Titular</th
+            class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+            >Período</th
           >
           <th
-            class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-            >Semestre</th
+            class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+            >Secciones</th
           >
           <th
-            class="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider"
+            class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+            >Programa</th
+          >
+          <th
+            class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider"
             >Acciones</th
           >
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-200">
+      <tbody class="divide-y divide-gray-100">
         {#if cursos.data.length === 0}
           <tr>
-            <td colspan="6" class="px-4 py-8 text-center text-gray-500 text-sm">
-              No hay cursos para mostrar.
+            <td colspan="6" class="px-5 py-14 text-center">
+              <div class="flex flex-col items-center gap-2 text-gray-400">
+                <Search size={30} class="text-gray-300" />
+                <p class="text-sm">No se encontraron cursos.</p>
+              </div>
             </td>
           </tr>
         {:else}
           {#each cursos.data as curso (curso.id_curso)}
-            <tr class="hover:bg-gray-50 transition">
-              <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                {curso.cod_curso}
+            {@const sec = getSeccionesBadge(curso)}
+            {@const prog = getProgramaBadge(curso)}
+            <tr
+              class="hover:bg-gray-50/80 transition-colors group cursor-pointer"
+              onclick={() => onManage(curso)}
+            >
+              <!-- Asignatura + código -->
+              <td class="px-5 py-3.5">
+                <div>
+                  <p class="font-semibold text-gray-900 leading-snug">
+                    {curso.asignatura_nombre || '—'}
+                  </p>
+                  <p class="text-xs text-gray-400 font-mono mt-0.5">{curso.cod_curso}</p>
+                </div>
               </td>
-              <td class="px-4 py-3 text-sm text-gray-700">
-                {curso.asignatura_nombre || '-'}
+
+              <!-- Carrera -->
+              <td class="px-5 py-3.5 text-gray-600 max-w-[200px]">
+                <span class="line-clamp-2 text-sm">{curso.carrera_nombre || '—'}</span>
               </td>
-              <td class="px-4 py-3 text-sm text-gray-700">
-                {curso.carrera_nombre || '-'}
+
+              <!-- Período -->
+              <td class="px-5 py-3.5 whitespace-nowrap">
+                {#if curso.asignacionPlan?.semestre_planificado && curso.asignacionPlan?.agno_planificado}
+                  <div class="flex flex-col gap-0.5">
+                    <span class="text-sm font-medium text-gray-800">
+                      {curso.asignacionPlan.agno_planificado}
+                    </span>
+                    <span class="text-xs text-gray-400">
+                      Semestre {curso.asignacionPlan.semestre_planificado}
+                    </span>
+                  </div>
+                {:else if curso.numero_semestre}
+                  <span class="text-sm text-gray-500">Sem. {curso.numero_semestre}</span>
+                {:else}
+                  <span class="text-gray-400">—</span>
+                {/if}
               </td>
-              <td class="px-4 py-3 text-sm text-gray-700">
-                {curso.docente_nombre || '-'}
-              </td>
-              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                {curso.numero_semestre || '-'}
-              </td>
-              <td class="px-4 py-3 text-center">
-                <div class="flex items-center justify-center gap-2 flex-wrap">
-                  <button
-                    onclick={() => onEdit(curso)}
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sky-600 hover:bg-sky-50 rounded-lg transition font-medium text-xs"
-                    title="Editar curso"
+
+              <!-- Secciones badge -->
+              <td class="px-5 py-3.5">
+                {#if sec.count > 0}
+                  <span
+                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200"
                   >
-                    <Edit2 size={14} />
-                    Editar
+                    {sec.label}
+                  </span>
+                {:else}
+                  <span class="text-xs text-gray-400">Sin secciones</span>
+                {/if}
+              </td>
+
+              <!-- Programa badge -->
+              <td class="px-5 py-3.5">
+                {#if prog}
+                  <span
+                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border {prog.cls}"
+                  >
+                    {prog.label}
+                  </span>
+                {:else}
+                  <span class="text-xs text-gray-400">—</span>
+                {/if}
+              </td>
+
+              <!-- Acciones -->
+              <td
+                class="px-5 py-3.5 text-right"
+                onclick={(e) => e.stopPropagation()}
+                role="cell"
+              >
+                <div class="flex items-center justify-end gap-1.5">
+                  <!-- Gestionar (visible on hover) -->
+                  <button
+                    onclick={() => onManage(curso)}
+                    class="px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100 transition opacity-0 group-hover:opacity-100 focus:opacity-100"
+                  >
+                    Gestionar
                   </button>
-                  <button
-                    onclick={() => onTeam(curso)}
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition font-medium text-xs"
-                    title="Gestionar equipo"
-                  >
-                    <Users size={14} />
-                    Equipo
-                  </button>
-                  <button
-                    onclick={() => onSyllabus(curso)}
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition font-medium text-xs"
-                    title="Gestionar programa"
-                  >
-                    <BookOpen size={14} />
-                    Programa
-                  </button>
-                  <button
-                    onclick={() => toggleExpand(curso.id_curso)}
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition font-medium text-xs"
-                    title="Ver componentes del curso"
-                  >
-                    <Layers size={14} />
-                    Componentes
-                    {#if (curso.componentes?.length ?? 0) > 0}
-                      <span
-                        class="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold bg-emerald-100 text-emerald-700 rounded-full"
-                        >{curso.componentes!.length}</span
+
+                  <!-- Kebab ⋮ -->
+                  <div class="relative">
+                    <button
+                      onclick={(e) => toggleKebab(curso.id_curso, e)}
+                      class="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition"
+                      aria-label="Más opciones"
+                      aria-haspopup="true"
+                      aria-expanded={openKebabId === curso.id_curso}
+                    >
+                      <MoreVertical size={15} />
+                    </button>
+
+                    {#if openKebabId === curso.id_curso}
+                      <div
+                        class="absolute right-0 top-full mt-1 z-20 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-1 divide-y divide-gray-100"
+                        role="menu"
+                        tabindex="-1"
+                        onclick={(e) => e.stopPropagation()}
+                        onkeydown={(e) => e.key === 'Escape' && closeKebab()}
                       >
+                        <div class="py-1">
+                          <button
+                            onclick={() => {
+                              onEdit(curso);
+                              closeKebab();
+                            }}
+                            class="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
+                            role="menuitem"
+                          >
+                            <Edit2 size={13} class="text-gray-400" />
+                            Editar curso
+                          </button>
+                        </div>
+                        <div class="py-1">
+                          <button
+                            onclick={() => {
+                              onDelete(curso);
+                              closeKebab();
+                            }}
+                            class="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition"
+                            role="menuitem"
+                          >
+                            <Trash2 size={13} />
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
                     {/if}
-                    {#if isExpanded(curso.id_curso)}
-                      <ChevronUp size={12} />
-                    {:else}
-                      <ChevronDown size={12} />
-                    {/if}
-                  </button>
-                  <button
-                    onclick={() => onDelete(curso)}
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg transition font-medium text-xs"
-                    title="Eliminar curso"
-                  >
-                    <Trash2 size={14} />
-                    Eliminar
-                  </button>
+                  </div>
                 </div>
               </td>
             </tr>
-            {#if isExpanded(curso.id_curso)}
-              <tr class="bg-emerald-50/20">
-                <td colspan="6" class="px-6 py-4 border-b border-emerald-100">
-                  <div class="space-y-3">
-                    <div class="flex items-center justify-between">
-                      <h4 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                        <Layers size={14} class="text-emerald-600" />
-                        Componentes — {curso.cod_curso}
-                      </h4>
-                      <button
-                        onclick={() => onComponente(curso)}
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
-                      >
-                        <Plus size={14} />
-                        Agregar Componente
-                      </button>
-                    </div>
-
-                    {#if !curso.componentes || curso.componentes.length === 0}
-                      <p class="text-sm text-gray-500 italic py-2">
-                        Este curso no tiene componentes. Usa &ldquo;Agregar Componente&rdquo; para
-                        crear uno.
-                      </p>
-                    {:else}
-                      <table class="min-w-full text-sm">
-                        <thead>
-                          <tr class="border-b border-emerald-100">
-                            <th
-                              class="pb-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                              >Tipo</th
-                            >
-                            <th
-                              class="pb-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                              >Docente</th
-                            >
-                            <th
-                              class="pb-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                              >Genera Acta</th
-                            >
-                            <th
-                              class="pb-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                              >Acciones</th
-                            >
-                          </tr>
-                        </thead>
-                        <tbody class="divide-y divide-emerald-50">
-                          {#each curso.componentes as comp (comp.id_componente)}
-                            <tr class="hover:bg-emerald-50/50 transition">
-                              <td class="py-2 pr-6 font-medium text-gray-800">
-                                {comp.tipo_componente?.tipo ?? '—'}
-                              </td>
-                              <td class="py-2 pr-6 text-gray-600">
-                                {getDocenteName(comp.docentes?.[0])}
-                              </td>
-                              <td class="py-2 pr-6 text-center">
-                                {#if comp.genera_acta}
-                                  <span
-                                    class="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full"
-                                    >Sí</span
-                                  >
-                                {:else}
-                                  <span class="text-xs text-gray-400">—</span>
-                                {/if}
-                              </td>
-                              <td class="py-2 text-center">
-                                <div class="flex items-center justify-center gap-2">
-                                  <button
-                                    onclick={() => onEditComponente(curso, comp)}
-                                    class="inline-flex items-center gap-1 px-2 py-1 text-sky-600 hover:bg-sky-50 rounded transition text-xs font-medium"
-                                    title="Editar componente"
-                                  >
-                                    <Edit2 size={12} />
-                                    Editar
-                                  </button>
-                                  <button
-                                    onclick={() => onDeleteComponente(curso, comp)}
-                                    class="inline-flex items-center gap-1 px-2 py-1 text-red-600 hover:bg-red-50 rounded transition text-xs font-medium"
-                                    title="Eliminar componente"
-                                  >
-                                    <Trash2 size={12} />
-                                    Eliminar
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          {/each}
-                        </tbody>
-                      </table>
-                    {/if}
-                  </div>
-                </td>
-              </tr>
-            {/if}
           {/each}
         {/if}
       </tbody>
     </table>
   </div>
 
-  <!-- Paginación -->
+  <!-- ── Paginación ───────────────────────────────────────────────────────── -->
   {#if cursos.last_page > 1}
-    <div class="px-4 py-3 border-t border-gray-200 bg-gray-50/60">
+    <div class="px-5 py-3 border-t border-gray-100 bg-gray-50/60">
       <PaginationControls
         currentPage={cursos.current_page}
         lastPage={cursos.last_page}
