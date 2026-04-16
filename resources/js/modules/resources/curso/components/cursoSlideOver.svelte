@@ -60,11 +60,7 @@
   function getDocenteName(comp: Componente): string {
     const d = comp.docentes?.[0] as any;
     if (!d) return 'Sin asignar';
-    return (
-      d.nombre_completo ||
-      `${d.nombre1 ?? ''} ${d.apellido1 ?? ''}`.trim() ||
-      'Sin nombre'
-    );
+    return d.nombre_completo || `${d.nombre1 ?? ''} ${d.apellido1 ?? ''}`.trim() || 'Sin nombre';
   }
 
   function getPeriodo(c: Curso): string {
@@ -107,10 +103,7 @@
         <p class="text-[11px] font-semibold text-blue-600 uppercase tracking-widest mb-1.5">
           Gestión de Curso
         </p>
-        <h2
-          id="slideover-title"
-          class="text-base font-bold text-gray-900 leading-snug"
-        >
+        <h2 id="slideover-title" class="text-base font-bold text-gray-900 leading-snug">
           {curso.asignatura_nombre || 'Curso sin nombre'}
         </h2>
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2">
@@ -146,14 +139,11 @@
           aria-selected={activeTab === tab.id}
           onclick={() => (activeTab = tab.id)}
           class="relative py-3 px-1 mr-7 text-sm font-medium transition-colors outline-none
-            {activeTab === tab.id
-              ? 'text-blue-600'
-              : 'text-gray-500 hover:text-gray-800'}"
+            {activeTab === tab.id ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}"
         >
           {tab.label}
           {#if activeTab === tab.id}
-            <span
-              class="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600 rounded-t-full"
+            <span class="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600 rounded-t-full"
             ></span>
           {/if}
         </button>
@@ -193,9 +183,7 @@
                 <Plus size={18} class="text-gray-400" />
               </div>
               <p class="text-sm font-medium text-gray-600">Sin secciones</p>
-              <p class="text-xs text-gray-400 mt-1">
-                Añade secciones para organizar este curso.
-              </p>
+              <p class="text-xs text-gray-400 mt-1">Añade secciones para organizar este curso.</p>
             </div>
           {:else}
             <div class="rounded-xl border border-gray-200 overflow-hidden">
@@ -265,7 +253,7 @@
           {/if}
         </div>
 
-      <!-- Tab 2: Equipo Docente -->
+        <!-- Tab 2: Equipo Docente -->
       {:else if activeTab === 'equipo'}
         <div class="p-6 space-y-4">
           <div class="flex items-center justify-between">
@@ -323,7 +311,7 @@
           {/if}
         </div>
 
-      <!-- Tab 3: Configuración / Syllabus -->
+        <!-- Tab 3: Configuración / Syllabus -->
       {:else if activeTab === 'configuracion'}
         <div class="p-6 space-y-5">
           <h3 class="text-sm font-semibold text-gray-800">Configuración del Curso</h3>
@@ -369,13 +357,17 @@
               {#if curso.asignacionPlan?.agno_planificado}
                 <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
                   <p class="text-[11px] text-gray-400 mb-1">Año académico</p>
-                  <p class="text-sm font-bold text-gray-900">{curso.asignacionPlan.agno_planificado}</p>
+                  <p class="text-sm font-bold text-gray-900">
+                    {curso.asignacionPlan.agno_planificado}
+                  </p>
                 </div>
               {/if}
               {#if curso.asignacionPlan?.semestre_planificado}
                 <div class="p-3.5 rounded-xl bg-gray-50 border border-gray-200">
                   <p class="text-[11px] text-gray-400 mb-1">Semestre planificado</p>
-                  <p class="text-sm font-bold text-gray-900">{curso.asignacionPlan.semestre_planificado}°</p>
+                  <p class="text-sm font-bold text-gray-900">
+                    {curso.asignacionPlan.semestre_planificado}°
+                  </p>
                 </div>
               {/if}
               {#if curso.creditos_sct}
