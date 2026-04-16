@@ -18,3 +18,4 @@ export { default as CourseTeamModal } from './courseTeamModal.svelte';
 export { default as CursoWizardModal } from './cursoWizardModal.svelte';
 export { default as SyllabusPermisosModal } from './SyllabusPermisosModal.svelte';
 export { default as ComponentePermisosModal } from './ComponentePermisosModal.svelte';
+export { default as EquipoDocenteSlideOver } from './EquipoDocenteSlideOver.svelte';

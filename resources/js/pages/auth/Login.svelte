@@ -250,13 +250,13 @@
     </div>
   {/if}
 
-  <Form form={$form} method="post" action={login().url} class="flex flex-col gap-8">
+  <Form form={$form} method="post" action={login().url} class="flex flex-col gap-6">
     {#snippet children({ errors, processing }: BaseFormSnippetProps)}
-      <div class="grid gap-6">
+      <div class="grid gap-5">
         <!-- RUT Field -->
-        <div class="space-y-2">
-          <label for="email" class="text-sm font-medium text-muted-foreground ml-1"> RUT </label>
-          <div class="relative group">
+        <div class="space-y-1.5">
+          <label for="email" class="text-sm font-medium text-gray-700 ml-0.5"> RUT </label>
+          <div class="relative">
             <input
               id="email"
               name="email"
@@ -269,29 +269,29 @@
               disabled={isRateLimited || processing}
               bind:value={$form.data.email}
               oninput={handleRutInput}
-              class="w-full bg-secondary/30 border border-border rounded-2xl px-5 py-4 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3.5 text-gray-900 focus:ring-2 focus:ring-[#2A66AC]/20 focus:border-[#2A66AC] focus:outline-none transition-all placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
           {#if $form.data.email && !rutValid}
-            <p class="text-xs text-red-600">
+            <p class="text-xs text-red-600 ml-0.5">
               RUT debe tener 8 dígitos + dígito verificador (formato: 12345678-K)
             </p>
           {:else if $form.data.email && rutValid}
-            <p class="text-xs text-green-600">Formato válido</p>
+            <p class="text-xs text-green-600 ml-0.5">Formato válido</p>
+          {:else}
+            <p class="text-xs text-gray-400 ml-0.5">Ingresa sin puntos y con guion</p>
           {/if}
         </div>
 
         <!-- Password Field -->
-        <div class="space-y-2">
-          <div class="flex justify-between items-center px-1">
-            <label for="password" class="text-sm font-medium text-muted-foreground">
-              Contraseña
-            </label>
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center px-0.5">
+            <label for="password" class="text-sm font-medium text-gray-700"> Contraseña </label>
             {#if canResetPassword}
               <div class={isRateLimited ? 'opacity-50 pointer-events-none' : ''}>
                 <TextLink
                   href={request().url}
-                  class="text-xs text-muted-foreground hover:text-primary transition-colors"
+                  class="text-xs text-gray-400 hover:text-[#2A66AC] transition-colors !decoration-gray-300 hover:!decoration-[#2A66AC]"
                   tabindex={5}
                 >
                   ¿Olvidaste tu contraseña?
@@ -299,7 +299,7 @@
               </div>
             {/if}
           </div>
-          <div class="relative group">
+          <div class="relative">
             <input
               id="password"
               name="password"
@@ -310,13 +310,13 @@
               placeholder="••••••••"
               disabled={isRateLimited || processing}
               bind:value={$form.data.password}
-              class="w-full bg-secondary/30 border border-border rounded-2xl px-5 py-4 pr-12 text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3.5 pr-12 text-gray-900 focus:ring-2 focus:ring-[#2A66AC]/20 focus:border-[#2A66AC] focus:outline-none transition-all placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <button
               type="button"
               tabindex={-1}
               disabled={isRateLimited || processing}
-              class="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               onclick={() => (showPassword = !showPassword)}
             >
               {#if showPassword}
@@ -328,7 +328,8 @@
           </div>
         </div>
 
-        <div class="flex items-center space-x-2 px-1">
+        <!-- Remember me -->
+        <div class="flex items-center space-x-2 px-0.5">
           <input type="hidden" name="remember" value="off" />
           <Checkbox
             id="remember"
@@ -337,23 +338,22 @@
             disabled={isRateLimited || processing}
             onchange={handleRememberChange}
             tabindex={3}
-            class="border-border bg-transparent data-[state=checked]:bg-primary data-[state=checked]:border-primary disabled:opacity-50"
+            class="border-gray-300 bg-transparent data-[state=checked]:bg-[#2A66AC] data-[state=checked]:border-[#2A66AC] disabled:opacity-50"
           />
           <div
-            class="text-xs text-muted-foreground cursor-pointer hover:text-foreground"
+            class="text-xs text-gray-500 cursor-pointer hover:text-gray-700"
             class:opacity-50={isRateLimited || processing}
           >
-            <Label
-              for="remember"
-              class="text-xs text-muted-foreground cursor-pointer hover:text-foreground"
+            <Label for="remember" class="text-xs text-gray-500 cursor-pointer hover:text-gray-700"
               >Mantenerme conectado</Label
             >
           </div>
         </div>
 
+        <!-- Submit Button -->
         <Button
           type="submit"
-          class="mt-2 w-full bg-primary hover:bg-primary/90 active:scale-[0.98] text-primary-foreground font-bold py-7 rounded-2xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 text-base"
+          class="mt-1 w-full bg-[#2A66AC] hover:bg-[#234f8a] active:scale-[0.98] text-white font-bold py-7 rounded-xl shadow-lg shadow-[#2A66AC]/20 transition-all flex items-center justify-center gap-2 text-base cursor-pointer"
           tabindex={4}
           disabled={isRateLimited || $form.processing}
         >
@@ -363,17 +363,18 @@
           {isRateLimited ? `Bloqueado por ${rateLimitRetryAfter}s` : 'Entrar al Portal'}
         </Button>
 
-        <div
-          class="mt-6 p-6 rounded-2xl bg-secondary/20 border border-dashed border-border text-center space-y-3"
-        >
-          <p class="text-sm text-foreground font-medium">Información de Acceso</p>
-          <p class="text-xs text-muted-foreground leading-relaxed">
+        <!-- Info box -->
+        <div class="mt-4 p-5 rounded-lg bg-gray-50 border border-gray-100 text-center space-y-2.5">
+          <p class="text-sm text-gray-800 font-medium">Información de Acceso</p>
+          <p class="text-xs text-gray-500 leading-relaxed">
             Como parte de nuestra comunidad académica, tus credenciales han sido enviadas
             previamente a tu correo institucional.
           </p>
-          <p class="text-xs font-medium text-muted-foreground">
+          <p class="text-xs font-medium text-gray-500">
             ¿Problemas para entrar? <br />
-            <a href="mailto:cite@gestion.uta.cl" class="text-primary hover:underline transition-all"
+            <a
+              href="mailto:cite@gestion.uta.cl"
+              class="text-[#2A66AC] hover:underline transition-all"
               >Contactar a soporte: cite@gestion.uta.cl</a
             >
           </p>
