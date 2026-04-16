@@ -215,7 +215,7 @@
           >
           <th
             class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-            >Docente</th
+            >Docente Titular</th
           >
           <th
             class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"

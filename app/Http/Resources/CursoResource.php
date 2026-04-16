@@ -23,9 +23,8 @@ class CursoResource extends JsonResource
         $componenteCatedra = $this->relationLoaded('componentes')
             ? $this->componentes->first(fn($c) => optional($c?->tipoComponente)->tipo === 'Cátedra')
             : null;
-        $docenteTitular = $componenteCatedra?->docenteComponentes
-            ?->first(fn($dc) => $dc->es_titular) ?? $componenteCatedra?->docenteComponentes?->first();
-        $docenteUser = $docenteTitular?->docente?->usuario;
+        $docenteTitular = $this->relationLoaded('docenteTitular') ? $this->docenteTitular : null;
+        $docenteUser = $docenteTitular?->usuario;
 
         return [
             'id_curso' => $this->id_curso,
@@ -54,7 +53,7 @@ class CursoResource extends JsonResource
                 ? trim(($docenteUser->nombre1 ?? '') . ' ' . ($docenteUser->apellido1 ?? ''))
                 : null,
             'docente_email'        => $docenteUser?->email,
-            'docente_cargo'        => $docenteTitular?->docente?->cargo,
+            'docente_cargo'        => $docenteTitular?->cargo,
             // Asignatura details for quick-view modal
             'cod_asignatura'       => $this->asignacionPlan?->asignatura?->cod_asignatura,
             'creditos_sct'         => $this->asignacionPlan?->asignatura?->creditos_sct,

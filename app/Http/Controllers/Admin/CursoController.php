@@ -52,6 +52,7 @@ class CursoController extends Controller
                 'asignacionPlan.asignatura',
                 'asignacionPlan.plan.carrera',
                 'componentes.tipoComponente',
+                'docenteTitular.usuario',
                 'componentes.docenteComponentes.docente.usuario',
             ])
             ->when($request->search, function ($query, $search) {
