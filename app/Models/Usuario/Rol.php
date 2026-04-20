@@ -39,6 +39,11 @@ class Rol extends BaseRol
                 ->map(Permissions::from(...))
                 ->all();
 
+            if (empty($permisos)) {
+                \Log::warning("El rol '{$this->id_rol}' no tiene permisos asignados.");
+                return [];
+            }
+            
             $permissionContextConstraint = app(PermissionContextConstraints::class);
 
             return $permissionContextConstraint->getCompatibleContexts($permisos);
