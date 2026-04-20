@@ -26,9 +26,6 @@
   href={`/estudiante/cursos/${id_curso}`}
   class="group relative overflow-hidden rounded-3xl bg-gradient-to-br {color} p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full flex flex-col"
 >
-  <!-- Overlay gradient -->
-  <div class="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
-
   <!-- Content -->
   <div class="relative z-10 flex flex-col h-full">
     <!-- Header -->
@@ -76,7 +73,7 @@
         <div
           class="h-full bg-white/90 rounded-full transition-all duration-500"
           style="width: {progreso}%"
-        />
+        ></div>
       </div>
     </div>
   </div>

@@ -28,7 +28,7 @@ class DashboardController extends Controller
         }
 
         $estudiante = $user->estudiante;
-
+        $nombreCarrera = $estudiante->carrera->nombre;
         // Obtener las inscripciones del estudiante
         $inscripciones = InscripcionCurso::where('id_estudiante', $estudiante->id_estudiante)
             ->where('estado_inscripcion', 'INSCRITO')
@@ -53,7 +53,11 @@ class DashboardController extends Controller
                 if ($primerDocente) {
                     $profesor = trim("{$primerDocente->nombre1} {$primerDocente->apellido1}");
                 }
+                
             }
+
+            // PENDIENTE: OBTENER EL PROGRESO REAL DEL CURSO BASADO EN LAS ACTIVIDADES COMPLETADAS!!!!!
+            $progreso = $inscripcion->progreso ?? 50; 
             
             return [
                 'id_curso' => $curso->id_curso,
@@ -64,6 +68,7 @@ class DashboardController extends Controller
                 'fecha_inicio' => $curso->fecha_inicio,
                 'fecha_fin' => $curso->fecha_fin,
                 'profesor' => $profesor,
+                'progreso' => $progreso,
             ];
         });
 
@@ -77,8 +82,9 @@ class DashboardController extends Controller
         return Inertia::render('student/Dashboard', [
             'estudiante' => [
                 'id_estudiante' => $estudiante->id_estudiante,
-                'rut' => $user->rut, // Estudiante puede no tener grado/titulo
+                'rut' => $user->rut, 
                 'id_usuario' => $user->id_usuario,
+                'nombre_carrera' => $nombreCarrera
             ],
             'cursos' => $cursosData,
             'stats' => [
