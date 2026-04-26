@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
-use App\Models\Administrativo\Programa;
+use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
 use Illuminate\Support\Facades\Auth;

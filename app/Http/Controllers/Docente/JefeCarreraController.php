@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Docente;
 
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Carrera;
+use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class JefeCarreraController extends Controller
@@ -83,7 +86,39 @@ class JefeCarreraController extends Controller
             'notas' => ['nullable', 'string', 'max:3000'],
         ]);
 
-        return back()->with('success', "Solicitud de cambios enviada para el programa #{$programaId}.");
+        $programa = Programa::findOrFail($programaId);
+
+        // Autorizar usando la Policy (admins y jefes de carrera pueden rechazar)
+        $this->authorize('reject', $programa);
+
+        $estadosPermitidos = ['COMPLETO', 'APROBADO', 'BASICO_COMPLETO'];
+        if (!in_array($programa->estado, $estadosPermitidos)) {
+            return back()->with('error', "No se puede devolver un programa en estado {$programa->estado}.");
+        }
+
+        $razonRechazo = trim($request->input('notas', 'Sin observaciones'));
+        $estadoOrigen = $programa->estado;
+
+        DB::transaction(function () use ($programa, $razonRechazo, $user) {
+            DB::statement("SELECT set_config('app.accion_tipo',   'RECHAZO', true)");
+            DB::statement("SELECT set_config('app.razon_rechazo', ?, true)", [$razonRechazo]);
+            DB::statement("SELECT set_config('app.actor_id',      ?, true)", [(string) $user->id_usuario]);
+
+            $programa->update([
+                'estado'           => 'BORRADOR',
+                'fecha_aprobacion' => null,
+                'revisado_por'     => null,
+            ]);
+        });
+
+        Log::info('Programa devuelto a revisión por Jefe de Carrera', [
+            'id_programa'   => $programa->id_programa,
+            'estado_origen' => $estadoOrigen,
+            'rechazado_por' => $user->id_usuario,
+            'razon_rechazo' => $razonRechazo,
+        ]);
+
+        return back()->with('warning', "Solicitud de cambios enviada. El programa #{$programaId} fue devuelto a borrador.");
     }
 
     private function resolveJefatura(Usuario $user): ?array

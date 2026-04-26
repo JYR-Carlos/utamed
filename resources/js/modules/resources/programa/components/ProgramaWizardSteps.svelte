@@ -997,4 +997,83 @@
       </div>
     </div>
   </div>
+{:else if step === 10}
+  <!-- Paso 10: Resumen/Confirmación (BASICO) -->
+  <div class="rounded-lg border border-slate-200 bg-white p-5 space-y-6">
+    <div>
+      <h3 class="text-lg font-semibold text-slate-900 truncate mb-2">✓ Resumen del Programa</h3>
+      <p class="text-sm text-slate-500">Verifica los datos antes de generar el programa</p>
+    </div>
+
+    <!-- Identificación -->
+    <div class="rounded-lg bg-blue-50 border border-blue-200 p-4 space-y-2">
+      <h4 class="font-semibold text-blue-900">📚 I. Identificación</h4>
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <div><span class="text-slate-600">Asignatura:</span> <span class="font-medium">{curso.asignatura_nombre}</span></div>
+        <div><span class="text-slate-600">Código:</span> <span class="font-medium">{codigo}</span></div>
+        <div><span class="text-slate-600">Créditos:</span> <span class="font-medium">{creditos_sct}</span></div>
+        <div><span class="text-slate-600">Categoría:</span> <span class="font-medium">{categoria}</span></div>
+      </div>
+    </div>
+
+    <!-- Presentación -->
+    {#if presentacion.trim()}
+      <div class="rounded-lg bg-green-50 border border-green-200 p-4 space-y-2">
+        <h4 class="font-semibold text-green-900">📝 II. Presentación</h4>
+        <p class="text-sm text-slate-700 line-clamp-3">{presentacion}</p>
+      </div>
+    {/if}
+
+    <!-- Unidades -->
+    {#if unidades.some((u) => u.titulo.trim())}
+      <div class="rounded-lg bg-purple-50 border border-purple-200 p-4 space-y-3">
+        <h4 class="font-semibold text-purple-900">📖 VI. Unidades ({unidades.filter((u) => u.titulo.trim()).length})</h4>
+        <ul class="space-y-1 text-sm">
+          {#each unidades.filter((u) => u.titulo.trim()) as u}
+            <li class="text-slate-700">• U{u.numero}. {u.titulo}</li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
+
+    <!-- Actividades -->
+    {#if actividades.some((a) => a.nombre.trim() || a.id_actividad)}
+      <div class="rounded-lg bg-amber-50 border border-amber-200 p-4 space-y-3">
+        <h4 class="font-semibold text-amber-900">✅ Actividades ({actividades.filter((a) => a.nombre.trim() || a.id_actividad).length})</h4>
+        <ul class="space-y-1 text-sm">
+          {#each actividades.filter((a) => a.nombre.trim() || a.id_actividad) as a}
+            <li class="text-slate-700">
+              • {a.nombre || 'Actividad'} {a.nombre_unidad ? `(Unidad: ${a.nombre_unidad})` : ''}
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
+
+    <!-- Resumen de completitud -->
+    <div class="rounded-lg bg-slate-50 border border-slate-300 p-4 space-y-3">
+      <h4 class="font-semibold text-slate-900">📊 Estado de Completitud</h4>
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center gap-2">
+          <span class="inline-block w-5 h-5 rounded-full {presentacion.trim() ? 'bg-green-500' : 'bg-slate-300'} flex-shrink-0"></span>
+          <span class="text-slate-700">Presentación</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="inline-block w-5 h-5 rounded-full {unidades.some((u) => u.titulo.trim()) ? 'bg-green-500' : 'bg-slate-300'} flex-shrink-0"></span>
+          <span class="text-slate-700">Unidades</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="inline-block w-5 h-5 rounded-full {actividades.some((a) => a.nombre.trim() || a.id_actividad) ? 'bg-green-500' : 'bg-slate-300'} flex-shrink-0"></span>
+          <span class="text-slate-700">Actividades (opcional)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-lg bg-blue-50 border border-blue-200 p-3">
+      <p class="text-sm text-blue-800">
+        <strong>✨ Listo para generar:</strong> Una vez que hagas clic en "Generar Programa", se creará tu programa de cátedra con la información completada.
+        Podrás editarlo después si es necesario.
+      </p>
+    </div>
+  </div>
 {/if}

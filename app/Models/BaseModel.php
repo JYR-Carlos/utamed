@@ -16,6 +16,7 @@ class BaseModel extends Model
         
         // Si es una clave compuesta y algún valor está null, refresca desde la BD
         if (is_array($instance->getKeyName())) {
+            /** @var array<string> $keyNames */
             $keyNames = $instance->getKeyName();
             $keys = array_combine($keyNames, (array)$instance->getKey());
             

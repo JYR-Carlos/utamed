@@ -11,7 +11,7 @@ use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Plan;
 use App\Models\Administrativo\Asignatura;
 use App\Models\Administrativo\AsignacionPlan;
-use App\Models\Administrativo\Programa;
+use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Componente;
 use App\Models\Curso\DocenteComponente;

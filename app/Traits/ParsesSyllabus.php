@@ -5,12 +5,22 @@ namespace App\Traits;
 trait ParsesSyllabus
 {
     /**
-     * Convierte data_syllabus de estructura IX-secciones a array de SeccionPrograma
-     * compatible con el componente ProgramaDocument del frontend.
+     * Convierte data_syllabus a array de SeccionPrograma compatible con ProgramaDocument.
+     *
+     * Soporta dos formatos:
+     * - Formato indexado (SyllabusStructure): array de objetos con 'numeral_romano' y 'contenidos'
+     *   ya listos para el frontend — se pasan directamente sin transformación.
+     * - Formato de wizard (associativo): keyed por numeral romano con 'contenido' (objeto estructurado)
+     *   que se parsea/aplana a texto.
      */
     protected function parseSecciones(array $data): array
     {
         $seccionesData = $data['secciones'] ?? $data;
+
+        // Formato indexado: array secuencial donde cada item ya tiene 'numeral_romano' y 'contenidos'
+        if (!empty($seccionesData) && array_is_list($seccionesData) && isset($seccionesData[0]['numeral_romano'])) {
+            return array_values($seccionesData);
+        }
 
         $romanos = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
         $nombres = [

@@ -63,16 +63,16 @@ class DebugAuthorizationFlow extends Command
 
         $this->line("ID: {$docente->id_docente}");
 
-        // 3. Verificar secciones en el curso
-        $this->line("\n📋 SECCIONES EN CURSO {$cursoId}:");
-        $seccionesEnCurso = $docente->secciones()
+        // 3. Verificar componentes en el curso
+        $this->line("\n📋 COMPONENTES EN CURSO {$cursoId}:");
+        $componentesEnCurso = $docente->componentesQueDicta()
             ->where('id_curso', $cursoId)
             ->count();
 
-        if ($seccionesEnCurso > 0) {
-            $this->line("   ✅ Tiene {$seccionesEnCurso} sección(es)");
+        if ($componentesEnCurso > 0) {
+            $this->line("   ✅ Tiene {$componentesEnCurso} componente(s)");
         } else {
-            $this->error("   ❌ NO tiene secciones en este curso");
+            $this->error("   ❌ NO tiene componentes en este curso");
             return 1;
         }
 

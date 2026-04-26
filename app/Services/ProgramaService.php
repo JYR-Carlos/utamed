@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\Administrativo\Programa;
+use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use Illuminate\Support\Facades\Auth;

@@ -22,7 +22,7 @@ class Actividad extends BaseActividad
         'es_grupal',
         'max_integrantes',
         'es_plantilla',
-        'id_seccion',
+        'id_componente',
         'id_unidad',
         'id_contexto',
     ];

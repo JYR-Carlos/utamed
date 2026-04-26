@@ -13,6 +13,7 @@ export interface SharedAuth {
     user: User;
     roles: string[];
     is_super_admin: boolean;
+    permissions: string[];
     docente?: any;
     estudiante?: any;
     docente_courses: SidebarCourse[];

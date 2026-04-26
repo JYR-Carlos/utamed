@@ -11,7 +11,8 @@
    * Se activa haciendo clic en cualquier fila de la tabla principal.
    * La tabla de fondo queda levemente oscurecida (backdrop) con blur mínimo.
    */
-  import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight } from 'lucide-svelte';
+  import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight, Calendar } from 'lucide-svelte';
+  import { router } from '@inertiajs/svelte';
   import type { Curso, Componente } from '../types/curso.types';
 
   interface Props {
@@ -43,10 +44,53 @@
   type Tab = 'secciones' | 'equipo' | 'configuracion';
   let activeTab = $state<Tab>('secciones');
 
-  // Reinicia la pestaña activa cada vez que se abre el panel
+  // ─── Estado del editor de fechas límite ────────────────────────────────
+  let fechaBasico = $state('');
+  let fechaSyllabus = $state('');
+  let savingFechas = $state(false);
+  let fechasError = $state('');
+  let fechasSuccess = $state(false);
+
+  function isoToInput(iso: string | null | undefined): string {
+    if (!iso) return '';
+    return iso.slice(0, 10);
+  }
+
+  // Reinicia la pestaña activa y los campos de fecha cada vez que se abre el panel
   $effect(() => {
-    if (isOpen) activeTab = 'secciones';
+    if (isOpen && curso) {
+      activeTab = 'secciones';
+      fechaBasico = isoToInput(curso.fecha_limite_entrega_basico);
+      fechaSyllabus = isoToInput(curso.fecha_limite_entrega_syllabus);
+      fechasError = '';
+      fechasSuccess = false;
+    }
   });
+
+  function guardarFechas() {
+    if (!curso) return;
+    savingFechas = true;
+    fechasError = '';
+    fechasSuccess = false;
+    router.put(
+      `/admin/cursos/${curso.id_curso}/programa/fechas`,
+      {
+        fecha_limite_entrega_basico: fechaBasico || null,
+        fecha_limite_entrega_syllabus: fechaSyllabus || null,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          savingFechas = false;
+          fechasSuccess = true;
+        },
+        onError: (errors) => {
+          savingFechas = false;
+          fechasError = Object.values(errors).flat().join('. ');
+        },
+      },
+    );
+  }
 
   function handleClose() {
     isOpen = false;
@@ -338,6 +382,53 @@
               >
                 <BookOpen size={13} />
                 {curso.has_programa ? 'Ver programa' : 'Crear programa'}
+              </button>
+            </div>
+          </div>
+
+          <!-- Fechas límite de entrega -->
+          <div class="space-y-3">
+            <p
+              class="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5"
+            >
+              <Calendar size={12} />
+              Fechas límite de entrega
+            </p>
+            <div class="p-4 rounded-xl border border-gray-200 space-y-4">
+              <div class="space-y-1.5">
+                <label for="fecha-basico" class="text-xs font-medium text-gray-700">
+                  Básico (programa sin contenidos)
+                </label>
+                <input
+                  id="fecha-basico"
+                  type="date"
+                  bind:value={fechaBasico}
+                  class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div class="space-y-1.5">
+                <label for="fecha-syllabus" class="text-xs font-medium text-gray-700">
+                  Syllabus completo
+                </label>
+                <input
+                  id="fecha-syllabus"
+                  type="date"
+                  bind:value={fechaSyllabus}
+                  class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              {#if fechasError}
+                <p class="text-xs text-red-600">{fechasError}</p>
+              {/if}
+              {#if fechasSuccess}
+                <p class="text-xs text-green-600">Fechas guardadas correctamente.</p>
+              {/if}
+              <button
+                onclick={guardarFechas}
+                disabled={savingFechas}
+                class="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition"
+              >
+                {savingFechas ? 'Guardando…' : 'Guardar fechas'}
               </button>
             </div>
           </div>

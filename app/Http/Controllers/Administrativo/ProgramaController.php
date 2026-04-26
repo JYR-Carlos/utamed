@@ -3,13 +3,14 @@
 namespace App\Http\Controllers\Administrativo;
 
 use App\Http\Controllers\Controller;
-use App\Models\Administrativo\Programa;
+use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Services\ProgramaService;
 use App\Services\SyllabusStructure;
 use App\Traits\ParsesSyllabus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 
 class ProgramaController extends Controller
@@ -126,12 +127,23 @@ class ProgramaController extends Controller
 
             $secciones = $this->parseSecciones($dataSyllabus);
 
+            // Recuperar última razón de rechazo cuando el programa está en BORRADOR
+            $ultimoRechazo = null;
+            if ($programa->estado === 'BORRADOR') {
+                $ultimoRechazo = \App\Models\Auditoria\ProgramaHistorial::where('id_programa', $programa->id_programa)
+                    ->where('accion', 'RECHAZO')
+                    ->orderByDesc('fecha_accion')
+                    ->first(['observaciones', 'fecha_accion']);
+            }
+
             $programaData = [
                 'id_programa'      => $programa->id_programa,
                 'version_programa' => $programa->version_programa,
                 'estado'           => $programa->estado,
                 'secciones'        => $secciones,
                 'fecha_creacion'   => $programa->fecha_creacion,
+                'razon_rechazo'    => $ultimoRechazo?->observaciones,
+                'fecha_rechazo'    => $ultimoRechazo?->fecha_accion,
             ];
         }
 
@@ -217,13 +229,16 @@ class ProgramaController extends Controller
         ]);
 
         $user = Auth::user();
+        $razonRechazo = trim($request->razon_rechazo);
 
-        $programa->update([
-            'estado' => 'BORRADOR',
-            'razon_rechazo' => $request->razon_rechazo,
-            'rechazado_por' => $user->id_usuario,
-            'fecha_rechazo' => now(),
-        ]);
+        // Envolver en transacción para que SET LOCAL aplique al trigger de auditoría
+        DB::transaction(function () use ($programa, $razonRechazo, $user) {
+            DB::statement("SELECT set_config('app.accion_tipo',   'RECHAZO', true)");
+            DB::statement("SELECT set_config('app.razon_rechazo', ?, true)", [$razonRechazo]);
+            DB::statement("SELECT set_config('app.actor_id',      ?, true)", [(string) $user->id_usuario]);
+
+            $programa->update(['estado' => 'BORRADOR']);
+        });
 
         return Redirect::route('docente.cursos.programa.show', $curso->id_curso)
             ->with('warning', 'Programa rechazado. Se devolvió a estado de borrador para revisión.');

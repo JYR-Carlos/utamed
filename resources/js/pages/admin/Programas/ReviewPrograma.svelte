@@ -113,7 +113,7 @@
     isRejecting = true;
     router.put(
       `/admin/cursos/${curso.id_curso}/programa/rechazar`,
-      { razon_rechazo: rejectionReason },
+      { razon_rechazo: rejectionReason, accion_tipo: 'rechazo' },
       { onFinish: () => (isRejecting = false) },
     );
   }

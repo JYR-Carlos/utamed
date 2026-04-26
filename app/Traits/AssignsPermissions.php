@@ -111,6 +111,7 @@ trait AssignsPermissions
 
     $upe->fecha_fin_real = Carbon::now();
     $upe->esta_activo = false;
+    $upe->fue_borrado = true;
     $upe->eliminado_por = $actor?->id_usuario;
     $upe->save();
   }
@@ -152,6 +153,7 @@ trait AssignsPermissions
 
     $ura->fecha_fin_real = Carbon::now();
     $ura->esta_activo = false;
+    $ura->fue_eliminado = true;
     $ura->eliminado_por = $actor?->id_usuario;
     $ura->save();
   }

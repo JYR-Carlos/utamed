@@ -14,9 +14,18 @@
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import { ArrowLeft, Plus, Trash2, UserPlus, Save, Users, User, BookOpen } from 'lucide-svelte';
   import type { Actividad, Integrante, Grupo, Estado, EstudianteDisponible } from '@/types/actividad';
+  import { hasPermission } from '@/services/permissionValidator';
+  import type { Permission } from '@/types/permissions/permissions';
 
   interface Props {
-    curso: { id_curso: number; cod_curso?: string; asignatura_nombre?: string; nombre?: string };
+    curso: {
+      id_curso: number;
+      cod_curso?: string;
+      asignatura_nombre?: string;
+      nombre?: string;
+      es_titular_curso?: boolean;
+      userPermissions?: Permission[];
+    };
     actividad: Actividad;
     grupos: Grupo[];
     estudiantesDisponibles: EstudianteDisponible[];
@@ -27,6 +36,16 @@
   // Props & reactive state
   // ---------------------------------------------------------------------------
   let { curso, actividad, grupos: gruposInit, estudiantesDisponibles, estados }: Props = $props();
+
+  const canCreateGroup = $derived(
+    curso.es_titular_curso || hasPermission(curso.userPermissions ?? [], 'actividades/grupos:crear'),
+  );
+  const canEditGroup = $derived(
+    curso.es_titular_curso || hasPermission(curso.userPermissions ?? [], 'actividades/grupos:editar'),
+  );
+  const canDeleteGroup = $derived(
+    curso.es_titular_curso || hasPermission(curso.userPermissions ?? [], 'actividades/grupos:eliminar'),
+  );
 
   // Local mutable copy so we can edit inline without waiting for server round-trips.
   // untrack() suppresses the Svelte 5 state_referenced_locally warning – intentional
@@ -230,15 +249,17 @@
           </p>
         </div>
 
-        <button
-          onclick={() => {
-            showNuevoGrupo = !showNuevoGrupo;
-          }}
-          class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white font-semibold text-sm rounded-lg hover:bg-blue-600 disabled:opacity-60 whitespace-nowrap"
-        >
-          <Plus size={18} />
-          {actividad.es_grupal ? 'Nuevo Grupo' : 'Asignar Alumno'}
-        </button>
+        {#if canCreateGroup}
+          <button
+            onclick={() => {
+              showNuevoGrupo = !showNuevoGrupo;
+            }}
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white font-semibold text-sm rounded-lg hover:bg-blue-600 disabled:opacity-60 whitespace-nowrap"
+          >
+            <Plus size={18} />
+            {actividad.es_grupal ? 'Nuevo Grupo' : 'Asignar Alumno'}
+          </button>
+        {/if}
       </div>
     </div>
 
@@ -314,13 +335,15 @@
             <h3 class="text-base font-bold text-gray-900">
               {actividad.es_grupal ? `Grupo #${gi + 1}` : (grupo.integrantes[0]?.nombre_completo ?? `Alumno #${gi + 1}`)}
             </h3>
-            <button
-              onclick={() => eliminarGrupo(grupo.grupo)}
-              class="p-2 bg-transparent border border-red-300 rounded-lg text-red-500 hover:bg-red-50"
-              title="Eliminar grupo"
-            >
-              <Trash2 size={16} />
-            </button>
+            {#if canDeleteGroup}
+              <button
+                onclick={() => eliminarGrupo(grupo.grupo)}
+                class="p-2 bg-transparent border border-red-300 rounded-lg text-red-500 hover:bg-red-50"
+                title="Eliminar grupo"
+              >
+                <Trash2 size={16} />
+              </button>
+            {/if}
           </div>
 
           <!-- Nota y estado del grupo -->
@@ -353,14 +376,16 @@
               </select>
             </div>
 
-            <button
-              onclick={() => guardarGrupo(grupo)}
-              class="inline-flex items-center gap-2 px-3 py-2 bg-green-500 text-white text-xs font-semibold rounded-lg hover:bg-green-600 disabled:opacity-60 whitespace-nowrap"
-              disabled={savingGrupo.has(grupo.grupo)}
-            >
-              <Save size={14} />
-              {savingGrupo.has(grupo.grupo) ? 'Guardando…' : 'Guardar'}
-            </button>
+            {#if canEditGroup}
+              <button
+                onclick={() => guardarGrupo(grupo)}
+                class="inline-flex items-center gap-2 px-3 py-2 bg-green-500 text-white text-xs font-semibold rounded-lg hover:bg-green-600 disabled:opacity-60 whitespace-nowrap"
+                disabled={savingGrupo.has(grupo.grupo)}
+              >
+                <Save size={14} />
+                {savingGrupo.has(grupo.grupo) ? 'Guardando…' : 'Guardar'}
+              </button>
+            {/if}
           </div>
         </div>
 
@@ -368,7 +393,7 @@
         <div class="px-5 py-4">
           <div class="flex justify-between items-center mb-3">
             <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wider">Integrantes ({grupo.integrantes.length})</h4>
-            {#if actividad.es_grupal}
+            {#if actividad.es_grupal && canCreateGroup}
               <button
                 onclick={() => {
                   addingToGrupo = addingToGrupo === grupo.grupo ? null : grupo.grupo;

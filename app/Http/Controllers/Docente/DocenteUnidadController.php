@@ -19,8 +19,8 @@ class DocenteUnidadController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
 
-        $isDocente = $curso->secciones()
-            ->where('id_docente', $user->docente->id_docente)
+        $isDocente = $curso->componentes()
+            ->whereHas('docentesAsignados', fn ($q) => $q->where('id_docente', $user->docente->id_docente))
             ->exists();
 
         if (!$isDocente && !$user->is_admin) {
@@ -50,8 +50,8 @@ class DocenteUnidadController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
 
-        $isDocente = $curso->secciones()
-            ->where('id_docente', $user->docente->id_docente)
+        $isDocente = $curso->componentes()
+            ->whereHas('docentesAsignados', fn ($q) => $q->where('id_docente', $user->docente->id_docente))
             ->exists();
 
         if (!$isDocente && !$user->is_admin) {
@@ -97,8 +97,8 @@ class DocenteUnidadController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
 
-        $isDocente = $curso->secciones()
-            ->where('id_docente', $user->docente->id_docente)
+        $isDocente = $curso->componentes()
+            ->whereHas('docentesAsignados', fn ($q) => $q->where('id_docente', $user->docente->id_docente))
             ->exists();
 
         if (!$isDocente && !$user->is_admin) {
@@ -136,8 +136,8 @@ class DocenteUnidadController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
 
-        $isDocente = $curso->secciones()
-            ->where('id_docente', $user->docente->id_docente)
+        $isDocente = $curso->componentes()
+            ->whereHas('docentesAsignados', fn ($q) => $q->where('id_docente', $user->docente->id_docente))
             ->exists();
 
         if (!$isDocente && !$user->is_admin) {

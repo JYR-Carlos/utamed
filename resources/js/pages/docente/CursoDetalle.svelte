@@ -30,6 +30,8 @@
     ComponentePermisosModal,
     EquipoDocenteSlideOver,
   } from '@/modules/resources/curso/components';
+  import { hasPermission } from '@/services/permissionValidator';
+  import type { Permission } from '@/types/permissions/permissions';
 
   interface Componente {
     id_componente: number;
@@ -89,6 +91,7 @@
     };
     secciones: any[];
     total_estudiantes: number;
+    userPermissions?: Permission[];
   }
 
   interface Props {
@@ -99,6 +102,10 @@
   }
 
   let { curso, mis_componentes, mis_estudiantes, todos_componentes = [] }: Props = $props();
+
+  const canVerActividades = $derived(
+    curso.es_titular_curso || hasPermission(curso.userPermissions ?? [], 'actividades:ver'),
+  );
 
   // Pestaña activa en la sección "Mi Grupo"
   let componenteActivo = $state<number | null>(null);
@@ -244,14 +251,16 @@
               Permisos Syllabus
             </button>
           {/if}
-          <button
-            onclick={() => router.visit(`/docente/cursos/${curso.id_curso}/actividades`)}
-            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-lg transition shadow-sm hover:brightness-110"
-            style="background:#2A66AC;"
-          >
-            <FileText size={15} />
-            Ver Actividades
-          </button>
+          {#if canVerActividades}
+            <button
+              onclick={() => router.visit(`/docente/cursos/${curso.id_curso}/actividades`)}
+              class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-lg transition shadow-sm hover:brightness-110"
+              style="background:#2A66AC;"
+            >
+              <FileText size={15} />
+              Ver Actividades
+            </button>
+          {/if}
         </div>
       </div>
     </div>

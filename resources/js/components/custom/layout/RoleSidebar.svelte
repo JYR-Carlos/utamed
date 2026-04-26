@@ -22,6 +22,9 @@
   } from 'lucide-svelte';
   import type { SidebarCourse } from '@/types';
   import { hasPermission } from '@/services/permissionValidator';
+  import { usePermissions } from '@/lib/composables/usePermissions';
+
+  const { can } = usePermissions();
 
   // ── Shared props ──────────────────────────────────────────────
   let authRoles = $derived(($page.props.auth?.roles as string[]) || []);
@@ -31,13 +34,17 @@
 
   // ── Role flags ────────────────────────────────────────────────
   let isSuperAdmin = $derived(($page.props.auth?.is_super_admin as boolean) || false);
-  let isDocente = $derived(authRoles.some((r) => ['Docente', 'docente'].includes(r)));
-  let isEstudiante = $derived(authRoles.some((r) => ['Estudiante', 'estudiante'].includes(r)));
-  let isAyudante = $derived(authRoles.some((r) => ['Ayudante', 'ayudante'].includes(r)));
+  // Permission-based flags — independent of role name strings
+  let userDocente = $derived(($page.props.auth?.docente as any) ?? null);
+  let userEstudiante = $derived(($page.props.auth?.estudiante as any) ?? null);
+  let isDocente = $derived(userDocente !== null && can('cursos:ver'));
+  let isEstudiante = $derived(userEstudiante !== null);
+  let isAyudante = $derived(ayudanteCourses.length > 0);
   let isAdmin = $derived(
     isSuperAdmin ||
-      authRoles.some((r) => ['Administrador', 'SuperAdmin', 'Super Admin'].includes(r)) ||
-      authRoles.length === 0,
+      can('facultades:ver') ||
+      can('departamentos:ver') ||
+      can('usuarios/permisos/roles:ver'),
   );
 
   // ── Período académico ─────────────────────────────────────────

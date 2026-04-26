@@ -69,7 +69,7 @@ class DashboardController extends Controller
             ->whereNull('fecha_eliminacion')
             ->get()
             ->map(function ($curso) {
-                $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)
+                $tienePrograma = \App\Models\Curso\Programa::where('id_curso', $curso->id_curso)
                     ->where('es_actual', true)
                     ->exists();
 

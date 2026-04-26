@@ -53,10 +53,10 @@
   let user = $derived($page.props.auth.user);
   let roles = $derived(($page.props.auth.roles as string[]) || []);
 
-  let isDocente = $derived(roles.includes('Docente') || roles.includes('docente'));
-  let isEstudiante = $derived(roles.includes('Estudiante') || roles.includes('estudiante'));
-  let isAyudante = $derived(roles.includes('Ayudante') || roles.includes('ayudante'));
-  let isAdmin = $derived(roles.includes('SuperAdmin') || roles.includes('Super Admin') || roles.includes('Administrador'));
+  let isDocente = $derived(($page.props.auth?.docente as any) !== null && ($page.props.auth?.docente as any) !== undefined);
+  let isEstudiante = $derived(($page.props.auth?.estudiante as any) !== null && ($page.props.auth?.estudiante as any) !== undefined);
+  let isAyudante = $derived((($page.props.auth?.ayudante_courses as any[]) || []).length > 0);
+  let isAdmin = $derived(($page.props.auth?.is_super_admin as boolean) || roles.includes('SuperAdmin') || roles.includes('Super Admin') || roles.includes('Administrador'));
 
   // Actividad reciente (mock representativo)
   const recentActivity = [

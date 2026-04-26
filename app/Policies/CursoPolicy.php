@@ -165,9 +165,7 @@ class CursoPolicy extends BaseCursoPolicy
         $componentes = $curso->componentes()
             ->with('tipoComponente')
             ->whereHas('docenteComponentes', function ($q) use ($docente) {
-                $q->where('id_docente', $docente->id_docente)
-                  ->where('esta_activo', true)
-                  ->where('fue_eliminado', false);
+                $q->where('id_docente', $docente->id_docente);
             })
             ->get();
 

@@ -8,7 +8,12 @@ use App\Models\Curso\DocenteComponente;
 use App\Models\Curso\TipoComponente;
 use App\Models\Administrativo\AsignacionPlan;
 use App\Models\Usuario\Contexto;
+use App\Models\Usuario\Docente;
+use App\Models\Usuario\Rol;
+use App\Models\Usuario\UsuarioRolAsignacion;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -76,6 +81,11 @@ class CursoService
                         'id_docente'    => $data['id_docente_sugerido'],
                         'es_titular'    => true,
                     ]);
+
+                    // Asignar rol 'Docente Titular' en el contexto del curso
+                    if ($curso->id_contexto) {
+                        $this->assignDocenteRolCurso($data['id_docente_sugerido'], $curso->id_contexto, true);
+                    }
                 }
             }
 
@@ -274,5 +284,98 @@ class CursoService
 
         // Log the synchronization event
         Log::channel('seguridad')->info('Sincronización de profesor jefe completada', $logData);
+    }
+
+    /**
+     * Asigna el rol correcto al usuario en el contexto del curso según si es titular o componente.
+     *
+     * @param  int   $idDocente        ID del docente
+     * @param  int   $idContextoCurso  ID del contexto del curso
+     * @param  bool  $esTitular        Si se asigna como titular (true) o componente (false)
+     * @return void
+     */
+    private function assignDocenteRolCurso(int $idDocente, int $idContextoCurso, bool $esTitular): void
+    {
+        try {
+            $docente = Docente::find($idDocente);
+            if (!$docente || !$docente->id_usuario) {
+                Log::warning('CursoService: No se pudo asignar rol Docente: docente no encontrado.', [
+                    'id_docente' => $idDocente,
+                ]);
+                return;
+            }
+
+            $actorId = Auth::id() ?? $docente->id_usuario;
+            $rolNombre = $esTitular ? 'Docente Titular' : 'Docente Componente';
+
+            if ($esTitular) {
+                // Revocar rol Docente Componente previo si existe
+                $rolComponente = Rol::where('nombre', 'Docente Componente')->first();
+                if ($rolComponente) {
+                    UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
+                        ->where('id_contexto', $idContextoCurso)
+                        ->where('id_rol', $rolComponente->id_rol)
+                        ->where('esta_activo', true)
+                        ->where('fue_eliminado', false)
+                        ->update([
+                            'esta_activo'    => false,
+                            'fue_eliminado'  => true,
+                            'fecha_fin_real' => Carbon::now(),
+                            'eliminado_por'  => $actorId,
+                        ]);
+                }
+            } else {
+                // No degradar si ya tiene Docente Titular
+                $rolTitular = Rol::where('nombre', 'Docente Titular')->first();
+                if ($rolTitular) {
+                    $hasTitular = UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
+                        ->where('id_contexto', $idContextoCurso)
+                        ->where('id_rol', $rolTitular->id_rol)
+                        ->where('esta_activo', true)
+                        ->where('fue_eliminado', false)
+                        ->exists();
+                    if ($hasTitular) {
+                        return;
+                    }
+                }
+            }
+
+            $rol = Rol::firstOrCreate(
+                ['nombre' => $rolNombre],
+                ['creado_por' => $actorId]
+            );
+
+            $already = UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
+                ->where('id_contexto', $idContextoCurso)
+                ->where('id_rol', $rol->id_rol)
+                ->where('esta_activo', true)
+                ->where('fue_eliminado', false)
+                ->exists();
+
+            if (!$already) {
+                $now = Carbon::now();
+                UsuarioRolAsignacion::create([
+                    'id_usuario'               => $docente->id_usuario,
+                    'id_rol'                   => $rol->id_rol,
+                    'id_contexto'              => $idContextoCurso,
+                    'asignado_por'             => $actorId,
+                    'fecha_inicio_planificada' => $now,
+                    'fecha_fin_planificada'    => $now->copy()->addYears(100),
+                    'fecha_fin_real'           => null,
+                    'fue_eliminado'            => false,
+                    'esta_activo'              => true,
+                    'creado_por'               => $actorId,
+                ]);
+                Log::info("CursoService: Rol '{$rolNombre}' asignado en curso", [
+                    'id_usuario'        => $docente->id_usuario,
+                    'id_contexto_curso' => $idContextoCurso,
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('CursoService: Error asignando rol Docente en curso: ' . $e->getMessage(), [
+                'id_docente'        => $idDocente,
+                'id_contexto_curso' => $idContextoCurso,
+            ]);
+        }
     }
 }

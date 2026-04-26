@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Administrativo\Programa;
+use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
-use App\Models\Curso\Seccion;
+use App\Models\Curso\Componente;
 use App\Models\Curso\Unidad;
 use App\Models\Agenda\Actividad;
 use App\Services\ProgramaService;
@@ -13,6 +13,7 @@ use App\Support\Permissions;
 use App\Traits\ParsesSyllabus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
@@ -166,7 +167,7 @@ class ProgramaController extends Controller
         }
 
         // Cargar relaciones del programa para nombre de creador/revisor
-        $programa->loadMissing(['creator', 'reviewer']);
+        $programa->loadMissing(['autor', 'revisor']);
 
         // Normalizar data_syllabus al contrato que espera ProgramaDocument
         $rawSyllabus = is_array($programa->data_syllabus)
@@ -198,13 +199,13 @@ class ProgramaController extends Controller
                 'revisado_por'     => $programa->revisado_por,
                 'fecha_creacion'   => $programa->fecha_creacion,
                 'secciones'        => $secciones,
-                'creator'  => $programa->creator  ? [
-                    'id_usuario'      => $programa->creator->id_usuario,
-                    'nombre_completo' => trim(collect([$programa->creator->nombre1, $programa->creator->nombre2, $programa->creator->apellido1, $programa->creator->apellido2])->filter()->implode(' ')),
+                'creator'  => $programa->autor  ? [
+                    'id_usuario'      => $programa->autor->id_usuario,
+                    'nombre_completo' => trim(collect([$programa->autor->nombre1, $programa->autor->nombre2, $programa->autor->apellido1, $programa->autor->apellido2])->filter()->implode(' ')),
                 ] : null,
-                'reviewer' => $programa->reviewer ? [
-                    'id_usuario'      => $programa->reviewer->id_usuario,
-                    'nombre_completo' => trim(collect([$programa->reviewer->nombre1, $programa->reviewer->nombre2, $programa->reviewer->apellido1, $programa->reviewer->apellido2])->filter()->implode(' ')),
+                'reviewer' => $programa->revisor ? [
+                    'id_usuario'      => $programa->revisor->id_usuario,
+                    'nombre_completo' => trim(collect([$programa->revisor->nombre1, $programa->revisor->nombre2, $programa->revisor->apellido1, $programa->revisor->apellido2])->filter()->implode(' ')),
                 ] : null,
             ],
             'asignatura'      => $asignatura,
@@ -536,7 +537,7 @@ class ProgramaController extends Controller
             'pendientes' => Programa::whereIn('estado', ['BASICO_COMPLETO', 'COMPLETO'])
                 ->whereNull('fecha_eliminacion')->count(),
             'rechazados' => 0,  // estado eliminado del nuevo flujo
-            'total' => Programa::whereNull('fecha_eliminacion')->count(),
+            'total' => Programa::count(),
         ];
 
         return Inertia::render('admin/Programas', [
@@ -570,7 +571,7 @@ class ProgramaController extends Controller
             ->with([
                 'asignacionPlan.asignatura',
                 'asignacionPlan.plan.carrera',
-                'programas' => fn ($q) => $q->where('es_actual', true)->whereNull('fecha_eliminacion'),
+                'programas' => fn ($q) => $q->where('es_actual', true),
             ])
             ->whereNull('fecha_eliminacion');
 
@@ -661,36 +662,40 @@ class ProgramaController extends Controller
         $this->authorize('reject', $programa);
 
         try {
-            // Validar estado actual - solo se puede rechazar si está APROBADO
-            if ($programa->estado !== 'APROBADO') {
-                return redirect()->back()->with('error', "No se puede rechazar un programa en estado {$programa->estado}. Solo se pueden rechazar programas aprobados.");
+            // Validar estado actual — se puede devolver desde COMPLETO o APROBADO
+            $estadosPermitidos = ['COMPLETO', 'APROBADO', 'BASICO_COMPLETO'];
+            if (!in_array($programa->estado, $estadosPermitidos)) {
+                return redirect()->back()->with('error', "No se puede devolver un programa en estado {$programa->estado}.");
             }
 
-            // Obtener el tipo de syllabus para devolver al estado correcto
-            $tipoSyllabus = $programa->getTipoSyllabus();
-            $estadoAnterior = $tipoSyllabus === 'BASICO' ? 'BASICO_COMPLETO' : 'COMPLETO';
+            // Obtener razón del rechazo (el tag 'accion_tipo' del frontend confirma la acción)
+            $razonRechazo = trim($request->input('razon_rechazo', 'No especificada'));
+            $estadoOrigen = $programa->estado;
 
-            // Obtener razón del rechazo si fue proporcionada
-            $razonRechazo = $request->input('razon_rechazo', 'No especificada');
+            // Envolver en transacción para que SET LOCAL aplique al trigger
+            DB::transaction(function () use ($programa, $razonRechazo, $user) {
+                // Pasar el tag de acción y el actor al trigger de auditoría vía session config
+                DB::statement("SELECT set_config('app.accion_tipo',   'RECHAZO', true)");
+                DB::statement("SELECT set_config('app.razon_rechazo', ?, true)", [$razonRechazo]);
+                DB::statement("SELECT set_config('app.actor_id',      ?, true)", [(string) $user->id_usuario]);
 
-            // Devolver a estado anterior
-            $programa->update([
-                'estado' => $estadoAnterior,
-                'fecha_aprobacion' => null,
-                'revisado_por' => null,
-            ]);
+                $programa->update([
+                    'estado'           => 'BORRADOR',
+                    'fecha_aprobacion' => null,
+                    'revisado_por'     => null,
+                ]);
+            });
 
-            Log::info('Programa rechazado/devuelto a revisión', [
-                'id_programa' => $programa->id_programa,
-                'tipo_syllabus' => $tipoSyllabus,
-                'estado_anterior' => 'APROBADO',
-                'estado_nuevo' => $estadoAnterior,
+            Log::info('Programa devuelto a revisión (rechazado)', [
+                'id_programa'   => $programa->id_programa,
+                'estado_origen' => $estadoOrigen,
+                'estado_nuevo'  => 'BORRADOR',
                 'rechazado_por' => $user->id_usuario,
                 'razon_rechazo' => $razonRechazo,
             ]);
 
-            return redirect()->route('admin.programas.index', ['estado' => $estadoAnterior])
-                ->with('warning', "Programa de {$curso->nombre} devuelto a estado {$estadoAnterior}. El usuario puede editarlo nuevamente. Razón: {$razonRechazo}");
+            return redirect()->back()
+                ->with('warning', "Programa devuelto a estado BORRADOR. El docente puede editarlo nuevamente. Razón: {$razonRechazo}");
 
         } catch (\Exception $e) {
             Log::error('Error al rechazar programa', [
@@ -732,14 +737,24 @@ class ProgramaController extends Controller
 
     /**
      * Valida que el usuario tenga permiso para editar una sección específica
+     * Acepta tanto el permiso específico del módulo como el wildcard de modificación
      */
     private function validatePermissionForSeccion($user, string $seccionId, int $idContexto): void
     {
         $permission = $this->getPermissionForSeccion($seccionId);
 
-        if (!$user->hasPermission($permission, $idContexto)) {
-            abort(403, "No tienes permiso para editar la sección {$seccionId}");
+        // Intentar primero con el permiso específico del módulo
+        if ($user->hasPermission($permission, $idContexto)) {
+            return;
         }
+
+        // Si no tiene el permiso específico, verificar si tiene wildcard de modificación
+        if ($user->hasPermission(Permissions::CURSOS_PROGRAMAS_MODIFICAR_ALL, $idContexto)) {
+            return;
+        }
+
+        // Si no tiene ninguno, denegar acceso
+        abort(403, "No tienes permiso para editar la sección {$seccionId}");
     }
 
     /**
@@ -750,7 +765,7 @@ class ProgramaController extends Controller
         $secciones = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
 
         foreach ($secciones as $seccion) {
-            $this->validatePermissionForSeccion($user, $seccion, $curso->id_curso);
+            $this->validatePermissionForSeccion($user, $seccion, $curso->id_contexto);
         }
     }
 
@@ -1037,12 +1052,12 @@ class ProgramaController extends Controller
                     continue;
                 }
 
-                // Obtener la primera sección del curso para asociar la actividad
-                $seccion = Seccion::where('id_curso', $curso->id_curso)
+                // Obtener el primer componente del curso para asociar la actividad
+                $componente = Componente::where('id_curso', $curso->id_curso)
                     ->first();
 
-                if (!$seccion) {
-                    Log::warning("No hay secciones para crear actividad en curso: {$curso->id_curso}");
+                if (!$componente) {
+                    Log::warning("No hay componentes para crear actividad en curso: {$curso->id_curso}");
                     continue;
                 }
 
@@ -1054,7 +1069,7 @@ class ProgramaController extends Controller
                     'es_grupal' => $actData['es_grupal'] ?? false,
                     'max_integrantes' => $actData['max_integrantes'] ?? 1,
                     'es_plantilla' => false,
-                    'id_seccion' => $seccion->id_seccion,
+                    'id_componente' => $componente->id_componente,
                     'id_unidad' => $unidad->id_unidad,
                     'id_contexto' => $curso->id_contexto,
                     'fecha_limite' => $actData['fecha_limite'] ?? now()->addDays(7),
@@ -1106,13 +1121,6 @@ class ProgramaController extends Controller
                 $validated['tipo_syllabus']
             );
 
-            Log::info('Programa instanciado', [
-                'id_programa'     => $programa->id_programa,
-                'id_curso'        => $curso->id_curso,
-                'tipo_syllabus'   => $validated['tipo_syllabus'],
-                'instanciado_por' => $user->id_usuario,
-                'version'         => $programa->version_programa,
-            ]);
 
             return redirect()->back()->with('success', 'Programa instanciado correctamente. El docente puede comenzar a completarlo.');
 

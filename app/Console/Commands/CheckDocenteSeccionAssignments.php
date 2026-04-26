@@ -7,25 +7,26 @@ use Illuminate\Support\Facades\DB;
 
 class CheckDocenteSeccionAssignments extends Command
 {
-    protected $signature = 'check:docente-seccion-assignments';
-    protected $description = 'Verifica asignaciones de docentes a secciones y permisos en contextos';
+    protected $signature = 'check:docente-componente-assignments';
+    protected $description = 'Verifica asignaciones de docentes a componentes y permisos en contextos';
 
     public function handle()
     {
         $this->info("\n===================================================================================");
-        $this->line("🔍 ASIGNACIONES DE DOCENTES A SECCIONES Y PERMISOS EN CONTEXTO");
+        $this->line("🔍 ASIGNACIONES DE DOCENTES A COMPONENTES Y PERMISOS EN CONTEXTO");
         $this->info("===================================================================================\n");
 
-        // Obtener docentes con sus secciones
+        // Obtener docentes con sus componentes
         $query = DB::table('docente')
             ->join('usuario.usuario', 'docente.id_usuario', '=', 'usuario.id_usuario')
-            ->leftJoin('curso.seccion', 'docente.id_docente', '=', 'curso.seccion.id_docente')
-            ->leftJoin('curso.curso', 'curso.seccion.id_curso', '=', 'curso.curso.id_curso')
+            ->leftJoin('curso.docente_componente', 'docente.id_docente', '=', 'curso.docente_componente.id_docente')
+            ->leftJoin('curso.componente', 'curso.docente_componente.id_componente', '=', 'curso.componente.id_componente')
+            ->leftJoin('curso.curso', 'curso.componente.id_curso', '=', 'curso.curso.id_curso')
             ->select(
                 'docente.id_docente',
-                'usuario.name',
-                'curso.seccion.id_seccion',
-                'curso.seccion.id_curso',
+                'usuario.usuario.nombre',
+                'curso.docente_componente.id_componente',
+                'curso.componente.id_curso',
                 'curso.curso.nombre AS curso_nombre'
             )
             ->orderBy('docente.id_docente')
@@ -35,20 +36,20 @@ class CheckDocenteSeccionAssignments extends Command
         $docentes_data = $query->groupBy('id_docente');
 
         foreach ($docentes_data as $id_docente => $registros) {
-            $nombre = $registros->first()->name;
+            $nombre = $registros->first()->nombre;
             
             $this->line("📖 DOCENTE ID: {$id_docente} ({$nombre})");
             
-            // Secciones asignadas
-            $secciones = $registros->whereNotNull('id_seccion');
+            // Componentes asignados
+            $componentes = $registros->whereNotNull('id_componente');
             
-            if ($secciones->count() > 0) {
-                $this->line("   ✅ Asignado a " . $secciones->count() . " secciones:");
-                foreach ($secciones as $reg) {
+            if ($componentes->count() > 0) {
+                $this->line("   ✅ Asignado a " . $componentes->count() . " componente(s):");
+                foreach ($componentes as $reg) {
                     $this->line("      - Curso: {$reg->curso_nombre} (ID: {$reg->id_curso})");
                 }
             } else {
-                $this->line("   ❌ NO asignado a ninguna sección");
+                $this->line("   ❌ NO asignado a ningún componente");
             }
             
             // Verificar roles en contextos

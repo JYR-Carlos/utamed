@@ -27,7 +27,7 @@
     tipo_entrega: string;
     es_grupal: boolean;
     max_integrantes: number;
-    seccion: { id_seccion: number; tipo: string } | null;
+    componente: { id_componente: number; tipo: string } | null;
     unidad: { id_unidad: number; nombre: string } | null;
     // Estado de asignación del alumno
     asignado: boolean;
@@ -188,8 +188,8 @@
                       <span class="text-xs font-semibold px-2 py-1 bg-purple-100 text-purple-700 rounded-full">Individual</span>
                     {/if}
                     <span class="text-xs font-semibold px-2 py-1 bg-gray-100 text-gray-700 rounded-full">{act.tipo_entrega}</span>
-                    {#if act.seccion}
-                      <span class="text-xs font-semibold px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{act.seccion.tipo}</span>
+                    {#if act.componente}
+                      <span class="text-xs font-semibold px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{act.componente.tipo}</span>
                     {/if}
                   </div>
                   <div class="flex flex-wrap gap-3 items-center">

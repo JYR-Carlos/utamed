@@ -3,7 +3,7 @@
 namespace App\Policies\Base;
 
 use App\Models\Usuario\Usuario;
-use App\Models\Administrativo\Programa;
+use App\Models\Curso\Programa;
 use App\Policies\Base\Traits\HasBasePolicyMethods;
 
 /**

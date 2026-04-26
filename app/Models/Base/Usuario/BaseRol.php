@@ -29,6 +29,7 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
 
     protected $fillable = [
         'nombre',
+        'es_administrativo',
         'creado_por'
     ];
 

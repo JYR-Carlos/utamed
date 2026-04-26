@@ -7,8 +7,6 @@ use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Curso\Curso;
-use App\Models\Curso\InscripcionCurso;
-use App\Models\Administrativo\Programa;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 
@@ -72,7 +70,7 @@ class CourseController extends Controller
 
     private function formatCurso(Curso $curso, string $rol): array
     {
-        $tieneProg = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)
+        $tieneProg = \App\Models\Curso\Programa::where('id_curso', $curso->id_curso)
             ->whereIn('estado', ['APROBADO', 'BASICO_COMPLETO'])
             ->where('es_actual', true)
             ->exists();
@@ -118,8 +116,8 @@ class CourseController extends Controller
         $curso->load([
             'asignacionPlan.asignatura',
             'asignacionPlan.plan.carrera',
-            'secciones.tipoSeccion',
-            'secciones.docente'
+            'componentes.tipoComponente',
+            'componentes.docentesAsignados.usuario'
         ]);
 
         // Formatear datos del curso
@@ -140,17 +138,17 @@ class CourseController extends Controller
                 'id_carrera' => $curso->asignacionPlan?->plan?->carrera?->id_carrera,
                 'nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre,
             ],
-            'secciones' => $curso->secciones->map(function ($seccion) {
+            'componentes' => $curso->componentes->map(function ($componente) {
                 return [
-                    'id_seccion' => $seccion->id_seccion,
-                    'tipo_seccion' => [
-                        'id_tipo_seccion' => $seccion->tipoSeccion?->id_tipo_seccion,
-                        'tipo' => $seccion->tipoSeccion?->tipo,
+                    'id_componente' => $componente->id_componente,
+                    'tipo_componente' => [
+                        'id_tipo_componente' => $componente->tipoComponente?->id_tipo_componente,
+                        'tipo' => $componente->tipoComponente?->tipo,
                     ],
-                    'docente' => $seccion->docente ? [
-                        'id_docente' => $seccion->docente->id_docente,
-                        'nombre_completo' => $seccion->docente->usuario?->nombre1 . ' ' . $seccion->docente->usuario?->apellido1,
-                    ] : null,
+                    'docentes' => $componente->docentesAsignados->map(fn ($docente) => [
+                        'id_docente' => $docente->id_docente,
+                        'nombre_completo' => $docente->usuario?->nombre_completo ?? ($docente->usuario?->nombre1 . ' ' . $docente->usuario?->apellido1),
+                    ])->values(),
                 ];
             })->values(),
         ];

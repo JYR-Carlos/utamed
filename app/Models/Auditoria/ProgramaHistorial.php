@@ -1,16 +1,16 @@
 <?php
 
-namespace App\Models\Administrativo;
+namespace App\Models\Auditoria;
 
-use App\Models\Base\Administrativo\BaseEstructuraPrograma;
+use App\Models\Base\Auditoria\BaseProgramaHistorial;
 
 /**
- * Modelo EstructuraPrograma
+ * Modelo ProgramaHistorial
  * 
- * Extiende de BaseEstructuraPrograma (auto-generado)
+ * Extiende de BaseProgramaHistorial (auto-generado)
  * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
  */
-class EstructuraPrograma extends BaseEstructuraPrograma
+class ProgramaHistorial extends BaseProgramaHistorial
 {
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados

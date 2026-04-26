@@ -5,9 +5,8 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import Alert from '@/components/ui/alert/alert.svelte';
-  import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+  import { Card, CardContent } from '@/components/ui/card';
   import { Button } from '@/components/ui/button';
-  import { Badge } from '@/components/ui/badge';
   import {
     ArrowLeft,
     Printer,
@@ -274,7 +273,7 @@
     isRejecting = true;
     router.put(
       `/admin/cursos/${curso.id_curso}/programa/rechazar`,
-      { razon_rechazo: rejectionReason },
+      { razon_rechazo: rejectionReason, accion_tipo: 'rechazo' },
       { onFinish: () => (isRejecting = false) },
     );
   }
@@ -330,33 +329,41 @@
 
     <!-- Main Info Card -->
     {#if asignatura}
-      <Card class="no-print">
-        <CardHeader>
-          <CardTitle>Información General</CardTitle>
-        </CardHeader>
-        <CardContent class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="space-y-1">
-            <p class="text-sm font-medium leading-none text-muted-foreground">Código</p>
-            <p class="text-base font-semibold">{asignatura.cod_asignatura}</p>
-          </div>
-          <div class="space-y-1">
-            <p class="text-sm font-medium leading-none text-muted-foreground">Créditos SCT</p>
-            <p class="text-base font-semibold">{asignatura.creditos_sct}</p>
-          </div>
-          <div class="space-y-1">
-            <p class="text-sm font-medium leading-none text-muted-foreground">Horas Cátedra</p>
-            <p class="text-base font-semibold">{asignatura.horas_catedra}</p>
-          </div>
-          <div class="space-y-1">
-            <p class="text-sm font-medium leading-none text-muted-foreground">Versión Programa</p>
-            {#if programa}
-              <Badge variant="secondary">v{programa.version_programa ?? programa.version}</Badge>
-            {:else}
-              <Badge variant="outline">No generado</Badge>
-            {/if}
-          </div>
-        </CardContent>
-      </Card>
+      <div class="no-print grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Código</p>
+          <p class="text-base font-bold text-gray-900">{asignatura.cod_asignatura}</p>
+        </div>
+        <div class="rounded-xl border border-indigo-100 bg-indigo-50 px-5 py-4 shadow-sm">
+          <p class="text-xs font-semibold text-indigo-400 uppercase tracking-wide mb-1">
+            Créditos SCT
+          </p>
+          <p class="text-2xl font-extrabold text-indigo-700">{asignatura.creditos_sct}</p>
+        </div>
+        <div class="rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 shadow-sm">
+          <p class="text-xs font-semibold text-blue-400 uppercase tracking-wide mb-1">
+            Horas Cátedra
+          </p>
+          <p class="text-2xl font-extrabold text-blue-700">{asignatura.horas_catedra}</p>
+        </div>
+        <div
+          class="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm flex flex-col justify-center"
+        >
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Versión</p>
+          {#if programa}
+            <span
+              class="inline-flex items-center gap-1.5 self-start rounded-full bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-700 ring-1 ring-indigo-300"
+            >
+              v{programa.version_programa ?? programa.version}
+            </span>
+          {:else}
+            <span
+              class="inline-flex items-center self-start rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-500 ring-1 ring-gray-300"
+              >No generado</span
+            >
+          {/if}
+        </div>
+      </div>
     {/if}
 
     <!-- Admin: Fechas límite de entrega (siempre visible para admin) -->
@@ -526,31 +533,65 @@
 
     {#if programa}
       <!-- Estado del programa (no-print) -->
-      <Card class="no-print">
-        <CardContent class="pt-4 pb-3">
-          <div class="flex items-center justify-between flex-wrap gap-2">
-            <div class="flex items-center gap-3">
-              <span class="text-sm font-medium text-muted-foreground">Estado:</span>
-              {#if programa.estado === 'BORRADOR'}
-                <Badge variant="secondary" class="bg-yellow-100 text-yellow-800 border-yellow-200"
-                  >Borrador</Badge
-                >
-              {:else if programa.estado === 'BASICO_COMPLETO'}
-                <Badge class="bg-amber-100 text-amber-800 border-amber-200">Básico Completo</Badge>
-              {:else if programa.estado === 'ENVIADO' || programa.estado === 'COMPLETO'}
-                <Badge class="bg-blue-100 text-blue-800 border-blue-200"
-                  >Pendiente de Aprobación</Badge
-                >
-              {:else if programa.estado === 'APROBADO'}
-                <Badge class="bg-green-100 text-green-800 border-green-200">✅ Aprobado</Badge>
-              {:else}
-                <Badge variant="secondary">{programa.estado}</Badge>
-              {/if}
-              <span class="text-sm text-muted-foreground">v{programa.version_programa}</span>
-            </div>
+      <div
+        class="no-print flex items-center gap-3 rounded-xl border bg-white px-5 py-3 shadow-sm"
+        class:border-yellow-200={programa.estado === 'BORRADOR'}
+        class:border-amber-200={programa.estado === 'BASICO_COMPLETO'}
+        class:border-blue-200={programa.estado === 'ENVIADO' || programa.estado === 'COMPLETO'}
+        class:border-green-200={programa.estado === 'APROBADO'}
+        class:border-gray-200={![
+          'BORRADOR',
+          'BASICO_COMPLETO',
+          'ENVIADO',
+          'COMPLETO',
+          'APROBADO',
+        ].includes(programa.estado)}
+      >
+        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Estado</span>
+        {#if programa.estado === 'BORRADOR'}
+          <span
+            class="inline-flex items-center gap-1.5 rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-800 ring-1 ring-yellow-300"
+            >⚪ Borrador</span
+          >
+        {:else if programa.estado === 'BASICO_COMPLETO'}
+          <span
+            class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-300"
+            >🟡 Básico Completo</span
+          >
+        {:else if programa.estado === 'ENVIADO' || programa.estado === 'COMPLETO'}
+          <span
+            class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 ring-1 ring-blue-300"
+            >🔵 Pendiente de Aprobación</span
+          >
+        {:else if programa.estado === 'APROBADO'}
+          <span
+            class="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800 ring-1 ring-green-300"
+            >✅ Aprobado</span
+          >
+        {:else}
+          <span
+            class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600 ring-1 ring-gray-300"
+            >{programa.estado}</span
+          >
+        {/if}
+        <span class="text-xs text-gray-400">v{programa.version_programa}</span>
+      </div>
+
+      <!-- Banner: razón de rechazo (solo cuando el programa está en BORRADOR y fue rechazado) -->
+      {#if programa.estado === 'BORRADOR' && programa.razon_rechazo}
+        <div
+          class="no-print flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-5 shadow-sm"
+        >
+          <AlertCircle class="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-red-900">Programa devuelto para revisión</p>
+            <p class="mt-1 text-sm text-red-800 whitespace-pre-wrap">{programa.razon_rechazo}</p>
+            {#if programa.fecha_rechazo}
+              <p class="mt-2 text-xs text-red-500">{formatDate(programa.fecha_rechazo)}</p>
+            {/if}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      {/if}
 
       <!-- Documento del programa -->
       <ProgramaDocument {secciones} {metadata}>

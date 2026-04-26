@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Ayudante;
 
 use App\Http\Controllers\Controller;
-use App\Models\Administrativo\Programa;
+use App\Models\Curso\Programa;
 use App\Models\Agenda\Actividad;
 use App\Models\Curso\Curso;
-use App\Models\Curso\Seccion;
+use App\Models\Curso\Componente;
 use App\Models\Curso\Unidad;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use App\Support\Permissions;
+use Illuminate\Http\RedirectResponse;
 
 class ProgramaController extends Controller
 {
@@ -75,7 +76,7 @@ class ProgramaController extends Controller
         }
 
         // Verificar permiso: cursos/programas
-        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER, $curso->id_contexto)) {
+        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER_TODOS, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para editar el programa de este curso');
         }
@@ -130,7 +131,7 @@ class ProgramaController extends Controller
         }
 
         // Verificar permiso: cursos/programas
-        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER, $curso->id_contexto)) {
+        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER_TODOS, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para editar el programa de este curso');
         }
@@ -288,10 +289,10 @@ class ProgramaController extends Controller
                 continue;
             }
 
-            $seccion = Seccion::where('id_curso', $curso->id_curso)->first();
+            $componente = Componente::where('id_curso', $curso->id_curso)->first();
 
-            if (!$seccion) {
-                Log::warning('No hay secciones para crear actividad', ['id_curso' => $curso->id_curso]);
+            if (!$componente) {
+                Log::warning('No hay componentes para crear actividad', ['id_curso' => $curso->id_curso]);
                 continue;
             }
 
@@ -302,7 +303,7 @@ class ProgramaController extends Controller
                 'es_grupal'      => $actData['es_grupal'] ?? false,
                 'max_integrantes' => $actData['max_integrantes'] ?? 1,
                 'es_plantilla'   => false,
-                'id_seccion'     => $seccion->id_seccion,
+                'id_componente'  => $componente->id_componente,
                 'id_unidad'      => $unidad->id_unidad,
                 'id_contexto'    => $curso->id_contexto,
                 'fecha_limite'   => $actData['fecha_limite'] ?? now()->addDays(7),
@@ -350,7 +351,7 @@ class ProgramaController extends Controller
         }
 
         // Verificar permiso: curso/programa
-        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER, $curso->id_contexto)) {
+        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER_TODOS, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para acceder al programa de este curso');
         }
@@ -433,6 +434,15 @@ class ProgramaController extends Controller
 
         $asignatura = $curso->asignacionPlan?->asignatura;
 
+        // Recuperar última razón de rechazo cuando el programa está en BORRADOR
+        $ultimoRechazo = null;
+        if ($programa->estado === 'BORRADOR') {
+            $ultimoRechazo = \App\Models\Auditoria\ProgramaHistorial::where('id_programa', $programa->id_programa)
+                ->where('accion', 'RECHAZO')
+                ->orderByDesc('fecha_accion')
+                ->first(['observaciones', 'fecha_accion']);
+        }
+
         return Inertia::render('docente/Programa', [
             'programa' => [
                 'id_programa'     => $programa->id_programa,
@@ -442,6 +452,8 @@ class ProgramaController extends Controller
                 'secciones'       => $secciones,
                 'creado_por'      => $programa->autor?->nombre,
                 'fecha_creacion'  => $programa->fecha_creacion,
+                'razon_rechazo'   => $ultimoRechazo?->observaciones,
+                'fecha_rechazo'   => $ultimoRechazo?->fecha_accion,
             ],
             'curso' => [
                 'id_curso'           => $curso->id_curso,

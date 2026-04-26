@@ -95,7 +95,7 @@ class CourseController extends Controller
             'fecha_fin' => $curso->fecha_fin,
         ];
 
-        $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $id)->exists();
+        $tienePrograma = \App\Models\Curso\Programa::where('id_curso', $id)->exists();
 
         // Obtener permisos especiales del usuario en el contexto del curso
         $userPermissions = $user->getAllPermissions($curso->id_contexto);

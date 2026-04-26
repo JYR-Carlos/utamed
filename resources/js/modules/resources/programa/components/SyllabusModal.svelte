@@ -94,7 +94,7 @@
   let viewError = $state('');
 
   // ── Wizard state (9 secciones) ───────────────────────────────────────────────
-  let step = $state<1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9>(1);
+  let step = $state<1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10>(1);
   let isGenerating = $state(false);
   let errorMsg = $state('');
 
@@ -222,8 +222,13 @@
   // Filter steps based on syllabus type
   const STEPS = $derived.by(() => {
     if (selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined') {
-      // BASICO: 5 steps → I, II, VI (with activities), VIII, IX
-      return [ALL_STEPS[0], ALL_STEPS[1], ALL_STEPS[5], ALL_STEPS[7], ALL_STEPS[8]];
+      // BASICO: 4 steps → I, II, VI (with activities), Resumen
+      return [
+        ALL_STEPS[0], // I. Identificación
+        ALL_STEPS[1], // II. Presentación
+        ALL_STEPS[5], // VI. Unidades (with activities inside)
+        { id: 10, label: 'Resumen', icon: '✓' }, // Summary/Review step
+      ];
     }
     return ALL_STEPS; // All 9 steps for COMPLETO
   });
@@ -861,6 +866,7 @@
   let step9Valid = $derived(
     normativa_curso.trim().length > 0 && componentes.some((c) => c.componente.trim().length > 0),
   );
+  let step10Valid = $derived(true); // Resumen - siempre válido
 
   // Helper: get the first content text of a section (for display)
   function firstContent(sec: SeccionPrograma): string {
@@ -1048,7 +1054,7 @@
                 type="button"
                 onclick={() => {
                   const idx = STEPS.findIndex((s) => s.id === step);
-                  if (idx > 0) step = STEPS[idx - 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                  if (idx > 0) step = STEPS[idx - 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
                 }}
                 class="px-2 py-1 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded transition-all"
               >
@@ -1072,7 +1078,7 @@
                     onclick={() => {
                       if (isComplete || isActive) {
                         console.log(`🔄 Saltando al paso ${s.id}`);
-                        step = s.id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                        step = s.id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
                       }
                     }}
                     disabled={!isComplete && !isActive}
@@ -1102,7 +1108,7 @@
                 onclick={() => {
                   const idx = STEPS.findIndex((s) => s.id === step);
                   if (idx < STEPS.length - 1) {
-                    step = STEPS[idx + 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                    step = STEPS[idx + 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
                   }
                 }}
                 class="px-2 py-1 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded transition-all"
@@ -1211,7 +1217,7 @@
               onclick={() => {
                 const idx = STEPS.findIndex((s) => s.id === step);
                 if (idx > 0) {
-                  step = STEPS[idx - 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                  step = STEPS[idx - 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
                 } else {
                   handleClose();
                 }
@@ -1260,7 +1266,7 @@
                 onclick={() => {
                   const idx = STEPS.findIndex((s) => s.id === step);
                   if (idx < STEPS.length - 1) {
-                    step = STEPS[idx + 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+                    step = STEPS[idx + 1].id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
                   }
                 }}
                 disabled={(step === 1 && !step1Valid) ||
@@ -1271,7 +1277,8 @@
                   (step === 6 && !step6Valid) ||
                   (step === 7 && !step7Valid) ||
                   (step === 8 && !step8Valid) ||
-                  (step === 9 && !step9Valid)}
+                  (step === 9 && !step9Valid) ||
+                  (step === 10 && !step10Valid)}
                 class="px-3 py-2 rounded-lg text-sm font-medium bg-blue-600 border-none text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
               >
                 Siguiente →

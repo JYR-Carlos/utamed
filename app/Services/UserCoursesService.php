@@ -2,10 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\Administrativo\Programa;
+use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionComponente;
-use App\Models\Curso\InscripcionSeccion;
 use App\Models\Usuario\Docente;
 use App\Models\Usuario\Estudiante;
 use App\Models\Usuario\Usuario;
@@ -24,6 +23,25 @@ use App\Models\Usuario\UsuarioRolAsignacion;
  */
 class UserCoursesService
 {
+    /**
+     * Mapea permisos de un usuario para un contexto específico al formato frontend.
+     *
+     * @param  Usuario  $user  Usuario autenticado
+     * @param  int  $contextId  ID del contexto (id_contexto del curso/componente)
+     * @return array<int, array{id_permiso: int, slug: string, esta_permitido: bool}>
+     */
+    public function getPermissionsForContext(Usuario $user, int $contextId): array
+    {
+        return collect($user->getAllPermissions($contextId))
+            ->map(fn($perm) => [
+                'id_permiso'    => $perm['id_permiso'],
+                'slug'          => $perm['slug'],
+                'esta_permitido' => (bool) $perm['esta_permitido'],
+            ])
+            ->values()
+            ->all();
+    }
+
     /**
      * Cursos asignados a un docente (a través de sus secciones).
      *

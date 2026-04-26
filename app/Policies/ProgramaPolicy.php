@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use App\Policies\Base\BaseProgramaPolicy;
 use App\Models\Usuario\Usuario;
-use App\Models\Administrativo\Programa;
+use App\Models\Curso\Programa;
 
 /**
  * Policy personalizada para Programa.
@@ -37,42 +37,64 @@ class ProgramaPolicy extends BaseProgramaPolicy
     }
 
     /**
-     * Verifica si el usuario es docente asignado al curso
-     * 
+     * Verifica si el usuario es docente asignado al curso (titular o componente)
+     *
      * @param Usuario $user
      * @param Programa $programa
      * @return bool
      */
     private function isAssignedDocente(Usuario $user, Programa $programa): bool
     {
-        // Si no es docente, no tiene acceso
         if (!$user->docente) {
             return false;
         }
 
-        // Verificar si el docente es titular del curso del programa
-        return \App\Models\Curso\Curso::where('id_curso', $programa->id_curso)
+        // Titular del curso
+        $esTitular = \App\Models\Curso\Curso::where('id_curso', $programa->id_curso)
             ->where('id_docente_titular', $user->docente->id_docente)
             ->exists();
+
+        if ($esTitular) {
+            return true;
+        }
+
+        // Docente de componente del curso
+        return $this->isComponenteDocente($user, $programa->id_curso);
     }
 
     /**
-     * Verifica si el usuario es docente asignado a un curso (para create)
-     * 
+     * Verifica si el usuario es docente asignado a un curso (titular o componente)
+     *
      * @param Usuario $user
      * @param \App\Models\Curso\Curso $curso
      * @return bool
      */
     private function isAssignedDocenteToCurso(Usuario $user, $curso): bool
     {
-        // Si no es docente, no tiene acceso
         if (!$user->docente) {
             return false;
         }
 
-        // Verificar si el docente es titular del curso
-        return \App\Models\Curso\Curso::where('id_curso', $curso->id_curso)
+        $esTitular = \App\Models\Curso\Curso::where('id_curso', $curso->id_curso)
             ->where('id_docente_titular', $user->docente->id_docente)
+            ->exists();
+
+        if ($esTitular) {
+            return true;
+        }
+
+        return $this->isComponenteDocente($user, $curso->id_curso);
+    }
+
+    /**
+     * Verifica si el docente está asignado a algún componente del curso
+     */
+    private function isComponenteDocente(Usuario $user, int $cursoId): bool
+    {
+        return \App\Models\Curso\Componente::where('id_curso', $cursoId)
+            ->whereHas('docenteComponentes', function ($q) use ($user) {
+                $q->where('id_docente', $user->docente->id_docente);
+            })
             ->exists();
     }
 
@@ -116,8 +138,9 @@ class ProgramaPolicy extends BaseProgramaPolicy
             return true;
         }
 
-        // Delegar a la base para validar permisos vía contexto
-        return parent::view($user, $model);
+        // El modelo Programa no tiene mapping de contexto registrado,
+        // por lo que no se puede delegar a la base (lanzaría RuntimeException).
+        return false;
     }
 
     /**
@@ -193,34 +216,17 @@ class ProgramaPolicy extends BaseProgramaPolicy
         }
 
         // **Ayudante NO puede crear programas** (solo puede editar si autorizado)
-        if ($user->isAyudante()) {
+        if ($user->hasRole('Ayudante')) {
             return false;
         }
 
         // Para docentes: debe estar asignado al curso Y tener permiso para crear
         if ($parent && $this->isAssignedDocenteToCurso($user, $parent)) {
-            // Validar que tiene el permiso específico para crear programas en este curso
-            // Pasar el contexto del curso directamente ya que Curso.id_contexto es el contexto
-            $contextId = $parent->id_contexto;
-            
-            // Validar permisos via el validador
-            $permissionSlug = $this->buildPermissionSlug($this->resource, 'crear');
-            $permissionEnum = \App\Support\Permissions::fromSlug($permissionSlug);
-            
-            // If fromSlug returns an array (wildcard match), use the first case
-            $permissionEnum = is_array($permissionEnum) ? $permissionEnum[0] : $permissionEnum;
-            
-            if ($this->validator()->validate(
-                $user, 
-                $permissionEnum, 
-                null, 
-                $contextId
-            )) {
-                return true;
-            }
-            
-            // Si no tiene permisos, ejecutar hook custom
-            return $this->customCreate($user, $parent);
+            // Validar que el docente titular tiene permiso 'cursos/programas:agregar' en el contexto del curso
+            return $user->hasPermissionFor(
+                \App\Support\Permissions::CURSOS_PROGRAMAS_AGREGAR,
+                $parent
+            );
         }
 
         // Docente no asignado al curso no puede crear

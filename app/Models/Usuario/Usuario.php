@@ -30,12 +30,10 @@ use App\Traits\AssignsPermissions;
  * @method BelongsToMany usuarioPermisoEspeciales() Permisos especiales del usuario
  * 
  * Métodos auxiliares de roles:
- * @method bool isAdmin() Verifica si es administrador
- * @method bool isDocente() Verifica si es docente
- * @method bool isStudent() Verifica si es estudiante
- * @method bool isAyudante() Verifica si es ayudante
- * @method bool hasRole(string $roleName) Verifica si tiene un rol específico
+ * @method bool isSuperAdmin() Verifica si es SuperAdmin
+ * @method bool hasRole(string $roleName) Verifica si tiene un rol específico (ej: 'Docente Titular')
  * @method bool hasAnyRole(array $roleNames) Verifica si tiene alguno de los roles
+ * @method bool hasPermissionFor(Permissions $slug, HasContext|null $resource = null) Verifica permiso
  */
 class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContract
 {

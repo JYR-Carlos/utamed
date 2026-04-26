@@ -35,7 +35,7 @@ class DashboardController extends Controller
             ->with([
                 'curso.asignacionPlan.asignatura',
                 'curso.asignacionPlan.plan.carrera',
-                'curso.secciones.docente.usuario'  // Cargar docentes de cada sección
+                'curso.componentes.docentesAsignados.usuario'  // Cargar docentes de cada componente
             ])
             ->get();
 
@@ -43,12 +43,15 @@ class DashboardController extends Controller
         $cursosData = $inscripciones->map(function ($inscripcion) {
             $curso = $inscripcion->curso;
             
-            // Obtener el nombre del primer docente, o mostrar "(sin docente asignado)"
+            // Obtener el nombre del primer docente de los componentes, o mostrar "(sin docente asignado)"
             $profesor = '(sin docente asignado)';
-            if ($curso->secciones && $curso->secciones->count() > 0) {
-                $primerDocente = $curso->secciones->first()?->docente;
-                if ($primerDocente && $primerDocente->usuario) {
-                    $profesor = trim("{$primerDocente->usuario->nombre1} {$primerDocente->usuario->apellido1}");
+            if ($curso->componentes && $curso->componentes->count() > 0) {
+                // Obtener el primer docente de cualquier componente
+                $primerDocente = $curso->componentes
+                    ->flatMap(fn ($componente) => $componente->docentesAsignados ?? collect())
+                    ->first()?->usuario;
+                if ($primerDocente) {
+                    $profesor = trim("{$primerDocente->nombre1} {$primerDocente->apellido1}");
                 }
             }
             

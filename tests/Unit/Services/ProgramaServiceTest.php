@@ -3,7 +3,7 @@
 namespace Tests\Unit\Services;
 
 use App\Services\SyllabusStructure;
-use App\Models\Administrativo\Programa;
+use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use App\Services\ProgramaService;

@@ -50,6 +50,9 @@ class DocenteCursoController extends Controller
             return redirect()->route('dashboard')->with('error', 'No tienes un perfil docente asociado.');
         }
 
+        // Pre-cargar permisos agrupados por contexto (evita N+1 queries en el map)
+        $allPermsGrouped = $user->getAllPermissionsGroupedByContext();
+
         // Obtener cursos donde el docente participa (titular o asignado por componente)
         $cursos = Curso::where(function ($q) use ($user) {
                 $q->where('id_docente_titular', $user->docente->id_docente)
@@ -60,10 +63,10 @@ class DocenteCursoController extends Controller
             ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera', 'inscripcionCursos'])
             ->orderBy('fecha_inicio', 'desc')
             ->get()
-            ->map(function ($curso) use ($user) {
+            ->map(function ($curso) use ($user, $allPermsGrouped) {
                 // Verificar si existe algún programa para este curso
-                $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)
-                    ->whereNull('fecha_eliminacion')
+                $tienePrograma = \App\Models\Curso\Programa::where('id_curso', $curso->id_curso)
+                    ->where('es_actual', true)
                     ->exists();
 
                 // Determinar el semestre: usar semestre_real si existe, sino usar 1 como default
@@ -71,6 +74,19 @@ class DocenteCursoController extends Controller
 
                 // Calcular total de estudiantes inscritos en el curso
                 $totalEstudiantes = $curso->inscripcionCursos->count();
+
+                // Permisos granulares del docente en el contexto de este curso
+                $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
+                $userPermissions = $esTitular
+                    ? [] // El titular no necesita permisos explícitos — tiene acceso completo
+                    : ($allPermsGrouped->get($curso->id_contexto) ?? collect([]))
+                        ->map(fn($perm) => [
+                            'id_permiso'    => $perm['id_permiso'],
+                            'slug'          => $perm['slug'],
+                            'esta_permitido' => (bool) $perm['esta_permitido'],
+                        ])
+                        ->values()
+                        ->all();
 
                 return [
                     'id_curso' => $curso->id_curso,
@@ -86,7 +102,8 @@ class DocenteCursoController extends Controller
                     'es_plantilla' => $curso->es_plantilla,
                     'semestre_real' => $semestre,
                     'total_estudiantes' => $totalEstudiantes,
-                    'es_titular_curso' => $curso->id_docente_titular === $user->docente->id_docente,
+                    'es_titular_curso' => $esTitular,
+                    'userPermissions' => $userPermissions,
                 ];
             });
 
@@ -136,8 +153,8 @@ class DocenteCursoController extends Controller
         // Calcular estadísticas
         $totalEstudiantes = $curso->inscripcionCursos->count();
         // Verificar si existe algún programa para este curso
-        $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)
-            ->whereNull('fecha_eliminacion')
+        $tienePrograma = \App\Models\Curso\Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
             ->exists();
 
         // --- Perspectiva de "mi grupo" ---
@@ -219,6 +236,18 @@ class DocenteCursoController extends Controller
 
         }
 
+        // Permisos granulares del docente en el contexto de este curso
+        $userPermissions = $esTitularCurso
+            ? [] // El titular tiene acceso completo — no necesita permisos explícitos
+            : collect($user->getAllPermissions($curso->id_contexto))
+                ->map(fn($perm) => [
+                    'id_permiso'    => $perm['id_permiso'],
+                    'slug'          => $perm['slug'],
+                    'esta_permitido' => (bool) $perm['esta_permitido'],
+                ])
+                ->values()
+                ->all();
+
         return Inertia::render('docente/CursoDetalle', [
             'curso' => [
                 'id_curso' => $curso->id_curso,
@@ -232,6 +261,7 @@ class DocenteCursoController extends Controller
                 'es_plantilla' => $curso->es_plantilla,
                 'tiene_programa' => $tienePrograma,
                 'es_titular_curso' => $esTitularCurso,
+                'userPermissions' => $userPermissions,
                 'asignatura' => [
                     'nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                     'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? 'N/A',

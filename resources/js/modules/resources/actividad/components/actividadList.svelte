@@ -6,6 +6,9 @@
   interface Props {
     actividades: Actividad[];
     idCurso: number;
+    canCreate?: boolean;
+    canEdit?: boolean;
+    canDelete?: boolean;
     onEdit?: (actividad: Actividad) => void;
     onDelete?: (actividad: Actividad) => void;
     onCreateClick?: () => void;
@@ -14,6 +17,9 @@
   let {
     actividades,
     idCurso,
+    canCreate = true,
+    canEdit = true,
+    canDelete = true,
     onEdit = () => {},
     onDelete = () => {},
     onCreateClick = () => {},
@@ -33,13 +39,15 @@
     <div class="text-5xl mb-4">📋</div>
     <h3 class="text-xl text-gray-900 font-semibold mb-2">No hay actividades creadas</h3>
     <p class="text-gray-600 mb-6">Crea tu primera actividad para este curso</p>
-    <button
-      onclick={onCreateClick}
-      class="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 text-gray-900 border border-gray-300 rounded-md font-medium hover:bg-gray-200 transition-all"
-    >
-      <Plus size={18} />
-      Crear Actividad
-    </button>
+    {#if canCreate}
+      <button
+        onclick={onCreateClick}
+        class="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 text-gray-900 border border-gray-300 rounded-md font-medium hover:bg-gray-200 transition-all"
+      >
+        <Plus size={18} />
+        Crear Actividad
+      </button>
+    {/if}
   </div>
 {:else}
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -63,20 +71,24 @@
             {/if}
           </div>
           <div class="flex gap-2">
-            <button
-              onclick={() => onEdit(actividad)}
-              class="p-2 bg-transparent border border-gray-200 rounded-md text-gray-600 hover:bg-gray-100 hover:text-blue-500 hover:border-blue-500 transition-all"
-              title="Editar"
-            >
-              <Edit2 size={18} />
-            </button>
-            <button
-              onclick={() => onDelete(actividad)}
-              class="p-2 bg-transparent border border-gray-200 rounded-md text-gray-600 hover:bg-gray-100 hover:text-red-600 hover:border-red-600 transition-all"
-              title="Eliminar"
-            >
-              <Trash2 size={18} />
-            </button>
+            {#if canEdit}
+              <button
+                onclick={() => onEdit(actividad)}
+                class="p-2 bg-transparent border border-gray-200 rounded-md text-gray-600 hover:bg-gray-100 hover:text-blue-500 hover:border-blue-500 transition-all"
+                title="Editar"
+              >
+                <Edit2 size={18} />
+              </button>
+            {/if}
+            {#if canDelete}
+              <button
+                onclick={() => onDelete(actividad)}
+                class="p-2 bg-transparent border border-gray-200 rounded-md text-gray-600 hover:bg-gray-100 hover:text-red-600 hover:border-red-600 transition-all"
+                title="Eliminar"
+              >
+                <Trash2 size={18} />
+              </button>
+            {/if}
           </div>
         </div>
 

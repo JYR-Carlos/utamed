@@ -44,24 +44,24 @@ class DebugUserPermissions extends Command
             $this->line("  ✅ Es DOCENTE");
             $this->line("  ID Docente: {$docente->id_docente}");
             
-            // Obtener secciones asignadas
-            $secciones = $docente->secciones()
+            // Obtener componentes asignados
+            $componentes = $docente->componentesQueDicta()
                 ->with('curso')
                 ->get();
             
-            $this->line("  Secciones Asignadas: {$secciones->count()}");
+            $this->line("  Componentes Asignados: {$componentes->count()}");
             
-            if ($secciones->count() > 0) {
-                $this->line("\n  📚 Secciones Detalle:");
-                foreach ($secciones as $seccion) {
-                    $this->line("     - Sección ID: {$seccion->id_seccion}");
-                    $this->line("       Curso ID: {$seccion->id_curso}");
-                    if ($seccion->curso) {
-                        $this->line("       Curso Nombre: {$seccion->curso->nombre}");
+            if ($componentes->count() > 0) {
+                $this->line("\n  📚 Componentes Detalle:");
+                foreach ($componentes as $componente) {
+                    $this->line("     - Componente ID: {$componente->id_componente}");
+                    $this->line("       Curso ID: {$componente->id_curso}");
+                    if ($componente->curso) {
+                        $this->line("       Curso Nombre: {$componente->curso->nombre}");
                     }
                 }
             } else {
-                $this->warn("  ⚠️  El docente NO tiene secciones asignadas");
+                $this->warn("  ⚠️  El docente NO tiene componentes asignados");
             }
         } else {
             $this->error("  ❌ NO es DOCENTE");
@@ -149,13 +149,13 @@ class DebugUserPermissions extends Command
             
             // Verificar si el docente tiene secciones en este curso
             if ($docente) {
-                $seccionesEnCurso = $docente->secciones()
+                $componentesEnCurso = $docente->componentesQueDicta()
                     ->where('id_curso', $curso->id_curso)
                     ->count();
                 
-                $this->line("  Secciones del docente en este curso: {$seccionesEnCurso}");
+                $this->line("  Componentes del docente en este curso: {$componentesEnCurso}");
                 
-                if ($seccionesEnCurso > 0) {
+                if ($componentesEnCurso > 0) {
                     $this->line("  ✅ El docente ESTÁ asignado a este curso");
                 } else {
                     $this->error("  ❌ El docente NO ESTÁ asignado a este curso");
@@ -188,7 +188,7 @@ class DebugUserPermissions extends Command
         $requisitos = [
             "Es Administrador" => $user->is_admin,
             "Es Docente" => $docente !== null,
-            "Tiene secciones asignadas" => $docente && $docente->secciones()->count() > 0,
+            "Tiene componentes asignados" => $docente && $docente->componentesQueDicta()->count() > 0,
             "Tiene permiso 'curso/programa' (crear/editar/eliminar)" => $permisos
                 ->filter(fn($p) => str_contains($p->slug ?? '', 'programa') && 
                     (str_contains($p->slug ?? '', 'crear') || 

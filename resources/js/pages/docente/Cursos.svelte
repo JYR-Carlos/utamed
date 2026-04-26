@@ -48,10 +48,10 @@
   // Unificar cursos (para la lista completa)
   let cursosAll = $derived([...cursosSemestre1, ...cursosSemestre2]);
 
-  // Permisos requeridos — fallback a rol Docente cuando no hay permisos granulares cargados
+  // Permisos requeridos — fallback a perfil docente cuando no hay permisos granulares cargados
   const { can } = usePermissions();
   const isDocente = $derived(
-    ((($page.props.auth as any)?.roles as string[]) ?? []).includes('Docente'),
+    ($page.props.auth?.docente as any) !== null && ($page.props.auth?.docente as any) !== undefined,
   );
   const canManageTeam = $derived(can('CURSOS_DOCENTE_EQUIPO') || isDocente);
   const canManageSyllabus = $derived(can('CURSOS_PROGRAMA') || isDocente);

@@ -10,27 +10,14 @@
   import { onMount } from 'svelte';
   import { router } from '@inertiajs/svelte';
   import { AppLogoIcon } from '.';
+  import { usePermissions } from '@/lib/composables/usePermissions';
+
+  const { can } = usePermissions();
 
   // Get roles from page props with Svelte 5 runes
-  let authRoles = $derived(($page.props.auth?.roles as string[]) || []);
   let isSuperAdmin = $derived(($page.props.auth?.is_super_admin as boolean) || false);
-  let userDocente = $derived($page.props.auth?.user?.docente || null);
-  let isAdminOnly = $derived(
-    isSuperAdmin ||
-      authRoles.length === 0 ||
-      (authRoles.length === 1 && (authRoles.includes('Administrador') || authRoles.includes('SuperAdmin') || authRoles.includes('Super Admin'))),
-  );
-
-  // Helper to check for roles
-  const hasRole = (requiredRoles: string[]) => {
-    if (requiredRoles.includes('*')) return true;
-    if (isSuperAdmin) return true;
-    if (authRoles.includes('SuperAdmin') || authRoles.includes('Super Admin') || authRoles.includes('superadmin')) return true;
-    // Normalize comparison - convert both to lowercase
-    const normalizedAuthRoles = authRoles.map((r) => r.toLowerCase());
-    const normalizedRequiredRoles = requiredRoles.map((r) => r.toLowerCase());
-    return normalizedAuthRoles.some((r) => normalizedRequiredRoles.includes(r));
-  };
+  let userDocente = $derived($page.props.auth?.user?.docente || ($page.props.auth?.docente as any) || null);
+  let ayudanteCourses = $derived(($page.props.auth?.ayudante_courses as any[]) || []);
 
   // Redirigir docentes al dashboard de docentes si están en la admin
   onMount(() => {
@@ -39,7 +26,7 @@
     }
   });
 
-  // Define all possible nav items
+  // Define all possible nav items using permissions instead of role names
   let allNavItems = $derived([
     {
       title: 'Dashboard',
@@ -51,74 +38,74 @@
       title: 'Usuarios',
       href: '/admin/usuarios',
       icon: Users,
-      show: hasRole(['Administrador', 'Coordinador de Carrera', 'Secretaria']),
+      show: isSuperAdmin || can('usuarios/permisos/roles:ver') || can('usuarios:ver'),
     },
     {
       title: 'Facultades',
       href: '/admin/facultades',
       icon: Building2,
-      show: hasRole(['Administrador']),
+      show: isSuperAdmin || can('facultades:ver'),
     },
     {
       title: 'Departamentos',
       href: '/admin/departamentos',
       icon: Folder,
-      show: hasRole(['Administrador']),
+      show: isSuperAdmin || can('departamentos:ver'),
     },
     {
       title: 'Carreras',
       href: '/admin/carreras',
       icon: GraduationCap,
-      show: hasRole(['Administrador']),
+      show: isSuperAdmin || can('carreras:ver'),
     },
     {
       title: 'Asignaturas',
       href: '/admin/asignaturas',
       icon: BookOpen,
-      show: hasRole(['Administrador']),
+      show: isSuperAdmin || can('asignaturas:ver'),
     },
     {
       title: 'Planes de Estudio',
       href: '/admin/planes',
       icon: ClipboardList,
-      show: hasRole(['Administrador']),
+      show: isSuperAdmin || can('carreras/planes/ver:ver_detalles'),
     },
     {
       title: 'Cursos Ofertados',
       href: '/admin/cursos',
       icon: BookOpen,
-      show: hasRole(['Administrador']),
+      show: isSuperAdmin || can('cursos:crear'),
     },
     {
       title: 'Inscripciones',
       href: '/admin/inscripciones_cursos',
       icon: Users,
-      show: hasRole(['Administrador']),
+      show: isSuperAdmin || can('cursos/inscripciones:ver'),
     },
     {
       title: 'Syllabus',
       href: '/admin/syllabus',
       icon: ScrollText,
-      show: hasRole(['Administrador']),
+      show: isSuperAdmin || can('cursos/programas:ver_todos'),
     },
     {
       title: 'Mis Cursos',
       href: '/docente/cursos',
       icon: BookOpen,
-      show: userDocente && !isAdminOnly,
+      show: userDocente !== null && can('cursos:ver'),
     },
-    // Ayudante Items - STRICT check (Admins shouldn't see this unless they are also Ayudantes)
+    // Ayudante Items — data-driven: visible only if user has assigned ayudante courses
     {
       title: 'Dashboard Ayudante',
       href: '/ayudante/dashboard',
       icon: LayoutGrid,
-      show: authRoles.includes('Ayudante') || authRoles.includes('ayudante'),
+      show: ayudanteCourses.length > 0,
     },
     {
       title: 'Cursos Asignados',
       href: '/ayudante/cursos',
       icon: BookOpen,
-      show: authRoles.includes('Ayudante') || authRoles.includes('ayudante'),
+      show: ayudanteCourses.length > 0,
     },
   ]);
 

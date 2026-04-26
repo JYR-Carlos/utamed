@@ -28,15 +28,33 @@
   } from '@/modules/resources/actividad';
   import { Plus, ArrowLeft, Users } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
+  import { hasPermission } from '@/services/permissionValidator';
+  import type { Permission } from '@/types/permissions/permissions';
 
   interface Props {
-    curso: any;
+    curso: {
+      id_curso: number;
+      cod_asignatura: string;
+      asignatura_nombre: string;
+      es_titular_curso?: boolean;
+      userPermissions?: Permission[];
+    };
     actividades: Actividad[];
     secciones: any[];
     unidades: any[];
   }
 
   let { curso, actividades, secciones, unidades }: Props = $props();
+
+  const canCreate = $derived(
+    curso.es_titular_curso || hasPermission(curso.userPermissions ?? [], 'actividades:crear'),
+  );
+  const canEdit = $derived(
+    curso.es_titular_curso || hasPermission(curso.userPermissions ?? [], 'actividades:editar'),
+  );
+  const canDelete = $derived(
+    curso.es_titular_curso || hasPermission(curso.userPermissions ?? [], 'actividades:eliminar'),
+  );
 
   let showModal = $state(false);
   let showDeleteDialog = $state(false);
@@ -126,13 +144,15 @@
             <Users size={20} />
             Inscripciones
           </Link>
-          <button
-            onclick={openCreateModal}
-            class="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-colors whitespace-nowrap"
-          >
-            <Plus size={20} />
-            Nueva Actividad
-          </button>
+          {#if canCreate}
+            <button
+              onclick={openCreateModal}
+              class="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-colors whitespace-nowrap"
+            >
+              <Plus size={20} />
+              Nueva Actividad
+            </button>
+          {/if}
         </div>
       </div>
     </div>
@@ -141,6 +161,9 @@
     <ActividadList
       {actividades}
       idCurso={curso.id_curso}
+      {canCreate}
+      {canEdit}
+      {canDelete}
       onEdit={openEditModal}
       onDelete={openDeleteDialog}
       onCreateClick={openCreateModal}

@@ -46,6 +46,11 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
 
     // Relaciones inversas
 
+    public function accionesAuditoria()
+    {
+        return $this->hasMany(\App\Models\Auditoria\ProgramaHistorial::class, 'id_usuario', 'id_usuario');
+    }
+
     public function programasCreados()
     {
         return $this->hasMany(\App\Models\Curso\Programa::class, 'creado_por', 'id_usuario');

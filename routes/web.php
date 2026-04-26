@@ -27,7 +27,7 @@ Route::get('dashboard', function () {
     $user = \Illuminate\Support\Facades\Auth::user();
 
     // Redirigir docentes a su dashboard
-    if ($user->hasRole('Docente')) {
+    if ($user->hasAnyRole(['Docente Titular', 'Docente Titular Restringido', 'Docente Componente'])) {
         return redirect()->route('docente.dashboard');
     }
 

@@ -17,7 +17,11 @@ class IsDocente
     /**
      * Verifica que el usuario autenticado sea docente.
      * 
-     * Valida que el usuario autenticado tenga instancia Docente asociada.
+     * Valida que el usuario tenga CUALQUIERA de estos roles:
+     * - Docente Titular
+     * - Docente Titular Restringido
+     * - Docente Componente
+     * Y que tenga una instancia Docente asociada.
      * Redirige a dashboard si falla la validación.
      * 
      * @param  Request  $request  Solicitud HTTP
@@ -26,7 +30,7 @@ class IsDocente
      */
     public function handle(Request $request, Closure $next): Response
     {
-        /** @var Usuario|null $user */
+        /** @var \App\Models\Usuario\Usuario|null $user */
         $user = Auth::user();
 
         // Si no hay usuario autenticado, redirigir a login
@@ -34,8 +38,14 @@ class IsDocente
             return redirect('/login');
         }
 
-        // Un usuario debe ser docente para acceder a estas rutas
-        if (!$user->hasRole('Docente')) {
+        // Verificar que sea docente (cualquiera de estos roles) y tenga perfil Docente
+        $esDocente = $user->hasAnyRole([
+            'Docente Titular',
+            'Docente Titular Restringido',
+            'Docente Componente'
+        ]) && $user->docente;
+
+        if (!$esDocente) {
             return redirect('/dashboard')->with('error', 'No tienes permisos para acceder a esta sección. Acceso restringido a docentes.');
         }
     

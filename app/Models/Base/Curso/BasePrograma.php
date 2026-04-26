@@ -5,7 +5,6 @@ namespace App\Models\Base\Curso;
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Extensions\Compoships\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Contracts\HasOwnedContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
@@ -16,11 +15,9 @@ use App\Traits\QueryScopes\FiltersContextScope;
  */
 abstract class BasePrograma extends CustomBaseModel implements HasOwnedContext
 {
-    use SoftDeletes;
     use Compoships;
     use ContextAware;
     use FiltersContextScope;
-    const DELETED_AT = 'fecha_eliminacion';
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'programa';
@@ -34,9 +31,7 @@ abstract class BasePrograma extends CustomBaseModel implements HasOwnedContext
         'creado_por',
         'revisado_por',
         'id_curso',
-        'es_actual',
-        'fecha_entrega',
-        'fecha_revision'
+        'es_actual'
     ];
 
 
@@ -58,6 +53,13 @@ abstract class BasePrograma extends CustomBaseModel implements HasOwnedContext
     {
         $instance = new \App\Models\Curso\Curso();
         return new BelongsTo($instance->newQuery(), $this, 'id_curso', 'id_curso', 'curso');
+    }
+
+    // Relaciones inversas
+
+    public function historialCambios()
+    {
+        return $this->hasMany(\App\Models\Auditoria\ProgramaHistorial::class, 'id_programa', 'id_programa');
     }
 
     /**

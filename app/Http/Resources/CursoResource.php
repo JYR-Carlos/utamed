@@ -68,6 +68,10 @@ class CursoResource extends JsonResource
             'programa_estado' => $programa?->estado,
             'id_programa' => $programa?->id_programa,
             
+            // Fechas límite de entrega del programa
+            'fecha_limite_entrega_basico'   => $this->fecha_limite_entrega_basico?->toIso8601String(),
+            'fecha_limite_entrega_syllabus' => $this->fecha_limite_entrega_syllabus?->toIso8601String(),
+            
             // Relationships
             'asignacionPlan' => new AsignacionPlanResource($this->whenLoaded('asignacionPlan')),
             'componentes' => ComponenteResource::collection($this->whenLoaded('componentes')),

@@ -215,6 +215,9 @@ export interface Curso {
     has_programa?: boolean;
     programa_estado?: string;
     id_programa?: number;
+    // Fechas límite de entrega
+    fecha_limite_entrega_basico?: string | null;
+    fecha_limite_entrega_syllabus?: string | null;
 }
 
 /**

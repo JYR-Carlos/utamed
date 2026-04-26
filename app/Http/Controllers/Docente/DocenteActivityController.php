@@ -8,9 +8,9 @@ use App\Models\Agenda\ActividadAsignada;
 use App\Models\Agenda\AsignadoActividad;
 use App\Models\Agenda\EstadoActividad;
 use App\Models\Curso\Curso;
+use App\Support\Permissions;
 use App\Models\Curso\DocenteComponente;
 use App\Models\Curso\Componente;
-use App\Models\Curso\Seccion;
 use App\Models\Curso\Unidad;
 use App\Models\Usuario\Contexto;
 use Illuminate\Http\Request;
@@ -77,8 +77,21 @@ class DocenteActivityController extends Controller
         // Get estados for display
         $estados = EstadoActividad::all();
 
+        // Permisos granulares del docente en el contexto de este curso
+        $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
+        $userPermissions = $esTitular
+            ? []
+            : collect($user->getAllPermissions($curso->id_contexto))
+                ->map(fn($perm) => [
+                    'id_permiso'    => $perm['id_permiso'],
+                    'slug'          => $perm['slug'],
+                    'esta_permitido' => (bool) $perm['esta_permitido'],
+                ])
+                ->values()
+                ->all();
+
         return Inertia::render('docente/Actividades', [
-            'curso' => $curso,
+            'curso' => array_merge($curso->toArray(), ['userPermissions' => $userPermissions, 'es_titular_curso' => $esTitular]),
             'actividades' => $actividades,
             'componentes' => $componentes,
             'unidades' => $unidades,
@@ -101,6 +114,12 @@ class DocenteActivityController extends Controller
         $isDocente =  self::isDocente($user->docente->id_docente);
         
         if (!$isDocente && !$user->is_admin) {
+            abort(403, 'No tienes permiso para crear actividades en este curso.');
+        }
+
+        // Si no es titular ni admin, verificar permiso granular
+        $esTitularStore = $curso->id_docente_titular === $user->docente->id_docente;
+        if (!$esTitularStore && !$user->is_admin && !$user->hasPermissionFor(Permissions::ACTIVIDADES_CREAR, $curso)) {
             abort(403, 'No tienes permiso para crear actividades en este curso.');
         }
 
@@ -156,6 +175,12 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes permiso para editar esta actividad.');
         }
 
+        // Si no es titular ni admin, verificar permiso granular
+        $esTitularUpdate = $curso->id_docente_titular === $user->docente->id_docente;
+        if (!$esTitularUpdate && !$user->is_admin && !$user->hasPermissionFor(Permissions::ACTIVIDADES_EDITAR, $curso)) {
+            abort(403, 'No tienes permiso para editar actividades en este curso.');
+        }
+
         // Verify the activity belongs to this course through its componente
         $actividadCursoId = $actividad->componente?->id_curso;
         if ($actividadCursoId && $actividadCursoId !== $curso->id_curso) {
@@ -203,6 +228,12 @@ class DocenteActivityController extends Controller
         
         if (!$isDocente && !$user->is_admin) {
             abort(403, 'No tienes permiso para eliminar esta actividad.');
+        }
+
+        // Si no es titular ni admin, verificar permiso granular
+        $esTitularDestroy = $curso->id_docente_titular === $user->docente->id_docente;
+        if (!$esTitularDestroy && !$user->is_admin && !$user->hasPermissionFor(Permissions::ACTIVIDADES_ELIMINAR, $curso)) {
+            abort(403, 'No tienes permiso para eliminar actividades en este curso.');
         }
 
         // Verify the activity belongs to this course through its componente
@@ -341,8 +372,21 @@ class DocenteActivityController extends Controller
 
         $estados = EstadoActividad::all(['id_estado', 'titulo', 'descripcion']);
 
+        // Permisos granulares del docente en el contexto de este curso
+        $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
+        $userPermissions = $esTitular
+            ? []
+            : collect($user->getAllPermissions($curso->id_contexto))
+                ->map(fn($perm) => [
+                    'id_permiso'    => $perm['id_permiso'],
+                    'slug'          => $perm['slug'],
+                    'esta_permitido' => (bool) $perm['esta_permitido'],
+                ])
+                ->values()
+                ->all();
+
         return Inertia::render('docente/ActividadEvaluacion', [
-            'curso'                 => $curso,
+            'curso'                 => array_merge($curso->toArray(), ['userPermissions' => $userPermissions, 'es_titular_curso' => $esTitular]),
             'actividad'             => $actividad,
             'grupos'                => $grupos,
             'estudiantesDisponibles' => $estudiantesDisponibles,

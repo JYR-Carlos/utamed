@@ -50,9 +50,15 @@
 
   // Detectar si existe un programa activo (cualquier estado) para mostrar opción de "Continuar"
   const existingSyllabusType = $derived.by(() => {
-    const existing = programas.find((p) => ['BORRADOR', 'BASICO_COMPLETO', 'COMPLETO', 'APROBADO'].includes(p.estado));
+    const existing = programas.find((p) =>
+      ['BORRADOR', 'BASICO_COMPLETO', 'COMPLETO', 'APROBADO'].includes(p.estado),
+    );
     if (existing) {
-      return existing.data_syllabus?.metadata?.tipo_syllabus as 'COMPLETO' | 'BASICO' | null | undefined;
+      return existing.data_syllabus?.metadata?.tipo_syllabus as
+        | 'COMPLETO'
+        | 'BASICO'
+        | null
+        | undefined;
     }
     return null;
   });
@@ -68,7 +74,8 @@
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (p) =>
-          p.data_syllabus?.metadata?.asignatura?.toLowerCase().includes(query) || p.data_syllabus?.metadata?.curso?.toLowerCase().includes(query),
+          p.data_syllabus?.metadata?.asignatura?.toLowerCase().includes(query) ||
+          p.data_syllabus?.metadata?.curso?.toLowerCase().includes(query),
       );
     }
 
@@ -84,7 +91,9 @@
     publicado: programas.filter((p) => p.estado === 'PUBLICADO').length,
   }));
 
-  const isAdmin = $derived(userRole === 'admin' || userRole === 'administrator' || userRole === 'Admin');
+  const isAdmin = $derived(
+    userRole === 'admin' || userRole === 'administrator' || userRole === 'Admin',
+  );
 
   function handleApprove(id: number) {
     router.reload({ only: ['programas'] });
@@ -168,7 +177,12 @@
     <div class="flex gap-2">
       <div class="flex-1 relative">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-        <Input type="text" placeholder="Buscar por asignatura o código..." bind:value={searchQuery} class="pl-10" />
+        <Input
+          type="text"
+          placeholder="Buscar por asignatura o código..."
+          bind:value={searchQuery}
+          class="pl-10"
+        />
       </div>
     </div>
 
@@ -176,7 +190,9 @@
     <div class="flex flex-wrap gap-2">
       <button
         class={`px-4 py-2 rounded-lg font-medium text-sm transition ${
-          selectedFilter === null ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
+          selectedFilter === null
+            ? 'bg-slate-900 text-white'
+            : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
         }`}
         onclick={() => (selectedFilter = null)}
       >
@@ -185,7 +201,9 @@
 
       <button
         class={`px-4 py-2 rounded-lg font-medium text-sm transition ${
-          selectedFilter === 'BASICO_COMPLETO' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+          selectedFilter === 'BASICO_COMPLETO'
+            ? 'bg-blue-600 text-white'
+            : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
         }`}
         onclick={() => (selectedFilter = 'BASICO_COMPLETO')}
       >
@@ -194,7 +212,9 @@
 
       <button
         class={`px-4 py-2 rounded-lg font-medium text-sm transition ${
-          selectedFilter === 'COMPLETO' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-800 hover:bg-purple-200'
+          selectedFilter === 'COMPLETO'
+            ? 'bg-purple-600 text-white'
+            : 'bg-purple-100 text-purple-800 hover:bg-purple-200'
         }`}
         onclick={() => (selectedFilter = 'COMPLETO')}
       >
@@ -203,7 +223,9 @@
 
       <button
         class={`px-4 py-2 rounded-lg font-medium text-sm transition ${
-          selectedFilter === 'APROBADO' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800 hover:bg-green-200'
+          selectedFilter === 'APROBADO'
+            ? 'bg-green-600 text-white'
+            : 'bg-green-100 text-green-800 hover:bg-green-200'
         }`}
         onclick={() => (selectedFilter = 'APROBADO')}
       >
@@ -212,7 +234,9 @@
 
       <button
         class={`px-4 py-2 rounded-lg font-medium text-sm transition ${
-          selectedFilter === 'PUBLICADO' ? 'bg-teal-600 text-white' : 'bg-teal-100 text-teal-800 hover:bg-teal-200'
+          selectedFilter === 'PUBLICADO'
+            ? 'bg-teal-600 text-white'
+            : 'bg-teal-100 text-teal-800 hover:bg-teal-200'
         }`}
         onclick={() => (selectedFilter = 'PUBLICADO')}
       >
@@ -226,12 +250,16 @@
     {#if filteredProgramas.length === 0}
       <div class="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-300">
         <p class="text-slate-600 text-lg">
-          {searchQuery ? 'No se encontraron programas que coincidan' : 'No hay programas disponibles'}
+          {searchQuery
+            ? 'No se encontraron programas que coincidan'
+            : 'No hay programas disponibles'}
         </p>
       </div>
     {:else}
       {#each filteredProgramas as programa (programa.id_programa)}
-        <div class="border border-gray-200 rounded-lg bg-white hover:shadow-md transition-all overflow-hidden">
+        <div
+          class="border border-gray-200 rounded-lg bg-white hover:shadow-md transition-all overflow-hidden"
+        >
           <div class="p-4 md:p-6">
             <!-- Main Row -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
@@ -242,7 +270,9 @@
                       {programa.data_syllabus?.metadata?.asignatura || 'Sin asignatura'}
                     </h3>
                     <p class="text-sm text-slate-600">
-                      Código: <code class="bg-gray-100 px-2 py-1 rounded">{programa.data_syllabus?.metadata?.curso || 'N/A'}</code>
+                      Código: <code class="bg-gray-100 px-2 py-1 rounded"
+                        >{programa.data_syllabus?.metadata?.curso || 'N/A'}</code
+                      >
                     </p>
                   </div>
                 </div>
@@ -258,12 +288,17 @@
             <!-- Completeness Bar -->
             {#if programa.data_syllabus?.metadata?.tipo_syllabus}
               <div class="mb-4">
-                <CompletenessProgressBar percentage={programa.completenessPercentage || 0} tipo={programa.data_syllabus.metadata.tipo_syllabus} />
+                <CompletenessProgressBar
+                  percentage={programa.completenessPercentage || 0}
+                  tipo={programa.data_syllabus.metadata.tipo_syllabus}
+                />
               </div>
             {/if}
 
             <!-- Info Row -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4 pb-4 border-b border-gray-200">
+            <div
+              class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4 pb-4 border-b border-gray-200"
+            >
               <div>
                 <p class="text-gray-600">Creado por</p>
                 <p class="font-medium text-slate-900">
@@ -292,7 +327,15 @@
 
             <!-- Actions Row -->
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <ProgramaActionButtons {programa} {userRole} {userId} onApprove={handleApprove} onReject={handleReject} onEdit={handleEdit} />
+              <ProgramaActionButtons
+                {programa}
+                {cursoId}
+                {userRole}
+                {userId}
+                onApprove={handleApprove}
+                onReject={handleReject}
+                onEdit={handleEdit}
+              />
 
               <button
                 onclick={() => handleViewDetails(programa)}

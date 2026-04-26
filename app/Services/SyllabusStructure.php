@@ -4,14 +4,14 @@ namespace App\Services;
 
 use App\Models\Administrativo\Asignatura;
 use App\Models\Curso\Curso;
-use App\Models\Curso\Seccion;
+use App\Models\Curso\Componente;
 use Illuminate\Support\Collection;
 
 /**
  * SyllabusStructure
  * 
  * Clase que construye la estructura base JSONB para rellenar el campo data_syllabus
- * de la tabla programa, agregando información de asignatura, curso, secciones y categorías.
+ * de la tabla programa, agregando información de asignatura, curso, componentes y categorías.
  * 
  * Estructura esperada:
  * {
@@ -27,13 +27,13 @@ class SyllabusStructure
 {
     private Curso $curso;
     private ?Asignatura $asignatura = null;
-    private Collection $secciones;
+    private Collection $componentes;
     private array $categoria = [];
 
     public function __construct(Curso $curso)
     {
         $this->curso = $curso;
-        $this->secciones = collect();
+        $this->componentes = collect();
     }
 
     /**
@@ -47,12 +47,12 @@ class SyllabusStructure
     }
 
     /**
-     * Carga las secciones del curso
+     * Carga los componentes del curso con sus docentes asignados
      */
     public function withSecciones(): self
     {
-        $this->curso->load('secciones');
-        $this->secciones = $this->curso->secciones ?? collect();
+        $this->curso->load('componentes.docentesAsignados.usuario');
+        $this->componentes = $this->curso->componentes ?? collect();
         return $this;
     }
 
@@ -143,25 +143,27 @@ class SyllabusStructure
             'año_academico' => $this->curso->agno_academico,
             'semestre' => $this->curso->semestre,
             'es_plantilla' => $this->curso->es_plantilla ?? false,
-            'seccion_count' => $this->secciones->count(),
+            'seccion_count' => $this->componentes->count(),
             'docente_principal' => $this->buildDocentePrincipal(),
         ];
     }
 
     /**
-     * Obtiene información del docente principal
+     * Obtiene información del docente principal desde los componentes
      */
     private function buildDocentePrincipal(): ?array
     {
-        $seccionPrincipal = $this->secciones
-            ->sortBy('num_seccion')
+        // Obtener el primer docente titular de los componentes, o el primer docente disponible
+        $docenteComponente = $this->componentes
+            ->flatMap(fn ($componente) => $componente->docenteComponentes ?? collect())
+            ->sortBy(fn ($dc) => [!$dc->es_titular, $dc->id_docente_componente]) // Titular primero, luego por ID
             ->first();
 
-        if (!$seccionPrincipal || !$seccionPrincipal->docente) {
+        if (!$docenteComponente || !$docenteComponente->docente) {
             return null;
         }
 
-        $docente = $seccionPrincipal->docente;
+        $docente = $docenteComponente->docente;
         $usuario = $docente->usuario;
 
         return [

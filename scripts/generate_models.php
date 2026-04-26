@@ -90,7 +90,7 @@ use Illuminate\Support\Str;
 
 $projectRoot = dirname(__DIR__); // utamed/
 $catalogName = 'utamed_1ra_fase';
-$schemaPrefix = 'administrativo,agenda,curso,usuario';
+$schemaPrefix = 'administrativo,agenda,curso,usuario,auditoria';
 
 // Configurar columnas de auditoria
 $createdAtColumn = 'fecha_creacion';
@@ -316,6 +316,16 @@ $relationNames = [
     ],
     'usuario.contexto' => [
       'id_contexto_padre' => 'subContextos', // hasMany: subcontextos que referencian este contexto como padre
+    ],
+  ],
+
+  // auditoria.programa_historial: log de cambios de estado de programas (escrito por trigger)
+  'auditoria.programa_historial' => [
+    'curso.programa' => [
+      'id_programa' => 'historialCambios', // programa->historialCambios()
+    ],
+    'usuario.usuario' => [
+      'id_usuario' => 'accionesAuditoria', // usuario->accionesAuditoria()
     ],
   ],
 
@@ -2414,6 +2424,27 @@ EOL;
   $incrementingLine = $isView ? '' : "{$tab}public \$incrementing = {$incrementingValue};\n";
   $fillableLine = $isView ? '' : "{$tab}protected \$fillable = [\n{$fillable}\n{$tab}];\n";
 
+  // ==================================================================================
+  // PASO 4.5.b: GENERAR ARRAY $casts
+  // ==================================================================================
+  // Mapea tipos PostgreSQL a tipos Eloquent para serialización automática
+  // jsonb/json → 'array'  |  bool → 'boolean'
+  // ==================================================================================
+  $pgTypeToCast = [
+    'jsonb'  => 'array',
+    'json'   => 'array',
+    'bool'   => 'boolean',
+  ];
+
+  $castsEntries = collect($columns)
+    ->filter(fn($col) => isset($pgTypeToCast[$col->data_type]))
+    ->map(fn($col) => "{$tab}{$tab}'{$col->column_name}' => '{$pgTypeToCast[$col->data_type]}'")
+    ->implode(",\n");
+
+  $castsLine = $castsEntries
+    ? "{$tab}protected \$casts = [\n{$castsEntries}\n{$tab}];\n"
+    : '';
+
   // Generar Base Model
   $baseContent = <<<PHP
 <?php
@@ -2432,6 +2463,7 @@ abstract class Base{$className} extends CustomBaseModel{$implementsClause}
     protected \$table = '{$tableName}';
 {$primaryKeyLine}{$incrementingLine}
 {$fillableLine}
+{$castsLine}
 {$relations}{$contextScopeMethods}
 }
 

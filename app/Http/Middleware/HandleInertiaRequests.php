@@ -125,6 +125,7 @@ class HandleInertiaRequests extends Middleware
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
         $roles = [];
+        $permissions = [];
         $user = $request->user();
         $docente = null;
         $estudiante = null;
@@ -134,7 +135,8 @@ class HandleInertiaRequests extends Middleware
         if ($user) {
             // Eager load para evitar N+1 queries (ej: no cargar roles en un loop)
             $user->load([
-                'rolesAsignados' => fn($q) => $q->where('esta_activo', true)
+                'rolesAsignados' => fn($q) => $q->with('permisos')
+                    ->where('esta_activo', true)
                     ->where('fue_eliminado', false),
                 'docente',
                 'estudiante',
@@ -143,6 +145,13 @@ class HandleInertiaRequests extends Middleware
             // Extraer nombres de roles simplemente para el frontend
             $roles = $user->rolesAsignados
                 ->pluck('nombre')
+                ->values()
+                ->toArray();
+
+            // Recopilar slugs de permisos únicos de todos los roles activos del usuario
+            $permissions = $user->rolesAsignados
+                ->flatMap(fn($r) => $r->permisos->pluck('slug'))
+                ->unique()
                 ->values()
                 ->toArray();
 
@@ -177,6 +186,11 @@ class HandleInertiaRequests extends Middleware
                 'is_super_admin' => $user?->isSuperAdmin() ?? false,  // Boolean
                 'docente'       => $docente,  // Objeto Docente si aplica, null si no
                 'estudiante'    => $estudiante,  // Objeto Estudiante si aplica
+
+                // PERMISOS: Slugs únicos de permisos del usuario vía sus roles activos
+                // Solo en GET requests (navegación). Vacío en POST/PUT/DELETE.
+                // Ej: ['cursos:ver', 'cursos:editar', 'facultades:ver']
+                'permissions'   => $isNavigationRequest ? $permissions : [],
                 
                 // CURSOS: Pre-cargados SOLO en GET requests (navegación)
                 // Para acciones (POST/PUT/DELETE), no necesitamos pre-cargar

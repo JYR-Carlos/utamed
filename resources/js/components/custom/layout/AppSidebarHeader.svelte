@@ -59,13 +59,16 @@
   });
 
   const searchItems = $derived.by(() => {
-    // More robust role checking
-    const isAdmin =
-      authRoles.includes('Administrador') ||
-      authRoles.includes('SuperAdmin') ||
-      authRoles.includes('Super Admin');
-    const isDocente = authRoles.includes('Docente') || authRoles.includes('docente'); // Check both cases just to be safe
-    const isEstudiante = authRoles.includes('Estudiante') || authRoles.includes('estudiante');
+    // Permission and profile-based checks — not role name strings
+    const isSuperAdmin = ($page.props.auth?.is_super_admin as boolean) || false;
+    const authPermissions = ($page.props.auth?.permissions as string[]) || [];
+    const hasPerm = (slug: string) =>
+      isSuperAdmin ||
+      authPermissions.includes('*') ||
+      authPermissions.includes(slug);
+    const isAdmin = isSuperAdmin || hasPerm('facultades:ver') || hasPerm('departamentos:ver') || hasPerm('usuarios/permisos/roles:ver');
+    const isDocente = ($page.props.auth?.docente as any) !== null && ($page.props.auth?.docente as any) !== undefined;
+    const isEstudiante = ($page.props.auth?.estudiante as any) !== null && ($page.props.auth?.estudiante as any) !== undefined;
 
     const items = [];
 

@@ -53,10 +53,10 @@ export function usePermissions() {
             if (auth?.is_super_admin) {
                 return ['*'] as Permission[];
             }
-            if (!auth?.user?.permissions) {
+            if (!auth?.permissions || !Array.isArray(auth.permissions)) {
                 return [];
             }
-            return auth.user.permissions as Permission[];
+            return auth.permissions as Permission[];
         } catch (error) {
             console.error('[usePermissions] Error reading permissions:', error);
             return [];
