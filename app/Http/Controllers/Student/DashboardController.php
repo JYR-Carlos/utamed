@@ -56,8 +56,8 @@ class DashboardController extends Controller
                 
             }
 
-            // PENDIENTE: OBTENER EL PROGRESO REAL DEL CURSO BASADO EN LAS ACTIVIDADES COMPLETADAS!!!!!
-            $progreso = $inscripcion->progreso ?? 50; 
+            // OBTENER EL PROGRESO REAL DEL CURSO BASADO EN LAS ACTIVIDADES COMPLETADAS!!!!!
+            // NO SE USA: $progreso = $inscripcion->progreso ?? 50; 
             
             return [
                 'id_curso' => $curso->id_curso,
@@ -68,7 +68,7 @@ class DashboardController extends Controller
                 'fecha_inicio' => $curso->fecha_inicio,
                 'fecha_fin' => $curso->fecha_fin,
                 'profesor' => $profesor,
-                'progreso' => $progreso,
+                //'progreso' => $progreso,
             ];
         });
 

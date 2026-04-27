@@ -146,7 +146,7 @@
     </button>
 
     {#if breadcrumbs.length > 0}
-      <div class="breadcrumb-wrapper">
+      <div class="hidden sm:block breadcrumb-wrapper">
         <Breadcrumbs {breadcrumbs} />
       </div>
     {/if}

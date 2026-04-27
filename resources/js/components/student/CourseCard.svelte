@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { useFormatName } from '@/hooks';
   import { Link } from '@inertiajs/svelte';
 
   interface Props {
@@ -20,6 +21,10 @@
     color,
     iconColor = 'text-white',
   }: Props = $props();
+
+
+  const { formatName } = { formatName: useFormatName() };
+
 </script>
 
 <Link
@@ -55,26 +60,14 @@
 
     <!-- Title -->
     <h3 class="text-xl font-bold text-white mb-1 line-clamp-2 leading-tight">
-      {nombre}
+      {formatName.formatName(nombre)}
     </h3>
 
     <!-- Profesor -->
     <p class="text-sm text-white/80 mb-6 flex-grow leading-snug">
-      {profesor}
+      Docente: {formatName.formatName(profesor)}
     </p>
 
-    <!-- Progress bar -->
-    <div class="mt-auto">
-      <div class="flex justify-between items-baseline mb-2">
-        <span class="text-xs font-semibold text-white/80">Progreso</span>
-        <span class="text-sm font-bold text-white">{progreso}%</span>
-      </div>
-      <div class="h-2 w-full bg-white/20 rounded-full overflow-hidden backdrop-blur-sm">
-        <div
-          class="h-full bg-white/90 rounded-full transition-all duration-500"
-          style="width: {progreso}%"
-        ></div>
-      </div>
-    </div>
+    
   </div>
 </Link>

@@ -66,20 +66,20 @@
       {#each filteredCursos as c (c.id_curso)}
         <button
           type="button"
-          class="text-left bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:border-blue-400 hover:shadow-md transition-all"
+          class="flex flex-col min-h-50 justify-between text-left bg-white border border-gray-200 rounded-xl p-4 cursor-pointer hover:border-blue-400 hover:shadow-md transition-all"
           onclick={() => onSelect(c.id_curso)}
         >
-          <div class="flex justify-between items-center mb-1.5">
+          <div class="flex justify-start items-center mb-1.5">
             <span class="text-xs font-mono font-semibold text-blue-600">{c.cod_curso}</span>
             {#if c.agno_real}
               <span class="text-xs text-gray-400">{c.agno_real} S{c.semestre_real}</span>
             {/if}
           </div>
-          <h3 class="font-semibold text-gray-900 text-sm mb-1">{cursoDisplayName(c)}</h3>
+          <p class="font-semibold text-sm">{cursoDisplayName(c)}</p>
           {#if c.carrera_nombre}
             <p class="text-xs text-gray-500 mb-2.5">{c.carrera_nombre}</p>
           {/if}
-          <div class="flex items-center gap-1 text-xs font-medium text-blue-500 mt-2">
+          <div class="flex items-end gap-1 text-xs font-medium text-blue-500 mt-2">
             Ver Nómina
             <svg
               xmlns="http://www.w3.org/2000/svg"

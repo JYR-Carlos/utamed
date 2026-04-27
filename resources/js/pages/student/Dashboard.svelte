@@ -8,7 +8,6 @@
   import { Sparkles, Calendar } from 'lucide-svelte';
   import ProfileCard from '@/components/student/ProfileCard.svelte';
   import CourseCard from '@/components/student/CourseCard.svelte';
-  import AyudantiaCard from '@/components/student/AyudantiaCard.svelte';
 
   /**
    * Props recibidas del servidor.
@@ -42,8 +41,6 @@
 
   const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/estudiante/dashboard' }];
 
-  // State
-  let modoAyudante = $state(false);
   let anoAcademico = $state('2026');
   let semestre = $state('1');
 
@@ -95,22 +92,11 @@
       apellido2: parts[2] || '',
     };
   });
-
-  // Calculate average progress
-  const progresoPromedio = $derived(
-    cursosEnriquecidos.length > 0
-      ? Math.round(
-          cursosEnriquecidos.reduce((acc, c) => acc + c.progreso, 0) / cursosEnriquecidos.length,
-        )
-      : 0,
-  );
 </script>
 
 <StudentLayout {breadcrumbs}>
   <div class="min-h-screen bg-white relative overflow-hidden">
     <!-- Animated background blobs -->
-    
-
     <div class="relative max-w-[1800px] mx-auto px-4">
       <!-- Header -->
       <div class="mb-8">
@@ -137,46 +123,10 @@
             carrera={carrera}
           />
 
-          <!-- Mode Switcher (solo visible si el usuario es ayudante) -->
-          {#if isAyudante}
-            <div
-              class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600/5 via-cyan-600/5 to-orange-600/5 p-[1px]"
-            >
-              <div
-                class="relative rounded-3xl bg-white backdrop-blur-xl p-6 border border-gray-200"
-              >
-               
-
-                <div class="relative space-y-4">
-                  <h4 class="text-sm text-gray-700 mb-3 font-medium">Modo de Vista</h4>
-
-                  <div class="relative flex rounded-2xl bg-gray-100 p-1">
-                    
-                    <button
-                      onclick={() => (modoAyudante = false)}
-                      class={`relative z-10 flex-1 py-2 text-sm font-medium transition-colors ${
-                        !modoAyudante ? 'text-white' : 'text-gray-600'
-                      }`}
-                    >
-                      Alumno
-                    </button>
-                    <button
-                      onclick={() => (modoAyudante = true)}
-                      class={`relative z-10 flex-1 py-2 text-sm font-medium transition-colors ${
-                        modoAyudante ? 'text-white' : 'text-gray-600'
-                      }`}
-                    >
-                      Ayudante
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          {/if}
-
+          
           <!-- Temporal Context Selectors -->
           <div
-            class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600/5 via-cyan-600/5 to-orange-600/5 p-[1px]"
+            class="relative overflow-hidden rounded-3xl bg-linear-to from-purple-600/5 via-cyan-600/5 to-orange-600/5 p-px"
           >
             <div class="relative rounded-3xl bg-white backdrop-blur-xl p-6 border border-gray-200">
               
@@ -229,55 +179,23 @@
               </div>
             </div>
           </div>
-
-          <!-- Stats Card -->
-          <div
-            class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600/5 via-cyan-600/5 to-orange-600/5 p-[1px]"
-          >
-            <div class="relative rounded-3xl bg-white backdrop-blur-xl p-6 border border-gray-200">
-            
-              <div class="relative space-y-3">
-                <h4 class="text-sm text-gray-700 mb-4 font-medium">Resumen</h4>
-
-                <div class="flex items-center justify-between">
-                  <span class="text-xs text-gray-600">Total Cursos</span>
-                  <span
-                    class="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold"
-                  >
-                    {modoAyudante ? ayudanteCursosEnriquecidos.length : cursosEnriquecidos.length}
-                  </span>
-                </div>
-
-                <div class="flex items-center justify-between">
-                  <span class="text-xs text-gray-600">Promedio Progreso</span>
-                  <span class="text-sm font-semibold text-gray-900">
-                    {modoAyudante ? '—' : `${progresoPromedio}%`}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         <!-- Main Content - Courses/Ayudantías Grid -->
         <div class="col-span-12 lg:col-span-9">
           <div class="mb-6">
             <h2 class="text-2xl font-semibold text-gray-900 mb-2">
-              {modoAyudante ? 'Mis Ayudantías' : 'Mis Cursos'}
+              {'Mis Cursos'}
             </h2>
             <p class="text-gray-600">
-              {modoAyudante
-                ? `Gestionando ${ayudanteCursosEnriquecidos.length} ayudantía${ayudanteCursosEnriquecidos.length !== 1 ? 's' : ''}`
-                : `${cursosEnriquecidos.length} asignaturas inscritas · Semestre ${semestre} ${anoAcademico}`}
+              {`${cursosEnriquecidos.length} asignaturas inscritas · Semestre ${semestre} ${anoAcademico}`}
             </p>
           </div>
 
-          <!-- Bento Grid - Asymmetric Layout -->
-          {#if !modoAyudante}
-            {#if cursosEnriquecidos.length > 0}
+          {#if cursosEnriquecidos.length > 0}
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
                 {#each cursosEnriquecidos as curso, index}
-                  <div class={index === 0 ? 'md:col-span-2 md:row-span-1' : ''}>
+                  <div class="md:col-span-2 md:row-span-1">
                     <CourseCard {...curso} />
                   </div>
                 {/each}
@@ -296,30 +214,8 @@
                 <h3 class="mb-2 text-lg font-bold text-gray-900">No tienes cursos inscritos</h3>
                 <p class="text-gray-600">Los cursos en los que te inscribas aparecerán aquí.</p>
               </div>
-            {/if}
-          {:else if ayudanteCursosEnriquecidos.length > 0}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
-              {#each ayudanteCursosEnriquecidos as ayudantia, index}
-                <div class={index === 0 ? 'md:col-span-2' : ''}>
-                  <AyudantiaCard {...ayudantia} />
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <div class="rounded-3xl border border-gray-200 bg-gray-50 p-12 text-center">
-              <div class="mb-4 flex justify-center">
-                <div class="rounded-full bg-gray-100 p-4">
-                  <svg class="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path
-                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                    />
-                  </svg>
-                </div>
-              </div>
-              <h3 class="mb-2 text-lg font-bold text-gray-900">No tienes ayudantías asignadas</h3>
-              <p class="text-gray-600">Los cursos donde eres ayudante aparecerán aquí.</p>
-            </div>
           {/if}
+
         </div>
       </div>
     </div>

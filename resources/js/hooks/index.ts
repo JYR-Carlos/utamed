@@ -8,5 +8,6 @@
 
 export { useAppearance } from './useAppearance.svelte';
 export { useInitials } from './useInitials';
+export { useFormatName } from './formatName';
 export { IsMobile } from './is-mobile.svelte';
 
