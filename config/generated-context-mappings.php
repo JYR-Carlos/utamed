@@ -50,7 +50,7 @@ return array (
     array (
     ),
   ),
-  'Operations\\Archivos' => 
+  'Operaciones\\Archivo' => 
   array (
     'type' => 'global',
     'paths' => 
