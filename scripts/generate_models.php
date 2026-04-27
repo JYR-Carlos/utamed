@@ -90,7 +90,7 @@ use Illuminate\Support\Str;
 
 $projectRoot = dirname(__DIR__); // utamed/
 $catalogName = 'utamed_1ra_fase';
-$schemaPrefix = 'administrativo,agenda,curso,usuario,auditoria,operaciones';
+$schemaPrefix = 'administrativo,agenda,curso,usuario,auditoria,operations';
 
 // Configurar columnas de auditoria
 $createdAtColumn = 'fecha_creacion';

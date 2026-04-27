@@ -40,7 +40,7 @@ return [
     // Lista de nombres completos schema.tabla.
     'global' => [
         'administrativo.asignatura',
-        'operaciones.archivo',
+        'operations.archivos',
         'usuario.docente',
         'usuario.estudiante',
         'usuario.rol',
@@ -103,7 +103,6 @@ return [
 // - agenda.estado_actividad: Prefijo filtrado
 // - agenda.estado_rubrica: Prefijo filtrado
 // - agenda.tipo_registro_agenda: Prefijo filtrado
-// - auditoria.programa_historial: Tabla filtrada
 // - curso.tipo_componente: Prefijo filtrado
 // - usuario.asignacion_rol_permiso: Tabla filtrada
 // - usuario.cache: Tabla filtrada
