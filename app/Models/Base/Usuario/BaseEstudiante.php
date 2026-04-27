@@ -30,7 +30,6 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
         'id_usuario'
     ];
 
-
     // Relaciones
 
     public function carrera()
@@ -47,9 +46,9 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
 
     // Relaciones inversas
 
-    public function asignadoActividades()
+    public function integranteGrupos()
     {
-        return $this->hasMany(\App\Models\Agenda\AsignadoActividad::class, 'id_estudiante', 'id_estudiante');
+        return $this->hasMany(\App\Models\Agenda\IntegranteGrupo::class, 'id_estudiante', 'id_estudiante');
     }
 
     public function inscripcionComponentes()
@@ -63,17 +62,6 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
     }
 
     // Relaciones muchos-a-muchos
-
-    public function actividadesAsignadas()
-    {
-        return $this->belongsToMany(
-            \App\Models\Agenda\ActividadAsignada::class,
-            'asignado_actividad',
-            'id_estudiante',
-            'grupo'
-        )
-            ->withPivot('id_asignado_actividad', 'nota_individual', 'diferencia_decimas', 'grupo', 'id_estudiante');
-    }
 
     public function componentesInscritos()
     {

@@ -34,7 +34,6 @@ abstract class BaseInscripcionCurso extends CustomBaseModel implements HasOwnedC
         'id_estudiante'
     ];
 
-
     // Relaciones
 
     public function curso()

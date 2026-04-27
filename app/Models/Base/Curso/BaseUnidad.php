@@ -31,7 +31,6 @@ abstract class BaseUnidad extends CustomBaseModel implements HasOwnedContext
         'id_curso'
     ];
 
-
     // Relaciones
 
     public function curso()

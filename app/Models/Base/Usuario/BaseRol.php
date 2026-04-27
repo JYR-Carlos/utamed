@@ -33,6 +33,9 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
         'creado_por'
     ];
 
+    protected $casts = [
+        'es_administrativo' => 'boolean'
+    ];
 
     // Relaciones
 

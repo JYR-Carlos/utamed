@@ -26,7 +26,6 @@ abstract class BaseContexto extends CustomBaseModel
         'id_contexto_padre'
     ];
 
-
     // Relaciones
 
     public function tipoContexto()

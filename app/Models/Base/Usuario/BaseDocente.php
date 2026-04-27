@@ -31,7 +31,6 @@ abstract class BaseDocente extends CustomBaseModel implements HasContext
         'id_usuario'
     ];
 
-
     // Relaciones
 
     public function usuario()

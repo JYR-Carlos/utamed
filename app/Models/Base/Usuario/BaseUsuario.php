@@ -41,10 +41,23 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
         'token_recuerdame_sesion'
     ];
 
+    protected $casts = [
+        'esta_activo' => 'boolean'
+    ];
 
     // Relaciones
 
     // Relaciones inversas
+
+    public function agendas()
+    {
+        return $this->hasMany(\App\Models\Agenda\Agenda::class, 'id_usuario_emisor', 'id_usuario');
+    }
+
+    public function evaluaciones()
+    {
+        return $this->hasMany(\App\Models\Agenda\Evaluacion::class, 'id_usuario_evaluador', 'id_usuario');
+    }
 
     public function accionesAuditoria()
     {

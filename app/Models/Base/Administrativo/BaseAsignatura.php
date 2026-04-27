@@ -40,7 +40,6 @@ abstract class BaseAsignatura extends CustomBaseModel implements HasContext
         'horas_autonomas'
     ];
 
-
     // Relaciones
 
     // Relaciones inversas

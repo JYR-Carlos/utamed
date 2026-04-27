@@ -34,6 +34,10 @@ abstract class BasePrograma extends CustomBaseModel implements HasOwnedContext
         'es_actual'
     ];
 
+    protected $casts = [
+        'data_syllabus' => 'array',
+        'es_actual' => 'boolean'
+    ];
 
     // Relaciones
 

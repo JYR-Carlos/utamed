@@ -24,27 +24,13 @@ abstract class BaseEstadoActividad extends CustomBaseModel
         'descripcion'
     ];
 
-
     // Relaciones
 
     // Relaciones inversas
 
-    public function actividadAsignadas()
+    public function actividadAsignadaGrupos()
     {
-        return $this->hasMany(\App\Models\Agenda\ActividadAsignada::class, 'id_estado', 'id_estado');
-    }
-
-    // Relaciones muchos-a-muchos
-
-    public function actividadesConEstado()
-    {
-        return $this->belongsToMany(
-            \App\Models\Agenda\Actividad::class,
-            'actividad_asignada',
-            'id_estado',
-            'id_actividad'
-        )
-            ->withPivot('grupo', 'nota', 'id_actividad', 'id_estado');
+        return $this->hasMany(\App\Models\Agenda\ActividadAsignadaGrupo::class, 'id_estado', 'id_estado');
     }
 
 }

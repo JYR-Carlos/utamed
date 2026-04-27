@@ -35,7 +35,6 @@ abstract class BasePlan extends CustomBaseModel implements HasOwnedContext
         'id_carrera'
     ];
 
-
     // Relaciones
 
     public function carrera()

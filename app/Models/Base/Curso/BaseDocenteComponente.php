@@ -5,14 +5,19 @@ namespace App\Models\Base\Curso;
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Extensions\Compoships\BelongsTo;
+use App\Contracts\HasOwnedContext;
+use App\Traits\ContextAware;
+use App\Traits\QueryScopes\FiltersContextScope;
 
 /**
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseDocenteComponente extends CustomBaseModel
+abstract class BaseDocenteComponente extends CustomBaseModel implements HasOwnedContext
 {
     use Compoships;
+    use ContextAware;
+    use FiltersContextScope;
     public $timestamps = false;
     protected $connection = 'pgsql';
     protected $table = 'docente_componente';
@@ -25,6 +30,9 @@ abstract class BaseDocenteComponente extends CustomBaseModel
         'id_componente'
     ];
 
+    protected $casts = [
+        'es_titular' => 'boolean'
+    ];
 
     // Relaciones
 
@@ -40,4 +48,19 @@ abstract class BaseDocenteComponente extends CustomBaseModel
         return new BelongsTo($instance->newQuery(), $this, 'id_componente', 'id_componente', 'componente');
     }
 
+    /**
+     * Scope para filtrar por contexto jerárquico.
+     * 
+     * Path: componente
+     */
+    public function scopeWhereContextHierarchy($query, array $contextIds)
+    {
+        if (empty($contextIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('componente', function ($q) use ($contextIds) {
+                $q->whereIn('id_contexto', $contextIds);
+            });
+    }
 }

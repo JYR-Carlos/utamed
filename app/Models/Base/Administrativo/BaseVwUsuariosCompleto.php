@@ -17,6 +17,9 @@ abstract class BaseVwUsuariosCompleto extends CustomBaseModel
     protected $connection = 'pgsql';
     protected $table = 'vw_usuarios_completo';
 
+    protected $casts = [
+        'esta_activo' => 'boolean'
+    ];
 
 
 }

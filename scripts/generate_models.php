@@ -90,7 +90,7 @@ use Illuminate\Support\Str;
 
 $projectRoot = dirname(__DIR__); // utamed/
 $catalogName = 'utamed_1ra_fase';
-$schemaPrefix = 'administrativo,agenda,curso,usuario,auditoria';
+$schemaPrefix = 'administrativo,agenda,curso,usuario,auditoria,operations';
 
 // Configurar columnas de auditoria
 $createdAtColumn = 'fecha_creacion';
@@ -154,9 +154,9 @@ $policyConfigs = [
   ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Plan', 'resource' => 'planes'],
   ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Asignatura', 'resource' => 'asignaturas'],
   ['namespace' => 'App\\Models\\Administrativo', 'class' => 'AsignacionPlan', 'resource' => 'asignaciones_plan'],
-  ['namespace' => 'App\\Models\\Administrativo', 'class' => 'Programa', 'resource' => 'cursos/programas'],
 
   // ===== Curso =====
+  ['namespace' => 'App\\Models\\Curso', 'class' => 'Programa', 'resource' => 'cursos/programas'],
   ['namespace' => 'App\\Models\\Curso', 'class' => 'Curso', 'resource' => 'cursos'],
   ['namespace' => 'App\\Models\\Curso', 'class' => 'Componente', 'resource' => 'cursos/componentes'],
   ['namespace' => 'App\\Models\\Curso', 'class' => 'DocenteComponente', 'resource' => 'cursos/docente_componentes'],
@@ -1576,7 +1576,7 @@ foreach ($tables as $tableInfo) {
   // Detectar si la tabla tiene fecha_eliminacion
   $hasSoftDeletes =
     collect($columns)
-      ->contains('column_name', $softDeleteColumnName);
+    ->contains('column_name', $softDeleteColumnName);
 
   $softDeleteImport = $hasSoftDeletes
     ? "use Illuminate\\Database\\Eloquent\\SoftDeletes;\n"
@@ -1718,7 +1718,7 @@ EOL;
   // Generar relaciones
   $relations = '';
   if (!empty($foreignKeys)) {
-    $relations = "\n    // Relaciones\n";
+    $relations = "    // Relaciones\n";
     $usedMethods = [];
 
     foreach ($foreignKeys as $fk) {
@@ -1856,10 +1856,12 @@ EOL;
   $currentTableKey = $schema . '.' . $tableName;
   if (isset($allForeignKeys[$currentTableKey])) {
     if (empty($relations)) {
-      $relations = "\n    // Relaciones\n";
+      $relations = "    // Relaciones\n\n";
+    } else {
+      $relations .= "\n";
     }
 
-    $relations .= "\n    // Relaciones inversas\n";
+    $relations .= "    // Relaciones inversas\n";
     $inverseUsedMethods = [];
 
     foreach ($allForeignKeys[$currentTableKey] as $inverseFk) {
@@ -1882,16 +1884,11 @@ EOL;
       $targetTableKey = $currentTableKey;  // $currentTableKey contains schema.table of the TARGET
       if (
         isset(
-        $relationNames
-        [$sourceTableKey]
-        [$targetTableKey]
-        [$inverseFk['source_columns']]
-      )
+          $relationNames[$sourceTableKey][$targetTableKey][$inverseFk['source_columns']]
+        )
       ) {
         $customName =
-          $relationNames[$sourceTableKey]
-          [$targetTableKey]
-          [$inverseFk['source_columns']];
+          $relationNames[$sourceTableKey][$targetTableKey][$inverseFk['source_columns']];
       }
 
       // Nombre del método
@@ -2165,9 +2162,7 @@ EOL;
           $currentTableKey = strtolower($schema) . '.' . strtolower($tableName);
           $relatedTableKey = strtolower($otherFk['schema']) . '.' . strtolower($relatedTable);
           if (
-            isset($pivotConfig['relation_names']
-            [$currentTableKey]
-            [$relatedTableKey])
+            isset($pivotConfig['relation_names'][$currentTableKey][$relatedTableKey])
           ) {
             $hasExplicitConfig = true;
           }
@@ -2182,18 +2177,13 @@ EOL;
         // Buscar usando schema.tabla format
         $currentTableKey = strtolower($schema) . '.' . strtolower($tableName);
         $relatedTableKey = strtolower($otherFk['schema']) . '.' . strtolower($relatedTable);
-        if
-        (
+        if (
           is_array($pivotConfig)
           &&
-          isset($pivotConfig['relation_names']
-          [$currentTableKey]
-          [$relatedTableKey])
+          isset($pivotConfig['relation_names'][$currentTableKey][$relatedTableKey])
         ) {
           $customConfig =
-            $pivotConfig['relation_names']
-            [$currentTableKey]
-            [$relatedTableKey];
+            $pivotConfig['relation_names'][$currentTableKey][$relatedTableKey];
         }
 
         // Determinar qué relaciones generar
@@ -2307,7 +2297,7 @@ EOL;
           $tableRelationMappings[$tableKey]['methods'][$methodName] = $relatedModel;
 
           if (empty($relations)) {
-            $relations = "\n    // Relaciones\n";
+            $relations = "    // Relaciones\n";
           }
 
           // Agregar sección si es la primera belongsToMany
@@ -2422,7 +2412,7 @@ EOL;
   // Generar propiedades condicionales para vistas
   $primaryKeyLine = $isView ? '' : "{$tab}protected \$primaryKey = {$primaryKeyDefinition};\n";
   $incrementingLine = $isView ? '' : "{$tab}public \$incrementing = {$incrementingValue};\n";
-  $fillableLine = $isView ? '' : "{$tab}protected \$fillable = [\n{$fillable}\n{$tab}];\n";
+  $fillableLine = $isView ? '' : "{$tab}protected \$fillable = [\n{$fillable}\n{$tab}];\n\n";
 
   // ==================================================================================
   // PASO 4.5.b: GENERAR ARRAY $casts
@@ -2442,7 +2432,7 @@ EOL;
     ->implode(",\n");
 
   $castsLine = $castsEntries
-    ? "{$tab}protected \$casts = [\n{$castsEntries}\n{$tab}];\n"
+    ? "{$tab}protected \$casts = [\n{$castsEntries}\n{$tab}];\n\n"
     : '';
 
   // Generar Base Model
@@ -2462,9 +2452,7 @@ abstract class Base{$className} extends CustomBaseModel{$implementsClause}
 {$allTraitsAndConsts}    protected \$connection = 'pgsql';
     protected \$table = '{$tableName}';
 {$primaryKeyLine}{$incrementingLine}
-{$fillableLine}
-{$castsLine}
-{$relations}{$contextScopeMethods}
+{$fillableLine}{$castsLine}{$relations}{$contextScopeMethods}
 }
 
 PHP;
@@ -3130,7 +3118,7 @@ PHP;
           $valid = implode(', ', array_keys($validContextTypes));
           throw new \RuntimeException(
             "❌ Tipo de contexto inválido en '{$path}.{$key}': '{$val}'.\n" .
-            "   Tipos configurados en '_valid_context_types': {$valid}\n"
+              "   Tipos configurados en '_valid_context_types': {$valid}\n"
           );
         }
       }

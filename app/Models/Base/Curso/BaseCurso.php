@@ -40,6 +40,7 @@ abstract class BaseCurso extends CustomBaseModel implements HasOwnedContext
         'estado_acta',
         'es_plantilla',
         'es_colegiado',
+        'es_flexible_con_entregas',
         'fecha_limite_entrega_basico',
         'fecha_limite_entrega_syllabus',
         'id_asignacion_plan',
@@ -49,6 +50,11 @@ abstract class BaseCurso extends CustomBaseModel implements HasOwnedContext
         'letra_grupo'
     ];
 
+    protected $casts = [
+        'es_plantilla' => 'boolean',
+        'es_colegiado' => 'boolean',
+        'es_flexible_con_entregas' => 'boolean'
+    ];
 
     // Relaciones
 

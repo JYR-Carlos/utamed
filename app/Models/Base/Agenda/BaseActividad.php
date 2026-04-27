@@ -28,6 +28,8 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
         'nombre',
         'fecha_limite',
         'visible',
+        'ponderacion',
+        'exigencia',
         'tipo_actividad',
         'tipo_entrega',
         'es_grupal',
@@ -37,6 +39,11 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
         'id_unidad'
     ];
 
+    protected $casts = [
+        'visible' => 'boolean',
+        'es_grupal' => 'boolean',
+        'es_plantilla' => 'boolean'
+    ];
 
     // Relaciones
 
@@ -60,9 +67,9 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
 
     // Relaciones inversas
 
-    public function actividadAsignadas()
+    public function actividadAsignadaGrupos()
     {
-        return $this->hasMany(\App\Models\Agenda\ActividadAsignada::class, 'id_actividad', 'id_actividad');
+        return $this->hasMany(\App\Models\Agenda\ActividadAsignadaGrupo::class, 'id_actividad', 'id_actividad');
     }
 
 }

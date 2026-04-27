@@ -33,6 +33,10 @@ abstract class BaseUsuarioRolAsignacion extends CustomBaseModel
         'eliminado_por'
     ];
 
+    protected $casts = [
+        'fue_eliminado' => 'boolean',
+        'esta_activo' => 'boolean'
+    ];
 
     // Relaciones
 

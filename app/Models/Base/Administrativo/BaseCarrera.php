@@ -36,7 +36,6 @@ abstract class BaseCarrera extends CustomBaseModel implements HasOwnedContext
         'id_departamento'
     ];
 
-
     // Relaciones
 
     public function departamento()

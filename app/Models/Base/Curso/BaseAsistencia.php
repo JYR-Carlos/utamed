@@ -32,6 +32,9 @@ abstract class BaseAsistencia extends CustomBaseModel implements HasOwnedContext
         'id_inscripcion_componente'
     ];
 
+    protected $casts = [
+        'esta_presente' => 'boolean'
+    ];
 
     // Relaciones
 

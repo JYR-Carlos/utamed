@@ -29,7 +29,6 @@ abstract class BaseProgramaHistorial extends CustomBaseModel
         'id_usuario'
     ];
 
-
     // Relaciones
 
     public function programa()

@@ -1,4 +1,4 @@
-    <?php
+<?php
 
 // GENERADO AUTOMÁTICAMENTE - REVISAR Y AJUSTAR SI ES NECESARIO
 // Para regenerar: php scripts/analyze_context_hierarchies.php
@@ -40,6 +40,7 @@ return [
     // Lista de nombres completos schema.tabla.
     'global' => [
         'administrativo.asignatura',
+        'operations.archivos',
         'usuario.docente',
         'usuario.estudiante',
         'usuario.rol',
@@ -55,19 +56,25 @@ return [
         'administrativo.plan' => [
             ['administrativo.carrera']
         ],
-        'curso.programa' => [
-            ['curso.curso']
-        ],
-        'agenda.actividad_asignada' => [
+        'agenda.actividad_asignada_grupo' => [
             ['agenda.actividad']
         ],
-        'agenda.asignado_actividad' => [
-            ['agenda.actividad_asignada', 'agenda.actividad'],
+        'agenda.agenda' => [
+            ['agenda.actividad_asignada_grupo', 'agenda.actividad']
+        ],
+        'agenda.evaluacion' => [
+            ['agenda.agenda', 'agenda.actividad_asignada_grupo', 'agenda.actividad']
+        ],
+        'agenda.integrante_grupo' => [
+            ['agenda.actividad_asignada_grupo', 'agenda.actividad'],
             ['usuario.estudiante', 'administrativo.carrera']
         ],
         'curso.asistencia' => [
             ['curso.inscripcion_componente', 'curso.componente'],
             ['curso.inscripcion_componente', 'usuario.estudiante', 'administrativo.carrera']
+        ],
+        'curso.docente_componente' => [
+            ['curso.componente']
         ],
         'curso.inscripcion_componente' => [
             ['curso.componente'],
@@ -77,13 +84,16 @@ return [
             ['curso.curso'],
             ['usuario.estudiante', 'administrativo.carrera']
         ],
+        'curso.programa' => [
+            ['curso.curso']
+        ],
         'curso.unidad' => [
             ['curso.curso']
         ],
     ],
 
     'complex' => [
-        // 'agenda.agenda', // TODO: revisar manualmente
+        // 'agenda.rubrica', // TODO: revisar manualmente
     ],
 ];
 
@@ -91,6 +101,8 @@ return [
 // TABLAS FILTRADAS (Excluidas por prefijo o configuración):
 // - administrativo.vw_usuarios_completo: Prefijo filtrado
 // - agenda.estado_actividad: Prefijo filtrado
+// - agenda.estado_rubrica: Prefijo filtrado
+// - agenda.tipo_registro_agenda: Prefijo filtrado
 // - curso.tipo_componente: Prefijo filtrado
 // - usuario.asignacion_rol_permiso: Tabla filtrada
 // - usuario.cache: Tabla filtrada

@@ -24,7 +24,6 @@ abstract class BaseTipoContexto extends CustomBaseModel
         'tabla_referenciada'
     ];
 
-
     // Relaciones
 
     // Relaciones inversas

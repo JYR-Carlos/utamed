@@ -25,6 +25,9 @@ abstract class BaseAsignacionRolPermiso extends CustomBaseModel
         'id_permiso'
     ];
 
+    protected $casts = [
+        'puede_delegar_permiso' => 'boolean'
+    ];
 
     // Relaciones
 

@@ -50,6 +50,13 @@ return array (
     array (
     ),
   ),
+  'Operations\\Archivos' => 
+  array (
+    'type' => 'global',
+    'paths' => 
+    array (
+    ),
+  ),
   'Usuario\\Docente' => 
   array (
     'type' => 'global',
@@ -113,22 +120,7 @@ return array (
       ),
     ),
   ),
-  'Curso\\Programa' => 
-  array (
-    'type' => 'hierarchical',
-    'paths' => 
-    array (
-      0 => 
-      array (
-        0 => 
-        array (
-          'target' => 'Curso',
-          'method' => 'curso',
-        ),
-      ),
-    ),
-  ),
-  'Agenda\\ActividadAsignada' => 
+  'Agenda\\ActividadAsignadaGrupo' => 
   array (
     'type' => 'hierarchical',
     'paths' => 
@@ -143,7 +135,7 @@ return array (
       ),
     ),
   ),
-  'Agenda\\AsignadoActividad' => 
+  'Agenda\\Agenda' => 
   array (
     'type' => 'hierarchical',
     'paths' => 
@@ -152,8 +144,53 @@ return array (
       array (
         0 => 
         array (
-          'target' => 'ActividadAsignada',
-          'method' => 'actividadAsignada',
+          'target' => 'ActividadAsignadaGrupo',
+          'method' => 'actividadAsignadaGrupo',
+        ),
+        1 => 
+        array (
+          'target' => 'Actividad',
+          'method' => 'actividad',
+        ),
+      ),
+    ),
+  ),
+  'Agenda\\Evaluacion' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
+      array (
+        0 => 
+        array (
+          'target' => 'Agenda',
+          'method' => 'agenda',
+        ),
+        1 => 
+        array (
+          'target' => 'ActividadAsignadaGrupo',
+          'method' => 'actividadAsignadaGrupo',
+        ),
+        2 => 
+        array (
+          'target' => 'Actividad',
+          'method' => 'actividad',
+        ),
+      ),
+    ),
+  ),
+  'Agenda\\IntegranteGrupo' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
+      array (
+        0 => 
+        array (
+          'target' => 'ActividadAsignadaGrupo',
+          'method' => 'actividadAsignadaGrupo',
         ),
         1 => 
         array (
@@ -214,6 +251,21 @@ return array (
       ),
     ),
   ),
+  'Curso\\DocenteComponente' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
+      array (
+        0 => 
+        array (
+          'target' => 'Componente',
+          'method' => 'componente',
+        ),
+      ),
+    ),
+  ),
   'Curso\\InscripcionComponente' => 
   array (
     'type' => 'hierarchical',
@@ -266,6 +318,21 @@ return array (
         array (
           'target' => 'Carrera',
           'method' => 'carrera',
+        ),
+      ),
+    ),
+  ),
+  'Curso\\Programa' => 
+  array (
+    'type' => 'hierarchical',
+    'paths' => 
+    array (
+      0 => 
+      array (
+        0 => 
+        array (
+          'target' => 'Curso',
+          'method' => 'curso',
         ),
       ),
     ),

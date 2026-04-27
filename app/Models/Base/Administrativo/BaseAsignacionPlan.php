@@ -35,7 +35,6 @@ abstract class BaseAsignacionPlan extends CustomBaseModel implements HasOwnedCon
         'id_asignatura'
     ];
 
-
     // Relaciones
 
     public function asignatura()

@@ -25,7 +25,6 @@ abstract class BasePermiso extends CustomBaseModel
         'descripcion'
     ];
 
-
     // Relaciones
 
     // Relaciones inversas

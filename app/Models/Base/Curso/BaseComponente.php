@@ -33,6 +33,10 @@ abstract class BaseComponente extends CustomBaseModel implements HasOwnedContext
         'id_curso'
     ];
 
+    protected $casts = [
+        'genera_acta' => 'boolean',
+        'aprobacion_obligatoria' => 'boolean'
+    ];
 
     // Relaciones
 

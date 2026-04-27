@@ -34,6 +34,12 @@ abstract class BaseUsuarioPermisoEspecial extends CustomBaseModel
         'eliminado_por'
     ];
 
+    protected $casts = [
+        'esta_permitido' => 'boolean',
+        'puede_delegar' => 'boolean',
+        'fue_borrado' => 'boolean',
+        'esta_activo' => 'boolean'
+    ];
 
     // Relaciones
 

@@ -33,7 +33,6 @@ abstract class BaseDepartamento extends CustomBaseModel implements HasOwnedConte
         'id_facultad'
     ];
 
-
     // Relaciones
 
     public function facultad()

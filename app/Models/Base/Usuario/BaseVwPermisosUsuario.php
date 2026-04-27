@@ -17,6 +17,10 @@ abstract class BaseVwPermisosUsuario extends CustomBaseModel
     protected $connection = 'pgsql';
     protected $table = 'vw_permisos_usuario';
 
+    protected $casts = [
+        'esta_permitido' => 'boolean',
+        'puede_delegar' => 'boolean'
+    ];
 
 
 }

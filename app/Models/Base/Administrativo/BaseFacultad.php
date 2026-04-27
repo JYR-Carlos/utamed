@@ -32,7 +32,6 @@ abstract class BaseFacultad extends CustomBaseModel implements HasOwnedContext
         'nombre'
     ];
 
-
     // Relaciones
 
     public function contexto()

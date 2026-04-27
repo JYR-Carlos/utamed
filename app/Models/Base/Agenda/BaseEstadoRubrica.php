@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Base\Curso;
+namespace App\Models\Base\Agenda;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
@@ -10,26 +10,27 @@ use App\Extensions\Compoships\BelongsTo;
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseTipoComponente extends CustomBaseModel
+abstract class BaseEstadoRubrica extends CustomBaseModel
 {
     use Compoships;
     public $timestamps = false;
     protected $connection = 'pgsql';
-    protected $table = 'tipo_componente';
-    protected $primaryKey = 'id_tipo_componente';
+    protected $table = 'estado_rubrica';
+    protected $primaryKey = 'id_estado_rubrica';
     public $incrementing = true;
 
     protected $fillable = [
-        'tipo'
+        'titulo',
+        'descripcion'
     ];
 
     // Relaciones
 
     // Relaciones inversas
 
-    public function componentes()
+    public function rubricas()
     {
-        return $this->hasMany(\App\Models\Curso\Componente::class, 'id_tipo_componente', 'id_tipo_componente');
+        return $this->hasMany(\App\Models\Agenda\Rubrica::class, 'id_estado_rubrica', 'id_estado_rubrica');
     }
 
 }
