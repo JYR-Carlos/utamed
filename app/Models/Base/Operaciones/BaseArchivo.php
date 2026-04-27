@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Base\Operations;
+namespace App\Models\Base\Operaciones;
 
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
@@ -14,7 +14,7 @@ use App\Traits\QueryScopes\FiltersContextScope;
  * Clase Base generada automáticamente
  * NO EDITAR - Se sobrescribe al regenerar
  */
-abstract class BaseArchivos extends CustomBaseModel implements HasContext
+abstract class BaseArchivo extends CustomBaseModel implements HasContext
 {
     use SoftDeletes;
     use Compoships;
@@ -24,9 +24,9 @@ abstract class BaseArchivos extends CustomBaseModel implements HasContext
     const CREATED_AT = 'fecha_creacion';
     const UPDATED_AT = 'fecha_modificacion';
     protected $connection = 'pgsql';
-    protected $table = 'archivos';
+    protected $table = 'archivo';
     protected $primaryKey = 'uuid_archivo';
-    public $incrementing = true;
+    public $incrementing = false;
 
     protected $fillable = [
         'uuid_archivo',

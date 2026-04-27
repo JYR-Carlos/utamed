@@ -53,10 +53,10 @@ abstract class BaseAgenda extends CustomBaseModel implements HasOwnedContext
         return new BelongsTo($instance->newQuery(), $this, 'id_tipo_registro_agenda', 'id_tipo_registro_agenda', 'tipoRegistroAgenda');
     }
 
-    public function archivos()
+    public function archivo()
     {
-        $instance = new \App\Models\Operations\Archivos();
-        return new BelongsTo($instance->newQuery(), $this, 'uuid_archivo_subido', 'uuid_archivo', 'archivos');
+        $instance = new \App\Models\Operaciones\Archivo();
+        return new BelongsTo($instance->newQuery(), $this, 'uuid_archivo_subido', 'uuid_archivo', 'archivo');
     }
 
     // Relaciones inversas

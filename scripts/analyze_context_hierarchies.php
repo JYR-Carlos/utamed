@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 
 $config = [
     'database' => 'utamed_1ra_fase',
-    'schema_prefix' => 'administrativo,agenda,curso,usuario,operations',
+    'schema_prefix' => 'administrativo,agenda,curso,usuario,operaciones,auditoria',
     'context_columns' => ['id_contexto'],
     'filter_prefix' => [  // Excluir vistas y tablas de enumerables
         'vw_',
@@ -47,7 +47,9 @@ $config = [
         "jobs",
         "migrations",
         "password_reset_tokens",
-        "sessions"
+        "sessions",
+        // Auditoria
+        "programa_historial",
     ],
     'global_context_tables' => [ // Tablas sin contexto pero modificables (contexto global)
         "asignatura",
@@ -55,7 +57,7 @@ $config = [
         "usuario",
         "estudiante",
         "docente",
-        "archivos",
+        "archivo",
     ],
     'max_depth' => 5,
 

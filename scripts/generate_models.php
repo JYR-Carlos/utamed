@@ -90,7 +90,7 @@ use Illuminate\Support\Str;
 
 $projectRoot = dirname(__DIR__); // utamed/
 $catalogName = 'utamed_1ra_fase';
-$schemaPrefix = 'administrativo,agenda,curso,usuario,auditoria,operations';
+$schemaPrefix = 'administrativo,agenda,curso,usuario,auditoria,operaciones';
 
 // Configurar columnas de auditoria
 $createdAtColumn = 'fecha_creacion';
@@ -1310,7 +1310,23 @@ foreach ($tables as $tableInfo) {
   $primaryKeyDefinition = $isView ? '' : ($isCompositePK
     ? "['" . implode("', '", $primaryKey) . "']"
     : "'{$primaryKey}'");
-  $incrementingValue = $isView ? '' : ($isCompositePK ? 'false' : 'true');
+
+  // Detectar si la PK es UUID (no es autoincremental)
+  $isPkUuid = false;
+  if (!$isView && !$isCompositePK && !empty($primaryKey)) {
+    $pkTypeResult = DB::select("
+      SELECT data_type 
+      FROM information_schema.columns 
+      WHERE table_schema = ? AND table_name = ? AND column_name = ?
+    ", [$schema, $tableName, $primaryKey]);
+
+    if (!empty($pkTypeResult)) {
+      $pkType = strtolower($pkTypeResult[0]->data_type);
+      $isPkUuid = $pkType === 'uuid';
+    }
+  }
+
+  $incrementingValue = $isView ? '' : ($isCompositePK || $isPkUuid ? 'false' : 'true');
 
   // ==================================================================================
   // PASO 4.3.5: DETECTAR Y EXCLUIR COLUMNAS ALWAYS GENERATED
