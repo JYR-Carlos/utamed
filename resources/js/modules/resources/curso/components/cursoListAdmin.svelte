@@ -228,7 +228,7 @@
                   <p class="font-semibold text-gray-900 leading-snug">
                     {curso.asignatura_nombre || '—'}
                   </p>
-                  <p class="text-xs text-gray-400 font-mono mt-0.5">{curso.cod_curso}</p>
+                  <p class="text-xs text-gray-500 font-mono mt-0.5">{curso.cod_curso}</p>
                 </div>
               </td>
 
@@ -244,7 +244,7 @@
                     <span class="text-sm font-medium text-gray-800">
                       {curso.asignacionPlan.agno_planificado}
                     </span>
-                    <span class="text-xs text-gray-400">
+                    <span class="text-xs text-gray-500">
                       Semestre {curso.asignacionPlan.semestre_planificado}
                     </span>
                   </div>
@@ -264,7 +264,7 @@
                     {sec.label}
                   </span>
                 {:else}
-                  <span class="text-xs text-gray-400">Sin secciones</span>
+                  <span class="text-xs text-gray-500">Sin secciones</span>
                 {/if}
               </td>
 

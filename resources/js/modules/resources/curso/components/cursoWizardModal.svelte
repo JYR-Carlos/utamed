@@ -80,18 +80,6 @@
   // ── Computed current step (1–4) ──────────────────────────────────────────
   const currentStep = $derived(!selectedCarrera ? 1 : !selectedPlan ? 2 : !selectedAsig ? 3 : 4);
 
-  // ── Debug logs ──────────────────────────────────────────────────────────────
-  $effect(() => {
-    if (isOpen) {
-      console.log('🎯 CursoWizardModal opened', {
-        isOpen,
-        carreras: carreras.length,
-        currentStep,
-        selectedCarrera: selectedCarrera?.nombre,
-      });
-    }
-  });
-
   // Grouped asignaturas by year → semester
   const asigByYear = $derived.by(() => {
     const map: Record<number, { s1: AsignaturaOption[]; s2: AsignaturaOption[] }> = {};

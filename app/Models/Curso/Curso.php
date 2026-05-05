@@ -29,6 +29,7 @@ class Curso extends BaseCurso
         'es_colegiado',
         'id_asignacion_plan',
         'id_docente_titular',
+        'id_contexto',
         'id_curso_padre',
         'version_plantilla',
         'letra_grupo',

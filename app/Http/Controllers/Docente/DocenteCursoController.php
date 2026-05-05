@@ -261,6 +261,7 @@ class DocenteCursoController extends Controller
                 'es_plantilla' => $curso->es_plantilla,
                 'tiene_programa' => $tienePrograma,
                 'es_titular_curso' => $esTitularCurso,
+                'id_docente_titular' => $curso->id_docente_titular,
                 'userPermissions' => $userPermissions,
                 'asignatura' => [
                     'nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',

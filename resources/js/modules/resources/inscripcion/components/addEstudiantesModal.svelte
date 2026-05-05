@@ -85,15 +85,6 @@
       const skipped = (json.skipped ?? []).length;
       const errors = (json.errors ?? []).length;
 
-      // Log de detalles para desarrollo
-      if (skipped > 0 || errors > 0) {
-        console.log('Detalles de inscripción:', {
-          created,
-          skipped: json.skipped,
-          errors: json.errors,
-        });
-      }
-
       // Construir mensaje detallado
       let message = '';
       if (created > 0) {
@@ -131,8 +122,12 @@
 />
 
 {#if isOpen}
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="fixed inset-0 bg-black/45 z-50" onclick={close} role="presentation"></div>
+  <button
+    type="button"
+    class="fixed inset-0 bg-black/45 z-50 cursor-default"
+    onclick={close}
+    aria-label="Cerrar"
+  ></button>
   <div
     class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.18)] w-[min(540px,calc(100vw-2rem))] max-h-[88dvh] flex flex-col overflow-hidden"
     role="dialog"

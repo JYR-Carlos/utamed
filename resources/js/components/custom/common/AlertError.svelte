@@ -7,7 +7,7 @@
         title?: string;
     }
 
-    let { errors, title = 'Something went wrong.' }: Props = $props();
+    let { errors, title = 'Ocurrió un error.' }: Props = $props();
 
     const uniqueErrors = $derived([...new Set(errors)]);
 </script>

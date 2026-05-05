@@ -263,23 +263,24 @@
               type="text"
               required
               maxlength="10"
-              tabindex={1}
               autocomplete="off"
               placeholder="11111111-1"
+              aria-describedby="email-hint"
+              aria-invalid={$form.data.email && !rutValid ? true : undefined}
               disabled={isRateLimited || processing}
               bind:value={$form.data.email}
               oninput={handleRutInput}
-              class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3.5 text-gray-900 focus:ring-2 focus:ring-[#2A66AC]/20 focus:border-[#2A66AC] focus:outline-none transition-all placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3.5 text-gray-900 focus-visible:ring-2 focus-visible:ring-[#2A66AC] focus:border-[#2A66AC] focus:outline-none transition-all placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
           {#if $form.data.email && !rutValid}
-            <p class="text-xs text-red-600 ml-0.5">
+            <p id="email-hint" class="text-xs text-red-600 ml-0.5">
               RUT debe tener 8 dígitos + dígito verificador (formato: 12345678-K)
             </p>
           {:else if $form.data.email && rutValid}
-            <p class="text-xs text-green-600 ml-0.5">Formato válido</p>
+            <p id="email-hint" class="text-xs text-green-600 ml-0.5">Formato válido</p>
           {:else}
-            <p class="text-xs text-gray-400 ml-0.5">Ingresa sin puntos y con guion</p>
+            <p id="email-hint" class="text-xs text-gray-500 ml-0.5">Ingresa sin puntos y con guion</p>
           {/if}
         </div>
 
@@ -292,7 +293,6 @@
                 <TextLink
                   href={request().url}
                   class="text-xs text-gray-400 hover:text-[#2A66AC] transition-colors !decoration-gray-300 hover:!decoration-[#2A66AC]"
-                  tabindex={5}
                 >
                   ¿Olvidaste tu contraseña?
                 </TextLink>
@@ -305,24 +305,24 @@
               name="password"
               type={showPassword ? 'text' : 'password'}
               required
-              tabindex={2}
               autocomplete="current-password"
               placeholder="••••••••"
               disabled={isRateLimited || processing}
               bind:value={$form.data.password}
-              class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3.5 pr-12 text-gray-900 focus:ring-2 focus:ring-[#2A66AC]/20 focus:border-[#2A66AC] focus:outline-none transition-all placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3.5 pr-12 text-gray-900 focus-visible:ring-2 focus-visible:ring-[#2A66AC] focus:border-[#2A66AC] focus:outline-none transition-all placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <button
               type="button"
               tabindex={-1}
               disabled={isRateLimited || processing}
+              aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               onclick={() => (showPassword = !showPassword)}
             >
               {#if showPassword}
-                <EyeOff size={20} />
+                <EyeOff size={20} aria-hidden="true" />
               {:else}
-                <Eye size={20} />
+                <Eye size={20} aria-hidden="true" />
               {/if}
             </button>
           </div>
@@ -337,7 +337,6 @@
             checked={Boolean((form?.data as any)?.remember)}
             disabled={isRateLimited || processing}
             onchange={handleRememberChange}
-            tabindex={3}
             class="border-gray-300 bg-transparent data-[state=checked]:bg-[#2A66AC] data-[state=checked]:border-[#2A66AC] disabled:opacity-50"
           />
           <div
@@ -354,7 +353,6 @@
         <Button
           type="submit"
           class="mt-1 w-full bg-[#2A66AC] hover:bg-[#234f8a] active:scale-[0.98] text-white font-bold py-7 rounded-xl shadow-lg shadow-[#2A66AC]/20 transition-all flex items-center justify-center gap-2 text-base cursor-pointer"
-          tabindex={4}
           disabled={isRateLimited || $form.processing}
         >
           {#if $form.processing}

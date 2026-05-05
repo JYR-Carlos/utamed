@@ -24,6 +24,12 @@
 	}
 </script>
 
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key === 'Escape' && isOpen) onClose();
+  }}
+/>
+
 {#if isOpen}
 	<div class="modal-backdrop" onclick={handleBackdropClick} role="presentation">
 		<div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-title">

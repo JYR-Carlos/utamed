@@ -55,6 +55,14 @@ class CursoService
 
             $curso = Curso::create($cursoData);
 
+            // Asignar rol 'Docente Titular' al docente en el contexto del curso SIEMPRE,
+            // independientemente de si imparte clases directamente en el componente.
+            // Usamos $contexto->id_contexto (ya creado) en lugar de $curso->id_contexto
+            // para garantizar que el valor esté disponible.
+            if (!empty($data['id_docente_sugerido'])) {
+                $this->assignDocenteRolCurso($data['id_docente_sugerido'], $contexto->id_contexto, true);
+            }
+
             // Find the chosen component type
             $tipoComponente = TipoComponente::find($data['id_tipo_componente_principal']);
 
@@ -74,18 +82,13 @@ class CursoService
                 // Solo asignar docente al componente si indica que imparte clases
                 // El jefe SIEMPRE tiene acceso administrativo (via id_docente_titular)
                 $jefeImpartesClases = $data['jefe_imparte_clases'] ?? true; // default: true (backward compat)
-                
+
                 if ($jefeImpartesClases) {
                     DocenteComponente::create([
                         'id_componente' => $componente->id_componente,
                         'id_docente'    => $data['id_docente_sugerido'],
                         'es_titular'    => true,
                     ]);
-
-                    // Asignar rol 'Docente Titular' en el contexto del curso
-                    if ($curso->id_contexto) {
-                        $this->assignDocenteRolCurso($data['id_docente_sugerido'], $curso->id_contexto, true);
-                    }
                 }
             }
 

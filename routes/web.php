@@ -277,6 +277,16 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::post('cursos/{curso}/componentes/{componente}/permisos', [\App\Http\Controllers\Docente\CursoPermisosController::class, 'componenteSync'])
         ->name('cursos.componentes.permisos.sync');
 
+    // ── Delegación granular de permisos por el DT del curso (matriz completa)
+    Route::get('cursos/{curso}/delegacion-permisos', [\App\Http\Controllers\Docente\DelegacionPermisosController::class, 'index'])
+        ->name('cursos.delegacion-permisos.index');
+    Route::post('cursos/{curso}/delegacion-permisos/toggle', [\App\Http\Controllers\Docente\DelegacionPermisosController::class, 'toggle'])
+        ->name('cursos.delegacion-permisos.toggle');
+
+    // ── Cambio de titular del componente por el DT del curso (sin acceso admin)
+    Route::put('cursos/{curso}/componentes/{componente}/titular', [\App\Http\Controllers\Admin\ComponenteController::class, 'setTitularByDt'])
+        ->name('cursos.componentes.titular.docente');
+
     // Course detail view
     Route::get('cursos/{curso}/docentes', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'docentes'])->name('cursos.docentes');
     Route::get('cursos/{curso}', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'show'])->name('cursos.show');

@@ -111,19 +111,17 @@ return [
       [Permissions::ACTIVIDADES_GRUPOS_ELIMINAR, false],
     ],
   ],
-
   // ===========================================================================
   // DOCENTE TITULAR (Restringido)
   // ===========================================================================
   // Gestiona sus cursos pero sin permiso sobre componentes, actividades ni programas
   // Para docentes que solo negocia contenido a nivel general del curso
+  // Este rol se aplica cuando hay más de un docente en el mismo curso, para evitar conflictos de edición en componentes y actividades.
   'Docente Titular Restringido' => [
     'es_administrativo' => false,
     'permisos' => [
       // Cursos: ver y gestionar propios
       [Permissions::CURSOS_VER, false],
-      [Permissions::CURSOS_EDITAR, false],
-      [Permissions::CURSOS_ELIMINAR, false],
 
       // Cursos > Inscripciones
       [Permissions::CURSOS_INSCRIPCIONES_VER, false],
@@ -152,7 +150,7 @@ return [
   ],
 
   // ===========================================================================
-  // DOCENTE (Gestor de Componente)
+  // DOCENTE (Gestor de Componente) - Titular
   // ===========================================================================
   // Solo asignable a contexto COMPONENTE, no a CURSO
   // Gestiona un componente específico: actividades, entregas y evaluaciones
@@ -188,6 +186,45 @@ return [
       [Permissions::ACTIVIDADES_GRUPOS_CREAR, false],
       [Permissions::ACTIVIDADES_GRUPOS_EDITAR, false],
       [Permissions::ACTIVIDADES_GRUPOS_ELIMINAR, false],
+    ],
+  ],
+  // ===========================================================================
+  // DOCENTE COMPONENTE COLEGIADO ()
+  // ===========================================================================
+  // Posee permisos bajo su propio componente, lo que gestiona:
+  // - Actividades: ver
+  // - Grupos de actividades: ver
+  // No tiene permisos a nivel de curso ni programas, los permisos son dado por el titular (docente componente)
+  'Docente Componente Colegiado' => [
+    'es_administrativo' => false,
+    'permisos' => [
+      // Componente > Inscripciones: ver a nivel de componente
+      [Permissions::COMPONENTES_INSCRIPCIONES_VER, false],
+      // Componente
+      [Permissions::COMPONENTES_VER, false],
+      // Actividades: solo ver a nivel de componente
+      [Permissions::ACTIVIDADES_VER, false],
+      // Actividades > Grupos: solo ver a nivel de componente
+      [Permissions::ACTIVIDADES_GRUPOS_VER, false],
+    ],
+  ],
+
+  // ==========================================================================
+  // DOCENTE VISUALIZADOR (curso específico)
+  // ==========================================================================
+  // Solo asignable a contexto CURSO, no a COMPONENTE
+  // Permisos de solo visualización a nivel de curso, unidades y programas
+  'Docente Visualizador' => [
+    'es_administrativo' => false,
+    'permisos' => [
+      // Cursos: solo ver (no editar ni eliminar)
+      [Permissions::CURSOS_VER, false],
+      // Cursos > Inscripciones: solo ver
+      [Permissions::CURSOS_INSCRIPCIONES_VER, false],
+      // Cursos > Unidades: solo ver (no crear/editar/eliminar)
+      [Permissions::CURSOS_UNIDADES_VER, false],
+      // Cursos > Programas: solo ver (no agregar/eliminar/modificar)
+      [Permissions::CURSOS_PROGRAMAS_VER_ULTIMO, false],
     ],
   ],
 

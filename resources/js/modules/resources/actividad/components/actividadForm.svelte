@@ -1,5 +1,7 @@
 <script lang="ts">
   import FormModal from '@/components/custom/admin/FormModal.svelte';
+  import { Checkbox } from '@/components/ui/checkbox';
+  import { Label } from '@/components/ui/label';
   import type { Actividad } from '@/types/actividad';
 
   interface Seccion {
@@ -157,11 +159,15 @@
     </div>
   </div>
 
-  <div class="mb-4">
-    <label class="flex items-center gap-2 text-gray-700 text-sm cursor-pointer">
-      <input type="checkbox" bind:checked={formData.es_grupal} class="w-4.5 h-4.5 cursor-pointer" />
-      <span>Es una actividad grupal</span>
-    </label>
+  <div class="mb-4 flex items-center gap-2">
+    <Checkbox
+      id="es_grupal"
+      checked={Boolean(formData.es_grupal)}
+      onchange={(e) => { formData.es_grupal = (e.target as HTMLInputElement).checked; }}
+    />
+    <Label for="es_grupal" class="text-sm text-gray-700 cursor-pointer font-normal">
+      Es una actividad grupal
+    </Label>
   </div>
 
   {#if formData.es_grupal}
@@ -180,10 +186,14 @@
     </div>
   {/if}
 
-  <div class="mb-4">
-    <label class="flex items-center gap-2 text-gray-700 text-sm cursor-pointer">
-      <input type="checkbox" bind:checked={formData.visible} class="w-4.5 h-4.5 cursor-pointer" />
-      <span>Visible para estudiantes</span>
-    </label>
+  <div class="mb-4 flex items-center gap-2">
+    <Checkbox
+      id="visible"
+      checked={Boolean(formData.visible)}
+      onchange={(e) => { formData.visible = (e.target as HTMLInputElement).checked; }}
+    />
+    <Label for="visible" class="text-sm text-gray-700 cursor-pointer font-normal">
+      Visible para estudiantes
+    </Label>
   </div>
 </FormModal>

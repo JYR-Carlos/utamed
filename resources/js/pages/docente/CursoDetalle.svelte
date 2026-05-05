@@ -7,7 +7,7 @@
    *   Equipo Docente + Detalles a la derecha.
    * - Colegiado: vista centrada en su componente y sus alumnos.
    */
-  import { router } from '@inertiajs/svelte';
+  import { router, Link } from '@inertiajs/svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import {
     Calendar,
@@ -28,6 +28,7 @@
   import {
     SyllabusPermisosModal,
     ComponentePermisosModal,
+    ComponenteTitularModal,
     EquipoDocenteSlideOver,
   } from '@/modules/resources/curso/components';
   import { hasPermission } from '@/services/permissionValidator';
@@ -80,6 +81,7 @@
     es_plantilla: boolean;
     tiene_programa: boolean;
     es_titular_curso: boolean;
+    id_docente_titular: number;
     asignatura: {
       nombre: string;
       cod_asignatura: string;
@@ -119,6 +121,10 @@
   // ─── Slide-over Equipo ───
   let showEquipoSlideOver = $state(false);
 
+  // ─── Modal Cambiar Titular de Componente ───
+  let showCambiarTitular = $state(false);
+  let cambiarTitularComponente = $state<ComponenteCurso | null>(null);
+
   $effect.pre(() => {
     if (componenteActivo === null && mis_componentes.length > 0) {
       componenteActivo = mis_componentes[0].id_componente;
@@ -129,13 +135,13 @@
     mis_estudiantes.filter((e) => e.id_componente === componenteActivo),
   );
 
+  const tipoComponenteActivo = $derived(
+    mis_componentes.find((c) => c.id_componente === componenteActivo)?.tipo_componente ?? 'Componente',
+  );
+
   const totalDocentesCurso = $derived(
     new Set(todos_componentes.flatMap((c) => c.docentes.map((d) => d.id_docente))).size,
   );
-
-  function goBack() {
-    router.visit('/docente/cursos');
-  }
 
   function formatDate(dateString: string) {
     if (!dateString) return '—';
@@ -164,10 +170,10 @@
          ══════════════════════════════════════════════════════════════════ -->
     <div class="bg-white border-b border-gray-200 px-6 py-5">
       <!-- Breadcrumb -->
-      <nav class="flex items-center gap-1.5 text-xs text-gray-400 mb-3">
-        <button onclick={goBack} class="hover:text-[#2A66AC] transition-colors">Mis Cursos</button>
-        <ChevronRight size={12} />
-        <span class="text-gray-600 font-medium">{curso.cod_curso}</span>
+      <nav class="flex items-center gap-1.5 text-xs text-gray-500 mb-3" aria-label="Ruta de navegación">
+        <Link href="/docente/cursos" class="hover:text-brand transition-colors">Mis Cursos</Link>
+        <ChevronRight size={12} aria-hidden="true" />
+        <span class="text-gray-600 font-medium" aria-current="page">{curso.cod_curso}</span>
       </nav>
 
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -287,7 +293,7 @@
                 </div>
                 <h2 class="text-base font-semibold text-gray-900">Mi Grupo</h2>
               </div>
-              <p class="text-xs text-gray-400 ml-10">Estudiantes inscritos en tus componentes</p>
+              <p class="text-xs text-gray-500 ml-10">Estudiantes inscritos en tus componentes</p>
             </div>
 
             <div class="p-5 space-y-4 flex-1">
@@ -312,7 +318,7 @@
                         />
                       {/if}
                       <span
-                        class="inline-flex items-center justify-center h-4 min-w-4 rounded-full px-1 text-[10px] font-bold"
+                        class="inline-flex items-center justify-center h-4 min-w-4 rounded-full px-1 text-[11px] font-bold"
                         style={componenteActivo === comp.id_componente
                           ? 'background:rgba(255,255,255,0.25); color:#fff;'
                           : 'background:#CBD5E1; color:#475569;'}
@@ -354,22 +360,23 @@
               {:else}
                 <div class="rounded-xl border border-gray-200 overflow-hidden">
                   <table class="w-full text-sm">
+                    <caption class="sr-only">Estudiantes inscritos — {tipoComponenteActivo}</caption>
                     <thead class="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th
-                          class="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
+                          class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                           >#</th
                         >
                         <th
-                          class="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
+                          class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                           >Estudiante</th
                         >
                         <th
-                          class="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell"
+                          class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell"
                           >Usuario</th
                         >
                         <th
-                          class="px-4 py-2.5 text-right text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
+                          class="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider"
                           >Nota</th
                         >
                       </tr>
@@ -405,6 +412,7 @@
                                   : 'bg-red-50 text-red-600 ring-1 ring-red-200'}"
                               >
                                 {item.nota_componente}
+                                <span class="sr-only">{item.nota_componente >= 4 ? '— Aprobado' : '— Reprobado'}</span>
                               </span>
                             {:else}
                               <span class="text-gray-300">—</span>
@@ -415,7 +423,7 @@
                     </tbody>
                   </table>
                 </div>
-                <p class="text-xs text-gray-400 text-right">
+                <p class="text-xs text-gray-500 text-right">
                   {estudiantesActivos.length} estudiante{estudiantesActivos.length !== 1 ? 's' : ''}
                 </p>
               {/if}
@@ -454,46 +462,85 @@
                 </button>
               </div>
 
-              <div class="p-4 space-y-2">
+              <div class="p-4 space-y-4">
                 {#if todos_componentes.length === 0}
-                  <p class="text-xs text-gray-400 text-center py-4">Sin docentes asignados.</p>
+                  <p class="text-xs text-gray-500 text-center py-4">Sin docentes asignados.</p>
                 {:else}
                   {#each todos_componentes as comp}
-                    {#each comp.docentes as doc}
-                      <div
-                        class="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors group"
-                      >
-                        <!-- Avatar -->
-                        <div
-                          class="flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold text-white shrink-0 flex-none"
-                          style="background:#2A66AC;"
-                        >
-                          {initials(doc.nombre)}
-                        </div>
-                        <div class="min-w-0 flex-1">
-                          <p class="text-sm font-medium text-gray-900 truncate">{doc.nombre}</p>
-                          <p class="text-[11px] text-gray-400 flex items-center gap-1">
-                            {comp.tipo_componente}
-                            {#if doc.es_titular}
-                              <Crown size={10} style="color:#F0AD4E;" />
-                            {/if}
-                          </p>
-                        </div>
+                    <div>
+                      <!-- Subheader del componente con acciones -->
+                      <div class="flex items-center justify-between mb-1.5">
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          {comp.tipo_componente}
+                        </p>
                         {#if comp.docentes.length > 1}
-                          <button
-                            onclick={() => {
-                              componentePermisoId = comp.id_componente;
-                              componentePermisoTipo = comp.tipo_componente;
-                              showComponentePermisos = true;
-                            }}
-                            class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition text-gray-400 hover:text-[#2A66AC] hover:bg-blue-50"
-                            title="Permisos del componente"
-                          >
-                            <Shield size={13} />
-                          </button>
+                          <div class="flex items-center gap-0.5">
+                            <!-- Cambiar Titular (sólo DT del curso) -->
+                            <button
+                              onclick={() => {
+                                cambiarTitularComponente = comp;
+                                showCambiarTitular = true;
+                              }}
+                              class="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                              aria-label="Cambiar titular de {comp.tipo_componente}"
+                            >
+                              <Crown size={12} aria-hidden="true" />
+                            </button>
+                            <!-- Permisos del componente -->
+                            <button
+                              onclick={() => {
+                                componentePermisoId = comp.id_componente;
+                                componentePermisoTipo = comp.tipo_componente;
+                                showComponentePermisos = true;
+                              }}
+                              class="p-1.5 rounded-lg text-gray-400 hover:text-[#2A66AC] hover:bg-blue-50 transition-colors"
+                              aria-label="Gestionar permisos de {comp.tipo_componente}"
+                            >
+                              <Shield size={12} aria-hidden="true" />
+                            </button>
+                          </div>
                         {/if}
                       </div>
-                    {/each}
+
+                      <!-- Lista de docentes del componente -->
+                      <div class="space-y-1">
+                        {#each comp.docentes as doc}
+                          {@const esDtCurso = doc.id_docente === curso.id_docente_titular}
+                          <div
+                            class="flex items-center gap-2.5 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                          >
+                            <!-- Avatar -->
+                            <div
+                              class="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold text-white shrink-0"
+                              style="background:#2A66AC;"
+                            >
+                              {initials(doc.nombre)}
+                            </div>
+                            <p class="text-sm font-medium text-gray-900 truncate flex-1 min-w-0">
+                              {doc.nombre}
+                            </p>
+                            <!-- Badge de rol -->
+                            {#if esDtCurso}
+                              <span
+                                class="flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0"
+                              >
+                                <Crown size={9} />
+                                DT
+                              </span>
+                            {:else if doc.es_titular}
+                              <span
+                                class="flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0"
+                              >
+                                <Crown size={9} />
+                                Titular
+                              </span>
+                            {:else}
+                              <span class="text-xs text-gray-500 shrink-0">Colegiado</span>
+                            {/if}
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
                   {/each}
                 {/if}
               </div>
@@ -515,14 +562,14 @@
                 {#each [{ label: 'Asignatura', value: curso.asignatura.nombre }, { label: 'Código', value: curso.asignatura.cod_asignatura }, { label: 'Carrera', value: curso.plan.carrera }, { label: 'Plan', value: curso.plan.nombre }, { label: 'Año', value: String(curso.agno_real) }, { label: 'Semestre', value: curso.semestre_real === 1 ? '1er Semestre' : '2do Semestre' }, { label: 'Inicio', value: formatDate(curso.fecha_inicio) }, { label: 'Término', value: formatDate(curso.fecha_fin) }] as row}
                   {#if row.value && row.value !== 'undefined' && row.value !== '—' && row.value !== 'NaN'}
                     <div class="flex items-start justify-between gap-3">
-                      <dt class="text-xs text-gray-400 shrink-0 mt-0.5">{row.label}</dt>
+                      <dt class="text-xs text-gray-500 shrink-0 mt-0.5">{row.label}</dt>
                       <dd class="text-xs font-medium text-gray-800 text-right">{row.value}</dd>
                     </div>
                   {/if}
                 {/each}
                 {#if curso.asignatura.descripcion}
                   <div class="pt-2 border-t border-gray-100">
-                    <dt class="text-xs text-gray-400 mb-1">Descripción</dt>
+                    <dt class="text-xs text-gray-500 mb-1">Descripción</dt>
                     <dd class="text-xs text-gray-600 leading-relaxed line-clamp-4">
                       {curso.asignatura.descripcion}
                     </dd>
@@ -543,7 +590,7 @@
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {#each [{ label: 'Asignatura', value: curso.asignatura.nombre }, { label: 'Plan', value: curso.plan.nombre }, { label: 'Carrera', value: curso.plan.carrera }, { label: 'Período', value: `${curso.agno_real} — ${curso.semestre_real === 1 ? '1er Sem.' : '2do Sem.'}` }] as item}
               <div>
-                <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                   {item.label}
                 </p>
                 <p class="text-sm font-semibold text-gray-900">{item.value}</p>
@@ -565,7 +612,7 @@
                 </div>
                 <h2 class="text-base font-semibold text-gray-900">Mi Componente</h2>
               </div>
-              <p class="text-xs text-gray-400 ml-10">Tu grupo de estudiantes</p>
+              <p class="text-xs text-gray-500 ml-10">Tu grupo de estudiantes</p>
             </div>
 
             <div class="p-5 space-y-4">
@@ -637,22 +684,23 @@
               {:else}
                 <div class="rounded-xl border border-gray-200 overflow-hidden">
                   <table class="w-full text-sm">
+                    <caption class="sr-only">Estudiantes inscritos — {tipoComponenteActivo}</caption>
                     <thead class="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th
-                          class="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
+                          class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                           >#</th
                         >
                         <th
-                          class="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
+                          class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                           >Estudiante</th
                         >
                         <th
-                          class="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell"
+                          class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell"
                           >Usuario</th
                         >
                         <th
-                          class="px-4 py-2.5 text-right text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
+                          class="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider"
                           >Nota</th
                         >
                       </tr>
@@ -687,6 +735,7 @@
                                   : 'bg-red-50 text-red-600 ring-1 ring-red-200'}"
                               >
                                 {item.nota_componente}
+                                <span class="sr-only">{item.nota_componente >= 4 ? '— Aprobado' : '— Reprobado'}</span>
                               </span>
                             {:else}
                               <span class="text-gray-300">—</span>
@@ -697,7 +746,7 @@
                     </tbody>
                   </table>
                 </div>
-                <p class="text-xs text-gray-400 text-right">
+                <p class="text-xs text-gray-500 text-right">
                   {estudiantesActivos.length} estudiante{estudiantesActivos.length !== 1 ? 's' : ''}
                 </p>
               {/if}
@@ -745,4 +794,15 @@
       tipoComponente={componentePermisoTipo}
     />
   {/if}
+
+  <ComponenteTitularModal
+    bind:isOpen={showCambiarTitular}
+    onClose={() => {
+      showCambiarTitular = false;
+      cambiarTitularComponente = null;
+    }}
+    cursoId={curso.id_curso}
+    idDocenteTitularCurso={curso.id_docente_titular}
+    componente={cambiarTitularComponente}
+  />
 </DocenteLayout>

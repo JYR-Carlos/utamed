@@ -118,7 +118,7 @@ class ComponenteController extends Controller
                 ]);
 
                 if ($curso->id_contexto) {
-                    $this->assignDocenteRolCurso($validated['id_docente'], $curso->id_contexto, true);
+                    $this->assignDocenteRolCurso($validated['id_docente'], $curso->id_contexto, true, $curso->id_docente_titular);
                 }
             }
 
@@ -171,7 +171,12 @@ class ComponenteController extends Controller
                     ]);
 
                     if ($cursoContextoId) {
-                        $this->assignDocenteRolCurso($validated['id_docente'], $cursoContextoId, true);
+                        $this->assignDocenteRolCurso(
+                            $validated['id_docente'],
+                            $cursoContextoId,
+                            true,
+                            $componente->curso?->id_docente_titular,
+                        );
                     }
                 }
             }
@@ -241,7 +246,12 @@ class ComponenteController extends Controller
 
         $componente->load('curso');
         if ($componente->curso?->id_contexto) {
-            $this->assignDocenteRolCurso($validated['id_docente'], $componente->curso->id_contexto, $esTitular);
+            $this->assignDocenteRolCurso(
+                $validated['id_docente'],
+                $componente->curso->id_contexto,
+                $esTitular,
+                $componente->curso->id_docente_titular,
+            );
         }
 
         $docente = Docente::with('usuario')->find($validated['id_docente']);
@@ -333,22 +343,52 @@ class ComponenteController extends Controller
         // Sincronizar roles en el contexto del curso
         $componente->load(['curso', 'docenteComponentes']);
         $idContextoCurso = $componente->curso?->id_contexto;
-        $idCurso = $componente->id_curso;
+        $idCurso         = $componente->id_curso;
+        $idDtCurso       = $componente->curso?->id_docente_titular;
 
         if ($idContextoCurso) {
-            // Promover al nuevo titular
-            $this->assignDocenteRolCurso($dc->id_docente, $idContextoCurso, true);
+            // Promover al nuevo titular del componente
+            $this->assignDocenteRolCurso($dc->id_docente, $idContextoCurso, true, $idDtCurso);
 
-            // Degradar a los demás docentes del componente que ya no son titulares en ningún componente del curso
+            // Degradar a los demás docentes del componente que ya no son titulares
             foreach ($componente->docenteComponentes as $otherDc) {
                 if ($otherDc->id_docente_componente === $dc->id_docente_componente) {
                     continue;
                 }
-                $this->downgradeDocenteRolToComponente($otherDc->id_docente, $idContextoCurso, $idCurso);
+                $this->downgradeDocenteRolToComponente($otherDc->id_docente, $idContextoCurso, $idCurso, $idDtCurso);
             }
         }
 
         return response()->json(['message' => 'Titular del componente actualizado.']);
+    }
+
+    /**
+     * Versión del endpoint setTitular accesible para el Docente Titular del Curso.
+     * Mismo comportamiento que setTitular(), pero protegido con verificación de identidad
+     * del DT del curso en lugar del middleware admin.
+     *
+     * @param  Request    $request
+     * @param  Curso      $curso
+     * @param  Componente $componente
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function setTitularByDt(Request $request, Curso $curso, Componente $componente)
+    {
+        /** @var \App\Models\Usuario\Usuario $user */
+        $user = Auth::user();
+
+        if (
+            !$user->docente
+            || $curso->id_docente_titular !== $user->docente->id_docente
+        ) {
+            abort(403, 'Solo el Docente Titular del curso puede cambiar el titular de un componente.');
+        }
+
+        if ($componente->id_curso !== $curso->id_curso) {
+            abort(403, 'El componente no pertenece al curso indicado.');
+        }
+
+        return $this->setTitular($request, $componente);
     }
 
     /**
@@ -383,20 +423,28 @@ class ComponenteController extends Controller
     }
 
     /**
-     * Asigna el rol correcto al usuario en el contexto del curso según si es titular o componente.
+     * Asigna el rol correcto al usuario en el contexto del curso.
      *
-     * - es_titular = true  → 'Docente Titular'
-     * - es_titular = false → 'Docente Componente' (solo si no tiene ya 'Docente Titular')
+     * Jerarquía de roles por colegiado:
+     *   - Docente cuyo id_docente === curso.id_docente_titular → 'Docente Titular'
+     *   - Titular del componente (es_titular=true) pero NO el DT del curso → 'Docente Componente'
+     *   - Docente no titular en el componente (colegiado) → 'Docente Componente Colegiado'
      *
-     * Si el docente asciende a titular, revoca el rol 'Docente Componente' previo.
+     * Al ascender en la jerarquía se revocan los roles inferiores previos.
+     * No se reemplaza un rol superior por uno inferior.
      *
-     * @param  int   $idDocente        ID del docente
-     * @param  int   $idContextoCurso  ID del contexto del curso
-     * @param  bool  $esTitular        Si se asigna como titular (true) o componente (false)
+     * @param  int       $idDocente           ID del docente
+     * @param  int       $idContextoCurso     ID del contexto del curso
+     * @param  bool      $esTitularComponente true si es titular del componente
+     * @param  int|null  $idDocenteTitularCurso  id_docente del DT del curso (desde curso.id_docente_titular)
      * @return void
      */
-    private function assignDocenteRolCurso(int $idDocente, int $idContextoCurso, bool $esTitular): void
-    {
+    private function assignDocenteRolCurso(
+        int $idDocente,
+        int $idContextoCurso,
+        bool $esTitularComponente,
+        ?int $idDocenteTitularCurso = null,
+    ): void {
         try {
             $docente = Docente::find($idDocente);
             if (!$docente || !$docente->id_usuario) {
@@ -407,15 +455,51 @@ class ComponenteController extends Controller
             }
 
             $actorId = Auth::id() ?? $docente->id_usuario;
-            $rolNombre = $esTitular ? 'Docente Titular' : 'Docente Componente';
 
-            if ($esTitular) {
-                // Al promover a titular, revocar rol Docente Componente previo
-                $rolComponente = Rol::where('nombre', 'Docente Componente')->first();
-                if ($rolComponente) {
+            // ── Determinar el rol objetivo ─────────────────────────────────
+            $esDtCurso = $idDocenteTitularCurso !== null && $idDocente === $idDocenteTitularCurso;
+
+            $rolNombre = match (true) {
+                $esDtCurso             => 'Docente Titular',
+                $esTitularComponente   => 'Docente Componente',
+                default                => 'Docente Componente Colegiado',
+            };
+
+            // ── Jerarquía: no degradar si ya tiene un rol superior ─────────
+            // Orden descendente: Docente Titular > Docente Componente > Docente Componente Colegiado
+            $jerarquia = ['Docente Titular', 'Docente Componente', 'Docente Componente Colegiado'];
+            $nivelObjetivo = array_search($rolNombre, $jerarquia);
+
+            $rolesActuales = Rol::whereIn('nombre', $jerarquia)->pluck('id_rol', 'nombre');
+
+            foreach ($jerarquia as $idx => $nombreSuperior) {
+                if ($idx >= $nivelObjetivo) {
+                    break;
+                }
+                $idRolSuperior = $rolesActuales[$nombreSuperior] ?? null;
+                if ($idRolSuperior) {
+                    $tieneSuperior = UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
+                        ->where('id_contexto', $idContextoCurso)
+                        ->where('id_rol', $idRolSuperior)
+                        ->where('esta_activo', true)
+                        ->where('fue_eliminado', false)
+                        ->exists();
+                    if ($tieneSuperior) {
+                        return; // Ya tiene un rol superior; no degradar
+                    }
+                }
+            }
+
+            // ── Revocar roles inferiores antes de asignar el objetivo ──────
+            foreach ($jerarquia as $idx => $nombreInferior) {
+                if ($idx <= $nivelObjetivo) {
+                    continue;
+                }
+                $idRolInferior = $rolesActuales[$nombreInferior] ?? null;
+                if ($idRolInferior) {
                     UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
                         ->where('id_contexto', $idContextoCurso)
-                        ->where('id_rol', $rolComponente->id_rol)
+                        ->where('id_rol', $idRolInferior)
                         ->where('esta_activo', true)
                         ->where('fue_eliminado', false)
                         ->update([
@@ -425,28 +509,15 @@ class ComponenteController extends Controller
                             'eliminado_por'  => $actorId,
                         ]);
                 }
-            } else {
-                // No degradar si ya tiene el rol superior Docente Titular
-                $rolTitular = Rol::where('nombre', 'Docente Titular')->first();
-                if ($rolTitular) {
-                    $hasTitular = UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
-                        ->where('id_contexto', $idContextoCurso)
-                        ->where('id_rol', $rolTitular->id_rol)
-                        ->where('esta_activo', true)
-                        ->where('fue_eliminado', false)
-                        ->exists();
-                    if ($hasTitular) {
-                        return;
-                    }
-                }
             }
 
-            $rol = Rol::firstOrCreate(
-                ['nombre' => $rolNombre],
-                ['creado_por' => $actorId]
-            );
+            // ── Asignar rol objetivo si no lo tiene aún ────────────────────
+            $rol = Rol::where('nombre', $rolNombre)->first();
+            if (!$rol) {
+                Log::error("Rol '{$rolNombre}' no existe en la base de datos.");
+                return;
+            }
 
-            // Verificar si ya tiene el rol objetivo (evitar duplicados)
             $already = UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
                 ->where('id_contexto', $idContextoCurso)
                 ->where('id_rol', $rol->id_rol)
@@ -468,39 +539,52 @@ class ComponenteController extends Controller
                     'esta_activo'               => true,
                     'creado_por'                => $actorId,
                 ]);
-                Log::info("Rol '{$rolNombre}' asignado en curso", [
-                    'id_usuario'       => $docente->id_usuario,
+                Log::info("Rol '{$rolNombre}' asignado en contexto de curso", [
+                    'id_usuario'        => $docente->id_usuario,
                     'id_contexto_curso' => $idContextoCurso,
                 ]);
             }
         } catch (\Exception $e) {
             Log::error('Error asignando rol Docente en curso: ' . $e->getMessage(), [
-                'id_docente'       => $idDocente,
+                'id_docente'        => $idDocente,
                 'id_contexto_curso' => $idContextoCurso,
             ]);
         }
     }
 
     /**
-     * Degrada el rol de un docente de 'Docente Titular' a 'Docente Componente'
-     * en el contexto del curso (solo si ya no es titular en ningún componente del curso).
+     * Degrada el rol de un docente al nivel correcto tras perder la titularidad del componente.
      *
-     * @param  int  $idDocente        ID del docente
-     * @param  int  $idContextoCurso  ID del contexto del curso
-     * @param  int  $idCurso          ID del curso (para verificar otros componentes)
+     * Determina el nuevo rol buscando si el docente aún es titular de algún componente en el curso:
+     *   - Sí, es titular de otro componente → 'Docente Componente'
+     *   - No es titular en ninguno           → 'Docente Componente Colegiado'
+     * En cualquier caso se preserva 'Docente Titular' si corresponde al DT del curso.
+     *
+     * @param  int       $idDocente           ID del docente
+     * @param  int       $idContextoCurso     ID del contexto del curso
+     * @param  int       $idCurso             ID del curso
+     * @param  int|null  $idDocenteTitularCurso  id_docente del DT del curso
      * @return void
      */
-    private function downgradeDocenteRolToComponente(int $idDocente, int $idContextoCurso, int $idCurso): void
-    {
-        // Solo degradar si ya no es titular en ningún otro componente del mismo curso
+    private function downgradeDocenteRolToComponente(
+        int $idDocente,
+        int $idContextoCurso,
+        int $idCurso,
+        ?int $idDocenteTitularCurso = null,
+    ): void {
+        // El DT del curso nunca se degrada desde aquí
+        if ($idDocenteTitularCurso !== null && $idDocente === $idDocenteTitularCurso) {
+            return;
+        }
+
+        // Determinar si sigue siendo titular en algún otro componente del mismo curso
         $isTitularElsewhere = DocenteComponente::where('id_docente', $idDocente)
             ->where('es_titular', true)
             ->whereHas('componente', fn ($q) => $q->where('id_curso', $idCurso))
             ->exists();
 
-        if ($isTitularElsewhere) {
-            return;
-        }
+        // Si es titular en otro componente, conserva 'Docente Componente'; si no, 'Docente Componente Colegiado'
+        $nuevoEsTitular = $isTitularElsewhere;
 
         try {
             $docente = Docente::find($idDocente);
@@ -508,25 +592,24 @@ class ComponenteController extends Controller
                 return;
             }
 
-            $actorId = Auth::id() ?? $docente->id_usuario;
+            // Revocar todos los roles de docente en el contexto antes de reasignar
+            $actorId   = Auth::id() ?? $docente->id_usuario;
+            $rolesNames = ['Docente Titular', 'Docente Componente', 'Docente Componente Colegiado'];
+            $rolesIds   = Rol::whereIn('nombre', $rolesNames)->pluck('id_rol');
 
-            $rolTitular = Rol::where('nombre', 'Docente Titular')->first();
-            if ($rolTitular) {
-                UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
-                    ->where('id_contexto', $idContextoCurso)
-                    ->where('id_rol', $rolTitular->id_rol)
-                    ->where('esta_activo', true)
-                    ->where('fue_eliminado', false)
-                    ->update([
-                        'esta_activo'    => false,
-                        'fue_eliminado'  => true,
-                        'fecha_fin_real' => Carbon::now(),
-                        'eliminado_por'  => $actorId,
-                    ]);
-            }
+            UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
+                ->where('id_contexto', $idContextoCurso)
+                ->whereIn('id_rol', $rolesIds)
+                ->where('esta_activo', true)
+                ->where('fue_eliminado', false)
+                ->update([
+                    'esta_activo'    => false,
+                    'fue_eliminado'  => true,
+                    'fecha_fin_real' => Carbon::now(),
+                    'eliminado_por'  => $actorId,
+                ]);
 
-            // Asignar rol Docente Componente
-            $this->assignDocenteRolCurso($idDocente, $idContextoCurso, false);
+            $this->assignDocenteRolCurso($idDocente, $idContextoCurso, $nuevoEsTitular, $idDocenteTitularCurso);
         } catch (\Exception $e) {
             Log::error('Error degradando rol Docente: ' . $e->getMessage(), [
                 'id_docente' => $idDocente,
@@ -552,7 +635,7 @@ class ComponenteController extends Controller
 
             $actorId = Auth::id() ?? $docente->id_usuario;
 
-            $rolesDocente = Rol::whereIn('nombre', ['Docente', 'Docente Titular', 'Docente Componente'])
+            $rolesDocente = Rol::whereIn('nombre', ['Docente', 'Docente Titular', 'Docente Componente', 'Docente Componente Colegiado'])
                 ->pluck('id_rol');
 
             UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
