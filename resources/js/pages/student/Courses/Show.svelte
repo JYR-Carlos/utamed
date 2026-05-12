@@ -105,7 +105,7 @@
 <StudentLayout {breadcrumbs}>
   <div class="min-h-screen bg-white flex flex-col md:flex-row">
     <!-- Sidebar -->
-    <div class="w-full md:w-80 shrink-0 md:sticky md:top-0 md:self-start">
+    <div class="w-full md:w-80 shrink-0 md:sticky  md:self-start">
       <CourseSidebar
         units={courseUnits}
         {activeModuleId}

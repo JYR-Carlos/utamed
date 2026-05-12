@@ -19,7 +19,7 @@
   let showSidebar = $state(true);
 </script>
 
-<AppShell variant="sidebar">
+<AppShell>
   <div class="flex h-svh flex-1 overflow-hidden">
     <!-- Sidebar desktop -->
     {#if showSidebar}
@@ -54,7 +54,7 @@
     {/if}
 
     <!-- Main Content -->
-    <AppContent variant="sidebar" class="flex-1 min-w-0 bg-white overflow-y-auto relative">
+    <AppContent class="flex min-w-0 bg-white relative overflow-y-auto">
       {#if showHeader}
         <AppSidebarHeader {breadcrumbs} bind:showHeader bind:showSidebar />
       {:else}

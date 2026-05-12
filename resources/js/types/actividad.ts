@@ -11,6 +11,7 @@ export interface Actividad {
     id_unidad?: number;
     seccion?: { id_seccion: number; tipo: string } | null;
     unidad?: { id_unidad: number; nombre: string } | null;
+    ultima_nota?: number | null;
 }
 
 export interface Integrante {

@@ -123,4 +123,51 @@ class ActivityController extends Controller
             'actividades' => $actividadesData,
         ]);
     }
+
+    public function show(Actividad $actividad)
+    {
+        /** @var Usuario $user */
+        $user = Auth::user();
+    
+        if (!$user->estudiante) {
+            return redirect('/dashboard');
+        }
+    
+        $estudiante = $user->estudiante;
+    
+        /*
+        // Verificar que el estudiante tenga acceso a esta actividad (misma lógica que en index)
+        $seccionIds = DB::table('curso.inscripcion_componente as is')
+            ->join('curso.componente as s', 's.id_componente', '=', 'is.componente')
+            ->where('is.id_estudiante', $estudiante->id_estudiante)
+            ->where('s.id_curso', $actividad->seccion->id_curso)
+            ->pluck('is.id_seccion');
+    
+        if (!$seccionIds->contains($actividad->id_seccion) || !$actividad->visible) {
+            abort(403, 'No tienes acceso a esta actividad.');
+        }
+    
+        // Cargar detalles adicionales de la actividad
+        $actividad->load(['seccion.tipoSeccion', 'unidad']);
+        */
+        return Inertia::render('student/Activities/Index', [
+            "cod_curso" => "1234",
+            "nombre_curso" => "Curso de Ejemplo",
+            "cod_actividad" => "ACT-01",
+            "nombre_actividad" => "Actividad de Ejemplo",
+            "descripcion" => "Descripción detallada de la actividad. Más larga para probar el largo de la descripción. Probando texto lorem ipsum",
+            "fecha_limite" => "03-12-2026",
+            "es_sumativa" => true,
+            "trae_archivo" => true,
+            "entrega_obligatoria" => true,
+            "ultima_nota" => 7.0,
+            "entradas" => [
+                ["id" => 1],
+                ["id" => 2],
+            ],
+            "ultimo_estado" => "aprobado",
+        ]);
+    }
 }
+
+

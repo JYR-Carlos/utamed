@@ -8,6 +8,7 @@
   import { Sparkles, Calendar } from 'lucide-svelte';
   import ProfileCard from '@/components/student/ProfileCard.svelte';
   import CourseCard from '@/components/student/CourseCard.svelte';
+  import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
   /**
    * Props recibidas del servidor.
@@ -55,6 +56,20 @@
     'from-pink-600 to-pink-400',
     'from-emerald-600 to-emerald-400',
   ];
+  // Define tu patrón estilo mosaico
+  const mosaicClasses = [
+    "md:col-span-2 md:row-span-1",
+    "md:col-span-2 md:row-span-1", 
+    "md:col-span-3 md:row-span-1", 
+    "md:col-span-2 md:row-span-1",
+    "md:col-span-1 md:row-span-1", 
+  ];
+
+  // Función para obtener la clase según el índice
+  const getGridClass = (index: number) => {
+    if (index >= 3) return "hidden"; // muestra solo los primeros 3 cursos en el dashboard como acceso directo
+    return mosaicClasses[index % mosaicClasses.length];
+  };
 
   // Mapear cursos a formato CourseCard
   const cursosEnriquecidos = $derived(
@@ -95,15 +110,14 @@
 </script>
 
 <StudentLayout {breadcrumbs}>
-  <div class="min-h-screen bg-white relative overflow-hidden">
+  <div class="h-full px-5 md:px-10 lg:px-20 bg-white relative">
     <!-- Animated background blobs -->
-    <div class="relative max-w-[1800px] mx-auto px-4">
+    <div class="relative mx-auto px-4">
       <!-- Header -->
       <div class="mb-8">
         <div class="flex items-center gap-3 mb-2">
-          <h1
-            class="text-4xl font-bold bg-clip-text"
-          >
+          <h1 class="text-4xl font-bold bg-clip-text"
+>
             Bienvenido, {nameParts.nombre}!
           </h1>
         </div>
@@ -182,20 +196,35 @@
         </div>
 
         <!-- Main Content - Courses/Ayudantías Grid -->
-        <div class="col-span-12 lg:col-span-9">
-          <div class="mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 mb-2">
-              {'Mis Cursos'}
-            </h2>
-            <p class="text-gray-600">
-              {`${cursosEnriquecidos.length} asignaturas inscritas · Semestre ${semestre} ${anoAcademico}`}
-            </p>
+        <div class="col-span-12 lg:col-span-8">
+          <div class="flex flex-col sm:flex-row gap-4 mb-6">
+            <div class="flex flex-col gap-1 mr-auto">
+              <h2 class="text-2xl font-semibold text-gray-900 mb-2">
+                {'Mis Cursos'}
+              </h2>
+              <p class="text-gray-600">
+                {`${cursosEnriquecidos.length} asignaturas inscritas · Semestre ${semestre} ${anoAcademico}`}
+              </p>
+
+            </div>
+
+            <!-- BOTON DE VER TODOS LOS CURSOS -->
+            <Link 
+              class="flex justify-between items-center w-[30%] md:w-60 gap-2 rounded-2xl px-4 py-2 border-4 bg-primary text-secondary hover:bg-secondary hover:text-primary transition-colors"
+              href="/estudiante/cursos"
+            >
+              <p class="text-md text-center font-bold "> Ver todos </p>
+              <ChevronRight class="w-4 h-4" />
+            </Link>
+
           </div>
 
           {#if cursosEnriquecidos.length > 0}
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
+              <p class="font-semibold text-md p-4">Accesos directos</p>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-rows-[200px]">
                 {#each cursosEnriquecidos as curso, index}
-                  <div class="md:col-span-2 md:row-span-1">
+                  <div class="{getGridClass(index)} flex"> 
                     <CourseCard {...curso} />
                   </div>
                 {/each}

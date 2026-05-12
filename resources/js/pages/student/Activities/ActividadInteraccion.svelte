@@ -1,0 +1,104 @@
+<script lang="ts">
+
+  interface Props {
+    es_sumativa: boolean;
+    ultima_nota?: number | null;
+    ultimo_estado?: string | null;
+  }
+
+  let { es_sumativa, ultima_nota, ultimo_estado }: Props = $props();
+
+  function getColor(): string {
+    // revisa si es sumativa y tiene nota para determinar el color de fondo
+    if (es_sumativa && ultima_nota) {
+      if (ultima_nota >= 4.0) return 'bg-green-100 text-green-900 border-green-300';
+      if (ultima_nota < 4.0) return 'bg-red-100 text-red-900 border-red-300';
+      return 'bg-red-100 text-red-900 border-red-300';
+    }
+    // si no es sumativa revisa los estados de retroalimentación
+    const valorEstado = ultimo_estado?.toLowerCase();
+    if (valorEstado === 'pendiente')
+      return 'bg-yellow-100 text-yellow-900 border-yellow-300';
+    if (valorEstado === 'descargado' || valorEstado === 'enviado')
+      return 'bg-blue-100 text-blue-900 border-blue-300';
+    if (valorEstado === 'completado' || valorEstado === 'aprobado')
+      return 'bg-green-100 text-green-900 border-green-300';
+    if (valorEstado === 'reprobado')
+      return 'bg-red-100 text-red-900 border-red-300';
+    return 'bg-primary text-secondary border-primary'; // color por defecto
+  }
+</script>
+
+<div
+  class="mx-auto sm:w-[50%] size-50 md:size-60 lg:size-80 border-4 rounded-2xl flex items-center justify-center font-bold mt-6 text-8xl {getColor()}"
+>
+  {#if es_sumativa}
+    {ultima_nota?.toPrecision(2) ?? 'N/A'}
+  {:else}
+    {#if ultimo_estado === 'reprobado'}
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="1.5"
+        stroke="currentColor"
+        class="size-40"
+      >
+        <!--ICONO REPROBADO-->
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="m4.5 12.75 6 6 9-13.5"
+        />
+      </svg>
+    {:else if ultimo_estado === 'pendiente'}
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="1.5"
+        stroke="currentColor"
+        class="size-40"
+      >
+        <!--ICONO PENDIENTE-->
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.269 20.876L5.999 12zm9-2a3 3 0 11-6 0 3 3 0 016 0z"
+        />
+      </svg>
+    {:else if ultimo_estado === 'por_enviar'}
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="1.5"
+        stroke="currentColor"
+        class="size-40"
+      >
+        <!--ICONO POR ENVIAR-->
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M13 10V3L4 14h7v7l9-11h-7z"
+        />
+      </svg>
+    {:else}
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="1.5"
+        stroke="currentColor"
+        class="size-40"
+      >
+        <!--ICONO APROBADO/COMPLETADO-->
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+    {/if}
+  {/if}
+</div>

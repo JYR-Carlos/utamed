@@ -36,7 +36,7 @@
   }
 </script>
 
-<div class="w-full lg:w-80 lg:h-screen bg-white border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col z-40">
+<div class="w-full lg:w-80 lg:h-screen bg-white border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col z-40 relative sm:fixed">
   
   <button 
     class="hidden lg:flex items-center px-6 py-4 bg-primary text-secondary hover:text-primary hover:bg-secondary transition-colors border-b border-gray-200"

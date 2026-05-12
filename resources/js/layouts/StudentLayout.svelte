@@ -11,7 +11,7 @@
     let { breadcrumbs = [], children }: Props = $props();
 </script>
 
-<div class="flex w-full  mx-auto min-h-screen bg-white shadow-xl border-x border-slate-100 relative">
+<div class="flex flex-col w-full mx-auto h-screen bg-white shadow-xl border-x border-slate-100 relative overflow-y-auto">
     <AppSidebarLayout {breadcrumbs}>
         {@render children?.()}
     </AppSidebarLayout>

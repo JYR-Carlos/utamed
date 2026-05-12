@@ -345,11 +345,8 @@ Route::prefix('estudiante')->middleware(['auth', 'verified', 'is_estudiante'])->
 
     // Programa (Syllabus) View - MUST be before generic {curso} route
     Route::get('cursos/{curso}/programa', [\App\Http\Controllers\Student\ProgramaController::class, 'show'])->name('cursos.programa.show');
-
-    // Activities view - MUST be before generic {curso} route
-    Route::get('cursos/{curso}/actividades', [\App\Http\Controllers\Student\ActivityController::class, 'index'])->name('cursos.actividades.index');
-
     Route::get('cursos/{curso}', [\App\Http\Controllers\Student\CourseController::class, 'show'])->name('cursos.show');
+    Route::get('cursos/{curso}/actividad', [\App\Http\Controllers\Student\ActivityController::class, 'show'])->name('cursos.actividades.show');
 });
 
 // Ayudante Routes

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import CourseCard from '@/components/student/CourseCard.svelte';
+  import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   /**
    * Componente: Lista de Cursos para Alumno (Simplificado)
    *
@@ -16,7 +18,8 @@
    * - onCourseClick: (curso: any) => void - Click en "Entrar"
    * - onSyllabusClick: (curso: any) => void - Click en "Ver Programa"
    */
-  import { ArrowRight, BookOpenCheck } from 'lucide-svelte';
+  import { ArrowRight, BookOpenCheck, ChevronRight } from 'lucide-svelte';
+  import { Link, page } from '@inertiajs/svelte';
 
   interface Props {
     cursosData?: any[];
@@ -45,7 +48,16 @@
   );
 </script>
 
-<div class="space-y-6">
+<div class="px-5 md:px-10 lg:px-20 space-y-6">
+  <!-- BOTON DE VER TODOS LOS CURSOS -->
+  <Link
+    class="flex items-center w-60 justify-center gap-2 rounded-2xl px-4 py-2 border-4 hover:bg-primary hover:text-secondary transition-colors"
+    href="/estudiante/dashboard"  
+  >
+    <ChevronLeft class="w-4 h-4" />
+    <p class="text-md font-bold">Volver al Dashboard</p>
+  </Link>
+
   {#if cursosAgrupados}
     <!-- Agrupado por semestre -->
     {#if cursosAgrupados.semestre1.length > 0 || cursosAgrupados.semestre2.length > 0}
