@@ -41,3 +41,48 @@ export interface EstudianteDisponible {
     nombre_completo: string;
     email: string;
 }
+
+export interface ArchivoEntrega {
+    nombre_original: string;
+    mime_type: string | null;
+    tamanio_bytes: number | null;
+}
+
+export interface Entrega {
+    id_agenda: number;
+    fecha_envio: string;
+    mensaje: string | null;
+    tipo_registro: string;
+    archivo: ArchivoEntrega | null;
+    evaluada: boolean;
+}
+
+export interface ActividadResumen {
+    id_actividad: number;
+    nombre: string;
+    es_grupal: boolean;
+    fecha_limite: string;
+}
+
+/** Mensaje/feedback de nivel 2 asociado a un grupo de actividad (agenda.agenda) */
+export interface MensajeGrupo {
+    id_agenda: number;
+    fecha_envio: string;
+    mensaje: string;
+    tipo_registro: 'Mensaje al profesor' | 'Feedback' | string;
+    emisor_id_usuario: number;
+    emisor_nombre: string;
+}
+
+/** Mensaje directo de nivel 1 entre docente y estudiante (agenda.mensaje_directo) */
+export interface MensajeEstudiante {
+    id_agenda: number;
+    fecha_envio: string;
+    mensaje: string;
+    grupo: number;
+    tipo_registro: 'Mensaje al profesor' | 'Feedback' | string;
+    emisor_nombre: string;
+    emisor_id_usuario: number;
+    actividad_nombre: string;
+    id_actividad: number;
+}

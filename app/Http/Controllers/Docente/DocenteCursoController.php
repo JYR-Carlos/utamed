@@ -248,6 +248,31 @@ class DocenteCursoController extends Controller
                 ->values()
                 ->all();
 
+        // Actividades del curso (todas las componentes) para el kanban de seguimiento
+        $actividades = \App\Models\Agenda\Actividad::whereHas(
+                'componente',
+                fn ($q) => $q->where('id_curso', $curso->id_curso)
+            )
+            ->with(['componente.tipoComponente'])
+            ->get()
+            ->map(fn ($a) => [
+                'id_actividad'   => $a->id_actividad,
+                'nombre'         => $a->nombre,
+                'fecha_limite'   => $a->fecha_limite,
+                'tipo_actividad' => $a->tipo_actividad,
+                'tipo_entrega'   => $a->tipo_entrega,
+                'es_grupal'      => $a->es_grupal,
+                'max_integrantes' => $a->max_integrantes,
+                'visible'        => $a->visible,
+                'id_componente'  => $a->id_componente,
+                'componente'     => $a->componente ? [
+                    'id_componente'  => $a->componente->id_componente,
+                    'tipo_componente' => $a->componente->tipoComponente ? [
+                        'nombre' => $a->componente->tipoComponente->tipo,
+                    ] : null,
+                ] : null,
+            ]);
+
         return Inertia::render('docente/CursoDetalle', [
             'curso' => [
                 'id_curso' => $curso->id_curso,
@@ -278,6 +303,7 @@ class DocenteCursoController extends Controller
             'mis_componentes' => $misComponentesData->values(),
             'mis_estudiantes' => $misEstudiantes->values(),
             'todos_componentes' => $todosComponentesData->values(),
+            'actividades' => $actividades->values(),
         ]);
     }
 

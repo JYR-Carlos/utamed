@@ -24,6 +24,9 @@
     ChevronRight,
     Layers,
     Shield,
+    Search,
+    X,
+    ClipboardList,
   } from 'lucide-svelte';
   import {
     SyllabusPermisosModal,
@@ -33,6 +36,9 @@
   } from '@/modules/resources/curso/components';
   import { hasPermission } from '@/services/permissionValidator';
   import type { Permission } from '@/types/permissions/permissions';
+  import ActividadesPorEstado from './components/ActividadesPorEstado.svelte';
+  import EstudianteDetalleModal from './components/EstudianteDetalleModal.svelte';
+  import type { Actividad } from '@/types/actividad';
 
   interface Componente {
     id_componente: number;
@@ -101,9 +107,16 @@
     mis_componentes: Componente[];
     mis_estudiantes: EstudianteComponente[];
     todos_componentes: ComponenteCurso[];
+    actividades?: Actividad[];
   }
 
-  let { curso, mis_componentes, mis_estudiantes, todos_componentes = [] }: Props = $props();
+  let {
+    curso,
+    mis_componentes,
+    mis_estudiantes,
+    todos_componentes = [],
+    actividades = [],
+  }: Props = $props();
 
   const canVerActividades = $derived(
     curso.es_titular_curso || hasPermission(curso.userPermissions ?? [], 'actividades:ver'),
@@ -125,6 +138,17 @@
   let showCambiarTitular = $state(false);
   let cambiarTitularComponente = $state<ComponenteCurso | null>(null);
 
+  // ─── Vista principal (tabs) ───
+  type MainTab = 'grupo' | 'actividades';
+  let mainTab = $state<MainTab>('grupo');
+
+  // ─── Búsqueda de estudiantes ───
+  let estudianteQuery = $state('');
+
+  // ─── Modal Detalle Estudiante ───
+  let modalEstudiante = $state(false);
+  let estudianteSeleccionado = $state<EstudianteComponente | null>(null);
+
   $effect.pre(() => {
     if (componenteActivo === null && mis_componentes.length > 0) {
       componenteActivo = mis_componentes[0].id_componente;
@@ -136,12 +160,34 @@
   );
 
   const tipoComponenteActivo = $derived(
-    mis_componentes.find((c) => c.id_componente === componenteActivo)?.tipo_componente ?? 'Componente',
+    mis_componentes.find((c) => c.id_componente === componenteActivo)?.tipo_componente ??
+      'Componente',
   );
 
   const totalDocentesCurso = $derived(
     new Set(todos_componentes.flatMap((c) => c.docentes.map((d) => d.id_docente))).size,
   );
+
+  const estudiantesActivosFiltrados = $derived(
+    estudiantesActivos.filter((e) => {
+      const q = estudianteQuery.toLowerCase().trim();
+      return (
+        !q ||
+        e.estudiante.nombre.toLowerCase().includes(q) ||
+        e.estudiante.username.toLowerCase().includes(q)
+      );
+    }),
+  );
+
+  function abrirModalEstudiante(est: EstudianteComponente) {
+    estudianteSeleccionado = est;
+    modalEstudiante = true;
+  }
+
+  function cerrarModalEstudiante() {
+    modalEstudiante = false;
+    estudianteSeleccionado = null;
+  }
 
   function formatDate(dateString: string) {
     if (!dateString) return '—';
@@ -170,7 +216,10 @@
          ══════════════════════════════════════════════════════════════════ -->
     <div class="bg-white border-b border-gray-200 px-6 py-5">
       <!-- Breadcrumb -->
-      <nav class="flex items-center gap-1.5 text-xs text-gray-500 mb-3" aria-label="Ruta de navegación">
+      <nav
+        class="flex items-center gap-1.5 text-xs text-gray-500 mb-3"
+        aria-label="Ruta de navegación"
+      >
         <Link href="/docente/cursos" class="hover:text-brand transition-colors">Mis Cursos</Link>
         <ChevronRight size={12} aria-hidden="true" />
         <span class="text-gray-600 font-medium" aria-current="page">{curso.cod_curso}</span>
@@ -264,7 +313,7 @@
               style="background:#2A66AC;"
             >
               <FileText size={15} />
-              Ver Actividades
+              Gestionar Actividades
             </button>
           {/if}
         </div>
@@ -282,152 +331,287 @@
                ║  COLUMNA IZQUIERDA: Mi Grupo 65%  ║
                ╚═══════════════════════════════════╝ -->
           <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col">
-            <!-- Card header -->
-            <div class="px-5 pt-5 pb-4 border-b border-gray-100">
-              <div class="flex items-center gap-2 mb-1">
+            <!-- Card header + tab nav -->
+            <div class="border-b border-gray-200">
+              <div class="px-5 pt-5 pb-0 flex items-center gap-3">
                 <div
                   class="flex items-center justify-center w-8 h-8 rounded-lg"
                   style="background:#EEF4FB;"
                 >
                   <GraduationCap size={16} style="color:#2A66AC;" />
                 </div>
-                <h2 class="text-base font-semibold text-gray-900">Mi Grupo</h2>
+                <h2 class="text-base font-semibold text-gray-900">
+                  {mainTab === 'grupo' ? 'Mi Grupo' : 'Seguimiento de Actividades'}
+                </h2>
               </div>
-              <p class="text-xs text-gray-500 ml-10">Estudiantes inscritos en tus componentes</p>
-            </div>
-
-            <div class="p-5 space-y-4 flex-1">
-              <!-- Pill tabs -->
-              {#if mis_componentes.length > 1}
-                <div class="flex gap-2 flex-wrap">
-                  {#each mis_componentes as comp}
-                    <button
-                      onclick={() => (componenteActivo = comp.id_componente)}
-                      class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all"
-                      style={componenteActivo === comp.id_componente
-                        ? 'background:#2A66AC; color:#fff;'
-                        : 'background:#F1F5F9; color:#64748B;'}
-                    >
-                      {comp.tipo_componente}
-                      {#if comp.es_titular}
-                        <Crown
-                          size={11}
-                          style="color:{componenteActivo === comp.id_componente
-                            ? '#FCD68A'
-                            : '#F0AD4E'};"
-                        />
-                      {/if}
-                      <span
-                        class="inline-flex items-center justify-center h-4 min-w-4 rounded-full px-1 text-[11px] font-bold"
-                        style={componenteActivo === comp.id_componente
-                          ? 'background:rgba(255,255,255,0.25); color:#fff;'
-                          : 'background:#CBD5E1; color:#475569;'}
-                      >
-                        {comp.total_estudiantes}
-                      </span>
-                    </button>
-                  {/each}
-                </div>
-              {:else if mis_componentes.length === 1}
-                <div class="flex items-center gap-2">
-                  <span
-                    class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold text-white"
-                    style="background:#2A66AC;"
-                  >
-                    {mis_componentes[0].tipo_componente}
-                    {#if mis_componentes[0].es_titular}
-                      <Crown size={11} style="color:#FCD68A;" />
-                    {/if}
-                  </span>
-                </div>
-              {/if}
-
-              <!-- Tabla de estudiantes -->
-              {#if estudiantesActivos.length === 0}
-                <div
-                  class="flex flex-col items-center justify-center py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200"
+              <!-- Tab bar -->
+              <nav class="flex px-4 gap-0.5 mt-3" role="tablist" aria-label="Secciones del curso">
+                <button
+                  role="tab"
+                  aria-selected={mainTab === 'grupo'}
+                  onclick={() => (mainTab = 'grupo')}
+                  class="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors {mainTab ===
+                  'grupo'
+                    ? 'border-[#2A66AC] text-[#2A66AC]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
                 >
-                  <div
-                    class="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3"
+                  <GraduationCap size={14} />
+                  Mi Grupo
+                  <span
+                    class="ml-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full text-[10px] font-bold {mainTab ===
+                    'grupo'
+                      ? 'bg-[#2A66AC] text-white'
+                      : 'bg-gray-200 text-gray-600'}"
                   >
-                    <GraduationCap size={26} class="text-gray-300" />
-                  </div>
-                  <p class="text-sm font-medium text-gray-500">Sin estudiantes inscritos</p>
-                  <p class="text-xs text-gray-400 mt-1">
-                    Los estudiantes aparecerán aquí cuando se inscriban.
-                  </p>
-                </div>
-              {:else}
-                <div class="rounded-xl border border-gray-200 overflow-hidden">
-                  <table class="w-full text-sm">
-                    <caption class="sr-only">Estudiantes inscritos — {tipoComponenteActivo}</caption>
-                    <thead class="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th
-                          class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                          >#</th
-                        >
-                        <th
-                          class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                          >Estudiante</th
-                        >
-                        <th
-                          class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell"
-                          >Usuario</th
-                        >
-                        <th
-                          class="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                          >Nota</th
-                        >
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                      {#each estudiantesActivos as item, i}
-                        <tr class="hover:bg-blue-50/30 transition-colors group">
-                          <td class="px-4 py-3 text-gray-400 tabular-nums text-xs">{i + 1}</td>
-                          <td class="px-4 py-3">
-                            <div class="flex items-center gap-3">
-                              <div
-                                class="flex items-center justify-center h-8 w-8 rounded-full text-xs font-bold text-white shrink-0"
-                                style="background:#2A66AC;"
-                              >
-                                {item.estudiante.nombre.charAt(0).toUpperCase()}
-                              </div>
-                              <span class="font-medium text-gray-900 text-sm"
-                                >{item.estudiante.nombre}</span
-                              >
-                            </div>
-                          </td>
-                          <td class="px-4 py-3 hidden sm:table-cell">
-                            <span class="font-mono text-xs text-gray-400"
-                              >{item.estudiante.username}</span
-                            >
-                          </td>
-                          <td class="px-4 py-3 text-right">
-                            {#if item.nota_componente !== null}
-                              <span
-                                class="inline-flex items-center justify-center h-7 min-w-[2.5rem] rounded-lg text-xs font-bold {item.nota_componente >=
-                                4
-                                  ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
-                                  : 'bg-red-50 text-red-600 ring-1 ring-red-200'}"
-                              >
-                                {item.nota_componente}
-                                <span class="sr-only">{item.nota_componente >= 4 ? '— Aprobado' : '— Reprobado'}</span>
-                              </span>
-                            {:else}
-                              <span class="text-gray-300">—</span>
-                            {/if}
-                          </td>
-                        </tr>
-                      {/each}
-                    </tbody>
-                  </table>
-                </div>
-                <p class="text-xs text-gray-500 text-right">
-                  {estudiantesActivos.length} estudiante{estudiantesActivos.length !== 1 ? 's' : ''}
-                </p>
-              {/if}
+                    {estudiantesActivos.length}
+                  </span>
+                </button>
+                {#if canVerActividades}
+                  <button
+                    role="tab"
+                    aria-selected={mainTab === 'actividades'}
+                    onclick={() => (mainTab = 'actividades')}
+                    class="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors {mainTab ===
+                    'actividades'
+                      ? 'border-[#2A66AC] text-[#2A66AC]'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
+                  >
+                    <ClipboardList size={14} />
+                    Actividades
+                    <span
+                      class="ml-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full text-[10px] font-bold {mainTab ===
+                      'actividades'
+                        ? 'bg-[#2A66AC] text-white'
+                        : 'bg-gray-200 text-gray-600'}"
+                    >
+                      {actividades.length}
+                    </span>
+                  </button>
+                {/if}
+              </nav>
             </div>
+
+            <!-- ── TAB: Mi Grupo ──────────────────────────────── -->
+            {#if mainTab === 'grupo'}
+              <div class="p-5 space-y-4 flex-1">
+                <!-- Búsqueda de estudiante -->
+                {#if estudiantesActivos.length > 3}
+                  <div class="relative">
+                    <Search
+                      size={13}
+                      class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                    />
+                    <input
+                      type="text"
+                      bind:value={estudianteQuery}
+                      placeholder="Buscar estudiante…"
+                      class="w-full pl-8 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2A66AC]/30 focus:border-[#2A66AC] placeholder:text-gray-400 bg-white"
+                    />
+                    {#if estudianteQuery}
+                      <button
+                        onclick={() => (estudianteQuery = '')}
+                        class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                        aria-label="Limpiar búsqueda"
+                      >
+                        <X size={13} />
+                      </button>
+                    {/if}
+                  </div>
+                {/if}
+
+                <!-- Pill tabs de componente -->
+                {#if mis_componentes.length > 1}
+                  <div class="flex gap-2 flex-wrap">
+                    {#each mis_componentes as comp}
+                      <button
+                        onclick={() => {
+                          componenteActivo = comp.id_componente;
+                          estudianteQuery = '';
+                        }}
+                        class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all"
+                        style={componenteActivo === comp.id_componente
+                          ? 'background:#2A66AC; color:#fff;'
+                          : 'background:#F1F5F9; color:#64748B;'}
+                      >
+                        {comp.tipo_componente}
+                        {#if comp.es_titular}
+                          <Crown
+                            size={11}
+                            style="color:{componenteActivo === comp.id_componente
+                              ? '#FCD68A'
+                              : '#F0AD4E'};"
+                          />
+                        {/if}
+                        <span
+                          class="inline-flex items-center justify-center h-4 min-w-4 rounded-full px-1 text-[11px] font-bold"
+                          style={componenteActivo === comp.id_componente
+                            ? 'background:rgba(255,255,255,0.25); color:#fff;'
+                            : 'background:#CBD5E1; color:#475569;'}
+                        >
+                          {comp.total_estudiantes}
+                        </span>
+                      </button>
+                    {/each}
+                  </div>
+                {:else if mis_componentes.length === 1}
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold text-white"
+                      style="background:#2A66AC;"
+                    >
+                      {mis_componentes[0].tipo_componente}
+                      {#if mis_componentes[0].es_titular}
+                        <Crown size={11} style="color:#FCD68A;" />
+                      {/if}
+                    </span>
+                  </div>
+                {/if}
+
+                <!-- Tabla de estudiantes -->
+                {#if estudiantesActivos.length === 0}
+                  <div
+                    class="flex flex-col items-center justify-center py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200"
+                  >
+                    <div
+                      class="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3"
+                    >
+                      <GraduationCap size={26} class="text-gray-300" />
+                    </div>
+                    <p class="text-sm font-medium text-gray-500">Sin estudiantes inscritos</p>
+                    <p class="text-xs text-gray-400 mt-1">
+                      Los estudiantes aparecerán aquí cuando se inscriban.
+                    </p>
+                  </div>
+                {:else if estudiantesActivosFiltrados.length === 0}
+                  <div class="flex flex-col items-center gap-2 py-10 text-center text-gray-400">
+                    <Search size={28} class="opacity-30" />
+                    <p class="text-sm">Sin resultados para «{estudianteQuery}»</p>
+                    <button
+                      onclick={() => (estudianteQuery = '')}
+                      class="text-xs text-[#2A66AC] font-medium hover:underline"
+                    >
+                      Limpiar búsqueda
+                    </button>
+                  </div>
+                {:else}
+                  <div class="rounded-xl border border-gray-200 overflow-hidden">
+                    <table class="w-full text-sm">
+                      <caption class="sr-only"
+                        >Estudiantes inscritos — {tipoComponenteActivo}</caption
+                      >
+                      <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th
+                            class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                            >#</th
+                          >
+                          <th
+                            class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                            >Estudiante</th
+                          >
+                          <th
+                            class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell"
+                            >Usuario</th
+                          >
+                          <th
+                            class="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                            >Nota</th
+                          >
+                          <th
+                            class="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                            >Detalle</th
+                          >
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-gray-100">
+                        {#each estudiantesActivosFiltrados as item, i}
+                          <tr class="hover:bg-blue-50/30 transition-colors group">
+                            <td class="px-4 py-3 text-gray-400 tabular-nums text-xs">{i + 1}</td>
+                            <td class="px-4 py-3">
+                              <div class="flex items-center gap-3">
+                                <div
+                                  class="flex items-center justify-center h-8 w-8 rounded-full text-xs font-bold text-white shrink-0"
+                                  style="background:#2A66AC;"
+                                >
+                                  {item.estudiante.nombre.charAt(0).toUpperCase()}
+                                </div>
+                                <span class="font-medium text-gray-900 text-sm"
+                                  >{item.estudiante.nombre}</span
+                                >
+                              </div>
+                            </td>
+                            <td class="px-4 py-3 hidden sm:table-cell">
+                              <span class="font-mono text-xs text-gray-400"
+                                >{item.estudiante.username}</span
+                              >
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                              {#if item.nota_componente !== null}
+                                <span
+                                  class="inline-flex items-center justify-center h-7 min-w-[2.5rem] rounded-lg text-xs font-bold {item.nota_componente >=
+                                  4
+                                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                                    : 'bg-red-50 text-red-600 ring-1 ring-red-200'}"
+                                >
+                                  {item.nota_componente}
+                                  <span class="sr-only"
+                                    >{item.nota_componente >= 4
+                                      ? '— Aprobado'
+                                      : '— Reprobado'}</span
+                                  >
+                                </span>
+                              {:else}
+                                <span class="text-gray-300">—</span>
+                              {/if}
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                              <button
+                                onclick={() => abrirModalEstudiante(item)}
+                                title="Ver evaluaciones, mensajes y asistencia"
+                                class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-md border border-[#2A66AC]/30 bg-[#EEF4FB] text-[#2A66AC] hover:bg-blue-100 transition-colors opacity-0 group-hover:opacity-100"
+                              >
+                                <BookOpenCheck size={12} />
+                                Detalle
+                              </button>
+                            </td>
+                          </tr>
+                        {/each}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p class="text-xs text-gray-500 text-right">
+                    {estudiantesActivosFiltrados.length}{estudiantesActivosFiltrados.length !==
+                    estudiantesActivos.length
+                      ? ` de ${estudiantesActivos.length}`
+                      : ''} estudiante{estudiantesActivos.length !== 1 ? 's' : ''}
+                  </p>
+                {/if}
+              </div>
+
+              <!-- ── TAB: Actividades ──────────────────────────────── -->
+            {:else if mainTab === 'actividades'}
+              <div class="p-5">
+                {#if actividades.length === 0}
+                  <div
+                    class="flex flex-col items-center gap-3 py-16 text-center text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200"
+                  >
+                    <ClipboardList size={36} class="opacity-30" />
+                    <p class="text-sm">No hay actividades en este curso.</p>
+                    {#if curso.es_titular_curso}
+                      <button
+                        onclick={() =>
+                          router.visit(`/docente/cursos/${curso.id_curso}/actividades`)}
+                        class="text-xs font-medium text-[#2A66AC] hover:underline"
+                      >
+                        Crear primera actividad →
+                      </button>
+                    {/if}
+                  </div>
+                {:else}
+                  <ActividadesPorEstado {actividades} idCurso={curso.id_curso} />
+                {/if}
+              </div>
+            {/if}
           </div>
 
           <!-- ╔══════════════════════════════════════╗
@@ -684,7 +868,8 @@
               {:else}
                 <div class="rounded-xl border border-gray-200 overflow-hidden">
                   <table class="w-full text-sm">
-                    <caption class="sr-only">Estudiantes inscritos — {tipoComponenteActivo}</caption>
+                    <caption class="sr-only">Estudiantes inscritos — {tipoComponenteActivo}</caption
+                    >
                     <thead class="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th
@@ -735,7 +920,9 @@
                                   : 'bg-red-50 text-red-600 ring-1 ring-red-200'}"
                               >
                                 {item.nota_componente}
-                                <span class="sr-only">{item.nota_componente >= 4 ? '— Aprobado' : '— Reprobado'}</span>
+                                <span class="sr-only"
+                                  >{item.nota_componente >= 4 ? '— Aprobado' : '— Reprobado'}</span
+                                >
                               </span>
                             {:else}
                               <span class="text-gray-300">—</span>
@@ -805,4 +992,15 @@
     idDocenteTitularCurso={curso.id_docente_titular}
     componente={cambiarTitularComponente}
   />
+
+  <!-- Modal detalle de estudiante (disponible para titular) -->
+  {#if estudianteSeleccionado}
+    <EstudianteDetalleModal
+      abierto={modalEstudiante}
+      estudiante={estudianteSeleccionado}
+      {actividades}
+      idCurso={curso.id_curso}
+      onCerrar={cerrarModalEstudiante}
+    />
+  {/if}
 </DocenteLayout>

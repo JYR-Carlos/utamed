@@ -12,9 +12,21 @@ use App\Models\Base\Agenda\BaseIntegranteGrupo;
  */
 class IntegranteGrupo extends BaseIntegranteGrupo
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+    /**
+     * Obtiene los detalles del estudiante
+     */
+    public function getDetallesEstudiante()
+    {
+        return [
+            'id_estudiante' => $this->id_estudiante,
+            'nombre_completo' => trim(
+                ($this->estudiante?->usuario?->nombre1 ?? '') . ' ' .
+                ($this->estudiante?->usuario?->nombre2 ?? '') . ' ' .
+                ($this->estudiante?->usuario?->apellido1 ?? '') . ' ' .
+                ($this->estudiante?->usuario?->apellido2 ?? '')
+            ),
+            'rut' => $this->estudiante?->usuario?->rut,
+            'email' => $this->estudiante?->usuario?->email,
+        ];
+    }
 }

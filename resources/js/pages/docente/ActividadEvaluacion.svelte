@@ -12,8 +12,35 @@
   import { router, Link } from '@inertiajs/svelte';
   import { untrack } from 'svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
-  import { ArrowLeft, Plus, Trash2, UserPlus, Save, Users, User, BookOpen } from 'lucide-svelte';
-  import type { Actividad, Integrante, Grupo, Estado, EstudianteDisponible } from '@/types/actividad';
+  import {
+    ArrowLeft,
+    Plus,
+    Trash2,
+    UserPlus,
+    Save,
+    Users,
+    User,
+    BookOpen,
+    Copy,
+    Download,
+    FileText,
+    X,
+    ChevronDown,
+    ChevronUp,
+    MessageSquare,
+    Send,
+    Loader2,
+  } from 'lucide-svelte';
+  import type {
+    Actividad,
+    Integrante,
+    Grupo,
+    Estado,
+    EstudianteDisponible,
+    Entrega,
+    ActividadResumen,
+    MensajeGrupo,
+  } from '@/types/actividad';
   import { hasPermission } from '@/services/permissionValidator';
   import type { Permission } from '@/types/permissions/permissions';
 
@@ -38,19 +65,24 @@
   let { curso, actividad, grupos: gruposInit, estudiantesDisponibles, estados }: Props = $props();
 
   const canCreateGroup = $derived(
-    curso.es_titular_curso || hasPermission(curso.userPermissions ?? [], 'actividades/grupos:crear'),
+    curso.es_titular_curso ||
+      hasPermission(curso.userPermissions ?? [], 'actividades/grupos:crear'),
   );
   const canEditGroup = $derived(
-    curso.es_titular_curso || hasPermission(curso.userPermissions ?? [], 'actividades/grupos:editar'),
+    curso.es_titular_curso ||
+      hasPermission(curso.userPermissions ?? [], 'actividades/grupos:editar'),
   );
   const canDeleteGroup = $derived(
-    curso.es_titular_curso || hasPermission(curso.userPermissions ?? [], 'actividades/grupos:eliminar'),
+    curso.es_titular_curso ||
+      hasPermission(curso.userPermissions ?? [], 'actividades/grupos:eliminar'),
   );
 
   // Local mutable copy so we can edit inline without waiting for server round-trips.
   // untrack() suppresses the Svelte 5 state_referenced_locally warning – intentional
   // since Inertia props are static per page visit.
-  let grupos = $state<Grupo[]>(untrack(() => gruposInit.map((g) => ({ ...g, integrantes: [...g.integrantes] }))));
+  let grupos = $state<Grupo[]>(
+    untrack(() => gruposInit.map((g) => ({ ...g, integrantes: [...g.integrantes] }))),
+  );
 
   let isLoading = $state(false);
 
@@ -67,11 +99,36 @@
   let savingGrupo = $state<Set<number>>(new Set());
   let savingIntegrante = $state<Set<number>>(new Set());
 
+  // --- Copiar grupos desde otra actividad ---
+  let showCopyModal = $state(false);
+  let actividadesDisponibles = $state<ActividadResumen[]>([]);
+  let actividadOrigenId = $state<number>(0);
+  let isFetchingActividades = $state(false);
+  let isCopying = $state(false);
+  let copyMessage = $state<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // --- Entregas por grupo ---
+  let entregasByGrupo = $state<Map<number, Entrega[]>>(new Map());
+  let loadingEntregas = $state<Set<number>>(new Set());
+  let expandedEntregas = $state<Set<number>>(new Set());
+
+  // --- Mensajes/feedback por grupo (nivel 2) ---
+  let mensajesByGrupo = $state<Map<number, MensajeGrupo[]>>(new Map());
+  let loadingMensajes = $state<Set<number>>(new Set());
+  let expandedMensajes = $state<Set<number>>(new Set());
+  let replyByGrupo = $state<Map<number, string>>(new Map());
+  let sendingFeedback = $state<Set<number>>(new Set());
+  let feedbackError = $state<Map<number, string>>(new Map());
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
   function formatDate(d: string) {
-    return new Date(d).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+    return new Date(d).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   }
 
   function estadoLabel(idEstado: number | null) {
@@ -144,14 +201,17 @@
   function eliminarGrupo(grupoId: number) {
     if (!confirm('¿Eliminar este grupo y todos sus integrantes?')) return;
     isLoading = true;
-    router.delete(`/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}`, {
-      onSuccess: () => {
-        isLoading = false;
+    router.delete(
+      `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}`,
+      {
+        onSuccess: () => {
+          isLoading = false;
+        },
+        onError: () => {
+          isLoading = false;
+        },
       },
-      onError: () => {
-        isLoading = false;
-      },
-    });
+    );
   }
 
   /** Agrega un integrante al grupo */
@@ -182,10 +242,14 @@
       { nota_individual: i.nota_individual, diferencia_decimas: i.diferencia_decimas },
       {
         onSuccess: () => {
-          savingIntegrante = new Set([...savingIntegrante].filter((x) => x !== i.id_asignado_actividad));
+          savingIntegrante = new Set(
+            [...savingIntegrante].filter((x) => x !== i.id_asignado_actividad),
+          );
         },
         onError: () => {
-          savingIntegrante = new Set([...savingIntegrante].filter((x) => x !== i.id_asignado_actividad));
+          savingIntegrante = new Set(
+            [...savingIntegrante].filter((x) => x !== i.id_asignado_actividad),
+          );
         },
       },
     );
@@ -195,14 +259,204 @@
   function eliminarIntegrante(grupoId: number, asignadoId: number) {
     if (!confirm('¿Quitar este integrante del grupo?')) return;
     isLoading = true;
-    router.delete(`/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/integrantes/${asignadoId}`, {
-      onSuccess: () => {
-        isLoading = false;
+    router.delete(
+      `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/integrantes/${asignadoId}`,
+      {
+        onSuccess: () => {
+          isLoading = false;
+        },
+        onError: () => {
+          isLoading = false;
+        },
       },
-      onError: () => {
-        isLoading = false;
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Copiar grupos desde otra actividad
+  // ---------------------------------------------------------------------------
+
+  async function openCopyModal() {
+    showCopyModal = true;
+    copyMessage = null;
+    actividadOrigenId = 0;
+    if (actividadesDisponibles.length > 0) return;
+    isFetchingActividades = true;
+    try {
+      const res = await fetch(`/docente/cursos/${curso.id_curso}/actividades/json`, {
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+      });
+      const data: ActividadResumen[] = await res.json();
+      // Exclude current activity; only show group activities
+      actividadesDisponibles = data.filter(
+        (a) => a.es_grupal && a.id_actividad !== actividad.id_actividad,
+      );
+    } catch {
+      actividadesDisponibles = [];
+    } finally {
+      isFetchingActividades = false;
+    }
+  }
+
+  function copiarGrupos() {
+    if (!actividadOrigenId) return;
+    isCopying = true;
+    copyMessage = null;
+    router.post(
+      `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos-copy`,
+      { id_actividad_origen: actividadOrigenId },
+      {
+        onSuccess: (page) => {
+          const flash = (page.props as any)?.flash;
+          copyMessage = {
+            type: 'success',
+            text: flash?.success ?? 'Grupos copiados correctamente.',
+          };
+          isCopying = false;
+          // Reload after short delay so user can read message
+          setTimeout(() => {
+            showCopyModal = false;
+            router.reload();
+          }, 1800);
+        },
+        onError: (errors) => {
+          copyMessage = {
+            type: 'error',
+            text: (Object.values(errors)[0] as string) ?? 'Error al copiar grupos.',
+          };
+          isCopying = false;
+        },
       },
-    });
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Entregas por grupo
+  // ---------------------------------------------------------------------------
+
+  async function toggleEntregas(grupoId: number) {
+    if (expandedEntregas.has(grupoId)) {
+      expandedEntregas = new Set([...expandedEntregas].filter((id) => id !== grupoId));
+      return;
+    }
+    expandedEntregas = new Set([...expandedEntregas, grupoId]);
+    if (entregasByGrupo.has(grupoId)) return; // already loaded
+
+    loadingEntregas = new Set([...loadingEntregas, grupoId]);
+    try {
+      const res = await fetch(
+        `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/entregas`,
+        { headers: { Accept: 'application/json' }, credentials: 'same-origin' },
+      );
+      const data: Entrega[] = await res.json();
+      const next = new Map(entregasByGrupo);
+      next.set(grupoId, data);
+      entregasByGrupo = next;
+    } catch {
+      const next = new Map(entregasByGrupo);
+      next.set(grupoId, []);
+      entregasByGrupo = next;
+    } finally {
+      loadingEntregas = new Set([...loadingEntregas].filter((id) => id !== grupoId));
+    }
+  }
+
+  function formatBytes(bytes: number | null) {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function downloadUrl(grupoId: number, agendaId: number) {
+    return `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/entregas/${agendaId}/descargar`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Mensajes por grupo (nivel 2: retroalimentación de actividad)
+  // ---------------------------------------------------------------------------
+
+  function csrfToken() {
+    return (
+      (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content ?? ''
+    );
+  }
+
+  async function toggleMensajes(grupoId: number) {
+    if (expandedMensajes.has(grupoId)) {
+      expandedMensajes = new Set([...expandedMensajes].filter((id) => id !== grupoId));
+      return;
+    }
+    expandedMensajes = new Set([...expandedMensajes, grupoId]);
+    if (mensajesByGrupo.has(grupoId)) return; // ya cargados
+
+    loadingMensajes = new Set([...loadingMensajes, grupoId]);
+    try {
+      const res = await fetch(
+        `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/mensajes`,
+        { headers: { Accept: 'application/json' }, credentials: 'same-origin' },
+      );
+      const data: MensajeGrupo[] = await res.json();
+      const next = new Map(mensajesByGrupo);
+      next.set(grupoId, data);
+      mensajesByGrupo = next;
+    } catch {
+      const next = new Map(mensajesByGrupo);
+      next.set(grupoId, []);
+      mensajesByGrupo = next;
+    } finally {
+      loadingMensajes = new Set([...loadingMensajes].filter((id) => id !== grupoId));
+    }
+  }
+
+  async function enviarFeedbackGrupo(grupoId: number) {
+    const texto = replyByGrupo.get(grupoId)?.trim();
+    if (!texto) return;
+
+    sendingFeedback = new Set([...sendingFeedback, grupoId]);
+    const errMap = new Map(feedbackError);
+    errMap.delete(grupoId);
+    feedbackError = errMap;
+
+    try {
+      const res = await fetch(`/docente/cursos/${curso.id_curso}/grupos/${grupoId}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'X-CSRF-TOKEN': csrfToken(),
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ mensaje: texto }),
+      });
+      if (!res.ok) throw new Error('Error al enviar feedback.');
+      // Reset reply and reload thread
+      const replyNext = new Map(replyByGrupo);
+      replyNext.set(grupoId, '');
+      replyByGrupo = replyNext;
+      // Force reload by deleting cached entry
+      const next = new Map(mensajesByGrupo);
+      next.delete(grupoId);
+      mensajesByGrupo = next;
+      // Re-fetch
+      loadingMensajes = new Set([...loadingMensajes, grupoId]);
+      const res2 = await fetch(
+        `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/mensajes`,
+        { headers: { Accept: 'application/json' }, credentials: 'same-origin' },
+      );
+      const data: MensajeGrupo[] = await res2.json();
+      const next2 = new Map(mensajesByGrupo);
+      next2.set(grupoId, data);
+      mensajesByGrupo = next2;
+    } catch (err: any) {
+      const errMap2 = new Map(feedbackError);
+      errMap2.set(grupoId, err.message ?? 'Error al enviar.');
+      feedbackError = errMap2;
+    } finally {
+      sendingFeedback = new Set([...sendingFeedback].filter((id) => id !== grupoId));
+      loadingMensajes = new Set([...loadingMensajes].filter((id) => id !== grupoId));
+    }
   }
 </script>
 
@@ -224,19 +478,23 @@
         <div>
           <div class="flex flex-wrap gap-2 mb-2">
             {#if actividad.es_grupal}
-              <span class="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 bg-blue-100 text-blue-700 rounded-full"
+              <span
+                class="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 bg-blue-100 text-blue-700 rounded-full"
                 ><Users size={14} />Grupal · máx. {actividad.max_integrantes}</span
               >
             {:else}
-              <span class="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 bg-pink-100 text-pink-700 rounded-full"
+              <span
+                class="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 bg-pink-100 text-pink-700 rounded-full"
                 ><User size={14} />Individual</span
               >
             {/if}
-            <span class="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 bg-green-50 text-green-700 rounded-full"
+            <span
+              class="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 bg-green-50 text-green-700 rounded-full"
               >{actividad.tipo_entrega}</span
             >
             {#if actividad.seccion}
-              <span class="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 bg-amber-100 text-amber-700 rounded-full"
+              <span
+                class="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 bg-amber-100 text-amber-700 rounded-full"
                 ><BookOpen size={14} />{actividad.seccion.tipo}</span
               >
             {/if}
@@ -250,15 +508,26 @@
         </div>
 
         {#if canCreateGroup}
-          <button
-            onclick={() => {
-              showNuevoGrupo = !showNuevoGrupo;
-            }}
-            class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white font-semibold text-sm rounded-lg hover:bg-blue-600 disabled:opacity-60 whitespace-nowrap"
-          >
-            <Plus size={18} />
-            {actividad.es_grupal ? 'Nuevo Grupo' : 'Asignar Alumno'}
-          </button>
+          <div class="flex gap-2">
+            {#if actividad.es_grupal}
+              <button
+                onclick={openCopyModal}
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 font-semibold text-sm rounded-lg hover:bg-gray-50 hover:border-blue-400 hover:text-blue-600 whitespace-nowrap transition-colors"
+              >
+                <Copy size={16} />
+                Copiar Grupos
+              </button>
+            {/if}
+            <button
+              onclick={() => {
+                showNuevoGrupo = !showNuevoGrupo;
+              }}
+              class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white font-semibold text-sm rounded-lg hover:bg-blue-600 disabled:opacity-60 whitespace-nowrap"
+            >
+              <Plus size={18} />
+              {actividad.es_grupal ? 'Nuevo Grupo' : 'Asignar Alumno'}
+            </button>
+          </div>
         {/if}
       </div>
     </div>
@@ -271,7 +540,9 @@
         </h3>
         <div class="flex flex-wrap gap-4 items-end">
           <div class="flex flex-col min-w-[180px]">
-            <label class="text-xs font-semibold text-gray-700 mb-1" for="ng-estado">Estado inicial *</label>
+            <label class="text-xs font-semibold text-gray-700 mb-1" for="ng-estado"
+              >Estado inicial *</label
+            >
             <select
               id="ng-estado"
               bind:value={nuevoGrupoEstadoId}
@@ -322,7 +593,9 @@
       <div class="text-center py-16 bg-white border border-gray-200 rounded-xl">
         <div class="text-5xl mb-4">📋</div>
         <h3 class="text-lg font-semibold text-gray-700 mb-1">Sin grupos asignados</h3>
-        <p class="text-gray-500 text-sm">Crea el primer grupo para comenzar a evaluar esta actividad.</p>
+        <p class="text-gray-500 text-sm">
+          Crea el primer grupo para comenzar a evaluar esta actividad.
+        </p>
       </div>
     {/if}
 
@@ -333,7 +606,9 @@
         <div class="bg-slate-50 border-b border-gray-200 px-5 py-4">
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-base font-bold text-gray-900">
-              {actividad.es_grupal ? `Grupo #${gi + 1}` : (grupo.integrantes[0]?.nombre_completo ?? `Alumno #${gi + 1}`)}
+              {actividad.es_grupal
+                ? `Grupo #${gi + 1}`
+                : (grupo.integrantes[0]?.nombre_completo ?? `Alumno #${gi + 1}`)}
             </h3>
             {#if canDeleteGroup}
               <button
@@ -349,7 +624,10 @@
           <!-- Nota y estado del grupo -->
           <div class="flex flex-wrap gap-4 items-end">
             <div class="flex flex-col">
-              <label class="text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wider" for="nota-grupo-{grupo.grupo}">Nota grupal</label>
+              <label
+                class="text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wider"
+                for="nota-grupo-{grupo.grupo}">Nota grupal</label
+              >
               <input
                 id="nota-grupo-{grupo.grupo}"
                 type="number"
@@ -363,7 +641,10 @@
             </div>
 
             <div class="flex flex-col">
-              <label class="text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wider" for="estado-grupo-{grupo.grupo}">Estado</label>
+              <label
+                class="text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wider"
+                for="estado-grupo-{grupo.grupo}">Estado</label
+              >
               <select
                 id="estado-grupo-{grupo.grupo}"
                 bind:value={grupo.id_estado}
@@ -392,7 +673,9 @@
         <!-- Tabla de integrantes -->
         <div class="px-5 py-4">
           <div class="flex justify-between items-center mb-3">
-            <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wider">Integrantes ({grupo.integrantes.length})</h4>
+            <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+              Integrantes ({grupo.integrantes.length})
+            </h4>
             {#if actividad.es_grupal && canCreateGroup}
               <button
                 onclick={() => {
@@ -441,7 +724,8 @@
             <table class="w-full border-collapse text-sm">
               <thead>
                 <tr>
-                  <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b border-gray-200"
+                  <th
+                    class="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b border-gray-200"
                     >Nombre</th
                   >
                   <th
@@ -460,7 +744,9 @@
               <tbody>
                 {#each grupo.integrantes as integrante (integrante.id_asignado_actividad)}
                   <tr class="hover:bg-gray-50">
-                    <td class="px-3 py-2 border-b border-gray-100 font-medium text-gray-900">{integrante.nombre_completo}</td>
+                    <td class="px-3 py-2 border-b border-gray-100 font-medium text-gray-900"
+                      >{integrante.nombre_completo}</td
+                    >
                     <td class="px-3 py-2 border-b border-gray-100">
                       <input
                         type="number"
@@ -495,7 +781,8 @@
                         </button>
                         {#if actividad.es_grupal}
                           <button
-                            onclick={() => eliminarIntegrante(grupo.grupo, integrante.id_asignado_actividad)}
+                            onclick={() =>
+                              eliminarIntegrante(grupo.grupo, integrante.id_asignado_actividad)}
                             class="p-1.5 bg-transparent border border-red-300 rounded-lg text-red-500 hover:bg-red-50"
                             title="Quitar del grupo"
                           >
@@ -510,7 +797,279 @@
             </table>
           {/if}
         </div>
+
+        <!-- ── Entregas del grupo ─────────────────────────────── -->
+        <div class="border-t border-gray-100">
+          <button
+            onclick={() => toggleEntregas(grupo.grupo)}
+            class="w-full flex items-center justify-between px-5 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-50 transition-colors"
+          >
+            <span class="flex items-center gap-2">
+              <FileText size={14} />
+              Entregas
+              {#if entregasByGrupo.has(grupo.grupo)}
+                <span class="font-bold text-blue-600"
+                  >({entregasByGrupo.get(grupo.grupo)?.length ?? 0})</span
+                >
+              {/if}
+            </span>
+            {#if expandedEntregas.has(grupo.grupo)}
+              <ChevronUp size={14} />
+            {:else}
+              <ChevronDown size={14} />
+            {/if}
+          </button>
+
+          {#if expandedEntregas.has(grupo.grupo)}
+            <div class="px-5 pb-4">
+              {#if loadingEntregas.has(grupo.grupo)}
+                <p class="text-center text-gray-400 text-sm py-4">Cargando entregas…</p>
+              {:else if (entregasByGrupo.get(grupo.grupo) ?? []).length === 0}
+                <p class="text-center text-gray-400 text-sm py-4">Sin entregas registradas.</p>
+              {:else}
+                <div class="flex flex-col gap-2">
+                  {#each entregasByGrupo.get(grupo.grupo) ?? [] as entrega (entrega.id_agenda)}
+                    <div
+                      class="flex items-start justify-between gap-3 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3"
+                    >
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap mb-1">
+                          <span class="text-xs font-semibold text-gray-500">
+                            {new Date(entrega.fecha_envio).toLocaleString('es-ES', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                          {#if entrega.evaluada}
+                            <span
+                              class="text-xs font-semibold px-2 py-0.5 bg-green-100 text-green-700 rounded-full"
+                              >Evaluada</span
+                            >
+                          {:else}
+                            <span
+                              class="text-xs font-semibold px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full"
+                              >Pendiente</span
+                            >
+                          {/if}
+                        </div>
+                        {#if entrega.mensaje}
+                          <p class="text-sm text-gray-700 truncate">{entrega.mensaje}</p>
+                        {/if}
+                        {#if entrega.archivo}
+                          <p class="text-xs text-gray-500 mt-1 truncate">
+                            📎 {entrega.archivo.nombre_original}
+                            {#if entrega.archivo.tamanio_bytes}
+                              <span class="ml-1"
+                                >({formatBytes(entrega.archivo.tamanio_bytes)})</span
+                              >
+                            {/if}
+                          </p>
+                        {/if}
+                      </div>
+                      {#if entrega.archivo}
+                        <a
+                          href={downloadUrl(grupo.grupo, entrega.id_agenda)}
+                          class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-300 text-blue-600 text-xs font-semibold rounded-lg hover:bg-blue-50 transition-colors"
+                          download
+                        >
+                          <Download size={13} />
+                          Descargar
+                        </a>
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {/if}
+        </div>
+
+        <!-- ── Mensajes/Feedback del grupo (nivel 2) ─────────────────── -->
+        <div class="border-t border-gray-100">
+          <button
+            onclick={() => toggleMensajes(grupo.grupo)}
+            class="w-full flex items-center justify-between px-5 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-50 transition-colors"
+          >
+            <span class="flex items-center gap-2">
+              <MessageSquare size={14} />
+              Mensajes / Feedback
+              {#if mensajesByGrupo.has(grupo.grupo)}
+                <span class="font-bold text-indigo-600">
+                  ({mensajesByGrupo.get(grupo.grupo)?.length ?? 0})
+                </span>
+              {/if}
+            </span>
+            {#if expandedMensajes.has(grupo.grupo)}
+              <ChevronUp size={14} />
+            {:else}
+              <ChevronDown size={14} />
+            {/if}
+          </button>
+
+          {#if expandedMensajes.has(grupo.grupo)}
+            <div class="px-5 pb-4">
+              {#if loadingMensajes.has(grupo.grupo)}
+                <div class="flex items-center justify-center gap-2 py-6 text-gray-400 text-sm">
+                  <Loader2 size={15} class="animate-spin" />
+                  Cargando mensajes…
+                </div>
+              {:else if (mensajesByGrupo.get(grupo.grupo) ?? []).length === 0}
+                <p class="text-center text-gray-400 text-sm py-4">Sin mensajes en este grupo.</p>
+              {:else}
+                <!-- Hilo de mensajes -->
+                <div class="flex flex-col gap-2 mb-3">
+                  {#each mensajesByGrupo.get(grupo.grupo) ?? [] as msg (msg.id_agenda)}
+                    {@const esFeedback = msg.tipo_registro === 'Feedback'}
+                    <div class="flex {esFeedback ? 'justify-end' : 'justify-start'}">
+                      <div
+                        class="max-w-[75%] rounded-xl px-3.5 py-2.5 text-sm
+                          {esFeedback
+                          ? 'bg-indigo-600 text-white rounded-br-none'
+                          : 'bg-gray-100 text-gray-800 rounded-bl-none'}"
+                      >
+                        <p
+                          class="text-[10px] font-semibold mb-0.5 {esFeedback
+                            ? 'text-indigo-200'
+                            : 'text-gray-500'}"
+                        >
+                          {esFeedback ? 'Docente' : msg.emisor_nombre}
+                        </p>
+                        <p class="leading-relaxed">{msg.mensaje}</p>
+                        <p
+                          class="text-[10px] mt-1 {esFeedback
+                            ? 'text-indigo-200'
+                            : 'text-gray-400'} text-right"
+                        >
+                          {new Date(msg.fecha_envio).toLocaleString('es-CL', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+
+              <!-- Formulario de feedback -->
+              {#if feedbackError.has(grupo.grupo)}
+                <p class="text-xs text-red-500 mb-1">{feedbackError.get(grupo.grupo)}</p>
+              {/if}
+              <div class="flex gap-2 items-end">
+                <textarea
+                  value={replyByGrupo.get(grupo.grupo) ?? ''}
+                  oninput={(e) => {
+                    const m = new Map(replyByGrupo);
+                    m.set(grupo.grupo, (e.target as HTMLTextAreaElement).value);
+                    replyByGrupo = m;
+                  }}
+                  rows={2}
+                  placeholder="Escribe feedback para el grupo…"
+                  class="flex-1 resize-none px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-indigo-400"
+                ></textarea>
+                <button
+                  onclick={() => enviarFeedbackGrupo(grupo.grupo)}
+                  disabled={!replyByGrupo.get(grupo.grupo)?.trim() ||
+                    sendingFeedback.has(grupo.grupo)}
+                  class="p-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors shrink-0"
+                  title="Enviar feedback"
+                >
+                  {#if sendingFeedback.has(grupo.grupo)}
+                    <Loader2 size={16} class="animate-spin" />
+                  {:else}
+                    <Send size={16} />
+                  {/if}
+                </button>
+              </div>
+            </div>
+          {/if}
+        </div>
       </div>
     {/each}
   </div>
+
+  <!-- ── Modal: Copiar Grupos ───────────────────────────────────────── -->
+  {#if showCopyModal}
+    <!-- Backdrop -->
+    <div
+      class="fixed inset-0 bg-black/40 z-40"
+      role="presentation"
+      onclick={() => (showCopyModal = false)}
+    ></div>
+
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+        <div class="flex justify-between items-center mb-5">
+          <h2 class="text-lg font-bold text-gray-900">Copiar Grupos desde Actividad</h2>
+          <button
+            onclick={() => (showCopyModal = false)}
+            class="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <p class="text-sm text-gray-600 mb-4">
+          Selecciona una actividad grupal del mismo curso. Se copiarán los grupos cuyos integrantes
+          sigan inscritos en el curso.
+        </p>
+
+        {#if isFetchingActividades}
+          <p class="text-center text-gray-500 py-4 text-sm">Cargando actividades…</p>
+        {:else if actividadesDisponibles.length === 0}
+          <p class="text-center text-gray-400 py-4 text-sm">
+            No hay otras actividades grupales en este curso.
+          </p>
+        {:else}
+          <div class="mb-5">
+            <label class="block text-xs font-semibold text-gray-700 mb-1" for="origen-actividad">
+              Actividad origen
+            </label>
+            <select
+              id="origen-actividad"
+              bind:value={actividadOrigenId}
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            >
+              <option value={0}>-- Seleccionar actividad --</option>
+              {#each actividadesDisponibles as a}
+                <option value={a.id_actividad}>{a.nombre}</option>
+              {/each}
+            </select>
+          </div>
+        {/if}
+
+        {#if copyMessage}
+          <div
+            class="mb-4 px-4 py-3 rounded-lg text-sm font-medium {copyMessage.type === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : 'bg-red-50 text-red-800 border border-red-200'}"
+          >
+            {copyMessage.text}
+          </div>
+        {/if}
+
+        <div class="flex gap-3 justify-end">
+          <button
+            onclick={() => (showCopyModal = false)}
+            class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onclick={copiarGrupos}
+            disabled={!actividadOrigenId || isCopying || isFetchingActividades}
+            class="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded-lg hover:bg-blue-600 disabled:opacity-50"
+          >
+            <Copy size={15} />
+            {isCopying ? 'Copiando…' : 'Copiar Grupos'}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </DocenteLayout>

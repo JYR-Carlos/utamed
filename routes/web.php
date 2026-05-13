@@ -307,6 +307,27 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::put('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/integrantes/{asignado}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'updateIntegrante'])->name('cursos.actividades.integrantes.update');
     Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/integrantes/{asignado}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'removeIntegrante'])->name('cursos.actividades.integrantes.delete');
 
+    // Gestión avanzada de grupos (nuevas funcionalidades)
+    Route::post('cursos/{curso}/actividades/{actividad}/grupos-create', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'storeGroup'])->name('cursos.actividades.grupos.create');
+    Route::post('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiante', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'addStudentToGroup'])->name('cursos.actividades.grupos.estudiante.add');
+    Route::get('cursos/{curso}/actividades/{actividad}/grupos-list', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getGroupsByActivity'])->name('cursos.actividades.grupos.list');
+    Route::post('cursos/{curso}/actividades/{actividad}/grupos-copy', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'copyGroupsFromActivity'])->name('cursos.actividades.grupos.copy');
+
+    // Gestión de entregas/archivos
+    Route::get('cursos/{curso}/actividades/{actividad}/entregas', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getSubmissionsByActivity'])->name('cursos.actividades.entregas.list');
+    Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/entregas', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getSubmissionsByGroup'])->name('cursos.actividades.entregas.grupo');
+    Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/entregas/{agenda}/descargar', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'downloadSubmissionFile'])->name('cursos.actividades.entregas.descargar');
+
+    // Mensajería (usa agenda.agenda — tipos "Mensaje al profesor" y "Feedback")
+    // Nivel 1: vista general del curso
+    Route::get('cursos/{curso}/mensajes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'showMensajesCurso'])->name('cursos.mensajes.index');
+    // Nivel 1 + 2: hilo de un estudiante (todos sus grupos en el curso)
+    Route::get('cursos/{curso}/estudiantes/{idEstudiante}/mensajes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getMensajesEstudiante'])->name('cursos.estudiantes.mensajes');
+    // Nivel 2: hilo de un grupo específico de una actividad
+    Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/mensajes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getGrupoMensajes'])->name('cursos.actividades.grupos.mensajes');
+    // Docente envía feedback a un grupo
+    Route::post('cursos/{curso}/grupos/{grupo}/feedback', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'sendFeedback'])->name('cursos.grupos.feedback');
+
     // Program Management
     Route::post('cursos/{curso}/programa', [AdminProgramaController::class, 'store'])
         ->name('cursos.programa.store');
