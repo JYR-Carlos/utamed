@@ -163,7 +163,10 @@
         <!-- Activities List -->
         <div class="flex flex-col gap-4">
           {#each filtered as act (act.id_actividad)}
-            <ActividadCard actividad={act} idCurso={id_curso} />
+            <Link href={`/estudiante/cursos/${id_curso}/actividad/${act.id_actividad}`}>
+              <ActividadCard actividad={act} idCurso={id_curso} />
+            </Link>
+            
           {/each}
         </div>
       </div>

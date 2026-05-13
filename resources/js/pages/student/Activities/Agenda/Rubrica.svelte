@@ -4,9 +4,11 @@
   interface Props {
     rubrica: Rubrica;
     puntaje_obtenido?: number;
+    retroalimentacion?: string;
+    modoLectura?: boolean;
   }
 
-  let { rubrica, puntaje_obtenido = 0 }: Props = $props();
+  let { rubrica, puntaje_obtenido = 0, retroalimentacion, modoLectura: modoRevision = false }: Props = $props();
 
   function getEvaluacion(puntos: number) {
     if (!rubrica?.detalles_evaluacion?.escala_evaluacion) return 'Sin evaluar';
@@ -14,31 +16,46 @@
     return escalas.find((e) => puntos >= e.puntaje_minimo)?.evaluacion || 'Sin evaluar';
   }
 
-  // Determinamos el número máximo de columnas de escalas para el colspan del header
   const maxEscalas = rubrica?.niveles?.[0]?.escalas.length || 0;
+
+  // para evitar que la tabla se rompa horizontalmente.
+  const mostrarVertical = maxEscalas >= 4;
 </script>
 
-<div class="w-full space-y-8 p-1">
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-primary/5 p-6 rounded-3xl border-2 border-primary/10">
-    <div class="text-center md:text-left">
-      <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Puntaje Máximo</p>
-      <p class="text-3xl font-black text-primary">{rubrica?.detalles_evaluacion?.puntaje_total || 0} pts</p>
+<div class="w-fullspace-y-8 p-1">
+  {#if modoRevision}
+    <div class="flex justify-center sm:gap-20 text-center p-6 rounded-3xl border-2 border-primary/10">
+      <div class="text-center col-span-5 md:text-left">
+        <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Puntaje Máximo</p>
+        <p class="text-3xl font-black text-primary">{rubrica?.detalles_evaluacion?.puntaje_total || 0} pts</p>
+      </div>
+      <div class="text-center col-span-5 md:text-left">
+        <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Porcentaje de Exigencia</p>
+        <p class="text-3xl font-black text-primary">60%</p>
+      </div>
     </div>
-    <div class="text-center border-y md:border-y-0 md:border-x border-primary/10 py-4 md:py-0">
-      <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Puntaje Obtenido</p>
-      <p class="text-3xl font-black {puntaje_obtenido > 0 ? 'text-blue-600' : 'text-gray-300'}">
-        {puntaje_obtenido} pts
-      </p>
+  {:else}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-primary/5 p-6 rounded-3xl border-2 border-primary/10">
+      <div class="text-center md:text-left">
+        <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Puntaje Máximo</p>
+        <p class="text-3xl font-black text-primary">{rubrica?.detalles_evaluacion?.puntaje_total || 0} pts</p>
+      </div>
+      <div class="text-center border-y md:border-y-0 md:border-x border-primary/10 py-4 md:py-0">
+        <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Puntaje Obtenido</p>
+        <p class="text-3xl font-black {puntaje_obtenido > 0 ? 'text-blue-600' : 'text-gray-300'}">
+          {puntaje_obtenido} pts
+        </p>
+      </div>
+      <div class="text-center md:text-right">
+        <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Calificación</p>
+        <p class="text-xl font-bold text-primary">{getEvaluacion(puntaje_obtenido)}</p>
+      </div>
     </div>
-    <div class="text-center md:text-right">
-      <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Calificación</p>
-      <p class="text-xl font-bold text-primary">{getEvaluacion(puntaje_obtenido)}</p>
-    </div>
-  </div>
+  {/if}
 
   <div class="space-y-6">
     {#if rubrica?.niveles}
-      <div class="block md:hidden space-y-6">
+      <div class="{mostrarVertical ? 'block' : 'block md:hidden'} space-y-6">
         {#each rubrica.niveles as nivel}
           <div class="border-2 border-gray-100 rounded-3xl overflow-hidden bg-white shadow-sm">
             <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
@@ -65,7 +82,7 @@
         {/each}
       </div>
 
-      <div class="hidden md:block overflow-hidden border-2 border-gray-100 rounded-3xl bg-white shadow-sm">
+      <div class="{mostrarVertical ? 'hidden' : 'hidden md:block'} overflow-hidden border-2 border-gray-100 rounded-3xl bg-white shadow-sm">
         <table class="w-full border-collapse table-fixed">
           <thead>
             <tr class="bg-gray-50 border-b-2 border-gray-100">
@@ -108,6 +125,15 @@
       </div>
     {/if}
   </div>
+
+  {#if retroalimentacion && !modoRevision}
+  <div class="mt-8 bg-gray-50/50 p-6 rounded-3xl border border-gray-100">
+    <p class="text-xs font-bold text-gray-400 uppercase mb-4 tracking-widest">Retroalimentación del Docente:</p>
+    <div class="flex flex-wrap gap-3">
+      <p>{retroalimentacion}</p>
+    </div>
+  </div>
+  {/if}
 
   <div class="mt-8 bg-gray-50/50 p-6 rounded-3xl border border-gray-100">
     <p class="text-xs font-bold text-gray-400 uppercase mb-4 tracking-widest">Escala de calificación aplicada:</p>

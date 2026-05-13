@@ -124,7 +124,7 @@ class ActivityController extends Controller
         ]);
     }
 
-    public function show(Actividad $actividad)
+    public function show(Curso $curso, string $actividad) // CAMBIAR PROXIMAMENTE A Actividad
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -160,12 +160,12 @@ class ActivityController extends Controller
             "es_sumativa" => true,
             "trae_archivo" => true,
             "entrega_obligatoria" => true,
-            "ultima_nota" => 7.0,
+            "ultima_nota" => 3.4,
             "entradas" => [
                 ["id" => 1],
                 ["id" => 2],
             ],
-            "ultimo_estado" => "aprobado",
+            "ultimo_estado" => "reprobado",
         ]);
     }
 }
