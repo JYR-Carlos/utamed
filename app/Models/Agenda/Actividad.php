@@ -17,6 +17,8 @@ class Actividad extends BaseActividad
         'nombre',
         'fecha_limite',
         'visible',
+        'ponderacion',
+        'exigencia',
         'tipo_actividad',
         'tipo_entrega',
         'es_grupal',

@@ -2,10 +2,11 @@ import { router } from '@inertiajs/svelte';
 import type { Actividad } from '@/types/actividad';
 
 type Callback = () => void;
+type ErrorCallback = (errors: Record<string, string>) => void;
 
 interface ApiOptions {
     onSuccess?: Callback;
-    onError?: Callback;
+    onError?: ErrorCallback;
 }
 
 export function createActividad(

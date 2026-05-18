@@ -16,7 +16,7 @@
    * Tabla relacionada:
    * - agenda.actividad: Información de actividades/tareas
    */
-  import { Link } from '@inertiajs/svelte';
+  import { Link, page } from '@inertiajs/svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import {
     ActividadList,
@@ -40,11 +40,11 @@
       userPermissions?: Permission[];
     };
     actividades: Actividad[];
-    secciones: any[];
+    componentes: any[];
     unidades: any[];
   }
 
-  let { curso, actividades, secciones, unidades }: Props = $props();
+  let { curso, actividades, componentes, unidades }: Props = $props();
 
   const canCreate = $derived(
     curso.es_titular_curso || hasPermission(curso.userPermissions ?? [], 'actividades:crear'),
@@ -61,26 +61,35 @@
   let isLoading = $state(false);
   let editingActividad = $state<Actividad | null>(null);
   let deletingActividad = $state<Actividad | null>(null);
+  let formErrors = $state<Record<string, string>>({});
+
+  const flashError = $derived(($page.props as any).flash?.error as string | undefined);
+  const flashSuccess = $derived(($page.props as any).flash?.success as string | undefined);
 
   function openCreateModal() {
     editingActividad = null;
+    formErrors = {};
     showModal = true;
   }
 
   function openEditModal(actividad: Actividad) {
     editingActividad = actividad;
+    formErrors = {};
     showModal = true;
   }
 
   function handleSubmit(data: Partial<Actividad>) {
     isLoading = true;
+    formErrors = {};
 
     const done = () => {
       showModal = false;
       editingActividad = null;
       isLoading = false;
+      formErrors = {};
     };
-    const fail = () => {
+    const fail = (errors: Record<string, string>) => {
+      formErrors = errors;
       isLoading = false;
     };
 
@@ -158,6 +167,16 @@
     </div>
 
     <!-- Activities List -->
+    {#if flashError}
+      <div class="mb-6 rounded-md bg-red-50 border border-red-200 p-4">
+        <p class="text-sm font-medium text-red-800">{flashError}</p>
+      </div>
+    {/if}
+    {#if flashSuccess}
+      <div class="mb-6 rounded-md bg-green-50 border border-green-200 p-4">
+        <p class="text-sm font-medium text-green-800">{flashSuccess}</p>
+      </div>
+    {/if}
     <ActividadList
       {actividades}
       idCurso={curso.id_curso}
@@ -174,11 +193,13 @@
     bind:isOpen={showModal}
     {isLoading}
     {editingActividad}
-    {secciones}
+    {componentes}
     {unidades}
+    errors={formErrors}
     onClose={() => {
       showModal = false;
       editingActividad = null;
+      formErrors = {};
     }}
     onSubmit={handleSubmit}
   />

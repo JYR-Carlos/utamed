@@ -15,7 +15,6 @@ use App\Models\Agenda\Actividad;
     use App\Models\Curso\DocenteComponente;
     use App\Models\Curso\Componente;
     use App\Models\Curso\Unidad;
-    use App\Models\Usuario\Contexto;
     use App\Models\Usuario\Estudiante;
     use App\Models\Curso\InscripcionCurso;
     use Illuminate\Http\Request;
@@ -128,19 +127,17 @@ class DocenteActivityController extends Controller
             'es_grupal' => 'boolean',
             'max_integrantes' => 'integer|min:1|max:100',
             'visible' => 'boolean',
-            'id_componente' => 'required|integer',
-            'id_unidad' => 'required|integer',
+            'ponderacion' => 'required|integer|min:0|max:100',
+            'exigencia' => 'required|integer|min:0|max:100',
+            'id_componente' => 'required|integer|min:1',
+            'id_unidad' => 'required|integer|min:1',
         ]);
 
         $validated['es_plantilla'] = false;
+        // id_contexto is handled automatically by the DB trigger tr_actividad_pre_insert
 
         // Create the activity
         try {
-            $contexto = Contexto::create([
-                'contexto_display' => 'Actividad: ' . $validated['nombre'],
-            ]);
-            $validated['id_contexto'] = $contexto->id_contexto;
-
             $actividad = Actividad::create($validated);
             
             return redirect()->back()->with('success', "Actividad '{$actividad->nombre}' creada correctamente.");
@@ -148,8 +145,7 @@ class DocenteActivityController extends Controller
             Log::error('Error creating activity: ' . $e->getMessage());
             
             return redirect()->back()
-                ->withErrors(['error' => 'Error al crear la actividad: ' . $e->getMessage()])
-                ->withInput();
+                ->with('error', 'Error al crear la actividad: ' . $e->getMessage());
         }
     }
 
@@ -191,8 +187,10 @@ class DocenteActivityController extends Controller
             'es_grupal' => 'boolean',
             'max_integrantes' => 'integer|min:1|max:100',
             'visible' => 'boolean',
-            'id_componente' => 'required|integer',
-            'id_unidad' => 'required|integer',
+            'ponderacion' => 'required|integer|min:0|max:100',
+            'exigencia' => 'required|integer|min:0|max:100',
+            'id_componente' => 'required|integer|min:1',
+            'id_unidad' => 'required|integer|min:1',
         ]);
 
         try {
@@ -203,8 +201,7 @@ class DocenteActivityController extends Controller
             Log::error('Error updating activity: ' . $e->getMessage());
             
             return redirect()->back()
-                ->withErrors(['error' => 'Error al actualizar la actividad.'])
-                ->withInput();
+                ->with('error', 'Error al actualizar la actividad: ' . $e->getMessage());
         }
     }
 
@@ -301,8 +298,8 @@ class DocenteActivityController extends Controller
     // =========================================================================
 
     /**
-     * Muestra la vista de evaluación de una actividad:
-     * grupos (actividad_asignada) con sus integrantes y notas.
+     * Muestra la vista de detalle/evaluación de una actividad (nueva UI):
+     * grupos (actividad_asignada_grupo) con sus integrantes, notas e interacciones lazy.
      */
     public function showEvaluacion(Curso $curso, Actividad $actividad)
     {
@@ -312,73 +309,146 @@ class DocenteActivityController extends Controller
             abort(403, 'No tienes un perfil docente.');
         }
 
-        $isDocente =  self::isDocente($user->docente->id_docente);
+        $isDocente = self::isDocente($user->docente->id_docente);
 
         if (!$isDocente && !$user->is_admin) {
             abort(403, 'No tienes permiso para acceder a este curso.');
         }
 
-        $actividad->load(['componente.tipoComponente', 'unidad']);
+        $actividad->load(['componente', 'unidad']);
 
-        // Grupos con sus integrantes cargados
-        $grupos = ActividadAsignada::where('id_actividad', $actividad->id_actividad)
-            ->with([
-                'estadoActividad',
-                'asignadoActividades.estudiante.usuario',
-            ])
+        // Grupos con sus integrantes (modelo nuevo: actividad_asignada_grupo)
+        $grupos = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
+            ->with(['estadoActividad', 'integranteGrupos.estudiante.usuario'])
             ->get()
             ->map(fn($g) => [
-                'grupo'          => $g->grupo,
-                'nota'           => $g->nota,
-                'id_estado'      => $g->id_estado,
-                'estado'         => $g->estadoActividad ? [
-                    'id_estado'  => $g->estadoActividad->id_estado,
-                    'titulo'     => $g->estadoActividad->titulo,
+                'grupo'      => $g->grupo,
+                'nota'       => $g->nota,
+                'id_estado'  => $g->id_estado,
+                'estado'     => $g->estadoActividad ? [
+                    'id_estado' => $g->estadoActividad->id_estado,
+                    'titulo'    => $g->estadoActividad->titulo,
                 ] : null,
-                'integrantes'    => $g->asignadoActividades->map(fn($a) => [
-                    'id_asignado_actividad' => $a->id_asignado_actividad,
-                    'id_estudiante'         => $a->id_estudiante,
-                    'nota_individual'       => $a->nota_individual,
-                    'diferencia_decimas'    => $a->diferencia_decimas,
-                    'nombre_completo'       => trim(
-                        ($a->estudiante?->usuario?->nombre1 ?? '') . ' ' .
-                        ($a->estudiante?->usuario?->nombre2 ?? '') . ' ' .
-                        ($a->estudiante?->usuario?->apellido1 ?? '') . ' ' .
-                        ($a->estudiante?->usuario?->apellido2 ?? '')
+                'integrantes' => $g->integranteGrupos->map(fn($m) => [
+                    'id_estudiante'  => $m->id_estudiante,
+                    'nombre_completo' => trim(
+                        ($m->estudiante?->usuario?->nombre1  ?? '') . ' ' .
+                        ($m->estudiante?->usuario?->nombre2  ?? '') . ' ' .
+                        ($m->estudiante?->usuario?->apellido1 ?? '') . ' ' .
+                        ($m->estudiante?->usuario?->apellido2 ?? '')
                     ),
                 ])->values(),
             ])
             ->values();
 
-        // Estudiantes inscritos en el componente de esta actividad (para agregar a grupos)
-        $estudiantesDisponibles = collect();
-        if ($actividad->id_componente) {
-            $estudiantesDisponibles = DB::table('curso.inscripcion_seccion as is')
-                ->join('usuario.estudiante as e', 'e.id_estudiante', '=', 'is.id_estudiante')
-                ->join('usuario.usuario as u', 'u.id_usuario', '=', 'e.id_usuario')
-                ->where('is.id_seccion', $actividad->id_seccion)
-                ->select(
-                    'e.id_estudiante',
-                    DB::raw("TRIM(CONCAT(u.nombre1,' ',COALESCE(u.nombre2,''),' ',u.apellido1,' ',COALESCE(u.apellido2,''))) as nombre_completo"),
-                    'u.email'
-                )
-                ->orderBy('u.apellido1')
-                ->get();
+        // Campos calculados de la actividad
+        $esSumativa  = $actividad->tipo_actividad !== null && $actividad->tipo_actividad >= 2;
+        $traeArchivo = $actividad->tipo_entrega !== 'presencial';
+
+        // Rúbrica: primer evaluación con rúbrica para esta actividad (nullable)
+        $rubricaData = null;
+        try {
+            $idRubrica = DB::table('agenda.evaluacion as ev')
+                ->join('agenda.agenda as a', 'a.id_agenda', '=', 'ev.id_agenda')
+                ->join('agenda.actividad_asignada_grupo as aag', 'aag.grupo', '=', 'a.grupo')
+                ->where('aag.id_actividad', $actividad->id_actividad)
+                ->whereNotNull('ev.id_rubrica')
+                ->value('ev.id_rubrica');
+
+            if ($idRubrica) {
+                $rubricaModel = \App\Models\Agenda\Rubrica::find($idRubrica);
+                $rubricaData  = $rubricaModel?->rubrica; // cast to array
+            }
+        } catch (\Exception $e) {
+            Log::warning('No se pudo cargar rúbrica para actividad ' . $actividad->id_actividad . ': ' . $e->getMessage());
         }
 
-        $estados = EstadoActividad::all(['id_estado', 'titulo', 'descripcion']);
-
-        // Permisos granulares del docente en el contexto de este curso
         $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
-        $userPermissions = [];
 
-        return Inertia::render('docente/ActividadEvaluacion', [
-            'curso'                 => array_merge($curso->toArray(), ['userPermissions' => $userPermissions, 'es_titular_curso' => $esTitular]),
-            'actividad'             => $actividad,
-            'grupos'                => $grupos,
-            'estudiantesDisponibles' => $estudiantesDisponibles,
-            'estados'               => $estados,
+        // Estudiantes inscritos en el curso (para asignación de grupos)
+        $estudiantesInscritos = InscripcionCurso::where('id_curso', $curso->id_curso)
+            ->with('estudiante.usuario')
+            ->get()
+            ->map(fn($i) => [
+                'id_estudiante'   => $i->id_estudiante,
+                'nombre_completo' => trim(
+                    ($i->estudiante?->usuario?->nombre1  ?? '') . ' ' .
+                    ($i->estudiante?->usuario?->nombre2  ?? '') . ' ' .
+                    ($i->estudiante?->usuario?->apellido1 ?? '') . ' ' .
+                    ($i->estudiante?->usuario?->apellido2 ?? '')
+                ),
+            ])
+            ->sortBy('nombre_completo')
+            ->values();
+
+        return Inertia::render('docente/Activities/Index', [
+            'curso'     => [
+                'id_curso'  => $curso->id_curso,
+                'nombre'    => $curso->nombre,
+                'cod_curso' => $curso->cod_curso,
+            ],
+            'actividad' => [
+                'id_actividad'    => $actividad->id_actividad,
+                'nombre'          => $actividad->nombre,
+                'descripcion'     => $actividad->descripcion ?? '',
+                'fecha_limite'    => $actividad->fecha_limite,
+                'es_sumativa'     => $esSumativa,
+                'trae_archivo'    => $traeArchivo,
+                'es_grupal'       => (bool) $actividad->es_grupal,
+                'max_integrantes' => $actividad->max_integrantes,
+                'es_titular'      => $esTitular,
+            ],
+            'grupos'               => $grupos,
+            'rubrica'              => $rubricaData,
+            'estudiantesInscritos' => $estudiantesInscritos,
         ]);
+    }
+
+    /**
+     * Elimina un grupo (ActividadAsignadaGrupo) y todos sus integrantes.
+     */
+    public function deleteGroup(Curso $curso, Actividad $actividad, int $grupo)
+    {
+        $this->autorizarDocenteCurso($curso);
+
+        if ($actividad->componente?->id_curso !== $curso->id_curso) {
+            abort(404, 'Actividad no encontrada en este curso.');
+        }
+
+        $grupoModel = ActividadAsignadaGrupo::where('grupo', $grupo)
+            ->where('id_actividad', $actividad->id_actividad)
+            ->firstOrFail();
+
+        return DB::transaction(function () use ($grupoModel) {
+            IntegranteGrupo::where('grupo', $grupoModel->grupo)->delete();
+            $grupoModel->delete();
+
+            return redirect()->back()->with('success', 'Grupo eliminado correctamente.');
+        });
+    }
+
+    /**
+     * Quita un estudiante de un grupo (IntegranteGrupo).
+     */
+    public function removeStudentFromGroup(Curso $curso, Actividad $actividad, int $grupo, int $estudiante)
+    {
+        $this->autorizarDocenteCurso($curso);
+
+        if ($actividad->componente?->id_curso !== $curso->id_curso) {
+            abort(404, 'Actividad no encontrada en este curso.');
+        }
+
+        ActividadAsignadaGrupo::where('grupo', $grupo)
+            ->where('id_actividad', $actividad->id_actividad)
+            ->firstOrFail();
+
+        $integrante = IntegranteGrupo::where('grupo', $grupo)
+            ->where('id_estudiante', $estudiante)
+            ->firstOrFail();
+
+        $integrante->delete();
+
+        return redirect()->back()->with('success', 'Estudiante quitado del grupo.');
     }
 
     /**
@@ -1159,7 +1229,17 @@ class DocenteActivityController extends Controller
                 'u.id_usuario as emisor_id_usuario',
                 DB::raw("TRIM(CONCAT(u.nombre1,' ',COALESCE(u.nombre2,''),' ',u.apellido1,' ',COALESCE(u.apellido2,''))) as emisor_nombre"),
             )
-            ->get();
+            ->get()
+            ->map(fn($m) => array_merge((array) $m, [
+                // Campos extra para compatibilidad con el componente AgendaDocente
+                'id_interaccion'       => $m->id_agenda,
+                'fecha_emision'        => $m->fecha_envio,
+                'tipo_interaccion'     => $m->tipo_registro,
+                'emisor'               => $m->emisor_nombre,
+                'es_de_docente'        => $m->tipo_registro === 'Feedback',
+                'es_retroalimentacion' => $m->tipo_registro === 'Feedback',
+                'adjunta_rubrica'      => false,
+            ]));
 
         return response()->json($mensajes);
     }

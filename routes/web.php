@@ -310,6 +310,8 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     // Gestión avanzada de grupos (nuevas funcionalidades)
     Route::post('cursos/{curso}/actividades/{actividad}/grupos-create', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'storeGroup'])->name('cursos.actividades.grupos.create');
     Route::post('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiante', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'addStudentToGroup'])->name('cursos.actividades.grupos.estudiante.add');
+    Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiantes/{estudiante}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'removeStudentFromGroup'])->name('cursos.actividades.grupos.estudiante.remove');
+    Route::delete('cursos/{curso}/actividades/{actividad}/grupos-delete/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'deleteGroup'])->name('cursos.actividades.grupos.new.delete');
     Route::get('cursos/{curso}/actividades/{actividad}/grupos-list', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getGroupsByActivity'])->name('cursos.actividades.grupos.list');
     Route::post('cursos/{curso}/actividades/{actividad}/grupos-copy', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'copyGroupsFromActivity'])->name('cursos.actividades.grupos.copy');
 

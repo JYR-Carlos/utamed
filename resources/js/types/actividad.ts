@@ -7,9 +7,11 @@ export interface Actividad {
     es_grupal: boolean;
     max_integrantes: number;
     visible: boolean;
-    id_seccion?: number;
+    ponderacion?: number;
+    exigencia?: number;
+    id_componente?: number;
     id_unidad?: number;
-    seccion?: { id_seccion: number; tipo: string } | null;
+    componente?: { id_componente: number; tipo: string } | null;
     unidad?: { id_unidad: number; nombre: string } | null;
     ultima_nota?: number | null;
 }
