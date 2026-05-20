@@ -12,9 +12,6 @@ use App\Models\Base\Agenda\BaseActividadAsignada;
  */
 class ActividadAsignada extends BaseActividadAsignada
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+    // Nombre real de la tabla en BD (el base auto-generado tiene el nombre incorrecto)
+    protected $table = 'actividad_asignada_grupo';
 }

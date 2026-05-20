@@ -617,7 +617,7 @@ class DocenteActivityController extends Controller
         $validated = $request->validate([
             'nombre_grupo' => 'nullable|string|max:100',
             'estudiantes' => 'required|array|min:1',
-            'estudiantes.*' => 'required|integer|exists:usuario.estudiante,id_estudiante',
+            'estudiantes.*' => 'required|integer',
         ]);
 
         // Verificar que no haya más integrantes que el máximo permitido

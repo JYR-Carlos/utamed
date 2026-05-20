@@ -67,7 +67,7 @@
 </script>
 
 <DocenteLayout {breadcrumbs}>
-    <div class="flex flex-col gap-5 2xl:gap-7 -m-4 md:-m-6 lg:-m-8 2xl:-m-8 p-4 md:p-5 lg:p-6 2xl:p-8 min-[1920px]:p-10 max-w-[1400px] 2xl:max-w-[1700px] min-[1920px]:max-w-[2000px] mx-auto w-full">
+    <div class="flex flex-col gap-5 2xl:gap-7 p-4 md:p-5 lg:p-6 2xl:p-8 min-[1920px]:p-10 max-w-[1400px] 2xl:max-w-[1700px] min-[1920px]:max-w-[2000px] mx-auto w-full">
 
         <!-- ── Header ─────────────────────────────────────────── -->
         <header class="flex items-center justify-between gap-4 flex-wrap">

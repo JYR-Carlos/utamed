@@ -14,6 +14,9 @@
    * - Soporte para login con Fortify (Laravel)
    * - Timer visual para rate limiting
    */
+  import { onMount, onDestroy } from 'svelte';
+  import * as THREE from 'three';
+  import NET from 'vanta/dist/vanta.net.min';
   import ErrorAlert from '@/components/custom/common/ErrorAlert.svelte';
   import TextLink from '@/components/custom/common/TextLink.svelte';
   import { Button } from '@/components/ui/button';
@@ -231,13 +234,36 @@
   }
 
   let rutValid = $derived(isValidRutFormat($form.data.email));
+
+  let vantaContainer: HTMLElement | undefined = $state(undefined);
+  let vantaEffect: any = null;
+
+  onMount(() => {
+    if (vantaContainer) {
+      vantaEffect = NET({
+        el: vantaContainer,
+        THREE,
+        color: 0xf59e0b,
+        backgroundColor: 0x1e40af,
+        points: 12,
+        maxDistance: 20,
+        spacing: 17,
+      });
+    }
+  });
+
+  onDestroy(() => {
+    vantaEffect?.destroy();
+  });
 </script>
 
 <svelte:head>
   <title>Iniciar Sesión | UTAMed</title>
 </svelte:head>
 
-<AuthBase title="Iniciar Sesión" description="Ingresa los detalles de tu cuenta">
+<div bind:this={vantaContainer} class="relative min-h-screen overflow-hidden">
+  <div class="relative z-10">
+    <AuthBase title="Iniciar Sesión" description="Ingresa los detalles de tu cuenta">
   {#if status}
     <div class="mb-4 text-center text-sm font-medium text-green-600">
       {status}
@@ -381,3 +407,5 @@
     {/snippet}
   </Form>
 </AuthBase>
+  </div>
+</div>

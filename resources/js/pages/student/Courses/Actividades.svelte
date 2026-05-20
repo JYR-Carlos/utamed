@@ -31,10 +31,7 @@
       id_curso: number;
       nombre: string;
       cod_curso: string;
-      cod_asignatura: string;
       asignatura_nombre: string;
-      semestre_real?: number | null;
-      agno_real?: number | null;
     };
     actividades: Actividad[];
   }
@@ -44,7 +41,8 @@
   const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Dashboard', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
-    { title: curso.nombre, href: '' },
+    { title: curso.nombre, href: `/estudiante/cursos/${curso.id_curso}` },
+    { title: 'Actividades', href: '' },
   ]);
 
   let activeUnit = $state<number | 'all'>('all');
@@ -82,13 +80,6 @@
     return diff > 0 && diff < 7 * 24 * 60 * 60 * 1000;
   }
 
-  function formatSemestre(s: number | null | undefined, y: number | null | undefined): string {
-    const parts: string[] = [];
-    if (s) parts.push(`${s}\u00b0 Semestre`);
-    if (y) parts.push(String(y));
-    return parts.join(' \u00b7 ');
-  }
-
   const unidades = $derived.by(() => {
     const map = new Map<number, { id: number; nombre: string; count: number }>();
     for (const act of actividades) {
@@ -118,6 +109,7 @@
       if (filterGrupal && !act.es_grupal) return false;
       return true;
     });
+
     const map = new Map<string, { unidad: Actividad['unidad']; acts: Actividad[] }>();
     for (const act of filtered) {
       const key = act.unidad ? String(act.unidad.id_unidad) : '__sin';
@@ -135,8 +127,6 @@
     filterConEntrega = false;
     filterGrupal = false;
   }
-
-  const semestreLabel = $derived(formatSemestre(curso.semestre_real, curso.agno_real));
 </script>
 
 <svelte:head>
@@ -162,7 +152,7 @@
     <div class="shell">
       <!-- Sidebar -->
       <aside class="sidebar" aria-label="Navegación del curso">
-        <Link href="/estudiante/cursos" class="side-back">
+        <Link href="/estudiante/cursos/{curso.id_curso}" class="side-back">
           <svg
             width="13"
             height="13"
@@ -177,11 +167,8 @@
         </Link>
 
         <div class="side-course">
-          <div class="side-course-eyebrow">{curso.cod_asignatura} · {curso.asignatura_nombre}</div>
+          <div class="side-course-eyebrow">{curso.cod_curso} · {curso.asignatura_nombre}</div>
           <h2 class="side-course-name">{curso.nombre}</h2>
-          {#if semestreLabel}
-            <div class="side-course-meta">{semestreLabel}</div>
-          {/if}
         </div>
 
         <div class="side-section-label">Unidades</div>
@@ -237,7 +224,7 @@
           >
         </button>
         <div style="height:8px"></div>
-        <Link href="/estudiante/cursos/{curso.id_curso}/programa" class="side-action-link">
+        <button class="side-action">
           <svg
             width="16"
             height="16"
@@ -264,7 +251,7 @@
             stroke-linejoin="round"
             ><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg
           >
-        </Link>
+        </button>
       </aside>
 
       <!-- Main content -->
@@ -345,7 +332,7 @@
                 {@const passed = nota !== null && nota >= 4.0}
                 {@const urgent = isUrgent(act.fecha_limite)}
                 <Link
-                  href="/estudiante/cursos/{curso.id_curso}/actividad/{act.id_actividad}"
+                  href="/estudiante/actividades/{act.id_actividad}"
                   class="act-card {status === 'graded'
                     ? 'is-graded'
                     : status === 'pending'
@@ -510,7 +497,7 @@
     --line-2: #cfc6ab;
     --success: #2c7a4b;
     --danger: #993244;
-    --danger-soft: #f5e1e4;
+    --danger-soft: #fff;
     --info: #1f5ba8;
     --info-soft: #e4ecf8;
     --font-sans: 'Inter Tight', system-ui, sans-serif;
@@ -526,6 +513,7 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  /* Heritage stripe */
   .heritage-stripe {
     display: flex;
     height: 4px;
@@ -548,6 +536,7 @@
     background: var(--primary);
   }
 
+  /* Shell */
   .shell {
     max-width: 1280px;
     margin: 0 auto;
@@ -557,6 +546,7 @@
     gap: 36px;
   }
 
+  /* Sidebar */
   .sidebar {
     padding-top: 28px;
     position: sticky;
@@ -583,33 +573,6 @@
     color: var(--primary);
   }
 
-  :global(.side-action-link) {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 12px 14px;
-    border-radius: 10px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    font-size: 13px;
-    color: var(--ink-2);
-    font-weight: 500;
-    transition: all 0.15s;
-    text-align: left;
-    cursor: pointer;
-    font-family: var(--font-sans);
-    text-decoration: none;
-  }
-  :global(.side-action-link:hover) {
-    border-color: var(--primary);
-    color: var(--primary);
-    background: var(--primary-tint);
-  }
-  :global(.side-action-link span) {
-    flex: 1;
-  }
-
   .side-course {
     border-left: 3px solid var(--accent);
     padding: 4px 0 4px 14px;
@@ -630,11 +593,6 @@
     margin: 4px 0 0;
     color: var(--ink-1);
     line-height: 1.1;
-  }
-  .side-course-meta {
-    font-size: 12px;
-    color: var(--ink-3);
-    margin-top: 6px;
   }
 
   .side-section-label {
@@ -737,6 +695,7 @@
     margin-left: auto;
   }
 
+  /* Main */
   .main-col {
     padding-top: 28px;
   }
@@ -873,6 +832,7 @@
     background: var(--line);
   }
 
+  /* Activity card — Link renders as <a> */
   :global(.act-card) {
     background: var(--surface);
     border: 1px solid var(--line);

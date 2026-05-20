@@ -27,6 +27,7 @@
     Search,
     X,
     ClipboardList,
+    ArrowLeft,
   } from 'lucide-svelte';
   import {
     SyllabusPermisosModal,
@@ -210,207 +211,274 @@
 </script>
 
 <DocenteLayout>
-  <div class="min-h-screen pb-10">
-    <!-- ══════════════════════════════════════════════════════════════════
-         HEADER COMPACTO — fondo blanco, ancho completo
-         ══════════════════════════════════════════════════════════════════ -->
-    <div class="bg-white border-b border-gray-200 px-6 py-5">
+  <div style="background:#FFF; min-height:100vh; padding-bottom:5rem;">
+    <!-- ── Header ── -->
+    <div class="px-6 sm:px-12 py-6" style="border-bottom:1px solid #E8E4DC;">
       <!-- Breadcrumb -->
       <nav
-        class="flex items-center gap-1.5 text-xs text-gray-500 mb-3"
+        class="flex items-center gap-2 mb-6"
+        style="font-size:13px; color:#5A5E6E;"
         aria-label="Ruta de navegación"
       >
-        <Link href="/docente/cursos" class="hover:text-brand transition-colors">Mis Cursos</Link>
-        <ChevronRight size={12} aria-hidden="true" />
-        <span class="text-gray-600 font-medium" aria-current="page">{curso.cod_curso}</span>
+        <Link
+          href="/docente/cursos"
+          class="back-link inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-medium transition-all"
+          style="color:#2D2F3A;"
+        >
+          <ArrowLeft size={15} />
+          Mis Cursos
+        </Link>
+        <ChevronRight size={13} style="color:#8A8E9C;" aria-hidden="true" />
+        <span
+          class="bread-code"
+          style="font-family:ui-monospace,monospace; font-size:12px; background:white; color:#5A5E6E; padding:3px 8px; border-radius:6px; border:1px solid #E8E4DC; letter-spacing:0.02em;"
+          aria-current="page">{curso.cod_curso}</span
+        >
       </nav>
 
-      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <!-- Título + badges -->
+      <!-- Title + actions row -->
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-3 flex-wrap">
-            <h1 class="text-2xl font-bold text-gray-900 tracking-tight truncate">
+          <div class="flex items-center gap-3 flex-wrap mb-2">
+            <h1
+              class="font-semibold tracking-tight"
+              style="font-size:clamp(28px,3.5vw,44px); line-height:1.05; color:#1A1A24; margin:0;"
+            >
               {curso.nombre || curso.asignatura.nombre}
             </h1>
-            <!-- Badge Titular -->
             {#if curso.es_titular_curso}
               <span
-                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
-                style="background:#FFF8EC; color:#F0AD4E; border:1px solid #F0AD4E44;"
+                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
+                style="background:#FFF3D1; color:#8A5F00; border:1px solid rgba(255,184,28,0.35);"
               >
-                <Crown size={11} />
+                <Crown size={12} />
                 Titular
               </span>
             {:else}
               <span
-                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200"
+                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
+                style="background:#F5F1EA; color:#5A5E6E; border:1px solid #E8E4DC;"
               >
-                <UserCheck size={11} />
+                <UserCheck size={12} />
                 Colaborador
               </span>
             {/if}
-            <!-- Badge Estado -->
             <span
-              class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold {curso.es_plantilla
-                ? 'bg-gray-100 text-gray-500 border border-gray-200'
-                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}"
+              class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
+              style={curso.es_plantilla
+                ? 'background:#F5F1EA; color:#5A5E6E; border:1px solid #E8E4DC;'
+                : 'background:#E0F5EA; color:#0E7C4A; border:1px solid rgba(14,124,74,0.25);'}
             >
+              {#if !curso.es_plantilla}
+                <span class="active-dot" aria-hidden="true"></span>
+              {/if}
               {curso.es_plantilla ? 'Plantilla' : 'Activo'}
             </span>
           </div>
-
-          <!-- Sub-línea código + asignatura -->
-          <p class="text-sm text-gray-500 mt-1">
-            <span class="font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded text-xs mr-2"
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span
+              style="font-family:ui-monospace,monospace; font-size:12px; background:#E6ECF5; color:#002F6C; padding:4px 10px; border-radius:7px; font-weight:600; letter-spacing:0.02em; border:1px solid rgba(0,47,108,0.18);"
               >{curso.cod_curso}</span
             >
-            {curso.asignatura.nombre} · {curso.asignatura.cod_asignatura}
-          </p>
-
-          <!-- Contadores inline (barra sutil) -->
-          <div class="flex items-center gap-0 mt-3 text-xs text-gray-500 divide-x divide-gray-200">
-            {#if todos_componentes.length > 0 || curso.es_titular_curso}
-              <span class="flex items-center gap-1.5 pr-3">
-                <Layers size={12} class="text-gray-400" />
-                {todos_componentes.length} Componente{todos_componentes.length !== 1 ? 's' : ''}
-              </span>
-              <span class="flex items-center gap-1.5 px-3">
-                <UsersRound size={12} class="text-gray-400" />
-                {totalDocentesCurso} Docente{totalDocentesCurso !== 1 ? 's' : ''}
-              </span>
-            {/if}
-            <span class="flex items-center gap-1.5 {curso.es_titular_curso ? 'pl-3' : ''}">
-              <Users size={12} class="text-gray-400" />
-              {curso.total_estudiantes} Estudiante{curso.total_estudiantes !== 1 ? 's' : ''}
-            </span>
+            <span style="font-size:13px; color:#5A5E6E;"
+              >{curso.asignatura.nombre} · {curso.asignatura.cod_asignatura}</span
+            >
           </div>
         </div>
 
-        <!-- Botones de acción -->
         <div class="flex items-center gap-2 shrink-0 flex-wrap">
           {#if curso.tiene_programa}
             <button
               onclick={() => router.visit(`/docente/cursos/${curso.id_curso}/programa`)}
-              class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+              class="btn-design inline-flex items-center gap-2 px-4 text-sm font-medium rounded-[10px] border transition-all"
+              style="height:40px; background:transparent; color:#2D2F3A; border-color:#E8E4DC;"
             >
-              <BookOpenCheck size={15} />
+              <BookOpenCheck size={16} />
               Ver Programa
             </button>
           {/if}
           {#if curso.es_titular_curso}
             <button
               onclick={() => (showSyllabusPermisos = true)}
-              class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border border-[#2A66AC] text-[#2A66AC] rounded-lg hover:bg-blue-50 transition"
+              class="inline-flex items-center gap-2 px-4 text-sm font-medium rounded-[10px] border transition-all"
+              style="height:40px; background:white; color:#002F6C; border-color:#002F6C;"
             >
-              <Shield size={15} />
+              <Shield size={16} />
               Permisos Syllabus
             </button>
           {/if}
           {#if canVerActividades}
             <button
               onclick={() => router.visit(`/docente/cursos/${curso.id_curso}/actividades`)}
-              class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-lg transition shadow-sm hover:brightness-110"
-              style="background:#2A66AC;"
+              class="btn-primary-design inline-flex items-center gap-2 px-4 text-sm font-semibold text-white rounded-[10px] transition-all"
+              style="height:40px; background:#002F6C;"
             >
-              <FileText size={15} />
+              <FileText size={16} />
               Gestionar Actividades
             </button>
           {/if}
         </div>
       </div>
+
+      <!-- Meta strip (datos críticos del curso — antes en "Detalles del Curso") -->
+      <div
+        class="meta-strip flex flex-wrap rounded-2xl border mb-4"
+        style="background:white; border-color:#E8E4DC; padding:16px 20px; row-gap:12px;"
+      >
+        <div class="meta-item">
+          <div class="meta-key">Asignatura</div>
+          <div class="meta-val">{curso.asignatura.nombre}</div>
+        </div>
+        <div class="meta-divider" aria-hidden="true"></div>
+        <div class="meta-item">
+          <div class="meta-key">Carrera</div>
+          <div class="meta-val">{curso.plan.carrera}</div>
+        </div>
+        <div class="meta-divider" aria-hidden="true"></div>
+        <div class="meta-item">
+          <div class="meta-key">Semestre</div>
+          <div class="meta-val">
+            {curso.semestre_real === 1 ? '1er' : '2do'} Sem. · {curso.agno_real}
+          </div>
+        </div>
+        <div class="meta-divider" aria-hidden="true"></div>
+        <div class="meta-item">
+          <div class="meta-key">Período</div>
+          <div class="meta-val" style="display:inline-flex; align-items:center; gap:6px;">
+            <Calendar size={13} style="color:#E11D74;" />
+            {formatDate(curso.fecha_inicio)} — {formatDate(curso.fecha_fin)}
+          </div>
+        </div>
+        {#if curso.plan.nombre && curso.plan.nombre !== 'undefined'}
+          <div class="meta-divider" aria-hidden="true"></div>
+          <div class="meta-item">
+            <div class="meta-key">Plan</div>
+            <div class="meta-val" style="color:#8A8E9C; font-weight:400;">{curso.plan.nombre}</div>
+          </div>
+        {/if}
+        {#if curso.asignatura.descripcion}
+          <div class="meta-divider" aria-hidden="true"></div>
+          <div class="meta-item" style="flex:2 1 200px;">
+            <div class="meta-key">Descripción</div>
+            <div
+              class="meta-val"
+              style="color:#5A5E6E; font-weight:400; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;"
+            >
+              {curso.asignatura.descripcion}
+            </div>
+          </div>
+        {/if}
+      </div>
+
+      <!-- Stat chips -->
+      <div class="flex items-center gap-2 flex-wrap">
+        {#if todos_componentes.length > 0 || curso.es_titular_curso}
+          <span class="stat-chip">
+            <Layers size={15} />
+            <strong>{todos_componentes.length}</strong>
+            <span>Componente{todos_componentes.length !== 1 ? 's' : ''}</span>
+          </span>
+          <span class="stat-chip">
+            <UsersRound size={15} />
+            <strong>{totalDocentesCurso}</strong>
+            <span>Docente{totalDocentesCurso !== 1 ? 's' : ''}</span>
+          </span>
+        {/if}
+        <span class="stat-chip stat-chip-active">
+          <Users size={15} />
+          <strong>{curso.total_estudiantes}</strong>
+          <span>Estudiante{curso.total_estudiantes !== 1 ? 's' : ''}</span>
+        </span>
+      </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════════
-         CONTENIDO PRINCIPAL
-         ══════════════════════════════════════════════════════════════════ -->
-    <div class="px-6 pt-6">
+    <!-- ── Content ── -->
+    <div class="px-6 sm:px-12 pt-6">
       {#if curso.es_titular_curso}
-        <!-- ── VISTA TITULAR: layout asimétrico 65 / 35 ───────────────── -->
-        <div class="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5 items-start">
-          <!-- ╔═══════════════════════════════════╗
-               ║  COLUMNA IZQUIERDA: Mi Grupo 65%  ║
-               ╚═══════════════════════════════════╝ -->
-          <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col">
-            <!-- Card header + tab nav -->
-            <div class="border-b border-gray-200">
-              <div class="px-5 pt-5 pb-0 flex items-center gap-3">
-                <div
-                  class="flex items-center justify-center w-8 h-8 rounded-lg"
-                  style="background:#EEF4FB;"
-                >
-                  <GraduationCap size={16} style="color:#2A66AC;" />
+        <!-- VISTA TITULAR: asimétrico 1fr / 340px -->
+        <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start">
+          <!-- Columna principal: Mi Grupo -->
+          <div class="panel flex flex-col">
+            <!-- Panel header + tabs -->
+            <div style="border-bottom:1px solid #E8E4DC;">
+              <div style="padding:22px 24px 0; display:flex; align-items:center; gap:12px;">
+                <div class="panel-icon">
+                  <GraduationCap size={18} style="color:#002F6C;" />
                 </div>
-                <h2 class="text-base font-semibold text-gray-900">
-                  {mainTab === 'grupo' ? 'Mi Grupo' : 'Seguimiento de Actividades'}
+                <h2 class="panel-title">
+                  {mainTab === 'grupo' ? 'Mi Grupo' : 'Actividades'}
                 </h2>
               </div>
-              <!-- Tab bar -->
-              <nav class="flex px-4 gap-0.5 mt-3" role="tablist" aria-label="Secciones del curso">
+              <div
+                style="display:flex; padding:0 24px; margin-bottom:-1px;"
+                role="tablist"
+                aria-label="Secciones del curso"
+              >
                 <button
                   role="tab"
                   aria-selected={mainTab === 'grupo'}
                   onclick={() => (mainTab = 'grupo')}
-                  class="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors {mainTab ===
-                  'grupo'
-                    ? 'border-[#2A66AC] text-[#2A66AC]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
+                  class="tab-btn"
+                  style="border-bottom-color:{mainTab === 'grupo'
+                    ? '#002F6C'
+                    : 'transparent'}; color:{mainTab === 'grupo' ? '#002F6C' : '#5A5E6E'};"
                 >
                   <GraduationCap size={14} />
                   Mi Grupo
                   <span
-                    class="ml-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full text-[10px] font-bold {mainTab ===
-                    'grupo'
-                      ? 'bg-[#2A66AC] text-white'
-                      : 'bg-gray-200 text-gray-600'}"
+                    class="tab-count"
+                    style="background:{mainTab === 'grupo'
+                      ? '#002F6C'
+                      : '#F5F1EA'}; color:{mainTab === 'grupo' ? 'white' : '#5A5E6E'};"
+                    >{estudiantesActivos.length}</span
                   >
-                    {estudiantesActivos.length}
-                  </span>
                 </button>
                 {#if canVerActividades}
                   <button
                     role="tab"
                     aria-selected={mainTab === 'actividades'}
                     onclick={() => (mainTab = 'actividades')}
-                    class="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors {mainTab ===
-                    'actividades'
-                      ? 'border-[#2A66AC] text-[#2A66AC]'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
+                    class="tab-btn"
+                    style="border-bottom-color:{mainTab === 'actividades'
+                      ? '#002F6C'
+                      : 'transparent'}; color:{mainTab === 'actividades' ? '#002F6C' : '#5A5E6E'};"
                   >
                     <ClipboardList size={14} />
                     Actividades
                     <span
-                      class="ml-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full text-[10px] font-bold {mainTab ===
-                      'actividades'
-                        ? 'bg-[#2A66AC] text-white'
-                        : 'bg-gray-200 text-gray-600'}"
+                      class="tab-count"
+                      style="background:{mainTab === 'actividades'
+                        ? '#002F6C'
+                        : '#F5F1EA'}; color:{mainTab === 'actividades' ? 'white' : '#5A5E6E'};"
+                      >{actividades.length}</span
                     >
-                      {actividades.length}
-                    </span>
                   </button>
                 {/if}
-              </nav>
+              </div>
             </div>
 
-            <!-- ── TAB: Mi Grupo ──────────────────────────────── -->
+            <!-- TAB: Mi Grupo -->
             {#if mainTab === 'grupo'}
-              <div class="p-5 space-y-4 flex-1">
-                <!-- Búsqueda de estudiante -->
+              <div style="padding:22px 24px; flex:1;" class="space-y-4">
                 {#if estudiantesActivos.length > 3}
                   <div class="relative">
                     <Search
                       size={13}
-                      class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                      class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                      style="color:#8A8E9C;"
                     />
                     <input
                       type="text"
                       bind:value={estudianteQuery}
                       placeholder="Buscar estudiante…"
-                      class="w-full pl-8 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2A66AC]/30 focus:border-[#2A66AC] placeholder:text-gray-400 bg-white"
+                      class="w-full pl-8 pr-8 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-[#002F6C]/20 focus:border-[#002F6C] placeholder:text-gray-400"
+                      style="border:1px solid #E8E4DC; background:white;"
                     />
                     {#if estudianteQuery}
                       <button
                         onclick={() => (estudianteQuery = '')}
-                        class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                        class="absolute right-2.5 top-1/2 -translate-y-1/2"
+                        style="color:#8A8E9C;"
                         aria-label="Limpiar búsqueda"
                       >
                         <X size={13} />
@@ -419,7 +487,7 @@
                   </div>
                 {/if}
 
-                <!-- Pill tabs de componente -->
+                <!-- Component pills -->
                 {#if mis_componentes.length > 1}
                   <div class="flex gap-2 flex-wrap">
                     {#each mis_componentes as comp}
@@ -428,130 +496,140 @@
                           componenteActivo = comp.id_componente;
                           estudianteQuery = '';
                         }}
-                        class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all"
                         style={componenteActivo === comp.id_componente
-                          ? 'background:#2A66AC; color:#fff;'
-                          : 'background:#F1F5F9; color:#64748B;'}
+                          ? 'background:#002F6C; color:white;'
+                          : 'background:#F5F1EA; color:#5A5E6E;'}
                       >
                         {comp.tipo_componente}
                         {#if comp.es_titular}
                           <Crown
                             size={11}
                             style="color:{componenteActivo === comp.id_componente
-                              ? '#FCD68A'
-                              : '#F0AD4E'};"
+                              ? '#FFB81C'
+                              : '#8A5F00'};"
                           />
                         {/if}
                         <span
                           class="inline-flex items-center justify-center h-4 min-w-4 rounded-full px-1 text-[11px] font-bold"
                           style={componenteActivo === comp.id_componente
-                            ? 'background:rgba(255,255,255,0.25); color:#fff;'
-                            : 'background:#CBD5E1; color:#475569;'}
+                            ? 'background:rgba(255,255,255,0.25); color:white;'
+                            : 'background:#D0CBC1; color:#5A5E6E;'}>{comp.total_estudiantes}</span
                         >
-                          {comp.total_estudiantes}
-                        </span>
                       </button>
                     {/each}
                   </div>
                 {:else if mis_componentes.length === 1}
-                  <div class="flex items-center gap-2">
-                    <span
-                      class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold text-white"
-                      style="background:#2A66AC;"
-                    >
-                      {mis_componentes[0].tipo_componente}
-                      {#if mis_componentes[0].es_titular}
-                        <Crown size={11} style="color:#FCD68A;" />
-                      {/if}
-                    </span>
-                  </div>
+                  <span
+                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-white"
+                    style="background:#002F6C;"
+                  >
+                    {mis_componentes[0].tipo_componente}
+                    {#if mis_componentes[0].es_titular}
+                      <Crown size={11} style="color:#FFB81C;" />
+                    {/if}
+                  </span>
                 {/if}
 
-                <!-- Tabla de estudiantes -->
+                <!-- Student table -->
                 {#if estudiantesActivos.length === 0}
                   <div
-                    class="flex flex-col items-center justify-center py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200"
+                    class="flex flex-col items-center justify-center py-16 text-center rounded-xl border-2 border-dashed"
+                    style="background:#F5F1EA; border-color:#D0CBC1;"
                   >
                     <div
-                      class="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3"
+                      class="w-14 h-14 rounded-full flex items-center justify-center mb-3"
+                      style="background:#E8E4DC;"
                     >
-                      <GraduationCap size={26} class="text-gray-300" />
+                      <GraduationCap size={26} style="color:#8A8E9C;" />
                     </div>
-                    <p class="text-sm font-medium text-gray-500">Sin estudiantes inscritos</p>
-                    <p class="text-xs text-gray-400 mt-1">
+                    <p class="text-sm font-medium" style="color:#5A5E6E;">
+                      Sin estudiantes inscritos
+                    </p>
+                    <p class="text-xs mt-1" style="color:#8A8E9C;">
                       Los estudiantes aparecerán aquí cuando se inscriban.
                     </p>
                   </div>
                 {:else if estudiantesActivosFiltrados.length === 0}
-                  <div class="flex flex-col items-center gap-2 py-10 text-center text-gray-400">
+                  <div
+                    class="flex flex-col items-center gap-2 py-10 text-center"
+                    style="color:#8A8E9C;"
+                  >
                     <Search size={28} class="opacity-30" />
                     <p class="text-sm">Sin resultados para «{estudianteQuery}»</p>
                     <button
                       onclick={() => (estudianteQuery = '')}
-                      class="text-xs text-[#2A66AC] font-medium hover:underline"
+                      class="text-xs font-medium hover:underline"
+                      style="color:#002F6C;">Limpiar búsqueda</button
                     >
-                      Limpiar búsqueda
-                    </button>
                   </div>
                 {:else}
-                  <div class="rounded-xl border border-gray-200 overflow-hidden">
+                  <div style="border:1px solid #E8E4DC; border-radius:12px; overflow:hidden;">
                     <table class="w-full text-sm">
                       <caption class="sr-only"
                         >Estudiantes inscritos — {tipoComponenteActivo}</caption
                       >
-                      <thead class="bg-gray-50 border-b border-gray-200">
+                      <thead style="background:#F5F1EA; border-bottom:1px solid #E8E4DC;">
                         <tr>
                           <th
-                            class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                            >#</th
+                            class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
+                            style="color:#8A8E9C; letter-spacing:0.06em;">#</th
                           >
                           <th
-                            class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                            >Estudiante</th
+                            class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
+                            style="color:#8A8E9C; letter-spacing:0.06em;">Estudiante</th
                           >
                           <th
-                            class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell"
-                            >Usuario</th
+                            class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider hidden sm:table-cell"
+                            style="color:#8A8E9C; letter-spacing:0.06em;">Usuario</th
                           >
                           <th
-                            class="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                            >Nota</th
+                            class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider"
+                            style="color:#8A8E9C; letter-spacing:0.06em;">Nota</th
                           >
                           <th
-                            class="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                            >Detalle</th
+                            class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider"
+                            style="color:#8A8E9C; letter-spacing:0.06em;">Detalle</th
                           >
                         </tr>
                       </thead>
-                      <tbody class="divide-y divide-gray-100">
+                      <tbody>
                         {#each estudiantesActivosFiltrados as item, i}
-                          <tr class="hover:bg-blue-50/30 transition-colors group">
-                            <td class="px-4 py-3 text-gray-400 tabular-nums text-xs">{i + 1}</td>
-                            <td class="px-4 py-3">
+                          <tr
+                            class="stu-row group"
+                            style={i < estudiantesActivosFiltrados.length - 1
+                              ? 'border-bottom:1px solid #E8E4DC;'
+                              : ''}
+                          >
+                            <td class="px-4 py-3.5 tabular-nums text-xs" style="color:#8A8E9C;"
+                              >{i + 1}</td
+                            >
+                            <td class="px-4 py-3.5">
                               <div class="flex items-center gap-3">
                                 <div
-                                  class="flex items-center justify-center h-8 w-8 rounded-full text-xs font-bold text-white shrink-0"
-                                  style="background:#2A66AC;"
+                                  class="flex items-center justify-center h-8 w-8 rounded-full text-xs font-semibold text-white shrink-0"
+                                  style="background:#002F6C;"
                                 >
                                   {item.estudiante.nombre.charAt(0).toUpperCase()}
                                 </div>
-                                <span class="font-medium text-gray-900 text-sm"
+                                <span class="font-medium text-sm" style="color:#1A1A24;"
                                   >{item.estudiante.nombre}</span
                                 >
                               </div>
                             </td>
-                            <td class="px-4 py-3 hidden sm:table-cell">
-                              <span class="font-mono text-xs text-gray-400"
+                            <td class="px-4 py-3.5 hidden sm:table-cell">
+                              <span
+                                style="font-family:ui-monospace,monospace; font-size:12px; color:#5A5E6E;"
                                 >{item.estudiante.username}</span
                               >
                             </td>
-                            <td class="px-4 py-3 text-right">
+                            <td class="px-4 py-3.5 text-right">
                               {#if item.nota_componente !== null}
                                 <span
-                                  class="inline-flex items-center justify-center h-7 min-w-[2.5rem] rounded-lg text-xs font-bold {item.nota_componente >=
-                                  4
-                                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
-                                    : 'bg-red-50 text-red-600 ring-1 ring-red-200'}"
+                                  class="inline-flex items-center justify-center h-7 min-w-[2.5rem] rounded-lg text-xs font-bold"
+                                  style={item.nota_componente >= 4
+                                    ? 'background:#E0F5EA; color:#0E7C4A; outline:1px solid rgba(14,124,74,0.25);'
+                                    : 'background:#FEE2E2; color:#DC2626; outline:1px solid rgba(220,38,38,0.25);'}
                                 >
                                   {item.nota_componente}
                                   <span class="sr-only"
@@ -561,14 +639,15 @@
                                   >
                                 </span>
                               {:else}
-                                <span class="text-gray-300">—</span>
+                                <span style="color:#D0CBC1;">—</span>
                               {/if}
                             </td>
-                            <td class="px-4 py-3 text-right">
+                            <td class="px-4 py-3.5 text-right">
                               <button
                                 onclick={() => abrirModalEstudiante(item)}
                                 title="Ver evaluaciones, mensajes y asistencia"
-                                class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-md border border-[#2A66AC]/30 bg-[#EEF4FB] text-[#2A66AC] hover:bg-blue-100 transition-colors opacity-0 group-hover:opacity-100"
+                                class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all opacity-0 group-hover:opacity-100"
+                                style="background:#E6ECF5; color:#002F6C; border-color:rgba(0,47,108,0.18);"
                               >
                                 <BookOpenCheck size={12} />
                                 Detalle
@@ -579,7 +658,7 @@
                       </tbody>
                     </table>
                   </div>
-                  <p class="text-xs text-gray-500 text-right">
+                  <p class="text-xs text-right" style="color:#8A8E9C;">
                     {estudiantesActivosFiltrados.length}{estudiantesActivosFiltrados.length !==
                     estudiantesActivos.length
                       ? ` de ${estudiantesActivos.length}`
@@ -588,12 +667,13 @@
                 {/if}
               </div>
 
-              <!-- ── TAB: Actividades ──────────────────────────────── -->
+              <!-- TAB: Actividades -->
             {:else if mainTab === 'actividades'}
-              <div class="p-5">
+              <div style="padding:22px 24px;">
                 {#if actividades.length === 0}
                   <div
-                    class="flex flex-col items-center gap-3 py-16 text-center text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200"
+                    class="flex flex-col items-center gap-3 py-16 text-center rounded-xl border border-dashed"
+                    style="background:#F5F1EA; border-color:#D0CBC1; color:#8A8E9C;"
                   >
                     <ClipboardList size={36} class="opacity-30" />
                     <p class="text-sm">No hay actividades en este curso.</p>
@@ -601,7 +681,8 @@
                       <button
                         onclick={() =>
                           router.visit(`/docente/cursos/${curso.id_curso}/actividades`)}
-                        class="text-xs font-medium text-[#2A66AC] hover:underline"
+                        class="text-xs font-medium hover:underline"
+                        style="color:#002F6C;"
                       >
                         Crear primera actividad →
                       </button>
@@ -614,30 +695,22 @@
             {/if}
           </div>
 
-          <!-- ╔══════════════════════════════════════╗
-               ║  COLUMNA DERECHA: Context Panel 35%  ║
-               ╚══════════════════════════════════════╝ -->
-          <div class="flex flex-col gap-4">
-            <!-- ── Tarjeta 1: Equipo Docente ────────────────────────────── -->
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div
-                class="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100"
-              >
-                <div class="flex items-center gap-2">
-                  <div
-                    class="flex items-center justify-center w-7 h-7 rounded-lg"
-                    style="background:#EEF4FB;"
-                  >
-                    <UsersRound size={14} style="color:#2A66AC;" />
+          <!-- Columna derecha: Equipo Docente únicamente -->
+          <div class="flex flex-col gap-5">
+            <div class="panel">
+              <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center gap-3">
+                  <div class="panel-icon">
+                    <UsersRound size={16} style="color:#002F6C;" />
                   </div>
-                  <h3 class="text-sm font-semibold text-gray-900">Equipo Docente</h3>
+                  <h3 class="panel-title">Equipo Docente</h3>
                 </div>
                 <button
                   onclick={() => (showEquipoSlideOver = true)}
-                  class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition"
-                  style="border-color:#2A66AC; color:#2A66AC;"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all"
+                  style="background:transparent; color:#002F6C; border-color:#002F6C;"
                   onmouseenter={(e) =>
-                    ((e.currentTarget as HTMLElement).style.background = '#EEF4FB')}
+                    ((e.currentTarget as HTMLElement).style.background = '#E6ECF5')}
                   onmouseleave={(e) =>
                     ((e.currentTarget as HTMLElement).style.background = 'transparent')}
                 >
@@ -646,178 +719,146 @@
                 </button>
               </div>
 
-              <div class="p-4 space-y-4">
-                {#if todos_componentes.length === 0}
-                  <p class="text-xs text-gray-500 text-center py-4">Sin docentes asignados.</p>
-                {:else}
+              {#if todos_componentes.length === 0}
+                <p class="text-xs text-center py-4" style="color:#8A8E9C;">
+                  Sin docentes asignados.
+                </p>
+              {:else}
+                <div class="space-y-5">
                   {#each todos_componentes as comp}
                     <div>
-                      <!-- Subheader del componente con acciones -->
-                      <div class="flex items-center justify-between mb-1.5">
-                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                          {comp.tipo_componente}
-                        </p>
+                      <!-- Component label + divider line -->
+                      <div class="flex items-center gap-2.5 mb-3">
+                        <span
+                          style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:#8A8E9C; white-space:nowrap;"
+                          >{comp.tipo_componente}</span
+                        >
+                        <div style="flex:1; height:1px; background:#E8E4DC;"></div>
                         {#if comp.docentes.length > 1}
-                          <div class="flex items-center gap-0.5">
-                            <!-- Cambiar Titular (sólo DT del curso) -->
+                          <div class="flex items-center gap-1">
                             <button
                               onclick={() => {
                                 cambiarTitularComponente = comp;
                                 showCambiarTitular = true;
                               }}
-                              class="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                              class="p-1.5 rounded-lg transition-colors"
+                              style="color:#8A8E9C;"
                               aria-label="Cambiar titular de {comp.tipo_componente}"
+                              onmouseenter={(e) => {
+                                (e.currentTarget as HTMLElement).style.color = '#8A5F00';
+                                (e.currentTarget as HTMLElement).style.background = '#FFF3D1';
+                              }}
+                              onmouseleave={(e) => {
+                                (e.currentTarget as HTMLElement).style.color = '#8A8E9C';
+                                (e.currentTarget as HTMLElement).style.background = '';
+                              }}
                             >
-                              <Crown size={12} aria-hidden="true" />
+                              <Crown size={13} aria-hidden="true" />
                             </button>
-                            <!-- Permisos del componente -->
                             <button
                               onclick={() => {
                                 componentePermisoId = comp.id_componente;
                                 componentePermisoTipo = comp.tipo_componente;
                                 showComponentePermisos = true;
                               }}
-                              class="p-1.5 rounded-lg text-gray-400 hover:text-[#2A66AC] hover:bg-blue-50 transition-colors"
+                              class="p-1.5 rounded-lg transition-colors"
+                              style="color:#8A8E9C;"
                               aria-label="Gestionar permisos de {comp.tipo_componente}"
+                              onmouseenter={(e) => {
+                                (e.currentTarget as HTMLElement).style.color = '#002F6C';
+                                (e.currentTarget as HTMLElement).style.background = '#E6ECF5';
+                              }}
+                              onmouseleave={(e) => {
+                                (e.currentTarget as HTMLElement).style.color = '#8A8E9C';
+                                (e.currentTarget as HTMLElement).style.background = '';
+                              }}
                             >
-                              <Shield size={12} aria-hidden="true" />
+                              <Shield size={13} aria-hidden="true" />
                             </button>
                           </div>
                         {/if}
                       </div>
-
-                      <!-- Lista de docentes del componente -->
-                      <div class="space-y-1">
-                        {#each comp.docentes as doc}
-                          {@const esDtCurso = doc.id_docente === curso.id_docente_titular}
+                      <!-- Docente rows -->
+                      {#each comp.docentes as doc, di}
+                        {@const esDtCurso = doc.id_docente === curso.id_docente_titular}
+                        {@const avColors = ['#002F6C', '#E11D74', '#FFB81C', '#FF5A5F', '#6E4AC6']}
+                        {@const avBg = avColors[di % avColors.length]}
+                        {@const avColor = avBg === '#FFB81C' ? '#8A5F00' : 'white'}
+                        <div
+                          class="flex items-center gap-3 py-2.5 {di > 0 ? 'border-t' : ''}"
+                          style={di > 0 ? 'border-color:#E8E4DC;' : ''}
+                        >
                           <div
-                            class="flex items-center gap-2.5 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                            class="flex items-center justify-center w-9 h-9 rounded-full text-xs font-semibold shrink-0"
+                            style="background:{avBg}; color:{avColor};"
                           >
-                            <!-- Avatar -->
-                            <div
-                              class="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold text-white shrink-0"
-                              style="background:#2A66AC;"
-                            >
-                              {initials(doc.nombre)}
-                            </div>
-                            <p class="text-sm font-medium text-gray-900 truncate flex-1 min-w-0">
-                              {doc.nombre}
-                            </p>
-                            <!-- Badge de rol -->
-                            {#if esDtCurso}
-                              <span
-                                class="flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0"
-                              >
-                                <Crown size={9} />
-                                DT
-                              </span>
-                            {:else if doc.es_titular}
-                              <span
-                                class="flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0"
-                              >
-                                <Crown size={9} />
-                                Titular
-                              </span>
-                            {:else}
-                              <span class="text-xs text-gray-500 shrink-0">Colegiado</span>
-                            {/if}
+                            {initials(doc.nombre)}
                           </div>
-                        {/each}
-                      </div>
+                          <p
+                            class="text-sm font-medium flex-1 min-w-0 truncate"
+                            style="color:#1A1A24;"
+                          >
+                            {doc.nombre}
+                          </p>
+                          {#if esDtCurso}
+                            <span
+                              class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
+                              style="background:#E6ECF5; color:#002F6C; border:1px solid rgba(0,47,108,0.2);"
+                            >
+                              <Crown size={9} />DT
+                            </span>
+                          {:else if doc.es_titular}
+                            <span
+                              class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
+                              style="background:#FFF3D1; color:#8A5F00; border:1px solid rgba(255,184,28,0.35);"
+                            >
+                              <Crown size={9} />Titular
+                            </span>
+                          {:else}
+                            <span class="text-xs shrink-0" style="color:#8A8E9C;">Colegiado</span>
+                          {/if}
+                        </div>
+                      {/each}
                     </div>
                   {/each}
-                {/if}
-              </div>
-            </div>
-
-            <!-- ── Tarjeta 2: Detalles del Curso ────────────────────────── -->
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div class="flex items-center gap-2 px-5 pt-4 pb-3 border-b border-gray-100">
-                <div
-                  class="flex items-center justify-center w-7 h-7 rounded-lg"
-                  style="background:#EEF4FB;"
-                >
-                  <BookOpen size={14} style="color:#2A66AC;" />
                 </div>
-                <h3 class="text-sm font-semibold text-gray-900">Detalles del Curso</h3>
-              </div>
-
-              <dl class="px-5 py-4 space-y-3 text-sm">
-                {#each [{ label: 'Asignatura', value: curso.asignatura.nombre }, { label: 'Código', value: curso.asignatura.cod_asignatura }, { label: 'Carrera', value: curso.plan.carrera }, { label: 'Plan', value: curso.plan.nombre }, { label: 'Año', value: String(curso.agno_real) }, { label: 'Semestre', value: curso.semestre_real === 1 ? '1er Semestre' : '2do Semestre' }, { label: 'Inicio', value: formatDate(curso.fecha_inicio) }, { label: 'Término', value: formatDate(curso.fecha_fin) }] as row}
-                  {#if row.value && row.value !== 'undefined' && row.value !== '—' && row.value !== 'NaN'}
-                    <div class="flex items-start justify-between gap-3">
-                      <dt class="text-xs text-gray-500 shrink-0 mt-0.5">{row.label}</dt>
-                      <dd class="text-xs font-medium text-gray-800 text-right">{row.value}</dd>
-                    </div>
-                  {/if}
-                {/each}
-                {#if curso.asignatura.descripcion}
-                  <div class="pt-2 border-t border-gray-100">
-                    <dt class="text-xs text-gray-500 mb-1">Descripción</dt>
-                    <dd class="text-xs text-gray-600 leading-relaxed line-clamp-4">
-                      {curso.asignatura.descripcion}
-                    </dd>
-                  </div>
-                {/if}
-              </dl>
+              {/if}
             </div>
           </div>
-          <!-- fin grid -->
         </div>
       {:else}
-        <!-- ══════════════════════════════════════════════════════════════════
-             VISTA COLEGIADO
-             ══════════════════════════════════════════════════════════════════ -->
-
-        <!-- Info compacta del curso -->
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-5">
-          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {#each [{ label: 'Asignatura', value: curso.asignatura.nombre }, { label: 'Plan', value: curso.plan.nombre }, { label: 'Carrera', value: curso.plan.carrera }, { label: 'Período', value: `${curso.agno_real} — ${curso.semestre_real === 1 ? '1er Sem.' : '2do Sem.'}` }] as item}
-              <div>
-                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                  {item.label}
-                </p>
-                <p class="text-sm font-semibold text-gray-900">{item.value}</p>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-        <!-- Mi Componente (colegiado) -->
+        <!-- ── VISTA COLEGIADO ── -->
         {#if mis_componentes.length > 0}
-          <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
-            <div class="px-5 pt-5 pb-4 border-b border-gray-100">
-              <div class="flex items-center gap-2 mb-1">
-                <div
-                  class="flex items-center justify-center w-8 h-8 rounded-lg"
-                  style="background:#EEF4FB;"
-                >
-                  <GraduationCap size={16} style="color:#2A66AC;" />
+          <div class="panel">
+            <div style="border-bottom:1px solid #E8E4DC; padding-bottom:18px; margin-bottom:22px;">
+              <div class="flex items-center gap-3 mb-1">
+                <div class="panel-icon">
+                  <GraduationCap size={16} style="color:#002F6C;" />
                 </div>
-                <h2 class="text-base font-semibold text-gray-900">Mi Componente</h2>
+                <h2 class="panel-title">Mi Componente</h2>
               </div>
-              <p class="text-xs text-gray-500 ml-10">Tu grupo de estudiantes</p>
+              <p class="text-xs ml-12" style="color:#8A8E9C;">Tu grupo de estudiantes</p>
             </div>
 
-            <div class="p-5 space-y-4">
-              <!-- Pill tabs -->
+            <div class="space-y-4">
+              <!-- Component pills -->
               {#if mis_componentes.length > 1}
                 <div class="flex gap-2 flex-wrap">
                   {#each mis_componentes as comp}
                     <button
                       onclick={() => (componenteActivo = comp.id_componente)}
-                      class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all"
+                      class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all"
                       style={componenteActivo === comp.id_componente
-                        ? 'background:#2A66AC; color:#fff;'
-                        : 'background:#F1F5F9; color:#64748B;'}
+                        ? 'background:#002F6C; color:white;'
+                        : 'background:#F5F1EA; color:#5A5E6E;'}
                     >
                       {comp.tipo_componente}
                       {#if comp.es_titular}
                         <Crown
                           size={11}
                           style="color:{componenteActivo === comp.id_componente
-                            ? '#FCD68A'
-                            : '#F0AD4E'};"
+                            ? '#FFB81C'
+                            : '#8A5F00'};"
                         />
                       {/if}
                     </button>
@@ -825,99 +866,112 @@
                 </div>
               {:else}
                 <span
-                  class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold text-white"
-                  style="background:#2A66AC;"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-white"
+                  style="background:#002F6C;"
                 >
                   {mis_componentes[0].tipo_componente}
                   {#if mis_componentes[0].es_titular}
-                    <Crown size={11} style="color:#FCD68A;" />
+                    <Crown size={11} style="color:#FFB81C;" />
                   {/if}
                 </span>
               {/if}
 
-              <!-- KPI Estudiantes -->
+              <!-- KPI -->
               <div
                 class="flex items-center justify-center gap-4 p-5 rounded-xl"
-                style="background:#EEF4FB;"
+                style="background:#E6ECF5;"
               >
                 <div
                   class="flex items-center justify-center h-12 w-12 rounded-full bg-white shadow-sm"
                 >
-                  <Users size={20} style="color:#2A66AC;" />
+                  <Users size={20} style="color:#002F6C;" />
                 </div>
                 <div>
-                  <p class="text-3xl font-bold" style="color:#2A66AC;">
+                  <p class="text-3xl font-bold" style="color:#002F6C;">
                     {estudiantesActivos.length}
                   </p>
-                  <p class="text-xs font-medium text-gray-400">Estudiantes</p>
+                  <p class="text-xs font-medium" style="color:#8A8E9C;">Estudiantes</p>
                 </div>
               </div>
 
-              <!-- Tabla -->
+              <!-- Table -->
               {#if estudiantesActivos.length === 0}
                 <div
-                  class="flex flex-col items-center justify-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200"
+                  class="flex flex-col items-center justify-center py-16 rounded-xl border-2 border-dashed"
+                  style="background:#F5F1EA; border-color:#D0CBC1;"
                 >
                   <div
-                    class="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3"
+                    class="w-14 h-14 rounded-full flex items-center justify-center mb-3"
+                    style="background:#E8E4DC;"
                   >
-                    <Users size={26} class="text-gray-300" />
+                    <Users size={26} style="color:#8A8E9C;" />
                   </div>
-                  <p class="text-sm font-medium text-gray-500">Sin estudiantes inscritos aún</p>
+                  <p class="text-sm font-medium" style="color:#5A5E6E;">
+                    Sin estudiantes inscritos aún
+                  </p>
                 </div>
               {:else}
-                <div class="rounded-xl border border-gray-200 overflow-hidden">
+                <div style="border:1px solid #E8E4DC; border-radius:12px; overflow:hidden;">
                   <table class="w-full text-sm">
                     <caption class="sr-only">Estudiantes inscritos — {tipoComponenteActivo}</caption
                     >
-                    <thead class="bg-gray-50 border-b border-gray-200">
+                    <thead style="background:#F5F1EA; border-bottom:1px solid #E8E4DC;">
                       <tr>
                         <th
-                          class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                          >#</th
+                          class="px-4 py-3 text-left text-xs font-medium uppercase"
+                          style="color:#8A8E9C; letter-spacing:0.06em;">#</th
                         >
                         <th
-                          class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                          >Estudiante</th
+                          class="px-4 py-3 text-left text-xs font-medium uppercase"
+                          style="color:#8A8E9C; letter-spacing:0.06em;">Estudiante</th
                         >
                         <th
-                          class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell"
-                          >Usuario</th
+                          class="px-4 py-3 text-left text-xs font-medium uppercase hidden sm:table-cell"
+                          style="color:#8A8E9C; letter-spacing:0.06em;">Usuario</th
                         >
                         <th
-                          class="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                          >Nota</th
+                          class="px-4 py-3 text-right text-xs font-medium uppercase"
+                          style="color:#8A8E9C; letter-spacing:0.06em;">Nota</th
                         >
                       </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100">
+                    <tbody>
                       {#each estudiantesActivos as item, i}
-                        <tr class="hover:bg-blue-50/30 transition-colors">
-                          <td class="px-4 py-3 text-gray-400 tabular-nums text-xs">{i + 1}</td>
-                          <td class="px-4 py-3">
+                        <tr
+                          class="stu-row"
+                          style={i < estudiantesActivos.length - 1
+                            ? 'border-bottom:1px solid #E8E4DC;'
+                            : ''}
+                        >
+                          <td class="px-4 py-3.5 tabular-nums text-xs" style="color:#8A8E9C;"
+                            >{i + 1}</td
+                          >
+                          <td class="px-4 py-3.5">
                             <div class="flex items-center gap-3">
                               <div
-                                class="flex items-center justify-center h-8 w-8 rounded-full text-xs font-bold text-white shrink-0"
-                                style="background:#2A66AC;"
+                                class="flex items-center justify-center h-8 w-8 rounded-full text-xs font-semibold text-white shrink-0"
+                                style="background:#002F6C;"
                               >
                                 {item.estudiante.nombre.charAt(0).toUpperCase()}
                               </div>
-                              <span class="font-medium text-gray-900">{item.estudiante.nombre}</span
+                              <span class="font-medium" style="color:#1A1A24;"
+                                >{item.estudiante.nombre}</span
                               >
                             </div>
                           </td>
-                          <td class="px-4 py-3 hidden sm:table-cell">
-                            <span class="font-mono text-xs text-gray-400"
+                          <td class="px-4 py-3.5 hidden sm:table-cell">
+                            <span
+                              style="font-family:ui-monospace,monospace; font-size:12px; color:#5A5E6E;"
                               >{item.estudiante.username}</span
                             >
                           </td>
-                          <td class="px-4 py-3 text-right">
+                          <td class="px-4 py-3.5 text-right">
                             {#if item.nota_componente !== null}
                               <span
-                                class="inline-flex items-center justify-center h-7 min-w-[2.5rem] rounded-lg text-xs font-bold {item.nota_componente >=
-                                4
-                                  ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
-                                  : 'bg-red-50 text-red-600 ring-1 ring-red-200'}"
+                                class="inline-flex items-center justify-center h-7 min-w-[2.5rem] rounded-lg text-xs font-bold"
+                                style={item.nota_componente >= 4
+                                  ? 'background:#E0F5EA; color:#0E7C4A; outline:1px solid rgba(14,124,74,0.25);'
+                                  : 'background:#FEE2E2; color:#DC2626; outline:1px solid rgba(220,38,38,0.25);'}
                               >
                                 {item.nota_componente}
                                 <span class="sr-only"
@@ -925,7 +979,7 @@
                                 >
                               </span>
                             {:else}
-                              <span class="text-gray-300">—</span>
+                              <span style="color:#D0CBC1;">—</span>
                             {/if}
                           </td>
                         </tr>
@@ -933,7 +987,7 @@
                     </tbody>
                   </table>
                 </div>
-                <p class="text-xs text-gray-500 text-right">
+                <p class="text-xs text-right" style="color:#8A8E9C;">
                   {estudiantesActivos.length} estudiante{estudiantesActivos.length !== 1 ? 's' : ''}
                 </p>
               {/if}
@@ -941,9 +995,10 @@
           </div>
         {:else}
           <div
-            class="bg-white rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center py-14 text-gray-400"
+            class="flex flex-col items-center justify-center py-14 rounded-xl border-2 border-dashed"
+            style="background:white; border-color:#D0CBC1; color:#8A8E9C;"
           >
-            <GraduationCap size={32} class="text-gray-300 mb-2" />
+            <GraduationCap size={32} class="mb-2" style="color:#D0CBC1;" />
             <p class="text-sm">No estás asignado a ningún componente de este curso.</p>
           </div>
         {/if}
@@ -1004,3 +1059,169 @@
     />
   {/if}
 </DocenteLayout>
+
+<style>
+  /* ── Panels ── */
+  .panel {
+    background: white;
+    border-radius: 18px;
+    border: 1px solid #e8e4dc;
+    padding: 22px 24px;
+  }
+  .panel-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    background: #e6ecf5;
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin: 0;
+    color: #1a1a24;
+  }
+
+  /* ── Meta strip ── */
+  .meta-strip .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 130px;
+    padding: 0 20px;
+  }
+  .meta-strip .meta-item:first-child {
+    padding-left: 0;
+  }
+  .meta-strip .meta-item:last-child {
+    padding-right: 0;
+  }
+  .meta-key {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8a8e9c;
+  }
+  .meta-val {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1a1a24;
+    line-height: 1.3;
+  }
+  .meta-divider {
+    width: 1px;
+    background: #e8e4dc;
+    margin: 2px 0;
+    align-self: stretch;
+  }
+
+  /* ── Stat chips ── */
+  .stat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px 7px 12px;
+    background: white;
+    border: 1px solid #e8e4dc;
+    border-radius: 999px;
+    font-size: 13px;
+    color: #5a5e6e;
+  }
+  .stat-chip strong {
+    color: #1a1a24;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-chip-active {
+    background: #002f6c;
+    border-color: #002f6c;
+    color: white;
+  }
+  .stat-chip-active strong {
+    color: white;
+  }
+
+  /* ── Tab buttons ── */
+  .tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 12px 4px;
+    margin-right: 20px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: -1px;
+    font-family: inherit;
+    transition:
+      color 0.15s,
+      border-color 0.15s;
+  }
+  .tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Student table row hover ── */
+  .stu-row {
+    transition: background 0.12s;
+  }
+  .stu-row:hover {
+    background: #f5f1ea;
+  }
+
+  /* ── Active badge dot ── */
+  .active-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #0e7c4a;
+    box-shadow: 0 0 0 3px rgba(14, 124, 74, 0.18);
+  }
+
+  /* ── Breadcrumb back-link hover ── */
+  .back-link:hover {
+    background: white;
+    color: #002f6c;
+  }
+
+  /* ── Button hovers ── */
+  .btn-design:hover {
+    background: white !important;
+    border-color: #d0cbc1 !important;
+  }
+  .btn-primary-design:hover {
+    background: #1b4789 !important;
+  }
+
+  /* ── Responsive meta strip ── */
+  @media (max-width: 768px) {
+    .meta-strip {
+      flex-direction: column;
+    }
+    .meta-strip .meta-item {
+      padding: 0;
+      min-width: unset;
+    }
+    .meta-divider {
+      display: none;
+    }
+  }
+</style>

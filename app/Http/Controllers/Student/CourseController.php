@@ -12,12 +12,15 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
+use App\Models\Agenda\Actividad;
+use App\Models\Agenda\AsignadoActividad;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Curso\Curso;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 use Illuminate\Http\Request;
 
@@ -128,45 +131,76 @@ class CourseController extends Controller
         $curso->load([
             'asignacionPlan.asignatura',
             'asignacionPlan.plan.carrera',
-            'componentes.tipoComponente',
-            'componentes.docentesAsignados.usuario'
         ]);
 
-        // Formatear datos del curso
-        $cursoData = [
-            'id_curso' => $curso->id_curso,
-            'nombre' => $curso->nombre,
-            'cod_curso' => $curso->cod_curso,
-            'fecha_inicio' => $curso->fecha_inicio,
-            'fecha_fin' => $curso->fecha_fin,
-            'asignatura' => [
-                'id_asignatura' => $curso->asignacionPlan?->asignatura?->id_asignatura,
-                'nombre' => $curso->asignacionPlan?->asignatura?->nombre,
-                'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
-                'descripcion' => $curso->asignacionPlan?->asignatura?->descripcion,
-                'creditos_sct' => $curso->asignacionPlan?->asignatura?->creditos_sct,
-            ],
-            'carrera' => [
-                'id_carrera' => $curso->asignacionPlan?->plan?->carrera?->id_carrera,
-                'nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre,
-            ],
-            'componentes' => $curso->componentes->map(function ($componente) {
-                return [
-                    'id_componente' => $componente->id_componente,
-                    'tipo_componente' => [
-                        'id_tipo_componente' => $componente->tipoComponente?->id_tipo_componente,
-                        'tipo' => $componente->tipoComponente?->tipo,
-                    ],
-                    'docentes' => $componente->docentesAsignados->map(fn ($docente) => [
-                        'id_docente' => $docente->id_docente,
-                        'nombre_completo' => $docente->usuario?->nombre_completo ?? ($docente->usuario?->nombre1 . ' ' . $docente->usuario?->apellido1),
-                    ])->values(),
-                ];
-            })->values(),
-        ];
+        // Obtener IDs de componentes en los que está inscrito el alumno
+        $componenteIds = DB::table('curso.inscripcion_componente as ic')
+            ->join('curso.componente as c', 'c.id_componente', '=', 'ic.id_componente')
+            ->where('ic.id_estudiante', $estudiante->id_estudiante)
+            ->where('c.id_curso', $curso->id_curso)
+            ->pluck('ic.id_componente');
+
+        if ($componenteIds->isEmpty()) {
+            $componenteIds = DB::table('curso.componente')
+                ->where('id_curso', $curso->id_curso)
+                ->pluck('id_componente');
+        }
+
+        // Obtener actividades visibles de los componentes del alumno
+        $actividades = Actividad::whereIn('id_componente', $componenteIds)
+            ->where('visible', true)
+            ->with(['componente.tipoComponente', 'unidad'])
+            ->orderBy('fecha_limite', 'asc')
+            ->get();
+
+        // Mapear actividades con estado y notas del estudiante
+        $actividadesData = $actividades->map(function (Actividad $actividad) use ($estudiante) {
+            $asignado = AsignadoActividad::where('id_estudiante', $estudiante->id_estudiante)
+                ->whereHas('actividadAsignada', fn($q) => $q->where('id_actividad', $actividad->id_actividad))
+                ->with('actividadAsignada.estadoActividad')
+                ->first();
+
+            $grupo = $asignado?->actividadAsignada;
+
+            return [
+                'id_actividad'       => $actividad->id_actividad,
+                'nombre'             => $actividad->nombre,
+                'fecha_limite'       => $actividad->fecha_limite,
+                'tipo_actividad'     => $actividad->tipo_actividad,
+                'tipo_entrega'       => $actividad->tipo_entrega,
+                'es_grupal'          => $actividad->es_grupal,
+                'max_integrantes'    => $actividad->max_integrantes,
+                'componente'         => $actividad->componente ? [
+                    'id_componente' => $actividad->componente->id_componente,
+                    'tipo'          => $actividad->componente->tipoComponente?->tipo ?? 'Componente',
+                ] : null,
+                'unidad'             => $actividad->unidad ? [
+                    'id_unidad' => $actividad->unidad->id_unidad,
+                    'nombre'    => $actividad->unidad->nombre,
+                ] : null,
+                'grupo_numero'       => $grupo?->grupo,
+                'nota_grupal'        => $grupo?->nota,
+                'nota_individual'    => $asignado?->nota_individual,
+                'diferencia_decimas' => $asignado?->diferencia_decimas,
+                'estado'             => $grupo?->estadoActividad ? [
+                    'id_estado' => $grupo->estadoActividad->id_estado,
+                    'titulo'    => $grupo->estadoActividad->titulo,
+                ] : null,
+                'asignado'           => $asignado !== null,
+            ];
+        })->values();
 
         return Inertia::render('student/Courses/Show', [
-            'curso' => $cursoData
+            'curso' => [
+                'id_curso'          => $curso->id_curso,
+                'nombre'            => $curso->nombre,
+                'cod_curso'         => $curso->cod_curso,
+                'cod_asignatura'    => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? '',
+                'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+                'semestre_real'     => $curso->semestre_real,
+                'agno_real'         => $curso->agno_real,
+            ],
+            'actividades' => $actividadesData,
         ]);
     }
 }
