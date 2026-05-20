@@ -103,6 +103,7 @@ class CourseController extends Controller
             'rol'              => $rol,
             'tiene_programa'   => $tieneProg,
             'imagen_url'       => $curso->imagen_url ?? $default_img,
+            'imagen_url'       => $curso->imagen_url ?? $default_img,
         ];
     }
 

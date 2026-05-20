@@ -124,7 +124,7 @@ class ActivityController extends Controller
         ]);
     }
 
-    public function show(Curso $curso, string $actividad) // CAMBIAR PROXIMAMENTE A Actividad
+    public function show(Curso $curso, string $actividad)
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -135,37 +135,55 @@ class ActivityController extends Controller
     
         $estudiante = $user->estudiante;
     
-        /*
-        // Verificar que el estudiante tenga acceso a esta actividad (misma lógica que en index)
-        $seccionIds = DB::table('curso.inscripcion_componente as is')
-            ->join('curso.componente as s', 's.id_componente', '=', 'is.componente')
-            ->where('is.id_estudiante', $estudiante->id_estudiante)
-            ->where('s.id_curso', $actividad->seccion->id_curso)
-            ->pluck('is.id_seccion');
-    
-        if (!$seccionIds->contains($actividad->id_seccion) || !$actividad->visible) {
+        // Verificar que el estudiante tenga acceso a esta actividad
+        $componenteIds = DB::table('curso.inscripcion_componente as ic')
+            ->join('curso.componente as c', 'c.id_componente', '=', 'ic.id_componente')
+            ->where('ic.id_estudiante', $estudiante->id_estudiante)
+            ->where('c.id_curso', $curso->id_curso)
+            ->pluck('ic.id_componente');
+
+        if ($componenteIds->isEmpty()) {
+            $componenteIds = DB::table('curso.componente')
+                ->where('id_curso', $curso->id_curso)
+                ->pluck('id_componente');
+        }
+
+        /* 
+        if (!$componenteIds->contains($actividad->id_componente) || !$actividad->visible) {
             abort(403, 'No tienes acceso a esta actividad.');
         }
-    
-        // Cargar detalles adicionales de la actividad
-        $actividad->load(['seccion.tipoSeccion', 'unidad']);
         */
+        // Cargar relaciones
+        //$actividad->load(['componente.tipoComponente', 'unidad', 'curso']);
+
+        // Obtener datos del estudiante sobre esta actividad
+        /* 
+        $asignado = AsignadoActividad::where('id_estudiante', $estudiante->id_estudiante)
+            ->whereHas('actividadAsignada', fn($q) => $q->where('id_actividad', $actividad->id_actividad))
+            ->with('actividadAsignada.estadoActividad')
+            ->first();
+
+        $grupo = $asignado?->actividadAsignada;
+        $estadoLabel = $grupo?->estadoActividad?->titulo ?? 'PENDIENTE';
+        */
+        $curso->load(['asignacionPlan.asignatura']);
+
         return Inertia::render('student/Activities/Index', [
-            "cod_curso" => "1234",
-            "nombre_curso" => "Curso de Ejemplo",
-            "cod_actividad" => "ACT-01",
-            "nombre_actividad" => "Actividad de Ejemplo",
-            "descripcion" => "Descripción detallada de la actividad. Más larga para probar el largo de la descripción. Probando texto lorem ipsum",
-            "fecha_limite" => "03-12-2026",
-            "es_sumativa" => false,
-            "trae_archivo" => false,
-            "entrega_obligatoria" => false,
-            "ultima_nota" => 4.5,
+            "cod_curso" => $curso->cod_curso,
+            "nombre_curso" => $curso->nombre,
+            "cod_actividad" => $actividad->id_actividad ?? '1001?',
+            "nombre_actividad" => $actividad->nombre ?? 'Nombre X',
+            "descripcion" => $actividad->descripcion ?? "Descripción detallada de la actividad. Esta actividad forma parte del componente de evaluación del curso.",
+            "fecha_limite" => $actividad->fecha_limite ?? '30/05/2026',
+            "es_sumativa" => true, //$actividad->tipo_actividad === 'SUMATIVA' || false,
+            "trae_archivo" => true,//$actividad->tipo_entrega === 'CON_ARCHIVO' || false,
+            "entrega_obligatoria" => true,//$actividad->tipo_entrega !== 'SIN_ENTREGA' || false,
+            "ultima_nota" => 4.5, //$asignado?->nota_individual ?? $grupo?->nota,
             "entradas" => [
                 ["id" => 1],
                 ["id" => 2],
             ],
-            "ultimo_estado" => "aprobado",
+            "ultimo_estado" => 'REPROBADO' //$estadoLabel,
         ]);
     }
 }
