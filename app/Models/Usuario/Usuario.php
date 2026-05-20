@@ -387,4 +387,23 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     {
         return \App\Services\Authorization\WildcardMatcher::matches($requestedSlug, $userSlug);
     }
+
+    /**
+     * Obtiene el nombre abreviado del usuario.
+     *
+     * @example "JPérez"
+     * 
+     * @return string Nombre abreviado formado por la inicial del nombre y el apellido completo
+     */
+    public function nombreAbreviado(): string
+    {
+        if (empty($this->nombre1)) {
+            return 'N/A';
+        }
+        
+        $inicial = strtoupper($this->nombre1[0]);
+        $apellido = $this->apellido1 ?? 'N/A';
+        
+        return "$inicial$apellido";
+    }
 }

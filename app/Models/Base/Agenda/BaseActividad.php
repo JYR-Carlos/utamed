@@ -8,6 +8,7 @@ use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasOwnedContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
+use App\Enums\DB\TipoActividad;
 
 /**
  * Clase Base generada automáticamente
@@ -19,6 +20,8 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
     use ContextAware;
     use FiltersContextScope;
     public $timestamps = false;
+    public TipoActividad $tipoActividad;
+
     protected $connection = 'pgsql';
     protected $table = 'actividad';
     protected $primaryKey = 'id_actividad';
@@ -36,16 +39,24 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
         'max_integrantes',
         'es_plantilla',
         'id_componente',
-        'id_unidad'
+        'id_unidad',
+        'uuid_archivo'
     ];
 
     protected $casts = [
         'visible' => 'boolean',
+        'tipo_actividad' => TipoActividad::class,
         'es_grupal' => 'boolean',
         'es_plantilla' => 'boolean'
     ];
 
     // Relaciones
+
+    public function unidad()
+    {
+        $instance = new \App\Models\Curso\Unidad();
+        return new BelongsTo($instance->newQuery(), $this, 'id_unidad', 'id_unidad', 'unidad');
+    }
 
     public function contexto()
     {
@@ -59,10 +70,10 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
         return new BelongsTo($instance->newQuery(), $this, 'id_componente', 'id_componente', 'componente');
     }
 
-    public function unidad()
+    public function archivo()
     {
-        $instance = new \App\Models\Curso\Unidad();
-        return new BelongsTo($instance->newQuery(), $this, 'id_unidad', 'id_unidad', 'unidad');
+        $instance = new \App\Models\Operaciones\Archivo();
+        return new BelongsTo($instance->newQuery(), $this, 'uuid_archivo', 'uuid_archivo', 'archivo');
     }
 
     // Relaciones inversas

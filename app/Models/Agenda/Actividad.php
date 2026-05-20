@@ -12,20 +12,9 @@ use App\Models\Base\Agenda\BaseActividad;
  */
 class Actividad extends BaseActividad
 {
-    // id_contexto no está en el fillable del modelo base auto-generado
-    protected $fillable = [
-        'nombre',
-        'fecha_limite',
-        'visible',
-        'ponderacion',
-        'exigencia',
-        'tipo_actividad',
-        'tipo_entrega',
-        'es_grupal',
-        'max_integrantes',
-        'es_plantilla',
-        'id_componente',
-        'id_unidad',
-        'id_contexto',
-    ];
+    // Agrega aquí tus métodos personalizados
+    // Scopes personalizados
+    // Relaciones adicionales
+    // Accessors/Mutators
+    // etc.
 }

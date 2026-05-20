@@ -676,6 +676,244 @@ if (file_exists($contextMappingsPath)) {
   $contextMappings = include $contextMappingsPath;
 }
 
+// ==================================================================================
+// SECCIÓN: FUNCIONES HELPER PARA DETECCIÓN Y GENERACIÓN DE ENUMs
+// ==================================================================================
+
+/**
+ * Detecta todos los tipos ENUM en PostgreSQL con prefijo 'en_'
+ * 
+ * @return array Array con estructura:
+ *   [
+ *     'tipo_actividad' => [
+ *       'name' => 'tipo_actividad',
+ *       'enum_class' => 'TipoActividad',
+ *       'values' => ['SUMATIVA', 'FORMATIVA'],
+ *       'schema' => 'agenda'
+ *     ]
+ *   ]
+ */
+function detectPostgresEnums(string $catalogName, array $schemas): array
+{
+  $enums = [];
+
+  $placeholders = implode(',', array_fill(0, count($schemas), '?'));
+
+  $results = DB::select("
+    SELECT 
+      t.typname as enum_name,
+      n.nspname as schema_name,
+      ARRAY_AGG(e.enumlabel ORDER BY e.enumsortorder) as enum_values
+    FROM pg_type t
+    JOIN pg_enum e ON t.oid = e.enumtypid
+    JOIN pg_namespace n ON t.typnamespace = n.oid
+    WHERE t.typname LIKE 'en_%'
+      AND n.nspname IN ($placeholders)
+    GROUP BY t.oid, t.typname, n.nspname
+    ORDER BY n.nspname, t.typname
+  ", $schemas);
+
+  foreach ($results as $row) {
+    // Remover prefijo 'en_' y convertir a StudlyCase
+    $name = preg_replace('/^en_/', '', $row->enum_name);
+    $enumClass = Str::studly($name);
+
+    // Convertir string de array PostgreSQL a array PHP
+    // PostgreSQL retorna: "{VALOR1,VALOR2,VALOR3}" o "{\"Valor con espacios\",VALOR2}"
+    // Necesitamos convertir a: ['VALOR1', 'VALOR2', 'Valor con espacios']
+    $enumValues = [];
+    if (is_string($row->enum_values)) {
+      // Si es string, remover llaves y separar por comas
+      $cleaned = trim($row->enum_values, '{}');
+      if (!empty($cleaned)) {
+        // Usar regex para dividir respetando valores entre comillas
+        preg_match_all('/"(?:\\\\.|[^"\\\\])*"|[^,]+/', $cleaned, $matches);
+        $enumValues = array_map(function ($val) {
+          $trimmed = trim($val);
+          // Remover comillas dobles si existen
+          if (substr($trimmed, 0, 1) === '"' && substr($trimmed, -1) === '"') {
+            $trimmed = substr($trimmed, 1, -1);
+          }
+          return trim($trimmed);
+        }, $matches[0]);
+      }
+    } elseif (is_array($row->enum_values)) {
+      // Si ya es array, remover comillas de cada valor
+      $enumValues = array_map(function ($val) {
+        if (substr($val, 0, 1) === '"' && substr($val, -1) === '"') {
+          return substr($val, 1, -1);
+        }
+        return $val;
+      }, $row->enum_values);
+    }
+
+    $enums[$row->enum_name] = [
+      'name' => $row->enum_name,
+      'enum_class' => $enumClass,
+      'namespace' => 'App\\Enums\\DB',
+      'values' => $enumValues,
+      'schema' => $row->schema_name,
+    ];
+  }
+
+  return $enums;
+}
+
+/**
+ * Genera archivos de clases Enum en app/Enums/DB/
+ * 
+ * @return array Mapa de {enum_name} => {EnumClass}
+ */
+function generateEnumClasses(array $enums, bool $dryRun = false, string $projectRoot = ''): array
+{
+  $enumDir = app_path('Enums/DB');
+  $enumMap = [];
+
+  if (!is_dir($enumDir) && !$dryRun) {
+    @mkdir($enumDir, 0755, true);
+  }
+
+  echo "\n" . color("Generando Enums de PostgreSQL:", 'bold') . "\n";
+
+  foreach ($enums as $enumName => $enumInfo) {
+    $enumClass = $enumInfo['enum_class'];
+    $filePath = $enumDir . '/' . $enumClass . '.php';
+
+    // Generar cases para el enum
+    $cases = [];
+    foreach ($enumInfo['values'] as $value) {
+      // Reemplazar espacios con underscores en el nombre del case
+      $caseName = Str::upper(str_replace(' ', '_', $value));
+      // Escapar comillas simples en el valor
+      $escapedValue = str_replace("'", "\\'", $value);
+      $cases[] = "  case {$caseName} = '{$escapedValue}';";
+    }
+    $casesStr = implode("\n", $cases);
+
+    // Contenido del archivo Enum
+    $content = <<<PHP
+<?php
+
+namespace App\\Enums\\DB;
+
+/**
+ * Enum {$enumClass}
+ * 
+ * Generado automáticamente desde PostgreSQL ENUM en schema '{$enumInfo['schema']}'
+ * NO EDITAR MANUALMENTE - Se regenera en cada ejecución
+ */
+enum {$enumClass}: string
+{
+{$casesStr}
+}
+
+PHP;
+
+    echo "Generando Enum (desde el objeto: {$enumName})\n";
+    if (!$dryRun) {
+      file_put_contents($filePath, $content);
+    } else {
+      echo "[DRY-RUN] Enum {$enumClass}: {$filePath}\n";
+    }
+
+    $relativePath = str_replace([$projectRoot, '\\'], ['', '/'], $filePath);
+    echo "  ✓ " . color($enumClass, 'green') . " ← {$enumName} (" . count($enumInfo['values']) . " values)\n";
+
+    $enumMap[$enumName] = $enumClass;
+  }
+
+  return $enumMap;
+}
+
+/**
+ * Mapea columnas de la BD a sus tipos ENUM correspondientes
+ * 
+ * @return array Mapa con estructura:
+ *   [
+ *     'schema.tabla' => [
+ *       'columna' => ['enum_class' => 'TipoActividad', 'nullable' => false]
+ *     ]
+ *   ]
+ */
+function mapEnumsToColumns(string $catalogName, array $schemas, array $enumMap): array
+{
+  $mapping = [];
+
+  if (empty($enumMap)) {
+    return $mapping;
+  }
+
+  $enumNames = array_keys($enumMap);
+  $placeholders = implode(',', array_fill(0, count($enumNames), '?'));
+  $schemaPlaceholders = implode(',', array_fill(0, count($schemas), '?'));
+
+  $results = DB::select("
+    SELECT 
+      n.nspname as schema_name,
+      c.relname as table_name,
+      a.attname as column_name,
+      t.typname as enum_type,
+      NOT a.attnotnull as is_nullable
+    FROM pg_attribute a
+    JOIN pg_class c ON a.attrelid = c.oid
+    JOIN pg_namespace n ON c.relnamespace = n.oid
+    JOIN pg_type t ON a.atttypid = t.oid
+    WHERE c.relkind IN ('r', 'v')
+      AND n.nspname IN ($schemaPlaceholders)
+      AND t.typname IN ($placeholders)
+      AND a.attnum > 0
+      AND NOT a.attisdropped
+    ORDER BY n.nspname, c.relname, a.attname
+  ", array_merge($schemas, $enumNames));
+
+  foreach ($results as $row) {
+    $tableKey = $row->schema_name . '.' . $row->table_name;
+
+    if (!isset($mapping[$tableKey])) {
+      $mapping[$tableKey] = [];
+    }
+
+    $mapping[$tableKey][$row->column_name] = [
+      'enum_class' => $enumMap[$row->enum_type],
+      'enum_type' => $row->enum_type,
+      'nullable' => (bool) $row->is_nullable,
+    ];
+  }
+
+  return $mapping;
+}
+
+/**
+ * Limpia archivos de Enum obsoletos (que ya no existen en BD)
+ */
+function cleanupObsoleteEnums(array $currentEnums, bool $dryRun = false): int
+{
+  $enumDir = app_path('Enums/DB');
+  $deleted = 0;
+
+  if (!is_dir($enumDir)) {
+    return 0;
+  }
+
+  $currentClasses = array_map(fn($e) => $e['enum_class'], $currentEnums);
+
+  $files = glob($enumDir . '/*.php');
+
+  foreach ($files as $file) {
+    $className = pathinfo($file, PATHINFO_FILENAME);
+
+    if (!in_array($className, $currentClasses)) {
+      if (!$dryRun) {
+        unlink($file);
+      }
+      echo "  🗑️  Eliminado: " . color($className, 'red') . "\n";
+      $deleted++;
+    }
+  }
+
+  return $deleted;
+}
+
 /**
  * Construir el método scopeWhereContextHierarchy basado en paths de relaciones
  * 
@@ -1112,6 +1350,65 @@ foreach ($pivotKeys as $pIdx => $pivotKey) {
       tree_print($pivotChildPrefix, $isLastRel, "{$direction}: {$methodColored}{$keyInfo}");
     }
   }
+}
+
+echo "\n";
+
+// ==================================================================================
+// PASO 3.5: DETECCIÓN Y GENERACIÓN DE ENUMs POSTGRESQL
+// ==================================================================================
+//
+// OBJETIVO: Detectar tipos ENUM en PostgreSQL, generar clases Enum en app/Enums/DB/,
+//           mapear columnas a sus ENUMs, y limpiar archivos obsoletos
+//
+// PROCESAMIENTO:
+// 1. Consulta pg_type + pg_enum para detectar todos los ENUMs con prefijo 'en_'
+// 2. Genera clases Enum en app/Enums/DB/{StudlyName}.php
+// 3. Mapea columnas que usan cada ENUM para integración posterior en casts + typed properties
+// 4. Limpia archivos de Enum que ya no existen en la BD
+//
+// RESULTADO: Variables globales para usar en generación de modelos:
+// - $allPostgresEnums:     Array con info de todos los ENUMs
+// - $enumMap:              Mapa {enum_name} => {EnumClass}
+// - $enumColumnMapping:    Mapa {schema.tabla.columna} => {enum_info}
+// ==================================================================================
+
+echo color("PASO 3.5: Detección de ENUMs PostgreSQL", 'bold') . "\n";
+
+// Detectar todos los ENUMs con prefijo 'en_'
+$allPostgresEnums = detectPostgresEnums($catalogName, $schemas);
+
+if (!empty($allPostgresEnums)) {
+  echo "Encontrados " . count($allPostgresEnums) . " ENUMs\n\n";
+
+  // Generar clases Enum en app/Enums/DB/
+  $enumMap = generateEnumClasses($allPostgresEnums, $dryRun, $projectRoot);
+
+  // Mapear columnas a ENUMs
+  $enumColumnMapping = mapEnumsToColumns($catalogName, $schemas, $enumMap);
+
+  echo "\nMapeo de columnas: " . count($enumColumnMapping) . " tabla(s) con columnas ENUM\n";
+  if ($verbose && !empty($enumColumnMapping)) {
+    foreach ($enumColumnMapping as $tableKey => $columns) {
+      echo "  {$tableKey}:\n";
+      foreach ($columns as $colName => $info) {
+        echo "    - {$colName} → " . color($info['enum_class'], 'cyan') .
+          " (" . ($info['nullable'] ? 'nullable' : 'NOT NULL') . ")\n";
+      }
+    }
+  }
+
+  // Limpiar ENUMs obsoletos
+  echo "\n" . color("Limpieza de ENUMs obsoletos:", 'bold') . "\n";
+  $deleted = cleanupObsoleteEnums($allPostgresEnums, $dryRun);
+  if ($deleted === 0) {
+    echo "  ✓ Sin enums obsoletos\n";
+  }
+} else {
+  echo "No se encontraron ENUMs con prefijo 'en_'\n";
+  $enumMap = [];
+  $enumColumnMapping = [];
+  $allPostgresEnums = [];
 }
 
 echo "\n";
@@ -1568,6 +1865,36 @@ foreach ($tables as $tableInfo) {
   // ==================================================================================
 
   // ==================================================================================
+  // PASO 4.7.0: CONSTRUIR IMPORTS Y TYPED PROPERTIES PARA ENUMS
+  // ==================================================================================
+  // Genera imports para clases Enum y propiedades con typing fuerte
+  // Esto debe ocurrir ANTES de compilar allImports en 4.7.d
+  // ==================================================================================
+
+  $typedPropertiesEntries = [];
+  $enumImports = '';
+  $tableKey = "{$schema}.{$tableName}";
+
+  if (isset($enumColumnMapping[$tableKey])) {
+    foreach ($enumColumnMapping[$tableKey] as $colName => $enumInfo) {
+      $propName = Str::camel($colName);
+      $enumClass = $enumInfo['enum_class'];
+      $nullable = $enumInfo['nullable'] ? '|null' : '';
+
+      $typedPropertiesEntries[] = "{$tab}public {$enumClass}{$nullable} \${$propName};";
+    }
+
+    $enumClasses = array_unique(array_column($enumColumnMapping[$tableKey], 'enum_class'));
+    foreach ($enumClasses as $enumClass) {
+      $enumImports .= "use App\\Enums\\DB\\{$enumClass};\n";
+    }
+  }
+
+  $typedPropertiesLine = !empty($typedPropertiesEntries)
+    ? implode("\n", $typedPropertiesEntries) . "\n\n"
+    : '';
+
+  // ==================================================================================
   // PASO 4.7.a: CONFIGURAR SOFT DELETES
   //
   // SoftDeletes en Laravel:
@@ -1660,7 +1987,7 @@ foreach ($tables as $tableInfo) {
   // ==================================================================================
 
   // Compilar todo dinámicamente sin dejar espacios en blanco
-  $allImports = $composhipsImport . $softDeleteImport . $contextImport;
+  $allImports = $composhipsImport . $softDeleteImport . $contextImport . $enumImports;
 
   // Compilar traits y constantes en un bloque único
   $allTraitsAndConsts = <<<EOL
@@ -2434,7 +2761,7 @@ EOL;
   // PASO 4.5.b: GENERAR ARRAY $casts
   // ==================================================================================
   // Mapea tipos PostgreSQL a tipos Eloquent para serialización automática
-  // jsonb/json → 'array'  |  bool → 'boolean'
+  // jsonb/json → 'array'  |  bool → 'boolean'  |  ENUM → EnumClass
   // ==================================================================================
   $pgTypeToCast = [
     'jsonb'  => 'array',
@@ -2443,8 +2770,39 @@ EOL;
   ];
 
   $castsEntries = collect($columns)
-    ->filter(fn($col) => isset($pgTypeToCast[$col->data_type]))
-    ->map(fn($col) => "{$tab}{$tab}'{$col->column_name}' => '{$pgTypeToCast[$col->data_type]}'")
+    ->filter(function ($col) use ($schema, $tableName, $enumColumnMapping, $pgTypeToCast) {
+      // Incluir si es un tipo PostgreSQL conocido
+      if (isset($pgTypeToCast[$col->data_type])) {
+        return true;
+      }
+
+      // Incluir si la columna tiene un ENUM mapeado
+      $tableKey = "{$schema}.{$tableName}";
+      if (isset($enumColumnMapping[$tableKey][$col->column_name])) {
+        return true;
+      }
+
+      return false;
+    })
+    ->map(function ($col) use ($schema, $tableName, $enumColumnMapping, $pgTypeToCast, $tab) {
+      $tableKey = "{$schema}.{$tableName}";
+
+      // Si es un ENUM, usar la clase del Enum
+      if (isset($enumColumnMapping[$tableKey][$col->column_name])) {
+        $enumClass = $enumColumnMapping[$tableKey][$col->column_name]['enum_class'];
+        return "{$tab}{$tab}'{$col->column_name}' => {$enumClass}::class";
+      }
+
+      // Si es un tipo PostgreSQL conocido, usar el cast correspondiente
+      if (isset($pgTypeToCast[$col->data_type])) {
+        return "{$tab}{$tab}'{$col->column_name}' => '{$pgTypeToCast[$col->data_type]}'";
+      }
+
+      return null;
+    })
+    ->filter(function ($cast) {
+      return $cast !== null;
+    })
     ->implode(",\n");
 
   $castsLine = $castsEntries
@@ -2465,7 +2823,7 @@ use App\\Models\\BaseModel as CustomBaseModel;
  */
 abstract class Base{$className} extends CustomBaseModel{$implementsClause}
 {
-{$allTraitsAndConsts}    protected \$connection = 'pgsql';
+{$allTraitsAndConsts}{$typedPropertiesLine}    protected \$connection = 'pgsql';
     protected \$table = '{$tableName}';
 {$primaryKeyLine}{$incrementingLine}
 {$fillableLine}{$castsLine}{$relations}{$contextScopeMethods}

@@ -8,6 +8,7 @@ use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasOwnedContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
+use App\Enums\DB\EstadoActividadAsignada;
 
 /**
  * Clase Base generada automáticamente
@@ -19,16 +20,22 @@ abstract class BaseActividadAsignadaGrupo extends CustomBaseModel implements Has
     use ContextAware;
     use FiltersContextScope;
     public $timestamps = false;
+    public EstadoActividadAsignada $estadoActividadAsignada;
+
     protected $connection = 'pgsql';
     protected $table = 'actividad_asignada_grupo';
-    protected $primaryKey = 'grupo';
+    protected $primaryKey = 'id_actividad_asignada_grupo';
     public $incrementing = true;
 
     protected $fillable = [
-        'grupo',
+        'nombre_grupo',
         'nota',
-        'id_actividad',
-        'id_estado'
+        'estado_actividad_asignada',
+        'id_actividad'
+    ];
+
+    protected $casts = [
+        'estado_actividad_asignada' => EstadoActividadAsignada::class
     ];
 
     // Relaciones
@@ -39,22 +46,16 @@ abstract class BaseActividadAsignadaGrupo extends CustomBaseModel implements Has
         return new BelongsTo($instance->newQuery(), $this, 'id_actividad', 'id_actividad', 'actividad');
     }
 
-    public function estadoActividad()
-    {
-        $instance = new \App\Models\Agenda\EstadoActividad();
-        return new BelongsTo($instance->newQuery(), $this, 'id_estado', 'id_estado', 'estadoActividad');
-    }
-
     // Relaciones inversas
 
     public function agendas()
     {
-        return $this->hasMany(\App\Models\Agenda\Agenda::class, 'grupo', 'grupo');
+        return $this->hasMany(\App\Models\Agenda\Agenda::class, 'id_actividad_asignada_grupo', 'id_actividad_asignada_grupo');
     }
 
     public function integranteGrupos()
     {
-        return $this->hasMany(\App\Models\Agenda\IntegranteGrupo::class, 'grupo', 'grupo');
+        return $this->hasMany(\App\Models\Agenda\IntegranteGrupo::class, 'id_actividad_asignada_grupo', 'id_actividad_asignada_grupo');
     }
 
     /**

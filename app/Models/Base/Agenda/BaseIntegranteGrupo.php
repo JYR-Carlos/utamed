@@ -27,22 +27,22 @@ abstract class BaseIntegranteGrupo extends CustomBaseModel implements HasOwnedCo
     protected $fillable = [
         'nota_individual',
         'diferencia_decimas',
-        'grupo',
+        'id_actividad_asignada_grupo',
         'id_estudiante'
     ];
 
     // Relaciones
 
-    public function actividadAsignadaGrupo()
-    {
-        $instance = new \App\Models\Agenda\ActividadAsignadaGrupo();
-        return new BelongsTo($instance->newQuery(), $this, 'grupo', 'grupo', 'actividadAsignadaGrupo');
-    }
-
     public function estudiante()
     {
         $instance = new \App\Models\Usuario\Estudiante();
         return new BelongsTo($instance->newQuery(), $this, 'id_estudiante', 'id_estudiante', 'estudiante');
+    }
+
+    public function actividadAsignadaGrupo()
+    {
+        $instance = new \App\Models\Agenda\ActividadAsignadaGrupo();
+        return new BelongsTo($instance->newQuery(), $this, 'id_actividad_asignada_grupo', 'id_actividad_asignada_grupo', 'actividadAsignadaGrupo');
     }
 
     /**

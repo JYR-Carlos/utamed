@@ -40,10 +40,10 @@ abstract class BaseEvaluacion extends CustomBaseModel implements HasOwnedContext
 
     // Relaciones
 
-    public function rubrica()
+    public function agenda()
     {
-        $instance = new \App\Models\Agenda\Rubrica();
-        return new BelongsTo($instance->newQuery(), $this, 'id_rubrica', 'id_rubrica', 'rubrica');
+        $instance = new \App\Models\Agenda\Agenda();
+        return new BelongsTo($instance->newQuery(), $this, 'id_agenda', 'id_agenda', 'agenda');
     }
 
     public function usuario()
@@ -52,10 +52,10 @@ abstract class BaseEvaluacion extends CustomBaseModel implements HasOwnedContext
         return new BelongsTo($instance->newQuery(), $this, 'id_usuario_evaluador', 'id_usuario', 'usuario');
     }
 
-    public function agenda()
+    public function rubrica()
     {
-        $instance = new \App\Models\Agenda\Agenda();
-        return new BelongsTo($instance->newQuery(), $this, 'id_agenda', 'id_agenda', 'agenda');
+        $instance = new \App\Models\Agenda\Rubrica();
+        return new BelongsTo($instance->newQuery(), $this, 'id_rubrica', 'id_rubrica', 'rubrica');
     }
 
     /**

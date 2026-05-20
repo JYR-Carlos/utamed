@@ -5,6 +5,7 @@ namespace App\Models\Base\Agenda;
 use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Extensions\Compoships\BelongsTo;
+use App\Enums\DB\EstadoRubrica;
 
 /**
  * Clase Base generada automáticamente
@@ -14,6 +15,8 @@ abstract class BaseRubrica extends CustomBaseModel
 {
     use Compoships;
     public $timestamps = false;
+    public EstadoRubrica $estadoRubrica;
+
     protected $connection = 'pgsql';
     protected $table = 'rubrica';
     protected $primaryKey = 'id_rubrica';
@@ -21,20 +24,15 @@ abstract class BaseRubrica extends CustomBaseModel
 
     protected $fillable = [
         'rubrica',
-        'id_estado_rubrica'
+        'estado_rubrica'
     ];
 
     protected $casts = [
-        'rubrica' => 'array'
+        'rubrica' => 'array',
+        'estado_rubrica' => EstadoRubrica::class
     ];
 
     // Relaciones
-
-    public function estadoRubrica()
-    {
-        $instance = new \App\Models\Agenda\EstadoRubrica();
-        return new BelongsTo($instance->newQuery(), $this, 'id_estado_rubrica', 'id_estado_rubrica', 'estadoRubrica');
-    }
 
     // Relaciones inversas
 

@@ -3,6 +3,7 @@
 namespace App\Models\Usuario;
 
 use App\Models\Base\Usuario\BaseEstudiante;
+use App\Models\Usuario\Usuario;
 
 /**
  * Modelo Estudiante
@@ -12,9 +13,18 @@ use App\Models\Base\Usuario\BaseEstudiante;
  */
 class Estudiante extends BaseEstudiante
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+    /**
+     * Obtiene el nombre abreviado del estudiante.
+     *
+     * @example "JPérez"
+     * 
+     * @return string Nombre abreviado formado por la inicial del nombre y el apellido completo
+     */
+    public function nombreAbreviado(): string
+    {
+        /** @var Usuario $usuario */
+        $usuario = $this->usuario;
+
+        return $usuario->nombreAbreviado();
+    }
 }

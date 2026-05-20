@@ -48,6 +48,6 @@ class TipoComponente extends BaseTipoComponente
             return null;
         }
 
-        return $componentes->sortBy(fn ($c) => $c->tipoComponente?->prioridad ?? 99)->first();
+        return $componentes->sortBy(fn($c) => $c->tipoComponente?->prioridad ?? 99)->first();
     }
 }

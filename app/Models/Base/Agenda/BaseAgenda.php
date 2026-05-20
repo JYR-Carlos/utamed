@@ -8,6 +8,7 @@ use App\Extensions\Compoships\BelongsTo;
 use App\Contracts\HasOwnedContext;
 use App\Traits\ContextAware;
 use App\Traits\QueryScopes\FiltersContextScope;
+use App\Enums\DB\TipoMensaje;
 
 /**
  * Clase Base generada automáticamente
@@ -19,6 +20,8 @@ abstract class BaseAgenda extends CustomBaseModel implements HasOwnedContext
     use ContextAware;
     use FiltersContextScope;
     public $timestamps = false;
+    public TipoMensaje $tipoMensaje;
+
     protected $connection = 'pgsql';
     protected $table = 'agenda';
     protected $primaryKey = 'id_agenda';
@@ -26,37 +29,35 @@ abstract class BaseAgenda extends CustomBaseModel implements HasOwnedContext
 
     protected $fillable = [
         'fecha_envio',
+        'tipo_mensaje',
         'mensaje',
         'uuid_archivo_subido',
         'id_usuario_emisor',
-        'grupo',
-        'id_tipo_registro_agenda'
+        'id_actividad_asignada_grupo'
+    ];
+
+    protected $casts = [
+        'tipo_mensaje' => TipoMensaje::class
     ];
 
     // Relaciones
-
-    public function usuario()
-    {
-        $instance = new \App\Models\Usuario\Usuario();
-        return new BelongsTo($instance->newQuery(), $this, 'id_usuario_emisor', 'id_usuario', 'usuario');
-    }
-
-    public function actividadAsignadaGrupo()
-    {
-        $instance = new \App\Models\Agenda\ActividadAsignadaGrupo();
-        return new BelongsTo($instance->newQuery(), $this, 'grupo', 'grupo', 'actividadAsignadaGrupo');
-    }
-
-    public function tipoRegistroAgenda()
-    {
-        $instance = new \App\Models\Agenda\TipoRegistroAgenda();
-        return new BelongsTo($instance->newQuery(), $this, 'id_tipo_registro_agenda', 'id_tipo_registro_agenda', 'tipoRegistroAgenda');
-    }
 
     public function archivo()
     {
         $instance = new \App\Models\Operaciones\Archivo();
         return new BelongsTo($instance->newQuery(), $this, 'uuid_archivo_subido', 'uuid_archivo', 'archivo');
+    }
+
+    public function actividadAsignadaGrupo()
+    {
+        $instance = new \App\Models\Agenda\ActividadAsignadaGrupo();
+        return new BelongsTo($instance->newQuery(), $this, 'id_actividad_asignada_grupo', 'id_actividad_asignada_grupo', 'actividadAsignadaGrupo');
+    }
+
+    public function usuario()
+    {
+        $instance = new \App\Models\Usuario\Usuario();
+        return new BelongsTo($instance->newQuery(), $this, 'id_usuario_emisor', 'id_usuario', 'usuario');
     }
 
     // Relaciones inversas

@@ -13,31 +13,6 @@ use App\Models\Base\Curso\BaseCurso;
 class Curso extends BaseCurso
 {
     /**
-     * Extiende el fillable del base (auto-generado) con campos de fechas límite
-     */
-    protected $fillable = [
-        'cod_curso',
-        'nombre',
-        'indice_grupo',
-        'fecha_inicio',
-        'fecha_fin',
-        'agno_real',
-        'semestre_real',
-        'estado_interno',
-        'estado_acta',
-        'es_plantilla',
-        'es_colegiado',
-        'id_asignacion_plan',
-        'id_docente_titular',
-        'id_contexto',
-        'id_curso_padre',
-        'version_plantilla',
-        'letra_grupo',
-        'fecha_limite_entrega_basico',
-        'fecha_limite_entrega_syllabus',
-    ];
-
-    /**
      * Casts adicionales para fechas límite de entrega de programa
      */
     protected $casts = [
