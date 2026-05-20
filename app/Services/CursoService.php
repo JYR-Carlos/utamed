@@ -43,6 +43,7 @@ class CursoService
                 'cod_curso'            => $data['cod_curso'],
                 'nombre'               => $data['nombre'] ?? '',
                 'fecha_inicio'         => $data['fecha_inicio'] ?? now()->format('Y-m-d'),
+                'semestre_real'        => $data['semestre_real'] ?? 2,
                 'id_asignacion_plan'   => $asignacionPlan->id_asignacion_plan,
                 'id_contexto'          => $contexto->id_contexto,
                 'indice_grupo'         => $data['indice_grupo'] ?? 1,

@@ -1,16 +1,4 @@
 <script lang="ts">
-  /**
-   * FASE 4: Página de cursos para estudiantes (read-only refactorizado).
-   *
-   * Funcionalidades:
-   * - Listar cursos inscritos
-   * - Ver información básica: asignatura, carrera
-   * - Acceso a detalle del curso
-   * - Ver programa/syllabus si está disponible (solo lectura)
-   * - Agrupación automática por semestre
-   *
-   * Refactorizado: Usa componente CursoListAlumno (ultra-simplificado)
-   */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import { router } from '@inertiajs/svelte';
@@ -23,6 +11,7 @@
     cod_asignatura: string;
     asignatura_nombre: string;
     carrera_nombre: string;
+    imagen_url: string;
     fecha_inicio: string;
     fecha_fin?: string;
     semestre_real?: number;

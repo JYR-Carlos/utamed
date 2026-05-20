@@ -2,10 +2,10 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import { ArrowLeft, PlayCircle, FileText, Bookmark, Share2, ScrollText } from 'lucide-svelte';
-  import { Link } from '@inertiajs/svelte';
   import CourseSidebar from '@/components/student/CourseSidebar.svelte';
   import ResourceCard from '@/components/student/ResourceCard.svelte';
-  import ActividadCard from '@/modules/resources/actividad/components/actividadCard.svelte';
+  import ActividadesView from '../Activities/ActividadesView.svelte';
+  import BibsIndex from './Bibs/Index.svelte';
 
   interface Props {
     curso?: {
@@ -19,6 +19,11 @@
   const id_curso = $derived(curso?.id_curso || 0);
 
   let activeModuleId = $state('module-1-2');
+  let activeView = $state<'actividades' | 'bibliografias'>('actividades');
+
+  function toggleBibliografia() {
+    activeView = activeView === 'actividades' ? 'bibliografias' : 'actividades';
+  }
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Dashboard', href: '/estudiante/dashboard' },
@@ -104,72 +109,38 @@
 
 <StudentLayout {breadcrumbs}>
   <div class="min-h-screen bg-white flex flex-col md:flex-row">
-    <!-- Sidebar -->
+    
     <div class="w-full md:w-80 shrink-0 md:sticky  md:self-start">
       <CourseSidebar
         units={courseUnits}
         {activeModuleId}
-        onModuleClick={(id: string) => (activeModuleId = id)}
+        onModuleClick={(id: string) => {
+          activeView="actividades";
+          (activeModuleId = id)
+        }}
+        onBibliografiaClick={() => activeView="bibliografias"}
         courseName={curso?.nombre ?? 'Diseño de Interfaces Digitales'}
       />
     </div>
+     
 
-    <!-- Main Content -->
-    <div class="w-full md:flex-1 p-2">
-      <p class="text-2xl font-bold text-gray-900 my-4 mx-6">Actividades</p>
-      <p class="text-xl font-semibold visible sm:hidden mb-4 mx-6">Unidad {activeModuleId}</p>
-      <div class="flex flex-col gap-4 mx-6">
-        <!-- Filter Buttons -->
-        <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-          <div
-            class="flex gap-2 items-center overflow-x-auto pb-2 sm:pb-0 w-full sm:w-auto no-scrollbar"
-          >
-            <button
-              class="whitespace-nowrap px-4 py-2 rounded-lg border transition-all min-w-40 {filterSumativa
-                ? 'bg-blue-500 text-white border-blue-500'
-                : 'bg-white text-gray-900 border-gray-300'}"
-              onclick={() => toggleFilter('sumativa')}
-            >
-              {filterSumativa ? 'Sumativas' : 'Ver Sumativas'}
-            </button>
-
-            <button
-              class="whitespace-nowrap px-4 py-2 rounded-lg border transition-all min-w-40 {filterEntrega
-                ? 'bg-blue-500 text-white border-blue-500'
-                : 'bg-white text-gray-900 border-gray-300'}"
-              onclick={() => toggleFilter('entrega')}
-            >
-              {filterEntrega ? 'Con Entrega' : 'Ver Con Entrega'}
-            </button>
-
-            <button
-              class="whitespace-nowrap px-4 py-2 rounded-lg border transition-all min-w-40 {filterGrupal
-                ? 'bg-blue-500 text-white border-blue-500'
-                : 'bg-white text-gray-900 border-gray-300'}"
-              onclick={() => toggleFilter('grupal')}
-            >
-              {filterGrupal ? 'Grupal' : 'Ver Grupal'}
-            </button>
-          </div>
-
-          <button
-            class="w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-300 sm:ml-auto hover:bg-gray-100 text-sm"
-            onclick={clearFilters}
-          >
-            Limpiar filtros
-          </button>
-        </div>
-
-        <!-- Activities List -->
-        <div class="flex flex-col gap-4">
-          {#each filtered as act (act.id_actividad)}
-            <Link href={`/estudiante/cursos/${id_curso}/actividad/${act.id_actividad}`}>
-              <ActividadCard actividad={act} idCurso={id_curso} />
-            </Link>
-            
-          {/each}
-        </div>
-      </div>
+    <!-- Content Views -->
+    <div class="w-full md:flex-1">
+    
+      {#if activeView === 'actividades'}
+        <ActividadesView
+          {activeModuleId}
+          {id_curso}
+          {filterSumativa}
+          {filterEntrega}
+          {filterGrupal}
+          {filtered}
+          onToggleFilter={toggleFilter}
+          onClearFilters={clearFilters}
+        />
+      {:else if activeView === 'bibliografias'}
+        <BibsIndex {id_curso} />
+      {/if}
     </div>
   </div>
 </StudentLayout>

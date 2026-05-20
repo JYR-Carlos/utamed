@@ -74,7 +74,7 @@ class CourseController extends Controller
             ->whereIn('estado', ['APROBADO', 'BASICO_COMPLETO'])
             ->where('es_actual', true)
             ->exists();
-
+        $default_img = "https://www.google.com/url?sa=t&source=web&rct=j&url=https%3A%2F%2Fwww.gq.com.mx%2Fentretenimiento%2Farticulo%2Fdonkey-kong-el-gorila-de-nintendo-cumple-40-anos&ved=0CBYQjRxqFwoTCOiio9GUw5QDFQAAAAAdAAAAABAF&opi=89978449";
         return [
             'id_curso'         => $curso->id_curso,
             'nombre'           => $curso->nombre,
@@ -88,6 +88,7 @@ class CourseController extends Controller
             'letra_grupo'      => $curso->letra_grupo,
             'rol'              => $rol,
             'tiene_programa'   => $tieneProg,
+            'imagen_url'       => $curso->imagen_url ?? $default_img,
         ];
     }
 

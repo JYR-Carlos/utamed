@@ -58,21 +58,18 @@
   ];
   // Define tu patrón estilo mosaico
   const mosaicClasses = [
-    "md:col-span-2 md:row-span-1",
-    "md:col-span-2 md:row-span-1", 
-    "md:col-span-3 md:row-span-1", 
-    "md:col-span-2 md:row-span-1",
-    "md:col-span-1 md:row-span-1", 
+    'md:col-span-1 col-span-2', // curso 1
+    'md:col-span-1 col-span-2', // curso 2
+    'md:col-span-2 col-span-2', // curso 3 abajo completo
   ];
 
-  // Función para obtener la clase según el índice
   const getGridClass = (index: number) => {
-    if (index >= 3) return "hidden"; // muestra solo los primeros 3 cursos en el dashboard como acceso directo
+    if (index >= 3) return 'hidden'; // muestra solo los primeros 3 cursos en el dashboard como acceso directo
     return mosaicClasses[index % mosaicClasses.length];
   };
 
   // Mapear cursos a formato CourseCard
-  const cursosEnriquecidos = $derived(
+  const cursosList = $derived(
     cursos.map((curso, index) => ({
       ...curso,
       progreso: curso.progreso,
@@ -82,7 +79,7 @@
   );
 
   // Enriquecer cursos de ayudantía con colores y campos de presentación
-  const ayudanteCursosEnriquecidos = $derived(
+  const ayudantecursosList = $derived(
     ayudanteCourses.map((curso, index) => ({
       ...curso,
       estudiantes: 0,
@@ -116,8 +113,7 @@
       <!-- Header -->
       <div class="mb-8">
         <div class="flex items-center gap-3 mb-2">
-          <h1 class="text-4xl font-bold bg-clip-text"
->
+          <h1 class="text-4xl font-bold bg-clip-text">
             Bienvenido, {nameParts.nombre}!
           </h1>
         </div>
@@ -133,18 +129,15 @@
             nombre={nameParts.nombre}
             apellido1={nameParts.apellido1}
             apellido2={nameParts.apellido2}
-            rut={rut}
-            carrera={carrera}
+            {rut}
+            {carrera}
           />
 
-          
           <!-- Temporal Context Selectors -->
           <div
             class="relative overflow-hidden rounded-3xl bg-linear-to from-purple-600/5 via-cyan-600/5 to-orange-600/5 p-px"
           >
             <div class="relative rounded-3xl bg-white backdrop-blur-xl p-6 border border-gray-200">
-              
-
               <div class="relative space-y-4">
                 <div class="flex items-center gap-2 mb-4">
                   <Calendar class="w-4 h-4 text-purple-600" />
@@ -172,7 +165,7 @@
                       onclick={() => (semestre = '1')}
                       class={`py-3 rounded-xl font-medium text-sm transition-all ${
                         semestre === '1'
-                          ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white'
+                          ? 'bg-cyan-600 text-white'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
@@ -182,7 +175,7 @@
                       onclick={() => (semestre = '2')}
                       class={`py-3 rounded-xl font-medium text-sm transition-all ${
                         semestre === '2'
-                          ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white'
+                          ? 'bg-cyan-600 text-white'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
@@ -197,54 +190,52 @@
 
         <!-- Main Content - Courses/Ayudantías Grid -->
         <div class="col-span-12 lg:col-span-8">
-          <div class="flex flex-col sm:flex-row gap-4 mb-6">
-            <div class="flex flex-col gap-1 mr-auto">
-              <h2 class="text-2xl font-semibold text-gray-900 mb-2">
-                {'Mis Cursos'}
-              </h2>
-              <p class="text-gray-600">
-                {`${cursosEnriquecidos.length} asignaturas inscritas · Semestre ${semestre} ${anoAcademico}`}
-              </p>
+          <div class="flex flex-col md:flex-row md:items-center gap-4 mb-6">
+            <!-- TEXTO -->
+            <div class="flex flex-col gap-1 flex-1 min-w-0">
+              <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Mis Cursos</h2>
 
+              <p class="text-sm sm:text-base text-gray-600 break-words">
+                {`${cursosList.length} asignaturas inscritas · Semestre ${semestre} ${anoAcademico}`}
+              </p>
             </div>
 
-            <!-- BOTON DE VER TODOS LOS CURSOS -->
-            <Link 
-              class="flex justify-between items-center w-[30%] md:w-60 gap-2 rounded-2xl px-4 py-2 border-4 bg-primary text-secondary hover:bg-secondary hover:text-primary transition-colors"
+            <!-- BOTON -->
+            <Link
+              class="flex items-center justify-center md:justify-between w-full sm:w-fit md:w-60 gap-2 rounded-2xl px-4 py-3 sm:py-5 border-2 bg-primary text-secondary hover:bg-secondary hover:text-primary transition-colors shrink-0"
               href="/estudiante/cursos"
             >
-              <p class="text-md text-center font-bold "> Ver todos </p>
-              <ChevronRight class="w-4 h-4" />
-            </Link>
+              <p class="text-sm sm:text-md text-center font-bold">Ver todos</p>
 
+              <ChevronRight class="w-4 h-4 shrink-0" />
+            </Link>
           </div>
 
-          {#if cursosEnriquecidos.length > 0}
-              <p class="font-semibold text-md p-4">Accesos directos</p>
+          {#if cursosList.length > 0}
+            <p class="font-semibold text-md p-4">Accesos directos</p>
 
-              <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-rows-[200px]">
-                {#each cursosEnriquecidos as curso, index}
-                  <div class="{getGridClass(index)} flex"> 
-                    <CourseCard {...curso} />
-                  </div>
-                {/each}
-              </div>
-            {:else}
-              <div class="rounded-3xl border border-gray-200 bg-gray-50 p-12 text-center">
-                <div class="mb-4 flex justify-center">
-                  <div class="rounded-full bg-gray-100 p-4">
-                    <svg class="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                      <path
-                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                      />
-                    </svg>
-                  </div>
+            <div class="grid grid-cols-2 mx-auto md:grid-cols-2 gap-6 auto-rows-[200px]">
+              {#each cursosList as curso, index}
+                <div class={getGridClass(index)}>
+                  <CourseCard {...curso} />
                 </div>
-                <h3 class="mb-2 text-lg font-bold text-gray-900">No tienes cursos inscritos</h3>
-                <p class="text-gray-600">Los cursos en los que te inscribas aparecerán aquí.</p>
+              {/each}
+            </div>
+          {:else}
+            <div class="rounded-3xl border border-gray-200 bg-gray-50 p-12 text-center">
+              <div class="mb-4 flex justify-center">
+                <div class="rounded-full bg-gray-100 p-4">
+                  <svg class="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                    />
+                  </svg>
+                </div>
               </div>
+              <h3 class="mb-2 text-lg font-bold text-gray-900">No tienes cursos inscritos</h3>
+              <p class="text-gray-600">Los cursos en los que te inscribas aparecerán aquí.</p>
+            </div>
           {/if}
-
         </div>
       </div>
     </div>

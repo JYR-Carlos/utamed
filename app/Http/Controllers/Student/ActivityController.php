@@ -157,15 +157,15 @@ class ActivityController extends Controller
             "nombre_actividad" => "Actividad de Ejemplo",
             "descripcion" => "Descripción detallada de la actividad. Más larga para probar el largo de la descripción. Probando texto lorem ipsum",
             "fecha_limite" => "03-12-2026",
-            "es_sumativa" => true,
-            "trae_archivo" => true,
-            "entrega_obligatoria" => true,
-            "ultima_nota" => 3.4,
+            "es_sumativa" => false,
+            "trae_archivo" => false,
+            "entrega_obligatoria" => false,
+            "ultima_nota" => 4.5,
             "entradas" => [
                 ["id" => 1],
                 ["id" => 2],
             ],
-            "ultimo_estado" => "reprobado",
+            "ultimo_estado" => "aprobado",
         ]);
     }
 }

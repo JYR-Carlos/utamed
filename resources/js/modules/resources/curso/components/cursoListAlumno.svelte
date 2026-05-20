@@ -1,25 +1,5 @@
 <script lang="ts">
-  import CourseCard from '@/components/student/CourseCard.svelte';
-  import ChevronLeft from '@lucide/svelte/icons/chevron-left';
-  /**
-   * Componente: Lista de Cursos para Alumno (Simplificado)
-   *
-   * Vista ultra-limpia y directa para estudiantes:
-   * - Solo lista (sin grid)
-   * - Ver información básica del curso
-   * - Botón para entrar al curso
-   * - Botón para ver programa (opcional)
-   * - Agrupación por semestre (si aplica)
-   *
-   * Props:
-   * - cursosData: any[] - Array de cursos (flat o agrupados por semestre)
-   * - groupBySemestre: boolean - Agrupar por semestre
-   * - showSyllabusButton: boolean - Mostrar botón de programa
-   * - onCourseClick: (curso: any) => void - Click en "Entrar"
-   * - onSyllabusClick: (curso: any) => void - Click en "Ver Programa"
-   */
-  import { ArrowRight, BookOpenCheck, ChevronRight } from 'lucide-svelte';
-  import { Link, page } from '@inertiajs/svelte';
+  import CursoCard from './cursoCard.svelte'
 
   interface Props {
     cursosData?: any[];
@@ -37,164 +17,59 @@
     onSyllabusClick = () => {},
   }: Props = $props();
 
-  // Agrupar cursos por semestre si es necesario
   const cursosAgrupados = $derived(
     groupBySemestre
       ? {
-          semestre1: cursosData.filter((c) => (c.semestre_real ?? 1) === 1),
-          semestre2: cursosData.filter((c) => (c.semestre_real ?? 1) === 2),
+          'Primer Semestre': cursosData.filter(
+            (c) => (c.semestre_real ?? 1) === 1
+          ),
+          'Segundo Semestre': cursosData.filter(
+            (c) => (c.semestre_real ?? 1) === 2
+          ),
         }
-      : null,
+      : null
   );
 </script>
 
-<div class="px-5 md:px-10 lg:px-20 space-y-6">
-  <!-- BOTON DE VER TODOS LOS CURSOS -->
-  <Link
-    class="flex items-center w-60 justify-center gap-2 rounded-2xl px-4 py-2 border-4 hover:bg-primary hover:text-secondary transition-colors"
-    href="/estudiante/dashboard"  
-  >
-    <ChevronLeft class="w-4 h-4" />
-    <p class="text-md font-bold">Volver al Dashboard</p>
-  </Link>
+<div class="space-y-6 px-20">
 
   {#if cursosAgrupados}
-    <!-- Agrupado por semestre -->
-    {#if cursosAgrupados.semestre1.length > 0 || cursosAgrupados.semestre2.length > 0}
-      {#if cursosAgrupados.semestre1.length > 0}
-        <div>
-          <h2 class="text-lg font-semibold text-slate-900 mb-3">Primer Semestre</h2>
-          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <table class="w-full">
-              <tbody>
-                {#each cursosAgrupados.semestre1 as curso}
-                  <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4">
-                      <div>
-                        <p class="font-semibold text-slate-900">{curso.nombre}</p>
-                        <p class="text-sm text-slate-500">{curso.cod_curso}</p>
-                      </div>
-                    </td>
-                    <td class="px-6 py-4 text-sm text-slate-600">{curso.carrera_nombre || '—'}</td>
-                    <td class="px-6 py-4 text-right">
-                      <div class="flex items-center justify-end gap-2">
-                        <button
-                          onclick={() => onCourseClick(curso)}
-                          class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
-                        >
-                          Entrar
-                          <ArrowRight class="w-4 h-4" />
-                        </button>
-                        {#if showSyllabusButton}
-                          <button
-                            onclick={() => onSyllabusClick(curso)}
-                            class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Ver programa"
-                          >
-                            <BookOpenCheck class="w-4 h-4" />
-                          </button>
-                        {/if}
-                      </div>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      {/if}
 
-      {#if cursosAgrupados.semestre2.length > 0}
-        <div>
-          <h2 class="text-lg font-semibold text-slate-900 mb-3">Segundo Semestre</h2>
-          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <table class="w-full">
-              <tbody>
-                {#each cursosAgrupados.semestre2 as curso}
-                  <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4">
-                      <div>
-                        <p class="font-semibold text-slate-900">{curso.nombre}</p>
-                        <p class="text-sm text-slate-500">{curso.cod_curso}</p>
-                      </div>
-                    </td>
-                    <td class="px-6 py-4 text-sm text-slate-600">{curso.carrera_nombre || '—'}</td>
-                    <td class="px-6 py-4 text-right">
-                      <div class="flex items-center justify-end gap-2">
-                        <button
-                          onclick={() => onCourseClick(curso)}
-                          class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
-                        >
-                          Entrar
-                          <ArrowRight class="w-4 h-4" />
-                        </button>
-                        {#if showSyllabusButton}
-                          <button
-                            onclick={() => onSyllabusClick(curso)}
-                            class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Ver programa"
-                          >
-                            <BookOpenCheck class="w-4 h-4" />
-                          </button>
-                        {/if}
-                      </div>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      {/if}
-    {:else}
-      <div class="text-center py-12 text-slate-500">
-        <p>No tienes cursos inscritos</p>
-      </div>
-    {/if}
-  {:else}
-    <!-- Vista plana sin agrupación -->
-    {#if cursosData.length === 0}
-      <div class="text-center py-12 text-slate-500">
-        <p>No tienes cursos inscritos</p>
-      </div>
-    {:else}
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <table class="w-full">
-          <tbody>
-            {#each cursosData as curso}
-              <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                <td class="px-6 py-4">
-                  <div>
-                    <p class="font-semibold text-slate-900">{curso.nombre}</p>
-                    <p class="text-sm text-slate-500">{curso.cod_curso}</p>
-                  </div>
-                </td>
-                <td class="px-6 py-4 text-sm text-slate-600">{curso.carrera_nombre || '—'}</td>
-                <td class="px-6 py-4 text-right">
-                  <div class="flex items-center justify-end gap-2">
-                    <button
-                      onclick={() => onCourseClick(curso)}
-                      class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
-                    >
-                      Entrar
-                      <ArrowRight class="w-4 h-4" />
-                    </button>
-                    {#if showSyllabusButton}
-                      <button
-                        onclick={() => onSyllabusClick(curso)}
-                        class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                        title="Ver programa"
-                      >
-                        <BookOpenCheck class="w-4 h-4" />
-                      </button>
-                    {/if}
-                  </div>
-                </td>
-              </tr>
+    {#each Object.entries(cursosAgrupados) as [titulo, cursos]}
+      {#if cursos.length > 0}
+
+        <section class="space-y-4">
+          <p class="text-xl font-semibold">
+            {titulo}
+          </p>
+
+          <div class="space-y-4">
+            {#each cursos as curso}
+              <CursoCard
+                {curso}
+                showSyllabusButton={false}
+                {onCourseClick}
+                {onSyllabusClick}
+              />
             {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
+          </div>
+        </section>
+
+      {/if}
+    {/each}
+
+  {:else}
+
+    <div class="space-y-4">
+      {#each cursosData as curso}
+        <CursoCard
+          {curso}
+          {showSyllabusButton}
+          {onCourseClick}
+          {onSyllabusClick}
+        />
+      {/each}
+    </div>
+
   {/if}
 </div>
