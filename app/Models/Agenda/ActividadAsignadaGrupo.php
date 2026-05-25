@@ -17,7 +17,7 @@ class ActividadAsignadaGrupo extends BaseActividadAsignadaGrupo
      */
     public function miembros()
     {
-        return $this->hasMany(IntegranteGrupo::class, 'grupo', 'grupo');
+        return $this->hasMany(IntegranteGrupo::class, 'id_actividad_asignada_grupo', 'id_actividad_asignada_grupo');
     }
 
     /**
@@ -25,7 +25,7 @@ class ActividadAsignadaGrupo extends BaseActividadAsignadaGrupo
      */
     public function entregas()
     {
-        return $this->hasMany(Agenda::class, 'grupo', 'grupo');
+        return $this->hasMany(Agenda::class, 'id_actividad_asignada_grupo', 'id_actividad_asignada_grupo');
     }
 
     /**

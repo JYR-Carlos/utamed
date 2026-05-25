@@ -1115,12 +1115,12 @@ class DocenteActivityController extends Controller
 
         // Grupos donde el estudiante es integrante, dentro del curso
         $gruposIds = DB::table('agenda.integrante_grupo as ig')
-            ->join('agenda.actividad_asignada_grupo as aag', 'aag.grupo', '=', 'ig.grupo')
+            ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'ig.id_actividad_asignada_grupo')
             ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
             ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
             ->where('ig.id_estudiante', $idEstudiante)
             ->where('c.id_curso', $curso->id_curso)
-            ->pluck('ig.grupo');
+            ->pluck('ig.id_actividad_asignada_grupo');
 
         if ($gruposIds->isEmpty()) {
             return response()->json([]);
@@ -1129,9 +1129,9 @@ class DocenteActivityController extends Controller
         $mensajes = DB::table('agenda.agenda as a')
             ->join('agenda.tipo_registro_agenda as t', 't.id_tipo_registro_agenda', '=', 'a.id_tipo_registro_agenda')
             ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
-            ->join('agenda.actividad_asignada_grupo as aag', 'aag.grupo', '=', 'a.grupo')
+            ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'a.id_actividad_asignada_grupo')
             ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
-            ->whereIn('a.grupo', $gruposIds)
+            ->whereIn('a.id_actividad_asignada_grupo', $gruposIds)
             ->whereIn('t.tipo', ['Mensaje al profesor', 'Feedback'])
             ->orderBy('a.fecha_envio', 'asc')
             ->select(
@@ -1165,7 +1165,7 @@ class DocenteActivityController extends Controller
         $grupoExiste = DB::table('agenda.actividad_asignada_grupo as aag')
             ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
             ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
-            ->where('aag.grupo', $grupo)
+            ->where('aag.id_actividad_asignada_grupo', $grupo)
             ->where('c.id_curso', $curso->id_curso)
             ->exists();
 
@@ -1182,11 +1182,11 @@ class DocenteActivityController extends Controller
         }
 
         DB::table('agenda.agenda')->insert([
-            'mensaje'                 => $validated['mensaje'],
-            'id_usuario_emisor'       => Auth::id(),
-            'grupo'                   => $grupo,
-            'id_tipo_registro_agenda' => $tipo->id_tipo_registro_agenda,
-            'fecha_envio'             => now(),
+            'mensaje'                    => $validated['mensaje'],
+            'id_usuario_emisor'          => Auth::id(),
+            'id_actividad_asignada_grupo' => $grupo,
+            'id_tipo_registro_agenda'    => $tipo->id_tipo_registro_agenda,
+            'fecha_envio'                => now(),
         ]);
 
         return response()->json(['success' => true]);
@@ -1207,7 +1207,7 @@ class DocenteActivityController extends Controller
         }
 
         // Verificar que el grupo pertenece a la actividad
-        $grupoExiste = ActividadAsignadaGrupo::where('grupo', $grupo)
+        $grupoExiste = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
             ->exists();
 
@@ -1218,7 +1218,7 @@ class DocenteActivityController extends Controller
         $mensajes = DB::table('agenda.agenda as a')
             ->join('agenda.tipo_registro_agenda as t', 't.id_tipo_registro_agenda', '=', 'a.id_tipo_registro_agenda')
             ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
-            ->where('a.grupo', $grupo)
+            ->where('a.id_actividad_asignada_grupo', $grupo)
             ->whereIn('t.tipo', ['Mensaje al profesor', 'Feedback'])
             ->orderBy('a.fecha_envio', 'asc')
             ->select(
