@@ -1,9 +1,10 @@
 <script lang="ts">
+  import cursos from '@/routes/admin/cursos';
   import CursoCard from './cursoCard.svelte'
 
   interface Props {
     cursosData?: any[];
-    groupBySemestre?: boolean;
+    tituloSemestre?: string;
     showSyllabusButton?: boolean;
     onCourseClick?: (curso: any) => void;
     onSyllabusClick?: (curso: any) => void;
@@ -11,65 +12,36 @@
 
   let {
     cursosData = [],
-    groupBySemestre = false,
+    tituloSemestre = "",
     showSyllabusButton = true,
     onCourseClick = () => {},
     onSyllabusClick = () => {},
   }: Props = $props();
 
-  const cursosAgrupados = $derived(
-    groupBySemestre
-      ? {
-          'Primer Semestre': cursosData.filter(
-            (c) => (c.semestre_real ?? 1) === 1
-          ),
-          'Segundo Semestre': cursosData.filter(
-            (c) => (c.semestre_real ?? 1) === 2
-          ),
-        }
-      : null
-  );
 </script>
 
 <div class="space-y-6 px-20">
 
-  {#if cursosAgrupados}
-
-    {#each Object.entries(cursosAgrupados) as [titulo, cursos]}
-      {#if cursos.length > 0}
-
-        <section class="space-y-4">
-          <p class="text-xl font-semibold">
-            {titulo}
-          </p>
-
-          <div class="space-y-4">
-            {#each cursos as curso}
-              <CursoCard
-                {curso}
-                showSyllabusButton={false}
-                {onCourseClick}
-                {onSyllabusClick}
-              />
-            {/each}
-          </div>
+  {#if cursosData.length > 0}
+    <p class="text-xl font-semibold">
+      {tituloSemestre}
+    </p>
+    {#each cursosData as cursos} 
+      <section class="space-y-4">
+          <CursoCard
+            curso={cursos}
+            {showSyllabusButton}
+            {onCourseClick}
+            {onSyllabusClick}
+          />
         </section>
-
-      {/if}
     {/each}
 
   {:else}
 
-    <div class="space-y-4">
-      {#each cursosData as curso}
-        <CursoCard
-          {curso}
-          {showSyllabusButton}
-          {onCourseClick}
-          {onSyllabusClick}
-        />
-      {/each}
-    </div>
+    <p class="mx-auto text-center my-auto text-xl font-bold"> 
+      No tienes cursos en este semestre. 
+    </p>
 
   {/if}
 </div>

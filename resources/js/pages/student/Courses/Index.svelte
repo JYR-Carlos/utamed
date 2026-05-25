@@ -40,14 +40,21 @@
   function handleCourseClick(curso: Curso) {
     router.visit(`/estudiante/cursos/${curso.id_curso}`);
   }
+
+  function getTituloSemestre(index: string): string {
+    if (!index) {
+      return "Mostrando Cursos"
+    }
+    return index === "1" ? "1er Semestre" : "2do Semestre"
+  }
 </script>
 
 <StudentLayout {breadcrumbs}>
   <CursoListAlumno
     cursosData={cursos}
-    groupBySemestre={true}
+    tituloSemestre={getTituloSemestre(semestre+"")}
     showSyllabusButton={true}
-    onCourseClick={handleCourseClick}
+    onCourseClick={() => console.log(semestre, agno)}
     onSyllabusClick={handleSyllabusClick}
   />
 </StudentLayout>
