@@ -1,6 +1,6 @@
 <script lang="ts">
   import StudentLayout from '@/layouts/StudentLayout.svelte';
-  import type { BreadcrumbItem } from '@/types';
+  import type { BreadcrumbItem, Curso } from '@/types';
   import { Link } from '@inertiajs/svelte';
   import { ArrowLeft, BookOpen, Download, User, Award, Clock, ExternalLink } from 'lucide-svelte';
 
@@ -30,20 +30,8 @@
   }
 
   interface Props {
-    curso: {
-      id_curso: number;
-      nombre: string;
-      cod_curso: string;
-      asignatura?: {
-        nombre?: string;
-        creditos_sct?: number;
-        horas_catedra?: number;
-        horas_taller?: number;
-        horas_laboratorio?: number;
-      } | null;
-      carrera?: { nombre?: string } | null;
-    };
-    programa: {
+    curso?: Curso | null;
+    programa?: {
       id_programa: number;
       version_programa: string;
       estado: string;
@@ -155,32 +143,7 @@
   }
 </script>
 
-<StudentLayout {breadcrumbs}>
-  <div class="min-h-screen bg-gray-50">
-    <!-- Top Navigation -->
-    <div class="sticky top-0 z-10 bg-white border-b border-gray-200 print:hidden">
-      <div class="max-w-5xl mx-auto px-8 py-4">
-        <div class="flex items-center justify-between">
-          <Link
-            href={backUrl}
-            class="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors"
-          >
-            <ArrowLeft class="w-4 h-4" />
-            Volver al Curso
-          </Link>
-
-          <button
-            onclick={() => window.print()}
-            class="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
-          >
-            <Download class="w-4 h-4" />
-            Descargar PDF
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Main Content -->
+<!-- Main Content -->
     <div class="max-w-5xl mx-auto px-8 py-12">
       <!-- Document Header -->
       <div class="mb-12">
@@ -490,5 +453,3 @@
         </div>
       {/if}
     </div>
-  </div>
-</StudentLayout>

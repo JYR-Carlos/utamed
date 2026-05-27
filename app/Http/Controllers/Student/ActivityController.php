@@ -171,19 +171,19 @@ class ActivityController extends Controller
         return Inertia::render('student/Activities/Index', [
             "cod_curso" => $curso->cod_curso,
             "nombre_curso" => $curso->nombre,
-            "cod_actividad" => $actividad->id_actividad ?? '1001?',
-            "nombre_actividad" => $actividad->nombre ?? 'Nombre X',
+            "cod_actividad" => $actividad->id_actividad ?? 'DM00k',
+            "nombre_actividad" => $actividad->nombre ?? 'Tarea 1: Entendiendo UTAMED',
             "descripcion" => $actividad->descripcion ?? "Descripción detallada de la actividad. Esta actividad forma parte del componente de evaluación del curso.",
             "fecha_limite" => $actividad->fecha_limite ?? '30/05/2026',
             "es_sumativa" => true, //$actividad->tipo_actividad === 'SUMATIVA' || false,
             "trae_archivo" => true,//$actividad->tipo_entrega === 'CON_ARCHIVO' || false,
             "entrega_obligatoria" => true,//$actividad->tipo_entrega !== 'SIN_ENTREGA' || false,
-            "ultima_nota" => 4.5, //$asignado?->nota_individual ?? $grupo?->nota,
+            "ultima_nota" => null, //$asignado?->nota_individual ?? $grupo?->nota,
             "entradas" => [
                 ["id" => 1],
                 ["id" => 2],
             ],
-            "ultimo_estado" => 'REPROBADO' //$estadoLabel,
+            "ultimo_estado" => 'disponible' //$estadoLabel,
         ]);
     }
 }

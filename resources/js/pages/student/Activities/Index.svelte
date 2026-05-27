@@ -6,6 +6,9 @@
   import { ChevronLeft } from 'lucide-svelte';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaView from './Agenda/Rubrica.svelte';
+  import Entrega from './Agenda/Entrega.svelte';
+  import Enunciado from './Agenda/Enunciado.svelte';
+  import Informaciones from './Agenda/Informaciones.svelte';
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/estudiante/dashboard' },
@@ -43,16 +46,47 @@
     entradas,
   }: Props = $props();
 
+  // estado mock local
+  let estadoActual = $state(ultimo_estado);
+  let notaActual = $state(ultima_nota);
+
+  let showEnunciadoModal = $state(false);
+  function toggleEnunciadoModal() {
+    showRubricaModal = false;
+    showEntregaModal = false;
+    showEnunciadoModal = !showEnunciadoModal;
+    estadoActual = "pendiente"
+  }
+
   let showAgendaModal = $state(false);
   function toggleAgendaModal() {
     showRubricaModal = false;
+    showEntregaModal = false;
     showAgendaModal = !showAgendaModal;
+    estadoActual = "aprobado"
+    notaActual = 6.7
   }
 
   let showRubricaModal = $state(false);
   function toggleRubricaModal() {
     showAgendaModal = false;
+    showEntregaModal = false;
     showRubricaModal = !showRubricaModal;
+  }
+
+  let showEntregaModal = $state(false);
+  function toggleEntregaModal() {
+    showAgendaModal = false;
+    showRubricaModal = false;
+    showEntregaModal = !showEntregaModal;
+  }
+
+  let showInfoModal = $state(false);
+  function toggleInfoModal() {
+    showAgendaModal = false;
+    showRubricaModal = false;
+    showEntregaModal = false;
+    showInfoModal = !showInfoModal
   }
 
   const rubricaEjemplo = {
@@ -202,7 +236,7 @@
 <StudentLayout {breadcrumbs}>
   <div class="px-4 sm:px-6 md:px-10 lg:px-20 bg-white relative">
     <div
-      class="w-full flex flex-col lg:flex-row items-start lg:items-center gap-4 sm:gap-6 lg:gap-20 mb-6"
+      class="w-full flex flex-col justify-between lg:flex-row items-start lg:items-center gap-4 sm:gap-6 lg:gap-20 mb-6"
     >
       <button
         class="flex items-center px-4 sm:px-6 py-1 sm:py-4 bg-primary text-secondary hover:text-primary hover:bg-secondary transition-colors border-b border-gray-200 rounded-3xl shrink-0"
@@ -213,9 +247,16 @@
       </button>
 
       <p class="text-base sm:text-xl md:text-2xl font-semibold wrap-break-word leading-snug">
-        Actividad: {cod_actividad}
+        {cod_actividad}
         {nombre_actividad}
       </p>
+
+      <button
+        class="rounded-xl border px-4 py-2 text-sm font-medium transition hover:bg-gray-100"
+        onclick={toggleInfoModal}
+      >
+        Instrucciones
+      </button>
     </div>
 
     <div class="w-full grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 items-start">
@@ -245,6 +286,7 @@
           {#if trae_archivo}
             <button
               class="w-full px-4 sm:px-6 md:px-8 py-3 sm:py-4 rounded-lg border transition-all bg-primary text-secondary hover:bg-secondary hover:text-primary flex items-center justify-between gap-4 text-sm sm:text-lg lg:text-xl font-semibold"
+              onclick={toggleEnunciadoModal}
             >
               <p>Ver Enunciado</p>
 
@@ -304,7 +346,7 @@
           class="col-span-4 w-full rounded-3xl bg-secondary border-2 p-4 sm:p-6 lg:p-8 mb-6 sm:mb-10"
         >
           <p class="w-full text-sm font-semibold text-primary mb-4">
-            Estado: {ultimo_estado?.toLocaleUpperCase()}
+            Estado: {estadoActual?.toLocaleUpperCase()}
           </p>
 
           <!-- Grid botones -->
@@ -335,7 +377,7 @@
             <!-- BOTON ENVÍO -->
             <button
               class="w-full px-4 sm:px-6 md:px-8 py-3 sm:py-4 rounded-lg border transition-all bg-primary text-secondary hover:bg-secondary hover:text-primary flex items-center justify-between gap-4 text-sm sm:text-lg lg:text-xl font-semibold"
-              onclick={toggleAgendaModal}
+              onclick={toggleEntregaModal}
             >
               <p>Agregar Entrega</p>
 
@@ -354,15 +396,24 @@
                 />
               </svg>
             </button>
-
-            
           </div>
           <div class="col-span-4">
-              <ActividadInteraccion {es_sumativa} {ultima_nota} {ultimo_estado} />
-            </div>
+            <ActividadInteraccion {es_sumativa} ultima_nota = {notaActual} ultimo_estado={estadoActual} />
+          </div>
         </div>
       </div>
     </div>
+
+    {#if showEnunciadoModal}
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50 transition-opacity overflow-y-auto">
+        <Enunciado 
+          onCerrar={toggleEnunciadoModal}
+          url_archivo="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+          nombre_archivo="Instrucciones_Proyecto"
+          tipo_archivo="word" 
+        />
+      </div>
+    {/if}
 
     {#if showAgendaModal}
       <div
@@ -410,10 +461,38 @@
         </div>
       </div>
     {/if}
+
+    {#if showEntregaModal}
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50 transition-opacity overflow-y-auto"
+      >
+        <div class="w-full max-w-2xl">
+          <Entrega
+            onCerrar={toggleEntregaModal}
+            onEntregaEnviada={(data: any) => {
+              console.log('Entrega enviada:', data);
+              showEntregaModal = false;
+              estadoActual = "enviado"
+            }}
+            {cod_curso}
+            {nombre_curso}
+            {cod_actividad}
+            {nombre_actividad}
+            {entrega_obligatoria}
+          />
+        </div>
+      </div>
+    {/if}
   </div></StudentLayout
 >
+<Informaciones
+  open={showInfoModal}
+  onClose={toggleInfoModal}
+/>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && (showAgendaModal = false)} />
+<svelte:window
+  onkeydown={(e) => e.key === 'Escape' && ((showAgendaModal = false), (showEntregaModal = false))}
+/>
 
 <style>
   @keyframes slide-in {
@@ -432,4 +511,3 @@
     animation: slide-in 0.25s ease-out;
   }
 </style>
-

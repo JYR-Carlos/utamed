@@ -1,24 +1,8 @@
 <script lang="ts">
   import StudentLayout from '@/layouts/StudentLayout.svelte';
-  import type { BreadcrumbItem } from '@/types';
+  import type { BreadcrumbItem, Curso } from '@/types';
   import { router } from '@inertiajs/svelte';
   import CursoListAlumno from '@/modules/resources/curso/components/cursoListAlumno.svelte';
-
-  interface Curso {
-    id_curso: number;
-    nombre: string;
-    cod_curso: string;
-    cod_asignatura: string;
-    asignatura_nombre: string;
-    carrera_nombre: string;
-    imagen_url: string;
-    fecha_inicio: string;
-    fecha_fin?: string;
-    semestre_real?: number;
-    agno_real?: number;
-    letra_grupo?: string;
-    total_estudiantes?: number;
-  }
 
   interface Props {
     cursos: Curso[];
@@ -54,7 +38,7 @@
     cursosData={cursos}
     tituloSemestre={getTituloSemestre(semestre+"")}
     showSyllabusButton={true}
-    onCourseClick={() => console.log(semestre, agno)}
+    onCourseClick={handleCourseClick}
     onSyllabusClick={handleSyllabusClick}
   />
 </StudentLayout>

@@ -17,4 +17,14 @@ export * from './permissions';
 export * from './controllers';
 
 // Re-export global types
-export type { BreadcrumbItem, NavItem, PageProps, SharedAuth, SidebarCourse, User } from './index.d';
+export type { 
+  BreadcrumbItem, 
+  NavItem, 
+  PageProps, 
+  SharedAuth, 
+  SidebarCourse, 
+  User,
+  Curso,
+  Asignatura,
+  Carrera,
+} from './index.d';

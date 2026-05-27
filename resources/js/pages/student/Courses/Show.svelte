@@ -1,11 +1,12 @@
 <script lang="ts">
   import StudentLayout from '@/layouts/StudentLayout.svelte';
-  import type { BreadcrumbItem } from '@/types';
+  import type { BreadcrumbItem, Curso } from '@/types';
   import { ArrowLeft, PlayCircle, FileText, Bookmark, Share2, ScrollText } from 'lucide-svelte';
   import CourseSidebar from '@/components/student/CourseSidebar.svelte';
   import ResourceCard from '@/components/student/ResourceCard.svelte';
   import ActividadesView from '../Activities/ActividadesView.svelte';
   import BibsIndex from './Bibs/Index.svelte';
+  import Syllabus from './Syllabus.svelte';
 
   interface Actividad {
     id_actividad: number;
@@ -19,10 +20,7 @@
   }
 
   interface Props {
-    curso?: {
-      id_curso?: number;
-      nombre?: string;
-    };
+    curso?: Curso;
     actividades?: Actividad[];
   }
 
@@ -31,14 +29,15 @@
   const id_curso = $derived(curso?.id_curso || 0);
 
   let activeModuleId = $state('module-1-2');
-  let activeView = $state<'actividades' | 'bibliografias'>('actividades');
+  let activeView = $state<'principal' | 'bibliografias'>('principal');
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Dashboard', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
-    { title: 'curso.nombre', href: '' },
+    { title: curso?.nombre ?? 'Curso', href: '' }, 
   ]);
 
+  // Estados de los filtros
   let filterSumativa = $state(false);
   let filterEntrega = $state(false);
   let filterGrupal = $state(false);
@@ -67,8 +66,18 @@
     },
   ];
 
-  // Mostrar actividades reales o ejemplos si no hay
-  const actividadesAMostrar = $derived(actividades.length > 0 ? actividades : actividadesEjemplo);
+  const actividadesBase = $derived(actividades.length > 0 ? actividades : actividadesEjemplo);
+
+
+  const actividadesFiltradas = $derived(
+    actividadesBase.filter((actividad) => {
+      const cumpleSumativa = !filterSumativa || actividad.es_sumativa;
+      const cumpleEntrega = !filterEntrega || actividad.con_entrega;
+      const cumpleGrupal = !filterGrupal || actividad.es_grupal;
+
+      return cumpleSumativa && cumpleEntrega && cumpleGrupal;
+    }),
+  );
 
   function clearFilters() {
     filterSumativa = false;
@@ -76,6 +85,18 @@
     filterGrupal = false;
   }
 
+  function toggleFilter(type: string) {
+    if (type === 'sumativa') {
+      filterSumativa = !filterSumativa;
+    } else if (type === 'entrega') {
+      filterEntrega = !filterEntrega;
+    } else if (type === 'grupal') {
+      filterGrupal = !filterGrupal;
+    }
+  }
+
+  let showSyllabus = $state(false);
+  let showActividades = $state(true);
 </script>
 
 <svelte:head>
@@ -89,38 +110,56 @@
 
 <StudentLayout {breadcrumbs}>
   <div class="min-h-screen bg-white flex flex-col md:flex-row">
-    
-    <div class="w-full md:w-80 shrink-0 md:sticky  md:self-start">
+    <div class="w-full md:w-80 shrink-0 md:sticky md:self-start">
       <CourseSidebar
         units={[]}
         {activeModuleId}
         onModuleClick={(id: string) => {
-          activeView="actividades";
-          (activeModuleId = id)
+          activeView = 'principal';
+          activeModuleId = id;
         }}
-        onBibliografiaClick={() => activeView="bibliografias"}
+        onBibliografiaClick={() => (activeView = 'bibliografias')}
         courseName={curso?.nombre ?? 'Diseño de Interfaces Digitales'}
       />
     </div>
-     
+
     <!-- Content Views -->
     <div class="w-full md:flex-1">
-    
-      {#if activeView === 'actividades'}
-        <ActividadesView
-          {activeModuleId}
-          {id_curso}
-          {filterSumativa}
-          {filterEntrega}
-          {filterGrupal}
-          filtered={actividadesAMostrar}
-          onToggleFilter={() => {}}
-          onClearFilters={clearFilters}
-        />
+      {#if activeView === 'principal'}
+        <div class="space-y-4 px-2">
+          <button
+            class="px-4 py-2 rounded bg-primary text-secondary hover:bg-secondary hover:text-primary font-semibold focus:outline-none"
+            onclick={() => (showSyllabus = !showSyllabus)}
+            aria-expanded={showSyllabus}
+            aria-controls="syllabus-section"
+          >
+            {showSyllabus ? '▼' : '►'} Acerca de este curso
+          </button>
+          {#if showSyllabus}
+            <div id="syllabus-section" class="pl-4 border-gray-200 mb-2">
+              <Syllabus {curso} />
+            </div>
+          {/if}
+
+          
+          {#if showActividades}
+            <div id="actividades-section" class="pl-4 border-gray-200">
+              <ActividadesView
+                {activeModuleId}
+                {id_curso}
+                {filterSumativa}
+                {filterEntrega}
+                {filterGrupal}
+                filtered={actividadesFiltradas}
+                onToggleFilter={toggleFilter}
+                onClearFilters={clearFilters}
+              />
+            </div>
+          {/if}
+        </div>
       {:else if activeView === 'bibliografias'}
         <BibsIndex {id_curso} />
       {/if}
     </div>
-  </div>
-</StudentLayout>
-
+  </div></StudentLayout
+>

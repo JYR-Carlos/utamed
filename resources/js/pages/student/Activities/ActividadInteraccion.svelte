@@ -17,14 +17,15 @@
     }
     // si no es sumativa revisa los estados de retroalimentación
     const valorEstado = ultimo_estado?.toLowerCase();
-    if (valorEstado === 'pendiente')
-      return 'bg-yellow-100 text-yellow-900 border-yellow-300';
-    if (valorEstado === 'descargado' || valorEstado === 'enviado')
+    if (valorEstado === 'disponible')
+      return 'bg-purple-100 text-purple-900 border-purple-300';
+    if (valorEstado === 'pendiente' ||valorEstado === 'descargado' || valorEstado === 'enviado')
       return 'bg-blue-100 text-blue-900 border-blue-300';
     if (valorEstado === 'completado' || valorEstado === 'aprobado')
       return 'bg-green-100 text-green-900 border-green-300';
     if (valorEstado === 'reprobado')
       return 'bg-red-100 text-red-900 border-red-300';
+    
     return 'bg-primary text-secondary border-primary'; // color por defecto
   }
 </script>
@@ -32,8 +33,9 @@
 <div
   class="mx-auto sm:w-[50%] size-50 md:size-60 lg:size-80 border-4 rounded-2xl flex items-center justify-center font-bold mt-6 text-8xl {getColor()}"
 >
-  {#if es_sumativa}
-    {ultima_nota?.toPrecision(2) ?? 'N/A'}
+  {#if es_sumativa && ultima_nota}
+    {ultima_nota?.toPrecision(2) ?? ''}
+
   {:else}
     {#if ultimo_estado === 'reprobado'}
       <svg
@@ -52,36 +54,12 @@
         />
       </svg>
     {:else if ultimo_estado === 'pendiente'}
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke-width="1.5"
-        stroke="currentColor"
-        class="size-40"
-      >
-        <!--ICONO PENDIENTE-->
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.269 20.876L5.999 12zm9-2a3 3 0 11-6 0 3 3 0 016 0z"
-        />
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-40">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
       </svg>
-    {:else if ultimo_estado === 'por_enviar'}
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke-width="1.5"
-        stroke="currentColor"
-        class="size-40"
-      >
-        <!--ICONO POR ENVIAR-->
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M13 10V3L4 14h7v7l9-11h-7z"
-        />
+    {:else if ultimo_estado === 'descargado'}
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-40">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
       </svg>
     {:else}
       <svg
