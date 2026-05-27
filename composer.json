@@ -42,6 +42,11 @@
         }
     },
     "scripts": {
+        "db:soft-reset": [
+            "pwsh -ExecutionPolicy Bypass -File database-model\\scripts\\soft_reset.ps1",
+            "@php artisan migrate",
+            "@php artisan db:seed"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
