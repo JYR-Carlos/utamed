@@ -1,6 +1,8 @@
 <?php
 
-namespace App\Http\Requests\Archive;
+namespace App\Http\Requests\Archive\Extended;
+
+use App\Http\Requests\Archive\BaseArchiveRequest;
 
 use Illuminate\Validation\Rule;
 

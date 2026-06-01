@@ -4,7 +4,7 @@ namespace App\Http\Requests\Archive;
 
 use App\Models\Usuario\Contexto;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rules\File;
+use Illuminate\Support\Number;
 
 /**
  * BaseArchiveRequest
@@ -80,10 +80,10 @@ abstract class BaseArchiveRequest extends FormRequest
      */
     final public function rules(): array
     {
-        return array_merge(
-            $this->fileRules(),
-            $this->additionalRules()
-        );
+        return [
+            ...$this->fileRules(),
+            ...$this->additionalRules()
+        ];
     }
 
     /**
@@ -93,7 +93,7 @@ abstract class BaseArchiveRequest extends FormRequest
      */
     protected function fileRules(): array
     {
-        $fileConfig = config("files.{$this->fileType}");
+        $fileConfig = config("filetypes.{$this->fileType}");
 
         if (!$fileConfig) {
             return [
@@ -103,21 +103,22 @@ abstract class BaseArchiveRequest extends FormRequest
 
         $extensions = $fileConfig['extensions'] ?? [];
         $mimes = $fileConfig['mimes'] ?? [];
-        $maxSize = $fileConfig['max_size'] ?? config('files.global.max_file_size');
+        $maxSize = $fileConfig['max_size'] ?? config('filetypes.global.max_file_size');
+        $maxSizeKB = \intval($maxSize / 1024);
 
         $fileValidation = [
             'required',
             'file',
-            File::max($maxSize),
+            "max:{$maxSizeKB}",
         ];
 
         // Agregar validaciones si están habilitadas
-        if (config('files.global.enable_extension_validation', true) && !empty($extensions)) {
-            $fileValidation[] = File::extensions($extensions);
+        if (config('filetypes.global.enable_extension_validation', true) && !empty($extensions)) {
+            $fileValidation[] = 'extensions:' . implode(',', $extensions);
         }
 
-        if (config('files.global.enable_mime_validation', true) && !empty($mimes)) {
-            $fileValidation[] = File::mimes(...$mimes);
+        if (config('filetypes.global.enable_mime_validation', true) && !empty($mimes)) {
+            $fileValidation[] = 'mimes:' . implode(',', $mimes);
         }
 
         return [
@@ -138,9 +139,9 @@ abstract class BaseArchiveRequest extends FormRequest
      */
     public function messages(): array
     {
-        $fileConfig = config("files.{$this->fileType}");
+        $fileConfig = config("filetypes.{$this->fileType}");
         $extensions = implode(', ', $fileConfig['extensions'] ?? []);
-        $maxSize = size_for_humans($fileConfig['max_size'] ?? config('files.global.max_file_size'));
+        $maxSize = Number::fileSize($fileConfig['max_size'] ?? config('filetypes.global.max_file_size'));
 
         return array_merge([
             "{$this->fileField}.required" => "El archivo es requerido.",
@@ -213,7 +214,7 @@ abstract class BaseArchiveRequest extends FormRequest
      */
     protected function getFileConfig(): array
     {
-        return config("files.{$this->fileType}", []);
+        return (array) config("files.{$this->fileType}", []);
     }
 
     /**

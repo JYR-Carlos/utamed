@@ -2,24 +2,55 @@
 
 namespace App\Support;
 
-use \Illuminate\Http\UploadedFile;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Number;
 
 /**
  * FileValidationHelpers
  * 
  * Helpers para validación y manipulación de archivos.
+ * 
+ * ⚠️  IMPORTANTE: Usar SOLO cuando FormRequests no sean viables
+ * 
+ * En controladores, SIEMPRE preferir inyectar un FormRequest:
+ * ```php
+ * class StoreVideoController {
+ *     public function store(VideoRequest $request) {
+ *         // Validación automática + segura
+ *         $file = $request->getFile();
+ *     }
+ * }
+ * ```
+ * 
+ * Los helpers son SOLO para:
+ * - Servicios (validación programática)
+ * - Comandos Artisan (batch processing)
+ * - Jobs/Queues
+ * - Lógica no-HTTP (cuando no hay FormRequest disponible)
+ * 
+ * Ejemplo correcto en Servicio:
+ * ```php
+ * class VideoProcessingService {
+ *     public function process(UploadedFile $file) {
+ *         $result = FileValidationHelpers::validateFile($file, 'video');
+ *         if (!$result['valid']) {
+ *             throw new ValidationException(implode(', ', $result['errors']));
+ *         }
+ *     }
+ * }
+ * ```
  */
 class FileValidationHelpers
 {
     /**
      * Obtener configuración de un tipo de archivo.
      * 
-     * @param string $fileType Clave del tipo de archivo en config('files')
+     * @param string $fileType Clave del tipo de archivo en config('filetypes')
      * @return array|null Configuración del tipo o null si no existe
      */
     public static function getFileTypeConfig(string $fileType): ?array
     {
-        return config("files.{$fileType}");
+        return config("filetypes.{$fileType}");
     }
 
     /**
@@ -31,7 +62,7 @@ class FileValidationHelpers
      */
     public static function isFileTypeValid(UploadedFile $file, string $fileType): bool
     {
-        $fileConfig = config("files.{$fileType}");
+        $fileConfig = config("filetypes.{$fileType}");
         
         if (!$fileConfig) {
             return false;
@@ -43,7 +74,7 @@ class FileValidationHelpers
         $extensions = array_map('strtolower', $fileConfig['extensions'] ?? []);
         $mimes = $fileConfig['mimes'] ?? [];
 
-        return in_array($extension, $extensions) && in_array($mimeType, $mimes);
+        return \in_array($extension, $extensions) && \in_array($mimeType, $mimes);
     }
 
     /**
@@ -79,7 +110,7 @@ class FileValidationHelpers
     public static function getMaxFileSize(string $fileType): int
     {
         $config = self::getFileTypeConfig($fileType);
-        return $config['max_size'] ?? config('files.global.max_file_size', 52428800);
+        return $config['max_size'] ?? config('filetypes.global.max_file_size', 52428800);
     }
 
     /**
@@ -97,7 +128,7 @@ class FileValidationHelpers
     /**
      * Detectar el tipo de archivo basándose en su extensión.
      * 
-     * Usa los aliases definidos en config('files.aliases').
+     * Usa los aliases definidos en config('filetypes.aliases').
      * 
      * @param string $extension Extensión del archivo (sin punto)
      * @return string|null Tipo de archivo o null si no es reconocido
@@ -105,7 +136,7 @@ class FileValidationHelpers
     public static function detectFileTypeByExtension(string $extension): ?string
     {
         $extension = strtolower($extension);
-        $aliases = config('files.aliases', []);
+        $aliases = config('filetypes.aliases', []);
 
         // Buscar en aliases primero
         if (isset($aliases[$extension])) {
@@ -113,9 +144,9 @@ class FileValidationHelpers
         }
 
         // Si no encuentra en aliases, buscar en los tipos
-        foreach (config('files') as $typeKey => $typeConfig) {
-            if (is_array($typeConfig) && isset($typeConfig['extensions'])) {
-                if (in_array($extension, array_map('strtolower', $typeConfig['extensions']))) {
+        foreach ((array) config('filetypes') as $typeKey => $typeConfig) {
+            if (\is_array($typeConfig) && isset($typeConfig['extensions'])) {
+                if (\in_array($extension, array_map('strtolower', $typeConfig['extensions']))) {
                     return $typeKey;
                 }
             }
@@ -127,6 +158,10 @@ class FileValidationHelpers
     /**
      * Obtener el FormRequest recomendado para un tipo de archivo.
      * 
+     * ⚠️  Este método es útil solo en contextos no-HTTP donde necesitas
+     * seleccionar dinámicamente qué FormRequest usar, pero en controladores
+     * siempre inyecta el FormRequest directamente.
+     * 
      * @param string $fileType Tipo de archivo
      * @return string Clase del FormRequest
      * @throws \InvalidArgumentException Si no hay FormRequest para el tipo
@@ -134,17 +169,17 @@ class FileValidationHelpers
     public static function getFormRequestClass(string $fileType): string
     {
         $mapping = [
-            'video' => 'App\\Http\\Requests\\Archive\\Extended\\VideoRequest'::class,
-            'image' => 'App\\Http\\Requests\\Archive\\Extended\\ImageRequest'::class,
-            'compressed' => 'App\\Http\\Requests\\Archive\\Extended\\CompressedFileRequest'::class,
-            'word_document' => 'App\\Http\\Requests\\Archive\\Extended\\WordDocumentRequest'::class,
-            'presentation' => 'App\\Http\\Requests\\Archive\\Extended\\PresentationDocumentRequest'::class,
-            'spreadsheet' => 'App\\Http\\Requests\\Archive\\Extended\\SpreadsheetRequest'::class,
-            'pdf' => 'App\\Http\\Requests\\Archive\\Extended\\PdfRequest'::class,
-            'link' => 'App\\Http\\Requests\\Archive\\Extended\\LinkRequest'::class,
-            'media' => 'App\\Http\\Requests\\Archive\\Extended\\MediaRequest'::class,
-            'raw_art' => 'App\\Http\\Requests\\Archive\\Extended\\RawArtRequest'::class,
-            'document' => 'App\\Http\\Requests\\Archive\\Extended\\BaseArchiveRequest'::class, // Fallback
+            'video'         => \App\Http\Requests\Archive\Extended\VideoRequest::class,
+            'image'         => \App\Http\Requests\Archive\Extended\ImageRequest::class,
+            'compressed'    => \App\Http\Requests\Archive\Extended\CompressedFileRequest::class,
+            'word_document' => \App\Http\Requests\Archive\Extended\WordDocumentRequest::class,
+            'presentation'  => \App\Http\Requests\Archive\Extended\PresentationDocumentRequest::class,
+            'spreadsheet'   => \App\Http\Requests\Archive\Extended\SpreadsheetRequest::class,
+            'pdf'           => \App\Http\Requests\Archive\Extended\PdfRequest::class,
+            'link'          => \App\Http\Requests\Archive\Extended\LinkRequest::class,
+            'media'         => \App\Http\Requests\Archive\Extended\MediaRequest::class,
+            'raw_art'       => \App\Http\Requests\Archive\Extended\RawArtRequest::class,
+            'document'      => \App\Http\Requests\Archive\BaseArchiveRequest::class,
         ];
 
         if (!isset($mapping[$fileType])) {
@@ -160,6 +195,26 @@ class FileValidationHelpers
      * Validar que un archivo cumple con los requisitos de un tipo.
      * 
      * Realiza validaciones completas: extensión, MIME type, tamaño.
+     * 
+     * ⚠️  NO USAR EN CONTROLADORES. Si es posible, inyecta un FormRequest:
+     * 
+     * ❌ Incorrecto (en controlador):
+     * ```php
+     * $result = FileValidationHelpers::validateFile($request->file('video'), 'video');
+     * ```
+     * 
+     * ✅ Correcto (en controlador):
+     * ```php
+     * public function store(VideoRequest $request) { // Validación automática
+     *     $file = $request->getFile();
+     * }
+     * ```
+     * 
+     * ✅ Correcto (en Servicio/Job donde no hay FormRequest):
+     * ```php
+     * $result = FileValidationHelpers::validateFile($file, 'video');
+     * if (!$result['valid']) throw new Exception(...);
+     * ```
      * 
      * @param \Illuminate\Http\UploadedFile $file Archivo a validar
      * @param string $fileType Tipo de archivo esperado
@@ -181,7 +236,7 @@ class FileValidationHelpers
         if ($file->getSize() > $config['max_size']) {
             $errors[] = sprintf(
                 'El archivo excede el tamaño máximo de %s',
-                size_for_humans($config['max_size'])
+                Number::fileSize($config['max_size'])
             );
         }
 
