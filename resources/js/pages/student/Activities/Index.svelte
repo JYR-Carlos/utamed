@@ -63,6 +63,8 @@
     { title: nombre_actividad, href: '' },
   ]);
 
+  let stripTone = 'pass';
+
   let showRubricaModal = $state(false);
   let showAgendaModal = $state(false);
 
@@ -309,7 +311,7 @@
                   <line x1="8" y1="2" x2="8" y2="6" />
                   <line x1="3" y1="10" x2="21" y2="10" />
                 </svg>
-                {formatDateLong(fecha_limite)}
+                {fecha_limite}
               </span>
             </div>
             <div class="detail-meta-item">

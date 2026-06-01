@@ -103,7 +103,6 @@ class CourseController extends Controller
             'rol'              => $rol,
             'tiene_programa'   => $tieneProg,
             'imagen_url'       => $curso->imagen_url ?? $default_img,
-            'imagen_url'       => $curso->imagen_url ?? $default_img,
         ];
     }
 
@@ -188,6 +187,17 @@ class CourseController extends Controller
             ];
         })->values();
 
+        $actividadesData = $actividades->map(fn (Actividad $actividad) => [
+            'id_actividad'    => $actividad->id_actividad,
+            'nombre'          => $actividad->nombre,
+            'es_sumativa'     => $actividad->tipo_actividad === 'SUMATIVA',
+            'con_entrega'     => $actividad->tipo_entrega !== 'SIN_ENTREGA',
+            'es_grupal'       => (bool) $actividad->es_grupal,
+            'max_integrantes' => $actividad->max_integrantes ?? 1,
+            'fecha_limite'    => $actividad->fecha_limite,
+            'visible'         => (bool) $actividad->visible,
+        ])->values();
+
         return Inertia::render('student/Courses/Show', [
             'curso' => [
                 'id_curso'          => $curso->id_curso,
@@ -197,6 +207,7 @@ class CourseController extends Controller
                 'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                 'semestre_real'     => $curso->semestre_real,
                 'agno_real'         => $curso->agno_real,
+                'unidades'          => $curso->unidades_real
             ],
             'actividades' => $actividadesData,
         ]);
