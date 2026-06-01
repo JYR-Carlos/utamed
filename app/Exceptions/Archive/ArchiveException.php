@@ -5,6 +5,18 @@ namespace App\Exceptions\Archive;
 use Exception;
 
 /**
+ * Enumeration of generic archive error types.
+ * Used for common, cross-cutting errors not specific to validation or compression.
+ */
+enum ArchiveErrorType: string
+{
+  case EMPTY_FILE = 'EMPTY_FILE';
+  case OPERATION_FAILED = 'OPERATION_FAILED';
+  case INVALID_ARCHIVE_ID = 'INVALID_ARCHIVE_ID';
+  case UNSPECIFIED = 'UNSPECIFIED';
+}
+
+/**
  * Base exception for all Archive service operations.
  * 
  * All specific archive exceptions inherit from this for unified error handling.
