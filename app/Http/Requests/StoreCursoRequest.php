@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Administrativo\Asignatura;
 use App\Models\Administrativo\Plan;
+use App\Models\Usuario\Docente;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -29,7 +30,27 @@ class StoreCursoRequest extends FormRequest
             'nombre' => 'nullable|string|max:255',
             'fecha_inicio'        => 'nullable|date',
             'indice_grupo'        => 'nullable|integer|min:1',
-            'id_docente_sugerido'               => 'required|integer|exists:docente,id_docente',
+            'id_docente_sugerido'               => [
+                'required',
+                'integer',
+                Rule::exists('docente', 'id_docente'),
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (!$value) {
+                        return;
+                    }
+
+                    $docenteValido = Docente::query()
+                        ->where('id_docente', (int) $value)
+                        ->whereHas('usuario', function ($q) {
+                            $q->where('esta_activo', true);
+                        })
+                        ->exists();
+
+                    if (!$docenteValido) {
+                        $fail('El docente seleccionado no tiene un usuario activo valido.');
+                    }
+                },
+            ],
             'id_tipo_componente_principal'      => 'required|integer|exists:tipo_componente,id_tipo_componente',
             'jefe_imparte_clases'               => 'nullable|boolean',
             'genera_acta'                       => 'nullable|boolean',

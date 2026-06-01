@@ -3,9 +3,10 @@
   import { router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
-  import { ChevronLeft, Plus, Trash2, UserPlus, X, Users } from 'lucide-svelte';
+  import { ChevronLeft, Plus, Trash2, UserPlus, X, Users, Pencil } from 'lucide-svelte';
   import AgendaDocente from './Agenda/AgendaDocente.svelte';
   import RubricaView from '../../student/Activities/Agenda/Rubrica.svelte';
+  import RubricaEditor from './RubricaEditor.svelte';
 
   // ─── Tipos ────────────────────────────────────────────────────────────────
   type Interaccion = {
@@ -24,8 +25,7 @@
   type GrupoData = {
     grupo: number;
     nota: number | null;
-    id_estado: number | null;
-    estado: { id_estado: number; titulo: string } | null;
+    estado_actividad_asignada: string | null;
     integrantes: { id_estudiante: number; nombre_completo: string }[];
   };
 
@@ -70,6 +70,7 @@
   let errorInteracciones = $state<string | null>(null);
 
   // ─── Gestión de grupos ────────────────────────────────────────────────────
+  let showRubricaEditor = $state(false);
   let showNuevoGrupo = $state(false);
   let seleccion = $state<Set<number>>(new Set());
   let nuevoGrupoLoading = $state(false);
@@ -232,13 +233,10 @@
   }
 
   function getEstadoColor(estado: string) {
-    const e = estado.toLowerCase();
-    if (e.includes('enviado') || e.includes('entregado'))
-      return 'bg-blue-100 text-blue-800 border-blue-300';
-    if (e.includes('pendiente')) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    if (e.includes('aprobado') || e.includes('completado'))
-      return 'bg-green-100 text-green-800 border-green-300';
-    if (e.includes('reprobado')) return 'bg-red-100 text-red-800 border-red-300';
+    const e = estado.toUpperCase();
+    if (e === 'ACTIVA') return 'bg-uta-blue/10 text-uta-blue border-uta-blue/30';
+    if (e === 'CERRADA') return 'bg-green-100 text-green-800 border-green-300';
+    if (e === 'PLANIFICADA') return 'bg-yellow-100 text-yellow-800 border-yellow-300';
     return 'bg-gray-100 text-gray-800 border-gray-300';
   }
 </script>
@@ -250,7 +248,7 @@
       class="w-full flex flex-col lg:flex-row items-start lg:items-center gap-4 sm:gap-6 lg:gap-20 mb-6"
     >
       <button
-        class="flex items-center px-4 sm:px-6 py-3 sm:py-4 bg-primary text-secondary hover:text-primary hover:bg-secondary transition-colors border-b border-gray-200 rounded-3xl shrink-0"
+        class="flex items-center px-4 sm:px-6 py-3 sm:py-4 bg-uta-blue text-white hover:bg-uta-blue-hover transition-colors rounded-2xl shrink-0"
         onclick={() => window.history.back()}
       >
         <ChevronLeft class="w-4 h-4 mr-2" />
@@ -265,12 +263,14 @@
     <div class="w-full grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 items-start">
       <!-- ── Columna izquierda: información de la actividad ── -->
       <div
-        class="flex flex-col w-full justify-center gap-6 lg:rounded-3xl lg:border-2 lg:px-10 lg:py-5"
+        class="flex flex-col w-full justify-center gap-6 lg:rounded-2xl lg:border lg:border-gray-200 lg:px-10 lg:py-5 lg:shadow-sm"
       >
-        <p class="text-start text-sm sm:text-base">Sobre esta Actividad</p>
+        <p class="text-start text-sm sm:text-base font-semibold text-uta-blue">
+          Sobre esta Actividad
+        </p>
 
         <div
-          class="text-sm font-semibold text-primary px-4 sm:px-6 md:px-8 py-4 rounded-3xl bg-secondary border-2 break-words"
+          class="text-sm text-slate-700 px-4 sm:px-6 md:px-8 py-4 rounded-2xl bg-uta-blue-light border border-uta-blue/15 break-words"
         >
           Descripción:
           <br />
@@ -287,7 +287,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
           {#if actividad.es_sumativa && rubrica}
             <button
-              class="w-full px-4 sm:px-6 md:px-8 py-3 sm:py-4 rounded-lg border transition-all bg-primary text-secondary hover:bg-secondary hover:text-primary flex items-center justify-between gap-4 text-sm sm:text-lg lg:text-xl font-semibold sm:col-span-2"
+              class="w-full px-4 sm:px-6 md:px-8 py-3 sm:py-4 rounded-xl border border-uta-blue/20 transition-all bg-uta-blue text-white hover:bg-uta-blue-hover flex items-center justify-between gap-4 text-sm sm:text-lg lg:text-xl font-semibold sm:col-span-2"
               onclick={toggleRubricaModal}
             >
               <p>Ver Rúbrica de la Actividad</p>
@@ -312,13 +312,25 @@
               </svg>
             </button>
           {/if}
+
+          {#if actividad.es_titular}
+            <button
+              class="w-full px-4 sm:px-6 md:px-8 py-3 sm:py-4 rounded-xl border border-uta-blue transition-all bg-white text-uta-blue hover:bg-uta-blue hover:text-white flex items-center justify-between gap-4 text-sm font-semibold sm:col-span-2"
+              onclick={() => (showRubricaEditor = true)}
+            >
+              <p>{rubrica ? 'Ver Rúbrica' : 'Crear Rúbrica'}</p>
+              <Pencil class="size-5 shrink-0" />
+            </button>
+          {/if}
         </div>
       </div>
 
       <!-- ── Columna derecha: grupos asignados ── -->
       <div class="flex flex-col w-full gap-4">
         <div class="flex justify-between items-center">
-          <p class="text-start text-sm sm:text-base">Grupos Asignados</p>
+          <p class="text-start text-sm sm:text-base font-semibold text-uta-blue">
+            Grupos Asignados
+          </p>
           <div class="flex items-center gap-2">
             <span class="text-xs text-gray-500 font-medium">{grupos.length} grupos</span>
             {#if actividad.es_grupal && actividad.es_titular}
@@ -328,7 +340,7 @@
                   seleccion = new Set();
                   nuevoGrupoError = null;
                 }}
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-secondary text-xs font-semibold rounded-xl hover:opacity-90 transition"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-uta-blue text-white text-xs font-semibold rounded-xl hover:bg-uta-blue-hover transition-colors"
               >
                 <Plus class="w-3.5 h-3.5" />
                 Nuevo Grupo
@@ -349,19 +361,19 @@
 
         {#each grupos as grupo}
           <div
-            class="flex flex-col w-full text-sm font-semibold text-primary px-4 sm:px-6 py-4 rounded-3xl bg-secondary border-2 gap-3"
+            class="flex flex-col w-full text-sm font-semibold text-slate-800 px-4 sm:px-6 py-4 rounded-2xl bg-white border border-gray-200 shadow-sm gap-3"
           >
             <!-- Número de grupo + estado + eliminar -->
             <div class="flex items-center justify-between gap-2">
               <p class="font-bold text-base">Grupo #{grupo.grupo}</p>
               <div class="flex items-center gap-2">
-                {#if grupo.estado}
+                {#if grupo.estado_actividad_asignada}
                   <span
                     class="text-[11px] font-bold px-3 py-1 rounded-full border {getEstadoColor(
-                      grupo.estado.titulo,
+                      grupo.estado_actividad_asignada,
                     )}"
                   >
-                    {grupo.estado.titulo.toUpperCase()}
+                    {grupo.estado_actividad_asignada.toUpperCase()}
                   </span>
                 {:else}
                   <span
@@ -402,7 +414,7 @@
               <div class="flex flex-wrap gap-2">
                 {#each grupo.integrantes as integrante}
                   <span
-                    class="inline-flex items-center gap-1 text-xs bg-white/70 border border-primary/20 px-2 py-1 rounded-full"
+                    class="inline-flex items-center gap-1 text-xs bg-gray-50 border border-uta-blue/20 px-2 py-1 rounded-full text-slate-700"
                   >
                     {integrante.nombre_completo}
                     {#if actividad.es_titular}
@@ -428,7 +440,7 @@
                 <div class="flex items-center gap-2 mt-1">
                   <select
                     bind:value={addingEstudianteId}
-                    class="flex-1 text-xs border rounded-lg px-2 py-1.5 bg-white text-gray-700"
+                    class="flex-1 text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-uta-blue focus:ring-2 focus:ring-uta-blue/20 transition-shadow"
                   >
                     <option value={0}>Seleccionar estudiante…</option>
                     {#each estudiantesParaGrupo(grupo.grupo) as e}
@@ -438,7 +450,7 @@
                   <button
                     onclick={() => agregarAGrupo(grupo.grupo)}
                     disabled={!addingEstudianteId || addingLoading}
-                    class="px-3 py-1.5 text-xs font-semibold bg-primary text-secondary rounded-lg hover:opacity-90 transition disabled:opacity-50"
+                    class="px-3 py-1.5 text-xs font-semibold bg-uta-blue text-white rounded-lg hover:bg-uta-blue-hover transition-colors disabled:opacity-50"
                   >
                     {addingLoading ? '…' : 'Agregar'}
                   </button>
@@ -462,7 +474,7 @@
                     addingEstudianteId = 0;
                     addingError = null;
                   }}
-                  class="inline-flex items-center gap-1.5 text-xs font-normal text-primary/70 hover:text-primary transition"
+                  class="inline-flex items-center gap-1.5 text-xs font-medium text-uta-blue/60 hover:text-uta-blue transition-colors"
                 >
                   <UserPlus class="w-3.5 h-3.5" />
                   Agregar estudiante
@@ -478,7 +490,7 @@
             >
               {#if actividad.trae_archivo}
                 <button
-                  class="w-full px-3 py-2 rounded-lg border transition-all bg-primary text-secondary hover:bg-secondary hover:text-primary flex items-center justify-between gap-2 text-xs font-semibold"
+                  class="w-full px-3 py-2 rounded-lg border border-uta-blue/20 transition-all bg-uta-blue text-white hover:bg-uta-blue-hover flex items-center justify-between gap-2 text-xs font-semibold"
                   onclick={() =>
                     window.open(
                       `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupo.grupo}/entregas`,
@@ -504,7 +516,7 @@
               {/if}
 
               <button
-                class="w-full px-3 py-2 rounded-lg border transition-all bg-primary text-secondary hover:bg-secondary hover:text-primary flex items-center justify-between gap-2 text-xs font-semibold"
+                class="w-full px-3 py-2 rounded-lg border border-uta-blue/20 transition-all bg-uta-blue text-white hover:bg-uta-blue-hover flex items-center justify-between gap-2 text-xs font-semibold"
                 onclick={() => abrirAgendaGrupo(grupo)}
               >
                 <p>Ver Agenda</p>
@@ -542,7 +554,7 @@
                 seleccion = new Set();
                 nuevoGrupoError = null;
               }}
-              class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-secondary text-sm font-semibold rounded-xl hover:opacity-90 transition"
+              class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-uta-blue text-white text-sm font-semibold rounded-xl hover:bg-uta-blue-hover transition-colors"
             >
               <Plus class="w-4 h-4" />
               Crear primer grupo
@@ -592,14 +604,14 @@
                   class="flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer hover:bg-gray-50 transition {seleccion.has(
                     e.id_estudiante,
                   )
-                    ? 'border-primary bg-primary/5'
+                    ? 'border-uta-blue bg-uta-blue/5'
                     : 'border-gray-200'}"
                 >
                   <input
                     type="checkbox"
                     checked={seleccion.has(e.id_estudiante)}
                     onchange={() => toggleSeleccion(e.id_estudiante)}
-                    class="accent-primary w-4 h-4 shrink-0"
+                    class="accent-[#002855] w-4 h-4 shrink-0"
                   />
                   <span class="text-sm text-gray-800">{e.nombre_completo}</span>
                 </label>
@@ -627,7 +639,7 @@
             <button
               onclick={crearGrupo}
               disabled={seleccion.size === 0 || nuevoGrupoLoading}
-              class="px-4 py-2 text-sm font-semibold bg-primary text-secondary rounded-xl hover:opacity-90 transition disabled:opacity-50"
+              class="px-4 py-2 text-sm font-semibold bg-uta-blue text-white rounded-xl hover:bg-uta-blue-hover transition-colors disabled:opacity-50"
             >
               {nuevoGrupoLoading ? 'Creando…' : 'Crear Grupo'}
             </button>
@@ -664,7 +676,7 @@
     >
       <div class="flex flex-col gap-4 w-full max-w-7xl bg-white rounded-4xl">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-sm text-primary">Rúbrica de la Actividad</h2>
+          <h2 class="text-sm font-semibold text-uta-blue">Rúbrica de la Actividad</h2>
           <button
             class="p-2 hover:bg-gray-200 rounded-full transition-colors flex items-center gap-2 group"
             onclick={toggleRubricaModal}
@@ -687,6 +699,14 @@
         {/if}
       </div>
     </div>
+  {/if}
+  {#if showRubricaEditor}
+    <RubricaEditor
+      {rubrica}
+      idCurso={curso.id_curso}
+      idActividad={actividad.id_actividad}
+      onClose={() => (showRubricaEditor = false)}
+    />
   {/if}
 </DocenteLayout>
 

@@ -460,7 +460,7 @@
             <!-- TAB: Mi Grupo -->
             {#if mainTab === 'grupo'}
               <div style="padding:22px 24px; flex:1;" class="space-y-4">
-                {#if estudiantesActivos.length > 3}
+                {#if estudiantesActivos.length > 0}
                   <div class="relative">
                     <Search
                       size={13}

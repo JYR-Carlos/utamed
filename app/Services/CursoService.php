@@ -10,6 +10,7 @@ use App\Models\Administrativo\AsignacionPlan;
 use App\Models\Usuario\Contexto;
 use App\Models\Usuario\Docente;
 use App\Models\Usuario\Rol;
+use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
@@ -301,10 +302,22 @@ class CursoService
     private function assignDocenteRolCurso(int $idDocente, int $idContextoCurso, bool $esTitular): void
     {
         try {
-            $docente = Docente::find($idDocente);
+            $docente = Docente::with('usuario')->find($idDocente);
             if (!$docente || !$docente->id_usuario) {
                 Log::warning('CursoService: No se pudo asignar rol Docente: docente no encontrado.', [
                     'id_docente' => $idDocente,
+                ]);
+                return;
+            }
+
+            $usuarioActivo = $docente->usuario
+                && $docente->usuario instanceof Usuario
+                && $docente->usuario->esta_activo;
+
+            if (!$usuarioActivo) {
+                Log::warning('CursoService: No se pudo asignar rol Docente: usuario asociado inexistente o inactivo.', [
+                    'id_docente' => $idDocente,
+                    'id_usuario' => $docente->id_usuario,
                 ]);
                 return;
             }

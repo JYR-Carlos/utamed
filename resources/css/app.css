@@ -58,6 +58,20 @@
     --color-brand: #2A66AC;
     --color-brand-hover: #1e4d8a;
     --color-brand-light: #EEF4FB;
+
+    /* ── Paleta Institucional UTA ────────────────────────────── */
+    --color-uta-blue: #002855;
+    /* Azul UTA primario */
+    --color-uta-blue-hover: #001f42;
+    /* Azul UTA hover */
+    --color-uta-blue-light: #e6edf5;
+    /* Azul UTA fondo suave */
+    --color-uta-red: #8A1538;
+    /* Granate UTA secundario */
+    --color-uta-red-hover: #6e1029;
+    /* Granate UTA hover */
+    --color-uta-red-light: #f5e8ec;
+    /* Granate UTA fondo suave */
 }
 
 /*
@@ -180,24 +194,25 @@
 
 /* Enhanced responsive font sizing for better readability on larger screens */
 @layer components {
+
     /* Small text (xs) - more visible on large screens */
     .text-xs {
         @apply text-xs md:text-xs lg:text-sm;
     }
-    
+
     /* Tables and list items */
     .table-cell,
     li {
         @apply text-sm md:text-sm lg:text-base;
     }
-    
+
     /* Buttons and interactive elements */
     button,
     [role="button"],
     a {
         @apply text-sm md:text-sm lg:text-base;
     }
-    
+
     /* Form labels and descriptions */
     label,
     .label {
@@ -219,6 +234,7 @@
 
 /* Media query adjustments for large displays (1920px+) */
 @media (min-width: 1920px) {
+
     body,
     html {
         font-size: 18px;

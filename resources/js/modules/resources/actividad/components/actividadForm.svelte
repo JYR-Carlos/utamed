@@ -41,7 +41,7 @@
   let formData = $state<Partial<Actividad>>({
     nombre: '',
     fecha_limite: '',
-    tipo_actividad: 1,
+    tipo_actividad: 'SUMATIVA',
     tipo_entrega: 'online',
     es_grupal: false,
     max_integrantes: 1,
@@ -61,7 +61,7 @@
         formData = {
           nombre: '',
           fecha_limite: '',
-          tipo_actividad: 1,
+          tipo_actividad: 'SUMATIVA',
           tipo_entrega: 'online',
           es_grupal: false,
           max_integrantes: 1,
@@ -120,6 +120,22 @@
       required
     />
     {#if errors.nombre}<p class="mt-1 text-xs text-red-600">{errors.nombre}</p>{/if}
+  </div>
+
+  <div class="mb-4">
+    <label for="tipo_actividad" class="block font-medium text-gray-700 mb-2 text-sm"
+      >Tipo de Actividad *</label
+    >
+    <select
+      id="tipo_actividad"
+      bind:value={formData.tipo_actividad}
+      class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100 transition-all"
+      required
+    >
+      <option value="SUMATIVA">Sumativa</option>
+      <option value="FORMATIVA">Formativa</option>
+    </select>
+    {#if errors.tipo_actividad}<p class="mt-1 text-xs text-red-600">{errors.tipo_actividad}</p>{/if}
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

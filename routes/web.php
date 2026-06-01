@@ -308,6 +308,8 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/integrantes/{asignado}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'removeIntegrante'])->name('cursos.actividades.integrantes.delete');
 
     // Gestión avanzada de grupos (nuevas funcionalidades)
+    Route::post('cursos/{curso}/rubrica', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'storeRubrica'])->name('cursos.rubrica.store');
+
     Route::post('cursos/{curso}/actividades/{actividad}/grupos-create', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'storeGroup'])->name('cursos.actividades.grupos.create');
     Route::post('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiante', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'addStudentToGroup'])->name('cursos.actividades.grupos.estudiante.add');
     Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiantes/{estudiante}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'removeStudentFromGroup'])->name('cursos.actividades.grupos.estudiante.remove');

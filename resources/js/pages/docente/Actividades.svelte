@@ -63,8 +63,30 @@
   let deletingActividad = $state<Actividad | null>(null);
   let formErrors = $state<Record<string, string>>({});
 
-  const flashError = $derived(($page.props as any).flash?.error as string | undefined);
-  const flashSuccess = $derived(($page.props as any).flash?.success as string | undefined);
+  let flashError = $state<string | undefined>(undefined);
+  let flashSuccess = $state<string | undefined>(undefined);
+
+  $effect(() => {
+    const err = ($page.props as any).flash?.error as string | undefined;
+    if (err) {
+      flashError = err;
+      const t = setTimeout(() => {
+        flashError = undefined;
+      }, 5000);
+      return () => clearTimeout(t);
+    }
+  });
+
+  $effect(() => {
+    const ok = ($page.props as any).flash?.success as string | undefined;
+    if (ok) {
+      flashSuccess = ok;
+      const t = setTimeout(() => {
+        flashSuccess = undefined;
+      }, 4000);
+      return () => clearTimeout(t);
+    }
+  });
 
   function openCreateModal() {
     editingActividad = null;

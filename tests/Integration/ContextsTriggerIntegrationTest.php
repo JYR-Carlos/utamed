@@ -429,7 +429,7 @@ class ContextsTriggerIntegrationTest extends TestCase
     $actividadId = DB::table('actividad')->insertGetId([
       'id_componente' => $componente->id_componente,
       'id_unidad' => $unidad->id_unidad,
-      'tipo_actividad' => 1,
+      'tipo_actividad' => 'SUMATIVA',
       'tipo_entrega' => 'DIGITAL',
       'visible' => true,
       'es_grupal' => false,
@@ -497,7 +497,7 @@ class ContextsTriggerIntegrationTest extends TestCase
     $actividadId = DB::table('actividad')->insertGetId([
       'id_componente' => $componente->id_componente,
       'id_unidad' => $unidad->id_unidad,
-      'tipo_actividad' => 1,
+      'tipo_actividad' => 'SUMATIVA',
       'tipo_entrega' => 'DIGITAL',
       'visible' => true,
       'es_grupal' => false,

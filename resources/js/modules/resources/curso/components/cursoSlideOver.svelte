@@ -50,10 +50,54 @@
   let savingFechas = $state(false);
   let fechasError = $state('');
   let fechasSuccess = $state(false);
+  let editingFechaBasico = $state(false);
+  let editingFechaSyllabus = $state(false);
+
+  const hasPrograma = $derived(
+    Boolean(curso?.has_programa || curso?.id_programa || curso?.programa_estado),
+  );
+
+  const programaEstado = $derived(curso?.programa_estado ?? null);
+
+  const basicoYaCreado = $derived.by(() => {
+    return (
+      programaEstado === 'BASICO_COMPLETO' ||
+      programaEstado === 'COMPLETO' ||
+      programaEstado === 'APROBADO' ||
+      programaEstado === 'PUBLICADO' ||
+      programaEstado === 'ENVIADO'
+    );
+  });
+
+  const completoYaCreado = $derived.by(() => {
+    return (
+      programaEstado === 'COMPLETO' ||
+      programaEstado === 'APROBADO' ||
+      programaEstado === 'PUBLICADO' ||
+      programaEstado === 'ENVIADO'
+    );
+  });
 
   function isoToInput(iso: string | null | undefined): string {
     if (!iso) return '';
     return iso.slice(0, 10);
+  }
+
+  function diasRestantes(dateStr: string): number {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(y, m - 1, d);
+    return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  function formatFechaLarga(dateStr: string): string {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-CL', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
   }
 
   // Reinicia la pestaña activa y los campos de fecha cada vez que se abre el panel
@@ -64,6 +108,8 @@
       fechaSyllabus = isoToInput(curso.fecha_limite_entrega_syllabus);
       fechasError = '';
       fechasSuccess = false;
+      editingFechaBasico = false;
+      editingFechaSyllabus = false;
     }
   });
 
@@ -83,6 +129,8 @@
         onSuccess: () => {
           savingFechas = false;
           fechasSuccess = true;
+          editingFechaBasico = false;
+          editingFechaSyllabus = false;
         },
         onError: (errors) => {
           savingFechas = false;
@@ -366,7 +414,7 @@
               <div class="min-w-0">
                 <p class="text-sm font-semibold text-gray-900">Programa Académico</p>
                 <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                  {#if curso.has_programa}
+                  {#if hasPrograma}
                     Programa en estado
                     <span class="font-medium capitalize">
                       {curso.programa_estado?.toLowerCase().replace('_', ' ') ?? 'disponible'}.
@@ -381,7 +429,7 @@
                 class="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition"
               >
                 <BookOpen size={13} />
-                {curso.has_programa ? 'Ver programa' : 'Crear programa'}
+                {hasPrograma ? 'Ver programa' : 'Crear programa'}
               </button>
             </div>
           </div>
@@ -394,43 +442,117 @@
               <Calendar size={12} />
               Fechas límite de entrega
             </p>
-            <div class="p-4 rounded-xl border border-gray-200 space-y-4">
-              <div class="space-y-1.5">
-                <label for="fecha-basico" class="text-xs font-medium text-gray-700">
-                  Básico (programa sin contenidos)
-                </label>
-                <input
-                  id="fecha-basico"
-                  type="date"
-                  bind:value={fechaBasico}
-                  class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+            {#if !completoYaCreado}
+              <div class="p-4 rounded-xl border border-gray-200 space-y-4">
+                <!-- Fecha básico -->
+                {#if !basicoYaCreado}
+                  <div class="space-y-1.5">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-medium text-gray-700"
+                        >Básico (programa sin contenidos)</span
+                      >
+                      {#if fechaBasico && !editingFechaBasico}
+                        <button
+                          onclick={() => (editingFechaBasico = true)}
+                          class="text-xs text-blue-600 hover:underline">Cambiar</button
+                        >
+                      {/if}
+                    </div>
+                    {#if fechaBasico && !editingFechaBasico}
+                      {@const dias = diasRestantes(fechaBasico)}
+                      <div
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200"
+                      >
+                        <p class="flex-1 text-xs text-gray-500">
+                          Vence el {formatFechaLarga(fechaBasico)}
+                        </p>
+                        <span
+                          class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold
+                          {dias < 0
+                            ? 'bg-red-100 text-red-700'
+                            : dias <= 7
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-green-100 text-green-700'}"
+                        >
+                          {dias < 0
+                            ? `Vencida hace ${Math.abs(dias)}d`
+                            : dias === 0
+                              ? 'Hoy'
+                              : `${dias} días`}
+                        </span>
+                      </div>
+                    {:else}
+                      <input
+                        id="fecha-basico"
+                        type="date"
+                        bind:value={fechaBasico}
+                        class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    {/if}
+                  </div>
+                {/if}
+
+                <!-- Fecha syllabus -->
+                <div class="space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium text-gray-700">Syllabus completo</span>
+                    {#if fechaSyllabus && !editingFechaSyllabus}
+                      <button
+                        onclick={() => (editingFechaSyllabus = true)}
+                        class="text-xs text-blue-600 hover:underline">Cambiar</button
+                      >
+                    {/if}
+                  </div>
+                  {#if fechaSyllabus && !editingFechaSyllabus}
+                    {@const dias = diasRestantes(fechaSyllabus)}
+                    <div
+                      class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200"
+                    >
+                      <p class="flex-1 text-xs text-gray-500">
+                        Vence el {formatFechaLarga(fechaSyllabus)}
+                      </p>
+                      <span
+                        class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold
+                        {dias < 0
+                          ? 'bg-red-100 text-red-700'
+                          : dias <= 7
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-green-100 text-green-700'}"
+                      >
+                        {dias < 0
+                          ? `Vencida hace ${Math.abs(dias)}d`
+                          : dias === 0
+                            ? 'Hoy'
+                            : `${dias} días`}
+                      </span>
+                    </div>
+                  {:else}
+                    <input
+                      id="fecha-syllabus"
+                      type="date"
+                      bind:value={fechaSyllabus}
+                      class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  {/if}
+                </div>
+
+                {#if fechasError}
+                  <p class="text-xs text-red-600">{fechasError}</p>
+                {/if}
+                {#if fechasSuccess}
+                  <p class="text-xs text-green-600">Fechas guardadas correctamente.</p>
+                {/if}
+                {#if (!basicoYaCreado && (!fechaBasico || editingFechaBasico)) || !fechaSyllabus || editingFechaSyllabus}
+                  <button
+                    onclick={guardarFechas}
+                    disabled={savingFechas}
+                    class="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition"
+                  >
+                    {savingFechas ? 'Guardando…' : 'Guardar fechas'}
+                  </button>
+                {/if}
               </div>
-              <div class="space-y-1.5">
-                <label for="fecha-syllabus" class="text-xs font-medium text-gray-700">
-                  Syllabus completo
-                </label>
-                <input
-                  id="fecha-syllabus"
-                  type="date"
-                  bind:value={fechaSyllabus}
-                  class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              {#if fechasError}
-                <p class="text-xs text-red-600">{fechasError}</p>
-              {/if}
-              {#if fechasSuccess}
-                <p class="text-xs text-green-600">Fechas guardadas correctamente.</p>
-              {/if}
-              <button
-                onclick={guardarFechas}
-                disabled={savingFechas}
-                class="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition"
-              >
-                {savingFechas ? 'Guardando…' : 'Guardar fechas'}
-              </button>
-            </div>
+            {/if}
           </div>
 
           <!-- Metadata grid -->

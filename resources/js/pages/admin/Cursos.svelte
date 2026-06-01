@@ -385,7 +385,7 @@
   }
 
   function openSyllabusModal(curso: Curso) {
-    if (curso.has_programa && curso.programa_estado && curso.programa_estado !== 'BORRADOR') {
+    if (curso.has_programa || curso.id_programa || curso.programa_estado) {
       router.visit(`/admin/cursos/${curso.id_curso}/programa/revisar`, { method: 'get' });
     } else {
       syllabusTargetCurso = curso;
@@ -417,7 +417,12 @@
           ...cursos.data[idx],
           has_programa: true,
           id_programa: programa.id_programa,
+          programa_estado: programa.estado,
         };
+
+        if (slideOverCurso?.id_curso === syllabusTargetCurso.id_curso) {
+          slideOverCurso = cursos.data[idx];
+        }
       }
     }
     closeSyllabusModal();

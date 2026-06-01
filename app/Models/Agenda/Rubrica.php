@@ -12,6 +12,11 @@ use App\Models\Base\Agenda\BaseRubrica;
  */
 class Rubrica extends BaseRubrica
 {
+    protected $fillable = [
+        'rubrica',
+        'estado_rubrica',
+        'id_actividad',
+    ];
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

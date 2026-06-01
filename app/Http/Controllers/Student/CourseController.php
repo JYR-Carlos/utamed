@@ -13,7 +13,7 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\Agenda\Actividad;
-use App\Models\Agenda\AsignadoActividad;
+use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
@@ -156,12 +156,12 @@ class CourseController extends Controller
 
         // Mapear actividades con estado y notas del estudiante
         $actividadesData = $actividades->map(function (Actividad $actividad) use ($estudiante) {
-            $asignado = AsignadoActividad::where('id_estudiante', $estudiante->id_estudiante)
-                ->whereHas('actividadAsignada', fn($q) => $q->where('id_actividad', $actividad->id_actividad))
-                ->with('actividadAsignada.estadoActividad')
+            $asignado = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
+                ->whereHas('actividadAsignadaGrupo', fn($q) => $q->where('id_actividad', $actividad->id_actividad))
+                ->with('actividadAsignadaGrupo')
                 ->first();
 
-            $grupo = $asignado?->actividadAsignada;
+            $grupo = $asignado?->actividadAsignadaGrupo;
 
             return [
                 'id_actividad'       => $actividad->id_actividad,
@@ -179,14 +179,11 @@ class CourseController extends Controller
                     'id_unidad' => $actividad->unidad->id_unidad,
                     'nombre'    => $actividad->unidad->nombre,
                 ] : null,
-                'grupo_numero'       => $grupo?->grupo,
+                'grupo_numero'       => $grupo?->id_actividad_asignada_grupo,
                 'nota_grupal'        => $grupo?->nota,
                 'nota_individual'    => $asignado?->nota_individual,
                 'diferencia_decimas' => $asignado?->diferencia_decimas,
-                'estado'             => $grupo?->estadoActividad ? [
-                    'id_estado' => $grupo->estadoActividad->id_estado,
-                    'titulo'    => $grupo->estadoActividad->titulo,
-                ] : null,
+                'estado'             => $grupo?->estado_actividad_asignada?->value,
                 'asignado'           => $asignado !== null,
             ];
         })->values();

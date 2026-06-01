@@ -3,10 +3,9 @@
 namespace App\Http\Controllers\Docente;
 
 use App\Http\Controllers\Controller;
-use App\Models\Agenda\Actividad;
-    use App\Models\Agenda\ActividadAsignada;
-    use App\Models\Agenda\AsignadoActividad;
-    use App\Models\Agenda\EstadoActividad;
+use App\Enums\DB\EstadoActividadAsignada;
+    use App\Enums\DB\TipoActividad;
+    use App\Models\Agenda\Actividad;
     use App\Models\Agenda\ActividadAsignadaGrupo;
     use App\Models\Agenda\IntegranteGrupo;
     use App\Models\Agenda\Agenda;
@@ -79,7 +78,9 @@ class DocenteActivityController extends Controller
             ->get();
 
         // Get estados for display
-        $estados = EstadoActividad::all();
+        $estados = collect(EstadoActividadAsignada::cases())
+            ->map(fn($e) => ['value' => $e->value, 'label' => $e->value])
+            ->values()->all();
 
         // Permisos granulares del docente en el contexto de este curso
         $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
@@ -99,22 +100,41 @@ class DocenteActivityController extends Controller
      */
     public function store(Request $request, Curso $curso)
     {
+        Log::info('[DocenteActivity::store] Inicio', [
+            'id_curso' => $curso->id_curso,
+            'payload'  => $request->except(['_token']),
+        ]);
+
         // Verify the logged-in user is a docente for this course
         $user = Auth::user();
         
         if (!$user->docente) {
+            Log::warning('[DocenteActivity::store] Usuario sin perfil docente', ['id_user' => $user->id]);
             abort(403, 'No tienes un perfil docente.');
         }
         
-        $isDocente =  self::isDocente($user->docente->id_docente);
+        $isDocente = self::isDocente($user->docente->id_docente);
+
+        Log::info('[DocenteActivity::store] Verificación permisos', [
+            'id_docente'           => $user->docente->id_docente,
+            'is_admin'             => $user->is_admin,
+            'isDocente'            => $isDocente,
+            'id_docente_titular'   => $curso->id_docente_titular,
+            'es_titular'           => $curso->id_docente_titular === $user->docente->id_docente,
+        ]);
         
         if (!$isDocente && !$user->is_admin) {
+            Log::warning('[DocenteActivity::store] Bloqueado: no es docente', ['id_docente' => $user->docente->id_docente]);
             abort(403, 'No tienes permiso para crear actividades en este curso.');
         }
 
         // Si no es titular ni admin, no permite crear
         $esTitularStore = $curso->id_docente_titular === $user->docente->id_docente;
         if (!$esTitularStore && !$user->is_admin) {
+            Log::warning('[DocenteActivity::store] Bloqueado: no es titular del curso', [
+                'id_docente'         => $user->docente->id_docente,
+                'id_docente_titular' => $curso->id_docente_titular,
+            ]);
             abort(403, 'No tienes permiso para crear actividades en este curso.');
         }
 
@@ -122,7 +142,7 @@ class DocenteActivityController extends Controller
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'fecha_limite' => 'required|date',
-            'tipo_actividad' => 'required|integer',
+            'tipo_actividad' => 'required|string|in:SUMATIVA,FORMATIVA',
             'tipo_entrega' => 'required|string|in:online,presencial,hibrido',
             'es_grupal' => 'boolean',
             'max_integrantes' => 'integer|min:1|max:100',
@@ -134,15 +154,28 @@ class DocenteActivityController extends Controller
         ]);
 
         $validated['es_plantilla'] = false;
-        // id_contexto is handled automatically by the DB trigger tr_actividad_pre_insert
+
+        Log::info('[DocenteActivity::store] Datos validados, intentando crear', ['validated' => $validated]);
 
         // Create the activity
+        // id_contexto is handled automatically by the DB trigger tr_actividad_pre_insert
         try {
             $actividad = Actividad::create($validated);
             
+            Log::info('[DocenteActivity::store] Actividad creada', [
+                'id_actividad' => $actividad->id_actividad,
+                'nombre'       => $actividad->nombre,
+                'id_contexto'  => $actividad->id_contexto ?? null,
+            ]);
+
             return redirect()->back()->with('success', "Actividad '{$actividad->nombre}' creada correctamente.");
         } catch (\Exception $e) {
-            Log::error('Error creating activity: ' . $e->getMessage());
+            Log::error('[DocenteActivity::store] Error al crear actividad', [
+                'message'   => $e->getMessage(),
+                'exception' => get_class($e),
+                'trace'     => $e->getTraceAsString(),
+                'validated' => $validated,
+            ]);
             
             return redirect()->back()
                 ->with('error', 'Error al crear la actividad: ' . $e->getMessage());
@@ -182,7 +215,7 @@ class DocenteActivityController extends Controller
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'fecha_limite' => 'required|date',
-            'tipo_actividad' => 'required|integer',
+            'tipo_actividad' => 'required|string|in:SUMATIVA,FORMATIVA',
             'tipo_entrega' => 'required|string|in:online,presencial,hibrido',
             'es_grupal' => 'boolean',
             'max_integrantes' => 'integer|min:1|max:100',
@@ -319,16 +352,12 @@ class DocenteActivityController extends Controller
 
         // Grupos con sus integrantes (modelo nuevo: actividad_asignada_grupo)
         $grupos = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
-            ->with(['estadoActividad', 'integranteGrupos.estudiante.usuario'])
+            ->with(['integranteGrupos.estudiante.usuario'])
             ->get()
             ->map(fn($g) => [
-                'grupo'      => $g->grupo,
+                'grupo'      => $g->id_actividad_asignada_grupo,
                 'nota'       => $g->nota,
-                'id_estado'  => $g->id_estado,
-                'estado'     => $g->estadoActividad ? [
-                    'id_estado' => $g->estadoActividad->id_estado,
-                    'titulo'    => $g->estadoActividad->titulo,
-                ] : null,
+                'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
                 'integrantes' => $g->integranteGrupos->map(fn($m) => [
                     'id_estudiante'  => $m->id_estudiante,
                     'nombre_completo' => trim(
@@ -342,23 +371,16 @@ class DocenteActivityController extends Controller
             ->values();
 
         // Campos calculados de la actividad
-        $esSumativa  = $actividad->tipo_actividad !== null && $actividad->tipo_actividad >= 2;
+        $esSumativa  = $actividad->tipo_actividad === TipoActividad::SUMATIVA;
         $traeArchivo = $actividad->tipo_entrega !== 'presencial';
 
-        // Rúbrica: primer evaluación con rúbrica para esta actividad (nullable)
+        // Rúbrica: la más reciente asociada directamente a esta actividad
         $rubricaData = null;
         try {
-            $idRubrica = DB::table('agenda.evaluacion as ev')
-                ->join('agenda.agenda as a', 'a.id_agenda', '=', 'ev.id_agenda')
-                ->join('agenda.actividad_asignada_grupo as aag', 'aag.grupo', '=', 'a.grupo')
-                ->where('aag.id_actividad', $actividad->id_actividad)
-                ->whereNotNull('ev.id_rubrica')
-                ->value('ev.id_rubrica');
-
-            if ($idRubrica) {
-                $rubricaModel = \App\Models\Agenda\Rubrica::find($idRubrica);
-                $rubricaData  = $rubricaModel?->rubrica; // cast to array
-            }
+            $rubricaModel = \App\Models\Agenda\Rubrica::where('id_actividad', $actividad->id_actividad)
+                ->orderByDesc('id_rubrica')
+                ->first();
+            $rubricaData = $rubricaModel?->rubrica;
         } catch (\Exception $e) {
             Log::warning('No se pudo cargar rúbrica para actividad ' . $actividad->id_actividad . ': ' . $e->getMessage());
         }
@@ -405,6 +427,35 @@ class DocenteActivityController extends Controller
     }
 
     /**
+     * Crea una rúbrica (esqueleto de evaluación) en el contexto del curso.
+     * La rúbrica NO se vincula a una actividad específica; se usa al generar evaluaciones.
+     */
+    public function storeRubrica(Request $request, Curso $curso)
+    {
+        $this->autorizarDocenteCurso($curso);
+
+        $request->validate([
+            'rubrica'                     => 'required|array',
+            'rubrica.niveles'             => 'required|array|min:1',
+            'rubrica.detalles_evaluacion' => 'required|array',
+            'id_actividad'               => 'required|integer|exists:actividad,id_actividad',
+        ]);
+
+        try {
+            \App\Models\Agenda\Rubrica::create([
+                'rubrica'        => $request->input('rubrica'),
+                'estado_rubrica' => 'POSTULADA',
+                'id_actividad'   => $request->input('id_actividad'),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al crear rúbrica: ' . $e->getMessage());
+            return redirect()->back()->withErrors(['error' => 'Error al guardar la rúbrica.']);
+        }
+
+        return redirect()->back()->with('success', 'Rúbrica creada correctamente.');
+    }
+
+    /**
      * Elimina un grupo (ActividadAsignadaGrupo) y todos sus integrantes.
      */
     public function deleteGroup(Curso $curso, Actividad $actividad, int $grupo)
@@ -415,12 +466,12 @@ class DocenteActivityController extends Controller
             abort(404, 'Actividad no encontrada en este curso.');
         }
 
-        $grupoModel = ActividadAsignadaGrupo::where('grupo', $grupo)
+        $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
             ->firstOrFail();
 
         return DB::transaction(function () use ($grupoModel) {
-            IntegranteGrupo::where('grupo', $grupoModel->grupo)->delete();
+            IntegranteGrupo::where('id_actividad_asignada_grupo', $grupoModel->id_actividad_asignada_grupo)->delete();
             $grupoModel->delete();
 
             return redirect()->back()->with('success', 'Grupo eliminado correctamente.');
@@ -438,11 +489,11 @@ class DocenteActivityController extends Controller
             abort(404, 'Actividad no encontrada en este curso.');
         }
 
-        ActividadAsignadaGrupo::where('grupo', $grupo)
+        ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
             ->firstOrFail();
 
-        $integrante = IntegranteGrupo::where('grupo', $grupo)
+        $integrante = IntegranteGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_estudiante', $estudiante)
             ->firstOrFail();
 
@@ -460,22 +511,22 @@ class DocenteActivityController extends Controller
         $this->autorizarDocenteCurso($curso);
 
         $validated = $request->validate([
-            'id_estado'    => 'required|integer|exists:agenda.estado_actividad,id_estado',
+            'estado_actividad_asignada' => 'required|string|in:PLANIFICADA,ACTIVA,CERRADA',
             'nota'         => 'nullable|numeric|min:0|max:10',
             'id_estudiante' => 'nullable|integer|exists:usuario.estudiante,id_estudiante',
         ]);
 
         return DB::transaction(function () use ($validated, $actividad) {
-            $grupo = ActividadAsignada::create([
+            $grupo = ActividadAsignadaGrupo::create([
                 'id_actividad' => $actividad->id_actividad,
-                'id_estado'    => $validated['id_estado'],
+                'estado_actividad_asignada' => $validated['estado_actividad_asignada'],
                 'nota'         => $validated['nota'] ?? null,
             ]);
 
             if (!empty($validated['id_estudiante'])) {
-                AsignadoActividad::create([
-                    'grupo'         => $grupo->grupo,
-                    'id_estudiante' => $validated['id_estudiante'],
+                IntegranteGrupo::create([
+                    'id_actividad_asignada_grupo' => $grupo->id_actividad_asignada_grupo,
+                    'id_estudiante'              => $validated['id_estudiante'],
                 ]);
             }
 
@@ -490,13 +541,13 @@ class DocenteActivityController extends Controller
     {
         $this->autorizarDocenteCurso($curso);
 
-        $grupoModel = ActividadAsignada::where('grupo', $grupo)
+        $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
             ->firstOrFail();
 
         $validated = $request->validate([
             'nota'      => 'nullable|numeric|min:0|max:10',
-            'id_estado' => 'required|integer|exists:agenda.estado_actividad,id_estado',
+            'estado_actividad_asignada' => 'required|string|in:PLANIFICADA,ACTIVA,CERRADA',
         ]);
 
         $grupoModel->update($validated);
@@ -511,12 +562,12 @@ class DocenteActivityController extends Controller
     {
         $this->autorizarDocenteCurso($curso);
 
-        $grupoModel = ActividadAsignada::where('grupo', $grupo)
+        $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
             ->firstOrFail();
 
         return DB::transaction(function () use ($grupoModel) {
-            AsignadoActividad::where('grupo', $grupoModel->grupo)->delete();
+            IntegranteGrupo::where('id_actividad_asignada_grupo', $grupoModel->id_actividad_asignada_grupo)->delete();
             $grupoModel->delete();
             return redirect()->back()->with('success', 'Grupo eliminado.');
         });
@@ -530,7 +581,7 @@ class DocenteActivityController extends Controller
         $this->autorizarDocenteCurso($curso);
 
         // Verificar que el grupo pertenece a esta actividad
-        ActividadAsignada::where('grupo', $grupo)
+        ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
             ->firstOrFail();
 
@@ -539,7 +590,7 @@ class DocenteActivityController extends Controller
         ]);
 
         // Verificar que no está ya en este grupo
-        $exists = AsignadoActividad::where('grupo', $grupo)
+        $exists = IntegranteGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_estudiante', $validated['id_estudiante'])
             ->exists();
 
@@ -547,9 +598,9 @@ class DocenteActivityController extends Controller
             return redirect()->back()->withErrors(['error' => 'El estudiante ya está en este grupo.']);
         }
 
-        AsignadoActividad::create([
-            'grupo'         => $grupo,
-            'id_estudiante' => $validated['id_estudiante'],
+        IntegranteGrupo::create([
+            'id_actividad_asignada_grupo' => $grupo,
+            'id_estudiante'              => $validated['id_estudiante'],
         ]);
 
         return redirect()->back()->with('success', 'Integrante agregado al grupo.');
@@ -558,11 +609,11 @@ class DocenteActivityController extends Controller
     /**
      * Actualiza la nota individual de un integrante.
      */
-    public function updateIntegrante(Request $request, Curso $curso, Actividad $actividad, int $grupo, AsignadoActividad $asignado)
+    public function updateIntegrante(Request $request, Curso $curso, Actividad $actividad, int $grupo, IntegranteGrupo $asignado)
     {
         $this->autorizarDocenteCurso($curso);
 
-        if ($asignado->grupo !== $grupo) {
+        if ($asignado->id_actividad_asignada_grupo !== $grupo) {
             abort(404, 'Integrante no encontrado en este grupo.');
         }
 
@@ -579,11 +630,11 @@ class DocenteActivityController extends Controller
     /**
      * Elimina un integrante de un grupo.
      */
-    public function removeIntegrante(Curso $curso, Actividad $actividad, int $grupo, AsignadoActividad $asignado)
+    public function removeIntegrante(Curso $curso, Actividad $actividad, int $grupo, IntegranteGrupo $asignado)
     {
         $this->autorizarDocenteCurso($curso);
 
-        if ($asignado->grupo !== $grupo) {
+        if ($asignado->id_actividad_asignada_grupo !== $grupo) {
             abort(404, 'Integrante no encontrado en este grupo.');
         }
 
@@ -645,32 +696,26 @@ class DocenteActivityController extends Controller
 
             // Crear grupo
             $grupo = ActividadAsignadaGrupo::create([
-                'id_actividad' => $actividad->id_actividad,
-                'id_estado' => 1, // ABIERTA (asumiendo que 1 es el ID de ABIERTA)
+                'id_actividad'              => $actividad->id_actividad,
+                'estado_actividad_asignada' => 'PLANIFICADA',
             ]);
 
             // Agregar integrantes al grupo
             foreach ($validated['estudiantes'] as $id_estudiante) {
                 IntegranteGrupo::create([
-                    'grupo' => $grupo->grupo,
-                    'id_estudiante' => $id_estudiante,
+                    'id_actividad_asignada_grupo' => $grupo->id_actividad_asignada_grupo,
+                    'id_estudiante'              => $id_estudiante,
                 ]);
             }
 
             DB::commit();
 
-            return response()->json([
-                'success' => 'Grupo creado correctamente.',
-                'grupo' => $grupo->with('miembros.estudiante.usuario')->first(),
-            ], 201);
+            return redirect()->back()->with('success', 'Grupo creado correctamente.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error creating group: ' . $e->getMessage());
 
-            return response()->json(
-                ['error' => 'Error al crear el grupo: ' . $e->getMessage()],
-                500
-            );
+            return redirect()->back()->withErrors(['error' => 'Error al crear el grupo.']);
         }
     }
 
@@ -687,7 +732,7 @@ class DocenteActivityController extends Controller
         }
 
         // Obtener el grupo
-        $actividadGrupo = ActividadAsignadaGrupo::where('grupo', $grupo)
+        $actividadGrupo = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
             ->first();
 
@@ -712,7 +757,7 @@ class DocenteActivityController extends Controller
         }
 
         // Verificar que el estudiante no esté ya en el grupo
-        $yaEnGrupo = IntegranteGrupo::where('grupo', $grupo)
+        $yaEnGrupo = IntegranteGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_estudiante', $validated['id_estudiante'])
             ->exists();
 
@@ -724,7 +769,7 @@ class DocenteActivityController extends Controller
         }
 
         // Verificar que no se exceda el máximo de integrantes
-        $miembrosActuales = IntegranteGrupo::where('grupo', $grupo)->count();
+        $miembrosActuales = IntegranteGrupo::where('id_actividad_asignada_grupo', $grupo)->count();
         if ($miembrosActuales >= $actividad->max_integrantes) {
             return response()->json(
                 ['error' => "El grupo ya tiene el máximo de {$actividad->max_integrantes} integrantes."],
@@ -734,8 +779,8 @@ class DocenteActivityController extends Controller
 
         try {
             IntegranteGrupo::create([
-                'grupo' => $grupo,
-                'id_estudiante' => $validated['id_estudiante'],
+                'id_actividad_asignada_grupo' => $grupo,
+                'id_estudiante'              => $validated['id_estudiante'],
             ]);
 
             return response()->json([
@@ -765,20 +810,16 @@ class DocenteActivityController extends Controller
 
         /** @var \Illuminate\Database\Eloquent\Collection<ActividadAsignadaGrupo> */
         $grupos = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
-            ->with(['estadoActividad', 'miembros.estudiante.usuario'])
+            ->with(['miembros.estudiante.usuario'])
             ->get();
 
         $gruposFormateados = $grupos->map(function ($grupo) {
             return [
-                'grupo' => $grupo->grupo,
-                'nota' => $grupo->nota,
-                'id_estado' => $grupo->id_estado,
-                'estado' => [
-                    'id_estado' => $grupo->estadoActividad?->id_estado,
-                    'titulo' => $grupo->estadoActividad?->titulo,
-                ],
-                'integrantes' => $grupo->getMiembrosConDetalles(),
-                'cantidad_integrantes' => $grupo->miembros()->count(),
+                'grupo'                    => $grupo->id_actividad_asignada_grupo,
+                'nota'                     => $grupo->nota,
+                'estado_actividad_asignada' => $grupo->estado_actividad_asignada?->value,
+                'integrantes'              => $grupo->getMiembrosConDetalles(),
+                'cantidad_integrantes'     => $grupo->miembros()->count(),
             ];
         });
 
@@ -846,15 +887,15 @@ class DocenteActivityController extends Controller
                 if ($estudiantesInscritos === count($estudiantes) && count($estudiantes) > 0) {
                     // Crear nuevo grupo
                     $nuevoGrupo = ActividadAsignadaGrupo::create([
-                        'id_actividad' => $actividad->id_actividad,
-                        'id_estado' => 1, // ABIERTA
+                        'id_actividad'              => $actividad->id_actividad,
+                        'estado_actividad_asignada' => 'PLANIFICADA',
                     ]);
 
                     // Agregar integrantes
                     foreach ($estudiantes as $id_estudiante) {
                         IntegranteGrupo::create([
-                            'grupo' => $nuevoGrupo->grupo,
-                            'id_estudiante' => $id_estudiante,
+                            'id_actividad_asignada_grupo' => $nuevoGrupo->id_actividad_asignada_grupo,
+                            'id_estudiante'              => $id_estudiante,
                         ]);
                     }
 
@@ -945,7 +986,7 @@ class DocenteActivityController extends Controller
         }
 
         // Verificar que el grupo pertenece a la actividad
-        $grupoExiste = ActividadAsignadaGrupo::where('grupo', $grupo)
+        $grupoExiste = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
             ->exists();
 
@@ -953,7 +994,7 @@ class DocenteActivityController extends Controller
             return response()->json(['error' => 'Grupo no encontrado.'], 404);
         }
 
-        $entregas = Agenda::where('grupo', $grupo)
+        $entregas = Agenda::where('id_actividad_asignada_grupo', $grupo)
             ->with(['usuario', 'archivo', 'tipoRegistroAgenda', 'evaluacion'])
             ->orderBy('fecha_envio', 'desc')
             ->get()
@@ -995,12 +1036,12 @@ class DocenteActivityController extends Controller
         $this->autorizarDocenteCurso($curso);
 
         // Verificar que la agenda pertenece al grupo y actividad correctos
-        if ($agenda->grupo !== $grupo) {
+        if ($agenda->id_actividad_asignada_grupo !== $grupo) {
             abort(404, 'Entrega no encontrada.');
         }
 
         // Obtener el grupo para verificar que pertenece a la actividad
-        $grupoExiste = ActividadAsignadaGrupo::where('grupo', $grupo)
+        $grupoExiste = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
             ->exists();
 
@@ -1060,7 +1101,7 @@ class DocenteActivityController extends Controller
         // en cualquier grupo del curso
         $mensajesCount = DB::table('agenda.agenda as a')
             ->join('agenda.tipo_registro_agenda as t', 't.id_tipo_registro_agenda', '=', 'a.id_tipo_registro_agenda')
-            ->join('agenda.actividad_asignada_grupo as aag', 'aag.grupo', '=', 'a.grupo')
+            ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'a.id_actividad_asignada_grupo')
             ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
             ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
             ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
@@ -1073,7 +1114,7 @@ class DocenteActivityController extends Controller
 
         $ultimasFechas = DB::table('agenda.agenda as a')
             ->join('agenda.tipo_registro_agenda as t', 't.id_tipo_registro_agenda', '=', 'a.id_tipo_registro_agenda')
-            ->join('agenda.actividad_asignada_grupo as aag', 'aag.grupo', '=', 'a.grupo')
+            ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'a.id_actividad_asignada_grupo')
             ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
             ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
             ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')

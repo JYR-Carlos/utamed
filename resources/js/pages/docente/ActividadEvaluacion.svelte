@@ -30,6 +30,7 @@
     MessageSquare,
     Send,
     Loader2,
+    ClipboardList,
   } from 'lucide-svelte';
   import type {
     Actividad,
@@ -120,6 +121,18 @@
   let sendingFeedback = $state<Set<number>>(new Set());
   let feedbackError = $state<Map<number, string>>(new Map());
 
+  // --- Confirmación destructiva ---
+  let confirmDialog = $state<{
+    open: boolean;
+    title: string;
+    body: string;
+    onConfirm: (() => void) | null;
+  }>({ open: false, title: '', body: '', onConfirm: null });
+
+  function closeConfirm() {
+    confirmDialog = { open: false, title: '', body: '', onConfirm: null };
+  }
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
@@ -199,19 +212,25 @@
 
   /** Elimina un grupo y todos sus integrantes */
   function eliminarGrupo(grupoId: number) {
-    if (!confirm('¿Eliminar este grupo y todos sus integrantes?')) return;
-    isLoading = true;
-    router.delete(
-      `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}`,
-      {
-        onSuccess: () => {
-          isLoading = false;
-        },
-        onError: () => {
-          isLoading = false;
-        },
+    confirmDialog = {
+      open: true,
+      title: '¿Eliminar grupo?',
+      body: 'Se eliminarán el grupo y todos sus integrantes. Esta acción no se puede deshacer.',
+      onConfirm: () => {
+        isLoading = true;
+        router.delete(
+          `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}`,
+          {
+            onSuccess: () => {
+              isLoading = false;
+            },
+            onError: () => {
+              isLoading = false;
+            },
+          },
+        );
       },
-    );
+    };
   }
 
   /** Agrega un integrante al grupo */
@@ -257,19 +276,25 @@
 
   /** Elimina un integrante del grupo */
   function eliminarIntegrante(grupoId: number, asignadoId: number) {
-    if (!confirm('¿Quitar este integrante del grupo?')) return;
-    isLoading = true;
-    router.delete(
-      `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/integrantes/${asignadoId}`,
-      {
-        onSuccess: () => {
-          isLoading = false;
-        },
-        onError: () => {
-          isLoading = false;
-        },
+    confirmDialog = {
+      open: true,
+      title: '¿Quitar integrante del grupo?',
+      body: 'El estudiante será removido del grupo.',
+      onConfirm: () => {
+        isLoading = true;
+        router.delete(
+          `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/integrantes/${asignadoId}`,
+          {
+            onSuccess: () => {
+              isLoading = false;
+            },
+            onError: () => {
+              isLoading = false;
+            },
+          },
+        );
       },
-    );
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -461,13 +486,13 @@
 </script>
 
 <DocenteLayout>
-  <div class="px-8 py-8 max-w-4xl mx-auto">
+  <div class="px-4 py-6 sm:px-8 sm:py-8 max-w-4xl mx-auto">
     <!-- ── Header ─────────────────────────────────────────────────── -->
     <div class="mb-8">
       <div class="mb-3">
         <Link
           href={`/docente/cursos/${curso.id_curso}/actividades`}
-          class="inline-flex items-center gap-2 text-blue-500 font-medium text-sm hover:text-blue-700"
+          class="inline-flex items-center gap-2 text-uta-blue font-semibold text-sm hover:text-uta-blue/70 transition-colors"
         >
           <ArrowLeft size={18} />
           Volver a Actividades
@@ -479,12 +504,12 @@
           <div class="flex flex-wrap gap-2 mb-2">
             {#if actividad.es_grupal}
               <span
-                class="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 bg-blue-100 text-blue-700 rounded-full"
+                class="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 bg-uta-blue/10 text-uta-blue rounded-full ring-1 ring-uta-blue/20"
                 ><Users size={14} />Grupal · máx. {actividad.max_integrantes}</span
               >
             {:else}
               <span
-                class="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 bg-pink-100 text-pink-700 rounded-full"
+                class="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 bg-uta-red/10 text-uta-red rounded-full ring-1 ring-uta-red/20"
                 ><User size={14} />Individual</span
               >
             {/if}
@@ -512,7 +537,7 @@
             {#if actividad.es_grupal}
               <button
                 onclick={openCopyModal}
-                class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 font-semibold text-sm rounded-lg hover:bg-gray-50 hover:border-blue-400 hover:text-blue-600 whitespace-nowrap transition-colors"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 font-semibold text-sm rounded-lg hover:bg-uta-blue-light hover:border-uta-blue hover:text-uta-blue whitespace-nowrap transition-colors"
               >
                 <Copy size={16} />
                 Copiar Grupos
@@ -522,7 +547,7 @@
               onclick={() => {
                 showNuevoGrupo = !showNuevoGrupo;
               }}
-              class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white font-semibold text-sm rounded-lg hover:bg-blue-600 disabled:opacity-60 whitespace-nowrap"
+              class="inline-flex items-center gap-2 px-5 py-2.5 bg-uta-blue text-white font-semibold text-sm rounded-lg hover:bg-uta-blue-hover disabled:opacity-60 whitespace-nowrap transition-colors"
             >
               <Plus size={18} />
               {actividad.es_grupal ? 'Nuevo Grupo' : 'Asignar Alumno'}
@@ -534,8 +559,8 @@
 
     <!-- ── Nuevo Grupo Panel ──────────────────────────────────────── -->
     {#if showNuevoGrupo}
-      <div class="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6">
-        <h3 class="font-semibold text-blue-900 mb-4 text-base">
+      <div class="bg-uta-blue-light border border-uta-blue/25 rounded-xl p-5 mb-6">
+        <h3 class="font-semibold text-uta-blue mb-4 text-base">
           {actividad.es_grupal ? 'Crear nuevo grupo' : 'Asignar actividad individual'}
         </h3>
         <div class="flex flex-wrap gap-4 items-end">
@@ -546,7 +571,7 @@
             <select
               id="ng-estado"
               bind:value={nuevoGrupoEstadoId}
-              class="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              class="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:border-uta-blue focus:ring-2 focus:ring-uta-blue/20 transition-shadow"
             >
               {#each estados as e}
                 <option value={e.id_estado}>{e.titulo}</option>
@@ -561,7 +586,7 @@
             <select
               id="ng-estudiante"
               bind:value={nuevoGrupoEstudianteId}
-              class="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              class="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:border-uta-blue focus:ring-2 focus:ring-uta-blue/20 transition-shadow"
             >
               <option value={0}>-- Seleccionar --</option>
               {#each estudiantesLibres() as e}
@@ -573,7 +598,7 @@
           <div class="flex gap-2 items-center">
             <button
               onclick={crearGrupo}
-              class="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white font-semibold text-sm rounded-lg hover:bg-blue-600 disabled:opacity-60"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-uta-blue text-white font-semibold text-sm rounded-lg hover:bg-uta-blue-hover disabled:opacity-60 transition-colors"
               disabled={isLoading}
             >
               <Save size={16} /> Crear
@@ -591,7 +616,9 @@
     <!-- ── Sin grupos ─────────────────────────────────────────────── -->
     {#if grupos.length === 0}
       <div class="text-center py-16 bg-white border border-gray-200 rounded-xl">
-        <div class="text-5xl mb-4">📋</div>
+        <div class="flex justify-center mb-4 text-gray-300">
+          <ClipboardList size={48} />
+        </div>
         <h3 class="text-lg font-semibold text-gray-700 mb-1">Sin grupos asignados</h3>
         <p class="text-gray-500 text-sm">
           Crea el primer grupo para comenzar a evaluar esta actividad.
@@ -613,10 +640,11 @@
             {#if canDeleteGroup}
               <button
                 onclick={() => eliminarGrupo(grupo.grupo)}
-                class="p-2 bg-transparent border border-red-300 rounded-lg text-red-500 hover:bg-red-50"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-400 text-xs font-medium transition-colors"
                 title="Eliminar grupo"
               >
-                <Trash2 size={16} />
+                <Trash2 size={14} />
+                Eliminar
               </button>
             {/if}
           </div>
@@ -635,7 +663,7 @@
                 max="10"
                 step="0.1"
                 bind:value={grupo.nota}
-                class="w-[90px] px-2 py-2 border border-gray-300 rounded-md text-sm text-center focus:outline-none focus:border-blue-500"
+                class="w-[90px] px-2 py-2 border border-gray-300 rounded-md text-sm text-center focus:outline-none focus:border-uta-blue focus:ring-2 focus:ring-uta-blue/20 transition-shadow"
                 placeholder="—"
               />
             </div>
@@ -648,7 +676,7 @@
               <select
                 id="estado-grupo-{grupo.grupo}"
                 bind:value={grupo.id_estado}
-                class="px-3 py-2 border border-gray-300 rounded-md text-sm min-w-[150px] focus:outline-none focus:border-blue-500"
+                class="px-3 py-2 border border-gray-300 rounded-md text-sm min-w-[150px] focus:outline-none focus:border-uta-blue focus:ring-2 focus:ring-uta-blue/20 transition-shadow"
               >
                 <option value={null}>Sin estado</option>
                 {#each estados as e}
@@ -660,7 +688,7 @@
             {#if canEditGroup}
               <button
                 onclick={() => guardarGrupo(grupo)}
-                class="inline-flex items-center gap-2 px-3 py-2 bg-green-500 text-white text-xs font-semibold rounded-lg hover:bg-green-600 disabled:opacity-60 whitespace-nowrap"
+                class="inline-flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-60 whitespace-nowrap transition-colors"
                 disabled={savingGrupo.has(grupo.grupo)}
               >
                 <Save size={14} />
@@ -682,7 +710,7 @@
                   addingToGrupo = addingToGrupo === grupo.grupo ? null : grupo.grupo;
                   addEstudianteId = 0;
                 }}
-                class="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500"
+                class="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-uta-blue-light hover:border-uta-blue hover:text-uta-blue transition-colors"
               >
                 <UserPlus size={14} /> Agregar
               </button>
@@ -694,7 +722,7 @@
             <div class="flex gap-2 items-center flex-wrap bg-green-50 p-3 rounded-lg mb-3">
               <select
                 bind:value={addEstudianteId}
-                class="px-2 py-1.5 border border-gray-300 rounded-md text-xs bg-white focus:outline-none focus:border-blue-500"
+                class="px-2 py-1.5 border border-gray-300 rounded-md text-xs bg-white focus:outline-none focus:border-uta-blue focus:ring-2 focus:ring-uta-blue/20 transition-shadow"
               >
                 <option value={0}>-- Seleccionar alumno --</option>
                 {#each estudiantesLibres(grupo.grupo) as e}
@@ -703,7 +731,7 @@
               </select>
               <button
                 onclick={() => agregarIntegrante(grupo.grupo)}
-                class="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500 text-white text-xs font-semibold rounded-lg hover:bg-blue-600 disabled:opacity-60"
+                class="inline-flex items-center gap-2 px-3 py-1.5 bg-uta-blue text-white text-xs font-semibold rounded-lg hover:bg-uta-blue-hover disabled:opacity-60 transition-colors"
                 disabled={!addEstudianteId || isLoading}
               >
                 Agregar
@@ -721,80 +749,82 @@
           {#if grupo.integrantes.length === 0}
             <p class="text-center text-gray-400 text-sm py-4">Sin integrantes asignados.</p>
           {:else}
-            <table class="w-full border-collapse text-sm">
-              <thead>
-                <tr>
-                  <th
-                    class="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b border-gray-200"
-                    >Nombre</th
-                  >
-                  <th
-                    class="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b border-gray-200 w-[110px]"
-                    >Nota individual</th
-                  >
-                  <th
-                    class="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b border-gray-200 w-[110px]"
-                    >Dif. décimas</th
-                  >
-                  <th
-                    class="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b border-gray-200 w-[80px]"
-                  ></th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each grupo.integrantes as integrante (integrante.id_asignado_actividad)}
-                  <tr class="hover:bg-gray-50">
-                    <td class="px-3 py-2 border-b border-gray-100 font-medium text-gray-900"
-                      >{integrante.nombre_completo}</td
+            <div class="overflow-x-auto -mx-5 px-5">
+              <table class="w-full border-collapse text-sm">
+                <thead>
+                  <tr>
+                    <th
+                      class="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b border-gray-200"
+                      >Nombre</th
                     >
-                    <td class="px-3 py-2 border-b border-gray-100">
-                      <input
-                        type="number"
-                        min="0"
-                        max="10"
-                        step="0.1"
-                        bind:value={integrante.nota_individual}
-                        class="w-[75px] px-2 py-1.5 border border-gray-300 rounded-md text-xs text-center focus:outline-none focus:border-blue-500"
-                        placeholder="—"
-                      />
-                    </td>
-                    <td class="px-3 py-2 border-b border-gray-100">
-                      <input
-                        type="number"
-                        min="-10"
-                        max="10"
-                        step="1"
-                        bind:value={integrante.diferencia_decimas}
-                        class="w-[75px] px-2 py-1.5 border border-gray-300 rounded-md text-xs text-center focus:outline-none focus:border-blue-500"
-                        placeholder="0"
-                      />
-                    </td>
-                    <td class="px-3 py-2 border-b border-gray-100">
-                      <div class="flex gap-1 justify-end">
-                        <button
-                          onclick={() => guardarIntegrante(grupo.grupo, integrante)}
-                          class="p-1.5 bg-transparent border border-green-300 rounded-lg text-green-600 hover:bg-green-50"
-                          title="Guardar nota"
-                          disabled={savingIntegrante.has(integrante.id_asignado_actividad)}
-                        >
-                          <Save size={14} />
-                        </button>
-                        {#if actividad.es_grupal}
-                          <button
-                            onclick={() =>
-                              eliminarIntegrante(grupo.grupo, integrante.id_asignado_actividad)}
-                            class="p-1.5 bg-transparent border border-red-300 rounded-lg text-red-500 hover:bg-red-50"
-                            title="Quitar del grupo"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        {/if}
-                      </div>
-                    </td>
+                    <th
+                      class="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b border-gray-200 w-[110px]"
+                      >Nota individual</th
+                    >
+                    <th
+                      class="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b border-gray-200 w-[110px]"
+                      >Dif. décimas</th
+                    >
+                    <th
+                      class="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b border-gray-200 w-[80px]"
+                    ></th>
                   </tr>
-                {/each}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {#each grupo.integrantes as integrante (integrante.id_asignado_actividad)}
+                    <tr class="hover:bg-gray-50">
+                      <td class="px-3 py-2 border-b border-gray-100 font-medium text-gray-900"
+                        >{integrante.nombre_completo}</td
+                      >
+                      <td class="px-3 py-2 border-b border-gray-100">
+                        <input
+                          type="number"
+                          min="0"
+                          max="10"
+                          step="0.1"
+                          bind:value={integrante.nota_individual}
+                          class="w-[75px] px-2 py-1.5 border border-gray-300 rounded-md text-xs text-center focus:outline-none focus:border-uta-blue focus:ring-2 focus:ring-uta-blue/20 transition-shadow"
+                          placeholder="—"
+                        />
+                      </td>
+                      <td class="px-3 py-2 border-b border-gray-100">
+                        <input
+                          type="number"
+                          min="-10"
+                          max="10"
+                          step="1"
+                          bind:value={integrante.diferencia_decimas}
+                          class="w-[75px] px-2 py-1.5 border border-gray-300 rounded-md text-xs text-center focus:outline-none focus:border-uta-blue focus:ring-2 focus:ring-uta-blue/20 transition-shadow"
+                          placeholder="0"
+                        />
+                      </td>
+                      <td class="px-3 py-2 border-b border-gray-100">
+                        <div class="flex gap-1 justify-end">
+                          <button
+                            onclick={() => guardarIntegrante(grupo.grupo, integrante)}
+                            class="min-w-[40px] min-h-[40px] flex items-center justify-center bg-transparent border border-green-300 rounded-lg text-green-600 hover:bg-green-50 disabled:opacity-50"
+                            title="Guardar nota"
+                            disabled={savingIntegrante.has(integrante.id_asignado_actividad)}
+                          >
+                            <Save size={16} />
+                          </button>
+                          {#if actividad.es_grupal}
+                            <button
+                              onclick={() =>
+                                eliminarIntegrante(grupo.grupo, integrante.id_asignado_actividad)}
+                              class="min-w-[40px] min-h-[40px] flex items-center justify-center bg-transparent border border-red-300 rounded-lg text-red-500 hover:bg-red-50"
+                              title="Quitar del grupo"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          {/if}
+                        </div>
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
           {/if}
         </div>
 
@@ -808,7 +838,7 @@
               <FileText size={14} />
               Entregas
               {#if entregasByGrupo.has(grupo.grupo)}
-                <span class="font-bold text-blue-600"
+                <span class="font-bold text-uta-blue"
                   >({entregasByGrupo.get(grupo.grupo)?.length ?? 0})</span
                 >
               {/if}
@@ -872,7 +902,7 @@
                       {#if entrega.archivo}
                         <a
                           href={downloadUrl(grupo.grupo, entrega.id_agenda)}
-                          class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-300 text-blue-600 text-xs font-semibold rounded-lg hover:bg-blue-50 transition-colors"
+                          class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-uta-blue/40 text-uta-blue text-xs font-semibold rounded-lg hover:bg-uta-blue-light transition-colors"
                           download
                         >
                           <Download size={13} />
@@ -897,7 +927,7 @@
               <MessageSquare size={14} />
               Mensajes / Feedback
               {#if mensajesByGrupo.has(grupo.grupo)}
-                <span class="font-bold text-indigo-600">
+                <span class="font-bold text-uta-blue">
                   ({mensajesByGrupo.get(grupo.grupo)?.length ?? 0})
                 </span>
               {/if}
@@ -927,12 +957,12 @@
                       <div
                         class="max-w-[75%] rounded-xl px-3.5 py-2.5 text-sm
                           {esFeedback
-                          ? 'bg-indigo-600 text-white rounded-br-none'
+                          ? 'bg-uta-blue text-white rounded-br-none shadow-sm'
                           : 'bg-gray-100 text-gray-800 rounded-bl-none'}"
                       >
                         <p
                           class="text-[10px] font-semibold mb-0.5 {esFeedback
-                            ? 'text-indigo-200'
+                            ? 'text-white/60'
                             : 'text-gray-500'}"
                         >
                           {esFeedback ? 'Docente' : msg.emisor_nombre}
@@ -940,7 +970,7 @@
                         <p class="leading-relaxed">{msg.mensaje}</p>
                         <p
                           class="text-[10px] mt-1 {esFeedback
-                            ? 'text-indigo-200'
+                            ? 'text-white/50'
                             : 'text-gray-400'} text-right"
                         >
                           {new Date(msg.fecha_envio).toLocaleString('es-CL', {
@@ -970,13 +1000,13 @@
                   }}
                   rows={2}
                   placeholder="Escribe feedback para el grupo…"
-                  class="flex-1 resize-none px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-indigo-400"
+                  class="flex-1 resize-none px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:border-uta-blue focus:ring-2 focus:ring-uta-blue/15 transition-shadow"
                 ></textarea>
                 <button
                   onclick={() => enviarFeedbackGrupo(grupo.grupo)}
                   disabled={!replyByGrupo.get(grupo.grupo)?.trim() ||
                     sendingFeedback.has(grupo.grupo)}
-                  class="p-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors shrink-0"
+                  class="p-2 rounded-lg bg-uta-blue text-white hover:bg-uta-blue-hover disabled:opacity-50 transition-colors shrink-0"
                   title="Enviar feedback"
                 >
                   {#if sendingFeedback.has(grupo.grupo)}
@@ -1033,7 +1063,7 @@
             <select
               id="origen-actividad"
               bind:value={actividadOrigenId}
-              class="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:border-uta-blue focus:ring-2 focus:ring-uta-blue/20 transition-shadow"
             >
               <option value={0}>-- Seleccionar actividad --</option>
               {#each actividadesDisponibles as a}
@@ -1063,10 +1093,56 @@
           <button
             onclick={copiarGrupos}
             disabled={!actividadOrigenId || isCopying || isFetchingActividades}
-            class="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-uta-blue text-white text-sm font-semibold rounded-lg hover:bg-uta-blue-hover disabled:opacity-50 transition-colors"
           >
             <Copy size={15} />
             {isCopying ? 'Copiando…' : 'Copiar Grupos'}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- ── Modal: Confirmación destructiva ────────────────────────────────────── -->
+  {#if confirmDialog.open}
+    <div class="fixed inset-0 bg-black/40 z-40" role="presentation" onclick={closeConfirm}></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+      <div
+        class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 pointer-events-auto"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-body"
+      >
+        <div class="flex items-start gap-4 mb-5">
+          <div
+            class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5"
+          >
+            <Trash2 size={18} class="text-red-600" />
+          </div>
+          <div>
+            <h2 id="confirm-dialog-title" class="text-base font-bold text-gray-900">
+              {confirmDialog.title}
+            </h2>
+            <p id="confirm-dialog-body" class="text-sm text-gray-500 mt-1">{confirmDialog.body}</p>
+          </div>
+        </div>
+        <div class="flex gap-3 justify-end">
+          <button
+            onclick={closeConfirm}
+            class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onclick={() => {
+              confirmDialog.onConfirm?.();
+              closeConfirm();
+            }}
+            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors"
+          >
+            <Trash2 size={14} />
+            Confirmar
           </button>
         </div>
       </div>

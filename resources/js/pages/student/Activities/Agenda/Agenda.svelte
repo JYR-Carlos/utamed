@@ -9,6 +9,7 @@
     nombre_curso: string;
     cod_actividad: string;
     nombre_actividad: string;
+    inline?: boolean;
     listado_interacciones: Array<{
       id_interaccion: number;
       fecha_emision: string;
@@ -18,8 +19,8 @@
       es_de_docente: boolean;
       es_retroalimentacion: boolean;
       adjunta_rubrica: boolean;
-      rubrica?: Rubrica;
-      puntaje_obtenido?: number;
+      rubrica?: Rubrica | null;
+      puntaje_obtenido?: number | null;
     }>;
   }
 
@@ -31,14 +32,15 @@
     cod_actividad,
     nombre_actividad,
     listado_interacciones,
+    inline = false,
   }: Props = $props();
 
   let nuevoMensaje = $state('');
   let tipoSeleccionado = $state('Consulta');
 
   let interaccionSeleccionada = $state<{
-    rubrica?: Rubrica;
-    puntaje_obtenido?: number;
+    rubrica?: Rubrica | null;
+    puntaje_obtenido?: number | null;
     retroalimentacion?: string;
   } | null>(null);
 
@@ -57,7 +59,11 @@
   }
 </script>
 
-<div class="w-full sm:w-[90%] h-[90vh] flex rounded-4xl bg-white shadow-2xl overflow-hidden">
+<div
+  class="w-full flex overflow-hidden {inline
+    ? 'rounded-b-xl bg-white min-h-[520px]'
+    : 'sm:w-[90%] h-[90vh] rounded-4xl bg-white shadow-2xl'}"
+>
   <div class="flex-1 flex flex-col sm:w-1/3 px-8 md:px-16 py-8 overflow-hidden">
     <div class="flex justify-between items-center mb-6 shrink-0 border-b pb-4">
       <div>
@@ -68,29 +74,31 @@
         </p>
       </div>
 
-      <button
-        class="p-2 hover:bg-gray-100 rounded-full transition-colors"
-        onclick={onCerrar}
-        aria-label="cerrar"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="w-6 h-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
+      {#if !inline}
+        <button
+          class="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          onclick={onCerrar}
+          aria-label="cerrar"
         >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
-      </button>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="w-6 h-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      {/if}
     </div>
 
-    <div class="flex-1 overflow-y-auto pr-4 mb-6 custom-scrollbar">
+    <div class={`${inline ? 'max-h-72' : 'flex-1'} overflow-y-auto pr-4 mb-6 custom-scrollbar`}>
       {#each listado_interacciones as item}
         <button
           class="mb-4 p-4 w-full text-start border-l-4 transition-all rounded-r-xl
@@ -101,7 +109,7 @@
               interaccionSeleccionada = {
                 rubrica: item.rubrica,
                 puntaje_obtenido: item.puntaje_obtenido,
-                retroalimentacion: item.mensaje
+                retroalimentacion: item.mensaje,
               };
             }
           }}
@@ -111,22 +119,36 @@
               <span class="text-[10px] font-bold bg-white/50 px-2 py-1 rounded-md border">
                 {item.tipo_interaccion}
               </span>
-              <span class="text-[10px] font-bold bg-white/50 px-2 py-1 ">
+              <span class="text-[10px] font-bold bg-white/50 px-2 py-1">
                 {item.fecha_emision}
               </span>
             </div>
-            
+
             {#if item.adjunta_rubrica}
               <div class="flex gap-4 items-center">
                 <span class="text-[10px] font-black text-primary uppercase px-2 py-1 rounded">
                   Ver Evaluación
                 </span>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                  class="size-4"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+                  />
                 </svg>
               </div>
-            
             {/if}
           </div>
 
@@ -189,32 +211,48 @@
   </div>
 
   {#if interaccionSeleccionada?.rubrica}
-    <div class="fixed inset-0 z-50 sm:relative sm:inset-auto sm:w-2/3 w-full border-l bg-gray-50 h-full overflow-y-auto p-6 animate-slide-in">
-        <div class="flex justify-between items-center mb-6">
+    <div
+      class={`${inline ? 'relative w-1/2 border-l bg-gray-50 overflow-y-auto p-6 animate-slide-in' : 'fixed inset-0 z-50 sm:relative sm:inset-auto sm:w-2/3 w-full border-l bg-gray-50 h-full overflow-y-auto p-6 animate-slide-in'}`}
+    >
+      <div class="flex justify-between items-center mb-6">
         <p class="font-bold text-lg text-primary">Detalle de Evaluación</p>
 
         <button
-            class="p-2 hover:bg-gray-200 rounded-full transition-colors flex items-center gap-2 group"
-            onclick={() => (interaccionSeleccionada = null)}
+          class="p-2 hover:bg-gray-200 rounded-full transition-colors flex items-center gap-2 group"
+          onclick={() => (interaccionSeleccionada = null)}
         >
-            <span class="text-xs font-bold uppercase text-gray-400 group-hover:text-primary transition-colors">
+          <span
+            class="text-xs font-bold uppercase text-gray-400 group-hover:text-primary transition-colors"
+          >
             Cerrar Detalle
-            </span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-        </button>
-        </div>
-
-        <div class="pb-10">
-            <RubricaView
-            rubrica={interaccionSeleccionada.rubrica}
-            puntaje_obtenido={interaccionSeleccionada.puntaje_obtenido ?? 0}
-            retroalimentacion={interaccionSeleccionada.retroalimentacion}
+          </span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="w-6 h-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 5l7 7-7 7"
             />
-        </div>
+          </svg>
+        </button>
+      </div>
+
+      <div class="pb-10">
+        <RubricaView
+          rubrica={interaccionSeleccionada.rubrica}
+          puntaje_obtenido={interaccionSeleccionada.puntaje_obtenido ?? 0}
+          retroalimentacion={interaccionSeleccionada.retroalimentacion}
+          modoLectura={true}
+        />
+      </div>
     </div>
-    {/if}
+  {/if}
 </div>
 
 <style>

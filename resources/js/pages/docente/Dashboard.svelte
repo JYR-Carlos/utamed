@@ -15,7 +15,6 @@
     Calendar,
     GraduationCap,
     BarChart3,
-    Bell,
     ArrowRight,
     CheckCircle2,
     Clock,
@@ -96,26 +95,18 @@
             Entrar a Jefatura
           </a>
         {/if}
-        <button
-          class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold border border-slate-200 bg-white text-slate-500 opacity-60 cursor-not-allowed"
-          disabled
-          title="Próximamente"
+        <span
+          class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 border border-dashed border-slate-200 bg-slate-50 rounded-lg px-3 py-2"
+          title="Notificaciones y Vista Estudiante disponibles próximamente"
         >
-          <Bell size={15} />
-          Notificaciones
-        </button>
-        <button
-          class="px-3 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white opacity-60 cursor-not-allowed"
-          disabled
-          title="Próximamente"
-        >
-          Vista Estudiante
-        </button>
+          <Clock size={13} />
+          Próximamente
+        </span>
       </div>
     </header>
 
     <!-- ── Metric Cards ──────────────────────────────────── -->
-    <div class="grid grid-cols-4 gap-4 2xl:gap-5">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 2xl:gap-5">
       <div
         class="flex items-center gap-4 2xl:gap-5 px-5 py-4 2xl:px-6 2xl:py-5 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200"
       >
@@ -180,6 +171,7 @@
           <span class="text-xs font-semibold text-amber-400 uppercase tracking-widest mt-0.5"
             >Act. Pendientes</span
           >
+          <span class="text-[10px] text-amber-400/70 leading-none mt-0.5">No disponible aún</span>
         </div>
       </div>
     </div>
@@ -189,7 +181,7 @@
       <!-- Left Column: Acciones Rápidas — 3 cols × 2 rows -->
       <section class="lg:col-span-2">
         <h2 class="text-base font-bold text-slate-700 mb-3 tracking-tight">Acciones Rápidas</h2>
-        <div class="grid grid-cols-3 gap-4 2xl:gap-5">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 2xl:gap-5">
           <!-- Mis Cursos — activo -->
           <a
             href="/docente/cursos"

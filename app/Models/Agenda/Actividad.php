@@ -12,9 +12,4 @@ use App\Models\Base\Agenda\BaseActividad;
  */
 class Actividad extends BaseActividad
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
 }

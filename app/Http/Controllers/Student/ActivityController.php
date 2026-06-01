@@ -4,8 +4,9 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\Agenda\Actividad;
-use App\Models\Agenda\ActividadAsignada;
+use App\Models\Agenda\Agenda;
 use App\Models\Agenda\AsignadoActividad;
+use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use Illuminate\Support\Facades\Auth;
@@ -124,66 +125,128 @@ class ActivityController extends Controller
         ]);
     }
 
-    public function show(Curso $curso, string $actividad)
+    public function show(Curso $curso, Actividad $actividad)
     {
         /** @var Usuario $user */
         $user = Auth::user();
-    
+
         if (!$user->estudiante) {
             return redirect('/dashboard');
         }
-    
+
         $estudiante = $user->estudiante;
-    
-        // Verificar que el estudiante tenga acceso a esta actividad
-        $componenteIds = DB::table('curso.inscripcion_componente as ic')
-            ->join('curso.componente as c', 'c.id_componente', '=', 'ic.id_componente')
-            ->where('ic.id_estudiante', $estudiante->id_estudiante)
-            ->where('c.id_curso', $curso->id_curso)
-            ->pluck('ic.id_componente');
 
-        if ($componenteIds->isEmpty()) {
-            $componenteIds = DB::table('curso.componente')
-                ->where('id_curso', $curso->id_curso)
-                ->pluck('id_componente');
-        }
-
-        /* 
-        if (!$componenteIds->contains($actividad->id_componente) || !$actividad->visible) {
-            abort(403, 'No tienes acceso a esta actividad.');
-        }
-        */
-        // Cargar relaciones
-        //$actividad->load(['componente.tipoComponente', 'unidad', 'curso']);
-
-        // Obtener datos del estudiante sobre esta actividad
-        /* 
-        $asignado = AsignadoActividad::where('id_estudiante', $estudiante->id_estudiante)
-            ->whereHas('actividadAsignada', fn($q) => $q->where('id_actividad', $actividad->id_actividad))
-            ->with('actividadAsignada.estadoActividad')
+        // Verificar inscripción al curso
+        $inscrito = $estudiante->inscripcionCursos()
+            ->where('id_curso', $curso->id_curso)
+            ->where('estado_inscripcion', 'INSCRITO')
             ->first();
 
-        $grupo = $asignado?->actividadAsignada;
-        $estadoLabel = $grupo?->estadoActividad?->titulo ?? 'PENDIENTE';
-        */
+        if (!$inscrito) {
+            abort(403, 'No estás inscrito en este curso.');
+        }
+
+        if (!$actividad->visible) {
+            abort(403, 'Esta actividad no está disponible.');
+        }
+
+        $actividad->load(['componente.tipoComponente', 'unidad', 'archivo']);
+
+        // Buscar el grupo del estudiante para esta actividad
+        $integranteGrupo = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
+            ->whereHas('actividadAsignadaGrupo', fn($q) => $q->where('id_actividad', $actividad->id_actividad))
+            ->with('actividadAsignadaGrupo')
+            ->first();
+
+        $grupo = $integranteGrupo?->actividadAsignadaGrupo;
+
+        $ultimaNota = $integranteGrupo?->nota_individual ?? $grupo?->nota;
+
+        // Cargar las interacciones (agenda) del grupo
+        $interacciones = [];
+        $rubrica = null;
+
+        if ($grupo) {
+            $agendas = Agenda::where('id_actividad_asignada_grupo', $grupo->id_actividad_asignada_grupo)
+                ->with(['usuario', 'evaluacion.rubrica'])
+                ->orderBy('fecha_envio', 'asc')
+                ->get();
+
+            $interacciones = $agendas->map(function (Agenda $agenda) use ($user) {
+                $evaluacion = $agenda->evaluacion;
+                $rubricaData = $evaluacion?->rubrica?->rubrica;
+
+                $nombreEmisor = trim(
+                    ($agenda->usuario?->nombre1 ?? '') . ' ' .
+                    ($agenda->usuario?->apellido1 ?? '') . ' ' .
+                    ($agenda->usuario?->apellido2 ?? '')
+                );
+                if (empty($nombreEmisor)) {
+                    $nombreEmisor = 'Sistema';
+                }
+
+                return [
+                    'id_interaccion'     => $agenda->id_agenda,
+                    'fecha_emision'      => (string) $agenda->fecha_envio,
+                    'tipo_interaccion'   => $agenda->tipo_mensaje->value,
+                    'emisor'             => $nombreEmisor,
+                    'mensaje'            => $agenda->mensaje ?? '',
+                    'es_de_docente'      => $agenda->id_usuario_emisor !== $user->id_usuario,
+                    'es_retroalimentacion' => in_array($agenda->tipo_mensaje->value, ['Feedback', 'Evaluación']),
+                    'adjunta_rubrica'    => $rubricaData !== null,
+                    'rubrica'            => $rubricaData,
+                    'puntaje_obtenido'   => $evaluacion?->puntaje_obtenido,
+                ];
+            })->values()->toArray();
+
+            // Obtener la rúbrica de la última evaluación
+            foreach (array_reverse($interacciones) as $item) {
+                if ($item['rubrica'] !== null) {
+                    $rubrica = $item['rubrica'];
+                    break;
+                }
+            }
+        }
+
+        // Derivar estado legible para el estudiante
+        $ultimoEstado = 'pendiente';
+        if ($grupo) {
+            $tieneEntrega = collect($interacciones)
+                ->contains(fn($i) => $i['tipo_interaccion'] === 'Entrega de archivo');
+            $tieneEvaluacion = collect($interacciones)
+                ->contains(fn($i) => $i['es_retroalimentacion']);
+
+            if ($tieneEvaluacion || $ultimaNota !== null) {
+                $ultimoEstado = 'evaluado';
+            } elseif ($tieneEntrega) {
+                $ultimoEstado = 'entregado';
+            }
+        }
+
+        // Entregas del estudiante (archivos enviados)
+        $entradas = collect($interacciones)
+            ->filter(fn($i) => $i['tipo_interaccion'] === 'Entrega de archivo')
+            ->map(fn($i) => ['id' => $i['id_interaccion']])
+            ->values()
+            ->toArray();
+
         $curso->load(['asignacionPlan.asignatura']);
 
         return Inertia::render('student/Activities/Index', [
-            "cod_curso" => $curso->cod_curso,
-            "nombre_curso" => $curso->nombre,
-            "cod_actividad" => $actividad->id_actividad ?? 'DM00k',
-            "nombre_actividad" => $actividad->nombre ?? 'Tarea 1: Entendiendo UTAMED',
-            "descripcion" => $actividad->descripcion ?? "Descripción detallada de la actividad. Esta actividad forma parte del componente de evaluación del curso.",
-            "fecha_limite" => $actividad->fecha_limite ?? '30/05/2026',
-            "es_sumativa" => true, //$actividad->tipo_actividad === 'SUMATIVA' || false,
-            "trae_archivo" => true,//$actividad->tipo_entrega === 'CON_ARCHIVO' || false,
-            "entrega_obligatoria" => true,//$actividad->tipo_entrega !== 'SIN_ENTREGA' || false,
-            "ultima_nota" => null, //$asignado?->nota_individual ?? $grupo?->nota,
-            "entradas" => [
-                ["id" => 1],
-                ["id" => 2],
-            ],
-            "ultimo_estado" => 'disponible' //$estadoLabel,
+            'cod_curso'             => $curso->cod_curso,
+            'nombre_curso'          => $curso->asignacionPlan?->asignatura?->nombre ?? $curso->nombre,
+            'cod_actividad'         => (string) $actividad->id_actividad,
+            'nombre_actividad'      => $actividad->nombre ?? '',
+            'descripcion'           => '', // No existe campo descripción en el modelo
+            'fecha_limite'          => $actividad->fecha_limite ? (string) $actividad->fecha_limite : '',
+            'es_sumativa'           => $actividad->tipo_actividad->value === 'SUMATIVA',
+            'trae_archivo'          => $actividad->uuid_archivo !== null,
+            'entrega_obligatoria'   => strtolower($actividad->tipo_entrega ?? '') !== 'sin entrega',
+            'ultima_nota'           => $ultimaNota,
+            'ultimo_estado'         => $ultimoEstado,
+            'entradas'              => $entradas,
+            'listado_interacciones' => $interacciones,
+            'rubrica'               => $rubrica,
         ]);
     }
 }

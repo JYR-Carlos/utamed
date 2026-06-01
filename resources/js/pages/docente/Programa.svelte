@@ -111,8 +111,6 @@
       hasPermission(userPermissions, 'cursos/programas:*'),
   );
 
-  console.log('📄 Docente Programa.svelte - programa recibido:', programa);
-
   function openCompleteWizard() {
     // Salta el selector y abre directamente el wizard COMPLETO pre-poblado desde BASICO
     selectedSyllabusType = 'combined';

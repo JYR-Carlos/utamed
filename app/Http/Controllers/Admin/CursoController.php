@@ -237,6 +237,7 @@ class CursoController extends Controller
     public function getDocentesSugeridos(Asignatura $asignatura)
     {
         $historicos = Docente::with('usuario')
+            ->whereHas('usuario', fn ($q) => $q->where('esta_activo', true))
             ->whereHas('docenteComponentes.componente.curso.asignacionPlan', fn ($q) =>
                 $q->where('id_asignatura', $asignatura->id_asignatura)
             )
@@ -246,6 +247,7 @@ class CursoController extends Controller
         $historicosIds = $historicos->pluck('id_docente');
 
         $otros = Docente::with('usuario')
+            ->whereHas('usuario', fn ($q) => $q->where('esta_activo', true))
             ->whereNotIn('id_docente', $historicosIds)
             ->orderBy('id_docente')
             ->get();
@@ -277,6 +279,7 @@ class CursoController extends Controller
     {
         // docente table has no fecha_eliminacion column – no soft-delete filter here
         $docentes = \App\Models\Usuario\Docente::with('usuario')
+            ->whereHas('usuario', fn ($q) => $q->where('esta_activo', true))
             ->orderBy('id_docente')
             ->get();
 

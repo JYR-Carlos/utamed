@@ -2,7 +2,7 @@ export interface Actividad {
     id_actividad: number;
     nombre: string;
     fecha_limite: string;
-    tipo_actividad: number;
+    tipo_actividad: 'SUMATIVA' | 'FORMATIVA';
     tipo_entrega: string;
     es_grupal: boolean;
     max_integrantes: number;
@@ -11,7 +11,7 @@ export interface Actividad {
     exigencia?: number;
     id_componente?: number;
     id_unidad?: number;
-    componente?: { id_componente: number; tipo: string } | null;
+    componente?: { id_componente: number; tipo_componente?: { nombre: string } | null } | null;
     unidad?: { id_unidad: number; nombre: string } | null;
     ultima_nota?: number | null;
 }

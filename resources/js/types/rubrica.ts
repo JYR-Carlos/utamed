@@ -8,6 +8,8 @@ export interface Nivel {
     id: string;
     nombre: string;
     descripcion: string;
+    nro_escalas: number;
+    puntaje_minimo: number;
     puntaje_total: number;
     escalas: Escala[];
 }

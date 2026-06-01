@@ -28,7 +28,6 @@
     ClipboardList,
   } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
-
   // ── Extended type ─────────────────────────────────────────────────────────
   // The backend returns actividades with `componente` eager-loaded.
   // We extend the base Actividad type to include this optional relation.
@@ -48,7 +47,6 @@
   }
 
   let { actividades, idCurso }: Props = $props();
-
   // ── Classification ────────────────────────────────────────────────────────
 
   const now = new Date();
@@ -87,6 +85,16 @@
 
   function componenteLabel(act: ActividadExtendida): string {
     return act.componente?.tipo_componente?.nombre ?? '—';
+  }
+
+  function tipoActividadLabel(tipo: string): string {
+    return tipo === 'SUMATIVA' ? 'Sumativa' : 'Formativa';
+  }
+
+  function tipoActividadClass(tipo: string): string {
+    return tipo === 'SUMATIVA'
+      ? 'bg-violet-100 text-violet-700 border-violet-200'
+      : 'bg-sky-100 text-sky-700 border-sky-200';
   }
 
   // Column config for DRY rendering
@@ -201,9 +209,18 @@
                 </span>
               {/if}
 
+              <!-- Tipo de actividad -->
+              <span
+                class="self-start inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border {tipoActividadClass(
+                  act.tipo_actividad,
+                )}"
+              >
+                {tipoActividadLabel(act.tipo_actividad)}
+              </span>
+
               <!-- Component -->
               <span class="flex items-center gap-1.5">
-                <svelte:component this={col.Icon} size={11} class="{col.accent.icon} shrink-0" />
+                <col.Icon size={11} class="{col.accent.icon} shrink-0" />
                 {componenteLabel(act)}
               </span>
 
