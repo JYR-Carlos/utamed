@@ -10,6 +10,7 @@
     cod_actividad: string;
     nombre_actividad: string;
     inline?: boolean;
+    id_actividad_asignada_grupo?: number | null;
     listado_interacciones: Array<{
       id_interaccion: number;
       fecha_emision: string;
@@ -32,6 +33,7 @@
     cod_actividad,
     nombre_actividad,
     listado_interacciones,
+    id_actividad_asignada_grupo,
     inline = false,
   }: Props = $props();
 

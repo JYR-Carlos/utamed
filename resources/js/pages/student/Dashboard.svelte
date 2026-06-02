@@ -4,7 +4,7 @@
    */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, SidebarCourse } from '@/types';
-  import { Link, page } from '@inertiajs/svelte';
+  import { page, router } from '@inertiajs/svelte'; // <-- Cambiamos Link por router
   import { Sparkles, Calendar } from 'lucide-svelte';
   import ProfileCard from '@/components/student/ProfileCard.svelte';
   import CourseCard from '@/components/student/CourseCard.svelte';
@@ -42,8 +42,20 @@
 
   const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/estudiante/dashboard' }];
 
+  // Variables de estado mutables
   let anoAcademico = $state('2026');
   let semestre = $state('1');
+
+  // FUNCIÓN PARA EL BOTÓN VER TODOS: Navega al Index enviando las variables actuales
+  function handleVerTodos() {
+    router.visit('/estudiante/cursos', {
+      method: 'get',
+      data: {
+        semestre: semestre,
+        agno: anoAcademico
+      }
+    });
+  }
 
   // Get TA courses from shared props
   let ayudanteCourses = $derived(($page.props.auth?.ayudante_courses as SidebarCourse[]) || []);
@@ -56,19 +68,18 @@
     'from-pink-600 to-pink-400',
     'from-emerald-600 to-emerald-400',
   ];
-  // Define tu patrón estilo mosaico
+  
   const mosaicClasses = [
-    'md:col-span-1 col-span-2', // curso 1
-    'md:col-span-1 col-span-2', // curso 2
-    'md:col-span-2 col-span-2', // curso 3 abajo completo
+    'md:col-span-1 col-span-2',
+    'md:col-span-1 col-span-2',
+    'md:col-span-2 col-span-2',
   ];
 
   const getGridClass = (index: number) => {
-    if (index >= 3) return 'hidden'; // muestra solo los primeros 3 cursos en el dashboard como acceso directo
+    if (index >= 3) return 'hidden';
     return mosaicClasses[index % mosaicClasses.length];
   };
 
-  // Mapear cursos a formato CourseCard
   const cursosList = $derived(
     cursos.map((curso, index) => ({
       ...curso,
@@ -78,7 +89,6 @@
     })),
   );
 
-  // Enriquecer cursos de ayudantía con colores y campos de presentación
   const ayudantecursosList = $derived(
     ayudanteCourses.map((curso, index) => ({
       ...curso,
@@ -89,13 +99,11 @@
     })),
   );
 
-  // Get auth data
   const authUser = $derived(($page.props.auth as any)?.user);
   const nombreCompleto = $derived(stats?.nombre_completo || authUser?.name || 'Estudiante');
   const rut = $derived(estudiante?.rut || '20.000.000-0');
   const carrera = $derived(estudiante?.nombre_carrera || 'No disponible');
 
-  // Parse full name
   const nameParts = $derived.by(() => {
     const parts = nombreCompleto.split(' ');
     return {
@@ -108,9 +116,7 @@
 
 <StudentLayout {breadcrumbs}>
   <div class="h-full px-5 md:px-10 lg:px-20 bg-white relative">
-    <!-- Animated background blobs -->
     <div class="relative mx-auto px-4">
-      <!-- Header -->
       <div class="mb-8">
         <div class="flex items-center gap-3 mb-2">
           <h1 class="text-4xl font-bold bg-clip-text">
@@ -120,11 +126,8 @@
         <p class="text-gray-500">Ambiente Estudiante · UTAMED</p>
       </div>
 
-      <!-- Bento Grid Layout -->
       <div class="grid grid-cols-12 gap-6">
-        <!-- Left Sidebar - Profile & Filters -->
         <div class="col-span-12 lg:col-span-3 space-y-6">
-          <!-- Profile Card -->
           <ProfileCard
             nombre={nameParts.nombre}
             apellido1={nameParts.apellido1}
@@ -133,10 +136,7 @@
             {carrera}
           />
 
-          <!-- Temporal Context Selectors -->
-          <div
-            class="relative overflow-hidden rounded-3xl bg-linear-to from-purple-600/5 via-cyan-600/5 to-orange-600/5 p-px"
-          >
+          <div class="relative overflow-hidden rounded-3xl bg-linear-to from-purple-600/5 via-cyan-600/5 to-orange-600/5 p-px">
             <div class="relative rounded-3xl bg-white backdrop-blur-xl p-6 border border-gray-200">
               <div class="relative space-y-4">
                 <div class="flex items-center gap-2 mb-4">
@@ -144,7 +144,6 @@
                   <h4 class="text-sm text-gray-700 font-medium">Periodo Académico</h4>
                 </div>
 
-                <!-- Año Selector -->
                 <div class="space-y-2">
                   <p class="text-xs text-gray-600 font-medium">Año</p>
                   <select
@@ -157,7 +156,6 @@
                   </select>
                 </div>
 
-                <!-- Semestre Selector -->
                 <div class="space-y-2">
                   <p class="text-xs text-gray-600 font-medium">Semestre</p>
                   <div class="grid grid-cols-2 gap-2">
@@ -188,32 +186,26 @@
           </div>
         </div>
 
-        <!-- Main Content - Courses/Ayudantías Grid -->
         <div class="col-span-12 lg:col-span-8">
           <div class="flex flex-col md:flex-row md:items-center gap-4 mb-6">
-            <!-- TEXTO -->
             <div class="flex flex-col gap-1 flex-1 min-w-0">
               <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Mis Cursos</h2>
-
               <p class="text-sm sm:text-base text-gray-600 break-words">
                 {`${cursosList.length} asignaturas inscritas · Semestre ${semestre} ${anoAcademico}`}
               </p>
             </div>
 
-            <!-- BOTON -->
-            <Link
+            <button
+              onclick={handleVerTodos}
               class="flex items-center justify-center md:justify-between w-full sm:w-fit md:w-60 gap-2 rounded-2xl px-4 py-3 sm:py-5 border-2 bg-primary text-secondary hover:bg-secondary hover:text-primary transition-colors shrink-0"
-              href="/estudiante/cursos"
             >
               <p class="text-sm sm:text-md text-center font-bold">Ver todos</p>
-
               <ChevronRight class="w-4 h-4 shrink-0" />
-            </Link>
+            </button>
           </div>
 
           {#if cursosList.length > 0}
             <p class="font-semibold text-md p-4">Accesos directos</p>
-
             <div class="grid grid-cols-2 mx-auto md:grid-cols-2 gap-6 auto-rows-[200px]">
               {#each cursosList as curso, index}
                 <div class={getGridClass(index)}>
@@ -226,9 +218,7 @@
               <div class="mb-4 flex justify-center">
                 <div class="rounded-full bg-gray-100 p-4">
                   <svg class="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path
-                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                    />
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                   </svg>
                 </div>
               </div>

@@ -378,6 +378,10 @@ Route::prefix('estudiante')->middleware(['auth', 'verified', 'is_estudiante'])->
     //Route::get('cursos/{curso}/actividad', [\App\Http\Controllers\Student\ActivityController::class, 'show'])->name('cursos.actividades.show');
     Route::get('cursos/{curso}/actividad/{actividad}', [\App\Http\Controllers\Student\ActivityController::class, 'show'])
         ->name('cursos.actividades.show');
+    
+    // Agenda routes
+    Route::post('actividades/agenda/guardar-entrada', [\App\Http\Controllers\Student\AgendaController::class, 'saveEntrada'])
+        ->name('actividades.agenda.guardar-entrada');
 });
 
 // Ayudante Routes

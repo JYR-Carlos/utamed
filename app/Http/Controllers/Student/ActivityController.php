@@ -147,6 +147,7 @@ class ActivityController extends Controller
             'entradas'              => $entradas,
             'listado_interacciones' => $interacciones,
             'rubrica'               => $rubrica,
+            'id_actividad_asignada_grupo' => $grupo?->id_actividad_asignada_grupo,
         ]);
     }
 }

@@ -6,8 +6,8 @@
 
   interface Props {
     cursos: Curso[];
-    semestre?: number;
-    agno?: number;
+    semestre?: number | string;
+    agno?: number | string;
   }
 
   let { cursos, semestre = 1, agno = 2026 }: Props = $props();
@@ -26,17 +26,14 @@
   }
 
   function getTituloSemestre(index: string): string {
-    if (!index) {
-      return "Mostrando Cursos"
-    }
-    return index === "1" ? "1er Semestre" : "2do Semestre"
+    return index === "1" ? "1er Semestre" : "2do Semestre";
   }
 </script>
 
 <StudentLayout {breadcrumbs}>
   <CursoListAlumno
     cursosData={cursos}
-    tituloSemestre={getTituloSemestre(semestre+"")}
+    tituloSemestre={`${getTituloSemestre(semestre.toString())} - ${agno.toString()}`}
     showSyllabusButton={true}
     onCourseClick={handleCourseClick}
     onSyllabusClick={handleSyllabusClick}

@@ -40,38 +40,24 @@ class CourseController extends Controller
         $estudiante = $user->estudiante;
 
         // Parámetros desde la URL
-        // /courses?semestre=1&agno=2025
         $semestre = (int) $request->input('semestre', 1);
         $agno     = (int) $request->input('agno', now()->year);
 
-        // Debug opcional
-        // dd($semestre, $agno);
-
-        // Obtener inscripciones filtradas
+        // Obtener inscripciones filtradas por Semestre y Año del Curso
         $inscripciones = $estudiante->inscripcionCursos()
-        ->with([
-            'curso',
-            'curso.asignacionPlan.asignatura',
-            'curso.asignacionPlan.plan.carrera'
-        ])
-        ->get();
-
-        // Debug para verificar resultados
-        /*
-        dd(
-            $inscripciones->map(function ($i) {
-                return [
-                    'curso_id' => $i->curso?->id,
-                    'semestre_real' => $i->curso?->semestre_real,
-                    'agno_real' => $i->curso?->agno_real,
-                ];
+            ->whereHas('curso', function ($query) use ($semestre, $agno) {
+                $query->where('semestre_real', $semestre)
+                    ->whereYear('fecha_inicio', $agno); 
             })
-        );
-        */
+            ->with([
+                'curso',
+                'curso.asignacionPlan.asignatura',
+                'curso.asignacionPlan.plan.carrera'
+            ])
+            ->get();
 
         $cursosEstudiante = $inscripciones->map(function ($inscripcion) {
             $curso = $inscripcion->curso;
-
             return $this->formatCurso($curso, 'Estudiante');
         });
 
