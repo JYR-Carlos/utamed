@@ -374,13 +374,20 @@ class DocenteActivityController extends Controller
         $esSumativa  = $actividad->tipo_actividad === TipoActividad::SUMATIVA;
         $traeArchivo = $actividad->tipo_entrega !== 'presencial';
 
+        // 1. Autor: GitHub Copilot
+        // 2. Fecha: 04/06/2025
+        // 3. Se expone también id_rubrica para que el frontend pueda enviarlo al
+        //    crear una evaluación sin necesidad de una consulta adicional.
+
         // Rúbrica: la más reciente asociada directamente a esta actividad
         $rubricaData = null;
+        $rubricaId = null;
         try {
             $rubricaModel = \App\Models\Agenda\Rubrica::where('id_actividad', $actividad->id_actividad)
                 ->orderByDesc('id_rubrica')
                 ->first();
             $rubricaData = $rubricaModel?->rubrica;
+            $rubricaId   = $rubricaModel?->id_rubrica;
         } catch (\Exception $e) {
             Log::warning('No se pudo cargar rúbrica para actividad ' . $actividad->id_actividad . ': ' . $e->getMessage());
         }
@@ -422,6 +429,7 @@ class DocenteActivityController extends Controller
             ],
             'grupos'               => $grupos,
             'rubrica'              => $rubricaData,
+            'rubrica_id'           => $rubricaId,
             'estudiantesInscritos' => $estudiantesInscritos,
         ]);
     }
@@ -1100,27 +1108,25 @@ class DocenteActivityController extends Controller
         // Para cada estudiante: contar mensajes enviados (tipo "Mensaje al profesor")
         // en cualquier grupo del curso
         $mensajesCount = DB::table('agenda.agenda as a')
-            ->join('agenda.tipo_registro_agenda as t', 't.id_tipo_registro_agenda', '=', 'a.id_tipo_registro_agenda')
             ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'a.id_actividad_asignada_grupo')
             ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
             ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
             ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
             ->join('usuario.estudiante as e', 'e.id_usuario', '=', 'u.id_usuario')
             ->where('c.id_curso', $curso->id_curso)
-            ->where('t.tipo', 'Mensaje al profesor')
+            ->where('a.tipo_mensaje', 'Mensaje al profesor')
             ->select('e.id_estudiante', DB::raw('COUNT(*) as total_mensajes'), DB::raw('MAX(a.fecha_envio) as ultima_fecha'))
             ->groupBy('e.id_estudiante')
             ->pluck('total_mensajes', 'id_estudiante');
 
         $ultimasFechas = DB::table('agenda.agenda as a')
-            ->join('agenda.tipo_registro_agenda as t', 't.id_tipo_registro_agenda', '=', 'a.id_tipo_registro_agenda')
             ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'a.id_actividad_asignada_grupo')
             ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
             ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
             ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
             ->join('usuario.estudiante as e', 'e.id_usuario', '=', 'u.id_usuario')
             ->where('c.id_curso', $curso->id_curso)
-            ->whereIn('t.tipo', ['Mensaje al profesor', 'Feedback'])
+            ->whereIn('a.tipo_mensaje', ['Mensaje al profesor', 'Feedback'])
             ->select('e.id_estudiante', DB::raw('MAX(a.fecha_envio) as ultima_fecha'))
             ->groupBy('e.id_estudiante')
             ->pluck('ultima_fecha', 'id_estudiante');
@@ -1168,19 +1174,17 @@ class DocenteActivityController extends Controller
         }
 
         $mensajes = DB::table('agenda.agenda as a')
-            ->join('agenda.tipo_registro_agenda as t', 't.id_tipo_registro_agenda', '=', 'a.id_tipo_registro_agenda')
             ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
             ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'a.id_actividad_asignada_grupo')
             ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
             ->whereIn('a.id_actividad_asignada_grupo', $gruposIds)
-            ->whereIn('t.tipo', ['Mensaje al profesor', 'Feedback'])
+            ->whereIn('a.tipo_mensaje', ['Mensaje al profesor', 'Feedback'])
             ->orderBy('a.fecha_envio', 'asc')
             ->select(
                 'a.id_agenda',
                 'a.fecha_envio',
                 'a.mensaje',
-                'a.grupo',
-                't.tipo as tipo_registro',
+                'a.tipo_mensaje as tipo_registro',
                 DB::raw("TRIM(CONCAT(u.nombre1,' ',COALESCE(u.nombre2,''),' ',u.apellido1,' ',COALESCE(u.apellido2,''))) as emisor_nombre"),
                 'u.id_usuario as emisor_id_usuario',
                 'act.nombre as actividad_nombre',
@@ -1189,6 +1193,112 @@ class DocenteActivityController extends Controller
             ->get();
 
         return response()->json($mensajes);
+    }
+
+    // 1. Autor: Juan Y.
+    // 2. Fecha: 04/06/2025
+    // 3. Se agrega método storeEvaluacion: crea atómicamente el mensaje de tipo
+    //    "Evaluación" en agenda.agenda y el registro en agenda.evaluacion, luego
+    //    actualiza la nota y cierra el grupo. También cierra la rúbrica si estaba
+    //    en estado POSTULADA (primera evaluación).
+
+    /**
+     * Crea una evaluación para un grupo de una actividad.
+     *
+     * Flujo (en transacción):
+     * 1. Valida permisos y que el grupo pertenece al curso/actividad.
+     * 2. Verifica que no exista ya una evaluación para el id_agenda_entrega indicado.
+     * 3. Inserta un registro en agenda.agenda con tipo "Evaluación".
+     * 4. Inserta un registro en agenda.evaluacion vinculado al agenda anterior.
+     * 5. Actualiza nota y estado del grupo a CERRADA.
+     * 6. Si la rúbrica estaba POSTULADA, la cierra.
+     *
+     * POST docente/cursos/{curso}/actividades/{actividad}/grupos/{grupo}/evaluacion
+     */
+    public function storeEvaluacion(Request $request, Curso $curso, Actividad $actividad, int $grupo)
+    {
+        $this->autorizarDocenteCurso($curso);
+
+        if ($actividad->componente?->id_curso !== $curso->id_curso) {
+            abort(404, 'Actividad no encontrada en este curso.');
+        }
+
+        $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
+            ->where('id_actividad', $actividad->id_actividad)
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'id_agenda_entrega'  => 'nullable|integer|exists:agenda.agenda,id_agenda',
+            'id_rubrica'         => 'required|integer|exists:agenda.rubrica,id_rubrica',
+            'resultado'          => 'nullable|array',
+            'puntaje_obtenido'   => 'nullable|numeric|min:0|max:999',
+            'evaluacion_obtenida'=> 'nullable|string|max:500',
+            'mensaje'            => 'nullable|string|max:2000',
+            'nota'               => 'nullable|numeric|min:1|max:7',
+        ]);
+
+        // Verificar que la entrega referenciada pertenece al mismo grupo
+        if (!empty($validated['id_agenda_entrega'])) {
+            $entregaValida = DB::table('agenda.agenda')
+                ->where('id_agenda', $validated['id_agenda_entrega'])
+                ->where('id_actividad_asignada_grupo', $grupo)
+                ->exists();
+
+            if (!$entregaValida) {
+                return response()->json(['error' => 'La entrega no pertenece a este grupo.'], 422);
+            }
+        }
+
+        try {
+            return DB::transaction(function () use ($validated, $grupo, $grupoModel) {
+
+                // 1. Insertar mensaje de evaluación en agenda
+                // 1. Autor: Juan Y.
+                // 2. Fecha: 02/06/2026
+                // 3. agenda.agenda usa tipo_mensaje ENUM directamente; no existe tipo_registro_agenda.
+                $idAgendaEvaluacion = DB::table('agenda.agenda')->insertGetId([
+                    'mensaje'                     => $validated['mensaje'] ?? '',
+                    'id_usuario_emisor'           => Auth::id(),
+                    'id_actividad_asignada_grupo' => $grupo,
+                    'tipo_mensaje'                => 'Evaluación',
+                    'fecha_envio'                 => now(),
+                ]);
+
+                // 2. Crear registro en evaluacion vinculado al mensaje anterior
+                \App\Models\Agenda\Evaluacion::create([
+                    'puntaje_obtenido'    => $validated['puntaje_obtenido'] ?? null,
+                    'resultado'           => $validated['resultado'] ?? null,
+                    'evaluacion_obtenida' => $validated['evaluacion_obtenida'] ?? null,
+                    'fecha_evaluacion'    => now(),
+                    'id_rubrica'          => $validated['id_rubrica'],
+                    'id_usuario_evaluador'=> Auth::id(),
+                    'id_agenda'           => $idAgendaEvaluacion,
+                ]);
+
+                // 3. Actualizar nota y cerrar el grupo
+                $grupoModel->update([
+                    'nota'                      => $validated['nota'] ?? null,
+                    'estado_actividad_asignada' => EstadoActividadAsignada::CERRADA,
+                ]);
+
+                // 4. Cerrar la rúbrica si estaba POSTULADA (primera evaluación que la usa)
+                DB::table('agenda.rubrica')
+                    ->where('id_rubrica', $validated['id_rubrica'])
+                    ->where('estado_rubrica', 'POSTULADA')
+                    ->update(['estado_rubrica' => 'CERRADA']);
+
+                // 1. Autor: GitHub Copilot
+                // 2. Fecha: 02/06/2026
+                // 3. Devuelve redirect()->back() para compatibilidad con Inertia.js.
+                return redirect()->back()->with('success', 'Evaluación registrada correctamente.');
+            });
+        } catch (\Exception $e) {
+            Log::error('[storeEvaluacion] Error al registrar evaluación: ' . $e->getMessage(), [
+                'grupo'  => $grupoModel->id_actividad_asignada_grupo,
+                'trace'  => $e->getTraceAsString(),
+            ]);
+            return response()->json(['error' => 'Error al registrar la evaluación: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -1214,23 +1324,19 @@ class DocenteActivityController extends Controller
             abort(404, 'Grupo no encontrado en este curso.');
         }
 
-        $tipo = DB::table('agenda.tipo_registro_agenda')
-            ->where('tipo', 'Feedback')
-            ->first();
-
-        if (!$tipo) {
-            return response()->json(['error' => 'Tipo de registro "Feedback" no encontrado.'], 422);
-        }
-
+        // 1. Autor: GitHub Copilot
+        // 2. Fecha: 02/06/2026
+        // 3. agenda.agenda usa columna ENUM tipo_mensaje directamente.
+        //    Devuelve redirect()->back() para compatibilidad con Inertia.js.
         DB::table('agenda.agenda')->insert([
-            'mensaje'                    => $validated['mensaje'],
-            'id_usuario_emisor'          => Auth::id(),
+            'mensaje'                     => $validated['mensaje'],
+            'id_usuario_emisor'           => Auth::id(),
             'id_actividad_asignada_grupo' => $grupo,
-            'id_tipo_registro_agenda'    => $tipo->id_tipo_registro_agenda,
-            'fecha_envio'                => now(),
+            'tipo_mensaje'                => 'Feedback',
+            'fecha_envio'                 => now(),
         ]);
 
-        return response()->json(['success' => true]);
+        return redirect()->back()->with('success', 'Feedback enviado correctamente.');
     }
 
     /**
@@ -1256,30 +1362,39 @@ class DocenteActivityController extends Controller
             return response()->json(['error' => 'Grupo no encontrado.'], 404);
         }
 
+        // 1. Autor: Juan Y.
+        // 2. Fecha: 02/06/2026
+        // 3. agenda.agenda usa la columna ENUM tipo_mensaje directamente
+        //    (no existe la tabla tipo_registro_agenda). Se consulta el hilo
+        //    completo del grupo: mensajes, feedback, entregas y evaluaciones.
         $mensajes = DB::table('agenda.agenda as a')
-            ->join('agenda.tipo_registro_agenda as t', 't.id_tipo_registro_agenda', '=', 'a.id_tipo_registro_agenda')
             ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
+            ->leftJoin('agenda.evaluacion as ev', 'ev.id_agenda', '=', 'a.id_agenda')
             ->where('a.id_actividad_asignada_grupo', $grupo)
-            ->whereIn('t.tipo', ['Mensaje al profesor', 'Feedback'])
+            ->whereIn('a.tipo_mensaje', ['Mensaje al profesor', 'Feedback', 'Entrega de archivo', 'Evaluación'])
             ->orderBy('a.fecha_envio', 'asc')
             ->select(
                 'a.id_agenda',
                 'a.fecha_envio',
                 'a.mensaje',
-                't.tipo as tipo_registro',
+                'a.tipo_mensaje as tipo_registro',
                 'u.id_usuario as emisor_id_usuario',
                 DB::raw("TRIM(CONCAT(u.nombre1,' ',COALESCE(u.nombre2,''),' ',u.apellido1,' ',COALESCE(u.apellido2,''))) as emisor_nombre"),
+                'ev.puntaje_obtenido',
+                'ev.evaluacion_obtenida',
+                'ev.id_evaluacion',
             )
             ->get()
             ->map(fn($m) => array_merge((array) $m, [
-                // Campos extra para compatibilidad con el componente AgendaDocente
                 'id_interaccion'       => $m->id_agenda,
                 'fecha_emision'        => $m->fecha_envio,
                 'tipo_interaccion'     => $m->tipo_registro,
                 'emisor'               => $m->emisor_nombre,
-                'es_de_docente'        => $m->tipo_registro === 'Feedback',
+                'es_de_docente'        => in_array($m->tipo_registro, ['Feedback', 'Evaluación']),
                 'es_retroalimentacion' => $m->tipo_registro === 'Feedback',
-                'adjunta_rubrica'      => false,
+                'es_entrega'           => $m->tipo_registro === 'Entrega de archivo',
+                'tiene_evaluacion'     => $m->id_evaluacion !== null,
+                'adjunta_rubrica'      => $m->id_evaluacion !== null,
             ]));
 
         return response()->json($mensajes);

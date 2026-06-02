@@ -17,6 +17,12 @@
     mensaje: string;
     es_de_docente: boolean;
     es_retroalimentacion: boolean;
+    // 1. Autor: Juan Y.
+    // 2. Fecha: 04/06/2025
+    // 3. Se añaden campos es_entrega y tiene_evaluacion retornados por el
+    //    endpoint getGrupoMensajes actualizado.
+    es_entrega?: boolean;
+    tiene_evaluacion?: boolean;
     adjunta_rubrica: boolean;
     rubrica?: Rubrica;
     puntaje_obtenido?: number;
@@ -50,10 +56,22 @@
     };
     grupos: GrupoData[];
     rubrica?: Rubrica | null;
+    // 1. Autor: Juan Y.
+    // 2. Fecha: 04/06/2025
+    // 3. Se agrega rubrica_id para enviarlo al endpoint storeEvaluacion sin
+    //    necesidad de una consulta adicional desde el frontend.
+    rubrica_id?: number | null;
     estudiantesInscritos?: EstudianteInscrito[];
   }
 
-  let { curso, actividad, grupos, rubrica = null, estudiantesInscritos = [] }: Props = $props();
+  let {
+    curso,
+    actividad,
+    grupos,
+    rubrica = null,
+    rubrica_id = null,
+    estudiantesInscritos = [],
+  }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Mis Cursos', href: '/docente/cursos' },
@@ -167,11 +185,6 @@
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
-  function csrfToken(): string {
-    return (
-      (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content ?? ''
-    );
-  }
 
   async function cargarInteracciones(grupo: GrupoData) {
     interaccionesGrupo = [];
@@ -209,26 +222,51 @@
     showRubricaModal = !showRubricaModal;
   }
 
-  async function manejarInteraccionDocente(data: { tipo: string; mensaje: string; nota?: number }) {
+  // 1. Autor: GitHub Copilot
+  // 2. Fecha: 02/06/2026
+  // 3. Se migra de fetch() nativo a router.post() de Inertia.js para que el
+  //    token CSRF se gestione automáticamente (igual que el resto del proyecto).
+  function manejarInteraccionDocente(data: {
+    tipo: string;
+    mensaje: string;
+    nota?: number;
+    id_agenda_entrega?: number | null;
+  }) {
     if (!grupoSeleccionado) return;
-    try {
-      const res = await fetch(
-        `/docente/cursos/${curso.id_curso}/grupos/${grupoSeleccionado.grupo}/feedback`,
+    const grupoSnap = grupoSeleccionado;
+
+    if (data.tipo === 'Evaluación') {
+      if (!rubrica_id) {
+        console.error('No hay rúbrica asociada a esta actividad para evaluar.');
+        return;
+      }
+      router.post(
+        `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoSnap.grupo}/evaluacion`,
         {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            'X-CSRF-TOKEN': csrfToken(),
+          id_agenda_entrega: data.id_agenda_entrega ?? null,
+          id_rubrica: rubrica_id,
+          nota: data.nota ?? null,
+          mensaje: data.mensaje,
+        },
+        {
+          preserveScroll: true,
+          onSuccess: () => {
+            router.reload({ only: ['grupos'] });
+            cargarInteracciones(grupoSnap);
           },
-          body: JSON.stringify({ mensaje: data.mensaje }),
+          onError: (errors) => console.error('Error al registrar evaluación:', errors),
         },
       );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      // Recargar interacciones tras envío exitoso
-      await cargarInteracciones(grupoSeleccionado);
-    } catch (e) {
-      console.error('Error al enviar feedback:', e);
+    } else {
+      router.post(
+        `/docente/cursos/${curso.id_curso}/grupos/${grupoSnap.grupo}/feedback`,
+        { mensaje: data.mensaje },
+        {
+          preserveScroll: true,
+          onSuccess: () => cargarInteracciones(grupoSnap),
+          onError: (errors) => console.error('Error al enviar feedback:', errors),
+        },
+      );
     }
   }
 

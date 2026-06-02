@@ -61,7 +61,18 @@
   let isAddingDocente = $state(false);
   let isSettingTitular = $state(false);
   let errorMsg = $state<string | null>(null);
+  let successMsg = $state<string | null>(null);
+  let successTimeout: ReturnType<typeof setTimeout> | null = null;
   let isSubmitting = $state(false);
+
+  function showSuccess(msg: string) {
+    if (successTimeout) clearTimeout(successTimeout);
+    errorMsg = null;
+    successMsg = msg;
+    successTimeout = setTimeout(() => {
+      successMsg = null;
+    }, 3500);
+  }
 
   // Sincronizar con editingComponente cuando se abre el modal
   $effect(() => {
@@ -77,6 +88,7 @@
     }
     nuevoDocenteId = '';
     errorMsg = null;
+    successMsg = null;
   });
 
   // Docentes que todavía no están asignados al componente (para el selector de agregar)
@@ -98,6 +110,7 @@
     } else {
       docentesAsignados = [...docentesAsignados, result.docente_componente];
       nuevoDocenteId = '';
+      showSuccess('Docente asignado correctamente');
     }
 
     isAddingDocente = false;
@@ -106,6 +119,7 @@
   async function handleRemoveDocente(dc: DocenteAsignadoComponente) {
     if (!editingComponente) return;
     errorMsg = null;
+    successMsg = null;
 
     const result = await removeDocenteComponente(
       editingComponente.id_componente,
@@ -118,12 +132,14 @@
       docentesAsignados = docentesAsignados.filter(
         (d) => d.id_docente_componente !== dc.id_docente_componente,
       );
+      showSuccess('Docente removido correctamente');
     }
   }
 
   async function handleSetTitular(dc: DocenteAsignadoComponente) {
     if (!editingComponente || dc.es_titular) return;
     errorMsg = null;
+    successMsg = null;
     isSettingTitular = true;
 
     const result = await setTitularComponente(
@@ -139,6 +155,7 @@
         ...d,
         es_titular: d.id_docente_componente === dc.id_docente_componente,
       }));
+      showSuccess('Titular actualizado correctamente');
     }
 
     isSettingTitular = false;
@@ -231,6 +248,12 @@
           <div>
             <p class="block text-sm font-medium text-gray-700 mb-2">Docentes Asignados</p>
 
+            {#if successMsg}
+              <p class="text-sm text-green-600 mb-2 flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                {successMsg}
+              </p>
+            {/if}
             {#if errorMsg}
               <p class="text-sm text-red-600 mb-2">{errorMsg}</p>
             {/if}

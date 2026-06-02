@@ -159,7 +159,11 @@ export async function addDocenteComponente(
         },
         body: JSON.stringify({ id_docente: idDocente }),
     });
-    return response.json();
+    const data = await response.json();
+    if (!response.ok) {
+        return { error: data.error ?? data.message ?? 'Error al asignar docente' };
+    }
+    return data;
 }
 
 /**
@@ -180,7 +184,11 @@ export async function removeDocenteComponente(
             },
         },
     );
-    return response.json();
+    const data = await response.json();
+    if (!response.ok) {
+        return { error: data.error ?? data.message ?? 'Error al quitar docente' };
+    }
+    return data;
 }
 
 /**

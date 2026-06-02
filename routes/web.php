@@ -331,6 +331,10 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/mensajes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getGrupoMensajes'])->name('cursos.actividades.grupos.mensajes');
     // Docente envía feedback a un grupo
     Route::post('cursos/{curso}/grupos/{grupo}/feedback', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'sendFeedback'])->name('cursos.grupos.feedback');
+    // 1. Autor: Juan Y.
+    // 2. Fecha: 04/06/2025
+    // 3. Ruta nueva: POST para que el docente registre una evaluación sobre un grupo de actividad.
+    Route::post('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/evaluacion', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'storeEvaluacion'])->name('cursos.actividades.grupos.evaluacion');
 
     // Program Management
     Route::post('cursos/{curso}/programa', [AdminProgramaController::class, 'store'])

@@ -1,10 +1,21 @@
 <script lang="ts">
+  // 1. Autor: Juan Y
+  // 2. Fecha: 04/06/2025
+  // 3. Se eliminan tipos de interacción no válidos ('Recordatorio', 'Respuesta').
+  //    Se agrega selección de entrega a vincular cuando el tipo es 'Evaluación'.
+  //    Se actualiza la firma del callback onInteraccionEnviada para incluir
+  //    id_agenda_entrega (opcional) y nota.
   import type { Rubrica } from '@/types/rubrica';
   import RubricaView from '../../../student/Activities/Agenda/Rubrica.svelte';
 
   interface Props {
     onCerrar: () => void;
-    onInteraccionEnviada: (data: { tipo: string; mensaje: string; nota?: number }) => void;
+    onInteraccionEnviada: (data: {
+      tipo: string;
+      mensaje: string;
+      nota?: number;
+      id_agenda_entrega?: number | null;
+    }) => void;
     cod_curso: string;
     nombre_actividad: string;
     nombre_grupo: string;
@@ -16,6 +27,8 @@
       mensaje: string;
       es_de_docente: boolean;
       es_retroalimentacion: boolean;
+      es_entrega?: boolean;
+      tiene_evaluacion?: boolean;
       adjunta_rubrica: boolean;
       rubrica?: Rubrica;
       puntaje_obtenido?: number;
@@ -38,6 +51,7 @@
   let nuevoMensaje = $state('');
   let tipoSeleccionado = $state('Feedback');
   let notaEvaluacion = $state<number | null>(null);
+  let entregaSeleccionada = $state<number | null>(null);
 
   let interaccionSeleccionada = $state<{
     rubrica?: Rubrica;
@@ -45,26 +59,40 @@
     retroalimentacion?: string;
   } | null>(null);
 
-  const tiposInteraccion = ['Feedback', 'Evaluación', 'Recordatorio', 'Respuesta'];
+  // Solo tipos válidos según el ENUM de la base de datos
+  const tiposInteraccion = ['Feedback', 'Evaluación'];
 
   const esEvaluacion = $derived(tipoSeleccionado === 'Evaluación');
 
-  function manejarEnvio() {
-    if (nuevoMensaje.trim() === '') return;
+  // Entregas del grupo que aún no tienen evaluación
+  const entregasSinEvaluar = $derived(
+    listado_interacciones.filter((i) => i.es_entrega && !i.tiene_evaluacion),
+  );
 
-    const data: { tipo: string; mensaje: string; nota?: number } = {
+  function manejarEnvio() {
+    if (nuevoMensaje.trim() === '' && !esEvaluacion) return;
+    if (esEvaluacion && notaEvaluacion === null) return;
+
+    const data: {
+      tipo: string;
+      mensaje: string;
+      nota?: number;
+      id_agenda_entrega?: number | null;
+    } = {
       tipo: tipoSeleccionado,
       mensaje: nuevoMensaje,
     };
 
-    if (esEvaluacion && notaEvaluacion !== null) {
-      data.nota = notaEvaluacion;
+    if (esEvaluacion) {
+      if (notaEvaluacion !== null) data.nota = notaEvaluacion;
+      data.id_agenda_entrega = entregaSeleccionada;
     }
 
     onInteraccionEnviada(data);
 
     nuevoMensaje = '';
     notaEvaluacion = null;
+    entregaSeleccionada = null;
     tipoSeleccionado = tiposInteraccion[0];
   }
 </script>
@@ -119,10 +147,25 @@
           {errorMensaje}
         </div>
       {:else if listado_interacciones.length === 0}
-        <div
-          class="flex items-center justify-center h-full text-sm text-gray-400 italic text-center px-4"
-        >
-          Sin mensajes aún. Inicia la conversación con el grupo.
+        <div class="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="size-10 text-gray-300"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"
+            />
+          </svg>
+          <p class="text-sm font-semibold text-gray-500">Sin mensajes todavía</p>
+          <p class="text-xs text-gray-400">
+            Escribe un <span class="font-bold">Feedback</span> abajo para iniciar el chat con el grupo.
+          </p>
         </div>
       {:else}
         {#each listado_interacciones as item}
@@ -219,20 +262,44 @@
 
       <!-- Campo extra para nota cuando es Evaluación -->
       {#if esEvaluacion}
-        <div
-          class="flex items-center gap-3 mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl"
-        >
-          <label class="text-sm font-bold text-amber-800 shrink-0">Nota (1–7):</label>
-          <input
-            type="number"
-            min="1"
-            max="7"
-            step="0.1"
-            bind:value={notaEvaluacion}
-            placeholder="ej. 5.5"
-            class="w-24 text-sm border-amber-300 rounded-lg focus:ring-amber-400 focus:border-amber-400 px-3 py-1 bg-white"
-          />
-          <p class="text-xs text-amber-600">La retroalimentación escrita va en el mensaje.</p>
+        <div class="flex flex-col gap-3 mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+          <div class="flex items-center gap-3">
+            <label for="nota-evaluacion" class="text-sm font-bold text-amber-800 shrink-0"
+              >Nota (1–7):</label
+            >
+            <input
+              id="nota-evaluacion"
+              type="number"
+              min="1"
+              max="7"
+              step="0.1"
+              bind:value={notaEvaluacion}
+              placeholder="ej. 5.5"
+              class="w-24 text-sm border-amber-300 rounded-lg focus:ring-amber-400 focus:border-amber-400 px-3 py-1 bg-white"
+            />
+          </div>
+          {#if entregasSinEvaluar.length > 0}
+            <div class="flex items-center gap-3">
+              <label for="entrega-evaluar" class="text-sm font-bold text-amber-800 shrink-0"
+                >Entrega a evaluar:</label
+              >
+              <select
+                id="entrega-evaluar"
+                bind:value={entregaSeleccionada}
+                class="flex-1 text-sm border-amber-300 rounded-lg focus:ring-amber-400 focus:border-amber-400 px-3 py-1 bg-white"
+              >
+                <option value={null}>— Ninguna (evaluación general) —</option>
+                {#each entregasSinEvaluar as entrega}
+                  <option value={entrega.id_interaccion}>
+                    #{entrega.id_interaccion} · {entrega.fecha_emision}
+                  </option>
+                {/each}
+              </select>
+            </div>
+          {/if}
+          <p class="text-xs text-amber-600">
+            La nota y retroalimentación quedarán registradas para el grupo.
+          </p>
         </div>
       {/if}
 
@@ -248,7 +315,7 @@
 
         <button
           onclick={manejarEnvio}
-          disabled={!nuevoMensaje.trim()}
+          disabled={esEvaluacion ? notaEvaluacion === null : !nuevoMensaje.trim()}
           class="absolute bottom-4 right-4 p-3 bg-primary text-secondary rounded-xl hover:scale-105 disabled:opacity-50 disabled:scale-100 transition-all shadow-lg"
           aria-label="enviar"
         >
