@@ -1324,7 +1324,7 @@ class DocenteActivityController extends Controller
             abort(404, 'Grupo no encontrado en este curso.');
         }
 
-        // 1. Autor: GitHub Copilot
+        // 1. Autor: Juan Y.
         // 2. Fecha: 02/06/2026
         // 3. agenda.agenda usa columna ENUM tipo_mensaje directamente.
         //    Devuelve redirect()->back() para compatibilidad con Inertia.js.
