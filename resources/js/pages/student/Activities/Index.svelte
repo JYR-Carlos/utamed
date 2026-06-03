@@ -3,7 +3,7 @@
   import ActividadInteraccion from './ActividadInteraccion.svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
-  import { Link } from '@inertiajs/svelte';
+  import { Link, router } from '@inertiajs/svelte';
   import { ChevronLeft } from 'lucide-svelte';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaView from './Agenda/Rubrica.svelte';
@@ -65,7 +65,7 @@
     { title: nombre_actividad, href: '' },
   ]);
 
-  let stripTone = 'pass';
+  
 
   let showRubricaModal = $state(false);
   let showAgendaModal = $state(false);
@@ -92,49 +92,29 @@
     showInfoModal = !showInfoModal;
   }
 
-  async function handleGuardarEntrada(data: { tipo: string; mensaje: string }) {
+  function handleGuardarEntrada(data: { tipo: string; mensaje: string }) {
     if (!id_actividad_asignada_grupo) {
       alert('Error: No se pudo encontrar la actividad asignada');
       return;
     }
 
-    try {
-      const response = await fetch('/estudiante/actividades/agenda/guardar-entrada', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN':
-            document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+    router.post(
+      '/estudiante/actividades/agenda/guardar-entrada',
+      {
+        id_actividad_asignada_grupo,
+        tipo: data.tipo,
+        mensaje: data.mensaje,
+      },
+      {
+        onSuccess: () => {
+          router.reload();
         },
-        body: JSON.stringify({
-          id_actividad_asignada_grupo,
-          tipo: data.tipo,
-          mensaje: data.mensaje,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        // Recargar la página para mostrar el nuevo mensaje
-        window.location.reload();
-      } else {
-        alert('Error al guardar la entrada: ' + (result.error || 'Error desconocido'));
       }
-    } catch (error) {
-      console.error('Error al guardar entrada:', error);
-      alert(
-        'Error al guardar la entrada: ' +
-          (error instanceof Error ? error.message : 'Error desconocido'),
-      );
-    }
+    );
   }
 
   const stateLabel = $derived.by(() => {
-    if (stripTone === 'pass') return 'APROBADO';
-    if (stripTone === 'fail') return 'REPROBADO';
-    if (stripTone === 'submitted') return 'ENTREGADA';
-    return 'PENDIENTE';
+    return ultimo_estado?.toUpperCase();
   });
 </script>
 
@@ -179,14 +159,7 @@
             </div>
 
             <div
-              class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm
-              {stripTone === 'pass'
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                : ''}
-              {stripTone === 'fail' ? 'bg-rose-50 text-rose-700 border border-rose-200' : ''}
-              {stripTone === 'submitted' ? 'bg-blue-50 text-blue-700 border border-blue-200' : ''}
-              {stripTone === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-200' : ''}
-            "
+              class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm"
             >
               {stateLabel}
             </div>
@@ -197,7 +170,7 @@
                   class="text-3xl font-extrabold tracking-tight
                   {ultima_nota >= 4 ? 'text-emerald-600' : 'text-rose-600'}"
                 >
-                  {ultima_nota.toFixed(1)}
+                  {ultima_nota}
                 </span>
                 <span class="text-sm font-medium text-slate-400">&nbsp;/ 7.0</span>
               </div>
@@ -429,22 +402,22 @@
 
           <div
             class="flex flex-col items-start justify-between gap-4 rounded-xl p-5 shadow-sm sm:flex-row sm:items-center border
-            {stripTone === 'pass' ? 'bg-emerald-50/60 border-emerald-100 text-emerald-900' : ''}
-            {stripTone === 'fail' ? 'bg-rose-50/60 border-rose-100 text-rose-900' : ''}
-            {stripTone === 'submitted' ? 'bg-blue-50/60 border-blue-100 text-blue-900' : ''}
-            {stripTone === 'pending' ? 'bg-amber-50/60 border-amber-100 text-amber-900' : ''}
+            {ultimo_estado === 'pass' ? 'bg-emerald-50/60 border-emerald-100 text-emerald-900' : ''}
+            {ultimo_estado === 'fail' ? 'bg-rose-50/60 border-rose-100 text-rose-900' : ''}
+            {ultimo_estado === 'submitted' ? 'bg-blue-50/60 border-blue-100 text-blue-900' : ''}
+            {ultimo_estado === 'pending' ? 'bg-amber-50/60 border-amber-100 text-amber-900' : ''}
           "
           >
             <div class="flex items-center gap-3.5">
               <div
                 class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg shadow-sm
-                {stripTone === 'pass' ? 'bg-emerald-600 text-white' : ''}
-                {stripTone === 'fail' ? 'bg-rose-600 text-white' : ''}
-                {stripTone === 'submitted' ? 'bg-blue-600 text-white' : ''}
-                {stripTone === 'pending' ? 'bg-amber-600 text-white' : ''}
+                {ultimo_estado === 'pass' ? 'bg-emerald-600 text-white' : ''}
+                {ultimo_estado === 'fail' ? 'bg-rose-600 text-white' : ''}
+                {ultimo_estado === 'submitted' ? 'bg-blue-600 text-white' : ''}
+                {ultimo_estado === 'pending' ? 'bg-amber-600 text-white' : ''}
               "
               >
-                {#if stripTone === 'pass'}
+                {#if ultimo_estado === 'pass'}
                   <svg
                     width="20"
                     height="20"
@@ -455,7 +428,7 @@
                     stroke-linecap="round"
                     stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg
                   >
-                {:else if stripTone === 'fail'}
+                {:else if ultimo_estado === 'fail'}
                   <svg
                     width="20"
                     height="20"
@@ -472,7 +445,7 @@
                       y2="18"
                     /></svg
                   >
-                {:else if stripTone === 'submitted'}
+                {:else if ultimo_estado === 'submitted'}
                   <svg
                     width="20"
                     height="20"
@@ -512,13 +485,7 @@
             </div>
 
             <div class="flex flex-1 flex-wrap items-center gap-4 sm:justify-end">
-              {#if ultimo_estado}
-                <div class="text-sm">
-                  <span class="opacity-60 block text-xs">Estado interno</span>
-                  <span class="font-semibold">{ultimo_estado}</span>
-                </div>
-              {/if}
-              {#if es_sumativa && (stripTone === 'pass' || stripTone === 'fail')}
+              {#if es_sumativa && (ultimo_estado === 'pass' || ultimo_estado === 'fail')}
                 <div class="hidden h-8 w-px bg-current opacity-20 sm:block"></div>
                 <div class="text-sm">
                   <span class="opacity-60 block text-xs">Evaluación</span>
@@ -534,15 +501,14 @@
               class="flex items-baseline gap-0.5 border-t border-current/10 pt-3 text-right sm:border-0 sm:pt-0"
             >
               {#if ultima_nota !== null && ultima_nota !== undefined}
-                <span class="text-3xl font-black tracking-tight">{ultima_nota.toFixed(1)}</span>
-                <span class="text-xs font-bold opacity-60">/ 7.0</span>
+                <span class="text-3xl font-black tracking-tight">{ultima_nota}</span>
               {:else}
                 <span class="text-2xl font-bold opacity-40">–</span>
               {/if}
             </div>
           </div>
 
-          {#if stripTone === 'pending'}
+          {#if ultimo_estado === 'pending'}
             {#if trae_archivo}
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <button
@@ -684,7 +650,7 @@
               <div
                 class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-200 text-slate-500"
               >
-                {#if stripTone === 'pass' || stripTone === 'fail'}
+                {#if ultimo_estado === 'pass' || ultimo_estado === 'fail'}
                   <svg
                     width="22"
                     height="22"
@@ -715,7 +681,7 @@
                 <h3 class="text-sm font-bold text-slate-900">Tu entrega</h3>
                 <p class="text-xs text-slate-500">
                   Tu trabajo ha sido entregado.
-                  {#if stripTone === 'pass' || stripTone === 'fail'}
+                  {#if ultimo_estado === 'pass' || ultimo_estado === 'fail'}
                     No es posible volver a subir un archivo porque ya fue calificada.
                   {/if}
                 </p>
@@ -940,7 +906,7 @@
 
     {#if showAgendaModal}
       <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 transition-opacity"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
         role="dialog"
         aria-modal="true"
         tabindex="-1"
@@ -962,7 +928,7 @@
 
     {#if showRubricaModal}
       <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 transition-opacity"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60  p-4 transition-opacity"
         role="dialog"
         aria-modal="true"
         tabindex="-1"

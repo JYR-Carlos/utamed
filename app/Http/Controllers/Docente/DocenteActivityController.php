@@ -749,7 +749,7 @@ class DocenteActivityController extends Controller
         }
 
         $validated = $request->validate([
-            'id_estudiante' => 'required|integer|exists:usuario.estudiante,id_estudiante',
+            'id_estudiante' => 'required|integer',
         ]);
 
         // Verificar que el estudiante está inscrito en el curso

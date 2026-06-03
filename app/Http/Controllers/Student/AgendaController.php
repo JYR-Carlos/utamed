@@ -11,7 +11,6 @@ use App\Models\Usuario\Usuario;
 use App\Enums\DB\TipoMensaje;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 
 class AgendaController extends Controller
 {
@@ -26,21 +25,17 @@ class AgendaController extends Controller
         $user = Auth::user();
 
         if (!$user->estudiante) {
-            return response()->json(['error' => 'Usuario no es estudiante'], 403);
+            abort(403, 'Usuario no es estudiante');
         }
 
         $estudiante = $user->estudiante;
 
         // Validar inputs
-        try {
-            $validated = $request->validate([
-                'tipo' => 'required|string|in:Consulta,Entrega de Avance,Duda sobre Rúbrica,Otro',
-                'id_actividad_asignada_grupo' => 'required|integer|exists:actividad_asignada_grupo,id_actividad_asignada_grupo',
-                'mensaje' => 'required|string|max:5000',
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json(['errors' => $e->errors()], 422);
-        }
+        $validated = $request->validate([
+            'tipo' => 'required|string|in:Consulta,Entrega de Avance,Duda sobre Rúbrica,Otro',
+            'id_actividad_asignada_grupo' => 'required|integer|exists:actividad_asignada_grupo,id_actividad_asignada_grupo',
+            'mensaje' => 'required|string|max:5000',
+        ]);
 
         // Encontrar la actividad asignada al grupo
         $actividadAsignadaGrupo = ActividadAsignadaGrupo::findOrFail(
@@ -50,40 +45,18 @@ class AgendaController extends Controller
         // Verificar que el estudiante pertenece a este grupo
         $integrante = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
             ->where('id_actividad_asignada_grupo', $actividadAsignadaGrupo->id_actividad_asignada_grupo)
-            ->first();
+            ->firstOrFail();
 
-        if (!$integrante) {
-            return response()->json([
-                'error' => 'No tienes acceso a esta actividad'
-            ], 403);
-        }
+        // Crear la entrada en la agenda
+        Agenda::create([
+            'id_actividad_asignada_grupo' => $actividadAsignadaGrupo->id_actividad_asignada_grupo,
+            'id_usuario_emisor' => $user->id_usuario,
+            'fecha_envio' => now(),
+            'tipo_mensaje' => $this->mapearTipoMensaje($validated['tipo']),
+            'mensaje' => $validated['mensaje'],
+        ]);
 
-        try {
-            // Crear la entrada en la agenda
-            $entrada = Agenda::create([
-                'id_actividad_asignada_grupo' => $actividadAsignadaGrupo->id_actividad_asignada_grupo,
-                'id_usuario_emisor' => $user->id_usuario,
-                'fecha_envio' => now(),
-                'tipo_mensaje' => $this->mapearTipoMensaje($validated['tipo']),
-                'mensaje' => $validated['mensaje'],
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Entrada guardada correctamente',
-                'data' => [
-                    'id_agenda' => $entrada->id_agenda,
-                    'fecha_envio' => $entrada->fecha_envio,
-                    'tipo_mensaje' => $entrada->tipo_mensaje,
-                    'mensaje' => $entrada->mensaje,
-                    'usuario_emisor' => $user->nombre . ' ' . $user->apellido,
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Error al guardar la entrada: ' . $e->getMessage()
-            ], 500);
-        }
+        return back()->with('success', 'Entrada guardada correctamente');
     }
 
     /**
