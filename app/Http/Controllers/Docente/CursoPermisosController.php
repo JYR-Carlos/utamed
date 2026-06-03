@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
 
 /**
  * Controlador para que el Docente Titular gestione permisos granulares
@@ -55,7 +56,7 @@ class CursoPermisosController extends Controller
     /**
      * GET /docente/cursos/{curso}/permisos-syllabus
      *
-     * Retorna:
+     * Retorna una página Inertia con:
      *  - Lista de docentes del curso (excluyendo al DT)
      *  - Para cada docente: qué permisos de syllabus tiene en el contexto del curso
      *  - Los slugs disponibles para gestionar
@@ -80,7 +81,8 @@ class CursoPermisosController extends Controller
             return array_merge($docente, ['permisos' => $permisos]);
         });
 
-        return response()->json([
+        return Inertia::render('docente/PermisosSyllabus', [
+            'curso'              => $curso,
             'docentes'           => $matrix->values(),
             'slugs_disponibles'  => $slugsDisponibles->values(),
             'id_contexto_curso'  => $curso->id_contexto,
@@ -92,6 +94,7 @@ class CursoPermisosController extends Controller
      *
      * Body: { id_usuario: int, slug: string, otorgar: bool }
      * Otorga o revoca un permiso de syllabus a un docente del curso.
+     * Retorna un redirect a la página de permisos.
      */
     public function syllabusSync(Request $request, Curso $curso)
     {
@@ -111,7 +114,7 @@ class CursoPermisosController extends Controller
             otorgar:   $validated['otorgar'],
         );
 
-        return response()->json(['ok' => true]);
+        return back()->with('success', 'Permiso actualizado exitosamente.');
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -121,7 +124,7 @@ class CursoPermisosController extends Controller
     /**
      * GET /docente/cursos/{curso}/componentes/{componente}/permisos
      *
-     * Retorna:
+     * Retorna una página Inertia con:
      *  - Lista de docentes asignados al componente (excluyendo al DT)
      *  - Para cada docente: qué permisos de notas/asistencia tiene en el contexto del componente
      *  - Los slugs disponibles
@@ -145,7 +148,9 @@ class CursoPermisosController extends Controller
             return array_merge($docente, ['permisos' => $permisos]);
         });
 
-        return response()->json([
+        return Inertia::render('docente/PermisosComponente', [
+            'curso'                  => $curso,
+            'componente'             => $componente,
             'docentes'               => $matrix->values(),
             'slugs_disponibles'      => $slugsDisponibles->values(),
             'id_contexto_componente' => $componente->id_contexto,
@@ -156,6 +161,7 @@ class CursoPermisosController extends Controller
      * POST /docente/cursos/{curso}/componentes/{componente}/permisos
      *
      * Body: { id_usuario: int, slug: string, otorgar: bool }
+     * Retorna un redirect a la página de permisos del componente.
      */
     public function componenteSync(Request $request, Curso $curso, Componente $componente)
     {
@@ -175,7 +181,7 @@ class CursoPermisosController extends Controller
             otorgar:    $validated['otorgar'],
         );
 
-        return response()->json(['ok' => true]);
+        return back()->with('success', 'Permiso actualizado exitosamente.');
     }
 
     // ────────────────────────────────────────────────────────────────────────

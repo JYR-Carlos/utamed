@@ -4,7 +4,6 @@
    */
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import { router } from '@inertiajs/svelte';
-  import axios, { AxiosError } from 'axios';
 
   interface Estudiante {
     id_estudiante: number;
@@ -20,11 +19,12 @@
   interface Props {
     cursos: Curso[];
     estudiantes: Estudiante[];
+    estudiantesInscritosId: number[];
     idCursoSeleccionado?: number;
     auth: { user: any };
   }
 
-  let { cursos, estudiantes, idCursoSeleccionado, auth }: Props = $props();
+  let { cursos, estudiantes, estudiantesInscritosId, idCursoSeleccionado, auth }: Props = $props();
 
   let formData = $state({
     id_curso: idCursoSeleccionado ? Number(idCursoSeleccionado) : 0,
@@ -38,27 +38,14 @@
   let isSubmitting = $state(false);
   let errorMessage = $state('');
   let errors = $state<Record<string, string>>({});
-  let estudiantesDisponibles = $state<Estudiante[]>([]);
 
-  $effect(() => {
-    if (formData.id_curso) {
-      cargarEstudiantesDisponibles();
-    } else {
-      estudiantesDisponibles = [];
-    }
-  });
-
-  async function cargarEstudiantesDisponibles() {
-    try {
-      const response = await axios.get('/docente/inscripciones/ajax/disponibles', {
-        params: { id_curso: formData.id_curso },
-      });
-      estudiantesDisponibles = response.data.estudiantes || [];
-    } catch (error) {
-      console.error('Error loading available estudiantes:', error);
-      estudiantesDisponibles = [];
-    }
-  }
+  /**
+   * Filtra estudiantes disponibles para el curso seleccionado.
+   * Excluye estudiantes que ya están inscritos.
+   */
+  $derived estudiantesDisponibles = formData.id_curso > 0 
+    ? estudiantes.filter(e => !estudiantesInscritosId.includes(e.id_estudiante))
+    : [];
 
   function handleSubmit(e: SubmitEvent) {
     e.preventDefault();

@@ -106,10 +106,19 @@ class InscripcionCursoController extends Controller
             ->orderBy('id_estudiante')
             ->get();
 
+        // Obtener estudiantes ya inscritos para cada curso (si se selecciona uno)
+        $estudiantesInscritosId = [];
+        if ($idCursoSelected) {
+            $estudiantesInscritosId = InscripcionCurso::where('id_curso', $idCursoSelected)
+                ->pluck('id_estudiante')
+                ->toArray();
+        }
+
         if ($user->docente) {
             return Inertia::render('docente/CreateInscripcion', [
                 'cursos' => $cursos,
                 'estudiantes' => $estudiantes,
+                'estudiantesInscritosId' => $estudiantesInscritosId,
                 'idCursoSeleccionado' => $idCursoSelected
             ]);
         }
@@ -117,6 +126,7 @@ class InscripcionCursoController extends Controller
         return Inertia::render('admin/CreateInscripcionCurso', [
             'cursos' => $cursos,
             'estudiantes' => $estudiantes,
+            'estudiantesInscritosId' => $estudiantesInscritosId,
             'idCursoSeleccionado' => $idCursoSelected
         ]);
     }
