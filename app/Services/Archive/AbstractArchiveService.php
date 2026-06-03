@@ -95,25 +95,73 @@ abstract class AbstractArchiveService
    * public static handleStore() with domain-specific signatures, but all delegate to this
    * protected method after adapting their parameters to ArchiveHandlerRequest.
    *
-   * Performs the following steps in order (all-or-nothing):
-   * 1. Pre-validation: Verify file integrity and constraints
-   * 2. Virus scanning: Detect malicious content (if configured)
-   * 3. Compression: Optimize file size/quality (if applicable)
-   * 4. Storage: Persist file to disk
-   * 5. Logging: Record operation result (success or failure)
+   * ## Execution Flow & Return Types
    *
-   * On failure at any step: Rethrows specific exceptions + cleans up partial results.
+   * **SUCCESS PATH (Happy Path):**
+   * - All phases complete without error
+   * - Returns: `ArchiveStorageResult` containing:
+   *   - `uuidArchivo`: UUID v7 of the stored file record in database
+   *   - `disk`: Storage disk identifier (local, s3, azure, etc)
+   *   - `directory`: Relative directory path where file is stored
+   *   - `path`: Complete relative path from disk root to file
+   *   - `fileName`: Filename as stored on disk (hashName or custom)
+   *   - `sizeBytes`: File size in bytes after optimization
+   *   - `mimeType`: MIME type detected during validation
+   *   - `originalName`: Client-provided filename for auditing
+   *
+   * **ERROR PATHS (all throw exceptions, no partial state returned):**
+   *
+   * 1. **FileValidationException** - Pre-validation Phase (Phase 1)
+   *    - Triggered when: File size exceeds limit, extension not allowed, content validation fails
+   *    - Cleanup: Synchronous cleanup of temp files; logs recorded
+   *    - Returns: never (exception thrown)
+   *
+   * 2. **VirusDetectedException** - Virus Scanning Phase (Phase 2)
+   *    - Triggered when: File contains malicious content (if scanning enabled)
+   *    - Cleanup: Synchronous cleanup of temp files; logs recorded
+   *    - Returns: never (exception thrown)
+   *
+   * 3. **CompressionException** - Optimization Phase (Phase 3)
+   *    - Triggered when: Image optimization, video transcoding, or format conversion fails
+   *    - Cleanup: Synchronous cleanup of temp files and partially optimized data
+   *    - Returns: never (exception thrown)
+   *
+   * 4. **StorageException** - Storage Phase (Phase 4)
+   *    - Triggered when: Disk write fails, permissions denied, disk full, or DB insert fails
+   *    - Cleanup: Attempts synchronous delete; marks for async cleanup if sync fails
+   *    - Returns: never (exception thrown)
+   *
+   * 5. **StorageException** - Unexpected Exception (Generic catch)
+   *    - Triggered when: Any other exception type propagates
+   *    - Cleanup: If file was stored (lastStoredPath set), attempts cleanup
+   *    - Returns: never (wraps original exception in StorageException)
+   *
+   * ## Phases (In Order)
+   *
+   * 1. **Pre-validation**: Verify file integrity and constraints (hook: preValidate)
+   * 2. **Virus scanning**: Detect malicious content if configured (hook: scanForViruses)
+   * 3. **Compression/Optimization**: Optimize file size/quality (hook: compressFile)
+   * 4. **Storage**: Persist file to disk and create DB record (concrete: storeUploadedFile)
+   * 5. **Logging**: Record operation result with audit trail (hook: logOperation)
+   *
+   * ## Cleanup Strategy
+   *
+   * - **All-or-Nothing**: If any phase fails, entire operation is rolled back
+   * - **Cleanup is Best-Effort**: If cleanup itself fails, operation still throws original exception
+   * - **Temp files**: Deleted synchronously on any error
+   * - **Stored files**: Deleted synchronously; if sync delete fails, marked for async cleanup job
+   * - **Logging**: Always attempted after cleanup; failures don't prevent exception propagation
    *
    * @param ArchiveHandlerRequest $request Generic request containing file, directory, filename
-   * @return array Storage result with disk, path, file_name, and metadata
+   * @return ArchiveStorageResult Typed result with disk, path, file_name, UUID, and metadata
    *
-   * @throws FileValidationException File fails validation
-   * @throws VirusDetectedException Virus detected in file
-   * @throws CompressionException Compression/optimization failed
-   * @throws StorageException Disk storage operation failed
-   * @throws ArchiveException Generic archive operation error
+   * @throws FileValidationException File fails validation (size, extension, content check)
+   * @throws VirusDetectedException Virus detected in file content
+   * @throws CompressionException Compression or optimization failed
+   * @throws StorageException Disk storage or DB insert failed, or unknown exception occurred
+   * @throws ArchiveException Generic archive operation error (for subclass use)
    */
-  public function performStorage(ArchiveHandlerRequest $request): array
+  public function performStorage(ArchiveHandlerRequest $request): ArchiveStorageResult
   {
     $archiveId = Str::uuid7()->toString();
     $this->currentArchiveId = $archiveId;
@@ -150,12 +198,12 @@ abstract class AbstractArchiveService
       );
       
       // Guardar ruta para posible cleanup en caso de error post-almacenamiento
-      $this->lastStoredPath = $storedFile['path'];
+      $this->lastStoredPath = $storedFile->path;
 
       // Success - log as best-effort (no lanzar excepción si logging falla)
       $operationLog['status'] = 'success';
-      $operationLog['disk'] = $storedFile['disk'];
-      $operationLog['path'] = $storedFile['path'];
+      $operationLog['disk'] = $storedFile->disk;
+      $operationLog['path'] = $storedFile->path;
       $operationLog['timestamp_end'] = now();
       $operationLog['duration_ms'] = now()->diffInMilliseconds($operationLog['timestamp_start']);
 
@@ -496,9 +544,18 @@ abstract class AbstractArchiveService
   /**
    * Store a file using a relative directory path and an optional explicit name.
    *
-   * The returned path is always relative to the configured disk root.
+   * Creates both a disk storage entry and a database record (Archivo model) for tracking.
+   * Assigns a UUID v7 automatically for referential integrity.
+   *
+   * @param UploadedFile $file The file to store (already validated and optimized)
+   * @param string $relativeDirectory Relative path within the disk (e.g., 'programa-123/videos')
+   * @param string|null $fileName Optional explicit filename; if null, uses hash name
+   *
+   * @return ArchiveStorageResult Typed result containing disk, path, UUID, and metadata
+   *
+   * @throws StorageException If disk write fails or DB insert fails
    */
-  protected function storeUploadedFile(UploadedFile $file, string $relativeDirectory, ?string $fileName = null): array
+  protected function storeUploadedFile(UploadedFile $file, string $relativeDirectory, ?string $fileName = null): ArchiveStorageResult
   {
     $normalizedDirectory = $this->normalizeRelativePath($relativeDirectory);
 
@@ -511,15 +568,29 @@ abstract class AbstractArchiveService
 
     $storedPath = Storage::disk($this->disk)->putFileAs($prefixedDirectory, $file, $storageName);
 
-    return [
-      'disk' => $this->disk,
-      'directory' => $prefixedDirectory,
-      'path' => $storedPath,
-      'file_name' => $storageName,
-      'size_bytes' => $file->getSize(),
+    // Crear registro en BD con UUID v7 automático
+    $archivoModel = app(\App\Models\Operaciones\Archivo::class);
+    $archivo = $archivoModel->create([
+      'ruta_fisica' => $storedPath,
+      'nombre_original' => $file->getClientOriginalName(),
+      'extension' => $file->extension(),
       'mime_type' => $file->getMimeType(),
-      'original_name' => $file->getClientOriginalName(),
-    ];
+      'peso_bytes' => $file->getSize(),
+      'pendiente_de_borrado' => false,
+      'desaparecio_archivo' => false,
+    ]);
+
+    // Retornar con tipo ArchiveStorageResult
+    return new ArchiveStorageResult(
+      uuidArchivo: $archivo->uuid_archivo,
+      disk: $this->disk,
+      directory: $prefixedDirectory,
+      path: $storedPath,
+      fileName: $storageName,
+      sizeBytes: $file->getSize(),
+      mimeType: $file->getMimeType(),
+      originalName: $file->getClientOriginalName()
+    );
   }
 
   /**

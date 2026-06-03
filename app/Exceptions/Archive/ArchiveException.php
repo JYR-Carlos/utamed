@@ -14,6 +14,7 @@ enum ArchiveErrorType: string
   case OPERATION_FAILED = 'OPERATION_FAILED';
   case INVALID_ARCHIVE_ID = 'INVALID_ARCHIVE_ID';
   case UNSPECIFIED = 'UNSPECIFIED';
+  case CONFIGURATION_ERROR = 'CONFIGURATION_ERROR';
 }
 
 /**
@@ -22,7 +23,7 @@ enum ArchiveErrorType: string
  * All specific archive exceptions inherit from this for unified error handling.
  * Each subclass defines its own type constants for distinguishing error scenarios.
  */
-abstract class ArchiveException extends Exception
+class ArchiveException extends Exception
 {
   /**
    * Discriminator type for this exception family.
@@ -40,7 +41,7 @@ abstract class ArchiveException extends Exception
   protected ?string $archiveId;
 
   public function __construct(
-    string $type,
+    ArchiveErrorType $type,
     string $message = '',
     int $code = 0,
     \Throwable $previous = null,

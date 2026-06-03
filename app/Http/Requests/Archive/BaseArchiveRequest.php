@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Archive;
 
-use App\Models\Usuario\Contexto;
+use App\Rules\Builders\FileRequirementBuilder;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Number;
+use Illuminate\Http\UploadedFile;
 
 /**
  * BaseArchiveRequest
@@ -24,12 +24,11 @@ use Illuminate\Support\Number;
 abstract class BaseArchiveRequest extends FormRequest
 {
     /**
-     * Tipo de archivo que acepta este request.
-     * Debe ser una clave válida en config('files').
-     * 
-     * @var string
+     * Categorías de archivo que acepta este request.
+     * Las subclases deben sobrescribir este array con los casos del Enum.
+     * * @var array<FileRequirementType>
      */
-    protected string $fileType = 'document';
+    protected array $fileCategories = [];
 
     /**
      * Campo del formulario que contiene el archivo.
@@ -38,38 +37,23 @@ abstract class BaseArchiveRequest extends FormRequest
      */
     protected string $fileField = 'archivo';
 
+    
+    private ?FileRequirementBuilder $builder = null;
+
     /**
-     * Determine if the user is authorized to make this request.
-     * 
-     * Verifica que:
-     * 1. El usuario está autenticado
-     * 2. El contexto especificado existe
-     * 3. El usuario tiene permiso de upload en ese contexto
+     * Inicializa el Builder con las categorías definidas en la subclase.
      */
-    public function authorize(): bool
+    private function getBuilder(): FileRequirementBuilder
     {
-        // Usuario debe estar autenticado
-        if (!$this->user()) {
-            return false;
+        if ($this->builder === null) {
+            $this->builder = FileRequirementBuilder::make();
+
+            foreach ($this->fileCategories as $category) {
+                $this->builder->addConfig($category);
+            }
         }
 
-        // Contexto es requerido
-        $contextoId = $this->input('id_contexto');
-        if (!$contextoId) {
-            return false;
-        }
-
-        // Contexto debe existir
-        $contexto = Contexto::find($contextoId);
-        if (!$contexto) {
-            return false;
-        }
-
-        // Usuario debe tener permiso de upload en el contexto
-        return $this->user()->hasPermissionFor(
-            config('files.required_permissions.upload', 'upload_files'),
-            $contexto
-        );
+        return $this->builder;
     }
 
     /**
@@ -91,39 +75,17 @@ abstract class BaseArchiveRequest extends FormRequest
      * 
      * Obtiene extensiones y MIME types de config('files').
      */
-    protected function fileRules(): array
+    /**
+     * Delega la construcción de reglas nativas al Builder.
+     */
+    final protected function fileRules(): array
     {
-        $fileConfig = config("filetypes.{$this->fileType}");
-
-        if (!$fileConfig) {
-            return [
-                $this->fileField => 'required|file',
-            ];
-        }
-
-        $extensions = $fileConfig['extensions'] ?? [];
-        $mimes = $fileConfig['mimes'] ?? [];
-        $maxSize = $fileConfig['max_size'] ?? config('filetypes.global.max_file_size');
-        $maxSizeKB = \intval($maxSize / 1024);
-
-        $fileValidation = [
-            'required',
-            'file',
-            "max:{$maxSizeKB}",
-        ];
-
-        // Agregar validaciones si están habilitadas
-        if (config('filetypes.global.enable_extension_validation', true) && !empty($extensions)) {
-            $fileValidation[] = 'extensions:' . implode(',', $extensions);
-        }
-
-        if (config('filetypes.global.enable_mime_validation', true) && !empty($mimes)) {
-            $fileValidation[] = 'mimes:' . implode(',', $mimes);
+        if (empty($this->fileCategories)) {
+            return [];
         }
 
         return [
-            $this->fileField => $fileValidation,
-            'id_contexto' => 'required|integer|exists:usuario.contexto,id_contexto',
+            $this->fileField => $this->getBuilder()->buildLaravelRules(),
         ];
     }
 
@@ -135,93 +97,50 @@ abstract class BaseArchiveRequest extends FormRequest
     abstract protected function additionalRules(): array;
 
     /**
-     * Get custom messages for validator errors.
+     * Combina mensajes base con los de la subclase.
      */
-    public function messages(): array
+    final public function messages(): array
     {
-        $fileConfig = config("filetypes.{$this->fileType}");
-        $extensions = implode(', ', $fileConfig['extensions'] ?? []);
-        $maxSize = Number::fileSize($fileConfig['max_size'] ?? config('filetypes.global.max_file_size'));
+        return [
+            ...$this->baseMessages(),
+            ...$this->builderMessages(),
+            ...$this->customMessages()
+        ];
+    }
 
-        return array_merge([
-            "{$this->fileField}.required" => "El archivo es requerido.",
-            "{$this->fileField}.file" => "Debe ser un archivo válido.",
-            "{$this->fileField}.max" => "El archivo no puede exceder {$maxSize}.",
-            "{$this->fileField}.extensions" => "Extensiones permitidas: {$extensions}.",
-            "{$this->fileField}.mimes" => "El archivo debe ser de un tipo permitido.",
-            'id_contexto.required' => 'El contexto es requerido.',
+    final protected function baseMessages(): array
+    {
+        return [
+            "{$this->fileField}.required" => 'El archivo es obligatorio.',
+            "{$this->fileField}.file" => 'El archivo subido no es válido.',
             'id_contexto.exists' => 'El contexto especificado no existe.',
-        ], $this->customMessages());
+        ];
     }
 
     /**
-     * Mensajes adicionales de las subclases.
-     * 
-     * @return array
+     * Obtiene los mensajes dinámicos generados por el Builder.
      */
+    private function builderMessages(): array
+    {
+        if (empty($this->fileCategories)) {
+            return [];
+        }
+
+        return $this->getBuilder()->buildLaravelMessages($this->fileField);
+    }
+
     protected function customMessages(): array
     {
         return [];
     }
 
     /**
-     * Get custom attributes for validator errors.
+     * Get the validated file.
+     *
+     * @return UploadedFile
      */
-    public function attributes(): array
-    {
-        return array_merge([
-            $this->fileField => 'archivo',
-            'id_contexto' => 'contexto',
-        ], $this->customAttributes());
-    }
-
-    /**
-     * Atributos adicionales de las subclases.
-     * 
-     * @return array
-     */
-    protected function customAttributes(): array
-    {
-        return [];
-    }
-
-    /**
-     * Helper: Obtener archivo validado.
-     */
-    public function getFile(): \Illuminate\Http\UploadedFile
+    public function getFile(): UploadedFile
     {
         return $this->file($this->fileField);
-    }
-
-    /**
-     * Helper: Obtener ID del contexto.
-     */
-    public function getContextoId(): int
-    {
-        return (int) $this->input('id_contexto');
-    }
-
-    /**
-     * Helper: Obtener modelo del contexto.
-     */
-    public function getContexto(): Contexto
-    {
-        return Contexto::findOrFail($this->getContextoId());
-    }
-
-    /**
-     * Helper: Obtener configuración del tipo de archivo.
-     */
-    protected function getFileConfig(): array
-    {
-        return (array) config("files.{$this->fileType}", []);
-    }
-
-    /**
-     * Helper: Obtener descripción del tipo de archivo.
-     */
-    protected function getFileTypeDescription(): string
-    {
-        return $this->getFileConfig()['description'] ?? $this->fileType;
     }
 }
