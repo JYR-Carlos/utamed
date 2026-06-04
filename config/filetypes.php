@@ -16,6 +16,19 @@
  *     'max_size' => bytes,
  *     'description' => 'Descripción del tipo',
  * ]
+ * 
+ * Tipos definidos: (fecha de última actualización: 2024-06-01)
+ * - video: Archivos de video comunes (mp4, avi, mov, etc.)
+ * - image: Imágenes raster y vectoriales (png, jpg, svg, etc.)
+ * - compressed: Archivos comprimidos (zip, rar, tar, etc.)
+ * - word_document: Documentos de texto (doc, docx, rtf, odp, etc.)
+ * - presentation: Presentaciones (ppt, pptx, odp, key)
+ * - spreadsheet: Hojas de cálculo (xls, xlsx, ods, csv)
+ * - pdf: Documentos PDF
+ * - link: Enlaces a recursos web (URLs)
+ * - media: Archivos multimedia (videos, imágenes, audio)
+ * - raw_art: Archivos de arte crudo (PSD, AI, archivos raw de cámara)
+ * - document: Documentos genéricos (fallback para otros tipos de documentos)
  */
 
 return [

@@ -2,25 +2,31 @@
 
 namespace App\Http\Controllers\Docente;
 
+use App\Exceptions\Archive\FileValidationException;
+use App\Exceptions\Archive\VirusDetectedException;
+use App\Exceptions\Archive\CompressionException;
+use App\Exceptions\Archive\StorageException;
+use App\Exceptions\Archive\ArchiveException;
+use InvalidArgumentException;
 use App\Http\Controllers\Controller;
 use App\Enums\DB\EstadoActividadAsignada;
-    use App\Enums\DB\TipoActividad;
-    use App\Models\Agenda\Actividad;
-    use App\Models\Agenda\ActividadAsignadaGrupo;
-    use App\Models\Agenda\IntegranteGrupo;
-    use App\Models\Agenda\Agenda;
-    use App\Models\Curso\Curso;
-    use App\Support\Permissions;
-    use App\Models\Curso\DocenteComponente;
-    use App\Models\Curso\Componente;
-    use App\Models\Curso\Unidad;
-    use App\Models\Usuario\Estudiante;
-    use App\Models\Curso\InscripcionCurso;
-    use Illuminate\Http\Request;
-    use Illuminate\Support\Facades\Auth;
-    use Illuminate\Support\Facades\DB;
-    use Illuminate\Support\Facades\Log;
-    use Inertia\Inertia;
+use App\Enums\DB\TipoActividad;
+use App\Models\Agenda\Actividad;
+use App\Http\Requests\Archive\ActivityFileRequest;
+use App\Models\Agenda\ActividadAsignadaGrupo;
+use App\Models\Agenda\IntegranteGrupo;
+use App\Models\Agenda\Agenda;
+use App\Models\Curso\Curso;
+use App\Models\Curso\DocenteComponente;
+use App\Models\Curso\Componente;
+use App\Models\Curso\Unidad;
+use App\Models\Curso\InscripcionCurso;
+use App\Services\Archive\Handlers\ActivityArchiveHandler;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
 
 /**
  * Controlador para gestión de actividades/tareas en los cursos del docente.
@@ -180,6 +186,50 @@ class DocenteActivityController extends Controller
             return redirect()->back()
                 ->with('error', 'Error al crear la actividad: ' . $e->getMessage());
         }
+    }
+
+    public function storeFile(ActivityFileRequest $request, Actividad $actividad)
+    {
+        // Valida: Usa tu ActivityFileRequest para verificar peso y mimes.
+
+        // Guarda en disco: El ActivityArchiveService guarda el archivo físico.
+        try {
+            $storedFile = ActivityArchiveHandler::store(
+                actividad: $actividad,
+                file: $request->getFile(),
+            );
+            $uuid = $storedFile->uuidArchivo; // UUID v7 generado por el servicio de archivos
+            //...
+
+            // Transacción DB (Inicio):
+
+            // Crea Archivo: Inserta el registro en operaciones.archivo (genera el UUID v7, extrae el peso real, mime, etc.).
+
+            // Enlaza: Hace un UPDATE agenda.actividad SET uuid_archivo = 'el-nuevo-uuid' WHERE id_actividad = 205.
+
+            $actividad->uuid_archivo = $uuid;
+            $actividad->saveOrFail();
+
+            // Transacción DB (Fin/Commit).
+
+        } catch (FileValidationException) {
+            // Maneja validación de archivo (peso, tipo, etc)            
+        } catch (VirusDetectedException) {
+            // Maneja virus detectado
+        } catch (CompressionException) {
+            // Maneja error de compresión
+        } catch (StorageException) {
+            // Maneja error de almacenamiento
+        } catch (ArchiveException) {
+            // Maneja error genérico de archivo
+        } catch (InvalidArgumentException) {
+            // Maneja error de relaciones faltantes
+        } catch (\Throwable $e) {
+            // Maneja cualquier otro error inesperado
+            // TODO: $storedFile->deleteFromDisk(); // Opcional: eliminar archivo si ya se subió pero hubo error en DB
+        }
+
+        
     }
 
     /**

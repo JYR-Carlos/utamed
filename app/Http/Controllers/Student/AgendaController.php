@@ -5,6 +5,17 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\Agenda\Actividad;
 use App\Models\Agenda\ActividadAsignadaGrupo;
+
+use App\Services\Archive\Handlers\AgendaArchiveHandler;
+use App\Http\Requests\Archive\AgendaFileRequest;
+use App\Exceptions\Archive\FileValidationException;
+use App\Exceptions\Archive\VirusDetectedException;
+use App\Exceptions\Archive\CompressionException;
+use App\Exceptions\Archive\StorageException;
+use App\Exceptions\Archive\ArchiveException;
+use InvalidArgumentException;
+
+
 use App\Models\Agenda\Agenda;
 use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Usuario\Usuario;
@@ -57,6 +68,50 @@ class AgendaController extends Controller
         ]);
 
         return back()->with('success', 'Entrada guardada correctamente');
+    }
+
+    /**
+     * algo asi es el url: POST /agenda/{agenda}/archivo
+     * 
+     * @param AgendaFileRequest $request
+     * @param Agenda $agenda
+     * @return void
+     */
+    public function saveEntradaFile(AgendaFileRequest $request, ActividadAsignadaGrupo $grupo)
+    {
+        // validar el archivo con el request
+
+        // guardar en disco
+        try {
+            $storedFile = AgendaArchiveHandler::store(
+                grupo: $grupo,
+                file: $request->getFile(),
+                fileName: $request->getCustomFileName()
+            );
+
+            // FIX: CONECTAR A REGISTRO DE AGENDA
+            // el endpoint debe crear el mensaje tipo subida de archivo, y luego conectar el archivo subido a ese mensaje
+            // $agendaEntry->archivo_id = $storedFile->id;
+            // $agendaEntry->save();
+
+
+            
+        } catch (FileValidationException) {
+            // Maneja validación de archivo (peso, tipo, etc)            
+        } catch (VirusDetectedException) {
+            // Maneja virus detectado
+        } catch (CompressionException) {
+            // Maneja error de compresión
+        } catch (StorageException) {
+            // Maneja error de almacenamiento
+        } catch (ArchiveException) {
+            // Maneja error genérico de archivo
+        } catch (InvalidArgumentException) {
+            // Maneja error de relaciones faltantes
+        } catch (\Throwable $e) {
+            // Maneja cualquier otro error inesperado
+            // TODO: $storedFile->deleteFromDisk(); // Opcional: eliminar archivo si ya se subió pero hubo error en DB
+        }
     }
 
     /**

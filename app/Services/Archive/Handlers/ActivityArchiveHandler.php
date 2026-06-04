@@ -72,6 +72,7 @@ class ActivityArchiveHandler
     Actividad $actividad,
     UploadedFile $file,
     ?DateTimeInterface $fecha = null, // TODO: agregar a la clase para modificar
+    // todo: ver como implementar atomicidad pasando el cliente de db a esta funcion
     ?string $fileName = null
   ): ArchiveStorageResult {
     $relativeDirectory = self::buildPath($actividad);

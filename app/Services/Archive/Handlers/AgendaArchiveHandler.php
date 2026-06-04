@@ -8,6 +8,7 @@ use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
 use App\Services\Archive\AgendaArchiveService;
 use App\Services\Archive\ArchiveHandlerRequest;
+use App\Services\Archive\ArchiveStorageResult;
 use DateTimeInterface;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
@@ -57,7 +58,7 @@ class AgendaArchiveHandler
     UploadedFile $file,
     ?DateTimeInterface $fecha = null,
     ?string $fileName = null
-  ): array {
+  ): ArchiveStorageResult {
     $fecha = $fecha ?: now();
     $relativeDirectory = self::buildPath($grupo, $fecha);
     $finalFileName = $fileName ?: self::generateFileName($file);
