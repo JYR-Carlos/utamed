@@ -30,12 +30,19 @@
     docentes: DocenteComponenteCurso[];
   }
 
+  interface PermisoEspecialActual {
+    id_permiso: number;
+    esta_permitido: boolean;
+    puede_delegar: boolean;
+  }
+
   interface ColegiadoDocente {
     id_docente: number;
     id_usuario: number;
     nombre: string;
     username: string;
     es_titular: boolean;
+    special_permissions: PermisoEspecialActual[];
   }
 
   interface PermisoSyllabus {
@@ -62,14 +69,22 @@
     asignatura: string;
   }
 
+  interface PermisoDisponible {
+    id_permiso: number;
+    slug: string;
+    nombre: string;
+    descripcion?: string;
+  }
+
   interface Props {
     curso: CursoResumen;
     todos_componentes: ComponenteCurso[];
     colegiados: ColegiadoDocente[];
     syllabus_matrix: SyllabusMatrix;
+    available_permissions: Record<string, PermisoDisponible[]>;
   }
 
-  let { curso, todos_componentes, colegiados, syllabus_matrix }: Props = $props();
+  let { curso, todos_componentes, colegiados, syllabus_matrix, available_permissions = {} }: Props = $props();
 
   // Modal de permisos individuales
   let permisosModalOpen = $state(false);
@@ -220,6 +235,7 @@
     bind:isOpen={permisosModalOpen}
     cursoId={curso.id_curso}
     colegiado={colegiadoSeleccionado}
+    availablePermissions={available_permissions}
     onClose={closePermisosModal}
   />
 

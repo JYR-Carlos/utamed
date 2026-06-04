@@ -54,12 +54,13 @@
     estudiante: Estudiante;
     actividades: Actividad[];
     idCurso: number;
+    mensajesEstudiante?: Mensaje[];
     onCerrar: () => void;
   }
 
   // ── Props ─────────────────────────────────────────────────────────────────
 
-  let { abierto, estudiante, actividades, idCurso, onCerrar }: Props = $props();
+  let { abierto, estudiante, actividades, idCurso, mensajesEstudiante = [], onCerrar }: Props = $props();
 
   // ── Tab state ─────────────────────────────────────────────────────────────
 
@@ -86,7 +87,6 @@
     id_actividad: number;
   }
 
-  let mensajes = $state<Mensaje[]>([]);
   let mensajesLoading = $state(false);
   let mensajesError = $state<string | null>(null);
 
@@ -104,7 +104,6 @@
   $effect(() => {
     if (abierto) {
       tab = 'evaluaciones';
-      mensajes = [];
       mensajesError = null;
       replyingGrupo = null;
       replyText = '';
@@ -113,7 +112,7 @@
 
   // Load messages when switching to mensajes tab
   $effect(() => {
-    if (tab === 'mensajes' && abierto && mensajes.length === 0 && !mensajesLoading) {
+    if (tab === 'mensajes' && abierto && mensajesEstudiante.length === 0 && !mensajesLoading) {
       loadMensajes();
     }
   });
@@ -160,51 +159,48 @@
     return nota >= 4.0 ? 'text-emerald-700' : 'text-red-600';
   }
 
-  async function loadMensajes() {
+  import { router } from '@inertiajs/svelte';
+
+  function loadMensajes() {
     mensajesLoading = true;
     mensajesError = null;
-    try {
-      const res = await fetch(
-        `/docente/cursos/${idCurso}/estudiantes/${estudiante.estudiante.id_estudiante}/mensajes`,
-        { headers: { Accept: 'application/json' }, credentials: 'same-origin' },
-      );
-      if (!res.ok) throw new Error('Error al cargar mensajes.');
-      mensajes = await res.json();
-    } catch (e: any) {
-      mensajesError = e.message ?? 'Error desconocido.';
-    } finally {
-      mensajesLoading = false;
-    }
+    
+    router.reload({
+      only: ['mensajesEstudiante'],
+      data: { estudiante_id: estudiante.estudiante.id_estudiante },
+      onSuccess: () => {
+        mensajesLoading = false;
+      },
+      onError: () => {
+        mensajesError = 'Error al cargar mensajes.';
+        mensajesLoading = false;
+      },
+    });
   }
 
-  async function enviarFeedback(grupoId: number) {
+  function enviarFeedback(grupoId: number) {
     if (!replyText.trim()) return;
     isSendingReply = true;
-    try {
-      const csrfToken =
-        (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content ??
-        '';
-      const res = await fetch(`/docente/cursos/${idCurso}/grupos/${grupoId}/feedback`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'X-CSRF-TOKEN': csrfToken,
+
+    router.post(
+      `/docente/cursos/${idCurso}/grupos/${grupoId}/feedback`,
+      { mensaje: replyText.trim() },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+          replyText = '';
+          replyingGrupo = null;
+          isSendingReply = false;
+          // Recargar mensajes
+          loadMensajes();
         },
-        credentials: 'same-origin',
-        body: JSON.stringify({ mensaje: replyText.trim() }),
-      });
-      if (!res.ok) throw new Error('Error al enviar feedback.');
-      replyText = '';
-      replyingGrupo = null;
-      // Reload thread
-      mensajes = [];
-      await loadMensajes();
-    } catch (e: any) {
-      mensajesError = e.message ?? 'Error al enviar.';
-    } finally {
-      isSendingReply = false;
-    }
+        onError: () => {
+          mensajesError = 'Error al enviar feedback.';
+          isSendingReply = false;
+        },
+      }
+    );
   }
 
   // Agrupa mensajes por grupo para mostrar hilos por actividad
@@ -233,7 +229,7 @@
   ></div>
 
   <!-- Slide-over panel -->
-  <aside
+  <div
     class="fixed inset-y-0 right-0 z-50 flex flex-col w-full max-w-md bg-white shadow-2xl border-l border-slate-200 overflow-hidden"
     role="dialog"
     aria-modal="true"
@@ -285,6 +281,7 @@
     <nav class="flex border-b border-slate-200 bg-white shrink-0" aria-label="Secciones">
       {#each TABS as t (t.id)}
         {@const active = tab === t.id}
+        {@const Icon = t.Icon}
         <button
           onclick={() => !t.soon && (tab = t.id)}
           disabled={t.soon}
@@ -297,7 +294,7 @@
               ? 'border-transparent text-slate-300 cursor-not-allowed'
               : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}"
         >
-          <svelte:component this={t.Icon} size={13} />
+          <Icon size={13} />
           {t.label}
           {#if t.soon}
             <span
@@ -378,13 +375,13 @@
             </div>
           {:else if mensajesError}
             <div class="text-center py-10 text-red-500 text-sm">{mensajesError}</div>
-          {:else if mensajes.length === 0}
+          {:else if mensajesEstudiante.length === 0}
             <div class="flex flex-col items-center gap-3 py-14 text-center text-slate-400">
               <MessageSquare size={32} class="opacity-30" />
               <p class="text-sm">Este estudiante no ha enviado mensajes aún.</p>
             </div>
           {:else}
-            {@const hilos = mensajesPorGrupo(mensajes)}
+            {@const hilos = mensajesPorGrupo(mensajesEstudiante)}
             {#each [...hilos.entries()] as [grupoId, hilo]}
               <div class="border border-slate-200 rounded-xl overflow-hidden">
                 <!-- Cabecera del hilo -->
@@ -502,5 +499,5 @@
         </div>
       {/if}
     </div>
-  </aside>
+  </div>
 {/if}

@@ -431,6 +431,41 @@ class DocenteActivityController extends Controller
             'rubrica'              => $rubricaData,
             'rubrica_id'           => $rubricaId,
             'estudiantesInscritos' => $estudiantesInscritos,
+            'interaccionesGrupo'   => Inertia::lazy(function () use ($actividad) {
+                $grupoId = request('grupo_id');
+                if (!$grupoId) return [];
+                
+                return DB::table('agenda.agenda as a')
+                    ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
+                    ->leftJoin('agenda.evaluacion as ev', 'ev.id_agenda', '=', 'a.id_agenda')
+                    ->where('a.id_actividad_asignada_grupo', $grupoId)
+                    ->whereIn('a.tipo_mensaje', ['Mensaje al profesor', 'Feedback', 'Entrega de archivo', 'Evaluación'])
+                    ->orderBy('a.fecha_envio', 'asc')
+                    ->select(
+                        'a.id_agenda',
+                        'a.fecha_envio',
+                        'a.mensaje',
+                        'a.tipo_mensaje as tipo_registro',
+                        'u.id_usuario as emisor_id_usuario',
+                        DB::raw("TRIM(CONCAT(u.nombre1,' ',COALESCE(u.nombre2,''),' ',u.apellido1,' ',COALESCE(u.apellido2,''))) as emisor_nombre"),
+                        'ev.puntaje_obtenido',
+                        'ev.evaluacion_obtenida',
+                        'ev.id_evaluacion',
+                    )
+                    ->get()
+                    ->map(fn($m) => array_merge((array) $m, [
+                        'id_interaccion'       => $m->id_agenda,
+                        'fecha_emision'        => $m->fecha_envio,
+                        'tipo_interaccion'     => $m->tipo_registro,
+                        'emisor'               => $m->emisor_nombre,
+                        'es_de_docente'        => in_array($m->tipo_registro, ['Feedback', 'Evaluación']),
+                        'es_retroalimentacion' => $m->tipo_registro === 'Feedback',
+                        'es_entrega'           => $m->tipo_registro === 'Entrega de archivo',
+                        'tiene_evaluacion'     => $m->id_evaluacion !== null,
+                        'adjunta_rubrica'      => $m->id_evaluacion !== null,
+                    ]))
+                    ->values();
+            }),
         ]);
     }
 
@@ -1139,6 +1174,42 @@ class DocenteActivityController extends Controller
         return Inertia::render('docente/MensajesCurso', [
             'curso'       => $curso,
             'estudiantes' => $estudiantesConMeta->values(),
+            'mensajesEstudiante' => Inertia::lazy(function () use ($curso) {
+                $idEstudiante = request('estudiante_id');
+                if (!$idEstudiante) return [];
+
+                $gruposIds = DB::table('agenda.integrante_grupo as ig')
+                    ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'ig.id_actividad_asignada_grupo')
+                    ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
+                    ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
+                    ->where('ig.id_estudiante', $idEstudiante)
+                    ->where('c.id_curso', $curso->id_curso)
+                    ->pluck('ig.id_actividad_asignada_grupo');
+
+                if ($gruposIds->isEmpty()) {
+                    return [];
+                }
+
+                return DB::table('agenda.agenda as a')
+                    ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
+                    ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'a.id_actividad_asignada_grupo')
+                    ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
+                    ->whereIn('a.id_actividad_asignada_grupo', $gruposIds)
+                    ->whereIn('a.tipo_mensaje', ['Mensaje al profesor', 'Feedback'])
+                    ->orderBy('a.fecha_envio', 'asc')
+                    ->select(
+                        'a.id_agenda',
+                        'a.fecha_envio',
+                        'a.mensaje',
+                        'a.tipo_mensaje as tipo_registro',
+                        DB::raw("TRIM(CONCAT(u.nombre1,' ',COALESCE(u.nombre2,''),' ',u.apellido1,' ',COALESCE(u.apellido2,''))) as emisor_nombre"),
+                        'u.id_usuario as emisor_id_usuario',
+                        'act.nombre as actividad_nombre',
+                        'act.id_actividad',
+                        'aag.id_actividad_asignada_grupo as grupo'
+                    )
+                    ->get();
+            }),
         ]);
     }
 

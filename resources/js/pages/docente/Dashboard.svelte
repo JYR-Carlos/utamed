@@ -5,7 +5,7 @@
    */
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
-  import { page } from '@inertiajs/svelte';
+  import { page, Link } from '@inertiajs/svelte';
   import {
     BookOpen,
     Users,
@@ -86,14 +86,14 @@
       </div>
       <div class="flex gap-2 items-center shrink-0">
         {#if jefatura?.has_access}
-          <a
+          <Link
             href="/docente/jefe-carrera/dashboard"
             class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors no-underline"
             title="Entrar a ambiente Jefe de Carrera"
           >
             <ShieldCheck size={15} />
             Entrar a Jefatura
-          </a>
+          </Link>
         {/if}
         <span
           class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 border border-dashed border-slate-200 bg-slate-50 rounded-lg px-3 py-2"
@@ -183,7 +183,7 @@
         <h2 class="text-base font-bold text-slate-700 mb-3 tracking-tight">Acciones Rápidas</h2>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 2xl:gap-5">
           <!-- Mis Cursos — activo -->
-          <a
+          <Link
             href="/docente/cursos"
             class="flex flex-col gap-3 p-5 rounded-xl border bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 no-underline transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
           >
@@ -204,10 +204,10 @@
             <div class="flex items-center gap-1 text-xs font-semibold text-indigo-700 mt-auto">
               Ver todos <ArrowRight size={13} />
             </div>
-          </a>
+          </Link>
 
           <!-- Inscripciones — activo -->
-          <a
+          <Link
             href="/docente/inscripciones"
             class="flex flex-col gap-3 p-5 rounded-xl border bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 no-underline transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
           >
@@ -227,7 +227,7 @@
             <div class="flex items-center gap-1 text-xs font-semibold text-indigo-700 mt-auto">
               Ver inscripciones <ArrowRight size={13} />
             </div>
-          </a>
+          </Link>
 
           <!-- Asistencia — próximamente -->
           <button
@@ -365,12 +365,12 @@
                 </div>
               {/each}
               {#if allCursos.length > 5}
-                <a
+                <Link
                   href="/docente/cursos"
                   class="text-sm text-indigo-600 font-semibold no-underline block mt-2 hover:underline"
                 >
                   Ver todos ({allCursos.length}) →
-                </a>
+                </Link>
               {/if}
             {/if}
           </div>

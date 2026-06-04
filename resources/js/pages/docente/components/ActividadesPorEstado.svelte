@@ -28,21 +28,10 @@
     ClipboardList,
   } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
-  // ── Extended type ─────────────────────────────────────────────────────────
-  // The backend returns actividades with `componente` eager-loaded.
-  // We extend the base Actividad type to include this optional relation.
-
-  interface ActividadExtendida extends Actividad {
-    componente?: {
-      id_componente: number;
-      tipo_componente?: { nombre: string };
-    } | null;
-  }
-
   // ── Props ─────────────────────────────────────────────────────────────────
 
   interface Props {
-    actividades: ActividadExtendida[];
+    actividades: Actividad[];
     idCurso: number;
   }
 
@@ -83,7 +72,7 @@
     return `Hace ${Math.abs(days)} día${Math.abs(days) !== 1 ? 's' : ''}`;
   }
 
-  function componenteLabel(act: ActividadExtendida): string {
+  function componenteLabel(act: Actividad): string {
     return act.componente?.tipo_componente?.nombre ?? '—';
   }
 

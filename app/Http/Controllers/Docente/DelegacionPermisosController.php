@@ -144,7 +144,7 @@ class DelegacionPermisosController extends Controller
      * Response:
      *   { ok: true } | HTTP 422 | HTTP 403
      */
-    public function toggle(Request $request, Curso $curso): JsonResponse
+    public function toggle(Request $request, Curso $curso): \Illuminate\Http\RedirectResponse
     {
         $this->authorizeIsTitular($curso);
         $this->ensureContext($curso);
@@ -167,7 +167,7 @@ class DelegacionPermisosController extends Controller
             otorgar:    $validated['otorgar'],
         );
 
-        return response()->json(['ok' => true]);
+        return back()->with('success', 'Permiso actualizado');
     }
 
     // ────────────────────────────────────────────────────────────────────────

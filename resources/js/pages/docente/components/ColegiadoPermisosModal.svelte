@@ -1,8 +1,8 @@
 <script lang="ts">
   import * as Dialog from '@/components/ui/dialog';
   import { Button } from '@/components/ui/button';
-  import { Badge } from '@/components/ui/badge';
   import { Shield, Loader2, Save, X } from 'lucide-svelte';
+  import { useForm } from '@inertiajs/svelte';
 
   interface PermisoDisponible {
     id_permiso: number;
@@ -23,26 +23,27 @@
     nombre: string;
     username: string;
     es_titular: boolean;
+    special_permissions: PermisoEspecialActual[];
   }
 
   interface Props {
     isOpen: boolean;
     cursoId: number;
     colegiado: ColegiadoDocente | null;
+    availablePermissions: Record<string, PermisoDisponible[]>;
     onClose: () => void;
   }
 
-  let { isOpen = $bindable(), cursoId, colegiado, onClose }: Props = $props();
+  let { isOpen = $bindable(), cursoId, colegiado, availablePermissions = {}, onClose }: Props = $props();
 
-  let isLoading = $state(false);
-  let isSaving = $state(false);
-  let error = $state<string | null>(null);
   let successMsg = $state<string | null>(null);
 
-  // Permisos disponibles agrupados (viene del backend)
-  let availablePermissions = $state<Record<string, PermisoDisponible[]>>({});
-  // Estado actual de permisos especiales del colegiado
-  let currentSpecialPerms = $state<PermisoEspecialActual[]>([]);
+  // Formularios de Inertia
+  let form = useForm({
+    roles: [] as number[],
+    special_permissions: {} as Record<number, boolean | null>,
+  });
+
   // Permisos seleccionados/deseleccionados por el usuario (id_permiso → boolean)
   let selectedPerms = $state<Record<number, boolean>>({});
 
@@ -52,43 +53,18 @@
     }
   });
 
-  async function loadPermissions() {
+  function loadPermissions() {
     if (!colegiado) return;
-    isLoading = true;
-    error = null;
     successMsg = null;
-
-    try {
-      const res = await fetch(
-        `/docente/cursos/${cursoId}/team/${colegiado.id_usuario}/permissions`,
-        {
-          headers: {
-            Accept: 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-        },
-      );
-
-      if (!res.ok) {
-        throw new Error('No se pudieron cargar los permisos');
-      }
-
-      const data = await res.json();
-      availablePermissions = data.available_permissions ?? {};
-      currentSpecialPerms = data.special_permissions ?? [];
-
-      // Inicializar selección con los permisos actualmente concedidos
-      selectedPerms = {};
-      for (const perm of currentSpecialPerms) {
+    $form.clearErrors();
+    
+    selectedPerms = {};
+    if (colegiado.special_permissions) {
+      for (const perm of colegiado.special_permissions) {
         if (perm.esta_permitido) {
           selectedPerms[perm.id_permiso] = true;
         }
       }
-    } catch (e: any) {
-      error = e.message || 'Error al cargar permisos';
-      console.error('Error loading colegiado permissions:', e);
-    } finally {
-      isLoading = false;
     }
   }
 
@@ -96,13 +72,10 @@
     selectedPerms[id] = !selectedPerms[id];
   }
 
-  async function savePermissions() {
+  function savePermissions() {
     if (!colegiado) return;
-    isSaving = true;
-    error = null;
     successMsg = null;
 
-    // Construir payload de special_permissions
     const specialPermissions: Record<number, boolean | null> = {};
     const allPermIds = Object.values(availablePermissions)
       .flat()
@@ -112,63 +85,21 @@
       if (selectedPerms[id]) {
         specialPermissions[id] = true;
       }
-      // No enviar los que no están seleccionados (se desactivan por el backend al hacer sync)
     }
 
-    try {
-      const csrfToken =
-        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+    $form.special_permissions = specialPermissions;
+    $form.roles = [];
 
-      const res = await fetch(
-        `/docente/cursos/${cursoId}/team/${colegiado.id_usuario}/sync-permissions`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': csrfToken,
-          },
-          body: JSON.stringify({
-            roles: [],
-            special_permissions: specialPermissions,
-          }),
-        },
-      );
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || 'Error al guardar permisos');
-      }
-
-      successMsg = 'Permisos actualizados correctamente';
-      // Recargar para reflejar el estado actualizado
-      await loadPermissions();
-    } catch (e: any) {
-      error = e.message || 'Error al guardar permisos';
-      console.error('Error saving colegiado permissions:', e);
-    } finally {
-      isSaving = false;
-    }
+    $form.post(`/docente/cursos/${cursoId}/team/${colegiado.id_usuario}/sync-permissions`, {
+      preserveState: true,
+      preserveScroll: true,
+      onSuccess: () => {
+        successMsg = 'Permisos actualizados correctamente';
+      },
+    });
   }
 
   const allPerms = $derived(Object.values(availablePermissions).flat());
-  const hasChanges = $derived(() => {
-    // Comparar selección actual con lo que había
-    const currentSet = new Set(
-      currentSpecialPerms.filter((p) => p.esta_permitido).map((p) => p.id_permiso),
-    );
-    const selectedSet = new Set(
-      Object.entries(selectedPerms)
-        .filter(([, v]) => v)
-        .map(([k]) => Number(k)),
-    );
-    if (currentSet.size !== selectedSet.size) return true;
-    for (const id of currentSet) {
-      if (!selectedSet.has(id)) return true;
-    }
-    return false;
-  });
 </script>
 
 <Dialog.Root bind:open={isOpen}>
@@ -186,14 +117,9 @@
     </Dialog.Header>
 
     <div class="space-y-4 py-2">
-      {#if isLoading}
-        <div class="flex items-center justify-center py-8 text-slate-500">
-          <Loader2 class="h-5 w-5 animate-spin mr-2" />
-          Cargando permisos...
-        </div>
-      {:else if error}
+      {#if Object.keys($form.errors).length > 0}
         <div class="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-          {error}
+          Revisa los errores antes de continuar.
         </div>
       {:else if allPerms.length === 0}
         <div class="text-center py-8 text-slate-500">
@@ -254,7 +180,7 @@
       {/if}
     </div>
 
-    {#if !isLoading && allPerms.length > 0}
+    {#if allPerms.length > 0}
       <Dialog.Footer class="flex gap-2">
         <Button
           variant="outline"
@@ -267,8 +193,8 @@
           <X class="h-4 w-4" />
           Cancelar
         </Button>
-        <Button onclick={savePermissions} disabled={isSaving} class="gap-1">
-          {#if isSaving}
+        <Button onclick={savePermissions} disabled={$form.processing} class="gap-1">
+          {#if $form.processing}
             <Loader2 class="h-4 w-4 animate-spin" />
             Guardando...
           {:else}

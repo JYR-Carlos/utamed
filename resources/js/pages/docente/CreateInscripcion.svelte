@@ -3,7 +3,7 @@
    * Página para crear una nueva inscripción de estudiante en un curso (Vista Docente).
    */
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
-  import { router } from '@inertiajs/svelte';
+  import { router, useForm } from '@inertiajs/svelte';
 
   interface Estudiante {
     id_estudiante: number;
@@ -26,7 +26,7 @@
 
   let { cursos, estudiantes, estudiantesInscritosId, idCursoSeleccionado, auth }: Props = $props();
 
-  let formData = $state({
+  const form = useForm({
     id_curso: idCursoSeleccionado ? Number(idCursoSeleccionado) : 0,
     id_estudiante: 0,
     cod_inscripcion_uta: '',
@@ -35,35 +35,25 @@
     num_intento: 1,
   });
 
-  let isSubmitting = $state(false);
   let errorMessage = $state('');
-  let errors = $state<Record<string, string>>({});
 
   /**
    * Filtra estudiantes disponibles para el curso seleccionado.
    * Excluye estudiantes que ya están inscritos.
    */
-  $derived estudiantesDisponibles = formData.id_curso > 0 
-    ? estudiantes.filter(e => !estudiantesInscritosId.includes(e.id_estudiante))
-    : [];
+  let estudiantesDisponibles = $derived(
+    $form.id_curso > 0 
+      ? estudiantes.filter(e => !estudiantesInscritosId.includes(e.id_estudiante))
+      : []
+  );
 
   function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
     errorMessage = '';
-    errors = {};
 
-    router.post('/docente/inscripciones', formData, {
-      onStart: () => {
-        isSubmitting = true;
-      },
-      onFinish: () => {
-        isSubmitting = false;
-      },
+    $form.post('/docente/inscripciones', {
       onError: (pageErrors) => {
         console.log('Validation errors:', pageErrors);
-        errors = pageErrors;
-
-        // Show specific errors if available
         const errorList = Object.entries(pageErrors)
           .map(([field, message]) => `${field}: ${message}`)
           .join('\n');
@@ -78,7 +68,7 @@
   }
 </script>
 
-<DocenteLayout {auth}>
+<DocenteLayout>
   <div class="max-w-2xl mx-auto px-4 sm:px-6 md:px-8 py-6">
     <div class="mb-6">
       <h1 class="text-3xl font-bold text-gray-900">Nueva Inscripción</h1>
@@ -97,7 +87,7 @@
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Curso *</label>
           <select
-            bind:value={formData.id_curso}
+            bind:value={$form.id_curso}
             required
             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           >
@@ -108,8 +98,8 @@
               </option>
             {/each}
           </select>
-          {#if errors.id_curso}
-            <p class="mt-2 text-sm text-red-600">{errors.id_curso}</p>
+          {#if $form.errors.id_curso}
+            <p class="mt-2 text-sm text-red-600">{$form.errors.id_curso}</p>
           {/if}
         </div>
 
@@ -117,13 +107,13 @@
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Estudiante *</label>
           <select
-            bind:value={formData.id_estudiante}
+            bind:value={$form.id_estudiante}
             required
-            disabled={!formData.id_curso || estudiantesDisponibles.length === 0}
+            disabled={!$form.id_curso || estudiantesDisponibles.length === 0}
             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
           >
             <option value={0}>
-              {!formData.id_curso
+              {!$form.id_curso
                 ? 'Selecciona un curso primero'
                 : estudiantesDisponibles.length === 0
                   ? 'No hay estudiantes disponibles'
@@ -137,8 +127,8 @@
               </option>
             {/each}
           </select>
-          {#if errors.id_estudiante}
-            <p class="mt-2 text-sm text-red-600">{errors.id_estudiante}</p>
+          {#if $form.errors.id_estudiante}
+            <p class="mt-2 text-sm text-red-600">{$form.errors.id_estudiante}</p>
           {/if}
         </div>
 
@@ -147,12 +137,12 @@
           <label class="block text-sm font-medium text-gray-700 mb-2">Código Inscripción UTA</label>
           <input
             type="text"
-            bind:value={formData.cod_inscripcion_uta}
+            bind:value={$form.cod_inscripcion_uta}
             placeholder="ej: INS-2024-001"
             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
-          {#if errors.cod_inscripcion_uta}
-            <p class="mt-2 text-sm text-red-600">{errors.cod_inscripcion_uta}</p>
+          {#if $form.errors.cod_inscripcion_uta}
+            <p class="mt-2 text-sm text-red-600">{$form.errors.cod_inscripcion_uta}</p>
           {/if}
         </div>
 
@@ -167,10 +157,10 @@
           </button>
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={$form.processing}
             class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400"
           >
-            {isSubmitting ? 'Guardando...' : 'Crear Inscripción'}
+            {$form.processing ? 'Guardando...' : 'Crear Inscripción'}
           </button>
         </div>
       </form>

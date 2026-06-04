@@ -62,6 +62,7 @@
     //    necesidad de una consulta adicional desde el frontend.
     rubrica_id?: number | null;
     estudiantesInscritos?: EstudianteInscrito[];
+    interaccionesGrupo?: Interaccion[];
   }
 
   let {
@@ -71,19 +72,19 @@
     rubrica = null,
     rubrica_id = null,
     estudiantesInscritos = [],
+    interaccionesGrupo = [],
   }: Props = $props();
 
-  const breadcrumbs: BreadcrumbItem[] = [
+  const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Mis Cursos', href: '/docente/cursos' },
     { title: curso.nombre, href: `/docente/cursos/${curso.id_curso}/actividades` },
     { title: actividad.nombre, href: '#' },
-  ];
+  ]);
 
   // ─── Estado del UI ────────────────────────────────────────────────────────
   let grupoSeleccionado = $state<GrupoData | null>(null);
   let showAgendaModal = $state(false);
   let showRubricaModal = $state(false);
-  let interaccionesGrupo = $state<Interaccion[]>([]);
   let isLoadingInteracciones = $state(false);
   let errorInteracciones = $state<string | null>(null);
 
@@ -186,35 +187,34 @@
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  async function cargarInteracciones(grupo: GrupoData) {
-    interaccionesGrupo = [];
+  function cargarInteracciones(grupo: GrupoData) {
     isLoadingInteracciones = true;
     errorInteracciones = null;
-    try {
-      const res = await fetch(
-        `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupo.grupo}/mensajes`,
-        { headers: { Accept: 'application/json' } },
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      interaccionesGrupo = await res.json();
-    } catch {
-      errorInteracciones = 'No se pudieron cargar los mensajes del grupo.';
-    } finally {
-      isLoadingInteracciones = false;
-    }
+
+    router.reload({
+      only: ['interaccionesGrupo'],
+      data: { grupo_id: grupo.grupo },
+      onSuccess: () => {
+        isLoadingInteracciones = false;
+      },
+      onError: () => {
+        errorInteracciones = 'No se pudieron cargar los mensajes del grupo.';
+        isLoadingInteracciones = false;
+      },
+    });
   }
 
-  async function abrirAgendaGrupo(grupo: GrupoData) {
+  function abrirAgendaGrupo(grupo: GrupoData) {
     grupoSeleccionado = grupo;
     showRubricaModal = false;
     showAgendaModal = true;
-    await cargarInteracciones(grupo);
+    cargarInteracciones(grupo);
   }
 
   function cerrarAgenda() {
     showAgendaModal = false;
     grupoSeleccionado = null;
-    interaccionesGrupo = [];
+    // router.reload will clear it later or we can let it be
   }
 
   function toggleRubricaModal() {

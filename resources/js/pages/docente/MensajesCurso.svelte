@@ -41,18 +41,18 @@
   interface Props {
     curso: Curso;
     estudiantes: EstudianteItem[];
+    mensajesEstudiante?: MensajeEstudiante[];
   }
 
   // ── Props ─────────────────────────────────────────────────────────────────
 
-  let { curso, estudiantes }: Props = $props();
+  let { curso, estudiantes, mensajesEstudiante = [] }: Props = $props();
 
   // ── State ─────────────────────────────────────────────────────────────────
 
   let query = $state('');
   let selectedEstudiante = $state<EstudianteItem | null>(null);
 
-  let mensajes = $state<MensajeEstudiante[]>([]);
   let loadingHilo = $state(false);
   let hiloError = $state<string | null>(null);
 
@@ -92,7 +92,7 @@
     return map;
   }
 
-  const hilos = $derived(hilosPorGrupo(mensajes));
+  const hilos = $derived(hilosPorGrupo(mensajesEstudiante));
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -138,7 +138,6 @@
   async function selectEstudiante(e: EstudianteItem) {
     if (selectedEstudiante?.id_estudiante === e.id_estudiante) return;
     selectedEstudiante = e;
-    mensajes = [];
     hiloError = null;
     replyByGrupo = new Map();
     sendingByGrupo = new Set();
@@ -146,24 +145,26 @@
     await loadHilo(e.id_estudiante);
   }
 
-  async function loadHilo(idEstudiante: number) {
+  import { router } from '@inertiajs/svelte';
+
+  function loadHilo(idEstudiante: number) {
     loadingHilo = true;
     hiloError = null;
-    try {
-      const res = await fetch(
-        `/docente/cursos/${curso.id_curso}/estudiantes/${idEstudiante}/mensajes`,
-        { headers: { Accept: 'application/json' }, credentials: 'same-origin' },
-      );
-      if (!res.ok) throw new Error('Error al cargar mensajes.');
-      mensajes = await res.json();
-    } catch (err: any) {
-      hiloError = err.message ?? 'Error desconocido.';
-    } finally {
-      loadingHilo = false;
-    }
+
+    router.reload({
+      only: ['mensajesEstudiante'],
+      data: { estudiante_id: idEstudiante },
+      onSuccess: () => {
+        loadingHilo = false;
+      },
+      onError: () => {
+        hiloError = 'Error al cargar mensajes.';
+        loadingHilo = false;
+      },
+    });
   }
 
-  async function enviarFeedback(grupoId: number) {
+  function enviarFeedback(grupoId: number) {
     const texto = replyByGrupo.get(grupoId)?.trim();
     if (!texto) return;
 
@@ -172,30 +173,28 @@
     errMap.delete(grupoId);
     sendErrorByGrupo = errMap;
 
-    try {
-      const res = await fetch(`/docente/cursos/${curso.id_curso}/grupos/${grupoId}/feedback`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'X-CSRF-TOKEN': csrfToken(),
+    router.post(
+      `/docente/cursos/${curso.id_curso}/grupos/${grupoId}/feedback`,
+      { mensaje: texto },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+          // Limpia texto y recarga hilo
+          const r = new Map(replyByGrupo);
+          r.set(grupoId, '');
+          replyByGrupo = r;
+          sendingByGrupo = new Set([...sendingByGrupo].filter((id) => id !== grupoId));
+          if (selectedEstudiante) loadHilo(selectedEstudiante.id_estudiante);
         },
-        credentials: 'same-origin',
-        body: JSON.stringify({ mensaje: texto }),
-      });
-      if (!res.ok) throw new Error('Error al enviar feedback.');
-      // Limpia texto y recarga hilo
-      const r = new Map(replyByGrupo);
-      r.set(grupoId, '');
-      replyByGrupo = r;
-      if (selectedEstudiante) await loadHilo(selectedEstudiante.id_estudiante);
-    } catch (err: any) {
-      const e2 = new Map(sendErrorByGrupo);
-      e2.set(grupoId, err.message ?? 'Error al enviar.');
-      sendErrorByGrupo = e2;
-    } finally {
-      sendingByGrupo = new Set([...sendingByGrupo].filter((id) => id !== grupoId));
-    }
+        onError: () => {
+          const e2 = new Map(sendErrorByGrupo);
+          e2.set(grupoId, 'Error al enviar.');
+          sendErrorByGrupo = e2;
+          sendingByGrupo = new Set([...sendingByGrupo].filter((id) => id !== grupoId));
+        },
+      }
+    );
   }
 </script>
 

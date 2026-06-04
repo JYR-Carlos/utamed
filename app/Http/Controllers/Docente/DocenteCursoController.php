@@ -304,6 +304,42 @@ class DocenteCursoController extends Controller
             'mis_estudiantes' => $misEstudiantes->values(),
             'todos_componentes' => $todosComponentesData->values(),
             'actividades' => $actividades->values(),
+            'mensajesEstudiante' => Inertia::lazy(function () use ($curso) {
+                $idEstudiante = request('estudiante_id');
+                if (!$idEstudiante) return [];
+
+                $gruposIds = DB::table('agenda.integrante_grupo as ig')
+                    ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'ig.id_actividad_asignada_grupo')
+                    ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
+                    ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
+                    ->where('ig.id_estudiante', $idEstudiante)
+                    ->where('c.id_curso', $curso->id_curso)
+                    ->pluck('ig.id_actividad_asignada_grupo');
+
+                if ($gruposIds->isEmpty()) {
+                    return [];
+                }
+
+                return DB::table('agenda.agenda as a')
+                    ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
+                    ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'a.id_actividad_asignada_grupo')
+                    ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
+                    ->whereIn('a.id_actividad_asignada_grupo', $gruposIds)
+                    ->whereIn('a.tipo_mensaje', ['Mensaje al profesor', 'Feedback'])
+                    ->orderBy('a.fecha_envio', 'asc')
+                    ->select(
+                        'a.id_agenda',
+                        'a.fecha_envio',
+                        'a.mensaje',
+                        'a.tipo_mensaje as tipo_registro',
+                        DB::raw("TRIM(CONCAT(u.nombre1,' ',COALESCE(u.nombre2,''),' ',u.apellido1,' ',COALESCE(u.apellido2,''))) as emisor_nombre"),
+                        'u.id_usuario as emisor_id_usuario',
+                        'act.nombre as actividad_nombre',
+                        'act.id_actividad',
+                        'aag.id_actividad_asignada_grupo as grupo'
+                    )
+                    ->get();
+            }),
         ]);
     }
 
@@ -372,10 +408,32 @@ class DocenteCursoController extends Controller
             ])
             ->filter(fn ($d) => $d['id_docente'] !== $idDocente)
             ->unique('id_docente')
-            ->values();
+            ->values()
+            ->map(function ($col) use ($curso) {
+                if ($curso->id_contexto) {
+                    $special = \App\Models\Usuario\UsuarioPermisoEspecial::where('id_contexto', $curso->id_contexto)
+                        ->where('id_usuario', $col['id_usuario'])
+                        ->where('esta_activo', true)
+                        ->where('fue_borrado', false)
+                        ->get();
+                    $col['special_permissions'] = $special->map(fn($perm) => [
+                        'id_permiso' => $perm->id_permiso,
+                        'esta_permitido' => $perm->esta_permitido,
+                        'puede_delegar' => $perm->puede_delegar
+                    ])->values();
+                } else {
+                    $col['special_permissions'] = [];
+                }
+                return $col;
+            });
 
         // Matriz de permisos del syllabus por cada colegiado
         $syllabusPermsMatrix = $this->buildSyllabusPermissionsMatrix($curso, $colegiadosData);
+
+        $delegablePerms = $this->getDelegablePermissions($user, $curso->id_contexto);
+        $available_permissions = $delegablePerms->filter(function (\App\Models\Usuario\Permiso $p) {
+            return str_starts_with($p->slug, 'cursos') || str_starts_with($p->slug, 'actividad:') || str_starts_with($p->slug, 'curso:');
+        })->groupBy(fn() => 'Docencia');
 
         return Inertia::render('docente/DocentesCurso', [
             'curso' => [
@@ -387,6 +445,7 @@ class DocenteCursoController extends Controller
             'todos_componentes' => $todosComponentesData->values(),
             'colegiados'        => $colegiadosData->values(),
             'syllabus_matrix'   => $syllabusPermsMatrix,
+            'available_permissions' => $available_permissions,
         ]);
     }
 
@@ -463,6 +522,7 @@ class DocenteCursoController extends Controller
 
             $rolePerms = collect();
             foreach ($roleAssignments as $role) {
+                /** @var \App\Models\Usuario\Rol $role */
                 // $role is already a Rol model (from belongsToMany)
                 if ($role) {
                     // Get permisos for this role with delegation rights
@@ -721,10 +781,11 @@ class DocenteCursoController extends Controller
                     $canDelegate = false;
 
                     if ($allowed !== null || $canDelegate) {
-                        $permiso = \App\Models\Usuario\Permiso::findOrFail($permId);
+                        $permisoModel = \App\Models\Usuario\Permiso::findOrFail($permId);
+                        $permisoEnum = \App\Support\Permissions::from($permisoModel->slug);
                         $durationDays = $status['duration_days'] ?? 365;
                         
-                        $builder = $usuario->givePermission($permiso)
+                        $builder = $usuario->givePermission($permisoEnum)
                             ->on($curso)  // Curso implementa HasOwnedContext
                             ->for($durationDays);
                         

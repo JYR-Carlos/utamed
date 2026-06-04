@@ -17,7 +17,7 @@
    *   3. El estado local se actualiza optimistamente; en error se revierte.
    */
 
-  import { page } from '@inertiajs/svelte';
+  import { page, router } from '@inertiajs/svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import * as Card from '@/components/ui/card';
   import { Badge } from '@/components/ui/badge';
@@ -26,7 +26,6 @@
   import { Separator } from '@/components/ui/separator';
   import * as Alert from '@/components/ui/alert';
   import { ShieldCheck, ShieldX, Users, ChevronDown, ChevronRight } from 'lucide-svelte';
-  import axios from 'axios';
 
   // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -111,7 +110,7 @@
    * Actualización optimista: el estado local cambia inmediatamente.
    * En caso de error del servidor se revierte.
    */
-  async function handleToggle(idUsuario: number, slug: string, otorgar: boolean): Promise<void> {
+  function handleToggle(idUsuario: number, slug: string, otorgar: boolean) {
     const key = pendingKey(idUsuario, slug);
 
     // Actualización optimista
@@ -120,33 +119,25 @@
 
     pending = new Set([...pending, key]);
 
-    try {
-      await axios.post(
-        toggleUrl,
-        { id_usuario: idUsuario, slug, otorgar },
-        {
-          headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
-            'X-Inertia': 'false',
-            Accept: 'application/json',
-          },
+    router.post(
+      toggleUrl,
+      { id_usuario: idUsuario, slug, otorgar },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        onError: (errs) => {
+          // Revertir el estado local
+          permisosLocales[idUsuario][slug] = !otorgar;
+          const msg = Object.values(errs)[0] || 'Error al actualizar el permiso.';
+          toggleErrors[key] = msg;
         },
-      );
-    } catch (err: unknown) {
-      // Revertir el estado local
-      permisosLocales[idUsuario][slug] = !otorgar;
-
-      const message =
-        axios.isAxiosError(err) && err.response?.data?.message
-          ? String(err.response.data.message)
-          : 'Error al actualizar el permiso.';
-
-      toggleErrors[key] = message;
-    } finally {
-      const next = new Set(pending);
-      next.delete(key);
-      pending = next;
-    }
+        onFinish: () => {
+          const next = new Set(pending);
+          next.delete(key);
+          pending = next;
+        }
+      }
+    );
   }
 
   function toggleGrupo(idUsuario: number, grupo: string): void {
