@@ -134,6 +134,34 @@
       // Aquí puedes manejar el estado de error en tu UI
     }
   }
+
+  function handleSubirArchivo(data: { archivo: File | null; descripcion: string }) {
+    if (!id_actividad_asignada_grupo || !data.archivo) return;
+
+    router.post(
+      '/estudiante/actividades/agenda/guardar-archivo',
+      {
+        id_actividad_asignada_grupo,
+        archivo: data.archivo,
+        descripcion: data.descripcion,
+      },
+      {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => {
+          showEntregaModal = false;
+          router.reload();
+        },
+        onError: (errors) => {
+          alert(errors.error || 'Ocurrió un error al subir la entrega');
+        }
+      }
+    );
+  }
+
+  const stateLabel = $derived.by(() => {
+    return ultimo_estado?.toUpperCase();
+  });
 </script>
 
 <StudentLayout {breadcrumbs}>
@@ -421,6 +449,27 @@
         </div>
       </div>
     {/if}
+
+    {#if showEntregaModal}
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
+        role="dialog"
+        aria-modal="true"
+        tabindex="-1"
+        onclick={(e) => e.target === e.currentTarget && toggleEntregaModal()}
+        onkeydown={(e) => e.key === 'Escape' && toggleEntregaModal()}
+      >
+        <Entrega
+          onCerrar={toggleEntregaModal}
+          onEntregaEnviada={handleSubirArchivo}
+          {cod_curso}
+          {nombre_curso}
+          {cod_actividad}
+          {nombre_actividad}
+          {entrega_obligatoria}
+        />
+      </div>
+    {/if}
   </div>
 </StudentLayout>
 
@@ -429,6 +478,7 @@
     if (e.key === 'Escape') {
       showRubricaModal = false;
       showAgendaModal = false;
+      showEntregaModal = false;
     }
   }}
 />

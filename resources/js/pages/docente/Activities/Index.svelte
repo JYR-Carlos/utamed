@@ -281,6 +281,8 @@
     if (e === 'PLANIFICADA') return 'bg-yellow-100 text-yellow-800 border-yellow-300';
     return 'bg-gray-100 text-gray-800 border-gray-300';
   }
+
+  function handleSubirArchivo(data: { archivo: File | null; descripcion: string }) {}
 </script>
 
 <DocenteLayout {breadcrumbs}>

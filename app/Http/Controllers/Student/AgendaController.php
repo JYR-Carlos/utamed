@@ -68,47 +68,40 @@ class AgendaController extends Controller
         ]);
     }
 
-    /**
-     * algo asi es el url: POST 'agendas/{registroAgenda}/archivos'
-     * 
-     * @param AgendaFileRequest $request
-     * @param Agenda $agenda
-     * @return void
-     */
-    public function storeFile(AgendaFileRequest $request, Agenda $registroAgenda)
+    public function saveArchivo(AgendaFileRequest $request)
     {
-        // validar el archivo con el request
 
-        // guardar en disco
+        /** @var \App\Models\Usuario\Usuario $user */
+        $user = Auth::user();
+
+        // 1. Obtener la actividad asignada al grupo desde el request
+        $grupoId = $request->input('id_actividad_asignada_grupo');
+        $grupo = ActividadAsignadaGrupo::findOrFail($grupoId);
+
+        // 2. Guardar en disco físico
         try {
             $storedFile = AgendaArchiveHandler::store(
-                grupo: $registroAgenda->actividadAsignadaGrupo,
+                grupo: $grupo,
                 file: $request->getFile(),
                 fileName: $request->getCustomFileName()
             );
 
-            // FIX: CONECTAR A REGISTRO DE AGENDA
-            // el endpoint debe crear el mensaje tipo subida de archivo, y luego conectar el archivo subido a ese mensaje
-            $registroAgenda->uuid_archivo_subido = $storedFile->uuidArchivo;
-            $registroAgenda->save();
+            // 3. Conectar a registro de Agenda
+            Agenda::create([
+                'id_actividad_asignada_grupo' => $grupo->id_actividad_asignada_grupo,
+                'id_usuario_emisor' => $user->id_usuario,
+                'fecha_envio' => now(),
+                'tipo_mensaje' => TipoMensaje::ENTREGA_DE_ARCHIVO,
+                'mensaje' => $request->input('descripcion', "Entrega de archivo para actividad {$grupo->actividad->nombre}"),
+                'uuid_archivo_subido' => $storedFile->uuidArchivo,
+                // Se vincula el UUID del archivo devuelto por el handler
+            ]);
 
-
-            
-        } catch (FileValidationException) {
-            // Maneja validación de archivo (peso, tipo, etc)            
-        } catch (VirusDetectedException) {
-            // Maneja virus detectado
-        } catch (CompressionException) {
-            // Maneja error de compresión
-        } catch (StorageException) {
-            // Maneja error de almacenamiento
-        } catch (ArchiveException) {
-            // Maneja error genérico de archivo
-        } catch (InvalidArgumentException) {
-            // Maneja error de relaciones faltantes
+            return back()->with('success', 'Entrega subida correctamente');
+        } catch (FileValidationException $e) {
+            return back()->withErrors(['error' => 'El archivo no es válido: ' . $e->getMessage()]);
         } catch (\Throwable $e) {
-            // Maneja cualquier otro error inesperado
-            // TODO: $storedFile->deleteFromDisk(); // Opcional: eliminar archivo si ya se subió pero hubo error en DB
+            return back()->withErrors(['error' => 'Ocurrió un error al subir el archivo: ' . $e->getMessage()]);
         }
     }
 
