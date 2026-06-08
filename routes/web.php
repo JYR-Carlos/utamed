@@ -61,7 +61,6 @@ Route::get('dashboard', function () {
 
     // Usuario autenticado sin ningún rol asignado
     return redirect()->route('sin-rol');
-
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::get('sin-rol', function () {
@@ -113,7 +112,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::resource('cursos', CursoController::class);
 
     Route::get('usuarios/buscar-por-rut', [UsuarioController::class, 'buscarPorRut'])
-         ->name('usuarios.buscarPorRut');
+        ->name('usuarios.buscarPorRut');
 
     Route::post('usuarios/importar', [UsuarioController::class, 'import'])
         ->name('usuarios.importar');
@@ -368,21 +367,38 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
 });
 
 // Student Routes
-Route::prefix('estudiante')->middleware(['auth', 'verified', 'is_estudiante'])->name('estudiante.')->group(function () {
-    Route::get('dashboard', [\App\Http\Controllers\Student\DashboardController::class, 'index'])->name('dashboard');
-    Route::get('cursos', [\App\Http\Controllers\Student\CourseController::class, 'index'])->name('cursos.index');
+Route::prefix('estudiante')
+    ->middleware(['auth', 'verified', 'is_estudiante'])
+    ->name('estudiante.')
+    ->group(function () {
+        // rutas generales
+        Route::get('dashboard', [\App\Http\Controllers\Student\DashboardController::class, 'index'])->name('dashboard');
+        Route::get('cursos', [\App\Http\Controllers\Student\CourseController::class, 'index'])->name('cursos.index');
 
-    // Programa (Syllabus) View - MUST be before generic {curso} route
-    Route::get('cursos/{curso}/programa', [\App\Http\Controllers\Student\ProgramaController::class, 'show'])->name('cursos.programa.show');
-    Route::get('cursos/{curso}', [\App\Http\Controllers\Student\CourseController::class, 'show'])->name('cursos.show');
-    //Route::get('cursos/{curso}/actividad', [\App\Http\Controllers\Student\ActivityController::class, 'show'])->name('cursos.actividades.show');
-    Route::get('cursos/{curso}/actividad/{actividad}', [\App\Http\Controllers\Student\ActivityController::class, 'show'])
-        ->name('cursos.actividades.show');
-    
-    // Agenda routes
-    Route::post('actividades/agenda/guardar-entrada', [\App\Http\Controllers\Student\AgendaController::class, 'saveEntrada'])
-        ->name('actividades.agenda.guardar-entrada');
-});
+        // Programa (Syllabus) View - MUST be before generic {curso} route
+        Route::get('cursos/{curso}/programa', [\App\Http\Controllers\Student\ProgramaController::class, 'show'])->name('cursos.programa.show');
+        Route::get('cursos/{curso}', [\App\Http\Controllers\Student\CourseController::class, 'show'])->name('cursos.show');
+        //Route::get('cursos/{curso}/actividad', [\App\Http\Controllers\Student\ActivityController::class, 'show'])->name('cursos.actividades.show');
+        Route::get('cursos/{curso}/actividad/{actividad}', [\App\Http\Controllers\Student\ActivityController::class, 'show'])
+            ->name('cursos.actividades.show');
+
+        // Agenda routes
+        Route::controller(\App\Http\Controllers\Student\AgendaController::class)
+            ->group(function () {
+                
+                Route::post(
+                    // estudiante/grupos-asignados/{actividadAsignadaGrupo}/agenda
+                    'grupos-asignados/{actividadAsignadaGrupo}/agenda',
+                    'store'
+                )->name('actividades.agenda.store');
+
+                Route::post(
+                    // estudiante/agendas/{registroAgenda}/archivos
+                    'agendas/{registroAgenda}/archivos',
+                    'storeFile'
+                )->name('actividades.agenda.agendas.storeFile');
+            });
+    });
 
 // Ayudante Routes
 Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name('ayudante.')->group(function () {

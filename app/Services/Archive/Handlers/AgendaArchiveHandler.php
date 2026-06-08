@@ -45,7 +45,7 @@ class AgendaArchiveHandler
    * @param UploadedFile $file File to store
    * @param DateTimeInterface|null $fecha Optional date (defaults to now)
    * @param string|null $fileName Optional explicit filename
-   * @return array Storage result with disk, path, file_name, and metadata
+   * @return ArchiveStorageResult Storage result with disk, path, file_name, and metadata
    *
    * @throws \App\Exceptions\Archive\FileValidationException
    * @throws \App\Exceptions\Archive\VirusDetectedException

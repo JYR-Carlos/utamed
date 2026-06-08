@@ -30,7 +30,8 @@ class AgendaController extends Controller
         
     }
 
-    public function saveEntrada(Request $request)
+    // POST 'grupos-asignados/{actividadAsignadaGrupo}/agenda'
+    public function store(Request $request, ActividadAsignadaGrupo $actividadAsignadaGrupo)
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -48,18 +49,13 @@ class AgendaController extends Controller
             'mensaje' => 'required|string|max:5000',
         ]);
 
-        // Encontrar la actividad asignada al grupo
-        $actividadAsignadaGrupo = ActividadAsignadaGrupo::findOrFail(
-            $validated['id_actividad_asignada_grupo']
-        );
-
         // Verificar que el estudiante pertenece a este grupo
         $integrante = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
             ->where('id_actividad_asignada_grupo', $actividadAsignadaGrupo->id_actividad_asignada_grupo)
             ->firstOrFail();
 
         // Crear la entrada en la agenda
-        Agenda::create([
+        $agenda = Agenda::create([
             'id_actividad_asignada_grupo' => $actividadAsignadaGrupo->id_actividad_asignada_grupo,
             'id_usuario_emisor' => $user->id_usuario,
             'fecha_envio' => now(),
@@ -67,32 +63,34 @@ class AgendaController extends Controller
             'mensaje' => $validated['mensaje'],
         ]);
 
-        return back()->with('success', 'Entrada guardada correctamente');
+        return response()->json([
+            'id_agenda' => $agenda->id_agenda // Asegúrate de usar el nombre correcto de la llave primaria aquí
+        ]);
     }
 
     /**
-     * algo asi es el url: POST /agenda/{agenda}/archivo
+     * algo asi es el url: POST 'agendas/{registroAgenda}/archivos'
      * 
      * @param AgendaFileRequest $request
      * @param Agenda $agenda
      * @return void
      */
-    public function saveEntradaFile(AgendaFileRequest $request, ActividadAsignadaGrupo $grupo)
+    public function storeFile(AgendaFileRequest $request, Agenda $registroAgenda)
     {
         // validar el archivo con el request
 
         // guardar en disco
         try {
             $storedFile = AgendaArchiveHandler::store(
-                grupo: $grupo,
+                grupo: $registroAgenda->actividadAsignadaGrupo,
                 file: $request->getFile(),
                 fileName: $request->getCustomFileName()
             );
 
             // FIX: CONECTAR A REGISTRO DE AGENDA
             // el endpoint debe crear el mensaje tipo subida de archivo, y luego conectar el archivo subido a ese mensaje
-            // $agendaEntry->archivo_id = $storedFile->id;
-            // $agendaEntry->save();
+            $registroAgenda->uuid_archivo_subido = $storedFile->uuidArchivo;
+            $registroAgenda->save();
 
 
             

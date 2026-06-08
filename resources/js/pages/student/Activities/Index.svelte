@@ -2,15 +2,14 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
-  import { Link, router } from '@inertiajs/svelte';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaView from './Agenda/Rubrica.svelte';
   import ActivityHeaderCard from './cards/ActivityHeaderCard.svelte';
   import ActivityStateCard from './cards/ActivityStateCard.svelte';
   import ActivityPendingCard from './cards/ActivityPendingCard.svelte';
-  import ActivitySubmittedCard from './cards/ActivitySubmittedCard.svelte';
   import ActivityRubricaCard from './cards/ActivityRubricaCard.svelte';
   import ActivityAgendaCard from './cards/ActivityAgendaCard.svelte';
+  import axios from 'axios';
 
   interface Props {
     cod_curso: string;
@@ -91,25 +90,49 @@
     showInfoModal = !showInfoModal;
   }
 
-  function handleGuardarEntrada(data: { tipo: string; mensaje: string }) {
+  async function handleGuardarEntrada(data: { tipo: string; mensaje: string }) {
     if (!id_actividad_asignada_grupo) {
       alert('Error: No se pudo encontrar la actividad asignada');
       return;
     }
 
-    router.post(
-      '/estudiante/actividades/agenda/guardar-entrada',
-      {
-        id_actividad_asignada_grupo,
-        tipo: data.tipo,
-        mensaje: data.mensaje,
-      },
-      {
-        onSuccess: () => {
-          router.reload();
+    try {
+      // 1. Primera petición: Crear el texto de la agenda vía API
+      const response = await axios.post(
+        `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/agenda`,
+        {
+          tipo: data.tipo,
+          mensaje: data.mensaje,
         },
-      },
-    );
+      );
+
+      // Capturamos el ID generado en la base de datos
+      const idNuevaAgenda = response.data.id_agenda;
+
+      // // Si no hay archivo para subir, podemos forzar un recargo aquí y terminar
+      // if (!data.archivo) {
+      //    router.reload();
+      //    return;
+      // }
+
+      // // 2. Segunda petición: Subir el archivo asignado al ID nuevo
+      // router.post(
+      //   `/estudiante/agendas/${idNuevaAgenda}/archivos`,
+      //   {
+      //     archivo: data.archivo,
+      //   },
+      //   {
+      //     forceFormData: true, // Crucial para enviar archivos
+      //     onSuccess: () => {
+      //       // La petición terminó bien, Inertia actualiza la vista
+      //       console.log("Archivo subido con éxito");
+      //     },
+      //   }
+      // );
+    } catch (error) {
+      console.error('Error al procesar la solicitud:', error);
+      // Aquí puedes manejar el estado de error en tu UI
+    }
   }
 </script>
 
