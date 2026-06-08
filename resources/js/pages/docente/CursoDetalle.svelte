@@ -473,7 +473,7 @@
                         {#if comp.es_titular}
                           <Crown
                             size={11}
-                            class="{componenteActivo === comp.id_componente ? 'text-[#FFB81C]' : 'text-[#8A5F00]'}"
+                            class={componenteActivo === comp.id_componente ? 'text-[#FFB81C]' : 'text-[#8A5F00]'}
                           />
                         {/if}
                         <span
@@ -776,7 +776,7 @@
                       {#if comp.es_titular}
                         <Crown
                           size={11}
-                          class="{componenteActivo === comp.id_componente ? 'text-[#FFB81C]' : 'text-[#8A5F00]'}"
+                          class={componenteActivo === comp.id_componente ? 'text-[#FFB81C]' : 'text-[#8A5F00]'}
                         />
                       {/if}
                     </button>

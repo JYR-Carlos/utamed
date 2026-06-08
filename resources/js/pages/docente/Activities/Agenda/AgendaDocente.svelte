@@ -15,6 +15,8 @@
       mensaje: string;
       nota?: number;
       id_agenda_entrega?: number | null;
+      resultado_rubrica?: Record<string, string>;
+      puntaje_obtenido?: number;
     }) => void;
     cod_curso: string;
     nombre_actividad: string;
@@ -32,9 +34,11 @@
       adjunta_rubrica: boolean;
       rubrica?: Rubrica;
       puntaje_obtenido?: number;
+      resultado?: Record<string, string> | null;
     }>;
     isLoading?: boolean;
     errorMensaje?: string | null;
+    rubricaActividad?: Rubrica | null;
   }
 
   let {
@@ -46,6 +50,7 @@
     listado_interacciones,
     isLoading = false,
     errorMensaje = null,
+    rubricaActividad = null,
   }: Props = $props();
 
   let nuevoMensaje = $state('');
@@ -57,7 +62,18 @@
     rubrica?: Rubrica;
     puntaje_obtenido?: number;
     retroalimentacion?: string;
+    resultado?: Record<string, string> | null;
   } | null>(null);
+
+  let seleccionRubrica = $state<Record<string, string>>({}); // id_nivel -> id_escala
+  const puntajeRubrica = $derived(
+    rubricaActividad?.niveles?.reduce((acc, nivel) => {
+      const escalaId = seleccionRubrica[nivel.id];
+      if (!escalaId) return acc;
+      const escala = nivel.escalas.find((e) => e.id === escalaId);
+      return acc + (escala ? escala.puntos : 0);
+    }, 0) || 0
+  );
 
   // Solo tipos válidos según el ENUM de la base de datos
   const tiposInteraccion = ['Feedback', 'Evaluación'];
@@ -73,12 +89,7 @@
     if (nuevoMensaje.trim() === '' && !esEvaluacion) return;
     if (esEvaluacion && notaEvaluacion === null) return;
 
-    const data: {
-      tipo: string;
-      mensaje: string;
-      nota?: number;
-      id_agenda_entrega?: number | null;
-    } = {
+    const data: Parameters<Props['onInteraccionEnviada']>[0] = {
       tipo: tipoSeleccionado,
       mensaje: nuevoMensaje,
     };
@@ -86,6 +97,10 @@
     if (esEvaluacion) {
       if (notaEvaluacion !== null) data.nota = notaEvaluacion;
       data.id_agenda_entrega = entregaSeleccionada;
+      if (rubricaActividad) {
+        data.resultado_rubrica = seleccionRubrica;
+        data.puntaje_obtenido = puntajeRubrica;
+      }
     }
 
     onInteraccionEnviada(data);
@@ -179,6 +194,7 @@
                   rubrica: item.rubrica,
                   puntaje_obtenido: item.puntaje_obtenido,
                   retroalimentacion: item.mensaje,
+                  resultado: item.resultado,
                 };
               }
             }}
@@ -301,6 +317,34 @@
             La nota y retroalimentación quedarán registradas para el grupo.
           </p>
         </div>
+        {#if rubricaActividad}
+          <div class="mb-4 bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+            <div class="bg-gray-50 px-4 py-3 border-b flex justify-between items-center">
+              <h4 class="font-bold text-sm text-gray-700">Rúbrica de Evaluación</h4>
+              <span class="text-sm font-bold text-primary">Puntaje Obtenido: {puntajeRubrica} pts</span>
+            </div>
+            <div class="p-4 max-h-[40vh] overflow-y-auto custom-scrollbar">
+              {#each rubricaActividad.niveles as nivel}
+                <div class="mb-4 last:mb-0">
+                  <p class="font-bold text-gray-800 text-sm mb-1">{nivel.nombre}</p>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                    {#each nivel.escalas as escala}
+                      <button
+                        onclick={() => { seleccionRubrica[nivel.id] = escala.id; }}
+                        class="text-left p-3 rounded-xl border-2 transition-all {seleccionRubrica[nivel.id] === escala.id ? 'border-primary bg-primary/10' : 'border-gray-100 bg-white hover:border-gray-300'}"
+                      >
+                        <span class="text-xs font-black px-2 py-1 {seleccionRubrica[nivel.id] === escala.id ? 'bg-primary text-white' : 'bg-gray-200 text-gray-600'} rounded w-fit mb-2 inline-block">
+                          {escala.puntos} pts
+                        </span>
+                        <p class="text-xs text-gray-600 leading-snug">{escala.criterio}</p>
+                      </button>
+                    {/each}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
       {/if}
 
       <div class="relative">
@@ -373,6 +417,7 @@
           rubrica={interaccionSeleccionada.rubrica}
           puntaje_obtenido={interaccionSeleccionada.puntaje_obtenido ?? 0}
           retroalimentacion={interaccionSeleccionada.retroalimentacion}
+          resultado={interaccionSeleccionada.resultado}
         />
       </div>
     </div>

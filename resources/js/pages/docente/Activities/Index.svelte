@@ -231,6 +231,8 @@
     mensaje: string;
     nota?: number;
     id_agenda_entrega?: number | null;
+    resultado_rubrica?: Record<string, string>;
+    puntaje_obtenido?: number;
   }) {
     if (!grupoSeleccionado) return;
     const grupoSnap = grupoSeleccionado;
@@ -247,6 +249,8 @@
           id_rubrica: rubrica_id,
           nota: data.nota ?? null,
           mensaje: data.mensaje,
+          resultado_rubrica: data.resultado_rubrica,
+          puntaje_obtenido: data.puntaje_obtenido,
         },
         {
           preserveScroll: true,

@@ -147,7 +147,7 @@
     saving = true;
     router.post(
       `/docente/cursos/${idCurso}/rubrica`,
-      { rubrica: rubricaPreview, id_actividad: idActividad },
+      { rubrica: rubricaPreview as any, id_actividad: idActividad },
       {
         onSuccess: () => {
           saving = false;

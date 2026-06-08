@@ -451,6 +451,7 @@ class DocenteActivityController extends Controller
                         'ev.puntaje_obtenido',
                         'ev.evaluacion_obtenida',
                         'ev.id_evaluacion',
+                        'ev.resultado',
                     )
                     ->get()
                     ->map(fn($m) => array_merge((array) $m, [
@@ -1302,6 +1303,7 @@ class DocenteActivityController extends Controller
             'id_agenda_entrega'  => 'nullable|integer|exists:agenda.agenda,id_agenda',
             'id_rubrica'         => 'required|integer|exists:agenda.rubrica,id_rubrica',
             'resultado'          => 'nullable|array',
+            'resultado_rubrica'  => 'nullable|array',
             'puntaje_obtenido'   => 'nullable|numeric|min:0|max:999',
             'evaluacion_obtenida'=> 'nullable|string|max:500',
             'mensaje'            => 'nullable|string|max:2000',
@@ -1338,8 +1340,8 @@ class DocenteActivityController extends Controller
                 // 2. Crear registro en evaluacion vinculado al mensaje anterior
                 \App\Models\Agenda\Evaluacion::create([
                     'puntaje_obtenido'    => $validated['puntaje_obtenido'] ?? null,
-                    'resultado'           => $validated['resultado'] ?? null,
-                    'evaluacion_obtenida' => $validated['evaluacion_obtenida'] ?? null,
+                    'resultado'           => $validated['resultado_rubrica'] ?? $validated['resultado'] ?? null,
+                    'evaluacion_obtenida' => isset($validated['nota']) ? (string)$validated['nota'] : ($validated['evaluacion_obtenida'] ?? null),
                     'fecha_evaluacion'    => now(),
                     'id_rubrica'          => $validated['id_rubrica'],
                     'id_usuario_evaluador'=> Auth::id(),

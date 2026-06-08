@@ -6,6 +6,7 @@
     puntaje_obtenido?: number;
     retroalimentacion?: string;
     modoLectura?: boolean;
+    resultado?: Record<string, string> | null;
   }
 
   let {
@@ -13,6 +14,7 @@
     puntaje_obtenido = 0,
     retroalimentacion,
     modoLectura: modoRevision = false,
+    resultado = null,
   }: Props = $props();
 
   function getEvaluacion(puntos: number) {
@@ -21,10 +23,10 @@
     return escalas.find((e) => puntos >= e.puntaje_minimo)?.evaluacion || 'Sin evaluar';
   }
 
-  const maxEscalas = rubrica?.niveles?.[0]?.escalas.length || 0;
+  const maxEscalas = $derived(rubrica?.niveles?.[0]?.escalas.length || 0);
 
   // para evitar que la tabla se rompa horizontalmente.
-  const mostrarVertical = maxEscalas >= 4;
+  const mostrarVertical = $derived(maxEscalas >= 4);
 </script>
 
 <div class="w-fullspace-y-8 p-1">
@@ -87,7 +89,7 @@
 
             <div class="grid grid-cols-1 divide-y divide-gray-100">
               {#each nivel.escalas as escala}
-                <div class="p-5 flex flex-col gap-2">
+                <div class="p-5 flex flex-col gap-2 {resultado?.[nivel.id] === escala.id ? 'bg-primary/5 border-l-4 border-primary' : ''}">
                   <span
                     class="text-xs font-black px-2 py-1 bg-gray-200 rounded text-gray-600 w-fit"
                   >
@@ -137,7 +139,7 @@
                   </div>
                 </td>
                 {#each nivel.escalas as escala}
-                  <td class="p-5 align-top border-l border-gray-50">
+                  <td class="p-5 align-top border-l border-gray-50 {resultado?.[nivel.id] === escala.id ? 'bg-primary/5' : ''}">
                     <div class="flex flex-col gap-3">
                       <span
                         class="text-[10px] font-black px-2 py-0.5 bg-primary-100 text-primary rounded-md self-start uppercase"
