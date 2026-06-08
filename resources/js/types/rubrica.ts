@@ -8,16 +8,23 @@ export interface Nivel {
     id: string;
     nombre: string;
     descripcion: string;
-    nro_escalas: number;
-    puntaje_minimo: number;
-    puntaje_total: number;
+    nroEscalas: number;
+    puntajeTotal: number;
+    puntajeMinimo: number;
     escalas: Escala[];
+}
+
+export interface EscalaEvaluacion {
+    evaluacion: string;
+    puntajeMinimo: number;
+}
+
+export interface DetallesEvaluacion {
+    puntajeTotal: number;
+    escalaEvaluacion: EscalaEvaluacion[];
 }
 
 export interface Rubrica {
     niveles: Nivel[];
-    detalles_evaluacion: {
-        puntaje_total: number;
-        escala_evaluacion: Array<{ puntaje_minimo: number; evaluacion: string }>;
-    };
-};
+    detallesEvaluacion: DetallesEvaluacion;
+}

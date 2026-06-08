@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers\Student;
 
+use App\Enums\DB\EstadoActividadAsignada;
+use App\Enums\DB\TipoActividad;
+use App\Enums\DB\TipoMensaje;
 use App\Http\Controllers\Controller;
 use App\Models\Agenda\Actividad;
 use App\Models\Agenda\Agenda;
 use App\Models\Agenda\AsignadoActividad;
 use App\Models\Agenda\IntegranteGrupo;
+use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use Illuminate\Support\Facades\Auth;
@@ -64,7 +68,7 @@ class ActivityController extends Controller
         $ultimaNota = $integranteGrupo?->nota_individual ?? $grupo?->nota;
 
         $interacciones = [];
-        $rubrica = null;
+        
 
         if ($grupo) {
             $agendas = Agenda::where('id_actividad_asignada_grupo', $grupo->id_actividad_asignada_grupo)
@@ -92,7 +96,7 @@ class ActivityController extends Controller
                     'emisor'             => $nombreEmisor,
                     'mensaje'            => $agenda->mensaje ?? '',
                     'es_de_docente'      => $agenda->id_usuario_emisor !== $user->id_usuario,
-                    'es_retroalimentacion' => in_array($agenda->tipo_mensaje->value, ['Feedback', 'Evaluación']),
+                    'es_retroalimentacion' => in_array($agenda->tipo_mensaje, [TipoMensaje::FEEDBACK, TipoMensaje::EVALUACIÓN]),
                     'adjunta_rubrica'    => $rubricaData !== null,
                     'rubrica'            => $rubricaData,
                     'puntaje_obtenido'   => $evaluacion?->puntaje_obtenido,
@@ -108,24 +112,15 @@ class ActivityController extends Controller
             }
         }
 
-        // Derivar estado legible para el estudiante
-        $ultimoEstado = 'pendiente';
-        if ($grupo) {
-            $tieneEntrega = collect($interacciones)
-                ->contains(fn($i) => $i['tipo_interaccion'] === 'Entrega de archivo');
-            $tieneEvaluacion = collect($interacciones)
-                ->contains(fn($i) => $i['es_retroalimentacion']);
+        $rubrica = Rubrica::where('id_actividad','=', $actividad->id_actividad)
+         ->orderByDesc('id_rubrica')->first();
 
-            if ($tieneEvaluacion || $ultimaNota !== null) {
-                $ultimoEstado = 'evaluado';
-            } elseif ($tieneEntrega) {
-                $ultimoEstado = 'entregado';
-            }
-        }
+        // Derivar estado legible para el estudiante
+        $estado = $grupo?->estado_actividad_asignada; //EstadoActividadAsignada::PLANIFICADA->value;
 
         // Entregas del estudiante (archivos enviados)
         $entradas = collect($interacciones)
-            ->filter(fn($i) => $i['tipo_interaccion'] === 'Entrega de archivo')
+            ->filter(fn($i) => $i['tipo_interaccion'] === TipoMensaje::ENTREGA_DE_ARCHIVO->value)
             ->map(fn($i) => ['id' => $i['id_interaccion']])
             ->values()
             ->toArray();
@@ -139,13 +134,14 @@ class ActivityController extends Controller
             'nombre_actividad'      => $actividad->nombre ?? '',
             'descripcion'           => '', 
             'fecha_limite'          => $actividad->fecha_limite ? (string) $actividad->fecha_limite : '',
-            'es_sumativa'           => $actividad->tipo_actividad->value === 'SUMATIVA',
+            'es_sumativa'           => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
             'trae_archivo'          => $actividad->uuid_archivo !== null,
             'entrega_obligatoria'   => strtolower($actividad->tipo_entrega ?? '') !== 'sin entrega',
             'ultima_nota'           => $ultimaNota,
-            'ultimo_estado'         => $ultimoEstado,
+            'ultimo_estado'         => $estado,
             'entradas'              => $entradas,
             'listado_interacciones' => $interacciones,
+            'rubrica_evaluada'      => $rubrica,
             'rubrica'               => $rubrica,
             'id_actividad_asignada_grupo' => $grupo?->id_actividad_asignada_grupo,
         ]);
