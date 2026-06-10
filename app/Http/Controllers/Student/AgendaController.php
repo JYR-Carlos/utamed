@@ -20,15 +20,13 @@ use App\Models\Agenda\Agenda;
 use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Usuario\Usuario;
 use App\Enums\DB\TipoMensaje;
+use App\Services\Archive\ArchiveStorageResult;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 
 class AgendaController extends Controller
 {
-    public function index()
-    {
-        
-    }
+    public function index() {}
 
     // POST 'grupos-asignados/{actividadAsignadaGrupo}/agenda'
     public function store(Request $request, ActividadAsignadaGrupo $actividadAsignadaGrupo)
@@ -45,7 +43,6 @@ class AgendaController extends Controller
         // Validar inputs
         $validated = $request->validate([
             'tipo' => 'required|string|in:Consulta,Entrega de Avance,Duda sobre Rúbrica,Otro',
-            'id_actividad_asignada_grupo' => 'required|integer|exists:actividad_asignada_grupo,id_actividad_asignada_grupo',
             'mensaje' => 'required|string|max:5000',
         ]);
 
@@ -53,6 +50,10 @@ class AgendaController extends Controller
         $integrante = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
             ->where('id_actividad_asignada_grupo', $actividadAsignadaGrupo->id_actividad_asignada_grupo)
             ->firstOrFail();
+
+        if ($integrante->id_actividad_asignada_grupo !== $actividadAsignadaGrupo->id_actividad_asignada_grupo) {
+            abort(403, 'Estudiante no pertenece a este grupo');
+        }
 
         // Crear la entrada en la agenda
         $agenda = Agenda::create([
@@ -63,45 +64,65 @@ class AgendaController extends Controller
             'mensaje' => $validated['mensaje'],
         ]);
 
-        return response()->json([
-            'id_agenda' => $agenda->id_agenda // Asegúrate de usar el nombre correcto de la llave primaria aquí
-        ]);
+        return back()
+            ->with('success', 'Mensaje enviado exitosamente')
+            ->with('flash_data', [
+                'id_agenda' => $agenda->id_agenda,
+            ]);
     }
 
-    public function saveArchivo(AgendaFileRequest $request)
+    /**
+     * algo asi es el url: POST 'agendas/{registroAgenda}/archivos'
+     * 
+     * @param AgendaFileRequest $request
+     * @param Agenda $registroAgenda
+     */
+    public function storeFile(AgendaFileRequest $request, Agenda $registroAgenda)
     {
-
-        /** @var \App\Models\Usuario\Usuario $user */
+        // verificar que el usuario que pide subir el archivo es el mismo que creó el mensaje en la agenda
+        /** @var Usuario $user */
         $user = Auth::user();
 
-        // 1. Obtener la actividad asignada al grupo desde el request
-        $grupoId = $request->input('id_actividad_asignada_grupo');
-        $grupo = ActividadAsignadaGrupo::findOrFail($grupoId);
+        if ($registroAgenda->id_usuario_emisor !== $user->id_usuario) {
+            abort(403, 'Usuario no es el emisor del mensaje');
+        }
 
-        // 2. Guardar en disco físico
+        // validar el archivo con el request
+
+        // guardar en disco
         try {
+            /** @var ArchiveStorageResult $storedFile */
             $storedFile = AgendaArchiveHandler::store(
-                grupo: $grupo,
+                grupo: $registroAgenda->actividadAsignadaGrupo,
                 file: $request->getFile(),
                 fileName: $request->getCustomFileName()
             );
 
-            // 3. Conectar a registro de Agenda
-            Agenda::create([
-                'id_actividad_asignada_grupo' => $grupo->id_actividad_asignada_grupo,
-                'id_usuario_emisor' => $user->id_usuario,
-                'fecha_envio' => now(),
-                'tipo_mensaje' => TipoMensaje::ENTREGA_DE_ARCHIVO,
-                'mensaje' => $request->input('descripcion', "Entrega de archivo para actividad {$grupo->actividad->nombre}"),
-                'uuid_archivo_subido' => $storedFile->uuidArchivo,
-                // Se vincula el UUID del archivo devuelto por el handler
-            ]);
+            // el endpoint debe crear el mensaje tipo subida de archivo, y luego conectar el archivo subido a ese mensaje
+            $registroAgenda->uuid_archivo_subido = $storedFile->uuidArchivo;
+            $registroAgenda->save();
 
-            return back()->with('success', 'Entrega subida correctamente');
+            return back()
+                ->with('success', 'Archivo subido exitosamente')
+                ->with('flash_data', [
+                    'archivo' => $storedFile->toArray()
+                ]);
         } catch (FileValidationException $e) {
-            return back()->withErrors(['error' => 'El archivo no es válido: ' . $e->getMessage()]);
+            return back()->withErrors(['archivo' => 'El archivo no es válido: ' . $e->getMessage()]);
+        } catch (VirusDetectedException $e) {
+            return back()->withErrors(['archivo' => 'Alerta de seguridad: Se detectó un virus en el archivo.']);
+        } catch (CompressionException $e) {
+            return back()->withErrors(['archivo' => 'Hubo un problema al comprimir el archivo. Intenta de nuevo.']);
+        } catch (StorageException $e) {
+            return back()->withErrors(['error_general' => 'No se pudo guardar el archivo en el servidor.']);
+        } catch (ArchiveException $e) {
+            return back()->withErrors(['error_general' => 'Ocurrió un error al procesar el archivo.']);
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['error_general' => 'Faltan datos necesarios para procesar la solicitud.']);
         } catch (\Throwable $e) {
-            return back()->withErrors(['error' => 'Ocurrió un error al subir el archivo: ' . $e->getMessage()]);
+            // Maneja cualquier otro error inesperado
+            // TODO: $storedFile->deleteFromDisk(); // Opcional: eliminar archivo si ya se subió pero hubo error en DB
+            return back()->withErrors(['error_general' => 'Ocurrió un error inesperado. Por favor, contacta a soporte.']);
         }
     }
 
@@ -110,7 +131,7 @@ class AgendaController extends Controller
      */
     private function mapearTipoMensaje(string $tipo): TipoMensaje
     {
-        return match($tipo) {
+        return match ($tipo) {
             'Consulta' => TipoMensaje::MENSAJE_AL_PROFESOR,
             'Entrega de Avance' => TipoMensaje::ENTREGA_DE_ARCHIVO,
             'Duda sobre Rúbrica' => TipoMensaje::MENSAJE_AL_PROFESOR,

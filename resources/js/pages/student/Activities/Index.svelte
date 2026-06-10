@@ -9,7 +9,8 @@
   import ActivityPendingCard from './cards/ActivityPendingCard.svelte';
   import ActivityRubricaCard from './cards/ActivityRubricaCard.svelte';
   import ActivityAgendaCard from './cards/ActivityAgendaCard.svelte';
-  import axios from 'axios';
+  import { router, page } from '@inertiajs/svelte';
+  import ActivityGradeCard from './cards/ActivityGradeCard.svelte';
 
   interface Props {
     cod_curso: string;
@@ -90,72 +91,69 @@
     showInfoModal = !showInfoModal;
   }
 
-  async function handleGuardarEntrada(data: { tipo: string; mensaje: string }) {
+  function handleGuardarEntrada(data: { tipo: string; mensaje: string; archivo?: File }) {
     if (!id_actividad_asignada_grupo) {
       alert('Error: No se pudo encontrar la actividad asignada');
       return;
     }
 
-    try {
-      // 1. Primera petición: Crear el texto de la agenda vía API
-      const response = await axios.post(
-        `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/agenda`,
-        {
-          tipo: data.tipo,
-          mensaje: data.mensaje,
-        },
-      );
-
-      // Capturamos el ID generado en la base de datos
-      const idNuevaAgenda = response.data.id_agenda;
-
-      // // Si no hay archivo para subir, podemos forzar un recargo aquí y terminar
-      // if (!data.archivo) {
-      //    router.reload();
-      //    return;
-      // }
-
-      // // 2. Segunda petición: Subir el archivo asignado al ID nuevo
-      // router.post(
-      //   `/estudiante/agendas/${idNuevaAgenda}/archivos`,
-      //   {
-      //     archivo: data.archivo,
-      //   },
-      //   {
-      //     forceFormData: true, // Crucial para enviar archivos
-      //     onSuccess: () => {
-      //       // La petición terminó bien, Inertia actualiza la vista
-      //       console.log("Archivo subido con éxito");
-      //     },
-      //   }
-      // );
-    } catch (error) {
-      console.error('Error al procesar la solicitud:', error);
-      // Aquí puedes manejar el estado de error en tu UI
-    }
-  }
-
-  function handleSubirArchivo(data: { archivo: File | null; descripcion: string }) {
-    if (!id_actividad_asignada_grupo || !data.archivo) return;
-
+    // 1. Primera petición: Crear el texto de la agenda
     router.post(
-      '/estudiante/actividades/agenda/guardar-archivo',
+      `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/agenda`,
       {
-        id_actividad_asignada_grupo,
-        archivo: data.archivo,
-        descripcion: data.descripcion,
+        tipo: data.tipo,
+        mensaje: data.mensaje,
       },
       {
-        forceFormData: true,
-        preserveScroll: true,
         onSuccess: () => {
-          showEntregaModal = false;
-          router.reload();
+          // Capturamos el ID generado en la base de datos desde flash data
+          const idNuevaAgenda = $page.props.flash?.data.id_agenda;
+
+          console.log('Flash data:', $page.props.flash);
+          console.log('ID Agenda:', idNuevaAgenda);
+
+          if (!idNuevaAgenda) {
+            alert('Error: No se pudo obtener el ID de la agenda');
+            return;
+          }
+
+          // Si no hay archivo para subir, recargamos y terminamos
+          if (!data.archivo) {
+            router.reload();
+            return;
+          }
+
+          // 2. Segunda petición: Subir el archivo asignado al ID nuevo
+          // fix: las importaciones del request se caen, REVISAR!!!!
+          router.post(
+            `/estudiante/agendas/${idNuevaAgenda}/archivos`,
+            {
+              archivo: data.archivo,
+            },
+            {
+              forceFormData: true, // Crucial para enviar archivos
+              onSuccess: () => {
+                // La petición terminó bien, Inertia actualiza la vista
+                console.log('Archivo subido con éxito');
+                router.reload();
+              },
+              onError: (errors) => {
+                if (errors.archivo) {
+                  console.error(errors.archivo); // "Alerta de seguridad: Se detectó un virus..."
+                }
+                if (errors.error_general) {
+                  alert(errors.error_general);
+                } else {
+                  alert('Error desconocido al subir el archivo');
+                }
+              },
+            },
+          );
         },
         onError: (errors) => {
-          alert(errors.error || 'Ocurrió un error al subir la entrega');
-        }
-      }
+          alert(errors.error || 'Error al crear el mensaje');
+        },
+      },
     );
   }
 
@@ -345,13 +343,10 @@
             {es_sumativa}
             {entrega_obligatoria}
           />
-
-          <ActivityStateCard
-            {ultimo_estado}
-            {ultima_nota}
-            {es_sumativa}
-            onRubricaClick={toggleRubricaModal}
-          />
+          <div class="grid sm:grid-cols-2 grid-cols-1 gap-6">
+            <ActivityStateCard estado={'activa'} />
+            <ActivityGradeCard ultima_nota={4.6} {es_sumativa} />
+          </div>
 
           {#if ultimo_estado === 'ACTIVO'}
             <ActivityPendingCard {trae_archivo} />
@@ -461,7 +456,7 @@
       >
         <Entrega
           onCerrar={toggleEntregaModal}
-          onEntregaEnviada={handleSubirArchivo}
+          onEntregaEnviada={handleGuardarEntrada}
           {cod_curso}
           {nombre_curso}
           {cod_actividad}

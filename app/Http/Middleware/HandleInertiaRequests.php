@@ -173,12 +173,12 @@ class HandleInertiaRequests extends Middleware
         // Retornar array de props compartidos que Inertia inyectará en TODAS las páginas
         return [
             ...parent::share($request),  // Props base de Inertia (errors, component, etc)
-            
+
             'name'  => config('app.name'),  // Nombre de la aplicación (UTAMED)
-            
+
             // Quote inspirador (opcional, para UI)
             'quote' => ['message' => trim($message), 'author' => trim($author)],
-            
+
             // OBJETO AUTH: Toda la información del usuario autenticado
             'auth'  => [
                 'user'          => $user,  // Usuario completo con todas sus propiedades
@@ -191,38 +191,38 @@ class HandleInertiaRequests extends Middleware
                 // Solo en GET requests (navegación). Vacío en POST/PUT/DELETE.
                 // Ej: ['cursos:ver', 'cursos:editar', 'facultades:ver']
                 'permissions'   => $isNavigationRequest ? $permissions : [],
-                
+
                 // CURSOS: Pre-cargados SOLO en GET requests (navegación)
                 // Para acciones (POST/PUT/DELETE), no necesitamos pre-cargar
                 // Cada controlador puede acceder a esto sin hacer queries adicionales
                 'docente_courses'    => $isNavigationRequest && $docente
                     ? $this->userCourses->getDocenteCourses($docente)  // Cursos donde dicta
                     : [],
-                    
+
                 'estudiante_courses' => $isNavigationRequest && $estudiante
                     ? $this->userCourses->getEstudianteCourses($estudiante)  // Cursos inscritos
                     : [],
-                    
+
                 'ayudante_courses'   => $isNavigationRequest && in_array('ayudante', array_map('strtolower', $roles))
                     ? $this->userCourses->getAyudanteCourses($user, $allAyudantePerms)  // Cursos donde asiste
                     : [],
             ],
-            
+
             // STATE: Estado persistente de UI (ej: sidebar abierto/cerrado)
             // Solo en GET requests (navegación)
-            'sidebarOpen' => $isNavigationRequest 
+            'sidebarOpen' => $isNavigationRequest
                 ? (!$request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true')
                 : null,
-            
+
             // FLASH MESSAGES: Mensajes de una solicitud anterior (login, error, etc)
             'flash' => [
                 'success' => fn() => $request->session()->get('success'),  // Lazy evaluation
                 'error'   => fn() => $request->session()->get('error'),
+                'data' => fn() => $request->session()->get('flash_data', []),
             ],
 
             // LOGIN ERROR: Errores específicos de autenticación (RUT_NOT_FOUND, PASSWORD_INCORRECT, etc)
             'loginError' => fn() => $request->session()->pull('login_error'),
         ];
-    
     }
 }
