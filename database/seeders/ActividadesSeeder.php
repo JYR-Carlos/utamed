@@ -124,6 +124,20 @@ class ActividadesSeeder extends Seeder
 
         // Procesar asignaciones de grupos e integrantes
         foreach ($actividadesInsertadas as $index => $actividad) {
+          // Obtener la actividad original del array $actividadesCurso
+          $actividadOriginal = $actividadesCurso[$index];
+          $fechaLimite = $actividadOriginal['fecha_limite'];
+          $ahora = Carbon::now();
+
+          // Calcular el estado
+          if ($fechaLimite < $ahora) {
+            $estado = EstadoActividadAsignada::CERRADA->value;
+          } elseif ($ahora->diffInDays($fechaLimite) > 7) {
+            $estado = EstadoActividadAsignada::PLANIFICADA->value;
+          } else {
+            $estado = EstadoActividadAsignada::ACTIVA->value;
+          }
+
           if ($index < 2) {
             // Actividades grupales (índices 0 y 1)
             $numGrupos = 5;
@@ -141,7 +155,7 @@ class ActividadesSeeder extends Seeder
             $asignacionesGrupo[] = [
               'nombre_grupo' => $nombreGrupo,
               'nota' => null,
-              'estado_actividad_asignada' => EstadoActividadAsignada::PLANIFICADA->value,
+              'estado_actividad_asignada' => $estado,  // Usar el estado calculado
               'id_actividad' => $actividad->id_actividad,
             ];
           }
