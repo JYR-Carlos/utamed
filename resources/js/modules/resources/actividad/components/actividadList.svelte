@@ -26,7 +26,9 @@
   }: Props = $props();
 
   function formatDate(dateString: string) {
-    return new Date(dateString).toLocaleDateString('es-ES', {
+    if (!dateString) return '';
+    const [year, month, day] = dateString.split(' ')[0].split('-');
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',

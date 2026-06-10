@@ -277,11 +277,27 @@ class DocenteActivityController extends Controller
         ]);
 
         try {
+            Log::info('[DocenteActivity::update] Actualizando actividad', [
+                'id_actividad' => $actividad->id_actividad,
+                'validated' => $validated,
+            ]);
+            
             $actividad->update($validated);
+            
+            Log::info('[DocenteActivity::update] Actividad actualizada exitosamente', [
+                'id_actividad' => $actividad->id_actividad,
+                'fecha_limite' => $actividad->fecha_limite,
+            ]);
             
             return redirect()->back()->with('success', 'Actividad actualizada correctamente.');
         } catch (\Exception $e) {
-            Log::error('Error updating activity: ' . $e->getMessage());
+            Log::error('[DocenteActivity::update] Error al actualizar actividad', [
+                'id_actividad' => $actividad->id_actividad,
+                'message'   => $e->getMessage(),
+                'exception' => get_class($e),
+                'trace'     => $e->getTraceAsString(),
+                'validated' => $validated,
+            ]);
             
             return redirect()->back()
                 ->with('error', 'Error al actualizar la actividad: ' . $e->getMessage());

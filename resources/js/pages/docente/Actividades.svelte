@@ -66,6 +66,15 @@
   let flashError = $state<string | undefined>(undefined);
   let flashSuccess = $state<string | undefined>(undefined);
 
+  // Detectar errores de validación desde $page.props
+  $effect(() => {
+    const pageErrors = ($page.props as any).errors as Record<string, string> | undefined;
+    if (pageErrors && Object.keys(pageErrors).length > 0) {
+      formErrors = pageErrors;
+      isLoading = false;
+    }
+  });
+
   $effect(() => {
     const err = ($page.props as any).flash?.error as string | undefined;
     if (err) {

@@ -47,7 +47,8 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
         'visible' => 'boolean',
         'tipo_actividad' => TipoActividad::class,
         'es_grupal' => 'boolean',
-        'es_plantilla' => 'boolean'
+        'es_plantilla' => 'boolean',
+        'fecha_limite' => 'date:Y-m-d',
     ];
 
     // Relaciones

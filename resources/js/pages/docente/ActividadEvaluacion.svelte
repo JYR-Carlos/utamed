@@ -137,7 +137,9 @@
   // Helpers
   // ---------------------------------------------------------------------------
   function formatDate(d: string) {
-    return new Date(d).toLocaleDateString('es-ES', {
+    if (!d) return '';
+    const [year, month, day] = d.split(' ')[0].split('-');
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',

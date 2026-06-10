@@ -56,7 +56,14 @@
     if (isOpen) {
       clientErrors = {};
       if (editingActividad) {
-        formData = { ...editingActividad };
+        // Asegurar que la fecha esté en formato YYYY-MM-DD para el input type="date"
+        const fecha = editingActividad.fecha_limite;
+        const fechaFormato = fecha ? (typeof fecha === 'string' ? fecha.split('T')[0] : fecha) : '';
+
+        formData = {
+          ...editingActividad,
+          fecha_limite: fechaFormato,
+        };
       } else {
         formData = {
           nombre: '',
