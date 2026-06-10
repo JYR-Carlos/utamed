@@ -38,7 +38,7 @@ export interface RosterItem {
 
 export interface EstudianteDisponible {
     id_estudiante: number;
-    usuario?: { nombre1: string; apellido1: string; username: string };
+    usuario?: { nombre1: string; apellido1: string; username: string; rut?: string | null };
 }
 
 // ── State machine config ────────────────────────────────────────────────────

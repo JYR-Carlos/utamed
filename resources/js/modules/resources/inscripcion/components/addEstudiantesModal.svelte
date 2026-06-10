@@ -236,21 +236,17 @@
         </label>
         <div class="divide-y divide-slate-100">
           {#each filteredDisponibles as e (e.id_estudiante)}
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
             <label
               class="flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-colors {selectedIds.has(
                 e.id_estudiante,
               )
                 ? 'bg-blue-50'
                 : 'hover:bg-gray-50'}"
-              onclick={() => toggleSelect(e.id_estudiante)}
-              tabindex="0"
             >
               <input
                 type="checkbox"
                 checked={selectedIds.has(e.id_estudiante)}
                 onchange={() => toggleSelect(e.id_estudiante)}
-                onclick={(ev) => ev.stopPropagation()}
               />
               <div
                 class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-[0.625rem] font-bold flex items-center justify-center shrink-0"
@@ -261,7 +257,13 @@
               </div>
               <div class="flex flex-col min-w-0">
                 <span class="text-sm font-medium text-gray-900 truncate">{disponibleName(e)}</span>
-                <span class="text-xs text-gray-500">{e.usuario?.username ?? ''}</span>
+                <span class="text-xs text-gray-500">
+                  {#if e.usuario?.rut}
+                    {e.usuario.rut} &middot; {e.usuario.username}
+                  {:else}
+                    {e.usuario?.username ?? ''}
+                  {/if}
+                </span>
               </div>
             </label>
           {/each}

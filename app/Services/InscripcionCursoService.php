@@ -99,7 +99,7 @@ class InscripcionCursoService
             ->toArray();
 
         $estudiantes = Estudiante::query()
-            ->with('usuario:id_usuario,nombre1,apellido1,username')
+            ->with('usuario:id_usuario,nombre1,apellido1,username,rut')
             ->whereIn('id_carrera', $carreraIds)
             ->whereNotIn('id_estudiante', $inscritosIds)
             ->orderBy('id_estudiante')
