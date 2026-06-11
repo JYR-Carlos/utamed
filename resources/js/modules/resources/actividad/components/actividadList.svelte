@@ -129,13 +129,6 @@
             <ClipboardList size={16} />
             Evaluar
           </Link>
-          <button
-            onclick={() => onEdit(actividad)}
-            class="flex-1 inline-flex items-center justify-center gap-1 px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-md font-medium text-gray-900 hover:bg-gray-200 hover:border-blue-500 hover:text-blue-600 transition-all text-sm"
-          >
-            <Edit2 size={16} />
-            Editar
-          </button>
         </div>
       </div>
     {/each}
