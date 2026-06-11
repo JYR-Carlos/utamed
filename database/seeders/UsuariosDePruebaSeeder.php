@@ -26,24 +26,28 @@ class UsuariosDePruebaSeeder extends Seeder
 
         // Configurar cantidades
 
-        $cantidadEstudiantes = 100;
-        $cantidadDocentes = 20;
-        $cantidadAmbos = 20;
+        $cantidadEstudiantes = 30;
+        $cantidadDocentes = 10;
+        $cantidadAmbos = 5;
 
         // Creación de usuarios de prueba
 
         Usuario::factory($cantidadEstudiantes)
             ->estudiante()
+            ->withRolEstudiante()
             ->create();
         $this->command->info("{$cantidadEstudiantes} Estudiantes creados");
 
         Usuario::factory($cantidadDocentes)
             ->docente()
+            ->withRolDocente()
             ->create();
         $this->command->info("{$cantidadDocentes} docentes creados");
 
         Usuario::factory($cantidadAmbos)
             ->estudianteYDocente()
+            ->withRolEstudiante()
+            ->withRolDocente()
             ->create();
         $this->command->info("{$cantidadAmbos} estudiante-docentes creados");
 

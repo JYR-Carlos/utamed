@@ -2,6 +2,7 @@
 
 namespace Database\Factories\Usuario;
 
+use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
 use App\Support\DataGenerators\ChileanNameGenerator;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -90,9 +91,35 @@ class UsuarioFactory extends Factory
             \Database\Factories\Usuario\EstudianteFactory::new(),
             'estudiante'
         )->has(
-                \Database\Factories\Usuario\DocenteFactory::new(),
-                'docente'
-            );
+            \Database\Factories\Usuario\DocenteFactory::new(),
+            'docente'
+        );
+    }
+
+    public function withRolEstudiante()
+    {
+        return $this->afterCreating(function (Usuario $usuario) {
+
+            // todo: agregar enum con roles en generate_models.php
+            $rol = Rol::where('nombre', 'Estudiante')->first();
+            $superAdmin = Usuario::where('username', 'superadmin')->first();
+
+            $usuario->giveRole($rol)
+                ->as($superAdmin)
+                ->inGlobalContext(); // solo para testing 
+        });
+    }
+
+    public function withRolDocente()
+    {
+        return $this->afterCreating(function (Usuario $usuario) {
+            $rol = Rol::where('nombre', 'Docente Titular')->first();
+            $superAdmin = Usuario::where('username', 'superadmin')->first();
+
+            $usuario->giveRole($rol)
+                ->as($superAdmin)
+                ->inGlobalContext(); // solo para testing
+        });
     }
 
     /**

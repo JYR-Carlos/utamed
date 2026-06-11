@@ -1127,10 +1127,9 @@ class UsuarioController extends Controller
         }
 
         // Obtener contexto global y asignar rol por 365 días
-        $admin = $usuario;
-        $globalContextId = app(\App\Services\Authorization\GlobalContextService::class)->getContextId();
+        $globalContextId = app(GlobalContextService::class)->getContextId();
 
-        $admin->giveRole($rol)
+        $usuario->giveRole($rol)
             ->inContext($globalContextId)
             ->for(365)
             ->save();

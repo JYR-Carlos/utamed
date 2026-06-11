@@ -54,7 +54,7 @@ class RoleAssignmentBuilder
   ) {
     $this->startDate = Carbon::now();
     $this->validator = app(PermissionValidator::class);
-    $this->actor = $actor ?? auth()->user();
+    $this->actor = $actor;
   }
 
   /**
@@ -207,6 +207,10 @@ class RoleAssignmentBuilder
    */
   private function validateActorAuthorization(): void
   {
+    if (!$this->actor) {
+      throw new \RuntimeException('No authenticated user found for permission assignment');
+    }
+    
     // Los admins pueden asignar roles
     if ($this->validator->isSuperAdmin($this->actor)) {
       return;

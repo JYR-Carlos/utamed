@@ -62,11 +62,7 @@ trait AssignsPermissions
   public function giveRole(Rol $rol): RoleAssignmentBuilder
   {
     /** @var \App\Models\Usuario\Usuario $actor */
-    $actor = Auth::user();
-
-    if (!$actor) {
-      throw new \RuntimeException('No authenticated user found for permission assignment');
-    }
+    $actor = Auth::user(); // For seeding purposes, we allow passing null and handle it in the builder
 
     return new RoleAssignmentBuilder($this, $rol, $actor);
   }
