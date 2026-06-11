@@ -3,7 +3,7 @@
 
   interface Props {
     onCerrar: () => void;
-    onEntregaEnviada: (data: { archivo: File | null; descripcion: string }) => void;
+    onEntregaEnviada: (data: { tipo: string; mensaje: string; archivo?: File }) => void;
     cod_curso: string;
     nombre_curso: string;
     cod_actividad: string;
@@ -22,7 +22,7 @@
   }: Props = $props();
 
   let descripcion = $state('');
-  let archivo: File | null = $state(null);
+  let archivo: File | undefined = $state();
   let inputFile: HTMLInputElement;
   let enviando = $state(false);
   let error = $state('');
@@ -36,7 +36,7 @@
   }
 
   function removerArchivo() {
-    archivo = null;
+  
     if (inputFile) {
       inputFile.value = '';
     }
@@ -72,13 +72,15 @@
 
     // Simular envío
     setTimeout(() => {
+      const tipo = "Entrega de Avance" // CAMBIAR LUEGO A LOS ENUMERABLES SEGÚN EL TIPO DE ARCHIVO SUBIDO
       onEntregaEnviada({
         archivo,
-        descripcion: descripcion.trim(),
+        tipo,
+        mensaje: descripcion.trim(),
       });
 
       descripcion = '';
-      archivo = null;
+      
       if (inputFile) {
         inputFile.value = '';
       }

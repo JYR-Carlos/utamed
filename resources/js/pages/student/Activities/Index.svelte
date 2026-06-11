@@ -1,7 +1,7 @@
 <script lang="ts">
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
-  import type { Rubrica } from '@/types/rubrica';
+  import type { Rubrica, RubricaResponse } from '@/types/rubrica';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaView from './Agenda/Rubrica.svelte';
   import ActivityHeaderCard from './cards/ActivityHeaderCard.svelte';
@@ -11,6 +11,7 @@
   import ActivityAgendaCard from './cards/ActivityAgendaCard.svelte';
   import { router, page } from '@inertiajs/svelte';
   import ActivityGradeCard from './cards/ActivityGradeCard.svelte';
+  import Entrega from './Agenda/Entrega.svelte';
 
   interface Props {
     cod_curso: string;
@@ -20,7 +21,7 @@
     descripcion: string;
     fecha_limite: string;
     es_sumativa: boolean;
-    trae_archivo: boolean;
+    dias_holgura: number;
     entrega_obligatoria: boolean;
     ultima_nota?: number | null;
     ultimo_estado?: string | null;
@@ -37,7 +38,7 @@
       rubrica?: Rubrica | null;
       puntaje_obtenido?: number | null;
     }>;
-    rubrica?: Rubrica | null;
+    rubrica?: RubricaResponse | null;
     id_actividad_asignada_grupo?: number | null;
   }
 
@@ -49,7 +50,7 @@
     descripcion,
     fecha_limite,
     es_sumativa,
-    trae_archivo,
+    dias_holgura,
     entrega_obligatoria,
     ultima_nota,
     ultimo_estado,
@@ -69,8 +70,23 @@
   let showRubricaModal = $state(false);
   let showAgendaModal = $state(false);
 
+  //
+  const exedioFechaLimite = $derived(() => {
+    return new Date(fecha_limite) < new Date();
+  });
+  const excedioHolgura = $derived.by(() => {
+    const limite = new Date(fecha_limite);
+    const limiteConHolgura = new Date(limite);
+    limiteConHolgura.setDate(limiteConHolgura.getDate() + dias_holgura);
+    return limiteConHolgura < new Date();
+  });
+  const estaActiva = $derived.by(() => {
+    return ultimo_estado === 'ACTIVA';
+  });
+
   function toggleRubricaModal() {
     showRubricaModal = !showRubricaModal;
+    console.log(rubrica);
   }
   function toggleAgendaModal() {
     showAgendaModal = !showAgendaModal;
@@ -90,7 +106,7 @@
     showEntregaModal = false;
     showInfoModal = !showInfoModal;
   }
-
+  /*
   function handleGuardarEntrada(data: { tipo: string; mensaje: string; archivo?: File }) {
     if (!id_actividad_asignada_grupo) {
       alert('Error: No se pudo encontrar la actividad asignada');
@@ -156,7 +172,65 @@
       },
     );
   }
+  */
+  function handleGuardarEntrada(data: {
+    tipo: string;
+    mensaje: string;
+    archivo?: File;
+  }) {
+    if (!id_actividad_asignada_grupo) {
+      alert('Error: No se pudo encontrar la actividad asignada');
+      return;
+    }
 
+    // Entrega de avance con archivo
+    if (data.tipo === 'Entrega de Avance' && data.archivo) {
+      router.post(
+        `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/entregas`,
+        {
+          tipo: data.tipo,
+          mensaje: data.mensaje,
+          archivo: data.archivo,
+        },
+        {
+          forceFormData: true,
+          onSuccess: () => {
+            router.reload();
+          },
+          onError: (errors) => {
+            if (errors.archivo) {
+              alert(errors.archivo);
+              return;
+            }
+            if (errors.error_general) {
+              alert(errors.error_general);
+              return;
+            }
+            alert('Error al enviar la entrega');
+          },
+        },
+      );
+
+      return;
+    }
+    // Mensaje normal de agenda
+    router.post(
+      `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/agenda`,
+      {
+        tipo: data.tipo,
+        mensaje: data.mensaje,
+      },
+      {
+        onSuccess: () => {
+          router.reload();
+        },
+
+        onError: (errors) => {
+          alert(errors.error || 'Error al enviar mensaje');
+        },
+      },
+    );
+  }
   const stateLabel = $derived.by(() => {
     return ultimo_estado?.toUpperCase();
   });
@@ -199,7 +273,7 @@
 
           <div class="space-y-3">
             <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Estado actual
+              Estado de la actividad
             </div>
 
             <div
@@ -207,47 +281,58 @@
             >
               {ultimo_estado?.toUpperCase()}
             </div>
+            {#if exedioFechaLimite()}
+              <div
+                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm bg-red-400"
+              >
+                Ha excedido la fecha límite
+              </div>
+            {:else}
+              <div
+                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm bg-green-400"
+              >
+                Aún se aceptan entregas
+              </div>
+            {/if}
           </div>
 
           <hr class="border-slate-200" />
 
           <div class="flex flex-col gap-2">
-            {#if trae_archivo}
-              <button
-                class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+            <button
+              class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+            >
+              <svg
+                class="text-slate-400 group-hover:text-slate-500"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
               >
-                <svg
-                  class="text-slate-400 group-hover:text-slate-500"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                  <line x1="16" y1="17" x2="8" y2="17" />
-                </svg>
-                <span class="flex-1">Ver Enunciado</span>
-                <svg
-                  class="text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-500"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
-            {/if}
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+              </svg>
+              <span class="flex-1">Ver Enunciado</span>
+              <svg
+                class="text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-500"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
 
             {#if es_sumativa}
               <button
@@ -343,18 +428,18 @@
             {es_sumativa}
             {entrega_obligatoria}
           />
-          <div class="grid sm:grid-cols-2 grid-cols-1 gap-6">
-            <ActivityStateCard estado={'activa'} />
-            <ActivityGradeCard ultima_nota={4.6} {es_sumativa} />
-          </div>
 
-          {#if ultimo_estado === 'ACTIVO'}
-            <ActivityPendingCard {trae_archivo} />
+          {#if estaActiva}
+            <div class="grid sm:grid-cols-2 grid-cols-1 gap-6">
+              <ActivityGradeCard {ultima_nota} {es_sumativa} />
+              <ActivityRubricaCard rubrica={rubrica?.rubrica} onRubricaClick={toggleRubricaModal} />
+            </div>
           {/if}
 
-          {#if es_sumativa}
-            <ActivityRubricaCard {rubrica} onRubricaClick={toggleRubricaModal} />
-          {/if}
+          <ActivityPendingCard
+            disponible={excedioHolgura}
+            onSubirClick={() => toggleEntregaModal()}
+          />
 
           {#if id_actividad_asignada_grupo}
             <ActivityAgendaCard
@@ -371,7 +456,7 @@
       </div>
     </div>
 
-    {#if showAgendaModal}
+    {#if showAgendaModal }
       <div
         class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
         role="dialog"
@@ -434,7 +519,7 @@
           </div>
           <div class="flex-1 overflow-y-auto p-5 md:p-6">
             {#if rubrica}
-              <RubricaView {rubrica} modoLectura={true} />
+              <RubricaView rubrica={rubrica?.rubrica} />
             {:else}
               <p class="text-center text-sm font-medium text-slate-400 py-8">
                 No hay rúbrica disponible para esta actividad.

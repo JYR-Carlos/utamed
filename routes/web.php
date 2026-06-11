@@ -397,6 +397,10 @@ Route::prefix('estudiante')
                     'agendas/{registroAgenda}/archivos',
                     'storeFile'
                 )->name('actividades.agenda.agendas.storeFile');
+                Route::post(
+                    'grupos-asignados/{actividadAsignadaGrupo}/entregas',
+                    [\App\Http\Controllers\Student\AgendaController::class, 'storeEntrega']
+                )->name('actividades.agenda.storeEntrega');
             });
     });
 

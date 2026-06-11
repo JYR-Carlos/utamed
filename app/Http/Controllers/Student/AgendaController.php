@@ -15,7 +15,7 @@ use App\Exceptions\Archive\StorageException;
 use App\Exceptions\Archive\ArchiveException;
 use InvalidArgumentException;
 
-
+use Illuminate\Support\Facades\DB;
 use App\Models\Agenda\Agenda;
 use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Usuario\Usuario;
@@ -70,62 +70,147 @@ class AgendaController extends Controller
                 'id_agenda' => $agenda->id_agenda,
             ]);
     }
-
-    /**
-     * algo asi es el url: POST 'agendas/{registroAgenda}/archivos'
-     * 
-     * @param AgendaFileRequest $request
-     * @param Agenda $registroAgenda
-     */
-    public function storeFile(AgendaFileRequest $request, Agenda $registroAgenda)
-    {
-        // verificar que el usuario que pide subir el archivo es el mismo que creó el mensaje en la agenda
+    
+    public function storeEntrega(
+        AgendaFileRequest $request,
+        ActividadAsignadaGrupo $actividadAsignadaGrupo
+    ) {
         /** @var Usuario $user */
         $user = Auth::user();
 
-        if ($registroAgenda->id_usuario_emisor !== $user->id_usuario) {
-            abort(403, 'Usuario no es el emisor del mensaje');
+        if (!$user->estudiante) {
+            abort(403, 'Usuario no es estudiante');
         }
 
-        // validar el archivo con el request
+        $estudiante = $user->estudiante;
 
-        // guardar en disco
+        IntegranteGrupo::where(
+            'id_estudiante',
+            $estudiante->id_estudiante
+        )
+            ->where(
+                'id_actividad_asignada_grupo',
+                $actividadAsignadaGrupo->id_actividad_asignada_grupo
+            )
+            ->firstOrFail();
+
+
+        // TODO: mover la creación de la agenda dentro del try cuando se arregle lo de los archivos    
+        $agenda = $this->crearAgenda(
+                user: $user,
+                actividadAsignadaGrupo: $actividadAsignadaGrupo,
+                tipo: 'Entrega de Avance',
+                mensaje: $request->input('mensaje')
+        );
+
+        DB::beginTransaction();
+
         try {
-            /** @var ArchiveStorageResult $storedFile */
+
             $storedFile = AgendaArchiveHandler::store(
-                grupo: $registroAgenda->actividadAsignadaGrupo,
+                grupo: $actividadAsignadaGrupo,
                 file: $request->getFile(),
                 fileName: $request->getCustomFileName()
             );
 
-            // el endpoint debe crear el mensaje tipo subida de archivo, y luego conectar el archivo subido a ese mensaje
-            $registroAgenda->uuid_archivo_subido = $storedFile->uuidArchivo;
-            $registroAgenda->save();
+            $agenda->uuid_archivo_subido =
+                $storedFile->uuidArchivo;
 
-            return back()
-                ->with('success', 'Archivo subido exitosamente')
-                ->with('flash_data', [
-                    'archivo' => $storedFile->toArray()
-                ]);
+            $agenda->save();
+
+            DB::commit();
+
+            return back()->with(
+                'success',
+                'Entrega enviada exitosamente'
+            );
+
         } catch (FileValidationException $e) {
-            return back()->withErrors(['archivo' => 'El archivo no es válido: ' . $e->getMessage()]);
+
+            DB::rollBack();
+
+            return back()->withErrors([
+                'archivo' => 'El archivo no es válido: ' .
+                    $e->getMessage()
+            ]);
+
         } catch (VirusDetectedException $e) {
-            return back()->withErrors(['archivo' => 'Alerta de seguridad: Se detectó un virus en el archivo.']);
+
+            DB::rollBack();
+
+            return back()->withErrors([
+                'archivo' => 'Alerta de seguridad: Se detectó un virus en el archivo.'
+            ]);
+
         } catch (CompressionException $e) {
-            return back()->withErrors(['archivo' => 'Hubo un problema al comprimir el archivo. Intenta de nuevo.']);
+
+            DB::rollBack();
+
+            return back()->withErrors([
+                'archivo' => 'Hubo un problema al comprimir el archivo.'
+            ]);
+
         } catch (StorageException $e) {
-            return back()->withErrors(['error_general' => 'No se pudo guardar el archivo en el servidor.']);
+
+            DB::rollBack();
+
+            return back()->withErrors([
+                'error_general' => 'No se pudo guardar el archivo.'
+            ]);
+
         } catch (ArchiveException $e) {
-            return back()->withErrors(['error_general' => 'Ocurrió un error al procesar el archivo.']);
+
+            DB::rollBack();
+
+            return back()->withErrors([
+                'error_general' => 'Error al procesar el archivo.'
+            ]);
+
         } catch (InvalidArgumentException $e) {
-            return back()->withErrors(['error_general' => 'Faltan datos necesarios para procesar la solicitud.']);
+
+            DB::rollBack();
+
+            return back()->withErrors([
+                'error_general' => 'Faltan datos para procesar la solicitud.'
+            ]);
+
         } catch (\Throwable $e) {
-            // Maneja cualquier otro error inesperado
-            // TODO: $storedFile->deleteFromDisk(); // Opcional: eliminar archivo si ya se subió pero hubo error en DB
-            return back()->withErrors(['error_general' => 'Ocurrió un error inesperado. Por favor, contacta a soporte.']);
+
+            DB::rollBack();
+
+            report($e);
+
+            return back()->withErrors([
+                'error_general' =>
+                    'Ocurrió un error inesperado. Contacte soporte.'
+            ]);
         }
     }
 
+    
+    private function crearAgenda(
+        Usuario $user,
+        ActividadAsignadaGrupo $actividadAsignadaGrupo,
+        string $tipo,
+        string $mensaje
+    ): Agenda {
+        return Agenda::create([
+            'id_actividad_asignada_grupo'
+                => $actividadAsignadaGrupo->id_actividad_asignada_grupo,
+
+            'id_usuario_emisor'
+                => $user->id_usuario,
+
+            'fecha_envio'
+                => now(),
+
+            'tipo_mensaje'
+                => $this->mapearTipoMensaje($tipo),
+
+            'mensaje'
+                => $mensaje,
+        ]);
+    }
     /**
      * Mapea el tipo de interacción del frontend al enum TipoMensaje
      */

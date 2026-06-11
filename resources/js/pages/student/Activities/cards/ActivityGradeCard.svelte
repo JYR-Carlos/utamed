@@ -8,33 +8,43 @@
 
   const gradeLabel = $derived.by(() => {
     if (ultima_nota === null || ultima_nota === undefined) {
-      return 'Sin nota';
+      return '-.-';
     }
     return `${ultima_nota.toFixed(1)}`;
   });
 
-  const gradeClass = $derived.by(() => {
-    const baseClass =
-      'flex flex-col items-start justify-between gap-4 rounded-xl p-5 shadow-sm sm:flex-row sm:items-center border';
-    const gradeColors =
-      ultima_nota === null || ultima_nota === undefined
-        ? 'bg-gray-50 border-gray-100 text-gray-900'
-        : ultima_nota >= 4
-          ? 'bg-emerald-50/60 border-emerald-100 text-emerald-900'
-          : 'bg-rose-50/60 border-rose-100 text-rose-900';
-    return `${baseClass} ${gradeColors}`;
+  const containerClass = $derived.by(() => {
+    const base = 'flex w-full items-center gap-4 rounded-xl border p-4 shadow-sm';
+    if (ultima_nota === null || ultima_nota === undefined) {
+      return `${base} border-slate-200 bg-slate-50/50 text-slate-900`;
+    }
+    return ultima_nota >= 4
+      ? `${base} border-emerald-100 bg-emerald-50/30 text-emerald-950`
+      : `${base} border-rose-100 bg-rose-50/30 text-rose-950`;
+  });
+
+  const badgeClass = $derived.by(() => {
+    const base = 'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg font-bold text-sm shadow-sm border border-black/5';
+    if (ultima_nota === null || ultima_nota === undefined) {
+      return `${base} bg-slate-100 text-slate-500`;
+    }
+    return ultima_nota >= 4
+      ? `${base} bg-emerald-500 text-white`
+      : `${base} bg-rose-500 text-white`;
   });
 </script>
 
-<div class={gradeClass}>
-  <div class="flex flex-col items-center gap-3.5">
-    <p class="truncate text-sm font-semibold">
+<div class={containerClass}>
+  <div class={badgeClass}>
+    {gradeLabel}
+  </div>
+  
+  <div class="flex-1 min-w-0">
+    <div class="text-sm font-bold truncate">
       {es_sumativa ? 'Nota Sumativa' : 'Nota Formativa'}
-    </p>
-    <div
-      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg shadow-sm bg-white text-black"
-    >
-      <span class="text-lg font-bold">{gradeLabel}</span>
+    </div>
+    <div class="text-xs opacity-70 truncate">
+      {ultima_nota === null || ultima_nota === undefined ? 'Sin nota registrada' : 'Última calificación obtenida'}
     </div>
   </div>
 </div>

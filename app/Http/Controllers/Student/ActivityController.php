@@ -127,12 +127,14 @@ class ActivityController extends Controller
 
         $curso->load(['asignacionPlan.asignatura']);
 
+
         return Inertia::render('student/Activities/Index', [
             'cod_curso'             => $curso->cod_curso,
             'nombre_curso'          => $curso->asignacionPlan?->asignatura?->nombre ?? $curso->nombre,
             'cod_actividad'         => (string) $actividad->id_actividad,
             'nombre_actividad'      => $actividad->nombre ?? '',
             'descripcion'           => '', 
+            'dias_holgura'          => $actividad->nro_dias_adicionales_para_bloqueo,
             'fecha_limite'          => $actividad->fecha_limite ? (string) $actividad->fecha_limite : '',
             'es_sumativa'           => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
             'trae_archivo'          => $actividad->uuid_archivo !== null,
