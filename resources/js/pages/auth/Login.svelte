@@ -194,43 +194,44 @@
     errorCode === 'RATE_LIMIT_EXCEEDED' && (rateLimitRetryAfter ?? 0) > 0,
   );
 
-  // Formatea el RUT al formato 00000000-0 (sin puntos)
   function formatRut(rut: string): string {
-    // Eliminar puntos y guiones
-    const cleanRut = rut.replace(/[.\-]/g, '');
+    // 1. Limpiar absolutamente todo lo que no sea número o K
+    const cleanRut = rut.replace(/[^0-9kK]/gi, '');
 
-    // Validar formato básico (7-8 dígitos + dígito verificador o K)
-    if (!/^\d{7,8}[0-9kK]?$/.test(cleanRut)) {
-      return rut; // Retornar sin formatear si no es válido
-    }
-
-    // Si tiene menos de 8 dígitos antes del verificador, no formatear aún
-    if (cleanRut.length < 8) {
+    // 2. Si no hay suficientes caracteres para un RUT (mínimo cuerpo + DV), no formatear
+    if (cleanRut.length < 2) {
       return cleanRut;
     }
 
-    // Extraer cuerpo y dígito verificador
-    const body = cleanRut.slice(0, -1);
-    const dv = cleanRut.slice(-1).toUpperCase();
+    // 3. Limitar el largo máximo para evitar que peguen textos gigantes (8 cuerpo + 1 DV = 9)
+    const truncatedRut = cleanRut.slice(0, 9);
 
-    // Formatear como 00000000-0 (sin puntos)
+    // 4. Separar limpiamente el cuerpo del dígito verificador
+    const body = truncatedRut.slice(0, -1);
+    const dv = truncatedRut.slice(-1).toUpperCase();
+
+    // 5. Retornar el formato limpio que Svelte espera
     return `${body}-${dv}`;
   }
 
   // Manejar cambios en el input de RUT
   function handleRutInput(e: Event) {
     const target = e.target as HTMLInputElement;
+
+    // Formateamos el valor que viene del input
     const formatted = formatRut(target.value);
-    if (formatted !== target.value) {
-      target.value = formatted;
-      $form.data.email = formatted;
-    }
+
+    // Actualizamos el estado de Inertia (esto actualizará el input automáticamente)
+    $form.data.email = formatted;
   }
 
   // Valida que el RUT tenga el formato correcto
   function isValidRutFormat(rut: string): boolean {
-    const cleanRut = rut.replace(/[.\-]/g, '');
-    return /^\d{8}[0-9kK]$/.test(cleanRut);
+    // Elimina puntos, guiones y espacios en blanco al principio/final
+    const cleanRut = rut.replace(/[.-]/g, '').trim();
+
+    // \d{7,8} permite que el cuerpo del RUT tenga 7 u 8 dígitos
+    return /^\d{7,8}[0-9kK]$/.test(cleanRut);
   }
 
   let rutValid = $derived(isValidRutFormat($form.data.email));
@@ -288,7 +289,7 @@
               name="email"
               type="text"
               required
-              maxlength="10"
+              maxlength="13"
               autocomplete="off"
               placeholder="11111111-1"
               aria-describedby="email-hint"
