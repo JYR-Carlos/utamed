@@ -277,27 +277,11 @@ class DocenteActivityController extends Controller
         ]);
 
         try {
-            Log::info('[DocenteActivity::update] Actualizando actividad', [
-                'id_actividad' => $actividad->id_actividad,
-                'validated' => $validated,
-            ]);
-            
             $actividad->update($validated);
-            
-            Log::info('[DocenteActivity::update] Actividad actualizada exitosamente', [
-                'id_actividad' => $actividad->id_actividad,
-                'fecha_limite' => $actividad->fecha_limite,
-            ]);
             
             return redirect()->back()->with('success', 'Actividad actualizada correctamente.');
         } catch (\Exception $e) {
-            Log::error('[DocenteActivity::update] Error al actualizar actividad', [
-                'id_actividad' => $actividad->id_actividad,
-                'message'   => $e->getMessage(),
-                'exception' => get_class($e),
-                'trace'     => $e->getTraceAsString(),
-                'validated' => $validated,
-            ]);
+            Log::error('Error updating activity: ' . $e->getMessage());
             
             return redirect()->back()
                 ->with('error', 'Error al actualizar la actividad: ' . $e->getMessage());
@@ -551,18 +535,29 @@ class DocenteActivityController extends Controller
             'id_actividad'               => 'required|integer|exists:actividad,id_actividad',
         ]);
 
+        $idActividad = $request->input('id_actividad');
+
         try {
-            \App\Models\Agenda\Rubrica::create([
-                'rubrica'        => $request->input('rubrica'),
-                'estado_rubrica' => 'POSTULADA',
-                'id_actividad'   => $request->input('id_actividad'),
-            ]);
+            $existente = \App\Models\Agenda\Rubrica::where('id_actividad', $idActividad)
+                ->where('estado_rubrica', 'POSTULADA')
+                ->orderByDesc('id_rubrica')
+                ->first();
+
+            if ($existente) {
+                $existente->update(['rubrica' => $request->input('rubrica')]);
+            } else {
+                \App\Models\Agenda\Rubrica::create([
+                    'rubrica'        => $request->input('rubrica'),
+                    'estado_rubrica' => 'POSTULADA',
+                    'id_actividad'   => $idActividad,
+                ]);
+            }
         } catch (\Exception $e) {
-            Log::error('Error al crear rúbrica: ' . $e->getMessage());
+            Log::error('Error al guardar rúbrica: ' . $e->getMessage());
             return redirect()->back()->withErrors(['error' => 'Error al guardar la rúbrica.']);
         }
 
-        return redirect()->back()->with('success', 'Rúbrica creada correctamente.');
+        return redirect()->back()->with('success', 'Rúbrica guardada correctamente.');
     }
 
     /**

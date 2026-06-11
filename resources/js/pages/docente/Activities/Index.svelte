@@ -90,6 +90,12 @@
 
   // ─── Gestión de grupos ────────────────────────────────────────────────────
   let showRubricaEditor = $state(false);
+
+  // Cierra el editor si Inertia cambia la actividad (ej. window.history.back())
+  $effect(() => {
+    actividad.id_actividad;
+    showRubricaEditor = false;
+  });
   let showNuevoGrupo = $state(false);
   let seleccion = $state<Set<number>>(new Set());
   let nuevoGrupoLoading = $state(false);
@@ -329,38 +335,10 @@
 
         <!-- Botones de acción de la actividad -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-          {#if actividad.es_sumativa && rubrica}
-            <button
-              class="w-full px-4 sm:px-6 md:px-8 py-3 sm:py-4 rounded-xl border border-uta-blue/20 transition-all bg-uta-blue text-white hover:bg-uta-blue-hover flex items-center justify-between gap-4 text-sm sm:text-lg lg:text-xl font-semibold sm:col-span-2"
-              onclick={toggleRubricaModal}
-            >
-              <p>Ver Rúbrica de la Actividad</p>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-                class="size-5 sm:size-6 shrink-0"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H6.75A2.25 2.25 0 0 0 4.5 4.5v15A2.25 2.25 0 0 0 6.75 21.75h10.5A2.25 2.25 0 0 0 19.5 19.5v-5.25Z"
-                />
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M13.5 2.25v4.875A1.875 1.875 0 0 0 15.375 9h4.125"
-                />
-              </svg>
-            </button>
-          {/if}
-
-          {#if actividad.es_titular}
+          {#if actividad.es_titular || rubrica}
             <button
               class="w-full px-4 sm:px-6 md:px-8 py-3 sm:py-4 rounded-xl border border-uta-blue transition-all bg-white text-uta-blue hover:bg-uta-blue hover:text-white flex items-center justify-between gap-4 text-sm font-semibold sm:col-span-2"
-              onclick={() => (showRubricaEditor = true)}
+              onclick={() => actividad.es_titular ? (showRubricaEditor = true) : toggleRubricaModal()}
             >
               <p>{rubrica ? 'Ver Rúbrica' : 'Crear Rúbrica'}</p>
               <Pencil class="size-5 shrink-0" />
@@ -744,14 +722,16 @@
       </div>
     </div>
   {/if}
-  {#if showRubricaEditor}
-    <RubricaEditor
-      {rubrica}
-      idCurso={curso.id_curso}
-      idActividad={actividad.id_actividad}
-      onClose={() => (showRubricaEditor = false)}
-    />
-  {/if}
+  {#key actividad.id_actividad}
+    {#if showRubricaEditor}
+      <RubricaEditor
+        {rubrica}
+        idCurso={curso.id_curso}
+        idActividad={actividad.id_actividad}
+        onClose={() => (showRubricaEditor = false)}
+      />
+    {/if}
+  {/key}
 </DocenteLayout>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && (showAgendaModal = false)} />

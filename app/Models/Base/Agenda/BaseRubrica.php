@@ -24,7 +24,8 @@ abstract class BaseRubrica extends CustomBaseModel
 
     protected $fillable = [
         'rubrica',
-        'estado_rubrica'
+        'estado_rubrica',
+        'id_actividad',
     ];
 
     protected $casts = [
