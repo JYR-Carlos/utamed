@@ -36,7 +36,7 @@
 </DropdownMenuGroup>
 <DropdownMenuSeparator />
 <DropdownMenuItem>
-    <Link class="block w-full" method="post" onclick={handleLogout} href={logout()} as="button">
+    <Link class="block w-full" method="post" onclick={handleLogout} href={logout.url()} as="button">
         <div class="flex items-center">
             <LogOut class="mr-2 h-4 w-4" />
             <span>Log out</span>

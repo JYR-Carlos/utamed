@@ -434,6 +434,19 @@
             <!-- TAB: Mi Grupo -->
             {#if mainTab === 'grupo'}
               <div class="p-[22px_24px] flex-1 space-y-4">
+                {#if mis_componentes.length === 0}
+                  <div class="flex flex-col items-center justify-center py-14 text-center rounded-xl border-2 border-dashed bg-[#F5F1EA] border-[#D0CBC1]">
+                    <div class="w-14 h-14 rounded-full flex items-center justify-center mb-3 bg-[#E8E4DC]">
+                      <Crown size={26} class="text-[#8A5F00]" />
+                    </div>
+                    <p class="text-sm font-semibold text-[#1A1A24] mb-1">Titular Administrativo</p>
+                    <p class="text-xs text-[#5A5E6E] max-w-[280px] leading-relaxed">
+                      No tienes un componente asignado para impartir clases directamente. Los
+                      <strong class="text-[#1A1A24]">{curso.total_estudiantes}</strong>
+                      {curso.total_estudiantes === 1 ? 'estudiante' : 'estudiantes'} del curso están organizados por componente en el panel <strong class="text-[#1A1A24]">Equipo Docente</strong>.
+                    </p>
+                  </div>
+                {:else}
                 {#if estudiantesActivos.length > 0}
                   <div class="relative">
                     <Search
@@ -616,6 +629,7 @@
                       ? ` de ${estudiantesActivos.length}`
                       : ''} estudiante{estudiantesActivos.length !== 1 ? 's' : ''}
                   </p>
+                {/if}
                 {/if}
               </div>
 
