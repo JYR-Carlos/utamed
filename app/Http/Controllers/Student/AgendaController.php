@@ -94,7 +94,7 @@ class AgendaController extends Controller
             )
             ->firstOrFail();
 
-
+        DB::beginTransaction();
         // TODO: mover la creación de la agenda dentro del try cuando se arregle lo de los archivos    
         $agenda = $this->crearAgenda(
                 user: $user,
@@ -103,6 +103,11 @@ class AgendaController extends Controller
                 mensaje: $request->input('mensaje')
         );
 
+        dd($agenda);
+
+        DB::commit();
+
+        // SECCIÓN ENTREGA Y GUARDAR ARCHIVOS...
         DB::beginTransaction();
 
         try {

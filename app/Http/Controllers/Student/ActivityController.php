@@ -65,6 +65,24 @@ class ActivityController extends Controller
 
         $grupo = $integranteGrupo?->actividadAsignadaGrupo;
 
+        $restoIntegrantes = IntegranteGrupo
+            ::where('id_actividad_asignada_grupo','=',$grupo->id_actividad_asignada_grupo)
+            ->where('id_estudiante', '!=', $estudiante->id_estudiante)
+            ->get()
+            ->map(
+                function (IntegranteGrupo $i) {
+                    return [
+                        'id_estudiante' => $i->estudiante->id_estudiante,
+                        'nombre1' => $i->estudiante->usuario->nombre1,
+                        'nombre2' => $i->estudiante->usuario->nombre2,
+                        'apellido1' => $i->estudiante->usuario->apellido1,
+                        'apellido2' => $i->estudiante->usuario->apellido2,
+                        'email' => $i->estudiante->usuario->email
+                    ];
+                }
+            );
+
+        
         $ultimaNota = $integranteGrupo?->nota_individual ?? $grupo?->nota;
 
         $interacciones = [];
@@ -111,12 +129,12 @@ class ActivityController extends Controller
                 }
             }
         }
-
+        // RUBRICA SIN EVALUACIONES (SÓLO CABECERA)
         $rubrica = Rubrica::where('id_actividad','=', $actividad->id_actividad)
          ->orderByDesc('id_rubrica')->first();
 
         // Derivar estado legible para el estudiante
-        $estado = $grupo?->estado_actividad_asignada; //EstadoActividadAsignada::PLANIFICADA->value;
+        $estado = $grupo?->estado_actividad_asignada;
 
         // Entregas del estudiante (archivos enviados)
         $entradas = collect($interacciones)
@@ -126,6 +144,7 @@ class ActivityController extends Controller
             ->toArray();
 
         $curso->load(['asignacionPlan.asignatura']);
+
 
 
         return Inertia::render('student/Activities/Index', [
@@ -139,13 +158,16 @@ class ActivityController extends Controller
             'es_sumativa'           => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
             'trae_archivo'          => $actividad->uuid_archivo !== null,
             'entrega_obligatoria'   => strtolower($actividad->tipo_entrega ?? '') !== 'sin entrega',
-            'ultima_nota'           => $ultimaNota,
-            'ultimo_estado'         => $estado,
+            'ultima_nota'           => 4.3,
+            'ultima_evaluacion'     => null,
+            'ultima_entrega'        => null,
+            'estado'                => $estado,
             'entradas'              => $entradas,
             'listado_interacciones' => $interacciones,
             'rubrica_evaluada'      => $rubrica,
             'rubrica'               => $rubrica,
             'id_actividad_asignada_grupo' => $grupo?->id_actividad_asignada_grupo,
+            'resto_integrantes'     => $restoIntegrantes
         ]);
     }
 }

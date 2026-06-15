@@ -12,6 +12,8 @@
   import { router, page } from '@inertiajs/svelte';
   import ActivityGradeCard from './cards/ActivityGradeCard.svelte';
   import Entrega from './Agenda/Entrega.svelte';
+  import ActivityMembersCard from './cards/ActivityMembersCard.svelte';
+  import Enunciado from './Agenda/Enunciado.svelte';
 
   interface Props {
     cod_curso: string;
@@ -24,7 +26,7 @@
     dias_holgura: number;
     entrega_obligatoria: boolean;
     ultima_nota?: number | null;
-    ultimo_estado?: string | null;
+    estado?: string | null;
     entradas: Array<{ id: number }>;
     listado_interacciones?: Array<{
       id_interaccion: number;
@@ -40,6 +42,13 @@
     }>;
     rubrica?: RubricaResponse | null;
     id_actividad_asignada_grupo?: number | null;
+    resto_integrantes: Array<{
+      id_estudiante: number;
+      nombre1: string;
+      nombre2: string;
+      apellido1: string;
+      apellido2: string;
+    }>;
   }
 
   let {
@@ -53,17 +62,18 @@
     dias_holgura,
     entrega_obligatoria,
     ultima_nota,
-    ultimo_estado,
+    estado,
     entradas: _entradas,
     listado_interacciones = [],
     rubrica,
     id_actividad_asignada_grupo,
+    resto_integrantes,
   }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
-    { title: 'Dashboard', href: '/estudiante/dashboard' },
-    { title: 'Mis Cursos', href: '/estudiante/cursos' },
-    { title: nombre_curso, href: '/estudiante/cursos' },
+    //{ title: 'Dashboard', href: '/estudiante/dashboard' },
+    //{ title: 'Mis Cursos', href: '/estudiante/cursos' },
+    //{ title: nombre_curso, href: '/estudiante/cursos' },
     { title: nombre_actividad, href: '' },
   ]);
 
@@ -78,10 +88,11 @@
     const limite = new Date(fecha_limite);
     const limiteConHolgura = new Date(limite);
     limiteConHolgura.setDate(limiteConHolgura.getDate() + dias_holgura);
-    return limiteConHolgura < new Date();
+    //return limiteConHolgura < new Date();
+    return false;
   });
   const estaActiva = $derived.by(() => {
-    return ultimo_estado === 'ACTIVA';
+    return estado === 'ACTIVA';
   });
 
   function toggleRubricaModal() {
@@ -99,80 +110,15 @@
     showEntregaModal = !showEntregaModal;
   }
 
-  let showInfoModal = $state(false);
-  function toggleInfoModal() {
+  let showEnunciadoModal = $state(false);
+  function toggleEnunciadoModal() {
     showAgendaModal = false;
     showRubricaModal = false;
     showEntregaModal = false;
-    showInfoModal = !showInfoModal;
+    showEnunciadoModal = !showEnunciadoModal;
   }
-  /*
-  function handleGuardarEntrada(data: { tipo: string; mensaje: string; archivo?: File }) {
-    if (!id_actividad_asignada_grupo) {
-      alert('Error: No se pudo encontrar la actividad asignada');
-      return;
-    }
 
-    // 1. Primera petición: Crear el texto de la agenda
-    router.post(
-      `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/agenda`,
-      {
-        tipo: data.tipo,
-        mensaje: data.mensaje,
-      },
-      {
-        onSuccess: () => {
-          // Capturamos el ID generado en la base de datos desde flash data
-          const idNuevaAgenda = $page.props.flash?.data.id_agenda;
-
-          console.log('Flash data:', $page.props.flash);
-          console.log('ID Agenda:', idNuevaAgenda);
-
-          if (!idNuevaAgenda) {
-            alert('Error: No se pudo obtener el ID de la agenda');
-            return;
-          }
-
-          // Si no hay archivo para subir, recargamos y terminamos
-          if (!data.archivo) {
-            router.reload();
-            return;
-          }
-
-          // 2. Segunda petición: Subir el archivo asignado al ID nuevo
-          // fix: las importaciones del request se caen, REVISAR!!!!
-          router.post(
-            `/estudiante/agendas/${idNuevaAgenda}/archivos`,
-            {
-              archivo: data.archivo,
-            },
-            {
-              forceFormData: true, // Crucial para enviar archivos
-              onSuccess: () => {
-                // La petición terminó bien, Inertia actualiza la vista
-                console.log('Archivo subido con éxito');
-                router.reload();
-              },
-              onError: (errors) => {
-                if (errors.archivo) {
-                  console.error(errors.archivo); // "Alerta de seguridad: Se detectó un virus..."
-                }
-                if (errors.error_general) {
-                  alert(errors.error_general);
-                } else {
-                  alert('Error desconocido al subir el archivo');
-                }
-              },
-            },
-          );
-        },
-        onError: (errors) => {
-          alert(errors.error || 'Error al crear el mensaje');
-        },
-      },
-    );
-  }
-  */
+  
   function handleGuardarEntrada(data: {
     tipo: string;
     mensaje: string;
@@ -249,9 +195,6 @@
       },
     );
   }
-  const stateLabel = $derived.by(() => {
-    return ultimo_estado?.toUpperCase();
-  });
 </script>
 
 <StudentLayout {breadcrumbs}>
@@ -297,7 +240,7 @@
             <div
               class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm"
             >
-              {ultimo_estado?.toUpperCase()}
+              {estado?.toUpperCase()}
             </div>
             {#if exedioFechaLimite()}
               <div
@@ -319,6 +262,7 @@
           <div class="flex flex-col gap-2">
             <button
               class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+              onclick={toggleEnunciadoModal}
             >
               <svg
                 class="text-slate-400 group-hover:text-slate-500"
@@ -391,49 +335,9 @@
                 </svg>
               </button>
             {/if}
-
-            {#if id_actividad_asignada_grupo}
-              <button
-                class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
-                onclick={toggleAgendaModal}
-              >
-                <svg
-                  class="text-slate-400 group-hover:text-slate-500"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                <span class="flex-1">Ver Agenda</span>
-                {#if listado_interacciones.length > 0}
-                  <span
-                    class="inline-flex h-5 items-center justify-center rounded-full bg-blue-600 px-2 text-xs font-bold text-white"
-                  >
-                    {listado_interacciones.length}
-                  </span>
-                {/if}
-                <svg
-                  class="text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-500"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
-            {/if}
           </div>
+
+          <ActivityMembersCard usuarios={resto_integrantes} />
         </aside>
 
         <main class="space-y-6 md:col-span-3">
@@ -473,103 +377,124 @@
         </main>
       </div>
     </div>
-
-    {#if showAgendaModal }
-      <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
-        role="dialog"
-        aria-modal="true"
-        tabindex="-1"
-        onclick={(e) => e.target === e.currentTarget && toggleAgendaModal()}
-        onkeydown={(e) => e.key === 'Escape' && toggleAgendaModal()}
-      >
-        <Agenda
-          onCerrar={toggleAgendaModal}
-          onInteraccionEnviada={handleGuardarEntrada}
-          {cod_curso}
-          {nombre_curso}
-          {cod_actividad}
-          {nombre_actividad}
-          {listado_interacciones}
-          {id_actividad_asignada_grupo}
-        />
-      </div>
-    {/if}
-
-    {#if showRubricaModal}
-      <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
-        role="dialog"
-        aria-modal="true"
-        tabindex="-1"
-        onclick={(e) => e.target === e.currentTarget && toggleRubricaModal()}
-        onkeydown={(e) => e.key === 'Escape' && toggleRubricaModal()}
-      >
-        <div
-          class="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-200"
-        >
-          <div class="flex items-center justify-between border-b border-slate-100 p-5 md:px-6">
-            <div>
-              <div class="text-xs font-bold tracking-wider text-slate-400 uppercase">
-                Rúbrica de Evaluación
-              </div>
-              <div class="text-base font-black text-slate-900 mt-0.5">{nombre_actividad}</div>
-            </div>
-            <button
-              class="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-              onclick={toggleRubricaModal}
-              aria-label="Cerrar"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-          <div class="flex-1 overflow-y-auto p-5 md:p-6">
-            {#if rubrica}
-              <RubricaView rubrica={rubrica?.rubrica} />
-            {:else}
-              <p class="text-center text-sm font-medium text-slate-400 py-8">
-                No hay rúbrica disponible para esta actividad.
-              </p>
-            {/if}
-          </div>
-        </div>
-      </div>
-    {/if}
-
-    {#if showEntregaModal}
-      <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
-        role="dialog"
-        aria-modal="true"
-        tabindex="-1"
-        onclick={(e) => e.target === e.currentTarget && toggleEntregaModal()}
-        onkeydown={(e) => e.key === 'Escape' && toggleEntregaModal()}
-      >
-        <Entrega
-          onCerrar={toggleEntregaModal}
-          onEntregaEnviada={handleGuardarEntrada}
-          {cod_curso}
-          {nombre_curso}
-          {cod_actividad}
-          {nombre_actividad}
-          {entrega_obligatoria}
-        />
-      </div>
-    {/if}
   </div>
 </StudentLayout>
+
+<!-- 
+  SECCIÓN DE MODALES  
+  -->
+{#if showAgendaModal}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    onclick={(e) => e.target === e.currentTarget && toggleAgendaModal()}
+    onkeydown={(e) => e.key === 'Escape' && toggleAgendaModal()}
+  >
+    <Agenda
+      onCerrar={toggleAgendaModal}
+      onInteraccionEnviada={handleGuardarEntrada}
+      {cod_curso}
+      {nombre_curso}
+      {cod_actividad}
+      {nombre_actividad}
+      {listado_interacciones}
+      {id_actividad_asignada_grupo}
+    />
+  </div>
+{/if}
+
+{#if showRubricaModal}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    onclick={(e) => e.target === e.currentTarget && toggleRubricaModal()}
+    onkeydown={(e) => e.key === 'Escape' && toggleRubricaModal()}
+  >
+    <div
+      class="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-200"
+    >
+      <div class="flex items-center justify-between border-b border-slate-100 p-5 md:px-6">
+        <div>
+          <div class="text-xs font-bold tracking-wider text-slate-400 uppercase">
+            Rúbrica de Evaluación
+          </div>
+          <div class="text-base font-black text-slate-900 mt-0.5">{nombre_actividad}</div>
+        </div>
+        <button
+          class="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          onclick={toggleRubricaModal}
+          aria-label="Cerrar"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <div class="flex-1 overflow-y-auto p-5 md:p-6">
+        {#if rubrica}
+          <RubricaView rubrica={rubrica?.rubrica} />
+        {:else}
+          <p class="text-center text-sm font-medium text-slate-400 py-8">
+            No hay rúbrica disponible para esta actividad.
+          </p>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if showEntregaModal}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    onclick={(e) => e.target === e.currentTarget && toggleEntregaModal()}
+    onkeydown={(e) => e.key === 'Escape' && toggleEntregaModal()}
+  >
+    <Entrega
+      onCerrar={toggleEntregaModal}
+      onEntregaEnviada={handleGuardarEntrada}
+      {cod_curso}
+      {nombre_curso}
+      {cod_actividad}
+      {nombre_actividad}
+      {entrega_obligatoria}
+    />
+  </div>
+{/if}
+
+{#if showEnunciadoModal}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    onclick={(e) => e.target === e.currentTarget && toggleEnunciadoModal()}
+    onkeydown={(e) => e.key === 'Escape' && toggleEnunciadoModal()}
+  >
+    <Enunciado
+      onCerrar={toggleEnunciadoModal}
+      url_archivo={''}
+      nombre_archivo={''}
+      tipo_archivo={'pdf'}
+    />
+  </div>
+{/if}
 
 <svelte:window
   onkeydown={(e) => {
