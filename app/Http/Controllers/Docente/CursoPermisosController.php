@@ -10,7 +10,6 @@ use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
@@ -63,7 +62,7 @@ class CursoPermisosController extends Controller
      */
     public function syllabusIndex(Curso $curso)
     {
-        $this->authorizeIsTitular($curso);
+        $this->authorize('manageTeam', $curso);
 
         $this->ensureContext($curso);
 
@@ -98,7 +97,7 @@ class CursoPermisosController extends Controller
      */
     public function syllabusSync(Request $request, Curso $curso)
     {
-        $this->authorizeIsTitular($curso);
+        $this->authorize('manageTeam', $curso);
         $this->ensureContext($curso);
 
         $validated = $request->validate([
@@ -187,15 +186,6 @@ class CursoPermisosController extends Controller
     // ────────────────────────────────────────────────────────────────────────
     // HELPERS PRIVADOS
     // ────────────────────────────────────────────────────────────────────────
-
-    private function authorizeIsTitular(Curso $curso): void
-    {
-        /** @var Usuario $user */
-        $user = Auth::user();
-        if (!$user->docente || $curso->id_docente_titular !== $user->docente->id_docente) {
-            abort(403, 'Solo el docente titular del curso puede gestionar estos permisos.');
-        }
-    }
 
     private function authorizeEsTitularComponente(Componente $componente): void
     {

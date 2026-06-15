@@ -106,7 +106,7 @@ class DelegacionPermisosController extends Controller
      */
     public function index(Curso $curso): Response
     {
-        $this->authorizeIsTitular($curso);
+        $this->authorize('manageTeam', $curso);
         $this->ensureContext($curso);
 
         $allSlugs   = $this->allDelegableSlugs();
@@ -146,7 +146,7 @@ class DelegacionPermisosController extends Controller
      */
     public function toggle(Request $request, Curso $curso): \Illuminate\Http\RedirectResponse
     {
-        $this->authorizeIsTitular($curso);
+        $this->authorize('manageTeam', $curso);
         $this->ensureContext($curso);
 
         $allSlugs  = $this->allDelegableSlugs();
@@ -173,22 +173,6 @@ class DelegacionPermisosController extends Controller
     // ────────────────────────────────────────────────────────────────────────
     // HELPERS PRIVADOS
     // ────────────────────────────────────────────────────────────────────────
-
-    private function authorizeIsTitular(Curso $curso): void
-    {
-        /** @var Usuario $user */
-        $user = Auth::user();
-
-        if (!$user->docente || $curso->id_docente_titular !== $user->docente->id_docente) {
-            Log::channel('seguridad')->warning('Intento de delegación de permisos sin ser DT', [
-                'evento'      => 'DELEGACION_DENEGADA_NO_TITULAR',
-                'id_usuario'  => $user->id_usuario,
-                'id_curso'    => $curso->id_curso,
-                'ip'          => request()->ip(),
-            ]);
-            abort(403, 'Solo el docente titular del curso puede delegar permisos.');
-        }
-    }
 
     private function ensureContext(Curso $curso): void
     {

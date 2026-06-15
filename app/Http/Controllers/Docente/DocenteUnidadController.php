@@ -7,25 +7,12 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\Unidad;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Inertia\Inertia;
-use Illuminate\Support\Facades\Auth;
 
 class DocenteUnidadController extends Controller
 {
     public function index(Curso $curso)
     {
-        $user = Auth::user();
-        if (!$user->docente) {
-            abort(403, 'No tienes un perfil docente.');
-        }
-
-        $isDocente = $curso->componentes()
-            ->whereHas('docentesAsignados', fn ($q) => $q->where('id_docente', $user->docente->id_docente))
-            ->exists();
-
-        if (!$isDocente && !$user->is_admin) {
-            abort(403, 'No tienes permiso para acceder a este curso.');
-        }
+        $this->authorize('viewPrograma', $curso);
 
         $unidades = Unidad::where('id_curso', $curso->id_curso)
             ->where('es_plantilla', $curso->es_plantilla)
@@ -34,10 +21,10 @@ class DocenteUnidadController extends Controller
 
         return response()->json([
             'curso' => [
-                'id_curso' => $curso->id_curso,
+                'id_curso'     => $curso->id_curso,
                 'es_plantilla' => (bool) $curso->es_plantilla,
-                'nombre' => $curso->nombre,
-                'cod_curso' => $curso->cod_curso,
+                'nombre'       => $curso->nombre,
+                'cod_curso'    => $curso->cod_curso,
             ],
             'unidades' => $unidades,
         ]);
@@ -45,30 +32,19 @@ class DocenteUnidadController extends Controller
 
     public function store(Request $request, Curso $curso)
     {
-        $user = Auth::user();
-        if (!$user->docente) {
-            abort(403, 'No tienes un perfil docente.');
-        }
-
-        $isDocente = $curso->componentes()
-            ->whereHas('docentesAsignados', fn ($q) => $q->where('id_docente', $user->docente->id_docente))
-            ->exists();
-
-        if (!$isDocente && !$user->is_admin) {
-            abort(403, 'No tienes permiso para crear unidades en este curso.');
-        }
+        $this->authorize('create', [Unidad::class, $curso]);
 
         if (!$curso->es_plantilla) {
             return back()->withErrors(['error' => 'El programa aprobado bloquea la creación/edición de unidades.']);
         }
 
         $validated = $request->validate([
-            'num_unidad' => 'nullable|integer|min:1|max:32767',
-            'nombre' => 'required|string|max:255',
+            'num_unidad'  => 'nullable|integer|min:1|max:32767',
+            'nombre'      => 'required|string|max:255',
             'descripcion' => 'nullable|string',
         ]);
 
-        $validated['id_curso'] = $curso->id_curso;
+        $validated['id_curso']     = $curso->id_curso;
         $validated['es_plantilla'] = (bool) $curso->es_plantilla;
 
         $nextId = (int) Unidad::where('id_curso', $curso->id_curso)
@@ -92,18 +68,7 @@ class DocenteUnidadController extends Controller
 
     public function update(Request $request, Curso $curso, Unidad $unidad)
     {
-        $user = Auth::user();
-        if (!$user->docente) {
-            abort(403, 'No tienes un perfil docente.');
-        }
-
-        $isDocente = $curso->componentes()
-            ->whereHas('docentesAsignados', fn ($q) => $q->where('id_docente', $user->docente->id_docente))
-            ->exists();
-
-        if (!$isDocente && !$user->is_admin) {
-            abort(403, 'No tienes permiso para editar unidades en este curso.');
-        }
+        $this->authorize('update', $unidad);
 
         if (!$curso->es_plantilla) {
             return back()->withErrors(['error' => 'El programa aprobado bloquea la creación/edición de unidades.']);
@@ -114,8 +79,8 @@ class DocenteUnidadController extends Controller
         }
 
         $validated = $request->validate([
-            'num_unidad' => 'required|integer|min:1|max:32767',
-            'nombre' => 'required|string|max:255',
+            'num_unidad'  => 'required|integer|min:1|max:32767',
+            'nombre'      => 'required|string|max:255',
             'descripcion' => 'nullable|string',
         ]);
 
@@ -131,18 +96,7 @@ class DocenteUnidadController extends Controller
 
     public function destroy(Curso $curso, Unidad $unidad)
     {
-        $user = Auth::user();
-        if (!$user->docente) {
-            abort(403, 'No tienes un perfil docente.');
-        }
-
-        $isDocente = $curso->componentes()
-            ->whereHas('docentesAsignados', fn ($q) => $q->where('id_docente', $user->docente->id_docente))
-            ->exists();
-
-        if (!$isDocente && !$user->is_admin) {
-            abort(403, 'No tienes permiso para eliminar unidades en este curso.');
-        }
+        $this->authorize('delete', $unidad);
 
         if (!$curso->es_plantilla) {
             return back()->withErrors(['error' => 'El programa aprobado bloquea la eliminación de unidades.']);

@@ -17,7 +17,6 @@ use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Agenda\Agenda;
 use App\Models\Curso\Curso;
-use App\Models\Curso\DocenteComponente;
 use App\Models\Curso\Componente;
 use App\Models\Curso\Unidad;
 use App\Models\Curso\InscripcionCurso;
@@ -54,20 +53,10 @@ class DocenteActivityController extends Controller
      */
     public function show(Curso $curso)
     {
-        // Verify the logged-in user is a docente for this course
-        $user = Auth::user();
-        
-        // Check if user is associated with this course as a docente (through sections)
-        if (!$user->docente) {
-            abort(403, 'No tienes un perfil docente.');
-        }
-        
-        $isDocente = self::isDocente($user->docente->id_docente);
-        $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
+        $this->authorize('viewPrograma', $curso);
 
-        if (!$isDocente && !$esTitular && !$user->is_admin) {
-            abort(403, 'No tienes permiso para acceder a este curso.');
-        }
+        $user = Auth::user();
+        $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
 
         // Get activities for this course via componente relationship (actividad has no id_curso column)
         $actividades = Actividad::whereHas('componente', fn($q) => $q->where('id_curso', $curso->id_curso))
@@ -106,44 +95,12 @@ class DocenteActivityController extends Controller
      */
     public function store(Request $request, Curso $curso)
     {
+        $this->authorize('manageTeam', $curso);
+
         Log::info('[DocenteActivity::store] Inicio', [
             'id_curso' => $curso->id_curso,
             'payload'  => $request->except(['_token']),
         ]);
-
-        // Verify the logged-in user is a docente for this course
-        $user = Auth::user();
-        
-        if (!$user->docente) {
-            Log::warning('[DocenteActivity::store] Usuario sin perfil docente', ['id_user' => $user->id]);
-            abort(403, 'No tienes un perfil docente.');
-        }
-        
-        $isDocente = self::isDocente($user->docente->id_docente);
-
-        Log::info('[DocenteActivity::store] Verificación permisos', [
-            'id_docente'           => $user->docente->id_docente,
-            'is_admin'             => $user->is_admin,
-            'isDocente'            => $isDocente,
-            'id_docente_titular'   => $curso->id_docente_titular,
-            'es_titular'           => $curso->id_docente_titular === $user->docente->id_docente,
-        ]);
-        
-        $esTitularStore = $curso->id_docente_titular === $user->docente->id_docente;
-
-        if (!$isDocente && !$esTitularStore && !$user->is_admin) {
-            Log::warning('[DocenteActivity::store] Bloqueado: no es docente', ['id_docente' => $user->docente->id_docente]);
-            abort(403, 'No tienes permiso para crear actividades en este curso.');
-        }
-
-        // Si no es titular ni admin, no permite crear
-        if (!$esTitularStore && !$user->is_admin) {
-            Log::warning('[DocenteActivity::store] Bloqueado: no es titular del curso', [
-                'id_docente'         => $user->docente->id_docente,
-                'id_docente_titular' => $curso->id_docente_titular,
-            ]);
-            abort(403, 'No tienes permiso para crear actividades en este curso.');
-        }
 
         // Validate the request
         $validated = $request->validate([
@@ -238,25 +195,7 @@ class DocenteActivityController extends Controller
      */
     public function update(Request $request, Curso $curso, Actividad $actividad)
     {
-        // Verify the logged-in user is a docente for this course
-        $user = Auth::user();
-        
-        if (!$user->docente) {
-            abort(403, 'No tienes un perfil docente.');
-        }
-        
-        $isDocente =  self::isDocente($user->docente->id_docente);
-        
-        $esTitularUpdate = $curso->id_docente_titular === $user->docente->id_docente;
-
-        if (!$isDocente && !$esTitularUpdate && !$user->is_admin) {
-            abort(403, 'No tienes permiso para editar esta actividad.');
-        }
-
-        // Si no es titular ni admin, no permite editar
-        if (!$esTitularUpdate && !$user->is_admin) {
-            abort(403, 'No tienes permiso para editar actividades en este curso.');
-        }
+        $this->authorize('manageTeam', $curso);
 
         // Verify the activity belongs to this course through its componente
         $actividadCursoId = $actividad->componente?->id_curso;
@@ -295,25 +234,7 @@ class DocenteActivityController extends Controller
      */
     public function destroy(Curso $curso, Actividad $actividad)
     {
-        // Verify the logged-in user is a docente for this course
-        $user = Auth::user();
-        
-        if (!$user->docente) {
-            abort(403, 'No tienes un perfil docente.');
-        }
-        
-        $isDocente =  self::isDocente($user->docente->id_docente);
-        
-        $esTitularDestroy = $curso->id_docente_titular === $user->docente->id_docente;
-
-        if (!$isDocente && !$esTitularDestroy && !$user->is_admin) {
-            abort(403, 'No tienes permiso para eliminar esta actividad.');
-        }
-
-        // Si no es titular ni admin, no permite eliminar
-        if (!$esTitularDestroy && !$user->is_admin) {
-            abort(403, 'No tienes permiso para eliminar actividades en este curso.');
-        }
+        $this->authorize('manageTeam', $curso);
 
         // Verify the activity belongs to this course through its componente
         $actividadCursoId = $actividad->componente?->id_curso;
@@ -344,38 +265,11 @@ class DocenteActivityController extends Controller
      */
     public function getBysCursoJson(Curso $curso)
     {
-        // Verify the logged-in user has permission
-        $user = Auth::user();
-        
-        // Si es admin, permitir acceso directo
-        if ($user->is_admin) {
-            $actividades = Actividad::whereHas('componente', function($query) use ($curso) {
-                $query->where('id_curso', $curso->id_curso);
-            })
+        $this->authorize('viewPrograma', $curso);
+
+        $actividades = Actividad::whereHas('componente', fn($q) => $q->where('id_curso', $curso->id_curso))
             ->orderBy('fecha_limite', 'asc')
             ->get(['id_actividad', 'nombre', 'fecha_limite', 'es_grupal']);
-            
-            return response()->json($actividades);
-        }
-        
-        // Si es docente, verificar que sea responsable del curso
-        if (!$user->docente) {
-            return response()->json(['error' => 'No tienes un perfil docente o administrativo.'], 403);
-        }
-
-        $isDocente = self::isDocente($user->docente->id_docente);
-        $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
-
-        if (!$isDocente && !$esTitular) {
-            return response()->json(['error' => 'No tienes permiso para acceder a este curso.'], 403);
-        }
-
-        // Get activities for this course through componente relationship
-        $actividades = Actividad::whereHas('componente', function($query) use ($curso) {
-            $query->where('id_curso', $curso->id_curso);
-        })
-        ->orderBy('fecha_limite', 'asc')
-        ->get(['id_actividad', 'nombre', 'fecha_limite', 'es_grupal']);
 
         return response()->json($actividades);
     }
@@ -390,18 +284,10 @@ class DocenteActivityController extends Controller
      */
     public function showEvaluacion(Curso $curso, Actividad $actividad)
     {
+        $this->authorize('viewPrograma', $curso);
+
         $user = Auth::user();
-
-        if (!$user->docente) {
-            abort(403, 'No tienes un perfil docente.');
-        }
-
-        $isDocente = self::isDocente($user->docente->id_docente);
         $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
-
-        if (!$isDocente && !$esTitular && !$user->is_admin) {
-            abort(403, 'No tienes permiso para acceder a este curso.');
-        }
 
         $actividad->load(['componente', 'unidad']);
 
@@ -532,7 +418,7 @@ class DocenteActivityController extends Controller
      */
     public function storeRubrica(Request $request, Curso $curso)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         $request->validate([
             'rubrica'                     => 'required|array',
@@ -571,7 +457,7 @@ class DocenteActivityController extends Controller
      */
     public function deleteGroup(Curso $curso, Actividad $actividad, int $grupo)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         if ($actividad->componente?->id_curso !== $curso->id_curso) {
             abort(404, 'Actividad no encontrada en este curso.');
@@ -594,7 +480,7 @@ class DocenteActivityController extends Controller
      */
     public function removeStudentFromGroup(Curso $curso, Actividad $actividad, int $grupo, int $estudiante)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         if ($actividad->componente?->id_curso !== $curso->id_curso) {
             abort(404, 'Actividad no encontrada en este curso.');
@@ -619,7 +505,7 @@ class DocenteActivityController extends Controller
      */
     public function storeGrupo(Request $request, Curso $curso, Actividad $actividad)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         $validated = $request->validate([
             'estado_actividad_asignada' => 'required|string|in:PLANIFICADA,ACTIVA,CERRADA',
@@ -650,7 +536,7 @@ class DocenteActivityController extends Controller
      */
     public function updateGrupo(Request $request, Curso $curso, Actividad $actividad, int $grupo)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
@@ -671,7 +557,7 @@ class DocenteActivityController extends Controller
      */
     public function deleteGrupo(Curso $curso, Actividad $actividad, int $grupo)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
@@ -689,7 +575,7 @@ class DocenteActivityController extends Controller
      */
     public function addIntegrante(Request $request, Curso $curso, Actividad $actividad, int $grupo)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         // Verificar que el grupo pertenece a esta actividad
         ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
@@ -722,7 +608,7 @@ class DocenteActivityController extends Controller
      */
     public function updateIntegrante(Request $request, Curso $curso, Actividad $actividad, int $grupo, IntegranteGrupo $asignado)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         if ($asignado->id_actividad_asignada_grupo !== $grupo) {
             abort(404, 'Integrante no encontrado en este grupo.');
@@ -743,7 +629,7 @@ class DocenteActivityController extends Controller
      */
     public function removeIntegrante(Curso $curso, Actividad $actividad, int $grupo, IntegranteGrupo $asignado)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         if ($asignado->id_actividad_asignada_grupo !== $grupo) {
             abort(404, 'Integrante no encontrado en este grupo.');
@@ -764,7 +650,7 @@ class DocenteActivityController extends Controller
      */
     public function storeGroup(Request $request, Curso $curso, Actividad $actividad)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         // Verificar que la actividad pertenece a este curso
         if ($actividad->componente?->id_curso !== $curso->id_curso) {
@@ -835,7 +721,7 @@ class DocenteActivityController extends Controller
      */
     public function addStudentToGroup(Request $request, Curso $curso, Actividad $actividad, int $grupo)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         // Verificar que la actividad pertenece a este curso
         if ($actividad->componente?->id_curso !== $curso->id_curso) {
@@ -912,7 +798,7 @@ class DocenteActivityController extends Controller
      */
     public function getGroupsByActivity(Curso $curso, Actividad $actividad)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         // Verificar que la actividad pertenece a este curso
         if ($actividad->componente?->id_curso !== $curso->id_curso) {
@@ -942,7 +828,7 @@ class DocenteActivityController extends Controller
      */
     public function copyGroupsFromActivity(Request $request, Curso $curso, Actividad $actividad)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         // Verificar que la actividad actual pertenece a este curso
         if ($actividad->componente?->id_curso !== $curso->id_curso) {
@@ -1041,7 +927,7 @@ class DocenteActivityController extends Controller
      */
     public function getSubmissionsByActivity(Curso $curso, Actividad $actividad)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         // Verificar que la actividad pertenece a este curso
         if ($actividad->componente?->id_curso !== $curso->id_curso) {
@@ -1089,7 +975,7 @@ class DocenteActivityController extends Controller
      */
     public function getSubmissionsByGroup(Curso $curso, Actividad $actividad, int $grupo)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         // Verificar que la actividad pertenece a este curso
         if ($actividad->componente?->id_curso !== $curso->id_curso) {
@@ -1144,7 +1030,7 @@ class DocenteActivityController extends Controller
      */
     public function downloadSubmissionFile(Curso $curso, Actividad $actividad, int $grupo, Agenda $agenda)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         // Verificar que la agenda pertenece al grupo y actividad correctos
         if ($agenda->id_actividad_asignada_grupo !== $grupo) {
@@ -1190,7 +1076,7 @@ class DocenteActivityController extends Controller
      */
     public function showMensajesCurso(Curso $curso)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         // Estudiantes inscritos en el curso (vía inscripcion_componente)
         $estudiantes = DB::table('curso.inscripcion_componente as ic')
@@ -1288,7 +1174,7 @@ class DocenteActivityController extends Controller
      */
     public function getMensajesEstudiante(Curso $curso, int $idEstudiante)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         // Verificar que el estudiante esté inscrito en el curso
         $inscrito = InscripcionCurso::where('id_curso', $curso->id_curso)
@@ -1356,7 +1242,7 @@ class DocenteActivityController extends Controller
      */
     public function storeEvaluacion(Request $request, Curso $curso, Actividad $actividad, int $grupo)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         if ($actividad->componente?->id_curso !== $curso->id_curso) {
             abort(404, 'Actividad no encontrada en este curso.');
@@ -1446,7 +1332,7 @@ class DocenteActivityController extends Controller
      */
     public function sendFeedback(Request $request, Curso $curso, int $grupo)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         $validated = $request->validate([
             'mensaje' => 'required|string|max:2000',
@@ -1486,7 +1372,7 @@ class DocenteActivityController extends Controller
      */
     public function getGrupoMensajes(Curso $curso, Actividad $actividad, int $grupo)
     {
-        $this->autorizarDocenteCurso($curso);
+        $this->authorize('viewPrograma', $curso);
 
         // Verificar que la actividad pertenece al curso
         if ($actividad->componente?->id_curso !== $curso->id_curso) {
@@ -1541,29 +1427,4 @@ class DocenteActivityController extends Controller
     }
 
 
-    /**
-     * Verifica que el usuario autenticado es docente del curso (o admin).
-     */
-    private function autorizarDocenteCurso(Curso $curso): void
-    {
-        $user = Auth::user();
-
-        if (!$user->docente) {
-            abort(403, 'No tienes un perfil docente.');
-        }
-
-        $isDocente = self::isDocente($user->docente->id_docente);
-        $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
-
-        if (!$isDocente && !$esTitular && !$user->is_admin) {
-            abort(403, 'No tienes permiso para gestionar este curso.');
-        }
-    }
-
-    private function isDocente($id_docente): bool
-    {
-        return DocenteComponente::
-            where('id_docente', $id_docente)
-            ->exists();
-    }
 }
