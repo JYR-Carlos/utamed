@@ -514,6 +514,7 @@ class DocenteActivityController extends Controller
                         'es_entrega'           => $m->tipo_registro === 'Entrega de archivo',
                         'tiene_evaluacion'     => $m->id_evaluacion !== null,
                         'adjunta_rubrica'      => $m->id_evaluacion !== null,
+                        'resultado'            => $m->resultado ? json_decode($m->resultado, true) : null,
                     ]))
                     ->values();
             }),

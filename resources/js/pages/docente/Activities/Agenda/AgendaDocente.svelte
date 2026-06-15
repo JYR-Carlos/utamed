@@ -187,11 +187,11 @@
           <button
             class="mb-4 p-4 w-full text-start border-l-4 transition-all rounded-r-xl
           {item.es_de_docente ? 'border-primary bg-secondary/20' : 'border-gray-300'}
-          {item.adjunta_rubrica ? 'cursor-pointer hover:bg-amber-50 shadow-sm' : 'cursor-default'}"
+          {item.adjunta_rubrica && rubricaActividad ? 'cursor-pointer hover:bg-amber-50 shadow-sm' : 'cursor-default'}"
             onclick={() => {
-              if (item.adjunta_rubrica && item.rubrica) {
+              if (item.adjunta_rubrica && rubricaActividad) {
                 interaccionSeleccionada = {
-                  rubrica: item.rubrica,
+                  rubrica: rubricaActividad,
                   puntaje_obtenido: item.puntaje_obtenido,
                   retroalimentacion: item.mensaje,
                   resultado: item.resultado,
@@ -216,7 +216,7 @@
                 {/if}
               </div>
 
-              {#if item.adjunta_rubrica}
+              {#if item.adjunta_rubrica && rubricaActividad}
                 <div class="flex gap-4 items-center">
                   <span class="text-[10px] font-black text-primary uppercase px-2 py-1 rounded">
                     Ver Evaluación

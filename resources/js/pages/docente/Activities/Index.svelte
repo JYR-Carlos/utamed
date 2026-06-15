@@ -26,6 +26,7 @@
     adjunta_rubrica: boolean;
     rubrica?: Rubrica;
     puntaje_obtenido?: number;
+    resultado?: Record<string, string> | null;
   };
 
   type GrupoData = {
@@ -686,6 +687,7 @@
           listado_interacciones={interaccionesGrupo}
           isLoading={isLoadingInteracciones}
           errorMensaje={errorInteracciones}
+          rubricaActividad={rubrica}
         />
       </div>
     </div>
