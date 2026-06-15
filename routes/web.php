@@ -17,6 +17,10 @@ use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Admin\AssignmentWizardController;
 
 Route::get('/', function () {
+    if (\Illuminate\Support\Facades\Auth::check()) {
+        return redirect()->route('dashboard');
+    }
+
     return Inertia::render('Welcome', [
         'canRegister' => Features::enabled(Features::registration()),
     ]);

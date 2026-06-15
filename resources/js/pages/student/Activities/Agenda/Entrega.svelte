@@ -36,7 +36,7 @@
   }
 
   function removerArchivo() {
-  
+    archivo = undefined;
     if (inputFile) {
       inputFile.value = '';
     }

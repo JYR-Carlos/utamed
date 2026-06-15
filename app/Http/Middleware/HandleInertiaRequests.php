@@ -3,9 +3,11 @@
 namespace App\Http\Middleware;
 
 use App\Services\UserCoursesService;
+use Closure;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Middleware Inertia.js para compartir datos por defecto en cada response.
@@ -94,8 +96,33 @@ class HandleInertiaRequests extends Middleware
     public function __construct(private UserCoursesService $userCourses) {}
 
     /**
+     * Previene que el navegador cachee páginas de invitado (login, home, etc.).
+     *
+     * Sin esto, el navegador restaura estas páginas desde su bfcache cuando el
+     * usuario presiona "atrás", sin hacer una nueva petición al servidor y sin
+     * pasar por el middleware `guest` de Fortify.
+     *
+     * Con `no-store` el navegador siempre re-solicita la página, el servidor
+     * detecta la sesión activa y redirige al dashboard correspondiente.
+     */
+    public function handle(Request $request, Closure $next): Response
+    {
+        $response = parent::handle($request, $next);
+
+        $guestRoutes = ['login', 'home', 'register', 'password.request', 'password.reset', 'verification.notice'];
+
+        if (in_array($request->route()?->getName(), $guestRoutes)) {
+            $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate');
+            $response->headers->set('Pragma', 'no-cache');
+            $response->headers->set('Expires', '0');
+        }
+
+        return $response;
+    }
+
+    /**
      * Versión de assets para cache-busting
-     * 
+     *
      * Laravel genera un hash de los assets y lo compara con el cliente.
      * Si no coinciden, Inertia recarga automáticamente los assets nuevos.
      * Esto evita que los usuarios tengan versiones cacheadas de JS/CSS desactualizado.

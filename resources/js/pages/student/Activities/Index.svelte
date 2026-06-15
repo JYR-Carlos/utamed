@@ -178,8 +178,26 @@
     mensaje: string;
     archivo?: File;
   }) {
+    console.log('[handleGuardarEntrada] llamado con:', {
+      id_actividad_asignada_grupo,
+      tipo: data.tipo,
+      tiene_archivo: !!data.archivo,
+      nombre_archivo: data.archivo?.name,
+    });
+
     if (!id_actividad_asignada_grupo) {
-      alert('Error: No se pudo encontrar la actividad asignada');
+      console.error('[handleGuardarEntrada] id_actividad_asignada_grupo es null/undefined.', {
+        id_actividad_asignada_grupo,
+        cod_actividad,
+        cod_curso,
+        data_tipo: data.tipo,
+        tiene_archivo: !!data.archivo,
+      });
+      alert(
+        'Error: No se encontró el grupo asignado para esta actividad.\n' +
+        `(cod_actividad=${cod_actividad}, id_actividad_asignada_grupo=${id_actividad_asignada_grupo})\n` +
+        'Revisa la consola del navegador para más detalles.'
+      );
       return;
     }
 
@@ -437,7 +455,7 @@
           {/if}
 
           <ActivityPendingCard
-            disponible={excedioHolgura}
+            disponible={!excedioHolgura}
             onSubirClick={() => toggleEntregaModal()}
           />
 
