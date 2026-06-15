@@ -40,14 +40,14 @@ class UsuariosDePruebaSeeder extends Seeder
 
         Usuario::factory($cantidadDocentes)
             ->docente()
-            ->withRolDocente()
+            // el rol docente se asigna cuando se crea el curso en BaseCursosSeeder,
+            // para que quede asociado al curso específico
             ->create();
         $this->command->info("{$cantidadDocentes} docentes creados");
 
         Usuario::factory($cantidadAmbos)
             ->estudianteYDocente()
             ->withRolEstudiante()
-            ->withRolDocente()
             ->create();
         $this->command->info("{$cantidadAmbos} estudiante-docentes creados");
 
