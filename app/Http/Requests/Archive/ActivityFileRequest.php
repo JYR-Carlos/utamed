@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Archive;
 
-use App\Rules\Builders\FileRequirementType;
+use App\Services\Archive\FiletypeValidation\FileRequirementType;
 
 /**
  * ActivityFileRequest

@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Archive;
 
-use App\Rules\Builders\FileRequirementBuilder;
+use App\Services\Archive\FiletypeValidation\FileRequirementBuilder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
 

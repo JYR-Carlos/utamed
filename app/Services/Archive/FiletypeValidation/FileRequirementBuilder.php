@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Rules\Builders;
+namespace App\Services\Archive\FiletypeValidation;
 
 use App\Exceptions\Archive\ArchiveException;
 use App\Exceptions\Archive\ArchiveErrorType;
@@ -86,7 +86,7 @@ class FileRequirementBuilder
     }
 
     if (config('filetypes.global.enable_mime_validation', true)) {
-      $rules[] = 'mimes:' . implode(',', array_unique($this->mimes));
+      $rules[] = 'mimetypes:' . implode(',', array_unique($this->mimes));
     }
 
     $rules[] = function (string $attribute, mixed $value, \Closure $fail) {
@@ -144,7 +144,7 @@ class FileRequirementBuilder
     }
 
     if ($mimeValidationEnabled && !empty($this->mimes)) {
-      $messages["{$fileField}.mimes"] = "El archivo debe ser de tipo válido para: {$nombresTipos}.";
+      $messages["{$fileField}.mimetypes"] = "El archivo debe ser de tipo válido para: {$nombresTipos}.";
     }
 
     return $messages;

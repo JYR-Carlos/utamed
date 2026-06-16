@@ -48,7 +48,7 @@ class ArchiveException extends Exception
     ?string $archiveId = null
   ) {
     parent::__construct($message, $code, $previous);
-    $this->type = $type;
+    $this->type = $type->value;
     $this->archiveId = $archiveId;
   }
 

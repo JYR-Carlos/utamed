@@ -2,6 +2,8 @@
 
 namespace App\Exceptions\Archive;
 
+use App\Exceptions\Archive\ArchiveErrorType;
+
 /**
  * Enumeration of storage error types.
  */
@@ -46,7 +48,7 @@ class StorageException extends ArchiveException
       StorageErrorType::UNSPECIFIED => "Storage operation failed: {$reason}",
     };
 
-    parent::__construct($this->errorType->value, $message, 500, $previous, $archiveId);
+    parent::__construct(ArchiveErrorType::OPERATION_FAILED, $message, 500, $previous, $archiveId);
     $this->storagePath = $storagePath;
   }
 

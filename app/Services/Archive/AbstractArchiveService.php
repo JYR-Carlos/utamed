@@ -568,6 +568,15 @@ abstract class AbstractArchiveService
 
     $storedPath = Storage::disk($this->disk)->putFileAs($prefixedDirectory, $file, $storageName);
 
+    if ($storedPath === false) {
+      throw new StorageException(
+        StorageErrorType::IO_ERROR,
+        "putFileAs devolvió false para '{$prefixedDirectory}/{$storageName}'. Verificar permisos y configuración del disco '{$this->disk}'.",
+        $this->currentArchiveId,
+        "{$prefixedDirectory}/{$storageName}"
+      );
+    }
+
     // Crear registro en BD con UUID v7 automático
     $archivoModel = app(\App\Models\Operaciones\Archivo::class);
     $archivo = $archivoModel->create([

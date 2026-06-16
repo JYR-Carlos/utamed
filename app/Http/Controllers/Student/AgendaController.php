@@ -95,32 +95,23 @@ class AgendaController extends Controller
             ->firstOrFail();
 
         DB::beginTransaction();
-        // TODO: mover la creación de la agenda dentro del try cuando se arregle lo de los archivos    
-        $agenda = $this->crearAgenda(
+
+        try {
+
+            $agenda = $this->crearAgenda(
                 user: $user,
                 actividadAsignadaGrupo: $actividadAsignadaGrupo,
                 tipo: 'Entrega de Avance',
                 mensaje: $request->input('mensaje')
-        );
-
-        dd($agenda);
-
-        DB::commit();
-
-        // SECCIÓN ENTREGA Y GUARDAR ARCHIVOS...
-        DB::beginTransaction();
-
-        try {
+            );
 
             $storedFile = AgendaArchiveHandler::store(
                 grupo: $actividadAsignadaGrupo,
                 file: $request->getFile(),
-                fileName: $request->getCustomFileName()
+                fileName: $request->getFileName()
             );
 
-            $agenda->uuid_archivo_subido =
-                $storedFile->uuidArchivo;
-
+            $agenda->uuid_archivo_subido = $storedFile->uuidArchivo;
             $agenda->save();
 
             DB::commit();
@@ -158,9 +149,10 @@ class AgendaController extends Controller
         } catch (StorageException $e) {
 
             DB::rollBack();
+            report($e);
 
             return back()->withErrors([
-                'error_general' => 'No se pudo guardar el archivo.'
+                'error_general' => 'No se pudo guardar el archivo. ' . $e->getMessage()
             ]);
 
         } catch (ArchiveException $e) {
@@ -181,7 +173,6 @@ class AgendaController extends Controller
 
         } catch (\Throwable $e) {
 
-            DB::rollBack();
 
             report($e);
 

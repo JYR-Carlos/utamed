@@ -24,11 +24,11 @@
       vantaEffect = NET({
         el: vantaContainer,
         THREE,
-        color: 0xf59e0b,
+        color: 0x3b82f6,
         backgroundColor: 0x1e40af,
-        points: 12,
-        maxDistance: 20,
-        spacing: 17,
+        points: 10,
+        maxDistance: 18,
+        spacing: 18,
       });
     }
   });

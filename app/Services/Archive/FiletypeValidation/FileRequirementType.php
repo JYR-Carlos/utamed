@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Rules\Builders;
+namespace App\Services\Archive\FiletypeValidation;
 
 enum FileRequirementType: string
 {
