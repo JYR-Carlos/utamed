@@ -28,14 +28,6 @@ class ActividadesSeeder extends Seeder
       return;
     }
 
-    // Obtener todos los estudiantes
-    $estudiantes = Estudiante::all();
-
-    if ($estudiantes->isEmpty()) {
-      $this->command->warn('No hay estudiantes en la BD.');
-      return;
-    }
-
     $actividadesCreadas = 0;
     $actividadAsignadaGrupoCreadas = 0;
     $integrantesCreados = 0;
@@ -45,13 +37,16 @@ class ActividadesSeeder extends Seeder
     $cursosProcesados = [];
 
     foreach ($cursos as $curso) {
-      // Obtener una unidad y componente del curso
-      $unidad = $curso->unidades()->first();
-      $componente = $curso->componentes()->first();
+      // Obtener cualquier unidad
+      $unidades = $curso->unidades;
+      $componentes = $curso->componentes()->inRandomOrder()->get();
 
-      if (!$unidad || !$componente) {
-        $this->command->warn("Curso {$curso->cod_curso} no tiene unidades o componentes. Saltando...");
-        continue;
+      if (empty($unidades)) {
+        throw new \Exception("Curso {$curso->cod_curso} no tiene unidades.");
+      }
+
+      if (empty($componentes)) {
+        throw new \Exception("Curso {$curso->cod_curso} no tiene componentes.");
       }
 
       $tipos = [
@@ -60,45 +55,54 @@ class ActividadesSeeder extends Seeder
       ];
 
       $actividadesCurso = [];
+      // Guardaremos los IDs de las unidades que realmente usamos para poder buscarlas después
+      $unidadesUsadasIds = [];
 
-      foreach ($tipos as $tipo) {
-        // ACTIVIDAD GRUPAL
-        $actividadesCurso[] = [
-          'nombre' => 'Actividad Grupal ' . $tipo->value,
-          'fecha_limite' => Carbon::now()->addDays(7),
-          'visible' => true,
-          'ponderacion' => 10,
-          'exigencia' => 60,
-          'tipo_actividad' => $tipo->value,
-          'tipo_entrega' => 'archivo',
-          'es_grupal' => true,
-          'max_integrantes' => 5,
-          'es_plantilla' => false,
-          'id_componente' => $componente->id_componente,
-          'id_unidad' => $unidad->id_unidad,
-        ];
+      foreach ($componentes as $componente) {
+        foreach ($tipos as $tipo) {
+          
+          // Seleccionar una unidad al azar fija para este set
+          $unidadSeleccionada = $unidades->random();
+          $unidadesUsadasIds[] = $unidadSeleccionada->id_unidad;
 
-        // ACTIVIDAD INDIVIDUAL
-        $actividadesCurso[] = [
-          'nombre' => 'Actividad Individual ' . $tipo->value,
-          'fecha_limite' => Carbon::now()->addDays(14),
-          'visible' => true,
-          'ponderacion' => 10,
-          'exigencia' => 60,
-          'tipo_actividad' => $tipo->value,
-          'tipo_entrega' => 'archivo',
-          'es_grupal' => false,
-          'max_integrantes' => 1,
-          'es_plantilla' => false,
-          'id_componente' => $componente->id_componente,
-          'id_unidad' => $unidad->id_unidad,
-        ];
+          // ACTIVIDAD GRUPAL
+          $actividadesCurso[] = [
+            'nombre' => 'Actividad Grupal ' . $tipo->value,
+            'fecha_limite' => Carbon::now()->addDays(7),
+            'visible' => true,
+            'ponderacion' => 10,
+            'exigencia' => 60,
+            'tipo_actividad' => $tipo->value,
+            'tipo_entrega' => 'archivo',
+            'es_grupal' => true,
+            'max_integrantes' => 5,
+            'es_plantilla' => false,
+            'id_componente' => $componente->id_componente,
+            'id_unidad' => $unidadSeleccionada->id_unidad,
+          ];
+
+          // ACTIVIDAD INDIVIDUAL
+          $actividadesCurso[] = [
+            'nombre' => 'Actividad Individual ' . $tipo->value,
+            'fecha_limite' => Carbon::now()->addDays(14),
+            'visible' => true,
+            'ponderacion' => 10,
+            'exigencia' => 60,
+            'tipo_actividad' => $tipo->value,
+            'tipo_entrega' => 'archivo',
+            'es_grupal' => false,
+            'max_integrantes' => 1,
+            'es_plantilla' => false,
+            'id_componente' => $componente->id_componente,
+            'id_unidad' => $unidadSeleccionada->id_unidad,
+          ];
+        }
       }
 
       $actividadesParaInsertar[] = [
         'curso' => $curso,
-        'unidad' => $unidad,
-        'componente' => $componente,
+        'id_componente' => $componente->id_componente, // Guardamos el ID usado
+        'unidades_usadas' => array_unique($unidadesUsadasIds), // Guardamos los IDs únicos usados
         'actividades' => $actividadesCurso,
       ];
 
@@ -108,23 +112,27 @@ class ActividadesSeeder extends Seeder
     // Insertar actividades en tandas
     foreach ($actividadesParaInsertar as $datoCurso) {
       try {
+        $estudiantes = $datoCurso['curso']->estudiantesInscritos()->get();
+        $cantidadEstudiantes = $estudiantes->count();
+
+        if ($estudiantes->isEmpty()) {
+          throw new \Exception("Curso {$datoCurso['curso']->cod_curso} no tiene estudiantes inscritos.");
+        }
+
         $curso = $datoCurso['curso'];
         $actividadesCurso = $datoCurso['actividades'];
 
-        // Insertar las 4 actividades del curso en una sola query
         DB::table('actividad')->insert($actividadesCurso);
         $actividadesCreadas += count($actividadesCurso);
 
-        // Obtener las actividades insertadas para este curso
-        $actividadesInsertadas = Actividad::where('id_componente', $datoCurso['componente']->id_componente)
-          ->where('id_unidad', $datoCurso['unidad']->id_unidad)
-          ->orderByDesc('id_actividad')
-          ->take(4)
+        $actividadesInsertadas = Actividad::where('id_componente', $datoCurso['id_componente'])
+          ->whereIn('id_unidad', $datoCurso['unidades_usadas'])
+          ->orderBy('id_actividad', 'asc') 
+          ->take(count($actividadesCurso))
           ->get();
 
         // Procesar asignaciones de grupos e integrantes
         foreach ($actividadesInsertadas as $index => $actividad) {
-          // Obtener la actividad original del array $actividadesCurso
           $actividadOriginal = $actividadesCurso[$index];
           $fechaLimite = $actividadOriginal['fecha_limite'];
           $ahora = Carbon::now();
@@ -138,76 +146,69 @@ class ActividadesSeeder extends Seeder
             $estado = EstadoActividadAsignada::ACTIVA->value;
           }
 
-          if ($index < 2) {
-            // Actividades grupales (índices 0 y 1)
-            $numGrupos = 5;
-            $numIntegrantesGrupo = 5;
+          // CALCULAR DATOS REALES DE GRUPOS
+          if ($actividadOriginal['es_grupal']) {
+            $maxIntegrantes = 5;
+            $numGrupos = (int) ceil($cantidadEstudiantes / $maxIntegrantes);
           } else {
-            // Actividades individuales (índices 2 y 3)
-            $numGrupos = 20;
-            $numIntegrantesGrupo = 1;
+            $maxIntegrantes = 1;
+            $numGrupos = $cantidadEstudiantes; // Un grupo exacto por alumno
           }
 
-          // Preparar datos para ActividadAsignadaGrupo
+          // 1. Crear los grupos primero en la base de datos para obtener sus IDs reales generados por Postgres
           $asignacionesGrupo = [];
           for ($i = 1; $i <= $numGrupos; $i++) {
-            $nombreGrupo = $numIntegrantesGrupo === 1 ? "Estudiante $i" : "Grupo $i";
+            $nombreGrupo = $maxIntegrantes === 1 ? "Estudiante $i" : "Grupo $i";
             $asignacionesGrupo[] = [
               'nombre_grupo' => $nombreGrupo,
               'nota' => null,
-              'estado_actividad_asignada' => $estado,  // Usar el estado calculado
+              'estado_actividad_asignada' => $estado,
               'id_actividad' => $actividad->id_actividad,
             ];
           }
 
-          // Insertar asignaciones en batch
-          $asignacionesInsertadas = [];
           foreach (array_chunk($asignacionesGrupo, 10) as $chunk) {
             DB::table('actividad_asignada_grupo')->insert($chunk);
             $actividadAsignadaGrupoCreadas += count($chunk);
           }
 
-          // Obtener las asignaciones insertadas
+          // Recuperar los grupos recién creados de la BD
           $asignacionesInsertadas = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
+            ->orderBy('id_actividad_asignada_grupo', 'asc')
             ->get();
 
-          // Preparar integrantes por grupo
+          // 2. REPARTICIÓN REAL DE ALUMNOS (Sin repeticiones ni vacíos)
+          // Desordenamos los estudiantes al inicio de la actividad
+          $estudiantesMezclados = $estudiantes->shuffle();
           $integrantesParaInsertar = [];
-          foreach ($asignacionesInsertadas as $asignacion) {
-            if ($numIntegrantesGrupo === 1) {
-              // Para actividades individuales: 1 estudiante al azar
-              $estudiante = $estudiantes->random();
+
+          foreach ($asignacionesInsertadas as $grupoIndex => $asignacion) {
+            
+            // Cortamos el lote de alumnos que le corresponde a este grupo
+            // chunk() de colecciones mantiene el control y evita que un alumno se repita en otro grupo
+            $alumnosDelGrupo = $estudiantesMezclados->slice($grupoIndex * $maxIntegrantes, $maxIntegrantes);
+
+            foreach ($alumnosDelGrupo as $estudiante) {
               $integrantesParaInsertar[] = [
                 'nota_individual' => null,
                 'diferencia_decimas' => 0,
                 'id_actividad_asignada_grupo' => $asignacion->id_actividad_asignada_grupo,
                 'id_estudiante' => $estudiante->id_estudiante,
               ];
-            } else {
-              // Para actividades grupales: 5 estudiantes únicos al azar
-              $estudiantesUnicos = $estudiantes->random($numIntegrantesGrupo);
-              foreach ($estudiantesUnicos as $estudiante) {
-                $integrantesParaInsertar[] = [
-                  'nota_individual' => null,
-                  'diferencia_decimas' => 0,
-                  'id_actividad_asignada_grupo' => $asignacion->id_actividad_asignada_grupo,
-                  'id_estudiante' => $estudiante->id_estudiante,
-                ];
-              }
             }
           }
 
-          // Insertar integrantes en batch
+          // Insertar todos los integrantes de la actividad en batch
           foreach (array_chunk($integrantesParaInsertar, 50) as $chunk) {
             DB::table('integrante_grupo')->insert($chunk);
             $integrantesCreados += count($chunk);
           }
         }
 
-        $this->command->info("✓ Actividades para curso {$curso->cod_curso} creadas exitosamente.");
+        $this->command->info("✓ Actividades para curso {$curso->cod_curso} creadas exitosamente con distribución real.");
       } catch (\Exception $e) {
         $this->command->error("✗ Error al procesar Curso {$datoCurso['curso']->cod_curso}: " . $e->getMessage());
-        break; // Detener el proceso si ocurre un error para evitar datos inconsistentes
+        break; 
       }
     }
 

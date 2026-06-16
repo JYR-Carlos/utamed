@@ -169,7 +169,7 @@ class BaseCursosSeeder extends Seeder
                             'cod_inscripcion_uta' => 'UTA' . fake()->unique()->numberBetween(100000, 999999),
                             'num_intento' => 1,
                             'fecha_inscripcion' => now(),
-                            'estado_inscripcion' => 'inscrito',
+                            'estado_inscripcion' => 'INSCRITO',
                             'promedio_parcial' => random_int(30, 70) / 10,
                             'id_curso' => $curso->id_curso,
                             'id_estudiante' => $estudiante->id_estudiante,
