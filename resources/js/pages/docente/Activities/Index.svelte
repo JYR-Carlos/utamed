@@ -3,10 +3,11 @@
   import { router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
-  import { ChevronLeft, Plus, Trash2, UserPlus, X, Users, Pencil } from 'lucide-svelte';
+  import { ChevronLeft, Plus, Trash2, UserPlus, X, Users, Pencil, FileText, Download, CheckCircle2, Clock, User } from 'lucide-svelte';
   import AgendaDocente from './Agenda/AgendaDocente.svelte';
   import RubricaView from '../../student/Activities/Agenda/Rubrica.svelte';
   import RubricaEditor from './RubricaEditor.svelte';
+  import MatrizEvaluacion from './MatrizEvaluacion.svelte';
 
   // ─── Tipos ────────────────────────────────────────────────────────────────
   type Interaccion = {
@@ -192,6 +193,93 @@
     );
   }
 
+  // ─── Entregas del grupo ───────────────────────────────────────────────────
+
+  type EntregaGrupo = {
+    id_agenda: number;
+    fecha_envio: string;
+    mensaje: string | null;
+    tipo_registro: string | null;
+    archivo: {
+      uuid: string;
+      nombre_original: string;
+      extension: string | null;
+      mime_type: string | null;
+      peso_bytes: number | null;
+      fecha_creacion: string | null;
+    } | null;
+    usuario_emisor: { nombre: string; rut: string | null };
+    evaluada: boolean;
+  };
+
+  let showEntregasModal = $state(false);
+  let grupoEntregasSeleccionado = $state<GrupoData | null>(null);
+  let entregasGrupo = $state<EntregaGrupo[]>([]);
+  let loadingEntregas = $state(false);
+  let errorEntregas = $state<string | null>(null);
+
+  // Matriz de evaluación
+  let showMatrizEvaluacion = $state(false);
+  let entregaParaEvaluar = $state<number | null>(null);
+
+  async function verEntregas(grupo: GrupoData) {
+    grupoEntregasSeleccionado = grupo;
+    entregasGrupo = [];
+    errorEntregas = null;
+    showEntregasModal = true;
+    loadingEntregas = true;
+    try {
+      const res = await fetch(
+        `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupo.grupo}/entregas`,
+        { headers: { Accept: 'application/json' }, credentials: 'same-origin' },
+      );
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      entregasGrupo = await res.json();
+    } catch (e: any) {
+      errorEntregas = e.message ?? 'No se pudieron cargar las entregas.';
+    } finally {
+      loadingEntregas = false;
+    }
+  }
+
+  function cerrarEntregas() {
+    showEntregasModal = false;
+    grupoEntregasSeleccionado = null;
+  }
+
+  function abrirMatrizEvaluacion(idAgenda: number | null = null) {
+    entregaParaEvaluar = idAgenda;
+    showEntregasModal = false;
+    showMatrizEvaluacion = true;
+  }
+
+  function cerrarMatrizEvaluacion() {
+    showMatrizEvaluacion = false;
+    entregaParaEvaluar = null;
+    grupoEntregasSeleccionado = null;
+  }
+
+  function formatBytes(bytes: number | null): string {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function downloadUrl(grupoId: number, agendaId: number): string {
+    return `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/entregas/${agendaId}/descargar`;
+  }
+
+  function formatFecha(dateStr: string): string {
+    return new Date(dateStr).toLocaleString('es-CL', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   function cargarInteracciones(grupo: GrupoData) {
@@ -246,7 +334,7 @@
 
     if (data.tipo === 'Evaluación') {
       if (!rubrica_id) {
-        console.error('No hay rúbrica asociada a esta actividad para evaluar.');
+        errorInteracciones = 'Esta actividad no tiene rúbrica. Crea una rúbrica antes de evaluar.';
         return;
       }
       router.post(
@@ -514,27 +602,10 @@
               {#if actividad.trae_archivo}
                 <button
                   class="w-full px-3 py-2 rounded-lg border border-uta-blue/20 transition-all bg-uta-blue text-white hover:bg-uta-blue-hover flex items-center justify-between gap-2 text-xs font-semibold"
-                  onclick={() =>
-                    window.open(
-                      `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupo.grupo}/entregas`,
-                      '_blank',
-                    )}
+                  onclick={() => verEntregas(grupo)}
                 >
                   <p>Ver Entregas</p>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="size-4 shrink-0"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13"
-                    />
-                  </svg>
+                  <FileText class="size-4 shrink-0" />
                 </button>
               {/if}
 
@@ -724,6 +795,215 @@
       </div>
     </div>
   {/if}
+  <!-- ── Modal: Entregas del grupo ── -->
+  {#if showEntregasModal && grupoEntregasSeleccionado}
+    <div
+      class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50"
+      role="presentation"
+      onclick={(e) => e.target === e.currentTarget && cerrarEntregas()}
+    >
+      <div
+        class="bg-white w-full sm:max-w-2xl rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
+      >
+        <!-- Encabezado -->
+        <div class="flex items-center justify-between px-6 py-4 border-b shrink-0">
+          <div>
+            <h3 class="text-base font-bold text-gray-900">
+              Entregas — Grupo #{grupoEntregasSeleccionado.grupo}
+            </h3>
+            <p class="text-xs text-gray-500 mt-0.5">{actividad.nombre}</p>
+          </div>
+          <button
+            onclick={cerrarEntregas}
+            class="p-1.5 rounded-full hover:bg-gray-100 transition text-gray-400 hover:text-gray-700"
+            aria-label="Cerrar"
+          >
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+
+        <!-- Cuerpo -->
+        <div class="flex-1 overflow-y-auto px-6 py-4">
+          {#if loadingEntregas}
+            <div class="flex flex-col gap-3 animate-pulse py-4">
+              {#each [1, 2, 3] as _}
+                <div class="h-20 rounded-xl bg-gray-100"></div>
+              {/each}
+            </div>
+          {:else if errorEntregas}
+            <div class="py-8 text-center text-sm text-red-500">{errorEntregas}</div>
+          {:else if entregasGrupo.filter((e) => e.archivo).length === 0}
+            <div class="py-12 flex flex-col items-center gap-3 text-center">
+              <FileText class="w-10 h-10 text-gray-300" />
+              <p class="text-sm font-semibold text-gray-500">Sin archivos entregados</p>
+              <p class="text-xs text-gray-400">El grupo aún no ha subido ningún archivo.</p>
+            </div>
+          {:else}
+            <div class="flex flex-col gap-3">
+              {#each entregasGrupo.filter((e) => e.archivo) as entrega (entrega.id_agenda)}
+                <div
+                  class="rounded-xl border {entrega.evaluada
+                    ? 'border-emerald-200 bg-emerald-50/40'
+                    : 'border-gray-200 bg-white'} p-4"
+                >
+                  <!-- Cabecera de la entrega -->
+                  <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <!-- Badge tipo -->
+                      <span
+                        class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full
+                          {entrega.tipo_registro === 'Entrega de archivo'
+                          ? 'bg-uta-blue/10 text-uta-blue'
+                          : 'bg-gray-100 text-gray-600'}"
+                      >
+                        <FileText class="w-3 h-3" />
+                        {entrega.tipo_registro ?? 'Entrega'}
+                      </span>
+                      <!-- Badge estado evaluación -->
+                      {#if entrega.evaluada}
+                        <span
+                          class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700"
+                        >
+                          <CheckCircle2 class="w-3 h-3" />
+                          Evaluada
+                        </span>
+                      {:else}
+                        <span
+                          class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700"
+                        >
+                          <Clock class="w-3 h-3" />
+                          Pendiente
+                        </span>
+                      {/if}
+                    </div>
+                    <span class="text-[10px] text-gray-400 shrink-0">
+                      {formatFecha(entrega.fecha_envio)}
+                    </span>
+                  </div>
+
+                  <!-- Emisor -->
+                  <div class="flex items-center gap-1.5 text-xs text-gray-600 mb-2">
+                    <User class="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                    <span class="font-medium">{entrega.usuario_emisor.nombre}</span>
+                    {#if entrega.usuario_emisor.rut}
+                      <span class="text-gray-400">· {entrega.usuario_emisor.rut}</span>
+                    {/if}
+                  </div>
+
+                  <!-- Mensaje -->
+                  {#if entrega.mensaje}
+                    <p class="text-sm text-gray-700 mb-3 leading-relaxed">{entrega.mensaje}</p>
+                  {/if}
+
+                  <!-- Archivo -->
+                  {#if entrega.archivo}
+                    <div
+                      class="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5"
+                    >
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        <div
+                          class="w-8 h-8 rounded-lg bg-uta-blue/10 flex items-center justify-center shrink-0"
+                        >
+                          <FileText class="w-4 h-4 text-uta-blue" />
+                        </div>
+                        <div class="min-w-0">
+                          <p class="text-xs font-semibold text-gray-800 truncate">
+                            {entrega.archivo.nombre_original}
+                          </p>
+                          <p class="text-[10px] text-gray-400">
+                            {#if entrega.archivo.extension}
+                              {entrega.archivo.extension.toUpperCase()}
+                              {#if entrega.archivo.peso_bytes}&nbsp;·&nbsp;{/if}
+                            {/if}
+                            {formatBytes(entrega.archivo.peso_bytes)}
+                          </p>
+                        </div>
+                      </div>
+                      <div class="flex flex-col gap-1.5 shrink-0">
+                        <a
+                          href={downloadUrl(grupoEntregasSeleccionado.grupo, entrega.id_agenda)}
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-uta-blue text-white text-xs font-semibold rounded-lg hover:bg-uta-blue-hover transition-colors"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Download class="w-3.5 h-3.5" />
+                          Descargar
+                        </a>
+                        {#if rubrica && rubrica_id && !entrega.evaluada}
+                          <button
+                            onclick={() => abrirMatrizEvaluacion(entrega.id_agenda)}
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition-colors"
+                          >
+                            <CheckCircle2 class="w-3.5 h-3.5" />
+                            Evaluar
+                          </button>
+                        {/if}
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 py-3 border-t shrink-0 flex items-center justify-between gap-3 flex-wrap">
+          <span class="text-xs text-gray-500">
+            {entregasGrupo.filter((e) => e.archivo).length} archivo{entregasGrupo.filter((e) => e.archivo).length !== 1 ? 's' : ''}
+            entregado{entregasGrupo.filter((e) => e.archivo).length !== 1 ? 's' : ''}
+          </span>
+          <div class="flex items-center gap-2">
+            <button
+              onclick={cerrarEntregas}
+              class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition"
+            >
+              Cerrar
+            </button>
+            {#if rubrica && rubrica_id}
+              <button
+                onclick={() => abrirMatrizEvaluacion(null)}
+                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors"
+              >
+                <CheckCircle2 class="w-4 h-4" />
+                Evaluar con Rúbrica
+              </button>
+            {/if}
+            <button
+              onclick={() => {
+                const g = grupoEntregasSeleccionado;
+                cerrarEntregas();
+                if (g) abrirAgendaGrupo(g);
+              }}
+              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-uta-blue text-white rounded-xl hover:bg-uta-blue-hover transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              Ver Agenda
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- ── Matriz de evaluación (pantalla completa) ── -->
+  {#if showMatrizEvaluacion && grupoEntregasSeleccionado && rubrica && rubrica_id}
+    <MatrizEvaluacion
+      {rubrica}
+      rubricaId={rubrica_id}
+      nombreActividad={actividad.nombre}
+      nombreGrupo="Grupo #{grupoEntregasSeleccionado.grupo}"
+      idCurso={curso.id_curso}
+      idActividad={actividad.id_actividad}
+      idGrupo={grupoEntregasSeleccionado.grupo}
+      idAgendaEntrega={entregaParaEvaluar}
+      onClose={cerrarMatrizEvaluacion}
+      onSuccess={() => router.reload({ only: ['grupos'] })}
+    />
+  {/if}
+
   {#key actividad.id_actividad}
     {#if showRubricaEditor}
       <RubricaEditor
@@ -736,7 +1016,15 @@
   {/key}
 </DocenteLayout>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && (showAgendaModal = false)} />
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key === 'Escape') {
+      if (showMatrizEvaluacion) cerrarMatrizEvaluacion();
+      else if (showEntregasModal) cerrarEntregas();
+      else showAgendaModal = false;
+    }
+  }}
+/>
 
 <style>
   @keyframes slide-in {

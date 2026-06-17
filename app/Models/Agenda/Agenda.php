@@ -49,7 +49,7 @@ class Agenda extends BaseAgenda
             'id_agenda' => $this->id_agenda,
             'fecha_envio' => $this->fecha_envio,
             'mensaje' => $this->mensaje,
-            'tipo_registro' => $this->tipoRegistroAgenda?->titulo,
+            'tipo_registro' => $this->tipo_mensaje?->value,
             'archivo' => $this->getArchivoInfo(),
             'usuario_emisor' => [
                 'nombre' => trim(

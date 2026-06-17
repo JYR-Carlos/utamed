@@ -937,7 +937,7 @@ class DocenteActivityController extends Controller
         $entregas = Agenda::whereHas('actividadAsignadaGrupo', function ($query) use ($actividad) {
             $query->where('id_actividad', $actividad->id_actividad);
         })
-        ->with(['usuario', 'archivo', 'tipoRegistroAgenda', 'evaluacion'])
+        ->with(['usuario', 'archivo', 'evaluacion'])
         ->orderBy('fecha_envio', 'desc')
         ->get()
         ->map(function ($entrega) {
@@ -945,7 +945,7 @@ class DocenteActivityController extends Controller
                 'id_agenda' => $entrega->id_agenda,
                 'fecha_envio' => $entrega->fecha_envio,
                 'mensaje' => $entrega->mensaje,
-                'tipo_registro' => $entrega->tipoRegistroAgenda?->titulo,
+                'tipo_registro' => $entrega->tipo_mensaje?->value,
                 'archivo' => $entrega->uuid_archivo_subido ? [
                     'uuid' => $entrega->archivo?->uuid_archivo,
                     'nombre_original' => $entrega->archivo?->nombre_original,
@@ -992,7 +992,7 @@ class DocenteActivityController extends Controller
         }
 
         $entregas = Agenda::where('id_actividad_asignada_grupo', $grupo)
-            ->with(['usuario', 'archivo', 'tipoRegistroAgenda', 'evaluacion'])
+            ->with(['usuario', 'archivo', 'evaluacion'])
             ->orderBy('fecha_envio', 'desc')
             ->get()
             ->map(function ($entrega) {
@@ -1000,7 +1000,7 @@ class DocenteActivityController extends Controller
                     'id_agenda' => $entrega->id_agenda,
                     'fecha_envio' => $entrega->fecha_envio,
                     'mensaje' => $entrega->mensaje,
-                    'tipo_registro' => $entrega->tipoRegistroAgenda?->titulo,
+                    'tipo_registro' => $entrega->tipo_mensaje?->value,
                     'archivo' => $entrega->uuid_archivo_subido ? [
                         'uuid' => $entrega->archivo?->uuid_archivo,
                         'nombre_original' => $entrega->archivo?->nombre_original,
@@ -1253,8 +1253,8 @@ class DocenteActivityController extends Controller
             ->firstOrFail();
 
         $validated = $request->validate([
-            'id_agenda_entrega'  => 'nullable|integer|exists:agenda.agenda,id_agenda',
-            'id_rubrica'         => 'required|integer|exists:agenda.rubrica,id_rubrica',
+            'id_agenda_entrega'  => 'nullable|integer|exists:pgsql.agenda.agenda,id_agenda',
+            'id_rubrica'         => 'required|integer|exists:pgsql.agenda.rubrica,id_rubrica',
             'resultado'          => 'nullable|array',
             'resultado_rubrica'  => 'nullable|array',
             'puntaje_obtenido'   => 'nullable|numeric|min:0|max:999',
@@ -1288,7 +1288,7 @@ class DocenteActivityController extends Controller
                     'id_actividad_asignada_grupo' => $grupo,
                     'tipo_mensaje'                => 'Evaluación',
                     'fecha_envio'                 => now(),
-                ]);
+                ], 'id_agenda');
 
                 // 2. Crear registro en evaluacion vinculado al mensaje anterior
                 \App\Models\Agenda\Evaluacion::create([
@@ -1323,7 +1323,7 @@ class DocenteActivityController extends Controller
                 'grupo'  => $grupoModel->id_actividad_asignada_grupo,
                 'trace'  => $e->getTraceAsString(),
             ]);
-            return response()->json(['error' => 'Error al registrar la evaluación: ' . $e->getMessage()], 500);
+            return redirect()->back()->with('error', 'Error al registrar la evaluación: ' . $e->getMessage());
         }
     }
 
