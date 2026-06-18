@@ -94,6 +94,13 @@ class AgendaController extends Controller
             )
             ->firstOrFail();
 
+        $actividad = $actividadAsignadaGrupo->actividad;
+        if ($actividad && now()->isAfter($actividad->fecha_limite->endOfDay())) {
+            return back()->withErrors([
+                'error_general' => 'La fecha límite de entrega ha vencido. No se pueden subir archivos.'
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {

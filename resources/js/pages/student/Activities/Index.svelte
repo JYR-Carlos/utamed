@@ -359,7 +359,7 @@
           {/if}
 
           <ActivityPendingCard
-            disponible={!excedioHolgura}
+            disponible={!exedioFechaLimite()}
             onSubirClick={() => toggleEntregaModal()}
           />
 

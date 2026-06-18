@@ -118,6 +118,7 @@ class ActivityController extends Controller
                     'adjunta_rubrica'    => $rubricaData !== null,
                     'rubrica'            => $rubricaData,
                     'puntaje_obtenido'   => $evaluacion?->puntaje_obtenido,
+                    'resultado'          => $evaluacion?->resultado,
                 ];
             })->values()->toArray();
 

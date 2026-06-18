@@ -22,6 +22,7 @@
       adjunta_rubrica: boolean;
       rubrica?: Rubrica | null;
       puntaje_obtenido?: number | null;
+      resultado?: Record<string, string> | null;
     }>;
   }
 
@@ -39,12 +40,20 @@
 
   let nuevoMensaje = $state('');
   let tipoSeleccionado = $state('Consulta');
+  let listaRef = $state<HTMLDivElement | null>(null);
 
   let interaccionSeleccionada = $state<{
     rubrica?: Rubrica | null;
     puntaje_obtenido?: number | null;
     retroalimentacion?: string;
+    resultado?: Record<string, string> | null;
   } | null>(null);
+
+  $effect(() => {
+    if (listaRef) {
+      listaRef.scrollTop = listaRef.scrollHeight;
+    }
+  });
 
   const tiposInteraccion = ['Consulta', 'Entrega de Avance', 'Duda sobre Rúbrica', 'Otro'];
 
@@ -100,7 +109,7 @@
       {/if}
     </div>
 
-    <div class={`${inline ? 'max-h-72' : 'flex-1'} overflow-y-auto pr-4 mb-6 custom-scrollbar`}>
+    <div bind:this={listaRef} class={`${inline ? 'max-h-72' : 'flex-1'} overflow-y-auto pr-4 mb-6 custom-scrollbar`}>
       {#each listado_interacciones as item}
         <button
           class="mb-4 p-4 w-full text-start border-l-4 transition-all rounded-r-xl
@@ -112,6 +121,7 @@
                 rubrica: item.rubrica,
                 puntaje_obtenido: item.puntaje_obtenido,
                 retroalimentacion: item.mensaje,
+                resultado: item.resultado,
               };
             }
           }}
@@ -250,6 +260,7 @@
           rubrica={interaccionSeleccionada.rubrica}
           puntaje_obtenido={interaccionSeleccionada.puntaje_obtenido ?? 0}
           retroalimentacion={interaccionSeleccionada.retroalimentacion}
+          resultado={interaccionSeleccionada.resultado}
           modoLectura={true}
         />
       </div>
