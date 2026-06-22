@@ -15,6 +15,7 @@
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import { router } from '@inertiajs/svelte';
+  import { fly } from 'svelte/transition';
   import CursoSelector from '@/modules/resources/inscripcion/components/cursoSelector.svelte';
   import RosterTable from '@/modules/resources/inscripcion/components/rosterTable.svelte';
   import AddEstudiantesModal from '@/modules/resources/inscripcion/components/addEstudiantesModal.svelte';
@@ -185,39 +186,46 @@
     <div
       role="status"
       aria-live="polite"
-      class="fixed bottom-6 right-6 z-[10000] flex items-center gap-2.5 px-5 py-3 rounded-xl text-sm font-medium shadow-xl {toast.type ===
+      transition:fly={{ y: 12, duration: 220 }}
+      class="fixed bottom-6 right-6 z-[10000] flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium shadow-lg border {toast.type ===
       'success'
-        ? 'bg-green-50 border border-green-200 text-green-800'
-        : 'bg-red-50 border border-red-200 text-red-700'}"
+        ? 'bg-white border-emerald-200 text-emerald-800 shadow-emerald-100'
+        : 'bg-white border-red-200 text-red-700 shadow-red-100'}"
     >
       {#if toast.type === 'success'}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg
-        >
+        <div class="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="text-emerald-600"><polyline points="20 6 9 17 4 12" /></svg
+          >
+        </div>
       {:else}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
+        <div class="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="text-red-500"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+        </div>
       {/if}
       {toast.msg}
     </div>

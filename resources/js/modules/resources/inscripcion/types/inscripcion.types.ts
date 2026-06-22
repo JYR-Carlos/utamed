@@ -65,12 +65,12 @@ export const ESTADO_CFG: Record<
     EstadoInscripcion,
     { label: string; cls: string; rowCls: string }
 > = {
-    INSCRITO: { label: 'Inscrito', cls: 'bg-emerald-100 text-emerald-800', rowCls: 'normal' },
-    RETIRADO: { label: 'Retirado', cls: 'bg-amber-100 text-amber-800', rowCls: 'dimmed' },
-    ANULADO: { label: 'Anulado', cls: 'bg-gray-100 text-gray-500', rowCls: 'voided' },
-    SUSPENDIDO: { label: 'Suspendido', cls: 'bg-indigo-100 text-indigo-800', rowCls: 'dimmed' },
-    APROBADO: { label: 'Aprobado', cls: 'bg-emerald-100 text-emerald-800', rowCls: 'normal' },
-    REPROBADO: { label: 'Reprobado', cls: 'bg-red-100 text-red-700', rowCls: 'normal' },
+    INSCRITO:   { label: 'Inscrito',   cls: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',  rowCls: 'normal' },
+    RETIRADO:   { label: 'Retirado',   cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',        rowCls: 'dimmed' },
+    ANULADO:    { label: 'Anulado',    cls: 'bg-gray-100 text-gray-400 ring-1 ring-gray-200',          rowCls: 'voided' },
+    SUSPENDIDO: { label: 'Suspendido', cls: 'bg-violet-50 text-violet-700 ring-1 ring-violet-200',     rowCls: 'dimmed' },
+    APROBADO:   { label: 'Aprobado',   cls: 'bg-teal-50 text-teal-700 ring-1 ring-teal-200',           rowCls: 'normal' },
+    REPROBADO:  { label: 'Reprobado',  cls: 'bg-red-50 text-red-600 ring-1 ring-red-200',              rowCls: 'normal' },
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

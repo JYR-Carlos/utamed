@@ -9,8 +9,8 @@
   let { class: className = '', children }: Props = $props();
 </script>
 
-<div class="w-full py-6 md:py-8">
+<div class="w-full py-6 md:py-8 px-4">
   <div class={className}>
-      {@render children?.()}
+    {@render children?.()}
   </div>
 </div>
