@@ -83,8 +83,8 @@ class ActivityController extends Controller
             );
 
         
-        $ultimaNota = $integranteGrupo?->nota_individual ?? $grupo?->nota;
-
+        $ultimaNota = $integranteGrupo?->evaluacion->nota_obtenida ?? $grupo?->nota;
+        
         $interacciones = [];
         
 
@@ -129,6 +129,15 @@ class ActivityController extends Controller
                     break;
                 }
             }
+            $ultimaEntrega = null;
+            // obtiene la ultima entrega del estudiante
+            foreach (array_reverse($interacciones) as $item) {
+                if ($item['tipo_interaccion'] === "Entrega de avance") {
+                    $ultimaEntrega = $item;
+                    break;
+                }
+            }
+            
         }
         // RUBRICA SIN EVALUACIONES (SÓLO CABECERA)
         $rubrica = Rubrica::where('id_actividad','=', $actividad->id_actividad)
@@ -145,7 +154,7 @@ class ActivityController extends Controller
             ->toArray();
 
         $curso->load(['asignacionPlan.asignatura']);
-
+        
 
 
         return Inertia::render('student/Activities/Index', [
@@ -159,9 +168,9 @@ class ActivityController extends Controller
             'es_sumativa'           => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
             'trae_archivo'          => $actividad->uuid_archivo !== null,
             'entrega_obligatoria'   => strtolower($actividad->tipo_entrega ?? '') !== 'sin entrega',
-            'ultima_nota'           => 4.3,
+            'ultima_nota'           => (float) $ultimaNota,
             'ultima_evaluacion'     => null,
-            'ultima_entrega'        => null,
+            'ultima_entrega'        => $ultimaEntrega,
             'estado'                => $estado,
             'entradas'              => $entradas,
             'listado_interacciones' => $interacciones,

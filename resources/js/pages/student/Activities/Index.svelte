@@ -88,16 +88,20 @@
     const limite = new Date(fecha_limite);
     const limiteConHolgura = new Date(limite);
     limiteConHolgura.setDate(limiteConHolgura.getDate() + dias_holgura);
-    //return limiteConHolgura < new Date();
-    return false;
+    return limiteConHolgura < new Date();
   });
   const estaActiva = $derived.by(() => {
-    return estado === 'ACTIVA';
+    return estado === 'ACTIVA' || ultima_nota;
   });
+  const puedeApelar = $derived.by(() => {
+    return false;
+  })
+  const puedeSubirArchivo = $derived.by(() => {
+    return (estado === 'ACTIVA' && excedioHolgura) || (puedeApelar) 
+  })
 
   function toggleRubricaModal() {
     showRubricaModal = !showRubricaModal;
-    console.log(rubrica);
   }
   function toggleAgendaModal() {
     showAgendaModal = !showAgendaModal;
@@ -248,7 +252,7 @@
               >
                 Ha excedido la fecha límite
               </div>
-            {:else}
+            {:else if !exedioFechaLimite() && puedeSubirArchivo}
               <div
                 class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm bg-green-400"
               >
@@ -359,7 +363,7 @@
           {/if}
 
           <ActivityPendingCard
-            disponible={!exedioFechaLimite()}
+            disponible={puedeSubirArchivo}
             onSubirClick={() => toggleEntregaModal()}
           />
 

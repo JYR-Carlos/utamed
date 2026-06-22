@@ -7,7 +7,7 @@
   let { disponible, onSubirClick }: Props = $props();
 
   const labelEstado = $derived(
-    disponible ? "Adjunta aquí tu archivo" : "El plazo de entrega ha vencido."
+    disponible ? "Adjunta aquí tu archivo" : "Nueva entrega no disponible."
   );
 </script>
 
