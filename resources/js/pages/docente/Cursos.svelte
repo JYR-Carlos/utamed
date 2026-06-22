@@ -116,7 +116,7 @@
     );
     return [...list].sort((a: any, b: any) => {
       if (sortKey === 'name') return (a.nombre ?? '').localeCompare(b.nombre ?? '');
-      if (sortKey === 'progress') return getProgress(b) - getProgress(a);
+      if (sortKey === 'progress') return 100//getProgress(b) - getProgress(a);
       if (sortKey === 'pending') return (b.pendientes_calificar ?? 0) - (a.pendientes_calificar ?? 0);
       if (sortKey === 'students') return (b.total_estudiantes ?? 0) - (a.total_estudiantes ?? 0);
       return 0;
