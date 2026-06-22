@@ -176,6 +176,7 @@ class HandleInertiaRequests extends Middleware
                 ->toArray();
 
             // Recopilar slugs de permisos únicos de todos los roles activos del usuario
+            // FIX: esto esta mal debe ser contextual
             $permissions = $user->rolesAsignados
                 ->flatMap(fn($r) => $r->permisos->pluck('slug'))
                 ->unique()
@@ -188,6 +189,7 @@ class HandleInertiaRequests extends Middleware
 
             // OPTIMIZACIÓN: Pre-cargar permisos por contexto solo si es ayudante
             // (evita N+1 queries cuando el frontend necesita verificar permisos)
+            // FIX: esto no deberia hacerse
             if (in_array('ayudante', array_map('strtolower', $roles))) {
                 $allAyudantePerms = $user->getAllPermissionsGroupedByContext();
             }
@@ -222,6 +224,14 @@ class HandleInertiaRequests extends Middleware
                 // CURSOS: Pre-cargados SOLO en GET requests (navegación)
                 // Para acciones (POST/PUT/DELETE), no necesitamos pre-cargar
                 // Cada controlador puede acceder a esto sin hacer queries adicionales
+
+                // export interface SidebarCourse { <- Interfaz a la que se cargan
+                //     id_curso: number;
+                //     nombre: string;
+                //     cod_curso: string;
+                //     tiene_programa?: boolean;
+                //     permisos: Permission[];
+                // }
                 'docente_courses'    => $isNavigationRequest && $docente
                     ? $this->userCourses->getDocenteCourses($docente)  // Cursos donde dicta
                     : [],

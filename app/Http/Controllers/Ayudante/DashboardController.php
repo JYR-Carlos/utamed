@@ -28,24 +28,6 @@ class DashboardController extends Controller
                 ->pluck('id_contexto')
             : collect();
 
-        $ayudanteCourses = \App\Models\Curso\Curso::whereIn('id_contexto', $contextosAsignados)
-            ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera'])
-            ->get()
-            ->map(function ($curso) {
-                // Verificar si el curso tiene programa actual
-                $tienePrograma = \App\Models\Administrativo\Programa::where('id_curso', $curso->id_curso)
-                    ->where('es_actual', true)
-                    ->exists();
-
-                return [
-                    'id_curso' => $curso->id_curso,
-                    'nombre' => $curso->nombre,
-                    'cod_curso' => $curso->cod_curso,
-                    'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
-                    'tiene_programa' => $tienePrograma,
-                ];
-            });
-
         return Inertia::render('Dashboard', [
             'stats' => [
                 'usuarios' => \App\Models\Usuario\Usuario::count(),
@@ -59,7 +41,6 @@ class DashboardController extends Controller
                 'facultades' => \App\Models\Administrativo\Facultad::count(),
                 'carreras' => \App\Models\Administrativo\Carrera::count(),
             ],
-            'ayudanteCourses' => $ayudanteCourses
         ]);
         // Note: We might want a specific 'ayudante/Dashboard' view later, 
         // but for now reusing 'Dashboard' with role detection is consistent with current app.

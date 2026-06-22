@@ -39,8 +39,10 @@ export interface SidebarCourse {
     id_curso: number;
     nombre: string;
     cod_curso: string;
+    agno_real: number;
+    semestre_real: number;
     tiene_programa?: boolean;
-    userPermissions?: Array<{ id_permiso: number; slug: string; esta_permitido: boolean }>;
+    permisos: Permission[];
 }
 
 export interface SharedAuth {

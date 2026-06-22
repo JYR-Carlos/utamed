@@ -28,8 +28,16 @@ class UserCoursesService
      *
      * @param  Usuario  $user  Usuario autenticado
      * @param  int  $contextId  ID del contexto (id_contexto del curso/componente)
-     * @return array<int, array{id_permiso: int, slug: string, esta_permitido: bool}>
+     * @return array<
+     *  int,
+     *  array{
+     *   id_permiso: int,
+     *   slug: string,
+     *   esta_permitido: bool
+     *  }
+     * >
      */
+    // Fix: Mover hacia usuario o a un PermissionService dedicado, pero por ahora lo dejo aquí para no tocar el middleware
     public function getPermissionsForContext(Usuario $user, int $contextId): array
     {
         return collect($user->getAllPermissions($contextId))
@@ -45,29 +53,57 @@ class UserCoursesService
     /**
      * Cursos asignados a un docente (a través de sus secciones).
      *
-     * @return array<int, array{id_curso: int, nombre: string, cod_curso: string, carrera_nombre: string, tiene_programa: bool}>
+     * @return array<
+     *  int, 
+     *  array{
+     *   id_curso: int, 
+     *   nombre: string, 
+     *   cod_curso: string, 
+     *   carrera_nombre: string,
+     *   agno_real: int, 
+     *   semestre_real: int, 
+     *   tiene_programa: bool, 
+     *   permisos: array
+     *  }
+     * >
      */
     public function getDocenteCourses(Docente $docente): array
     {
-        return Curso::where('id_docente_titular', $docente->id_docente)
-            ->select('id_curso', 'nombre', 'cod_curso')
+        $cursos = Curso::where('id_docente_titular', $docente->id_docente)
+            ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto', 'agno_real', 'semestre_real')
             ->with(['asignacionPlan.plan.carrera'])
             ->get()
             ->map(fn($curso) => [
                 'id_curso'       => $curso->id_curso,
                 'nombre'         => $curso->nombre,
                 'cod_curso'      => $curso->cod_curso,
+                'agno_real'      => $curso->agno_real,
+                'semestre_real'  => $curso->semestre_real,
                 'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                 'tiene_programa' => Programa::where('id_curso', $curso->id_curso)->exists(),
+                'permisos'       => $this->getPermissionsForContext($docente->usuario, $curso->id_contexto),
             ])
             ->values()
             ->all();
+
+        return $cursos;
     }
 
     /**
      * Cursos en los que un estudiante está inscrito.
      *
-     * @return array<int, array{id_curso: int, nombre: string, cod_curso: string}>
+     * @return array<
+     *  int,
+     *  array{
+     *   id_curso: int,
+     *   nombre: string,
+     *   cod_curso: string,
+     *   agno_real: int,
+     *   semestre_real: int,
+     *   tiene_programa: bool,
+     *   permisos: array
+     *  }
+     * >
      */
     public function getEstudianteCourses(Estudiante $estudiante): array
     {
@@ -77,12 +113,16 @@ class UserCoursesService
             ->pluck('componente.curso')
             ->filter()
             ->unique('id_curso')
-            ->values()
-            ->map(fn($c) => [
-                'id_curso' => $c->id_curso,
-                'nombre'   => $c->nombre,
-                'cod_curso' => $c->cod_curso,
+            ->map(fn($curso) => [
+                'id_curso' => $curso->id_curso,
+                'nombre'   => $curso->nombre,
+                'cod_curso' => $curso->cod_curso,
+                'agno_real' => $curso->agno_real,
+                'semestre_real' => $curso->semestre_real,
+                'tiene_programa' => Programa::where('id_curso', $curso->id_curso)->exists(),
+                'permisos' => $this->getPermissionsForContext($estudiante->usuario, $curso->id_contexto),
             ])
+            ->values()
             ->all();
     }
 
@@ -92,8 +132,20 @@ class UserCoursesService
      * Usa permisos pre-agrupados (getAllPermissionsGroupedByContext) para evitar N+1.
      *
      * @param  \Illuminate\Support\Collection|null  $allPermsGrouped  Resultado de $user->getAllPermissionsGroupedByContext()
-     * @return array<int, array{id_curso: int, nombre: string, cod_curso: string, tiene_programa: bool, userPermissions: array}>
+     * @return array<
+     *  int,
+     *  array{
+     *   id_curso: int,
+     *   nombre: string,
+     *   cod_curso: string,
+     *   agno_real: int,
+     *   semestre_real: int,
+     *   tiene_programa: bool,
+     *   permisos: array
+     *  }
+     * >
      */
+    // Fix: firma de funcion toma grupo de permisos? no tiene sentido
     public function getAyudanteCourses(Usuario $user, ?\Illuminate\Support\Collection $allPermsGrouped): array
     {
         $contextoIds = UsuarioRolAsignacion::where('id_usuario', $user->id_usuario)
@@ -103,7 +155,7 @@ class UserCoursesService
             ->pluck('id_contexto');
 
         return Curso::whereIn('id_contexto', $contextoIds)
-            ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto')
+            ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto', 'agno_real', 'semestre_real')
             ->get()
             ->map(function ($c) use ($allPermsGrouped) {
                 $userPermissions = ($allPermsGrouped?->get($c->id_contexto) ?? collect([]))
@@ -119,8 +171,10 @@ class UserCoursesService
                     'id_curso'       => $c->id_curso,
                     'nombre'         => $c->nombre,
                     'cod_curso'      => $c->cod_curso,
+                    'agno_real'      => $c->agno_real,
+                    'semestre_real'  => $c->semestre_real,
                     'tiene_programa' => Programa::where('id_curso', $c->id_curso)->exists(),
-                    'userPermissions' => $userPermissions,
+                    'permisos' => $userPermissions,
                 ];
             })
             ->unique('id_curso')
