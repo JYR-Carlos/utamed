@@ -28,6 +28,7 @@
     deleteDepartamento,
   } from '@/modules/resources/facultad/services/facultadApi';
   import type { Facultad, PaginatedResponse, FacultadFormData } from '@/types/admin.types';
+  import type { BreadcrumbItem } from '@/types';
 
   /**
    * Props recibidas del servidor.
@@ -50,6 +51,11 @@
     canEdit = false,
     canDelete = false,
   }: Props = $props();
+
+  const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Facultades', href: '/admin/facultades' },
+  ];
 
   const flashSuccess = $derived(($page.props as any).flash?.success as string | undefined);
   const flashError = $derived(($page.props as any).flash?.error as string | undefined);
@@ -203,7 +209,7 @@
   }
 </script>
 
-<AdminLayout>
+<AdminLayout {breadcrumbs}>
   <div>
     <!-- Header -->
     <div class="flex justify-between items-start mb-8">

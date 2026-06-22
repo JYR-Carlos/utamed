@@ -415,7 +415,7 @@
           <br />
           {actividad.descripcion}
           <br class="mb-4" />
-          Fecha límite: {actividad.fecha_limite}
+          Fecha límite: {formatFecha(actividad.fecha_limite)}
           <br />
           Tipo Actividad: {actividad.es_sumativa ? 'Sumativa' : 'Formativa'}
           <br />

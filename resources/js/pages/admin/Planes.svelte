@@ -36,6 +36,7 @@
     PlanFormData,
     MallaData,
   } from '@/types/admin.types';
+  import type { BreadcrumbItem } from '@/types';
 
   /**
    * Props recibidas del servidor.
@@ -50,6 +51,11 @@
   }
 
   let { planes, carreras, filters }: Props = $props();
+
+  const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Planes de Estudio', href: '/admin/planes' },
+  ];
 
   // Modales
   let showModal = $state(false);
@@ -194,7 +200,7 @@
   {/if}
 {/snippet}
 
-<AdminLayout>
+<AdminLayout {breadcrumbs}>
   <div>
     <div class="flex justify-between items-start mb-8">
       <div>

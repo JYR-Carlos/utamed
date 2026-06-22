@@ -6,6 +6,7 @@
     AsignaturaDeleteConfirm,
   } from '@/modules/resources/asignatura';
   import type { Asignatura, PaginatedResponse } from '@/types/admin.types';
+  import type { BreadcrumbItem } from '@/types';
 
   interface Props {
     asignaturas: PaginatedResponse<Asignatura>;
@@ -13,6 +14,11 @@
   }
 
   let { asignaturas, filters }: Props = $props();
+
+  const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Asignaturas', href: '/admin/asignaturas' },
+  ];
 
   let showModal = $state(false);
   let showDeleteDialog = $state(false);
@@ -35,7 +41,7 @@
   }
 </script>
 
-<AdminLayout>
+<AdminLayout {breadcrumbs}>
   <AsignaturaList
     {asignaturas}
     onCreateNew={openCreateModal}

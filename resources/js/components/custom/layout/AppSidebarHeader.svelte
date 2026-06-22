@@ -146,7 +146,7 @@
     </button>
 
     {#if breadcrumbs.length > 0}
-      <div class="hidden sm:block breadcrumb-wrapper">
+      <div class="breadcrumb-wrapper">
         <Breadcrumbs {breadcrumbs} />
       </div>
     {/if}
@@ -274,6 +274,13 @@
     gap: 1rem;
     flex: 1;
     min-width: 0;
+    overflow: hidden;
+  }
+
+  .breadcrumb-wrapper {
+    min-width: 0;
+    overflow: hidden;
+    flex: 1;
   }
 
   .header-center {

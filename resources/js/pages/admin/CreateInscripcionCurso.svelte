@@ -9,6 +9,7 @@
     storeInscripcion,
     goToInscripcionesIndex,
   } from '@/modules/resources/inscripcion/services/inscripcionApi';
+  import type { BreadcrumbItem } from '@/types';
 
   interface Estudiante {
     id_estudiante: number;
@@ -28,6 +29,12 @@
   }
 
   let { cursos, estudiantes, idCursoSeleccionado }: Props = $props();
+
+  const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Inscripciones', href: '/admin/inscripciones_cursos' },
+    { title: 'Crear', href: '/admin/inscripciones_cursos/create' },
+  ];
 
   let formData = $state({
     id_curso: idCursoSeleccionado || 0,
@@ -85,7 +92,7 @@
   }
 </script>
 
-<AdminLayout>
+<AdminLayout {breadcrumbs}>
   <div class="max-w-2xl mx-auto px-4 sm:px-6 md:px-8">
     <div class="py-6">
       <!-- Header -->

@@ -31,6 +31,7 @@
   import { useFilteredList } from '@/lib/composables/useFilteredList';
   import { PAGINATION_OPTIONS, DEFAULT_PER_PAGE, STATUS_OPTIONS } from '@/constants/admin';
   import type { Carrera, Facultad, Departamento, PaginatedResponse } from '@/types/admin.types';
+  import type { BreadcrumbItem } from '@/types';
 
   interface Props {
     carreras: PaginatedResponse<Carrera>;
@@ -44,6 +45,11 @@
   }
 
   let { carreras, facultades, filters }: Props = $props();
+
+  const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Carreras', href: '/admin/carreras' },
+  ];
 
   // ────── Filtros y búsqueda ──────
   const { searchTerm, status, perPage, currentPage, setSearch, setStatus, setPerPage, goToPage } =
@@ -166,7 +172,7 @@
   });
 </script>
 
-<AdminLayout>
+<AdminLayout {breadcrumbs}>
   <div class="max-w-7xl mx-auto">
     <!-- Page header -->
     <div class="flex items-start justify-between mb-6">

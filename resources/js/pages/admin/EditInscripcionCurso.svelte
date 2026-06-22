@@ -9,6 +9,7 @@
     destroyInscripcionForm,
     goToInscripcionesIndex,
   } from '@/modules/resources/inscripcion/services/inscripcionApi';
+  import type { BreadcrumbItem } from '@/types';
 
   interface Usuario {
     nombre1: string;
@@ -45,6 +46,12 @@
   }
 
   let { inscripcion, curso }: Props = $props();
+
+  const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Inscripciones', href: '/admin/inscripciones_cursos' },
+    { title: 'Editar', href: '#' },
+  ];
 
   let formData = $state({
     cod_inscripcion_uta: inscripcion.cod_inscripcion_uta || '',
@@ -94,7 +101,7 @@
   }
 </script>
 
-<AdminLayout>
+<AdminLayout {breadcrumbs}>
   <div class="max-w-2xl mx-auto px-4 sm:px-6 md:px-8">
     <div class="py-6">
       <!-- Header -->

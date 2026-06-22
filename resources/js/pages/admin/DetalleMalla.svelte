@@ -11,6 +11,7 @@
     AsignacionPlan,
     MallaData,
   } from '@/modules/resources/detalle-malla/types/mallaCurricular.types';
+  import type { BreadcrumbItem } from '@/types';
 
   interface Props {
     plan: Plan;
@@ -20,6 +21,12 @@
   }
 
   let { plan, malla, asignaturas = [], flash }: Props = $props();
+
+  const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Planes de Estudio', href: '/admin/planes' },
+    { title: plan?.nombre ?? 'Detalle Malla', href: '#' },
+  ];
 
   // ── Stats para el header ─────────────────────────────────────────────────
   const assignedIds = $derived.by(() => {
@@ -70,7 +77,7 @@
   }
 </script>
 
-<AdminLayout>
+<AdminLayout {breadcrumbs}>
   <!-- ── Page header ─────────────────────────────────────────────────────── -->
   <div class="mb-6 flex items-start justify-between gap-4">
     <div>

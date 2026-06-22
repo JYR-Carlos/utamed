@@ -45,11 +45,17 @@
     UserType
   } from '@/types/usuarios/tipos'
   import { untrack } from 'svelte';
+  import type { BreadcrumbItem } from '@/types';
 
 
 
   type UserType = (typeof UserType)[keyof typeof UserType];
   type UserFormData = EstudianteFormData | DocenteFormData | AdministradorFormData;
+
+  const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Usuarios', href: '/admin/usuarios' },
+  ];
 
   const USER_TYPE_LABELS: Record<UserType, string> = {
     [UserType.STUDENT]: 'Estudiante',
@@ -378,7 +384,7 @@
   }
 </script>
 
-<AdminLayout>
+<AdminLayout {breadcrumbs}>
   <div>
     <div class="flex justify-between items-start mb-6">
       <div>

@@ -31,6 +31,7 @@
     EstadoInscripcion,
   } from '@/modules/resources/inscripcion/types/inscripcion.types';
   import type { PaginatedResponse } from '@/types/admin.types';
+  import type { BreadcrumbItem } from '@/types';
 
   interface Props {
     inscripciones: PaginatedResponse<RosterItem>;
@@ -39,6 +40,11 @@
   }
 
   let { inscripciones, cursos, filters }: Props = $props();
+
+  const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Inscripciones', href: '/admin/inscripciones_cursos' },
+  ];
 
   // ── Mode detection ──────────────────────────────────────────────────────────
   const activeCursoId = $derived(filters.id_curso ? Number(filters.id_curso) : null);
@@ -146,7 +152,7 @@
   }
 </script>
 
-<AdminLayout>
+<AdminLayout {breadcrumbs}>
   {#if isRosterMode}
     <RosterTable
       {roster}

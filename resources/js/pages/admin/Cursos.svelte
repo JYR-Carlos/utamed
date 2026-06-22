@@ -46,6 +46,7 @@
     Programa,
   } from '@/types/admin.types';
   import type { ComponenteFormState } from '@/modules/resources/curso/types/curso.types';
+  import type { BreadcrumbItem } from '@/types';
 
   /**
    * Props recibidas del servidor.
@@ -79,6 +80,11 @@
     availablePermissions = {},
     tipos_componente = [],
   }: Props = $props();
+
+  const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Cursos Ofertados', href: '/admin/cursos' },
+  ];
 
   let showModal = $state(false);
   let showWizardModal = $state(false);
@@ -439,7 +445,7 @@
   }
 </script>
 
-<AdminLayout>
+<AdminLayout {breadcrumbs}>
   <div>
     <!-- Tabla de cursos usando componente modular -->
     <CursoListAdmin

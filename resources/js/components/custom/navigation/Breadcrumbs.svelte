@@ -9,32 +9,34 @@
 
     interface Props {
         breadcrumbs: BreadcrumbItem[];
-        maxChars?: number;
     }
 
-    let { breadcrumbs, maxChars = 20 }: Props = $props();
+    let { breadcrumbs }: Props = $props();
 
-    function truncate(text: string, max: number): string {
-        return text.length > max ? text.slice(0, max).trimEnd() + '…' : text;
+    function onWheel(e: WheelEvent) {
+        const el = e.currentTarget as HTMLElement;
+        if (e.deltaY === 0) return;
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
     }
 </script>
 
 <Breadcrumb>
-    <!-- direction:rtl en el wrapper externo ancla el scroll al lado derecho
-         (muestra el último item / página actual primero) -->
-    <div class="overflow-x-auto scrollbar-none" style="direction: rtl;">
+    <!-- direction:rtl ancla el scroll al lado derecho (muestra el último item primero).
+         La máscara aplica degradado en ambos bordes para indicar scroll. -->
+    <div class="breadcrumb-scroll" style="direction: rtl;" onwheel={onWheel}>
         <BreadcrumbList class="flex-nowrap w-max" style="direction: ltr;">
             {#each breadcrumbs as item, index (index)}
                 <Item class="shrink-0">
                     {#if index === breadcrumbs.length - 1}
-                        <BreadcrumbPage title={item.title}>
-                            {truncate(item.title, maxChars)}
+                        <BreadcrumbPage>
+                            {item.title}
                         </BreadcrumbPage>
                     {:else}
                         <BreadcrumbLink>
                             {#snippet child({ props }: { props: Record<string, unknown> })}
-                                <Link {...props} href={item.href ?? '#'} title={item.title}>
-                                    {truncate(item.title, maxChars)}
+                                <Link {...props} href={item.href ?? '#'}>
+                                    {item.title}
                                 </Link>
                             {/snippet}
                         </BreadcrumbLink>
@@ -47,3 +49,28 @@
         </BreadcrumbList>
     </div>
 </Breadcrumb>
+
+<style>
+    .breadcrumb-scroll {
+        overflow-x: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        -webkit-mask-image: linear-gradient(
+            to right,
+            transparent 0%,
+            black 2rem,
+            black calc(100% - 2rem),
+            transparent 100%
+        );
+        mask-image: linear-gradient(
+            to right,
+            transparent 0%,
+            black 2rem,
+            black calc(100% - 2rem),
+            transparent 100%
+        );
+    }
+    .breadcrumb-scroll::-webkit-scrollbar {
+        display: none;
+    }
+</style>
