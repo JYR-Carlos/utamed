@@ -34,6 +34,17 @@
     cargo?: string;
   }
 
+  interface CursoAnterior {
+    id_curso: number;
+    cod_curso: number;
+    nombre: string | null;
+    agno_planificado: number | null;
+    semestre_planificado: number | null;
+    fecha_inicio: string | null;
+    total_componentes: number;
+    total_actividades: number;
+  }
+
   interface Props {
     isOpen: boolean;
     carreras: Carrera[];
@@ -41,26 +52,29 @@
     isLoading: boolean;
     onClose: () => void;
     onSubmit: (data: CursoFormData & { id_docente_sugerido?: number }) => void;
+    onCopyFromAnterior?: (cursoId: number, asignaturaNombre: string) => void;
   }
 
-  let { isOpen, carreras, tiposComponente, isLoading, onClose, onSubmit }: Props = $props();
+  let { isOpen, carreras, tiposComponente, isLoading, onClose, onSubmit, onCopyFromAnterior = () => {} }: Props = $props();
 
   // ── Step state ──────────────────────────────────────────────────────────
   let selectedCarrera = $state<Carrera | null>(null);
   let selectedPlan = $state<Plan | null>(null);
   let selectedAsig = $state<AsignaturaOption | null>(null);
   let selectedDocente = $state<DocenteOption | null>(null);
-  let selectedTipoComponente = $state<TipoComponente | null>(null);
+  let selectedTipos = $state<Set<number>>(new Set());
 
   // ── Fetched cascading data ───────────────────────────────────────────────
   let planes = $state<Plan[]>([]);
   let asignaturas = $state<AsignaturaOption[]>([]);
   let historicDocentes = $state<DocenteOption[]>([]);
   let otrosDocentes = $state<DocenteOption[]>([]);
+  let cursosAnteriores = $state<CursoAnterior[]>([]);
 
   let loadingPlanes = $state(false);
   let loadingAsig = $state(false);
   let loadingDocentes = $state(false);
+  let loadingCursosAnteriores = $state(false);
 
   // ── Remaining form fields ────────────────────────────────────────────────
   let codCurso = $state<number | ''>('');
@@ -70,6 +84,7 @@
   let semestreReal = $state<1 | 2>(1);
   let jefeImpartesClases = $state(true); // ← Nuevo: ¿El jefe dicta clases?
   let asigSearch = $state('');
+  let docenteSearch = $state('');
   // Componente (Cátedra) settings
   let generaActa = $state(true);
   let aprobacionObligatoria = $state(false);
@@ -114,6 +129,33 @@
   const filteredCount = $derived(
     Object.values(filteredAsigByYear).reduce((n, s) => n + s.s1.length + s.s2.length, 0),
   );
+
+  const filteredHistoricDocentes = $derived.by(() => {
+    const term = docenteSearch.trim().toLowerCase();
+    if (!term) return historicDocentes;
+    return historicDocentes.filter(
+      (d) =>
+        d.nombre_completo?.toLowerCase().includes(term) ||
+        d.cargo?.toLowerCase().includes(term),
+    );
+  });
+
+  const principalTipo = $derived.by(() => {
+    if (selectedTipos.size === 0) return null;
+    const selected = tiposComponente.filter((tc) => selectedTipos.has(tc.id_tipo_componente));
+    selected.sort((a, b) => (a.prioridad ?? 99) - (b.prioridad ?? 99));
+    return selected[0] ?? null;
+  });
+
+  const filteredOtrosDocentes = $derived.by(() => {
+    const term = docenteSearch.trim().toLowerCase();
+    if (!term) return otrosDocentes;
+    return otrosDocentes.filter(
+      (d) =>
+        d.nombre_completo?.toLowerCase().includes(term) ||
+        d.cargo?.toLowerCase().includes(term),
+    );
+  });
 
   // ── Cascade fetchers ────────────────────────────────────────────────────
   async function onSelectCarrera(carrera: Carrera) {
@@ -162,20 +204,31 @@
     selectedDocente = null;
     historicDocentes = [];
     otrosDocentes = [];
+    cursosAnteriores = [];
 
     loadingDocentes = true;
-    try {
-      const res = await fetch(`/admin/asignaturas/${asig.id_asignatura}/docentes-sugeridos`, {
+    loadingCursosAnteriores = true;
+
+    const [docentesRes, cursosRes] = await Promise.allSettled([
+      fetch(`/admin/asignaturas/${asig.id_asignatura}/docentes-sugeridos`, {
         headers: { Accept: 'application/json' },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        historicDocentes = json.historicos ?? [];
-        otrosDocentes = json.otros ?? [];
-      }
-    } finally {
-      loadingDocentes = false;
+      }),
+      fetch(`/admin/asignaturas/${asig.id_asignatura}/cursos-anteriores`, {
+        headers: { Accept: 'application/json' },
+      }),
+    ]);
+
+    if (docentesRes.status === 'fulfilled' && docentesRes.value.ok) {
+      const json = await docentesRes.value.json();
+      historicDocentes = json.historicos ?? [];
+      otrosDocentes = json.otros ?? [];
     }
+    loadingDocentes = false;
+
+    if (cursosRes.status === 'fulfilled' && cursosRes.value.ok) {
+      cursosAnteriores = await cursosRes.value.json();
+    }
+    loadingCursosAnteriores = false;
   }
 
   // ── Reset when modal closes ──────────────────────────────────────────────
@@ -185,18 +238,20 @@
       selectedPlan = null;
       selectedAsig = null;
       selectedDocente = null;
-      selectedTipoComponente = null;
+      selectedTipos = new Set();
       planes = [];
       asignaturas = [];
       historicDocentes = [];
       otrosDocentes = [];
+      cursosAnteriores = [];
       codCurso = '';
       nombre = '';
       fechaInicio = '';
       agnoReal = new Date().getFullYear();
       semestreReal = 1;
-      jefeImpartesClases = true; // ← Reset
+      jefeImpartesClases = true;
       asigSearch = '';
+      docenteSearch = '';
       generaActa = true;
       aprobacionObligatoria = false;
       porcentajeAprobacion = 60;
@@ -229,7 +284,8 @@
       !selectedPlan ||
       codCurso === '' ||
       !selectedDocente ||
-      !selectedTipoComponente
+      selectedTipos.size === 0 ||
+      !principalTipo
     )
       return;
 
@@ -244,7 +300,8 @@
       semestre_real: semestreReal,
       jefe_imparte_clases: jefeImpartesClases,
       id_docente_sugerido: selectedDocente?.id_docente,
-      id_tipo_componente_principal: selectedTipoComponente.id_tipo_componente,
+      id_tipo_componente_principal: principalTipo.id_tipo_componente,
+      tipos_componente_ids: [...selectedTipos],
       genera_acta: generaActa,
       aprobacion_obligatoria: aprobacionObligatoria,
       porcentaje_aprobacion: porcentajeAprobacion,
@@ -530,6 +587,56 @@
           {#if currentStep === 4}
             <div class="step-body">
               <div class="step4-scroll">
+                <!-- ══ Cursos anteriores de esta asignatura ══ -->
+                {#if loadingCursosAnteriores}
+                  <div class="anteriores-loading">
+                    <div class="inline-spinner"></div>
+                    <span class="text-xs text-gray-400">Buscando cursos anteriores…</span>
+                  </div>
+                {:else if cursosAnteriores.length > 0}
+                  <div class="anteriores-section">
+                    <div class="anteriores-header">
+                      <div class="anteriores-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                      </div>
+                      <div>
+                        <p class="anteriores-title">Cursos anteriores disponibles</p>
+                        <p class="anteriores-subtitle">
+                          Puedes copiar uno de estos cursos en lugar de crear desde cero.
+                          Las fechas de actividades se eliminarán.
+                        </p>
+                      </div>
+                    </div>
+                    <div class="anteriores-list">
+                      {#each cursosAnteriores as ca (ca.id_curso)}
+                        <button
+                          type="button"
+                          class="anterior-row"
+                          onclick={() => {
+                            onCopyFromAnterior(ca.id_curso, selectedAsig?.nombre ?? '');
+                            onClose();
+                          }}
+                        >
+                          <div class="anterior-info">
+                            <span class="anterior-cod">#{ca.cod_curso}</span>
+                            {#if ca.agno_planificado && ca.semestre_planificado}
+                              <span class="anterior-periodo">
+                                Año {ca.agno_planificado} · Sem. {ca.semestre_planificado}
+                              </span>
+                            {/if}
+                          </div>
+                          <div class="anterior-stats">
+                            <span class="anterior-stat">{ca.total_componentes} secc.</span>
+                            <span class="anterior-stat">{ca.total_actividades} activ.</span>
+                          </div>
+                          <span class="anterior-btn">Usar como base →</span>
+                        </button>
+                      {/each}
+                    </div>
+                  </div>
+                  <div class="fields-divider"></div>
+                {/if}
+
                 <!-- ¿El jefe imparte clases? -->
                 <div class="jefe-imparte-section">
                   <p class="jefe-imparte-label">¿El jefe de curso imparte clases en este curso?</p>
@@ -564,19 +671,48 @@
                 <!-- Divider -->
                 <div class="fields-divider"></div>
 
-                <!-- Tipo de Componente Principal -->
+                <!-- Componentes del curso -->
                 <div class="tipo-comp-section">
-                  <p class="tipo-comp-label">¿Qué tipo de componente es el principal?</p>
+                  <p class="tipo-comp-label">¿Qué componentes tendrá este curso?</p>
+                  <p class="tipo-comp-sublabel">
+                    Selecciona uno o más. El componente principal se determinará automáticamente
+                    (Cátedra &rsaquo; Taller &rsaquo; Laboratorio).
+                  </p>
                   <div class="tipo-comp-list">
                     {#each tiposComponente as tc}
+                      {@const isSelected = selectedTipos.has(tc.id_tipo_componente)}
+                      {@const isPrincipal =
+                        isSelected &&
+                        principalTipo?.id_tipo_componente === tc.id_tipo_componente}
                       <button
                         type="button"
                         class="tipo-comp-btn"
-                        class:selected={selectedTipoComponente?.id_tipo_componente ===
-                          tc.id_tipo_componente}
-                        onclick={() => (selectedTipoComponente = tc)}
+                        class:selected={isSelected}
+                        onclick={() => {
+                          const next = new Set(selectedTipos);
+                          if (next.has(tc.id_tipo_componente)) next.delete(tc.id_tipo_componente);
+                          else next.add(tc.id_tipo_componente);
+                          selectedTipos = next;
+                        }}
                       >
-                        {tc.tipo}
+                        <span class="tipo-comp-btn-name">{tc.tipo}</span>
+                        {#if isPrincipal}
+                          <span class="tipo-comp-principal-badge">Principal</span>
+                        {/if}
+                        {#if isSelected}
+                          <svg
+                            class="tipo-comp-check"
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="3"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg
+                          >
+                        {/if}
                       </button>
                     {/each}
                   </div>
@@ -602,14 +738,40 @@
                   {#if loadingDocentes}
                     <div class="inline-spinner"></div>
                   {:else}
+                    <!-- Buscador de docentes -->
+                    {#if historicDocentes.length > 0 || otrosDocentes.length > 0}
+                      <div class="docente-search-bar">
+                        <svg
+                          class="docente-search-icon"
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                        </svg>
+                        <input
+                          type="search"
+                          bind:value={docenteSearch}
+                          placeholder="Buscar por nombre o cargo…"
+                          class="docente-search-input"
+                        />
+                      </div>
+                    {/if}
+
                     <!-- Docentes históricos first -->
-                    {#if historicDocentes.length > 0}
+                    {#if filteredHistoricDocentes.length > 0}
                       <div class="docentes-group-label">
                         <span class="badge-historico">Historial</span>
                         Docentes que ya han impartido esta asignatura
                       </div>
                       <div class="docentes-list">
-                        {#each historicDocentes as d}
+                        {#each filteredHistoricDocentes as d}
                           <button
                             type="button"
                             class="docente-row"
@@ -646,14 +808,21 @@
                       </div>
                     {/if}
 
+                    <!-- Sin resultados de búsqueda -->
+                    {#if docenteSearch.trim() && filteredHistoricDocentes.length === 0 && filteredOtrosDocentes.length === 0}
+                      <p class="step-empty">
+                        No se encontraron docentes para &ldquo;{docenteSearch}&rdquo;.
+                      </p>
+                    {/if}
+
                     <!-- Other docentes in collapsible or always shown -->
-                    {#if otrosDocentes.length > 0}
-                      <details class="otros-docentes">
+                    {#if filteredOtrosDocentes.length > 0}
+                      <details class="otros-docentes" open={!!docenteSearch.trim()}>
                         <summary class="otros-label">
-                          Otros docentes <span class="otros-count">({otrosDocentes.length})</span>
+                          Otros docentes <span class="otros-count">({filteredOtrosDocentes.length})</span>
                         </summary>
                         <div class="docentes-list mt-2">
-                          {#each otrosDocentes as d}
+                          {#each filteredOtrosDocentes as d}
                             <button
                               type="button"
                               class="docente-row"
@@ -833,8 +1002,8 @@
       <!-- ── Footer (inside form so submit works) ── -->
       {#if currentStep === 4}
         <div class="wiz-footer">
-          {#if !selectedTipoComponente}
-            <p class="docente-required-hint">Debes seleccionar el tipo de componente principal.</p>
+          {#if selectedTipos.size === 0}
+            <p class="docente-required-hint">Debes seleccionar al menos un componente.</p>
           {:else if !selectedDocente}
             <p class="docente-required-hint">Debes seleccionar un docente para continuar.</p>
           {/if}
@@ -850,7 +1019,7 @@
                 !selectedPlan ||
                 codCurso === '' ||
                 !selectedDocente ||
-                !selectedTipoComponente}
+                selectedTipos.size === 0}
             >
               {#if isLoading}
                 <span class="btn-spinner"></span>
@@ -1344,6 +1513,39 @@
 
   /* ── Docentes ── */
 
+  .docente-search-bar {
+    position: relative;
+    margin-bottom: 0.75rem;
+  }
+
+  .docente-search-icon {
+    position: absolute;
+    left: 0.625rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    pointer-events: none;
+  }
+
+  .docente-search-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem 0.5rem 2rem;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    color: #111827;
+    outline: none;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+  }
+  .docente-search-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+  .docente-search-input::-webkit-search-cancel-button {
+    cursor: pointer;
+  }
+
   .docentes-section {
     margin-bottom: 0.75rem;
   }
@@ -1527,7 +1729,13 @@
     font-size: 0.875rem;
     font-weight: 600;
     color: #374151;
-    margin-bottom: 0.625rem;
+    margin: 0 0 0.25rem;
+  }
+
+  .tipo-comp-sublabel {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin: 0 0 0.75rem;
   }
 
   .tipo-comp-list {
@@ -1537,11 +1745,14 @@
   }
 
   .tipo-comp-btn {
-    padding: 0.5rem 1.125rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.875rem;
     border: 2px solid #d1d5db;
     border-radius: 8px;
     background: #ffffff;
-    font-size: 0.9rem;
+    font-size: 0.875rem;
     font-weight: 500;
     color: #374151;
     cursor: pointer;
@@ -1553,6 +1764,7 @@
 
   .tipo-comp-btn:hover {
     border-color: #6366f1;
+    background: #f5f3ff;
     color: #4f46e5;
   }
 
@@ -1560,7 +1772,27 @@
     border-color: #6366f1;
     background: #eef2ff;
     color: #4338ca;
+    font-weight: 600;
+  }
+
+  .tipo-comp-btn-name {
+    line-height: 1;
+  }
+
+  .tipo-comp-principal-badge {
+    font-size: 0.625rem;
     font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: #6366f1;
+    color: #fff;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+  }
+
+  .tipo-comp-check {
+    color: #6366f1;
+    flex-shrink: 0;
   }
 
   .fields-section-title {
@@ -1742,5 +1974,129 @@
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
     margin: 0.5rem 0;
+  }
+
+  /* ── Cursos anteriores ── */
+  .anteriores-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .anteriores-section {
+    border: 1.5px solid #c7d2fe;
+    border-radius: 10px;
+    background: #f5f3ff;
+    padding: 0.875rem 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .anteriores-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .anteriores-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: #e0e7ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4f46e5;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .anteriores-title {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #3730a3;
+    margin: 0 0 0.2rem;
+  }
+
+  .anteriores-subtitle {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .anteriores-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .anterior-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border: 1.5px solid #c7d2fe;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    width: 100%;
+  }
+
+  .anterior-row:hover {
+    border-color: #6366f1;
+    background: #eef2ff;
+  }
+
+  .anterior-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .anterior-cod {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #4338ca;
+    white-space: nowrap;
+  }
+
+  .anterior-periodo {
+    font-size: 0.75rem;
+    color: #6b7280;
+    white-space: nowrap;
+  }
+
+  .anterior-stats {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .anterior-stat {
+    font-size: 0.6875rem;
+    color: #6b7280;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+  }
+
+  .anterior-btn {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #4f46e5;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .anterior-row:hover .anterior-btn {
+    color: #3730a3;
   }
 </style>

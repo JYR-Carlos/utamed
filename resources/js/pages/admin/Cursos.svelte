@@ -19,6 +19,7 @@
   import SyllabusModal from '@/modules/resources/programa/components/SyllabusModal.svelte';
   import SyllabusTypeSelector from '@/modules/resources/programa/components/SyllabusTypeSelector.svelte';
   import { CourseTeamModal, CursoWizardModal } from '@/modules/resources/curso/components';
+  import CursoCopyPreviewModal from '@/modules/resources/curso/components/cursoCopyPreviewModal.svelte';
   // ── Componentes modulares FASE 1 ──
   import CursoForm from '@/modules/resources/curso/components/cursoForm.svelte';
   import CursoDeleteConfirm from '@/modules/resources/curso/components/cursoDeleteConfirm.svelte';
@@ -87,6 +88,8 @@
   let showInscriptionModal = $state(false);
   let showSyllabusTypeSelector = $state(false);
   let showSyllabusModal = $state(false);
+  let showCopyModal = $state(false);
+  let copyingCurso = $state<Curso | null>(null);
   let isLoading = $state(false);
   let editingCurso = $state<Curso | null>(null);
   let deletingCurso = $state<Curso | null>(null);
@@ -384,6 +387,12 @@
     });
   }
 
+  function openCopyModal(curso: Curso) {
+    copyingCurso = curso;
+    showCopyModal = true;
+    closeSlideOver();
+  }
+
   function openSyllabusModal(curso: Curso) {
     if (curso.has_programa || curso.id_programa || curso.programa_estado) {
       router.visit(`/admin/cursos/${curso.id_curso}/programa/revisar`, { method: 'get' });
@@ -677,6 +686,7 @@
       closeSlideOver();
       openSyllabusModal(curso);
     }}
+    onCopy={openCopyModal}
     onAddComponente={(curso) => {
       closeSlideOver();
       openComponenteModal(curso);
@@ -706,6 +716,11 @@
       showWizardModal = false;
     }}
     onSubmit={handleWizardSubmit}
+    onCopyFromAnterior={(cursoId, asignaturaNombre) => {
+      showWizardModal = false;
+      copyingCurso = { id_curso: cursoId, asignatura_nombre: asignaturaNombre } as any;
+      showCopyModal = true;
+    }}
   />
 
   <!-- TODO: FASE 2 Refactorización - Componentes de formulario a implementar -->
@@ -731,6 +746,23 @@
     onCancel={closeDeleteDialog}
     {isLoading}
   />
+
+  <!-- Modal de pre-visualización y confirmación de copia de curso -->
+  {#if copyingCurso}
+    <CursoCopyPreviewModal
+      bind:isOpen={showCopyModal}
+      curso={copyingCurso}
+      onClose={() => {
+        showCopyModal = false;
+        copyingCurso = null;
+      }}
+      onSuccess={() => {
+        showCopyModal = false;
+        copyingCurso = null;
+        showToast('Curso copiado exitosamente', 'success');
+      }}
+    />
+  {/if}
 
   <!-- ComponenteForm Modal - Crear/Editar componentes -->
   {#if editingCurso}

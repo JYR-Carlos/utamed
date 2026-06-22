@@ -11,7 +11,7 @@
    * Se activa haciendo clic en cualquier fila de la tabla principal.
    * La tabla de fondo queda levemente oscurecida (backdrop) con blur mínimo.
    */
-  import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight, Calendar } from 'lucide-svelte';
+  import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight, Calendar, Copy } from 'lucide-svelte';
   import { router } from '@inertiajs/svelte';
   import type { Curso, Componente } from '../types/curso.types';
 
@@ -23,6 +23,7 @@
     onDelete?: (curso: Curso) => void;
     onTeam?: (curso: Curso) => void;
     onSyllabus?: (curso: Curso) => void;
+    onCopy?: (curso: Curso) => void;
     onAddComponente?: (curso: Curso) => void;
     onEditComponente?: (curso: Curso, comp: Componente) => void;
     onDeleteComponente?: (curso: Curso, comp: Componente) => void;
@@ -36,6 +37,7 @@
     onDelete = () => {},
     onTeam = () => {},
     onSyllabus = () => {},
+    onCopy = () => {},
     onAddComponente = () => {},
     onEditComponente = () => {},
     onDeleteComponente = () => {},
@@ -611,13 +613,23 @@
       >
         Cerrar
       </button>
-      <button
-        onclick={() => onEdit(curso)}
-        class="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:scale-[0.98] transition shadow-sm"
-      >
-        <Edit2 size={14} />
-        Editar curso
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          onclick={() => onCopy(curso)}
+          class="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 active:scale-[0.98] transition"
+          title="Copiar este curso en un nuevo período"
+        >
+          <Copy size={14} />
+          Copiar
+        </button>
+        <button
+          onclick={() => onEdit(curso)}
+          class="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:scale-[0.98] transition shadow-sm"
+        >
+          <Edit2 size={14} />
+          Editar curso
+        </button>
+      </div>
     </div>
   </div>
 {/if}

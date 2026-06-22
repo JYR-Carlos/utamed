@@ -516,6 +516,7 @@ export interface CursoFormData {
     id_docente_sugerido?: number;
     // Componente settings
     id_tipo_componente_principal?: number;
+    tipos_componente_ids?: number[];
     genera_acta?: boolean;
     aprobacion_obligatoria?: boolean;
     porcentaje_aprobacion?: number;

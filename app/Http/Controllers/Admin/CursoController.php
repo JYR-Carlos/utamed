@@ -231,6 +231,42 @@ class CursoController extends Controller
     }
 
     /**
+     * Returns previous courses for a given asignatura (for copy-from-previous feature).
+     * Returns id_curso, cod_curso, period info, and component/activity counts.
+     */
+    public function getCursosAnteriores(Asignatura $asignatura)
+    {
+        $cursos = Curso::query()
+            ->whereHas('asignacionPlan', fn($q) =>
+                $q->where('id_asignatura', $asignatura->id_asignatura)
+            )
+            ->whereNull('fecha_eliminacion')
+            ->with([
+                'asignacionPlan',
+                'componentes.actividades',
+            ])
+            ->withCount('componentes')
+            ->orderBy('fecha_inicio', 'desc')
+            ->limit(10)
+            ->get();
+
+        return response()->json($cursos->map(function ($c) {
+            $ap = $c->asignacionPlan;
+            $totalActividades = $c->componentes->sum(fn($comp) => $comp->actividades->count());
+            return [
+                'id_curso'          => $c->id_curso,
+                'cod_curso'         => $c->cod_curso,
+                'nombre'            => $c->nombre,
+                'agno_planificado'  => $ap?->agno_planificado,
+                'semestre_planificado' => $ap?->semestre_planificado,
+                'fecha_inicio'      => $c->fecha_inicio?->format('Y-m-d'),
+                'total_componentes' => $c->componentes_count,
+                'total_actividades' => $totalActividades,
+            ];
+        })->values());
+    }
+
+    /**
      * Retorna docentes sugeridos para una asignatura.
      * Históricamente la han impartido primero, luego el resto.
      */
@@ -286,6 +322,105 @@ class CursoController extends Controller
         return response()->json([
             'data' => \App\Http\Resources\DocenteResource::collection($docentes)
         ]);
+    }
+
+    /**
+     * Returns preview data for course copy modal (syllabus, components, teachers, activities).
+     * Excludes students and activity responses.
+     */
+    public function previewCopia(Curso $curso)
+    {
+        $curso->load([
+            'asignacionPlan.asignatura',
+            'asignacionPlan.plan.carrera',
+            'componentes.tipoComponente',
+            'componentes.docenteComponentes.docente.usuario',
+            'componentes.actividades',
+            'docenteTitular.usuario',
+        ]);
+
+        $programa = $curso->programas()->where('es_actual', true)->first();
+
+        $ap = $curso->asignacionPlan;
+        $periodo = null;
+        if ($ap?->agno_planificado && $ap?->semestre_planificado) {
+            $periodo = "Año {$ap->agno_planificado} · Semestre {$ap->semestre_planificado}";
+        }
+
+        return response()->json([
+            'curso' => [
+                'id_curso'         => $curso->id_curso,
+                'cod_curso'        => $curso->cod_curso,
+                'nombre'           => $curso->nombre,
+                'asignatura_nombre'=> $ap?->asignatura?->nombre,
+                'cod_asignatura'   => $ap?->asignatura?->cod_asignatura,
+                'carrera_nombre'   => $ap?->plan?->carrera?->nombre,
+                'periodo'          => $periodo,
+                'fecha_inicio'     => $curso->fecha_inicio?->format('Y-m-d'),
+                'es_colegiado'     => $curso->es_colegiado,
+            ],
+            'programa' => $programa ? [
+                'estado'        => $programa->estado,
+                'tipo_syllabus' => $programa->getTipoSyllabus(),
+                'version'       => $programa->version_programa,
+            ] : null,
+            'componentes' => $curso->componentes->map(function ($comp) {
+                return [
+                    'id_componente'  => $comp->id_componente,
+                    'tipo'           => $comp->tipoComponente?->tipo ?? '—',
+                    'genera_acta'    => $comp->genera_acta,
+                    'porcentaje_aprobacion'            => $comp->porcentaje_aprobacion,
+                    'aprobacion_obligatoria'           => $comp->aprobacion_obligatoria,
+                    'porcentaje_asistencia_obligatoria'=> $comp->porcentaje_asistencia_obligatoria,
+                    'docentes' => $comp->docenteComponentes->map(function ($dc) {
+                        $u = $dc->docente?->usuario;
+                        return [
+                            'nombre'    => $u ? trim(($u->nombre1 ?? '') . ' ' . ($u->apellido1 ?? '')) : '—',
+                            'cargo'     => $dc->docente?->cargo,
+                            'es_titular'=> $dc->es_titular,
+                        ];
+                    })->values(),
+                    'actividades' => $comp->actividades->map(fn($a) => [
+                        'id_actividad'   => $a->id_actividad,
+                        'nombre'         => $a->nombre,
+                        'tipo_actividad' => $a->tipo_actividad instanceof \App\Enums\DB\TipoActividad
+                            ? $a->tipo_actividad->value
+                            : $a->tipo_actividad,
+                        'ponderacion'    => $a->ponderacion,
+                        'fecha_limite'   => $a->fecha_limite?->format('Y-m-d'),
+                        'es_grupal'      => $a->es_grupal,
+                    ])->values(),
+                ];
+            })->values(),
+        ]);
+    }
+
+    /**
+     * Copies a course (structure, components, teachers, activities) into a new course.
+     * Activity dates are reset to null; students and responses are NOT copied.
+     */
+    public function copiar(Request $request, Curso $curso)
+    {
+        $request->validate([
+            'cod_curso'   => 'required|integer|min:1',
+            'fecha_inicio'=> 'required|date',
+        ]);
+
+        try {
+            $this->cursoService->copiar($curso, [
+                'cod_curso'   => (int) $request->cod_curso,
+                'fecha_inicio'=> $request->fecha_inicio,
+            ]);
+
+            return redirect()
+                ->route('admin.cursos.index')
+                ->with('success', 'Curso copiado exitosamente.');
+        } catch (\Exception $e) {
+            Log::error('[CursoController@copiar] Error: ' . $e->getMessage(), [
+                'curso_id' => $curso->id_curso,
+            ]);
+            return back()->withErrors(['error' => 'Error al copiar el curso: ' . $e->getMessage()]);
+        }
     }
 
     /**

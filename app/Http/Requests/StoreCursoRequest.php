@@ -52,6 +52,8 @@ class StoreCursoRequest extends FormRequest
                 },
             ],
             'id_tipo_componente_principal'      => 'required|integer|exists:tipo_componente,id_tipo_componente',
+            'tipos_componente_ids'              => 'nullable|array|min:1',
+            'tipos_componente_ids.*'            => 'integer|exists:tipo_componente,id_tipo_componente',
             'jefe_imparte_clases'               => 'nullable|boolean',
             'genera_acta'                       => 'nullable|boolean',
             'aprobacion_obligatoria'            => 'nullable|boolean',

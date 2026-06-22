@@ -113,6 +113,13 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::resource('carreras', CarreraController::class);
     Route::resource('planes', PlanController::class)->parameters(['planes' => 'plan']);
     Route::resource('asignaturas', AsignaturaController::class);
+
+    // Copia de curso (BEFORE resource to avoid conflict with {curso} binding)
+    Route::get('cursos/{curso}/preview-copia', [CursoController::class, 'previewCopia'])
+        ->name('cursos.preview-copia');
+    Route::post('cursos/{curso}/copiar', [CursoController::class, 'copiar'])
+        ->name('cursos.copiar');
+
     Route::resource('cursos', CursoController::class);
 
     Route::get('usuarios/buscar-por-rut', [UsuarioController::class, 'buscarPorRut'])
@@ -126,6 +133,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     // Curso routes
     Route::get('cursos/{plan}/asignaturas-disponibles', [CursoController::class, 'getAsignaturasByPlan'])
         ->name('cursos.asignaturas-disponibles');
+    Route::get('asignaturas/{asignatura}/cursos-anteriores', [CursoController::class, 'getCursosAnteriores'])
+        ->name('asignaturas.cursos-anteriores');
     Route::get('asignaturas/{asignatura}/docentes-sugeridos', [CursoController::class, 'getDocentesSugeridos'])
         ->name('asignaturas.docentes-sugeridos');
 

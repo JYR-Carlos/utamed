@@ -92,6 +92,33 @@ class CursoService
                         'es_titular'    => true,
                     ]);
                 }
+
+                // Crear componentes adicionales (distintos al principal)
+                $tiposAdicionales = array_filter(
+                    $data['tipos_componente_ids'] ?? [],
+                    fn($id) => (int) $id !== (int) $tipoComponente->id_tipo_componente
+                );
+
+                foreach ($tiposAdicionales as $tipoId) {
+                    $tipoAdicional = TipoComponente::find((int) $tipoId);
+                    if (!$tipoAdicional) {
+                        continue;
+                    }
+
+                    $ctxAdicional = $this->createOrUpdateContext(
+                        $data['cod_curso'] . '-' . $tipoAdicional->id_tipo_componente
+                    );
+
+                    Componente::create([
+                        'id_curso'                          => $curso->id_curso,
+                        'id_tipo_componente'                => $tipoAdicional->id_tipo_componente,
+                        'id_contexto'                       => $ctxAdicional->id_contexto,
+                        'genera_acta'                       => $data['genera_acta'] ?? true,
+                        'aprobacion_obligatoria'            => $data['aprobacion_obligatoria'] ?? false,
+                        'porcentaje_aprobacion'             => $data['porcentaje_aprobacion'] ?? 60.00,
+                        'porcentaje_asistencia_obligatoria' => $data['porcentaje_asistencia_obligatoria'] ?? 75.00,
+                    ]);
+                }
             }
 
             return $curso;
@@ -99,8 +126,102 @@ class CursoService
     }
 
     /**
+     * Copy an existing course preserving structure, components, teachers and activities.
+     * Activity dates are reset to null. Students and responses are NOT copied.
+     *
+     * @param Curso $cursoPadre The source course
+     * @param array $data Must contain 'cod_curso' (int) and 'fecha_inicio' (Y-m-d string)
+     * @return Curso
+     */
+    public function copiar(Curso $cursoPadre, array $data): Curso
+    {
+        return DB::transaction(function () use ($cursoPadre, $data) {
+            $cursoPadre->load([
+                'componentes.tipoComponente',
+                'componentes.docenteComponentes',
+                'componentes.actividades',
+            ]);
+
+            $contexto = $this->createOrUpdateContext((string) $data['cod_curso']);
+            $fechaInicio = $data['fecha_inicio'];
+
+            $nuevoCurso = Curso::create([
+                'cod_curso'           => $data['cod_curso'],
+                'nombre'              => $cursoPadre->nombre,
+                'fecha_inicio'        => $fechaInicio,
+                'fecha_fin'           => $this->calculateFechaFin($fechaInicio),
+                'id_asignacion_plan'  => $cursoPadre->id_asignacion_plan,
+                'id_contexto'         => $contexto->id_contexto,
+                'id_docente_titular'  => $cursoPadre->id_docente_titular,
+                'es_colegiado'        => $cursoPadre->es_colegiado,
+                'indice_grupo'        => $cursoPadre->indice_grupo ?? 1,
+                'id_curso_padre'      => $cursoPadre->id_curso,
+            ]);
+
+            // Assign titular role in the new course context
+            if ($cursoPadre->id_docente_titular) {
+                $this->assignDocenteRolCurso(
+                    $cursoPadre->id_docente_titular,
+                    $contexto->id_contexto,
+                    true
+                );
+            }
+
+            foreach ($cursoPadre->componentes as $comp) {
+                $ctxComp = $this->createOrUpdateContext(
+                    $data['cod_curso'] . '-' . $comp->id_tipo_componente
+                );
+
+                $nuevoComp = Componente::create([
+                    'id_curso'                          => $nuevoCurso->id_curso,
+                    'id_tipo_componente'                => $comp->id_tipo_componente,
+                    'id_contexto'                       => $ctxComp->id_contexto,
+                    'genera_acta'                       => $comp->genera_acta,
+                    'aprobacion_obligatoria'            => $comp->aprobacion_obligatoria,
+                    'porcentaje_aprobacion'             => $comp->porcentaje_aprobacion,
+                    'porcentaje_asistencia_obligatoria' => $comp->porcentaje_asistencia_obligatoria,
+                ]);
+
+                foreach ($comp->docenteComponentes as $dc) {
+                    DocenteComponente::create([
+                        'id_componente' => $nuevoComp->id_componente,
+                        'id_docente'    => $dc->id_docente,
+                        'es_titular'    => $dc->es_titular,
+                    ]);
+                }
+
+                foreach ($comp->actividades as $act) {
+                    \App\Models\Agenda\Actividad::create([
+                        'nombre'          => $act->nombre,
+                        'fecha_limite'    => null,
+                        'visible'         => $act->visible,
+                        'ponderacion'     => $act->ponderacion,
+                        'exigencia'       => $act->exigencia,
+                        'tipo_actividad'  => $act->tipo_actividad instanceof \App\Enums\DB\TipoActividad
+                            ? $act->tipo_actividad->value
+                            : $act->tipo_actividad,
+                        'tipo_entrega'    => $act->tipo_entrega,
+                        'es_grupal'       => $act->es_grupal,
+                        'max_integrantes' => $act->max_integrantes,
+                        'es_plantilla'    => false,
+                        'id_componente'   => $nuevoComp->id_componente,
+                    ]);
+                }
+            }
+
+            Log::info('[CursoService@copiar] Curso copiado', [
+                'id_curso_padre' => $cursoPadre->id_curso,
+                'id_curso_nuevo' => $nuevoCurso->id_curso,
+                'cod_curso'      => $data['cod_curso'],
+            ]);
+
+            return $nuevoCurso;
+        });
+    }
+
+    /**
      * Update an existing course.
-     * 
+     *
      * AUDIT: Tracks professor jefe changes and synchronizes access revocation
      *
      * @param Curso $curso
