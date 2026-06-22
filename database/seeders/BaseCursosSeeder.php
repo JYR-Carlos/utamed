@@ -58,7 +58,7 @@ class BaseCursosSeeder extends Seeder
                         'fecha_inicio' => now()->subMonths(random_int(1, 6)),
                         'fecha_fin' => now()->addMonths(random_int(1, 6)),
                         'agno_real' => now()->year,
-                        'semestre_real' => $asignacionPlan->semestre_real,
+                        'semestre_real' => $asignacionPlan->semestre_planificado,
                         'estado_interno' => 'activo',
                         'estado_acta' => 'pendiente',
                         'es_plantilla' => $c === 2, // El segundo es plantilla

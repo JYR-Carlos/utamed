@@ -61,9 +61,9 @@ class EquipoDesarrolloSeeder extends Seeder
 
     // Buscar el rol SuperAdmin en la base de datos
     $rolSuperAdmin = Rol::where('nombre', 'SuperAdmin')->first();
-
-    if (!$rolSuperAdmin) {
-      $this->command->warn("Precaución: No se encontró el rol 'SuperAdmin' en la base de datos.");
+    $superAdmin = Usuario::where('username', 'superadmin')->first();
+    if (!$superAdmin || !$rolSuperAdmin) {
+      throw new \Exception("El usuario 'superadmin' no existe o el rol 'SuperAdmin' no existe. Asegúrate de ejecutar los seeders correspondientes antes de este.");
     }
 
     foreach ($equipo as $datos) {
@@ -95,7 +95,7 @@ class EquipoDesarrolloSeeder extends Seeder
         // Si Rodrigo es el primer SuperAdmin, se asigna a sí mismo el rol
         // para evitar depender de un 'superadmin' genérico que podría no existir aún
         $asignacion = $usuario->giveRole($rolSuperAdmin)
-          ->as($usuario)
+          ->as($superAdmin)
           ->inGlobalContext();
 
         if ($asignacion) {
