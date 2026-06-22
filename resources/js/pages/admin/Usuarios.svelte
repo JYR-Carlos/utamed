@@ -16,6 +16,7 @@
    * - Modal para asignar roles y permisos especiales (RBAC)
    * - Confirmación antes de eliminación
    */
+  import { router } from '@inertiajs/svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import PermissionsModal from '@/components/custom/admin/permissions-modal/PermissionsModal.svelte';
   import {
@@ -293,7 +294,7 @@
         isLoading = false;
         fileToImport = null; 
       },
-      onError: (errors) => {
+      onError: (errors: Record<string, string>) => {
         handleError('importar usuarios', errors);
         isLoading = false;
       },

@@ -36,7 +36,7 @@ export async function patchEstado(
 export async function bulkInscribir(
     idCurso: number,
     ids: number[],
-): Promise<{ created: RosterItem[]; skipped: number[] }> {
+): Promise<{ created: RosterItem[]; skipped: number[]; errors?: { razon?: string; error_detail?: string }[] }> {
     const { data } = await axios.post('/admin/inscripciones_cursos/bulk', {
         id_curso: idCurso,
         id_estudiantes: ids,

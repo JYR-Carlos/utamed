@@ -52,14 +52,7 @@
   const periodoActual = `${now.getFullYear()} – Semestre ${semestre}`;
 
   // ── Active route detection ─────────────────────────────────
-  const currentPath = $derived.by(() => {
-    if (!$page.url) return '';
-    if (typeof $page.url === 'string') return $page.url;
-    if (typeof $page.url === 'object' && 'pathname' in $page.url) {
-      return $page.url.pathname;
-    }
-    return '';
-  });
+  const currentPath = $derived($page.url ?? '');
 
   function isActive(href: string): boolean {
     if (!currentPath) return false;

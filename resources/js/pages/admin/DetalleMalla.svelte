@@ -95,7 +95,7 @@
       </a>
       <h1 class="text-2xl font-bold text-gray-900">Editar Malla Curricular</h1>
       <p class="text-sm text-gray-500 mt-0.5">
-        {plan.carrera?.nombre ?? ''} · Año {plan.agno} · v{plan.version_plan}
+        {plan.carrera?.nombre ?? ''} · Año {plan.agno_plan} · v{plan.version_plan}
       </p>
     </div>
     <div class="flex items-center gap-3 shrink-0">

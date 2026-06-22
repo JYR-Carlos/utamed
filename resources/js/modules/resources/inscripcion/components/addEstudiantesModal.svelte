@@ -83,7 +83,8 @@
       onInscribed(json.created ?? []);
       const created = (json.created ?? []).length;
       const skipped = (json.skipped ?? []).length;
-      const errors = (json.errors ?? []).length;
+      const errorList = json.errors ?? [];
+      const errors = errorList.length;
 
       let message = '';
       if (created > 0) {
@@ -93,9 +94,9 @@
         if (message) message += ' ';
         message += `${skipped} omitido${skipped !== 1 ? 's' : ''} (${json.skipped?.map((s: any) => s.razon || 'desconocido').join(', ') || 'sin detalles'}).`;
       }
-      if (errors > 0 && json.errors?.length > 0) {
+      if (errors > 0) {
         if (message) message += ' ';
-        message += `Error${errors !== 1 ? 'es' : ''}: ${json.errors.map((e: any) => e.error_detail || e.razon).join('; ')}.`;
+        message += `Error${errors !== 1 ? 'es' : ''}: ${errorList.map((e) => e.error_detail || e.razon).join('; ')}.`;
       }
 
       close();

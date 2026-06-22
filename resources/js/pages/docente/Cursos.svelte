@@ -51,17 +51,6 @@
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  function getProgress(curso: any): number {
-    const total = curso.total_estudiantes || 0;
-    const pendientes = curso.pendientes_calificar ?? 0;
-    if (total === 0) return 100;
-    return Math.round(((total - pendientes) / total) * 100);
-  }
-
-  function getProgressColor(p: number): string {
-    return p >= 75 ? '#10B981' : p >= 50 ? '#F59E0B' : '#EF4444';
-  }
-
   function getInitials(name: string): string {
     return (name || '?')
       .split(' ')
@@ -143,10 +132,6 @@
     return out;
   });
 
-  // ── Progress ring constants ────────────────────────────────────────────────
-
-  const R = 18;
-  const C = 2 * Math.PI * R;
 </script>
 
 <DocenteLayout>
@@ -263,11 +248,8 @@
           <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
             {#each courses as curso (curso.id_curso)}
               {@const a = curso._a}
-              {@const prog = getProgress(curso)}
-              {@const pCol = getProgressColor(prog)}
               {@const inits = getInitials(curso.nombre ?? '')}
               {@const urgent = (curso.pendientes_calificar ?? 0) > 0}
-              {@const offset = C - (prog / 100) * C}
               {@const pid = `dp-${curso.id_curso}`}
 
               <article
@@ -332,24 +314,6 @@
                   {/if}
                 </div>
 
-                <div class="grid grid-cols-[auto_1fr_auto] items-center gap-[11px] pt-[13px] mt-auto border-t border-[#E8EAF0]">
-                  <svg width="44" height="44" role="img" aria-label="Progreso calificaciones: {prog}%">
-                    <circle cx="22" cy="22" r={R} stroke="#E6E8EE" stroke-width="4" fill="none" />
-                    <circle
-                      cx="22" cy="22" r={R}
-                      stroke={pCol} stroke-width="4" fill="none"
-                      stroke-linecap="round"
-                      stroke-dasharray={C} stroke-dashoffset={offset}
-                      transform="rotate(-90 22 22)"
-                    />
-                    <text x="50%" y="50%" dy="0.35em" text-anchor="middle" class="text-[0.6875rem] font-bold fill-[#0E1220]" aria-hidden="true">{prog}%</text>
-                  </svg>
-                  <div class="flex flex-col gap-px min-w-0">
-                    <span class="text-[0.8125rem] font-medium text-[#0E1220]">Calificaciones</span>
-                    <span class="text-xs text-[#5C6478]">{prog === 100 ? 'Completas' : `${100 - prog}% pendiente`}</span>
-                  </div>
-                  <div class="w-[34px] h-[34px] rounded-[9px] bg-[#FAFBFC] flex items-center justify-center text-[#5C6478] transition-all group-hover:bg-[var(--ac)] group-hover:text-white group-hover:translate-x-0.5 shrink-0" aria-hidden="true"><ArrowRight size={17} /></div>
-                </div>
               </article>
             {/each}
           </div>
@@ -358,8 +322,6 @@
           <div class="flex flex-col gap-2">
             {#each courses as curso (curso.id_curso)}
               {@const a = curso._a}
-              {@const prog = getProgress(curso)}
-              {@const pCol = getProgressColor(prog)}
               {@const inits = getInitials(curso.nombre ?? '')}
               {@const urgent = (curso.pendientes_calificar ?? 0) > 0}
               {@const pid2 = `dpl-${curso.id_curso}`}
@@ -419,14 +381,7 @@
                   </div>
                 </div>
 
-                <div class="flex items-center gap-[9px] w-[160px] shrink-0 max-md:hidden">
-                  <div class="flex-1 h-1.5 bg-[#E8EAF0] rounded-full overflow-hidden">
-                    <div class="h-full rounded-full transition-all duration-400 ease-in-out" style="width:{prog}%;background:{pCol}"></div>
-                  </div>
-                  <span class="text-xs font-semibold text-[#2B3142] min-w-[34px] text-right">{prog}%</span>
-                </div>
-
-                <div class="w-[30px] h-[30px] rounded-[8px] bg-[#FAFBFC] flex items-center justify-center text-[#5C6478] transition-all group-hover:bg-[var(--ac)] group-hover:text-white shrink-0 max-md:hidden" aria-hidden="true"><ArrowRight size={17} /></div>
+<div class="w-[30px] h-[30px] rounded-[8px] bg-[#FAFBFC] flex items-center justify-center text-[#5C6478] transition-all group-hover:bg-[var(--ac)] group-hover:text-white shrink-0 max-md:hidden" aria-hidden="true"><ArrowRight size={17} /></div>
               </article>
             {/each}
           </div>

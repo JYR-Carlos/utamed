@@ -70,7 +70,7 @@
       <h2 class="slideover-title">Malla Curricular</h2>
       {#if plan}
         <p class="slideover-subtitle">
-          {plan.carrera?.nombre ?? ''} — Año {plan.agno} v{plan.version_plan}
+          {plan.carrera?.nombre ?? ''} — Año {plan.agno_plan} v{plan.version_plan}
         </p>
       {/if}
     </div>

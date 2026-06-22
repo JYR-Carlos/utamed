@@ -12,6 +12,7 @@ export interface Actividad {
     id_componente?: number;
     id_unidad?: number;
     componente?: { id_componente: number; tipo_componente?: { nombre: string } | null } | null;
+    seccion?: { id_seccion?: number; tipo?: string } | null;
     unidad?: { id_unidad: number; nombre: string } | null;
     ultima_nota?: number | null;
 }

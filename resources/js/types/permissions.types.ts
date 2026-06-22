@@ -76,9 +76,11 @@ export type Permission =
     // Wildcard (Para simplificar, ej: admin = cursos:*)
     // ═══════════════════════════════════════════════════════════════
     | '*'                  // Acceso total a todo
-    | 'cursos:*'          // Acceso total a cursos y sub-recursos
-    | 'cursos/equipo:*'   // Acceso total a equipo de cursos
-    | 'cursos/programa:*' // Acceso total a programas
+    | 'cursos:*'               // Acceso total a cursos y sub-recursos
+    | 'cursos/secciones:*'    // Acceso total a secciones de cursos
+    | 'cursos/inscripciones:*' // Acceso total a inscripciones
+    | 'cursos/equipo:*'       // Acceso total a equipo de cursos
+    | 'cursos/programa:*'     // Acceso total a programas
     ;
 
 /**

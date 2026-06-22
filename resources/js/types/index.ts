@@ -17,12 +17,13 @@ export * from './permissions';
 export * from './controllers';
 
 // Re-export global types
-export type { 
-  BreadcrumbItem, 
-  NavItem, 
-  PageProps, 
-  SharedAuth, 
-  SidebarCourse, 
+export type {
+  BreadcrumbItem,
+  BreadcrumbItemType,
+  NavItem,
+  PageProps,
+  SharedAuth,
+  SidebarCourse,
   User,
   Curso,
   Asignatura,

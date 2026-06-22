@@ -48,7 +48,7 @@
   $effect(() => {
     if (editingSeccion) {
       formData = {
-        id_tipo_seccion: editingSeccion.id_tipo_seccion,
+        id_tipo_seccion: editingSeccion.id_tipo_seccion ?? 0,
         id_docente: editingSeccion.id_docente,
       };
     } else {

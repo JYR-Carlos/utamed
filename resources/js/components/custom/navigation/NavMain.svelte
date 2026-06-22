@@ -16,16 +16,7 @@
   let { items = [] }: Props = $props();
 
   // Get current path - handle both string and object formats
-  const currentPath = $derived.by(() => {
-    if (!$page.url) return '';
-    // If it's a string (Inertia usually gives us pathname as part of url object)
-    if (typeof $page.url === 'string') return $page.url;
-    // If it's an object with pathname property
-    if (typeof $page.url === 'object' && 'pathname' in $page.url) {
-      return $page.url.pathname;
-    }
-    return '';
-  });
+  const currentPath = $derived($page.url ?? '');
 
   // Helper function to detect if a route is active
   function isActive(href: string): boolean {
