@@ -88,6 +88,7 @@
       (acc, curso) => {
         const year = curso.agno_real;
         const sem = curso.semestre_real;
+        if (year == null || sem == null) return acc;
         if (!acc[year]) acc[year] = {};
         if (!acc[year][sem]) acc[year][sem] = [];
         acc[year][sem].push(curso);
@@ -100,6 +101,7 @@
   let sortedYears = $derived(
     Object.keys(docenteByYear)
       .map(Number)
+      .filter((n) => !isNaN(n))
       .sort((a, b) => b - a),
   );
 
