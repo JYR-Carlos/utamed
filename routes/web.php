@@ -358,16 +358,6 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::get('cursos/{curso}/componentes', [AdminSeccionController::class, 'indexByCurso'])
         ->name('cursos.componentes.index');
 
-    // Student Enrollment (Inscripciones)
-    Route::get('inscripciones', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'index'])->name('inscripciones.index');
-    Route::get('inscripciones/create', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'create'])->name('inscripciones.create');
-    Route::post('inscripciones', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'store'])->name('inscripciones.store');
-    Route::get('inscripciones/{inscripcion_curso}/edit', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'edit'])->name('inscripciones.edit');
-    // Note: Update and Destroy might be needed if Docentes can manage them, adhering to policy.
-    Route::put('inscripciones/{inscripcion_curso}', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'update'])->name('inscripciones.update');
-    // Docentes typically don't delete, but policy handles it.
-    Route::get('inscripciones/ajax/disponibles', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'getEstudiantesDisponibles'])
-        ->name('inscripciones.disponibles');
 });
 
 // Student Routes

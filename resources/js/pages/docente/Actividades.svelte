@@ -26,7 +26,7 @@
     updateActividad,
     deleteActividad,
   } from '@/modules/resources/actividad';
-  import { Plus, ArrowLeft, Users } from 'lucide-svelte';
+  import { Plus, ArrowLeft } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
   import { hasPermission } from '@/services/permissionValidator';
   import type { Permission } from '@/types/permissions/permissions';
@@ -177,13 +177,6 @@
           </p>
         </div>
         <div class="flex gap-3">
-          <Link
-            href={`/docente/inscripciones?id_curso=${curso.id_curso}`}
-            class="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 text-gray-900 border border-gray-300 rounded-md font-medium hover:bg-gray-200 transition-all"
-          >
-            <Users size={20} />
-            Inscripciones
-          </Link>
           {#if canCreate}
             <button
               onclick={openCreateModal}
