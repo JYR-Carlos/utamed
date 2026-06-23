@@ -34,7 +34,7 @@
                         </BreadcrumbPage>
                     {:else}
                         <BreadcrumbLink>
-                            {#snippet child({ props }: { props: Record<string, unknown> })}
+                            {#snippet child({ props })}
                                 <Link {...props} href={item.href ?? '#'}>
                                     {item.title}
                                 </Link>

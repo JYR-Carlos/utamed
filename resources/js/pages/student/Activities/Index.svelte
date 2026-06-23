@@ -71,9 +71,9 @@
   }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
-    //{ title: 'Dashboard', href: '/estudiante/dashboard' },
-    //{ title: 'Mis Cursos', href: '/estudiante/cursos' },
-    //{ title: nombre_curso, href: '/estudiante/cursos' },
+    { title: 'Dashboard', href: '/estudiante/dashboard' },
+    { title: 'Mis Cursos', href: '/estudiante/cursos' },
+    { title: nombre_curso, href: '/estudiante/cursos' },
     { title: nombre_actividad, href: '' },
   ]);
 
