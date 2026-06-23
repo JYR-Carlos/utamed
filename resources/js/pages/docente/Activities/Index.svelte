@@ -3,7 +3,7 @@
   import { router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
-  import { ChevronLeft, Plus, Trash2, UserPlus, X, Users, Pencil, FileText, Download, CheckCircle2, Clock, User } from 'lucide-svelte';
+  import { ChevronLeft, Plus, Trash2, UserPlus, X, Users, Pencil, FileText, Download, CheckCircle2, Clock, User, RefreshCw, Minus } from 'lucide-svelte';
   import AgendaDocente from './Agenda/AgendaDocente.svelte';
   import RubricaView from '../../student/Activities/Agenda/Rubrica.svelte';
   import RubricaEditor from './RubricaEditor.svelte';
@@ -30,11 +30,19 @@
     resultado?: Record<string, string> | null;
   };
 
+  type IntegranteData = {
+    id_estudiante: number;
+    nombre_completo: string;
+    id_asignado_actividad?: number;
+    nota_individual?: number | null;
+    diferencia_decimas?: number;
+  };
+
   type GrupoData = {
     grupo: number;
     nota: number | null;
     estado_actividad_asignada: string | null;
-    integrantes: { id_estudiante: number; nombre_completo: string }[];
+    integrantes: IntegranteData[];
   };
 
   type EstudianteInscrito = {
@@ -191,6 +199,47 @@
         },
       },
     );
+  }
+
+  // ─── Notas individuales (décimas) ─────────────────────────────────────────
+  // La nota individual se deriva de la nota grupal + un ajuste decimal por
+  // estudiante (diferencia_decimas, numeric(2,1): el delta real, ej. 0.3 = +tres
+  // décimas), con tope 1.0–7.0. El backend recalcula y persiste nota_individual.
+  let savingDecimas = $state<number | null>(null);
+
+  function ajustarDecimas(grupoId: number, integrante: IntegranteData, delta: number) {
+    if (integrante.id_asignado_actividad == null) return;
+    const actuales = integrante.diferencia_decimas ?? 0;
+    // Pasos de 0.1; redondear para evitar errores de coma flotante.
+    const nuevas = Math.max(-9.9, Math.min(9.9, Math.round((actuales + delta) * 10) / 10));
+    if (nuevas === actuales) return;
+    guardarDecimas(grupoId, integrante.id_asignado_actividad, nuevas);
+  }
+
+  function guardarDecimas(grupoId: number, asignadoId: number, decimas: number) {
+    savingDecimas = asignadoId;
+    router.put(
+      `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/integrantes/${asignadoId}`,
+      { diferencia_decimas: decimas },
+      {
+        preserveScroll: true,
+        onSuccess: () => router.reload({ only: ['grupos'] }),
+        onFinish: () => (savingDecimas = null),
+      },
+    );
+  }
+
+  function recalcularNotas(grupoId: number) {
+    router.post(
+      `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/recalcular-notas`,
+      {},
+      { preserveScroll: true, onSuccess: () => router.reload({ only: ['grupos'] }) },
+    );
+  }
+
+  function formatDecimas(d: number | undefined): string {
+    const v = d ?? 0;
+    return `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`;
   }
 
   // ─── Entregas del grupo ───────────────────────────────────────────────────
@@ -510,9 +559,9 @@
               <span class="text-xs text-gray-600 font-normal">Nota grupal:</span>
               {#if grupo.nota !== null}
                 <span
-                  class="font-bold text-lg {grupo.nota >= 4 ? 'text-green-700' : 'text-red-700'}"
+                  class="font-bold text-lg {Number(grupo.nota) >= 4 ? 'text-green-700' : 'text-red-700'}"
                 >
-                  {grupo.nota.toPrecision(2)}
+                  {Number(grupo.nota).toPrecision(2)}
                 </span>
               {:else}
                 <span class="font-normal text-gray-400 italic text-xs">Sin calificar</span>
@@ -544,6 +593,84 @@
                 {/if}
               </div>
             </div>
+
+            <!-- Notas individuales (nota grupal + décimas por estudiante) -->
+            {#if grupo.nota !== null && grupo.integrantes.length > 0}
+              <div class="border-t border-gray-100 pt-3">
+                <div class="flex items-center justify-between mb-2">
+                  <p class="text-xs text-gray-600 font-normal">Notas individuales</p>
+                  {#if actividad.es_titular}
+                    <button
+                      onclick={() => recalcularNotas(grupo.grupo)}
+                      class="inline-flex items-center gap-1 text-[11px] font-semibold text-uta-blue/70 hover:text-uta-blue transition-colors"
+                      title="Recalcular notas individuales desde la nota grupal"
+                    >
+                      <RefreshCw class="w-3 h-3" />
+                      Recalcular
+                    </button>
+                  {/if}
+                </div>
+
+                <!-- Cabecera de columnas -->
+                <div class="flex items-center gap-2 px-1 mb-1 text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+                  <span class="flex-1">Estudiante</span>
+                  <span class="w-[88px] text-center">Décimas</span>
+                  <span class="w-10 text-right">Nota</span>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                  {#each grupo.integrantes as integrante}
+                    <div class="flex items-center gap-2 text-xs">
+                      <span class="flex-1 text-slate-700 truncate">{integrante.nombre_completo}</span>
+
+                      <!-- Ajuste de décimas -->
+                      {#if actividad.es_titular}
+                        <div class="w-[88px] flex items-center justify-center gap-1">
+                          <button
+                            onclick={() => ajustarDecimas(grupo.grupo, integrante, -0.1)}
+                            disabled={savingDecimas === integrante.id_asignado_actividad || (integrante.diferencia_decimas ?? 0) <= -9.9}
+                            class="w-5 h-5 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 transition disabled:opacity-30"
+                            title="Restar una décima"
+                          >
+                            <Minus class="w-3 h-3" />
+                          </button>
+                          <span
+                            class="w-9 text-center font-mono font-semibold {(integrante.diferencia_decimas ?? 0) === 0
+                              ? 'text-gray-400'
+                              : (integrante.diferencia_decimas ?? 0) > 0
+                                ? 'text-emerald-600'
+                                : 'text-red-600'}"
+                          >
+                            {formatDecimas(integrante.diferencia_decimas)}
+                          </span>
+                          <button
+                            onclick={() => ajustarDecimas(grupo.grupo, integrante, 0.1)}
+                            disabled={savingDecimas === integrante.id_asignado_actividad || (integrante.diferencia_decimas ?? 0) >= 9.9}
+                            class="w-5 h-5 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 transition disabled:opacity-30"
+                            title="Sumar una décima"
+                          >
+                            <Plus class="w-3 h-3" />
+                          </button>
+                        </div>
+                      {:else}
+                        <span class="w-[88px] text-center font-mono text-gray-500">
+                          {formatDecimas(integrante.diferencia_decimas)}
+                        </span>
+                      {/if}
+
+                      <!-- Nota individual resultante -->
+                      <span
+                        class="w-10 text-right font-bold {integrante.nota_individual != null && integrante.nota_individual >= 4
+                          ? 'text-green-700'
+                          : 'text-red-700'}"
+                      >
+                        {integrante.nota_individual != null ? integrante.nota_individual.toFixed(1) : '—'}
+                      </span>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
 
             <!-- Agregar estudiante a grupo existente (titular) -->
             {#if actividad.es_titular}

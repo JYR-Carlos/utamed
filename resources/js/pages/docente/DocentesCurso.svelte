@@ -111,12 +111,12 @@
 <DocenteLayout>
   <div class="space-y-6">
     <!-- Header -->
-    <div class="flex items-center gap-4">
+    <div class="flex flex-wrap items-center gap-4">
       <Button variant="ghost" onclick={goBack} class="gap-2">
         <ArrowLeft class="h-4 w-4" />
         Volver al curso
       </Button>
-      <div class="flex-1">
+      <div class="flex-1 min-w-[200px]">
         <h1 class="text-2xl font-bold tracking-tight text-slate-900">Docentes del Curso</h1>
         <p class="text-sm text-slate-500 mt-0.5">
           {curso.nombre} • {curso.cod_curso} • {curso.asignatura}

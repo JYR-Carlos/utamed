@@ -157,7 +157,7 @@
 </script>
 
 <DocenteLayout>
-  <div class="p-8 max-w-5xl mx-auto">
+  <div class="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
     <!-- Header with back button -->
     <div class="mb-8">
       <div class="mb-4">
@@ -169,9 +169,9 @@
           Mis Cursos
         </Link>
       </div>
-      <div class="flex justify-between items-start gap-4">
+      <div class="flex flex-wrap justify-between items-start gap-4">
         <div>
-          <h1 class="text-3xl font-bold text-gray-900 mb-0">Actividades del Curso</h1>
+          <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-0">Actividades del Curso</h1>
           <p class="text-gray-600 text-base mt-2">
             {curso.cod_asignatura} - {curso.asignatura_nombre}
           </p>

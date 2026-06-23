@@ -279,6 +279,87 @@ class DocenteActivityController extends Controller
     // =========================================================================
 
     /**
+     * Centro de calificaciones (transversal a los cursos del docente).
+     *
+     * Lista los cursos del docente (titular o que imparte), sus componentes
+     * visibles y, dentro de cada uno, las actividades evaluables. Desde aquí el
+     * docente navega curso → componente → actividad → evaluar grupo.
+     *
+     * GET docente/calificaciones
+     */
+    public function centroCalificaciones()
+    {
+        $docente = Auth::user()->docente;
+        if (!$docente) {
+            return redirect()->route('dashboard')->with('error', 'No tienes un perfil docente asociado.');
+        }
+
+        $idDocente = $docente->id_docente;
+
+        $cursos = Curso::where(function ($q) use ($idDocente) {
+                $q->where('id_docente_titular', $idDocente)
+                    ->orWhereHas('componentes.docenteComponentes', fn ($dq) => $dq->where('id_docente', $idDocente));
+            })
+            ->whereNull('fecha_eliminacion')
+            ->with(['componentes' => function ($q) use ($idDocente) {
+                $q->with(['tipoComponente', 'docenteComponentes' => fn ($dq) => $dq->where('id_docente', $idDocente)]);
+            }])
+            ->orderByDesc('agno_real')
+            ->orderByDesc('semestre_real')
+            ->get();
+
+        $data = $cursos->map(function ($curso) use ($idDocente) {
+            $esTitularCurso = $curso->id_docente_titular === $idDocente;
+
+            $componentes = $curso->componentes
+                // Titular del curso ve todos; el resto sólo los que imparte.
+                ->filter(fn ($c) => $esTitularCurso || $c->docenteComponentes->isNotEmpty())
+                ->map(function ($c) {
+                    $actividades = Actividad::where('id_componente', $c->id_componente)
+                        ->withCount('actividadAsignadaGrupos')
+                        ->orderBy('fecha_limite', 'asc')
+                        ->get()
+                        ->map(fn ($a) => [
+                            'id_actividad'   => $a->id_actividad,
+                            'nombre'         => $a->nombre,
+                            'tipo_actividad' => $a->tipo_actividad instanceof \BackedEnum ? $a->tipo_actividad->value : $a->tipo_actividad,
+                            'es_grupal'      => (bool) $a->es_grupal,
+                            'fecha_limite'   => $a->fecha_limite,
+                            'tiene_grupos'   => $a->actividad_asignada_grupos_count > 0,
+                        ])
+                        ->values();
+
+                    return [
+                        'id_componente'         => $c->id_componente,
+                        'tipo_componente'       => $c->tipoComponente->tipo ?? 'N/A',
+                        'imparte'               => $c->docenteComponentes->isNotEmpty(),
+                        'es_titular_componente' => (bool) ($c->docenteComponentes->first()?->es_titular),
+                        'actividades'           => $actividades,
+                    ];
+                })
+                ->filter(fn ($c) => count($c['actividades']) > 0)
+                ->sortBy('tipo_componente')
+                ->values();
+
+            return [
+                'id_curso'         => $curso->id_curso,
+                'nombre'           => $curso->nombre,
+                'cod_curso'        => $curso->cod_curso,
+                'agno_real'        => $curso->agno_real,
+                'semestre_real'    => $curso->semestre_real,
+                'es_titular_curso' => $esTitularCurso,
+                'componentes'      => $componentes,
+            ];
+        })
+        ->filter(fn ($c) => count($c['componentes']) > 0)
+        ->values();
+
+        return Inertia::render('docente/Calificaciones', [
+            'cursos' => $data,
+        ]);
+    }
+
+    /**
      * Muestra la vista de detalle/evaluación de una actividad (nueva UI):
      * grupos (actividad_asignada_grupo) con sus integrantes, notas e interacciones lazy.
      */
@@ -300,7 +381,10 @@ class DocenteActivityController extends Controller
                 'nota'       => $g->nota,
                 'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
                 'integrantes' => $g->integranteGrupos->map(fn($m) => [
+                    'id_asignado_actividad' => $m->id_asignado_actividad,
                     'id_estudiante'  => $m->id_estudiante,
+                    'nota_individual' => $m->nota_individual !== null ? (float) $m->nota_individual : null,
+                    'diferencia_decimas' => (int) ($m->diferencia_decimas ?? 0),
                     'nombre_completo' => trim(
                         ($m->estudiante?->usuario?->nombre1  ?? '') . ' ' .
                         ($m->estudiante?->usuario?->nombre2  ?? '') . ' ' .
@@ -604,7 +688,29 @@ class DocenteActivityController extends Controller
     }
 
     /**
-     * Actualiza la nota individual de un integrante.
+     * Calcula la nota individual a partir de la nota grupal y las décimas de ajuste.
+     *
+     * Regla de negocio: nota_individual = nota_grupal + diferencia_decimas, acotada
+     * al rango [1.0, 7.0]. `diferencia_decimas` (numeric(2,1)) guarda el delta decimal
+     * real (ej. 0.3 = +tres décimas, -0.2 = -dos décimas). Si la nota grupal aún no
+     * existe, la individual queda nula.
+     */
+    private function calcularNotaIndividual(?float $notaGrupal, ?float $decimas): ?float
+    {
+        if ($notaGrupal === null) {
+            return null;
+        }
+
+        $nota = $notaGrupal + (float) ($decimas ?? 0);
+
+        return round(max(1.0, min(7.0, $nota)), 1);
+    }
+
+    /**
+     * Actualiza las décimas de un integrante y recalcula su nota individual.
+     *
+     * La nota individual se deriva siempre de la nota grupal vigente más el ajuste
+     * de décimas (no se edita a mano), con tope 1.0–7.0.
      */
     public function updateIntegrante(Request $request, Curso $curso, Actividad $actividad, int $grupo, IntegranteGrupo $asignado)
     {
@@ -615,13 +721,45 @@ class DocenteActivityController extends Controller
         }
 
         $validated = $request->validate([
-            'nota_individual'    => 'nullable|numeric|min:0|max:10',
-            'diferencia_decimas' => 'nullable|integer|min:-10|max:10',
+            'diferencia_decimas' => 'required|numeric|min:-9.9|max:9.9',
         ]);
 
-        $asignado->update($validated);
+        $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
+            ->where('id_actividad', $actividad->id_actividad)
+            ->firstOrFail();
+
+        $asignado->update([
+            'diferencia_decimas' => $validated['diferencia_decimas'],
+            'nota_individual'    => $this->calcularNotaIndividual($grupoModel->nota, (float) $validated['diferencia_decimas']),
+        ]);
 
         return redirect()->back()->with('success', 'Nota individual actualizada.');
+    }
+
+    /**
+     * Recalcula la nota individual de todos los integrantes de un grupo a partir
+     * de la nota grupal vigente y las décimas ya registradas de cada uno.
+     *
+     * Sirve para refrescar las notas individuales (snapshot) cuando la nota grupal
+     * cambió después de haberlas calculado.
+     */
+    public function recalcularNotasIndividuales(Curso $curso, Actividad $actividad, int $grupo)
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
+            ->where('id_actividad', $actividad->id_actividad)
+            ->firstOrFail();
+
+        DB::transaction(function () use ($grupoModel) {
+            foreach ($grupoModel->miembros as $miembro) {
+                $miembro->update([
+                    'nota_individual' => $this->calcularNotaIndividual($grupoModel->nota, $miembro->diferencia_decimas),
+                ]);
+            }
+        });
+
+        return redirect()->back()->with('success', 'Notas individuales recalculadas desde la nota grupal.');
     }
 
     /**
@@ -1306,6 +1444,15 @@ class DocenteActivityController extends Controller
                     'nota'                      => $validated['nota'] ?? null,
                     'estado_actividad_asignada' => EstadoActividadAsignada::CERRADA,
                 ]);
+
+                // 3b. Sembrar/refrescar la nota individual de cada integrante a partir
+                //     de la nota grupal recién registrada, respetando las décimas ya
+                //     fijadas para cada estudiante (snapshot, tope 1.0–7.0).
+                foreach (IntegranteGrupo::where('id_actividad_asignada_grupo', $grupo)->get() as $miembro) {
+                    $miembro->update([
+                        'nota_individual' => $this->calcularNotaIndividual($validated['nota'] ?? null, $miembro->diferencia_decimas),
+                    ]);
+                }
 
                 // 4. Cerrar la rúbrica si estaba POSTULADA (primera evaluación que la usa)
                 DB::table('agenda.rubrica')

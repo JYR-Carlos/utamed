@@ -327,6 +327,10 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::put('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'update'])->name('cursos.actividades.update');
     Route::delete('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'destroy'])->name('cursos.actividades.destroy');
 
+    // ── Centro de calificaciones (transversal): elegir curso → componente → actividad → evaluar
+    Route::get('calificaciones', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'centroCalificaciones'])
+        ->name('calificaciones.centro');
+
     // Activity evaluation (grading groups and individual students)
     Route::get('cursos/{curso}/actividades/{actividad}/evaluacion', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'showEvaluacion'])->name('cursos.actividades.evaluacion');
     Route::post('cursos/{curso}/actividades/{actividad}/grupos', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'storeGrupo'])->name('cursos.actividades.grupos.store');
@@ -334,6 +338,7 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'deleteGrupo'])->name('cursos.actividades.grupos.delete');
     Route::post('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/integrantes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'addIntegrante'])->name('cursos.actividades.integrantes.store');
     Route::put('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/integrantes/{asignado}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'updateIntegrante'])->name('cursos.actividades.integrantes.update');
+    Route::post('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/recalcular-notas', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'recalcularNotasIndividuales'])->name('cursos.actividades.grupos.recalcular');
     Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/integrantes/{asignado}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'removeIntegrante'])->name('cursos.actividades.integrantes.delete');
 
     // Gestión avanzada de grupos (nuevas funcionalidades)

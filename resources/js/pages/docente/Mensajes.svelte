@@ -26,6 +26,7 @@
     Inbox,
     ChevronDown,
     ChevronRight,
+    ChevronLeft,
     Folder,
     Users,
     User,
@@ -208,7 +209,13 @@
     <!-- ── Two-column layout ───────────────────────────────────────────────── -->
     <div class="flex flex-1 min-h-0 overflow-hidden">
       <!-- ── Sidebar: árbol curso → actividad ──────────────────────────────── -->
-      <aside class="w-80 border-r border-slate-200 bg-white flex flex-col flex-shrink-0">
+      <!-- En móvil funciona como maestro/detalle: la lista ocupa todo el ancho
+           y se oculta al elegir una actividad. -->
+      <aside
+        class="{selectedActividad
+          ? 'hidden md:flex'
+          : 'flex'} w-full md:w-80 border-r border-slate-200 bg-white flex-col flex-shrink-0"
+      >
         <div class="px-3 py-3 border-b border-slate-100">
           <div class="relative">
             <Search size={14} class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -291,7 +298,20 @@
       </aside>
 
       <!-- ── Main: hilos de la actividad ───────────────────────────────────── -->
-      <div class="flex-1 overflow-y-auto bg-slate-50 flex flex-col">
+      <div
+        class="{selectedActividad
+          ? 'flex'
+          : 'hidden md:flex'} flex-1 overflow-y-auto bg-slate-50 flex-col"
+      >
+        {#if selectedActividad}
+          <!-- Volver a la lista (solo móvil) -->
+          <button
+            onclick={() => (selectedActividad = null)}
+            class="md:hidden flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-indigo-600 bg-white border-b border-slate-200 sticky top-0 z-20"
+          >
+            <ChevronLeft size={16} /> Conversaciones
+          </button>
+        {/if}
         {#if !selectedActividad}
           <div class="flex flex-col items-center justify-center gap-4 h-full text-center px-8">
             <div

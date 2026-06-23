@@ -235,7 +235,13 @@
     <!-- ── Two-column layout ─────────────────────────────────────────────── -->
     <div class="flex flex-1 min-h-0 overflow-hidden">
       <!-- ── Sidebar: lista de estudiantes ──────────────────────────────── -->
-      <aside class="w-72 border-r border-slate-200 bg-white flex flex-col flex-shrink-0">
+      <!-- En móvil funciona como maestro/detalle: la lista ocupa todo el ancho
+           y se oculta al elegir un estudiante. -->
+      <aside
+        class="{selectedEstudiante
+          ? 'hidden md:flex'
+          : 'flex'} w-full md:w-72 border-r border-slate-200 bg-white flex-col flex-shrink-0"
+      >
         <!-- Buscador -->
         <div class="px-3 py-3 border-b border-slate-100">
           <div class="relative">
@@ -301,7 +307,20 @@
       </aside>
 
       <!-- ── Main: hilos de conversación ────────────────────────────────── -->
-      <div class="flex-1 overflow-y-auto bg-slate-50">
+      <div
+        class="{selectedEstudiante
+          ? 'block'
+          : 'hidden md:block'} flex-1 overflow-y-auto bg-slate-50"
+      >
+        {#if selectedEstudiante}
+          <!-- Volver a la lista (solo móvil) -->
+          <button
+            onclick={() => (selectedEstudiante = null)}
+            class="md:hidden flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-indigo-600 bg-white border-b border-slate-200 sticky top-0 z-20 w-full"
+          >
+            <ArrowLeft size={16} /> Estudiantes
+          </button>
+        {/if}
         {#if !selectedEstudiante}
           <div class="flex flex-col items-center justify-center gap-4 h-full text-center px-8">
             <div
