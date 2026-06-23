@@ -337,6 +337,10 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/entregas', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getSubmissionsByGroup'])->name('cursos.actividades.entregas.grupo');
     Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/entregas/{agenda}/descargar', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'downloadSubmissionFile'])->name('cursos.actividades.entregas.descargar');
 
+    // Centro de mensajes del docente (bandeja transversal a todos sus cursos)
+    Route::get('mensajes', [\App\Http\Controllers\Docente\MensajesController::class, 'index'])->name('mensajes.index');
+    Route::post('mensajes/cursos/{curso}/actividades/{actividad}/enviar', [\App\Http\Controllers\Docente\MensajesController::class, 'send'])->name('mensajes.send');
+
     // Mensajería (usa agenda.agenda — tipos "Mensaje al profesor" y "Feedback")
     // Nivel 1: vista general del curso
     Route::get('cursos/{curso}/mensajes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'showMensajesCurso'])->name('cursos.mensajes.index');

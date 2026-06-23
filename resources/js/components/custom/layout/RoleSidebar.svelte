@@ -18,6 +18,7 @@
     Users,
     Building2,
     ScrollText,
+    MessageSquare,
   } from 'lucide-svelte';
   import type { SidebarCourse } from '@/types';
   import { hasPermission } from '@/services/permissionValidator';
@@ -106,6 +107,7 @@
   );
 
   let sectionOpen = $state(true);
+  let historicalOpen = $state(false);
   let expandedYears = $state<Record<number, boolean>>({});
   let expandedSemestres = $state<Record<string, boolean>>({});
 
@@ -115,6 +117,44 @@
   function toggleSemestre(key: string) {
     expandedSemestres[key] = !expandedSemestres[key];
   }
+
+  // Período vigente = el más reciente con cursos asignados
+  let currentPeriod = $derived.by(() => {
+    const year = sortedYears[0];
+    if (year == null) return null;
+    const sems = Object.keys(docenteByYear[year])
+      .map(Number)
+      .sort((a, b) => b - a);
+    if (sems.length === 0) return null;
+    return { year, sem: sems[0] };
+  });
+
+  let currentCourses = $derived(
+    currentPeriod ? docenteByYear[currentPeriod.year][currentPeriod.sem] : [],
+  );
+
+  // Resto de años/semestres (histórico), respetando la búsqueda activa
+  let historicalYears = $derived(
+    sortedYears
+      .map((year) => ({
+        year,
+        sems: Object.keys(docenteByYear[year])
+          .map(Number)
+          .sort((a, b) => b - a)
+          .filter(
+            (sem) =>
+              !(currentPeriod && year === currentPeriod.year && sem === currentPeriod.sem),
+          ),
+      }))
+      .filter((y) => y.sems.length > 0),
+  );
+
+  let historicalCount = $derived(
+    historicalYears.reduce(
+      (acc, y) => acc + y.sems.reduce((a, sem) => a + docenteByYear[y.year][sem].length, 0),
+      0,
+    ),
+  );
 
   // ── Admin menu items ──────────────────────────────────────
   const adminMenuItems: Array<{ href: string; icon: any; label: string }> = [
@@ -211,6 +251,22 @@
         />
         Calendario
       </Link>
+      <Link
+        href="/docente/mensajes"
+        class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group {isActive(
+          '/docente/mensajes',
+        )
+          ? 'bg-indigo-50 text-indigo-600'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}"
+      >
+        <MessageSquare
+          size={18}
+          class="{isActive('/docente/mensajes')
+            ? 'text-indigo-500'
+            : 'text-slate-400 group-hover:text-indigo-500'} transition-colors"
+        />
+        Mensajes
+      </Link>
 
       <div class="h-px bg-slate-100 my-4 mx-4"></div>
 
@@ -236,129 +292,210 @@
 
         <Link
           href="/docente/cursos"
-          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px] font-bold text-slate-800 hover:bg-slate-50 hover:text-indigo-600 transition-all group flex-1"
+          class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[14px] font-bold text-slate-800 hover:bg-slate-50 hover:text-indigo-600 transition-all group flex-1"
         >
-          <Folder size={20} class="text-slate-400 group-hover:text-indigo-500 transition-colors" />
-          Mis Cursos Asignados
+          <Folder size={18} class="text-slate-400 group-hover:text-indigo-500 transition-colors" />
+          Mis Cursos
         </Link>
       </div>
 
-      <!-- Course list agrupada por año -->
+      <!-- Course list: período actual destacado + histórico colapsado -->
       {#if sectionOpen}
-        <div class="px-4 flex flex-col gap-1">
+        <div class="flex flex-col gap-1">
           {#if filteredDocente.length === 0}
-            <p class="px-4 py-2 text-sm text-slate-400 italic font-medium">
+            <p class="px-8 py-2 text-sm text-slate-400 italic font-medium">
               {searchQuery ? 'Sin resultados' : 'Sin cursos asignados'}
             </p>
           {:else}
-            {#each sortedYears as year (year)}
-              {@const yearOpen = expandedYears[year] ?? true}
+            <!-- ── Período actual (plano, sin desplegables) ──────── -->
+            {#if currentPeriod}
+              <div class="px-4 mb-2">
+                <div class="flex items-center gap-2 px-2 mb-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                  <span class="flex flex-col leading-tight">
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400"
+                      >Período actual</span
+                    >
+                    <span class="text-[12px] font-bold text-indigo-600"
+                      >Año {currentPeriod.year} · Semestre {currentPeriod.sem}</span
+                    >
+                  </span>
+                </div>
 
-              <!-- Año header -->
-              <button
-                onclick={() => toggleYear(year)}
-                class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[12px] font-bold text-slate-400 uppercase tracking-wide hover:text-slate-600 hover:bg-slate-50 transition-all w-full text-left"
-              >
-                {#if yearOpen}
-                  <ChevronDown size={12} />
-                {:else}
-                  <ChevronRight size={12} />
-                {/if}
-                {year}
-              </button>
-
-              {#if yearOpen}
-                {#each Object.keys(docenteByYear[year])
-                  .map(Number)
-                  .sort((a, b) => b - a) as sem (`${year}-${sem}`)}
-                  {@const semKey = `${year}-${sem}`}
-                  {@const semOpen = expandedSemestres[semKey] ?? true}
-
-                  <!-- Semestre header -->
-                  <button
-                    onclick={() => toggleSemestre(semKey)}
-                    class="flex items-center gap-2 pl-5 pr-2 py-1 rounded-lg text-[11px] font-bold text-slate-300 uppercase tracking-wide hover:text-slate-500 hover:bg-slate-50 transition-all w-full text-left"
-                  >
-                    {#if semOpen}
-                      <ChevronDown size={11} />
-                    {:else}
-                      <ChevronRight size={11} />
-                    {/if}
-                    Semestre {sem}
-                  </button>
-
-                  {#if semOpen}
-                    <div class="flex flex-col gap-1 mb-1">
-                      {#each docenteByYear[year][sem] as curso (curso.id_curso)}
-                        {@const expanded = expandedCursos[curso.id_curso]}
-                        <div class="rounded-xl overflow-hidden {expanded ? 'bg-slate-50/50' : ''}">
-                          <button
-                            onclick={() => toggleCurso(curso.id_curso)}
-                            class="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-[14px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all text-left group"
+                <div class="flex flex-col gap-1.5">
+                  {#each currentCourses as curso (curso.id_curso)}
+                    <div
+                      class="rounded-xl border border-slate-100 bg-white px-3 py-2.5 transition-all hover:border-slate-200 hover:shadow-sm"
+                    >
+                      <div class="flex items-center gap-2 mb-2">
+                        <Folder size={18} class="text-indigo-400 shrink-0" />
+                        <span class="flex-1 truncate text-[14px] font-semibold text-slate-700"
+                          >{curso.nombre}</span
+                        >
+                      </div>
+                      <div class="flex items-center gap-1.5">
+                        {#if curso.tiene_programa}
+                          <Link
+                            href="/docente/cursos/{curso.id_curso}/programa"
+                            class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-all"
                           >
-                            <span class="text-slate-400 shrink-0 group-hover:text-slate-600">
-                              {#if expanded}<ChevronDown size={14} />{:else}<ChevronRight
-                                  size={14}
-                                />{/if}
-                            </span>
-                            {#if expanded}
-                              <FolderOpen size={18} class="text-indigo-500 shrink-0" />
+                            <BookOpenCheck size={14} class="shrink-0" /> Programa
+                          </Link>
+                        {:else}
+                          <span
+                            class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 bg-slate-50 cursor-not-allowed"
+                            title="Programa pendiente"
+                          >
+                            <BookOpenCheck size={14} class="shrink-0 opacity-60" /> Programa
+                          </span>
+                        {/if}
+                        <Link
+                          href="/docente/cursos/{curso.id_curso}/actividades"
+                          class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+                        >
+                          <Calendar size={14} class="shrink-0" /> Actividades
+                        </Link>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+
+            <!-- ── Períodos anteriores (árbol año/semestre, cerrado) ── -->
+            {#if historicalYears.length > 0}
+              {@const histOpen = historicalOpen || !!searchQuery}
+              <div class="px-4">
+                <button
+                  onclick={() => (historicalOpen = !historicalOpen)}
+                  disabled={!!searchQuery}
+                  class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wide text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all w-full text-left disabled:opacity-100 disabled:cursor-default"
+                >
+                  {#if histOpen}
+                    <ChevronDown size={12} class="shrink-0" />
+                  {:else}
+                    <ChevronRight size={12} class="shrink-0" />
+                  {/if}
+                  Períodos anteriores ({historicalCount})
+                </button>
+
+                {#if histOpen}
+                  <div class="flex flex-col gap-1 mt-1">
+                    {#each historicalYears as { year, sems } (year)}
+                      {@const yearOpen = expandedYears[year] ?? true}
+
+                      <!-- Año header -->
+                      <button
+                        onclick={() => toggleYear(year)}
+                        class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[12px] font-bold text-slate-400 uppercase tracking-wide hover:text-slate-600 hover:bg-slate-50 transition-all w-full text-left"
+                      >
+                        {#if yearOpen}
+                          <ChevronDown size={12} />
+                        {:else}
+                          <ChevronRight size={12} />
+                        {/if}
+                        Año {year}
+                      </button>
+
+                      {#if yearOpen}
+                        {#each sems as sem (`${year}-${sem}`)}
+                          {@const semKey = `${year}-${sem}`}
+                          {@const semOpen = expandedSemestres[semKey] ?? true}
+
+                          <!-- Semestre header -->
+                          <button
+                            onclick={() => toggleSemestre(semKey)}
+                            class="flex items-center gap-2 pl-5 pr-2 py-1 rounded-lg text-[11px] font-bold text-slate-300 uppercase tracking-wide hover:text-slate-500 hover:bg-slate-50 transition-all w-full text-left"
+                          >
+                            {#if semOpen}
+                              <ChevronDown size={11} />
                             {:else}
-                              <Folder
-                                size={18}
-                                class="text-slate-400 group-hover:text-slate-600 shrink-0 transition-colors"
-                              />
+                              <ChevronRight size={11} />
                             {/if}
-                            <span class="flex-1 truncate font-semibold">{curso.nombre}</span>
+                            Semestre {sem}
                           </button>
 
-                          {#if expanded}
-                            <div class="pl-11 pr-2 py-1 flex flex-col gap-1 mb-2">
-                              {#if curso.tiene_programa}
-                                <Link
-                                  href="/docente/cursos/{curso.id_curso}/programa"
-                                  class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-white hover:shadow-sm hover:text-indigo-600 transition-all"
+                          {#if semOpen}
+                            <div class="flex flex-col gap-1 mb-1">
+                              {#each docenteByYear[year][sem] as curso (curso.id_curso)}
+                                {@const expanded = expandedCursos[curso.id_curso]}
+                                <div
+                                  class="rounded-xl overflow-hidden {expanded
+                                    ? 'bg-slate-50/50'
+                                    : ''}"
                                 >
-                                  <div class="flex items-center gap-2">
-                                    <BookOpenCheck size={16} class="shrink-0 text-slate-400" />
-                                    <span>Programa</span>
-                                  </div>
-                                  <span
-                                    class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700"
-                                    >Ver</span
+                                  <button
+                                    onclick={() => toggleCurso(curso.id_curso)}
+                                    class="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-[14px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all text-left group"
                                   >
-                                </Link>
-                              {:else}
-                                <button
-                                  class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-400 cursor-not-allowed w-full text-left bg-slate-50/50"
-                                  disabled
-                                >
-                                  <div class="flex items-center gap-2">
-                                    <BookOpenCheck size={16} class="shrink-0 opacity-50" />
-                                    <span>Programa</span>
-                                  </div>
-                                  <span
-                                    class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400"
-                                    >Pendiente</span
-                                  >
-                                </button>
-                              {/if}
+                                    <span class="text-slate-400 shrink-0 group-hover:text-slate-600">
+                                      {#if expanded}<ChevronDown size={14} />{:else}<ChevronRight
+                                          size={14}
+                                        />{/if}
+                                    </span>
+                                    {#if expanded}
+                                      <FolderOpen size={18} class="text-indigo-500 shrink-0" />
+                                    {:else}
+                                      <Folder
+                                        size={18}
+                                        class="text-slate-400 group-hover:text-slate-600 shrink-0 transition-colors"
+                                      />
+                                    {/if}
+                                    <span class="flex-1 truncate font-semibold">{curso.nombre}</span
+                                    >
+                                  </button>
 
-                              <Link
-                                href="/docente/cursos/{curso.id_curso}/actividades"
-                                class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-white hover:shadow-sm hover:text-indigo-600 transition-all"
-                              >
-                                <Calendar size={16} class="shrink-0 text-slate-400" /> Actividades
-                              </Link>
+                                  {#if expanded}
+                                    <div class="pl-11 pr-2 py-1 flex flex-col gap-1 mb-2">
+                                      {#if curso.tiene_programa}
+                                        <Link
+                                          href="/docente/cursos/{curso.id_curso}/programa"
+                                          class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-white hover:shadow-sm hover:text-indigo-600 transition-all"
+                                        >
+                                          <div class="flex items-center gap-2">
+                                            <BookOpenCheck size={16} class="shrink-0 text-slate-400" />
+                                            <span>Programa</span>
+                                          </div>
+                                          <span
+                                            class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700"
+                                            >Ver</span
+                                          >
+                                        </Link>
+                                      {:else}
+                                        <button
+                                          class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-400 cursor-not-allowed w-full text-left bg-slate-50/50"
+                                          disabled
+                                        >
+                                          <div class="flex items-center gap-2">
+                                            <BookOpenCheck size={16} class="shrink-0 opacity-50" />
+                                            <span>Programa</span>
+                                          </div>
+                                          <span
+                                            class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400"
+                                            >Pendiente</span
+                                          >
+                                        </button>
+                                      {/if}
+
+                                      <Link
+                                        href="/docente/cursos/{curso.id_curso}/actividades"
+                                        class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-white hover:shadow-sm hover:text-indigo-600 transition-all"
+                                      >
+                                        <Calendar size={16} class="shrink-0 text-slate-400" /> Actividades
+                                      </Link>
+                                    </div>
+                                  {/if}
+                                </div>
+                              {/each}
                             </div>
                           {/if}
-                        </div>
-                      {/each}
-                    </div>
-                  {/if}
-                {/each}
-              {/if}
-            {/each}
+                        {/each}
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            {/if}
           {/if}
         </div>
       {/if}
