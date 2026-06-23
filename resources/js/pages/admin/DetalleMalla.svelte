@@ -18,14 +18,21 @@
     malla: MallaData;
     asignaturas: Asignatura[];
     flash?: { error?: string; success?: string };
+    /**
+     * Prefijo de rutas. '/admin' (default) para administración;
+     * '/docente/jefe-carrera' cuando lo renderiza el Jefe de Carrera.
+     */
+    routePrefix?: string;
   }
 
-  let { plan, malla, asignaturas = [], flash }: Props = $props();
+  let { plan, malla, asignaturas = [], flash, routePrefix = '/admin' }: Props = $props();
+
+  const isJefe = routePrefix !== '/admin';
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Planes de Estudio', href: '/admin/planes' },
-    { title: plan?.nombre ?? 'Detalle Malla', href: '#' },
+    { title: 'Dashboard', href: isJefe ? '/docente/jefe-carrera/dashboard' : '/dashboard' },
+    { title: 'Planes de Estudio', href: `${routePrefix}/planes` },
+    { title: plan?.carrera?.nombre ?? 'Detalle Malla', href: '#' },
   ];
 
   // ── Stats para el header ─────────────────────────────────────────────────
@@ -64,16 +71,21 @@
   function handleDelete() {
     if (!deletingAsignacion) return;
     deleteLoading = true;
-    deleteAsignacion(plan.id_plan, deletingAsignacion.id_asignatura, {
-      onSuccess: () => {
-        showDeleteDialog = false;
-        deletingAsignacion = null;
-        deleteLoading = false;
+    deleteAsignacion(
+      plan.id_plan,
+      deletingAsignacion.id_asignatura,
+      {
+        onSuccess: () => {
+          showDeleteDialog = false;
+          deletingAsignacion = null;
+          deleteLoading = false;
+        },
+        onError: () => {
+          deleteLoading = false;
+        },
       },
-      onError: () => {
-        deleteLoading = false;
-      },
-    });
+      routePrefix,
+    );
   }
 </script>
 
@@ -82,7 +94,7 @@
   <div class="mb-6 flex items-start justify-between gap-4">
     <div>
       <a
-        href="/admin/planes"
+        href={`${routePrefix}/planes`}
         class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-2 transition-colors"
       >
         <svg
@@ -169,7 +181,13 @@
     class="grid grid-cols-[5fr_7fr] gap-0 border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm"
     style="height: calc(100vh - 14rem);"
   >
-    <AsignaturasCatalogo planId={plan.id_plan} {asignaturas} {assignedIds} onAssigned={() => {}} />
+    <AsignaturasCatalogo
+      planId={plan.id_plan}
+      {asignaturas}
+      {assignedIds}
+      onAssigned={() => {}}
+      {routePrefix}
+    />
     <MallaGrid {malla} onEdit={openEditModal} onDelete={openDeleteDialog} />
   </div>
 
@@ -178,6 +196,7 @@
     planId={plan.id_plan}
     {editingAsignacion}
     onSuccess={() => {}}
+    {routePrefix}
   />
 
   <AsignacionDeleteConfirm

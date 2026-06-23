@@ -8,9 +8,16 @@
     planId: number;
     editingAsignacion: AsignacionPlan | null;
     onSuccess: () => void;
+    routePrefix?: string;
   }
 
-  let { isOpen = $bindable(), planId, editingAsignacion, onSuccess }: Props = $props();
+  let {
+    isOpen = $bindable(),
+    planId,
+    editingAsignacion,
+    onSuccess,
+    routePrefix = '/admin',
+  }: Props = $props();
 
   let editForm = $state<{
     agno_planificado: number;
@@ -67,6 +74,7 @@
           editError = 'Error al actualizar la asignación.';
         },
       },
+      routePrefix,
     );
   }
 </script>

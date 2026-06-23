@@ -8,6 +8,8 @@
     deletingAsignatura?: Asignatura | null;
     onSuccess?: () => void;
     onCancel?: () => void;
+    /** Prefijo base de rutas (p.ej. '/admin' o '/docente/jefe-carrera'). */
+    routePrefix?: string;
   }
 
   let {
@@ -15,6 +17,7 @@
     deletingAsignatura = null,
     onSuccess = () => {},
     onCancel = () => {},
+    routePrefix = '/admin',
   }: Props = $props();
 
   let isLoading = $state(false);
@@ -22,7 +25,7 @@
   function handleConfirm() {
     if (!deletingAsignatura) return;
     isLoading = true;
-    router.delete(`/admin/asignaturas/${deletingAsignatura.id_asignatura}`, {
+    router.delete(`${routePrefix}/asignaturas/${deletingAsignatura.id_asignatura}`, {
       onSuccess: () => {
         isOpen = false;
         isLoading = false;

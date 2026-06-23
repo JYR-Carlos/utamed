@@ -11,14 +11,23 @@
   interface Props {
     asignaturas: PaginatedResponse<Asignatura>;
     filters: { search?: string };
+    /** Prefijo base de rutas. '/admin' (default) o '/docente/jefe-carrera'. */
+    routePrefix?: string;
   }
 
-  let { asignaturas, filters }: Props = $props();
+  let { asignaturas, filters, routePrefix = '/admin' }: Props = $props();
 
-  const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Asignaturas', href: '/admin/asignaturas' },
-  ];
+  const isJefe = routePrefix !== '/admin';
+
+  const breadcrumbs: BreadcrumbItem[] = isJefe
+    ? [
+        { title: 'Jefe de Carrera', href: '/docente/jefe-carrera/dashboard' },
+        { title: 'Asignaturas', href: `${routePrefix}/asignaturas` },
+      ]
+    : [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Asignaturas', href: '/admin/asignaturas' },
+      ];
 
   let showModal = $state(false);
   let showDeleteDialog = $state(false);
@@ -52,6 +61,7 @@
   <AsignaturaForm
     bind:isOpen={showModal}
     {editingAsignatura}
+    {routePrefix}
     onClose={() => {
       showModal = false;
       editingAsignatura = null;
@@ -61,6 +71,7 @@
   <AsignaturaDeleteConfirm
     bind:isOpen={showDeleteDialog}
     {deletingAsignatura}
+    {routePrefix}
     onSuccess={() => {
       deletingAsignatura = null;
     }}

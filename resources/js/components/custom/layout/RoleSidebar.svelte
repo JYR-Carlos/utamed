@@ -19,6 +19,7 @@
     Building2,
     ScrollText,
     MessageSquare,
+    BarChart2,
   } from 'lucide-svelte';
   import type { SidebarCourse } from '@/types';
   import { hasPermission } from '@/services/permissionValidator';
@@ -27,7 +28,7 @@
   const { can } = usePermissions();
 
   // ── Shared props ──────────────────────────────────────────────
-  // let authRoles = $derived(($page.props.auth?.roles as string[]) || []);
+  let authRoles = $derived(($page.props.auth?.roles as string[]) || []);
   let docenteCourses = $derived(($page.props.auth?.docente_courses as SidebarCourse[]) || []);
   let estudianteCourses = $derived(($page.props.auth?.estudiante_courses as SidebarCourse[]) || []);
   let ayudanteCourses = $derived(($page.props.auth?.ayudante_courses as SidebarCourse[]) || []);
@@ -40,6 +41,7 @@
   let isDocente = $derived(userDocente !== null && can('cursos:ver'));
   let isEstudiante = $derived(userEstudiante !== null);
   let isAyudante = $derived(ayudanteCourses.length > 0);
+  let isJefeCarrera = $derived(authRoles.includes('Jefe de Carrera'));
   let isAdmin = $derived(
     isSuperAdmin ||
       can('facultades:ver') ||
@@ -509,6 +511,116 @@
       >
         <Settings size={18} class="text-slate-400 group-hover:text-indigo-500 transition-colors" />
         Configuración
+      </Link>
+    {/if}
+
+    <!-- ══ JEFE DE CARRERA ══════════════════════════════════ -->
+    {#if isJefeCarrera}
+      <div class="h-px bg-slate-100 my-4 mx-4"></div>
+      <div class="px-6 mb-2">
+        <p class="text-[11px] font-extrabold tracking-widest uppercase text-slate-400 mb-2">
+          Jefe de Carrera
+        </p>
+      </div>
+      <Link
+        href="/docente/jefe-carrera/dashboard"
+        class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group {isActive(
+          '/docente/jefe-carrera/dashboard',
+        )
+          ? 'bg-indigo-50 text-indigo-600'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}"
+      >
+        <LayoutGrid
+          size={18}
+          class="{isActive('/docente/jefe-carrera/dashboard')
+            ? 'text-indigo-500'
+            : 'text-slate-400 group-hover:text-indigo-500'} transition-colors"
+        />
+        Dashboard Carrera
+      </Link>
+      <Link
+        href="/docente/jefe-carrera/seguimiento"
+        class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group {isActive(
+          '/docente/jefe-carrera/seguimiento',
+        )
+          ? 'bg-indigo-50 text-indigo-600'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}"
+      >
+        <ClipboardList
+          size={18}
+          class="{isActive('/docente/jefe-carrera/seguimiento')
+            ? 'text-indigo-500'
+            : 'text-slate-400 group-hover:text-indigo-500'} transition-colors"
+        />
+        Seguimiento
+      </Link>
+      <Link
+        href="/docente/jefe-carrera/metricas"
+        class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group {isActive(
+          '/docente/jefe-carrera/metricas',
+        )
+          ? 'bg-indigo-50 text-indigo-600'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}"
+      >
+        <BarChart2
+          size={18}
+          class="{isActive('/docente/jefe-carrera/metricas')
+            ? 'text-indigo-500'
+            : 'text-slate-400 group-hover:text-indigo-500'} transition-colors"
+        />
+        Métricas
+      </Link>
+
+      <div class="px-6 mb-2 mt-3">
+        <p class="text-[10px] font-bold tracking-widest uppercase text-slate-300">Gestión</p>
+      </div>
+      <Link
+        href="/docente/jefe-carrera/planes"
+        class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group {isActive(
+          '/docente/jefe-carrera/planes',
+        )
+          ? 'bg-indigo-50 text-indigo-600'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}"
+      >
+        <ClipboardList
+          size={18}
+          class="{isActive('/docente/jefe-carrera/planes')
+            ? 'text-indigo-500'
+            : 'text-slate-400 group-hover:text-indigo-500'} transition-colors"
+        />
+        Malla / Planes
+      </Link>
+      <Link
+        href="/docente/jefe-carrera/asignaturas"
+        class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group {isActive(
+          '/docente/jefe-carrera/asignaturas',
+        )
+          ? 'bg-indigo-50 text-indigo-600'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}"
+      >
+        <BookOpen
+          size={18}
+          class="{isActive('/docente/jefe-carrera/asignaturas')
+            ? 'text-indigo-500'
+            : 'text-slate-400 group-hover:text-indigo-500'} transition-colors"
+        />
+        Asignaturas
+      </Link>
+      <Link
+        href="/docente/jefe-carrera/carrera"
+        class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group {isActive(
+          '/docente/jefe-carrera/carrera',
+        )
+          ? 'bg-indigo-50 text-indigo-600'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}"
+      >
+        <GraduationCap
+          size={18}
+          class="{isActive('/docente/jefe-carrera/carrera')
+            ? 'text-indigo-500'
+            : 'text-slate-400 group-hover:text-indigo-500'} transition-colors"
+        />
+        Mi Carrera
       </Link>
     {/if}
 

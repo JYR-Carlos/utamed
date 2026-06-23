@@ -8,6 +8,8 @@
     editingAsignatura?: Asignatura | null;
     onSuccess?: () => void;
     onClose?: () => void;
+    /** Prefijo base de rutas (p.ej. '/admin' o '/docente/jefe-carrera'). */
+    routePrefix?: string;
   }
 
   let {
@@ -15,6 +17,7 @@
     editingAsignatura = null,
     onSuccess = () => {},
     onClose = () => {},
+    routePrefix = '/admin',
   }: Props = $props();
 
   let formData = useForm({
@@ -57,8 +60,8 @@
 
   function handleSubmit() {
     const url = editingAsignatura
-      ? `/admin/asignaturas/${editingAsignatura.id_asignatura}`
-      : '/admin/asignaturas';
+      ? `${routePrefix}/asignaturas/${editingAsignatura.id_asignatura}`
+      : `${routePrefix}/asignaturas`;
 
     const opts = {
       onSuccess: () => {

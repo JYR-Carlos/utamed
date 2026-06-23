@@ -176,17 +176,31 @@
     notes: '',
   });
 
-  function abrirSlideOver(curso: CursoSeguimiento) {
-    slideOver = { ...slideOver, isOpen: true, curso, isLoading: true, notes: '' };
+  async function abrirSlideOver(curso: CursoSeguimiento) {
+    slideOver = { ...slideOver, isOpen: true, curso, isLoading: true, syllabus: null, notes: '' };
     openKebab = null;
 
-    if (curso.id_programa) {
-      // TODO: replace with real API call via router.get or fetch
-      setTimeout(() => {
-        slideOver = { ...slideOver, isLoading: false, syllabus: buildMockSyllabus(curso) };
-      }, 350);
-    } else {
+    if (!curso.id_programa) {
       slideOver = { ...slideOver, isLoading: false, syllabus: null };
+      return;
+    }
+
+    try {
+      const res = await fetch(`/docente/jefe-carrera/programas/${curso.id_programa}/preview`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      // Solo aplica si el panel sigue abierto sobre el mismo curso
+      if (slideOver.isOpen && slideOver.curso?.id_curso === curso.id_curso) {
+        slideOver = { ...slideOver, isLoading: false, syllabus: data?.syllabus ?? null };
+      }
+    } catch {
+      if (slideOver.isOpen && slideOver.curso?.id_curso === curso.id_curso) {
+        slideOver = { ...slideOver, isLoading: false, syllabus: null };
+      }
     }
   }
 

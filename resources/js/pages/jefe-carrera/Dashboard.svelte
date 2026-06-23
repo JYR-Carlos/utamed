@@ -17,6 +17,10 @@
     BarChart2,
     GraduationCap,
     ArrowUpRight,
+    CalendarCheck,
+    ListChecks,
+    UserX,
+    Users,
   } from 'lucide-svelte';
 
   // ─── Types ───────────────────────────────────────────────────────────────────
@@ -44,6 +48,12 @@
       no_iniciado: number;
       en_revision: number;
       aprobado: number;
+    };
+    metricas_resumen?: {
+      asistencia_promedio: number | null;
+      avance_evaluacion: number | null;
+      alumnos_en_riesgo: number;
+      carga_docente: { docentes: number; cursos: number; promedio: number };
     };
   }
 
@@ -83,7 +93,16 @@
       },
     ] as Alerta[],
     resumen_estados = { no_iniciado: 7, en_revision: 5, aprobado: 18 },
+    metricas_resumen = {
+      asistencia_promedio: 87,
+      avance_evaluacion: 64,
+      alumnos_en_riesgo: 23,
+      carga_docente: { docentes: 12, cursos: 25, promedio: 2.1 },
+    },
   }: Props = $props();
+
+  // ─── Helpers de formato para KPIs ─────────────────────────────────────────────
+  const fmtPct = (v: number | null): string => (v === null ? '—' : `${Math.round(v)}%`);
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -164,6 +183,13 @@
 
       <div class="flex items-center gap-2">
         <Link
+          href="/docente/jefe-carrera/metricas"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+        >
+          <BarChart2 size={15} />
+          Métricas de Rendimiento
+        </Link>
+        <Link
           href="/docente/jefe-carrera/seguimiento"
           class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
         >
@@ -182,6 +208,90 @@
           {/if}
         </button>
       </div>
+    </div>
+
+    <!-- ─── KPI Strip: Rendimiento de la Carrera ──────────────────────────── -->
+    <div class="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <!-- Asistencia promedio -->
+      <a
+        href="/docente/jefe-carrera/metricas"
+        class="group rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-emerald-200 hover:shadow"
+      >
+        <div class="mb-3 flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+            Asistencia
+          </span>
+          <span class="rounded-xl bg-emerald-50 p-2">
+            <CalendarCheck size={16} class="text-emerald-600" />
+          </span>
+        </div>
+        <p class="text-3xl font-extrabold leading-none tracking-tight text-gray-900">
+          {fmtPct(metricas_resumen.asistencia_promedio)}
+        </p>
+        <p class="mt-1.5 text-xs text-gray-400">Promedio del período</p>
+      </a>
+
+      <!-- Avance de evaluación -->
+      <a
+        href="/docente/jefe-carrera/metricas"
+        class="group rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-blue-200 hover:shadow"
+      >
+        <div class="mb-3 flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+            Avance Evaluación
+          </span>
+          <span class="rounded-xl bg-blue-50 p-2">
+            <ListChecks size={16} class="text-blue-600" />
+          </span>
+        </div>
+        <p class="text-3xl font-extrabold leading-none tracking-tight text-gray-900">
+          {fmtPct(metricas_resumen.avance_evaluacion)}
+        </p>
+        <p class="mt-1.5 text-xs text-gray-400">Actividades calificadas</p>
+      </a>
+
+      <!-- Alumnos en riesgo -->
+      <a
+        href="/docente/jefe-carrera/metricas"
+        class="group rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-red-200 hover:shadow"
+      >
+        <div class="mb-3 flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+            En Riesgo
+          </span>
+          <span class="rounded-xl bg-red-50 p-2">
+            <UserX size={16} class="text-red-600" />
+          </span>
+        </div>
+        <p class="text-3xl font-extrabold leading-none tracking-tight text-gray-900">
+          {metricas_resumen.alumnos_en_riesgo}
+        </p>
+        <p class="mt-1.5 text-xs text-gray-400">Alumnos bajo 4,0</p>
+      </a>
+
+      <!-- Carga docente -->
+      <a
+        href="/docente/jefe-carrera/metricas"
+        class="group rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-violet-200 hover:shadow"
+      >
+        <div class="mb-3 flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+            Carga Docente
+          </span>
+          <span class="rounded-xl bg-violet-50 p-2">
+            <Users size={16} class="text-violet-600" />
+          </span>
+        </div>
+        <p class="text-3xl font-extrabold leading-none tracking-tight text-gray-900">
+          {metricas_resumen.carga_docente.promedio.toLocaleString('es-CL', {
+            maximumFractionDigits: 1,
+          })}
+        </p>
+        <p class="mt-1.5 text-xs text-gray-400">
+          {metricas_resumen.carga_docente.cursos} cursos · {metricas_resumen.carga_docente.docentes}
+          docentes
+        </p>
+      </a>
     </div>
 
     <!-- ─── Bento KPI Grid (Row 1) ────────────────────────────────────────── -->

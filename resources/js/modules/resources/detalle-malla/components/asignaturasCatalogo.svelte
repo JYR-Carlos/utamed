@@ -7,9 +7,10 @@
     asignaturas: Asignatura[];
     assignedIds: Set<number>;
     onAssigned: () => void;
+    routePrefix?: string;
   }
 
-  let { planId, asignaturas, assignedIds, onAssigned }: Props = $props();
+  let { planId, asignaturas, assignedIds, onAssigned, routePrefix = '/admin' }: Props = $props();
 
   let searchTerm = $state('');
   let currentPage = $state(1);
@@ -68,6 +69,7 @@
           assignError = 'Error al asignar. Inténtalo de nuevo.';
         },
       },
+      routePrefix,
     );
   }
 </script>

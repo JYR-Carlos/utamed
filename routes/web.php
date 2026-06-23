@@ -252,10 +252,51 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
             ->name('dashboard');
         Route::get('seguimiento', [\App\Http\Controllers\Docente\JefeCarreraController::class, 'seguimiento'])
             ->name('seguimiento');
+        Route::get('metricas', [\App\Http\Controllers\Docente\JefeCarreraController::class, 'metricas'])
+            ->name('metricas');
+        Route::get('programas/{programaId}/preview', [\App\Http\Controllers\Docente\JefeCarreraController::class, 'programaPreview'])
+            ->name('programas.preview');
         Route::post('programas/{programaId}/aprobar', [\App\Http\Controllers\Docente\JefeCarreraController::class, 'aprobarPrograma'])
             ->name('programas.aprobar');
         Route::post('programas/{programaId}/rechazar', [\App\Http\Controllers\Docente\JefeCarreraController::class, 'rechazarPrograma'])
             ->name('programas.rechazar');
+
+        // ── Gestión acotada a la carrera (espejo de rutas admin) ──────────────
+        // Planes / Malla
+        Route::get('planes', [\App\Http\Controllers\Docente\JefeCarrera\PlanController::class, 'index'])
+            ->name('planes.index');
+        Route::post('planes', [\App\Http\Controllers\Docente\JefeCarrera\PlanController::class, 'store'])
+            ->name('planes.store');
+        Route::put('planes/{plan}', [\App\Http\Controllers\Docente\JefeCarrera\PlanController::class, 'update'])
+            ->name('planes.update');
+        Route::delete('planes/{plan}', [\App\Http\Controllers\Docente\JefeCarrera\PlanController::class, 'destroy'])
+            ->name('planes.destroy');
+
+        // Editor de malla (asignación de asignaturas a un plan)
+        Route::get('planes/{plan}/asignaturas/json', [\App\Http\Controllers\Docente\JefeCarrera\AsignacionPlanController::class, 'mallaJson'])
+            ->name('planes.asignaturas.json');
+        Route::get('planes/{plan}/asignaturas', [\App\Http\Controllers\Docente\JefeCarrera\AsignacionPlanController::class, 'index'])
+            ->name('planes.asignaturas.index');
+        Route::post('planes/{plan}/asignaturas', [\App\Http\Controllers\Docente\JefeCarrera\AsignacionPlanController::class, 'store'])
+            ->name('planes.asignaturas.store');
+        Route::put('planes/{plan}/asignaturas/{asignatura}', [\App\Http\Controllers\Docente\JefeCarrera\AsignacionPlanController::class, 'update'])
+            ->name('planes.asignaturas.update');
+        Route::delete('planes/{plan}/asignaturas/{asignatura}', [\App\Http\Controllers\Docente\JefeCarrera\AsignacionPlanController::class, 'destroy'])
+            ->name('planes.asignaturas.destroy');
+
+        // Asignaturas (catálogo acotado a la carrera)
+        Route::get('asignaturas', [\App\Http\Controllers\Docente\JefeCarrera\AsignaturaController::class, 'index'])
+            ->name('asignaturas.index');
+        Route::post('asignaturas', [\App\Http\Controllers\Docente\JefeCarrera\AsignaturaController::class, 'store'])
+            ->name('asignaturas.store');
+        Route::put('asignaturas/{asignatura}', [\App\Http\Controllers\Docente\JefeCarrera\AsignaturaController::class, 'update'])
+            ->name('asignaturas.update');
+        Route::delete('asignaturas/{asignatura}', [\App\Http\Controllers\Docente\JefeCarrera\AsignaturaController::class, 'destroy'])
+            ->name('asignaturas.destroy');
+
+        // Detalle de carrera (solo lectura)
+        Route::get('carrera', [\App\Http\Controllers\Docente\JefeCarrera\CarreraController::class, 'show'])
+            ->name('carrera.show');
     });
     Route::get('cursos', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'index'])->name('cursos.index');
 

@@ -48,14 +48,24 @@
     carreras: Carrera[];
     /** Filtros de búsqueda y carrera */
     filters: { search?: string; id_carrera?: number };
+    /**
+     * Prefijo de rutas para las acciones CRUD. '/admin' (default) para el panel
+     * de administración; '/docente/jefe-carrera' cuando lo renderiza el Jefe de Carrera.
+     */
+    routePrefix?: string;
   }
 
-  let { planes, carreras, filters }: Props = $props();
+  let { planes, carreras, filters, routePrefix = '/admin' }: Props = $props();
+
+  const isJefe = routePrefix !== '/admin';
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Planes de Estudio', href: '/admin/planes' },
+    { title: 'Dashboard', href: isJefe ? '/docente/jefe-carrera/dashboard' : '/dashboard' },
+    { title: 'Planes de Estudio', href: `${routePrefix}/planes` },
   ];
+
+  // Si solo se entrega una carrera (caso Jefe de Carrera), se preselecciona en el formulario.
+  const defaultCarreraId = carreras.length === 1 ? carreras[0].id_carrera : 0;
 
   // Modales
   let showModal = $state(false);
@@ -72,7 +82,7 @@
 
   // Formulario
   let formData = $state<PlanFormData>({
-    id_carrera: 0,
+    id_carrera: defaultCarreraId,
     agno_plan: new Date().getFullYear(),
     version_plan: 1,
   });
@@ -80,7 +90,7 @@
   function openCreateModal() {
     editingPlan = null;
     formData = {
-      id_carrera: 0,
+      id_carrera: defaultCarreraId,
       agno_plan: new Date().getFullYear(),
       version_plan: 1,
     };
@@ -106,25 +116,34 @@
     isLoading = true;
 
     if (editingPlan) {
-      updatePlan(editingPlan.id_plan, formData, {
-        onSuccess: () => {
-          closeModal();
-          isLoading = false;
+      updatePlan(
+        editingPlan.id_plan,
+        formData,
+        {
+          onSuccess: () => {
+            closeModal();
+            isLoading = false;
+          },
+          onError: () => {
+            isLoading = false;
+          },
         },
-        onError: () => {
-          isLoading = false;
-        },
-      });
+        routePrefix,
+      );
     } else {
-      createPlan(formData, {
-        onSuccess: () => {
-          closeModal();
-          isLoading = false;
+      createPlan(
+        formData,
+        {
+          onSuccess: () => {
+            closeModal();
+            isLoading = false;
+          },
+          onError: () => {
+            isLoading = false;
+          },
         },
-        onError: () => {
-          isLoading = false;
-        },
-      });
+        routePrefix,
+      );
     }
   }
 
@@ -142,15 +161,19 @@
     if (!deletingPlan) return;
 
     isLoading = true;
-    deletePlan(deletingPlan.id_plan, {
-      onSuccess: () => {
-        closeDeleteDialog();
-        isLoading = false;
+    deletePlan(
+      deletingPlan.id_plan,
+      {
+        onSuccess: () => {
+          closeDeleteDialog();
+          isLoading = false;
+        },
+        onError: () => {
+          isLoading = false;
+        },
       },
-      onError: () => {
-        isLoading = false;
-      },
-    });
+      routePrefix,
+    );
   }
 
   async function verMalla(plan: Plan) {
@@ -160,7 +183,7 @@
     showMallaPanel = true;
 
     try {
-      const json = await fetchMalla(plan);
+      const json = await fetchMalla(plan, routePrefix);
       mallaPlan = json.plan;
       mallaData = json.malla;
     } catch (err) {
@@ -175,7 +198,7 @@
   }
 
   function editarMalla(plan: Plan) {
-    visitEditarMalla(plan.id_plan);
+    visitEditarMalla(plan.id_plan, routePrefix);
   }
 </script>
 
