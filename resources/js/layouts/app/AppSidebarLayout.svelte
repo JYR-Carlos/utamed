@@ -79,8 +79,8 @@
           </svg>
         </button>
       {/if}
-      
-      <div class="flex-1 overflow-y-auto w-full">
+
+      <div class="flex-1 overflow-y-auto w-full gap-4">
         <PageContentWrapper>
           {@render children?.()}
         </PageContentWrapper>
