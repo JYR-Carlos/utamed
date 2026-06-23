@@ -27,6 +27,7 @@
     Search,
     X,
     ClipboardList,
+    ClipboardCheck,
     ArrowLeft,
   } from 'lucide-svelte';
   import {
@@ -39,6 +40,7 @@
   import type { Permission } from '@/types/permissions/permissions';
   import ActividadesPorEstado from './components/ActividadesPorEstado.svelte';
   import EstudianteDetalleModal from './components/EstudianteDetalleModal.svelte';
+  import AsistenciaPanel from './components/AsistenciaPanel.svelte';
   import type { Actividad } from '@/types/actividad';
 
   interface Componente {
@@ -140,7 +142,7 @@
   let cambiarTitularComponente = $state<ComponenteCurso | null>(null);
 
   // ─── Vista principal (tabs) ───
-  type MainTab = 'grupo' | 'actividades';
+  type MainTab = 'grupo' | 'actividades' | 'asistencia';
   let mainTab = $state<MainTab>('grupo');
 
   // ─── Búsqueda de estudiantes ───
@@ -392,7 +394,7 @@
                   <GraduationCap size={18} class="text-[#002F6C]" />
                 </div>
                 <h2 class="text-lg font-semibold tracking-[-0.015em] m-0 text-[#1A1A24]">
-                  {mainTab === 'grupo' ? 'Mi Grupo' : 'Actividades'}
+                  {mainTab === 'grupo' ? 'Mi Grupo' : mainTab === 'actividades' ? 'Actividades' : 'Asistencia'}
                 </h2>
               </div>
               <div
@@ -426,6 +428,17 @@
                       class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-[11px] font-semibold tabular-nums {mainTab === 'actividades' ? 'bg-[#002F6C] text-white' : 'bg-[#F5F1EA] text-[#5A5E6E]'}"
                       >{actividades.length}</span
                     >
+                  </button>
+                {/if}
+                {#if mis_componentes.length > 0}
+                  <button
+                    role="tab"
+                    aria-selected={mainTab === 'asistencia'}
+                    onclick={() => (mainTab = 'asistencia')}
+                    class="inline-flex items-center gap-[7px] py-3 px-1 mr-5 bg-transparent border-none border-b-2 text-sm font-medium cursor-pointer transition-colors duration-150 {mainTab === 'asistencia' ? 'border-[#002F6C] text-[#002F6C]' : 'border-transparent text-[#5A5E6E]'}"
+                  >
+                    <ClipboardCheck size={14} />
+                    Asistencia
                   </button>
                 {/if}
               </div>
@@ -654,6 +667,40 @@
                   </div>
                 {:else}
                   <ActividadesPorEstado {actividades} idCurso={curso.id_curso} />
+                {/if}
+              </div>
+
+              <!-- TAB: Asistencia -->
+            {:else if mainTab === 'asistencia'}
+              <div class="p-[22px_24px] flex-1 space-y-4">
+                <!-- Selector de componente -->
+                {#if mis_componentes.length > 1}
+                  <div class="flex gap-2 flex-wrap">
+                    {#each mis_componentes as comp}
+                      <button
+                        onclick={() => (componenteActivo = comp.id_componente)}
+                        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all {componenteActivo === comp.id_componente ? 'bg-[#002F6C] text-white' : 'bg-[#F5F1EA] text-[#5A5E6E]'}"
+                      >
+                        {comp.tipo_componente}
+                        {#if comp.es_titular}
+                          <Crown
+                            size={11}
+                            class={componenteActivo === comp.id_componente ? 'text-[#FFB81C]' : 'text-[#8A5F00]'}
+                          />
+                        {/if}
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+
+                {#if componenteActivo !== null}
+                  {#key componenteActivo}
+                    <AsistenciaPanel
+                      idCurso={curso.id_curso}
+                      idComponente={componenteActivo}
+                      tipoComponente={tipoComponenteActivo}
+                    />
+                  {/key}
                 {/if}
               </div>
             {/if}

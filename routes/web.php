@@ -302,6 +302,16 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::put('cursos/{curso}/componentes/{componente}/titular', [\App\Http\Controllers\Admin\ComponenteController::class, 'setTitularByDt'])
         ->name('cursos.componentes.titular.docente');
 
+    // ── Asistencia por componente (sesión implícita: dia + hora_inicio + hora_fin)
+    Route::get('cursos/{curso}/componentes/{componente}/asistencia', [\App\Http\Controllers\Docente\AsistenciaController::class, 'index'])
+        ->name('cursos.componentes.asistencia.index');
+    Route::post('cursos/{curso}/componentes/{componente}/asistencia', [\App\Http\Controllers\Docente\AsistenciaController::class, 'store'])
+        ->name('cursos.componentes.asistencia.store');
+    Route::put('cursos/{curso}/componentes/{componente}/asistencia', [\App\Http\Controllers\Docente\AsistenciaController::class, 'update'])
+        ->name('cursos.componentes.asistencia.update');
+    Route::delete('cursos/{curso}/componentes/{componente}/asistencia', [\App\Http\Controllers\Docente\AsistenciaController::class, 'destroy'])
+        ->name('cursos.componentes.asistencia.destroy');
+
     // Course detail view
     Route::get('cursos/{curso}/docentes', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'docentes'])->name('cursos.docentes');
     Route::get('cursos/{curso}', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'show'])->name('cursos.show');
