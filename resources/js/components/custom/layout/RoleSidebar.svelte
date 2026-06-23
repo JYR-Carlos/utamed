@@ -195,6 +195,22 @@
         <Users size={18} class="text-slate-400 group-hover:text-indigo-500 transition-colors" />
         Inscripciones
       </Link>
+      <Link
+        href="/docente/calendario"
+        class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group {isActive(
+          '/docente/calendario',
+        )
+          ? 'bg-indigo-50 text-indigo-600'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}"
+      >
+        <Calendar
+          size={18}
+          class="{isActive('/docente/calendario')
+            ? 'text-indigo-500'
+            : 'text-slate-400 group-hover:text-indigo-500'} transition-colors"
+        />
+        Calendario
+      </Link>
 
       <div class="h-px bg-slate-100 my-4 mx-4"></div>
 

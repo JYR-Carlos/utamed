@@ -259,6 +259,9 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     });
     Route::get('cursos', [\App\Http\Controllers\Docente\DocenteCursoController::class, 'index'])->name('cursos.index');
 
+    // Calendario académico del docente (vista de solo lectura de actividades a vencer)
+    Route::get('calendario', [\App\Http\Controllers\Docente\CalendarioController::class, 'index'])->name('calendario.index');
+
     // Team management (reuse admin course team endpoints but under docente prefix if needed, 
     // or just point to Admin controller if middleware allows or it's context-safe).
     // Let's create specific routes for clarity and potential    // Course Team Management
