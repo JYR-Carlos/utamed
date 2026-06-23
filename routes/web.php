@@ -302,6 +302,10 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::put('cursos/{curso}/componentes/{componente}/titular', [\App\Http\Controllers\Admin\ComponenteController::class, 'setTitularByDt'])
         ->name('cursos.componentes.titular.docente');
 
+    // ── Centro de asistencia (transversal): elegir curso → componente → tomar asistencia
+    Route::get('asistencia', [\App\Http\Controllers\Docente\AsistenciaController::class, 'centro'])
+        ->name('asistencia.centro');
+
     // ── Asistencia por componente (sesión implícita: dia + hora_inicio + hora_fin)
     Route::get('cursos/{curso}/componentes/{componente}/asistencia', [\App\Http\Controllers\Docente\AsistenciaController::class, 'index'])
         ->name('cursos.componentes.asistencia.index');

@@ -7,7 +7,7 @@
    *   Equipo Docente + Detalles a la derecha.
    * - Colegiado: vista centrada en su componente y sus alumnos.
    */
-  import { router, Link } from '@inertiajs/svelte';
+  import { router, Link, page } from '@inertiajs/svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import {
     Calendar,
@@ -143,7 +143,21 @@
 
   // ─── Vista principal (tabs) ───
   type MainTab = 'grupo' | 'actividades' | 'asistencia';
-  let mainTab = $state<MainTab>('grupo');
+
+  // Permite abrir directo en un tab vía deep-link (?tab=asistencia), p.ej. desde
+  // el dashboard. Sólo se honra si el tab es accesible en este curso.
+  const initialTab: MainTab = (() => {
+    const query = ($page.url.split('?')[1] ?? '');
+    const tab = new URLSearchParams(query).get('tab');
+    if (tab === 'asistencia' && mis_componentes.length > 0) return 'asistencia';
+    if (tab === 'actividades' && canVerActividades) return 'actividades';
+    return 'grupo';
+  })();
+  let mainTab = $state<MainTab>(initialTab);
+
+  // ─── Vista colegiado: alternar entre estudiantes y asistencia ───
+  type ColegiadoTab = 'estudiantes' | 'asistencia';
+  let colegiadoTab = $state<ColegiadoTab>('estudiantes');
 
   // ─── Búsqueda de estudiantes ───
   let estudianteQuery = $state('');
@@ -854,6 +868,29 @@
                 </span>
               {/if}
 
+              <!-- Sub-tabs: Estudiantes / Asistencia -->
+              <div class="flex gap-1 p-1 rounded-xl bg-[#F5F1EA] w-fit" role="tablist" aria-label="Vista del componente">
+                <button
+                  role="tab"
+                  aria-selected={colegiadoTab === 'estudiantes'}
+                  onclick={() => (colegiadoTab = 'estudiantes')}
+                  class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all {colegiadoTab === 'estudiantes' ? 'bg-white text-[#002F6C] shadow-sm' : 'text-[#5A5E6E]'}"
+                >
+                  <Users size={14} />
+                  Estudiantes
+                </button>
+                <button
+                  role="tab"
+                  aria-selected={colegiadoTab === 'asistencia'}
+                  onclick={() => (colegiadoTab = 'asistencia')}
+                  class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all {colegiadoTab === 'asistencia' ? 'bg-white text-[#002F6C] shadow-sm' : 'text-[#5A5E6E]'}"
+                >
+                  <ClipboardCheck size={14} />
+                  Asistencia
+                </button>
+              </div>
+
+              {#if colegiadoTab === 'estudiantes'}
               <!-- KPI -->
               <div
                 class="flex items-center justify-center gap-4 p-5 rounded-xl bg-[#E6ECF5]"
@@ -958,6 +995,17 @@
                 <p class="text-xs text-right text-[#8A8E9C]">
                   {estudiantesActivos.length} estudiante{estudiantesActivos.length !== 1 ? 's' : ''}
                 </p>
+              {/if}
+              {:else}
+                {#if componenteActivo !== null}
+                  {#key componenteActivo}
+                    <AsistenciaPanel
+                      idCurso={curso.id_curso}
+                      idComponente={componenteActivo}
+                      tipoComponente={tipoComponenteActivo}
+                    />
+                  {/key}
+                {/if}
               {/if}
             </div>
           </div>

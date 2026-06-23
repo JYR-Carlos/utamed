@@ -62,6 +62,10 @@
   let sharedCourses = $derived(($page.props.auth as any)?.docente_courses ?? []);
   let allCursos = $derived(cursos.length > 0 ? cursos : sharedCourses);
 
+  // Asistencia: centro dedicado que guía elegir curso → componente → tomar
+  // asistencia. Habilitado si el docente tiene cursos asignados.
+  let asistenciaHabilitada = $derived(allCursos.length > 0);
+
   const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/docente/dashboard' }];
 
   const now = new Date();
@@ -211,29 +215,50 @@
             </div>
           </Link>
 
-          <!-- Asistencia — próximamente -->
-          <button
-            class="flex flex-col gap-3 p-5 rounded-xl border bg-slate-50 border-slate-200 cursor-not-allowed opacity-65 text-left font-[inherit]"
-            disabled
-          >
-            <div class="flex items-start justify-between">
-              <div
-                class="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 flex items-center justify-center shrink-0"
-              >
-                <ClipboardList size={18} />
+          <!-- Asistencia — activo -->
+          {#if asistenciaHabilitada}
+            <Link
+              href="/docente/asistencia"
+              class="flex flex-col gap-3 p-5 rounded-xl border bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 no-underline transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <div class="flex items-start justify-between">
+                <div
+                  class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0"
+                >
+                  <ClipboardList size={18} />
+                </div>
               </div>
-              <span
-                class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 uppercase tracking-wider"
-                >Próximamente</span
-              >
-            </div>
-            <div>
-              <h3 class="text-sm font-bold text-slate-500 m-0 leading-tight">Asistencia</h3>
-              <p class="text-xs text-slate-400 leading-snug m-0 mt-1">
-                Registra asistencia de estudiantes
-              </p>
-            </div>
-          </button>
+              <div>
+                <h3 class="text-sm font-bold text-indigo-900 m-0 leading-tight">Asistencia</h3>
+                <p class="text-xs text-indigo-700/70 leading-snug m-0 mt-1">
+                  Registra asistencia de estudiantes
+                </p>
+              </div>
+              <div class="flex items-center gap-1 text-xs font-semibold text-indigo-700 mt-auto">
+                Tomar asistencia
+                <ArrowRight size={13} />
+              </div>
+            </Link>
+          {:else}
+            <button
+              class="flex flex-col gap-3 p-5 rounded-xl border bg-slate-50 border-slate-200 cursor-not-allowed opacity-65 text-left font-[inherit]"
+              disabled
+            >
+              <div class="flex items-start justify-between">
+                <div
+                  class="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 flex items-center justify-center shrink-0"
+                >
+                  <ClipboardList size={18} />
+                </div>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-slate-500 m-0 leading-tight">Asistencia</h3>
+                <p class="text-xs text-slate-400 leading-snug m-0 mt-1">
+                  Sin cursos asignados
+                </p>
+              </div>
+            </button>
+          {/if}
 
           <!-- Calificaciones — próximamente -->
           <button

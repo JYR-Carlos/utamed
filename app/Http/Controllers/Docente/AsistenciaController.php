@@ -9,6 +9,7 @@ use App\Models\Curso\InscripcionComponente;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 /**
  * Registro de asistencia por componente (perspectiva del docente).
@@ -28,6 +29,77 @@ use Illuminate\Support\Facades\DB;
  */
 class AsistenciaController extends Controller
 {
+    /**
+     * Centro de asistencia (transversal a todos los cursos del docente).
+     *
+     * Flujo: elegir curso → elegir componente → tomar asistencia. Lista, por
+     * curso, los componentes sobre los que el docente puede tomar asistencia:
+     * - Si es titular del curso: TODOS los componentes (supervisión).
+     * - En cualquier curso: además, los componentes que imparte
+     *   (`docente_componente`), sea o no titular del componente.
+     *
+     * GET docente/asistencia
+     */
+    public function centro()
+    {
+        $docente = Auth::user()->docente;
+        if (!$docente) {
+            return redirect()->route('dashboard')->with('error', 'No tienes un perfil docente asociado.');
+        }
+
+        $idDocente = $docente->id_docente;
+
+        $cursos = Curso::where(function ($q) use ($idDocente) {
+                $q->where('id_docente_titular', $idDocente)
+                    ->orWhereHas('componentes.docenteComponentes', fn ($dq) => $dq->where('id_docente', $idDocente));
+            })
+            ->whereNull('fecha_eliminacion')
+            ->with(['componentes' => function ($q) use ($idDocente) {
+                $q->with('tipoComponente')
+                    ->withCount('inscripcionComponentes')
+                    ->with(['docenteComponentes' => fn ($dq) => $dq->where('id_docente', $idDocente)]);
+            }])
+            ->orderByDesc('agno_real')
+            ->orderByDesc('semestre_real')
+            ->get();
+
+        $data = $cursos->map(function ($curso) use ($idDocente) {
+            $esTitularCurso = $curso->id_docente_titular === $idDocente;
+
+            $componentes = $curso->componentes
+                // Titular del curso ve todos; el resto sólo los que imparte.
+                ->filter(fn ($c) => $esTitularCurso || $c->docenteComponentes->isNotEmpty())
+                ->map(function ($c) {
+                    $imparte = $c->docenteComponentes->isNotEmpty();
+                    return [
+                        'id_componente'         => $c->id_componente,
+                        'tipo_componente'       => $c->tipoComponente->tipo ?? 'N/A',
+                        'imparte'               => $imparte,
+                        'es_titular_componente' => (bool) ($c->docenteComponentes->first()?->es_titular),
+                        'total_estudiantes'     => $c->inscripcion_componentes_count,
+                    ];
+                })
+                ->sortBy('tipo_componente')
+                ->values();
+
+            return [
+                'id_curso'         => $curso->id_curso,
+                'nombre'           => $curso->nombre,
+                'cod_curso'        => $curso->cod_curso,
+                'agno_real'        => $curso->agno_real,
+                'semestre_real'    => $curso->semestre_real,
+                'es_titular_curso' => $esTitularCurso,
+                'componentes'      => $componentes,
+            ];
+        })
+        ->filter(fn ($c) => count($c['componentes']) > 0)
+        ->values();
+
+        return Inertia::render('docente/Asistencia', [
+            'cursos' => $data,
+        ]);
+    }
+
     /**
      * Lista los estudiantes del componente y sus sesiones de asistencia.
      *
