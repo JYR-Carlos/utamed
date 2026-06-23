@@ -8,7 +8,6 @@
     ChevronRight,
     Folder,
     FolderOpen,
-    Search,
     Settings,
     Calendar,
     GraduationCap,
@@ -61,24 +60,11 @@
     if (!currentPath) return false;
     return currentPath === href || currentPath.startsWith(href + '/');
   }
-  let filteredDocente = $derived(
-    docenteCourses.filter(
-      (c) => !searchQuery || c.nombre.toLowerCase().includes(searchQuery.toLowerCase()),
-    ),
-  );
-  let filteredEstudiante = $derived(
-    estudianteCourses.filter(
-      (c) => !searchQuery || c.nombre.toLowerCase().includes(searchQuery.toLowerCase()),
-    ),
-  );
-  let filteredAyudante = $derived(
-    ayudanteCourses.filter(
-      (c) => !searchQuery || c.nombre.toLowerCase().includes(searchQuery.toLowerCase()),
-    ),
-  );
+  let filteredDocente = $derived(docenteCourses);
+  let filteredEstudiante = $derived(estudianteCourses);
+  let filteredAyudante = $derived(ayudanteCourses);
 
-  // ── Search & tree state ───────────────────────────────────────
-  let searchQuery = $state('');
+  // ── Tree state ────────────────────────────────────────────────
   let expandedCursos: Record<number, boolean> = $state({});
 
   function toggleCurso(id: number) {
@@ -170,6 +156,58 @@
     { href: '/admin/inscripciones_cursos', icon: Users, label: 'Inscripciones' },
     { href: '/admin/syllabus', icon: ScrollText, label: 'Syllabus' },
   ];
+
+  // ── Acordeón de roles ─────────────────────────────────────
+  // Un usuario puede tener varios roles; para evitar el scroll infinito
+  // cada rol es una sección colapsable y solo una permanece abierta a la vez.
+  type SectionId = 'docente' | 'jefe' | 'estudiante' | 'ayudante' | 'admin';
+
+  const sectionMeta: Record<SectionId, { label: string; icon: any }> = {
+    docente: { label: 'Docente', icon: GraduationCap },
+    jefe: { label: 'Jefe de Carrera', icon: ClipboardList },
+    estudiante: { label: 'Estudiante', icon: GraduationCap },
+    ayudante: { label: 'Ayudantía', icon: BookOpen },
+    admin: { label: 'Administración', icon: Building2 },
+  };
+
+  // Secciones disponibles según los roles del usuario, en orden de prioridad.
+  let availableSections = $derived(
+    (
+      [
+        isDocente && 'docente',
+        isJefeCarrera && 'jefe',
+        isEstudiante && !isDocente && 'estudiante',
+        isAyudante && !isDocente && 'ayudante',
+        isAdmin && 'admin',
+      ] as Array<SectionId | false>
+    ).filter((s): s is SectionId => s !== false),
+  );
+
+  // Sección que corresponde a la URL actual (para abrirla automáticamente).
+  let urlSection = $derived.by<SectionId | null>(() => {
+    const p = currentPath;
+    if (p.startsWith('/docente/jefe-carrera')) return isJefeCarrera ? 'jefe' : null;
+    if (p.startsWith('/docente')) return isDocente ? 'docente' : null;
+    if (p.startsWith('/estudiante')) return availableSections.includes('estudiante') ? 'estudiante' : null;
+    if (p.startsWith('/ayudante')) return availableSections.includes('ayudante') ? 'ayudante' : null;
+    if (p.startsWith('/admin') || p === '/dashboard') return isAdmin ? 'admin' : null;
+    return null;
+  });
+
+  let openSection = $state<SectionId | null>(null);
+
+  // Sigue la URL al navegar; si la ruta no mapea a un rol, abre la primera disponible.
+  $effect(() => {
+    if (urlSection) {
+      openSection = urlSection;
+    } else if (openSection === null && availableSections.length > 0) {
+      openSection = availableSections[0];
+    }
+  });
+
+  function toggleSection(id: SectionId) {
+    openSection = openSection === id ? null : id;
+  }
 </script>
 
 <div class="h-full flex flex-col bg-white text-slate-700">
@@ -187,6 +225,36 @@
     </div>
   </div>
 
+  <!-- Encabezado colapsable reutilizable por rol -->
+  {#snippet sectionHeader(id: SectionId)}
+    {@const meta = sectionMeta[id]}
+    {@const Icon = meta.icon}
+    {@const open = openSection === id}
+    <div class="px-4 mb-1">
+      <button
+        onclick={() => toggleSection(id)}
+        class="w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all group {open
+          ? 'bg-indigo-50 text-indigo-700'
+          : 'text-slate-700 hover:bg-slate-50'}"
+      >
+        <Icon
+          size={18}
+          class="{open
+            ? 'text-indigo-500'
+            : 'text-slate-400 group-hover:text-indigo-500'} shrink-0 transition-colors"
+        />
+        <span class="flex-1 text-left text-[12px] font-extrabold tracking-widest uppercase"
+          >{meta.label}</span
+        >
+        {#if open}
+          <ChevronDown size={16} class="shrink-0" />
+        {:else}
+          <ChevronRight size={16} class="shrink-0 text-slate-400" />
+        {/if}
+      </button>
+    </div>
+  {/snippet}
+
   <!-- ── Content ──────────────────────────────────────────── -->
   <div class="flex-1 overflow-y-scroll py-6">
     <!-- Período Académico -->
@@ -202,23 +270,11 @@
       </div>
     </div>
 
-    <!-- Búsqueda -->
-    {#if isDocente || isEstudiante || isAyudante}
-      <div class="px-6 mb-6">
-        <div class="relative">
-          <Search size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Buscar cursos..."
-            bind:value={searchQuery}
-            class="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
-          />
-        </div>
-      </div>
-    {/if}
-
     <!-- ══ DOCENTE ══════════════════════════════════════════ -->
     {#if isDocente}
+      {@render sectionHeader('docente')}
+    {/if}
+    {#if isDocente && openSection === 'docente'}
       <!-- Header style links -->
       <Link
         href="/docente/dashboard"
@@ -306,7 +362,7 @@
         <div class="flex flex-col gap-1">
           {#if filteredDocente.length === 0}
             <p class="px-8 py-2 text-sm text-slate-400 italic font-medium">
-              {searchQuery ? 'Sin resultados' : 'Sin cursos asignados'}
+              Sin cursos asignados
             </p>
           {:else}
             <!-- ── Período actual (plano, sin desplegables) ──────── -->
@@ -343,13 +399,6 @@
                           >
                             <BookOpenCheck size={14} class="shrink-0" /> Programa
                           </Link>
-                        {:else}
-                          <span
-                            class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 bg-slate-50 cursor-not-allowed"
-                            title="Programa pendiente"
-                          >
-                            <BookOpenCheck size={14} class="shrink-0 opacity-60" /> Programa
-                          </span>
                         {/if}
                         <Link
                           href="/docente/cursos/{curso.id_curso}/actividades"
@@ -366,12 +415,11 @@
 
             <!-- ── Períodos anteriores (árbol año/semestre, cerrado) ── -->
             {#if historicalYears.length > 0}
-              {@const histOpen = historicalOpen || !!searchQuery}
+              {@const histOpen = historicalOpen}
               <div class="px-4">
                 <button
                   onclick={() => (historicalOpen = !historicalOpen)}
-                  disabled={!!searchQuery}
-                  class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wide text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all w-full text-left disabled:opacity-100 disabled:cursor-default"
+                  class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wide text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all w-full text-left"
                 >
                   {#if histOpen}
                     <ChevronDown size={12} class="shrink-0" />
@@ -463,20 +511,6 @@
                                             >Ver</span
                                           >
                                         </Link>
-                                      {:else}
-                                        <button
-                                          class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-400 cursor-not-allowed w-full text-left bg-slate-50/50"
-                                          disabled
-                                        >
-                                          <div class="flex items-center gap-2">
-                                            <BookOpenCheck size={16} class="shrink-0 opacity-50" />
-                                            <span>Programa</span>
-                                          </div>
-                                          <span
-                                            class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400"
-                                            >Pendiente</span
-                                          >
-                                        </button>
                                       {/if}
 
                                       <Link
@@ -516,12 +550,9 @@
 
     <!-- ══ JEFE DE CARRERA ══════════════════════════════════ -->
     {#if isJefeCarrera}
-      <div class="h-px bg-slate-100 my-4 mx-4"></div>
-      <div class="px-6 mb-2">
-        <p class="text-[11px] font-extrabold tracking-widest uppercase text-slate-400 mb-2">
-          Jefe de Carrera
-        </p>
-      </div>
+      {@render sectionHeader('jefe')}
+    {/if}
+    {#if isJefeCarrera && openSection === 'jefe'}
       <Link
         href="/docente/jefe-carrera/dashboard"
         class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group {isActive(
@@ -626,6 +657,9 @@
 
     <!-- ══ ESTUDIANTE ═══════════════════════════════════════ -->
     {#if isEstudiante && !isDocente}
+      {@render sectionHeader('estudiante')}
+    {/if}
+    {#if isEstudiante && !isDocente && openSection === 'estudiante'}
       <!-- Header style links -->
       <Link
         href="/estudiante/dashboard"
@@ -660,7 +694,7 @@
       <div class="px-4 flex flex-col gap-1">
         {#if filteredEstudiante.length === 0}
           <p class="px-4 py-2 text-sm text-slate-400 italic font-medium">
-            {searchQuery ? 'Sin resultados' : 'Sin cursos inscritos'}
+            Sin cursos inscritos
           </p>
         {:else}
           {#each filteredEstudiante as curso (curso.id_curso)}
@@ -689,11 +723,9 @@
 
     <!-- ══ AYUDANTE ══════════════════════════════════════════ -->
     {#if isAyudante && !isDocente}
-      <div class="px-6 mb-2">
-        <p class="text-[11px] font-extrabold tracking-widest uppercase text-slate-400 mb-2">
-          Ayudantías
-        </p>
-      </div>
+      {@render sectionHeader('ayudante')}
+    {/if}
+    {#if isAyudante && !isDocente && openSection === 'ayudante'}
       <Link
         href="/ayudante/dashboard"
         class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-all group"
@@ -720,7 +752,7 @@
       <div class="px-4 flex flex-col gap-1">
         {#if filteredAyudante.length === 0}
           <p class="px-4 py-2 text-sm text-slate-400 italic font-medium">
-            {searchQuery ? 'Sin resultados' : 'Sin ayudantías asignadas'}
+            Sin ayudantías asignadas
           </p>
         {:else}
           {#each filteredAyudante as curso (curso.id_curso)}
@@ -766,7 +798,6 @@
                       >
                     </Link>
                   {:else if hasPermission(curso.permisos, 'cursos/programas:crear')}
-                    // TODO
                     <Link
                       href="/ayudante/cursos/{curso.id_curso}/programa/create"
                       class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-white hover:shadow-sm hover:text-indigo-600 transition-all"
@@ -780,20 +811,6 @@
                         >Crear</span
                       >
                     </Link>
-                  {:else}
-                    <button
-                      class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-400 cursor-not-allowed w-full text-left bg-slate-50/50"
-                      disabled
-                    >
-                      <div class="flex items-center gap-2">
-                        <BookOpenCheck size={16} class="shrink-0 opacity-50" />
-                        <span>Programa</span>
-                      </div>
-                      <span
-                        class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400"
-                        >Pendiente</span
-                      >
-                    </button>
                   {/if}
                 </div>
               {/if}
@@ -818,11 +835,9 @@
 
     <!-- ══ ADMIN ═════════════════════════════════════════════ -->
     {#if isAdmin}
-      <div class="px-6 mb-2">
-        <p class="text-[11px] font-extrabold tracking-widest uppercase text-slate-400 mb-2">
-          Administración
-        </p>
-      </div>
+      {@render sectionHeader('admin')}
+    {/if}
+    {#if isAdmin && openSection === 'admin'}
       <div class="px-4 mb-2">
         <Link
           href="/dashboard"
