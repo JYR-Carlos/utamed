@@ -39,7 +39,7 @@
     contenidos_programa: ContenidoPrograma[];
   }
 
-  interface ProgramaFull extends Programa {
+  interface ProgramaFull extends Omit<Programa, 'secciones'> {
     es_plantilla?: boolean;
     version_programa: number;
     secciones?: SeccionPrograma[];

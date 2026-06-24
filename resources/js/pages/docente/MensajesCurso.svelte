@@ -19,6 +19,7 @@
   import { Link } from '@inertiajs/svelte';
   import { ArrowLeft, MessageSquare, Send, Loader2, Search, Inbox } from 'lucide-svelte';
   import type { MensajeEstudiante } from '@/types/actividad';
+  import { initials } from '@/utils/formatters';
 
   // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -118,20 +119,11 @@
     });
   }
 
-  function initials(name: string) {
-    return name
-      .split(' ')
-      .slice(0, 2)
-      .map((w) => w[0] ?? '')
-      .join('')
-      .toUpperCase();
-  }
-
-  function csrfToken() {
-    return (
-      (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content ?? ''
-    );
-  }
+  // `initials` y los mutadores usan Inertia (router.post); el CSRF lo gestiona
+  // Inertia automáticamente, por lo que no se necesita un helper csrfToken() manual
+  // (D-03). Los formatos de fecha locales (fmtDate/fmtFull) son específicos de esta
+  // vista —conscientes del "mismo día" y sin año— y no tienen equivalente en
+  // @/utils/formatters, por lo que se conservan (D-04).
 
   // ── Actions ───────────────────────────────────────────────────────────────
 

@@ -1,7 +1,19 @@
+<!--
+  MatrizEvaluacion.svelte — Pantalla completa para evaluar a un grupo con una
+  rúbrica. El docente selecciona un nivel por cada criterio; el puntaje y la
+  nota chilena (1–7) se calculan automáticamente (vía `@/lib/notas`) y pueden
+  ajustarse manualmente antes de confirmar. Al confirmar persiste la evaluación
+  en el backend (POST a /docente/cursos/.../evaluacion) y llama `onSuccess`.
+
+  Props: rubrica + rubricaId, identificadores del contexto (idCurso, idActividad,
+  idGrupo, idAgendaEntrega opcional), nombres para el encabezado, y callbacks
+  `onClose` / `onSuccess`.
+-->
 <script lang="ts">
   import type { Rubrica } from '@/types/rubrica';
   import { router } from '@inertiajs/svelte';
   import { X, CheckCircle2 } from 'lucide-svelte';
+  import { calcularNotaChilena } from '@/lib/notas';
 
   interface Props {
     rubrica: Rubrica;
@@ -67,17 +79,8 @@
       : 0,
   );
 
-  // Fórmula chilena: 1.0 en 0 %, 4.0 al 60 %, 7.0 al 100 %
-  function calcularNota(puntaje: number, total: number): number {
-    if (total === 0) return 1;
-    const min = total * 0.6;
-    const nota =
-      puntaje >= min ? 4 + (3 * (puntaje - min)) / (total - min) : 1 + (3 * puntaje) / min;
-    return Math.min(7, Math.max(1, Math.round(nota * 10) / 10));
-  }
-
   const notaCalculada = $derived(
-    todosEvaluados && puntajeMaximo > 0 ? calcularNota(puntajeObtenido, puntajeMaximo) : null,
+    todosEvaluados && puntajeMaximo > 0 ? calcularNotaChilena(puntajeObtenido, puntajeMaximo) : null,
   );
 
   const evaluacionLabel = $derived(

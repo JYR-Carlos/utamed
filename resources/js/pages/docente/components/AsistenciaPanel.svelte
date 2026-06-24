@@ -11,6 +11,7 @@
    * recargando la lista tras cada cambio.
    */
   import { router } from '@inertiajs/svelte';
+  import { formatFechaCorta } from '@/utils/formatters';
   import {
     CalendarPlus,
     Loader2,
@@ -82,6 +83,8 @@
     error = null;
     mostrarForm = false;
     try {
+      // GET lazy de datos del panel (no muta estado del servidor → no requiere CSRF).
+      // TODO(D-03): migrar a router.reload({ only:[...] }) cuando el controlador exponga prop lazy.
       const res = await fetch(
         `/docente/cursos/${idCurso}/componentes/${idComponente}/asistencia`,
         { headers: { Accept: 'application/json' }, credentials: 'same-origin' },
@@ -180,13 +183,16 @@
   }
 
   function eliminarSesion(s: Sesion) {
-    if (!confirm(`¿Eliminar la sesión del ${formatFecha(s.dia)} (${s.hora_inicio}–${s.hora_fin})?`))
+    if (!confirm(`¿Eliminar la sesión del ${formatFechaCorta(s.dia)} (${s.hora_inicio}–${s.hora_fin})?`))
       return;
     router.delete(`/docente/cursos/${idCurso}/componentes/${idComponente}/asistencia`, {
       data: { dia: s.dia, hora_inicio: s.hora_inicio, hora_fin: s.hora_fin },
       preserveScroll: true,
       preserveState: true,
       onSuccess: () => cargar(),
+      onError: (errors: Record<string, string>) => {
+        error = (Object.values(errors)[0] as string) ?? 'No se pudo eliminar la sesión.';
+      },
     });
   }
 
@@ -219,14 +225,6 @@
 
   function bajoMinimo(porc: number): boolean {
     return porcentajeObligatorio != null && porc < porcentajeObligatorio;
-  }
-
-  function formatFecha(d: string): string {
-    return new Date(d + 'T00:00:00').toLocaleDateString('es-CL', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   }
 
   function pctColor(porc: number): string {
@@ -393,7 +391,7 @@
               {@const pct = s.total === 0 ? 0 : Math.round((s.presentes / s.total) * 100)}
               <div class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-[#F5F1EA] transition-colors">
                 <div class="min-w-0">
-                  <p class="text-sm font-medium text-[#1A1A24]">{formatFecha(s.dia)}</p>
+                  <p class="text-sm font-medium text-[#1A1A24]">{formatFechaCorta(s.dia)}</p>
                   <p class="text-xs text-[#8A8E9C]">{s.hora_inicio} – {s.hora_fin}</p>
                 </div>
                 <div class="flex items-center gap-4 shrink-0">

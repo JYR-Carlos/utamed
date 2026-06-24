@@ -1515,7 +1515,7 @@ class DocenteActivityController extends Controller
     /**
      * Devuelve SÓLO los mensajes/feedback de un grupo específico de una actividad
      * (filtra por tipo "Mensaje al profesor" y "Feedback"), sin incluir entregas de archivos.
-     * Usado en el panel de mensajes de la vista ActividadEvaluacion (nivel 2).
+     * Usado en el panel de mensajes de la vista Activities/Index (nivel 2).
      */
     public function getGrupoMensajes(Curso $curso, Actividad $actividad, int $grupo)
     {
