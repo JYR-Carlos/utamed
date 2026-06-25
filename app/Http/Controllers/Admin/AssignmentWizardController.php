@@ -178,7 +178,7 @@ class AssignmentWizardController extends Controller
     $permisos = \Illuminate\Support\Facades\DB::table('usuario.asignacion_rol_permiso as arp')
       ->join('usuario.permiso as p', 'p.id_permiso', '=', 'arp.id_permiso')
       ->where('arp.id_rol', $roleId)
-      ->select('p.id_permiso', 'p.slug', 'p.nombre', 'p.descripcion', 'arp.puede_delegar_permisos')
+      ->select('p.id_permiso', 'p.slug', 'p.nombre', 'p.descripcion', 'arp.puede_delegar_permiso')
       ->orderBy('p.slug')
       ->get()
       ->map(fn($row) => [
@@ -186,7 +186,7 @@ class AssignmentWizardController extends Controller
         'slug' => $row->slug,
         'nombre' => $row->nombre,
         'descripcion' => $row->descripcion,
-        'puede_delegar_permisos' => (bool) $row->puede_delegar_permisos,
+        'puede_delegar_permisos' => (bool) $row->puede_delegar_permiso, // Fix: front usa puede_delegar_permisos, en plural
       ])
       ->values();
 

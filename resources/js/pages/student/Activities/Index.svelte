@@ -128,12 +128,12 @@
     mensaje: string;
     archivo?: File;
   }) {
-    console.log('[handleGuardarEntrada] llamado con:', {
-      id_actividad_asignada_grupo,
-      tipo: data.tipo,
-      tiene_archivo: !!data.archivo,
-      nombre_archivo: data.archivo?.name,
-    });
+    // console.log('[handleGuardarEntrada] llamado con:', {
+    //   id_actividad_asignada_grupo,
+    //   tipo: data.tipo,
+    //   tiene_archivo: !!data.archivo,
+    //   nombre_archivo: data.archivo?.name,
+    // });
 
     if (!id_actividad_asignada_grupo) {
       console.error('[handleGuardarEntrada] id_actividad_asignada_grupo es null/undefined.', {
