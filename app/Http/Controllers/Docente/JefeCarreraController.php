@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Docente;
 
 use App\Http\Controllers\Controller;
-use App\Models\Administrativo\Carrera;
+use App\Http\Controllers\Docente\JefeCarrera\ResolvesJefaturaCarrera;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
-use App\Models\Usuario\UsuarioRolAsignacion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +15,8 @@ use Inertia\Inertia;
 
 class JefeCarreraController extends Controller
 {
+    use ResolvesJefaturaCarrera;
+
     /** Paleta determinística para avatares de docentes. */
     private const DOCENTE_COLORS = [
         '#6366F1', '#F59E0B', '#10B981', '#3B82F6', '#EC4899', '#8B5CF6', '#EF4444',
@@ -23,17 +24,10 @@ class JefeCarreraController extends Controller
 
     public function dashboard()
     {
-        /** @var Usuario $user */
-        $user = Auth::user();
+        $jefatura = $this->jefaturaOrRedirect();
 
-        if (!$user->docente) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes acceso a esta sección');
-        }
-
-        $jefatura = $this->resolveJefatura($user);
-
-        if (!$jefatura) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes rol de Jefe de Carrera activo');
+        if ($jefatura instanceof \Illuminate\Http\RedirectResponse) {
+            return $jefatura;
         }
 
         $carreraId = $jefatura['carrera_id'];
@@ -100,17 +94,10 @@ class JefeCarreraController extends Controller
 
     public function seguimiento(Request $request)
     {
-        /** @var Usuario $user */
-        $user = Auth::user();
+        $jefatura = $this->jefaturaOrRedirect();
 
-        if (!$user->docente) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes acceso a esta sección');
-        }
-
-        $jefatura = $this->resolveJefatura($user);
-
-        if (!$jefatura) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes rol de Jefe de Carrera activo');
+        if ($jefatura instanceof \Illuminate\Http\RedirectResponse) {
+            return $jefatura;
         }
 
         $carreraId = $jefatura['carrera_id'];
@@ -200,17 +187,10 @@ class JefeCarreraController extends Controller
 
     public function metricas()
     {
-        /** @var Usuario $user */
-        $user = Auth::user();
+        $jefatura = $this->jefaturaOrRedirect();
 
-        if (!$user->docente) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes acceso a esta sección');
-        }
-
-        $jefatura = $this->resolveJefatura($user);
-
-        if (!$jefatura) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes rol de Jefe de Carrera activo');
+        if ($jefatura instanceof \Illuminate\Http\RedirectResponse) {
+            return $jefatura;
         }
 
         $carreraId = $jefatura['carrera_id'];
@@ -318,13 +298,8 @@ class JefeCarreraController extends Controller
      */
     public function programaPreview(int $programaId)
     {
-        /** @var Usuario $user */
-        $user = Auth::user();
-
-        $jefatura = $user->docente ? $this->resolveJefatura($user) : null;
-        if (!$jefatura) {
-            abort(403, 'No tienes rol de Jefe de Carrera activo');
-        }
+        // JSON endpoint (previsualización) → abort(403) es correcto aquí (no es vista Inertia).
+        $jefatura = $this->jefaturaOrAbort();
 
         $programa = Programa::with(['curso.asignacionPlan.asignatura', 'curso.docenteTitular.usuario'])
             ->findOrFail($programaId);
@@ -357,12 +332,14 @@ class JefeCarreraController extends Controller
 
     public function aprobarPrograma(int $programaId)
     {
+        $jefaturaCheck = $this->jefaturaOrRedirect();
+
+        if ($jefaturaCheck instanceof \Illuminate\Http\RedirectResponse) {
+            return $jefaturaCheck;
+        }
+
         /** @var Usuario $user */
         $user = Auth::user();
-
-        if (!$this->resolveJefatura($user)) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes rol de Jefe de Carrera activo');
-        }
 
         $programa = Programa::findOrFail($programaId);
         $this->authorize('approve', $programa);
@@ -387,12 +364,14 @@ class JefeCarreraController extends Controller
 
     public function rechazarPrograma(Request $request, int $programaId)
     {
+        $jefaturaCheck = $this->jefaturaOrRedirect();
+
+        if ($jefaturaCheck instanceof \Illuminate\Http\RedirectResponse) {
+            return $jefaturaCheck;
+        }
+
         /** @var Usuario $user */
         $user = Auth::user();
-
-        if (!$this->resolveJefatura($user)) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes rol de Jefe de Carrera activo');
-        }
 
         $request->validate([
             'notas' => ['nullable', 'string', 'max:3000'],
@@ -436,6 +415,34 @@ class JefeCarreraController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Para métodos que renderizan vistas Inertia: devuelve la jefatura o una
+     * RedirectResponse a /docente/dashboard con flash de error.
+     * Preferible a jefaturaOrAbort() (que hace abort(403)) en este contexto,
+     * porque un redirect es mejor UX que una pantalla de error desnuda en Inertia.
+     *
+     * @return array{id_contexto:int,carrera_id:?int,carrera_nombre:?string}|\Illuminate\Http\RedirectResponse
+     */
+    private function jefaturaOrRedirect(): array|\Illuminate\Http\RedirectResponse
+    {
+        /** @var Usuario|null $user */
+        $user = Auth::user();
+
+        if (!$user || !$user->docente) {
+            return redirect('/docente/dashboard')
+                ->with('error', 'No tienes acceso a esta sección');
+        }
+
+        $jefatura = $this->resolveJefatura($user);
+
+        if (!$jefatura || !$jefatura['carrera_id']) {
+            return redirect('/docente/dashboard')
+                ->with('error', 'No tienes rol de Jefe de Carrera activo');
+        }
+
+        return $jefatura;
+    }
 
     /**
      * Query base de cursos de una carrera (no eliminados).
@@ -800,30 +807,5 @@ class JefeCarreraController extends Controller
         return $out;
     }
 
-    private function resolveJefatura(Usuario $user): ?array
-    {
-        $asignacion = UsuarioRolAsignacion::query()
-            ->where('id_usuario', $user->id_usuario)
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->whereHas('rol', fn($q) => $q->where('nombre', 'Jefe de Carrera'))
-            ->whereHas('contexto.tipoContexto', fn($q) => $q->where('categoria', 'carrera'))
-            ->latest('id_ura')
-            ->first();
-
-        if (!$asignacion) {
-            return null;
-        }
-
-        $carrera = Carrera::query()
-            ->select('id_carrera', 'nombre', 'id_contexto')
-            ->where('id_contexto', $asignacion->id_contexto)
-            ->first();
-
-        return [
-            'id_contexto' => $asignacion->id_contexto,
-            'carrera_id' => $carrera?->id_carrera,
-            'carrera_nombre' => $carrera?->nombre,
-        ];
-    }
 }
+

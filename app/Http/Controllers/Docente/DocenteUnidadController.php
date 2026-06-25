@@ -7,6 +7,7 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\Unidad;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class DocenteUnidadController extends Controller
 {
@@ -60,8 +61,10 @@ class DocenteUnidadController extends Controller
             $unidad = Unidad::create($validated);
             return back()->with('success', "Unidad '{$unidad->nombre}' creada correctamente.");
         } catch (\Exception $e) {
+            Log::error('Error al crear la unidad: ' . $e->getMessage());
+
             return back()
-                ->withErrors(['error' => 'Error al crear la unidad: ' . $e->getMessage()])
+                ->withErrors(['error' => 'No se pudo crear la unidad. Por favor, inténtalo nuevamente.'])
                 ->withInput();
         }
     }
@@ -88,8 +91,10 @@ class DocenteUnidadController extends Controller
             $unidad->update($validated);
             return back()->with('success', 'Unidad actualizada correctamente.');
         } catch (\Exception $e) {
+            Log::error('Error al actualizar la unidad: ' . $e->getMessage());
+
             return back()
-                ->withErrors(['error' => 'Error al actualizar la unidad: ' . $e->getMessage()])
+                ->withErrors(['error' => 'No se pudo actualizar la unidad. Por favor, inténtalo nuevamente.'])
                 ->withInput();
         }
     }
@@ -114,8 +119,10 @@ class DocenteUnidadController extends Controller
             });
             return back()->with('success', "Unidad '{$nombre}' eliminada correctamente.");
         } catch (\Exception $e) {
+            Log::error('Error al eliminar la unidad: ' . $e->getMessage());
+
             return back()
-                ->withErrors(['error' => 'Error al eliminar la unidad: ' . $e->getMessage()]);
+                ->withErrors(['error' => 'No se pudo eliminar la unidad. Por favor, inténtalo nuevamente.']);
         }
     }
 }

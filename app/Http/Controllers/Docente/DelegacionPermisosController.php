@@ -6,8 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\Usuario;
-use App\Models\Usuario\UsuarioPermisoEspecial;
-use Illuminate\Http\JsonResponse;
+use App\Services\Docente\PermisosCursoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -24,6 +23,12 @@ use Inertia\Response;
  *  - authorizeIsTitular() verifica que el usuario autenticado sea el titular actual.
  *  - assertIsMiembroCurso() evita IDOR: el target user DEBE pertenecer al equipo del curso.
  *  - Solo permisos del DELEGABLE_MATRIX pueden delegarse (whitelist estricta).
+ *
+ * Refactorizado (B-04): syncPermiso, ensureContext y buildPermisosMap
+ * delegados a PermisosCursoService.
+ *
+ * B-11: regla exists unificada a 'usuario.usuario,id_usuario' (ya era correcta aquí;
+ * confirmada como la forma canónica vs. 'exists:usuario,id_usuario' de CursoPermisos).
  *
  * Endpoints:
  *  GET  /docente/cursos/{curso}/delegacion-permisos         → index()
@@ -89,6 +94,10 @@ class DelegacionPermisosController extends Controller
         ],
     ];
 
+    public function __construct(
+        private readonly PermisosCursoService $permisosService
+    ) {}
+
     // ────────────────────────────────────────────────────────────────────────
     // ENDPOINTS PÚBLICOS
     // ────────────────────────────────────────────────────────────────────────
@@ -107,7 +116,7 @@ class DelegacionPermisosController extends Controller
     public function index(Curso $curso): Response
     {
         $this->authorize('manageTeam', $curso);
-        $this->ensureContext($curso);
+        $this->permisosService->ensureContextCurso($curso);
 
         $allSlugs   = $this->allDelegableSlugs();
         $permisosDb = Permiso::whereIn('slug', $allSlugs)
@@ -115,11 +124,15 @@ class DelegacionPermisosController extends Controller
             ->get()
             ->keyBy('slug');
 
-        $miembros = $this->getMiembrosCurso($curso);
+        $miembros = $this->permisosService->miembrosDelCurso($curso);
 
         $miembrosConPermisos = $miembros->map(function (array $miembro) use ($curso, $permisosDb) {
             return array_merge($miembro, [
-                'permisos' => $this->buildPermisosMap($miembro['id_usuario'], $curso->id_contexto, $permisosDb),
+                'permisos' => $this->permisosService->mapaPermisosPorSlug(
+                    $miembro['id_usuario'],
+                    $curso->id_contexto,
+                    $permisosDb
+                ),
             ]);
         })->values();
 
@@ -142,15 +155,17 @@ class DelegacionPermisosController extends Controller
      *   { id_usuario: int, slug: string, otorgar: bool }
      *
      * Response:
-     *   { ok: true } | HTTP 422 | HTTP 403
+     *   redirect()->back() con flash 'success' o errores de validación
      */
     public function toggle(Request $request, Curso $curso): \Illuminate\Http\RedirectResponse
     {
         $this->authorize('manageTeam', $curso);
-        $this->ensureContext($curso);
+        $this->permisosService->ensureContextCurso($curso);
 
-        $allSlugs  = $this->allDelegableSlugs();
+        $allSlugs = $this->allDelegableSlugs();
 
+        // B-11: 'exists:usuario.usuario,id_usuario' era ya la forma correcta aquí;
+        // se mantiene y se documenta como la convención canónica del proyecto.
         $validated = $request->validate([
             'id_usuario' => ['required', 'integer', 'exists:usuario.usuario,id_usuario'],
             'slug'       => ['required', 'string', 'in:' . implode(',', $allSlugs)],
@@ -160,11 +175,12 @@ class DelegacionPermisosController extends Controller
         // IDOR guard: target user must belong to the course team, not be the DT
         $this->assertIsMiembroCurso($curso, $validated['id_usuario']);
 
-        $this->syncPermiso(
+        $this->permisosService->syncPermiso(
             idUsuario:  $validated['id_usuario'],
-            slug:       $validated['slug'],
+            slugOrId:   $validated['slug'],
             idContexto: $curso->id_contexto,
             otorgar:    $validated['otorgar'],
+            origen:     'DelegacionPermisos',
         );
 
         return back()->with('success', 'Permiso actualizado');
@@ -173,17 +189,6 @@ class DelegacionPermisosController extends Controller
     // ────────────────────────────────────────────────────────────────────────
     // HELPERS PRIVADOS
     // ────────────────────────────────────────────────────────────────────────
-
-    private function ensureContext(Curso $curso): void
-    {
-        if (empty($curso->id_contexto) || $curso->id_contexto === 1) {
-            $contexto = \App\Models\Usuario\Contexto::firstOrCreate(
-                ['contexto_display' => 'Curso: ' . $curso->cod_curso],
-                ['descripcion'      => 'Contexto para el curso ' . $curso->cod_curso]
-            );
-            $curso->update(['id_contexto' => $contexto->id_contexto]);
-        }
-    }
 
     /**
      * IDOR guard: verifica que id_usuario pertenece al equipo del curso y no es el DT.
@@ -206,68 +211,14 @@ class DelegacionPermisosController extends Controller
 
         if (!$esMiembro) {
             Log::channel('seguridad')->warning('IDOR: intento de delegar permiso a usuario fuera del curso', [
-                'evento'          => 'IDOR_DELEGACION_USUARIO_EXTERNO',
-                'id_usuario_auth' => $authUser->id_usuario,
-                'id_usuario_target' => $idUsuario,
-                'id_curso'        => $curso->id_curso,
-                'ip'              => request()->ip(),
+                'evento'              => 'IDOR_DELEGACION_USUARIO_EXTERNO',
+                'id_usuario_auth'     => $authUser->id_usuario,
+                'id_usuario_target'   => $idUsuario,
+                'id_curso'            => $curso->id_curso,
+                'ip'                  => request()->ip(),
             ]);
             abort(403, 'El usuario no pertenece al equipo docente de este curso.');
         }
-    }
-
-    /**
-     * Retorna todos los miembros del equipo docente del curso, excluyendo al DT.
-     *
-     * @return \Illuminate\Support\Collection<int, array{id_usuario: int, id_docente: int, nombre: string}>
-     */
-    private function getMiembrosCurso(Curso $curso): \Illuminate\Support\Collection
-    {
-        /** @var Usuario $user */
-        $user = Auth::user();
-
-        return $curso->componentes()
-            ->with(['docenteComponentes.docente.usuario'])
-            ->get()
-            ->flatMap(fn($c) => $c->docenteComponentes)
-            ->filter(fn($dc) => $dc->docente && $dc->id_docente !== $user->docente->id_docente)
-            ->map(fn($dc) => [
-                'id_usuario' => $dc->docente->usuario->id_usuario,
-                'id_docente' => $dc->id_docente,
-                'nombre'     => trim(
-                    ($dc->docente->usuario->nombre1   ?? '') . ' ' .
-                    ($dc->docente->usuario->apellido1 ?? '')
-                ),
-                'es_titular' => (bool) $dc->es_titular,
-            ])
-            ->unique('id_usuario')
-            ->values();
-    }
-
-    /**
-     * Construye el mapa { slug → bool } de permisos activos para un usuario en el contexto dado.
-     *
-     * @param  \Illuminate\Support\Collection $permisosDb  Collection<string, Permiso> keyed by slug
-     * @return array<string, bool>
-     */
-    private function buildPermisosMap(int $idUsuario, int $idContexto, \Illuminate\Support\Collection $permisosDb): array
-    {
-        $idPermisos = $permisosDb->pluck('id_permiso')->toArray();
-
-        $activosIds = UsuarioPermisoEspecial::where('id_usuario', $idUsuario)
-            ->where('id_contexto', $idContexto)
-            ->whereIn('id_permiso', $idPermisos)
-            ->where('esta_activo', true)
-            ->where('fue_borrado', false)
-            ->pluck('id_permiso')
-            ->toArray();
-
-        $map = [];
-        foreach ($permisosDb as $slug => $permiso) {
-            $map[$slug] = in_array($permiso->id_permiso, $activosIds);
-        }
-
-        return $map;
     }
 
     /**
@@ -300,63 +251,6 @@ class DelegacionPermisosController extends Controller
         }
 
         return $grupos;
-    }
-
-    /**
-     * Otorga o revoca un permiso especial para un usuario en un contexto dado.
-     */
-    private function syncPermiso(int $idUsuario, string $slug, int $idContexto, bool $otorgar): void
-    {
-        $permiso = Permiso::where('slug', $slug)->firstOrFail();
-
-        $existing = UsuarioPermisoEspecial::where('id_usuario', $idUsuario)
-            ->where('id_contexto', $idContexto)
-            ->where('id_permiso', $permiso->id_permiso)
-            ->first();
-
-        if ($otorgar) {
-            if ($existing) {
-                $existing->update([
-                    'esta_activo'             => true,
-                    'fue_borrado'             => false,
-                    'esta_permitido'          => true,
-                    'fecha_fin_real'          => null,
-                    'fecha_fin_planificada'   => now()->addYears(5),
-                    'creado_por'              => Auth::id(),
-                ]);
-            } else {
-                UsuarioPermisoEspecial::create([
-                    'id_usuario'               => $idUsuario,
-                    'id_permiso'               => $permiso->id_permiso,
-                    'id_contexto'              => $idContexto,
-                    'esta_permitido'           => true,
-                    'puede_delegar'            => false,
-                    'esta_activo'              => true,
-                    'fue_borrado'              => false,
-                    'fecha_inicio_planificada' => now(),
-                    'fecha_fin_planificada'    => now()->addYears(5),
-                    'fecha_fin_real'           => null,
-                    'creado_por'               => Auth::id(),
-                ]);
-            }
-        } else {
-            if ($existing) {
-                $existing->update([
-                    'esta_activo'    => false,
-                    'fue_borrado'    => true,
-                    'fecha_fin_real' => now(),
-                    'eliminado_por'  => Auth::id(),
-                ]);
-            }
-        }
-
-        Log::info('[DelegacionPermisos] Toggle', [
-            'delegado_por' => Auth::id(),
-            'id_usuario'   => $idUsuario,
-            'slug'         => $slug,
-            'id_contexto'  => $idContexto,
-            'otorgar'      => $otorgar,
-        ]);
     }
 
     /** Flattens DELEGABLE_MATRIX into a simple slug array. */

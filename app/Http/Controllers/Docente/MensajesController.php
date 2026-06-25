@@ -35,6 +35,8 @@ use Inertia\Inertia;
  */
 class MensajesController extends Controller
 {
+    use ContaPendientesMensajes;
+
     /** Tipos de agenda que constituyen la conversación docente ↔ estudiante. */
     private const TIPOS_CONVERSACION = ['Mensaje al profesor', 'Feedback'];
 
@@ -229,42 +231,8 @@ class MensajesController extends Controller
         ];
     }
 
-    /**
-     * Devuelve [id_actividad => nº de grupos cuyo último mensaje es del estudiante].
-     * Usa DISTINCT ON de PostgreSQL para tomar el último mensaje por grupo.
-     */
-    private function pendientesPorActividad(array $cursoIds): array
-    {
-        if (empty($cursoIds)) {
-            return [];
-        }
-
-        $placeholders = implode(',', array_fill(0, count($cursoIds), '?'));
-
-        $rows = DB::select(
-            "SELECT ultimo.id_actividad, COUNT(*) AS pendientes
-             FROM (
-                 SELECT DISTINCT ON (a.id_actividad_asignada_grupo)
-                        aag.id_actividad,
-                        a.tipo_mensaje
-                 FROM agenda.agenda a
-                 JOIN agenda.actividad_asignada_grupo aag
-                      ON aag.id_actividad_asignada_grupo = a.id_actividad_asignada_grupo
-                 JOIN agenda.actividad act ON act.id_actividad = aag.id_actividad
-                 JOIN curso.componente c ON c.id_componente = act.id_componente
-                 WHERE c.id_curso IN ($placeholders)
-                   AND a.tipo_mensaje IN ('Mensaje al profesor', 'Feedback')
-                 ORDER BY a.id_actividad_asignada_grupo, a.fecha_envio DESC
-             ) ultimo
-             WHERE ultimo.tipo_mensaje = 'Mensaje al profesor'
-             GROUP BY ultimo.id_actividad",
-            $cursoIds,
-        );
-
-        return collect($rows)->pluck('pendientes', 'id_actividad')
-            ->map(fn($n) => (int) $n)
-            ->all();
-    }
+    // El cálculo de "pendientes por actividad" vive en el trait ContaPendientesMensajes
+    // (compartido con DashboardController) para evitar duplicar el DISTINCT ON.
 
     /**
      * El docente envía un mensaje a TODOS los grupos de una actividad (grupal)

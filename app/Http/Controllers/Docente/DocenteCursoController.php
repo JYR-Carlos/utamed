@@ -806,7 +806,14 @@ class DocenteCursoController extends Controller
             return back()->with('success', 'Permisos del ayudante actualizados.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error al actualizar permisos: ' . $e->getMessage());
+            // B-10: no exponer el mensaje crudo de la excepción al usuario.
+            Log::error('[DocenteCurso] Error al sincronizar permisos de miembro', [
+                'id_curso'   => $curso->id_curso,
+                'id_usuario' => $usuario->id_usuario,
+                'error'      => $e->getMessage(),
+                'trace'      => $e->getTraceAsString(),
+            ]);
+            return back()->with('error', 'No se pudieron actualizar los permisos. Por favor, inténtalo nuevamente.');
         }
     }
 

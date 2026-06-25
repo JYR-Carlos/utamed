@@ -400,10 +400,34 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
         if (empty($this->nombre1)) {
             return 'N/A';
         }
-        
+
         $inicial = strtoupper($this->nombre1[0]);
         $apellido = $this->apellido1 ?? 'N/A';
-        
+
         return "$inicial$apellido";
+    }
+
+    /**
+     * Accessor "fuente de verdad" para el nombre completo del usuario.
+     *
+     * Concatena nombre1, nombre2, apellido1 y apellido2 (los segundos son
+     * opcionales) y normaliza los espacios sobrantes. Este es el formato
+     * canónico para mostrar el nombre de un usuario en toda la app (caso
+     * Eloquent). Para queries crudas SQL ver NombreUsuario::sqlConcat().
+     *
+     * @example "Juan Pablo Pérez Soto"
+     *
+     * @return string Nombre completo normalizado (cadena vacía si no hay datos)
+     */
+    public function getNombreCompletoAttribute(): string
+    {
+        $partes = array_filter([
+            $this->nombre1,
+            $this->nombre2,
+            $this->apellido1,
+            $this->apellido2,
+        ], fn ($p) => $p !== null && trim((string) $p) !== '');
+
+        return trim(implode(' ', $partes));
     }
 }
