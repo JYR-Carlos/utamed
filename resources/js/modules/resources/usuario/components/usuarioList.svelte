@@ -23,28 +23,28 @@
   let { data, userType, onEdit, onDelete, onPasswordChange, onToggleActive, onPermissions }: Props =
     $props();
 
-  const COLUMN_CONFIGS: Record<UserType, Array<{ key: string; label: string }>> = {
+  const COLUMN_CONFIGS: Record<UserType, Array<{ key: string; label: string; class?: string }>> = {
     estudiante: [
-      { key: 'usuario.id_usuario', label: 'ID Usuario'},
-      { key: 'estudiante.id_estudiante', label: 'ID Estudiante' },
-      { key: 'usuario.rut', label: 'RUT' },
+      // { key: 'usuario.id_usuario', label: 'ID Usuario'},
+      // { key: 'estudiante.id_estudiante', label: 'ID Estudiante' },
+      { key: 'usuario.rut', label: 'RUT', class: 'whitespace-nowrap' },
       { key: 'usuario.nombre1', label: 'Nombre' },
       { key: 'usuario.apellido1', label: 'Apellido' },
       { key: 'estudiante.agno_ingreso', label: 'Año Ingreso' },
       { key: 'estudiante.carrera.nombre', label: 'Carrera' },
     ],
     docente: [
-      { key: 'usuario.id_usuario', label: 'ID Usuario'},
-      { key: 'docente.id_docente', label: 'ID Docente' },
-      { key: 'usuario.rut', label: 'RUT' },
+      // { key: 'usuario.id_usuario', label: 'ID Usuario'},
+      // { key: 'docente.id_docente', label: 'ID Docente' },
+      { key: 'usuario.rut', label: 'RUT', class: 'whitespace-nowrap' },
       { key: 'usuario.nombre1', label: 'Nombre' },
       { key: 'usuario.apellido1', label: 'Apellido' },
       { key: 'docente.grado', label: 'Grado' },
       { key: 'docente.cargo', label: 'Cargo' },
     ],
     administrador: [
-      { key: 'usuario.id_usuario', label: 'ID' },
-      { key: 'usuario.rut', label: 'RUT' },
+      // { key: 'usuario.id_usuario', label: 'ID' },
+      { key: 'usuario.rut', label: 'RUT', class: 'whitespace-nowrap' },
       { key: 'usuario.username', label: 'Usuario' },
       { key: 'usuario.nombre1', label: 'Nombre' },
       { key: 'usuario.apellido1', label: 'Apellido' },

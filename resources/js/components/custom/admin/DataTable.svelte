@@ -6,7 +6,7 @@
 
   interface Props {
     data: PaginatedResponse<any>;
-    columns: { key: string; label: string; sortable?: boolean }[];
+    columns: { key: string; label: string; sortable?: boolean; class?: string }[];
     onEdit?: (item: any) => void;
     onDelete?: (item: any) => void;
     onPasswordChange?: (item: any) => void;
@@ -48,6 +48,17 @@
 
   let activeSortKey = $derived(urlParams().get('sort_key'));
   let activeSortDir = $derived(urlParams().get('sort_dir') as SortDir);
+
+  let openDropdown = $state<number | null>(null);
+
+  function toggleDropdown(index: number, event: Event) {
+    event.stopPropagation(); // Evita que el clic se propague a la ventana
+    openDropdown = openDropdown === index ? null : index;
+  }
+
+  function closeDropdown() {
+    openDropdown = null;
+  }
 
   // Build a plain params object from the current URL, omitting the given keys
   function currentParamsExcept(...omit: string[]): Record<string, string> {
@@ -145,6 +156,8 @@
     return btns;
   });
 </script>
+
+<svelte:window on:click={closeDropdown} />
 
 <div class="bg-white rounded-lg shadow overflow-hidden">
   <!-- Search Bar -->
@@ -313,7 +326,7 @@
             </th>
           {/each}
           {#if onEdit || onCustomAction || onSyllabus || onPasswordChange || onToggleActive}
-            <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500 tracking-wide"> Acciones </th>
+            <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-500 tracking-wide w-1 whitespace-nowrap"> Acciones </th>
           {/if}
         </tr>
       </thead>
@@ -325,10 +338,10 @@
             </td>
           </tr>
         {:else}
-          {#each data.data as item}
+          {#each data.data as item, rowIndex}
             <tr class="hover:bg-gray-50 transition-colors">
               {#each columns as column}
-                <td class="px-4 py-3 border-b border-gray-100 text-sm text-gray-900 align-middle">
+                <td class="px-4 py-3 border-b border-gray-100 text-sm text-gray-900 align-middle {column.class || ''}">
                   {#if cellSnippet}
                     {@render cellSnippet({ item, column })}
                   {:else}
@@ -337,100 +350,81 @@
                 </td>
               {/each}
               {#if onEdit || onPasswordChange || onToggleActive || onCustomAction || onSyllabus}
-                <td class="px-4 py-3 border-b border-gray-100 align-middle">
-                  <div class="flex items-center gap-1.5 whitespace-nowrap">
-                    <!-- P1: Syllabus -->
+                <td class="px-4 py-3 border-b border-gray-100 align-middle text-center relative w-1 whitespace-nowrap">
+                  <button
+                    onclick={(e) => toggleDropdown(rowIndex, e)}
+                    class="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
+                    title="Opciones"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                  </button>
+
+                  <div
+                    role="menu"
+                    tabindex="-1"
+                    class="absolute right-8 top-10 w-48 bg-white border border-gray-100 rounded-md shadow-lg z-50 py-1.5 transition-all duration-200 origin-top-right text-left
+                           {openDropdown === rowIndex ? 'scale-100 opacity-100 visible' : 'scale-95 opacity-0 invisible'}"
+                    onclick={(e) => e.stopPropagation()}
+                    onkeydown={(e) => e.stopPropagation()}
+                  >
                     {#if onSyllabus}
                       <button
-                        onclick={() => onSyllabus?.(item)}
-                        title={item.has_programa ? 'Ver / Regenerar Programa' : 'Generar Programa'}
-                        class="inline-flex items-center gap-1.5 px-2.5 py-1 text-white rounded text-[0.73rem] font-semibold cursor-pointer transition-all shadow-sm relative
-												       {item.has_programa ? 'bg-blue-800 hover:bg-blue-900' : 'bg-blue-600 hover:bg-blue-700'}"
+                        onclick={() => { onSyllabus?.(item); closeDropdown(); }}
+                        class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors hover:bg-gray-50 {item.has_programa ? 'text-blue-700' : 'text-gray-700'}"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="13"
-                          height="13"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2.5"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          ><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line
-                            x1="16"
-                            y1="13"
-                            x2="8"
-                            y2="13"
-                          /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg
-                        >
-                        Programa
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
+                        {item.has_programa ? 'Ver Programa' : 'Generar Programa'}
                         {#if item.has_programa}
-                          <span class="inline-block w-1.5 h-1.5 bg-green-400 rounded-full border border-white/60 shrink-0"></span>
+                          <span class="inline-block w-1.5 h-1.5 bg-green-500 rounded-full shrink-0 ml-auto"></span>
                         {/if}
                       </button>
                     {/if}
 
-                    <!-- P2: Custom action -->
                     {#if onCustomAction}
                       <button
-                        onclick={() => onCustomAction?.(item)}
-                        class="px-2.5 py-1 border border-indigo-300 hover:border-indigo-400 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[0.73rem] font-medium cursor-pointer transition-all"
+                        onclick={() => { onCustomAction?.(item); closeDropdown(); }}
+                        class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-indigo-700 hover:bg-indigo-50 transition-colors"
                       >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
                         {customActionLabel}
                       </button>
                     {/if}
 
-                    <!-- Separator -->
-                    {#if (onSyllabus || onCustomAction) && (onEdit)}
-                      <div class="w-px h-5 bg-gray-200 mx-0.5 shrink-0"></div>
+                    {#if (onSyllabus || onCustomAction) && (onEdit || onPasswordChange || onToggleActive)}
+                      <div class="h-px bg-gray-100 my-1"></div>
                     {/if}
 
-                    <!-- P3: Edit -->
                     {#if onEdit}
                       <button
-                        onclick={() => onEdit?.(item)}
-                        title="Editar"
-                        class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-transparent hover:bg-gray-100 text-gray-600 hover:text-gray-900 rounded text-[0.73rem] font-medium cursor-pointer transition-all border-0"
+                        onclick={() => { onEdit?.(item); closeDropdown(); }}
+                        class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50 transition-colors"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="13"
-                          height="13"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          ><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path
-                            d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-                          /></svg
-                        >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                         Editar
                       </button>
                     {/if}
 
-                   
-
-                    <!-- Utility: password -->
                     {#if onPasswordChange}
                       <button
-                        onclick={() => onPasswordChange?.(item)}
-                        class="px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded text-[0.73rem] font-medium cursor-pointer transition-all border-0"
+                        onclick={() => { onPasswordChange?.(item); closeDropdown(); }}
+                        class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-green-700 hover:bg-green-50 transition-colors"
                       >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                         Contraseña
                       </button>
                     {/if}
 
-                    <!-- Utility: toggle active -->
                     {#if onToggleActive}
                       <button
-                        onclick={() => onToggleActive?.(item)}
-                        class="px-2.5 py-1 rounded text-[0.73rem] font-medium cursor-pointer transition-all border-0
-												       {item.usuario.esta_activo ? 'bg-blue-100 hover:bg-blue-200 text-blue-700' : 'bg-red-100 hover:bg-red-200 text-red-600'}"
+                        onclick={() => { onToggleActive?.(item); closeDropdown(); }}
+                        class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors {item.usuario.esta_activo ? 'text-blue-700 hover:bg-blue-50' : 'text-red-600 hover:bg-red-50'}"
                       >
-                        {item.usuario.esta_activo ? 'Activo' : 'Inactivo'}
+                        {#if item.usuario.esta_activo}
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        {:else}
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                        {/if}
+                        {item.usuario.esta_activo ? 'Desactivar' : 'Activar'}
                       </button>
                     {/if}
                   </div>
