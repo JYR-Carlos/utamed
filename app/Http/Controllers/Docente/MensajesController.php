@@ -184,6 +184,7 @@ class MensajesController extends Controller
             ->select(
                 'ig.id_actividad_asignada_grupo as grupo',
                 DB::raw("TRIM(CONCAT(u.nombre1,' ',COALESCE(u.apellido1,''))) as nombre"),
+                'u.rut'
             )
             ->get()
             ->groupBy('grupo');
@@ -207,7 +208,13 @@ class MensajesController extends Controller
             ->groupBy('grupo');
 
         $hilos = $grupos->map(function ($g) use ($integrantes, $mensajes) {
-            $miembros = ($integrantes[$g->grupo] ?? collect())->pluck('nombre')->values();
+            $miembros = ($integrantes[$g->grupo] ?? collect())->map(function ($i) {
+                return [
+                    'rut' => $i->rut,       // o $i['rut'] si es un array
+                    'nombre' => $i->nombre  // o $i['nombre'] si es un array
+                ];
+            })->values();
+
             return [
                 'grupo'        => $g->grupo,
                 'integrantes'  => $miembros,
