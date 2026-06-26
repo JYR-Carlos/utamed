@@ -48,6 +48,18 @@
             "@php artisan db:seed"
         ],
         "db:soft-reset-testing": "pwsh -ExecutionPolicy Bypass -Command \"$env:APP_ENV='testing'; pwsh -File database-model\\scripts\\soft_reset.ps1 --testing; php artisan migrate; php artisan db:seed\"",
+        "db:soft-reset-local": [
+            "bash database-model/scripts/local_soft_reset.sh",
+            "@php artisan migrate",
+            "@php artisan db:seed"
+        ],
+        "db:reset-local": [
+            "bash database-model/scripts/local_reset.sh",
+            "@php artisan migrate",
+            "@php artisan db:seed"
+        ],
+        "db:up-local": "bash database-model/scripts/local_up.sh",
+        "db:down-local": "bash database-model/scripts/local_down.sh",
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
