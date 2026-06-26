@@ -14,13 +14,12 @@
     data: PaginatedResponse<UsuarioItem>;
     userType: UserType;
     onEdit: (usuario: UsuarioItem) => void;
-    onDelete: (usuario: UsuarioItem) => void;
     onPasswordChange: (usuario: UsuarioItem) => void;
     onToggleActive: (usuario: UsuarioItem) => void;
     onPermissions: (usuario: UsuarioItem) => void;
   }
 
-  let { data, userType, onEdit, onDelete, onPasswordChange, onToggleActive, onPermissions }: Props =
+  let { data, userType, onEdit, onPasswordChange, onToggleActive, onPermissions }: Props =
     $props();
 
   const COLUMN_CONFIGS: Record<UserType, Array<{ key: string; label: string; class?: string }>> = {

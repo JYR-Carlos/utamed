@@ -3,12 +3,12 @@
   import type { Snippet } from 'svelte';
   import type { PaginatedResponse } from '@/types/admin.types';
   import { sleep } from '@/lib';
+  import { scale } from 'svelte/transition';
 
   interface Props {
     data: PaginatedResponse<any>;
     columns: { key: string; label: string; sortable?: boolean; class?: string }[];
     onEdit?: (item: any) => void;
-    onDelete?: (item: any) => void;
     onPasswordChange?: (item: any) => void;
     onToggleActive?: (item: any) => void;
     onCustomAction?: (item: any) => void;
@@ -25,7 +25,6 @@
     data,
     columns,
     onEdit,
-
     onPasswordChange,
     onToggleActive,
     onCustomAction,
@@ -49,15 +48,43 @@
   let activeSortKey = $derived(urlParams().get('sort_key'));
   let activeSortDir = $derived(urlParams().get('sort_dir') as SortDir);
 
-  let openDropdown = $state<number | null>(null);
+  let menuState = $state<{
+    item: any;
+    index: number;
+    right: number;
+    top?: number;
+    bottom?: number;
+    openUpwards: boolean;
+  } | null>(null);
 
-  function toggleDropdown(index: number, event: Event) {
-    event.stopPropagation(); // Evita que el clic se propague a la ventana
-    openDropdown = openDropdown === index ? null : index;
+  function toggleDropdown(item: any, index: number, event: MouseEvent) {
+    event.stopPropagation();
+
+    if (menuState?.index === index) {
+      menuState = null;
+      return;
+    }
+
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const menuEstimatedHeight = 200; // Altura máxima esperada del menú en píxeles
+    const spaceBelow = window.innerHeight - rect.bottom;
+
+    // Si hay menos espacio abajo que la altura del menú, lo abrimos hacia arriba
+    const openUpwards = spaceBelow < menuEstimatedHeight;
+
+    menuState = {
+      item,
+      index,
+      right: window.innerWidth - rect.right,
+      openUpwards,
+      // Si abre hacia arriba, anulamos el top y usamos bottom relativo a la ventana
+      top: openUpwards ? undefined : rect.bottom + 4,
+      bottom: openUpwards ? window.innerHeight - rect.top + 4 : undefined,
+    };
   }
 
   function closeDropdown() {
-    openDropdown = null;
+    menuState = null;
   }
 
   // Build a plain params object from the current URL, omitting the given keys
@@ -105,7 +132,7 @@
     // Preserve tipo, sort, per_page — drop page (reset to 1)
     const params = currentParamsExcept('search', 'page');
     if (searchTerm) params.search = searchTerm;
-    await sleep(1000)
+    await sleep(1000);
     router.get(currentPath, params, { preserveState: true, preserveScroll: true });
   }
 
@@ -157,16 +184,16 @@
   });
 </script>
 
-<svelte:window on:click={closeDropdown} />
+<svelte:window onclick={closeDropdown} onscrollcapture={closeDropdown} />
 
-<div class="bg-white rounded-lg shadow overflow-hidden">
+<div class="bg-white rounded-lg shadow overflow-hidden onscroll={closeDropdown}">
   <!-- Search Bar -->
   <div class="p-4 border-b border-gray-200 flex gap-2">
     <input
       type="text"
       bind:value={searchTerm}
       placeholder={searchPlaceholder}
-      onkeydown={ () => handleSearch()}
+      onkeydown={() => handleSearch()}
       class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-shadow"
     />
     <button
@@ -198,7 +225,7 @@
           onchange={(e) => changePerPage(Number((e.target as HTMLSelectElement).value))}
           class="px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white cursor-pointer focus:outline-none focus:border-blue-400 transition-colors"
         >
-          {#each perPageOptions as opt}
+          {#each perPageOptions as opt (opt)}
             <option value={opt}>{opt} por página</option>
           {/each}
         </select>
@@ -215,13 +242,13 @@
 
           <!-- Sliding page buttons -->
           <div class="flex items-center gap-1">
-            {#each pageButtons as btn}
+            {#each pageButtons as btn, rowIndex (rowIndex)}
               {#if btn.type === 'ellipsis'}
                 <span class="px-1 text-sm text-gray-400 select-none">…</span>
               {:else}
                 <button
                   onclick={() => goToPage(btn.n)}
-                  class="min-w-[2rem] h-8 px-2 text-sm rounded-md border cursor-pointer transition-all
+                  class="min-w-8 h-8 px-2 text-sm rounded-md border cursor-pointer transition-all
                     {btn.n === data.current_page
                     ? 'bg-blue-500 border-blue-500 text-white font-semibold'
                     : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'}"
@@ -246,11 +273,11 @@
   </div>
 
   <!-- Table -->
-  <div class="overflow-x-auto">
-    <table class="w-full border-collapse">
-      <thead class="bg-gray-50 border-b border-gray-200">
+  <div class="overflow-auto max-h-[72vh]" onscroll={closeDropdown}>
+    <table class="w-full border-collapse relative">
+      <thead class="bg-gray-50 border-b border-gray-200 sticky top-0 z-20 shadow-xs">
         <tr>
-          {#each columns as column}
+          {#each columns as column (column.key)}
             <th
               onclick={() => cycleSort(column.key)}
               class="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500 tracking-wide cursor-pointer select-none hover:bg-gray-100 transition-colors"
@@ -326,22 +353,36 @@
             </th>
           {/each}
           {#if onEdit || onCustomAction || onSyllabus || onPasswordChange || onToggleActive}
-            <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-500 tracking-wide w-1 whitespace-nowrap"> Acciones </th>
+            <th
+              class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-500 tracking-wide w-1 whitespace-nowrap"
+            >
+              Acciones
+            </th>
           {/if}
         </tr>
       </thead>
       <tbody>
         {#if data.data.length === 0}
           <tr>
-            <td colspan={columns.length + (onEdit ? 1 : 0)} class="text-center text-gray-400 py-12 px-4">
+            <td
+              colspan={columns.length + (onEdit ? 1 : 0)}
+              class="text-center text-gray-400 py-12 px-4"
+            >
               No se encontraron resultados
             </td>
           </tr>
         {:else}
-          {#each data.data as item, rowIndex}
-            <tr class="hover:bg-gray-50 transition-colors">
-              {#each columns as column}
-                <td class="px-4 py-3 border-b border-gray-100 text-sm text-gray-900 align-middle {column.class || ''}">
+          {#each data.data as item, rowIndex (rowIndex)}
+            <tr
+              class="transition-colors {item.usuario?.esta_activo === false
+                ? 'bg-red-50/60 hover:bg-red-100/60'
+                : 'hover:bg-gray-50'}"
+            >
+              {#each columns as column (rowIndex + '-' + column.key)}
+                <td
+                  class="px-4 py-3 border-b border-gray-100 text-sm text-gray-900 align-middle {column.class ||
+                    ''}"
+                >
                   {#if cellSnippet}
                     {@render cellSnippet({ item, column })}
                   {:else}
@@ -350,84 +391,31 @@
                 </td>
               {/each}
               {#if onEdit || onPasswordChange || onToggleActive || onCustomAction || onSyllabus}
-                <td class="px-4 py-3 border-b border-gray-100 align-middle text-center relative w-1 whitespace-nowrap">
+                <td
+                  class="px-4 py-3 border-b border-gray-100 align-middle text-center relative w-1 whitespace-nowrap"
+                >
                   <button
-                    onclick={(e) => toggleDropdown(rowIndex, e)}
+                    onclick={(e) => toggleDropdown(item, rowIndex, e)}
                     class="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
                     title="Opciones"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      ><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle
+                        cx="12"
+                        cy="19"
+                        r="1"
+                      /></svg
+                    >
                   </button>
-
-                  <div
-                    role="menu"
-                    tabindex="-1"
-                    class="absolute right-8 top-10 w-48 bg-white border border-gray-100 rounded-md shadow-lg z-50 py-1.5 transition-all duration-200 origin-top-right text-left
-                           {openDropdown === rowIndex ? 'scale-100 opacity-100 visible' : 'scale-95 opacity-0 invisible'}"
-                    onclick={(e) => e.stopPropagation()}
-                    onkeydown={(e) => e.stopPropagation()}
-                  >
-                    {#if onSyllabus}
-                      <button
-                        onclick={() => { onSyllabus?.(item); closeDropdown(); }}
-                        class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors hover:bg-gray-50 {item.has_programa ? 'text-blue-700' : 'text-gray-700'}"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
-                        {item.has_programa ? 'Ver Programa' : 'Generar Programa'}
-                        {#if item.has_programa}
-                          <span class="inline-block w-1.5 h-1.5 bg-green-500 rounded-full shrink-0 ml-auto"></span>
-                        {/if}
-                      </button>
-                    {/if}
-
-                    {#if onCustomAction}
-                      <button
-                        onclick={() => { onCustomAction?.(item); closeDropdown(); }}
-                        class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-indigo-700 hover:bg-indigo-50 transition-colors"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                        {customActionLabel}
-                      </button>
-                    {/if}
-
-                    {#if (onSyllabus || onCustomAction) && (onEdit || onPasswordChange || onToggleActive)}
-                      <div class="h-px bg-gray-100 my-1"></div>
-                    {/if}
-
-                    {#if onEdit}
-                      <button
-                        onclick={() => { onEdit?.(item); closeDropdown(); }}
-                        class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                        Editar
-                      </button>
-                    {/if}
-
-                    {#if onPasswordChange}
-                      <button
-                        onclick={() => { onPasswordChange?.(item); closeDropdown(); }}
-                        class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-green-700 hover:bg-green-50 transition-colors"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        Contraseña
-                      </button>
-                    {/if}
-
-                    {#if onToggleActive}
-                      <button
-                        onclick={() => { onToggleActive?.(item); closeDropdown(); }}
-                        class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors {item.usuario.esta_activo ? 'text-blue-700 hover:bg-blue-50' : 'text-red-600 hover:bg-red-50'}"
-                      >
-                        {#if item.usuario.esta_activo}
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                        {:else}
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                        {/if}
-                        {item.usuario.esta_activo ? 'Desactivar' : 'Activar'}
-                      </button>
-                    {/if}
-                  </div>
                 </td>
               {/if}
             </tr>
@@ -436,4 +424,188 @@
       </tbody>
     </table>
   </div>
+
+  {#if menuState}
+    <div
+      role="menu"
+      tabindex="-1"
+      transition:scale={{ duration: 150, start: 0.95 }}
+      class="fixed w-48 bg-white border border-gray-100 rounded-md shadow-lg z-100 py-1.5 text-left {menuState?.openUpwards
+        ? 'origin-bottom-right'
+        : 'origin-top-right'}"
+      style="
+        right: {menuState?.right}px; 
+        {menuState?.openUpwards ? `bottom: ${menuState?.bottom}px;` : `top: ${menuState?.top}px;`}
+      "
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+    >
+      {#if onSyllabus}
+        <button
+          onclick={() => {
+            onSyllabus?.(menuState?.item);
+            closeDropdown();
+          }}
+          class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors hover:bg-gray-50 {menuState
+            ?.item?.has_programa
+            ? 'text-blue-700'
+            : 'text-gray-700'}"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline
+              points="14 2 14 8 20 8"
+            /><line x1="16" y1="13" x2="8" y2="13" /><line
+              x1="16"
+              y1="17"
+              x2="8"
+              y2="17"
+            /><polyline points="10 9 9 9 8 9" /></svg
+          >
+          {menuState?.item?.has_programa ? 'Ver Programa' : 'Generar Programa'}
+          {#if menuState?.item?.has_programa}
+            <span class="inline-block w-1.5 h-1.5 bg-green-500 rounded-full shrink-0 ml-auto"
+            ></span>
+          {/if}
+        </button>
+      {/if}
+
+      {#if onCustomAction}
+        <button
+          onclick={() => {
+            onCustomAction?.(menuState?.item);
+            closeDropdown();
+          }}
+          class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-indigo-700 hover:bg-indigo-50 transition-colors"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4" /></svg
+          >
+          {customActionLabel}
+        </button>
+      {/if}
+
+      {#if (onSyllabus || onCustomAction) && (onEdit || onPasswordChange || onToggleActive)}
+        <div class="h-px bg-gray-100 my-1"></div>
+      {/if}
+
+      {#if onEdit}
+        <button
+          onclick={() => {
+            onEdit?.(menuState?.item);
+            closeDropdown();
+          }}
+          class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path
+              d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+            /></svg
+          >
+          Editar
+        </button>
+      {/if}
+
+      {#if onPasswordChange}
+        <button
+          onclick={() => {
+            onPasswordChange?.(menuState?.item);
+            closeDropdown();
+          }}
+          class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-green-700 hover:bg-green-50 transition-colors"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path
+              d="M7 11V7a5 5 0 0 1 10 0v4"
+            /></svg
+          >
+          Contraseña
+        </button>
+      {/if}
+
+      {#if onToggleActive}
+        <button
+          onclick={() => {
+            onToggleActive?.(menuState?.item);
+            closeDropdown();
+          }}
+          class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors {menuState
+            ?.item?.usuario?.esta_activo
+            ? 'text-blue-700 hover:bg-blue-50'
+            : 'text-red-600 hover:bg-red-50'}"
+        >
+          {#if menuState?.item?.usuario?.esta_activo}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline
+                points="22 4 12 14.01 9 11.01"
+              /></svg
+            >
+          {:else}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line
+                x1="9"
+                y1="9"
+                x2="15"
+                y2="15"
+              /></svg
+            >
+          {/if}
+          {menuState?.item?.usuario?.esta_activo ? 'Desactivar' : 'Activar'}
+        </button>
+      {/if}
+    </div>
+  {/if}
 </div>

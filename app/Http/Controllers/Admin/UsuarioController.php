@@ -111,6 +111,9 @@ class UsuarioController extends Controller
             // Unir con tabla usuario, ordenar y paginar
             $q = $query->join('usuario', 'estudiante.id_usuario', '=', 'usuario.id_usuario')
                 ->select('estudiante.*');
+
+            $q->orderByDesc('usuario.esta_activo'); // Activos primero, inactivos al final
+
             if ($sqlColumn) {
                 $q->orderBy($sqlColumn, $sortDir);
             } else {
@@ -151,6 +154,9 @@ class UsuarioController extends Controller
             // Unir con tabla usuario, ordenar y paginar
             $q = $query->join('usuario', 'docente.id_usuario', '=', 'usuario.id_usuario')
                 ->select('docente.*');
+
+            $q->orderByDesc('usuario.esta_activo'); // Activos primero, inactivos al final
+
             if ($sqlColumn) {
                 $q->orderBy($sqlColumn, $sortDir);
             } else {
@@ -189,6 +195,8 @@ class UsuarioController extends Controller
             ];
 
             $sqlColumn = $adminSortWhitelist[$sortKey] ?? null;
+
+            $query->orderByDesc('esta_activo'); // Activos primero, inactivos al final
 
             // Ordenar y paginar
             if ($sqlColumn) {
