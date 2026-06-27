@@ -3,15 +3,30 @@
 namespace App\Http\Controllers\Ayudante;
 
 use App\Http\Controllers\Controller;
+use App\Models\Curso\Curso;
+use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
+use Inertia\Response;
 
+/**
+ * Cursos en los que el usuario actúa como ayudante.
+ *
+ * El vínculo ayudante↔curso se resuelve por `usuario.asignacion_rol` (rol
+ * "ayudante" activo sobre el contexto del curso), no por inscripción. Cada vista
+ * incluye los permisos efectivos del usuario en el contexto del curso.
+ */
 class CourseController extends Controller
 {
-    public function index()
+    /**
+     * Lista los cursos donde el usuario es ayudante.
+     *
+     * GET ayudante/cursos
+     */
+    public function index(): Response
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -28,7 +43,7 @@ class CourseController extends Controller
                 ->pluck('id_contexto')
             : collect();
 
-        $cursosInscritos = \App\Models\Curso\Curso::whereIn('id_contexto', $contextosAsignados)
+        $cursosInscritos = Curso::whereIn('id_contexto', $contextosAsignados)
             ->with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera'])
             ->get();
 
@@ -65,16 +80,21 @@ class CourseController extends Controller
         ]);
     }
 
-    public function show(int $id)
+    /**
+     * Muestra el detalle de un curso donde el usuario es ayudante.
+     *
+     * GET ayudante/cursos/{id}
+     */
+    public function show(int $id): Response
     {
         /** @var Usuario $user */
         $user = Auth::user();
 
         // Obtener el curso
-        $curso = \App\Models\Curso\Curso::findOrFail($id);
+        $curso = Curso::findOrFail($id);
 
         // Verificar que el usuario es ayudante en este curso
-        $esAyudante = \App\Models\Usuario\UsuarioRolAsignacion::where('id_usuario', $user->id_usuario)
+        $esAyudante = UsuarioRolAsignacion::where('id_usuario', $user->id_usuario)
             ->where('id_contexto', $curso->id_contexto)
             ->where('esta_activo', true)
             ->where('fue_eliminado', false)
@@ -95,7 +115,7 @@ class CourseController extends Controller
             'fecha_fin' => $curso->fecha_fin,
         ];
 
-        $tienePrograma = \App\Models\Curso\Programa::where('id_curso', $id)->exists();
+        $tienePrograma = Programa::where('id_curso', $id)->exists();
 
         // Obtener permisos especiales del usuario en el contexto del curso
         $userPermissions = $user->getAllPermissions($curso->id_contexto);

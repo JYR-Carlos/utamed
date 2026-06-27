@@ -3,26 +3,40 @@
 namespace App\Http\Controllers\Administrativo;
 
 use App\Http\Controllers\Controller;
+use App\Models\Auditoria\ProgramaHistorial;
 use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Services\ProgramaService;
 use App\Services\SyllabusStructure;
 use App\Traits\ParsesSyllabus;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
+use Inertia\Inertia;
+use Inertia\Response;
 
+/**
+ * Gestión del programa/syllabus de un curso y su flujo de aprobación
+ * (perspectiva administrativa). Renderiza la misma vista que el docente
+ * (`docente/Programa`) y gobierna las transiciones de estado del programa:
+ * generación, completar básico, enviar a revisión, aprobar, rechazar y eliminar.
+ *
+ * El armado del syllabus se delega en ProgramaService; los rechazos usan
+ * `SET LOCAL` dentro de una transacción para alimentar el trigger de auditoría.
+ */
 class ProgramaController extends Controller
 {
     use ParsesSyllabus;
+
     /**
-     * Store a newly created resource in storage.
-     * 
+     * Genera el programa de un curso.
+     *
      * Si se envían secciones customizadas, actualiza el syllabus con esos contenidos.
      * Si no, genera la estructura base automáticamente.
      */
-    public function store(Request $request, Curso $curso)
+    public function store(Request $request, Curso $curso): RedirectResponse
     {
         /** @var \App\Models\Usuario\Usuario $user */
         $user = Auth::user();
@@ -74,9 +88,9 @@ class ProgramaController extends Controller
     }
 
     /**
-     * Display the specified resource.
+     * Muestra el programa actual del curso y los permisos del usuario sobre él.
      */
-    public function show(Curso $curso)
+    public function show(Curso $curso): Response
     {
         // Validar que el usuario tiene acceso a este curso para ver programas
         // Rechaza acceso a cursos no asignados al docente
@@ -105,7 +119,7 @@ class ProgramaController extends Controller
         
         $isAdmin = $user->is_admin;
         $isAssignedDocente = $user->docente
-            ? \App\Models\Curso\Curso::where('id_curso', $curso->id_curso)->where('id_docente_titular', $user->docente->id_docente)->exists()
+            ? Curso::where('id_curso', $curso->id_curso)->where('id_docente_titular', $user->docente->id_docente)->exists()
             : false;
 
         $editableState = !$programa || !in_array($programa->estado, ['APROBADO']);
@@ -130,7 +144,7 @@ class ProgramaController extends Controller
             // Recuperar última razón de rechazo cuando el programa está en BORRADOR
             $ultimoRechazo = null;
             if ($programa->estado === 'BORRADOR') {
-                $ultimoRechazo = \App\Models\Auditoria\ProgramaHistorial::where('id_programa', $programa->id_programa)
+                $ultimoRechazo = ProgramaHistorial::where('id_programa', $programa->id_programa)
                     ->where('accion', 'RECHAZO')
                     ->orderByDesc('fecha_accion')
                     ->first(['observaciones', 'fecha_accion']);
@@ -160,7 +174,7 @@ class ProgramaController extends Controller
         $curso->load(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera']);
         $asignatura = $curso->asignacionPlan?->asignatura;
 
-        return \Inertia\Inertia::render('docente/Programa', [
+        return Inertia::render('docente/Programa', [
             'curso' => [
                 'id_curso'                    => $curso->id_curso,
                 'nombre'                      => $curso->nombre,
@@ -191,7 +205,7 @@ class ProgramaController extends Controller
     /**
      * Aprueba un programa
      */
-    public function approve(Curso $curso)
+    public function approve(Curso $curso): RedirectResponse
     {
         $programa = Programa::where('id_curso', $curso->id_curso)
             ->where('es_actual', true)
@@ -215,7 +229,7 @@ class ProgramaController extends Controller
     /**
      * Rechaza un programa
      */
-    public function reject(Curso $curso, Request $request)
+    public function reject(Curso $curso, Request $request): RedirectResponse
     {
         $programa = Programa::where('id_curso', $curso->id_curso)
             ->where('es_actual', true)
@@ -256,7 +270,7 @@ class ProgramaController extends Controller
      *
      * PUT /docente/cursos/{curso}/programa/completar-basico
      */
-    public function completarBasico(Curso $curso)
+    public function completarBasico(Curso $curso): RedirectResponse
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -267,7 +281,7 @@ class ProgramaController extends Controller
         $this->authorize('update', $programa);
 
         try {
-            $programa = \App\Services\ProgramaService::marcarBasicoCompleto($programa);
+            $programa = ProgramaService::marcarBasicoCompleto($programa);
 
             return Redirect::route('docente.cursos.programa.show', $curso->id_curso)
                 ->with('success', 'Versión básica marcada como completada. Ahora es visible para los alumnos.');
@@ -285,7 +299,7 @@ class ProgramaController extends Controller
      *
      * PUT /docente/cursos/{curso}/programa/enviar
      */
-    public function enviarParaRevision(Curso $curso)
+    public function enviarParaRevision(Curso $curso): RedirectResponse
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -296,7 +310,7 @@ class ProgramaController extends Controller
         $this->authorize('update', $programa);
 
         try {
-            $programa = \App\Services\ProgramaService::enviarParaRevision($programa);
+            $programa = ProgramaService::enviarParaRevision($programa);
 
             return Redirect::route('docente.cursos.programa.show', $curso->id_curso)
                 ->with('success', 'Programa enviado para revisión. El administrador lo revisará y aprobará.');
@@ -309,7 +323,7 @@ class ProgramaController extends Controller
     /**
      * Elimina el programa actual de un curso.
      */
-    public function destroy(Curso $curso)
+    public function destroy(Curso $curso): RedirectResponse
     {
         // Validar que el docente tiene acceso a este curso
         $this->authorize('viewPrograma', $curso);

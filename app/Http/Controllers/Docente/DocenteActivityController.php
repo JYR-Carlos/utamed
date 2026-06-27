@@ -256,7 +256,7 @@ class DocenteActivityController extends Controller
      * @param  Curso  $curso  Curso cuyas actividades se solicitan
      * @return \Illuminate\Http\JsonResponse  Array de actividades
      */
-    public function getBysCursoJson(Curso $curso)
+    public function actividadesJson(Curso $curso)
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -491,7 +491,7 @@ class DocenteActivityController extends Controller
     /**
      * Elimina un grupo (ActividadAsignadaGrupo) y todos sus integrantes.
      */
-    public function deleteGroup(Curso $curso, Actividad $actividad, int $grupo)
+    public function eliminarGrupo(Curso $curso, Actividad $actividad, int $grupo)
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -512,7 +512,7 @@ class DocenteActivityController extends Controller
     /**
      * Quita un estudiante de un grupo (IntegranteGrupo).
      */
-    public function removeStudentFromGroup(Curso $curso, Actividad $actividad, int $grupo, int $estudiante)
+    public function quitarEstudianteDeGrupo(Curso $curso, Actividad $actividad, int $grupo, int $estudiante)
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -614,7 +614,7 @@ class DocenteActivityController extends Controller
      * Crea un nuevo grupo para una actividad grupal
      * Solo acepta estudiantes inscritos en el curso
      */
-    public function storeGroup(Request $request, Curso $curso, Actividad $actividad)
+    public function crearGrupo(Request $request, Curso $curso, Actividad $actividad)
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -681,7 +681,7 @@ class DocenteActivityController extends Controller
     /**
      * Agrega un estudiante a un grupo existente
      */
-    public function addStudentToGroup(Request $request, Curso $curso, Actividad $actividad, int $grupo)
+    public function agregarEstudianteAGrupo(Request $request, Curso $curso, Actividad $actividad, int $grupo)
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -744,7 +744,7 @@ class DocenteActivityController extends Controller
     /**
      * Obtiene los grupos de una actividad con sus integrantes
      */
-    public function getGroupsByActivity(Curso $curso, Actividad $actividad)
+    public function gruposPorActividad(Curso $curso, Actividad $actividad)
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -772,7 +772,7 @@ class DocenteActivityController extends Controller
     /**
      * Copia los grupos de una actividad anterior a la actividad actual
      */
-    public function copyGroupsFromActivity(Request $request, Curso $curso, Actividad $actividad)
+    public function copiarGruposDeActividad(Request $request, Curso $curso, Actividad $actividad)
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -869,7 +869,7 @@ class DocenteActivityController extends Controller
     /**
      * Obtiene todas las entregas de una actividad
      */
-    public function getSubmissionsByActivity(Curso $curso, Actividad $actividad)
+    public function entregasPorActividad(Curso $curso, Actividad $actividad)
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -910,7 +910,7 @@ class DocenteActivityController extends Controller
     /**
      * Obtiene las entregas de un grupo específico
      */
-    public function getSubmissionsByGroup(Curso $curso, Actividad $actividad, int $grupo)
+    public function entregasPorGrupo(Curso $curso, Actividad $actividad, int $grupo)
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -958,7 +958,7 @@ class DocenteActivityController extends Controller
     /**
      * Descarga un archivo enviado
      */
-    public function downloadSubmissionFile(Curso $curso, Actividad $actividad, int $grupo, Agenda $agenda)
+    public function descargarEntrega(Curso $curso, Actividad $actividad, int $grupo, Agenda $agenda)
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -1075,7 +1075,7 @@ class DocenteActivityController extends Controller
      * registros de tipo "Mensaje al profesor" y "Feedback" de todos los grupos
      * en los que el estudiante participa dentro del curso.
      */
-    public function getMensajesEstudiante(Curso $curso, int $idEstudiante)
+    public function mensajesEstudiante(Curso $curso, int $idEstudiante)
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -1211,7 +1211,7 @@ class DocenteActivityController extends Controller
     /**
      * Docente envía un feedback a un grupo (respuesta al mensaje del alumno).
      */
-    public function sendFeedback(Request $request, Curso $curso, int $grupo)
+    public function enviarFeedback(Request $request, Curso $curso, int $grupo)
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -1251,7 +1251,7 @@ class DocenteActivityController extends Controller
      * (filtra por tipo "Mensaje al profesor" y "Feedback"), sin incluir entregas de archivos.
      * Usado en el panel de mensajes de la vista Activities/Index (nivel 2).
      */
-    public function getGrupoMensajes(Curso $curso, Actividad $actividad, int $grupo)
+    public function mensajesGrupo(Curso $curso, Actividad $actividad, int $grupo)
     {
         $this->authorize('viewPrograma', $curso);
 

@@ -22,14 +22,23 @@ use App\Models\Usuario\Usuario;
 use App\Enums\DB\TipoMensaje;
 use App\Services\Archive\ArchiveStorageResult;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Agenda de un grupo de actividad (perspectiva del estudiante).
+ *
+ * Permite al estudiante enviar mensajes de texto al docente y subir entregas de
+ * archivos sobre las actividades de los grupos a los que pertenece. La subida de
+ * archivos delega en AgendaArchiveHandler (validación, antivirus, compresión y
+ * almacenamiento) y respeta la fecha límite más la holgura `nro_dias_adicionales_para_bloqueo`.
+ */
 class AgendaController extends Controller
 {
-    public function index() {}
+    public function index(): void {}
 
     // POST 'grupos-asignados/{actividadAsignadaGrupo}/agenda'
-    public function store(Request $request, ActividadAsignadaGrupo $actividadAsignadaGrupo)
+    public function store(Request $request, ActividadAsignadaGrupo $actividadAsignadaGrupo): RedirectResponse
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -70,7 +79,7 @@ class AgendaController extends Controller
     public function storeEntrega(
         AgendaFileRequest $request,
         ActividadAsignadaGrupo $actividadAsignadaGrupo
-    ) {
+    ): RedirectResponse {
         /** @var Usuario $user */
         $user = Auth::user();
 

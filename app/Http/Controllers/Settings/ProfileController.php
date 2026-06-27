@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * Manage the authenticated user's profile settings (view, update, delete account).
+ */
 class ProfileController extends Controller
 {
     /**

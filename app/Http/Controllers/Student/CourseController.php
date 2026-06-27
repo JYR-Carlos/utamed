@@ -1,25 +1,36 @@
 <?php
 
-
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\Agenda\Actividad;
-use App\Models\Agenda\IntegranteGrupo;
-use App\Models\Usuario\Usuario;
 use App\Models\Curso\Curso;
-use Inertia\Inertia;
+use App\Models\Curso\Programa;
+use App\Models\Usuario\Usuario;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Inertia\Response;
 
-use Illuminate\Http\Request;
-
+/**
+ * Cursos del estudiante: listado por período y detalle de un curso inscrito.
+ *
+ * Todas las acciones exigen un perfil de estudiante y, en el detalle, una
+ * inscripción activa (`INSCRITO`) en el curso.
+ */
 class CourseController extends Controller
 {
     private const DEFAULT_COURSE_IMAGE = '/images/default-course.png';
 
 
-    public function index(Request $request)
+    /**
+     * Lista los cursos del estudiante para un semestre/año.
+     *
+     * GET estudiante/cursos
+     */
+    public function index(Request $request): RedirectResponse|Response
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -61,7 +72,7 @@ class CourseController extends Controller
 
     private function formatCurso(Curso $curso, string $rol): array
     {
-        $tieneProg = \App\Models\Curso\Programa::where('id_curso', $curso->id_curso)
+        $tieneProg = Programa::where('id_curso', $curso->id_curso)
             ->whereIn('estado', ['APROBADO', 'BASICO_COMPLETO'])
             ->where('es_actual', true)
             ->exists();
@@ -83,7 +94,12 @@ class CourseController extends Controller
         ];
     }
 
-    public function show(Curso $curso)
+    /**
+     * Muestra el detalle de un curso inscrito y sus actividades visibles.
+     *
+     * GET estudiante/cursos/{curso}
+     */
+    public function show(Curso $curso): RedirectResponse|Response
     {
         /** @var Usuario $user */
         $user = Auth::user();

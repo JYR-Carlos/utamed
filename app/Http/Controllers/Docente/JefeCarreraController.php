@@ -7,12 +7,24 @@ use App\Http\Controllers\Docente\JefeCarrera\ResolvesJefaturaCarrera;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Inertia\Response;
 
+/**
+ * Panel del Jefe de Carrera: dashboard, seguimiento de syllabus y métricas,
+ * más la previsualización y aprobación/rechazo de programas de la carrera.
+ *
+ * Todas las acciones quedan acotadas a la carrera sobre la que el usuario tiene
+ * el rol "Jefe de Carrera" activo (ver trait ResolvesJefaturaCarrera). Las vistas
+ * Inertia redirigen al dashboard del docente cuando no hay jefatura; los endpoints
+ * JSON abortan con 403.
+ */
 class JefeCarreraController extends Controller
 {
     use ResolvesJefaturaCarrera;
@@ -22,11 +34,16 @@ class JefeCarreraController extends Controller
         '#6366F1', '#F59E0B', '#10B981', '#3B82F6', '#EC4899', '#8B5CF6', '#EF4444',
     ];
 
-    public function dashboard()
+    /**
+     * Dashboard de la carrera: estados de syllabus, métricas y alertas del período vigente.
+     *
+     * GET docente/jefe-carrera/dashboard
+     */
+    public function dashboard(): RedirectResponse|Response
     {
         $jefatura = $this->jefaturaOrRedirect();
 
-        if ($jefatura instanceof \Illuminate\Http\RedirectResponse) {
+        if ($jefatura instanceof RedirectResponse) {
             return $jefatura;
         }
 
@@ -92,11 +109,16 @@ class JefeCarreraController extends Controller
         ]);
     }
 
-    public function seguimiento(Request $request)
+    /**
+     * Listado paginado y filtrable de cursos de la carrera con su estado de syllabus.
+     *
+     * GET docente/jefe-carrera/seguimiento
+     */
+    public function seguimiento(Request $request): RedirectResponse|Response
     {
         $jefatura = $this->jefaturaOrRedirect();
 
-        if ($jefatura instanceof \Illuminate\Http\RedirectResponse) {
+        if ($jefatura instanceof RedirectResponse) {
             return $jefatura;
         }
 
@@ -185,11 +207,16 @@ class JefeCarreraController extends Controller
         ]);
     }
 
-    public function metricas()
+    /**
+     * Métricas de la carrera por curso: asistencia, avance de evaluación, riesgo y carga docente.
+     *
+     * GET docente/jefe-carrera/metricas
+     */
+    public function metricas(): RedirectResponse|Response
     {
         $jefatura = $this->jefaturaOrRedirect();
 
-        if ($jefatura instanceof \Illuminate\Http\RedirectResponse) {
+        if ($jefatura instanceof RedirectResponse) {
             return $jefatura;
         }
 
@@ -296,7 +323,7 @@ class JefeCarreraController extends Controller
      * Devuelve los datos del syllabus de un programa en JSON para la previsualización.
      * Valida que el programa pertenezca a un curso de la carrera del jefe.
      */
-    public function programaPreview(int $programaId)
+    public function programaPreview(int $programaId): JsonResponse
     {
         // JSON endpoint (previsualización) → abort(403) es correcto aquí (no es vista Inertia).
         $jefatura = $this->jefaturaOrAbort();
@@ -330,11 +357,16 @@ class JefeCarreraController extends Controller
         return response()->json(['syllabus' => $syllabus]);
     }
 
-    public function aprobarPrograma(int $programaId)
+    /**
+     * Aprueba un programa de la carrera (COMPLETO|BASICO_COMPLETO → APROBADO).
+     *
+     * PUT docente/jefe-carrera/programas/{programaId}/aprobar
+     */
+    public function aprobarPrograma(int $programaId): RedirectResponse
     {
         $jefaturaCheck = $this->jefaturaOrRedirect();
 
-        if ($jefaturaCheck instanceof \Illuminate\Http\RedirectResponse) {
+        if ($jefaturaCheck instanceof RedirectResponse) {
             return $jefaturaCheck;
         }
 
@@ -362,11 +394,16 @@ class JefeCarreraController extends Controller
         return back()->with('success', "El programa #{$programaId} fue aprobado.");
     }
 
-    public function rechazarPrograma(Request $request, int $programaId)
+    /**
+     * Devuelve un programa a borrador con observaciones (solicitud de cambios).
+     *
+     * PUT docente/jefe-carrera/programas/{programaId}/rechazar
+     */
+    public function rechazarPrograma(Request $request, int $programaId): RedirectResponse
     {
         $jefaturaCheck = $this->jefaturaOrRedirect();
 
-        if ($jefaturaCheck instanceof \Illuminate\Http\RedirectResponse) {
+        if ($jefaturaCheck instanceof RedirectResponse) {
             return $jefaturaCheck;
         }
 
@@ -415,34 +452,6 @@ class JefeCarreraController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Para métodos que renderizan vistas Inertia: devuelve la jefatura o una
-     * RedirectResponse a /docente/dashboard con flash de error.
-     * Preferible a jefaturaOrAbort() (que hace abort(403)) en este contexto,
-     * porque un redirect es mejor UX que una pantalla de error desnuda en Inertia.
-     *
-     * @return array{id_contexto:int,carrera_id:?int,carrera_nombre:?string}|\Illuminate\Http\RedirectResponse
-     */
-    private function jefaturaOrRedirect(): array|\Illuminate\Http\RedirectResponse
-    {
-        /** @var Usuario|null $user */
-        $user = Auth::user();
-
-        if (!$user || !$user->docente) {
-            return redirect('/docente/dashboard')
-                ->with('error', 'No tienes acceso a esta sección');
-        }
-
-        $jefatura = $this->resolveJefatura($user);
-
-        if (!$jefatura || !$jefatura['carrera_id']) {
-            return redirect('/docente/dashboard')
-                ->with('error', 'No tienes rol de Jefe de Carrera activo');
-        }
-
-        return $jefatura;
-    }
 
     /**
      * Query base de cursos de una carrera (no eliminados).

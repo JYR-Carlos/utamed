@@ -10,31 +10,42 @@ use App\Models\Curso\Componente;
 use App\Models\Curso\Unidad;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Models\Auditoria\ProgramaHistorial;
 use App\Services\ProgramaService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Inertia\Response;
 use App\Support\Permissions;
-use Illuminate\Http\RedirectResponse;
 
+/**
+ * Gestión del programa/syllabus de un curso desde el rol de ayudante.
+ *
+ * El acceso exige rol "ayudante" activo sobre el contexto del curso y el permiso
+ * `CURSOS_PROGRAMAS_VER_TODOS`. La edición queda bloqueada cuando el programa está
+ * `APROBADO`. El armado del syllabus se delega en ProgramaService.
+ */
 class ProgramaController extends Controller
 {
     /**
      * Ver programa de un curso como ayudante
-     * 
+     *
      * Requiere permiso: curso/programa: ver
      */
-    public function show(Curso $curso)
+    public function show(Curso $curso): Response|RedirectResponse
     {
         return $this->renderProgramaView($curso, 'view');
     }
 
     /**
      * Crear nuevo programa para un curso (formulario)
-     * 
+     *
      * Requiere permiso: cursos/programas:crear
      */
-    public function create(Curso $curso)
+    public function create(Curso $curso): Response|RedirectResponse
     {
         return $this->renderProgramaView($curso, 'create');
     }
@@ -45,7 +56,7 @@ class ProgramaController extends Controller
      * Requiere permiso: curso/programa: editar
      * Solo disponible si estado != 'APROBADO'
      */
-    public function edit(Curso $curso)
+    public function edit(Curso $curso): Response|RedirectResponse
     {
         /** @var \App\Models\Usuario\Usuario $user */
         $user = Auth::user();
@@ -100,7 +111,7 @@ class ProgramaController extends Controller
      * Requiere permiso: curso/programa: editar
      * Solo disponible si estado != 'APROBADO'
      */
-    public function update(Curso $curso, \Illuminate\Http\Request $request)
+    public function update(Request $request, Curso $curso): JsonResponse|RedirectResponse
     {
         /** @var \App\Models\Usuario\Usuario $user */
         $user = Auth::user();
@@ -317,9 +328,9 @@ class ProgramaController extends Controller
      * 
      * @param Curso $curso
      * @param string $mode 'view' o 'edit'
-     * @return \Inertia\Response|RedirectResponse
+     * @return Response|RedirectResponse
      */
-    private function renderProgramaView(Curso $curso, string $mode = 'view')
+    private function renderProgramaView(Curso $curso, string $mode = 'view'): Response|RedirectResponse
     {
         /** @var \App\Models\Usuario\Usuario $user */
         $user = Auth::user();
@@ -437,7 +448,7 @@ class ProgramaController extends Controller
         // Recuperar última razón de rechazo cuando el programa está en BORRADOR
         $ultimoRechazo = null;
         if ($programa->estado === 'BORRADOR') {
-            $ultimoRechazo = \App\Models\Auditoria\ProgramaHistorial::where('id_programa', $programa->id_programa)
+            $ultimoRechazo = ProgramaHistorial::where('id_programa', $programa->id_programa)
                 ->where('accion', 'RECHAZO')
                 ->orderByDesc('fecha_accion')
                 ->first(['observaciones', 'fecha_accion']);
@@ -633,5 +644,6 @@ class ProgramaController extends Controller
             'orden_item' => 1,
         ];
 
-        return $contenidos;    }
+        return $contenidos;
+    }
 }

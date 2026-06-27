@@ -6,15 +6,25 @@ use App\Http\Controllers\Controller;
 use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Inertia\Response;
 
+/**
+ * Vista del programa/syllabus de un curso para el estudiante.
+ *
+ * Sólo muestra programas visibles para alumnos (estado `APROBADO`, con
+ * preferencia sobre `BASICO_COMPLETO`) y exige inscripción activa en el curso.
+ */
 class ProgramaController extends Controller
 {
     /**
-     * Ver programa aprobado de un curso
+     * Muestra el programa visible del curso (o un aviso si no existe).
+     *
+     * GET estudiante/cursos/{curso}/programa
      */
-    public function show(Curso $curso)
+    public function show(Curso $curso): RedirectResponse|Response
     {
         /** @var \App\Models\Usuario\Usuario $user */
         $user = Auth::user();

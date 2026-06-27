@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
  * de actividad (agenda.agenda).
  *
  * Centraliza la lógica que antes estaba duplicada en DocenteActivityController
- * (showMensajesCurso, getMensajesEstudiante, getGrupoMensajes y el closure
+ * (showMensajesCurso, mensajesEstudiante, mensajesGrupo y el closure
  * interaccionesGrupo de showEvaluacion): resolver los grupos de un estudiante
  * dentro de un curso, traer los mensajes de un conjunto de grupos y decorar cada
  * registro con flags derivadas del tipo de mensaje.

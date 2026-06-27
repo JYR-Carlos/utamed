@@ -10,6 +10,9 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Laravel\Fortify\Features;
 
+/**
+ * Show the authenticated user's two-factor authentication settings page.
+ */
 class TwoFactorAuthenticationController extends Controller implements HasMiddleware
 {
     /**

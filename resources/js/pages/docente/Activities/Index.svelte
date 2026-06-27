@@ -48,7 +48,7 @@
     mensaje: string;
     es_de_docente: boolean;
     es_retroalimentacion: boolean;
-    // Campos es_entrega y tiene_evaluacion retornados por el endpoint getGrupoMensajes.
+    // Campos es_entrega y tiene_evaluacion retornados por el endpoint mensajesGrupo.
     es_entrega?: boolean;
     tiene_evaluacion?: boolean;
     adjunta_rubrica: boolean;

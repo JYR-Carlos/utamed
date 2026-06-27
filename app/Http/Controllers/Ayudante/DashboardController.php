@@ -3,15 +3,30 @@
 namespace App\Http\Controllers\Ayudante;
 
 use App\Http\Controllers\Controller;
+use App\Models\Administrativo\Carrera;
+use App\Models\Administrativo\Facultad;
+use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
+use Inertia\Response;
 
+/**
+ * Dashboard del ayudante.
+ *
+ * Reutiliza la vista `Dashboard` (que detecta el rol) y le pasa estadísticas
+ * globales junto con los contextos donde el usuario tiene rol "ayudante" activo.
+ */
 class DashboardController extends Controller
 {
-    public function index()
+    /**
+     * Muestra el dashboard del ayudante con estadísticas globales.
+     *
+     * GET ayudante/dashboard
+     */
+    public function index(): Response
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -30,16 +45,16 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'stats' => [
-                'usuarios' => \App\Models\Usuario\Usuario::count(),
-                'cursos_total' => \App\Models\Curso\Curso::count(),
-                'cursos_pendientes' => \App\Models\Curso\Curso::where('estado_interno', 'ABIERTO')
+                'usuarios' => Usuario::count(),
+                'cursos_total' => Curso::count(),
+                'cursos_pendientes' => Curso::where('estado_interno', 'ABIERTO')
                     ->where(function ($query) {
                         $query->where('estado_acta', '!=', 'ENVIADO')
                             ->orWhereNull('estado_acta');
                     })
                     ->count(),
-                'facultades' => \App\Models\Administrativo\Facultad::count(),
-                'carreras' => \App\Models\Administrativo\Carrera::count(),
+                'facultades' => Facultad::count(),
+                'carreras' => Carrera::count(),
             ],
         ]);
         // Note: We might want a specific 'ayudante/Dashboard' view later, 
