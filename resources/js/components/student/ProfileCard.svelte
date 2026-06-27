@@ -23,9 +23,6 @@
           {nombre} {apellido1}
           {apellido2}
         </h3>
-        <p class="text-sm text-gray-600">
-          
-        </p>
       </div>
 
       <!-- Metadata -->

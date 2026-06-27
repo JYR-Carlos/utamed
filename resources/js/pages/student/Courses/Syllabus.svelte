@@ -1,8 +1,6 @@
 <script lang="ts">
-  import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, Curso } from '@/types';
-  import { Link } from '@inertiajs/svelte';
-  import { ArrowLeft, BookOpen, Download, User, Award, Clock, ExternalLink } from 'lucide-svelte';
+  import { BookOpen, User, Award, Clock, ExternalLink } from 'lucide-svelte';
 
   // ─── Types ──────────────────────────────────────────────────────────────────
 

@@ -1,11 +1,7 @@
 <script lang="ts">
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, Curso } from '@/types';
-  import { ArrowLeft, PlayCircle, FileText, Bookmark, Share2, ScrollText } from 'lucide-svelte';
-  import CourseSidebar from '@/components/student/CourseSidebar.svelte';
-  import ResourceCard from '@/components/student/ResourceCard.svelte';
   import ActividadesView from '../Activities/ActividadesView.svelte';
-  import BibsIndex from './Bibs/Index.svelte';
   import Syllabus from './Syllabus.svelte';
 
   interface Actividad {
@@ -29,7 +25,6 @@
   const id_curso = $derived(curso?.id_curso || 0);
 
   let activeModuleId = $state('module-1-2');
-  let activeView = $state<'principal' | 'bibliografias'>('principal');
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Dashboard', href: '/estudiante/dashboard' },
@@ -42,31 +37,7 @@
   let filterEntrega = $state(false);
   let filterGrupal = $state(false);
 
-  // Actividades de ejemplo
-  const actividadesEjemplo: Actividad[] = [
-    {
-      id_actividad: 1001,
-      nombre: 'Taller de diseño inicial',
-      es_sumativa: true,
-      con_entrega: true,
-      es_grupal: false,
-      max_integrantes: 1,
-      fecha_limite: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      visible: true,
-    },
-    {
-      id_actividad: 1002,
-      nombre: 'Proyecto grupal - Prototipo interactivo',
-      es_sumativa: true,
-      con_entrega: true,
-      es_grupal: true,
-      max_integrantes: 4,
-      fecha_limite: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      visible: true,
-    },
-  ];
-
-  const actividadesBase = $derived(actividades.length > 0 ? actividades : actividadesEjemplo);
+  const actividadesBase = $derived(actividades);
 
   const actividadesFiltradas = $derived(
     actividadesBase.filter((actividad) => {
@@ -95,18 +66,16 @@
   }
 
   let showSyllabus = $state(false);
-  let showActividades = $state(true);
 </script>
 
 
 
 <StudentLayout {breadcrumbs}>
-  <div class="pg">
+  <div class="flex flex-col gap-4 px-2 py-4">
     <!-- Heritage stripe -->
 
     <!-- Content Views -->
     <div class="w-full md:flex-1">
-      {#if activeView === 'principal'}
         <div class="space-y-4 px-2">
           <button
             class="px-4 py-2 rounded bg-primary text-secondary hover:bg-secondary hover:text-primary font-semibold focus:outline-none"
@@ -122,24 +91,19 @@
             </div>
           {/if}
 
-          {#if showActividades}
-            <div id="actividades-section" class="pl-4 border-gray-200">
-              <ActividadesView
-                {activeModuleId}
-                {id_curso}
-                {filterSumativa}
-                {filterEntrega}
-                {filterGrupal}
-                filtered={actividadesFiltradas}
-                onToggleFilter={toggleFilter}
-                onClearFilters={clearFilters}
-              />
-            </div>
-          {/if}
+          <div id="actividades-section" class="pl-4 border-gray-200">
+            <ActividadesView
+              {activeModuleId}
+              {id_curso}
+              {filterSumativa}
+              {filterEntrega}
+              {filterGrupal}
+              filtered={actividadesFiltradas}
+              onToggleFilter={toggleFilter}
+              onClearFilters={clearFilters}
+            />
+          </div>
         </div>
-      {:else if activeView === 'bibliografias'}
-        <BibsIndex {id_curso} />
-      {/if}
     </div>
   </div>
 </StudentLayout>

@@ -42,7 +42,7 @@ class AgendaController extends Controller
 
         // Validar inputs
         $validated = $request->validate([
-            'tipo' => 'required|string|in:Consulta,Entrega de Avance,Duda sobre Rúbrica,Otro',
+            'tipo' => 'required|string|in:Consulta,Duda sobre Rúbrica,Otro',
             'mensaje' => 'required|string|max:5000',
         ]);
 
@@ -50,10 +50,6 @@ class AgendaController extends Controller
         $integrante = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
             ->where('id_actividad_asignada_grupo', $actividadAsignadaGrupo->id_actividad_asignada_grupo)
             ->firstOrFail();
-
-        if ($integrante->id_actividad_asignada_grupo !== $actividadAsignadaGrupo->id_actividad_asignada_grupo) {
-            abort(403, 'Estudiante no pertenece a este grupo');
-        }
 
         // Crear la entrada en la agenda
         $agenda = Agenda::create([
@@ -95,10 +91,15 @@ class AgendaController extends Controller
             ->firstOrFail();
 
         $actividad = $actividadAsignadaGrupo->actividad;
-        if ($actividad && now()->isAfter($actividad->fecha_limite->endOfDay())) {
-            return back()->withErrors([
-                'error_general' => 'La fecha límite de entrega ha vencido. No se pueden subir archivos.'
-            ]);
+        if ($actividad) {
+            $limiteReal = $actividad->fecha_limite->copy()
+                ->addDays($actividad->nro_dias_adicionales_para_bloqueo ?? 0)
+                ->endOfDay();
+            if (now()->isAfter($limiteReal)) {
+                return back()->withErrors([
+                    'error_general' => 'La fecha límite de entrega ha vencido. No se pueden subir archivos.',
+                ]);
+            }
         }
 
         DB::beginTransaction();

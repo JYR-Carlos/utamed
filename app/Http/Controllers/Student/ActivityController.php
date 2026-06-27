@@ -65,32 +65,31 @@ class ActivityController extends Controller
 
         $grupo = $integranteGrupo?->actividadAsignadaGrupo;
 
-        $restoIntegrantes = IntegranteGrupo
-            ::where('id_actividad_asignada_grupo','=',$grupo->id_actividad_asignada_grupo)
-            ->where('id_estudiante', '!=', $estudiante->id_estudiante)
-            ->get()
-            ->map(
-                function (IntegranteGrupo $i) {
+        $restoIntegrantes = $grupo
+            ? IntegranteGrupo::where('id_actividad_asignada_grupo', $grupo->id_actividad_asignada_grupo)
+                ->where('id_estudiante', '!=', $estudiante->id_estudiante)
+                ->get()
+                ->map(function (IntegranteGrupo $i) {
                     return [
                         'id_estudiante' => $i->estudiante->id_estudiante,
                         'nombre1' => $i->estudiante->usuario->nombre1,
                         'nombre2' => $i->estudiante->usuario->nombre2,
                         'apellido1' => $i->estudiante->usuario->apellido1,
                         'apellido2' => $i->estudiante->usuario->apellido2,
-                        'email' => $i->estudiante->usuario->email
+                        'email' => $i->estudiante->usuario->email,
                     ];
-                }
-            );
+                })
+            : collect();
 
         
         $ultimaNota = $integranteGrupo?->evaluacion->nota_obtenida ?? $grupo?->nota;
         
         $interacciones = [];
-        
+        $ultimaEntrega = null;
 
         if ($grupo) {
             $agendas = Agenda::where('id_actividad_asignada_grupo', $grupo->id_actividad_asignada_grupo)
-                ->with(['usuario', 'evaluacion.rubrica'])
+                ->with(['usuario.docente', 'evaluacion.rubrica'])
                 ->orderBy('fecha_envio', 'asc')
                 ->get();
 
@@ -113,7 +112,7 @@ class ActivityController extends Controller
                     'tipo_interaccion'   => $agenda->tipo_mensaje->value,
                     'emisor'             => $nombreEmisor,
                     'mensaje'            => $agenda->mensaje ?? '',
-                    'es_de_docente'      => $agenda->id_usuario_emisor !== $user->id_usuario,
+                    'es_de_docente'      => $agenda->usuario?->docente !== null,
                     'es_retroalimentacion' => in_array($agenda->tipo_mensaje, [TipoMensaje::FEEDBACK, TipoMensaje::EVALUACIÓN]),
                     'adjunta_rubrica'    => $rubricaData !== null,
                     'rubrica'            => $rubricaData,
@@ -129,7 +128,6 @@ class ActivityController extends Controller
                     break;
                 }
             }
-            $ultimaEntrega = null;
             // obtiene la ultima entrega del estudiante
             foreach (array_reverse($interacciones) as $item) {
                 if ($item['tipo_interaccion'] === "Entrega de avance") {
@@ -144,7 +142,7 @@ class ActivityController extends Controller
          ->orderByDesc('id_rubrica')->first();
 
         // Derivar estado legible para el estudiante
-        $estado = $grupo?->estado_actividad_asignada;
+        $estado = $grupo?->estado_actividad_asignada?->value;
 
         // Entregas del estudiante (archivos enviados)
         $entradas = collect($interacciones)
@@ -174,7 +172,6 @@ class ActivityController extends Controller
             'estado'                => $estado,
             'entradas'              => $entradas,
             'listado_interacciones' => $interacciones,
-            'rubrica_evaluada'      => $rubrica,
             'rubrica'               => $rubrica,
             'id_actividad_asignada_grupo' => $grupo?->id_actividad_asignada_grupo,
             'resto_integrantes'     => $restoIntegrantes
