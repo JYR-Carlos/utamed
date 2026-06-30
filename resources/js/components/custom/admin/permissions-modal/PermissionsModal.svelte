@@ -454,8 +454,6 @@
   }
 
   async function apiFetch<T>(url: string): Promise<T> {
-    // $inspect(url);
-    console.log('Fetching:', url);
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Error ${response.status}: Falló la petición a ${url}`);
@@ -508,7 +506,7 @@
         };
       });
 
-      console.log(contextTypes);
+      // console.log(contextTypes);
 
       // Cargar asignaciones ACTUALES del usuario (solo del endpoint específico del usuario)
       userCurrentRoleAssignments = Array.isArray(userPermsRes.roles) ? userPermsRes.roles : [];

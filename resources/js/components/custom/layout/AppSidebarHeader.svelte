@@ -169,9 +169,9 @@
     <Command.Input placeholder="Escribe para buscar..." />
     <Command.List>
       <Command.Empty>No se encontraron resultados.</Command.Empty>
-      {#each searchItems as group}
+      {#each searchItems as group (group.group)}
         <Command.Group heading={group.group}>
-          {#each group.items as item}
+          {#each group.items as item (item.label)}
             <Command.Item onSelect={() => handleSelect(item)} class="cursor-pointer">
               <item.icon class="mr-2 h-4 w-4" />
               <span>{item.label}</span>

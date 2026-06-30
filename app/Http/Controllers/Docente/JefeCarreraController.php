@@ -3,37 +3,48 @@
 namespace App\Http\Controllers\Docente;
 
 use App\Http\Controllers\Controller;
-use App\Models\Administrativo\Carrera;
+use App\Http\Controllers\Docente\JefeCarrera\ResolvesJefaturaCarrera;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
-use App\Models\Usuario\UsuarioRolAsignacion;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Inertia\Response;
 
+/**
+ * Panel del Jefe de Carrera: dashboard, seguimiento de syllabus y métricas,
+ * más la previsualización y aprobación/rechazo de programas de la carrera.
+ *
+ * Todas las acciones quedan acotadas a la carrera sobre la que el usuario tiene
+ * el rol "Jefe de Carrera" activo (ver trait ResolvesJefaturaCarrera). Las vistas
+ * Inertia redirigen al dashboard del docente cuando no hay jefatura; los endpoints
+ * JSON abortan con 403.
+ */
 class JefeCarreraController extends Controller
 {
+    use ResolvesJefaturaCarrera;
+
     /** Paleta determinística para avatares de docentes. */
     private const DOCENTE_COLORS = [
         '#6366F1', '#F59E0B', '#10B981', '#3B82F6', '#EC4899', '#8B5CF6', '#EF4444',
     ];
 
-    public function dashboard()
+    /**
+     * Dashboard de la carrera: estados de syllabus, métricas y alertas del período vigente.
+     *
+     * GET docente/jefe-carrera/dashboard
+     */
+    public function dashboard(): RedirectResponse|Response
     {
-        /** @var Usuario $user */
-        $user = Auth::user();
+        $jefatura = $this->jefaturaOrRedirect();
 
-        if (!$user->docente) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes acceso a esta sección');
-        }
-
-        $jefatura = $this->resolveJefatura($user);
-
-        if (!$jefatura) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes rol de Jefe de Carrera activo');
+        if ($jefatura instanceof RedirectResponse) {
+            return $jefatura;
         }
 
         $carreraId = $jefatura['carrera_id'];
@@ -98,19 +109,17 @@ class JefeCarreraController extends Controller
         ]);
     }
 
-    public function seguimiento(Request $request)
+    /**
+     * Listado paginado y filtrable de cursos de la carrera con su estado de syllabus.
+     *
+     * GET docente/jefe-carrera/seguimiento
+     */
+    public function seguimiento(Request $request): RedirectResponse|Response
     {
-        /** @var Usuario $user */
-        $user = Auth::user();
+        $jefatura = $this->jefaturaOrRedirect();
 
-        if (!$user->docente) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes acceso a esta sección');
-        }
-
-        $jefatura = $this->resolveJefatura($user);
-
-        if (!$jefatura) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes rol de Jefe de Carrera activo');
+        if ($jefatura instanceof RedirectResponse) {
+            return $jefatura;
         }
 
         $carreraId = $jefatura['carrera_id'];
@@ -198,19 +207,17 @@ class JefeCarreraController extends Controller
         ]);
     }
 
-    public function metricas()
+    /**
+     * Métricas de la carrera por curso: asistencia, avance de evaluación, riesgo y carga docente.
+     *
+     * GET docente/jefe-carrera/metricas
+     */
+    public function metricas(): RedirectResponse|Response
     {
-        /** @var Usuario $user */
-        $user = Auth::user();
+        $jefatura = $this->jefaturaOrRedirect();
 
-        if (!$user->docente) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes acceso a esta sección');
-        }
-
-        $jefatura = $this->resolveJefatura($user);
-
-        if (!$jefatura) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes rol de Jefe de Carrera activo');
+        if ($jefatura instanceof RedirectResponse) {
+            return $jefatura;
         }
 
         $carreraId = $jefatura['carrera_id'];
@@ -316,15 +323,10 @@ class JefeCarreraController extends Controller
      * Devuelve los datos del syllabus de un programa en JSON para la previsualización.
      * Valida que el programa pertenezca a un curso de la carrera del jefe.
      */
-    public function programaPreview(int $programaId)
+    public function programaPreview(int $programaId): JsonResponse
     {
-        /** @var Usuario $user */
-        $user = Auth::user();
-
-        $jefatura = $user->docente ? $this->resolveJefatura($user) : null;
-        if (!$jefatura) {
-            abort(403, 'No tienes rol de Jefe de Carrera activo');
-        }
+        // JSON endpoint (previsualización) → abort(403) es correcto aquí (no es vista Inertia).
+        $jefatura = $this->jefaturaOrAbort();
 
         $programa = Programa::with(['curso.asignacionPlan.asignatura', 'curso.docenteTitular.usuario'])
             ->findOrFail($programaId);
@@ -355,14 +357,21 @@ class JefeCarreraController extends Controller
         return response()->json(['syllabus' => $syllabus]);
     }
 
-    public function aprobarPrograma(int $programaId)
+    /**
+     * Aprueba un programa de la carrera (COMPLETO|BASICO_COMPLETO → APROBADO).
+     *
+     * PUT docente/jefe-carrera/programas/{programaId}/aprobar
+     */
+    public function aprobarPrograma(int $programaId): RedirectResponse
     {
+        $jefaturaCheck = $this->jefaturaOrRedirect();
+
+        if ($jefaturaCheck instanceof RedirectResponse) {
+            return $jefaturaCheck;
+        }
+
         /** @var Usuario $user */
         $user = Auth::user();
-
-        if (!$this->resolveJefatura($user)) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes rol de Jefe de Carrera activo');
-        }
 
         $programa = Programa::findOrFail($programaId);
         $this->authorize('approve', $programa);
@@ -385,14 +394,21 @@ class JefeCarreraController extends Controller
         return back()->with('success', "El programa #{$programaId} fue aprobado.");
     }
 
-    public function rechazarPrograma(Request $request, int $programaId)
+    /**
+     * Devuelve un programa a borrador con observaciones (solicitud de cambios).
+     *
+     * PUT docente/jefe-carrera/programas/{programaId}/rechazar
+     */
+    public function rechazarPrograma(Request $request, int $programaId): RedirectResponse
     {
+        $jefaturaCheck = $this->jefaturaOrRedirect();
+
+        if ($jefaturaCheck instanceof RedirectResponse) {
+            return $jefaturaCheck;
+        }
+
         /** @var Usuario $user */
         $user = Auth::user();
-
-        if (!$this->resolveJefatura($user)) {
-            return redirect('/docente/dashboard')->with('error', 'No tienes rol de Jefe de Carrera activo');
-        }
 
         $request->validate([
             'notas' => ['nullable', 'string', 'max:3000'],
@@ -800,30 +816,5 @@ class JefeCarreraController extends Controller
         return $out;
     }
 
-    private function resolveJefatura(Usuario $user): ?array
-    {
-        $asignacion = UsuarioRolAsignacion::query()
-            ->where('id_usuario', $user->id_usuario)
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->whereHas('rol', fn($q) => $q->where('nombre', 'Jefe de Carrera'))
-            ->whereHas('contexto.tipoContexto', fn($q) => $q->where('categoria', 'carrera'))
-            ->latest('id_ura')
-            ->first();
-
-        if (!$asignacion) {
-            return null;
-        }
-
-        $carrera = Carrera::query()
-            ->select('id_carrera', 'nombre', 'id_contexto')
-            ->where('id_contexto', $asignacion->id_contexto)
-            ->first();
-
-        return [
-            'id_contexto' => $asignacion->id_contexto,
-            'carrera_id' => $carrera?->id_carrera,
-            'carrera_nombre' => $carrera?->nombre,
-        ];
-    }
 }
+

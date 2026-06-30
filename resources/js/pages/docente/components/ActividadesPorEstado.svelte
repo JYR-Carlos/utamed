@@ -28,6 +28,7 @@
     ClipboardList,
   } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
+  import { formatFechaCorta } from '@/utils/formatters';
   // ── Props ─────────────────────────────────────────────────────────────────
 
   interface Props {
@@ -49,14 +50,6 @@
   );
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-
-  function formatDate(d: string): string {
-    return new Date(d).toLocaleDateString('es-CL', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  }
 
   /** Days remaining (positive) or overdue (negative) relative to now. */
   function daysRelative(d: string): number {
@@ -191,7 +184,7 @@
               {#if col.id !== 'pendientes'}
                 <span class="flex items-center gap-1.5">
                   <Calendar size={11} class="shrink-0" />
-                  {formatDate(act.fecha_limite)}
+                  {formatFechaCorta(act.fecha_limite)}
                   <span class="font-semibold {col.accent.daysText}">
                     · {daysLabel(act.fecha_limite)}
                   </span>

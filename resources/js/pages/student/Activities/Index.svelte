@@ -81,7 +81,7 @@
   let showAgendaModal = $state(false);
 
   //
-  const exedioFechaLimite = $derived(() => {
+  const exedioFechaLimite = $derived.by(() => {
     return new Date(fecha_limite) < new Date();
   });
   const excedioHolgura = $derived.by(() => {
@@ -97,8 +97,8 @@
     return false;
   })
   const puedeSubirArchivo = $derived.by(() => {
-    return (estado === 'ACTIVA' && excedioHolgura) || (puedeApelar) 
-  })
+    return (estado === 'ACTIVA' && !excedioHolgura) || puedeApelar;
+  });
 
   function toggleRubricaModal() {
     showRubricaModal = !showRubricaModal;
@@ -128,12 +128,12 @@
     mensaje: string;
     archivo?: File;
   }) {
-    console.log('[handleGuardarEntrada] llamado con:', {
-      id_actividad_asignada_grupo,
-      tipo: data.tipo,
-      tiene_archivo: !!data.archivo,
-      nombre_archivo: data.archivo?.name,
-    });
+    // console.log('[handleGuardarEntrada] llamado con:', {
+    //   id_actividad_asignada_grupo,
+    //   tipo: data.tipo,
+    //   tiene_archivo: !!data.archivo,
+    //   nombre_archivo: data.archivo?.name,
+    // });
 
     if (!id_actividad_asignada_grupo) {
       console.error('[handleGuardarEntrada] id_actividad_asignada_grupo es null/undefined.', {
@@ -242,17 +242,20 @@
             </div>
 
             <div
-              class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm"
+              class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm
+                {estado === 'ACTIVA' ? 'bg-emerald-100 text-emerald-800' :
+                 estado === 'CERRADA' ? 'bg-slate-100 text-slate-600' :
+                 'bg-amber-100 text-amber-800'}"
             >
               {estado?.toUpperCase()}
             </div>
-            {#if exedioFechaLimite()}
+            {#if exedioFechaLimite}
               <div
                 class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm bg-red-400"
               >
                 Ha excedido la fecha límite
               </div>
-            {:else if !exedioFechaLimite() && puedeSubirArchivo}
+            {:else if !exedioFechaLimite && puedeSubirArchivo}
               <div
                 class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm bg-green-400"
               >

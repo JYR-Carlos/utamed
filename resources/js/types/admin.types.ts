@@ -153,16 +153,30 @@ export interface Programa {
     es_plantilla?: boolean;
     /** Whether this is the current active programa */
     es_actual?: boolean;
-    /** Whether it is a draft or approved */
-    estado: string;
+    /**
+     * Programa lifecycle state. Known values in {@link ProgramaEstado};
+     * kept widened to `string` to tolerate other server-side states.
+     */
+    estado: ProgramaEstado | string;
     /** Version number (increments on regeneration) */
     version_programa: number;
+    /** @deprecated Legacy/alternate version field used as fallback by some controllers */
+    version?: number;
     /** ISO timestamp of creation */
     fecha_creacion: string;
     /** User who created the programa */
     creado_por: number;
     /** User who reviewed the programa */
     revisado_por?: number;
+    /** Motivo de rechazo (cuando el programa fue devuelto para revisión) */
+    razon_rechazo?: string | null;
+    /** ISO timestamp del rechazo */
+    fecha_rechazo?: string | null;
+    /**
+     * Secciones renderizadas del programa (consumidas por ProgramaDocument).
+     * Estructura heterogénea entre controladores; se modela de forma laxa a propósito.
+     */
+    secciones?: ProgramaSeccion[];
     /** JSONB structure containing syllabus data */
     data_syllabus?: {
         metadata?: {
@@ -177,6 +191,30 @@ export interface Programa {
     completenessPercentage?: number;
     /** Creator user information */
     creator?: { id_usuario: number; nombre_completo: string };
+}
+
+/** Estados conocidos del ciclo de vida de un Programa. */
+export type ProgramaEstado =
+    | 'BORRADOR'
+    | 'BASICO_COMPLETO'
+    | 'ENVIADO'
+    | 'COMPLETO'
+    | 'APROBADO';
+
+/**
+ * Sección de un programa tal como la consume ProgramaDocument.
+ * Se mantiene estructuralmente compatible con la interfaz `Seccion` interna de
+ * ese componente; el resto de campos varían según el tipo de sección, por lo
+ * que se admite un índice abierto en lugar de recurrir a `any`.
+ */
+export interface ProgramaSeccion {
+    numeral_romano?: string;
+    nombre_seccion: string;
+    contenidos?: Array<{ texto_contenido: string | null }>;
+    contenidos_programa?: Array<{ texto_contenido: string | null }>;
+    componentes?: unknown[];
+    ponderacion_optativa?: { porcentaje?: number } | null;
+    [key: string]: unknown;
 }
 
 export interface Curso {
@@ -206,6 +244,8 @@ export interface Curso {
     version_plantilla?: number;
     numero_semestre?: number;
     es_colegiado?: boolean;
+    /** Asignatura embebida (algunos controladores la incluyen dentro del curso) */
+    asignatura?: Asignatura | null;
     asignacionPlan?: AsignacionPlan;
     componentes?: Componente[];
     fecha_creacion?: string;

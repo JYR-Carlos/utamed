@@ -1,6 +1,29 @@
 <script lang="ts">
+  /**
+   * AgendaDocente.svelte
+   *
+   * Modal de "Agenda del Grupo" del docente: muestra el historial de
+   * interacciones (mensajes, feedback y evaluaciones) de un grupo en una
+   * actividad y permite al docente enviar nuevas interacciones. En modo
+   * "Evaluación" despliega la rúbrica de la actividad (panel lateral en
+   * escritorio, overlay a pantalla completa en móvil); al seleccionar un nivel
+   * por criterio calcula automáticamente la nota chilena (1–7) vía
+   * `@/lib/notas`, que el docente puede ajustar manualmente.
+   *
+   * Props:
+   * - onCerrar: cierra el modal.
+   * - onInteraccionEnviada: callback con los datos de la interacción a enviar
+   *   ({ tipo, mensaje, nota?, id_agenda_entrega?, resultado_rubrica?,
+   *   puntaje_obtenido? }); el componente padre se encarga de persistirla.
+   * - cod_curso, nombre_actividad, nombre_grupo: textos del encabezado.
+   * - listado_interacciones: historial a renderizar.
+   * - isLoading, errorMensaje: estado de carga/error del historial.
+   * - rubricaActividad: rúbrica de la actividad (null si no existe).
+   */
   import type { Rubrica } from '@/types/rubrica';
   import RubricaView from '../../../student/Activities/Agenda/Rubrica.svelte';
+  import { calcularNotaChilena } from '@/lib/notas';
+  import { X, Send, CheckCircle2, AlertTriangle, ChevronRight, MessageSquareOff } from 'lucide-svelte';
 
   interface Props {
     onCerrar: () => void;
@@ -96,17 +119,8 @@
   const totalCriterios = $derived(rubricaActividad?.niveles?.length ?? 0);
   const todosEvaluados = $derived(totalCriterios > 0 && criteriosEvaluados === totalCriterios);
 
-  // Fórmula chilena: 1.0 en 0 %, 4.0 al 60 %, 7.0 al 100 %
-  function calcularNota(puntaje: number, total: number, exigencia = 60): number {
-    if (total === 0) return 1;
-    const min = total * (exigencia / 100);
-    const nota =
-      puntaje >= min ? 4 + (3 * (puntaje - min)) / (total - min) : 1 + (3 * puntaje) / min;
-    return Math.min(7, Math.max(1, Math.round(nota * 10) / 10));
-  }
-
   const notaCalculada = $derived(
-    todosEvaluados && puntajeMaximo > 0 ? calcularNota(puntajeRubrica, puntajeMaximo) : null,
+    todosEvaluados && puntajeMaximo > 0 ? calcularNotaChilena(puntajeRubrica, puntajeMaximo) : null,
   );
 
   // Auto-poblar nota cuando se completa la rúbrica
@@ -194,9 +208,7 @@
         onclick={onCerrar}
         aria-label="cerrar"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
+        <X class="w-5 h-5" />
       </button>
     </div>
 
@@ -214,9 +226,7 @@
         </div>
       {:else if listado_interacciones.length === 0}
         <div class="flex flex-col items-center justify-center h-full gap-2 text-center px-4">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-9 text-gray-300">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"/>
-          </svg>
+          <MessageSquareOff class="size-9 text-gray-300" stroke-width={1.5} />
           <p class="text-sm font-semibold text-gray-500">Sin mensajes</p>
           <p class="text-xs text-gray-400">Selecciona <strong>Evaluación</strong> para calificar al grupo.</p>
         </div>
@@ -366,9 +376,7 @@
           class="absolute bottom-3 right-3 p-2 bg-uta-blue text-white rounded-lg hover:scale-105 disabled:opacity-40 disabled:scale-100 transition-all"
           aria-label="enviar"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
-          </svg>
+          <Send class="w-4 h-4" stroke-width={2.5} />
         </button>
       </div>
     </div>
@@ -480,9 +488,7 @@
                             {escala.puntos} pts
                           </span>
                           {#if elegida}
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-uta-blue shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/>
-                            </svg>
+                            <CheckCircle2 class="w-4 h-4 text-uta-blue shrink-0" />
                           {/if}
                         </div>
                         <p class="text-xs text-gray-600 leading-snug">{escala.criterio}</p>
@@ -500,16 +506,12 @@
       <div class="shrink-0 px-4 py-2.5 border-t {todosEvaluados ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}">
         {#if todosEvaluados}
           <p class="text-xs font-semibold text-emerald-700 flex items-center gap-1.5">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/>
-            </svg>
+            <CheckCircle2 class="w-4 h-4 shrink-0" />
             Rúbrica completa — nota calculada: {notaCalculada?.toFixed(1)} (60% exigencia). Puedes ajustarla manualmente en el panel izquierdo.
           </p>
         {:else}
           <p class="text-xs font-semibold text-amber-700 flex items-center gap-1.5">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
-            </svg>
+            <AlertTriangle class="w-4 h-4 shrink-0" />
             Selecciona un nivel por cada criterio para calcular la nota automáticamente.
           </p>
         {/if}
@@ -526,9 +528,7 @@
           class="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-uta-blue transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-100"
         >
           Cerrar detalle
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-          </svg>
+          <ChevronRight class="w-4 h-4" />
         </button>
       </div>
       <div class="flex-1 overflow-y-auto p-6 custom-scrollbar">
@@ -570,9 +570,7 @@
           class="p-2 rounded-full hover:bg-white/10 transition shrink-0"
           aria-label="cerrar"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
+          <X class="w-5 h-5" />
         </button>
       </div>
     </div>
@@ -630,9 +628,7 @@
                     {escala.puntos} pts
                   </span>
                   {#if elegida}
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-uta-blue shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/>
-                    </svg>
+                    <CheckCircle2 class="w-4 h-4 text-uta-blue shrink-0" />
                   {/if}
                 </div>
                 <p class="text-xs text-gray-600 leading-snug">{escala.criterio}</p>

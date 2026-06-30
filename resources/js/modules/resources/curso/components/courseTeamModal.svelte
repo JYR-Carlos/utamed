@@ -35,7 +35,7 @@
     try {
       const res = await fetch(`/${urlPrefix}/cursos/${curso.id_curso}/team`);
       const data = await res.json();
-      console.log('Team members loaded:', data);
+      // console.log('Team members loaded:', data);
       teamMembers = data;
     } catch (error) {
       console.error('Error loading team:', error);
@@ -54,7 +54,6 @@
 
     try {
       const url = `/${urlPrefix}/cursos/${curso.id_curso}/team/search-assistants?search=${encodeURIComponent(searchTerm)}`;
-      console.log('Fetching:', url);
 
       const res = await fetch(url, {
         headers: {
@@ -130,7 +129,7 @@
   }
 
   function openPermissions(member: any) {
-    console.log('Opening permissions for member:', member);
+    // console.log('Opening permissions for member:', member);
     if (!member.id_usuario) {
       console.error('❌ Member missing id_usuario:', member);
       alert('Error: El miembro no tiene ID de usuario');

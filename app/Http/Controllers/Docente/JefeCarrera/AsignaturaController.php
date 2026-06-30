@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Docente\JefeCarrera;
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Asignatura;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -81,7 +82,9 @@ class AsignaturaController extends Controller
             return redirect(self::PREFIX . '/asignaturas')
                 ->with('success', 'Asignatura creada exitosamente.');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error al crear asignatura: ' . $e->getMessage());
+            Log::error('Error al crear asignatura (jefe de carrera): ' . $e->getMessage());
+
+            return back()->with('error', 'No se pudo crear la asignatura. Por favor, inténtalo nuevamente.');
         }
     }
 
@@ -117,7 +120,9 @@ class AsignaturaController extends Controller
             return redirect(self::PREFIX . '/asignaturas')
                 ->with('success', 'Asignatura actualizada exitosamente. Se ha creado una nueva versión del registro.');
         } catch (\Exception $e) {
-            return back()->with('error', 'Error al actualizar asignatura: ' . $e->getMessage());
+            Log::error('Error al actualizar asignatura (jefe de carrera): ' . $e->getMessage());
+
+            return back()->with('error', 'No se pudo actualizar la asignatura. Por favor, inténtalo nuevamente.');
         }
     }
 
@@ -137,8 +142,10 @@ class AsignaturaController extends Controller
             return redirect(self::PREFIX . '/asignaturas')
                 ->with('success', 'Asignatura eliminada exitosamente.');
         } catch (\Exception $e) {
+            Log::error('Error al eliminar asignatura (jefe de carrera): ' . $e->getMessage());
+
             return redirect(self::PREFIX . '/asignaturas')
-                ->with('error', 'Error al eliminar la asignatura: ' . $e->getMessage());
+                ->with('error', 'No se pudo eliminar la asignatura. Por favor, inténtalo nuevamente.');
         }
     }
 

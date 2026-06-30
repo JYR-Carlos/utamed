@@ -5,12 +5,27 @@ namespace App\Http\Controllers\Docente;
 use App\Http\Controllers\Controller;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Unidad;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
+/**
+ * Gestión de unidades de un curso (perspectiva del docente).
+ *
+ * Las unidades sólo son editables mientras el curso es plantilla (`es_plantilla`);
+ * un programa aprobado bloquea su creación, edición y eliminación. El acceso se
+ * controla mediante las policies de `Unidad`.
+ */
 class DocenteUnidadController extends Controller
 {
-    public function index(Curso $curso)
+    /**
+     * Lista las unidades del curso.
+     *
+     * GET docente/cursos/{curso}/unidades
+     */
+    public function index(Curso $curso): JsonResponse
     {
         $this->authorize('viewPrograma', $curso);
 
@@ -30,7 +45,12 @@ class DocenteUnidadController extends Controller
         ]);
     }
 
-    public function store(Request $request, Curso $curso)
+    /**
+     * Crea una unidad en el curso (sólo si es plantilla).
+     *
+     * POST docente/cursos/{curso}/unidades
+     */
+    public function store(Request $request, Curso $curso): RedirectResponse
     {
         $this->authorize('create', [Unidad::class, $curso]);
 
@@ -60,13 +80,20 @@ class DocenteUnidadController extends Controller
             $unidad = Unidad::create($validated);
             return back()->with('success', "Unidad '{$unidad->nombre}' creada correctamente.");
         } catch (\Exception $e) {
+            Log::error('Error al crear la unidad: ' . $e->getMessage());
+
             return back()
-                ->withErrors(['error' => 'Error al crear la unidad: ' . $e->getMessage()])
+                ->withErrors(['error' => 'No se pudo crear la unidad. Por favor, inténtalo nuevamente.'])
                 ->withInput();
         }
     }
 
-    public function update(Request $request, Curso $curso, Unidad $unidad)
+    /**
+     * Actualiza una unidad del curso (sólo si es plantilla).
+     *
+     * PUT docente/cursos/{curso}/unidades/{unidad}
+     */
+    public function update(Request $request, Curso $curso, Unidad $unidad): RedirectResponse
     {
         $this->authorize('update', $unidad);
 
@@ -88,13 +115,20 @@ class DocenteUnidadController extends Controller
             $unidad->update($validated);
             return back()->with('success', 'Unidad actualizada correctamente.');
         } catch (\Exception $e) {
+            Log::error('Error al actualizar la unidad: ' . $e->getMessage());
+
             return back()
-                ->withErrors(['error' => 'Error al actualizar la unidad: ' . $e->getMessage()])
+                ->withErrors(['error' => 'No se pudo actualizar la unidad. Por favor, inténtalo nuevamente.'])
                 ->withInput();
         }
     }
 
-    public function destroy(Curso $curso, Unidad $unidad)
+    /**
+     * Elimina una unidad y sus actividades (sólo si el curso es plantilla).
+     *
+     * DELETE docente/cursos/{curso}/unidades/{unidad}
+     */
+    public function destroy(Curso $curso, Unidad $unidad): RedirectResponse
     {
         $this->authorize('delete', $unidad);
 
@@ -114,8 +148,10 @@ class DocenteUnidadController extends Controller
             });
             return back()->with('success', "Unidad '{$nombre}' eliminada correctamente.");
         } catch (\Exception $e) {
+            Log::error('Error al eliminar la unidad: ' . $e->getMessage());
+
             return back()
-                ->withErrors(['error' => 'Error al eliminar la unidad: ' . $e->getMessage()]);
+                ->withErrors(['error' => 'No se pudo eliminar la unidad. Por favor, inténtalo nuevamente.']);
         }
     }
 }

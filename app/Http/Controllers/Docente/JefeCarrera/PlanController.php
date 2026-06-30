@@ -74,7 +74,7 @@ class PlanController extends Controller
                 'validated_data' => $validated,
             ]);
 
-            return back()->with('error', 'Error al crear plan: ' . $e->getMessage());
+            return back()->with('error', 'No se pudo crear el plan. Por favor, inténtalo nuevamente.');
         }
     }
 
@@ -114,7 +114,7 @@ class PlanController extends Controller
             ]);
 
             return redirect(self::PREFIX . '/planes')
-                ->with('error', 'No se puede eliminar el plan: ' . $e->getMessage());
+                ->with('error', 'No se puede eliminar el plan. Verifica que no tenga asignaturas o cursos asociados.');
         }
     }
 

@@ -33,6 +33,7 @@
     Loader2,
   } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
+  import { initials, formatFechaCorta } from '@/utils/formatters';
 
   // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -127,23 +128,6 @@
   });
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-
-  function initials(name: string): string {
-    return name
-      .split(' ')
-      .slice(0, 2)
-      .map((w) => w[0] ?? '')
-      .join('')
-      .toUpperCase();
-  }
-
-  function formatDate(d: string): string {
-    return new Date(d).toLocaleDateString('es-CL', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  }
 
   function isOverdue(d: string): boolean {
     return new Date(d) < new Date();
@@ -334,7 +318,7 @@
                     <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-500">
                       <span class="flex items-center gap-1">
                         <Calendar size={11} />
-                        {formatDate(act.fecha_limite)}
+                        {formatFechaCorta(act.fecha_limite)}
                         {#if isOverdue(act.fecha_limite)}
                           <span class="text-red-500 font-semibold">(Vencida)</span>
                         {/if}

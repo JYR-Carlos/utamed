@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Docente\JefeCarrera;
 use App\Models\Administrativo\Carrera;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -73,5 +74,32 @@ trait ResolvesJefaturaCarrera
     protected function carreraIdOrAbort(): int
     {
         return (int) $this->jefaturaOrAbort()['carrera_id'];
+    }
+
+    /**
+     * Variante de jefaturaOrAbort() para métodos que renderizan vistas Inertia:
+     * en vez de abort(403) devuelve una RedirectResponse con flash de error,
+     * mejor UX que una pantalla de error desnuda dentro de Inertia.
+     *
+     * @return array{id_contexto:int,carrera_id:?int,carrera_nombre:?string}|RedirectResponse
+     */
+    protected function jefaturaOrRedirect(string $redirectTo = '/docente/dashboard'): array|RedirectResponse
+    {
+        /** @var Usuario|null $user */
+        $user = Auth::user();
+
+        if (!$user || !$user->docente) {
+            return redirect($redirectTo)
+                ->with('error', 'No tienes acceso a esta sección');
+        }
+
+        $jefatura = $this->resolveJefatura($user);
+
+        if (!$jefatura || !$jefatura['carrera_id']) {
+            return redirect($redirectTo)
+                ->with('error', 'No tienes rol de Jefe de Carrera activo');
+        }
+
+        return $jefatura;
     }
 }

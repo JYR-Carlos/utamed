@@ -22,6 +22,7 @@
   } from 'lucide-svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Curso, Asignatura, Programa } from '@/types/admin.types';
+  import { parseFechaSoloDia, formatFechaCorta, formatFechaLarga } from '@/utils/formatters';
   import SyllabusModal from '@/modules/resources/programa/components/SyllabusModal.svelte';
   import DatePickerCL from '@/components/custom/common/DatePickerCL.svelte';
   import ProgramaDocument from '@/modules/resources/programa/components/ProgramaDocument.svelte';
@@ -30,9 +31,9 @@
   import type { Permission } from '@/types/permissions/permissions';
 
   interface Props {
-    curso: Curso & { asignatura?: Asignatura | null };
+    curso: Curso;
     asignatura?: Asignatura | null;
-    programa: any;
+    programa: Programa | null;
     canApprove?: boolean;
     canEdit?: boolean;
     userPermissions?: Permission[];
@@ -58,7 +59,7 @@
   }: Props = $props();
 
   // Normalise: some controllers send asignatura separately, others embed it in curso
-  const asignatura = $derived(asignaturaProp ?? (curso as any)?.asignatura ?? null);
+  const asignatura = $derived(asignaturaProp ?? curso?.asignatura ?? null);
 
   const resolvedBackUrl = $derived(
     backUrl ??
@@ -87,17 +88,13 @@
   // Curso preparado para los modales
   const preparedCurso = $derived({
     ...curso,
-    asignatura_nombre: asignatura?.nombre ?? (curso as any)?.asignatura_nombre ?? curso?.nombre,
+    asignatura_nombre: asignatura?.nombre ?? curso?.asignatura_nombre ?? curso?.nombre,
     has_programa: !!programa,
     // Embed asignatura fields so SyllabusModal.initializeWizard can read them
     creditos_sct: asignatura?.creditos_sct ?? curso?.creditos_sct,
     horas_catedra: asignatura?.horas_catedra ?? curso?.horas_catedra,
-    horas_taller:
-      asignatura?.horas_taller ?? (asignatura as any)?.horas_taller ?? curso?.horas_taller,
-    horas_laboratorio:
-      asignatura?.horas_laboratorio ??
-      (asignatura as any)?.horas_laboratorio ??
-      curso?.horas_laboratorio,
+    horas_taller: asignatura?.horas_taller ?? curso?.horas_taller,
+    horas_laboratorio: asignatura?.horas_laboratorio ?? curso?.horas_laboratorio,
   });
   let isSyllabusModalOpen = $state(false);
   let selectedSyllabusType = $state<'simplified' | 'combined' | 'complete' | null>(null);
@@ -139,31 +136,17 @@
   }
 
   // ── Deadline display ──────────────────────────────────────────────────────
-  /**
-   * Parsea una fecha de límite de entrega como fecha local (sin conversión UTC).
-   * Las fechas vienen del servidor en UTC (ej. "2026-03-03T00:00:00.000000Z"),
-   * pero representan fechas del calendario en Chile. Se extrae solo la parte
-   * YYYY-MM-DD y se construye como fecha local para evitar el desfase de zona horaria.
-   */
-  function parseDeadlineDate(val: string): Date {
-    const [year, month, day] = val.slice(0, 10).split('-').map(Number);
-    return new Date(year, month - 1, day);
-  }
+  // D-04: el parseo UTC-safe (`parseDeadlineDate`) se promovió a
+  // `parseFechaSoloDia` en `@/utils/formatters`; aquí se importa en vez de
+  // duplicarlo. El formato largo con weekday equivale exactamente a
+  // `formatFechaLarga`, por lo que `formatDeadline` ahora lo reexporta.
 
-  /** ISO/timestamp → localised string */
-  function formatDeadline(val: string | null | undefined): string {
-    if (!val) return '';
-    return parseDeadlineDate(val).toLocaleDateString('es-CL', {
-      weekday: 'long',
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
-  }
+  /** ISO/timestamp → string largo en es-CL (weekday incluido). */
+  const formatDeadline = formatFechaLarga;
 
   function daysLeft(val: string | null | undefined): number | null {
     if (!val) return null;
-    const diff = Math.ceil((parseDeadlineDate(val).getTime() - Date.now()) / 86_400_000);
+    const diff = Math.ceil((parseFechaSoloDia(val).getTime() - Date.now()) / 86_400_000);
     return diff;
   }
 
@@ -177,11 +160,11 @@
     if (layoutType !== 'docente') return null;
     const estado = programa?.estado ?? null;
     if (!estado || estado === 'BORRADOR') {
-      const d = (curso as any).fecha_limite_entrega_basico;
+      const d = curso.fecha_limite_entrega_basico;
       return d ? { label: 'Fecha límite — entrega del programa básico', value: d } : null;
     }
     if (estado === 'BASICO_COMPLETO') {
-      const d = (curso as any).fecha_limite_entrega_syllabus;
+      const d = curso.fecha_limite_entrega_syllabus;
       return d ? { label: 'Fecha límite — entrega del syllabus completo', value: d } : null;
     }
     return null;
@@ -194,27 +177,23 @@
     return val.slice(0, 10);
   }
 
+  /** Fecha corta es-CL; conserva el em-dash cuando no hay valor (D-04). */
   function formatDate(val: string | null | undefined): string {
-    if (!val) return '—';
-    return parseDeadlineDate(val).toLocaleDateString('es-CL', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
+    return val ? formatFechaCorta(val) : '—';
   }
 
   function isOverdue(val: string | null | undefined): boolean {
     if (!val) return false;
-    return parseDeadlineDate(val) < new Date();
+    return parseFechaSoloDia(val) < new Date();
   }
 
   let editingDates = $state(false);
   let isSavingDates = $state(false);
   let dateBasico = $state<string | null>(
-    toDateInput((curso as any).fecha_limite_entrega_basico) || null,
+    toDateInput(curso.fecha_limite_entrega_basico) || null,
   );
   let dateSyllabus = $state<string | null>(
-    toDateInput((curso as any).fecha_limite_entrega_syllabus) || null,
+    toDateInput(curso.fecha_limite_entrega_syllabus) || null,
   );
 
   function saveDates() {
@@ -237,8 +216,8 @@
   }
 
   function cancelDateEdit() {
-    dateBasico = toDateInput((curso as any).fecha_limite_entrega_basico) || null;
-    dateSyllabus = toDateInput((curso as any).fecha_limite_entrega_syllabus) || null;
+    dateBasico = toDateInput(curso.fecha_limite_entrega_basico) || null;
+    dateSyllabus = toDateInput(curso.fecha_limite_entrega_syllabus) || null;
     editingDates = false;
   }
 
@@ -443,11 +422,11 @@
             <div class="rounded-lg border border-gray-100 bg-gray-50 p-3">
               <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Básico</p>
               <p
-                class={`text-sm font-semibold ${isOverdue((curso as any).fecha_limite_entrega_basico) && programa?.estado === 'BORRADOR' ? 'text-red-600' : 'text-gray-900'}`}
+                class={`text-sm font-semibold ${isOverdue(curso.fecha_limite_entrega_basico) && programa?.estado === 'BORRADOR' ? 'text-red-600' : 'text-gray-900'}`}
               >
-                {formatDate((curso as any).fecha_limite_entrega_basico)}
+                {formatDate(curso.fecha_limite_entrega_basico)}
               </p>
-              {#if isOverdue((curso as any).fecha_limite_entrega_basico) && programa?.estado === 'BORRADOR'}
+              {#if isOverdue(curso.fecha_limite_entrega_basico) && programa?.estado === 'BORRADOR'}
                 <p class="text-xs text-red-500 mt-0.5">Plazo vencido</p>
               {/if}
             </div>
@@ -456,16 +435,16 @@
                 Syllabus completo
               </p>
               <p
-                class={`text-sm font-semibold ${isOverdue((curso as any).fecha_limite_entrega_syllabus) && programa?.estado === 'BASICO_COMPLETO' ? 'text-red-600' : 'text-gray-900'}`}
+                class={`text-sm font-semibold ${isOverdue(curso.fecha_limite_entrega_syllabus) && programa?.estado === 'BASICO_COMPLETO' ? 'text-red-600' : 'text-gray-900'}`}
               >
-                {formatDate((curso as any).fecha_limite_entrega_syllabus)}
+                {formatDate(curso.fecha_limite_entrega_syllabus)}
               </p>
-              {#if isOverdue((curso as any).fecha_limite_entrega_syllabus) && programa?.estado === 'BASICO_COMPLETO'}
+              {#if isOverdue(curso.fecha_limite_entrega_syllabus) && programa?.estado === 'BASICO_COMPLETO'}
                 <p class="text-xs text-red-500 mt-0.5">Plazo vencido</p>
               {/if}
             </div>
           </div>
-          {#if !(curso as any).fecha_limite_entrega_basico && !(curso as any).fecha_limite_entrega_syllabus}
+          {#if !curso.fecha_limite_entrega_basico && !curso.fecha_limite_entrega_syllabus}
             <p class="text-sm text-gray-400 italic mt-1">
               No se han definido fechas límite para este curso.
             </p>
@@ -667,7 +646,7 @@
       <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm no-print">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Acciones</h2>
 
-        {#if programa.estado === 'COMPLETO' && canApprovePrograma}
+        {#if programa?.estado === 'COMPLETO' && canApprovePrograma}
           <div class="space-y-4">
             <Alert variant="default">
               <AlertCircle class="h-4 w-4" />
@@ -724,7 +703,7 @@
               {/if}
             </div>
           </div>
-        {:else if programa.estado === 'APROBADO'}
+        {:else if programa?.estado === 'APROBADO'}
           <Alert variant="default">
             <CheckCircle class="h-4 w-4" />
             <div>
@@ -732,7 +711,7 @@
               <p class="text-sm">El programa está publicado y disponible para los estudiantes.</p>
             </div>
           </Alert>
-        {:else if programa.estado === 'BASICO_COMPLETO'}
+        {:else if programa?.estado === 'BASICO_COMPLETO'}
           <div
             class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 flex items-center justify-between gap-4"
           >

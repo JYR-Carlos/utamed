@@ -5,7 +5,7 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, SidebarCourse } from '@/types';
   import { page, router } from '@inertiajs/svelte'; // <-- Cambiamos Link por router
-  import { Sparkles, Calendar } from 'lucide-svelte';
+  import { Calendar } from 'lucide-svelte';
   import ProfileCard from '@/components/student/ProfileCard.svelte';
   import CourseCard from '@/components/student/CourseCard.svelte';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
@@ -117,14 +117,19 @@
 <StudentLayout {breadcrumbs}>
   <div class="h-full px-5 md:px-10 lg:px-20 bg-white relative">
     <div class="relative mx-auto px-4">
-      <div class="mb-8">
-        <div class="flex items-center gap-3 mb-2">
-          <h1 class="text-4xl font-bold bg-clip-text">
-            Bienvenido, {nameParts.nombre}!
+      <header class="flex items-center justify-between gap-4 flex-wrap mb-8">
+        <div class="flex flex-col gap-1">
+          <span class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-0.5 w-fit">
+            Semestre {semestre} · {anoAcademico}
+          </span>
+          <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+            Portal Estudiante
           </h1>
+          <p class="text-sm text-slate-500">
+            Bienvenido, <strong class="text-slate-700 font-semibold">{nameParts.nombre}</strong>
+          </p>
         </div>
-        <p class="text-gray-500">Ambiente Estudiante · UTAMED</p>
-      </div>
+      </header>
 
       <div class="grid grid-cols-12 gap-6">
         <div class="col-span-12 lg:col-span-3 space-y-6">
@@ -136,11 +141,11 @@
             {carrera}
           />
 
-          <div class="relative overflow-hidden rounded-3xl bg-linear-to from-purple-600/5 via-cyan-600/5 to-orange-600/5 p-px">
+          <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600/5 via-cyan-600/5 to-orange-600/5 p-px">
             <div class="relative rounded-3xl bg-white backdrop-blur-xl p-6 border border-gray-200">
               <div class="relative space-y-4">
                 <div class="flex items-center gap-2 mb-4">
-                  <Calendar class="w-4 h-4 text-purple-600" />
+                  <Calendar class="w-4 h-4 text-indigo-600" />
                   <h4 class="text-sm text-gray-700 font-medium">Periodo Académico</h4>
                 </div>
 
@@ -163,7 +168,7 @@
                       onclick={() => (semestre = '1')}
                       class={`py-3 rounded-xl font-medium text-sm transition-all ${
                         semestre === '1'
-                          ? 'bg-cyan-600 text-white'
+                          ? 'bg-indigo-600 text-white'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
@@ -173,7 +178,7 @@
                       onclick={() => (semestre = '2')}
                       class={`py-3 rounded-xl font-medium text-sm transition-all ${
                         semestre === '2'
-                          ? 'bg-cyan-600 text-white'
+                          ? 'bg-indigo-600 text-white'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >

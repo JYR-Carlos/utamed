@@ -60,12 +60,19 @@
     emisor: string;
     tipo: string;
   }
+
+  interface Integrante {
+    rut: string;
+    nombre: string;
+  }
+
   interface HiloGrupo {
     grupo: number;
-    integrantes: string[];
+    integrantes: Integrante[];
     es_individual: boolean;
     mensajes: MensajeItem[];
   }
+
   interface Hilo {
     id_actividad: number;
     nombre: string;
@@ -106,7 +113,10 @@
         if (!query.trim()) return c;
         const q = query.toLowerCase();
         if (c.nombre.toLowerCase().includes(q) || c.cod_curso.toLowerCase().includes(q)) return c;
-        return { ...c, actividades: c.actividades.filter((a) => a.nombre.toLowerCase().includes(q)) };
+        return {
+          ...c,
+          actividades: c.actividades.filter((a) => a.nombre.toLowerCase().includes(q)),
+        };
       })
       .filter((c) => c.actividades.length > 0),
   );
@@ -138,8 +148,8 @@
 
   function grupoLabel(h: HiloGrupo) {
     if (h.integrantes.length === 0) return `Grupo #${h.grupo}`;
-    if (h.es_individual) return h.integrantes[0];
-    return h.integrantes.join(', ');
+    if (h.es_individual) return h.integrantes[0].nombre;
+    return h.integrantes.map((i) => i.nombre).join(', ');
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
@@ -170,7 +180,10 @@
         onSuccess: () => {
           mensaje = '';
           if (selectedActividad) {
-            router.reload({ only: ['hilo'], data: { actividad_id: selectedActividad.id_actividad } });
+            router.reload({
+              only: ['hilo'],
+              data: { actividad_id: selectedActividad.id_actividad },
+            });
           }
         },
         onError: (errors) => {
@@ -185,7 +198,7 @@
 <DocenteLayout {breadcrumbs}>
   <div class="flex flex-col h-full">
     <!-- ── Header ──────────────────────────────────────────────────────────── -->
-    <div class="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-3 flex-shrink-0">
+    <div class="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-3 shrink-0">
       <div
         class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0"
       >
@@ -406,9 +419,54 @@
                     <Users size={14} class="text-slate-400 shrink-0" />
                   {/if}
                   <div class="min-w-0">
-                    <p class="text-xs font-bold text-slate-700 truncate">{grupoLabel(h)}</p>
+                    {#if h.es_individual}
+                      <div class="flex">
+                        <!-- Nombres de integrante -->
+                        <p class="text-xs font-bold text-slate-700 truncate">{grupoLabel(h)}</p>
+                        <!-- Espacio -->
+                        <span class="mx-1 text-xs text-slate-400"></span>
+                        <!-- Rut de los integrantes -->
+                        {#if h.integrantes.length > 0}
+                          <span
+                            role="button"
+                            tabindex="0"
+                            class="select-all cursor-pointer text-xs font-light text-slate-400 hover:text-slate-600 transition-colors truncate"
+                            ondblclick={() =>
+                              navigator.clipboard.writeText(h.integrantes[0]?.rut ?? '')}
+                            title="Doble clic para copiar al portapapeles"
+                          >
+                            {h.integrantes[0]?.rut ?? 'Sin rut'}
+                          </span>
+                        {:else}
+                          <p class="text-xs font-light text-slate-400 truncate">Sin integrantes</p>
+                        {/if}
+                      </div>
+                    {:else}
+                      <div class="flex flex-col">
+                        <p class="text-xs font-bold text-slate-700 truncate">{grupoLabel(h)}</p>
+                        <div class="my-1 gap-0 text-xs font-light text-slate-400 truncate">
+                          {#each h.integrantes as i, index (index)}
+                            <span
+                              role="button"
+                              tabindex="0"
+                              class="text-xs select-all cursor-pointer hover:text-slate-600 transition-colors"
+                              title="Doble clic para copiar al portapapeles"
+                              ondblclick={() => navigator.clipboard.writeText(i.rut)}
+                            >
+                              {i.rut}
+                            </span>
+
+                            {#if index < h.integrantes.length - 1}
+                              <span class="text-xs mr-2">,</span>
+                            {/if}
+                          {/each}
+                        </div>
+                      </div>
+                    {/if}
                     <p class="text-[10px] text-slate-400">
-                      Grupo #{h.grupo} · {h.es_individual ? 'Individual' : `${h.integrantes.length} integrantes`}
+                      Grupo #{h.grupo} · {h.es_individual
+                        ? 'Individual'
+                        : `${h.integrantes.length} integrantes`}
                     </p>
                   </div>
                 </div>
@@ -416,7 +474,9 @@
                 <!-- Mensajes -->
                 <div class="flex flex-col">
                   {#if h.mensajes.length === 0}
-                    <p class="px-4 py-4 text-xs text-slate-400 italic">Sin mensajes en este grupo.</p>
+                    <p class="px-4 py-4 text-xs text-slate-400 italic">
+                      Sin mensajes en este grupo.
+                    </p>
                   {/if}
                   {#each h.mensajes as m (m.id_agenda)}
                     <div
@@ -432,7 +492,9 @@
                         >
                           {m.es_docente ? 'Tú (docente)' : 'Estudiante'}
                         </span>
-                        <span class="text-[11px] font-medium text-slate-500 truncate">{m.emisor}</span>
+                        <span class="text-[11px] font-medium text-slate-500 truncate"
+                          >{m.emisor}</span
+                        >
                         <span class="text-[10px] text-slate-400 ml-auto shrink-0"
                           >{fmtFull(m.fecha_envio)}</span
                         >

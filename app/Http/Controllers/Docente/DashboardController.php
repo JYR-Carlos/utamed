@@ -8,7 +8,6 @@ use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Curso\Curso;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 /**
@@ -27,6 +26,8 @@ use Inertia\Inertia;
  */
 class DashboardController extends Controller
 {
+    use ContaPendientesMensajes;
+
     /**
      * Muestra el dashboard del docente con su lista de cursos.
      * 
@@ -86,27 +87,7 @@ class DashboardController extends Controller
         // Mensajes por responder: grupos cuyo último mensaje es de un estudiante,
         // en cursos donde el docente es titular.
         $cursoIds = $cursos->pluck('id_curso')->all();
-        $mensajesPendientes = 0;
-        if (!empty($cursoIds)) {
-            $placeholders = implode(',', array_fill(0, count($cursoIds), '?'));
-            $row = DB::selectOne(
-                "SELECT COUNT(*) AS pendientes
-                 FROM (
-                     SELECT DISTINCT ON (a.id_actividad_asignada_grupo) a.tipo_mensaje
-                     FROM agenda.agenda a
-                     JOIN agenda.actividad_asignada_grupo aag
-                          ON aag.id_actividad_asignada_grupo = a.id_actividad_asignada_grupo
-                     JOIN agenda.actividad act ON act.id_actividad = aag.id_actividad
-                     JOIN curso.componente c ON c.id_componente = act.id_componente
-                     WHERE c.id_curso IN ($placeholders)
-                       AND a.tipo_mensaje IN ('Mensaje al profesor', 'Feedback')
-                     ORDER BY a.id_actividad_asignada_grupo, a.fecha_envio DESC
-                 ) ultimo
-                 WHERE ultimo.tipo_mensaje = 'Mensaje al profesor'",
-                $cursoIds,
-            );
-            $mensajesPendientes = (int) ($row->pendientes ?? 0);
-        }
+        $mensajesPendientes = $this->totalPendientes($cursoIds);
 
         return Inertia::render('docente/Dashboard', [
             'mensajes' => [

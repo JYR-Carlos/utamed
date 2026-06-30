@@ -447,6 +447,13 @@
 
 <AdminLayout {breadcrumbs}>
   <div>
+    <div class="flex justify-between items-start mb-8">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900 mb-1">Cursos Ofertados</h1>
+        <p class="text-sm text-gray-500">Gestión de cursos del sistema completo</p>
+        <!-- TODO: FALTA FILTRAR POR DEPARTAMENTO/CARRERA -->
+      </div>
+    </div>
     <!-- Tabla de cursos usando componente modular -->
     <CursoListAdmin
       {cursos}
@@ -544,7 +551,13 @@
           <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
             Distribución de horas
           </p>
-          {#each [{ label: 'Cátedra', value: quickViewItem.horas_catedra }, { label: 'Taller', value: quickViewItem.horas_taller }, { label: 'Laboratorio', value: quickViewItem.horas_laboratorio }, { label: 'Dirigidas', value: quickViewItem.horas_dirigidas }, { label: 'Autónomas', value: quickViewItem.horas_autonomas }] as hora}
+          {#each [
+            { label: 'Cátedra', value: quickViewItem.horas_catedra }, 
+            { label: 'Taller', value: quickViewItem.horas_taller }, 
+            { label: 'Laboratorio', value: quickViewItem.horas_laboratorio }, 
+            { label: 'Dirigidas', value: quickViewItem.horas_dirigidas }, 
+            { label: 'Autónomas', value: quickViewItem.horas_autonomas }
+          ] as hora (hora.label)}
             {#if hora.value != null}
               <div
                 class="flex justify-between items-center text-sm py-1.5 border-b border-gray-100 last:border-0"

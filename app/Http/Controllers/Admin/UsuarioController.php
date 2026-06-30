@@ -10,6 +10,8 @@ use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Estudiante;
 use App\Models\Usuario\Docente;
 use App\Models\Administrativo\Carrera;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -111,6 +113,9 @@ class UsuarioController extends Controller
             // Unir con tabla usuario, ordenar y paginar
             $q = $query->join('usuario', 'estudiante.id_usuario', '=', 'usuario.id_usuario')
                 ->select('estudiante.*');
+
+            $q->orderByDesc('usuario.esta_activo'); // Activos primero, inactivos al final
+
             if ($sqlColumn) {
                 $q->orderBy($sqlColumn, $sortDir);
             } else {
@@ -151,6 +156,9 @@ class UsuarioController extends Controller
             // Unir con tabla usuario, ordenar y paginar
             $q = $query->join('usuario', 'docente.id_usuario', '=', 'usuario.id_usuario')
                 ->select('docente.*');
+
+            $q->orderByDesc('usuario.esta_activo'); // Activos primero, inactivos al final
+
             if ($sqlColumn) {
                 $q->orderBy($sqlColumn, $sortDir);
             } else {
@@ -189,6 +197,8 @@ class UsuarioController extends Controller
             ];
 
             $sqlColumn = $adminSortWhitelist[$sortKey] ?? null;
+
+            $query->orderByDesc('esta_activo'); // Activos primero, inactivos al final
 
             // Ordenar y paginar
             if ($sqlColumn) {
@@ -574,12 +584,14 @@ class UsuarioController extends Controller
      * 
      * Resuelve el usuario con relaciones asociadas (carrera para estudiantes, etc.).
      * Retorna JSON.
-     * 
-     * @param  int      $id       ID del estudiante/docente/usuario
+     *
+     * Nota: $id es polimórfico según 'tipo' (id_estudiante / id_docente / id_usuario),
+     * por eso no se usa route-model binding aquí.
+     *
      * @param  Request  $request  Parámetro: tipo (estudiante|docente|administrador)
-     * @return \Illuminate\Http\JsonResponse  JSON con datos del usuario y relaciones
+     * @param  int      $id       ID del estudiante/docente/usuario
      */
-    public function show($id, Request $request)
+    public function show(Request $request, $id): JsonResponse
     {
         // Determinar tipo de usuario
         $tipo = $request->input('tipo', 'estudiante');
@@ -605,11 +617,13 @@ class UsuarioController extends Controller
      * - 'docente' → updateDocente()
      * - otro → updateAdministrador()
      * 
+     * Nota: $id es polimórfico según 'tipo' (id_estudiante / id_docente / id_usuario),
+     * por eso no se usa route-model binding aquí.
+     *
      * @param  Request  $request  Parámetro: tipo, y datos a actualizar
      * @param  int      $id       ID del usuario a actualizar
-     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $id): RedirectResponse
     {
         // Determinar tipo de usuario y delegar al método correspondiente
         $tipo = $request->input('tipo');
@@ -776,11 +790,13 @@ class UsuarioController extends Controller
      * Elimina perfil específico (Estudiante/Docente) primero, luego registro Usuario base.
      * Rollback completo si hay registros asociados que lo impidan (foreign keys).
      * 
-     * @param  int      $id       ID del estudiante/docente/usuario a eliminar
+     * Nota: $id es polimórfico según 'tipo' (id_estudiante / id_docente / id_usuario),
+     * por eso no se usa route-model binding aquí.
+     *
      * @param  Request  $request  Parámetro: tipo (estudiante|docente|administrador)
-     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
+     * @param  int      $id       ID del estudiante/docente/usuario a eliminar
      */
-    public function destroy($id, Request $request)
+    public function destroy(Request $request, $id): RedirectResponse
     {
         // Determinar tipo de usuario a eliminar
         $tipo = $request->input('tipo', 'estudiante');
@@ -831,18 +847,16 @@ class UsuarioController extends Controller
      * Hash y almacena en campo 'passhash'.
      * 
      * @param  Request  $request  Datos: password (required, min:6, confirmed)
-     * @param  int      $id       ID del usuario cuya contraseña actualizar
-     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
+     * @param  Usuario  $usuario  Usuario cuya contraseña actualizar (route-model binding)
      */
-    public function changePassword(Request $request, $id)
+    public function changePassword(Request $request, Usuario $usuario): RedirectResponse
     {
         // Validar nueva contraseña con confirmación
         $validated = $request->validate([
             'password' => 'required|string|min:6|confirmed',
         ]);
 
-        // Buscar usuario y actualizar hash de contraseña
-        $usuario = Usuario::findOrFail($id);
+        // Actualizar hash de contraseña
         $usuario->update(['passhash' => Hash::make($validated['password'])]);
 
         return back()->with('success', 'Contraseña actualizada exitosamente.');
@@ -852,14 +866,12 @@ class UsuarioController extends Controller
      * Alterna el estado activo/inactivo de un usuario.
      * 
      * Cambia 'esta_activo' entre true y false. Usuario inactivo no puede autenticarse.
-     * 
-     * @param  int  $id  ID del usuario a activar/desactivar
-     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
+     *
+     * @param  Usuario  $usuario  Usuario a activar/desactivar (route-model binding)
      */
-    public function toggleActive($id)
+    public function toggleActive(Usuario $usuario): RedirectResponse
     {
-        // Buscar usuario y alternar su estado activo/inactivo
-        $usuario = Usuario::findOrFail($id);
+        // Alternar su estado activo/inactivo
         $usuario->esta_activo = !(bool) $usuario->esta_activo;
         $usuario->save();
 

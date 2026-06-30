@@ -7,10 +7,9 @@ use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\Usuario;
-use App\Models\Usuario\UsuarioPermisoEspecial;
+use App\Services\Docente\PermisosCursoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 /**
@@ -21,6 +20,13 @@ use Inertia\Inertia;
  *   1. DT del curso: configurar quién puede editar el programa/syllabus.
  *   2. DT de un componente colegiado: configurar permisos de notas/asistencia
  *      para los demás docentes del componente.
+ *
+ * Refactorizado (B-04): la lógica de syncPermiso, ensureContext y mapaPermisos
+ * se delega a PermisosCursoService para eliminar la triplicación.
+ *
+ * B-11: regla exists unificada a 'usuario.usuario,id_usuario' (esquema.tabla)
+ * que es la forma correcta en PostgreSQL multi-esquema; la tabla usuario
+ * vive en el esquema 'usuario' (ver search_path en config/database.php).
  */
 class CursoPermisosController extends Controller
 {
@@ -48,6 +54,10 @@ class CursoPermisosController extends Controller
         'componentes/asistencia:editar',
     ];
 
+    public function __construct(
+        private readonly PermisosCursoService $permisosService
+    ) {}
+
     // ────────────────────────────────────────────────────────────────────────
     // SYLLABUS — permisos del DT sobre los docentes del curso
     // ────────────────────────────────────────────────────────────────────────
@@ -64,18 +74,20 @@ class CursoPermisosController extends Controller
     {
         $this->authorize('manageTeam', $curso);
 
-        $this->ensureContext($curso);
+        $this->permisosService->ensureContextCurso($curso);
 
         $slugsDisponibles = $this->resolvePermisos(self::SYLLABUS_SLUGS);
 
         // Docentes del curso: titular de componentes + docenteComponentes
         $docentes = $this->getDocentesCurso($curso);
 
-        $matrix = $docentes->map(function ($docente) use ($curso, $slugsDisponibles) {
-            $permisos = $this->getPermisosEnContexto(
+        $idPermisos = $slugsDisponibles->pluck('id_permiso')->toArray();
+
+        $matrix = $docentes->map(function ($docente) use ($curso, $idPermisos) {
+            $permisos = $this->permisosService->mapaPermisosPorId(
                 $docente['id_usuario'],
                 $curso->id_contexto,
-                $slugsDisponibles->pluck('id_permiso')->toArray()
+                $idPermisos
             );
             return array_merge($docente, ['permisos' => $permisos]);
         });
@@ -98,19 +110,21 @@ class CursoPermisosController extends Controller
     public function syllabusSync(Request $request, Curso $curso)
     {
         $this->authorize('manageTeam', $curso);
-        $this->ensureContext($curso);
+        $this->permisosService->ensureContextCurso($curso);
 
+        // B-11: corregido de 'exists:usuario,id_usuario' → 'exists:usuario.usuario,id_usuario'
         $validated = $request->validate([
-            'id_usuario' => ['required', 'integer', 'exists:usuario,id_usuario'],
+            'id_usuario' => ['required', 'integer', 'exists:usuario.usuario,id_usuario'],
             'slug'       => ['required', 'string', 'in:' . implode(',', self::SYLLABUS_SLUGS)],
             'otorgar'    => ['required', 'boolean'],
         ]);
 
-        $this->syncPermiso(
-            idUsuario: $validated['id_usuario'],
-            slug:      $validated['slug'],
+        $this->permisosService->syncPermiso(
+            idUsuario:  $validated['id_usuario'],
+            slugOrId:   $validated['slug'],
             idContexto: $curso->id_contexto,
-            otorgar:   $validated['otorgar'],
+            otorgar:    $validated['otorgar'],
+            origen:     'CursoPermisos:syllabus',
         );
 
         return back()->with('success', 'Permiso actualizado exitosamente.');
@@ -132,17 +146,19 @@ class CursoPermisosController extends Controller
     {
         $this->authorizeEsTitularComponente($componente);
 
-        $this->ensureContextComponente($componente);
+        $this->permisosService->ensureContextComponente($componente);
 
         $slugsDisponibles = $this->resolvePermisos(self::COMPONENTE_SLUGS);
 
         $docentes = $this->getDocentesComponente($componente);
 
-        $matrix = $docentes->map(function ($docente) use ($componente, $slugsDisponibles) {
-            $permisos = $this->getPermisosEnContexto(
+        $idPermisos = $slugsDisponibles->pluck('id_permiso')->toArray();
+
+        $matrix = $docentes->map(function ($docente) use ($componente, $idPermisos) {
+            $permisos = $this->permisosService->mapaPermisosPorId(
                 $docente['id_usuario'],
                 $componente->id_contexto,
-                $slugsDisponibles->pluck('id_permiso')->toArray()
+                $idPermisos
             );
             return array_merge($docente, ['permisos' => $permisos]);
         });
@@ -165,19 +181,21 @@ class CursoPermisosController extends Controller
     public function componenteSync(Request $request, Curso $curso, Componente $componente)
     {
         $this->authorizeEsTitularComponente($componente);
-        $this->ensureContextComponente($componente);
+        $this->permisosService->ensureContextComponente($componente);
 
+        // B-11: corregido de 'exists:usuario,id_usuario' → 'exists:usuario.usuario,id_usuario'
         $validated = $request->validate([
-            'id_usuario' => ['required', 'integer', 'exists:usuario,id_usuario'],
+            'id_usuario' => ['required', 'integer', 'exists:usuario.usuario,id_usuario'],
             'slug'       => ['required', 'string', 'in:' . implode(',', self::COMPONENTE_SLUGS)],
             'otorgar'    => ['required', 'boolean'],
         ]);
 
-        $this->syncPermiso(
+        $this->permisosService->syncPermiso(
             idUsuario:  $validated['id_usuario'],
-            slug:       $validated['slug'],
+            slugOrId:   $validated['slug'],
             idContexto: $componente->id_contexto,
             otorgar:    $validated['otorgar'],
+            origen:     'CursoPermisos:componente',
         );
 
         return back()->with('success', 'Permiso actualizado exitosamente.');
@@ -201,30 +219,6 @@ class CursoPermisosController extends Controller
 
         if (!$esTitular) {
             abort(403, 'Solo el docente titular del componente puede gestionar estos permisos.');
-        }
-    }
-
-    private function ensureContext(Curso $curso): void
-    {
-        if (!$curso->id_contexto || $curso->id_contexto == 1) {
-            $contexto = \App\Models\Usuario\Contexto::firstOrCreate(
-                ['contexto_display' => 'Curso: ' . $curso->cod_curso],
-                ['descripcion'      => 'Contexto para el curso ' . $curso->cod_curso]
-            );
-            $curso->update(['id_contexto' => $contexto->id_contexto]);
-        }
-    }
-
-    private function ensureContextComponente(Componente $componente): void
-    {
-        if (!$componente->id_contexto || $componente->id_contexto == 1) {
-            $tipo   = $componente->tipoComponente?->tipo ?? 'Componente';
-            $nombre = "{$tipo} del curso #{$componente->id_curso}";
-            $contexto = \App\Models\Usuario\Contexto::firstOrCreate(
-                ['contexto_display' => $nombre],
-                ['descripcion'      => $nombre]
-            );
-            $componente->update(['id_contexto' => $contexto->id_contexto]);
         }
     }
 
@@ -279,82 +273,5 @@ class CursoPermisosController extends Controller
                 'es_titular'  => $dc->es_titular,
             ])
             ->values();
-    }
-
-    /**
-     * Para cada permiso, indica si el usuario lo tiene activo en ese contexto.
-     * Devuelve: { [id_permiso]: bool }
-     */
-    private function getPermisosEnContexto(int $idUsuario, int $idContexto, array $idPermisos): array
-    {
-        $activos = UsuarioPermisoEspecial::where('id_usuario', $idUsuario)
-            ->where('id_contexto', $idContexto)
-            ->whereIn('id_permiso', $idPermisos)
-            ->where('esta_activo', true)
-            ->where('fue_borrado', false)
-            ->pluck('id_permiso')
-            ->toArray();
-
-        $result = [];
-        foreach ($idPermisos as $id) {
-            $result[$id] = in_array($id, $activos);
-        }
-        return $result;
-    }
-
-    /**
-     * Otorga o revoca un permiso para un usuario en un contexto dado.
-     */
-    private function syncPermiso(int $idUsuario, string $slug, int $idContexto, bool $otorgar): void
-    {
-        $permiso = Permiso::where('slug', $slug)->firstOrFail();
-
-        $existing = UsuarioPermisoEspecial::where('id_usuario', $idUsuario)
-            ->where('id_contexto', $idContexto)
-            ->where('id_permiso', $permiso->id_permiso)
-            ->first();
-
-        if ($otorgar) {
-            if ($existing) {
-                $existing->update([
-                    'esta_activo'           => true,
-                    'fue_borrado'           => false,
-                    'esta_permitido'        => true,
-                    'fecha_fin_real'        => null,
-                    'fecha_fin_planificada' => now()->addYears(5),
-                    'creado_por'            => Auth::id(),
-                ]);
-            } else {
-                UsuarioPermisoEspecial::create([
-                    'id_usuario'              => $idUsuario,
-                    'id_permiso'              => $permiso->id_permiso,
-                    'id_contexto'             => $idContexto,
-                    'esta_permitido'          => true,
-                    'puede_delegar'           => false,
-                    'esta_activo'             => true,
-                    'fue_borrado'             => false,
-                    'fecha_inicio_planificada'=> now(),
-                    'fecha_fin_planificada'   => now()->addYears(5),
-                    'fecha_fin_real'          => null,
-                    'creado_por'              => Auth::id(),
-                ]);
-            }
-        } else {
-            if ($existing) {
-                $existing->update([
-                    'esta_activo'    => false,
-                    'fue_borrado'    => true,
-                    'fecha_fin_real' => now(),
-                    'eliminado_por'  => Auth::id(),
-                ]);
-            }
-        }
-
-        Log::info('[CursoPermisos] Sync permiso', [
-            'id_usuario' => $idUsuario,
-            'slug'       => $slug,
-            'id_contexto'=> $idContexto,
-            'otorgar'    => $otorgar,
-        ]);
     }
 }

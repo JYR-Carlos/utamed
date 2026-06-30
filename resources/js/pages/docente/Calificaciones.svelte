@@ -14,6 +14,7 @@
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import { Link } from '@inertiajs/svelte';
+  import { formatFechaCorta } from '@/utils/formatters';
   import {
     BarChart3,
     ChevronRight,
@@ -102,14 +103,6 @@
 
   function periodo(c: CursoCalif): string {
     return `${c.semestre_real === 1 ? '1er' : '2do'} Sem. · ${c.agno_real}`;
-  }
-
-  function formatFecha(dateStr: string): string {
-    return new Date(dateStr).toLocaleDateString('es-CL', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   }
 </script>
 
@@ -255,7 +248,7 @@
                         </span>
                         <span class="inline-flex items-center gap-1">
                           <CalendarClock size={12} />
-                          {formatFecha(act.fecha_limite)}
+                          {formatFechaCorta(act.fecha_limite)}
                         </span>
                       </div>
                     </div>
@@ -280,7 +273,7 @@
                         </span>
                         <span class="inline-flex items-center gap-1">
                           <CalendarClock size={12} />
-                          {formatFecha(act.fecha_limite)}
+                          {formatFechaCorta(act.fecha_limite)}
                         </span>
                       </div>
                     </div>

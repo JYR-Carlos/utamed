@@ -48,7 +48,7 @@
       >
         <button
           class="whitespace-nowrap px-4 py-2 rounded-lg border transition-all min-w-40 {filterSumativa
-            ? 'bg-blue-500 text-white border-blue-500'
+            ? 'bg-indigo-600 text-white border-indigo-600'
             : 'bg-white text-gray-900 border-gray-300'}"
           onclick={() => onToggleFilter('sumativa')}
         >
@@ -57,7 +57,7 @@
 
         <button
           class="whitespace-nowrap px-4 py-2 rounded-lg border transition-all min-w-40 {filterEntrega
-            ? 'bg-blue-500 text-white border-blue-500'
+            ? 'bg-indigo-600 text-white border-indigo-600'
             : 'bg-white text-gray-900 border-gray-300'}"
           onclick={() => onToggleFilter('entrega')}
         >
@@ -66,7 +66,7 @@
 
         <button
           class="whitespace-nowrap px-4 py-2 rounded-lg border transition-all min-w-40 {filterGrupal
-            ? 'bg-blue-500 text-white border-blue-500'
+            ? 'bg-indigo-600 text-white border-indigo-600'
             : 'bg-white text-gray-900 border-gray-300'}"
           onclick={() => onToggleFilter('grupal')}
         >

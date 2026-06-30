@@ -104,7 +104,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('tipos-componente.index');
 
     // Actividades routes - Get activities for program wizard
-    Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getBysCursoJson'])
+    Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'actividadesJson'])
         ->name('cursos.actividades.json');
 
     // Resource routes (more general routes go after specific ones)
@@ -363,7 +363,7 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
 
     // Activity management for courses
     Route::get('cursos/{curso}/actividades', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'show'])->name('cursos.actividades.index');
-    Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getBysCursoJson'])->name('cursos.actividades.json');
+    Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'actividadesJson'])->name('cursos.actividades.json');
     Route::post('cursos/{curso}/actividades', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'store'])->name('cursos.actividades.store');
     Route::put('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'update'])->name('cursos.actividades.update');
     Route::delete('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'destroy'])->name('cursos.actividades.destroy');
@@ -374,28 +374,25 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
 
     // Activity evaluation (grading groups and individual students)
     Route::get('cursos/{curso}/actividades/{actividad}/evaluacion', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'showEvaluacion'])->name('cursos.actividades.evaluacion');
-    Route::post('cursos/{curso}/actividades/{actividad}/grupos', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'storeGrupo'])->name('cursos.actividades.grupos.store');
-    Route::put('cursos/{curso}/actividades/{actividad}/grupos/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'updateGrupo'])->name('cursos.actividades.grupos.update');
-    Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'deleteGrupo'])->name('cursos.actividades.grupos.delete');
-    Route::post('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/integrantes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'addIntegrante'])->name('cursos.actividades.integrantes.store');
+    // Notas individuales: ajuste de décimas y recálculo desde la nota grupal.
+    // (El CRUD de grupos/integrantes vive más abajo en grupos-create/grupos-delete/estudiante.)
     Route::put('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/integrantes/{asignado}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'updateIntegrante'])->name('cursos.actividades.integrantes.update');
     Route::post('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/recalcular-notas', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'recalcularNotasIndividuales'])->name('cursos.actividades.grupos.recalcular');
-    Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/integrantes/{asignado}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'removeIntegrante'])->name('cursos.actividades.integrantes.delete');
 
     // Gestión avanzada de grupos (nuevas funcionalidades)
     Route::post('cursos/{curso}/rubrica', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'storeRubrica'])->name('cursos.rubrica.store');
 
-    Route::post('cursos/{curso}/actividades/{actividad}/grupos-create', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'storeGroup'])->name('cursos.actividades.grupos.create');
-    Route::post('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiante', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'addStudentToGroup'])->name('cursos.actividades.grupos.estudiante.add');
-    Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiantes/{estudiante}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'removeStudentFromGroup'])->name('cursos.actividades.grupos.estudiante.remove');
-    Route::delete('cursos/{curso}/actividades/{actividad}/grupos-delete/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'deleteGroup'])->name('cursos.actividades.grupos.new.delete');
-    Route::get('cursos/{curso}/actividades/{actividad}/grupos-list', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getGroupsByActivity'])->name('cursos.actividades.grupos.list');
-    Route::post('cursos/{curso}/actividades/{actividad}/grupos-copy', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'copyGroupsFromActivity'])->name('cursos.actividades.grupos.copy');
+    Route::post('cursos/{curso}/actividades/{actividad}/grupos-create', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'crearGrupo'])->name('cursos.actividades.grupos.create');
+    Route::post('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiante', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'agregarEstudianteAGrupo'])->name('cursos.actividades.grupos.estudiante.add');
+    Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiantes/{estudiante}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'quitarEstudianteDeGrupo'])->name('cursos.actividades.grupos.estudiante.remove');
+    Route::delete('cursos/{curso}/actividades/{actividad}/grupos-delete/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'eliminarGrupo'])->name('cursos.actividades.grupos.new.delete');
+    Route::get('cursos/{curso}/actividades/{actividad}/grupos-list', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'gruposPorActividad'])->name('cursos.actividades.grupos.list');
+    Route::post('cursos/{curso}/actividades/{actividad}/grupos-copy', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'copiarGruposDeActividad'])->name('cursos.actividades.grupos.copy');
 
     // Gestión de entregas/archivos
-    Route::get('cursos/{curso}/actividades/{actividad}/entregas', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getSubmissionsByActivity'])->name('cursos.actividades.entregas.list');
-    Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/entregas', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getSubmissionsByGroup'])->name('cursos.actividades.entregas.grupo');
-    Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/entregas/{agenda}/descargar', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'downloadSubmissionFile'])->name('cursos.actividades.entregas.descargar');
+    Route::get('cursos/{curso}/actividades/{actividad}/entregas', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'entregasPorActividad'])->name('cursos.actividades.entregas.list');
+    Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/entregas', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'entregasPorGrupo'])->name('cursos.actividades.entregas.grupo');
+    Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/entregas/{agenda}/descargar', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'descargarEntrega'])->name('cursos.actividades.entregas.descargar');
 
     // Centro de mensajes del docente (bandeja transversal a todos sus cursos)
     Route::get('mensajes', [\App\Http\Controllers\Docente\MensajesController::class, 'index'])->name('mensajes.index');
@@ -405,11 +402,11 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     // Nivel 1: vista general del curso
     Route::get('cursos/{curso}/mensajes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'showMensajesCurso'])->name('cursos.mensajes.index');
     // Nivel 1 + 2: hilo de un estudiante (todos sus grupos en el curso)
-    Route::get('cursos/{curso}/estudiantes/{idEstudiante}/mensajes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getMensajesEstudiante'])->name('cursos.estudiantes.mensajes');
+    Route::get('cursos/{curso}/estudiantes/{idEstudiante}/mensajes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'mensajesEstudiante'])->name('cursos.estudiantes.mensajes');
     // Nivel 2: hilo de un grupo específico de una actividad
-    Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/mensajes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getGrupoMensajes'])->name('cursos.actividades.grupos.mensajes');
+    Route::get('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/mensajes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'mensajesGrupo'])->name('cursos.actividades.grupos.mensajes');
     // Docente envía feedback a un grupo
-    Route::post('cursos/{curso}/grupos/{grupo}/feedback', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'sendFeedback'])->name('cursos.grupos.feedback');
+    Route::post('cursos/{curso}/grupos/{grupo}/feedback', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'enviarFeedback'])->name('cursos.grupos.feedback');
     // 1. Autor: Juan Y.
     // 2. Fecha: 04/06/2025
     // 3. Ruta nueva: POST para que el docente registre una evaluación sobre un grupo de actividad.
@@ -488,7 +485,7 @@ Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name
 
     // JSON endpoints used by SyllabusModal wizard
     Route::get('cursos/{curso}/componentes', [AdminSeccionController::class, 'indexByCurso'])->name('cursos.componentes.index');
-    Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'getBysCursoJson'])->name('cursos.actividades.json');
+    Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'actividadesJson'])->name('cursos.actividades.json');
 
     Route::get('cursos/{curso}', [\App\Http\Controllers\Ayudante\CourseController::class, 'show'])->name('cursos.show');
 });

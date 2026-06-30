@@ -6,15 +6,25 @@ use App\Http\Controllers\Controller;
 use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Inertia\Response;
 
+/**
+ * Vista del programa/syllabus de un curso para el estudiante.
+ *
+ * Sólo muestra programas visibles para alumnos (estado `APROBADO`, con
+ * preferencia sobre `BASICO_COMPLETO`) y exige inscripción activa en el curso.
+ */
 class ProgramaController extends Controller
 {
     /**
-     * Ver programa aprobado de un curso
+     * Muestra el programa visible del curso (o un aviso si no existe).
+     *
+     * GET estudiante/cursos/{curso}/programa
      */
-    public function show(Curso $curso)
+    public function show(Curso $curso): RedirectResponse|Response
     {
         /** @var \App\Models\Usuario\Usuario $user */
         $user = Auth::user();
@@ -43,20 +53,6 @@ class ProgramaController extends Controller
             ->with('autor')
             ->orderByRaw("CASE estado WHEN 'APROBADO' THEN 0 WHEN 'BASICO_COMPLETO' THEN 1 ELSE 2 END")
             ->first();
-
-        // Obtener permisos especiales del usuario para el contexto del curso (si está configurado)
-        $userPermissions = [];
-        if ($curso->id_contexto) {
-            $userPermissionsData = $user->getAllPermissions($curso->id_contexto);
-            $userPermissions = collect($userPermissionsData)->map(function ($perm) {
-                return [
-                    'id_permiso' => $perm['id_permiso'],
-                    'slug' => $perm['slug'],
-                    'esta_permitido' => (bool)$perm['esta_permitido'],
-                    'puede_delegar' => (bool)($perm['puede_delegar'] ?? false),
-                ];
-            })->values()->toArray();
-        }
 
         // Si no hay programa, mostrar página con aviso en lugar de 404
         if (!$programa) {
@@ -172,172 +168,4 @@ class ProgramaController extends Controller
         ]);
     }
 
-    /**
-     * Convierte data_syllabus de estructura IX-secciones a estructura de SeccionPrograma
-     */
-    private function parseSecciones(array $data): array
-    {
-        $seccionesData = $data['secciones'] ?? $data;
-        
-        $romanos = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
-        $nombres = [
-            'I' => 'Identificación',
-            'II' => 'Presentación',
-            'III' => 'Estándares',
-            'IV' => 'Competencias',
-            'V' => 'Evaluación Diagnóstica',
-            'VI' => 'Unidades',
-            'VII' => 'Planificación',
-            'VIII' => 'Recursos',
-            'IX' => 'Aspectos Administrativos',
-        ];
-
-        $secciones = [];
-        foreach ($romanos as $idx => $romano) {
-            $seccionData = $seccionesData[$romano] ?? [];
-            $contenido = $seccionData['contenido'] ?? [];
-            
-            $contenidosPrograma = $this->extraeContenidos($contenido, $romano);
-
-            $seccion = [
-                'nombre_seccion' => $nombres[$romano] ?? "Sección $romano",
-                'numeral_romano' => $romano,
-                'orden' => $idx + 1,
-                'contenidos_programa' => $contenidosPrograma,
-            ];
-
-            // For section IX, add structured component data
-            if ($romano === 'IX') {
-                $seccion['componentes'] = $contenido['tabla_componentes'] ?? [];
-                $seccion['ponderacion_optativa'] = $contenido['ponderacion_optativa'] ?? [];
-            }
-
-            $secciones[] = $seccion;
-        }
-
-        return $secciones;
-    }
-
-    /**
-     * Extrae contenidos de cada sección para mostrar legible
-     */
-    private function extraeContenidos(array $contenido, string $seccionId): array
-    {
-        $contenidos = [];
-
-        if (empty($contenido)) {
-            return [['texto_contenido' => '', 'orden_item' => 1]];
-        }
-
-        switch ($seccionId) {
-            case 'I':
-                $text = sprintf(
-                    "Asignatura: %s\nCódigo: %s\nCréditos SCT: %s\nHoras Cátedra: %s, Taller: %s, Lab: %s\nCategoría: %s",
-                    $contenido['nombre_asignatura'] ?? '',
-                    $contenido['codigo'] ?? '',
-                    $contenido['creditos_sct'] ?? '',
-                    $contenido['horas']['catedra'] ?? 0,
-                    $contenido['horas']['taller'] ?? 0,
-                    $contenido['horas']['laboratorio'] ?? 0,
-                    $contenido['categoria'] ?? ''
-                );
-                break;
-
-            case 'II':
-            case 'III':
-                $text = $contenido['texto'] ?? '';
-                break;
-
-            case 'IV':
-                $esp = implode("\n", array_map(fn($c) => "• " . ($c['titulo'] ?? ''), $contenido['competencias_especificas'] ?? []));
-                $gen = implode("\n", array_map(fn($c) => "• " . ($c['titulo'] ?? ''), $contenido['competencias_genericas'] ?? []));
-                $sub = implode("\n", array_map(fn($c) => "• " . ($c['titulo'] ?? ''), $contenido['subcompetencias'] ?? []));
-                $text = "Específicas:\n$esp\n\nGenéricas:\n$gen\n\nSub:\n$sub";
-                break;
-
-            case 'V':
-                $text = implode("\n", array_map(
-                    fn($i) => "• " . ($i['titulo'] ?? '') . ": " . ($i['descripcion'] ?? ''),
-                    $contenido['items'] ?? []
-                ));
-                break;
-
-            case 'VI':
-                $unidadesText = array_map(function ($u) {
-                    $resultados = implode("\n  ", array_map(
-                        fn($r) => "• " . ($r['resultado'] ?? ''),
-                        $u['resultados_aprendizaje'] ?? []
-                    ));
-                    return sprintf(
-                        "Unidad %d: %s\nContenidos: %s\nResultados:\n  %s",
-                        $u['numero'] ?? 0,
-                        $u['titulo'] ?? '',
-                        implode(", ", array_map(fn($c) => $c['item'] ?? '', $u['contenidos_items'] ?? [])),
-                        $resultados
-                    );
-                }, $contenido['unidades'] ?? []);
-                $text = implode("\n\n", $unidadesText);
-                break;
-
-            case 'VII':
-                if (!empty($contenido['actividades'])) {
-                    // BASICO format: only has an activities list
-                    $actividadesList = implode("\n", array_map(
-                        fn($a) => "• " . ($a['nombre'] ?? '') . " (" . ($a['tipo'] ?? '') . ")",
-                        $contenido['actividades']
-                    ));
-                    $text = "Actividades:\n" . $actividadesList;
-                } else {
-                    // Full/complete format: has resultados, metodologia, evaluacion
-                    $resultados = implode("\n", array_map(
-                        fn($r) => "• " . ($r['resultado'] ?? ''),
-                        $contenido['resultados_aprendizaje']['items'] ?? []
-                    ));
-                    $text = sprintf(
-                        "Resultados de Aprendizaje:\n%s\n\nMetodología:\n%s\n\nEvaluación:\n%s",
-                        $resultados,
-                        $contenido['metodologia']['tipo_estrategia'] ?? '',
-                        $contenido['evaluacion']['tipo_evaluacion'] ?? ''
-                    );
-                }
-                break;
-
-            case 'VIII':
-                $text = implode("\n", array_map(
-                    fn($r) => "• " . ($r['descripcion'] ?? '') . " (" . ($r['tipo'] ?? '') . ")",
-                    $contenido['recursos'] ?? []
-                ));
-                break;
-
-            case 'IX':
-                $componentes = implode("\n", array_map(
-                    fn($c) => sprintf("• %s: %s%%, Acta: %s, Oblig: %s, Asist: %s%%",
-                        $c['componente'] ?? '',
-                        $c['porcentaje'] ?? 0,
-                        $c['genera_acta'] ? 'Sí' : 'No',
-                        $c['aprobacion_obligatoria'] ? 'Sí' : 'No',
-                        $c['asistencia_obligatoria'] ?? 0
-                    ),
-                    $contenido['tabla_componentes'] ?? []
-                ));
-                $text = sprintf(
-                    "Normativa:\n%s\n\nPonderación Optativa: %s%%\n\nComponentes:\n%s",
-                    $contenido['descripcion'] ?? '',
-                    $contenido['ponderacion_optativa']['porcentaje'] ?? 0,
-                    $componentes
-                );
-                break;
-
-            default:
-                $text = '';
-        }
-
-        // Return single item array with text content
-        $contenidos[] = [
-            'texto_contenido' => $text,
-            'orden_item' => 1,
-        ];
-
-        return $contenidos;
-    }
 }

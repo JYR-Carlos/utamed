@@ -38,6 +38,7 @@
   import { hasPermission } from '@/services/permissionValidator';
   import type { Permission } from '@/types/permissions/permissions';
   import type { Actividad } from '@/types/actividad';
+  import { initials } from '@/utils/formatters';
 
   // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -133,15 +134,6 @@
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-
-  function initials(name: string): string {
-    return name
-      .split(' ')
-      .slice(0, 2)
-      .map((w) => w[0] ?? '')
-      .join('')
-      .toUpperCase();
-  }
 
   function formatNota(nota: number | null): string {
     if (nota === null || nota === undefined) return '—';

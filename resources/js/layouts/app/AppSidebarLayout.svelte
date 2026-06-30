@@ -54,7 +54,7 @@
     {/if}
 
     <!-- Main Content -->
-    <AppContent class="flex min-w-0 bg-white relative overflow-y-auto">
+    <AppContent class="flex flex-col h-screen min-w-0 bg-white relative overflow-hidden">
       {#if showHeader}
         <AppSidebarHeader {breadcrumbs} bind:showHeader bind:showSidebar />
       {:else}
@@ -79,9 +79,12 @@
           </svg>
         </button>
       {/if}
-      <PageContentWrapper>
-        {@render children?.()}
-      </PageContentWrapper>
+
+      <div class="flex-1 overflow-y-auto w-full gap-4">
+        <PageContentWrapper>
+          {@render children?.()}
+        </PageContentWrapper>
+      </div>
     </AppContent>
   </div>
 </AppShell>
