@@ -2,6 +2,7 @@
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import { useForm } from '@inertiajs/svelte';
   import type { Asignatura } from '@/types/admin.types';
+  import { untrack } from 'svelte';
 
   interface Props {
     isOpen?: boolean;
@@ -32,23 +33,31 @@
     horas_autonomas: 0,
   });
 
-  $effect.pre(() => {
-    if (isOpen && editingAsignatura) {
-      $formData.defaults({
-        cod_asignatura: editingAsignatura.cod_asignatura,
-        nombre: editingAsignatura.nombre,
-        descripcion: editingAsignatura.descripcion || '',
-        creditos_sct: editingAsignatura.creditos_sct || 0,
-        horas_catedra: editingAsignatura.horas_catedra || 0,
-        horas_taller: editingAsignatura.horas_taller || 0,
-        horas_laboratorio: editingAsignatura.horas_laboratorio || 0,
-        horas_dirigidas: editingAsignatura.horas_dirigidas || 0,
-        horas_autonomas: editingAsignatura.horas_autonomas || 0,
-      });
-      $formData.reset();
-    } else if (isOpen && !editingAsignatura) {
-      $formData.reset();
-      $formData.clearErrors();
+  $effect(() => {
+    // Svelte trackeará isOpen y editingAsignatura
+    if (isOpen) {
+      if (editingAsignatura) {
+        // untrack evita que los cambios en $formData reinicien el bucle
+        untrack(() => {
+          $formData.defaults({
+            cod_asignatura: editingAsignatura.cod_asignatura,
+            nombre: editingAsignatura.nombre,
+            descripcion: editingAsignatura.descripcion || '',
+            creditos_sct: editingAsignatura.creditos_sct || 0,
+            horas_catedra: editingAsignatura.horas_catedra || 0,
+            horas_taller: editingAsignatura.horas_taller || 0,
+            horas_laboratorio: editingAsignatura.horas_laboratorio || 0,
+            horas_dirigidas: editingAsignatura.horas_dirigidas || 0,
+            horas_autonomas: editingAsignatura.horas_autonomas || 0,
+          });
+          $formData.reset();
+        });
+      } else {
+        untrack(() => {
+          $formData.reset();
+          $formData.clearErrors();
+        });
+      }
     }
   });
 
