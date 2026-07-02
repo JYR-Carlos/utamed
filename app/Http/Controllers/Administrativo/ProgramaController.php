@@ -7,7 +7,6 @@ use App\Models\Auditoria\ProgramaHistorial;
 use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Services\ProgramaService;
-use App\Services\SyllabusStructure;
 use App\Traits\ParsesSyllabus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;

@@ -1,9 +1,16 @@
 <script lang="ts">
+  /**
+   * cursoSelector — Paso 1 del flujo de inscripciones: grilla de cursos con
+   * búsqueda en cliente para elegir cuál gestionar (el padre pasa al roster
+   * en onSelect).
+   */
   import type { CursoItem } from '../types/inscripcion.types';
   import { cursoDisplayName } from '../types/inscripcion.types';
 
   interface Props {
+    /** Todos los cursos administrables (sin paginar; se filtra en cliente). */
     cursos: CursoItem[];
+    /** Selección de curso: el padre muestra su roster. */
     onSelect: (id: number) => void;
   }
 

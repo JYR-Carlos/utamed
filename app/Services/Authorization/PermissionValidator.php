@@ -3,7 +3,6 @@
 namespace App\Services\Authorization;
 
 use App\Models\Usuario\Usuario;
-use App\Enums\PermissionTypeEnum as PermisoType;
 use App\Enums\ContextType;
 use App\Contracts\HasContext;
 use App\Enums\PermissionTypeEnum;

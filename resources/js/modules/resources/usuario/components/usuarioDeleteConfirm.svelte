@@ -1,22 +1,21 @@
 <script lang="ts">
   /**
-   * Componente confirmación de eliminación de usuario.
+   * usuarioDeleteConfirm — Confirmación de eliminación de un usuario, con
+   * título según su tipo.
    *
-   * Wrapper alrededor del DeleteConfirmation genérico con mensaje específico para usuarios.
+   * Totalmente controlado: el padre ejecuta deleteUsuario() en onConfirm.
+   * El backend rechaza el borrado si el usuario tiene registros asociados.
    */
   import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
+  import { USER_TYPE_LABELS } from '@/constants/admin';
 
   type UserType = 'estudiante' | 'docente' | 'administrador';
 
-  const USER_TYPE_LABELS: Record<UserType, string> = {
-    estudiante: 'Estudiante',
-    docente: 'Docente',
-    administrador: 'Administrador',
-  };
-
   interface Props {
     isOpen: boolean;
+    /** Solo afecta el título del diálogo. */
     userType: UserType;
+    /** Borrando; lo controla el padre porque es quien hace la petición. */
     isLoading: boolean;
     onConfirm: () => void;
     onCancel: () => void;

@@ -13,11 +13,13 @@
 
   let { sede, jornada, modalidad }: Props = $props();
 
-  const attributes = [
-    { label: sede, color: 'violet' },
-    { label: jornada, color: 'sky' },
-    { label: modalidad, color: 'emerald' },
-  ].filter((attr) => attr.label);
+  const attributes = $derived(
+    [
+      { label: sede, color: 'violet' },
+      { label: jornada, color: 'sky' },
+      { label: modalidad, color: 'emerald' },
+    ].filter((attr) => attr.label),
+  );
 
   const colorClasses: Record<string, { bg: string; text: string; border: string }> = {
     violet: { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-100' },

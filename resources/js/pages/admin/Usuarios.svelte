@@ -369,7 +369,6 @@
     toggleActive(usuario.usuario.id_usuario);
     // TODO: algo hace esto, revisar despues
     // const id = usuario.usuario.id_usuario;
-    // console.log(usuario)
     // router.post(`/admin/usuarios/${id}/toggle-active`, {id: id}, { preserveScroll: true });
   }
 

@@ -1,12 +1,25 @@
 <script lang="ts">
+  /**
+   * asignaturasCatalogo — Panel lateral con el catálogo completo de
+   * asignaturas para agregarlas a la malla de un plan.
+   *
+   * Búsqueda y paginación se hacen en cliente (el catálogo llega completo).
+   * Cada fila no asignada despliega un mini-formulario inline (año/semestre)
+   * y hace el POST directamente vía mallaApi.assignAsignatura; las ya
+   * presentes en la malla se marcan con el badge "Asignada".
+   */
   import type { Asignatura } from '../types/mallaCurricular.types';
   import { assignAsignatura } from '../services/mallaApi';
 
   interface Props {
     planId: number;
+    /** Catálogo completo de asignaturas (sin paginar). */
     asignaturas: Asignatura[];
+    /** Ids ya presentes en la malla, para marcar "Asignada". */
     assignedIds: Set<number>;
+    /** Callback tras asignar (p.ej. recargar la malla). */
     onAssigned: () => void;
+    /** Prefijo base de rutas (p.ej. '/admin' o '/docente/jefe-carrera'). */
     routePrefix?: string;
   }
 
@@ -16,6 +29,7 @@
   let currentPage = $state(1);
   const PAGE_SIZE = 15;
 
+  /** Id de la asignatura con el mini-formulario de asignación abierto. */
   let assigningId = $state<number | null>(null);
   let assignForm = $state({ agno_planificado: 1, semestre_planificado: 1 });
   let assignLoading = $state(false);
@@ -29,6 +43,8 @@
     );
   });
 
+  // Vuelve a la página 1 cada vez que cambia el filtro; la lectura de
+  // filteredAsignaturas existe solo para registrar la dependencia.
   $effect(() => {
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     filteredAsignaturas;
@@ -208,7 +224,11 @@
                   <label for="assign-agno" class="block text-xs font-medium text-gray-600 mb-1"
                     >Año</label
                   >
-                  <select bind:value={assignForm.agno_planificado} id="assign-agno">
+                  <select
+                    bind:value={assignForm.agno_planificado}
+                    id="assign-agno"
+                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:border-blue-500"
+                  >
                     {#each Array.from({ length: 10 }, (_, i) => i + 1) as y}
                       <option value={y}>{y}</option>
                     {/each}
@@ -218,7 +238,11 @@
                   <label for="assign-semestre" class="block text-xs font-medium text-gray-600 mb-1"
                     >Semestre</label
                   >
-                  <select bind:value={assignForm.semestre_planificado} id="assign-semestre">
+                  <select
+                    bind:value={assignForm.semestre_planificado}
+                    id="assign-semestre"
+                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:border-blue-500"
+                  >
                     <option value={1}>1</option>
                     <option value={2}>2</option>
                   </select>

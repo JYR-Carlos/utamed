@@ -12,15 +12,14 @@
 
   let { rubrica, estadoRubrica, resultado, puntaje_obtenido, retroalimentacion, modoLectura = false }: Props = $props();
 
-  const totalCriterios = rubrica?.niveles?.length ?? 0;
-  const puntajeMaximo =
+  const totalCriterios = $derived(rubrica?.niveles?.length ?? 0);
+  const puntajeMaximo = $derived(
     rubrica?.detalles_evaluacion?.puntaje_total ??
-    rubrica?.niveles?.reduce((acc, nivel) => acc + nivel.puntaje_total, 0) ??
-    0;
-
-  const maxEscalas = Math.max(
-    ...(rubrica?.niveles?.map((n) => n.escalas.length) ?? [0])
+      rubrica?.niveles?.reduce((acc, nivel) => acc + nivel.puntaje_total, 0) ??
+      0,
   );
+
+  const maxEscalas = $derived(Math.max(...(rubrica?.niveles?.map((n) => n.escalas.length) ?? [0])));
 
   const tieneResultado = $derived(!!resultado && Object.keys(resultado).length > 0);
 

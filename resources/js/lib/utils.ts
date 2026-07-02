@@ -22,39 +22,6 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Formats a date string to a localized Chilean format
- * 
- * @param date - Date string or Date object
- * @param includeTime - Whether to include time (default: false)
- * @returns Formatted date string
- * 
- * @example
- * formatDate("2024-01-15"); // "15/01/2024"
- * formatDate("2024-01-15T10:30:00", true); // "15/01/2024 10:30"
- */
-export function formatDate(date: string | Date, includeTime: boolean = false): string {
-	if (!date) return '';
-
-	const dateObj = typeof date === 'string' ? new Date(date) : date;
-
-	if (isNaN(dateObj.getTime())) return '';
-
-	const day = dateObj.getDate().toString().padStart(2, '0');
-	const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-	const year = dateObj.getFullYear();
-
-	let formatted = `${day}/${month}/${year}`;
-
-	if (includeTime) {
-		const hours = dateObj.getHours().toString().padStart(2, '0');
-		const minutes = dateObj.getMinutes().toString().padStart(2, '0');
-		formatted += ` ${hours}:${minutes}`;
-	}
-
-	return formatted;
-}
-
-/**
  * Formats a number as Chilean currency (CLP)
  * 
  * @param amount - Number to format
@@ -70,21 +37,6 @@ export function formatCurrency(amount: number): string {
 		currency: 'CLP',
 		minimumFractionDigits: 0
 	}).format(amount);
-}
-
-/**
- * Truncates a string to a maximum length and adds ellipsis
- * 
- * @param str - String to truncate
- * @param maxLength - Maximum length (default: 50)
- * @returns Truncated string
- * 
- * @example
- * truncate("This is a very long string", 10); // "This is a..."
- */
-export function truncate(str: string, maxLength: number = 50): string {
-	if (!str || str.length <= maxLength) return str;
-	return str.substring(0, maxLength) + '...';
 }
 
 /**

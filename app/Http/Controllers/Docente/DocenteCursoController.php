@@ -7,7 +7,6 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\DocenteComponente;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
-use App\Models\Usuario\Contexto;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;

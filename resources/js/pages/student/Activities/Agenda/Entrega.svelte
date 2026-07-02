@@ -23,7 +23,7 @@
 
   let descripcion = $state('');
   let archivo: File | undefined = $state();
-  let inputFile: HTMLInputElement;
+  let inputFile: HTMLInputElement | undefined = $state();
   let enviando = $state(false);
   let error = $state('');
 

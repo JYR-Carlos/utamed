@@ -1,13 +1,16 @@
 <script lang="ts">
   /**
-   * Componente modal para cambiar contraseña de usuario.
+   * passwordChangeModal — Modal para que el admin cambie la contraseña de
+   * un usuario (mínimo 6 caracteres, con confirmación).
    *
-   * Formulario de cambio de contraseña con validación de campos requeridos.
+   * Componente controlado: el formulario vive en el padre (bindeable) y el
+   * POST lo hace el padre vía usuarioApi.changePassword.
    */
   import FormModal from '@/components/custom/admin/FormModal.svelte';
 
   interface Props {
     isOpen: boolean;
+    /** Estado del formulario; vive en el padre y se bindea aquí. */
     passwordFormData: { password: string; password_confirmation: string };
     isLoading: boolean;
     onClose: () => void;

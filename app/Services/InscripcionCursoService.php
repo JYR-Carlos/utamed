@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
-use App\Models\Usuario\Contexto;
 use App\Models\Usuario\Estudiante;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
@@ -131,72 +130,6 @@ class InscripcionCursoService
 
             return $inscripcion->fresh(['estudiante.usuario', 'curso']);
         });
-    }
-
-    /**     * Navega hacia arriba en la jerarquía de contextos para encontrar la CARRERA.
-     * 
-     * @param Curso $curso
-     * @return ?\App\Models\Administrativo\Carrera
-     */
-    private function getCarreraFromCurso($curso): ?\App\Models\Administrativo\Carrera
-    {
-        if (!$curso->contexto) {
-            return null;
-        }
-
-        $contexto = $curso->contexto;
-        $maxIteraciones = 10;
-        $iteraciones = 0;
-
-        while ($contexto && $iteraciones < $maxIteraciones) {
-            $contexto->load('tipoContexto', 'carrera');
-
-            // Si este contexto tiene carrera asociada, retornarla
-            if ($contexto->carrera) {
-                return $contexto->carrera;
-            }
-
-            // Subir un nivel en la jerarquía
-            if ($contexto->id_contexto_padre) {
-                $contexto = Contexto::find($contexto->id_contexto_padre);
-            } else {
-                break;
-            }
-
-            $iteraciones++;
-        }
-
-        return null;
-    }
-
-    /**     * Navega hacia arriba en la jerarquía de contextos para encontrar el contexto de CARRERA.
-     */
-    private function getCarreraContextoFromCurso($contexto): ?\App\Models\Usuario\Contexto
-    {
-        $actual = $contexto;
-        $maxIteraciones = 10;
-        $iteraciones = 0;
-
-        while ($actual && $iteraciones < $maxIteraciones) {
-            $actual->load('tipoContexto');
-
-            // Si encontramos carrera, retornar
-            if ($actual->tipoContexto && strtolower($actual->tipoContexto->tipo) === 'carrera') {
-                return $actual;
-            }
-
-            // Navegar hacia el padre
-            if ($actual->id_contexto_padre) {
-                $actual = $actual->contextoPadre;
-            } else {
-                break;
-            }
-
-            $iteraciones++;
-        }
-
-        // Si no encontramos carrera, retornar el contexto actual (podría ser global)
-        return $actual;
     }
 
     /**
@@ -395,20 +328,4 @@ class InscripcionCursoService
         }
     }
 
-    /**
-     * Encuentra usuarios con rol 'Estudiante' que no tienen perfil de Estudiante.
-     */
-    private function findUsersWithStudentRoleWithoutProfile(): Collection
-    {
-        return Usuario::whereHas('usuarioRolAsignaciones', function ($query) {
-                $query->whereHas('rol', function ($roleQuery) {
-                    $roleQuery->where('nombre', 'Estudiante');
-                })
-                ->where('esta_activo', true)
-                ->where('fue_eliminado', false);
-            })
-            ->whereDoesntHave('estudiante')
-            ->select('id_usuario', 'nombre1', 'apellido1', 'username', 'rut')
-            ->get();
-    }
 }

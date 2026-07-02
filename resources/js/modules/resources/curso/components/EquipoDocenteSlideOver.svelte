@@ -26,6 +26,7 @@
     type DocenteConPermisos,
     type PermisoSlug,
   } from '../services/permisosApi';
+  import { initials } from '@/utils/formatters';
 
   interface Props {
     isOpen: boolean;
@@ -122,15 +123,6 @@
 
   function countPermisos(doc: DocenteConPermisos): number {
     return Object.values(doc.permisos).filter(Boolean).length;
-  }
-
-  function initials(name: string): string {
-    return name
-      .split(' ')
-      .slice(0, 2)
-      .map((w) => w[0] ?? '')
-      .join('')
-      .toUpperCase();
   }
 
   // ─── Grupos de slugs (derivado) ──────────────────────────────────────────

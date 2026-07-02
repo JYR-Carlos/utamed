@@ -1,36 +1,31 @@
 <script lang="ts">
   /**
-   * Componente: Modal Crear/Editar Carrera
+   * carreraForm — Modal de creación/edición de carreras.
    *
-   * Maneja creación y edición de carreras con:
-   * - Cascada facultad → departamento
-   * - Validación de errores del formulario
-   * - Campos read-only en modo edición (id_facultad, id_departamento)
-   * - Carga dinámica de departamentos
+   * Al crear, los selects facultad → departamento van en cascada: elegir
+   * facultad dispara onFacultadChange y el padre recarga departamentos.
+   * Al editar, facultad y departamento son inmutables (se muestran como
+   * texto) para preservar la jerarquía en la que se apoya el RBAC.
    *
-   * Props:
-   * - isOpen: boolean - Control de visibilidad del modal
-   * - editingCarrera: Carrera | null - Carrera siendo editada
-   * - departamentos: Departamento[] - Lista de departamentos cargados
-   * - facultades: Facultad[] - Todas las facultades
-   * - formData: useForm object de Inertia
-   * - isLoading: boolean - Estado de carga
-   * - onSubmit: () => void - Callback al enviar
-   * - onClose: () => void - Callback al cerrar
-   * - onFacultadChange: (id: number) => void - Callback al cambiar facultad (para cargar depts)
+   * El estado del formulario vive en el padre (useForm de Inertia) y llega
+   * bindeable; este componente solo lo renderiza.
    */
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import type { Carrera, Facultad, Departamento } from '@/types/admin.types';
 
   interface Props {
     isOpen: boolean;
+    /** Carrera a editar; null para modo creación. */
     editingCarrera?: Carrera | null;
+    /** Departamentos de la facultad seleccionada (los recarga el padre). */
     departamentos?: Departamento[];
     facultades?: Facultad[];
-    formData?: any; // useForm object - bindable
+    /** Snapshot del useForm de Inertia del padre (por eso any). */
+    formData?: any;
     isLoading?: boolean;
     onSubmit?: () => void;
     onClose?: () => void;
+    /** Notifica el cambio de facultad para recargar sus departamentos. */
     onFacultadChange?: (id: number) => void;
   }
 

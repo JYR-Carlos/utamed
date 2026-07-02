@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\PermissionTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Services\Authorization\GlobalContextService;
 use Illuminate\Support\Facades\Auth;
@@ -21,7 +20,6 @@ use App\Models\Usuario\Rol;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;
-use App\Models\Usuario\Contexto;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Resources\UsuarioResource;

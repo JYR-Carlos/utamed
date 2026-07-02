@@ -17,7 +17,7 @@ interface ApiOptions {
 }
 
 /**
- * Crea una nueva carrera.
+ * POST /admin/carreras — crea una carrera.
  */
 export function createCarrera(data: CarreraFormData, options: ApiOptions = {}) {
     router.post('/admin/carreras', data, {
@@ -27,7 +27,7 @@ export function createCarrera(data: CarreraFormData, options: ApiOptions = {}) {
 }
 
 /**
- * Actualiza una carrera existente.
+ * PUT /admin/carreras/{id} — actualiza una carrera existente.
  */
 export function updateCarrera(id: number, data: CarreraFormData, options: ApiOptions = {}) {
     router.put(`/admin/carreras/${id}`, data, {
@@ -37,7 +37,7 @@ export function updateCarrera(id: number, data: CarreraFormData, options: ApiOpt
 }
 
 /**
- * Discontinúa una carrera (soft delete).
+ * DELETE /admin/carreras/{id} — discontinúa una carrera (soft delete).
  */
 export function discontinueCarrera(id: number, options: ApiOptions = {}) {
     router.delete(`/admin/carreras/${id}`, {

@@ -1,20 +1,15 @@
 <script lang="ts">
   /**
-   * Componente: Confirmación de Eliminación de Facultad
+   * facultadDeleteConfirm — Confirmación de eliminación de una facultad.
    *
-   * Dialog de confirmación antes de eliminar una facultad.
-   * Reutilizable en diferentes contextos.
-   *
-   * Props:
-   * - isOpen: boolean controla visibilidad
-   * - isLoading: boolean para mostrar estado loading
-   * - onConfirm: callback cuando se confirma eliminación
-   * - onCancel: callback para cancelar
+   * Totalmente controlado: el padre ejecuta deleteFacultad() en onConfirm.
+   * El backend rechaza el borrado si la facultad tiene departamentos.
    */
   import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
 
   interface Props {
     isOpen?: boolean;
+    /** Borrando; lo controla el padre porque es quien hace la petición. */
     isLoading?: boolean;
     onConfirm?: () => void;
     onCancel?: () => void;

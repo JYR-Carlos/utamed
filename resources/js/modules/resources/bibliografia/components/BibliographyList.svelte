@@ -1,19 +1,15 @@
 <script lang="ts">
+  /**
+   * BibliographyList — Lista de bibliografías ya filtradas por el padre
+   * (los filtros de tipo/unidad viven en la página).
+   */
   import BibliographyCard from './BibliographyCard.svelte';
-
-  interface Bib {
-    id_bib: number;
-    titulo: string;
-    autor: string;
-    editorial: string;
-    año: number;
-    url?: string;
-    tipo: 'utamed' | 'uta' | 'otro';
-    unidad: string;
-  }
+  import type { Bib } from '../types';
 
   interface Props {
+    /** Bibliografías tras aplicar los filtros del padre. */
     filtered: Bib[];
+    /** Etiqueta legible por tipo ('utamed' | 'uta' | 'otro'). */
     getTipoLabel: (tipo: string) => string;
   }
 

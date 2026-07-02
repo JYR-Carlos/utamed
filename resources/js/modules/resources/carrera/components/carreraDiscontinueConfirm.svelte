@@ -1,23 +1,20 @@
 <script lang="ts">
   /**
-   * Componente: Confirmación Discontinuar Carrera
+   * carreraDiscontinueConfirm — Confirmación de discontinuación (soft
+   * delete) de una carrera, con explicación del impacto: no admite nuevos
+   * planes pero preserva el historial académico.
    *
-   * Modal de confirmación para discontinuar (soft delete) una carrera.
-   * Muestra advertencia sobre el impacto de la acción.
-   *
-   * Props:
-   * - isOpen: boolean - Control de visibilidad
-   * - carrera: Carrera | null - Carrera a discontinuar
-   * - isLoading: boolean - Estado de carga
-   * - onConfirm: () => void - Callback al confirmar
-   * - onCancel: () => void - Callback al cancelar
+   * Totalmente controlado: el padre ejecuta discontinueCarrera() en
+   * onConfirm.
    */
   import ConfirmationModal from '@/components/admin/ConfirmationModal.svelte';
   import type { Carrera } from '@/types/admin.types';
 
   interface Props {
     isOpen: boolean;
+    /** Carrera a discontinuar; su nombre se muestra en el mensaje. */
     carrera?: Carrera | null;
+    /** Borrando; lo controla el padre porque es quien hace la petición. */
     isLoading?: boolean;
     onConfirm?: () => void;
     onCancel?: () => void;

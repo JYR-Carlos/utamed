@@ -7,7 +7,6 @@ use App\Models\Administrativo\Plan;
 use App\Models\Administrativo\Asignatura;
 use App\Models\Administrativo\AsignacionPlan;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 

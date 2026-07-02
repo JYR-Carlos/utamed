@@ -9,6 +9,7 @@
     data: PaginatedResponse<any>;
     columns: { key: string; label: string; sortable?: boolean; class?: string }[];
     onEdit?: (item: any) => void;
+    onDelete?: (item: any) => void;
     onPasswordChange?: (item: any) => void;
     onToggleActive?: (item: any) => void;
     onCustomAction?: (item: any) => void;
@@ -25,6 +26,7 @@
     data,
     columns,
     onEdit,
+    onDelete,
     onPasswordChange,
     onToggleActive,
     onCustomAction,
@@ -33,6 +35,11 @@
     searchPlaceholder = 'Buscar...',
     cellSnippet,
   }: Props = $props();
+
+  // Hay columna de "Acciones" si se pasó al menos un handler de acción de fila.
+  const hasActions = $derived(
+    !!(onEdit || onDelete || onPasswordChange || onToggleActive || onCustomAction || onSyllabus),
+  );
 
   let searchTerm = $state('');
   // Usar solo el pathname para evitar duplicación de query params con el objeto params
@@ -352,7 +359,7 @@
               </span>
             </th>
           {/each}
-          {#if onEdit || onCustomAction || onSyllabus || onPasswordChange || onToggleActive}
+          {#if hasActions}
             <th
               class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-500 tracking-wide w-1 whitespace-nowrap"
             >
@@ -365,7 +372,7 @@
         {#if data.data.length === 0}
           <tr>
             <td
-              colspan={columns.length + (onEdit ? 1 : 0)}
+              colspan={columns.length + (hasActions ? 1 : 0)}
               class="text-center text-gray-400 py-12 px-4"
             >
               No se encontraron resultados
@@ -390,7 +397,7 @@
                   {/if}
                 </td>
               {/each}
-              {#if onEdit || onPasswordChange || onToggleActive || onCustomAction || onSyllabus}
+              {#if hasActions}
                 <td
                   class="px-4 py-3 border-b border-gray-100 align-middle text-center relative w-1 whitespace-nowrap"
                 >
@@ -604,6 +611,35 @@
             >
           {/if}
           {menuState?.item?.usuario?.esta_activo ? 'Desactivar' : 'Activar'}
+        </button>
+      {/if}
+
+      {#if onDelete}
+        {#if onEdit || onPasswordChange || onToggleActive || onCustomAction || onSyllabus}
+          <div class="h-px bg-gray-100 my-1"></div>
+        {/if}
+        <button
+          onclick={() => {
+            onDelete?.(menuState?.item);
+            closeDropdown();
+          }}
+          class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-red-600 hover:bg-red-50 transition-colors"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><polyline points="3 6 5 6 21 6" /><path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+            /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg
+          >
+          Eliminar
         </button>
       {/if}
     </div>

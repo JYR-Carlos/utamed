@@ -1,8 +1,10 @@
 <script lang="ts">
   /**
-   * Componente lista de planes curriculares.
+   * planList — Tabla paginada de planes curriculares.
    *
-   * Muestra tabla paginada de planes con opciones para editar, eliminar, ver/editar malla.
+   * Presentacional: delega editar/eliminar y ver/editar malla en el padre.
+   * "Ver Malla" abre el MallaSlideOver (solo lectura); "Editar Malla" navega
+   * al editor de malla del plan.
    */
   import DataTable from '@/components/custom/admin/DataTable.svelte';
   import type { Plan, PaginatedResponse } from '@/types/admin.types';
@@ -11,7 +13,9 @@
     data: PaginatedResponse<Plan>;
     onEdit: (plan: Plan) => void;
     onDelete: (plan: Plan) => void;
+    /** Abre el slide-over de solo lectura de la malla. */
     onViewMalla: (plan: Plan) => void;
+    /** Navega al editor de malla del plan. */
     onEditMalla: (plan: Plan) => void;
   }
 
@@ -26,6 +30,10 @@
     { key: 'malla', label: 'Malla' },
   ];
 
+  /**
+   * Resuelve claves anidadas ('carrera.nombre'). agno_plan llega como fecha
+   * completa desde el backend; la tabla solo muestra el año.
+   */
   function getRawValue(item: Plan, key: string) {
     const value = key.split('.').reduce((v: any, k: string) => v?.[k], item);
     if (key === 'agno_plan' && value) {

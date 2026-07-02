@@ -57,15 +57,15 @@
 
   let { planes, carreras, filters, routePrefix = '/admin' }: Props = $props();
 
-  const isJefe = routePrefix !== '/admin';
+  const isJefe = $derived(routePrefix !== '/admin');
 
-  const breadcrumbs: BreadcrumbItem[] = [
+  const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Dashboard', href: isJefe ? '/docente/jefe-carrera/dashboard' : '/dashboard' },
     { title: 'Planes de Estudio', href: `${routePrefix}/planes` },
-  ];
+  ]);
 
   // Si solo se entrega una carrera (caso Jefe de Carrera), se preselecciona en el formulario.
-  const defaultCarreraId = carreras.length === 1 ? carreras[0].id_carrera : 0;
+  const defaultCarreraId = $derived(carreras.length === 1 ? carreras[0].id_carrera : 0);
 
   // Modales
   let showModal = $state(false);

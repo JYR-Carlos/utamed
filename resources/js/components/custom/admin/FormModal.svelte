@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
 	interface Props {
 		isOpen: boolean;
 		title: string;
@@ -6,6 +8,8 @@
 		onSubmit: () => void;
 		submitLabel?: string;
 		isLoading?: boolean;
+		/** Contenido del cuerpo del modal (formulario). */
+		children?: Snippet;
 	}
 
 	let {
@@ -14,7 +18,8 @@
 		onClose,
 		onSubmit,
 		submitLabel = 'Guardar',
-		isLoading = false
+		isLoading = false,
+		children
 	}: Props = $props();
 
 	function handleBackdropClick(e: MouseEvent) {
@@ -54,7 +59,7 @@
 			</div>
 
 			<div class="modal-body">
-				<slot />
+				{@render children?.()}
 			</div>
 
 			<div class="modal-footer">

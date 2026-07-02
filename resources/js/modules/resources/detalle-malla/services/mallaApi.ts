@@ -1,5 +1,14 @@
+/**
+ * mallaApi — Mutaciones sobre la malla curricular de un plan (asignaciones
+ * asignatura↔plan con año/semestre/tipo de ramo).
+ *
+ * Usa el router de Inertia: cada llamada es una visita que recarga props.
+ * El prefix permite reutilizar las rutas desde admin ('/admin') o jefe de
+ * carrera ('/docente/jefe-carrera').
+ */
 import { router } from '@inertiajs/svelte';
 
+/** POST {prefix}/planes/{planId}/asignaturas — agrega una asignatura a la malla. */
 export function assignAsignatura(
     planId: number,
     data: { id_asignatura: number; agno_planificado: number; semestre_planificado: number },
@@ -12,6 +21,7 @@ export function assignAsignatura(
     });
 }
 
+/** PUT {prefix}/planes/{planId}/asignaturas/{id} — reposiciona una asignación (año/semestre/tipo). */
 export function editAsignacion(
     planId: number,
     idAsignatura: number,
@@ -25,6 +35,7 @@ export function editAsignacion(
     });
 }
 
+/** DELETE {prefix}/planes/{planId}/asignaturas/{id} — quita la asignatura de la malla. */
 export function deleteAsignacion(
     planId: number,
     idAsignatura: number,

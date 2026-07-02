@@ -1,38 +1,36 @@
 <script lang="ts">
   /**
-   * Componente: Lista de Departamentos
+   * departamentoList — Tabla expandible de departamentos con sus carreras.
    *
-   * Tabla expandible que muestra departamentos con sus carreras anidadas.
-   * Reutilizable en diferentes contextos (admin, docente, etc).
-   *
-   * Props:
-   * - departamentos: Array de departamentos paginados
-   * - canEdit: boolean para mostrar botón editar
-   * - canDelete: boolean para mostrar botón eliminar
-   * - onEdit: callback cuando se hace clic en editar
-   * - onDelete: callback cuando se hace clic en eliminar
-   * - onExpandRow: callback cuando se expande una fila
+   * Cada fila puede expandirse para listar las carreras anidadas (con enlace
+   * a /admin/carreras). Reglas visibles en la tabla:
+   * - fecha_eliminacion marca el departamento como "Discontinuado": fila
+   *   atenuada y sin acciones.
+   * - "Discontinuar" (soft delete) se bloquea con tooltip si el departamento
+   *   aún tiene carreras asociadas (carreras_count > 0).
    */
-  import type { Departamento, Facultad, PaginatedResponse } from '@/types/admin.types';
+  import type { Departamento, PaginatedResponse } from '@/types/admin.types';
 
   interface Props {
     departamentos: PaginatedResponse<Departamento>;
-    facultades: Facultad[];
+    /** Permisos del usuario; ocultan los botones de acción. */
     canEdit?: boolean;
     canDelete?: boolean;
+    /** Abre el modal de edición. */
     onEdit?: (departamento: Departamento) => void;
+    /** Abre la confirmación de discontinuación. */
     onDelete?: (departamento: Departamento) => void;
   }
 
   let {
     departamentos,
-    facultades,
     canEdit = false,
     canDelete = false,
     onEdit = () => {},
     onDelete = () => {},
   }: Props = $props();
 
+  /** Ids de departamentos con la sub-tabla de carreras desplegada. */
   let expandedRows = $state<Set<number>>(new Set());
 
   function toggleExpand(id: number) {
@@ -45,6 +43,8 @@
     expandedRows = next;
   }
 
+  // Guardas de doble seguridad: el template ya oculta los botones, pero se
+  // revalida por si un departamento discontinuado llega a dispararlos.
   function handleEdit(departamento: Departamento) {
     if (departamento.fecha_eliminacion || !canEdit) return;
     onEdit?.(departamento);

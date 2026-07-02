@@ -1,4 +1,12 @@
 <script lang="ts">
+  /**
+   * addEstudiantesModal — Inscripción masiva de estudiantes a un curso.
+   *
+   * Autónomo: al abrirse carga los estudiantes disponibles (aún no
+   * inscritos) vía JSON, permite selección múltiple con búsqueda y hace el
+   * POST bulk directamente; el padre solo recibe onInscribed(created) para
+   * anexar las filas nuevas al roster sin recargar.
+   */
   import type { CursoItem, RosterItem, EstudianteDisponible } from '../types/inscripcion.types';
   import { disponibleName, cursoDisplayName } from '../types/inscripcion.types';
   import { fetchDisponibles, bulkInscribir } from '../services/inscripcionApi';
@@ -7,7 +15,9 @@
     isOpen: boolean;
     activeCursoId: number;
     selectedCurso: CursoItem | null;
+    /** Entrega las inscripciones creadas para anexarlas al roster. */
     onInscribed: (created: RosterItem[]) => void;
+    /** Notificaciones de resultado (parciales o de error). */
     onToast: (msg: string, type: 'success' | 'error') => void;
   }
 
@@ -37,6 +47,8 @@
         }),
   );
 
+  // Resetea la selección y recarga los disponibles en cada apertura
+  // (dependencias: isOpen y activeCursoId, leído dentro de loadAndFetch).
   $effect(() => {
     if (!isOpen) return;
     selectedIds = new Set();

@@ -1,4 +1,11 @@
 <script lang="ts">
+  /**
+   * cursoCopyPreviewModal — Copia un curso a un nuevo período: primero
+   * muestra la previsualización de lo que se clonará (programa, componentes
+   * con docentes y actividades) vía GET /admin/cursos/{id}/preview-copia, y
+   * al confirmar hace POST /admin/cursos/{id}/copiar con el nuevo código y
+   * fecha de inicio.
+   */
   import { router } from '@inertiajs/svelte';
   import { Copy, X, AlertTriangle, BookOpen, Users, ClipboardList, Calendar } from 'lucide-svelte';
   import type { Curso } from '../types/curso.types';

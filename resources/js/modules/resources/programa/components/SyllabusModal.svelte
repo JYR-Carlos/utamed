@@ -243,43 +243,19 @@
 
   // ── Init on mount: decide mode and load data ─────────────────────────────────
   onMount(() => {
-    // console.log(
-    //   '🔍 SyllabusModal onMount - syllabusType (prop):',
-    //   syllabusType,
-    //   'selectedSyllabusType:',
-    //   selectedSyllabusType,
-    //   'has_programa:',
-    //   curso?.has_programa,
-    // );
-    // console.log(
-    //   `📊 STEPS derivation test: selectedSyllabusType=${selectedSyllabusType}, STEPS.length=${STEPS.length}, ALL_STEPS.length=${ALL_STEPS.length}`,
-    // );
-    // console.log(
-    //   `📈 Contexto: modo wizard=${mode === 'wizard'}, curso_id=${curso?.id_curso}, curso_asignatura=${curso?.asignatura_nombre}`,
-    // );
-
     // Si es 'combined' y existe un programa BASICO, iniciar wizard COMPLETO pre-poblado
     if (syllabusType === 'combined' && curso?.has_programa) {
       mode = 'wizard';
-      // console.log('✨ Modo WIZARD COMPLETO - continuando desde BASICO');
       loadAndPrefillFromBasico();
     }
     // Si existe programa general, cargar en modo view
     else if (curso?.has_programa) {
       mode = 'view';
-      // console.log('📖 Modo VIEW - cargando programa existente');
       loadPrograma();
     }
     // Si no existe programa, iniciar wizard
     else {
       mode = 'wizard';
-      // console.log(
-      //   '✨ Modo WIZARD - inicializando nuevo programa',
-      //   'syllabusType:',
-      //   syllabusType,
-      //   'STEPS.length que se va a usar:',
-      //   STEPS.length,
-      // );
       initializeWizard();
     }
 
@@ -477,7 +453,6 @@
       const result = await loadProgramaJson(curso.id_curso, getBasePath());
       const raw: Record<string, any> = result.programa?.data_syllabus?.secciones ?? {};
       prefillWizardFromData(raw);
-      // console.log('✅ Pre-relleno desde BASICO completado');
     } catch (err) {
       console.warn('No se pudo pre-cargar datos del programa básico, iniciando en blanco:', err);
     }
@@ -813,10 +788,7 @@
           nombre_unidad: a.nombre_unidad?.trim() || '',
         })),
       };
-      // console.log('📤 Enviando payload:', JSON.stringify(payload, null, 2));
-
       const result = await generatePrograma(curso.id_curso, payload, getBasePath());
-      // console.log('✅ Respuesta exitosa:', result);
 
       isGenerating = false;
       resetAll();
@@ -1077,7 +1049,6 @@
                     title={`${s.label}`}
                     onclick={() => {
                       if (isComplete || isActive) {
-                        // console.log(`🔄 Saltando al paso ${s.id}`);
                         step = s.id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
                       }
                     }}

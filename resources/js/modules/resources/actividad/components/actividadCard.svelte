@@ -1,6 +1,13 @@
 <script lang="ts">
-  import { formatDate } from '@/lib';
-  import { Link, ClipboardList, Edit2 } from 'lucide-svelte';
+  /**
+   * actividadCard — Tarjeta de solo lectura de una actividad (vista
+   * estudiante, pages/student/Activities/ActividadesView.svelte).
+   *
+   * El tipo de la prop es local porque el payload del controlador de
+   * estudiante difiere del tipo Actividad del docente (usa flags booleanos
+   * es_sumativa/con_entrega en vez de los enums tipo_actividad/tipo_entrega).
+   */
+  import { formatDate } from '@/utils/formatters';
 
   interface Props {
     actividad: {

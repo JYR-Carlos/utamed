@@ -1,26 +1,24 @@
 <script lang="ts">
   /**
-   * Componente: Modal Formulario Departamento
+   * departamentoForm — Modal de creación/edición de departamentos.
    *
-   * Modal para crear un nuevo departamento o editar uno existente.
-   * En modo edición, el campo facultad es read-only (no puede cambiar la facultad padre).
-   *
-   * Props:
-   * - isOpen: boolean para controlar visibilidad
-   * - editingDepartamento: departamento siendo editado (null para crear)
-   * - facultades: array de facultades para el selector
-   * - isLoading: boolean para estado de carga
-   * - onSubmit: callback cuando se envía el formulario
-   * - onClose: callback para cerrar el modal
+   * Componente controlado: no hace HTTP; delega en onSubmit(formData) y el
+   * padre (pages/admin/Departamentos.svelte) llama a departamentoApi.
+   * En modo edición el select de facultad queda deshabilitado: un
+   * departamento no puede cambiar de facultad una vez creado.
    */
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import type { Departamento, Facultad, DepartamentoFormData } from '@/types/admin.types';
 
   interface Props {
     isOpen?: boolean;
+    /** Departamento a editar; null para modo creación. */
     editingDepartamento?: Departamento | null;
+    /** Opciones del select de facultad (solo relevante al crear). */
     facultades?: Facultad[];
+    /** Enviando; lo controla el padre porque es quien hace la petición. */
     isLoading?: boolean;
+    /** Recibe el formulario listo para enviar. */
     onSubmit?: (formData: DepartamentoFormData) => void;
     onClose?: () => void;
   }
@@ -51,7 +49,9 @@
     onSubmit?.(formData);
   }
 
-  // Cuando se abre el modal en edición, poner los datos del departamento
+  // Sincroniza los campos con el modal: al abrir en edición carga los datos
+  // del departamento y al cerrar limpia. Los campos solo se ESCRIBEN aquí
+  // (no se leen), así que el efecto no se re-dispara mientras se escribe.
   $effect.pre(() => {
     if (isOpen && editingDepartamento) {
       nombre = editingDepartamento.nombre;

@@ -12,9 +12,7 @@
   let { isOpen = $bindable(), onClose, onSelect, existingSyllabusType = null }: Props = $props();
 
   function handleSelect(type: 'simplified' | 'combined' | 'complete') {
-    // console.log('📤 SyllabusTypeSelector.handleSelect called with:', type);
     onSelect(type);
-    // console.log('📤 onSelect callback ejecutado, cerrando selector');
     onClose();
   }
 

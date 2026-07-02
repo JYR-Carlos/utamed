@@ -60,7 +60,7 @@
     },
   };
 
-  const config = iconConfig[icon];
+  const config = $derived(iconConfig[icon]);
 </script>
 
 {#if isOpen}

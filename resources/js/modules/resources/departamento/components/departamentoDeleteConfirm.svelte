@@ -1,19 +1,17 @@
 <script lang="ts">
   /**
-   * Componente: Confirmación de Eliminación de Departamento
+   * departamentoDeleteConfirm — Confirmación de discontinuación (soft
+   * delete) de un departamento.
    *
-   * Diálogo modal para confirmar la eliminación (soft delete) de un departamento.
-   *
-   * Props:
-   * - isOpen: boolean para controlar visibilidad
-   * - isLoading: boolean para estado de carga
-   * - onConfirm: callback cuando se confirma la eliminación
-   * - onCancel: callback para cancelar
+   * Totalmente controlado: no hace HTTP; el padre ejecuta
+   * deleteDepartamento() en onConfirm. El backend rechaza si el departamento
+   * aún tiene carreras asociadas.
    */
   import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
 
   interface Props {
     isOpen?: boolean;
+    /** Borrando; lo controla el padre porque es quien hace la petición. */
     isLoading?: boolean;
     onConfirm?: () => void;
     onCancel?: () => void;

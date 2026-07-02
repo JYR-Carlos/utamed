@@ -1,16 +1,29 @@
 <script lang="ts">
+  /**
+   * actividadList — Grilla de tarjetas de actividades para el docente.
+   *
+   * Presentacional: el padre maneja los modales de crear/editar/eliminar vía
+   * callbacks. Cada tarjeta enlaza a la evaluación de la actividad
+   * (/docente/cursos/{id}/actividades/{id}/evaluacion). Los flags can* vienen
+   * de los permisos del docente sobre el curso.
+   */
   import { Link } from '@inertiajs/svelte';
   import { Edit2, Trash2, ClipboardList, Plus } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
+  import { formatFechaTextoLargo } from '@/utils/formatters';
 
   interface Props {
     actividades: Actividad[];
     idCurso: number;
+    /** Permisos del docente sobre el curso (titular vs colaborador). */
     canCreate?: boolean;
     canEdit?: boolean;
     canDelete?: boolean;
+    /** Abre el modal de edición. */
     onEdit?: (actividad: Actividad) => void;
+    /** Abre la confirmación de borrado. */
     onDelete?: (actividad: Actividad) => void;
+    /** Abre el modal de creación (botón del estado vacío). */
     onCreateClick?: () => void;
   }
 
@@ -24,16 +37,6 @@
     onDelete = () => {},
     onCreateClick = () => {},
   }: Props = $props();
-
-  function formatDate(dateString: string) {
-    if (!dateString) return '';
-    const [year, month, day] = dateString.split(' ')[0].split('-');
-    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  }
 </script>
 
 {#if actividades.length === 0}
@@ -117,7 +120,7 @@
             class="flex justify-between text-sm bg-blue-50 px-3 py-2 rounded-md border-l-4 border-blue-500"
           >
             <span class="text-gray-600 font-medium">Fecha Límite:</span>
-            <span class="text-blue-600 font-semibold">{formatDate(actividad.fecha_limite)}</span>
+            <span class="text-blue-600 font-semibold">{formatFechaTextoLargo(actividad.fecha_limite)}</span>
           </div>
         </div>
 

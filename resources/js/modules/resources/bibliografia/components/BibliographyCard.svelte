@@ -1,19 +1,14 @@
 <script lang="ts">
+  /**
+   * BibliographyCard — Tarjeta de una entrada bibliográfica: título, autor,
+   * editorial/año/unidad y enlace externo al recurso si existe.
+   */
   import { ExternalLink, BookOpen, Users, Calendar } from 'lucide-svelte';
-
-  interface Bib {
-    id_bib: number;
-    titulo: string;
-    autor: string;
-    editorial: string;
-    año: number;
-    url?: string;
-    tipo: 'utamed' | 'uta' | 'otro';
-    unidad: string;
-  }
+  import type { Bib } from '../types';
 
   interface Props {
     bib: Bib;
+    /** Etiqueta legible por tipo ('utamed' | 'uta' | 'otro'). */
     getTipoLabel: (tipo: string) => string;
   }
 

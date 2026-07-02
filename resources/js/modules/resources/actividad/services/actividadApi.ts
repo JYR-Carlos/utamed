@@ -1,3 +1,10 @@
+/**
+ * actividadApi — Mutaciones de actividades del docente sobre un curso.
+ *
+ * Usa el router de Inertia (no fetch): cada llamada es una visita que
+ * recarga props al terminar. onError recibe los errores de validación (422)
+ * con el shape { campo: mensaje } que consume actividadForm.
+ */
 import { router } from '@inertiajs/svelte';
 import type { Actividad } from '@/types/actividad';
 
@@ -9,6 +16,7 @@ interface ApiOptions {
     onError?: ErrorCallback;
 }
 
+/** POST /docente/cursos/{id}/actividades — crea una actividad. */
 export function createActividad(
     idCurso: number,
     data: Partial<Actividad>,
@@ -20,6 +28,7 @@ export function createActividad(
     });
 }
 
+/** PUT /docente/cursos/{id}/actividades/{id} — actualiza una actividad. */
 export function updateActividad(
     idCurso: number,
     idActividad: number,
@@ -32,6 +41,7 @@ export function updateActividad(
     });
 }
 
+/** DELETE /docente/cursos/{id}/actividades/{id} — elimina una actividad. */
 export function deleteActividad(
     idCurso: number,
     idActividad: number,

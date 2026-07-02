@@ -506,8 +506,6 @@
         };
       });
 
-      // console.log(contextTypes);
-
       // Cargar asignaciones ACTUALES del usuario (solo del endpoint específico del usuario)
       userCurrentRoleAssignments = Array.isArray(userPermsRes.roles) ? userPermsRes.roles : [];
       // $inspect(userCurrentRoleAssignments);

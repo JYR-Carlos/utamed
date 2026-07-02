@@ -11,6 +11,7 @@
     Library,
     ClipboardList,
   } from 'lucide-svelte';
+  import { formatFechaTextoLargo } from '@/utils/formatters';
 
   interface Seccion {
     numeral_romano?: string;
@@ -49,16 +50,7 @@
   }
 
   function formatDate(dateString?: string): string {
-    if (!dateString) return 'N/A';
-    try {
-      return new Date(dateString).toLocaleDateString('es-CL', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      });
-    } catch {
-      return dateString;
-    }
+    return dateString ? formatFechaTextoLargo(dateString) : 'N/A';
   }
 
   // Icono y color de acento por sección

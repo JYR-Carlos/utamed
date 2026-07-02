@@ -1,4 +1,11 @@
 <script lang="ts">
+  /**
+   * courseTeamModal — Gestión del equipo docente/ayudantes de un curso:
+   * lista el equipo actual, busca usuarios (mín. 3 caracteres, con
+   * debounce), agrega/quita miembros y abre PermissionsModal por usuario.
+   *
+   * Autónomo: carga y muta directamente contra /{urlPrefix}/cursos/{id}/team.
+   */
   import { router } from '@inertiajs/svelte';
   import type { Curso } from '@/types/admin.types';
   import PermissionsModal from '@/components/custom/admin/permissions-modal/PermissionsModal.svelte';
@@ -7,7 +14,8 @@
     isOpen: boolean;
     onClose: () => void;
     curso: Curso;
-    urlPrefix?: string; // 'admin' or 'docente'
+    /** Prefijo de rutas: 'admin' o 'docente'. */
+    urlPrefix?: string;
   }
 
   let { isOpen = $bindable(), onClose, curso, urlPrefix = 'admin' }: Props = $props();
@@ -35,7 +43,6 @@
     try {
       const res = await fetch(`/${urlPrefix}/cursos/${curso.id_curso}/team`);
       const data = await res.json();
-      // console.log('Team members loaded:', data);
       teamMembers = data;
     } catch (error) {
       console.error('Error loading team:', error);
@@ -129,7 +136,6 @@
   }
 
   function openPermissions(member: any) {
-    // console.log('Opening permissions for member:', member);
     if (!member.id_usuario) {
       console.error('❌ Member missing id_usuario:', member);
       alert('Error: El miembro no tiene ID de usuario');

@@ -2,19 +2,16 @@
 
 namespace App\Http\Controllers\Student;
 
-use App\Enums\DB\EstadoActividadAsignada;
 use App\Enums\DB\TipoActividad;
 use App\Enums\DB\TipoMensaje;
 use App\Http\Controllers\Controller;
 use App\Models\Agenda\Actividad;
 use App\Models\Agenda\Agenda;
-use App\Models\Agenda\AsignadoActividad;
 use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 /**

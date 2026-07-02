@@ -1,11 +1,23 @@
 <script lang="ts">
+  /**
+   * asignaturaList — Tabla del catálogo de asignaturas.
+   *
+   * Componente presentacional: los datos, la paginación y los modales los
+   * maneja la página padre a través de callbacks. La columna "Uso en Planes"
+   * viene calculada por el backend (withCount('asignacionPlanes as
+   * planes_count')) e indica en cuántos planes de estudio está la asignatura.
+   */
   import DataTable from '@/components/custom/admin/DataTable.svelte';
   import type { Asignatura, PaginatedResponse } from '@/types/admin.types';
 
   interface Props {
+    /** Página actual del catálogo (paginada por el backend). */
     asignaturas: PaginatedResponse<Asignatura>;
+    /** Abre el modal de creación. */
     onCreateNew?: () => void;
+    /** Abre el modal de edición (crea nueva versión al guardar). */
     onEdit?: (asignatura: Asignatura) => void;
+    /** Abre la confirmación de borrado. */
     onDelete?: (asignatura: Asignatura) => void;
   }
 

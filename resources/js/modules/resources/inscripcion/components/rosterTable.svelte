@@ -1,4 +1,12 @@
 <script lang="ts">
+  /**
+   * rosterTable — Paso 2 del flujo de inscripciones: nómina del curso con
+   * cambio de estado por fila (menú contextual limitado a TRANSITIONS) y
+   * eliminación definitiva.
+   *
+   * Presentacional: el padre carga el roster y ejecuta los cambios; las
+   * filas con _saving muestran spinner mientras se aplica el PATCH.
+   */
   import type { CursoItem, RosterItem, EstadoInscripcion } from '../types/inscripcion.types';
   import {
     TRANSITIONS,
@@ -12,12 +20,16 @@
   interface Props {
     roster: RosterItem[];
     loadingRoster: boolean;
+    /** Mensaje de error de carga; muestra el estado con botón reintentar. */
     rosterError: string;
     activeCursoId: number;
     selectedCurso: CursoItem | null;
+    /** Vuelve al selector de cursos. */
     onBack: () => void;
     onRetry: () => void;
+    /** Abre el modal de inscripción masiva. */
     onAddStudents: () => void;
+    /** Aplica una transición de estado permitida por TRANSITIONS. */
     onChangeEstado: (item: RosterItem, next: EstadoInscripcion) => void;
     onDelete: (item: RosterItem) => void;
   }

@@ -1,23 +1,12 @@
 <script lang="ts">
   /**
-   * Componente: Lista de Carreras
+   * carreraList — Tabla de carreras con toolbar de búsqueda, filtro de
+   * estado (activas/todas) y paginación.
    *
-   * Tabla expandible con toolbar para filtros, búsqueda, status toggle y paginación.
-   * Muestra información enriquecida de carreras con atributos, estado RBAC, etc.
-   *
-   * Props:
-   * - carreras: PaginatedResponse<Carrera> - Datos paginados del servidor
-   * - searchTerm: string - Término de búsqueda actual
-   * - status: string - Filtro de estado (active/all)
-   * - perPage: number - Registros por página
-   * - paginationOptions: number[] - Opciones de per-page
-   * - statusOptions: {ACTIVE, ALL} - Opciones de estado
-   * - onSearchChange: (term: string) => void - Callback búsqueda
-   * - onStatusChange: (status: string) => void - Callback estado
-   * - onPerPageChange: (value: number) => void - Callback per-page
-   * - onPageChange: (page: number) => void - Callback cambio página
-   * - onEdit: (carrera: Carrera) => void - Callback editar
-   * - onDiscontinue: (carrera: Carrera) => void - Callback discontinuar
+   * Presentacional: búsqueda, filtros y paginación se resuelven en el
+   * servidor; cada control solo dispara su callback y el padre hace la
+   * visita Inertia. onSearchChange actualiza el término mientras se escribe
+   * y onSearch lo aplica (Enter o botón).
    */
   import AttriBadges from '@/components/admin/AttriBadges.svelte';
   import PaginationControls from '@/components/admin/PaginationControls.svelte';
@@ -26,16 +15,20 @@
   interface Props {
     carreras?: PaginatedResponse<Carrera>;
     searchTerm?: string;
+    /** Filtro de estado actual ('active' | 'all'). */
     status?: string;
     perPage?: number;
     paginationOptions?: readonly number[];
     statusOptions?: { ACTIVE: string; ALL: string };
+    /** Actualiza el término mientras se escribe (sin buscar aún). */
     onSearchChange?: (term: string) => void;
+    /** Aplica la búsqueda (Enter o botón). */
     onSearch?: () => void;
     onStatusChange?: (status: string) => void;
     onPerPageChange?: (value: number) => void;
     onPageChange?: (page: number) => void;
     onEdit?: (carrera: Carrera) => void;
+    /** Abre la confirmación de discontinuación (soft delete). */
     onDiscontinue?: (carrera: Carrera) => void;
   }
 

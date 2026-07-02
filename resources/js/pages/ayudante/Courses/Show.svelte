@@ -25,11 +25,11 @@
 
   let { id_curso, curso, tiene_programa = false, userPermissions = [] }: Props = $props();
 
-  const breadcrumbs: BreadcrumbItem[] = [
+  const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Dashboard', href: 'dashboard' },
     { title: 'Cursos', href: 'cursos' },
     { title: curso?.nombre || `Curso ${id_curso}`, href: '' },
-  ];
+  ]);
 
   // Validar permisos
   const canCreatePrograma = $derived.by(() => hasPermission(userPermissions, 'cursos/programas:crear'));

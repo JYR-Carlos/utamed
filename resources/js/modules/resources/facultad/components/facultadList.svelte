@@ -1,29 +1,25 @@
 <script lang="ts">
   /**
-   * Componente: Lista de Facultades
+   * facultadList — Tabla expandible de facultades con sus departamentos
+   * anidados; permite crear/eliminar departamentos desde la propia fila.
    *
-   * Tabla expandible que muestra facultades con sus departamentos anidados.
-   * Reutilizable en diferentes contextos (admin, docente, etc).
-   *
-   * Props:
-   * - facultades: Array de facultades paginado
-   * - canEdit: boolean para mostrar botón editar
-   * - canDelete: boolean para mostrar botón eliminar
-   * - onEdit: callback cuando se hace clic en editar
-   * - onDelete: callback cuando se hace clic en eliminar
-   * - onAddDepartamento: callback para agregar departamento a una facultad
-   * - onDeleteDepartamento: callback para eliminar un departamento
+   * Presentacional: todas las acciones se delegan al padre vía callbacks.
+   * Las facultades con fecha_eliminacion se muestran atenuadas y sin
+   * acciones (guardas de doble seguridad en los handlers).
    */
   import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-svelte';
   import type { Facultad, PaginatedResponse } from '@/types/admin.types';
 
   interface Props {
     facultades: PaginatedResponse<Facultad>;
+    /** Permisos del usuario; ocultan los botones de acción. */
     canEdit?: boolean;
     canDelete?: boolean;
     onEdit?: (facultad: Facultad) => void;
     onDelete?: (facultad: Facultad) => void;
+    /** Abre el modal contextual de nuevo departamento para la facultad. */
     onAddDepartamento?: (facultad: Facultad) => void;
+    /** Abre la confirmación de borrado del departamento. */
     onDeleteDepartamento?: (deptId: number) => void;
   }
 

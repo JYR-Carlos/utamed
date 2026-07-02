@@ -1,26 +1,22 @@
 <script lang="ts">
   /**
-   * Componente formulario de usuarios.
-   *
-   * Formulario modal para importar usuarios (estudiante, docente, administrador).
+   * usuarioImport — Modal de importación masiva de usuarios desde Excel/CSV
+   * para el tipo indicado. La selección de archivo la maneja UserImport;
+   * aquí solo se envuelve en FormModal y se bindea el archivo al padre, que
+   * es quien hace el POST.
    */
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import UserImport from '@/components/admin/UserImport.svelte';
 
   import { UserType } from '@/types/usuarios/tipos';
 
-  const USER_TYPE_LABELS: Record<typeof UserType[keyof typeof UserType], string> = {
-    [UserType.STUDENT]: 'Estudiante',
-    [UserType.TEACHER]: 'Docente',
-    [UserType.ADMIN]: 'Administrador',
-  };
-
   interface Props {
     isOpen: boolean;
+    /** Tipo de usuario a importar (define columnas esperadas del archivo). */
     userType: typeof UserType[keyof typeof UserType];
     isLoading: boolean;
-    // 1. NUEVO: Agregamos file a la interfaz
-    file?: File | null; 
+    /** Archivo seleccionado; bindeable para que el padre lo envíe. */
+    file?: File | null;
     onClose: () => void;
     onSubmit: () => void;
   }
@@ -29,12 +25,10 @@
     isOpen,
     userType,
     isLoading,
-    // 2. NUEVO: Le decimos a Svelte que esta variable es bindable
-    file = $bindable(null), 
+    file = $bindable(null),
     onClose,
     onSubmit,
   }: Props = $props();
-
 </script>
 
 <FormModal

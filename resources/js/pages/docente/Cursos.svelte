@@ -252,7 +252,7 @@
               {@const urgent = (curso.pendientes_calificar ?? 0) > 0}
               {@const pid = `dp-${curso.id_curso}`}
 
-              <article
+              <div
                 class="group relative bg-white border border-[#E8EAF0] rounded-2xl p-[18px_20px_16px] flex flex-col gap-3.5 overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-8px_rgba(0,0,0,0.10),0_2px_4px_rgba(0,0,0,0.04)] focus-visible:ring-4 focus-visible:ring-[var(--ac-soft)] focus-visible:border-[var(--ac)] text-left outline-none border-solid"
                 style="--ac:{a.base};--ac-soft:{a.soft}; hover:border-[var(--ac)]"
                 onclick={() => router.visit(`/docente/cursos/${curso.id_curso}`)}
@@ -314,7 +314,7 @@
                   {/if}
                 </div>
 
-              </article>
+              </div>
             {/each}
           </div>
 
@@ -326,7 +326,7 @@
               {@const urgent = (curso.pendientes_calificar ?? 0) > 0}
               {@const pid2 = `dpl-${curso.id_curso}`}
 
-              <article
+              <div
                 class="group relative grid grid-cols-[46px_minmax(200px,1fr)_auto_auto_auto] max-md:grid-cols-[40px_1fr_auto] gap-[14px] items-center bg-white border border-[#E8EAF0] rounded-2xl p-[12px_16px_12px_14px] max-md:p-3 overflow-hidden cursor-pointer transition-all hover:-translate-x-0.5 hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.09)] focus-visible:ring-4 focus-visible:ring-[var(--ac-soft)] focus-visible:border-[var(--ac)] text-left outline-none border-solid"
                 style="--ac:{a.base};--ac-soft:{a.soft}; hover:border-[var(--ac)]"
                 onclick={() => router.visit(`/docente/cursos/${curso.id_curso}`)}
@@ -382,7 +382,7 @@
                 </div>
 
 <div class="w-[30px] h-[30px] rounded-[8px] bg-[#FAFBFC] flex items-center justify-center text-[#5C6478] transition-all group-hover:bg-[var(--ac)] group-hover:text-white shrink-0 max-md:hidden" aria-hidden="true"><ArrowRight size={17} /></div>
-              </article>
+              </div>
             {/each}
           </div>
         {/if}

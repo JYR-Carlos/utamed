@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Administrativo\Asignatura;
 use App\Models\Curso\Curso;
-use App\Models\Curso\Componente;
 use Illuminate\Support\Collection;
 
 /**

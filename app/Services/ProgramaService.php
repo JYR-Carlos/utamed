@@ -214,7 +214,7 @@ class ProgramaService
         Programa $programa,
         int $orden,
         string $contenido,
-        int $orden_item = null
+        ?int $orden_item = null
     ): Programa {
         $data = $programa->data_syllabus ?? [];
         $secciones = $data['secciones'] ?? [];
@@ -456,14 +456,6 @@ class ProgramaService
             'metadata' => $data['metadata'] ?? [],
             'secciones' => $data['secciones'] ?? [],
         ];
-    }
-
-    /**
-     * Aplica overrides a la estructura del syllabus
-     */
-    private static function applySyllabusOverrides(array $syllabus, array $overrides): array
-    {
-        return self::deepMerge($syllabus, $overrides);
     }
 
     /**
