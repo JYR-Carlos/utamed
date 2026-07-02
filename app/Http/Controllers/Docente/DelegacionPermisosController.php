@@ -164,10 +164,8 @@ class DelegacionPermisosController extends Controller
 
         $allSlugs = $this->allDelegableSlugs();
 
-        // B-11: 'exists:usuario.usuario,id_usuario' era ya la forma correcta aquí;
-        // se mantiene y se documenta como la convención canónica del proyecto.
         $validated = $request->validate([
-            'id_usuario' => ['required', 'integer', 'exists:usuario.usuario,id_usuario'],
+            'id_usuario' => ['required', 'integer', 'exists:usuario,id_usuario'],
             'slug'       => ['required', 'string', 'in:' . implode(',', $allSlugs)],
             'otorgar'    => ['required', 'boolean'],
         ]);

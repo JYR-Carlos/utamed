@@ -785,7 +785,7 @@ class DocenteActivityController extends Controller
         }
 
         $validated = $request->validate([
-            'id_actividad_origen' => 'required|integer|exists:agenda.actividad,id_actividad',
+            'id_actividad_origen' => 'required|integer|exists:actividad,id_actividad',
         ]);
 
         $actividadOrigen = Actividad::find($validated['id_actividad_origen']);
@@ -1126,8 +1126,8 @@ class DocenteActivityController extends Controller
             ->firstOrFail();
 
         $validated = $request->validate([
-            'id_agenda_entrega'  => 'nullable|integer|exists:agenda.agenda,id_agenda',
-            'id_rubrica'         => 'required|integer|exists:agenda.rubrica,id_rubrica',
+            'id_agenda_entrega'  => 'nullable|integer|exists:agenda,id_agenda',
+            'id_rubrica'         => 'required|integer|exists:rubrica,id_rubrica',
             'resultado'          => 'nullable|array',
             'resultado_rubrica'  => 'nullable|array',
             'puntaje_obtenido'   => 'nullable|numeric|min:0|max:999',
