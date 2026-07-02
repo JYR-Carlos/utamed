@@ -6,25 +6,9 @@
  */
 
 export type { Programa, Curso } from '@/types/admin.types';
+export type { ContenidoPrograma, SeccionPrograma } from '@/types/syllabus.types';
 
-// ─── Structural types for the syllabus sections ──────────────────────────────
-
-export interface ContenidoPrograma {
-    id_contenido_programa?: number;
-    texto_contenido: string | null;
-    valor_numerico?: number | null;
-    orden_item: number;
-}
-
-export interface SeccionPrograma {
-    id_estructura_programa?: number;
-    nombre_seccion: string;
-    numeral_romano?: string;
-    orden: number;
-    es_lista?: boolean;
-    es_actual?: boolean;
-    contenidos_programa: ContenidoPrograma[];
-}
+import type { DataSyllabus, DataSyllabusSecciones, SeccionPrograma } from '@/types/syllabus.types';
 
 export interface ProgramaFull {
     id_programa: number;
@@ -36,19 +20,13 @@ export interface ProgramaFull {
     es_actual?: boolean;
     creado_por: number;
     revisado_por?: number;
-    data_syllabus?: {
-        metadata?: {
-            tipo_syllabus?: string;
-            curso?: string;
-            asignatura?: string;
-            creditos?: number;
-        };
-        secciones?: Record<string, any>;
-    };
+    data_syllabus?: DataSyllabus;
     secciones?: SeccionPrograma[];
 }
 
 // ─── Wizard state types ───────────────────────────────────────────────────────
+// Shape del estado local del wizard (no del JSONB); se transforman a
+// DataSyllabusSecciones al guardar (ver SyllabusModal.svelte::buildSecciones()).
 
 export interface WizardUnidad {
     numero: number;
@@ -91,7 +69,7 @@ export interface GuardarProgramaPayload {
 }
 
 export interface GenerarProgramaPayload {
-    secciones: Record<string, any>;
+    secciones: DataSyllabusSecciones;
     syllabus_type: SyllabusType;
     actividades_to_create?: {
         nombre: string;

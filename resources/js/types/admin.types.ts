@@ -6,6 +6,7 @@
  */
 
 import type { FormDataConvertible } from '@inertiajs/core';
+import type { DataSyllabus, SeccionPrograma } from './syllabus.types';
 
 /**
  * Facultad (Faculty) entity
@@ -174,19 +175,10 @@ export interface Programa {
     fecha_rechazo?: string | null;
     /**
      * Secciones renderizadas del programa (consumidas por ProgramaDocument).
-     * Estructura heterogénea entre controladores; se modela de forma laxa a propósito.
      */
-    secciones?: ProgramaSeccion[];
-    /** JSONB structure containing syllabus data */
-    data_syllabus?: {
-        metadata?: {
-            tipo_syllabus: string;
-            curso?: string;
-            asignatura?: string;
-            creditos?: number;
-        };
-        secciones?: Record<string, any>;
-    };
+    secciones?: SeccionPrograma[];
+    /** Estructura JSONB del syllabus (ver App\Syllabus en el backend). */
+    data_syllabus?: DataSyllabus;
     /** Completeness percentage (0-100) */
     completenessPercentage?: number;
     /** Creator user information */
@@ -200,22 +192,6 @@ export type ProgramaEstado =
     | 'ENVIADO'
     | 'COMPLETO'
     | 'APROBADO';
-
-/**
- * Sección de un programa tal como la consume ProgramaDocument.
- * Se mantiene estructuralmente compatible con la interfaz `Seccion` interna de
- * ese componente; el resto de campos varían según el tipo de sección, por lo
- * que se admite un índice abierto en lugar de recurrir a `any`.
- */
-export interface ProgramaSeccion {
-    numeral_romano?: string;
-    nombre_seccion: string;
-    contenidos?: Array<{ texto_contenido: string | null }>;
-    contenidos_programa?: Array<{ texto_contenido: string | null }>;
-    componentes?: unknown[];
-    ponderacion_optativa?: { porcentaje?: number } | null;
-    [key: string]: unknown;
-}
 
 export interface Curso {
     id_curso: number;

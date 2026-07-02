@@ -6,6 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
+use App\Syllabus\Secciones\ComponenteEvaluacion;
+use App\Syllabus\Secciones\RecursoSyllabus;
+use App\Syllabus\Secciones\SeccionVIICompleto;
+use App\Syllabus\Secciones\TituloItem;
+use App\Syllabus\Secciones\UnidadSyllabus;
+use App\Syllabus\SyllabusData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -89,50 +95,52 @@ class ProgramaController extends Controller
         ]);
 
         // Procesar data_syllabus correctamente
-        $dataSyllabus = is_array($programa->data_syllabus) 
-            ? $programa->data_syllabus 
+        $dataSyllabus = is_array($programa->data_syllabus)
+            ? $programa->data_syllabus
             : json_decode($programa->data_syllabus, true);
 
-        // Extraer secciones raw para datos estructurados
-        $seccionesRaw = $dataSyllabus['secciones'] ?? $dataSyllabus;
+        $syllabus = SyllabusData::fromArray($dataSyllabus ?? []);
+        $secciones = $syllabus->secciones;
 
         // Determinar tipo de syllabus (BASICO o COMPLETO)
-        $tipoSyllabus = $dataSyllabus['metadata']['tipo_syllabus'] ?? 'COMPLETO';
+        $tipoSyllabus = $syllabus->metadata?->tipoSyllabus?->value ?? 'COMPLETO';
 
         // ── Datos estructurados para la vista del alumno ──────────────────────
-        $secI   = $seccionesRaw['I']['contenido']    ?? [];
-        $secII  = $seccionesRaw['II']['contenido']   ?? [];
-        $secIV  = $seccionesRaw['IV']['contenido']   ?? [];
-        $secVI  = $seccionesRaw['VI']['contenido']   ?? [];
-        $secVII = $seccionesRaw['VII']['contenido']  ?? [];
-        $secVIII= $seccionesRaw['VIII']['contenido'] ?? [];
-        $secIX  = $seccionesRaw['IX']['contenido']   ?? [];
+        $secI = $secciones->seccionI();
+        $secII = $secciones->seccionII();
+        $secIV = $secciones->seccionIV();
+        $secVI = $secciones->seccionVI();
+        $secVII = $secciones->seccionVII();
+        $secVIII = $secciones->seccionVIII();
+        $secIX = $secciones->seccionIX();
 
-        $resultados = $secVII['resultados_aprendizaje']['items'] ?? [];
+        $resultados = $secVII instanceof SeccionVIICompleto
+            ? array_map(fn ($r) => $r->toArray(), $secVII->resultadosAprendizajeItems)
+            : [];
 
         $datos = [
             // Sección I: Identificación (BÁSICO)
-            'categoria'                => $secI['categoria'] ?? '',
-            
+            'categoria'                => $secI?->categoria ?? '',
+
             // Sección II: Presentación (BÁSICO)
-            'descripcion'              => $secII['texto'] ?? '',
-            
+            'descripcion'              => $secII?->texto ?? '',
+
             // Sección IV: Competencias (COMPLETO)
-            'competencias_especificas' => $secIV['competencias_especificas'] ?? [],
-            'competencias_genericas'   => $secIV['competencias_genericas'] ?? [],
-            
+            'competencias_especificas' => $secIV ? TituloItem::listToArray($secIV->competenciasEspecificas) : [],
+            'competencias_genericas'   => $secIV ? TituloItem::listToArray($secIV->competenciasGenericas) : [],
+
             // Sección VI: Unidades (BÁSICO)
-            'unidades'                 => $secVI['unidades'] ?? [],
-            
+            'unidades'                 => $secVI ? UnidadSyllabus::listToArray($secVI->unidades) : [],
+
             // Sección VII: Resultados de Aprendizaje (COMPLETO)
             'resultados_aprendizaje'   => $resultados,
-            
+
             // Sección VIII: Recursos (BÁSICO)
-            'recursos'                 => $secVIII['recursos'] ?? [],
-            
+            'recursos'                 => $secVIII ? RecursoSyllabus::listToArray($secVIII->recursos) : [],
+
             // Sección IX: Aspectos Administrativos (BÁSICO)
-            'componentes'              => $secIX['tabla_componentes'] ?? [],
-            'normativa'                => $secIX['descripcion'] ?? '',
+            'componentes'              => $secIX ? ComponenteEvaluacion::listToArray($secIX->tablaComponentes) : [],
+            'normativa'                => $secIX?->descripcion ?? '',
         ];
 
         // ── Docente (primer componente) ──────────────────────────────────────────

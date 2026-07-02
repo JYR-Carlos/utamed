@@ -171,7 +171,7 @@
       <Card class="p-4">
         <h3 class="text-sm font-semibold text-slate-700 mb-2">Créditos</h3>
         <p class="text-lg text-slate-900">
-          {programa.data_syllabus?.metadata?.creditos || 'No especificado'}
+          {programa.data_syllabus?.metadata?.asignatura?.creditos_sct || 'No especificado'}
         </p>
       </Card>
     </div>

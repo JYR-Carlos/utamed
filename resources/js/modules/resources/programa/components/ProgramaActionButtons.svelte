@@ -8,7 +8,7 @@
     version_programa: number;
     estado: string;
     creado_por: number;
-    data_syllabus: any;
+    data_syllabus?: any;
   }
 
   interface Props {

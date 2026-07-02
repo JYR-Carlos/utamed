@@ -4,14 +4,21 @@ namespace App\Services;
 
 use App\Models\Administrativo\Asignatura;
 use App\Models\Curso\Curso;
+use App\Syllabus\SyllabusAsignatura;
+use App\Syllabus\SyllabusCategoria;
+use App\Syllabus\SyllabusCurso;
+use App\Syllabus\SyllabusDocentePrincipal;
+use App\Syllabus\SyllabusHoras;
+use App\Syllabus\SyllabusMetadata;
+use App\Syllabus\SyllabusTipo;
 use Illuminate\Support\Collection;
 
 /**
  * SyllabusStructure
- * 
+ *
  * Clase que construye la estructura base JSONB para rellenar el campo data_syllabus
  * de la tabla programa, agregando información de asignatura, curso, componentes y categorías.
- * 
+ *
  * Estructura esperada:
  * {
  *   "metadata": {
@@ -28,6 +35,7 @@ class SyllabusStructure
     private ?Asignatura $asignatura = null;
     private Collection $componentes;
     private array $categoria = [];
+    private ?string $tipoSyllabus = null;
 
     public function __construct(Curso $curso)
     {
@@ -83,6 +91,15 @@ class SyllabusStructure
     }
 
     /**
+     * Define el tipo de syllabus (BASICO|COMPLETO) que se incluirá en metadata.
+     */
+    public function withTipoSyllabus(string $tipoSyllabus): self
+    {
+        $this->tipoSyllabus = $tipoSyllabus;
+        return $this;
+    }
+
+    /**
      * Construye la estructura completa del syllabus
      */
     public function build(): array
@@ -99,58 +116,61 @@ class SyllabusStructure
      */
     private function buildMetadata(): array
     {
-        return [
-            'asignatura' => $this->buildAsignatura(),
-            'curso' => $this->buildCurso(),
-            'categoria' => $this->categoria,
-        ];
+        $metadata = new SyllabusMetadata(
+            asignatura: $this->buildAsignatura(),
+            curso: $this->buildCurso(),
+            categoria: !empty($this->categoria) ? SyllabusCategoria::fromArray($this->categoria) : null,
+            tipoSyllabus: $this->tipoSyllabus !== null ? SyllabusTipo::from($this->tipoSyllabus) : null,
+        );
+
+        return $metadata->toArray();
     }
 
     /**
      * Prepara información de la asignatura
      */
-    private function buildAsignatura(): array
+    private function buildAsignatura(): ?SyllabusAsignatura
     {
         if (!$this->asignatura) {
-            return [];
+            return null;
         }
 
-        return [
-            'id_asignatura' => $this->asignatura->id_asignatura,
-            'nombre' => $this->asignatura->nombre,
-            'codigo' => $this->asignatura->cod_asignatura,
-            'descripcion' => $this->asignatura->descripcion,
-            'creditos_sct' => $this->asignatura->creditos_sct,
-            'horas' => [
-                'catedra' => $this->asignatura->horas_catedra,
-                'taller' => $this->asignatura->horas_taller,
-                'laboratorio' => $this->asignatura->horas_laboratorio,
-                'dirigidas' => $this->asignatura->horas_dirigidas,
-                'autonomas' => $this->asignatura->horas_autonomas,
-            ],
-        ];
+        return new SyllabusAsignatura(
+            idAsignatura: $this->asignatura->id_asignatura,
+            nombre: $this->asignatura->nombre,
+            codigo: $this->asignatura->cod_asignatura,
+            descripcion: $this->asignatura->descripcion,
+            creditosSct: $this->asignatura->creditos_sct,
+            horas: new SyllabusHoras(
+                catedra: $this->asignatura->horas_catedra,
+                taller: $this->asignatura->horas_taller,
+                laboratorio: $this->asignatura->horas_laboratorio,
+                dirigidas: $this->asignatura->horas_dirigidas,
+                autonomas: $this->asignatura->horas_autonomas,
+            ),
+        );
     }
 
     /**
      * Prepara información del curso
      */
-    private function buildCurso(): array
+    private function buildCurso(): SyllabusCurso
     {
-        return [
-            'id_curso' => $this->curso->id_curso,
-            'codigo' => $this->curso->cod_curso,
-            'año_academico' => $this->curso->agno_academico,
-            'semestre' => $this->curso->semestre,
-            'es_plantilla' => $this->curso->es_plantilla ?? false,
-            'seccion_count' => $this->componentes->count(),
-            'docente_principal' => $this->buildDocentePrincipal(),
-        ];
+        return new SyllabusCurso(
+            idCurso: $this->curso->id_curso,
+            codigo: (string) $this->curso->cod_curso,
+            agnoAcademico: $this->curso->agno_academico,
+            semestre: $this->curso->semestre,
+            esPlantilla: $this->curso->es_plantilla ?? false,
+            seccionCount: $this->componentes->count(),
+            docentePrincipal: $this->buildDocentePrincipal(),
+        );
     }
 
     /**
      * Obtiene información del docente principal desde los componentes
      */
-    private function buildDocentePrincipal(): ?array
+    private function buildDocentePrincipal(): ?SyllabusDocentePrincipal
     {
         // Obtener el primer docente titular de los componentes, o el primer docente disponible
         $docenteComponente = $this->componentes
@@ -165,13 +185,13 @@ class SyllabusStructure
         $docente = $docenteComponente->docente;
         $usuario = $docente->usuario;
 
-        return [
-            'id_docente' => $docente->id_docente,
-            'nombre' => $usuario?->nombre_completo,
-            'titulo' => $docente->titulo,
-            'grado' => $docente->grado,
-            'cargo' => $docente->cargo,
-        ];
+        return new SyllabusDocentePrincipal(
+            idDocente: $docente->id_docente,
+            nombre: $usuario?->nombre_completo,
+            titulo: $docente->titulo,
+            grado: $docente->grado,
+            cargo: $docente->cargo,
+        );
     }
 
     /**
@@ -232,7 +252,7 @@ class SyllabusStructure
     private function buildContenidosFromUnidades(): array
     {
         $this->curso->load('unidades');
-        
+
         if (!$this->curso->unidades || $this->curso->unidades->isEmpty()) {
             return [];
         }

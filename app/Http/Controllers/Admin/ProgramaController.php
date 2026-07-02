@@ -435,9 +435,7 @@ class ProgramaController extends Controller
             if (!$programa->isCompleteWithAllSections()) {
                 $required = $programa->getRequiredSecciones();
                 $secciones = $programa->getSecciones();
-                $missing = array_filter($required, function($s) use ($secciones) {
-                    return !isset($secciones[$s]) || empty($secciones[$s]['contenido']);
-                });
+                $missing = array_filter($required, fn ($s) => !$secciones->hasContenido($s));
                 
                 return response()->json([
                     'error' => 'El programa debe tener todas las secciones requeridas completas. Faltan: ' . implode(', ', $missing)

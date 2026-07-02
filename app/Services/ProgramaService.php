@@ -5,12 +5,16 @@ namespace App\Services;
 use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
+use App\Syllabus\SyllabusData;
+use App\Syllabus\SyllabusMetadata;
+use App\Syllabus\SyllabusSecciones;
+use App\Syllabus\SyllabusTipo;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 /**
  * ProgramaService
- * 
+ *
  * Servicio para gestionar la creación, actualización y lectura de Programas
  * con estructura JSONB en el campo data_syllabus.
  */
@@ -19,7 +23,7 @@ class ProgramaService
     /**
      * Genera un programa con estructura JSONB completa para un curso
      * Soporta dos tipos: BASICO y COMPLETO
-     * 
+     *
      * Rellena:
      * - Atributos de tabla (version, estado, creado_por, etc)
      * - data_syllabus con estructura completa (metadata + secciones)
@@ -47,16 +51,22 @@ class ProgramaService
                 $newVersion = 1;
             }
 
-            // Construir estructura JSONB base
-            $syllabus = SyllabusStructure::for($curso);
-            
-            // Agregar tipo_syllabus a metadata
-            $syllabus['metadata']['tipo_syllabus'] = $tipoSyllabus;
+            // Construir estructura JSONB base (metadata real desde el curso + tipo_syllabus)
+            $shell = (new SyllabusStructure($curso))
+                ->withAsignatura()
+                ->withSecciones()
+                ->withCategoriaFromString($curso->asignacionPlan?->tipo_ramo ?? 'OBLIGATORIO')
+                ->withTipoSyllabus($tipoSyllabus)
+                ->build();
 
-            // Aplicar overrides si se proporcionan (ej: secciones customizadas)
             if ($overrides && isset($overrides['secciones'])) {
-                // Reemplazar secciones customizadas con los datos del override
-                $syllabus['secciones'] = $overrides['secciones'];
+                // Reemplazar secciones customizadas con los datos del override (payload del wizard),
+                // tipadas para validar que respetan el contrato por sección.
+                $metadata = SyllabusMetadata::fromArray($shell['metadata']);
+                $secciones = SyllabusSecciones::fromArray($overrides['secciones'], $metadata->tipoSyllabus);
+                $syllabus = (new SyllabusData($metadata, $secciones, now()->toIso8601String()))->toArray();
+            } else {
+                $syllabus = $shell;
             }
 
             // Crear el programa con atributos de tabla + JSONB
@@ -100,34 +110,34 @@ class ProgramaService
     /**
      * Obtiene la estructura del syllabus desde JSONB
      */
-    public static function getSyllabusStructure(Programa $programa): ?array
+    public static function getSyllabusStructure(Programa $programa): ?SyllabusData
     {
-        return $programa->data_syllabus;
+        return $programa->data_syllabus ? SyllabusData::fromArray($programa->data_syllabus) : null;
     }
 
     /**
      * Obtiene solo las secciones del syllabus
      */
-    public static function getSecciones(Programa $programa): array
+    public static function getSecciones(Programa $programa): SyllabusSecciones
     {
-        return $programa->data_syllabus['secciones'] ?? [];
+        return SyllabusData::fromArray($programa->data_syllabus ?? [])->secciones;
     }
 
     /**
      * Obtiene la metadata del syllabus
      */
-    public static function getMetadata(Programa $programa): array
+    public static function getMetadata(Programa $programa): ?SyllabusMetadata
     {
-        return $programa->data_syllabus['metadata'] ?? [];
+        return SyllabusData::fromArray($programa->data_syllabus ?? [])->metadata;
     }
 
     /**
      * Actualiza una sección específica por ID (I, II, III, etc.)
-     * 
+     *
      * Implementa lógica de conversión automática:
      * - Si estado es BASICO_COMPLETO y se agrega sección III/IV/V/IX
      * - Cambia automáticamente a COMPLETO
-     * 
+     *
      * @param Programa $programa
      * @param string $seccionId (I, II, III, IV, V, VI, VII, VIII, IX)
      * @param array $contenido
@@ -141,38 +151,26 @@ class ProgramaService
         bool $triggerConversion = false
     ): Programa {
         return DB::transaction(function () use ($programa, $seccionId, $contenido, $triggerConversion) {
-            $data = $programa->data_syllabus ?? [];
-            $secciones = $data['secciones'] ?? [];
+            $syllabus = SyllabusData::fromArray($programa->data_syllabus ?? []);
 
-            // Encontrar y actualizar la sección por ID
-            $found = false;
-            foreach ($secciones as &$seccion) {
-                if ($seccion['id'] === $seccionId) {
-                    $seccion['contenido'] = $contenido;
-                    $seccion['ultima_modificacion'] = now()->toIso8601String();
-                    $found = true;
-                    break;
-                }
-            }
-
-            if (!$found) {
+            if (!$syllabus->secciones->has($seccionId)) {
                 throw new \Exception("Sección {$seccionId} no encontrada en la estructura del programa");
             }
 
-            $data['secciones'] = $secciones;
-            $data['timestamp'] = now()->toIso8601String();
+            $contenidoDto = SyllabusSecciones::contenidoFromArray($seccionId, $contenido, $syllabus->metadata?->tipoSyllabus);
+            $secciones = $syllabus->secciones->with($seccionId, $contenidoDto, now()->toIso8601String());
+            $syllabus = $syllabus->withSecciones($secciones)->withTimestamp(now()->toIso8601String());
 
             // Determinar si realizar conversión automática
             $updates = [
-                'data_syllabus' => $data,
+                'data_syllabus' => $syllabus->toArray(),
                 'fecha_modificacion' => now(),
             ];
 
             // Lógica de conversión: BASICO -> COMPLETO
-            if ($triggerConversion && $programa->isBasicoCompleto() && $programa->isBasico()) {
-                // Cambiar tipo_syllabus a COMPLETO
-                $data['metadata']['tipo_syllabus'] = 'COMPLETO';
-                $updates['data_syllabus'] = $data;
+            if ($triggerConversion && $programa->isBasicoCompleto() && $programa->isBasico() && $syllabus->metadata) {
+                $syllabus = $syllabus->withMetadata($syllabus->metadata->withTipoSyllabus(SyllabusTipo::Completo));
+                $updates['data_syllabus'] = $syllabus->toArray();
                 $updates['estado'] = 'COMPLETO';  // Cambiar estado también
             }
 
@@ -180,61 +178,6 @@ class ProgramaService
 
             return $programa->fresh();
         });
-    }
-
-    /**
-     * Actualiza una sección específica por orden (antiguo método - mantener para compatibilidad)
-     */
-    public static function updateSeccionByOrden(
-        Programa $programa,
-        int $orden,
-        array $contenidos
-    ): Programa {
-        $data = $programa->data_syllabus ?? [];
-        $secciones = $data['secciones'] ?? [];
-
-        // Encontrar y actualizar la sección
-        foreach ($secciones as &$seccion) {
-            if ($seccion['orden'] === $orden) {
-                $seccion['contenidos'] = $contenidos;
-                break;
-            }
-        }
-
-        $data['secciones'] = $secciones;
-        $programa->update(['data_syllabus' => $data]);
-
-        return $programa;
-    }
-
-    /**
-     * Agrega un contenido a una sección
-     */
-    public static function addContentToSeccion(
-        Programa $programa,
-        int $orden,
-        string $contenido,
-        ?int $orden_item = null
-    ): Programa {
-        $data = $programa->data_syllabus ?? [];
-        $secciones = $data['secciones'] ?? [];
-
-        foreach ($secciones as &$seccion) {
-            if ($seccion['orden'] === $orden) {
-                $orden_item = $orden_item ?? (count($seccion['contenidos']) + 1);
-                
-                $seccion['contenidos'][] = [
-                    'texto_contenido' => $contenido,
-                    'orden_item' => $orden_item,
-                ];
-                break;
-            }
-        }
-
-        $data['secciones'] = $secciones;
-        $programa->update(['data_syllabus' => $data]);
-
-        return $programa;
     }
 
     /**
@@ -259,7 +202,7 @@ class ProgramaService
 
     /**
      * Instancia un programa vacío (shell) para un curso.
-     * 
+     *
      * El administrador (o docente) crea el "contenedor" del programa en estado BORRADOR.
      * El docente luego lo completa sección por sección y lo marca como listo.
      *
@@ -298,8 +241,12 @@ class ProgramaService
             }
 
             // Estructura base generada desde los datos del curso (Content vacío por sección)
-            $syllabus = SyllabusStructure::for($curso);
-            $syllabus['metadata']['tipo_syllabus'] = $tipoSyllabus;
+            $syllabus = (new SyllabusStructure($curso))
+                ->withAsignatura()
+                ->withSecciones()
+                ->withCategoriaFromString($curso->asignacionPlan?->tipo_ramo ?? 'OBLIGATORIO')
+                ->withTipoSyllabus($tipoSyllabus)
+                ->build();
 
             return Programa::create([
                 'id_curso'         => $curso->id_curso,
@@ -315,7 +262,7 @@ class ProgramaService
 
     /**
      * Marca la versión básica del programa como completada (BORRADOR → BASICO_COMPLETO).
-     * 
+     *
      * Una vez en BASICO_COMPLETO el programa es visible para alumnos, docentes y administradores.
      * No requiere aprobación.
      *
@@ -347,7 +294,7 @@ class ProgramaService
 
     /**
      * Envía el programa completo para revisión (BORRADOR|BASICO_COMPLETO → COMPLETO).
-     * 
+     *
      * Solo el programa COMPLETO requiere aprobación por parte del administrador/jefe.
      * La fecha de entrega queda registrada para control de plazos.
      *
@@ -385,14 +332,14 @@ class ProgramaService
 
     /**
      * Obtiene las secciones requeridas según el tipo de syllabus
-     * 
+     *
      * @param Programa $programa
      * @return array
      */
     public static function getRequiredSecciones(Programa $programa): array
     {
         $tipoSyllabus = $programa->getTipoSyllabus();
-        
+
         return $tipoSyllabus === 'BASICO'
             ? ['I', 'II', 'VI', 'VII', 'VIII']
             : ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
@@ -400,7 +347,7 @@ class ProgramaService
 
     /**
      * Valida si el programa tiene todas las secciones requeridas con contenido
-     * 
+     *
      * @param Programa $programa
      * @return bool
      */
@@ -410,7 +357,7 @@ class ProgramaService
         $required = self::getRequiredSecciones($programa);
 
         foreach ($required as $seccionId) {
-            if (!isset($secciones[$seccionId]) || empty($secciones[$seccionId]['contenido'])) {
+            if (!$secciones->hasContenido($seccionId)) {
                 return false;
             }
         }
@@ -420,7 +367,7 @@ class ProgramaService
 
     /**
      * Calcula el porcentaje de completitud según secciones requeridas
-     * 
+     *
      * @param Programa $programa
      * @return int (0-100)
      */
@@ -431,7 +378,7 @@ class ProgramaService
         $completed = 0;
 
         foreach ($required as $seccionId) {
-            if (isset($secciones[$seccionId]) && !empty($secciones[$seccionId]['contenido'])) {
+            if ($secciones->hasContenido($seccionId)) {
                 $completed++;
             }
         }
@@ -444,7 +391,7 @@ class ProgramaService
      */
     public static function export(Programa $programa): array
     {
-        $data = $programa->data_syllabus ?? [];
+        $syllabus = SyllabusData::fromArray($programa->data_syllabus ?? []);
 
         return [
             'programa_id' => $programa->id_programa,
@@ -453,8 +400,8 @@ class ProgramaService
             'tipo_syllabus' => $programa->getTipoSyllabus(),
             'fecha_creacion' => $programa->fecha_creacion,
             'completud' => self::calculateCompletenessPercentage($programa),
-            'metadata' => $data['metadata'] ?? [],
-            'secciones' => $data['secciones'] ?? [],
+            'metadata' => $syllabus->metadata?->toArray() ?? [],
+            'secciones' => $syllabus->secciones->toArray(),
         ];
     }
 

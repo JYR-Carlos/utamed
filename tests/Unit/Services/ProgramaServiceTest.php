@@ -97,43 +97,51 @@ class ProgramaServiceTest extends TestCase
         $this->assertNotEmpty($categoria['descripcion']);
     }
 
-    /** @test */
-    public function can_update_seccion_content()
+    /**
+     * Overrides de secciones en el formato asociativo real (I..IX con 'contenido')
+     * que produce el wizard, para un syllabus BASICO.
+     */
+    private function basicoOverrides(): array
     {
-        $programa = ProgramaService::generateProgramaWithSyllabus($this->curso, $this->user);
-
-        $newContent = [
-            ['texto_contenido' => 'Competencia 1: Programación básica', 'orden_item' => 1],
-            ['texto_contenido' => 'Competencia 2: Algoritmos', 'orden_item' => 2],
+        return [
+            'tipo_syllabus' => 'BASICO',
+            'secciones' => [
+                'I' => ['contenido' => [
+                    'nombre_asignatura' => 'Programación I',
+                    'codigo' => 'TST101',
+                    'creditos_sct' => 5,
+                    'horas' => ['catedra' => 3, 'taller' => 1, 'laboratorio' => 0],
+                    'categoria' => 'Obligatorio',
+                ]],
+                'II' => ['contenido' => ['texto' => 'Presentación inicial']],
+                'VI' => ['contenido' => ['unidades' => []]],
+                'VII' => ['contenido' => ['actividades' => []]],
+                'VIII' => ['contenido' => ['recursos' => []]],
+            ],
         ];
-
-        ProgramaService::updateSeccion($programa, 2, $newContent);
-
-        $programa->refresh();
-        $secciones = $programa->data_syllabus['secciones'];
-        $competenciasSeccion = collect($secciones)->firstWhere('orden', 2);
-
-        $this->assertCount(2, $competenciasSeccion['contenidos']);
-        $this->assertEquals('Competencia 1: Programación básica', $competenciasSeccion['contenidos'][0]['texto_contenido']);
     }
 
     /** @test */
-    public function can_add_content_to_seccion()
+    public function can_update_seccion_content()
     {
-        $programa = ProgramaService::generateProgramaWithSyllabus($this->curso, $this->user);
+        $programa = ProgramaService::generateProgramaWithSyllabus($this->curso, $this->user, $this->basicoOverrides());
 
-        ProgramaService::addContentToSeccion(
-            $programa,
-            5, // Metodología
-            'Metodología constructivista con enfoque práctico'
-        );
+        ProgramaService::updateSeccion($programa, 'II', ['texto' => 'Presentación actualizada']);
 
         $programa->refresh();
-        $secciones = $programa->data_syllabus['secciones'];
-        $metodologiaSeccion = collect($secciones)->firstWhere('orden', 5);
+        $this->assertEquals(
+            'Presentación actualizada',
+            $programa->data_syllabus['secciones']['II']['contenido']['texto']
+        );
+    }
 
-        $this->assertCount(1, $metodologiaSeccion['contenidos']);
-        $this->assertStringContainsString('constructivista', $metodologiaSeccion['contenidos'][0]['texto_contenido']);
+    /** @test */
+    public function updating_an_unknown_seccion_throws_exception()
+    {
+        $programa = ProgramaService::generateProgramaWithSyllabus($this->curso, $this->user, $this->basicoOverrides());
+
+        $this->expectException(\Exception::class);
+        ProgramaService::updateSeccion($programa, 'III', ['texto' => 'no debería existir en BASICO']);
     }
 
     /** @test */
@@ -141,8 +149,8 @@ class ProgramaServiceTest extends TestCase
     {
         $programa = ProgramaService::generateProgramaWithSyllabus($this->curso, $this->user);
 
-        ProgramaService::changeStatus($programa, 'EN_REVISION');
-        $this->assertEquals('EN_REVISION', $programa->estado);
+        ProgramaService::changeStatus($programa, 'COMPLETO');
+        $this->assertEquals('COMPLETO', $programa->estado);
 
         ProgramaService::changeStatus($programa, 'APROBADO');
         $this->assertEquals('APROBADO', $programa->estado);
