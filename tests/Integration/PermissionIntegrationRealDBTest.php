@@ -326,7 +326,7 @@ beforeEach(function () {
 
     // Asignar permiso 'cursos:ver' a rol Profesor (vía AsignaciónRolPermiso)
     $this->rolProfesor->permisos()->attach($permisoVerCurso->id_permiso, [
-        'puede_delegar_permisos' => false
+        'puede_delegar_permiso' => false
     ]);
 
     // Asignar rol al profesor en contexto de la carrera
@@ -376,8 +376,8 @@ beforeEach(function () {
 
     // Asignar permisos: 'cursos:crear' y 'cursos:ver' al rol Coordinador
     $this->rolCoordinador->permisos()->attach([
-        $permisoVerCurso->id_permiso => ['puede_delegar_permisos' => false],
-        $permisoCrearCurso->id_permiso => ['puede_delegar_permisos' => true]
+        $permisoVerCurso->id_permiso => ['puede_delegar_permiso' => false],
+        $permisoCrearCurso->id_permiso => ['puede_delegar_permiso' => true]
     ]);
 
     // Asignar rol al coordinador en contexto de la carrera

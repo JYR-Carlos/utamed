@@ -526,7 +526,7 @@ class DocenteCursoController extends Controller
                 if ($role) {
                     // Get permisos for this role with delegation rights
                     $perms = $role->permisos()
-                        ->wherePivot('puede_delegar_permisos', true)
+                        ->wherePivot('puede_delegar_permiso', true)
                         ->get();
 
                     // Filter by slug - include 'cursos' prefix for course/activity management
