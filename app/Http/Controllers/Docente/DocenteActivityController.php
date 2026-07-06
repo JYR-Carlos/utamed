@@ -1098,7 +1098,7 @@ class DocenteActivityController extends Controller
     // 2. Fecha: 04/06/2025
     // 3. Se agrega método storeEvaluacion: crea atómicamente el mensaje de tipo
     //    "Evaluación" en agenda.agenda y el registro en agenda.evaluacion, luego
-    //    actualiza la nota y cierra el grupo. También cierra la rúbrica si estaba
+    //    actualiza la nota del grupo. También cierra la rúbrica si estaba
     //    en estado POSTULADA (primera evaluación).
 
     /**
@@ -1109,7 +1109,8 @@ class DocenteActivityController extends Controller
      * 2. Verifica que no exista ya una evaluación para el id_agenda_entrega indicado.
      * 3. Inserta un registro en agenda.agenda con tipo "Evaluación".
      * 4. Inserta un registro en agenda.evaluacion vinculado al agenda anterior.
-     * 5. Actualiza nota y estado del grupo a CERRADA.
+     * 5. Actualiza la nota del grupo. El grupo NO se cierra: se deja ACTIVA para
+     *    poder implementar apelación/reevaluación más adelante.
      * 6. Si la rúbrica estaba POSTULADA, la cierra.
      *
      * POST docente/cursos/{curso}/actividades/{actividad}/grupos/{grupo}/evaluacion
@@ -1173,10 +1174,10 @@ class DocenteActivityController extends Controller
                     'id_agenda'           => $idAgendaEvaluacion,
                 ]);
 
-                // 3. Actualizar nota y cerrar el grupo
+                // 3. Actualizar nota. El grupo se mantiene ACTIVA (no se cierra al
+                //    evaluar) para dejar espacio a apelación/reevaluación a futuro.
                 $grupoModel->update([
-                    'nota'                      => $validated['nota'] ?? null,
-                    'estado_actividad_asignada' => EstadoActividadAsignada::CERRADA,
+                    'nota' => $validated['nota'] ?? null,
                 ]);
 
                 // 3b. Sembrar/refrescar la nota individual de cada integrante a partir

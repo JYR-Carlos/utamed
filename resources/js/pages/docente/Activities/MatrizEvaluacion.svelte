@@ -88,7 +88,7 @@
       const escala = rubrica.detalles_evaluacion?.escala_evaluacion;
       if (!escala?.length || !todosEvaluados) return null;
       const sorted = [...escala].sort((a, b) => b.puntaje_minimo - a.puntaje_minimo);
-      return sorted.find((e) => porcentaje >= e.puntaje_minimo)?.evaluacion ?? null;
+      return sorted.find((e) => puntajeObtenido >= e.puntaje_minimo)?.evaluacion ?? null;
     })(),
   );
 

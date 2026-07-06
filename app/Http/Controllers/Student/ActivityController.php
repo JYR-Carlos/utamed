@@ -83,6 +83,7 @@ class ActivityController extends Controller
         
         $interacciones = [];
         $ultimaEntrega = null;
+        $rubricaUltimaEvaluacion = null;
 
         if ($grupo) {
             $agendas = Agenda::where('id_actividad_asignada_grupo', $grupo->id_actividad_asignada_grupo)
@@ -118,13 +119,10 @@ class ActivityController extends Controller
                 ];
             })->values()->toArray();
 
-            // Obtener la rúbrica de la última evaluación
-            foreach (array_reverse($interacciones) as $item) {
-                if ($item['rubrica'] !== null) {
-                    $rubrica = $item['rubrica'];
-                    break;
-                }
-            }
+            // Rúbrica usada en la evaluación más reciente (no la última rúbrica creada)
+            $ultimaEvaluacionAgenda = $agendas->reverse()->first(fn (Agenda $a) => $a->evaluacion !== null);
+            $rubricaUltimaEvaluacion = $ultimaEvaluacionAgenda?->evaluacion?->rubrica;
+
             // obtiene la ultima entrega del estudiante
             foreach (array_reverse($interacciones) as $item) {
                 if ($item['tipo_interaccion'] === "Entrega de avance") {
@@ -132,11 +130,13 @@ class ActivityController extends Controller
                     break;
                 }
             }
-            
+
         }
-        // RUBRICA SIN EVALUACIONES (SÓLO CABECERA)
-        $rubrica = Rubrica::where('id_actividad','=', $actividad->id_actividad)
-         ->orderByDesc('id_rubrica')->first();
+        // Si ya hay una evaluación, se muestra la rúbrica que efectivamente se usó en ella;
+        // si aún no hay evaluación, se muestra sólo la cabecera de la rúbrica vigente.
+        $rubrica = $rubricaUltimaEvaluacion
+            ?? Rubrica::where('id_actividad', '=', $actividad->id_actividad)
+                ->orderByDesc('id_rubrica')->first();
 
         // Derivar estado legible para el estudiante
         $estado = $grupo?->estado_actividad_asignada?->value;
@@ -163,7 +163,7 @@ class ActivityController extends Controller
             'es_sumativa'           => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
             'trae_archivo'          => $actividad->uuid_archivo !== null,
             'entrega_obligatoria'   => strtolower($actividad->tipo_entrega ?? '') !== 'sin entrega',
-            'ultima_nota'           => (float) $ultimaNota,
+            'ultima_nota'           => $ultimaNota !== null ? (float) $ultimaNota : null,
             'ultima_evaluacion'     => null,
             'ultima_entrega'        => $ultimaEntrega,
             'estado'                => $estado,
