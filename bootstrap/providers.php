@@ -5,4 +5,5 @@ return [
     App\Providers\AuthServiceProvider::class,
     App\Providers\DatabaseServiceProvider::class,
     App\Providers\FortifyServiceProvider::class,
+    App\Providers\IntranetViewConnectionProvider::class,
 ];

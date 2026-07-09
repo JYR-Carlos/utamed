@@ -31,7 +31,7 @@ class IntranetService {
      * asociarCursoNuevoConCurCodigo(semestre actual, año actual, cod carrera, plan año, cod asignatura) (le pasa datos y recupera los codigos de todas las componentes asociadas al curso)
      * 
      * 
-     * 
+     * USAR PROVIDER App\Providers\IntranetViewConnectionProvider.php
      * 
      */
 
