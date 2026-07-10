@@ -6,11 +6,31 @@
    * callbacks. Cada tarjeta enlaza a la evaluación de la actividad
    * (/docente/cursos/{id}/actividades/{id}/evaluacion). Los flags can* vienen
    * de los permisos del docente sobre el curso.
+   *
+   * El acento de color de cada tarjeta (rail, chip de tipo, botón "Evaluar")
+   * se deriva de tipo_actividad: SUMATIVA (cuenta para la nota) usa índigo,
+   * FORMATIVA (práctica) usa celeste — así el tipo se reconoce de un vistazo
+   * sin leer texto. El bloque de fecha límite se colorea por urgencia real
+   * (vencida / próxima / normal), reusando la paleta de estado que ya usa
+   * docente/Cursos.svelte para "por revisar".
    */
   import { Link } from '@inertiajs/svelte';
-  import { Edit2, Trash2, ClipboardList, Plus, Eye, EyeOff } from 'lucide-svelte';
+  import {
+    Edit2,
+    Trash2,
+    ClipboardList,
+    Plus,
+    Eye,
+    EyeOff,
+    Clock,
+    Users,
+    User,
+    Monitor,
+    MapPin,
+    Shuffle,
+  } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
-  import { formatFechaTextoLargo } from '@/utils/formatters';
+  import { formatFechaTextoLargo, parseFechaSoloDia } from '@/utils/formatters';
 
   interface Props {
     actividades: Actividad[];
@@ -40,17 +60,54 @@
     onCreateClick = () => {},
     onToggleVisible = () => {},
   }: Props = $props();
+
+  // ── Acento por tipo de actividad ──────────────────────────────────────────
+
+  const TIPO_ACCENT: Record<string, { base: string; soft: string }> = {
+    SUMATIVA: { base: '#4F46E5', soft: '#EEF0FF' },
+    FORMATIVA: { base: '#0284C7', soft: '#E6F4FB' },
+  };
+  const DEFAULT_ACCENT = { base: '#5C6478', soft: '#FAFBFC' };
+
+  function tipoAccentOf(tipo: string) {
+    return TIPO_ACCENT[tipo] ?? DEFAULT_ACCENT;
+  }
+
+  // ── Icono según tipo de entrega ────────────────────────────────────────────
+
+  function entregaIcon(tipo: string) {
+    if (tipo === 'presencial') return MapPin;
+    if (tipo === 'hibrido') return Shuffle;
+    return Monitor;
+  }
+
+  // ── Urgencia de la fecha límite ────────────────────────────────────────────
+
+  function urgenciaFecha(fechaLimite: string): { bg: string; fg: string; label: string | null } {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const fecha = parseFechaSoloDia(fechaLimite);
+    const diffDias = Math.round((fecha.getTime() - hoy.getTime()) / 86_400_000);
+
+    if (diffDias < 0) return { bg: '#FEF2F2', fg: '#B91C1C', label: 'Vencida' };
+    if (diffDias <= 3) return { bg: '#FEF3CC', fg: '#92580B', label: 'Próxima' };
+    return { bg: '#FAFBFC', fg: '#2B3142', label: 'Fecha límite' };
+  }
 </script>
 
 {#if actividades.length === 0}
-  <div class="text-center p-16 bg-white rounded-xl border border-gray-200">
-    <div class="text-5xl mb-4">📋</div>
-    <h3 class="text-xl text-gray-900 font-semibold mb-2">No hay actividades creadas</h3>
-    <p class="text-gray-600 mb-6">Crea tu primera actividad para este curso</p>
+  <div class="text-center p-16 bg-white rounded-2xl border border-dashed border-[#E8EAF0]">
+    <div
+      class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#FAFBFC] border border-[#E8EAF0] text-[#8B92A6] mb-4"
+    >
+      <ClipboardList size={26} aria-hidden="true" />
+    </div>
+    <h3 class="text-xl text-[#0E1220] font-semibold mb-2">No hay actividades creadas</h3>
+    <p class="text-[#5C6478] mb-6">Crea tu primera actividad para este curso</p>
     {#if canCreate}
       <button
         onclick={onCreateClick}
-        class="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 text-gray-900 border border-gray-300 rounded-md font-medium hover:bg-gray-200 transition-all"
+        class="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0E1220] text-white rounded-lg font-medium hover:bg-[#2B3142] transition-all"
       >
         <Plus size={18} />
         Crear Actividad
@@ -58,108 +115,136 @@
     {/if}
   </div>
 {:else}
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    {#each actividades as actividad}
+  <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
+    {#each actividades as actividad (actividad.id_actividad)}
+      {@const tipoAccent = tipoAccentOf(actividad.tipo_actividad)}
+      {@const urgencia = urgenciaFecha(actividad.fecha_limite)}
+      {@const EntregaIcon = entregaIcon(actividad.tipo_entrega)}
       <div
-        class="bg-white border border-gray-200 rounded-xl p-6 hover:border-blue-500 hover:shadow-lg transition-all flex flex-col"
+        class="group relative bg-white border border-[#E8EAF0] rounded-2xl p-5 flex flex-col gap-3.5 overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-8px_rgba(0,0,0,0.10),0_2px_4px_rgba(0,0,0,0.04)]"
+        style="--ac:{tipoAccent.base}; --ac-soft:{tipoAccent.soft}"
       >
-        <div class="flex justify-between items-start mb-4">
-          <div class="flex items-center gap-3 flex-1">
-            <h3 class="text-lg font-semibold text-gray-900">{actividad.nombre}</h3>
+        <!-- Rail de acento -->
+        <div
+          class="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--ac)] opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none"
+          aria-hidden="true"
+        ></div>
+
+        <!-- Eyebrow: tipo + componente, acciones a la derecha -->
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+            <span
+              class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[0.6875rem] font-semibold uppercase tracking-wide"
+              style="background:{tipoAccent.soft}; color:{tipoAccent.base}"
+              >{actividad.tipo_actividad}</span
+            >
+            <span class="text-[0.6875rem] text-[#8B92A6] font-mono tracking-[0.02em] truncate"
+              >{actividad.componente?.tipo_componente?.tipo ?? '—'}</span
+            >
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
             {#if canEdit}
               <button
                 onclick={() => onToggleVisible(actividad)}
-                class={`inline-flex items-center justify-center p-1.5 rounded-full border transition-all ${
+                class={`inline-flex items-center justify-center w-7 h-7 rounded-full border transition-all ${
                   actividad.visible
-                    ? 'bg-green-100 border-green-200 text-green-700 hover:bg-green-200'
-                    : 'bg-red-100 border-red-200 text-red-700 hover:bg-red-200'
+                    ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                    : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
                 }`}
                 title={actividad.visible
                   ? 'Visible para estudiantes — clic para ocultar'
                   : 'Oculta para estudiantes — clic para mostrar'}
               >
                 {#if actividad.visible}
-                  <Eye size={16} />
+                  <Eye size={14} />
                 {:else}
-                  <EyeOff size={16} />
+                  <EyeOff size={14} />
                 {/if}
               </button>
             {:else if actividad.visible}
               <span
-                class="inline-flex items-center gap-1 text-xs font-medium px-3 py-1 bg-green-100 text-green-900 rounded-full"
-                ><Eye size={12} /> Visible</span
+                class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-50 text-green-700"
+                title="Visible para estudiantes"
               >
+                <Eye size={14} />
+              </span>
             {:else}
               <span
-                class="inline-flex items-center gap-1 text-xs font-medium px-3 py-1 bg-red-100 text-red-900 rounded-full"
-                ><EyeOff size={12} /> Oculta</span
+                class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-red-50 text-red-700"
+                title="Oculta para estudiantes"
               >
+                <EyeOff size={14} />
+              </span>
             {/if}
-          </div>
-          <div class="flex gap-2">
             {#if canEdit}
               <button
                 onclick={() => onEdit(actividad)}
-                class="p-2 bg-transparent border border-gray-200 rounded-md text-gray-600 hover:bg-gray-100 hover:text-blue-500 hover:border-blue-500 transition-all"
+                class="inline-flex items-center justify-center w-7 h-7 rounded-full border border-[#E8EAF0] text-[#5C6478] hover:bg-[#FAFBFC] hover:text-blue-600 hover:border-blue-300 transition-all"
                 title="Editar"
               >
-                <Edit2 size={18} />
+                <Edit2 size={14} />
               </button>
             {/if}
             {#if canDelete}
               <button
                 onclick={() => onDelete(actividad)}
-                class="p-2 bg-transparent border border-gray-200 rounded-md text-gray-600 hover:bg-gray-100 hover:text-red-600 hover:border-red-600 transition-all"
+                class="inline-flex items-center justify-center w-7 h-7 rounded-full border border-[#E8EAF0] text-[#5C6478] hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-all"
                 title="Eliminar"
               >
-                <Trash2 size={18} />
+                <Trash2 size={14} />
               </button>
             {/if}
           </div>
         </div>
 
-        <div class="flex flex-col gap-3 mb-4 flex-1">
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-600 font-medium">Componente:</span>
-            <span class="text-gray-900 font-medium"
-              >{actividad.componente?.tipo_componente?.tipo ?? '—'}</span
-            >
-          </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-600 font-medium">Tipo:</span>
-            <span class="text-gray-900 font-medium">{actividad.tipo_actividad}</span>
-          </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-600 font-medium">Entrega:</span>
-            <span class="text-gray-900 font-medium capitalize">{actividad.tipo_entrega}</span>
-          </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-600 font-medium">Modalidad:</span>
-            <span class="text-gray-900 font-medium">
-              {#if actividad.es_grupal}
-                👥 Grupal (máx. {actividad.max_integrantes} personas)
-              {:else}
-                👤 Individual
-              {/if}
-            </span>
+        <!-- Título -->
+        <h3 class="text-[1.05rem] font-semibold text-[#0E1220] tracking-[-0.01em] leading-snug">
+          {actividad.nombre}
+        </h3>
+
+        <!-- Chips de metadata -->
+        <div class="flex flex-wrap gap-1.5">
+          <div
+            class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs bg-[#FAFBFC] text-[#2B3142] border border-[#E8EAF0] capitalize"
+          >
+            <EntregaIcon size={13} aria-hidden="true" />
+            {actividad.tipo_entrega}
           </div>
           <div
-            class="flex justify-between text-sm bg-blue-50 px-3 py-2 rounded-md border-l-4 border-blue-500"
+            class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs bg-[#FAFBFC] text-[#2B3142] border border-[#E8EAF0]"
           >
-            <span class="text-gray-600 font-medium">Fecha Límite:</span>
-            <span class="text-blue-600 font-semibold">{formatFechaTextoLargo(actividad.fecha_limite)}</span>
+            {#if actividad.es_grupal}
+              <Users size={13} aria-hidden="true" />
+              Grupal · máx {actividad.max_integrantes}
+            {:else}
+              <User size={13} aria-hidden="true" />
+              Individual
+            {/if}
           </div>
         </div>
 
-        <div class="flex gap-2">
-          <Link
-            href={`/docente/cursos/${idCurso}/actividades/${actividad.id_actividad}/evaluacion`}
-            class="flex-1 inline-flex items-center justify-center gap-1 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-md font-semibold text-blue-700 hover:bg-blue-100 hover:border-blue-500 transition-all text-sm no-underline"
-          >
-            <ClipboardList size={16} />
-            Evaluar
-          </Link>
+        <!-- Fecha límite, coloreada según urgencia real -->
+        <div
+          class="flex items-center gap-2 px-3 py-2 rounded-[10px] mt-auto"
+          style="background:{urgencia.bg}; color:{urgencia.fg}"
+        >
+          <Clock size={15} aria-hidden="true" />
+          <div class="flex flex-col leading-tight">
+            <span class="text-[0.625rem] font-semibold uppercase tracking-wide opacity-80"
+              >{urgencia.label}</span
+            >
+            <span class="text-sm font-semibold">{formatFechaTextoLargo(actividad.fecha_limite)}</span>
+          </div>
         </div>
+
+        <!-- Evaluar -->
+        <Link
+          href={`/docente/cursos/${idCurso}/actividades/${actividad.id_actividad}/evaluacion`}
+          class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-[10px] font-semibold text-sm no-underline border border-[var(--ac)] bg-[var(--ac-soft)] text-[var(--ac)] hover:bg-[var(--ac)] hover:text-white transition-all"
+        >
+          <ClipboardList size={15} />
+          Evaluar
+        </Link>
       </div>
     {/each}
   </div>
