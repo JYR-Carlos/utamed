@@ -284,7 +284,7 @@
                     <span class="relative text-[1.2rem] font-bold text-white tracking-[-0.01em] select-none">{inits}</span>
                   </div>
                   <div class="flex flex-col items-end gap-1.5">
-                    <span class="font-mono text-[0.6875rem] text-[#8B92A6] tracking-[0.02em]">{curso.cod_curso}</span>
+                    <span class="font-mono text-[0.6875rem] text-[#8B92A6] tracking-[0.02em]">{curso.cod_curso}{curso.letra_grupo ? `-${curso.letra_grupo}` : ''}</span>
                     {#if urgent}<span class="inline-block w-2 h-2 rounded-full bg-[#EF4444] shadow-[0_0_0_3px_rgba(239,68,68,0.18)]" title="Tiene actividades pendientes"></span>{/if}
                   </div>
                 </div>
@@ -364,7 +364,7 @@
                     {#if urgent}<span class="inline-block w-2 h-2 rounded-full bg-[#EF4444] shadow-[0_0_0_3px_rgba(239,68,68,0.18)] shrink-0" title="Tiene actividades pendientes"></span>{/if}
                   </div>
                   <div class="flex gap-[5px] items-center text-xs text-[#5C6478] min-w-0 overflow-hidden whitespace-nowrap">
-                    <span class="font-mono text-[0.6875rem] text-[#8B92A6] tracking-[0.02em]">{curso.cod_curso}</span>
+                    <span class="font-mono text-[0.6875rem] text-[#8B92A6] tracking-[0.02em]">{curso.cod_curso}{curso.letra_grupo ? `-${curso.letra_grupo}` : ''}</span>
                     <span aria-hidden="true">·</span>
                     <span>{curso.carrera_nombre || curso.programa_nombre || 'Sin carrera'}</span>
                   </div>

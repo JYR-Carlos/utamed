@@ -91,6 +91,7 @@ class DocenteCursoController extends Controller
                     'id_curso' => $curso->id_curso,
                     'nombre' => $curso->nombre,
                     'cod_curso' => $curso->cod_curso,
+                    'letra_grupo' => $curso->letra_grupo,
                     'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                     'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? 'N/A',
                     'plan_nombre' => $curso->asignacionPlan?->plan?->nombre ?? 'N/A',

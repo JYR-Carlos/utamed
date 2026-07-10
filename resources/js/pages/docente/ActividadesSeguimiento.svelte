@@ -47,7 +47,7 @@
   interface ActividadExtendida extends Actividad {
     componente?: {
       id_componente: number;
-      tipo_componente?: { nombre: string };
+      tipo_componente?: { tipo: string };
     } | null;
   }
 

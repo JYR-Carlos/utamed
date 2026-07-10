@@ -11,6 +11,7 @@ use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
+use App\Services\Agenda\GrupoIndividualService;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
@@ -53,6 +54,14 @@ class ActivityController extends Controller
         }
 
         $actividad->load(['componente.tipoComponente', 'unidad', 'archivo']);
+
+        // Las actividades individuales no pasan por el flujo manual de creación
+        // de grupos: si el estudiante todavía no tiene su grupo de 1 integrante
+        // (actividad creada antes de este fix, o inscripción posterior), se crea
+        // aquí de forma perezosa (ver GrupoIndividualService).
+        if (!$actividad->es_grupal) {
+            (new GrupoIndividualService())->asegurarGrupo($actividad, $estudiante->id_estudiante);
+        }
 
         // Buscar el grupo del estudiante para esta actividad
         $integranteGrupo = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)

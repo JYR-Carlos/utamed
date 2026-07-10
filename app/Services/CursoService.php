@@ -269,6 +269,13 @@ class CursoService
             // Sync docente_titular roles in components if changed
             if ($newDocenteTitularId !== null && $newDocenteTitularId !== $oldDocenteTitularId) {
                 $this->syncDocenteTitularInComponents($curso, $oldDocenteTitularId, $newDocenteTitularId);
+
+                // syncDocenteTitularInComponents solo sincroniza curso.docente_componente
+                // (es_titular por componente); sin esto, el nuevo titular nunca recibe el
+                // rol RBAC "Docente Titular" en el contexto del curso (sólo se asigna al
+                // crear el curso), y por lo tanto no tiene el permiso
+                // cursos/programas:agregar para crear el syllabus.
+                $this->assignDocenteRolCurso($newDocenteTitularId, $curso->id_contexto, true);
             }
 
             return $curso;

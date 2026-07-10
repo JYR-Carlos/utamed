@@ -428,15 +428,23 @@
     if (syllabusTargetCurso) {
       const idx = cursos.data.findIndex((c) => c.id_curso === syllabusTargetCurso!.id_curso);
       if (idx !== -1) {
-        cursos.data[idx] = {
+        const cursoActualizado = {
           ...cursos.data[idx],
           has_programa: true,
           id_programa: programa.id_programa,
           programa_estado: programa.estado,
         };
 
+        // Reasignar `cursos` (no solo mutar cursos.data[idx]) para que Svelte
+        // detecte el cambio: la mutación en el elemento del array no siempre
+        // dispara el re-render cuando `cursos` viene de un prop de Inertia.
+        cursos = {
+          ...cursos,
+          data: cursos.data.map((c, i) => (i === idx ? cursoActualizado : c)),
+        };
+
         if (slideOverCurso?.id_curso === syllabusTargetCurso.id_curso) {
-          slideOverCurso = cursos.data[idx];
+          slideOverCurso = cursoActualizado;
         }
       }
     }

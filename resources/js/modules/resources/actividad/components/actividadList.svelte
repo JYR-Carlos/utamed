@@ -99,6 +99,12 @@
 
         <div class="flex flex-col gap-3 mb-4 flex-1">
           <div class="flex justify-between text-sm">
+            <span class="text-gray-600 font-medium">Componente:</span>
+            <span class="text-gray-900 font-medium"
+              >{actividad.componente?.tipo_componente?.tipo ?? '—'}</span
+            >
+          </div>
+          <div class="flex justify-between text-sm">
             <span class="text-gray-600 font-medium">Tipo:</span>
             <span class="text-gray-900 font-medium">{actividad.tipo_actividad}</span>
           </div>

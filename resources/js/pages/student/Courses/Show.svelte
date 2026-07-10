@@ -15,12 +15,24 @@
     visible: boolean;
   }
 
+  interface Programa {
+    id_programa: number;
+    version_programa: string;
+    estado: string;
+    creado_por?: string;
+    fecha_creacion?: string;
+    tipo_syllabus?: string;
+  }
+
   interface Props {
     curso?: Curso;
     actividades?: Actividad[];
+    programa?: Programa | null;
+    docente?: { nombre?: string; email?: string } | null;
+    datos?: Record<string, unknown> | null;
   }
 
-  let { curso, actividades = [] }: Props = $props();
+  let { curso, actividades = [], programa = null, docente = null, datos = null }: Props = $props();
 
   const id_curso = $derived(curso?.id_curso || 0);
 
@@ -87,7 +99,7 @@
           </button>
           {#if showSyllabus}
             <div id="syllabus-section" class="pl-4 border-gray-200 mb-2">
-              <Syllabus {curso} />
+              <Syllabus {curso} {programa} {docente} {datos} />
             </div>
           {/if}
 

@@ -13,6 +13,7 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\Componente;
 use App\Models\Curso\Unidad;
 use App\Models\Curso\InscripcionCurso;
+use App\Services\Agenda\GrupoIndividualService;
 use App\Services\Docente\ConversacionDocenteService;
 use App\Services\Docente\NombreUsuario;
 use Illuminate\Http\Request;
@@ -162,7 +163,15 @@ class DocenteActivityController extends Controller
         // id_contexto is handled automatically by the DB trigger tr_actividad_pre_insert
         try {
             $actividad = Actividad::create($validated);
-            
+
+            // Las actividades individuales no pasan por el flujo manual de
+            // creación de grupos: cada estudiante inscrito necesita su propio
+            // grupo de 1 integrante para que agenda/evaluación tengan dónde
+            // colgarse (ver GrupoIndividualService).
+            if (!$actividad->es_grupal) {
+                (new GrupoIndividualService())->asegurarGruposDelCurso($curso, $actividad);
+            }
+
             Log::info('[DocenteActivity::store] Actividad creada', [
                 'id_actividad' => $actividad->id_actividad,
                 'nombre'       => $actividad->nombre,
@@ -364,6 +373,13 @@ class DocenteActivityController extends Controller
         $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
 
         $actividad->load(['componente', 'unidad']);
+
+        // Repara actividades individuales creadas antes de que existiera la
+        // auto-creación de grupos, o estudiantes inscritos después: sin esto,
+        // la actividad aparece sin nada que evaluar (ver GrupoIndividualService).
+        if (!$actividad->es_grupal) {
+            (new GrupoIndividualService())->asegurarGruposDelCurso($curso, $actividad);
+        }
 
         // Grupos con sus integrantes (modelo nuevo: actividad_asignada_grupo)
         $grupos = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)

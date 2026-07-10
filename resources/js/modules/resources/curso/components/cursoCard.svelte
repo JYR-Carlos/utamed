@@ -9,6 +9,7 @@
   interface CursoResumen {
     nombre: string;
     cod_curso: string;
+    letra_grupo?: string | null;
     imagen_url?: string | null;
     carrera_nombre?: string | null;
   }
@@ -52,7 +53,7 @@
     </p>
 
     <p class="text-sm text-slate-500 mt-1">
-      {curso.cod_curso}
+      {curso.cod_curso}{curso.letra_grupo ? `-${curso.letra_grupo}` : ''}
     </p>
 
     <p class="text-sm text-slate-600 mt-2">

@@ -7,6 +7,7 @@ use App\Models\Agenda\Actividad;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
+use App\Services\Student\StudentSyllabusPresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -157,18 +158,21 @@ class CourseController extends Controller
             'visible'         => (bool) $actividad->visible,
         ])->values();
 
-        return Inertia::render('student/Courses/Show', [
-            'curso' => [
-                'id_curso'          => $curso->id_curso,
-                'nombre'            => $curso->nombre,
-                'cod_curso'         => $curso->cod_curso,
-                'cod_asignatura'    => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? '',
-                'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
-                'semestre_real'     => $curso->semestre_real,
-                'agno_real'         => $curso->agno_real,
-                'unidades'          => $curso->unidades_real
+        return Inertia::render('student/Courses/Show', array_merge(
+            [
+                'curso' => [
+                    'id_curso'          => $curso->id_curso,
+                    'nombre'            => $curso->nombre,
+                    'cod_curso'         => $curso->cod_curso,
+                    'cod_asignatura'    => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? '',
+                    'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+                    'semestre_real'     => $curso->semestre_real,
+                    'agno_real'         => $curso->agno_real,
+                    'unidades'          => $curso->unidades_real,
+                ],
+                'actividades' => $actividadesData,
             ],
-            'actividades' => $actividadesData,
-        ]);
+            StudentSyllabusPresenter::build($curso)
+        ));
     }
 }
