@@ -8,7 +8,7 @@
    * de los permisos del docente sobre el curso.
    */
   import { Link } from '@inertiajs/svelte';
-  import { Edit2, Trash2, ClipboardList, Plus } from 'lucide-svelte';
+  import { Edit2, Trash2, ClipboardList, Plus, Eye, EyeOff } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
   import { formatFechaTextoLargo } from '@/utils/formatters';
 
@@ -25,6 +25,8 @@
     onDelete?: (actividad: Actividad) => void;
     /** Abre el modal de creación (botón del estado vacío). */
     onCreateClick?: () => void;
+    /** Alterna visible/oculta para los estudiantes (ojito). */
+    onToggleVisible?: (actividad: Actividad) => void;
   }
 
   let {
@@ -36,6 +38,7 @@
     onEdit = () => {},
     onDelete = () => {},
     onCreateClick = () => {},
+    onToggleVisible = () => {},
   }: Props = $props();
 </script>
 
@@ -63,15 +66,33 @@
         <div class="flex justify-between items-start mb-4">
           <div class="flex items-center gap-3 flex-1">
             <h3 class="text-lg font-semibold text-gray-900">{actividad.nombre}</h3>
-            {#if actividad.visible}
+            {#if canEdit}
+              <button
+                onclick={() => onToggleVisible(actividad)}
+                class={`inline-flex items-center justify-center p-1.5 rounded-full border transition-all ${
+                  actividad.visible
+                    ? 'bg-green-100 border-green-200 text-green-700 hover:bg-green-200'
+                    : 'bg-red-100 border-red-200 text-red-700 hover:bg-red-200'
+                }`}
+                title={actividad.visible
+                  ? 'Visible para estudiantes — clic para ocultar'
+                  : 'Oculta para estudiantes — clic para mostrar'}
+              >
+                {#if actividad.visible}
+                  <Eye size={16} />
+                {:else}
+                  <EyeOff size={16} />
+                {/if}
+              </button>
+            {:else if actividad.visible}
               <span
-                class="inline-block text-xs font-medium px-3 py-1 bg-green-100 text-green-900 rounded-full"
-                >Visible</span
+                class="inline-flex items-center gap-1 text-xs font-medium px-3 py-1 bg-green-100 text-green-900 rounded-full"
+                ><Eye size={12} /> Visible</span
               >
             {:else}
               <span
-                class="inline-block text-xs font-medium px-3 py-1 bg-red-100 text-red-900 rounded-full"
-                >Oculta</span
+                class="inline-flex items-center gap-1 text-xs font-medium px-3 py-1 bg-red-100 text-red-900 rounded-full"
+                ><EyeOff size={12} /> Oculta</span
               >
             {/if}
           </div>

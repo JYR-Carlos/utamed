@@ -232,6 +232,32 @@ class DocenteActivityController extends Controller
     }
 
     /**
+     * Alterna la visibilidad de una actividad para los estudiantes, sin pasar
+     * por el formulario completo de edición (toggle del ojito en la lista).
+     */
+    public function toggleVisibilidad(Curso $curso, Actividad $actividad)
+    {
+        $this->authorize('manageTeam', $curso);
+
+        $this->assertActividadDeCurso($curso, $actividad);
+
+        try {
+            $actividad->update(['visible' => !$actividad->visible]);
+
+            $mensaje = $actividad->visible
+                ? "Actividad '{$actividad->nombre}' visible para los estudiantes."
+                : "Actividad '{$actividad->nombre}' oculta para los estudiantes.";
+
+            return redirect()->back()->with('success', $mensaje);
+        } catch (\Exception $e) {
+            Log::error('Error toggling activity visibility: ' . $e->getMessage());
+
+            return redirect()->back()
+                ->with('error', 'No se pudo cambiar la visibilidad de la actividad.');
+        }
+    }
+
+    /**
      * Delete an activity
      */
     public function destroy(Curso $curso, Actividad $actividad)

@@ -41,6 +41,18 @@ export function updateActividad(
     });
 }
 
+/** PATCH /docente/cursos/{id}/actividades/{id}/visibilidad — alterna visible/oculta. */
+export function toggleVisibilidadActividad(
+    idCurso: number,
+    idActividad: number,
+    options: ApiOptions = {},
+) {
+    router.patch(`/docente/cursos/${idCurso}/actividades/${idActividad}/visibilidad`, {}, {
+        onSuccess: options.onSuccess,
+        onError: options.onError,
+    });
+}
+
 /** DELETE /docente/cursos/{id}/actividades/{id} — elimina una actividad. */
 export function deleteActividad(
     idCurso: number,

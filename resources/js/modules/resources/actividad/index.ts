@@ -10,4 +10,9 @@
 export { ActividadList, ActividadForm, ActividadDeleteConfirm, ActividadCard } from './components';
 
 // Services
-export { createActividad, updateActividad, deleteActividad } from './services/actividadApi';
+export {
+  createActividad,
+  updateActividad,
+  deleteActividad,
+  toggleVisibilidadActividad,
+} from './services/actividadApi';

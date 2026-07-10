@@ -25,6 +25,7 @@
     createActividad,
     updateActividad,
     deleteActividad,
+    toggleVisibilidadActividad,
   } from '@/modules/resources/actividad';
   import { Plus, ArrowLeft } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
@@ -134,6 +135,10 @@
     }
   }
 
+  function handleToggleVisible(actividad: Actividad) {
+    toggleVisibilidadActividad(curso.id_curso, actividad.id_actividad);
+  }
+
   function openDeleteDialog(actividad: Actividad) {
     deletingActividad = actividad;
     showDeleteDialog = true;
@@ -210,6 +215,7 @@
       onEdit={openEditModal}
       onDelete={openDeleteDialog}
       onCreateClick={openCreateModal}
+      onToggleVisible={handleToggleVisible}
     />
   </div>
 
