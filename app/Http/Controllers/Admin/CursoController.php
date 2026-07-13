@@ -325,6 +325,50 @@ class CursoController extends Controller
     }
 
     /**
+     * Returns the next available indice_grupo (letra) for a given
+     * asignatura + plan + periodo, plus the indices already taken, so the
+     * wizard can offer a manual letter selector.
+     */
+    public function getProximaLetra(Request $request)
+    {
+        $request->validate([
+            'id_asignatura' => 'required|integer|exists:asignatura,id_asignatura',
+            'id_plan'       => 'required|integer|exists:plan,id_plan',
+            'agno_real'     => 'nullable|integer',
+            'semestre_real' => 'nullable|integer',
+        ]);
+
+        $agnoReal = $request->input('agno_real');
+        $semestreReal = $request->input('semestre_real');
+
+        $asignacionPlan = \App\Models\Administrativo\AsignacionPlan::where('id_asignatura', $request->id_asignatura)
+            ->where('id_plan', $request->id_plan)
+            ->whereNull('fecha_eliminacion')
+            ->first();
+
+        if (!$asignacionPlan) {
+            return response()->json(['proximo_indice' => 1, 'indices_tomados' => []]);
+        }
+
+        $query = Curso::where('id_asignacion_plan', $asignacionPlan->id_asignacion_plan)
+            ->whereNull('fecha_eliminacion');
+
+        $agnoReal === null ? $query->whereNull('agno_real') : $query->where('agno_real', $agnoReal);
+        $semestreReal === null ? $query->whereNull('semestre_real') : $query->where('semestre_real', $semestreReal);
+
+        $indicesTomados = $query->pluck('indice_grupo')->values()->all();
+
+        return response()->json([
+            'proximo_indice'  => $this->cursoService->nextIndiceGrupo(
+                $asignacionPlan->id_asignacion_plan,
+                $agnoReal,
+                $semestreReal
+            ),
+            'indices_tomados' => $indicesTomados,
+        ]);
+    }
+
+    /**
      * Returns preview data for course copy modal (syllabus, components, teachers, activities).
      * Excludes students and activity responses.
      */

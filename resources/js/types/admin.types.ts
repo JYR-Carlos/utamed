@@ -528,16 +528,19 @@ export interface CursoFormData {
     numero_semestre?: number;
     agno_real?: number;
     semestre_real?: number;
-    jefe_imparte_clases?: boolean;
     id_docente_sugerido?: number;
+    /** Letra de grupo (índice numérico); si se omite, el backend calcula la próxima disponible */
+    indice_grupo?: number;
     // Componente settings
     id_tipo_componente_principal?: number;
     tipos_componente_ids?: number[];
-    genera_acta?: boolean;
+    /** Docente asignado a cada componente (clave: id_tipo_componente, valor: id_docente) */
+    docentes_por_componente?: Record<number, number>;
+    /** Si cada componente genera acta (clave: id_tipo_componente, valor: boolean) */
+    genera_acta_por_componente?: Record<number, boolean>;
     aprobacion_obligatoria?: boolean;
     porcentaje_aprobacion?: number;
     porcentaje_asistencia_obligatoria?: number;
-    es_colegiado?: boolean;
     [key: string]: FormDataConvertible;
 }
 

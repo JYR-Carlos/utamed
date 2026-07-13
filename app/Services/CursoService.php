@@ -38,17 +38,37 @@ class CursoService
             // Create context for the course
             $contexto = $this->createOrUpdateContext($data['cod_curso']);
 
+            $agnoReal = $data['agno_real'] ?? null;
+            $semestreReal = $data['semestre_real'] ?? 2;
+
+            // Docente asignado a cada componente (clave: id_tipo_componente, valor: id_docente).
+            $docentesPorComponente = $data['docentes_por_componente'] ?? [];
+
+            // El curso es colegiado si hay más de un docente distinto entre los
+            // componentes asignados. No es una opción manual: se deriva de la
+            // asignación real de docentes por componente.
+            $docentesUnicos = collect($docentesPorComponente)->filter()->unique()->count();
+            $esColegiado = $docentesUnicos > 1;
+
+            // Letra de grupo (indice_grupo): si viene explícita desde el wizard
+            // (selección manual), se respeta y valida (ver StoreCursoRequest);
+            // si no, se calcula la próxima disponible para ese periodo.
+            $indiceGrupo = !empty($data['indice_grupo'])
+                ? (int) $data['indice_grupo']
+                : $this->nextIndiceGrupo($asignacionPlan->id_asignacion_plan, $agnoReal, $semestreReal);
+
             // Prepare curso data
             $cursoData = [
                 'cod_curso'            => $data['cod_curso'],
                 'nombre'               => $data['nombre'] ?? '',
                 'fecha_inicio'         => $data['fecha_inicio'] ?? now()->format('Y-m-d'),
-                'semestre_real'        => $data['semestre_real'] ?? 2,
+                'agno_real'            => $agnoReal,
+                'semestre_real'        => $semestreReal,
                 'id_asignacion_plan'   => $asignacionPlan->id_asignacion_plan,
                 'id_contexto'          => $contexto->id_contexto,
-                'indice_grupo'         => $data['indice_grupo'] ?? 1,
+                'indice_grupo'         => $indiceGrupo,
                 'id_docente_titular'   => $data['id_docente_sugerido'],
-                'es_colegiado'         => $data['es_colegiado'] ?? false,
+                'es_colegiado'         => $esColegiado,
             ];
 
             // Set fecha_fin to 6 months after fecha_inicio
@@ -67,6 +87,8 @@ class CursoService
             // Find the chosen component type
             $tipoComponente = TipoComponente::find($data['id_tipo_componente_principal']);
 
+            $generaActaPorComponente = $data['genera_acta_por_componente'] ?? [];
+
             if ($tipoComponente) {
                 $contextoComponente = $this->createOrUpdateContext($data['cod_curso'] . '-C');
 
@@ -74,20 +96,19 @@ class CursoService
                     'id_curso'                          => $curso->id_curso,
                     'id_tipo_componente'                => $tipoComponente->id_tipo_componente,
                     'id_contexto'                       => $contextoComponente->id_contexto,
-                    'genera_acta'                       => $data['genera_acta'] ?? true,
+                    'genera_acta'                       => $generaActaPorComponente[$tipoComponente->id_tipo_componente] ?? true,
                     'aprobacion_obligatoria'            => $data['aprobacion_obligatoria'] ?? false,
                     'porcentaje_aprobacion'             => $data['porcentaje_aprobacion'] ?? 60.00,
                     'porcentaje_asistencia_obligatoria' => $data['porcentaje_asistencia_obligatoria'] ?? 75.00,
                 ]);
 
-                // Solo asignar docente al componente si indica que imparte clases
-                // El jefe SIEMPRE tiene acceso administrativo (via id_docente_titular)
-                $jefeImpartesClases = $data['jefe_imparte_clases'] ?? true; // default: true (backward compat)
-
-                if ($jefeImpartesClases) {
+                // El jefe SIEMPRE tiene acceso administrativo (via id_docente_titular),
+                // independientemente de si dicta clases en algún componente.
+                $idDocenteComponente = $docentesPorComponente[$tipoComponente->id_tipo_componente] ?? null;
+                if ($idDocenteComponente) {
                     DocenteComponente::create([
                         'id_componente' => $componente->id_componente,
-                        'id_docente'    => $data['id_docente_sugerido'],
+                        'id_docente'    => $idDocenteComponente,
                         'es_titular'    => true,
                     ]);
                 }
@@ -108,15 +129,24 @@ class CursoService
                         $data['cod_curso'] . '-' . $tipoAdicional->id_tipo_componente
                     );
 
-                    Componente::create([
+                    $componenteAdicional = Componente::create([
                         'id_curso'                          => $curso->id_curso,
                         'id_tipo_componente'                => $tipoAdicional->id_tipo_componente,
                         'id_contexto'                       => $ctxAdicional->id_contexto,
-                        'genera_acta'                       => $data['genera_acta'] ?? true,
+                        'genera_acta'                       => $generaActaPorComponente[$tipoAdicional->id_tipo_componente] ?? true,
                         'aprobacion_obligatoria'            => $data['aprobacion_obligatoria'] ?? false,
                         'porcentaje_aprobacion'             => $data['porcentaje_aprobacion'] ?? 60.00,
                         'porcentaje_asistencia_obligatoria' => $data['porcentaje_asistencia_obligatoria'] ?? 75.00,
                     ]);
+
+                    $idDocenteAdicional = $docentesPorComponente[$tipoAdicional->id_tipo_componente] ?? null;
+                    if ($idDocenteAdicional) {
+                        DocenteComponente::create([
+                            'id_componente' => $componenteAdicional->id_componente,
+                            'id_docente'    => $idDocenteAdicional,
+                            'es_titular'    => true,
+                        ]);
+                    }
                 }
             }
 
@@ -144,6 +174,14 @@ class CursoService
             $contexto = $this->createOrUpdateContext((string) $data['cod_curso']);
             $fechaInicio = $data['fecha_inicio'];
 
+            // No reutilizamos el indice_grupo del padre: el trigger de BD ya no
+            // lo sobrescribe automáticamente, así que copiar el mismo valor
+            // colisionaría con la letra del curso origen. Como esta copia no
+            // fija agno_real/semestre_real (quedan null, igual que el padre en
+            // este flujo), calculamos la próxima letra disponible en ese mismo
+            // scope (id_asignacion_plan, null, null).
+            $indiceGrupo = $this->nextIndiceGrupo($cursoPadre->id_asignacion_plan, null, null);
+
             $nuevoCurso = Curso::create([
                 'cod_curso'           => $data['cod_curso'],
                 'nombre'              => $cursoPadre->nombre,
@@ -153,7 +191,7 @@ class CursoService
                 'id_contexto'         => $contexto->id_contexto,
                 'id_docente_titular'  => $cursoPadre->id_docente_titular,
                 'es_colegiado'        => $cursoPadre->es_colegiado,
-                'indice_grupo'        => $cursoPadre->indice_grupo ?? 1,
+                'indice_grupo'        => $indiceGrupo,
                 'id_curso_padre'      => $cursoPadre->id_curso,
             ]);
 
@@ -302,6 +340,29 @@ class CursoService
         }
 
         return $asignacionPlan;
+    }
+
+    /**
+     * Calcula el próximo indice_grupo (letra) disponible para un periodo dado.
+     * Null-safe: agno_real/semestre_real nulos se tratan como su propio scope
+     * (no como "cualquier periodo"), igual que la comparación SQL original.
+     *
+     * @param int $idAsignacionPlan
+     * @param int|null $agnoReal
+     * @param int|null $semestreReal
+     * @return int
+     */
+    public function nextIndiceGrupo(int $idAsignacionPlan, ?int $agnoReal, ?int $semestreReal): int
+    {
+        $query = Curso::where('id_asignacion_plan', $idAsignacionPlan)
+            ->whereNull('fecha_eliminacion');
+
+        $agnoReal === null ? $query->whereNull('agno_real') : $query->where('agno_real', $agnoReal);
+        $semestreReal === null ? $query->whereNull('semestre_real') : $query->where('semestre_real', $semestreReal);
+
+        $ultimoIndice = (int) ($query->max('indice_grupo') ?? 0);
+
+        return $ultimoIndice + 1;
     }
 
     /**

@@ -120,6 +120,10 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::post('cursos/{curso}/copiar', [CursoController::class, 'copiar'])
         ->name('cursos.copiar');
 
+    // Próxima letra de grupo disponible (BEFORE resource to avoid conflict with {curso} binding)
+    Route::get('cursos/proxima-letra', [CursoController::class, 'getProximaLetra'])
+        ->name('cursos.proxima-letra');
+
     Route::resource('cursos', CursoController::class);
 
     Route::get('usuarios/buscar-por-rut', [UsuarioController::class, 'buscarPorRut'])

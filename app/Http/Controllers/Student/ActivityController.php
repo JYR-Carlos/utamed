@@ -88,7 +88,7 @@ class ActivityController extends Controller
             : collect();
 
         
-        $ultimaNota = $integranteGrupo?->evaluacion->nota_obtenida ?? $grupo?->nota;
+        $ultimaNota = $integranteGrupo?->nota_individual ?? $grupo?->nota;
         
         $interacciones = [];
         $ultimaEntrega = null;
