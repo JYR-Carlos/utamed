@@ -3,10 +3,10 @@
    * Página de login del sistema UtaMed.
    *
    * Formulario de autenticación que permite a usuarios ingresar sus
-   * credenciales (email/username y contraseña).
+   * credenciales (RUT/contraseña).
    *
    * Características:
-   * - Campo de email o username para flexibilidad en login
+   * - Campo de RUT para flexibilidad en login
    * - Opción de "Recuérdame" para mantener sesión
    * - Enlace a recuperación de contraseña
    * - Validación de errores con display diferenciado (RUT no encontrado, contraseña incorrecta, etc)
@@ -14,17 +14,14 @@
    * - Soporte para login con Fortify (Laravel)
    * - Timer visual para rate limiting
    */
-  import { onMount, onDestroy } from 'svelte';
-  import * as THREE from 'three';
-  import NET from 'vanta/dist/vanta.net.min';
+  import AppLogoIcon from '@/components/custom/layout/AppLogoIcon.svelte';
   import ErrorAlert from '@/components/custom/common/ErrorAlert.svelte';
   import TextLink from '@/components/custom/common/TextLink.svelte';
   import { Button } from '@/components/ui/button';
   import { Checkbox } from '@/components/ui/checkbox';
   import { Label } from '@/components/ui/label';
   import { Spinner } from '@/components/ui/spinner';
-  import AuthBase from '@/layouts/auth/AuthSplitLayout.svelte';
-  import { register, login } from '@/routes';
+  import { login } from '@/routes';
   import { request } from '@/routes/password';
   import type { BaseFormSnippetProps } from '@/types/forms';
   import { Form, useForm } from '@inertiajs/svelte';
@@ -235,178 +232,200 @@
   }
 
   let rutValid = $derived(isValidRutFormat($form.data.email));
-
-  let vantaContainer: HTMLElement | undefined = $state(undefined);
-  let vantaEffect: any = null;
-
-  onMount(() => {
-    if (vantaContainer) {
-      vantaEffect = NET({
-        el: vantaContainer,
-        THREE,
-        color: 0xf59e0b,
-        backgroundColor: 0x1e40af,
-        points: 12,
-        maxDistance: 20,
-        spacing: 17,
-      });
-    }
-  });
-
-  onDestroy(() => {
-    vantaEffect?.destroy();
-  });
 </script>
 
 <svelte:head>
   <title>Iniciar Sesión | UTAMed</title>
 </svelte:head>
 
-<div bind:this={vantaContainer} class="relative min-h-screen overflow-hidden">
-  <div class="relative z-10">
-    <AuthBase title="Iniciar Sesión" description="Ingresa los detalles de tu cuenta">
-  {#if status}
-    <div class="mb-4 text-center text-sm font-medium text-green-600">
-      {status}
-    </div>
-  {/if}
+<div class="relative min-h-screen w-full overflow-hidden bg-[#0d1522]">
+  <!-- Fondo fotográfico full-bleed -->
+  <div
+    class="absolute inset-0 scale-105 bg-cover bg-center blur-[2px]"
+    style="background-image: url('/img/bardesign.jpg');"
+    aria-hidden="true"
+  ></div>
 
-  {#if errorCode}
-    <div class="mb-6">
-      <ErrorAlert {errorCode} retryAfter={rateLimitRetryAfter} />
-    </div>
-  {/if}
+  <!-- Overlay nocturno violeta para legibilidad y atmósfera -->
+  <div
+    class="absolute inset-0 bg-gradient-to-br from-[#10233a]/80 via-[#0d1626]/75 to-[#070c15]/90"
+    aria-hidden="true"
+  ></div>
 
-  <Form form={$form} method="post" action={login().url} class="flex flex-col gap-6">
-    {#snippet children({ errors, processing }: BaseFormSnippetProps)}
-      <div class="grid gap-5">
-        <!-- RUT Field -->
-        <div class="space-y-1.5">
-          <label for="email" class="text-sm font-medium text-gray-700 ml-0.5"> RUT </label>
-          <div class="relative">
-            <input
-              id="email"
-              name="email"
-              type="text"
-              required
-              maxlength="13"
-              autocomplete="off"
-              placeholder="11111111-1"
-              aria-describedby="email-hint"
-              aria-invalid={$form.data.email && !rutValid ? true : undefined}
-              disabled={isRateLimited || processing}
-              bind:value={$form.data.email}
-              oninput={handleRutInput}
-              class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3.5 text-gray-900 focus-visible:ring-2 focus-visible:ring-[#2A66AC] focus:border-[#2A66AC] focus:outline-none transition-all placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-          </div>
-          {#if $form.data.email && !rutValid}
-            <p id="email-hint" class="text-xs text-red-600 ml-0.5">
-              RUT debe tener 8 dígitos + dígito verificador (formato: 12345678-K)
-            </p>
-          {:else if $form.data.email && rutValid}
-            <p id="email-hint" class="text-xs text-green-600 ml-0.5">Formato válido</p>
-          {:else}
-            <p id="email-hint" class="text-xs text-gray-500 ml-0.5">Ingresa sin puntos y con guion</p>
-          {/if}
-        </div>
+  <!-- Resplandor ambiental detrás de la card -->
+  <div
+    class="pointer-events-none absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#5B9BD5]/10 blur-[120px]"
+    aria-hidden="true"
+  ></div>
 
-        <!-- Password Field -->
-        <div class="space-y-1.5">
-          <div class="flex justify-between items-center px-0.5">
-            <label for="password" class="text-sm font-medium text-gray-700"> Contraseña </label>
-            {#if canResetPassword}
-              <div class={isRateLimited ? 'opacity-50 pointer-events-none' : ''}>
-                <TextLink
-                  href={request().url}
-                  class="text-xs text-gray-400 hover:text-[#2A66AC] transition-colors !decoration-gray-300 hover:!decoration-[#2A66AC]"
-                >
-                  ¿Olvidaste tu contraseña?
-                </TextLink>
-              </div>
-            {/if}
-          </div>
-          <div class="relative">
-            <input
-              id="password"
-              name="password"
-              type={showPassword ? 'text' : 'password'}
-              required
-              autocomplete="current-password"
-              placeholder="••••••••"
-              disabled={isRateLimited || processing}
-              bind:value={$form.data.password}
-              class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3.5 pr-12 text-gray-900 focus-visible:ring-2 focus-visible:ring-[#2A66AC] focus:border-[#2A66AC] focus:outline-none transition-all placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <button
-              type="button"
-              tabindex={-1}
-              disabled={isRateLimited || processing}
-              aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              onclick={() => (showPassword = !showPassword)}
-            >
-              {#if showPassword}
-                <EyeOff size={20} aria-hidden="true" />
-              {:else}
-                <Eye size={20} aria-hidden="true" />
-              {/if}
-            </button>
-          </div>
-        </div>
-
-        <!-- Remember me -->
-        <div class="flex items-center space-x-2 px-0.5">
-          <input type="hidden" name="remember" value="off" />
-          <Checkbox
-            id="remember"
-            name="remember"
-            checked={Boolean((form?.data as any)?.remember)}
-            disabled={isRateLimited || processing}
-            onchange={handleRememberChange}
-            class="border-gray-300 bg-transparent data-[state=checked]:bg-[#2A66AC] data-[state=checked]:border-[#2A66AC] disabled:opacity-50"
-          />
-          <div
-            class="text-xs text-gray-500 cursor-pointer hover:text-gray-700"
-            class:opacity-50={isRateLimited || processing}
-          >
-            <Label for="remember" class="text-xs text-gray-500 cursor-pointer hover:text-gray-700"
-              >Mantenerme conectado</Label
-            >
-          </div>
-        </div>
-
-        <!-- Submit Button -->
-        <Button
-          type="submit"
-          class="mt-1 w-full bg-[#2A66AC] hover:bg-[#234f8a] active:scale-[0.98] text-white font-bold py-7 rounded-xl shadow-lg shadow-[#2A66AC]/20 transition-all flex items-center justify-center gap-2 text-base cursor-pointer"
-          disabled={isRateLimited || $form.processing}
-        >
-          {#if $form.processing}
-            <Spinner class="h-4 w-4" />
-          {/if}
-          {isRateLimited ? `Bloqueado por ${rateLimitRetryAfter}s` : 'Entrar al Portal'}
-        </Button>
-
-        <!-- Info box -->
-        <div class="mt-4 p-5 rounded-lg bg-gray-50 border border-gray-100 text-center space-y-2.5">
-          <p class="text-sm text-gray-800 font-medium">Información de Acceso</p>
-          <p class="text-xs text-gray-500 leading-relaxed">
-            Como parte de nuestra comunidad académica, tus credenciales han sido enviadas
-            previamente a tu correo institucional.
-          </p>
-          <p class="text-xs font-medium text-gray-500">
-            ¿Problemas para entrar? <br />
-            <a
-              href="mailto:cite@gestion.uta.cl"
-              class="text-[#2A66AC] hover:underline transition-all"
-              >Contactar a soporte: cite@gestion.uta.cl</a
-            >
-          </p>
-        </div>
+  <!-- Card centrada -->
+  <div class="relative z-10 flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
+    <div
+      class="w-full max-w-[480px] rounded-3xl border border-[rgba(255,255,255,0.12)] bg-[rgba(28,44,64,0.45)] p-8 shadow-[0_24px_64px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-12"
+    >
+      <!-- Icono circular decorativo -->
+      <div
+        class="mx-auto mb-6 flex size-12 items-center justify-center rounded-full border border-dashed border-[rgba(255,255,255,0.25)]"
+      >
+        <AppLogoIcon class="size-6" />
       </div>
-    {/snippet}
-  </Form>
-</AuthBase>
+
+      <!-- Título -->
+      <h1 class="text-center text-[28px] font-semibold leading-[1.2] text-[#F5F3FF] sm:text-[40px]">
+        Bienvenido de
+        <span class="bg-gradient-to-r from-white to-[#BFD9F2] bg-clip-text text-transparent"
+          >vuelta</span
+        >
+      </h1>
+      <p class="mx-auto mt-3 max-w-[320px] text-center text-[15px] leading-[1.5] text-[#C4BFE0]">
+        Ingresa tus credenciales institucionales para acceder a tu portal académico UTAMed.
+      </p>
+
+      {#if status}
+        <div class="mt-6 text-center text-sm font-medium text-emerald-300">
+          {status}
+        </div>
+      {/if}
+
+      {#if errorCode}
+        <div class="mt-6">
+          <ErrorAlert {errorCode} retryAfter={rateLimitRetryAfter} />
+        </div>
+      {/if}
+
+      <Form form={$form} method="post" action={login().url} class="mt-8 flex flex-col gap-6">
+        {#snippet children({ errors, processing }: BaseFormSnippetProps)}
+          <div class="flex flex-col gap-6">
+            <!-- RUT Field -->
+            <div class="space-y-1.5">
+              <label for="email" class="text-[13px] font-medium text-[#C4BFE0]"> RUT </label>
+              <div class="relative">
+                <input
+                  id="email"
+                  name="email"
+                  type="text"
+                  required
+                  maxlength="13"
+                  autocomplete="off"
+                  placeholder="11111111-1"
+                  aria-describedby="email-hint"
+                  aria-invalid={$form.data.email && !rutValid ? true : undefined}
+                  disabled={isRateLimited || processing}
+                  bind:value={$form.data.email}
+                  oninput={handleRutInput}
+                  class="w-full rounded-[14px] border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] px-4 py-3.5 text-[#F5F3FF] transition-all duration-150 placeholder:text-[#C4BFE0]/60 focus:border-[#5B9BD5] focus:shadow-[0_0_0_3px_rgba(91,155,213,0.35)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+              {#if $form.data.email && !rutValid}
+                <p id="email-hint" class="text-xs text-red-300">
+                  RUT debe tener 8 dígitos + dígito verificador (formato: 12345678-K)
+                </p>
+              {:else if $form.data.email && rutValid}
+                <p id="email-hint" class="text-xs text-emerald-300">Formato válido</p>
+              {:else}
+                <p id="email-hint" class="text-xs text-[#C4BFE0]/70">
+                  Ingresa sin puntos y con guion
+                </p>
+              {/if}
+            </div>
+
+            <!-- Password Field -->
+            <div class="space-y-1.5">
+              <label for="password" class="text-[13px] font-medium text-[#C4BFE0]"> Contraseña </label>
+              <div class="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  autocomplete="current-password"
+                  placeholder="••••••••"
+                  disabled={isRateLimited || processing}
+                  bind:value={$form.data.password}
+                  class="w-full rounded-[14px] border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] px-4 py-3.5 pr-12 text-[#F5F3FF] transition-all duration-150 placeholder:text-[#C4BFE0]/60 focus:border-[#5B9BD5] focus:shadow-[0_0_0_3px_rgba(91,155,213,0.35)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <button
+                  type="button"
+                  tabindex={-1}
+                  disabled={isRateLimited || processing}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  class="absolute right-4 top-1/2 -translate-y-1/2 text-[#C4BFE0] transition-colors hover:text-[#F5F3FF] disabled:cursor-not-allowed disabled:opacity-50"
+                  onclick={() => (showPassword = !showPassword)}
+                >
+                  {#if showPassword}
+                    <EyeOff size={20} aria-hidden="true" />
+                  {:else}
+                    <Eye size={20} aria-hidden="true" />
+                  {/if}
+                </button>
+              </div>
+            </div>
+
+            <!-- Remember me + Forgot password -->
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <input type="hidden" name="remember" value="off" />
+                <Checkbox
+                  id="remember"
+                  name="remember"
+                  checked={Boolean((form?.data as any)?.remember)}
+                  disabled={isRateLimited || processing}
+                  onchange={handleRememberChange}
+                  class="border-[rgba(255,255,255,0.25)] bg-[rgba(255,255,255,0.05)] data-[state=checked]:border-[#5B9BD5] data-[state=checked]:bg-[#5B9BD5] data-[state=checked]:text-[#1A1625] disabled:opacity-50"
+                />
+                <Label
+                  for="remember"
+                  class="cursor-pointer text-[13px] text-[#C4BFE0] hover:text-[#F5F3FF] {isRateLimited ||
+                  processing
+                    ? 'opacity-50'
+                    : ''}">Recuérdame</Label
+                >
+              </div>
+              {#if canResetPassword}
+                <div class={isRateLimited ? 'pointer-events-none opacity-50' : ''}>
+                  <TextLink
+                    href={request().url}
+                    class="text-xs text-[#C4BFE0] transition-colors hover:text-[#5B9BD5] !decoration-[#C4BFE0]/40 hover:!decoration-[#5B9BD5]"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </TextLink>
+                </div>
+              {/if}
+            </div>
+
+            <!-- Submit Button -->
+            <Button
+              type="submit"
+              class="mt-1 flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#F5F4F0] py-3.5 text-[15px] font-semibold text-[#1A1625] shadow-none transition-all duration-150 hover:brightness-95 active:scale-[0.98] disabled:opacity-50"
+              disabled={isRateLimited || $form.processing}
+            >
+              {#if $form.processing}
+                <Spinner class="h-4 w-4" />
+              {/if}
+              {isRateLimited ? `Bloqueado por ${rateLimitRetryAfter}s` : 'Entrar al Portal'}
+            </Button>
+
+            <!-- Info box -->
+            <div
+              class="rounded-2xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.04)] p-5 text-center space-y-2.5"
+            >
+              <p class="text-sm font-medium text-[#F5F3FF]">Información de Acceso</p>
+              <p class="text-xs leading-relaxed text-[#C4BFE0]">
+                Como parte de nuestra comunidad académica, tus credenciales han sido enviadas
+                previamente a tu correo institucional.
+              </p>
+              <p class="text-xs font-medium text-[#C4BFE0]">
+                ¿Problemas para entrar? <br />
+                <a
+                  href="mailto:cite@gestion.uta.cl"
+                  class="text-[#5B9BD5] transition-colors hover:text-[#2A66AC] hover:underline"
+                  >Contactar a soporte: cite@gestion.uta.cl</a
+                >
+              </p>
+            </div>
+          </div>
+        {/snippet}
+      </Form>
+    </div>
   </div>
 </div>
