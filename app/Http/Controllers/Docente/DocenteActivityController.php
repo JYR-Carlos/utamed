@@ -56,6 +56,66 @@ class DocenteActivityController extends Controller
     }
 
     /**
+     * Guard de escritura sobre la evaluación de una actividad.
+     *
+     * Estas operaciones estaban gobernadas por `viewPrograma`, un permiso de
+     * **lectura** que basta con estar asignado a cualquier componente del curso:
+     * el docente de un laboratorio podía borrar los grupos y fijar las notas de la
+     * cátedra completa (B-5). Aquí el ámbito es el componente del que cuelga la
+     * actividad.
+     *
+     * No se usa `manageTeam` —el modelo de política estricta del informe— porque
+     * limita a titular y dejaría al docente de componente sin poder calificar lo
+     * que dicta.
+     */
+    private function assertPuedeEditarEvaluacion(Curso $curso, Actividad $actividad): void
+    {
+        /** @var \App\Models\Usuario\Usuario $user */
+        $user = Auth::user();
+
+        if ($user->isSuperAdmin() || $user->hasAnyRoleGlobally(\App\Models\Usuario\Usuario::ROLES_ADMINISTRATIVOS)) {
+            return;
+        }
+
+        $docente = $user->docente;
+
+        if (!$docente) {
+            abort(403, 'Solo un docente puede modificar la evaluación de una actividad.');
+        }
+
+        // El titular manda sobre todas las actividades del curso.
+        if ($curso->id_docente_titular === $docente->id_docente) {
+            return;
+        }
+
+        $actividad->loadMissing('componente');
+
+        $esDocenteDelComponente = $actividad->componente
+            && $actividad->componente->docenteComponentes()
+                ->where('id_docente', $docente->id_docente)
+                ->exists();
+
+        if ($esDocenteDelComponente) {
+            return;
+        }
+
+        Log::channel('seguridad')->warning(
+            'Acceso denegado: escritura de evaluación fuera del componente propio',
+            [
+                'evento'        => 'ESCRITURA_EVALUACION_FUERA_DE_COMPONENTE',
+                'id_usuario'    => $user->id_usuario,
+                'id_docente'    => $docente->id_docente,
+                'id_curso'      => $curso->id_curso,
+                'id_actividad'  => $actividad->id_actividad,
+                'id_componente' => $actividad->componente?->id_componente,
+                'ip'            => request()->ip(),
+            ]
+        );
+
+        abort(403, 'No puedes modificar la evaluación de un componente que no dictas.');
+    }
+
+    /**
      * Construye el arreglo de permisos granulares del docente en el contexto del
      * curso, replicando el patrón de DocenteCursoController::show (B-02).
      *
@@ -198,12 +258,7 @@ class DocenteActivityController extends Controller
     public function update(Request $request, Curso $curso, Actividad $actividad)
     {
         $this->authorize('manageTeam', $curso);
-
-        // Verify the activity belongs to this course through its componente
-        $actividadCursoId = $actividad->componente?->id_curso;
-        if ($actividadCursoId && $actividadCursoId !== $curso->id_curso) {
-            abort(404, 'Actividad no encontrada en este curso.');
-        }
+        $this->assertActividadDeCurso($curso, $actividad);
 
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
@@ -263,12 +318,7 @@ class DocenteActivityController extends Controller
     public function destroy(Curso $curso, Actividad $actividad)
     {
         $this->authorize('manageTeam', $curso);
-
-        // Verify the activity belongs to this course through its componente
-        $actividadCursoId = $actividad->componente?->id_curso;
-        if ($actividadCursoId && $actividadCursoId !== $curso->id_curso) {
-            abort(404, 'Actividad no encontrada en este curso.');
-        }
+        $this->assertActividadDeCurso($curso, $actividad);
 
         try {
             $nombreActividad = $actividad->nombre;
@@ -336,17 +386,31 @@ class DocenteActivityController extends Controller
             ->orderByDesc('semestre_real')
             ->get();
 
-        $data = $cursos->map(function ($curso) use ($idDocente) {
+        // Una sola consulta para las actividades de todos los componentes. Antes
+        // se lanzaba una por componente de cada curso, anidada dentro del map
+        // (B-8): un docente con seis cursos de tres componentes pagaba dieciocho.
+        $componenteIds = $cursos
+            ->flatMap(fn ($curso) => $curso->componentes->pluck('id_componente'))
+            ->unique()
+            ->values();
+
+        $actividadesPorComponente = $componenteIds->isEmpty()
+            ? collect()
+            : Actividad::whereIn('id_componente', $componenteIds)
+                ->withCount('actividadAsignadaGrupos')
+                ->orderBy('fecha_limite', 'asc')
+                ->get()
+                ->groupBy('id_componente');
+
+        $data = $cursos->map(function ($curso) use ($idDocente, $actividadesPorComponente) {
             $esTitularCurso = $curso->id_docente_titular === $idDocente;
 
             $componentes = $curso->componentes
                 // Titular del curso ve todos; el resto sólo los que imparte.
                 ->filter(fn ($c) => $esTitularCurso || $c->docenteComponentes->isNotEmpty())
-                ->map(function ($c) {
-                    $actividades = Actividad::where('id_componente', $c->id_componente)
-                        ->withCount('actividadAsignadaGrupos')
-                        ->orderBy('fecha_limite', 'asc')
-                        ->get()
+                ->map(function ($c) use ($actividadesPorComponente) {
+                    $actividades = $actividadesPorComponente
+                        ->get($c->id_componente, collect())
                         ->map(fn ($a) => [
                             'id_actividad'   => $a->id_actividad,
                             'nombre'         => $a->nombre,
@@ -394,18 +458,18 @@ class DocenteActivityController extends Controller
     public function showEvaluacion(Curso $curso, Actividad $actividad)
     {
         $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
 
         $user = Auth::user();
         $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
 
         $actividad->load(['componente', 'unidad']);
 
-        // Repara actividades individuales creadas antes de que existiera la
-        // auto-creación de grupos, o estudiantes inscritos después: sin esto,
-        // la actividad aparece sin nada que evaluar (ver GrupoIndividualService).
-        if (!$actividad->es_grupal) {
-            (new GrupoIndividualService())->asegurarGruposDelCurso($curso, $actividad);
-        }
+        // Aquí se reparaban al vuelo los grupos individuales faltantes, con un
+        // bucle de consultas en cada carga de la pantalla (B-7). Ahora los crea
+        // la escritura: al crear la actividad y al inscribir al estudiante
+        // (evento en InscripcionCurso). Para los datos anteriores está el comando
+        // `agenda:backfill-grupos-individuales`.
 
         // Grupos con sus integrantes (modelo nuevo: actividad_asignada_grupo)
         $grupos = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
@@ -505,7 +569,14 @@ class DocenteActivityController extends Controller
             'id_actividad'               => 'required|integer|exists:actividad,id_actividad',
         ]);
 
-        $idActividad = $request->input('id_actividad');
+        // `exists:actividad` sólo comprobaba que el ID existiera en el sistema: la
+        // actividad llega por el cuerpo del request y no estaba acotada al curso,
+        // así que se podía escribir la rúbrica de cualquier actividad (B-2).
+        $actividad = Actividad::findOrFail($request->integer('id_actividad'));
+        $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+
+        $idActividad = $actividad->id_actividad;
 
         try {
             $existente = \App\Models\Agenda\Rubrica::where('id_actividad', $idActividad)
@@ -538,6 +609,7 @@ class DocenteActivityController extends Controller
         $this->authorize('viewPrograma', $curso);
 
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
@@ -559,6 +631,7 @@ class DocenteActivityController extends Controller
         $this->authorize('viewPrograma', $curso);
 
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
@@ -601,6 +674,8 @@ class DocenteActivityController extends Controller
     public function updateIntegrante(Request $request, Curso $curso, Actividad $actividad, int $grupo, IntegranteGrupo $asignado)
     {
         $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         if ($asignado->id_actividad_asignada_grupo !== $grupo) {
             abort(404, 'Integrante no encontrado en este grupo.');
@@ -632,6 +707,8 @@ class DocenteActivityController extends Controller
     public function recalcularNotasIndividuales(Curso $curso, Actividad $actividad, int $grupo)
     {
         $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
@@ -662,6 +739,7 @@ class DocenteActivityController extends Controller
 
         // Verificar que la actividad pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         // Verificar que la actividad es grupal
         if (!$actividad->es_grupal) {
@@ -729,6 +807,7 @@ class DocenteActivityController extends Controller
 
         // Verificar que la actividad pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         // Obtener el grupo
         $actividadGrupo = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
@@ -820,6 +899,7 @@ class DocenteActivityController extends Controller
 
         // Verificar que la actividad actual pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         // Verificar que la actividad es grupal
         if (!$actividad->es_grupal) {
@@ -1003,6 +1083,8 @@ class DocenteActivityController extends Controller
     public function descargarEntrega(Curso $curso, Actividad $actividad, int $grupo, Agenda $agenda)
     {
         $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         // Verificar que la agenda pertenece al grupo y actividad correctos
         if ($agenda->id_actividad_asignada_grupo !== $grupo) {
@@ -1162,6 +1244,7 @@ class DocenteActivityController extends Controller
         $this->authorize('viewPrograma', $curso);
 
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
@@ -1263,16 +1346,16 @@ class DocenteActivityController extends Controller
         ]);
 
         // Verificar que el grupo pertenece al curso
-        $grupoExiste = DB::table('agenda.actividad_asignada_grupo as aag')
-            ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
-            ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
-            ->where('aag.id_actividad_asignada_grupo', $grupo)
-            ->where('c.id_curso', $curso->id_curso)
-            ->exists();
+        $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
+            ->whereHas('actividad.componente', fn($q) => $q->where('id_curso', $curso->id_curso))
+            ->first();
 
-        if (!$grupoExiste) {
+        if (!$grupoModel) {
             abort(404, 'Grupo no encontrado en este curso.');
         }
+
+        // …y que el docente pueda escribir sobre el componente de esa actividad.
+        $this->assertPuedeEditarEvaluacion($curso, $grupoModel->actividad);
 
         // 1. Autor: Juan Y.
         // 2. Fecha: 02/06/2026
