@@ -665,8 +665,10 @@ class CourseTeamController extends Controller
     {
         $effectiveContextIds = $this->getDelegablePermissionContextIds($idContexto);
 
-        // If it's a super admin, return all
-        if (!$user->docente) {
+        // Sólo un SuperAdmin real puede delegar cualquier permiso. La condición
+        // anterior era `!$user->docente`: cualquier usuario sin perfil docente que
+        // superara manageTeam obtenía como delegable el catálogo completo (F-3).
+        if ($user->isSuperAdmin()) {
             return \App\Models\Usuario\Permiso::all();
         }
 

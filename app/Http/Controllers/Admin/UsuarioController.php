@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Services\Authorization\GlobalContextService;
+use App\Services\Authorization\PermissionCache;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Estudiante;
@@ -15,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Permiso;
@@ -56,6 +59,8 @@ use Maatwebsite\Excel\Facades\Excel;
  */
 class UsuarioController extends Controller
 {
+    use LimitsPageSize;
+
     /**
      * Obtiene listado paginado y filtrable de usuarios por tipo.
      * 
@@ -69,6 +74,8 @@ class UsuarioController extends Controller
      */
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Usuario::class);
+
         // Determinar qué tipo de usuario listar
         $tipo = $request->input('tipo', 'estudiante'); // estudiante, docente, or administrador
 
@@ -122,7 +129,7 @@ class UsuarioController extends Controller
                   ->orderBy('usuario.nombre1')
                   ->orderBy('usuario.nombre2');
             }
-            $usuarios = $q->paginate($request->input('per_page', 15))->withQueryString();
+            $usuarios = $q->paginate($this->perPage($request))->withQueryString();
         }
 
         // ==================== DOCENTES ====================
@@ -165,7 +172,7 @@ class UsuarioController extends Controller
                     ->orderBy('usuario.nombre1')
                     ->orderBy('usuario.nombre2');
             }
-            $usuarios = $q->paginate($request->input('per_page', 15))->withQueryString();
+            $usuarios = $q->paginate($this->perPage($request))->withQueryString();
         }
         // ==================== ADMINISTRADORES ====================
         // Recuperar usuarios que no son docente ni estudiante
@@ -204,7 +211,7 @@ class UsuarioController extends Controller
             } else {
                 $query->orderBy('nombre1')->orderBy('apellido1');
             }
-            $usuarios = $query->paginate($request->input('per_page', 15))->withQueryString();
+            $usuarios = $query->paginate($this->perPage($request))->withQueryString();
         }
 
         // Normalizar cada item al contrato { usuario, estudiante, docente } sin romper
@@ -240,6 +247,8 @@ class UsuarioController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('create', Usuario::class);
+
         // Determinar tipo de usuario a crear y delegar al método correspondiente
         $tipo = $request->input('tipo');
 
@@ -269,6 +278,8 @@ class UsuarioController extends Controller
      */
     public function import(Request $request): \Illuminate\Http\RedirectResponse
     {
+        $this->authorize('create', Usuario::class);
+
         $request->validate([
             'file' => 'required|mimes:xlsx,csv,xls|max:5120',
             'tipo' => 'required|in:estudiante,docente,administrador'
@@ -594,6 +605,8 @@ class UsuarioController extends Controller
         // Determinar tipo de usuario
         $tipo = $request->input('tipo', 'estudiante');
 
+        $this->authorize('view', $this->resolveUsuarioPorTipo($tipo, $id));
+
         // Recuperar usuario con sus relaciones según tipo
         if ($tipo === 'estudiante') {
             $usuario = Estudiante::with(['carrera', 'usuario'])->findOrFail($id);
@@ -625,6 +638,8 @@ class UsuarioController extends Controller
     {
         // Determinar tipo de usuario y delegar al método correspondiente
         $tipo = $request->input('tipo');
+
+        $this->authorize('update', $this->resolveUsuarioPorTipo((string) $tipo, $id));
 
         if ($tipo === 'estudiante') {
             return $this->updateEstudiante($request, $id);
@@ -799,6 +814,8 @@ class UsuarioController extends Controller
         // Determinar tipo de usuario a eliminar
         $tipo = $request->input('tipo', 'estudiante');
 
+        $this->authorize('delete', $this->resolveUsuarioPorTipo($tipo, $id));
+
         DB::beginTransaction();
         try {
             // Buscar registro específico según tipo
@@ -840,24 +857,65 @@ class UsuarioController extends Controller
 
     /**
      * Actualiza la contraseña de un usuario.
-     * 
-     * Valida que la nueva contraseña cumpla requisitos mínimos (6 caracteres, confirmación).
-     * Hash y almacena en campo 'passhash'.
-     * 
-     * @param  Request  $request  Datos: password (required, min:6, confirmed)
+     *
+     * Cambiar la contraseña de una cuenta ajena es una toma de control: exige
+     * permiso sobre el usuario, que el administrador confirme su **propia** clave,
+     * y cierra las sesiones activas del afectado para que un atacante que ya
+     * estuviera dentro no sobreviva al cambio.
+     *
+     * @param  Request  $request  Datos: current_password, password (confirmed)
      * @param  Usuario  $usuario  Usuario cuya contraseña actualizar (route-model binding)
      */
     public function changePassword(Request $request, Usuario $usuario): RedirectResponse
     {
-        // Validar nueva contraseña con confirmación
+        /** @var Usuario|null $actor */
+        $actor = Auth::user();
+
+        if (!$actor) {
+            abort(401, 'Debes iniciar sesión.');
+        }
+
+        $this->authorize('update', $usuario);
+
+        // Sin esto, cualquiera que superara IsAdmin se apropiaba de un SuperAdmin.
+        if (!$actor->isSuperAdmin() && $usuario->isSuperAdmin()) {
+            $this->logIntentoEscalada($actor, $usuario, 'CAMBIO_PASSWORD_SUPERADMIN');
+            abort(403, 'Solo un SuperAdmin puede cambiar la contraseña de otro SuperAdmin.');
+        }
+
         $validated = $request->validate([
-            'password' => 'required|string|min:6|confirmed',
+            // 'current_password' valida contra la clave del usuario autenticado,
+            // no contra la del objetivo: es la reautenticación del administrador.
+            'current_password' => ['required', 'string', 'current_password'],
+            'password'         => ['required', 'string', 'confirmed', Password::defaults()],
+        ], [
+            'current_password.current_password' => 'La contraseña de tu propia cuenta no es correcta.',
         ]);
 
-        // Actualizar hash de contraseña
-        $usuario->update(['passhash' => Hash::make($validated['password'])]);
+        DB::transaction(function () use ($usuario, $validated) {
+            $usuario->update([
+                'passhash' => Hash::make($validated['password']),
+                // Invalida las cookies "recuérdame" emitidas antes del cambio.
+                'token_recuerdame_sesion' => null,
+            ]);
 
-        return back()->with('success', 'Contraseña actualizada exitosamente.');
+            // Cierra las sesiones abiertas del afectado. Sólo aplicable con el
+            // driver de sesión en base de datos, que es el configurado.
+            if (config('session.driver') === 'database') {
+                DB::table(config('session.table', 'sessions'))
+                    ->where('user_id', $usuario->id_usuario)
+                    ->delete();
+            }
+        });
+
+        Log::channel('seguridad')->info('Contraseña cambiada por un administrador', [
+            'evento'            => 'CAMBIO_PASSWORD_ADMINISTRATIVO',
+            'id_usuario_actor'  => $actor->id_usuario,
+            'id_usuario_target' => $usuario->id_usuario,
+            'ip'                => $request->ip(),
+        ]);
+
+        return back()->with('success', 'Contraseña actualizada. Se cerraron las sesiones activas del usuario.');
     }
 
     /**
@@ -869,6 +927,8 @@ class UsuarioController extends Controller
      */
     public function toggleActive(Usuario $usuario): RedirectResponse
     {
+        $this->authorize('update', $usuario);
+
         // Alternar su estado activo/inactivo
         $usuario->esta_activo = !(bool) $usuario->esta_activo;
         $usuario->save();
@@ -884,6 +944,8 @@ class UsuarioController extends Controller
      */
     public function buscarPorRut(Request $request)
     {
+        $this->authorize('viewAny', Usuario::class);
+
         $rut = $request->query('rut');
         $usuario = Usuario::where('rut', $rut)->first();
 
@@ -905,6 +967,8 @@ class UsuarioController extends Controller
      */
     public function getUserPermissions(Usuario $usuario)
     {
+        $this->authorize('view', $usuario);
+
         // Obtener TODAS las asignaciones de rol activas (todos los contextos)
         $roles = UsuarioRolAsignacion::with(['rol', 'contexto.curso', 'asignador'])
             ->where('id_usuario', $usuario->id_usuario)
@@ -970,23 +1034,18 @@ class UsuarioController extends Controller
      */
     public function syncPermissions(Request $request, Usuario $usuario)
     {
-        // Log para debugging
-        Log::info("SyncPermissions called for user $usuario->id_usuario");
-        Log::info("Payload: " . print_r($request->all(), true));
-
         // Validar roles e permisos especiales desde el request
         $validated = $request->validate([
             'roles' => 'array',
             'special_permissions' => 'array' // { id_permiso: true/false/null }
         ]);
 
-        Log::info('🔍 SPECIAL PERMISSIONS RECEIVED:', [
-            'raw' => $validated['special_permissions'],
-            'delegable_count' => count(array_filter(
-                $validated['special_permissions'],
-                fn($sp) => is_array($sp) && ($sp['can_delegate'] ?? false) === true
-            ))
-        ]);
+        // Ambas claves son opcionales: normalizarlas aquí evita el 500 que provocaba
+        // recorrerlas cuando el cliente las omitía (D-9).
+        $validated['roles'] ??= [];
+        $validated['special_permissions'] ??= [];
+
+        $this->assertPuedeSincronizarPermisos($usuario, $validated['roles']);
 
         // Obtener contexto global
         // TODO: Ampliar para soportar sincronización multi-contexto
@@ -1095,6 +1154,11 @@ class UsuarioController extends Controller
 
             DB::commit();
 
+            // Las desactivaciones de arriba son `where(...)->update(...)`: no
+            // disparan eventos de modelo, así que la caché de permisos hay que
+            // invalidarla explícitamente.
+            app(PermissionCache::class)->olvidarUsuario((int) $usuario->id_usuario);
+
             // Retornar respuesta según formato solicitado
             if ($request->wantsJson()) {
                 return response()->json([
@@ -1122,6 +1186,91 @@ class UsuarioController extends Controller
 
             return back()->with('error', 'Error al actualizar permisos: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Guard de la sincronización de roles y permisos especiales.
+     *
+     * Este endpoint escribe directo sobre usuario_rol_asignacion y
+     * usuario_permiso_especial, esquivando RoleAssignmentBuilder y su
+     * validateActorAuthorization(). Sin este guard era la vía abierta para
+     * concederse a uno mismo el rol SuperAdmin.
+     *
+     * @param  Usuario  $objetivo          Usuario cuyos permisos se sincronizan
+     * @param  array    $rolesSolicitados  IDs de rol que el request pretende asignar
+     */
+    private function assertPuedeSincronizarPermisos(Usuario $objetivo, array $rolesSolicitados): void
+    {
+        /** @var Usuario|null $actor */
+        $actor = Auth::user();
+
+        if (!$actor) {
+            abort(401, 'Debes iniciar sesión.');
+        }
+
+        // 1. Nadie edita sus propios roles ni permisos: cierra la auto-escalada.
+        if ($actor->id_usuario === $objetivo->id_usuario) {
+            $this->logIntentoEscalada($actor, $objetivo, 'AUTO_ASIGNACION_PERMISOS');
+            abort(403, 'No puedes modificar tus propios roles ni permisos.');
+        }
+
+        // 2. Permiso explícito para crear asignaciones de rol y permisos especiales.
+        $this->authorize('create', UsuarioRolAsignacion::class);
+        $this->authorize('create', UsuarioPermisoEspecial::class);
+
+        $actorEsSuperAdmin = $actor->isSuperAdmin();
+
+        // 3. Sólo un SuperAdmin puede tocar los permisos de otro SuperAdmin.
+        if (!$actorEsSuperAdmin && $objetivo->isSuperAdmin()) {
+            $this->logIntentoEscalada($actor, $objetivo, 'MODIFICACION_SUPERADMIN');
+            abort(403, 'Solo un SuperAdmin puede modificar los permisos de otro SuperAdmin.');
+        }
+
+        // 4. Sólo un SuperAdmin puede conceder roles administrativos.
+        if (!$actorEsSuperAdmin && !empty($rolesSolicitados)) {
+            $aliasAdmin = array_map('strtolower', Usuario::ROLES_ADMINISTRATIVOS);
+
+            $administrativos = Rol::whereIn('id_rol', $rolesSolicitados)
+                ->pluck('nombre')
+                ->filter(fn($nombre) => in_array(strtolower(trim($nombre)), $aliasAdmin, true));
+
+            if ($administrativos->isNotEmpty()) {
+                $this->logIntentoEscalada($actor, $objetivo, 'CONCESION_ROL_ADMINISTRATIVO', [
+                    'roles_solicitados' => $administrativos->values()->all(),
+                ]);
+                abort(403, 'Solo un SuperAdmin puede conceder roles administrativos.');
+            }
+        }
+    }
+
+    /**
+     * Deja rastro en el canal `seguridad` de un intento de escalada de privilegios.
+     */
+    private function logIntentoEscalada(Usuario $actor, Usuario $objetivo, string $evento, array $extra = []): void
+    {
+        Log::channel('seguridad')->warning('Intento de escalada de privilegios en syncPermissions', [
+            'evento'            => $evento,
+            'id_usuario_actor'  => $actor->id_usuario,
+            'id_usuario_target' => $objetivo->id_usuario,
+            'ip'                => request()->ip(),
+            ...$extra,
+        ]);
+    }
+
+    /**
+     * Resuelve el `Usuario` base a partir del `$id` de la ruta y el `tipo`.
+     *
+     * `show`/`update`/`destroy` reciben el ID del **perfil** (estudiante o
+     * docente), no el del usuario, así que para autorizar contra `UsuarioPolicy`
+     * hay que traducirlo primero.
+     */
+    private function resolveUsuarioPorTipo(string $tipo, $id): Usuario
+    {
+        return match ($tipo) {
+            'estudiante' => Estudiante::findOrFail($id)->usuario,
+            'docente'    => Docente::findOrFail($id)->usuario,
+            default      => Usuario::findOrFail($id),
+        };
     }
 
     /**

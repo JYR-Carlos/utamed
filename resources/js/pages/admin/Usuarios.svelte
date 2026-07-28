@@ -178,6 +178,7 @@
   });
 
   let passwordFormData = $state({
+    current_password: '',
     password: '',
     password_confirmation: '',
   });
@@ -337,14 +338,14 @@
 
   function openPasswordModal(usuario: UsuarioItem) {
     changingPasswordUsuario = usuario;
-    passwordFormData = { password: '', password_confirmation: '' };
+    passwordFormData = { current_password: '', password: '', password_confirmation: '' };
     showPasswordModal = true;
   }
 
   function closePasswordModal() {
     showPasswordModal = false;
     changingPasswordUsuario = null;
-    passwordFormData = { password: '', password_confirmation: '' };
+    passwordFormData = { current_password: '', password: '', password_confirmation: '' };
   }
 
   function handlePasswordChange() {
