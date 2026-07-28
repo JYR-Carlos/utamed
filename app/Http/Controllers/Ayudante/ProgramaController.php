@@ -25,9 +25,10 @@ use App\Support\Permissions;
 /**
  * Gestión del programa/syllabus de un curso desde el rol de ayudante.
  *
- * El acceso exige rol "ayudante" activo sobre el contexto del curso y el permiso
- * `CURSOS_PROGRAMAS_VER_TODOS`. La edición queda bloqueada cuando el programa está
- * `APROBADO`. El armado del syllabus se delega en ProgramaService.
+ * El acceso exige rol "ayudante" activo sobre el contexto del curso. La lectura
+ * pide `CURSOS_PROGRAMAS_VER_TODOS`; abrir el editor y escribir piden
+ * `CURSOS_PROGRAMAS_MODIFICAR_ALL`. La edición queda bloqueada cuando el programa
+ * está `APROBADO`. El armado del syllabus se delega en ProgramaService.
  */
 class ProgramaController extends Controller
 {
@@ -89,8 +90,9 @@ class ProgramaController extends Controller
                 ->with('error', 'No estás asignado a este curso como ayudante');
         }
 
-        // Verificar permiso: cursos/programas
-        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER_TODOS, $curso->id_contexto)) {
+        // Mismo permiso de escritura que exige update(): sin él no tiene sentido
+        // abrir el editor para que la escritura se rechace después.
+        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_MODIFICAR_ALL, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para editar el programa de este curso');
         }
@@ -144,8 +146,11 @@ class ProgramaController extends Controller
                 ->with('error', 'No estás asignado a este curso como ayudante');
         }
 
-        // Verificar permiso: cursos/programas
-        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER_TODOS, $curso->id_contexto)) {
+        // Permiso de ESCRITURA. Antes se exigía CURSOS_PROGRAMAS_VER_TODOS —un
+        // permiso de lectura— para una operación que reescribe el syllabus entero:
+        // el rol de menor privilegio del sistema escribía con menos control que el
+        // titular (E-4).
+        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_MODIFICAR_ALL, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para editar el programa de este curso');
         }

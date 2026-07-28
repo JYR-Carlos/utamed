@@ -333,11 +333,8 @@ class JefeCarreraController extends Controller
             ->findOrFail($programaId);
 
         $curso = $programa->curso;
-        $perteneceCarrera = $curso && Curso::where('id_curso', $curso->id_curso)
-            ->whereHas('asignacionPlan.plan', fn($q) => $q->where('id_carrera', $jefatura['carrera_id']))
-            ->exists();
 
-        if (!$perteneceCarrera) {
+        if (!$this->programaEsDeCarrera($programa, $jefatura['carrera_id'])) {
             abort(403, 'El programa no pertenece a tu carrera');
         }
 
@@ -405,6 +402,10 @@ class JefeCarreraController extends Controller
         $programa = Programa::findOrFail($programaId);
         $this->authorize('approve', $programa);
 
+        if (!$this->programaEsDeCarrera($programa, $jefaturaCheck['carrera_id'])) {
+            return back()->with('error', 'El programa no pertenece a tu carrera.');
+        }
+
         $estadosPermitidos = ['COMPLETO', 'BASICO_COMPLETO'];
         if (!in_array($programa->estado, $estadosPermitidos)) {
             return back()->with('error', "No se puede aprobar un programa en estado {$programa->estado}.");
@@ -448,6 +449,10 @@ class JefeCarreraController extends Controller
         // Autorizar usando la Policy (admins y jefes de carrera pueden rechazar)
         $this->authorize('reject', $programa);
 
+        if (!$this->programaEsDeCarrera($programa, $jefaturaCheck['carrera_id'])) {
+            return back()->with('error', 'El programa no pertenece a tu carrera.');
+        }
+
         $estadosPermitidos = ['COMPLETO', 'APROBADO', 'BASICO_COMPLETO'];
         if (!in_array($programa->estado, $estadosPermitidos)) {
             return back()->with('error', "No se puede devolver un programa en estado {$programa->estado}.");
@@ -481,6 +486,25 @@ class JefeCarreraController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * ¿El programa cuelga de un curso de esta carrera?
+     *
+     * Las policies `approve`/`reject` sólo comprueban que el actor sea jefe de
+     * carrera, no *de qué* carrera, así que el ámbito hay que imponerlo aquí.
+     */
+    private function programaEsDeCarrera(Programa $programa, int $carreraId): bool
+    {
+        $curso = $programa->curso;
+
+        if (!$curso) {
+            return false;
+        }
+
+        return Curso::where('id_curso', $curso->id_curso)
+            ->whereHas('asignacionPlan.plan', fn($q) => $q->where('id_carrera', $carreraId))
+            ->exists();
+    }
 
     /**
      * Query base de cursos de una carrera (no eliminados).
