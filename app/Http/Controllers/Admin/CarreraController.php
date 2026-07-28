@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Departamento;
@@ -25,6 +26,8 @@ use Inertia\Inertia;
  */
 class CarreraController extends Controller
 {
+    use LimitsPageSize;
+
     public function __construct(private readonly CarreraService $carreraService)
     {
     }
@@ -35,6 +38,7 @@ class CarreraController extends Controller
      */
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Carrera::class);
         // Filtro de estado: 'active' (por defecto) solo muestra activas; 'all' incluye discontinuadas
         $status = $request->input('status', 'active');
 
@@ -85,7 +89,7 @@ class CarreraController extends Controller
         }
 
         $carreras = $query->orderBy('nombre')
-            ->paginate($request->integer('per_page', 15))
+            ->paginate($this->perPage($request))
             ->withQueryString();
 
         return Inertia::render('admin/Carreras', [
@@ -100,6 +104,7 @@ class CarreraController extends Controller
      */
     public function byDepartamento(Departamento $departamento)
     {
+        $this->authorize('viewAny', Carrera::class);
         $carreras = $departamento->carreras()
             ->orderBy('nombre')
             ->get();
@@ -112,6 +117,7 @@ class CarreraController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('create', Carrera::class);
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'jornada' => 'nullable|string|max:100',
@@ -138,6 +144,7 @@ class CarreraController extends Controller
      */
     public function show(Carrera $carrera)
     {
+        $this->authorize('view', $carrera);
         $carrera->load([
             'departamento' => function($q) {
                 $q->withTrashed();
@@ -156,6 +163,7 @@ class CarreraController extends Controller
      */
     public function update(Request $request, Carrera $carrera)
     {
+        $this->authorize('update', $carrera);
         $validated = $request->validate([
             'nombre'    => 'required|string|max:255',
             'jornada'   => 'nullable|string|max:100',
@@ -176,6 +184,7 @@ class CarreraController extends Controller
      */
     public function destroy(Carrera $carrera)
     {
+        $this->authorize('delete', $carrera);
         try {
             $carrera->delete(); // SoftDeletes → sets fecha_eliminacion = now()
 

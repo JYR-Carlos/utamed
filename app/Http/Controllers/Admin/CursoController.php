@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCursoRequest;
 use App\Http\Requests\UpdateCursoRequest;
@@ -35,6 +36,8 @@ use Inertia\Response;
  */
 class CursoController extends Controller
 {
+    use LimitsPageSize;
+
     protected CursoService $cursoService;
 
     public function __construct(CursoService $cursoService)
@@ -47,6 +50,7 @@ class CursoController extends Controller
      */
     public function index(Request $request): Response
     {
+        $this->authorize('viewAny', Curso::class);
         $cursos = Curso::query()
             ->with([
                 'asignacionPlan.asignatura',
@@ -64,7 +68,7 @@ class CursoController extends Controller
             })
             ->whereNull('fecha_eliminacion')
             ->orderBy('fecha_inicio', 'desc')
-            ->paginate($request->input('per_page', 15))
+            ->paginate($this->perPage($request))
             ->withQueryString();
 
         $planes = Plan::with('carrera')->get();
@@ -87,6 +91,7 @@ class CursoController extends Controller
      */
     public function store(StoreCursoRequest $request)
     {
+        $this->authorize('create', Curso::class);
         Log::info('[CursoController@store] Iniciando creación de curso', [
             'data' => $request->validated()
         ]);
@@ -119,46 +124,25 @@ class CursoController extends Controller
      */
     public function show(Curso $curso)
     {
+        $this->authorize('view', $curso);
         try {
-            Log::info("CursoController.show() - iniciando carga de curso", ['id_curso' => $curso->id_curso]);
-            
             $curso->load([
                 'inscripcionCursos.estudiante',
                 'asignacionPlan.asignatura',
                 'asignacionPlan.plan.carrera'
             ]);
-            Log::info("CursoController.show() - curso cargado exitosamente");
 
-            // Load secciones with all relationships upfront using eager loading
-            Log::info("CursoController.show() - cargando secciones", [
-                'id_curso' => $curso->id_curso
-            ]);
-            
             $componentes = Componente::where('id_curso', $curso->id_curso)
                 ->with(['docenteComponentes.docente.usuario', 'tipoComponente'])
                 ->get();
-            
-            Log::info("CursoController.show() - componentes cargados", [
-                'cantidad_componentes' => $componentes->count()
-            ]);
-            
-            Log::info("CursoController.show() - transformando con resources");
-            $cursoResource = new CursoResource($curso);
-            Log::info("CursoController.show() - CursoResource creado");
-            
-            $componentesResource = ComponenteResource::collection($componentes);
-            Log::info("CursoController.show() - ComponenteResource collection creada");
-
-            $tiposComponente = TipoComponente::all();
-            Log::info("CursoController.show() - tipos componente cargados");
 
             return response()->json([
-                'curso' => $cursoResource,
-                'componentes' => $componentesResource,
-                'tipos_componente' => $tiposComponente
+                'curso' => new CursoResource($curso),
+                'componentes' => ComponenteResource::collection($componentes),
+                'tipos_componente' => TipoComponente::all()
             ]);
         } catch (\Exception $e) {
-            Log::error("❌ Error CRÍTICO en CursoController.show()", [
+            Log::error("Error en CursoController.show()", [
                 'curso_id' => $curso->id_curso ?? 'UNKNOWN',
                 'error_message' => $e->getMessage(),
                 'error_class' => get_class($e),
@@ -166,11 +150,14 @@ class CursoController extends Controller
                 'error_line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ]);
+
+            // La clase, la ruta del fichero y la traza describen el servidor: van
+            // al log, no al cliente. Antes `error_file` viajaba siempre, al margen
+            // de APP_DEBUG.
             return response()->json([
-                'error' => 'Error al cargar el curso: ' . $e->getMessage(),
-                'error_class' => get_class($e),
-                'error_file' => $e->getFile() . ':' . $e->getLine(),
-                'trace' => config('app.debug') ? $e->getTraceAsString() : null
+                'error' => config('app.debug')
+                    ? 'Error al cargar el curso: ' . $e->getMessage()
+                    : 'Error al cargar el curso.',
             ], 500);
         }
     }
@@ -180,6 +167,7 @@ class CursoController extends Controller
      */
     public function update(UpdateCursoRequest $request, Curso $curso)
     {
+        $this->authorize('update', $curso);
         try {
             $updated = $this->cursoService->update($curso, $request->validated());
 
@@ -204,6 +192,7 @@ class CursoController extends Controller
      */
     public function getAsignaturasByPlan(Plan $plan)
     {
+        $this->authorize('viewAny', Curso::class);
         $asignaturas = $plan->asignaturas()
             ->whereNull('asignacion_plan.fecha_eliminacion')
             ->select(
@@ -236,6 +225,7 @@ class CursoController extends Controller
      */
     public function getCursosAnteriores(Asignatura $asignatura)
     {
+        $this->authorize('viewAny', Curso::class);
         $cursos = Curso::query()
             ->whereHas('asignacionPlan', fn($q) =>
                 $q->where('id_asignatura', $asignatura->id_asignatura)
@@ -272,6 +262,7 @@ class CursoController extends Controller
      */
     public function getDocentesSugeridos(Asignatura $asignatura)
     {
+        $this->authorize('viewAny', Curso::class);
         $historicos = Docente::with('usuario')
             ->whereHas('usuario', fn ($q) => $q->where('esta_activo', true))
             ->whereHas('docenteComponentes.componente.curso.asignacionPlan', fn ($q) =>
@@ -313,6 +304,7 @@ class CursoController extends Controller
      */
     public function getDocentes()
     {
+        $this->authorize('viewAny', Curso::class);
         // docente table has no fecha_eliminacion column – no soft-delete filter here
         $docentes = \App\Models\Usuario\Docente::with('usuario')
             ->whereHas('usuario', fn ($q) => $q->where('esta_activo', true))
@@ -331,6 +323,7 @@ class CursoController extends Controller
      */
     public function getProximaLetra(Request $request)
     {
+        $this->authorize('viewAny', Curso::class);
         $request->validate([
             'id_asignatura' => 'required|integer|exists:asignatura,id_asignatura',
             'id_plan'       => 'required|integer|exists:plan,id_plan',
@@ -374,6 +367,7 @@ class CursoController extends Controller
      */
     public function previewCopia(Curso $curso)
     {
+        $this->authorize('view', $curso);
         $curso->load([
             'asignacionPlan.asignatura',
             'asignacionPlan.plan.carrera',
@@ -445,6 +439,7 @@ class CursoController extends Controller
      */
     public function copiar(Request $request, Curso $curso)
     {
+        $this->authorize('create', Curso::class);
         $request->validate([
             'cod_curso'   => 'required|integer|min:1',
             'fecha_inicio'=> 'required|date',
@@ -472,6 +467,7 @@ class CursoController extends Controller
      */
     public function destroy(Curso $curso)
     {
+        $this->authorize('delete', $curso);
         try {
             $curso->delete();
 

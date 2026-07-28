@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreInscripcionCursoRequest;
 use App\Http\Requests\UpdateInscripcionCursoRequest;
@@ -36,6 +37,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class InscripcionCursoController extends Controller
 {
+    use LimitsPageSize;
+
     private InscripcionCursoService $inscripcionService;
 
     public function __construct(InscripcionCursoService $inscripcionService)
@@ -59,7 +62,7 @@ class InscripcionCursoController extends Controller
         $inscripciones = $this->inscripcionService->getFiltered(
             $filters,
             $idDocente,
-            $request->input('per_page', 15)
+            $this->perPage($request)
         );
 
         // Obtener cursos disponibles

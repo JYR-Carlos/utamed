@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Departamento;
 use App\Models\Administrativo\Facultad;
@@ -21,11 +22,14 @@ use Inertia\Inertia;
  */
 class DepartamentoController extends Controller
 {
+    use LimitsPageSize;
+
     /**
      * Muestra un listado paginado de departamentos con búsqueda por nombre y facultad.
      */
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Departamento::class);
         $query = Departamento::with([
             'facultad',
             'carreras' => fn($q) => $q->whereNull('fecha_eliminacion')
@@ -47,7 +51,7 @@ class DepartamentoController extends Controller
 
         // Pagination
         $departamentos = $query->orderBy('nombre')
-            ->paginate($request->input('per_page', 15))
+            ->paginate($this->perPage($request))
             ->withQueryString();
 
         // Get all facultades for the filter
@@ -68,6 +72,7 @@ class DepartamentoController extends Controller
      */
     public function byFacultad(Facultad $facultad)
     {
+        $this->authorize('viewAny', Departamento::class);
         $departamentos = $facultad->departamentos()
             ->orderBy('nombre')
             ->get();
@@ -80,6 +85,7 @@ class DepartamentoController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('create', Departamento::class);
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'id_facultad' => ['required', Rule::exists(Facultad::class, 'id_facultad')],
@@ -100,6 +106,7 @@ class DepartamentoController extends Controller
      */
     public function show(Departamento $departamento)
     {
+        $this->authorize('view', $departamento);
         $departamento->load(['facultad', 'carreras']);
 
         return response()->json($departamento);
@@ -110,6 +117,7 @@ class DepartamentoController extends Controller
      */
     public function update(Request $request, Departamento $departamento)
     {
+        $this->authorize('update', $departamento);
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'id_facultad' => ['required', Rule::exists(Facultad::class, 'id_facultad')],
@@ -126,6 +134,7 @@ class DepartamentoController extends Controller
      */
     public function destroy(Departamento $departamento)
     {
+        $this->authorize('delete', $departamento);
         try {
             $departamento->delete();
 

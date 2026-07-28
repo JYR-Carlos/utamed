@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Docente\JefeCarrera;
 
+use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Plan;
@@ -17,6 +18,8 @@ use Inertia\Inertia;
  */
 class PlanController extends Controller
 {
+    use LimitsPageSize;
+
     use ResolvesJefaturaCarrera;
 
     private const PREFIX = '/docente/jefe-carrera';
@@ -38,7 +41,7 @@ class PlanController extends Controller
         $planes = $query->orderBy('agno_plan', 'desc')
             ->orderBy('version_plan', 'desc')
             ->withSum('asignaturas as creditos_sct_totales', 'creditos_sct')
-            ->paginate($request->input('per_page', 15))
+            ->paginate($this->perPage($request))
             ->withQueryString();
 
         // El selector de carrera queda bloqueado a la carrera del jefe.

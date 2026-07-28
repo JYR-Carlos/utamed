@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Asignatura;
 use Illuminate\Http\Request;
@@ -22,6 +23,8 @@ use Inertia\Inertia;
  */
 class AsignaturaController extends Controller
 {
+    use LimitsPageSize;
+
     /**
      * Muestra un listado paginado de asignaturas con búsqueda por código o nombre.
      * 
@@ -30,6 +33,7 @@ class AsignaturaController extends Controller
      */
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Asignatura::class);
         $query = Asignatura::select(['id_asignatura', 'cod_asignatura', 'nombre', 'creditos_sct', 'fecha_creacion'])
             ->active() // Solo versiones no eliminadas
             ->withCount('asignacionPlanes as planes_count')
@@ -54,7 +58,7 @@ class AsignaturaController extends Controller
         }
 
         $asignaturas = $query->orderBy(('cod_asignatura'))
-        ->paginate($request->integer('per_page', 15))
+        ->paginate($this->perPage($request))
         ->withQueryString();
 
         return Inertia::render('admin/Asignaturas', [
@@ -68,6 +72,7 @@ class AsignaturaController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('create', Asignatura::class);
         $validated = $request->validate([
             'cod_asignatura' => ['required', 'string', 'max:50', Rule::unique(Asignatura::class, 'cod_asignatura')],
             'nombre' => 'required|string|max:255',
@@ -97,6 +102,7 @@ class AsignaturaController extends Controller
      */
     public function show(Asignatura $asignatura)
     {
+        $this->authorize('view', $asignatura);
         // Verificar que la asignatura no está eliminada
         if ($asignatura->fecha_eliminacion !== null) {
             abort(404, 'Esta versión de la asignatura ha sido reemplazada por una más reciente.');
@@ -124,6 +130,7 @@ class AsignaturaController extends Controller
      */
     public function update(Request $request, Asignatura $asignatura)
     {
+        $this->authorize('update', $asignatura);
         $validated = $request->validate([
             'cod_asignatura' => [
                 'required',
@@ -168,6 +175,7 @@ class AsignaturaController extends Controller
      */
     public function destroy(Asignatura $asignatura)
     {
+        $this->authorize('delete', $asignatura);
         try {
             // Verificar que no está actualmente asignada a planes
             if ($asignatura->asignacionPlanes()->count() > 0) {
