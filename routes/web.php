@@ -100,7 +100,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     // Componentes routes
     Route::get('cursos/{curso}/componentes', [AdminSeccionController::class, 'indexByCurso'])
         ->name('cursos.componentes.index');
-    Route::get('tipos-componente', fn() => \App\Models\Curso\TipoComponente::all())
+    Route::get('tipos-componente', fn() => \App\Models\Curso\TipoComponente::select('id', 'nombre')->get())
         ->name('tipos-componente.index');
 
     // Actividades routes - Get activities for program wizard
@@ -224,17 +224,20 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     // Componente Management for Courses
     Route::post('cursos/{curso}/componentes', [AdminSeccionController::class, 'store'])
         ->name('cursos.componentes.store');
-    Route::put('cursos/componentes/{componente}', [AdminSeccionController::class, 'update'])
+    // El {curso} es obligatorio en la URL: sin él estas seis escrituras quedaban
+    // ligadas sólo al ID global del componente, sin ámbito ni comprobación de
+    // pertenencia (F-2).
+    Route::put('cursos/{curso}/componentes/{componente}', [AdminSeccionController::class, 'update'])
         ->name('cursos.componentes.update');
-    Route::delete('cursos/componentes/{componente}', [AdminSeccionController::class, 'destroy'])
+    Route::delete('cursos/{curso}/componentes/{componente}', [AdminSeccionController::class, 'destroy'])
         ->name('cursos.componentes.destroy');
-    Route::post('cursos/componentes/{componente}/docentes', [AdminSeccionController::class, 'addDocente'])
+    Route::post('cursos/{curso}/componentes/{componente}/docentes', [AdminSeccionController::class, 'addDocente'])
         ->name('cursos.componentes.docentes.store');
-    Route::delete('cursos/componentes/{componente}/docentes/{docenteComponente}', [AdminSeccionController::class, 'removeDocente'])
+    Route::delete('cursos/{curso}/componentes/{componente}/docentes/{docenteComponente}', [AdminSeccionController::class, 'removeDocente'])
         ->name('cursos.componentes.docentes.destroy');
-    Route::put('cursos/componentes/{componente}/titular', [AdminSeccionController::class, 'setTitular'])
+    Route::put('cursos/{curso}/componentes/{componente}/titular', [AdminSeccionController::class, 'setTitular'])
         ->name('cursos.componentes.titular');
-    Route::put('cursos/componentes/{componente}/genera-acta', [AdminSeccionController::class, 'toggleGeneraActa'])
+    Route::put('cursos/{curso}/componentes/{componente}/genera-acta', [AdminSeccionController::class, 'toggleGeneraActa'])
         ->name('cursos.componentes.genera-acta');
 
     // Helper endpoints for cascading selects
