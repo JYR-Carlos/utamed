@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Services\Authorization\GlobalContextService;
 use App\Support\ContextColumnConfig;
 use App\Enums\ContextType;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
@@ -16,12 +18,28 @@ use RuntimeException;
  */
 class ContextResolver
 {
+    /** Prefijo de la clave de caché de cadenas de ancestros. */
+    private const CLAVE_ANCESTROS = 'ctx:ancestros:';
+
+    /** La jerarquía de contextos sólo cambia al crear o mover unidades académicas. */
+    private const TTL_ANCESTROS_SEGUNDOS = 3600;
+
     /**
      * Contexto mapeado cargado en memoria
      *
      * @var array|null
      */
     protected $mappings = null;
+
+    /**
+     * Cadenas de ancestros ya resueltas en este request.
+     *
+     * Evita ir al store de caché varias veces dentro de la misma petición, que
+     * con el driver `database` es una consulta más.
+     *
+     * @var array<int, array>
+     */
+    private array $ancestrosEnMemoria = [];
 
     /**
      * Cache de contextos que se acaban de resolver
@@ -198,7 +216,41 @@ class ContextResolver
      */
     public function getAncestorContextsWithType(int $contextId): array
     {
-        $rows = \Illuminate\Support\Facades\DB::select(
+        // El motor de permisos llama aquí una vez por cada validación, y la
+        // jerarquía sólo cambia al crear o mover facultades, carreras, planes o
+        // cursos. Se cachea en memoria por request y en el store por una hora.
+        if (isset($this->ancestrosEnMemoria[$contextId])) {
+            return $this->ancestrosEnMemoria[$contextId];
+        }
+
+        $ancestros = Cache::remember(
+            self::CLAVE_ANCESTROS . $contextId,
+            self::TTL_ANCESTROS_SEGUNDOS,
+            fn() => $this->fetchAncestorContextsWithType($contextId)
+        );
+
+        return $this->ancestrosEnMemoria[$contextId] = $ancestros;
+    }
+
+    /**
+     * Invalida la cadena de ancestros cacheada de un contexto.
+     *
+     * Necesario si se reubica un contexto en la jerarquía; el TTL cubre el resto.
+     */
+    public function olvidarAncestros(int $contextId): void
+    {
+        unset($this->ancestrosEnMemoria[$contextId]);
+        Cache::forget(self::CLAVE_ANCESTROS . $contextId);
+    }
+
+    /**
+     * Consulta sin caché de {@see getAncestorContextsWithType()}.
+     *
+     * @return array<int, array{id_contexto: int, nivel: int, categoria: ContextType|null}>
+     */
+    private function fetchAncestorContextsWithType(int $contextId): array
+    {
+        $rows = DB::select(
             'SELECT id_contexto, nivel, categoria FROM usuario.fn_obtener_ids_contexto_ancestros(?)',
             [$contextId]
         );

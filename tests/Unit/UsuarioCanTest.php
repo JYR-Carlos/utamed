@@ -62,9 +62,10 @@ beforeEach(function () {
 
     app()->instance(GlobalContextService::class, $globalContextMock);
 
-    // Mock del Cache (sin caché en tests)
-    Cache::shouldReceive('get')->andReturn(null);
-    Cache::shouldReceive('put')->andReturn(true);
+    // La caché de permisos usa el store `array` que fija phpunit.xml. Antes se
+    // mockeaba la fachada Cache con get/put; el validador ahora usa remember y
+    // forever, así que un mock parcial fallaría.
+    Cache::flush();
 });
 
 afterEach(function () {
