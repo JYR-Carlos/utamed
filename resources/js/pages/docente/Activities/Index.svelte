@@ -290,8 +290,9 @@
       `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/integrantes/${asignadoId}`,
       { diferencia_decimas: decimas },
       {
+        // El controlador responde redirect()->back(): Inertia ya re-renderiza con
+        // props frescos. Recargar aquí volvía a ejecutar showEvaluacion() entero.
         preserveScroll: true,
-        onSuccess: () => router.reload({ only: ['grupos'] }),
         onFinish: () => (savingDecimas = null),
       },
     );
@@ -301,7 +302,7 @@
     router.post(
       `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/recalcular-notas`,
       {},
-      { preserveScroll: true, onSuccess: () => router.reload({ only: ['grupos'] }) },
+      { preserveScroll: true },
     );
   }
 
@@ -409,10 +410,9 @@
         },
         {
           preserveScroll: true,
-          onSuccess: () => {
-            router.reload({ only: ['grupos'] });
-            cargarInteracciones(grupoSnap);
-          },
+          // `grupos` llega ya actualizado en el redirect()->back(); sólo hace
+          // falta refrescar las interacciones, que son un prop lazy aparte.
+          onSuccess: () => cargarInteracciones(grupoSnap),
           onError: (errors) => console.error('Error al registrar evaluación:', errors),
         },
       );
@@ -682,7 +682,6 @@
       idGrupo={grupoEntregasSeleccionado.grupo}
       idAgendaEntrega={entregaParaEvaluar}
       onClose={cerrarMatrizEvaluacion}
-      onSuccess={() => router.reload({ only: ['grupos'] })}
     />
   {/if}
 

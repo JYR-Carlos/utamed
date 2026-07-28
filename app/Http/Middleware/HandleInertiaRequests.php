@@ -156,7 +156,6 @@ class HandleInertiaRequests extends Middleware
         $user = $request->user();
         $docente = null;
         $estudiante = null;
-        $allAyudantePerms = null;
 
         // Si el usuario está autenticado, cargar sus relaciones
         if ($user) {
@@ -187,12 +186,9 @@ class HandleInertiaRequests extends Middleware
             $docente = $user->docente;
             $estudiante = $user->estudiante;
 
-            // OPTIMIZACIÓN: Pre-cargar permisos por contexto solo si es ayudante
-            // (evita N+1 queries cuando el frontend necesita verificar permisos)
-            // FIX: esto no deberia hacerse
-            if (in_array('ayudante', array_map('strtolower', $roles))) {
-                $allAyudantePerms = $user->getAllPermissionsGroupedByContext();
-            }
+            // Los permisos por contexto ya no se precargan aquí: se resolvían en
+            // toda petición del ayudante, incluidas las de escritura que nunca
+            // los usan. UserCoursesService los pide cuando de verdad hacen falta.
         }
 
         // OPTIMIZACIÓN: Solo cargar datos costosos en GET requests (navegación)
@@ -221,10 +217,15 @@ class HandleInertiaRequests extends Middleware
                 // Ej: ['cursos:ver', 'cursos:editar', 'facultades:ver']
                 'permissions'   => $isNavigationRequest ? $permissions : [],
 
-                // CURSOS: Pre-cargados SOLO en GET requests (navegación)
-                // Para acciones (POST/PUT/DELETE), no necesitamos pre-cargar
-                // Cada controlador puede acceder a esto sin hacer queries adicionales
-
+                // CURSOS: sólo en GET requests (navegación).
+                //
+                // Van en closures a propósito. Inertia filtra los props de una
+                // recarga parcial ANTES de resolverlos, así que un closure que la
+                // petición no pide nunca llega a ejecutarse; un valor calculado
+                // aquí mismo, en cambio, se paga siempre aunque después se
+                // descarte. Nada de `Inertia::optional()`: eso los excluiría
+                // también de las visitas normales y dejaría el sidebar vacío.
+                //
                 // export interface SidebarCourse { <- Interfaz a la que se cargan
                 //     id_curso: number;
                 //     nombre: string;
@@ -233,15 +234,15 @@ class HandleInertiaRequests extends Middleware
                 //     permisos: Permission[];
                 // }
                 'docente_courses'    => $isNavigationRequest && $docente
-                    ? $this->userCourses->getDocenteCourses($docente)  // Cursos donde dicta
+                    ? fn() => $this->userCourses->getDocenteCourses($docente)  // Cursos donde dicta
                     : [],
 
                 'estudiante_courses' => $isNavigationRequest && $estudiante
-                    ? $this->userCourses->getEstudianteCourses($estudiante)  // Cursos inscritos
+                    ? fn() => $this->userCourses->getEstudianteCourses($estudiante)  // Cursos inscritos
                     : [],
 
                 'ayudante_courses'   => $isNavigationRequest && in_array('ayudante', array_map('strtolower', $roles))
-                    ? $this->userCourses->getAyudanteCourses($user, $allAyudantePerms)  // Cursos donde asiste
+                    ? fn() => $this->userCourses->getAyudanteCourses($user)  // Cursos donde asiste
                     : [],
             ],
 
