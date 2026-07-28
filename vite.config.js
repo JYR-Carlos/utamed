@@ -24,10 +24,11 @@ export default defineConfig({
         },
     },
     build: {
+        chunkSizeWarningLimit: 800, // Aumenta el límite temporalmente
         rollupOptions: {
             output: {
                 manualChunks(id) {
-                    // Vendor chunks
+                    // 1. Núcleo del framework (Rara vez cambia, caché a largo plazo)
                     if (id.includes('node_modules')) {
                         if (id.includes('@inertiajs')) return 'inertia';
                         if (id.includes('tailwindcss') || id.includes('@tailwindcss')) return 'tailwind';
@@ -42,6 +43,5 @@ export default defineConfig({
                 },
             },
         },
-        chunkSizeWarningLimit: 1000, // Aumenta el límite temporalmente
     },
 });
