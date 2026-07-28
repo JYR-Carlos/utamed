@@ -1,10 +1,7 @@
 <script lang="ts">
-  /**
-   * Dashboard del estudiante - Vista Bento Grid
-   */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, SidebarCourse } from '@/types';
-  import { page, router } from '@inertiajs/svelte'; // <-- Cambiamos Link por router
+  import { page, router } from '@inertiajs/svelte'; 
   import { Calendar } from 'lucide-svelte';
   import ProfileCard from '@/components/student/ProfileCard.svelte';
   import CourseCard from '@/components/student/CourseCard.svelte';
@@ -36,15 +33,16 @@
       nombre_completo: string;
     };
     isAyudante?: boolean;
+    semestreActual: number;
   }
 
-  let { estudiante, cursos, stats, isAyudante = false }: Props = $props();
+  let { estudiante, cursos, stats, isAyudante = false, semestreActual }: Props = $props();
 
-  const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/estudiante/dashboard' }];
+  const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/estudiante/dashboard' },];
 
   // Variables de estado mutables
   let anoAcademico = $state('2026');
-  let semestre = $state('1');
+  let semestre = $derived(semestreActual.toString())
 
   // FUNCIÓN PARA EL BOTÓN VER TODOS: Navega al Index enviando las variables actuales
   function handleVerTodos() {

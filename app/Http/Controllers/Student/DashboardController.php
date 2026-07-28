@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\Usuario\Usuario;
 use App\Models\Curso\InscripcionCurso;
+use Carbon\Carbon;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 /**
@@ -75,6 +76,9 @@ class DashboardController extends Controller
             ->whereIn('rol.nombre', ['Ayudante'])
             ->exists();
 
+        //vista del semestre por defecto (entre 1 y 2)
+        $semestreActual = Carbon::now()->month > 6 ? 2 : 1;
+
         return Inertia::render('student/Dashboard', [
             'estudiante' => [
                 'id_estudiante' => $estudiante->id_estudiante,
@@ -87,7 +91,9 @@ class DashboardController extends Controller
                 'total_cursos' => $cursosData->count(),
                 'nombre_completo' => trim("{$user->nombre1} {$user->apellido1}"),
             ],
-            'isAyudante' => $isAyudante
+            'isAyudante' => $isAyudante,
+            'semestreActual' => $semestreActual
+
         ]);
     }
 }
