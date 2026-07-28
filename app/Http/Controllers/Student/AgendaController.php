@@ -98,15 +98,21 @@ class AgendaController extends Controller
             ->firstOrFail();
 
         $actividad = $actividadAsignadaGrupo->actividad;
-        if ($actividad) {
-            $limiteReal = $actividad->fecha_limite->copy()
-                ->addDays($actividad->nro_dias_adicionales_para_bloqueo ?? 0)
-                ->endOfDay();
-            if (now()->isAfter($limiteReal)) {
-                return back()->withErrors([
-                    'error_general' => 'La fecha límite de entrega ha vencido. No se pueden subir archivos.',
-                ]);
-            }
+
+        // Guard invertido: con `if ($actividad) { … }`, un grupo sin actividad
+        // asociada saltaba entera la comprobación de plazo y la entrega se aceptaba.
+        if (!$actividad) {
+            abort(404, 'El grupo no tiene una actividad asociada.');
+        }
+
+        $limiteReal = $actividad->fecha_limite->copy()
+            ->addDays($actividad->nro_dias_adicionales_para_bloqueo ?? 0)
+            ->endOfDay();
+
+        if (now()->isAfter($limiteReal)) {
+            return back()->withErrors([
+                'error_general' => 'La fecha límite de entrega ha vencido. No se pueden subir archivos.',
+            ]);
         }
 
         DB::beginTransaction();

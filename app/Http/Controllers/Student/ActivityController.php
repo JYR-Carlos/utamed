@@ -11,7 +11,6 @@ use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
-use App\Services\Agenda\GrupoIndividualService;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
@@ -49,19 +48,27 @@ class ActivityController extends Controller
             abort(403, 'No estás inscrito en este curso.');
         }
 
+        // La actividad debe pertenecer al curso de la URL. Sin este guard, estar
+        // inscrito en un curso bastaba para abrir actividades de cursos ajenos y,
+        // peor, para que asegurarGrupo() auto-inscribiera al estudiante en ellas.
+        $actividad->loadMissing('componente');
+
+        if ($actividad->componente?->id_curso !== $curso->id_curso) {
+            abort(404, 'Actividad no encontrada en este curso.');
+        }
+
         if (!$actividad->visible) {
             abort(403, 'Esta actividad no está disponible.');
         }
 
         $actividad->load(['componente.tipoComponente', 'unidad', 'archivo']);
 
-        // Las actividades individuales no pasan por el flujo manual de creación
-        // de grupos: si el estudiante todavía no tiene su grupo de 1 integrante
-        // (actividad creada antes de este fix, o inscripción posterior), se crea
-        // aquí de forma perezosa (ver GrupoIndividualService).
-        if (!$actividad->es_grupal) {
-            (new GrupoIndividualService())->asegurarGrupo($actividad, $estudiante->id_estudiante);
-        }
+        // Aquí se creaba el grupo individual del estudiante de forma perezosa: un
+        // GET que escribía en la base (C-13), y la vía por la que un estudiante
+        // acababa inscrito en actividades de cursos ajenos (C-1). Los grupos los
+        // crea ahora la escritura —alta de la actividad y de la inscripción—, y
+        // `agenda:backfill-grupos-individuales` cubre lo anterior. Si aun así
+        // falta, más abajo el grupo queda en null y la vista lo soporta.
 
         // Buscar el grupo del estudiante para esta actividad
         $integranteGrupo = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
