@@ -45,6 +45,11 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
         'esta_activo' => 'boolean'
     ];
 
+    protected $hidden = [
+        'passhash',
+        'token_recuerdame_sesion'
+    ];
+
     // Relaciones
 
     // Relaciones inversas

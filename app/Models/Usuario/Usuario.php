@@ -9,6 +9,7 @@ use Illuminate\Contracts\Auth\Access\Authorizable as AuthorizableContract;
 use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
 use Illuminate\Foundation\Auth\Access\Authorizable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Services\Authorization\GlobalContextService;
 use App\Services\Authorization\PermissionValidator;
 use App\Contracts\HasContext;
 use App\Enums\PermissionTypeEnum;
@@ -128,13 +129,50 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
      */
     public function hasAnyRole(array $roles): bool
     {
+        return $this->hasAnyRoleInContext($roles, null);
+    }
+
+    /**
+     * Verificar si el usuario tiene alguno de los roles **en un contexto concreto**.
+     *
+     * `hasRole()`/`hasAnyRole()` responden "en cualquier contexto", lo que convierte
+     * un rol acotado (jefe de una carrera, admin de un departamento) en un rol
+     * global. Cuando la decisión depende del ámbito hay que usar este método.
+     *
+     * @param array    $roles      Nombres de rol (se normalizan a minúsculas)
+     * @param int|null $contextId  Contexto donde exigir el rol; null = cualquiera
+     */
+    public function hasAnyRoleInContext(array $roles, ?int $contextId): bool
+    {
         $normalizedRoles = array_map(
             fn($role) => strtolower(trim($role)),
             $roles
         );
 
-        $roleNames = array_column($this->getAllRoles(), 'nombre');
+        $roleNames = array_column($this->getAllRoles($contextId), 'nombre');
         return !empty(array_intersect($normalizedRoles, $roleNames));
+    }
+
+    /**
+     * Alias con los que el rol administrativo aparece en la BD.
+     *
+     * Existen los cuatro porque la comparación de roles nunca estuvo unificada;
+     * mientras no exista el RolesEnum, ésta es la lista canónica y ningún sitio
+     * debe escribir la suya.
+     *
+     * TODO: reemplazar por RolesEnum (ver el TODO de hasRole más arriba).
+     */
+    public const ROLES_ADMINISTRATIVOS = ['SuperAdmin', 'Super Admin', 'Admin', 'Administrador'];
+
+    /**
+     * Verificar si el usuario tiene alguno de los roles en el contexto global.
+     */
+    public function hasAnyRoleGlobally(array $roles): bool
+    {
+        return $this->hasAnyRoleInContext(
+            $roles,
+            app(GlobalContextService::class)->getContextId()
+        );
     }
 
     /**
@@ -247,8 +285,31 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
+     * ¿La fila pivote de usuario_rol_asignacion está vigente (y, si se pide, en
+     * el contexto indicado)?
+     *
+     * El pivote no declara casts, así que según el driver `esta_activo` puede
+     * llegar como bool o como el `t`/`f` de Postgres; `(bool) 'f'` sería `true`,
+     * de ahí la comparación explícita.
+     */
+    private function asignacionVigente($pivot, ?int $contextId): bool
+    {
+        if (!$pivot) {
+            return false;
+        }
+
+        $esVerdadero = static fn($v) => $v === true || $v === 1 || $v === '1' || $v === 't' || $v === 'true';
+
+        if (!$esVerdadero($pivot->esta_activo) || $esVerdadero($pivot->fue_eliminado)) {
+            return false;
+        }
+
+        return $contextId === null || (int) $pivot->id_contexto === $contextId;
+    }
+
+    /**
      * Obtener todos los roles (nombre e id) del usuario.
-     * 
+     *
      * Permite filtrar por contexto específico.
      * 
      * @param int|null $contextId El contexto por cual filtrar roles (null para todos los contextos)
@@ -262,6 +323,20 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
      */
     public function getAllRoles(?int $contextId = null): array
     {
+        // Si la relación ya está cargada, resolver en memoria. `share()` la carga
+        // en cada request y aun así cada hasRole()/hasAnyRole() lanzaba su propia
+        // consulta: sólo /dashboard encadenaba cinco (A-6).
+        if ($this->relationLoaded('rolesAsignados')) {
+            return $this->rolesAsignados
+                ->filter(fn($role) => $this->asignacionVigente($role->pivot ?? null, $contextId))
+                ->map(fn($role) => [
+                    'id' => $role->id_rol,
+                    'nombre' => strtolower($role->nombre),
+                ])
+                ->values()
+                ->all();
+        }
+
         $query = $this->rolesAsignados()
             ->wherePivot('esta_activo', true)
             ->wherePivot('fue_eliminado', false);
