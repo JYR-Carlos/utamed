@@ -76,7 +76,7 @@ class ActivityArchiveHandler
     ?string $fileName = null
   ): ArchiveStorageResult {
     $relativeDirectory = self::buildPath($actividad);
-    $finalFileName = $fileName ?: self::generateFileName($file);
+    $finalFileName = $fileName ?: self::generateFileName();
 
     $request = new ArchiveHandlerRequest(
       file: $file,
@@ -156,19 +156,20 @@ class ActivityArchiveHandler
   }
 
   /**
-   * Generate deterministic filename for stored file.
+   * Generate deterministic filename for stored file (sin extensión).
    *
-   * Format: activity_{timestamp}_{random}.{extension}
+   * Format: activity_{timestamp}_{random}
    *
-   * @param UploadedFile $file
    * @return string
    */
-  private static function generateFileName(UploadedFile $file): string
+  private static function generateFileName(): string
   {
-    $extension = $file->getClientOriginalExtension();
+    // Sólo la parte base: la extensión la deriva del contenido validado
+    // AbstractArchiveService::buildSafeStorageName(). La declarada por el cliente
+    // no se usa para nombrar nada en disco.
     $timestamp = now()->timestamp;
     $hash = Str::random(8);
 
-    return "activity_{$timestamp}_{$hash}.{$extension}";
+    return "activity_{$timestamp}_{$hash}";
   }
 }

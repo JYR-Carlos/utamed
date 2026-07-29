@@ -61,7 +61,7 @@ class AgendaArchiveHandler
   ): ArchiveStorageResult {
     $fecha = $fecha ?: now();
     $relativeDirectory = self::buildPath($grupo, $fecha);
-    $finalFileName = $fileName ?: self::generateFileName($file);
+    $finalFileName = $fileName ?: self::generateFileName();
 
     $request = new ArchiveHandlerRequest(
       file: $file,
@@ -140,17 +140,18 @@ class AgendaArchiveHandler
   }
 
   /**
-   * Generate deterministic filename for stored file.
+   * Generate deterministic filename for stored file (sin extensión).
    *
-   * @param UploadedFile $file
    * @return string
    */
-  private static function generateFileName(UploadedFile $file): string
+  private static function generateFileName(): string
   {
-    $extension = $file->getClientOriginalExtension();
+    // Sólo la parte base: la extensión la deriva del contenido validado
+    // AbstractArchiveService::buildSafeStorageName(). La declarada por el cliente
+    // no se usa para nombrar nada en disco.
     $timestamp = now()->timestamp;
     $hash = \Illuminate\Support\Str::random(8);
 
-    return "agenda_{$timestamp}_{$hash}.{$extension}";
+    return "agenda_{$timestamp}_{$hash}";
   }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Archive;
 
+use App\Exceptions\Archive\ArchiveErrorType;
 use App\Exceptions\Archive\ArchiveException;
 use App\Exceptions\Archive\CompressionException;
 use App\Exceptions\Archive\FileValidationException;
@@ -342,20 +343,28 @@ abstract class AbstractArchiveService
       return;
     }
 
-    // TODO: Default implementation - connect to ClamAV daemon or VirusTotal
-    // Example:
-    // - Connect to ClamAV daemon
-    // - Send file for scanning
-    // - Parse response
+    // Falla cerrado: no hay escáner en el proyecto, así que con el flag activo
+    // la única respuesta honesta es rechazar la subida. Antes este cuerpo estaba
+    // vacío y "habilitar el antivirus" aprobaba todos los archivos en silencio,
+    // que es peor que no tenerlo: da una falsa sensación de protección.
     //
-    // $scanResult = app(VirusScanService::class)->scan($file);
-    // if ($scanResult->isInfected()) {
-    //   throw new VirusDetectedException(
-    //     VirusDetectionErrorType::VIRUS_FOUND,
-    //     $scanResult->getVirusName(),
-    //     $archiveId
-    //   );
-    // }
+    // Para habilitarlo de verdad, una subclase (o este método) debe sobrescribir
+    // el hook con un escáner real:
+    //
+    //   $resultado = app(VirusScanService::class)->scan($file);
+    //   if ($resultado->isInfected()) {
+    //     throw new VirusDetectedException(
+    //       VirusDetectionErrorType::VIRUS_FOUND, $resultado->getVirusName(), $archiveId
+    //     );
+    //   }
+    throw new ArchiveException(
+      ArchiveErrorType::CONFIGURATION_ERROR,
+      'El escaneo de virus está habilitado (ARCHIVE_VIRUS_SCAN_ENABLED) pero no hay ningún escáner implementado. '
+        . 'Implementa el hook scanForViruses() o desactiva el flag; no se aceptarán subidas mientras tanto.',
+      500,
+      null,
+      $archiveId
+    );
   }
 
   /**
@@ -564,7 +573,7 @@ abstract class AbstractArchiveService
 
     $prefixedDirectory = "{$basePrefix}{$rootPrefix}{$normalizedDirectory}";
 
-    $storageName = $fileName ?: $file->hashName();
+    $storageName = $this->buildSafeStorageName($file, $fileName);
 
     $storedPath = Storage::disk($this->disk)->putFileAs($prefixedDirectory, $file, $storageName);
 
@@ -582,7 +591,7 @@ abstract class AbstractArchiveService
     $archivo = $archivoModel->create([
       'ruta_fisica' => $storedPath,
       'nombre_original' => $file->getClientOriginalName(),
-      'extension' => $file->extension(),
+      'extension' => $this->resolveSafeExtension($file),
       'mime_type' => $file->getMimeType(),
       'peso_bytes' => $file->getSize(),
       'pendiente_de_borrado' => false,
@@ -600,6 +609,57 @@ abstract class AbstractArchiveService
       mimeType: $file->getMimeType(),
       originalName: $file->getClientOriginalName()
     );
+  }
+
+  /**
+   * Compone el nombre con el que el archivo se guarda en disco.
+   *
+   * El nombre propuesto por quien llama (en la práctica, el input
+   * `nombre_archivo` del formulario) sólo aporta la **parte base**: la extensión
+   * se deriva siempre del contenido ya validado. Antes el nombre viajaba entero
+   * hasta `putFileAs()`, de modo que `nombre_archivo=shell.php` guardaba un PDF
+   * como `shell.php`; hoy el disco está fuera del docroot, pero servirlo por web
+   * o sincronizarlo a un bucket público convertía eso en ejecución remota.
+   *
+   * Además fija el nombre en disco y la columna `extension` a la misma
+   * extensión, que hasta ahora podían divergir.
+   *
+   * @param UploadedFile $file        Archivo validado
+   * @param string|null  $fileName    Nombre propuesto; sólo se usa su parte base
+   * @return string Nombre saneado, con extensión derivada del contenido
+   */
+  protected function buildSafeStorageName(UploadedFile $file, ?string $fileName = null): string
+  {
+    $extension = $this->resolveSafeExtension($file);
+
+    // basename() descarta cualquier componente de ruta; el resto de la limpieza
+    // deja sólo letras, números, punto, guion y guion bajo.
+    $base = pathinfo(basename((string) $fileName), PATHINFO_FILENAME);
+    $base = preg_replace('/[^\pL\pN._\-]+/u', '_', $base) ?? '';
+    $base = trim($base, "._- \t\n\r\0\x0B");
+    $base = mb_substr($base, 0, 100);
+
+    if ($base === '') {
+      // Sin nombre utilizable: hashName() da un nombre aleatorio y único.
+      $base = pathinfo($file->hashName(), PATHINFO_FILENAME);
+    }
+
+    return "{$base}.{$extension}";
+  }
+
+  /**
+   * Extensión derivada del contenido del archivo, nunca de lo que dice el cliente.
+   *
+   * `UploadedFile::extension()` la deduce del MIME real detectado por Symfony.
+   * Si el MIME no se puede mapear a ninguna extensión conocida, `bin` es un
+   * fallback inerte.
+   */
+  protected function resolveSafeExtension(UploadedFile $file): string
+  {
+    $extension = strtolower((string) $file->extension());
+    $extension = preg_replace('/[^a-z0-9]/', '', $extension) ?? '';
+
+    return $extension !== '' ? $extension : 'bin';
   }
 
   /**

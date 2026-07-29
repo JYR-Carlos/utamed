@@ -45,10 +45,20 @@ return [
     | LÍMITES GLOBALES
     |--------------------------------------------------------------------------
     */
+    /*
+    | Los interruptores de validación sólo se honran en el entorno `local`. En
+    | cualquier otro entorno el allowlist de extensiones y MIME es obligatorio:
+    | una variable de entorno mal puesta en producción no puede desactivar el
+    | único control que impide subir ejecutables.
+    */
     'global' => [
         'max_file_size' => (int) env('FILES_MAX_FILE_SIZE', 52428800), // 50MB
-        'enable_mime_validation' => env('FILES_ENABLE_MIME_VALIDATION', true),
-        'enable_extension_validation' => env('FILES_ENABLE_EXTENSION_VALIDATION', true),
+        'enable_mime_validation' => env('APP_ENV') === 'local'
+            ? (bool) env('FILES_ENABLE_MIME_VALIDATION', true)
+            : true,
+        'enable_extension_validation' => env('APP_ENV') === 'local'
+            ? (bool) env('FILES_ENABLE_EXTENSION_VALIDATION', true)
+            : true,
     ],
 
     /*
