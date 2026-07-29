@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Programa\SyllabusRules;
 use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Componente;
@@ -249,13 +250,10 @@ class ProgramaController extends Controller
 
         $tipoSyllabus = $typeMapping[$syllabusType];
 
-        // Obtener reglas de validación según tipo
-        $validationRules = $this->getValidationRulesForType($tipoSyllabus);
-        
-        $validated = $request->validate([
-            'secciones' => 'required|array',
-            ...$validationRules,
-        ]);
+        // Sin regla sobre la clave padre `secciones`: con ella, validated() devolvía
+        // el subárbol completo y cualquier clave extra del cliente llegaba intacta
+        // al JSONB. Las rutas declaradas en SyllabusRules son ahora la allowlist.
+        $validated = $request->validate(SyllabusRules::forTipo($tipoSyllabus));
 
         try {
             // Validar permisos para cada sección antes de guardar
@@ -828,128 +826,6 @@ class ProgramaController extends Controller
         return $rules[$seccionId] ?? [];
     }
 
-    /**
-     * Retorna las reglas de validación según el tipo de syllabus
-     * BASICO: valida solo 5 secciones
-     * COMPLETO: valida 9 secciones
-     */
-    private function getValidationRulesForType(string $tipoSyllabus): array
-    {
-        if ($tipoSyllabus === 'BASICO') {
-            return $this->getValidationRulesForBasico();
-        }
-        
-        return $this->getValidationRulesForCompleto();
-    }
-
-    /**
-     * Reglas de validación para BASICO (5 secciones)
-     */
-    private function getValidationRulesForBasico(): array
-    {
-        return [
-            // Sección I: Identificación
-            'secciones.I.contenido.nombre_asignatura' => 'required|string|max:255',
-            'secciones.I.contenido.codigo' => 'required|string|max:50',
-            'secciones.I.contenido.creditos_sct' => 'required|integer|min:1|max:50',
-            'secciones.I.contenido.horas.catedra' => 'required|integer|min:0',
-            'secciones.I.contenido.horas.taller' => 'required|integer|min:0',
-            'secciones.I.contenido.horas.laboratorio' => 'required|integer|min:0',
-            'secciones.I.contenido.categoria' => 'required|string|in:Obligatorio,Electivo,Nivelación,Complementaria',
-            
-            // Sección II: Presentación - Permitir enviar vacío para rellenar después
-            'secciones.II.contenido.texto' => 'nullable|string',
-            'secciones.VI.contenido.unidades' => 'nullable|array',
-            'secciones.VI.contenido.unidades.*.numero' => 'nullable|integer',
-            'secciones.VI.contenido.unidades.*.titulo' => 'nullable|string',
-            'secciones.VI.contenido.unidades.*.contenidos_items' => 'nullable|array',
-            'secciones.VI.contenido.unidades.*.contenidos_items.*.item' => 'nullable|string',
-            'secciones.VI.contenido.unidades.*.resultados_aprendizaje' => 'nullable|array',
-            'secciones.VI.contenido.unidades.*.resultados_aprendizaje.*.resultado' => 'nullable|string',
-            
-            // Sección VII: Actividades de Aprendizaje - Permitir enviar vacío para rellenar después
-            'secciones.VII.contenido.actividades' => 'nullable|array',
-            'secciones.VII.contenido.actividades.*.id_actividad' => 'nullable|integer',
-            'secciones.VII.contenido.actividades.*.nombre' => 'nullable|string',
-            'secciones.VII.contenido.actividades.*.tipo' => 'nullable|string',
-            
-            // Sección VIII: Bibliografía/Recursos - Permitir enviar vacío para rellenar después
-            'secciones.VIII.contenido.recursos' => 'nullable|array',
-            'secciones.VIII.contenido.recursos.*.descripcion' => 'nullable|string',
-            'secciones.VIII.contenido.recursos.*.tipo' => 'nullable|string|in:Libro,Documentación Online,Video,Herramienta Software,Base de Datos',
-            'secciones.VIII.contenido.recursos.*.ubicacion' => 'nullable|string',
-        ];
-    }
-
-    /**
-     * Reglas de validación para COMPLETO (9 secciones)
-     */
-    private function getValidationRulesForCompleto(): array
-    {
-        return [
-            // Sección I: Identificación
-            'secciones.I.contenido.nombre_asignatura' => 'required|string|max:255',
-            'secciones.I.contenido.codigo' => 'required|string|max:50',
-            'secciones.I.contenido.creditos_sct' => 'required|integer|min:1|max:50',
-            'secciones.I.contenido.horas.catedra' => 'required|integer|min:0',
-            'secciones.I.contenido.horas.taller' => 'required|integer|min:0',
-            'secciones.I.contenido.horas.laboratorio' => 'required|integer|min:0',
-            'secciones.I.contenido.categoria' => 'required|string|in:Obligatorio,Electivo,Nivelación,Complementaria',
-            
-            // Sección II: Presentación - Permitir enviar vacío para rellenar después
-            'secciones.II.contenido.texto' => 'nullable|string',
-            
-            // Sección III: Estándares
-            'secciones.III.contenido.texto' => 'nullable|string',
-            
-            // Sección IV: Competencias
-            'secciones.IV.contenido.competencias_especificas' => 'required|array|min:1',
-            'secciones.IV.contenido.competencias_especificas.*.titulo' => 'required|string',
-            'secciones.IV.contenido.competencias_genericas' => 'required|array|min:1',
-            'secciones.IV.contenido.competencias_genericas.*.titulo' => 'required|string',
-            'secciones.IV.contenido.subcompetencias' => 'nullable|array',
-            'secciones.IV.contenido.subcompetencias.*.titulo' => 'required_if:secciones.IV.contenido.subcompetencias,!null|string',
-            
-            // Sección V: Evaluación Diagnóstica
-            'secciones.V.contenido.items' => 'required|array|min:1',
-            'secciones.V.contenido.items.*.titulo' => 'required|string',
-            'secciones.V.contenido.items.*.descripcion' => 'nullable|string',
-            
-            // Sección VI: Unidades - Permitir enviar vacío para rellenar después
-            'secciones.VI.contenido.unidades' => 'nullable|array',
-            'secciones.VI.contenido.unidades.*.numero' => 'nullable|integer',
-            'secciones.VI.contenido.unidades.*.titulo' => 'nullable|string',
-            'secciones.VI.contenido.unidades.*.contenidos_items' => 'nullable|array',
-            'secciones.VI.contenido.unidades.*.contenidos_items.*.item' => 'nullable|string',
-            'secciones.VI.contenido.unidades.*.resultados_aprendizaje' => 'nullable|array',
-            'secciones.VI.contenido.unidades.*.resultados_aprendizaje.*.resultado' => 'nullable|string',
-            
-            // Sección VII: Planificación
-            'secciones.VII.contenido.resultados_aprendizaje.titulo' => 'required|string',
-            'secciones.VII.contenido.resultados_aprendizaje.items' => 'required|array|min:1',
-            'secciones.VII.contenido.resultados_aprendizaje.items.*.resultado' => 'required|string',
-            'secciones.VII.contenido.metodologia.titulo' => 'required|string',
-            'secciones.VII.contenido.metodologia.tipo_estrategia' => 'required|string',
-            'secciones.VII.contenido.evaluacion.titulo' => 'required|string',
-            'secciones.VII.contenido.evaluacion.tipo_evaluacion' => 'required|string',
-            
-            // Sección VIII: Recursos - Permitir enviar vacío para rellenar después
-            'secciones.VIII.contenido.recursos' => 'nullable|array',
-            'secciones.VIII.contenido.recursos.*.descripcion' => 'nullable|string',
-            'secciones.VIII.contenido.recursos.*.tipo' => 'nullable|string|in:Libro,Documentación Online,Video,Herramienta Software,Base de Datos',
-            'secciones.VIII.contenido.recursos.*.ubicacion' => 'nullable|string',
-            
-            // Sección IX: Aspectos Administrativos
-            'secciones.IX.contenido.descripcion' => 'required|string',
-            'secciones.IX.contenido.ponderacion_optativa.porcentaje' => 'required|numeric|min:0|max:100',
-            'secciones.IX.contenido.tabla_componentes' => 'required|array|min:1',
-            'secciones.IX.contenido.tabla_componentes.*.componente' => 'required|string',
-            'secciones.IX.contenido.tabla_componentes.*.porcentaje' => 'required|numeric|min:0|max:100',
-            'secciones.IX.contenido.tabla_componentes.*.genera_acta' => 'required|boolean',
-            'secciones.IX.contenido.tabla_componentes.*.aprobacion_obligatoria' => 'nullable|boolean',
-            'secciones.IX.contenido.tabla_componentes.*.asistencia_obligatoria' => 'nullable|numeric|min:0|max:100',
-        ];
-    }
 
     /**
      * Crea actividades nuevas asociadas a unidades del curso.

@@ -51,19 +51,24 @@ class ProgramaController extends Controller
         }
 
         // Validar si se envían secciones
+        //
+        // Nota: esta ruta no está registrada en routes/web.php y su forma
+        // (`secciones.*.nombre_seccion`) es la legacy, incompatible con los DTO de
+        // App\Syllabus, que esperan claves romanas. Se mantiene acotada por
+        // higiene: lo que llega al JSONB son las claves validadas, no el input
+        // crudo del request.
         if ($request->has('secciones')) {
-            $request->validate([
-                'secciones' => 'required|array',
-                'secciones.*.nombre_seccion' => 'required|string',
-                'secciones.*.orden' => 'required|integer',
-                'secciones.*.contenidos' => 'nullable|array',
-                'secciones.*.contenidos.*.texto_contenido' => 'nullable|string',
-                'secciones.*.contenidos.*.orden_item' => 'required|integer',
+            $validated = $request->validate([
+                'secciones.*.nombre_seccion' => 'required|string|max:255',
+                'secciones.*.orden' => 'required|integer|min:0|max:1000',
+                'secciones.*.contenidos' => 'nullable|array|max:200',
+                'secciones.*.contenidos.*.texto_contenido' => 'nullable|string|max:20000',
+                'secciones.*.contenidos.*.orden_item' => 'required|integer|min:0|max:1000',
             ]);
-            
+
             // Generar con secciones customizadas
             $overrides = [
-                'secciones' => $request->secciones
+                'secciones' => $validated['secciones']
             ];
         } else {
             $overrides = null;

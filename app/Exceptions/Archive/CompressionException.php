@@ -27,7 +27,7 @@ class CompressionException extends ArchiveException
     public readonly CompressionErrorType $errorType = CompressionErrorType::OPTIMIZATION_FAILED,
     string $reason = '',
     ?string $archiveId = null,
-    \Throwable $previous = null
+    ?\Throwable $previous = null
   ) {
     $message = match ($this->errorType) {
       CompressionErrorType::OPTIMIZATION_FAILED => "File optimization failed: {$reason}",

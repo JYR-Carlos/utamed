@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Ayudante;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Programa\SyllabusRules;
 use App\Models\Curso\Programa;
 use App\Models\Agenda\Actividad;
 use App\Models\Curso\Curso;
@@ -179,35 +180,15 @@ class ProgramaController extends Controller
 
         $tipoSyllabus = $typeMapping[$syllabusType];
 
-        // Validar payload con el mismo esquema que AdminProgramaController
-        $baseRules = ['secciones' => 'required|array', 'syllabus_type' => 'nullable|string'];
-
-        if ($tipoSyllabus === 'BASICO') {
-            $typeRules = [
-                'secciones.I.contenido.nombre_asignatura' => 'required|string|max:255',
-                'secciones.I.contenido.codigo'           => 'required|string|max:50',
-                'secciones.I.contenido.creditos_sct'     => 'required|integer',
-                'secciones.I.contenido.horas.catedra'    => 'required|integer|min:0',
-                'secciones.I.contenido.horas.taller'     => 'required|integer|min:0',
-                'secciones.I.contenido.horas.laboratorio' => 'required|integer|min:0',
-                'secciones.I.contenido.categoria'        => 'required|string',
-                'secciones.II.contenido.texto'           => 'nullable|string',
-                'secciones.VI.contenido.unidades'        => 'nullable|array',
-                'secciones.VII.contenido.actividades'    => 'nullable|array',
-                'secciones.VIII.contenido.recursos'      => 'nullable|array',
-            ];
-        } else {
-            $typeRules = [
-                'secciones.I.contenido.nombre_asignatura' => 'required|string|max:255',
-                'secciones.I.contenido.codigo'           => 'required|string|max:50',
-                'secciones.I.contenido.creditos_sct'     => 'required|integer',
-                'secciones.II.contenido.texto'           => 'nullable|string',
-                'secciones.VI.contenido.unidades'        => 'nullable|array',
-                'secciones.VIII.contenido.recursos'      => 'nullable|array',
-            ];
-        }
-
-        $validated = $request->validate(array_merge($baseRules, $typeRules));
+        // El comentario decía "el mismo esquema que AdminProgramaController", pero
+        // era una copia recortada: sin topes, sin las secciones III a IX y con la
+        // regla padre `secciones` que dejaba pasar el subárbol entero al JSONB.
+        // Ahora ambos consumen SyllabusRules, así que el ayudante escribe con
+        // exactamente los mismos controles que el titular.
+        $validated = $request->validate([
+            'syllabus_type' => 'nullable|string',
+            ...SyllabusRules::forTipo($tipoSyllabus),
+        ]);
 
         try {
             $estadoInicial = $tipoSyllabus === 'BASICO' ? 'BASICO_COMPLETO' : 'COMPLETO';

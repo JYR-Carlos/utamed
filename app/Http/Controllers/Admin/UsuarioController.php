@@ -26,6 +26,7 @@ use App\Models\Usuario\UsuarioPermisoEspecial;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Resources\UsuarioResource;
+use App\Imports\UsuariosImport;
 use Maatwebsite\Excel\Facades\Excel;
 
 /**
@@ -60,6 +61,15 @@ use Maatwebsite\Excel\Facades\Excel;
 class UsuarioController extends Controller
 {
     use LimitsPageSize;
+
+    /**
+     * Tope de filas de datos por importación masiva.
+     *
+     * Acota memoria y duración de la transacción: sin él, un `.xlsx` de 5 MB
+     * descomprime a cientos de miles de filas y bloquea la tabla `usuario`
+     * mientras dura la inserción.
+     */
+    private const MAX_FILAS_IMPORTACION = 1000;
 
     /**
      * Obtiene listado paginado y filtrable de usuarios por tipo.
@@ -271,9 +281,19 @@ class UsuarioController extends Controller
 
     /**
      * Dispatcher para importar usuarios según tipo especificado.
-     * * Valida que el request incluya el archivo con los datos correspondientes
-     * a cada rol
-     * * @param  \Illuminate\Http\Request  $request  Datos del usuario: tipo, rut, nombres, etc.
+     *
+     * Valida que el request incluya el archivo con los datos correspondientes a
+     * cada rol y lo procesa **por bloques** con un tope de filas
+     * ({@see self::MAX_FILAS_IMPORTACION}).
+     *
+     * La importación sigue siendo síncrona y transaccional —el administrador ve
+     * el resultado en la misma respuesta y un archivo con una fila mala no deja
+     * usuarios a medias—, pero ya no carga el archivo entero en memoria ni puede
+     * mantener abierta una transacción de duración arbitraria: el tope acota el
+     * trabajo. Para volúmenes mayores hay que pasar a cola, lo que exige además
+     * una pantalla de estado que hoy no existe.
+     *
+     * @param  \Illuminate\Http\Request  $request  Datos: file, tipo
      * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
      */
     public function import(Request $request): \Illuminate\Http\RedirectResponse
@@ -285,35 +305,33 @@ class UsuarioController extends Controller
             'tipo' => 'required|in:estudiante,docente,administrador'
         ]);
 
+        $tipo = $request->input('tipo');
+
+        $importacion = new UsuariosImport(
+            procesarFila: function (array $fila, int $numeroFilaExcel) use ($tipo): void {
+                $datos = $this->mapearFila($fila, $tipo);
+                $this->validarFila($datos, $tipo, $numeroFilaExcel);
+
+                match ($tipo) {
+                    'estudiante'    => $this->insertarEstudianteBd($datos),
+                    'docente'       => $this->insertarDocenteBd($datos),
+                    'administrador' => $this->insertarAdministradorBd($datos),
+                };
+            },
+            maxFilas: self::MAX_FILAS_IMPORTACION
+        );
+
         try {
-            $filas = Excel::toArray(new \stdClass, $request->file('file'))[0];
-            array_shift($filas); // Quitar encabezados
-
             DB::beginTransaction();
-            $contador = 0;
 
-            foreach ($filas as $indice => $fila) {
-                if (empty(array_filter($fila))) continue;
-
-                $numeroFilaExcel = $indice + 2; 
-                $datos = $this->mapearFila($fila, $request->tipo);
-                $this->validarFila($datos, $request->tipo, $numeroFilaExcel);
-
-                if ($request->tipo === 'estudiante') {
-                    $this->insertarEstudianteBd($datos);
-                } elseif ($request->tipo === 'docente') {
-                    $this->insertarDocenteBd($datos);
-                } elseif ($request->tipo === 'administrador') {
-                    $this->insertarAdministradorBd($datos);
-                }
-
-                $contador++;
-            }
+            Excel::import($importacion, $request->file('file'));
 
             DB::commit();
 
+            $contador = $importacion->totalProcesadas();
+
             // Redirección exitosa a la vista del tipo de usuario importado
-            return redirect()->route('admin.usuarios.index', ['tipo' => $request->tipo])
+            return redirect()->route('admin.usuarios.index', ['tipo' => $tipo])
                 ->with('success', "Se han importado {$contador} usuarios correctamente.");
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -322,11 +340,18 @@ class UsuarioController extends Controller
             $primerError = collect($e->errors())->flatten()->first();
             return back()->withErrors(['error' => $primerError])->withInput();
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Error en importación masiva: ' . $e->getMessage());
-            // Retorna a la vista anterior con el error general del servidor
-            return back()->withErrors(['error' => 'Error al procesar el archivo: ' . $e->getMessage()]);
+            Log::error('Error en importación masiva', [
+                'tipo'  => $tipo,
+                'error' => $e->getMessage(),
+            ]);
+
+            // El mensaje interno describe el servidor (SQL, rutas, nombres de
+            // tabla): va al log, no a la pantalla del administrador.
+            return back()->withErrors([
+                'error' => 'No se pudo procesar el archivo. Revisa que el formato y las columnas sean los esperados.',
+            ]);
         }
     }
 

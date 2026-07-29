@@ -36,7 +36,7 @@ class StorageException extends ArchiveException
     string $reason = '',
     ?string $archiveId = null,
     ?string $storagePath = null,
-    \Throwable $previous = null
+    ?\Throwable $previous = null
   ) {
     $message = match ($this->errorType) {
       StorageErrorType::DISK_FULL => "Disk is full: {$reason}",

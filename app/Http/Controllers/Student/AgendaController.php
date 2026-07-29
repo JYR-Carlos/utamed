@@ -28,8 +28,11 @@ use Illuminate\Http\Request;
  *
  * Permite al estudiante enviar mensajes de texto al docente y subir entregas de
  * archivos sobre las actividades de los grupos a los que pertenece. La subida de
- * archivos delega en AgendaArchiveHandler (validación, antivirus, compresión y
- * almacenamiento) y respeta la fecha límite más la holgura `nro_dias_adicionales_para_bloqueo`.
+ * archivos delega en AgendaArchiveHandler (validación de tipo y tamaño, compresión
+ * y almacenamiento) y respeta la fecha límite más la holgura
+ * `nro_dias_adicionales_para_bloqueo`. **No hay antivirus**: el hook existe pero
+ * ninguna subclase lo implementa, así que con `ARCHIVE_VIRUS_SCAN_ENABLED=true` el
+ * pipeline rechaza las subidas en vez de aprobarlas sin escanear.
  */
 class AgendaController extends Controller
 {
@@ -180,6 +183,12 @@ class AgendaController extends Controller
 
             DB::rollBack();
 
+            // Aquí caen también los errores de configuración del pipeline (por
+            // ejemplo, el antivirus habilitado sin escáner implementado). El
+            // estudiante ve un mensaje genérico, pero tiene que llegar al log:
+            // es un fallo de operación, no del archivo que subió.
+            report($e);
+
             return back()->withErrors([
                 'error_general' => 'Error al procesar el archivo.'
             ]);
@@ -194,6 +203,9 @@ class AgendaController extends Controller
 
         } catch (\Throwable $e) {
 
+            // Esta rama no revertía: cualquier excepción fuera de la jerarquía
+            // Archive dejaba la transacción abierta con la agenda ya insertada.
+            DB::rollBack();
 
             report($e);
 
