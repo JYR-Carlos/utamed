@@ -9,8 +9,10 @@ use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -184,6 +186,34 @@ class InscripcionCursoService
      */
     public function getFiltered(array $filters, ?int $idDocente = null, int $perPage = 15): LengthAwarePaginator
     {
+        return $this->buildFilteredQuery($filters, $idDocente)
+            ->paginate($perPage, ['*'], 'page', $filters['page'] ?? 1);
+    }
+
+    /**
+     * Recorre las inscripciones filtradas en bloques, sin materializarlas todas.
+     *
+     * Para exportaciones: la vista paginada pedía `per_page = 999999`, lo que
+     * cargaba en memoria hasta un millón de modelos con sus relaciones antes de
+     * emitir el primer byte. `lazy()` mantiene el consumo acotado al bloque.
+     *
+     * @param  array  $filters    Mismos filtros que getFiltered()
+     * @param  int|null  $idDocente  Acota a los cursos del docente, si aplica
+     * @param  int  $chunkSize  Filas por consulta
+     * @return \Illuminate\Support\LazyCollection<int, InscripcionCurso>
+     */
+    public function streamFiltered(array $filters, ?int $idDocente = null, int $chunkSize = 500): LazyCollection
+    {
+        return $this->buildFilteredQuery($filters, $idDocente)->lazy($chunkSize);
+    }
+
+    /**
+     * Construye la consulta filtrada compartida por la paginación y la exportación.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<InscripcionCurso>
+     */
+    private function buildFilteredQuery(array $filters, ?int $idDocente = null): Builder
+    {
         $query = InscripcionCurso::query();
 
         // Si es docente, filtrar solo sus cursos (titular o asignado por componente)
@@ -223,8 +253,7 @@ class InscripcionCursoService
 
         return $query
             ->with(['curso', 'estudiante.usuario'])
-            ->orderBy('fecha_inscripcion', 'desc')
-            ->paginate($perPage, ['*'], 'page', $filters['page'] ?? 1);
+            ->orderBy('fecha_inscripcion', 'desc');
     }
 
     /**

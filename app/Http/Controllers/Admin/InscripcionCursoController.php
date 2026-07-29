@@ -11,6 +11,7 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
 use App\Models\Usuario\Estudiante;
 use App\Services\InscripcionCursoService;
+use App\Support\Csv;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
@@ -400,7 +401,9 @@ class InscripcionCursoController extends Controller
         $idDocente = $user->docente?->id_docente;
 
         try {
-            $inscripciones = $this->inscripcionService->getFiltered($filters, $idDocente, 999999);
+            // Recorrido perezoso: `getFiltered(..., 999999)` materializaba hasta un
+            // millón de modelos con sus relaciones antes de emitir nada.
+            $inscripciones = $this->inscripcionService->streamFiltered($filters, $idDocente);
 
             $filename = 'inscripciones_' . ($idCurso ?? 'todas') . '_' . now()->format('Y-m-d_H-i-s') . '.csv';
 
@@ -428,9 +431,15 @@ class InscripcionCursoController extends Controller
                 ]);
 
                 // Data
+                //
+                // Cada celda pasa por Csv::fila(): `fputcsv()` escapa comillas y
+                // separadores, pero no neutraliza fórmulas, y estos valores vienen
+                // de la importación masiva de usuarios, que acepta nombres desde un
+                // .xlsx sin sanear. Un nombre como `=cmd|'/c calc'!A1` se ejecutaba
+                // al abrir el archivo en la máquina del administrador.
                 foreach ($inscripciones as $inscripcion) {
                     $estudiante = $inscripcion->estudiante;
-                    fputcsv($file, [
+                    fputcsv($file, Csv::fila([
                         $inscripcion->id_curso,
                         $inscripcion->curso->cod_curso ?? '',
                         $inscripcion->curso->nombre ?? '',
@@ -442,7 +451,7 @@ class InscripcionCursoController extends Controller
                         $inscripcion->estado_inscripcion ?? '',
                         $inscripcion->num_intento ?? '1',
                         $inscripcion->promedio_parcial ?? ''
-                    ]);
+                    ]));
                 }
 
                 fclose($file);
