@@ -208,6 +208,47 @@ tests funcionan** en un entorno sin driver pgsql, porque los tests unitarios moc
 - **De propina, F-5:** `CursoController::show` devolvía `error_class` y `error_file` al cliente al
   margen de `APP_DEBUG`. Al limpiar sus logs de traza se acotó también la respuesta de error.
 
+### Fase 3 · Subida de archivos y datos — ✅ completada (2026-07-28, sin commitear)
+
+| # | Acción | Dónde quedó |
+|---|---|---|
+| 1 | Antivirus (C-2) | `AbstractArchiveService::scanForViruses` falla cerrado con `ArchiveException(CONFIGURATION_ERROR)` |
+| 2 | Extensión derivada del contenido (C-3, C-10) | `buildSafeStorageName()` + `resolveSafeExtension()`; los 2 handlers ya no usan la extensión del cliente |
+| 3 | Closure de tamaño (C-4) | `FileRequirementBuilder::resolveSizeLimit()` |
+| 4 | Interruptores `FILES_ENABLE_*` (C-8) | `config/filetypes.php`: sólo se honran con `APP_ENV=local` |
+| 5 | Inyección de fórmulas CSV (F-4) | `App\Support\Csv` aplicado en `InscripcionCursoController::exportCsv` |
+| 6 | Importación acotada (D-7) | `App\Imports\UsuariosImport` (bloques de 100, tope de 1000 filas) |
+| 7 | Regla padre del JSONB (E-3) | `App\Http\Requests\Programa\SyllabusRules`, sin regla sobre `secciones` y con topes |
+
+**Decisiones de diseño que se apartan del informe:**
+
+- **La importación no se pasó a cola.** El plan pedía "importación por cola con chunking y límite de
+  filas". Se hizo el chunking (memoria acotada, sea cual sea el tamaño del archivo) y el tope de filas,
+  pero la ejecución sigue siendo síncrona y transaccional: encolarla exige una pantalla de estado que
+  hoy no existe —la UI espera el recuento en la misma respuesta— y un worker en marcha. Con el tope de
+  1000 filas la transacción larga que motivaba D-7 deja de ser posible.
+- **C-4 no rechaza todo cruce extensión/MIME.** Fallar ante cualquier discrepancia rompería subidas
+  legítimas (un `.docx` se detecta a menudo como `application/zip`). La regla es: coincidencia completa
+  → límite de esa categoría; coincidencia parcial → **el límite más restrictivo** de las candidatas;
+  ninguna coincidencia → se rechaza. La evasión se cierra sin falsos positivos.
+- **E-3 estaba parcialmente mitigado y el informe no lo recoge.** Los DTO de `App\Syllabus` ya
+  descartan claves desconocidas y rechazan secciones inventadas, así que la escritura arbitraria de
+  *estructura* no llegaba al JSONB; lo que sí quedaba abierto era el **volumen** (colecciones sin
+  `max:`). Se corrigen ambas cosas. `ProgramaService::updateSyllabusContent()` —el único `deepMerge`
+  crudo— no tiene ningún llamador.
+- **Las reglas del syllabus se unificaron** en `SyllabusRules`, consumidas por admin/docente y
+  ayudante. La copia del ayudante era una versión recortada (sin secciones III–IX en COMPLETO): con la
+  regla padre eliminada habría borrado esas secciones del JSONB. Cierra además la asimetría de E-4.
+- **De propina:** `DB::rollBack()` en el `catch (\Throwable)` de `storeEntrega` (C-6, Fase 5), `report()`
+  del `ArchiveException` que antes se tragaba, y `?\Throwable` explícito en las 5 excepciones de
+  `Archive/` (deprecación de PHP 8.4).
+
+**Verificación:** `php -l` en los 54 PHP tocados · `route:list` · suite Unit **179 pasados / 21 fallidos**
+(los mismos 21 del baseline; +38 tests nuevos en `CsvTest`, `ArchiveStorageNameTest`,
+`FileRequirementBuilderTest`, `VirusScanHookTest` y `SyllabusRulesTest`). **`maatwebsite/excel` no está
+instalado en este entorno** (declarado en `composer.json`, ausente de `vendor/`), así que
+`UsuariosImport` es lo único de esta fase que no se pudo ejercitar.
+
 ### Pendiente / conocido
 
 - `Auth::id() ?? 1` sigue en `syncPermissions` (D-10, Fase 4); con el guard nuevo el fallback es
@@ -223,8 +264,9 @@ tests funcionan** en un entorno sin driver pgsql, porque los tests unitarios moc
   `svelte-check` (0 errores / 25 warnings). **No hay base de datos en este entorno**, así que los tests
   Feature/Integration y cualquier prueba con datos reales siguen sin ejecutarse.
 
-**Siguiente:** Fase 3 · Subida de archivos y datos (antivirus C-2, extensión derivada C-3, CSV F-4,
-importación por cola D-7, regla padre del JSONB E-3).
+**Siguiente:** Fase 4 · Frontend y configuración (`usePermissions` a `$derived` A-8, permisos
+contextuales A-7, limpieza de `manualChunks`, decisión sobre SSR A-10, `SESSION_SECURE_COOKIE` y
+`APP_DEBUG` en `.env.example`, RUT en claro en los logs A-9, `Auth::id() ?? 1` D-10/F-9).
 
 ---
 
