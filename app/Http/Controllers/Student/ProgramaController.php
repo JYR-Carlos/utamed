@@ -60,7 +60,7 @@ class ProgramaController extends Controller
 
         return Inertia::render('student/Courses/Syllabus', array_merge(
             ['curso' => $cursoData],
-            StudentSyllabusPresenter::build($curso)
+            StudentSyllabusPresenter::build($curso, $user->estudiante)
         ));
     }
 

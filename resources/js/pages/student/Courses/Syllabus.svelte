@@ -27,6 +27,17 @@
     resultado: string;
   }
 
+  /**
+   * Un docente de la sección del alumno. Cada componente (cátedra, laboratorio,
+   * taller) tiene un titular y puede tener un docente extra propio.
+   */
+  interface DocenteSyllabus {
+    nombre: string;
+    email?: string | null;
+    es_titular: boolean;
+    componente?: string | null;
+  }
+
   interface Props {
     curso?: Curso | null;
     programa?: {
@@ -37,10 +48,7 @@
       fecha_creacion?: string;
       tipo_syllabus?: string;
     } | null;
-    docente?: {
-      nombre?: string;
-      email?: string;
-    } | null;
+    docentes?: DocenteSyllabus[];
     datos?: {
       categoria?: string;
       descripcion?: string;
@@ -61,7 +69,7 @@
 
   // ─── Props ───────────────────────────────────────────────────────────────────
 
-  let { curso, programa, docente, datos }: Props = $props();
+  let { curso, programa, docentes = [], datos }: Props = $props();
 
   const asignatura = $derived(curso?.asignatura);
   const asignaturaNombre = $derived(asignatura?.nombre ?? curso?.nombre ?? 'Sin nombre');
@@ -169,19 +177,30 @@
             <p class="font-semibold text-gray-900">{categoria || '—'}</p>
           </div>
 
-          <!-- Docente -->
+          <!-- Docentes de la sección del alumno (titular primero) -->
           <div>
             <div class="flex items-center gap-2 mb-2">
               <User class="w-4 h-4 text-gray-500" />
               <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                >Docente</span
+                >{docentes.length > 1 ? 'Docentes' : 'Docente'}</span
               >
             </div>
-            {#if docente?.nombre}
-              <p class="font-semibold text-gray-900">{docente.nombre}</p>
-              {#if docente.email}
-                <p class="text-sm text-gray-500 truncate">{docente.email}</p>
-              {/if}
+            {#if docentes.length}
+              <ul class="space-y-3">
+                {#each docentes as docente}
+                  <li>
+                    <p class="font-semibold text-gray-900">{docente.nombre}</p>
+                    <p class="text-xs text-gray-500">
+                      {docente.es_titular ? 'Titular' : 'Docente'}{docente.componente
+                        ? ` · ${docente.componente}`
+                        : ''}
+                    </p>
+                    {#if docente.email}
+                      <p class="text-sm text-gray-500 truncate">{docente.email}</p>
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
             {:else}
               <p class="text-sm text-gray-400 italic">No asignado</p>
             {/if}

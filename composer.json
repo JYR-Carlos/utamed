@@ -43,12 +43,8 @@
         }
     },
     "scripts": {
-        "db:soft-reset": [
-            "pwsh -ExecutionPolicy Bypass -File database-model\\scripts\\soft_reset.ps1",
-            "@php artisan migrate",
-            "@php artisan db:seed"
-        ],
-        "db:soft-reset-testing": "pwsh -ExecutionPolicy Bypass -Command \"$env:APP_ENV='testing'; pwsh -File database-model\\scripts\\soft_reset.ps1 --testing; php artisan migrate; php artisan db:seed\"",
+        "db:soft-reset": "pwsh -ExecutionPolicy Bypass -File scripts/db_reset.ps1",
+        "db:soft-reset-testing": "pwsh -ExecutionPolicy Bypass -File scripts/db_reset.ps1 -Testing",
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

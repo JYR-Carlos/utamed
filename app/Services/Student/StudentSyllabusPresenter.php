@@ -2,8 +2,10 @@
 
 namespace App\Services\Student;
 
+use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
+use App\Models\Usuario\Estudiante;
 use App\Syllabus\Secciones\ComponenteEvaluacion;
 use App\Syllabus\Secciones\RecursoSyllabus;
 use App\Syllabus\Secciones\SeccionVIICompleto;
@@ -12,7 +14,7 @@ use App\Syllabus\Secciones\UnidadSyllabus;
 use App\Syllabus\SyllabusData;
 
 /**
- * Arma los props (`programa`, `docente`, `datos`) que consume
+ * Arma los props (`programa`, `docentes`, `datos`) que consume
  * `student/Courses/Syllabus.svelte`. Compartido por la página dedicada
  * (Student\ProgramaController::show) y por la vista "Acerca de este curso"
  * embebida en Student\CourseController::show, para no duplicar el parseo del
@@ -21,18 +23,13 @@ use App\Syllabus\SyllabusData;
 class StudentSyllabusPresenter
 {
     /**
-     * @return array{programa: ?array, docente: ?array{nombre: string, email: string}, datos: ?array}
+     * @param  ?Estudiante  $estudiante  Alumno que mira la ficha; acota los docentes
+     *                                   a los de su(s) componente(s).
+     * @return array{programa: ?array, docentes: list<array{nombre: string, email: ?string, es_titular: bool, componente: ?string}>, datos: ?array}
      */
-    public static function build(Curso $curso): array
+    public static function build(Curso $curso, ?Estudiante $estudiante = null): array
     {
-        $curso->loadMissing('componentes.docente.usuario');
-
-        $primerComponente = $curso->componentes->first();
-        $docenteUsuario = $primerComponente?->docente?->usuario;
-        $docenteData = $docenteUsuario ? [
-            'nombre' => $docenteUsuario->nombre,
-            'email'  => $docenteUsuario->email,
-        ] : null;
+        $docentesData = self::docentes($curso, $estudiante);
 
         // El mejor programa visible para el alumno: APROBADO tiene preferencia;
         // si no, BASICO_COMPLETO (versión básica ya completada, pública sin
@@ -45,7 +42,7 @@ class StudentSyllabusPresenter
             ->first();
 
         if (!$programa) {
-            return ['programa' => null, 'docente' => $docenteData, 'datos' => null];
+            return ['programa' => null, 'docentes' => $docentesData, 'datos' => null];
         }
 
         $dataSyllabus = is_array($programa->data_syllabus)
@@ -102,6 +99,67 @@ class StudentSyllabusPresenter
             'tipo_syllabus'    => $tipoSyllabus,
         ];
 
-        return ['programa' => $programaData, 'docente' => $docenteData, 'datos' => $datos];
+        return ['programa' => $programaData, 'docentes' => $docentesData, 'datos' => $datos];
+    }
+
+    /**
+     * Docentes que el alumno debe ver: los de SU sección, no los del curso.
+     *
+     * Un componente (cátedra, laboratorio, taller) tiene un docente titular y
+     * puede tener además un docente extra propio de esa sección; ambos se
+     * devuelven, el titular primero. El titular del curso
+     * (`curso.id_docente_titular`) es un rol administrativo que puede no hacer
+     * clases, así que no se usa como fuente aquí.
+     *
+     * Si el alumno no tiene inscripción a nivel de componente —hoy sólo 5 de
+     * 435 componentes tienen docente asignado y la inscripción por componente
+     * está incompleta— se cae a todos los componentes del curso para no dejar
+     * la ficha vacía, igual que hace CourseController::show con las actividades.
+     *
+     * @return list<array{nombre: string, email: ?string, es_titular: bool, componente: ?string}>
+     */
+    private static function docentes(Curso $curso, ?Estudiante $estudiante): array
+    {
+        $componentes = null;
+
+        if ($estudiante) {
+            $propios = self::componentesQuery($curso)
+                ->whereHas('inscripcionComponentes', fn ($q) => $q->where('id_estudiante', $estudiante->id_estudiante))
+                ->get();
+
+            if ($propios->isNotEmpty()) {
+                $componentes = $propios;
+            }
+        }
+
+        $componentes ??= self::componentesQuery($curso)->get();
+
+        return $componentes
+            ->sortBy('id_componente')
+            ->flatMap(fn (Componente $componente) => $componente->docenteComponentes
+                // Titular primero, luego el resto en orden de asignación.
+                ->sortBy(fn ($dc) => [!$dc->es_titular, $dc->id_docente_componente])
+                ->map(function ($dc) use ($componente) {
+                    $usuario = $dc->docente?->usuario;
+
+                    return $usuario ? [
+                        'nombre'     => $usuario->nombre_completo,
+                        'email'      => $usuario->email,
+                        'es_titular' => (bool) $dc->es_titular,
+                        'componente' => $componente->tipoComponente?->tipo,
+                    ] : null;
+                })
+                ->filter())
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Builder<Componente>
+     */
+    private static function componentesQuery(Curso $curso)
+    {
+        return Componente::where('id_curso', $curso->id_curso)
+            ->with(['tipoComponente', 'docenteComponentes.docente.usuario']);
     }
 }

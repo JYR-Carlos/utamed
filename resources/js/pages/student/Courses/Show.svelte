@@ -28,11 +28,16 @@
     curso?: Curso;
     actividades?: Actividad[];
     programa?: Programa | null;
-    docente?: { nombre?: string; email?: string } | null;
+    docentes?: Array<{
+      nombre: string;
+      email?: string | null;
+      es_titular: boolean;
+      componente?: string | null;
+    }>;
     datos?: Record<string, unknown> | null;
   }
 
-  let { curso, actividades = [], programa = null, docente = null, datos = null }: Props = $props();
+  let { curso, actividades = [], programa = null, docentes = [], datos = null }: Props = $props();
 
   const id_curso = $derived(curso?.id_curso || 0);
 
@@ -99,7 +104,7 @@
           </button>
           {#if showSyllabus}
             <div id="syllabus-section" class="pl-4 border-gray-200 mb-2">
-              <Syllabus {curso} {programa} {docente} {datos} />
+              <Syllabus {curso} {programa} {docentes} {datos} />
             </div>
           {/if}
 

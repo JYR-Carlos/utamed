@@ -172,7 +172,7 @@ class CourseController extends Controller
                 ],
                 'actividades' => $actividadesData,
             ],
-            StudentSyllabusPresenter::build($curso)
+            StudentSyllabusPresenter::build($curso, $estudiante)
         ));
     }
 }
