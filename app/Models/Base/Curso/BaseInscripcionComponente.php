@@ -25,6 +25,7 @@ abstract class BaseInscripcionComponente extends CustomBaseModel implements HasO
     public $incrementing = true;
 
     protected $fillable = [
+        'cod_inscripcion_curso_uta',
         'nota_componente',
         'id_estudiante',
         'id_componente'

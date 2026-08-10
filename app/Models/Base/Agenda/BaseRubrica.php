@@ -25,7 +25,7 @@ abstract class BaseRubrica extends CustomBaseModel
     protected $fillable = [
         'rubrica',
         'estado_rubrica',
-        'id_actividad',
+        'id_actividad'
     ];
 
     protected $casts = [
@@ -34,6 +34,12 @@ abstract class BaseRubrica extends CustomBaseModel
     ];
 
     // Relaciones
+
+    public function actividad()
+    {
+        $instance = new \App\Models\Agenda\Actividad();
+        return new BelongsTo($instance->newQuery(), $this, 'id_actividad', 'id_actividad', 'actividad');
+    }
 
     // Relaciones inversas
 

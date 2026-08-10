@@ -329,6 +329,18 @@ $relationNames = [
     ],
   ],
 
+  // curso.mensaje: emisor y receptor (relación con usuario.usuario)
+  'curso.mensaje' => [
+    '_self' => [
+      'id_usuario_emisor' => 'emisor',     // belongsTo en Mensaje: usuario emisor
+      'id_usuario_receptor' => 'receptor', // belongsTo en Mensaje: usuario receptor
+    ],
+    'usuario.usuario' => [
+      'id_usuario_emisor' => 'mensajesEnviados',   // hasMany en Usuario: mensajes enviados
+      'id_usuario_receptor' => 'mensajesRecibidos', // hasMany en Usuario: mensajes recibidos
+    ],
+  ],
+
 ];
 
 // ==================================================================================

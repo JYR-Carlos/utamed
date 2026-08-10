@@ -75,6 +75,11 @@ abstract class BaseComponente extends CustomBaseModel implements HasOwnedContext
         return $this->hasMany(\App\Models\Curso\InscripcionComponente::class, 'id_componente', 'id_componente');
     }
 
+    public function mensajes()
+    {
+        return $this->hasMany(\App\Models\Curso\Mensaje::class, 'id_componente', 'id_componente');
+    }
+
     // Relaciones muchos-a-muchos
 
     public function docentesAsignados()
@@ -96,7 +101,7 @@ abstract class BaseComponente extends CustomBaseModel implements HasOwnedContext
             'id_componente',
             'id_estudiante'
         )
-            ->withPivot('id_inscripcion_componente', 'nota_componente', 'id_estudiante', 'id_componente');
+            ->withPivot('id_inscripcion_componente', 'cod_inscripcion_curso_uta', 'nota_componente', 'id_estudiante', 'id_componente');
     }
 
 }
