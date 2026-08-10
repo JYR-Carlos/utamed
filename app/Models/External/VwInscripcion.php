@@ -2,40 +2,43 @@
 
 namespace App\Models\External;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 class VwInscripcion extends IntranetBaseModel
 {
+  use HasFactory;
   protected $table = 'INSCRIPCION';
 
   // Si necesitas hacer joins más adelante, puedes definir la clave primaria
   protected $primaryKey = 'INS_ID';
 
   protected $casts = [
-    'ASIG_CODIGO'                  => 'string',
-    'CURSO_TIPO_ASIG'              => 'string',
-    'CURSO_GRUPO_ASIG'             => 'string',
-    'CURSO_SEMESTRE_ASIG'          => 'integer',
-    'CURSO_ANO'                    => 'integer',
-    'ALUM_RUT'                     => 'integer',
-    'CARRERA_COD'                  => 'integer',
-    'INSCRIP_FECHA'                => 'datetime',
-    'INSCRIP_BANDERA_RATIFICACION' => 'boolean',
-    'INSCRIP_FLAG_PROCESADA'       => 'boolean',
-    'INSCRIP_OPORTUNIDAD_INS'      => 'integer',
-    'INSCRIP_NOTA'                 => 'float',
-    'INSCRIP_POSICION'             => 'integer',
-    'INSCRIP_TER_ASIG'             => 'integer',
-    'INSCRIP_CNDIC'                => 'integer',
-    'TIPOAPROB_COD'                => 'integer',
-    'INSCRIP_ORIGEN'               => 'integer',
-    'INSCRIP_PLAN'                 => 'integer',
-    'INSCRIP_NIVEL'                => 'integer',
-    'SEDE_CODIGO'                  => 'integer',
-    'GRUPO_CARRERA'                => 'integer',
-    'RUT_DIGITADOR'                => 'integer',
-    'SESION_WEB'                   => 'integer',
-    'ACTFOLIO_FOLIO'               => 'integer',
-    'INS_ID'                       => 'integer',
-    'CUR_CODIGO'                   => 'integer',
+    'ASIG_CODIGO'                  => 'string',   // varchar(10) "DM050" o similar
+    'CURSO_TIPO_ASIG'              => 'string',   // varchar(1) C,T,L
+    'CURSO_GRUPO_ASIG'             => 'string',   // varchar(2) A,B,C
+    'CURSO_SEMESTRE_ASIG'          => 'integer',  // number(1)  1 o 2 para el semestre
+    'CURSO_ANO'                    => 'integer',  // number(4)
+    'ALUM_RUT'                     => 'integer',  // number(9)  rut sin puntos ni digito verificador
+    'CARRERA_COD'                  => 'integer',  // number(3)  "527" o similar
+    'INSCRIP_FECHA'                => 'datetime', // date
+    'INSCRIP_BANDERA_RATIFICACION' => 'integer',  // number(1)
+    'INSCRIP_FLAG_PROCESADA'       => 'integer',  // number(1)
+    'INSCRIP_OPORTUNIDAD_INS'      => 'integer',  // number
+    'INSCRIP_NOTA'                 => 'float',    // number(2,1)
+    'INSCRIP_POSICION'             => 'integer',  // number(4)
+    'INSCRIP_TER_ASIG'             => 'integer',  // number
+    'INSCRIP_CNDIC'                => 'integer',  // number
+    'TIPOAPROB_COD'                => 'integer',  // number
+    'INSCRIP_ORIGEN'               => 'integer',  // number
+    'INSCRIP_PLAN'                 => 'integer',  // number(4)
+    'INSCRIP_NIVEL'                => 'integer',  // number
+    'SEDE_CODIGO'                  => 'integer',  // number(6)
+    'GRUPO_CARRERA'                => 'integer',  // number(3)
+    'RUT_DIGITADOR'                => 'integer',  // number
+    'SESION_WEB'                   => 'integer',  // number
+    'ACTFOLIO_FOLIO'               => 'integer',  // number
+    'INS_ID'                       => 'integer',  // number(7)  numero-correlativo IMPORTANTE-GUARDAR
+    'CUR_CODIGO'                   => 'integer',  // number(12) [2026][1]0000351 año/semestre/numero-correlativo
   ];
 
   /**
