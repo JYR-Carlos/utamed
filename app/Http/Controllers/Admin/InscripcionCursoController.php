@@ -12,6 +12,7 @@ use App\Models\Curso\InscripcionCurso;
 use App\Models\Usuario\Estudiante;
 use App\Services\InscripcionCursoService;
 use App\Support\Csv;
+use App\Services\IntranetService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
@@ -463,4 +464,30 @@ class InscripcionCursoController extends Controller
             return back()->withErrors(['error' => 'Error al exportar inscripciones']);
         }
     }
+
+    /**
+     * Sincroniza e inscribe automáticamente a los alumnos de la Intranet al curso especificado.
+     */
+    public function inscripcionAutomatica(Request $request, int $idCurso, IntranetService $intranetService)
+    {
+        $curso = Curso::findOrFail($idCurso);
+
+        try {
+            $resultado = $intranetService->inscribirAutomaticamente($curso);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Inscripción automática completada.',
+                'data'    => $resultado->toArray(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error en inscripción automática para curso #{$idCurso}: " . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error en el proceso de inscripción automática: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }
+

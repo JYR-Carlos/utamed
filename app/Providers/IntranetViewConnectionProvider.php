@@ -6,8 +6,10 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Collection;
 use App\Models\External\VwCarreraCurso;
 use App\Models\External\VwInscripcion;
+use App\Models\External\VwAlumno;
 use App\DTOs\External\ComponenteCursoData;
 use App\DTOs\External\InscripcionData;
+use App\DTOs\External\AlumnoIntranetData;
 use App\Enums\External\TipoAsignatura;
 
 /**
@@ -130,9 +132,37 @@ class IntranetViewConnectionProvider extends ServiceProvider
                             alum_rut: $inscripcion->ALUM_RUT
                         ));
                 }
+
+                /**
+                 * Obtiene los datos personales de un alumno desde la intranet por RUT.
+                 *
+                 * @param int $alumRut RUT del alumno (sin puntos ni DV)
+                 * @return AlumnoIntranetData|null
+                 */
+                public function traer_alumno(int $alumRut): ?AlumnoIntranetData
+                {
+                    if (abs($alumRut) > 999999999) { // number(9)
+                        throw new \InvalidArgumentException("El ALUM_RUT excede el límite permitido: {$alumRut}");
+                    }
+
+                    $alumno = VwAlumno::where('ALUM_RUT', $alumRut)->first();
+
+                    if (!$alumno) {
+                        return null;
+                    }
+
+                    return new AlumnoIntranetData(
+                        alum_rut: $alumno->ALUM_RUT,
+                        alum_digito: $alumno->ALUM_DIGITO,
+                        alum_nombre: trim($alumno->ALUM_NOMBRE ?? ''),
+                        alum_apellido_pat: trim($alumno->ALUM_APELLIDO_PAT ?? ''),
+                        alum_apellido_mat: $alumno->ALUM_APELLIDO_MAT ? trim($alumno->ALUM_APELLIDO_MAT) : null
+                    );
+                }
             };
         });
     }
+
 
     public function boot(): void
     {

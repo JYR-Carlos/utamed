@@ -83,7 +83,7 @@ if ($dbHost -and $dbHost -notmatch '^(127\.0\.0\.1|localhost|::1)$') {
 Write-Host "Destino del reset: $dbHost/$dbName (APP_ENV=$appEnv)" -ForegroundColor DarkGray
 
 # Construir la ruta del script real
-$scriptPath = Join-Path $rootDir "database-model" "scripts" "soft_reset.ps1"
+$scriptPath = Join-Path $rootDir "database-model\scripts\soft_reset.ps1"
 
 # Verificar que el script existe
 if (-not (Test-Path $scriptPath)) {
@@ -94,4 +94,4 @@ if (-not (Test-Path $scriptPath)) {
 # Pasar todos los argumentos tal cual (sin procesarlos como parámetros)
 & $scriptPath @args
 
-cd ..  ## Volver a la raíz del proyecto después de ejecutar el script
+Set-Location $rootDir
