@@ -259,9 +259,9 @@
   ></div>
 
   <!-- Card centrada -->
-  <div class="relative z-10 flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
+  <div class="relative z-10 flex min-h-screen items-center justify-start px-2 py-4 sm:px-4">
     <div
-      class="w-full max-w-[480px] rounded-3xl border border-[rgba(255,255,255,0.12)] bg-[rgba(28,44,64,0.45)] p-8 shadow-[0_24px_64px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-12"
+      class="w-full max-w-180 rounded-3xl border border-[rgba(255,255,255,0.12)] bg-[rgba(28,44,64,0.45)] p-8 shadow-[0_24px_64px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-12"
     >
       <!-- Icono circular decorativo -->
       <div
@@ -385,7 +385,7 @@
                 <div class={isRateLimited ? 'pointer-events-none opacity-50' : ''}>
                   <TextLink
                     href={request().url}
-                    class="text-xs text-[#C4BFE0] transition-colors hover:text-[#5B9BD5] !decoration-[#C4BFE0]/40 hover:!decoration-[#5B9BD5]"
+                    class="text-xs text-white transition-colors hover:text-[#5B9BD5] decoration-[#C4BFE0]/40! hover:!decoration-[#5B9BD5]"
                   >
                     ¿Olvidaste tu contraseña?
                   </TextLink>
@@ -407,7 +407,7 @@
 
             <!-- Info box -->
             <div
-              class="rounded-2xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.04)] p-5 text-center space-y-2.5"
+              class="rounded-2xl border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.04)] p-5 text-start space-y-2.5"
             >
               <p class="text-sm font-medium text-[#F5F3FF]">Información de Acceso</p>
               <p class="text-xs leading-relaxed text-[#C4BFE0]">
