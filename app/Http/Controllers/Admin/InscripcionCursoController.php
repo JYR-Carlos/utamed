@@ -475,19 +475,32 @@ class InscripcionCursoController extends Controller
         try {
             $resultado = $intranetService->inscribirAutomaticamente($curso);
 
+            $mensaje = "Inscripción automática completada. Se procesaron {$resultado->total_procesados} alumnos ({$resultado->inscritos_exitosamente} inscritos exitosamente, {$resultado->alumnos_creados} nuevos creados).";
+
+            if ($request->header('X-Inertia')) {
+                return redirect()->back()->with('success', $mensaje);
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Inscripción automática completada.',
+                'message' => $mensaje,
                 'data'    => $resultado->toArray(),
             ]);
         } catch (\Exception $e) {
             Log::error("Error en inscripción automática para curso #{$idCurso}: " . $e->getMessage());
 
+            $mensajeError = "No se pudo realizar la inscripción automática desde la Intranet: " . $e->getMessage();
+
+            if ($request->header('X-Inertia')) {
+                return redirect()->back()->with('error', $mensajeError);
+            }
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error en el proceso de inscripción automática: ' . $e->getMessage(),
-            ], 500);
+                'message' => $mensajeError,
+            ], 422);
         }
     }
+
 }
 

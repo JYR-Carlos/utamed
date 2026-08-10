@@ -15,7 +15,8 @@
    * - CursoWizardModal: Wizard para crear cursos
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
-  import { router } from '@inertiajs/svelte';
+  import { page, router } from '@inertiajs/svelte';
+
   import SyllabusModal from '@/modules/resources/programa/components/SyllabusModal.svelte';
   import SyllabusTypeSelector from '@/modules/resources/programa/components/SyllabusTypeSelector.svelte';
   import { CourseTeamModal, CursoWizardModal } from '@/modules/resources/curso/components';
@@ -168,17 +169,39 @@
     return null;
   });
 
-  // Toast notification
-  let toast = $state<{ msg: string; type: 'success' | 'error' } | null>(null);
-  let toastTimeout: ReturnType<typeof setTimeout> | null = null;
+  // Toast notifications
+  let toasts = $state<Array<{ id: number; msg: string; type: 'success' | 'error' }>>([]);
+  let toastIdCounter = 0;
+  const shownFlashMessages = new Set<string>();
 
   function showToast(msg: string, type: 'success' | 'error' = 'success') {
-    if (toastTimeout) clearTimeout(toastTimeout);
-    toast = { msg, type };
-    toastTimeout = setTimeout(() => {
-      toast = null;
-    }, 4500);
+    const id = ++toastIdCounter;
+    toasts = [...toasts, { id, msg, type }];
+    setTimeout(() => {
+      toasts = toasts.filter((t) => t.id !== id);
+    }, 6000);
   }
+
+  function handleFlashMessages(props?: any) {
+    const p = props || ($page as any)?.props;
+    const succ = p?.flash?.success;
+    const err = p?.flash?.error;
+
+    if (succ && !shownFlashMessages.has(`succ:${succ}`)) {
+      shownFlashMessages.add(`succ:${succ}`);
+      showToast(succ, 'success');
+    }
+    if (err && !shownFlashMessages.has(`err:${err}`)) {
+      shownFlashMessages.add(`err:${err}`);
+      showToast(err, 'error');
+    }
+  }
+
+  $effect(() => {
+    handleFlashMessages(($page as any)?.props);
+  });
+
+
 
   import type { Componente } from '@/modules/resources/curso/types/curso.types';
 
@@ -329,10 +352,10 @@
       });
     } else {
       createCurso(data, {
-        onSuccess: () => {
+        onSuccess: (pageObj: any) => {
           closeModal();
           isLoading = false;
-          showToast('Curso creado', 'success');
+          handleFlashMessages(pageObj?.props);
         },
         onError: () => {
           isLoading = false;
@@ -381,17 +404,20 @@
   function handleWizardSubmit(data: CursoFormData & { id_docente_sugerido?: number }) {
     isLoading = true;
     createCurso(data, {
-      onSuccess: () => {
+      onSuccess: (pageObj: any) => {
         showWizardModal = false;
         isLoading = false;
-        showToast('Curso creado exitosamente', 'success');
+        handleFlashMessages(pageObj?.props);
       },
       onError: () => {
+
         isLoading = false;
         showToast('Error al crear curso', 'error');
       },
     });
   }
+
+
 
   function openCopyModal(curso: Curso) {
     copyingCurso = curso;
@@ -647,50 +673,58 @@
     {/key}
   {/if}
 
-  <!-- Toast Notification -->
-  {#if toast}
-    <div
-      role="status"
-      aria-live="polite"
-      class="fixed bottom-6 right-6 z-[10000] flex items-center gap-2.5 px-5 py-3 rounded-xl text-sm font-medium shadow-xl {toast.type ===
-      'success'
-        ? 'bg-green-50 border border-green-200 text-green-800'
-        : 'bg-red-50 border border-red-200 text-red-700'}"
-    >
-      {#if toast.type === 'success'}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg
+  <!-- Toast Notifications Stack -->
+  {#if toasts.length > 0}
+    <div class="fixed bottom-6 right-6 z-[10000] flex flex-col gap-2 max-w-md pointer-events-none">
+      {#each toasts as t (t.id)}
+        <div
+          role="status"
+          aria-live="polite"
+          class="pointer-events-auto flex items-center gap-2.5 px-5 py-3 rounded-xl text-sm font-medium shadow-xl transition-all duration-200 {t.type ===
+          'success'
+            ? 'bg-green-50 border border-green-200 text-green-800'
+            : 'bg-red-50 border border-red-200 text-red-700'}"
         >
-      {:else}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
-            x1="12"
-            y1="16"
-            x2="12.01"
-            y2="16"
-          /></svg
-        >
-      {/if}
-      {toast.msg}
+          {#if t.type === 'success'}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="flex-shrink-0"
+              ><polyline points="20 6 9 17 4 12" /></svg
+            >
+          {:else}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="flex-shrink-0"
+              ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
+                x1="12"
+                y1="16"
+                x2="12.01"
+                y2="16"
+              /></svg
+            >
+          {/if}
+          <span>{t.msg}</span>
+        </div>
+      {/each}
     </div>
   {/if}
+
 
   <!-- Slide-over de gestión de curso -->
   <CursoSlideOver

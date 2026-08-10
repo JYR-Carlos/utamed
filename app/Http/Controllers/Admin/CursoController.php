@@ -16,7 +16,9 @@ use App\Models\Administrativo\Plan;
 use App\Models\Curso\TipoComponente;
 use App\Models\Usuario\Docente;
 use App\Services\CursoService;
+use App\Services\IntranetService;
 use Illuminate\Http\Request;
+
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -101,9 +103,33 @@ class CursoController extends Controller
             $curso = $this->cursoService->create($request->validated());
             Log::info('[CursoController@store] Curso creado exitosamente', ['id_curso' => $curso->id_curso]);
 
+            $mensajeSuccess = 'Curso creado exitosamente.';
+
+            if ($request->boolean('inscribir_automaticamente')) {
+                try {
+                    $intranetService = app(IntranetService::class);
+                    $resultado = $intranetService->inscribirAutomaticamente($curso);
+                    Log::info('[CursoController@store] Inscripción automática ejecutada tras creación', [
+                        'id_curso' => $curso->id_curso,
+                        'resultado' => $resultado->toArray()
+                    ]);
+                    return redirect()
+                        ->route('admin.cursos.index')
+                        ->with('success', "Curso creado exitosamente. Se inscribieron {$resultado->inscritos_exitosamente} alumnos automáticamente desde la Intranet.");
+                } catch (\Exception $e) {
+                    Log::error('[CursoController@store] Error en inscripción automática tras creación: ' . $e->getMessage());
+                    return redirect()
+                        ->route('admin.cursos.index')
+                        ->with('success', 'Curso creado exitosamente en UTAMED.')
+                        ->with('error', 'No se pudieron inscribir los alumnos desde la Intranet: ' . $e->getMessage());
+                }
+            }
+
             return redirect()
                 ->route('admin.cursos.index')
-                ->with('success', 'Curso creado exitosamente.');
+                ->with('success', $mensajeSuccess);
+
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::warning('[CursoController@store] ValidationException', ['errors' => $e->errors()]);
             throw $e;

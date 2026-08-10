@@ -11,9 +11,39 @@
    * Se activa haciendo clic en cualquier fila de la tabla principal.
    * La tabla de fondo queda levemente oscurecida (backdrop) con blur mínimo.
    */
-  import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight, Calendar, Copy } from 'lucide-svelte';
+  import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight, Calendar, Copy, UserPlus } from 'lucide-svelte';
   import { router } from '@inertiajs/svelte';
   import type { Curso, Componente } from '../types/curso.types';
+
+  let isInscribiendo = $state(false);
+
+  function handleInscribirAutomatica(cursoObj: Curso) {
+    if (!cursoObj) return;
+    isInscribiendo = true;
+    router.post(`/admin/cursos/${cursoObj.id_curso}/inscripcion-automatica`, {}, {
+      preserveScroll: true,
+      onSuccess: (pageObj: any) => {
+        isInscribiendo = false;
+        const flashErr = pageObj?.props?.flash?.error;
+        const flashSucc = pageObj?.props?.flash?.success;
+        if (flashErr) {
+          alert(`Error de Inscripción Intranet:\n\n${flashErr}`);
+        } else if (flashSucc) {
+          alert(`Inscripción Intranet:\n\n${flashSucc}`);
+        }
+      },
+      onError: (err: any) => {
+        isInscribiendo = false;
+        const msg = typeof err === 'string' ? err : (err?.error || 'Error al conectar con la Intranet');
+        alert(`Error al procesar inscripción automática:\n\n${msg}`);
+      },
+      onFinish: () => {
+        isInscribiendo = false;
+      }
+    });
+  }
+
+
 
   interface Props {
     isOpen?: boolean;
@@ -615,6 +645,15 @@
       </button>
       <div class="flex items-center gap-2">
         <button
+          onclick={() => handleInscribirAutomatica(curso!)}
+          disabled={isInscribiendo}
+          class="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 active:scale-[0.98] transition disabled:opacity-50"
+          title="Inscribir automáticamente alumnos desde la Intranet"
+        >
+          <UserPlus size={14} />
+          {isInscribiendo ? 'Inscribiendo...' : 'Inscribir Intranet'}
+        </button>
+        <button
           onclick={() => onCopy(curso)}
           class="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 active:scale-[0.98] transition"
           title="Copiar este curso en un nuevo período"
@@ -622,6 +661,7 @@
           <Copy size={14} />
           Copiar
         </button>
+
         <button
           onclick={() => onEdit(curso)}
           class="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:scale-[0.98] transition shadow-sm"

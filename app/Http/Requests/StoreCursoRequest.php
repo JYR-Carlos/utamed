@@ -97,8 +97,10 @@ class StoreCursoRequest extends FormRequest
             'aprobacion_obligatoria'            => 'nullable|boolean',
             'porcentaje_aprobacion'             => 'nullable|numeric|min:0|max:100',
             'porcentaje_asistencia_obligatoria' => 'nullable|numeric|min:0|max:100',
+            'inscribir_automaticamente'         => 'nullable|boolean',
         ];
     }
+
 
     /**
      * Get the error messages for the defined validation rules.

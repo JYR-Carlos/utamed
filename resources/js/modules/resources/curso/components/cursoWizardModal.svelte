@@ -92,6 +92,8 @@
   let aprobacionObligatoria = $state(false);
   let porcentajeAprobacion = $state<number>(60);
   let porcentajeAsistencia = $state<number>(75);
+  let inscribirAutomaticamente = $state(false);
+
 
   // ── Letra de grupo (indice_grupo) ──────────────────────────────────────────
   let indiceGrupo = $state<number | null>(null);
@@ -409,7 +411,9 @@
       aprobacion_obligatoria: aprobacionObligatoria,
       porcentaje_aprobacion: porcentajeAprobacion,
       porcentaje_asistencia_obligatoria: porcentajeAsistencia,
+      inscribir_automaticamente: inscribirAutomaticamente,
     } as any);
+
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -1195,9 +1199,28 @@
                     </p>
                   </div>
                 </div>
+
+                <!-- Operaciones Administrativas -->
+                <div class="fields-section-title" style="margin-top: 1.5rem; text-align: left;">Operaciones Administrativas</div>
+
+                <div class="admin-ops-section" style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; margin-top: 0.75rem; width: 100%;">
+                  <label class="field-check-label" style="display: flex; items-center; gap: 0.5rem; text-align: left; cursor: pointer;">
+                    <input
+                      type="checkbox"
+                      bind:checked={inscribirAutomaticamente}
+                      class="field-check"
+                    />
+                    <span>Inscribir automáticamente a los alumnos desde la Intranet</span>
+                  </label>
+                  <p class="field-hint" style="margin-left: 1.5rem; margin-top: 0.25rem; font-size: 0.75rem; color: #6b7280; text-align: left;">
+                    Busca las componentes correspondientes en la Intranet y matricula automáticamente a los alumnos inscritos al crear el curso.
+                  </p>
+                </div>
               </div>
             </div>
           {/if}
+
+
         </section>
       </div>
 

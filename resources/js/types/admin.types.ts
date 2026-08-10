@@ -541,7 +541,10 @@ export interface CursoFormData {
     aprobacion_obligatoria?: boolean;
     porcentaje_aprobacion?: number;
     porcentaje_asistencia_obligatoria?: number;
+    /** Inscribir alumnos automáticamente desde la Intranet tras crear el curso */
+    inscribir_automaticamente?: boolean;
     [key: string]: FormDataConvertible;
+
 }
 
 export interface EstudianteFormData {
