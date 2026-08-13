@@ -4,6 +4,7 @@ use App\Models\Usuario\Usuario;
 use App\Services\MensajeriaService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia as Assert;
 
 /**
  * Mensajería por componente (curso.mensaje) — el hilo lo sostiene el componente.
@@ -12,19 +13,24 @@ use Illuminate\Support\Facades\DB;
  * docente del mismo componente), su mensaje tiene que entrar en el mismo canal
  * del alumno, no abrir una conversación aparte.
  *
+ * Se entra siempre desde un curso (/{rol}/cursos/{curso}/mensajeria), así que
+ * las rutas llevan el curso y el acceso se decide contra los componentes que el
+ * usuario tiene EN ESE CURSO.
+ *
  * Los fixtures se descubren desde la base sembrada en vez de fijar ids, para no
  * depender de qué instancia esté apuntando la suite.
  */
 uses(DatabaseTransactions::class);
 
 /**
- * @return array{componente:int, titular:int, alumno:int, colegiado:int}|null
+ * @return array{componente:int, curso:int, titular:int, alumno:int, colegiado:int}|null
  */
 function fixturesMensajeria(): ?array
 {
     $componente = DB::selectOne("
-        SELECT dc.id_componente, d.id_usuario AS titular
+        SELECT dc.id_componente, cmp.id_curso, d.id_usuario AS titular
         FROM curso.docente_componente dc
+        JOIN curso.componente cmp ON cmp.id_componente = dc.id_componente
         JOIN usuario.docente d ON d.id_docente = dc.id_docente
         JOIN usuario.usuario_rol_asignacion ura ON ura.id_usuario = d.id_usuario
         JOIN usuario.rol r ON r.id_rol = ura.id_rol
@@ -79,6 +85,7 @@ function fixturesMensajeria(): ?array
 
     return [
         'componente' => (int) $componente->id_componente,
+        'curso'      => (int) $componente->id_curso,
         'titular'    => (int) $componente->titular,
         'alumno'     => (int) $alumno->id_usuario,
         'colegiado'  => (int) $colegiado->id_usuario,
@@ -95,15 +102,31 @@ beforeEach(function () {
     $this->f = $f;
 });
 
-it('el docente ve su bandeja de mensajería', function () {
+it('la bandeja del curso sólo trae los componentes de ese curso', function () {
+    $delCurso = DB::table('curso.componente')
+        ->where('id_curso', $this->f['curso'])
+        ->pluck('id_componente')
+        ->map(fn($id) => (int) $id)
+        ->all();
+
     $this->actingAs(Usuario::find($this->f['titular']))
-        ->get('/docente/mensajeria')
-        ->assertOk();
+        ->get("/docente/cursos/{$this->f['curso']}/mensajeria")
+        ->assertOk()
+        ->assertInertia(fn(Assert $page) => $page
+            ->component('docente/Mensajeria')
+            ->where('curso.id_curso', $this->f['curso'])
+            // Ni un componente de otro curso: entrar por el curso es justamente
+            // lo que evita la bandeja global que mezclaba todo.
+            ->where('componentes', fn($componentes) => collect($componentes)
+                ->every(fn($c) => in_array((int) $c['id_componente'], $delCurso, true)))
+            // La pestaña activa se resuelve en el servidor para que una recarga
+            // aterrice en el mismo sitio.
+            ->has('componente_activo'));
 });
 
 it('el docente envía una difusión al componente', function () {
     $this->actingAs(Usuario::find($this->f['titular']))
-        ->post("/docente/mensajeria/componentes/{$this->f['componente']}/difusion", [
+        ->post("/docente/cursos/{$this->f['curso']}/mensajeria/componentes/{$this->f['componente']}/difusion", [
             'tema'    => 'Cambio de aula',
             'mensaje' => 'Manana nos vemos en el aula 3.',
         ])
@@ -121,7 +144,7 @@ it('la respuesta del colegiado entra en el mismo canal del alumno', function () 
 
     // 1. El alumno pregunta, dirigido al titular.
     $this->actingAs(Usuario::find($this->f['alumno']))
-        ->post("/estudiante/mensajeria/componentes/{$this->f['componente']}/mensaje", [
+        ->post("/estudiante/cursos/{$this->f['curso']}/mensajeria/componentes/{$this->f['componente']}/mensaje", [
             'mensaje' => 'No entiendo el punto 2 del TP3',
             'tema'    => 'Duda TP3',
         ])
@@ -129,14 +152,14 @@ it('la respuesta del colegiado entra en el mismo canal del alumno', function () 
 
     // 2. Responde el COLEGIADO, no el titular.
     $this->actingAs(Usuario::find($this->f['colegiado']))
-        ->post("/docente/mensajeria/componentes/{$this->f['componente']}/alumnos/{$this->f['alumno']}/mensaje", [
+        ->post("/docente/cursos/{$this->f['curso']}/mensajeria/componentes/{$this->f['componente']}/alumnos/{$this->f['alumno']}/mensaje", [
             'mensaje' => 'El punto 2 pide el intervalo de confianza',
         ])
         ->assertRedirect();
 
     // 3. Y después el titular.
     $this->actingAs(Usuario::find($this->f['titular']))
-        ->post("/docente/mensajeria/componentes/{$this->f['componente']}/alumnos/{$this->f['alumno']}/mensaje", [
+        ->post("/docente/cursos/{$this->f['curso']}/mensajeria/componentes/{$this->f['componente']}/alumnos/{$this->f['alumno']}/mensaje", [
             'mensaje' => 'Confirmo lo que indica el profesor',
         ])
         ->assertRedirect();
@@ -160,7 +183,7 @@ it('abrir el panel marca como leído y baja el contador', function () {
     $svc = app(MensajeriaService::class);
 
     $this->actingAs(Usuario::find($this->f['titular']))
-        ->post("/docente/mensajeria/componentes/{$this->f['componente']}/difusion", [
+        ->post("/docente/cursos/{$this->f['curso']}/mensajeria/componentes/{$this->f['componente']}/difusion", [
             'tema'    => 'Aviso',
             'mensaje' => 'Contenido del aviso',
         ]);
@@ -170,7 +193,7 @@ it('abrir el panel marca como leído y baja el contador', function () {
 
     // El alumno abre el componente: el panel marca como leído lo que muestra.
     $this->actingAs(Usuario::find($this->f['alumno']))
-        ->get("/estudiante/mensajeria?componente_id={$this->f['componente']}")
+        ->get("/estudiante/cursos/{$this->f['curso']}/mensajeria?componente_id={$this->f['componente']}")
         ->assertOk();
 
     $ids = $svc->difusionesDeComponente($this->f['componente'], $this->f['alumno'])
@@ -224,8 +247,14 @@ it('un docente ajeno al componente no puede escribir', function () {
         $this->markTestSkipped('El docente elegido sí tiene acceso a este componente.');
     }
 
+    // Ni siquiera puede abrir la bandeja del curso: el acceso se decide contra
+    // los componentes que tiene EN ESE CURSO, y no tiene ninguno.
     $this->actingAs(Usuario::find($ajeno->id_usuario))
-        ->post("/docente/mensajeria/componentes/{$this->f['componente']}/difusion", [
+        ->get("/docente/cursos/{$this->f['curso']}/mensajeria")
+        ->assertForbidden();
+
+    $this->actingAs(Usuario::find($ajeno->id_usuario))
+        ->post("/docente/cursos/{$this->f['curso']}/mensajeria/componentes/{$this->f['componente']}/difusion", [
             'tema'    => 'Intruso',
             'mensaje' => 'No deberia poder',
         ])
@@ -234,7 +263,7 @@ it('un docente ajeno al componente no puede escribir', function () {
 
 it('el alumno no puede escribir en un componente donde no está inscrito', function () {
     $ajeno = DB::selectOne("
-        SELECT cmp.id_componente
+        SELECT cmp.id_componente, cmp.id_curso
         FROM curso.componente cmp
         WHERE NOT EXISTS (
             SELECT 1 FROM curso.inscripcion_componente ic
@@ -248,8 +277,10 @@ it('el alumno no puede escribir en un componente donde no está inscrito', funct
         $this->markTestSkipped('El alumno está inscrito en todos los componentes.');
     }
 
+    // Rechaza tanto si no cursa ese curso (no ve nada) como si cursa el otro
+    // componente del mismo curso (lo ve, pero no ése).
     $this->actingAs(Usuario::find($this->f['alumno']))
-        ->post("/estudiante/mensajeria/componentes/{$ajeno->id_componente}/mensaje", [
+        ->post("/estudiante/cursos/{$ajeno->id_curso}/mensajeria/componentes/{$ajeno->id_componente}/mensaje", [
             'mensaje' => 'hola',
         ])
         ->assertForbidden();

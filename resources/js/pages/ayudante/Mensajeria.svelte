@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * Mensajería del ayudante — misma bandeja que el docente, acotada a los cursos
-   * donde tiene el rol Ayudante.
+   * Mensajería del ayudante para un curso — misma bandeja que el docente,
+   * acotada al curso desde el que se entra.
    *
    * Cuando el ayudante responde, su mensaje entra en el mismo canal
    * (componente, alumno) que usan los docentes: la conversación no se divide.
@@ -10,14 +10,22 @@
   import BandejaStaff from '@/components/mensajeria/BandejaStaff.svelte';
   import type { BreadcrumbItem } from '@/types';
 
-  let { cursos = [], base_ruta = '/ayudante/mensajeria', panel = null } = $props();
+  let {
+    curso,
+    componentes = [],
+    componente_activo = null,
+    base_ruta,
+    panel = null,
+  } = $props();
 
-  const breadcrumbs: BreadcrumbItem[] = [
+  const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Dashboard', href: '/ayudante/dashboard' },
-    { title: 'Mensajería', href: '/ayudante/mensajeria' },
-  ];
+    { title: 'Mis Cursos', href: '/ayudante/cursos' },
+    { title: curso?.nombre ?? 'Curso', href: `/ayudante/cursos/${curso?.id_curso}` },
+    { title: 'Mensajería', href: '' },
+  ]);
 </script>
 
 <AyudanteLayout {breadcrumbs}>
-  <BandejaStaff {cursos} {base_ruta} {panel} />
+  <BandejaStaff {curso} {componentes} {componente_activo} {base_ruta} {panel} />
 </AyudanteLayout>

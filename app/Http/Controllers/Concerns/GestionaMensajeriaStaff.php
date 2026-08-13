@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Models\Curso\Curso;
 use App\Services\MensajeriaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -11,13 +12,19 @@ use Inertia\Inertia;
 /**
  * Bandeja de mensajería para el personal del curso (docentes y ayudantes).
  *
- * Docentes y ayudantes hacen exactamente lo mismo; sólo cambia qué componentes
- * ven. Cada controlador implementa `componentesVisibles()` y el resto se comparte.
+ * Se entra DESDE UN CURSO: la bandeja nunca lista los demás cursos del usuario.
+ * Dentro del curso, cada componente (Cátedra, Laboratorio, Taller…) es una
+ * pestaña, y dentro de la pestaña hay dos cosas:
  *
- * Estructura de la vista: curso → componente → (difusiones | canales de alumno).
- * El canal es (componente, alumno): todos los docentes del componente escriben
- * en el mismo canal, así que un colegiado que responde no abre una conversación
- * aparte.
+ *  - Generales   : difusiones al componente (MENSAJE_PARA_TODO_EL_CURSO).
+ *  - Individuales: un canal por alumno (MENSAJE_INDIVIDUAL). El canal es
+ *                  (componente, alumno) y lo comparten todos los docentes del
+ *                  componente, así que un colegiado que responde no abre una
+ *                  conversación aparte.
+ *
+ * Docentes y ayudantes hacen exactamente lo mismo; sólo cambia qué componentes
+ * ven. Cada controlador implementa `resolverComponentesVisibles()` y el resto se
+ * comparte.
  */
 trait GestionaMensajeriaStaff
 {
@@ -25,35 +32,36 @@ trait GestionaMensajeriaStaff
     private ?Collection $componentesCache = null;
 
     /**
-     * Componentes que este usuario puede ver, con las columnas que devuelve
-     * MensajeriaService::sqlComponentes().
+     * Todos los componentes que este usuario puede ver, con las columnas que
+     * devuelve MensajeriaService::sqlComponentes(). El filtrado por curso lo
+     * hace el trait: así el criterio de visibilidad de cada rol vive en un solo
+     * sitio y sirve también para autorizar los envíos.
      *
      * @return Collection<int,object>
      */
     abstract protected function resolverComponentesVisibles(): Collection;
 
-    /**
-     * @return Collection<int,object>
-     */
-    private function componentesVisibles(): Collection
-    {
-        return $this->componentesCache ??= $this->resolverComponentesVisibles();
-    }
-
     /** Componente Inertia a renderizar (p. ej. 'docente/Mensajeria'). */
     abstract protected function vistaMensajeria(): string;
 
-    /** Prefijo de las rutas del rol (p. ej. '/docente/mensajeria'). */
-    abstract protected function baseRutaMensajeria(): string;
+    /** Prefijo de las rutas del rol para ESTE curso. */
+    abstract protected function baseRutaMensajeria(Curso $curso): string;
 
     /**
-     * Bandeja: árbol curso → componente con badges de no leídos. El panel de la
-     * derecha se resuelve de forma diferida (?componente_id=…&alumno_id=…).
+     * Bandeja del curso: sus componentes como pestañas y, dentro de la activa,
+     * las difusiones y los canales de alumno.
      */
-    public function index(MensajeriaService $mensajeria)
+    public function index(Curso $curso, MensajeriaService $mensajeria)
     {
-        $componentes = $this->componentesVisibles();
+        $componentes = $this->componentesDelCurso($curso);
         $idUsuario = (int) Auth::id();
+
+        $activo = $this->componenteActivo($componentes);
+
+        // El panel se resuelve antes que los contadores porque abrirlo marca
+        // como leído lo que muestra: así la pestaña recién abierta aparece ya
+        // sin badge en vez de quedarse con el número de la visita anterior.
+        $panel = $this->resolverPanel($mensajeria, $componentes, $activo);
 
         $noLeidos = $mensajeria->noLeidosPorComponente(
             $componentes->pluck('id_componente')->map(fn($id) => (int) $id)->all(),
@@ -62,25 +70,86 @@ trait GestionaMensajeriaStaff
         );
 
         return Inertia::render($this->vistaMensajeria(), [
-            'cursos'    => $this->agruparPorCurso($componentes, $noLeidos),
-            'base_ruta' => $this->baseRutaMensajeria(),
-            'es_staff'  => true,
-            'panel'     => Inertia::lazy(fn() => $this->resolverPanel($mensajeria, $componentes)),
+            'curso'             => $this->datosCurso($curso),
+            'componentes'       => $this->pestanas($componentes, $noLeidos),
+            'componente_activo' => $activo,
+            'base_ruta'         => $this->baseRutaMensajeria($curso),
+            'panel'             => $panel,
         ]);
     }
 
     /**
-     * Panel derecho: difusiones del componente, lista de canales y —si se pidió
-     * un alumno— la conversación de ese canal. Abrir el panel marca como leído
-     * lo que se muestra.
+     * Difusión a todo el componente.
+     * POST {base}/componentes/{componente}/difusion
+     */
+    public function enviarDifusion(Request $request, Curso $curso, int $componente, MensajeriaService $mensajeria)
+    {
+        $this->autorizarComponente($curso, $componente);
+
+        $datos = $request->validate([
+            'tema'    => 'required|string|max:150',
+            'mensaje' => 'required|string|max:2000',
+        ]);
+
+        $mensajeria->enviarDifusion(
+            $componente,
+            (int) Auth::id(),
+            $datos['mensaje'],
+            $datos['tema'],
+        );
+
+        return back()->with('success', 'Aviso enviado a todo el componente.');
+    }
+
+    /**
+     * Mensaje al canal de un alumno.
+     * POST {base}/componentes/{componente}/alumnos/{alumno}/mensaje
+     */
+    public function enviarMensaje(Request $request, Curso $curso, int $componente, int $alumno, MensajeriaService $mensajeria)
+    {
+        $this->autorizarComponente($curso, $componente);
+
+        $datos = $request->validate([
+            'mensaje' => 'required|string|max:2000',
+            'tema'    => 'nullable|string|max:150',
+        ]);
+
+        $idUsuario = (int) Auth::id();
+
+        // El destinatario debe estar inscrito en este componente.
+        $esAlumnoDelComponente = $mensajeria
+            ->canalesDeComponente($componente, $idUsuario)
+            ->contains(fn($c) => $c['id_alumno'] === $alumno);
+
+        if (!$esAlumnoDelComponente) {
+            abort(404, 'El alumno no está inscrito en este componente.');
+        }
+
+        $mensajeria->enviarIndividual(
+            idComponente: $componente,
+            idUsuarioEmisor: $idUsuario,
+            idUsuarioReceptor: $alumno,
+            idUsuarioAlumno: $alumno,
+            mensaje: $datos['mensaje'],
+            tema: $datos['tema'] ?? null,
+        );
+
+        return back()->with('success', 'Mensaje enviado.');
+    }
+
+    /**
+     * Panel de la pestaña activa: difusiones, lista de canales y —si se pidió un
+     * alumno— la conversación de ese canal. Abrirlo marca como leído lo que
+     * muestra.
      *
      * @param  Collection<int,object>  $componentes
      * @return array<string,mixed>|null
      */
-    private function resolverPanel(MensajeriaService $mensajeria, Collection $componentes): ?array
+    private function resolverPanel(MensajeriaService $mensajeria, Collection $componentes, ?int $idComponente): ?array
     {
-        $idComponente = (int) request('componente_id');
-        $componente = $componentes->firstWhere('id_componente', $idComponente);
+        $componente = $idComponente
+            ? $componentes->firstWhere('id_componente', $idComponente)
+            : null;
 
         if (!$componente) {
             return null;
@@ -112,7 +181,6 @@ trait GestionaMensajeriaStaff
         return [
             'id_componente' => $idComponente,
             'componente'    => $componente->tipo_componente,
-            'curso'         => $componente->curso_nombre,
             'difusiones'    => $difusiones->values(),
             'canales'       => $canales->values(),
             'canal'         => $canal,
@@ -120,68 +188,49 @@ trait GestionaMensajeriaStaff
     }
 
     /**
-     * Difusión a todo el componente.
-     * POST {base}/componentes/{componente}/difusion
+     * Componentes visibles de ESTE curso. Vacío significa que el usuario no
+     * tiene nada que hacer aquí, no que el curso no tenga componentes.
+     *
+     * @return Collection<int,object>
      */
-    public function enviarDifusion(Request $request, int $componente, MensajeriaService $mensajeria)
+    private function componentesDelCurso(Curso $curso): Collection
     {
-        $this->autorizarComponente($componente);
+        $this->componentesCache ??= $this->resolverComponentesVisibles();
 
-        $datos = $request->validate([
-            'tema'    => 'required|string|max:150',
-            'mensaje' => 'required|string|max:2000',
-        ]);
+        $delCurso = $this->componentesCache
+            ->filter(fn($c) => (int) $c->id_curso === (int) $curso->id_curso)
+            ->values();
 
-        $mensajeria->enviarDifusion(
-            $componente,
-            (int) Auth::id(),
-            $datos['mensaje'],
-            $datos['tema'],
-        );
+        if ($delCurso->isEmpty()) {
+            abort(403, 'No tienes acceso a la mensajería de este curso.');
+        }
 
-        return back()->with('success', 'Aviso enviado a todo el componente.');
+        return $delCurso;
     }
 
     /**
-     * Mensaje al canal de un alumno.
-     * POST {base}/componentes/{componente}/alumnos/{alumno}/mensaje
+     * Pestaña a abrir: la pedida por query string si es visible; si no, la
+     * primera. El alumno llega con ?componente_id=… al cambiar de pestaña.
+     *
+     * @param  Collection<int,object>  $componentes
      */
-    public function enviarMensaje(Request $request, int $componente, int $alumno, MensajeriaService $mensajeria)
+    private function componenteActivo(Collection $componentes): ?int
     {
-        $this->autorizarComponente($componente);
+        $pedido = (int) request('componente_id');
 
-        $datos = $request->validate([
-            'mensaje' => 'required|string|max:2000',
-            'tema'    => 'nullable|string|max:150',
-        ]);
-
-        $idUsuario = (int) Auth::id();
-
-        // El destinatario debe estar inscrito en este componente.
-        $esAlumnoDelComponente = $mensajeria
-            ->canalesDeComponente($componente, $idUsuario)
-            ->contains(fn($c) => $c['id_alumno'] === $alumno);
-
-        if (!$esAlumnoDelComponente) {
-            abort(404, 'El alumno no está inscrito en este componente.');
+        if ($pedido && $componentes->contains(fn($c) => (int) $c->id_componente === $pedido)) {
+            return $pedido;
         }
 
-        $mensajeria->enviarIndividual(
-            idComponente: $componente,
-            idUsuarioEmisor: $idUsuario,
-            idUsuarioReceptor: $alumno,
-            idUsuarioAlumno: $alumno,
-            mensaje: $datos['mensaje'],
-            tema: $datos['tema'] ?? null,
-        );
+        $primero = $componentes->first();
 
-        return back()->with('success', 'Mensaje enviado.');
+        return $primero ? (int) $primero->id_componente : null;
     }
 
-    /** Aborta si el componente no está entre los visibles para este usuario. */
-    private function autorizarComponente(int $idComponente): void
+    /** Aborta si el componente no pertenece a los visibles de este curso. */
+    private function autorizarComponente(Curso $curso, int $idComponente): void
     {
-        $visible = $this->componentesVisibles()
+        $visible = $this->componentesDelCurso($curso)
             ->contains(fn($c) => (int) $c->id_componente === $idComponente);
 
         if (!$visible) {
@@ -189,37 +238,34 @@ trait GestionaMensajeriaStaff
         }
     }
 
+    /** @return array<string,mixed> */
+    private function datosCurso(Curso $curso): array
+    {
+        return [
+            'id_curso'      => (int) $curso->id_curso,
+            'nombre'        => $curso->nombre,
+            'cod_curso'     => (string) $curso->cod_curso,
+            'agno_real'     => (int) $curso->agno_real,
+            'semestre_real' => (int) $curso->semestre_real,
+            'letra_grupo'   => $curso->letra_grupo,
+        ];
+    }
+
     /**
-     * Agrupa los componentes por curso y suma los no leídos de cada uno.
+     * Componentes del curso como pestañas, con su badge de no leídos.
      *
      * @param  Collection<int,object>  $componentes
      * @param  array<int,int>  $noLeidos
      * @return array<int,array<string,mixed>>
      */
-    private function agruparPorCurso(Collection $componentes, array $noLeidos): array
+    private function pestanas(Collection $componentes, array $noLeidos): array
     {
         return $componentes
-            ->groupBy('id_curso')
-            ->map(function (Collection $delCurso) use ($noLeidos) {
-                $primero = $delCurso->first();
-
-                $items = $delCurso->map(fn($c) => [
-                    'id_componente' => (int) $c->id_componente,
-                    'tipo'          => $c->tipo_componente,
-                    'no_leidos'     => $noLeidos[(int) $c->id_componente] ?? 0,
-                ])->values();
-
-                return [
-                    'id_curso'      => (int) $primero->id_curso,
-                    'nombre'        => $primero->curso_nombre,
-                    'cod_curso'     => (string) $primero->cod_curso,
-                    'agno_real'     => (int) $primero->agno_real,
-                    'semestre_real' => (int) $primero->semestre_real,
-                    'letra_grupo'   => $primero->letra_grupo,
-                    'no_leidos'     => $items->sum('no_leidos'),
-                    'componentes'   => $items,
-                ];
-            })
+            ->map(fn($c) => [
+                'id_componente' => (int) $c->id_componente,
+                'tipo'          => $c->tipo_componente,
+                'no_leidos'     => $noLeidos[(int) $c->id_componente] ?? 0,
+            ])
             ->values()
             ->all();
     }

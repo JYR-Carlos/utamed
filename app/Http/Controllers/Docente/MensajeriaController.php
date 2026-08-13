@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Docente;
 
 use App\Http\Controllers\Concerns\GestionaMensajeriaStaff;
 use App\Http\Controllers\Controller;
+use App\Models\Curso\Curso;
 use App\Services\MensajeriaService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -44,8 +45,8 @@ class MensajeriaController extends Controller
         return 'docente/Mensajeria';
     }
 
-    protected function baseRutaMensajeria(): string
+    protected function baseRutaMensajeria(Curso $curso): string
     {
-        return '/docente/mensajeria';
+        return "/docente/cursos/{$curso->id_curso}/mensajeria";
     }
 }
