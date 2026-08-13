@@ -311,9 +311,11 @@
             </button>
           {/if}
 
-          <!-- Mensajería del curso — activo -->
+          <!-- Mensajería del curso — activo.
+               El contador es la suma de todos sus cursos, pero la bandeja vive
+               dentro de cada uno, así que lleva a la lista de cursos. -->
           <Link
-            href="/docente/mensajeria"
+            href="/docente/cursos"
             class="flex flex-col gap-3 p-5 rounded-xl border bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 no-underline transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
           >
             <div class="flex items-start justify-between">
@@ -332,11 +334,11 @@
             <div>
               <h3 class="text-sm font-bold text-indigo-900 m-0 leading-tight">Mensajería</h3>
               <p class="text-xs text-indigo-700/70 leading-snug m-0 mt-1">
-                Avisos del curso y canal por alumno
+                Avisos y canal por alumno, dentro de cada curso
               </p>
             </div>
             <div class="flex items-center gap-1 text-xs font-semibold text-indigo-700 mt-auto">
-              Abrir bandeja <ArrowRight size={13} />
+              Elegir curso <ArrowRight size={13} />
             </div>
           </Link>
 

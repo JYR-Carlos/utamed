@@ -148,7 +148,7 @@
         {/if}
       </button>
       <Link
-        href="/estudiante/mensajeria"
+        href={`/estudiante/cursos/${curso?.id_curso}/mensajeria`}
         class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold no-underline border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
       >
         <MessagesSquare class="w-4 h-4" />

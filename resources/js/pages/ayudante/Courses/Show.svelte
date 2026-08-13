@@ -4,7 +4,7 @@
   import { Link } from '@inertiajs/svelte';
   import * as Card from '@/components/ui/card';
   import * as Button from '@/components/ui/button';
-  import { BookOpen, FileText, ArrowRight, Plus } from 'lucide-svelte';
+  import { BookOpen, FileText, ArrowRight, Plus, MessageSquare } from 'lucide-svelte';
   import { hasPermission } from '@/services/permissionValidator';
   import type { Permission } from '@/types/permissions/permissions';
 
@@ -138,6 +138,31 @@
           </Card.Content>
         </Card.Root>
       {/if}
+
+      <!-- Mensajería de nivel curso (curso.mensaje): avisos al componente y el
+           canal de cada alumno, compartido con los docentes. Se entra desde el
+           curso porque el hilo pertenece a él. -->
+      <Card.Root class="hover:shadow-md transition-shadow">
+        <Card.Header>
+          <div class="flex items-center gap-3">
+            <MessageSquare class="h-5 w-5 text-indigo-600" />
+            <div>
+              <Card.Title class="text-base">Mensajería</Card.Title>
+              <p class="text-xs text-gray-500 mt-1">
+                Avisos del curso y conversación con cada alumno
+              </p>
+            </div>
+          </div>
+        </Card.Header>
+        <Card.Content>
+          <Link href={`/ayudante/cursos/${id_curso}/mensajeria`}>
+            <Button.Root variant="outline" class="w-full">
+              <span>Abrir mensajería</span>
+              <ArrowRight class="h-4 w-4 ml-2" />
+            </Button.Root>
+          </Link>
+        </Card.Content>
+      </Card.Root>
     </div>
   </div>
 </AyudanteLayout>

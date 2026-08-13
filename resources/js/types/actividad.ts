@@ -18,7 +18,7 @@ export interface Actividad {
     /**
      * Mensajes de agenda de esta actividad cuyo último turno es del estudiante.
      * Es la mensajería de nivel actividad; no incluye la mensajería del curso
-     * (curso.mensaje), que se lleva aparte en /docente/mensajeria.
+     * (curso.mensaje), que se lleva aparte en /docente/cursos/{id}/mensajeria.
      */
     mensajes_pendientes?: number;
 }

@@ -7,8 +7,8 @@
    * (/docente/cursos/{id}/actividades/{id}/evaluacion) y a sus mensajes de
    * agenda (/docente/mensajes?actividad_id={id}) — esa mensajería es de nivel
    * actividad, así que sólo se entra desde aquí; la del curso vive en
-   * /docente/mensajeria. Los flags can* vienen de los permisos del docente
-   * sobre el curso.
+   * /docente/cursos/{id}/mensajeria. Los flags can* vienen de los permisos del
+   * docente sobre el curso.
    *
    * El acento de color de cada tarjeta (rail, chip de tipo, botón "Evaluar")
    * se deriva de tipo_actividad: SUMATIVA (cuenta para la nota) usa índigo,

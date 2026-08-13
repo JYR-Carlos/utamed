@@ -5,7 +5,8 @@
    * Arquitectura: usa agenda.agenda (tipos "Mensaje al profesor" / "Feedback"),
    * sin ninguna tabla adicional. La misma infraestructura que usan las entregas.
    * Aunque se liste por curso, cada hilo pertenece a una actividad/grupo: la
-   * mensajería de nivel curso es la de /docente/mensajeria (curso.mensaje).
+   * mensajería de nivel curso es la de /docente/cursos/{id}/mensajeria
+   * (curso.mensaje).
    *
    * Diseño: dos columnas.
    * - Izquierda : lista de estudiantes con badge de actividad (total mensajes enviados)

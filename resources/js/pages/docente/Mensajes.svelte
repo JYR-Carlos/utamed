@@ -4,8 +4,8 @@
    *
    * Es la mensajería de NIVEL ACTIVIDAD: se entra desde la actividad (tarjeta de
    * docente/Actividades → ?actividad_id=…), no desde el menú lateral. La
-   * mensajería de nivel curso es otra cosa y vive en /docente/mensajeria
-   * (curso.mensaje), sin pasar por agenda.
+   * mensajería de nivel curso es otra cosa y vive dentro de cada curso, en
+   * /docente/cursos/{id}/mensajeria (curso.mensaje), sin pasar por agenda.
    *
    * Modelo: agenda.agenda. Cada mensaje cuelga de un grupo → actividad → curso.
    * - Izquierda: árbol Curso → Actividad (con badges de pendientes).
@@ -241,14 +241,18 @@
             {totalPendientes} por responder
           </span>
         {/if}
-        <!-- El otro canal: avisos y consultas que no cuelgan de una actividad. -->
-        <Link
-          href="/docente/mensajeria"
-          class="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 no-underline"
-        >
-          Mensajería del curso
-          <ChevronRight size={14} />
-        </Link>
+        <!-- El otro canal: avisos y consultas que no cuelgan de una actividad.
+             Vive dentro del curso, así que sólo hay a dónde ir cuando ya se
+             eligió una actividad y con ella su curso. -->
+        {#if selectedActividad}
+          <Link
+            href={`/docente/cursos/${selectedActividad.id_curso}/mensajeria`}
+            class="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 no-underline"
+          >
+            Mensajería del curso
+            <ChevronRight size={14} />
+          </Link>
+        {/if}
       </div>
     </div>
 

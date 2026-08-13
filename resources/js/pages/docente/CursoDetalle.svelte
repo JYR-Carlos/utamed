@@ -29,6 +29,7 @@
     ClipboardList,
     ClipboardCheck,
     ArrowLeft,
+    MessageSquare,
   } from 'lucide-svelte';
   import {
     SyllabusPermisosModal,
@@ -302,6 +303,16 @@
               Permisos Syllabus
             </button>
           {/if}
+          <!-- Mensajería de nivel curso (curso.mensaje): avisos al componente y
+               canal por alumno. Se entra desde aquí porque el hilo pertenece a
+               este curso; las consultas sobre una entrega van en su actividad. -->
+          <button
+            onclick={() => router.visit(`/docente/cursos/${curso.id_curso}/mensajeria`)}
+            class="inline-flex items-center gap-2 px-4 text-sm font-medium rounded-[10px] border transition-all h-10 bg-transparent text-[#2D2F3A] border-[#E8E4DC] hover:!bg-white hover:!border-[#D0CBC1]"
+          >
+            <MessageSquare size={16} />
+            Mensajería
+          </button>
           {#if canVerActividades}
             <button
               onclick={() => router.visit(`/docente/cursos/${curso.id_curso}/actividades`)}
