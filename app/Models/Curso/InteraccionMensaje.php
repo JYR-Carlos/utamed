@@ -6,15 +6,14 @@ use App\Models\Base\Curso\BaseInteraccionMensaje;
 
 /**
  * Modelo InteraccionMensaje
- * 
+ *
  * Extiende de BaseInteraccionMensaje (auto-generado)
- * Agrega aquí tus personalizaciones, relaciones adicionales, etc.
+ *
+ * Acuse de lectura: existe una fila por (mensaje, lector) cuando ese usuario
+ * abrió el mensaje. Si no hay fila, nunca lo vio. Borrar la fila (soft delete)
+ * lo vuelve a marcar como no leído.
  */
 class InteraccionMensaje extends BaseInteraccionMensaje
 {
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+    // Sin personalizaciones por ahora.
 }

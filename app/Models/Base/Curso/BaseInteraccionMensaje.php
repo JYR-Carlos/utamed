@@ -16,7 +16,8 @@ abstract class BaseInteraccionMensaje extends CustomBaseModel
     use SoftDeletes;
     use Compoships;
     const DELETED_AT = 'fecha_eliminacion';
-    public $timestamps = false;
+    const CREATED_AT = 'fecha_creacion';
+    const UPDATED_AT = null;
     protected $connection = 'pgsql';
     protected $table = 'interaccion_mensaje';
     protected $primaryKey = 'id_interaccion_mensaje';
@@ -35,10 +36,9 @@ abstract class BaseInteraccionMensaje extends CustomBaseModel
         return new BelongsTo($instance->newQuery(), $this, 'id_mensaje', 'id_mensaje', 'mensaje');
     }
 
-    public function usuario()
+    public function lector()
     {
         $instance = new \App\Models\Usuario\Usuario();
-        return new BelongsTo($instance->newQuery(), $this, 'id_usuario_lector', 'id_usuario', 'usuario');
+        return new BelongsTo($instance->newQuery(), $this, 'id_usuario_lector', 'id_usuario', 'lector');
     }
-
 }

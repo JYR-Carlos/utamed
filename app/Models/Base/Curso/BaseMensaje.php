@@ -6,7 +6,6 @@ use App\Models\BaseModel as CustomBaseModel;
 use Awobaz\Compoships\Compoships;
 use App\Extensions\Compoships\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Enums\DB\TipoMensajeCurso;
 
 /**
  * Clase Base generada automáticamente
@@ -17,9 +16,8 @@ abstract class BaseMensaje extends CustomBaseModel
     use SoftDeletes;
     use Compoships;
     const DELETED_AT = 'fecha_eliminacion';
-    public $timestamps = false;
-    public TipoMensajeCurso $tipoMensaje;
-
+    const CREATED_AT = 'fecha_creacion';
+    const UPDATED_AT = null;
     protected $connection = 'pgsql';
     protected $table = 'mensaje';
     protected $primaryKey = 'id_mensaje';
@@ -28,13 +26,10 @@ abstract class BaseMensaje extends CustomBaseModel
     protected $fillable = [
         'mensaje',
         'tipo_mensaje',
+        'tema',
         'id_componente',
         'id_usuario_emisor',
         'id_usuario_receptor'
-    ];
-
-    protected $casts = [
-        'tipo_mensaje' => TipoMensajeCurso::class
     ];
 
     // Relaciones
@@ -59,9 +54,8 @@ abstract class BaseMensaje extends CustomBaseModel
 
     // Relaciones inversas
 
-    public function interaccionMensajes()
+    public function interacciones()
     {
         return $this->hasMany(\App\Models\Curso\InteraccionMensaje::class, 'id_mensaje', 'id_mensaje');
     }
-
 }
