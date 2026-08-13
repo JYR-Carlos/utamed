@@ -166,9 +166,14 @@ class CourseController extends Controller
                     'cod_curso'         => $curso->cod_curso,
                     'cod_asignatura'    => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? '',
                     'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+                    'carrera_nombre'    => $curso->asignacionPlan?->plan?->carrera?->nombre ?? '',
+                    'letra_grupo'       => $curso->letra_grupo,
                     'semestre_real'     => $curso->semestre_real,
                     'agno_real'         => $curso->agno_real,
                     'unidades'          => $curso->unidades_real,
+                    // Créditos y horas: la ficha del encabezado los muestra junto
+                    // al período, y el programa embebido los daba vacíos.
+                    'asignatura'        => $curso->asignacionPlan?->asignatura,
                 ],
                 'actividades' => $actividadesData,
             ],

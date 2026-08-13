@@ -242,3 +242,33 @@ export interface SeccionPrograma {
   componentes?: ComponenteEvaluacion[];
   ponderacion_optativa?: { porcentaje?: number } | null;
 }
+
+// ─── Vista del alumno ────────────────────────────────────────────────────────
+
+/**
+ * Prop `datos` que emite `App\Services\Student\StudentSyllabusPresenter`.
+ *
+ * Es el syllabus ya aplanado para las vistas del alumno: la ficha del curso
+ * (`student/Courses/Show`) y el programa completo (`student/Courses/Syllabus`).
+ * Todos los campos son opcionales porque un programa BÁSICO no trae las
+ * secciones exclusivas del COMPLETO.
+ */
+export interface DatosSyllabusAlumno {
+  categoria?: string;
+  descripcion?: string;
+  competencias_especificas?: TituloItem[];
+  competencias_genericas?: TituloItem[];
+  componentes?: ComponenteEvaluacion[];
+  normativa?: string;
+  recursos?: RecursoSyllabus[];
+  resultados_aprendizaje?: ResultadoAprendizajeItem[];
+  unidades?: UnidadSyllabus[];
+}
+
+/** Docente de la sección del alumno, tal como lo entrega el presenter. */
+export interface DocenteAlumno {
+  nombre: string;
+  email?: string | null;
+  es_titular: boolean;
+  componente?: string | null;
+}

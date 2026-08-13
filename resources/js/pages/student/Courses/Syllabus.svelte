@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, Curso } from '@/types';
   import { BookOpen, User, Award, Clock, ExternalLink } from 'lucide-svelte';
 
@@ -104,18 +105,12 @@
 
   // ─── Donut chart ─────────────────────────────────────────────────────────────
 
-  const CHART_COLORS = ['#4F46E5', '#7C3AED', '#EC4899', '#06B6D4', '#F59E0B', '#10B981'];
+  // Rampa de un solo tono (azul UTA, oscuro→claro). El color no distingue
+  // componentes —de eso se encarga la etiqueta escrita al lado—, refuerza el
+  // tamaño: los segmentos van ordenados de mayor a menor ponderación.
+  const CHART_COLORS = ['#002855', '#10416F', '#2A66AC', '#5C8CC4', '#93B3D8', '#C7D8EB'];
   const R = 95;
   const CIRC = 2 * Math.PI * R;
-
-  const COMP_COLORS = [
-    'bg-indigo-600',
-    'bg-purple-600',
-    'bg-pink-600',
-    'bg-cyan-600',
-    'bg-amber-500',
-    'bg-emerald-600',
-  ];
 
   interface DonutSegment {
     color: string;
@@ -127,18 +122,20 @@
 
   const donutSegments = $derived.by((): DonutSegment[] => {
     let accumulated = 0;
-    return componentes.map((c, i) => {
-      const len = (c.porcentaje / 100) * CIRC;
-      const dashOffset = CIRC / 4 - accumulated;
-      accumulated += len;
-      return {
-        color: CHART_COLORS[i % CHART_COLORS.length],
-        dashArray: `${len} ${CIRC}`,
-        dashOffset,
-        label: c.componente,
-        porcentaje: c.porcentaje,
-      };
-    });
+    return [...componentes]
+      .sort((a, b) => b.porcentaje - a.porcentaje)
+      .map((c, i) => {
+        const len = (c.porcentaje / 100) * CIRC;
+        const dashOffset = CIRC / 4 - accumulated;
+        accumulated += len;
+        return {
+          color: CHART_COLORS[i % CHART_COLORS.length],
+          dashArray: `${len} ${CIRC}`,
+          dashOffset,
+          label: c.componente,
+          porcentaje: c.porcentaje,
+        };
+      });
   });
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -149,13 +146,17 @@
   }
 </script>
 
-<!-- Main Content -->
+<!--
+  Documento completo del programa. La ficha del curso (student/Courses/Show)
+  muestra el resumen y enlaza aquí; esta página es la versión íntegra.
+-->
+<StudentLayout {breadcrumbs}>
     <div class="max-w-5xl mx-auto px-8 py-12">
       <!-- Document Header -->
       <div class="mb-12">
         <div class="flex items-center gap-2 mb-4">
-          <BookOpen class="w-5 h-5 text-indigo-600" />
-          <span class="text-sm font-semibold text-indigo-600 uppercase tracking-wider">
+          <BookOpen class="w-5 h-5 text-uta-blue" />
+          <span class="text-sm font-semibold text-uta-blue uppercase tracking-wider">
             Programa Oficial
           </span>
         </div>
@@ -265,7 +266,7 @@
               <h2 class="text-2xl font-bold text-gray-900 mb-6">Unidades</h2>
               <div class="space-y-6">
                 {#each unidades as unidad}
-                  <div class="border-l-4 border-indigo-600 pl-6">
+                  <div class="border-l-4 border-uta-blue pl-6">
                     <h3 class="text-lg font-bold text-gray-900 mb-2">
                       Unidad {unidad.numero}: {unidad.titulo}
                     </h3>
@@ -277,13 +278,13 @@
                       </div>
                     {/if}
                     {#if unidad.resultados_aprendizaje && unidad.resultados_aprendizaje.length > 0}
-                      <div class="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-                        <p class="text-xs font-semibold text-indigo-900 mb-2">
+                      <div class="mt-3 p-3 bg-uta-blue-light rounded-lg border border-uta-blue/20">
+                        <p class="text-xs font-semibold text-uta-blue mb-2">
                           Resultados de Aprendizaje:
                         </p>
                         <ul class="space-y-1">
                           {#each unidad.resultados_aprendizaje as resultado}
-                            <li class="text-sm text-indigo-900 flex gap-2">
+                            <li class="text-sm text-uta-blue flex gap-2">
                               <span class="flex-shrink-0">•</span>
                               <span>{resultado.resultado}</span>
                             </li>
@@ -305,9 +306,9 @@
                 {#each resultados as item, i}
                   <div class="flex gap-4">
                     <div
-                      class="flex-shrink-0 w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mt-0.5"
+                      class="flex-shrink-0 w-8 h-8 rounded-lg bg-uta-blue-light flex items-center justify-center mt-0.5"
                     >
-                      <span class="text-sm font-bold text-indigo-600">{i + 1}</span>
+                      <span class="text-sm font-bold text-uta-blue">{i + 1}</span>
                     </div>
                     <p class="text-gray-700 leading-relaxed">{item.resultado}</p>
                   </div>
@@ -321,13 +322,13 @@
             <section>
               <h2 class="text-2xl font-bold text-gray-900 mb-6">Competencias a Desarrollar</h2>
               <div class="grid grid-cols-2 gap-4">
-                {#each todasCompetencias.slice(0, 8) as comp, i}
+                {#each todasCompetencias.slice(0, 8) as comp (comp.titulo)}
                   <div class="p-4 bg-gray-50 rounded-xl">
                     <div class="flex items-start gap-3">
+                      <!-- Viñeta, no codificación: todas las competencias pesan igual. -->
                       <div
-                        class="w-2 h-2 rounded-full mt-2 flex-shrink-0 {COMP_COLORS[
-                          i % COMP_COLORS.length
-                        ]}"
+                        class="w-2 h-2 rounded-full mt-2 flex-shrink-0 bg-uta-blue"
+                        aria-hidden="true"
                       ></div>
                       <div>
                         <h4 class="font-semibold text-gray-900 mb-1">{comp.titulo}</h4>
@@ -423,13 +424,13 @@
               <div class="space-y-3">
                 {#each recursos as recurso}
                   <div
-                    class="flex items-start gap-4 p-4 border border-gray-200 rounded-xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all group"
+                    class="flex items-start gap-4 p-4 border border-gray-200 rounded-xl hover:border-uta-blue/30 hover:bg-uta-blue-light/40 transition-all group"
                   >
                     <div
-                      class="w-10 h-10 rounded-lg bg-gray-100 group-hover:bg-indigo-100 flex items-center justify-center flex-shrink-0 transition-colors"
+                      class="w-10 h-10 rounded-lg bg-gray-100 group-hover:bg-uta-blue-light flex items-center justify-center flex-shrink-0 transition-colors"
                     >
                       <BookOpen
-                        class="w-5 h-5 text-gray-600 group-hover:text-indigo-600 transition-colors"
+                        class="w-5 h-5 text-gray-600 group-hover:text-uta-blue transition-colors"
                       />
                     </div>
                     <div class="flex-1 min-w-0">
@@ -444,7 +445,7 @@
                         href={recurso.link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="flex-shrink-0 p-2 rounded-lg hover:bg-indigo-100 text-gray-600 hover:text-indigo-600 transition-colors"
+                        class="flex-shrink-0 p-2 rounded-lg hover:bg-uta-blue-light text-gray-600 hover:text-uta-blue transition-colors"
                       >
                         <ExternalLink class="w-5 h-5" />
                       </a>
@@ -470,3 +471,4 @@
         </div>
       {/if}
     </div>
+</StudentLayout>
