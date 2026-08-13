@@ -1,9 +1,11 @@
 <script lang="ts">
   /**
-   * MensajesCurso — Vista general de mensajería (nivel 1) del curso.
+   * MensajesCurso — Mensajes de ACTIVIDADES del curso, agrupados por estudiante.
    *
    * Arquitectura: usa agenda.agenda (tipos "Mensaje al profesor" / "Feedback"),
    * sin ninguna tabla adicional. La misma infraestructura que usan las entregas.
+   * Aunque se liste por curso, cada hilo pertenece a una actividad/grupo: la
+   * mensajería de nivel curso es la de /docente/mensajeria (curso.mensaje).
    *
    * Diseño: dos columnas.
    * - Izquierda : lista de estudiantes con badge de actividad (total mensajes enviados)
@@ -201,7 +203,7 @@
           {curso.cod_curso}
         </Link>
         <span class="text-slate-300">/</span>
-        <span class="text-slate-700 font-medium">Mensajes</span>
+        <span class="text-slate-700 font-medium">Mensajes de actividades</span>
       </nav>
       <div class="flex items-center gap-3">
         <Link
@@ -211,8 +213,12 @@
           <ArrowLeft size={20} />
         </Link>
         <div>
-          <h1 class="text-lg font-extrabold text-slate-900 leading-tight">Mensajes del Curso</h1>
-          <p class="text-xs text-slate-500">{curso.asignatura?.nombre ?? curso.nombre}</p>
+          <h1 class="text-lg font-extrabold text-slate-900 leading-tight">
+            Mensajes de actividades
+          </h1>
+          <p class="text-xs text-slate-500">
+            {curso.asignatura?.nombre ?? curso.nombre} · hilos de entrega por estudiante
+          </p>
         </div>
         {#if totalConMensajes > 0}
           <span

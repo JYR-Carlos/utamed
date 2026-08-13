@@ -42,8 +42,9 @@
       nombre_completo: string;
     };
     cursos?: Curso[];
-    mensajes?: {
-      pendientes: number;
+    /** Nivel curso (curso.mensaje): avisos y canales sin leer. */
+    mensajeria?: {
+      no_leidos: number;
     };
     jefatura?: {
       has_access: boolean;
@@ -55,9 +56,11 @@
     };
   }
 
-  let { docente, stats, cursos = [], mensajes, jefatura }: Props = $props();
+  let { docente, stats, cursos = [], mensajeria, jefatura }: Props = $props();
 
-  let mensajesPendientes = $derived(mensajes?.pendientes ?? 0);
+  // Sólo la mensajería de nivel curso llega al dashboard. Los mensajes de agenda
+  // pertenecen a cada actividad y su contador vive en la vista de actividades.
+  let mensajeriaNoLeidos = $derived(mensajeria?.no_leidos ?? 0);
 
   let sharedCourses = $derived(($page.props.auth as any)?.docente_courses ?? []);
   let allCursos = $derived(cursos.length > 0 ? cursos : sharedCourses);
@@ -308,9 +311,9 @@
             </button>
           {/if}
 
-          <!-- Mensajes — activo -->
+          <!-- Mensajería del curso — activo -->
           <Link
-            href="/docente/mensajes"
+            href="/docente/mensajeria"
             class="flex flex-col gap-3 p-5 rounded-xl border bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 no-underline transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
           >
             <div class="flex items-start justify-between">
@@ -319,17 +322,17 @@
               >
                 <MessageSquare size={18} />
               </div>
-              {#if mensajesPendientes > 0}
+              {#if mensajeriaNoLeidos > 0}
                 <span
                   class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 uppercase tracking-wider"
-                  >{mensajesPendientes} por responder</span
+                  >{mensajeriaNoLeidos} sin leer</span
                 >
               {/if}
             </div>
             <div>
-              <h3 class="text-sm font-bold text-indigo-900 m-0 leading-tight">Mensajes</h3>
+              <h3 class="text-sm font-bold text-indigo-900 m-0 leading-tight">Mensajería</h3>
               <p class="text-xs text-indigo-700/70 leading-snug m-0 mt-1">
-                Comunicación con estudiantes
+                Avisos del curso y canal por alumno
               </p>
             </div>
             <div class="flex items-center gap-1 text-xs font-semibold text-indigo-700 mt-auto">

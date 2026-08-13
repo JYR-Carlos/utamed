@@ -7,6 +7,7 @@ use App\Models\Administrativo\Carrera;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Curso\Curso;
+use App\Services\MensajeriaService;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
@@ -26,8 +27,6 @@ use Inertia\Inertia;
  */
 class DashboardController extends Controller
 {
-    use ContaPendientesMensajes;
-
     /**
      * Muestra el dashboard del docente con su lista de cursos.
      * 
@@ -37,7 +36,7 @@ class DashboardController extends Controller
      * 
      * @return \Illuminate\Http\RedirectResponse|\Inertia\Response  Redirección si no es docente, o vista dashboard
      */
-    public function index()
+    public function index(MensajeriaService $mensajeria)
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -84,14 +83,20 @@ class DashboardController extends Controller
             })
             ->values();
 
-        // Mensajes por responder: grupos cuyo último mensaje es de un estudiante,
-        // en cursos donde el docente es titular.
-        $cursoIds = $cursos->pluck('id_curso')->all();
-        $mensajesPendientes = $this->totalPendientes($cursoIds);
+        // Sólo la mensajería de nivel curso (curso.mensaje) llega al dashboard:
+        // avisos al componente y canal por alumno. Los mensajes de agenda.agenda
+        // cuelgan de una ACTIVIDAD y su contador se entrega en la vista de
+        // actividades del curso, que es donde se responden.
+        $componentes = $mensajeria->componentesDeDocente((int) $docente->id_docente);
+        $noLeidos = array_sum($mensajeria->noLeidosPorComponente(
+            $componentes->pluck('id_componente')->map(fn($id) => (int) $id)->all(),
+            (int) $user->id_usuario,
+            esStaff: true,
+        ));
 
         return Inertia::render('docente/Dashboard', [
-            'mensajes' => [
-                'pendientes' => $mensajesPendientes,
+            'mensajeria' => [
+                'no_leidos' => $noLeidos,
             ],
             'docente' => [
                 'id_docente' => $docente->id_docente,

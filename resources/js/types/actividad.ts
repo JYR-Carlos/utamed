@@ -15,6 +15,12 @@ export interface Actividad {
     seccion?: { id_seccion?: number; tipo?: string } | null;
     unidad?: { id_unidad: number; nombre: string } | null;
     ultima_nota?: number | null;
+    /**
+     * Mensajes de agenda de esta actividad cuyo último turno es del estudiante.
+     * Es la mensajería de nivel actividad; no incluye la mensajería del curso
+     * (curso.mensaje), que se lleva aparte en /docente/mensajeria.
+     */
+    mensajes_pendientes?: number;
 }
 
 export interface Integrante {

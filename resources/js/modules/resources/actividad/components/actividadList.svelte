@@ -4,8 +4,11 @@
    *
    * Presentacional: el padre maneja los modales de crear/editar/eliminar vía
    * callbacks. Cada tarjeta enlaza a la evaluación de la actividad
-   * (/docente/cursos/{id}/actividades/{id}/evaluacion). Los flags can* vienen
-   * de los permisos del docente sobre el curso.
+   * (/docente/cursos/{id}/actividades/{id}/evaluacion) y a sus mensajes de
+   * agenda (/docente/mensajes?actividad_id={id}) — esa mensajería es de nivel
+   * actividad, así que sólo se entra desde aquí; la del curso vive en
+   * /docente/mensajeria. Los flags can* vienen de los permisos del docente
+   * sobre el curso.
    *
    * El acento de color de cada tarjeta (rail, chip de tipo, botón "Evaluar")
    * se deriva de tipo_actividad: SUMATIVA (cuenta para la nota) usa índigo,
@@ -19,6 +22,7 @@
     Edit2,
     Trash2,
     ClipboardList,
+    MessageSquare,
     Plus,
     Eye,
     EyeOff,
@@ -237,14 +241,33 @@
           </div>
         </div>
 
-        <!-- Evaluar -->
-        <Link
-          href={`/docente/cursos/${idCurso}/actividades/${actividad.id_actividad}/evaluacion`}
-          class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-[10px] font-semibold text-sm no-underline border border-[var(--ac)] bg-[var(--ac-soft)] text-[var(--ac)] hover:bg-[var(--ac)] hover:text-white transition-all"
-        >
-          <ClipboardList size={15} />
-          Evaluar
-        </Link>
+        <!-- Acciones: evaluar y mensajes de la actividad -->
+        <div class="flex items-stretch gap-2">
+          <Link
+            href={`/docente/cursos/${idCurso}/actividades/${actividad.id_actividad}/evaluacion`}
+            class="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-[10px] font-semibold text-sm no-underline border border-[var(--ac)] bg-[var(--ac-soft)] text-[var(--ac)] hover:bg-[var(--ac)] hover:text-white transition-all"
+          >
+            <ClipboardList size={15} />
+            Evaluar
+          </Link>
+          <!-- Mensajería de agenda: es de esta actividad, por eso se entra desde
+               aquí y no desde el menú lateral. -->
+          <Link
+            href={`/docente/mensajes?actividad_id=${actividad.id_actividad}`}
+            class="relative inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-[10px] font-semibold text-sm no-underline border border-[#E8EAF0] bg-white text-[#5C6478] hover:bg-[#FAFBFC] hover:text-[#0E1220] transition-all"
+            title="Mensajes de esta actividad"
+          >
+            <MessageSquare size={15} />
+            {#if (actividad.mensajes_pendientes ?? 0) > 0}
+              <span
+                class="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[0.625rem] font-bold"
+                title={`${actividad.mensajes_pendientes} por responder`}
+              >
+                {actividad.mensajes_pendientes}
+              </span>
+            {/if}
+          </Link>
+        </div>
       </div>
     {/each}
   </div>

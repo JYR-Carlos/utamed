@@ -37,6 +37,8 @@ use Inertia\Inertia;
  */
 class DocenteActivityController extends Controller
 {
+    use ContaPendientesMensajes;
+
     // =========================================================================
     // HELPERS PRIVADOS
     // =========================================================================
@@ -178,6 +180,18 @@ class DocenteActivityController extends Controller
 
         // Permisos granulares del docente en el contexto de este curso (B-02)
         $userPermissions = $this->userPermissionsParaCurso($curso, $esTitular);
+
+        // Mensajería de agenda: vive DENTRO de la actividad, así que el badge de
+        // "por responder" se entrega junto a cada tarjeta. La mensajería de nivel
+        // curso (curso.mensaje) es otra cosa y no se cuenta aquí.
+        $pendientes = $this->pendientesPorActividad([$curso->id_curso]);
+
+        $actividades = $actividades->map(function (Actividad $actividad) use ($pendientes) {
+            $datos = $actividad->toArray();
+            $datos['mensajes_pendientes'] = $pendientes[$actividad->id_actividad] ?? 0;
+
+            return $datos;
+        });
 
         return Inertia::render('docente/Actividades', [
             'curso' => array_merge($curso->toArray(), ['userPermissions' => $userPermissions, 'es_titular_curso' => $esTitular]),
