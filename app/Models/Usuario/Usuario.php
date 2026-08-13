@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Access\Authorizable as AuthorizableContract;
 use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
 use Illuminate\Foundation\Auth\Access\Authorizable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Services\Authorization\GlobalContextService;
 use App\Services\Authorization\PermissionValidator;
@@ -504,5 +505,92 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
         ], fn ($p) => $p !== null && trim((string) $p) !== '');
 
         return trim(implode(' ', $partes));
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Búsqueda de usuarios
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Caracteres acentuados y su equivalente plano, en el mismo orden.
+     *
+     * Son los dos argumentos de `translate()` de Postgres y sustituyen a la
+     * extensión `unaccent`, que no está instalada (crearla exige superusuario).
+     * Sólo minúsculas: la comparación baja ambos lados con `lower()`.
+     */
+    private const ACENTOS = 'áàäâãéèëêíìïîóòöôõúùüûñç';
+    private const SIN_ACENTOS = 'aaaaaeeeeiiiiooooouuuunc';
+
+    /** Columnas de texto libre contra las que se compara cada palabra buscada. */
+    private const COLUMNAS_BUSQUEDA = ['nombre1', 'nombre2', 'apellido1', 'apellido2', 'username', 'email'];
+
+    /** Tope de palabras por búsqueda: acota las subcondiciones de la consulta. */
+    private const MAX_PALABRAS_BUSQUEDA = 6;
+
+    /**
+     * Filtra usuarios por un término escrito a mano en un buscador.
+     *
+     * El término se parte en palabras y **cada** palabra debe aparecer en
+     * alguna de las columnas ({@see self::COLUMNAS_BUSQUEDA}) o en el RUT. Eso
+     * es lo que hace que "Fernando Rodríguez" encuentre al usuario: comparar el
+     * término completo contra una sola columna nunca acierta con un nombre
+     * completo, que es precisamente como se busca a una persona.
+     *
+     * Dos normalizaciones más, por cómo están los datos:
+     *  - Acentos: "Rodriguez" encuentra a "Rodríguez" (nadie los teclea).
+     *  - RUT: en la BD conviven "23.671.848-4" y "23671848-4" —los sembrados
+     *    con puntos, los que crea la app sin ellos, porque los normaliza al
+     *    guardar—, así que se comparan ambos lados sin puntos ni guion.
+     *
+     * Término vacío o sólo espacios no filtra nada.
+     */
+    public function scopeBuscar(Builder $query, ?string $termino): Builder
+    {
+        $palabras = preg_split('/\s+/u', trim((string) $termino), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        foreach (array_slice($palabras, 0, self::MAX_PALABRAS_BUSQUEDA) as $palabra) {
+            $texto = self::patronLike(self::sinAcentos($palabra));
+            $rut = preg_replace('/[^0-9kK]/u', '', $palabra);
+
+            $query->where(function (Builder $q) use ($texto, $rut) {
+                foreach (self::COLUMNAS_BUSQUEDA as $columna) {
+                    $q->orWhereRaw(
+                        "translate(lower(coalesce({$columna}, '')), ?, ?) like ?",
+                        [self::ACENTOS, self::SIN_ACENTOS, $texto]
+                    );
+                }
+
+                if ($rut !== '') {
+                    $q->orWhereRaw(
+                        "regexp_replace(lower(rut), '[^0-9k]', '', 'g') like ?",
+                        [self::patronLike(strtolower($rut))]
+                    );
+                }
+            });
+        }
+
+        return $query;
+    }
+
+    /** Minúsculas y sin acentos, con el mismo mapa que aplica `translate()` en SQL. */
+    private static function sinAcentos(string $valor): string
+    {
+        $mapa = array_combine(
+            mb_str_split(self::ACENTOS),
+            mb_str_split(self::SIN_ACENTOS)
+        );
+
+        return strtr(mb_strtolower($valor, 'UTF-8'), $mapa);
+    }
+
+    /**
+     * Envuelve el valor en comodines, escapando los que traiga el propio texto.
+     *
+     * Sin escapar, un "%" tecleado por el usuario haría de comodín y devolvería
+     * la tabla entera en vez de los usuarios que tienen ese carácter.
+     */
+    private static function patronLike(string $valor): string
+    {
+        return '%' . str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $valor) . '%';
     }
 }

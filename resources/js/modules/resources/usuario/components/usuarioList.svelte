@@ -64,4 +64,5 @@
   {onToggleActive}
   onCustomAction={onPermissions}
   customActionLabel="Permisos"
+  searchPlaceholder="Buscar por nombre completo, RUT, usuario o email..."
 />

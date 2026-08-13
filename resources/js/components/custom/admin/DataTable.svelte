@@ -2,7 +2,6 @@
   import { router, page } from '@inertiajs/svelte';
   import type { Snippet } from 'svelte';
   import type { PaginatedResponse } from '@/types/admin.types';
-  import { sleep } from '@/lib';
   import { scale } from 'svelte/transition';
 
   interface Props {
@@ -41,7 +40,6 @@
     !!(onEdit || onDelete || onPasswordChange || onToggleActive || onCustomAction || onSyllabus),
   );
 
-  let searchTerm = $state('');
   // Usar solo el pathname para evitar duplicación de query params con el objeto params
   let currentPath = $derived(new URL($page.url, window.location.origin).pathname);
 
@@ -51,6 +49,13 @@
   function urlParams(): URLSearchParams {
     return new URL($page.url, window.location.origin).searchParams;
   }
+
+  // El buscador arranca con lo que ya venga en la URL: si no, tras recargar la
+  // página la caja aparece vacía mientras la tabla sigue filtrada.
+  let searchTerm = $state(urlParams().get('search') ?? '');
+  let buscando = $state(false);
+  /** Término efectivamente aplicado en el servidor (el de la URL). */
+  let searchAplicado = $derived(urlParams().get('search') ?? '');
 
   let activeSortKey = $derived(urlParams().get('sort_key'));
   let activeSortDir = $derived(urlParams().get('sort_dir') as SortDir);
@@ -135,13 +140,62 @@
   }
 
   // ── Navigation ───────────────────────────────────────────────────────────
-  async function handleSearch() {
+
+  /** Espera tras la última tecla antes de consultar al servidor. */
+  const SEARCH_DEBOUNCE_MS = 300;
+
+  let searchDebounce: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * Lanza la búsqueda contra el servidor.
+   *
+   * Se salta la petición si el término ya es el aplicado (teclas que no cambian
+   * el texto, Enter repetido): cada visita recarga el listado completo.
+   */
+  function runSearch() {
+    clearTimeout(searchDebounce);
+
+    const term = searchTerm.trim();
+    if (term === searchAplicado) return;
+
     // Preserve tipo, sort, per_page — drop page (reset to 1)
     const params = currentParamsExcept('search', 'page');
-    if (searchTerm) params.search = searchTerm;
-    await sleep(1000);
-    router.get(currentPath, params, { preserveState: true, preserveScroll: true });
+    if (term) params.search = term;
+
+    router.get(currentPath, params, {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true, // no llenar el historial con una entrada por búsqueda
+      onStart: () => (buscando = true),
+      onFinish: () => (buscando = false),
+    });
   }
+
+  /**
+   * Rebota la búsqueda mientras se escribe.
+   *
+   * Se dispara en `input` —no en `keydown`— porque en `keydown` el valor ligado
+   * aún no incluye la tecla recién pulsada y se buscaba siempre un carácter por
+   * detrás de lo escrito.
+   */
+  function handleSearchInput() {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(runSearch, SEARCH_DEBOUNCE_MS);
+  }
+
+  function handleSearchKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      runSearch();
+    }
+  }
+
+  function clearSearch() {
+    searchTerm = '';
+    runSearch();
+  }
+
+  $effect(() => () => clearTimeout(searchDebounce));
 
   function goToPage(p: number) {
     const params = currentParamsExcept('page');
@@ -196,15 +250,46 @@
 <div class="bg-white rounded-lg shadow overflow-hidden onscroll={closeDropdown}">
   <!-- Search Bar -->
   <div class="p-4 border-b border-gray-200 flex gap-2">
-    <input
-      type="text"
-      bind:value={searchTerm}
-      placeholder={searchPlaceholder}
-      onkeydown={() => handleSearch()}
-      class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-shadow"
-    />
+    <div class="relative flex-1">
+      <input
+        type="text"
+        bind:value={searchTerm}
+        placeholder={searchPlaceholder}
+        oninput={handleSearchInput}
+        onkeydown={handleSearchKeydown}
+        class="w-full px-4 py-2 pr-28 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-shadow"
+      />
+      <div
+        class="absolute inset-y-0 right-2 flex items-center gap-2 text-xs text-gray-400 pointer-events-none"
+      >
+        {#if buscando}
+          <span>Buscando…</span>
+        {/if}
+        {#if searchTerm}
+          <button
+            onclick={clearSearch}
+            title="Limpiar búsqueda"
+            aria-label="Limpiar búsqueda"
+            class="pointer-events-auto p-1 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+            >
+          </button>
+        {/if}
+      </div>
+    </div>
     <button
-      onclick={handleSearch}
+      onclick={runSearch}
       class="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition-colors cursor-pointer"
     >
       Buscar

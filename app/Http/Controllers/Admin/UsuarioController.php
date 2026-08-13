@@ -76,7 +76,9 @@ class UsuarioController extends Controller
      * 
      * Los usuarios pueden tener datos asociados en las tablas de estudiante o docente, o ninguno (no es funcionario).
      * 
-     * Implementa búsqueda por nombre, apellido, RUT y username (case-insensitive con ilike).
+     * La búsqueda la resuelve {@see Usuario::scopeBuscar()}: palabra a palabra
+     * sobre nombres, apellidos, username, email y RUT, sin distinguir mayúsculas,
+     * acentos ni formato de RUT.
      * Retorna HTML Inertia con usuarios, roles, permisos disponibles, y datos de carreras.
      * 
      * @param  Request  $request  Parámetros: tipo (estudiante|docente|administrador), search, per_page
@@ -93,19 +95,17 @@ class UsuarioController extends Controller
         $sortKey = $request->input('sort_key');
         $sortDir = $request->input('sort_dir', 'asc') === 'desc' ? 'desc' : 'asc';
 
+        // Término del buscador: vacío o sólo espacios equivale a no filtrar
+        $search = trim((string) $request->input('search', ''));
+
         // ==================== ESTUDIANTES ====================
         // Recuperar estudiantes con sus datos de usuario y carrera
         if ($tipo === 'estudiante') {
             $query = Estudiante::with(['usuario', 'usuario.docente', 'carrera']);
 
-            // Buscar por nombre, apellido o RUT si se proporciona
-            if ($request->has('search')) {
-                $search = $request->input('search');
-                $query->whereHas('usuario', function ($q) use ($search) {
-                    $q->where('nombre1', 'ilike', "%{$search}%")
-                        ->orWhere('apellido1', 'ilike', "%{$search}%")
-                        ->orWhere('rut', 'ilike', "%{$search}%");
-                });
+            // Buscar por nombre completo, RUT, username o email
+            if ($search !== '') {
+                $query->whereHas('usuario', fn($q) => $q->buscar($search));
             }
 
             // Whitelist: frontend dot-key → columna SQL real
@@ -147,14 +147,9 @@ class UsuarioController extends Controller
         elseif ($tipo === 'docente') {
             $query = Docente::with(['usuario', 'usuario.estudiante']);
 
-            // Buscar por nombre, apellido o RUT si se proporciona
-            if ($request->has('search')) {
-                $search = $request->input('search');
-                $query->whereHas('usuario', function ($q) use ($search) {
-                    $q->where('nombre1', 'ilike', "%{$search}%")
-                        ->orWhere('apellido1', 'ilike', "%{$search}%")
-                        ->orWhere('rut', 'ilike', "%{$search}%");
-                });
+            // Buscar por nombre completo, RUT, username o email
+            if ($search !== '') {
+                $query->whereHas('usuario', fn($q) => $q->buscar($search));
             }
 
             $docenteSortWhitelist = [
@@ -191,15 +186,9 @@ class UsuarioController extends Controller
                 ->whereDoesntHave('docente')
                 ->whereDoesntHave('estudiante');
 
-            // Buscar por username, RUT o nombre si se proporciona
-            if ($request->has('search')) {
-                $search = $request->input('search');
-                $query->where(function ($q) use ($search) {
-                    $q->where('username', 'ilike', "%{$search}%")
-                        ->orWhere('rut', 'ilike', "%{$search}%")
-                        ->orWhere('nombre1', 'ilike', "%{$search}%")
-                        ->orWhere('apellido1', 'ilike', "%{$search}%");
-                });
+            // Buscar por nombre completo, RUT, username o email
+            if ($search !== '') {
+                $query->buscar($search);
             }
 
             $adminSortWhitelist = [
