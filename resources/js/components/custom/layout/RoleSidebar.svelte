@@ -309,21 +309,23 @@
         />
         Calendario
       </Link>
+      <!-- Mensajería de nivel curso (curso.mensaje). La mensajería de agenda es
+           de nivel actividad y se entra por cada actividad, no por el menú. -->
       <Link
-        href="/docente/mensajes"
+        href="/docente/mensajeria"
         class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group {isActive(
-          '/docente/mensajes',
+          '/docente/mensajeria',
         )
           ? 'bg-indigo-50 text-indigo-600'
           : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}"
       >
         <MessageSquare
           size={18}
-          class="{isActive('/docente/mensajes')
+          class="{isActive('/docente/mensajeria')
             ? 'text-indigo-500'
             : 'text-slate-400 group-hover:text-indigo-500'} transition-colors"
         />
-        Mensajes
+        Mensajería
       </Link>
 
       <div class="h-px bg-slate-100 my-4 mx-4"></div>
@@ -672,6 +674,25 @@
         Dashboard
       </Link>
 
+      <!-- Mensajería de nivel curso. Las consultas sobre una entrega concreta
+           siguen viviendo dentro de la actividad. -->
+      <Link
+        href="/estudiante/mensajeria"
+        class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group {isActive(
+          '/estudiante/mensajeria',
+        )
+          ? 'bg-indigo-50 text-indigo-600'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}"
+      >
+        <MessageSquare
+          size={18}
+          class="{isActive('/estudiante/mensajeria')
+            ? 'text-indigo-500'
+            : 'text-slate-400 group-hover:text-indigo-500'} transition-colors"
+        />
+        Mensajería
+      </Link>
+
       <div class="px-6 mb-2">
         <p class="text-[11px] font-extrabold tracking-widest uppercase text-slate-400 mb-2">
           Mis Cursos
@@ -735,6 +756,24 @@
           class="text-slate-400 group-hover:text-indigo-500 transition-colors"
         />
         Dashboard
+      </Link>
+
+      <!-- Mensajería de nivel curso, misma bandeja que el docente. -->
+      <Link
+        href="/ayudante/mensajeria"
+        class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group {isActive(
+          '/ayudante/mensajeria',
+        )
+          ? 'bg-indigo-50 text-indigo-600'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}"
+      >
+        <MessageSquare
+          size={18}
+          class="{isActive('/ayudante/mensajeria')
+            ? 'text-indigo-500'
+            : 'text-slate-400 group-hover:text-indigo-500'} transition-colors"
+        />
+        Mensajería
       </Link>
 
       <div class="px-4 mb-2">

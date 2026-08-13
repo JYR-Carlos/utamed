@@ -408,6 +408,13 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::get('mensajes', [\App\Http\Controllers\Docente\MensajesController::class, 'index'])->name('mensajes.index');
     Route::post('mensajes/cursos/{curso}/actividades/{actividad}/enviar', [\App\Http\Controllers\Docente\MensajesController::class, 'send'])->name('mensajes.send');
 
+    // Mensajería por componente (curso.mensaje) — independiente de agenda.agenda.
+    // El hilo lo sostiene el componente: difusiones al componente y un canal por
+    // alumno que comparten todos los docentes del componente (colegiados incl.).
+    Route::get('mensajeria', [\App\Http\Controllers\Docente\MensajeriaController::class, 'index'])->name('mensajeria.index');
+    Route::post('mensajeria/componentes/{componente}/difusion', [\App\Http\Controllers\Docente\MensajeriaController::class, 'enviarDifusion'])->name('mensajeria.difusion');
+    Route::post('mensajeria/componentes/{componente}/alumnos/{alumno}/mensaje', [\App\Http\Controllers\Docente\MensajeriaController::class, 'enviarMensaje'])->name('mensajeria.mensaje');
+
     // Mensajería (usa agenda.agenda — tipos "Mensaje al profesor" y "Feedback")
     // Nivel 1: vista general del curso
     Route::get('cursos/{curso}/mensajes', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'showMensajesCurso'])->name('cursos.mensajes.index');
@@ -479,6 +486,11 @@ Route::prefix('estudiante')
                     [\App\Http\Controllers\Student\AgendaController::class, 'storeEntrega']
                 )->name('actividades.agenda.storeEntrega');
             });
+
+        // Mensajería por componente (curso.mensaje) — avisos del equipo docente
+        // y la conversación del alumno con ese equipo. No pasa por agenda.agenda.
+        Route::get('mensajeria', [\App\Http\Controllers\Student\MensajeriaController::class, 'index'])->name('mensajeria.index');
+        Route::post('mensajeria/componentes/{componente}/mensaje', [\App\Http\Controllers\Student\MensajeriaController::class, 'enviar'])->name('mensajeria.enviar');
     });
 
 // Ayudante Routes
@@ -496,6 +508,12 @@ Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name
     // JSON endpoints used by SyllabusModal wizard
     Route::get('cursos/{curso}/componentes', [AdminSeccionController::class, 'indexByCurso'])->name('cursos.componentes.index');
     Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'actividadesJson'])->name('cursos.actividades.json');
+
+    // Mensajería por componente — misma bandeja que el docente, acotada a los
+    // cursos donde el usuario tiene el rol Ayudante.
+    Route::get('mensajeria', [\App\Http\Controllers\Ayudante\MensajeriaController::class, 'index'])->name('mensajeria.index');
+    Route::post('mensajeria/componentes/{componente}/difusion', [\App\Http\Controllers\Ayudante\MensajeriaController::class, 'enviarDifusion'])->name('mensajeria.difusion');
+    Route::post('mensajeria/componentes/{componente}/alumnos/{alumno}/mensaje', [\App\Http\Controllers\Ayudante\MensajeriaController::class, 'enviarMensaje'])->name('mensajeria.mensaje');
 
     Route::get('cursos/{curso}', [\App\Http\Controllers\Ayudante\CourseController::class, 'show'])->name('cursos.show');
 });
