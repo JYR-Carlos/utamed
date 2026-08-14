@@ -258,7 +258,7 @@ class DocenteCursoController extends Controller
             ->map(fn ($a) => [
                 'id_actividad'   => $a->id_actividad,
                 'nombre'         => $a->nombre,
-                'fecha_limite'   => $a->fecha_limite,
+                'fecha_limite'   => $a->fecha_limite?->format('Y-m-d'),
                 'tipo_actividad' => $a->tipo_actividad,
                 'tipo_entrega'   => $a->tipo_entrega,
                 'es_grupal'      => $a->es_grupal,

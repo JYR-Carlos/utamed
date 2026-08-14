@@ -159,8 +159,11 @@ class SyllabusStructure
         return new SyllabusCurso(
             idCurso: $this->curso->id_curso,
             codigo: (string) $this->curso->cod_curso,
-            agnoAcademico: $this->curso->agno_academico,
-            semestre: $this->curso->semestre,
+            // Las columnas reales de curso.curso son agno_real/semestre_real; no
+            // existen agno_academico ni semestre. Ambas son nullable en el
+            // esquema, así que se cae a 0 igual que hace SyllabusCurso::fromArray().
+            agnoAcademico: (int) ($this->curso->agno_real ?? 0),
+            semestre: (int) ($this->curso->semestre_real ?? 0),
             esPlantilla: $this->curso->es_plantilla ?? false,
             seccionCount: $this->componentes->count(),
             docentePrincipal: $this->buildDocentePrincipal(),

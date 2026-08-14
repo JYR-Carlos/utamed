@@ -430,7 +430,7 @@ class DocenteActivityController extends Controller
                             'nombre'         => $a->nombre,
                             'tipo_actividad' => $a->tipo_actividad instanceof \BackedEnum ? $a->tipo_actividad->value : $a->tipo_actividad,
                             'es_grupal'      => (bool) $a->es_grupal,
-                            'fecha_limite'   => $a->fecha_limite,
+                            'fecha_limite'   => $a->fecha_limite?->format('Y-m-d'),
                             'tiene_grupos'   => $a->actividad_asignada_grupos_count > 0,
                         ])
                         ->values();
@@ -548,7 +548,7 @@ class DocenteActivityController extends Controller
                 'id_actividad'    => $actividad->id_actividad,
                 'nombre'          => $actividad->nombre,
                 'descripcion'     => $actividad->descripcion ?? '',
-                'fecha_limite'    => $actividad->fecha_limite,
+                'fecha_limite'    => $actividad->fecha_limite?->format('Y-m-d'),
                 'es_sumativa'     => $esSumativa,
                 'trae_archivo'    => $traeArchivo,
                 'es_grupal'       => (bool) $actividad->es_grupal,

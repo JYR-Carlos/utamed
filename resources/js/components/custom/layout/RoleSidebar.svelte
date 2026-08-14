@@ -129,8 +129,7 @@
           .map(Number)
           .sort((a, b) => b - a)
           .filter(
-            (sem) =>
-              !(currentPeriod && year === currentPeriod.year && sem === currentPeriod.sem),
+            (sem) => !(currentPeriod && year === currentPeriod.year && sem === currentPeriod.sem),
           ),
       }))
       .filter((y) => y.sems.length > 0),
@@ -187,8 +186,10 @@
     const p = currentPath;
     if (p.startsWith('/docente/jefe-carrera')) return isJefeCarrera ? 'jefe' : null;
     if (p.startsWith('/docente')) return isDocente ? 'docente' : null;
-    if (p.startsWith('/estudiante')) return availableSections.includes('estudiante') ? 'estudiante' : null;
-    if (p.startsWith('/ayudante')) return availableSections.includes('ayudante') ? 'ayudante' : null;
+    if (p.startsWith('/estudiante'))
+      return availableSections.includes('estudiante') ? 'estudiante' : null;
+    if (p.startsWith('/ayudante'))
+      return availableSections.includes('ayudante') ? 'ayudante' : null;
     if (p.startsWith('/admin') || p === '/dashboard') return isAdmin ? 'admin' : null;
     return null;
   });
@@ -286,13 +287,6 @@
         Dashboard
       </Link>
       <Link
-        href="/docente/inscripciones"
-        class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-all group"
-      >
-        <Users size={18} class="text-slate-400 group-hover:text-indigo-500 transition-colors" />
-        Inscripciones
-      </Link>
-      <Link
         href="/docente/calendario"
         class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold transition-all group {isActive(
           '/docente/calendario',
@@ -347,9 +341,7 @@
       {#if sectionOpen}
         <div class="flex flex-col gap-1">
           {#if filteredDocente.length === 0}
-            <p class="px-8 py-2 text-sm text-slate-400 italic font-medium">
-              Sin cursos asignados
-            </p>
+            <p class="px-8 py-2 text-sm text-slate-400 italic font-medium">Sin cursos asignados</p>
           {:else}
             <!-- ── Período actual (plano, sin desplegables) ──────── -->
             {#if currentPeriod}
@@ -464,7 +456,9 @@
                                     onclick={() => toggleCurso(curso.id_curso)}
                                     class="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-[14px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all text-left group"
                                   >
-                                    <span class="text-slate-400 shrink-0 group-hover:text-slate-600">
+                                    <span
+                                      class="text-slate-400 shrink-0 group-hover:text-slate-600"
+                                    >
                                       {#if expanded}<ChevronDown size={14} />{:else}<ChevronRight
                                           size={14}
                                         />{/if}
@@ -489,7 +483,10 @@
                                           class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-white hover:shadow-sm hover:text-indigo-600 transition-all"
                                         >
                                           <div class="flex items-center gap-2">
-                                            <BookOpenCheck size={16} class="shrink-0 text-slate-400" />
+                                            <BookOpenCheck
+                                              size={16}
+                                              class="shrink-0 text-slate-400"
+                                            />
                                             <span>Programa</span>
                                           </div>
                                           <span
@@ -682,9 +679,7 @@
 
       <div class="px-4 flex flex-col gap-1">
         {#if filteredEstudiante.length === 0}
-          <p class="px-4 py-2 text-sm text-slate-400 italic font-medium">
-            Sin cursos inscritos
-          </p>
+          <p class="px-4 py-2 text-sm text-slate-400 italic font-medium">Sin cursos inscritos</p>
         {:else}
           {#each filteredEstudiante as curso (curso.id_curso)}
             <Link

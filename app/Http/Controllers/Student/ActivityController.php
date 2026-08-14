@@ -175,7 +175,7 @@ class ActivityController extends Controller
             'nombre_actividad'      => $actividad->nombre ?? '',
             'descripcion'           => '', 
             'dias_holgura'          => $actividad->nro_dias_adicionales_para_bloqueo,
-            'fecha_limite'          => $actividad->fecha_limite ? (string) $actividad->fecha_limite : '',
+            'fecha_limite'          => $actividad->fecha_limite?->format('Y-m-d') ?? '',
             'es_sumativa'           => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
             'trae_archivo'          => $actividad->uuid_archivo !== null,
             'entrega_obligatoria'   => strtolower($actividad->tipo_entrega ?? '') !== 'sin entrega',
