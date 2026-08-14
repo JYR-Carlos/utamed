@@ -154,8 +154,8 @@ class ActivityController extends Controller
             ?? Rubrica::where('id_actividad', '=', $actividad->id_actividad)
                 ->orderByDesc('id_rubrica')->first();
 
-        // Derivar estado legible para el estudiante
-        $estado = $grupo?->estado_actividad_asignada?->value;
+        // Derivar estado de la actividad según visibilidad y holguras (base + personal del grupo si existe)
+        $estado = $grupo ? $grupo->calcularEstadoGrupo($actividad) : $actividad->calcularEstadoBase();
 
         // Entregas del estudiante (archivos enviados)
         $entradas = collect($interacciones)
@@ -174,7 +174,8 @@ class ActivityController extends Controller
             'cod_actividad'         => (string) $actividad->id_actividad,
             'nombre_actividad'      => $actividad->nombre ?? '',
             'descripcion'           => '', 
-            'dias_holgura'          => $actividad->nro_dias_adicionales_para_bloqueo,
+            'dias_holgura'          => (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0),
+            'dias_holgura_personal' => (int) ($grupo?->nro_dias_adicionales_para_bloqueo_personal ?? 0),
             'fecha_limite'          => $actividad->fecha_limite?->format('Y-m-d') ?? '',
             'es_sumativa'           => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
             'trae_archivo'          => $actividad->uuid_archivo !== null,

@@ -41,4 +41,41 @@ class Actividad extends BaseActividad
     {
         return $date->format('Y-m-d');
     }
+
+    /**
+     * Deriva el estado base de la actividad según su visibilidad y su fecha límite ajustada por la holgura base.
+     * 
+     * Reglas:
+     * - No visible + Pre-Fin (+holgura base)  => PLANIFICADA
+     * - Visible    + Pre-Fin (+holgura base)  => ACTIVA
+     * - Visible    + Post-Fin (+holgura base) => CERRADA
+     * - No visible + Post-Fin (+holgura base) => NO VISIBLE
+     */
+    public function calcularEstadoBase(): string
+    {
+        $diasHolgura = (int) ($this->nro_dias_adicionales_para_bloqueo ?? 0);
+        
+        if ($this->fecha_limite) {
+            $fechaFinConHolgura = \Carbon\Carbon::parse($this->fecha_limite)->endOfDay()->addDays($diasHolgura);
+            $esPostFin = \Carbon\Carbon::now()->greaterThan($fechaFinConHolgura);
+        } else {
+            $esPostFin = false;
+        }
+
+        $esVisible = (bool) $this->getAttribute('visible');
+
+        if (!$esVisible) {
+            return $esPostFin ? 'NO VISIBLE' : 'PLANIFICADA';
+        }
+
+        return $esPostFin ? 'CERRADA' : 'ACTIVA';
+    }
+
+    /**
+     * Alias de retrocompatibilidad que delega a calcularEstadoBase().
+     */
+    public function calcularEstado(): string
+    {
+        return $this->calcularEstadoBase();
+    }
 }

@@ -13,7 +13,8 @@ use App\Extensions\Compoships\BelongsTo;
 abstract class BaseUsuarioRolAsignacion extends CustomBaseModel
 {
     use Compoships;
-    public $timestamps = false;
+    const CREATED_AT = 'fecha_creacion';
+    const UPDATED_AT = null;
     protected $connection = 'pgsql';
     protected $table = 'usuario_rol_asignacion';
     protected $primaryKey = 'id_ura';

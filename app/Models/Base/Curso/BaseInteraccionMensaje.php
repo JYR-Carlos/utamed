@@ -41,4 +41,5 @@ abstract class BaseInteraccionMensaje extends CustomBaseModel
         $instance = new \App\Models\Usuario\Usuario();
         return new BelongsTo($instance->newQuery(), $this, 'id_usuario_lector', 'id_usuario', 'lector');
     }
+
 }

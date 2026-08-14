@@ -41,7 +41,7 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
         'es_plantilla',
         'id_componente',
         'id_unidad',
-        'uuid_archivo'
+        'uuid_archivo_enunciado'
     ];
 
     protected $casts = [
@@ -74,7 +74,7 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
     public function archivo()
     {
         $instance = new \App\Models\Operaciones\Archivo();
-        return new BelongsTo($instance->newQuery(), $this, 'uuid_archivo', 'uuid_archivo', 'archivo');
+        return new BelongsTo($instance->newQuery(), $this, 'uuid_archivo_enunciado', 'uuid_archivo', 'archivo');
     }
 
     // Relaciones inversas

@@ -393,6 +393,7 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::post('cursos/{curso}/rubrica', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'storeRubrica'])->name('cursos.rubrica.store');
 
     Route::post('cursos/{curso}/actividades/{actividad}/grupos-create', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'crearGrupo'])->name('cursos.actividades.grupos.create');
+    Route::patch('cursos/{curso}/actividades/{actividad}/grupos/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'updateGrupo'])->name('cursos.actividades.grupos.update');
     Route::post('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiante', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'agregarEstudianteAGrupo'])->name('cursos.actividades.grupos.estudiante.add');
     Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiantes/{estudiante}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'quitarEstudianteDeGrupo'])->name('cursos.actividades.grupos.estudiante.remove');
     Route::delete('cursos/{curso}/actividades/{actividad}/grupos-delete/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'eliminarGrupo'])->name('cursos.actividades.grupos.new.delete');

@@ -52,4 +52,38 @@ class ActividadAsignadaGrupo extends BaseActividadAsignadaGrupo
                 ];
             });
     }
+
+    /**
+     * Deriva el estado específico de la actividad para este grupo,
+     * sumando la holgura base de la actividad y la holgura personal del grupo.
+     * 
+     * Reglas:
+     * - No visible + Pre-Fin (+holgura total)  => PLANIFICADA
+     * - Visible    + Pre-Fin (+holgura total)  => ACTIVA
+     * - Visible    + Post-Fin (+holgura total) => CERRADA
+     * - No visible + Post-Fin (+holgura total) => NO VISIBLE
+     */
+    public function calcularEstadoGrupo(?Actividad $actividad = null): string
+    {
+        $act = $actividad ?? $this->actividad;
+        
+        $holguraBase = (int) ($act?->nro_dias_adicionales_para_bloqueo ?? 0);
+        $holguraPersonal = (int) ($this->nro_dias_adicionales_para_bloqueo_personal ?? 0);
+        $holguraTotal = $holguraBase + $holguraPersonal;
+
+        if ($act?->fecha_limite) {
+            $fechaFinConHolgura = \Carbon\Carbon::parse($act->fecha_limite)->endOfDay()->addDays($holguraTotal);
+            $esPostFin = \Carbon\Carbon::now()->greaterThan($fechaFinConHolgura);
+        } else {
+            $esPostFin = false;
+        }
+
+        $esVisible = (bool) $act?->getAttribute('visible');
+
+        if (!$esVisible) {
+            return $esPostFin ? 'NO VISIBLE' : 'PLANIFICADA';
+        }
+
+        return $esPostFin ? 'CERRADA' : 'ACTIVA';
+    }
 }

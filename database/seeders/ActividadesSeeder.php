@@ -101,7 +101,7 @@ class ActividadesSeeder extends Seeder
 
       $actividadesParaInsertar[] = [
         'curso' => $curso,
-        'id_componente' => $componente->id_componente, // Guardamos el ID usado
+        'componentes_ids' => $componentes->pluck('id_componente')->toArray(), // IDs de todos los componentes del curso
         'unidades_usadas' => array_unique($unidadesUsadasIds), // Guardamos los IDs únicos usados
         'actividades' => $actividadesCurso,
       ];
@@ -125,7 +125,9 @@ class ActividadesSeeder extends Seeder
         DB::table('actividad')->insert($actividadesCurso);
         $actividadesCreadas += count($actividadesCurso);
 
-        $actividadesInsertadas = Actividad::where('id_componente', $datoCurso['id_componente'])
+        // NOTA DE CORRECCIÓN: Se utiliza whereIn con todos los componentes_ids del curso para recuperar
+        // la totalidad de las actividades creadas (evitando dejar huérfanas las de componentes previos).
+        $actividadesInsertadas = Actividad::whereIn('id_componente', $datoCurso['componentes_ids'])
           ->whereIn('id_unidad', $datoCurso['unidades_usadas'])
           ->orderBy('id_actividad', 'asc') 
           ->take(count($actividadesCurso))

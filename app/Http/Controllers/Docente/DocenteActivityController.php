@@ -223,6 +223,7 @@ class DocenteActivityController extends Controller
             'es_grupal' => 'boolean',
             'max_integrantes' => 'integer|min:1|max:100',
             'visible' => 'boolean',
+            'nro_dias_adicionales_para_bloqueo' => 'nullable|integer|min:0',
             'ponderacion' => 'required|integer|min:0|max:100',
             'exigencia' => 'required|integer|min:0|max:100',
             'id_componente' => 'required|integer|min:1',
@@ -282,6 +283,7 @@ class DocenteActivityController extends Controller
             'es_grupal' => 'boolean',
             'max_integrantes' => 'integer|min:1|max:100',
             'visible' => 'boolean',
+            'nro_dias_adicionales_para_bloqueo' => 'nullable|integer|min:0',
             'ponderacion' => 'required|integer|min:0|max:100',
             'exigencia' => 'required|integer|min:0|max:100',
             'id_componente' => 'required|integer|min:1',
@@ -493,6 +495,8 @@ class DocenteActivityController extends Controller
                 'grupo'      => $g->id_actividad_asignada_grupo,
                 'nota'       => $g->nota,
                 'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
+                'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
+                'estado_calculado' => $g->calcularEstadoGrupo($actividad),
                 'integrantes' => $g->integranteGrupos->map(fn($m) => [
                     'id_asignado_actividad' => $m->id_asignado_actividad,
                     'id_estudiante'  => $m->id_estudiante,
@@ -742,6 +746,29 @@ class DocenteActivityController extends Controller
     // =========================================================================
     // GESTIÓN DE GRUPOS
     // =========================================================================
+
+    /**
+     * Actualiza la configuración de un grupo (ej: holgura personal o nombre del grupo)
+     */
+    public function updateGrupo(Request $request, Curso $curso, Actividad $actividad, int $grupo)
+    {
+        $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+
+        $validated = $request->validate([
+            'nro_dias_adicionales_para_bloqueo_personal' => 'nullable|integer|min:0',
+            'nombre_grupo' => 'nullable|string|max:100',
+        ]);
+
+        $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
+            ->where('id_actividad', $actividad->id_actividad)
+            ->firstOrFail();
+
+        $grupoModel->update($validated);
+
+        return redirect()->back()->with('success', 'Configuración del grupo actualizada correctamente.');
+    }
 
     /**
      * Crea un nuevo grupo para una actividad grupal

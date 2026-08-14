@@ -31,7 +31,8 @@ abstract class BaseActividadAsignadaGrupo extends CustomBaseModel implements Has
         'nombre_grupo',
         'nota',
         'estado_actividad_asignada',
-        'id_actividad'
+        'id_actividad',
+        'nro_dias_adicionales_para_bloqueo_personal'
     ];
 
     protected $casts = [
