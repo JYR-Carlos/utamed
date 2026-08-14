@@ -156,6 +156,7 @@ class SyllabusStructure
      */
     private function buildCurso(): SyllabusCurso
     {
+        //dd($this->curso);
         return new SyllabusCurso(
             idCurso: $this->curso->id_curso,
             codigo: (string) $this->curso->cod_curso,

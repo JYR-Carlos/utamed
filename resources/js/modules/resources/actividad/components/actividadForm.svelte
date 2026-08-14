@@ -180,6 +180,7 @@
         id="tipo_entrega"
         bind:value={formData.tipo_entrega}
         class="{inputClass} border-gray-300"
+        disabled
         required
       >
         <option value="online">En línea</option>

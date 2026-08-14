@@ -88,6 +88,11 @@
     onVerEntregas,
     onVerAgenda,
   }: Props = $props();
+
+  function handleOnEstadoChange() {
+
+  }
+  
 </script>
 
 <div

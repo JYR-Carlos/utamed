@@ -37,7 +37,7 @@ class ProgramaService
         $createdBy = $createdBy ?? Auth::user();
         $tipoSyllabus = $overrides['tipo_syllabus'] ?? 'BASICO';
         $estadoInicial = $overrides['estado'] ?? ($tipoSyllabus === 'BASICO' ? 'BASICO_COMPLETO' : 'COMPLETO');
-
+        
         return DB::transaction(function () use ($curso, $createdBy, $overrides, $tipoSyllabus, $estadoInicial) {
             // Marcar programa anterior como no actual si existe
             $existing = Programa::where('id_curso', $curso->id_curso)
@@ -50,7 +50,7 @@ class ProgramaService
             } else {
                 $newVersion = 1;
             }
-
+            
             // Construir estructura JSONB base (metadata real desde el curso + tipo_syllabus)
             $shell = (new SyllabusStructure($curso))
                 ->withAsignatura()
@@ -239,7 +239,7 @@ class ProgramaService
             if ($existing) {
                 $existing->update(['es_actual' => false]);
             }
-
+            
             // Estructura base generada desde los datos del curso (Content vacío por sección)
             $syllabus = (new SyllabusStructure($curso))
                 ->withAsignatura()

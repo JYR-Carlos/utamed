@@ -107,15 +107,8 @@
       <ClipboardList size={26} aria-hidden="true" />
     </div>
     <h3 class="text-xl text-[#0E1220] font-semibold mb-2">No hay actividades creadas</h3>
-    <p class="text-[#5C6478] mb-6">Crea tu primera actividad para este curso</p>
     {#if canCreate}
-      <button
-        onclick={onCreateClick}
-        class="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0E1220] text-white rounded-lg font-medium hover:bg-[#2B3142] transition-all"
-      >
-        <Plus size={18} />
-        Crear Actividad
-      </button>
+      <p class="text-[#5C6478] mb-6">Crea tu primera actividad para este curso</p>
     {/if}
   </div>
 {:else}
