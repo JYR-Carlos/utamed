@@ -168,32 +168,45 @@
 </script>
 
 <StudentLayout {breadcrumbs}>
-  <div class="flex flex-col h-full">
+  <!--
+    Altura tomada del hueco del armazón (cabecera de 64px + relleno de
+    PageContentWrapper), en `svh` para que la barra del navegador móvil no tape
+    el cuadro de escribir. La lista scrollea por dentro; el redactor no se mueve.
+  -->
+  <div
+    class="flex flex-col h-[calc(100svh-7rem)] md:h-[calc(100svh-8rem)] min-h-[26rem] overflow-hidden"
+  >
     <!-- ── Cabecera del curso ────────────────────────────────────────────── -->
-    <div class="bg-white border-b border-slate-200 px-6 pt-4 shrink-0">
-      <div class="flex items-center gap-3">
+    <div class="bg-white border-b border-slate-200 px-4 sm:px-6 pt-3 sm:pt-4 shrink-0">
+      <div class="flex items-center gap-2.5 sm:gap-3">
         <div
-          class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0"
+          class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0"
         >
           <MessageSquare size={20} />
         </div>
-        <div class="min-w-0">
-          <h1 class="text-lg font-extrabold text-slate-900 leading-tight truncate">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight truncate">
             {curso.nombre}
           </h1>
-          <p class="text-xs text-slate-500">{curso.cod_curso} · {periodo}</p>
+          <p class="text-[11px] sm:text-xs text-slate-500 truncate">
+            {curso.cod_curso} · {periodo}
+          </p>
         </div>
         {#if totalNoLeidos > 0}
           <span
-            class="ml-auto text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 shrink-0"
+            class="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 shrink-0"
           >
-            {totalNoLeidos} sin leer
+            {totalNoLeidos}<span class="hidden sm:inline"> sin leer</span>
           </span>
         {/if}
       </div>
 
-      <!-- Pestañas por componente -->
-      <div class="flex gap-1 mt-3 -mb-px overflow-x-auto" role="tablist">
+      <!-- Pestañas por componente. Se desbordan en horizontal hasta el borde de
+           la pantalla, que en móvil es donde cae el pulgar. -->
+      <div
+        class="flex gap-1 mt-3 -mb-px overflow-x-auto -mx-4 px-4 sm:-mx-6 sm:px-6"
+        role="tablist"
+      >
         {#each componentes as c (c.id_componente)}
           <button
             role="tab"
@@ -224,7 +237,9 @@
           No estás inscrito en ningún componente de este curso.
         </div>
       {:else}
-        <div class="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center gap-3 shrink-0">
+        <div
+          class="bg-white border-b border-slate-200 px-3 sm:px-4 py-2.5 flex flex-wrap items-center gap-2 sm:gap-3 shrink-0"
+        >
           <div class="flex gap-1 bg-slate-100 p-0.5 rounded-lg">
             <button
               onclick={() => (vista = 'generales')}
@@ -260,96 +275,111 @@
         {/if}
 
         {#if vista === 'generales'}
-          <div class="flex-1 overflow-y-auto p-4 space-y-3">
-            {#if panel.difusiones.length === 0}
-              <div class="text-center text-sm text-slate-400 py-10">
-                El equipo docente todavía no ha publicado avisos en {panel.componente}.
-              </div>
-            {:else}
-              {#each panel.difusiones as d (d.id_mensaje)}
-                <article class="bg-white rounded-xl border border-slate-200 p-4">
-                  <div class="flex items-start gap-2">
-                    <Megaphone size={16} class="text-indigo-500 mt-0.5 shrink-0" />
-                    <div class="min-w-0 flex-1">
-                      <h3 class="text-sm font-bold text-slate-900">{d.tema}</h3>
-                      <p class="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{d.mensaje}</p>
-                      <p class="text-[11px] text-slate-400 mt-2">
-                        {d.emisor} · {fmt(d.fecha_creacion)}
+          <!-- Una sola columna: en pantallas anchas se limita la medida, porque
+               un párrafo de 2000px de ancho no se lee. -->
+          <div class="flex-1 overflow-y-auto p-3 sm:p-4">
+            <div class="mx-auto w-full max-w-3xl space-y-3">
+              {#if panel.difusiones.length === 0}
+                <div class="text-center text-sm text-slate-400 py-10">
+                  El equipo docente todavía no ha publicado avisos en {panel.componente}.
+                </div>
+              {:else}
+                {#each panel.difusiones as d (d.id_mensaje)}
+                  <article class="bg-white rounded-xl border border-slate-200 p-3 sm:p-4">
+                    <div class="flex items-start gap-2">
+                      <Megaphone size={16} class="text-indigo-500 mt-0.5 shrink-0" />
+                      <div class="min-w-0 flex-1">
+                        <h3 class="text-sm font-bold text-slate-900 break-words">{d.tema}</h3>
+                        <p class="text-sm text-slate-700 mt-1 whitespace-pre-wrap break-words">
+                          {d.mensaje}
+                        </p>
+                        <p class="text-[11px] text-slate-400 mt-2">
+                          {d.emisor} · {fmt(d.fecha_creacion)}
+                        </p>
+                      </div>
+                    </div>
+                  </article>
+                {/each}
+              {/if}
+            </div>
+          </div>
+        {:else}
+          <div class="flex-1 overflow-y-auto p-3 sm:p-4">
+            <div class="mx-auto w-full max-w-3xl space-y-2">
+              {#if panel.mensajes.length === 0}
+                <div class="text-center text-sm text-slate-400 py-10">
+                  Aún no has escrito al equipo docente de {panel.componente}.
+                </div>
+              {:else}
+                {#each panel.mensajes as m (m.id_mensaje)}
+                  <div class="flex {m.es_mio ? 'justify-end' : 'justify-start'}">
+                    <div
+                      class="max-w-[85%] sm:max-w-[75%] rounded-2xl px-3.5 py-2 {m.es_mio
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white border border-slate-200 text-slate-800'}"
+                    >
+                      <p class="text-sm whitespace-pre-wrap break-words">{m.mensaje}</p>
+                      <p class="text-[10px] mt-1 {m.es_mio ? 'text-indigo-200' : 'text-slate-400'}">
+                        {m.es_mio ? 'Tú' : m.emisor} · {fmt(m.fecha_creacion)}
                       </p>
                     </div>
                   </div>
-                </article>
-              {/each}
-            {/if}
-          </div>
-        {:else}
-          <div class="flex-1 overflow-y-auto p-4 space-y-2">
-            {#if panel.mensajes.length === 0}
-              <div class="text-center text-sm text-slate-400 py-10">
-                Aún no has escrito al equipo docente de {panel.componente}.
-              </div>
-            {:else}
-              {#each panel.mensajes as m (m.id_mensaje)}
-                <div class="flex {m.es_mio ? 'justify-end' : 'justify-start'}">
-                  <div
-                    class="max-w-[75%] rounded-2xl px-3.5 py-2 {m.es_mio
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white border border-slate-200 text-slate-800'}"
-                  >
-                    <p class="text-sm whitespace-pre-wrap">{m.mensaje}</p>
-                    <p class="text-[10px] mt-1 {m.es_mio ? 'text-indigo-200' : 'text-slate-400'}">
-                      {m.es_mio ? 'Tú' : m.emisor} · {fmt(m.fecha_creacion)}
-                    </p>
-                  </div>
-                </div>
-              {/each}
-            {/if}
-          </div>
-
-          <div class="bg-white border-t border-slate-200 p-3 space-y-2 shrink-0">
-            <div class="flex gap-2">
-              <select
-                bind:value={receptor}
-                class="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 focus:outline-none focus:border-indigo-400 max-w-[55%]"
-              >
-                <option value={null}>Dirigir al titular</option>
-                {#each panel.docentes as d (d.id_usuario)}
-                  <option value={d.id_usuario}>
-                    {d.nombre}{d.es_titular ? ' (titular)' : ''}
-                  </option>
                 {/each}
-              </select>
-              {#if necesitaTema}
-                <input
-                  bind:value={tema}
-                  type="text"
-                  maxlength="150"
-                  placeholder="Asunto"
-                  class="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400"
-                />
               {/if}
             </div>
-            <div class="flex gap-2">
-              <textarea
-                bind:value={cuerpo}
-                rows="2"
-                maxlength="2000"
-                placeholder="Escribe tu consulta…"
-                class="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg resize-none focus:outline-none focus:border-indigo-400"
-              ></textarea>
-              <button
-                onclick={enviar}
-                disabled={sending || !cuerpo.trim()}
-                class="px-4 rounded-lg bg-indigo-600 text-white font-bold text-sm disabled:opacity-40 hover:bg-indigo-700 transition-colors flex items-center gap-1.5"
-              >
-                {#if sending}<Loader2 size={15} class="animate-spin" />{:else}<Send size={15} />{/if}
-                Enviar
-              </button>
+          </div>
+
+          <div class="bg-white border-t border-slate-200 p-3 shrink-0">
+            <div class="mx-auto w-full max-w-3xl space-y-2">
+              <!-- Destinatario y asunto se apilan en móvil: uno al lado del otro
+                   dejaba dos campos demasiado estrechos para escribir. -->
+              <div class="flex flex-col sm:flex-row gap-2">
+                <select
+                  bind:value={receptor}
+                  class="text-xs border border-slate-200 rounded-lg px-2 py-2 sm:py-1.5 bg-slate-50 focus:outline-none focus:border-indigo-400 w-full sm:w-auto sm:max-w-[55%]"
+                >
+                  <option value={null}>Dirigir al titular</option>
+                  {#each panel.docentes as d (d.id_usuario)}
+                    <option value={d.id_usuario}>
+                      {d.nombre}{d.es_titular ? ' (titular)' : ''}
+                    </option>
+                  {/each}
+                </select>
+                {#if necesitaTema}
+                  <input
+                    bind:value={tema}
+                    type="text"
+                    maxlength="150"
+                    placeholder="Asunto"
+                    class="flex-1 min-w-0 px-3 py-2 sm:py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400"
+                  />
+                {/if}
+              </div>
+              <div class="flex gap-2">
+                <textarea
+                  bind:value={cuerpo}
+                  rows="2"
+                  maxlength="2000"
+                  placeholder="Escribe tu consulta…"
+                  class="flex-1 min-w-0 px-3 py-2 text-sm border border-slate-200 rounded-lg resize-none focus:outline-none focus:border-indigo-400"
+                ></textarea>
+                <button
+                  onclick={enviar}
+                  disabled={sending || !cuerpo.trim()}
+                  aria-label="Enviar consulta"
+                  class="px-3 sm:px-4 rounded-lg bg-indigo-600 text-white font-bold text-sm disabled:opacity-40 hover:bg-indigo-700 transition-colors flex items-center gap-1.5 shrink-0"
+                >
+                  {#if sending}<Loader2 size={15} class="animate-spin" />{:else}<Send
+                      size={15}
+                    />{/if}
+                  <span class="hidden sm:inline">Enviar</span>
+                </button>
+              </div>
+              <p class="text-[10px] text-slate-400">
+                Lo verá todo el equipo docente de {panel.componente}; puede responderte cualquiera de
+                ellos.
+              </p>
             </div>
-            <p class="text-[10px] text-slate-400">
-              Lo verá todo el equipo docente de {panel.componente}; puede responderte cualquiera de
-              ellos.
-            </p>
           </div>
         {/if}
       {/if}

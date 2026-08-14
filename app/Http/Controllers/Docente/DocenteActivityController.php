@@ -1157,6 +1157,9 @@ class DocenteActivityController extends Controller
                 'u.id_usuario',
                 NombreUsuario::sqlConcat('u', 'nombre'),
                 'u.email',
+                // Postgres exige que lo que ordena un SELECT DISTINCT esté en el
+                // SELECT. No altera las filas: depende de id_usuario, que ya está.
+                'u.apellido1',
             )
             ->distinct()
             ->orderBy('u.apellido1')

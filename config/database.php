@@ -40,6 +40,10 @@ return [
             'username' => env('DB_USERNAME', 'root'),
             'password' => env('DB_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
+            // El motor corre en UTC y varias columnas (curso.mensaje.fecha_creacion
+            // entre otras) se llenan con su DEFAULT now(), no desde PHP. Sin esto
+            // esas filas quedaban 4 horas adelantadas respecto de la hora de Chile.
+            'timezone' => env('DB_TIMEZONE', 'America/Santiago'),
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => env('DB_SEARCH_PATH', 'usuario, agenda, administrativo, curso, public, auditoria, operaciones'),
