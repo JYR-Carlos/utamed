@@ -8,8 +8,11 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
  *
  * Los casos son los que fallaban con la búsqueda anterior —columna a columna
  * contra el término completo—: teclear el nombre completo de alguien que existe,
- * teclearlo sin acentos, o teclear su RUT en el otro de los dos formatos que
- * conviven en la BD ("23.671.848-4" sembrado, "23671848-4" creado por la app).
+ * teclearlo sin acentos, o teclear el RUT con puntos.
+ *
+ * La columna guarda un solo formato ("23671848-4", ver App\Support\Rut), pero el
+ * término lo escribe una persona: puede venir con puntos, sin guion o pegado de
+ * otro sistema, y tiene que encontrar igual.
  */
 uses(DatabaseTransactions::class);
 
@@ -55,12 +58,13 @@ it('ignora acentos y mayúsculas', function () {
         ->and(encuentra('RODRIGUEZ', $u))->toBeTrue();
 });
 
-it('encuentra el RUT en cualquiera de los dos formatos de la BD', function () {
+it('encuentra el RUT esté como esté escrito el término', function () {
+    // El modelo normaliza al guardar: ambos quedan sin puntos y con guion.
     $conPuntos = usuarioBuscable(['rut' => '23.671.848-4', 'username' => 'tstpuntos']);
     $sinPuntos = usuarioBuscable(['rut' => '18167586-1', 'username' => 'tstplano']);
 
-    // El sembrado con puntos se encuentra tecleándolo sin ellos, y al revés.
-    expect(encuentra('23671848-4', $conPuntos))->toBeTrue()
+    expect($conPuntos->rut)->toBe('23671848-4')
+        ->and(encuentra('23671848-4', $conPuntos))->toBeTrue()
         ->and(encuentra('23.671.848-4', $conPuntos))->toBeTrue()
         ->and(encuentra('236718484', $conPuntos))->toBeTrue()
         ->and(encuentra('18.167.586-1', $sinPuntos))->toBeTrue()

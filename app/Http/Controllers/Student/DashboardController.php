@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\Usuario\Usuario;
 use App\Models\Curso\InscripcionCurso;
+use App\Services\MensajeriaService;
 use Carbon\Carbon;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -15,10 +16,10 @@ class DashboardController extends Controller
 {
     /**
      * Muestra el dashboard del estudiante con su lista de cursos inscritos.
-     * 
+     *
      * @return \Illuminate\Http\RedirectResponse|\Inertia\Response
      */
-    public function index()
+    public function index(MensajeriaService $mensajeria)
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -88,6 +89,7 @@ class DashboardController extends Controller
         $semestreActual = Carbon::now()->month > 6 ? 2 : 1;
 
         return Inertia::render('student/Dashboard', [
+            'mensajeria' => $this->mensajesSinLeer($mensajeria, (int) $user->id_usuario),
             'estudiante' => [
                 'id_estudiante' => $estudiante->id_estudiante,
                 'rut' => $user->rut, 
@@ -103,5 +105,48 @@ class DashboardController extends Controller
             'semestreActual' => $semestreActual
 
         ]);
+    }
+
+    /**
+     * Mensajes de nivel curso (`curso.mensaje`) que el alumno todavía no abre,
+     * agrupados por curso.
+     *
+     * Va agrupado por curso y no por componente porque la bandeja se entra desde
+     * el curso: dentro, Cátedra y Laboratorio son pestañas. Los mensajes de
+     * agenda (consultas y feedback de una entrega) no entran aquí — esos cuelgan
+     * de una actividad y se ven en la actividad.
+     *
+     * @return array{no_leidos:int, cursos:array<int,array{id_curso:int, nombre:string, no_leidos:int}>}
+     */
+    private function mensajesSinLeer(MensajeriaService $mensajeria, int $idUsuario): array
+    {
+        $componentes = $mensajeria->componentesDeEstudiante($idUsuario);
+
+        $noLeidos = $mensajeria->noLeidosPorComponente(
+            $componentes->pluck('id_componente')->map(fn($id) => (int) $id)->all(),
+            $idUsuario,
+            esStaff: false,
+        );
+
+        $cursos = $componentes
+            ->map(fn($componente) => [
+                'id_curso'  => (int) $componente->id_curso,
+                'nombre'    => $componente->curso_nombre,
+                'no_leidos' => $noLeidos[(int) $componente->id_componente] ?? 0,
+            ])
+            ->filter(fn(array $fila) => $fila['no_leidos'] > 0)
+            ->groupBy('id_curso')
+            ->map(fn($delCurso) => [
+                'id_curso'  => $delCurso->first()['id_curso'],
+                'nombre'    => $delCurso->first()['nombre'],
+                'no_leidos' => $delCurso->sum('no_leidos'),
+            ])
+            ->sortByDesc('no_leidos')
+            ->values();
+
+        return [
+            'no_leidos' => (int) $cursos->sum('no_leidos'),
+            'cursos'    => $cursos->all(),
+        ];
     }
 }

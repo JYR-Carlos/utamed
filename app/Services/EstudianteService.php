@@ -8,6 +8,7 @@ use App\Models\Usuario\Estudiante;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Support\Rut;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -18,14 +19,24 @@ class EstudianteService
 {
     /**
      * Busca un estudiante localmente por su RUT.
+     *
+     * OJO CON EL DÍGITO VERIFICADOR: la intranet manda el RUT como número **sin
+     * DV** (`ALUM_RUT` = 12345678) y la columna guarda "12345678-9". Por eso el
+     * valor recibido NO se normaliza —hacerlo tomaría el último dígito del cuerpo
+     * como DV ("40000002" → "4000000-2") y podría traer a otra persona— y se
+     * compara contra el cuerpo del RUT guardado.
+     *
+     * Las otras comparaciones cubren al resto de los llamadores: el username (que
+     * es el RUT sin DV para los creados desde la intranet) y filas antiguas
+     * guardadas con otro formato.
      */
     public function buscarPorRut(int|string $rut): ?Estudiante
     {
-        $rutStr = (string)$rut;
-        $cleanRut = preg_replace('/[.\-]/', '', $rutStr);
+        $rutStr = trim((string)$rut);
+        $cleanRut = Rut::soloDigitos($rutStr);
 
         $usuario = Usuario::where('rut', $rutStr)
-            ->orWhere('rut', $cleanRut)
+            ->orWhereRaw("split_part(rut, '-', 1) = ?", [$cleanRut])
             ->orWhere('username', $rutStr)
             ->orWhere('username', $cleanRut)
             ->orWhere(DB::raw("REPLACE(REPLACE(rut, '.', ''), '-', '')"), $cleanRut)
@@ -39,22 +50,12 @@ class EstudianteService
     }
 
     /**
-     * Formatea el RUT al estándar de la aplicación: BODY-DV.
+     * Formatea el RUT al estándar de la aplicación ({@see Rut}): cuerpo sin
+     * puntos, guion y DV. La intranet manda cuerpo y DV en campos separados.
      */
     public function formatRut(int|string $rut, ?string $dv = null): string
     {
-        $cleanRut = preg_replace('/[.\-]/', '', (string)$rut);
-        if ($dv !== null && $dv !== '') {
-            return "{$cleanRut}-" . strtoupper(trim($dv));
-        }
-
-        if (preg_match('/^\d{7,8}[0-9kK]$/', $cleanRut)) {
-            $body = substr($cleanRut, 0, -1);
-            $dvChar = strtoupper(substr($cleanRut, -1));
-            return "{$body}-{$dvChar}";
-        }
-
-        return $cleanRut;
+        return Rut::desdePartes($rut, $dv) ?? '';
     }
 
     /**

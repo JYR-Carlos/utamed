@@ -19,7 +19,7 @@ class EquipoDesarrolloSeeder extends Seeder
     // Arreglo modificable con los datos de los usuarios
     $equipo = [
       [
-        'rut' => '11.111.111-1',
+        'rut' => '11111111-1',
         'nombre1' => 'Rodrigo',
         'nombre2' => '',
         'apellido1' => 'PA',
@@ -27,7 +27,7 @@ class EquipoDesarrolloSeeder extends Seeder
         'es_superadmin' => true,
       ],
       [
-        'rut' => '22.222.222-2',
+        'rut' => '22222222-2',
         'nombre1' => 'Christian',
         'nombre2' => '',
         'apellido1' => 'PA',
@@ -35,7 +35,7 @@ class EquipoDesarrolloSeeder extends Seeder
         'es_superadmin' => false,
       ],
       [
-        'rut' => '33.333.333-3',
+        'rut' => '33333333-3',
         'nombre1' => 'Francisco',
         'nombre2' => '',
         'apellido1' => 'PA',
@@ -43,7 +43,7 @@ class EquipoDesarrolloSeeder extends Seeder
         'es_superadmin' => false,
       ],
       [
-        'rut' => '44.444.444-4',
+        'rut' => '44444444-4',
         'nombre1' => 'Juan',
         'nombre2' => '',
         'apellido1' => 'PA',
@@ -51,7 +51,7 @@ class EquipoDesarrolloSeeder extends Seeder
         'es_superadmin' => false,
       ],
       [
-        'rut' => '55.555.555-5',
+        'rut' => '55555555-5',
         'nombre1' => 'Tomás',
         'nombre2' => '',
         'apellido1' => 'PA',

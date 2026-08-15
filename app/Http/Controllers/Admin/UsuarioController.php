@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
+use App\Rules\RutValido;
 use App\Services\Authorization\GlobalContextService;
 use App\Services\Authorization\PermissionCache;
+use App\Support\Rut;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Estudiante;
@@ -18,6 +20,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Permiso;
@@ -251,14 +254,8 @@ class UsuarioController extends Controller
         // Determinar tipo de usuario a crear y delegar al método correspondiente
         $tipo = $request->input('tipo');
 
+        $this->normalizarRutDelRequest($request);
 
-        // Formateo del rut a 00000000-0 para evitar problemas de validación y formato
-        if ($request->has('rut')) {
-            $rut = $request->input('rut');
-            $formattedRut = $this->formatRut($rut);
-            $request->merge(['rut' => $formattedRut]);
-        }
-        
         if ($tipo === 'estudiante') {
             return $this->storeEstudiante($request);
         } elseif ($tipo === 'docente') {
@@ -344,21 +341,38 @@ class UsuarioController extends Controller
         }
     }
 
-    private function formatRut($rut) {
-        // Eliminar puntos y guiones
-        $cleanRut = preg_replace('/[.\-]/', '', $rut);
-
-        // Validar formato básico (dígitos + dígito verificador)
-        if (!preg_match('/^\d{7,8}[0-9kK]$/', $cleanRut)) {
-            return $rut; // Retornar sin formatear si no es válido
+    /**
+     * Deja el RUT del request en el formato con el que se guarda ({@see Rut}).
+     *
+     * Tiene que pasar ANTES de validar: las reglas `unique` comparan texto, así
+     * que un "12.345.678-9" sin normalizar no choca con el "12345678-9" que ya
+     * está en la base y la persona termina duplicada.
+     */
+    private function normalizarRutDelRequest(Request $request): void
+    {
+        if ($request->has('rut')) {
+            $request->merge(['rut' => Rut::normalizar($request->input('rut'))]);
         }
+    }
 
-        // Extraer cuerpo y dígito verificador
-        $body = substr($cleanRut, 0, -1);
-        $dv = strtoupper(substr($cleanRut, -1));
-
-        // Formatear con guion formato 00000000-0 (sin puntos)
-        return "{$body}-{$dv}";
+    /**
+     * Reglas del RUT al editar: formato conocido y que no sea el de otra persona.
+     *
+     * Al crear no se exige único para estudiante y docente, porque ahí un RUT
+     * repetido significa "esta persona ya existe, súmale este perfil". Editar es
+     * otra cosa: cambiar el RUT al de otro usuario sólo puede ser un error.
+     *
+     * @return array<int,mixed>
+     */
+    private function reglasRutUnico(Usuario $usuario): array
+    {
+        return [
+            'required',
+            'string',
+            'max:20',
+            new RutValido,
+            Rule::unique(Usuario::class, 'rut')->ignore($usuario->id_usuario, 'id_usuario'),
+        ];
     }
     /**
      * Crea nuevo usuario Estudiante de forma transaccional.
@@ -373,7 +387,7 @@ class UsuarioController extends Controller
     private function storeEstudiante(Request $request)
     {
         $validated = $request->validate([
-            'rut'          => 'required|string|max:20',
+            'rut'          => ['required', 'string', 'max:20', new RutValido],
             'nombre1'      => 'required|string|max:100',
             'nombre2'      => 'nullable|string|max:100',
             'apellido1'    => 'required|string|max:100',
@@ -392,6 +406,11 @@ class UsuarioController extends Controller
 
             return redirect()->route('admin.usuarios.index', ['tipo' => 'estudiante'])
                 ->with('success', 'Estudiante creado exitosamente.');
+        } catch (ValidationException $e) {
+            // "Ese RUT ya es estudiante" es un problema del formulario, no del
+            // servidor: vuelve al campo en vez de disfrazarse de error interno.
+            DB::rollBack();
+            throw $e;
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error creating estudiante: ' . $e->getMessage(), ['data' => $validated]);
@@ -412,7 +431,7 @@ class UsuarioController extends Controller
     private function storeDocente(Request $request)
     {
         $validated = $request->validate([
-            'rut'       => 'required|string|max:20',
+            'rut'       => ['required', 'string', 'max:20', new RutValido],
             'nombre1'   => 'required|string|max:100',
             'nombre2'   => 'nullable|string|max:100',
             'apellido1' => 'required|string|max:100',
@@ -432,6 +451,9 @@ class UsuarioController extends Controller
 
             return redirect()->route('admin.usuarios.index', ['tipo' => 'docente'])
                 ->with('success', 'Docente creado exitosamente.');
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            throw $e;
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error creating docente: ' . $e->getMessage(), ['data' => $validated]);
@@ -451,7 +473,7 @@ class UsuarioController extends Controller
     private function storeAdministrador(Request $request)
     {
         $validated = $request->validate([
-            'rut'       => ['required', 'string', 'max:20', Rule::unique(Usuario::class, 'rut')],
+            'rut'       => ['required', 'string', 'max:20', new RutValido, Rule::unique(Usuario::class, 'rut')],
             'nombre1'   => 'required|string|max:255',
             'nombre2'   => 'nullable|string|max:255',
             'apellido1' => 'required|string|max:255',
@@ -512,6 +534,15 @@ class UsuarioController extends Controller
     {
         $usuario = $this->insertarUsuarioBaseBd($datos);
 
+        // El usuario base se reutiliza a propósito (una misma persona puede ser
+        // docente y estudiante), pero el perfil no: sin este corte, cargar dos
+        // veces el mismo RUT deja dos filas en usuario.estudiante y el listado
+        // muestra al alumno duplicado.
+        $this->exigirPerfilInexistente(
+            Estudiante::where('id_usuario', $usuario->id_usuario)->exists(),
+            "Ya existe un estudiante con el RUT {$usuario->rut}."
+        );
+
         Estudiante::create([
             'id_usuario'   => $usuario->id_usuario,
             'agno_ingreso' => $datos['agno_ingreso'] ?? null,
@@ -525,6 +556,11 @@ class UsuarioController extends Controller
     private function insertarDocenteBd(array $datos): Usuario
     {
         $usuario = $this->insertarUsuarioBaseBd($datos);
+
+        $this->exigirPerfilInexistente(
+            Docente::where('id_usuario', $usuario->id_usuario)->exists(),
+            "Ya existe un docente con el RUT {$usuario->rut}."
+        );
 
         Docente::create([
             'id_usuario' => $usuario->id_usuario,
@@ -544,11 +580,25 @@ class UsuarioController extends Controller
         return $usuario;
     }
 
+    /**
+     * Corta la creación cuando la persona ya tiene ese perfil, con un error de
+     * validación sobre el campo RUT (que es el dato repetido) en vez de una
+     * segunda fila silenciosa.
+     */
+    private function exigirPerfilInexistente(bool $yaExiste, string $mensaje): void
+    {
+        if ($yaExiste) {
+            throw ValidationException::withMessages(['rut' => $mensaje]);
+        }
+    }
+
 
     private function mapearFila(array $fila, string $tipo): array
     {
         $datos = [
-            'rut'       => $fila[0] ?? null,
+            // Las planillas vienen escritas a mano: con puntos, sin ellos, con la
+            // K en minúscula. Se unifica aquí, antes de validar y de insertar.
+            'rut'       => Rut::normalizar($fila[0] ?? null),
             'nombre1'   => $fila[1] ?? null,
             'nombre2'   => $fila[2] ?? null,
             'apellido1' => $fila[3] ?? null,
@@ -573,7 +623,7 @@ class UsuarioController extends Controller
     private function validarFila(array $datos, string $tipo, int $numeroFila)
     {
         $reglas = [
-            'rut'       => 'required|string|max:20',
+            'rut'       => ['required', 'string', 'max:20', new RutValido],
             'nombre1'   => 'required|string|max:100',
             'apellido1' => 'required|string|max:100',
             'username'  => ['required', 'string', 'max:30', Rule::unique(Usuario::class, 'username')], 
@@ -655,6 +705,8 @@ class UsuarioController extends Controller
 
         $this->authorize('update', $this->resolveUsuarioPorTipo((string) $tipo, $id));
 
+        $this->normalizarRutDelRequest($request);
+
         if ($tipo === 'estudiante') {
             return $this->updateEstudiante($request, $id);
         } elseif ($tipo === 'docente') {
@@ -683,7 +735,7 @@ class UsuarioController extends Controller
 
         // Validar datos actualizados: datos personales y carrera
         $validated = $request->validate([
-            'rut' => 'required|string|max:20',
+            'rut' => $this->reglasRutUnico($usuario),
             'nombre1' => 'required|string|max:100',
             'nombre2' => 'nullable|string|max:100',
             'apellido1' => 'required|string|max:100',
@@ -740,7 +792,7 @@ class UsuarioController extends Controller
 
         // Validar datos actualizados: datos personales y grado académico
         $validated = $request->validate([
-            'rut' => 'required|string|max:20',
+            'rut' => $this->reglasRutUnico($usuario),
             'nombre1' => 'required|string|max:100',
             'nombre2' => 'nullable|string|max:100',
             'apellido1' => 'required|string|max:100',
@@ -796,7 +848,7 @@ class UsuarioController extends Controller
 
         // Validar datos actualizados: datos personales
         $validated = $request->validate([
-            'rut' => 'required|string|max:20',
+            'rut' => $this->reglasRutUnico($usuario),
             'nombre1' => 'required|string|max:255',
             'nombre2' => 'nullable|string|max:255',
             'apellido1' => 'required|string|max:255',
@@ -960,7 +1012,9 @@ class UsuarioController extends Controller
     {
         $this->authorize('viewAny', Usuario::class);
 
-        $rut = $request->query('rut');
+        // El buscador recibe lo que el administrador teclea; la columna guarda el
+        // formato canónico, así que se compara normalizado.
+        $rut = Rut::normalizar($request->query('rut'));
         $usuario = Usuario::where('rut', $rut)->first();
 
         if (!$usuario) {

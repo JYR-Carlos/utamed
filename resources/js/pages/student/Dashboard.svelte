@@ -5,6 +5,7 @@
   import { Calendar } from 'lucide-svelte';
   import ProfileCard from '@/components/student/ProfileCard.svelte';
   import CourseCard from '@/components/student/CourseCard.svelte';
+  import MensajesSinLeerCard from '@/components/student/MensajesSinLeerCard.svelte';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
   /**
@@ -32,11 +33,23 @@
       total_cursos: number;
       nombre_completo: string;
     };
+    /** Mensajes de curso (curso.mensaje) que el alumno aún no abre. */
+    mensajeria?: {
+      no_leidos: number;
+      cursos: Array<{ id_curso: number; nombre: string; no_leidos: number }>;
+    };
     isAyudante?: boolean;
     semestreActual: number;
   }
 
-  let { estudiante, cursos, stats, isAyudante = false, semestreActual }: Props = $props();
+  let {
+    estudiante,
+    cursos,
+    stats,
+    mensajeria,
+    isAyudante = false,
+    semestreActual,
+  }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/estudiante/dashboard' },];
 
@@ -128,6 +141,8 @@
           </p>
         </div>
       </header>
+
+      <MensajesSinLeerCard total={mensajeria?.no_leidos ?? 0} cursos={mensajeria?.cursos ?? []} />
 
       <div class="grid grid-cols-12 gap-6">
         <div class="col-span-12 lg:col-span-3 space-y-6">

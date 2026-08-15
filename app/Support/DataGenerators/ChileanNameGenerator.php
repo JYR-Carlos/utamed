@@ -47,12 +47,19 @@ class ChileanNameGenerator
     ];
   }
 
+  /**
+   * RUT en el formato en que se guarda: sin puntos y con guion ({@see \App\Support\Rut}).
+   *
+   * Antes salía con puntos y era la fuente de la mayoría de los RUT "duplicados":
+   * lo sembrado ("23.671.848-4") y lo que crea la aplicación ("23671848-4") son
+   * la misma persona escrita de dos formas, y el UNIQUE de la columna no lo ve.
+   */
   public static function generarRUT(): string
   {
     $numero = rand(9000000, 25999999);
     $digito = self::calcularDigitoVerificador($numero);
 
-    return number_format($numero, 0, '', '.') . '-' . $digito;
+    return $numero . '-' . $digito;
   }
 
   private static function calcularDigitoVerificador(int $rut): string
