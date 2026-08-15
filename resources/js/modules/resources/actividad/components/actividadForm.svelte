@@ -53,6 +53,28 @@
   /** Errores de validación en cliente; los del servidor llegan por props.errors. */
   let clientErrors = $state<Record<string, string>>({});
 
+  /** Campos que imprimen su propio mensaje debajo del input. */
+  const CAMPOS_CON_MENSAJE = [
+    'nombre',
+    'tipo_actividad',
+    'fecha_limite',
+    'ponderacion',
+    'exigencia',
+    'id_componente',
+    'id_unidad',
+  ];
+
+  /**
+   * Errores del servidor que ningún campo del formulario muestra. Sin esto un
+   * 422 sobre un campo no renderizado dejaba el modal abierto y mudo: el
+   * docente veía que "guardar" no hacía nada y la actividad conservaba su tipo.
+   */
+  const erroresSinCampo = $derived(
+    Object.entries(errors)
+      .filter(([campo]) => campo !== 'error' && !CAMPOS_CON_MENSAJE.includes(campo))
+      .map(([, mensaje]) => mensaje),
+  );
+
   /** Estado limpio del formulario (modo creación). */
   const valoresIniciales: Partial<Actividad> = {
     nombre: '',
@@ -120,9 +142,14 @@
   onSubmit={handleSubmit}
   {isLoading}
 >
-  {#if errors.error}
+  {#if errors.error || erroresSinCampo.length > 0}
     <div class="mb-4 rounded-md bg-red-50 border border-red-200 p-3">
-      <p class="text-sm text-red-700">{errors.error}</p>
+      {#if errors.error}
+        <p class="text-sm text-red-700">{errors.error}</p>
+      {/if}
+      {#each erroresSinCampo as mensaje}
+        <p class="text-sm text-red-700">{mensaje}</p>
+      {/each}
     </div>
   {/if}
 

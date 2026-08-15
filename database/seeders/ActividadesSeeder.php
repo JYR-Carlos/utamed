@@ -73,7 +73,10 @@ class ActividadesSeeder extends Seeder
             'ponderacion' => 10,
             'exigencia' => 60,
             'tipo_actividad' => $tipo->value,
-            'tipo_entrega' => 'archivo',
+            // Vocabulario de tipo_entrega del formulario/validador del docente:
+            // online | presencial | hibrido. Sembrar 'archivo' dejaba actividades
+            // que ninguna edición podía guardar.
+            'tipo_entrega' => 'online',
             'es_grupal' => true,
             'max_integrantes' => 5,
             'es_plantilla' => false,
@@ -89,7 +92,10 @@ class ActividadesSeeder extends Seeder
             'ponderacion' => 10,
             'exigencia' => 60,
             'tipo_actividad' => $tipo->value,
-            'tipo_entrega' => 'archivo',
+            // Vocabulario de tipo_entrega del formulario/validador del docente:
+            // online | presencial | hibrido. Sembrar 'archivo' dejaba actividades
+            // que ninguna edición podía guardar.
+            'tipo_entrega' => 'online',
             'es_grupal' => false,
             'max_integrantes' => 1,
             'es_plantilla' => false,

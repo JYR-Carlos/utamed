@@ -275,11 +275,17 @@ class DocenteActivityController extends Controller
         $this->authorize('manageTeam', $curso);
         $this->assertActividadDeCurso($curso, $actividad);
 
+        // tipo_entrega NO se valida al editar: el formulario lo muestra
+        // deshabilitado —no es editable— y lo reenvía tal como está guardado. Los
+        // datos existentes traen valores fuera de este vocabulario ('archivo'),
+        // así que exigir in:online,presencial,hibrido tumbaba con un 422
+        // *cualquier* edición, incluido el cambio SUMATIVA/FORMATIVA, y la
+        // actividad seguía mostrando su tipo anterior. Al no validarlo tampoco
+        // llega a $validated, de modo que la columna conserva su valor.
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'fecha_limite' => 'required|date',
             'tipo_actividad' => 'required|string|in:SUMATIVA,FORMATIVA',
-            'tipo_entrega' => 'required|string|in:online,presencial,hibrido',
             'es_grupal' => 'boolean',
             'max_integrantes' => 'integer|min:1|max:100',
             'visible' => 'boolean',
