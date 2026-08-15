@@ -96,14 +96,23 @@ class HandleInertiaRequests extends Middleware
     public function __construct(private UserCoursesService $userCourses) {}
 
     /**
-     * Previene que el navegador cachee páginas de invitado (login, home, etc.).
+     * Impide que el navegador sirva páginas desde su caché al pulsar "atrás".
      *
-     * Sin esto, el navegador restaura estas páginas desde su bfcache cuando el
-     * usuario presiona "atrás", sin hacer una nueva petición al servidor y sin
-     * pasar por el middleware `guest` de Fortify.
+     * Aplica a dos casos, por el mismo motivo en direcciones opuestas:
      *
-     * Con `no-store` el navegador siempre re-solicita la página, el servidor
-     * detecta la sesión activa y redirige al dashboard correspondiente.
+     * - Páginas de invitado (login, home...): sin `no-store` el navegador las
+     *   restaura desde bfcache tras iniciar sesión, saltándose el middleware
+     *   `guest` de Fortify que redirigiría al dashboard.
+     *
+     * - Páginas autenticadas: sin `no-store` el navegador las restaura tras el
+     *   logout y muestra los datos del usuario que cerró sesión. La defensa
+     *   principal aquí es el cifrado del historial de Inertia (config
+     *   `inertia.history.encrypt` + `Inertia::clearHistory()` en
+     *   App\Http\Responses\LogoutResponse), que cubre la navegación SPA; esta
+     *   cabecera cubre la recarga del documento HTML completo.
+     *
+     * Con `no-store` el navegador siempre re-solicita la página y es el
+     * servidor quien decide a dónde va el usuario según su sesión real.
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -111,7 +120,12 @@ class HandleInertiaRequests extends Middleware
 
         $guestRoutes = ['login', 'home', 'register', 'password.request', 'password.reset', 'verification.notice'];
 
-        if (in_array($request->route()?->getName(), $guestRoutes)) {
+        $isGuestRoute = in_array($request->route()?->getName(), $guestRoutes);
+
+        // `$request->user()` se evalúa después del controlador: en la petición
+        // de logout ya devuelve null, que es justo lo que queremos (el redirect
+        // no lleva datos).
+        if ($isGuestRoute || $request->user()) {
             $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate');
             $response->headers->set('Pragma', 'no-cache');
             $response->headers->set('Expires', '0');

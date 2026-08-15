@@ -29,6 +29,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | History Encryption
+    |--------------------------------------------------------------------------
+    |
+    | Inertia guarda los props de cada página en `window.history.state` para
+    | poder restaurarlas al pulsar "atrás" sin ir al servidor. Sin cifrar, esos
+    | datos quedan en el historial del navegador incluso después del logout.
+    |
+    | Con `encrypt` activo los props se guardan cifrados con una clave que vive
+    | en sessionStorage. `Inertia::clearHistory()` (ver App\Http\Responses\
+    | LogoutResponse) borra esa clave al cerrar sesión, así que las entradas
+    | anteriores ya no se pueden descifrar: Inertia detecta el fallo y pide la
+    | página al servidor, que redirige al login.
+    |
+    | Requiere contexto seguro (HTTPS o localhost) para `window.crypto.subtle`.
+    | Sin él Inertia avisa por consola y guarda en claro, sin romper nada.
+    |
+    */
+
+    'history' => [
+        'encrypt' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Testing
     |--------------------------------------------------------------------------
     |
