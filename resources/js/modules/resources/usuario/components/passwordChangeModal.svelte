@@ -11,6 +11,7 @@
    * POST lo hace el padre vía usuarioApi.changePassword.
    */
   import FormModal from '@/components/custom/admin/FormModal.svelte';
+  import { PASSWORD_HINT, PASSWORD_MIN_LENGTH } from '@/constants/admin';
 
   interface Props {
     isOpen: boolean;
@@ -38,7 +39,7 @@
       type="password"
       autocomplete="current-password"
       bind:value={passwordFormData.current_password}
-      class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      class="field-input"
       placeholder="Confirma tu identidad"
       required
     />
@@ -56,9 +57,9 @@
       type="password"
       autocomplete="new-password"
       bind:value={passwordFormData.password}
-      class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-      placeholder="Mín. 8 caracteres, con letras y números"
-      minlength="8"
+      class="field-input"
+      placeholder={PASSWORD_HINT}
+      minlength={PASSWORD_MIN_LENGTH}
       required
     />
   </div>
@@ -72,9 +73,9 @@
       type="password"
       autocomplete="new-password"
       bind:value={passwordFormData.password_confirmation}
-      class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      class="field-input"
       placeholder="Repita la contraseña"
-      minlength="8"
+      minlength={PASSWORD_MIN_LENGTH}
       required
     />
   </div>

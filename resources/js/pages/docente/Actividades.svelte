@@ -236,6 +236,7 @@
 
   <ActividadDeleteConfirm
     bind:isOpen={showDeleteDialog}
+    actividad={deletingActividad}
     {isLoading}
     onConfirm={handleDelete}
     onCancel={() => {

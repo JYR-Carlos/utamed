@@ -273,6 +273,7 @@
 
   <PlanDeleteConfirm
     isOpen={showDeleteDialog}
+    plan={deletingPlan}
     {isLoading}
     onConfirm={handleDelete}
     onCancel={closeDeleteDialog}

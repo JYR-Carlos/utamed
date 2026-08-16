@@ -81,11 +81,19 @@ class AssignmentWizardController extends Controller
         default => ucfirst($case->value),
       };
 
-      // Descripciones para ayudar al usuario a entender cada opción
+      // Descripciones para ayudar al usuario a entender cada opción.
+      // Se redactan una por una en vez de componerlas con una plantilla:
+      // el "Asignar en un(a) {$label} específico(a)" genérico salía cinco
+      // veces seguidas en pantalla con esa concordancia entre paréntesis.
       // TODO: también esto podría venir de la bd o del enum para evitar hardcodear
       $description = match ($case) {
-        ContextType::GLOBAL => 'Aplica en todos los contextos del sistema',
-        default => "Asignar en un(a) {$label} específico(a)",
+        ContextType::GLOBAL => 'Aplica en todo el sistema',
+        ContextType::FACULTAD => 'Solo dentro de una facultad',
+        ContextType::DEPARTAMENTO => 'Solo dentro de un departamento',
+        ContextType::CARRERA => 'Solo dentro de una carrera',
+        ContextType::CURSO => 'Solo dentro de un curso',
+        ContextType::ACTIVIDAD => 'Solo dentro de una actividad',
+        default => "Solo dentro de: {$label}",
       };
 
       // Mapeo de valores

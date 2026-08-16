@@ -201,6 +201,7 @@
 
   <AsignacionDeleteConfirm
     bind:isOpen={showDeleteDialog}
+    asignacion={deletingAsignacion}
     onConfirm={handleDelete}
     onCancel={() => {
       showDeleteDialog = false;

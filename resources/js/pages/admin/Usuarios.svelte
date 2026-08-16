@@ -18,6 +18,7 @@
    */
   import { router } from '@inertiajs/svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
+  import ConfirmationModal from '@/components/admin/ConfirmationModal.svelte';
   import PermissionsModal from '@/components/custom/admin/permissions-modal/PermissionsModal.svelte';
   import {
     UsuarioList,
@@ -144,6 +145,13 @@
   /**
    * Props recibidas del servidor.
    */
+  interface ColumnaImportacion {
+    campo: string;
+    etiqueta: string;
+    obligatorio: boolean;
+    ejemplo: string;
+  }
+
   interface Props {
     /** Usuarios paginados según tipo seleccionado */
     usuarios: PaginatedResponse<UsuarioItem>;
@@ -151,19 +159,23 @@
     tipo: 'estudiante' | 'docente' | 'administrador';
     /** Carreras disponibles (para asignar a estudiantes) */
     carreras: Carrera[];
+    /** Formato del archivo de importación, declarado por el servidor. */
+    columnasImportacion?: ColumnaImportacion[];
   }
 
-  let { usuarios, tipo, carreras }: Props = $props();
+  let { usuarios, tipo, carreras, columnasImportacion = [] }: Props = $props();
 
   let showModal = $state(false);
   let showImportModal = $state(false);
   let showDeleteDialog = $state(false);
+  let showToggleDialog = $state(false);
   let showPasswordModal = $state(false);
   let showPermissionsModal = $state(false);
   let isLoading = $state(false);
   let fileToImport =$state<File | null>(null)
   let editingUsuario = $state<UsuarioItem | null>(null);
   let deletingUsuario = $state<UsuarioItem | null>(null);
+  let togglingUsuario = $state<UsuarioItem | null>(null);
   let changingPasswordUsuario = $state<UsuarioItem | null>(null);
   let permissionsUser = $state<UsuarioData | null>(null);
 
@@ -284,28 +296,31 @@
   }
 
   function handleImportarSubmit() {
-    if (!fileToImport) {
-      alert("Por favor selecciona un archivo primero!!"); 
-      return;
-    }
+    // El botón ya está deshabilitado hasta que la revisión da el archivo por
+    // bueno; esto sólo cubre el caso de que llegue aquí sin archivo.
+    if (!fileToImport || isLoading) return;
 
     isLoading = true;
 
-    router.post('/admin/usuarios/importar', { 
-      file: fileToImport,
-      tipo: currentTipo
-    }, {
-      forceFormData: true, 
-      onSuccess: () => {
-        closeModal();
-        isLoading = false;
-        fileToImport = null; 
+    router.post(
+      '/admin/usuarios/importar',
+      {
+        file: fileToImport,
+        tipo: currentTipo,
       },
-      onError: (errors: Record<string, string>) => {
-        handleError('importar usuarios', errors);
-        isLoading = false;
+      {
+        forceFormData: true,
+        onSuccess: () => {
+          showImportModal = false;
+          isLoading = false;
+          fileToImport = null;
+        },
+        onError: (errors: Record<string, string>) => {
+          handleError('importar usuarios', errors);
+          isLoading = false;
+        },
       },
-    });
+    );
   }
 
   function openDeleteDialog(usuario: UsuarioItem) {
@@ -366,11 +381,29 @@
     });
   }
 
+  /**
+   * Desactivar deja a la persona fuera del sistema, así que pasa por
+   * confirmación igual que eliminar. Reactivar no destruye nada y se
+   * aplica directamente.
+   */
   function handleToggleActive(usuario: UsuarioItem) {
+    if (usuario.usuario.esta_activo) {
+      togglingUsuario = usuario;
+      showToggleDialog = true;
+      return;
+    }
     toggleActive(usuario.usuario.id_usuario);
-    // TODO: algo hace esto, revisar despues
-    // const id = usuario.usuario.id_usuario;
-    // router.post(`/admin/usuarios/${id}/toggle-active`, {id: id}, { preserveScroll: true });
+  }
+
+  function closeToggleDialog() {
+    showToggleDialog = false;
+    togglingUsuario = null;
+  }
+
+  function confirmToggleActive() {
+    if (!togglingUsuario) return;
+    toggleActive(togglingUsuario.usuario.id_usuario);
+    closeToggleDialog();
   }
 
   function openPermissionsModal(item: UsuarioItem) {
@@ -484,8 +517,9 @@
   <UsuarioImport
     isOpen={showImportModal}
     userType={currentTipo}
+    columnas={columnasImportacion}
     isLoading={isLoading}
-    bind:file={fileToImport} 
+    bind:file={fileToImport}
     onClose={() => {
       showImportModal = false;
       fileToImport = null;
@@ -497,9 +531,24 @@
   <UsuarioDeleteConfirm
     isOpen={showDeleteDialog}
     userType={currentTipo}
+    usuario={deletingUsuario}
     {isLoading}
     onConfirm={handleDelete}
     onCancel={closeDeleteDialog}
+  />
+
+  <ConfirmationModal
+    isOpen={showToggleDialog}
+    tone="warning"
+    title="Desactivar cuenta"
+    recordName={togglingUsuario
+      ? `${togglingUsuario.usuario.nombre1 ?? ''} ${togglingUsuario.usuario.apellido1 ?? ''}`.trim()
+      : null}
+    recordMeta={[togglingUsuario?.usuario.rut ?? '', togglingUsuario?.usuario.username ?? '']}
+    message="La persona deja de poder iniciar sesión de inmediato y sus sesiones abiertas se cierran. Sus datos e historial se conservan y puedes volver a activarla cuando quieras."
+    confirmLabel="Desactivar cuenta"
+    onConfirm={confirmToggleActive}
+    onCancel={closeToggleDialog}
   />
 
   <PasswordChangeModal

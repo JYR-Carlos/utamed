@@ -230,6 +230,7 @@
   <!-- Componente: Diálogo Confirmación Eliminación -->
   <DepartamentoDeleteConfirm
     bind:isOpen={showDeleteDialog}
+    departamento={deletingDepartamento}
     {isLoading}
     onConfirm={handleDelete}
     onCancel={closeDeleteDialog}

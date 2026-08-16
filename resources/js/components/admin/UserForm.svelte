@@ -13,6 +13,12 @@
     AdministradorFormData,
     Carrera,
   } from '@/types/admin.types';
+  import {
+    PASSWORD_HINT,
+    PASSWORD_MIN_LENGTH,
+    generatePassword,
+    isPasswordValid,
+  } from '@/constants/admin';
 
   type UserFormData = EstudianteFormData | DocenteFormData | AdministradorFormData;
 
@@ -69,6 +75,18 @@
   }
 
   let rutValid = $derived(isValidRutFormat(formData.rut));
+
+  // ── Credenciales ──
+  let showPassword = $state(false);
+  const maxUsername = $derived(tipo === 'administrador' ? 30 : 10);
+  const passwordOk = $derived(isPasswordValid(formData.password ?? ''));
+
+  function fillGeneratedPassword() {
+    formData.password = generatePassword();
+    // Se muestra al generarla: el administrador tiene que poder copiarla
+    // para entregársela a la persona.
+    showPassword = true;
+  }
 </script>
 
 <!-- Campos Comunes -->
@@ -234,34 +252,67 @@
 <!-- Credenciales (solo crear, no editar) -->
 {#if !isEditing}
   <div class="h-px bg-gray-200 my-4 mb-4"></div>
-  <p class="text-sm font-semibold text-gray-700 mb-3">Credenciales de Acceso</p>
+  <p class="text-sm font-semibold text-gray-700 mb-3">Credenciales de acceso</p>
 
   <div class="grid grid-cols-2 gap-4">
     <div class="mb-4">
-      <label for="username" class="block text-sm font-medium text-gray-700 mb-2">Usuario *</label>
+      <label for="username" class="field-label req">Usuario</label>
       <input
         id="username"
         type="text"
         bind:value={formData.username}
         class={inputClass}
-        placeholder={tipo === 'administrador' ? 'Máx. 30 caracteres' : 'Máx. 10 caracteres'}
-        maxlength={tipo === 'administrador' ? 30 : 10}
+        maxlength={maxUsername}
         required
       />
+      <p class="field-hint">Máx. {maxUsername} caracteres. Es con lo que inicia sesión.</p>
     </div>
 
     <div class="mb-4">
-      <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Contraseña *</label
-      >
-      <input
-        id="password"
-        type="password"
-        bind:value={formData.password}
-        class={inputClass}
-        placeholder="Mín. 6 caracteres"
-        minlength="6"
-        required
-      />
+      <div class="flex items-baseline justify-between mb-2">
+        <label for="password" class="field-label req mb-0">Contraseña</label>
+        <button type="button" onclick={fillGeneratedPassword} class="text-xs font-medium text-blue-600 hover:text-blue-800 cursor-pointer">
+          Generar
+        </button>
+      </div>
+      <div class="relative">
+        <input
+          id="password"
+          type={showPassword ? 'text' : 'password'}
+          bind:value={formData.password}
+          class="{inputClass} pr-10"
+          autocomplete="new-password"
+          minlength={PASSWORD_MIN_LENGTH}
+          required
+        />
+        <button
+          type="button"
+          onclick={() => (showPassword = !showPassword)}
+          class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-700 cursor-pointer"
+          aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+        >
+          {#if showPassword}
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8" />
+              <path d="M9.4 5.2A9.5 9.5 0 0112 5c5 0 9 4.5 9 7 0 .9-.5 2-1.4 3.1M6.2 6.7C4 8.1 3 10.2 3 12c0 2.5 4 7 9 7 1.4 0 2.7-.3 3.8-.9" />
+            </svg>
+          {:else}
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          {/if}
+        </button>
+      </div>
+      {#if formData.password && !passwordOk}
+        <p class="field-error">{PASSWORD_HINT}</p>
+      {:else}
+        <p class="field-hint">{PASSWORD_HINT}</p>
+      {/if}
     </div>
   </div>
+
+  <p class="text-xs text-gray-500 -mt-1 mb-1">
+    Anota la contraseña y entrégasela a la persona: el sistema no se la envía por correo.
+  </p>
 {/if}

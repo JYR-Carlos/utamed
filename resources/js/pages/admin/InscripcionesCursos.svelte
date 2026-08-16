@@ -180,6 +180,7 @@
 
   <InscripcionDeleteConfirm
     bind:isOpen={showDeleteDialog}
+    inscripcion={deletingItem}
     onConfirm={handleDelete}
     onCancel={() => {
       showDeleteDialog = false;

@@ -294,6 +294,7 @@
   <!-- Componente: Confirmación de Eliminación -->
   <FacultadDeleteConfirm
     bind:isOpen={showDeleteDialog}
+    facultad={deletingFacultad}
     {isLoading}
     onConfirm={handleDelete}
     onCancel={closeDeleteDialog}

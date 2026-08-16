@@ -137,6 +137,40 @@
         /* White text on active */
         --sidebar-border: hsl(210 33% 92%);
         --sidebar-ring: hsl(221 83% 53%);
+
+        /* ── Roles de acción del panel admin ──────────────────────
+           Cuatro roles y sólo cuatro. Todo botón del admin sale de
+           aquí; ningún componente vuelve a escribir `bg-blue-600`.
+
+           El primario conserva el azul que el panel ya usaba, para
+           que esta consolidación no cambie la apariencia. Adoptar el
+           azul institucional (--color-uta-blue, #002855) es cambiar
+           las tres líneas de --action-primary-*. */
+        --action-primary: hsl(221 83% 53%);
+        --action-primary-hover: hsl(224 76% 44%);
+        --action-primary-fg: hsl(0 0% 100%);
+        --action-primary-soft: hsl(214 100% 97%);
+
+        --action-danger: hsl(0 72% 51%);
+        --action-danger-hover: hsl(0 74% 42%);
+        --action-danger-fg: hsl(0 0% 100%);
+        --action-danger-soft: hsl(0 86% 97%);
+
+        --action-neutral-bg: hsl(0 0% 100%);
+        --action-neutral-fg: hsl(217 19% 27%);
+        --action-neutral-border: hsl(216 12% 84%);
+        --action-neutral-hover: hsl(210 20% 98%);
+
+        /* Estado — sólo para comunicar situación, nunca para teñir
+           un botón según la entidad que toca. */
+        --state-ok: hsl(160 84% 25%);
+        --state-ok-soft: hsl(152 76% 96%);
+        --state-warn: hsl(32 81% 29%);
+        --state-warn-soft: hsl(48 96% 95%);
+        --state-info: hsl(221 83% 40%);
+        --state-info-soft: hsl(214 100% 97%);
+        --state-off: hsl(220 9% 46%);
+        --state-off-soft: hsl(220 14% 96%);
     }
 
     /* Force light theme for now to avoid system dark mode black backgrounds as per user preference */
@@ -189,6 +223,162 @@
 
     p {
         @apply text-sm md:text-base lg:text-base;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Panel de administración — capa semántica
+
+   Antes cada módulo redibujaba sus botones con literales Tailwind
+   (`bg-blue-600`, `bg-green-500`, `bg-emerald-500`…), de modo que la
+   misma acción salía de un color distinto en cada pantalla. Estas
+   clases son ahora la única fuente: el color lo decide el ROL de la
+   acción (primaria, destructiva, neutra, discreta), nunca la entidad
+   sobre la que actúa.
+   ═══════════════════════════════════════════════════════════════ */
+@layer components {
+
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold;
+        @apply transition cursor-pointer whitespace-nowrap;
+        @apply disabled:opacity-50 disabled:cursor-not-allowed;
+        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+        --tw-ring-color: var(--action-primary);
+    }
+
+    /* La acción que la pantalla quiere que hagas. Una por vista. */
+    .btn-primary {
+        background-color: var(--action-primary);
+        color: var(--action-primary-fg);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background-color: var(--action-primary-hover);
+    }
+
+    /* Destruye o retira algo. Único uso legítimo del rojo. */
+    .btn-danger {
+        background-color: var(--action-danger);
+        color: var(--action-danger-fg);
+    }
+
+    .btn-danger:hover:not(:disabled) {
+        background-color: var(--action-danger-hover);
+    }
+
+    /* Cancelar, cerrar, y cualquier acción secundaria. */
+    .btn-neutral {
+        background-color: var(--action-neutral-bg);
+        color: var(--action-neutral-fg);
+        border: 1px solid var(--action-neutral-border);
+    }
+
+    .btn-neutral:hover:not(:disabled) {
+        background-color: var(--action-neutral-hover);
+    }
+
+    /* Sin fondo: acciones terciarias dentro de una tabla o cabecera. */
+    .btn-ghost {
+        color: var(--action-neutral-fg);
+        background-color: transparent;
+    }
+
+    .btn-ghost:hover:not(:disabled) {
+        background-color: var(--action-neutral-hover);
+    }
+
+    .btn-sm {
+        @apply px-3 py-1.5 text-[13px] rounded-md gap-1.5;
+    }
+
+    /* Botón de sólo icono. El tamaño mínimo evita los objetivos de
+       13 px que había en las tablas de secciones. */
+    .btn-icon {
+        @apply inline-flex items-center justify-center rounded-md p-2 cursor-pointer transition;
+        @apply text-gray-500 hover:text-gray-900 hover:bg-gray-100;
+        @apply focus-visible:outline-none focus-visible:ring-2;
+        min-width: 2.25rem;
+        min-height: 2.25rem;
+        --tw-ring-color: var(--action-primary);
+    }
+
+    .btn-icon-danger:hover {
+        color: var(--action-danger);
+        background-color: var(--action-danger-soft);
+    }
+
+    /* ── Insignias de estado ─────────────────────────────────────
+       Comunican situación, no acción. */
+    .badge {
+        @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap;
+    }
+
+    .badge-ok {
+        color: var(--state-ok);
+        background-color: var(--state-ok-soft);
+    }
+
+    .badge-warn {
+        color: var(--state-warn);
+        background-color: var(--state-warn-soft);
+    }
+
+    .badge-info {
+        color: var(--state-info);
+        background-color: var(--state-info-soft);
+    }
+
+    .badge-off {
+        color: var(--state-off);
+        background-color: var(--state-off-soft);
+    }
+
+    /* ── Cabecera y contenedor de página ─────────────────────────
+       AdminLayout no definía contenedor, así que cada página
+       inventaba el suyo (max-w-7xl aquí, max-w-5xl allá, ninguno
+       más allá) y el título saltaba de sitio al navegar. */
+    .page-shell {
+        @apply mx-auto w-full max-w-[1400px] px-6 py-8;
+    }
+
+    .page-header {
+        @apply flex flex-wrap items-start justify-between gap-4 mb-6;
+    }
+
+    .page-title {
+        @apply text-3xl font-bold text-gray-900 mb-1;
+    }
+
+    .page-subtitle {
+        @apply text-sm text-gray-500;
+    }
+
+    /* ── Formularios ─────────────────────────────────────────────── */
+    .field-label {
+        @apply block text-sm font-medium text-gray-700 mb-2;
+    }
+
+    .field-input {
+        @apply w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white;
+        @apply transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100;
+        @apply disabled:bg-gray-50 disabled:text-gray-500;
+    }
+
+    .field-hint {
+        @apply text-xs text-gray-500 mt-1;
+    }
+
+    .field-error {
+        @apply text-xs mt-1;
+        color: var(--action-danger);
+    }
+
+    /* Marca de campo obligatorio: un solo tratamiento en todo el
+       panel, en vez de asteriscos negros aquí y rojos allá. */
+    .req::after {
+        content: ' *';
+        color: var(--action-danger);
+        font-weight: 600;
     }
 }
 

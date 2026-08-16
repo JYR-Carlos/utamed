@@ -23,6 +23,7 @@
     isRoot,
     isGlobalContext,
   } from '@/utils/contextType.utils';
+  import { roleLabel, roleDescription } from '@/utils/rol.utils';
   import { SvelteSet } from 'svelte/reactivity';
 
   // ─── Types ────────────────────────────────────────────────────────────
@@ -143,6 +144,12 @@
 
   // ─── Derived ──────────────────────────────────────────────────────────
   let totalSteps = $derived(4);
+
+  let nombreUsuario = $derived(
+    [usuario?.nombre1, usuario?.apellido1].filter(Boolean).join(' ') ||
+      usuario?.username ||
+      'Usuario',
+  );
 
   let stepTitles = $derived.by(() => {
     switch (currentStep) {
@@ -553,6 +560,11 @@
   }
 
   async function handleSave() {
+    // Guarda de reentrada. `disabled={isSaving}` no basta: entre la
+    // asignación y el repintado del DOM cabe un segundo clic, y el POST
+    // salía dos veces —la segunda chocaba con la asignación recién creada
+    // y cerraba el asistente a mitad de revisión.
+    if (isSaving || successMsg) return;
     isSaving = true;
     errorMsg = '';
     try {
@@ -618,9 +630,10 @@
   let isRevoking = $state(false);
 
   async function revokeRole(asignacion: UserRoleAssignment) {
+    if (isRevoking) return;
     if (
       !confirm(
-        `¿Revocar el rol "${asignacion.nombre}"${asignacion.contexto_display ? ` en ${asignacion.contexto_display}` : ''}?`,
+        `¿Revocar el rol "${roleLabel(asignacion.nombre)}"${asignacion.contexto_display ? ` en ${asignacion.contexto_display}` : ''}?`,
       )
     )
       return;
@@ -650,7 +663,7 @@
   }
 
   async function revokePermission(perm: UserSpecialPermissionAssignment) {
-    if (!perm.id_upe) return;
+    if (!perm.id_upe || isRevoking) return;
     if (
       !confirm(
         `¿Revocar el permiso "${perm.nombre ?? perm.slug}"${perm.contexto_display ? ` en ${perm.contexto_display}` : ''}?`,
@@ -705,10 +718,15 @@
         <div class="flex justify-between items-start">
           <div class="flex-1">
             <div class="flex items-center gap-2 mb-1.5">
+              <!-- Se concede acceso a una persona, no a un nombre de cuenta:
+                   el asistente identificaba al usuario sólo por su username. -->
               <span
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"
+                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"
               >
-                {usuario?.username || 'Usuario'}
+                {nombreUsuario}
+                {#if usuario?.username}
+                  <span class="font-normal text-blue-500">{usuario.username}</span>
+                {/if}
               </span>
               {#if flow}
                 <span
@@ -718,7 +736,7 @@
                   class:bg-amber-100={flow === 'permission'}
                   class:text-amber-700={flow === 'permission'}
                 >
-                  {flow === 'role' ? '👔 Rol' : '🔐 Permiso Especial'}
+                  {flow === 'role' ? 'Rol' : 'Permiso especial'}
                 </span>
               {/if}
             </div>
@@ -765,11 +783,15 @@
       <!-- ════════════════════════════════ -->
       <!-- CONTENT AREA (scrollable)       -->
       <!-- ════════════════════════════════ -->
-      <div class="flex-1 overflow-hidden relative">
+      <!-- `min-h-0` es lo que permite que el panel interior haga scroll: sin
+           él, un hijo flex no se encoge por debajo de su contenido, el área
+           crecía más que el modal y las últimas tarjetas de rol quedaban
+           inalcanzables bajo el pie fijo. -->
+      <div class="flex-1 min-h-0 flex flex-col relative">
         <!-- Error Banner -->
         {#if errorMsg}
           <div
-            class="mx-8 mt-4 bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 text-sm flex items-start gap-2"
+            class="mx-8 mt-4 shrink-0 bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 text-sm flex items-start gap-2"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -799,7 +821,7 @@
         <!-- Success Banner -->
         {#if successMsg}
           <div
-            class="mx-8 mt-4 bg-green-50 text-green-700 p-3 rounded-lg border border-green-200 text-sm flex items-start gap-2"
+            class="mx-8 mt-4 shrink-0 bg-green-50 text-green-700 p-3 rounded-lg border border-green-200 text-sm flex items-start gap-2"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -817,7 +839,7 @@
 
         <!-- Loading State -->
         {#if isLoading && currentStep === 1}
-          <div class="flex items-center justify-center h-64 text-gray-400">
+          <div class="flex items-center justify-center h-64 text-gray-400 shrink-0">
             <div class="flex flex-col items-center gap-3">
               <div
                 class="w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"
@@ -828,7 +850,7 @@
         {:else}
           <!-- Animated content pane -->
           <div
-            class="h-full overflow-y-auto p-8 transition-all duration-300 ease-in-out"
+            class="flex-1 min-h-0 overflow-y-auto p-8 transition-all duration-300 ease-in-out"
             class:translate-x-4={isAnimating && slideDirection === 'forward'}
             class:-translate-x-4={isAnimating && slideDirection === 'backward'}
             class:opacity-0={isAnimating}
@@ -854,12 +876,14 @@
                   disabled={hideRoles}
                 >
                   <div
-                    class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition"
+                    class="w-16 h-16 rounded-2xl flex items-center justify-center transition text-purple-600"
                     class:bg-purple-100={flow === 'role'}
                     class:bg-gray-100={flow !== 'role'}
                     class:group-hover:bg-purple-100={flow !== 'role'}
                   >
-                    👔
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M17 20h5v-2a3 3 0 00-5.36-1.9M17 20H7m10 0v-2c0-.66-.13-1.29-.36-1.86M7 20H2v-2a3 3 0 015.36-1.9M7 20v-2c0-.66.13-1.29.36-1.86m0 0a5 5 0 019.28 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
                   </div>
                   <div>
                     <h3 class="text-lg font-bold text-gray-900">Asignar Rol</h3>
@@ -909,12 +933,15 @@
                   onclick={() => selectFlow('permission')}
                 >
                   <div
-                    class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition"
+                    class="w-16 h-16 rounded-2xl flex items-center justify-center transition text-amber-600"
                     class:bg-amber-100={flow === 'permission'}
                     class:bg-gray-100={flow !== 'permission'}
                     class:group-hover:bg-amber-100={flow !== 'permission'}
                   >
-                    🔐
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0110 0v4" />
+                    </svg>
                   </div>
                   <div>
                     <h3 class="text-lg font-bold text-gray-900">Permiso Especial</h3>
@@ -963,8 +990,7 @@
                             title="Ver permisos de este rol"
                             class="inline-flex items-center gap-1.5 bg-transparent border-none cursor-pointer text-inherit font-inherit p-0"
                           >
-                            <span>👔</span>
-                            {asignacion.nombre}
+                            {roleLabel(asignacion.nombre)}
                             {#if asignacion.contexto_display || asignacion.curso_nombre}
                               <span class="text-purple-500 text-xs">
                                 ({asignacion.contexto_display}{asignacion.curso_nombre
@@ -1027,29 +1053,56 @@
                   />
                 </div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <!-- Lista, no rejilla de iconos: el emoji era el mismo en las
+                     14 tarjetas y ocupaba el sitio donde hace falta saber qué
+                     concede cada rol. -->
+                <div class="flex flex-col gap-1.5">
                   {#if filteredRoles.length === 0}
-                    <div class="col-span-full text-center py-10 text-gray-400 text-sm">
+                    <div class="text-center py-10 text-gray-400 text-sm">
                       No se encontraron roles.
                     </div>
                   {:else}
-                    {#each filteredRoles as rol}
+                    {#each filteredRoles as rol (rol.id_rol)}
+                      {@const isSelected = selectedRole?.id_rol === rol.id_rol}
                       <button
-                        class="p-5 rounded-xl border-2 transition-all text-center cursor-pointer bg-white"
-                        class:border-purple-400={selectedRole?.id_rol === rol.id_rol}
-                        class:bg-purple-50={selectedRole?.id_rol === rol.id_rol}
-                        class:font-semibold={selectedRole?.id_rol === rol.id_rol}
-                        class:text-purple-700={selectedRole?.id_rol === rol.id_rol}
-                        class:ring-1={selectedRole?.id_rol === rol.id_rol}
-                        class:ring-purple-300={selectedRole?.id_rol === rol.id_rol}
-                        class:border-gray-200={selectedRole?.id_rol !== rol.id_rol}
-                        class:hover:border-purple-300={selectedRole?.id_rol !== rol.id_rol}
-                        class:hover:bg-purple-100={selectedRole?.id_rol !== rol.id_rol}
-                        class:text-gray-700={selectedRole?.id_rol !== rol.id_rol}
+                        class="flex items-start gap-3 px-4 py-3 rounded-lg border-2 text-left transition-all cursor-pointer bg-white"
+                        class:border-purple-400={isSelected}
+                        class:bg-purple-50={isSelected}
+                        class:border-gray-200={!isSelected}
+                        class:hover:border-purple-300={!isSelected}
+                        class:hover:bg-purple-50={!isSelected}
                         onclick={() => (selectedRole = rol)}
                       >
-                        <span class="text-2xl block mb-2">👔</span>
-                        <span class="text-sm">{rol.nombre}</span>
+                        <span
+                          class="mt-1 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center"
+                          class:border-purple-500={isSelected}
+                          class:border-gray-300={!isSelected}
+                        >
+                          {#if isSelected}
+                            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                          {/if}
+                        </span>
+                        <span class="flex-1 min-w-0">
+                          <span
+                            class="block text-sm font-semibold"
+                            class:text-purple-800={isSelected}
+                            class:text-gray-800={!isSelected}
+                          >
+                            {roleLabel(rol.nombre)}
+                          </span>
+                          {#if roleDescription(rol.nombre)}
+                            <span class="block text-xs text-gray-500 mt-0.5">
+                              {roleDescription(rol.nombre)}
+                            </span>
+                          {/if}
+                          {#if rol.valid_assignment_context_types?.length}
+                            <span class="block text-[11px] text-gray-400 mt-1">
+                              Se puede asignar en: {rol.valid_assignment_context_types
+                                .map((ct) => getLabel(ct))
+                                .join(', ')}
+                            </span>
+                          {/if}
+                        </span>
                       </button>
                     {/each}
                   {/if}
@@ -1079,7 +1132,9 @@
                             ? `Contexto: ${perm.contexto_display}${perm.curso_nombre ? ` - ${perm.curso_nombre}` : ''}`
                             : 'Contexto global'}
                         >
-                          <span>{perm.esta_permitido ? '✅' : '🚫'}</span>
+                          <span class="text-[11px] font-bold uppercase tracking-wide opacity-70">
+                            {perm.esta_permitido ? 'Otorgado' : 'Denegado'}
+                          </span>
                           <span>{perm.nombre ?? perm.slug}</span>
                           {#if perm.contexto_display || perm.curso_nombre}
                             <span class="opacity-60 text-xs">
@@ -1176,8 +1231,16 @@
                               perm.id_permiso}
                             onclick={() => (selectedPermission = perm)}
                           >
-                            <span class="flex-shrink-0 text-base">
-                              {selectedPermission?.id_permiso === perm.id_permiso ? '🟡' : '⚪'}
+                            <span
+                              class="shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center"
+                              class:border-amber-500={selectedPermission?.id_permiso ===
+                                perm.id_permiso}
+                              class:border-gray-300={selectedPermission?.id_permiso !==
+                                perm.id_permiso}
+                            >
+                              {#if selectedPermission?.id_permiso === perm.id_permiso}
+                                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                              {/if}
                             </span>
                             <div class="flex-1 min-w-0">
                               <div class="font-medium truncate">
@@ -1272,14 +1335,18 @@
                           }
                         }}
                       >
-                        <span class="text-xl flex-shrink-0">
-                          {#if ctxType.type === ContextType.GLOBAL}🌐
-                          {:else if ctxType.type === ContextType.FACULTAD}🏛️
-                          {:else if ctxType.type === ContextType.DEPARTAMENTO}🏢
-                          {:else if ctxType.type === ContextType.CARRERA}🎓
-                          {:else if ctxType.type === ContextType.CURSO}📚
-                          {:else if ctxType.type === ContextType.ACTIVIDAD}📋
-                          {:else}📦{/if}
+                        <!-- El nivel jerárquico se lee por el sangrado del
+                             punto, no por un emoji distinto en cada fila. -->
+                        <span class="shrink-0 flex items-center justify-center w-5">
+                          <span
+                            class="rounded-full"
+                            class:w-2.5={ctxType.type === ContextType.GLOBAL}
+                            class:h-2.5={ctxType.type === ContextType.GLOBAL}
+                            class:w-2={ctxType.type !== ContextType.GLOBAL}
+                            class:h-2={ctxType.type !== ContextType.GLOBAL}
+                            class:bg-blue-500={selectedContextType?.type === ctxType.type}
+                            class:bg-gray-300={selectedContextType?.type !== ctxType.type}
+                          ></span>
                         </span>
                         <div class="flex-1 min-w-0">
                           <div class="font-medium text-gray-900 text-sm">
@@ -1826,9 +1893,16 @@
                       <div
                         class="flex items-start gap-3 px-4 py-3 rounded-lg border border-gray-100 bg-gray-50 hover:bg-gray-100 transition-colors"
                       >
-                        <span class="text-base flex-shrink-0 mt-0.5"
-                          >{perm.slug === '*' ? '⚡' : '🔐'}</span
-                        >
+                        <span class="shrink-0 mt-1 text-purple-500" aria-hidden="true">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            {#if perm.slug === '*'}
+                              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                            {:else}
+                              <rect x="3" y="11" width="18" height="11" rx="2" />
+                              <path d="M7 11V7a5 5 0 0110 0v4" />
+                            {/if}
+                          </svg>
+                        </span>
                         <div class="flex-1 min-w-0">
                           <div class="flex items-center gap-2 flex-wrap">
                             <span class="text-sm font-semibold text-gray-800">{perm.nombre}</span>

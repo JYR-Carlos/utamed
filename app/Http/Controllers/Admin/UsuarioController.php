@@ -233,6 +233,10 @@ class UsuarioController extends Controller
             'usuarios' => $usuarios,
             'tipo' => $tipo,
             'carreras' => $carreras,
+            // El formato del archivo de importación se declara en el servidor
+            // y se muestra en el modal, de modo que la pantalla y la plantilla
+            // descargable no puedan describir columnas distintas.
+            'columnasImportacion' => self::columnasImportacion($tipo),
         ]);
     }
 
@@ -342,6 +346,180 @@ class UsuarioController extends Controller
     }
 
     /**
+     * Columnas que espera el archivo de importación, en orden, por tipo.
+     *
+     * Es la única definición del formato: de aquí salen la plantilla que se
+     * descarga y la especificación que ve el administrador en pantalla, de
+     * modo que no puedan desincronizarse con {@see self::mapearFila()}.
+     *
+     * @return array<int, array{campo: string, etiqueta: string, obligatorio: bool, ejemplo: string}>
+     */
+    public static function columnasImportacion(string $tipo): array
+    {
+        $comunes = [
+            ['campo' => 'rut',       'etiqueta' => 'RUT',             'obligatorio' => true,  'ejemplo' => '12345678-9'],
+            ['campo' => 'nombre1',   'etiqueta' => 'Primer nombre',   'obligatorio' => true,  'ejemplo' => 'Juan'],
+            ['campo' => 'nombre2',   'etiqueta' => 'Segundo nombre',  'obligatorio' => false, 'ejemplo' => 'Carlos'],
+            ['campo' => 'apellido1', 'etiqueta' => 'Primer apellido', 'obligatorio' => true,  'ejemplo' => 'González'],
+            ['campo' => 'apellido2', 'etiqueta' => 'Segundo apellido', 'obligatorio' => false, 'ejemplo' => 'Pérez'],
+            ['campo' => 'email',     'etiqueta' => 'Email',           'obligatorio' => false, 'ejemplo' => 'juan@ejemplo.cl'],
+            ['campo' => 'username',  'etiqueta' => 'Usuario',         'obligatorio' => true,  'ejemplo' => 'jgonzalez'],
+            ['campo' => 'password',  'etiqueta' => 'Contraseña',      'obligatorio' => true,  'ejemplo' => 'Utamed2026'],
+        ];
+
+        return match ($tipo) {
+            'estudiante' => [
+                ...$comunes,
+                ['campo' => 'agno_ingreso', 'etiqueta' => 'Año de ingreso', 'obligatorio' => false, 'ejemplo' => '2026'],
+                ['campo' => 'id_carrera',   'etiqueta' => 'ID de carrera',  'obligatorio' => false, 'ejemplo' => '1'],
+            ],
+            'docente' => [
+                ...$comunes,
+                ['campo' => 'grado',  'etiqueta' => 'Grado académico', 'obligatorio' => false, 'ejemplo' => 'Magíster'],
+                ['campo' => 'titulo', 'etiqueta' => 'Título',          'obligatorio' => false, 'ejemplo' => 'Ingeniero Civil'],
+                ['campo' => 'cargo',  'etiqueta' => 'Cargo',           'obligatorio' => false, 'ejemplo' => 'Profesor Titular'],
+            ],
+            default => $comunes,
+        };
+    }
+
+    /**
+     * GET /admin/usuarios/plantilla-importacion
+     *
+     * Devuelve un CSV con la fila de encabezados y una fila de ejemplo. Sin
+     * esto, el administrador tenía que adivinar el orden de las columnas y
+     * sólo descubría el error cuando la importación fallaba entera.
+     */
+    public function plantillaImportacion(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $this->authorize('create', Usuario::class);
+
+        $tipo = $request->input('tipo', 'estudiante');
+        abort_unless(in_array($tipo, ['estudiante', 'docente', 'administrador'], true), 404);
+
+        $columnas = self::columnasImportacion($tipo);
+
+        return response()->streamDownload(function () use ($columnas) {
+            $salida = fopen('php://output', 'w');
+            // BOM para que Excel abra el CSV en UTF-8 y no rompa los acentos.
+            fwrite($salida, "\xEF\xBB\xBF");
+            fputcsv($salida, array_column($columnas, 'etiqueta'));
+            fputcsv($salida, array_column($columnas, 'ejemplo'));
+            fclose($salida);
+        }, "plantilla-{$tipo}s.csv", ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * POST /admin/usuarios/importar/previsualizar
+     *
+     * Ejecuta la misma validación que la importación real pero sin escribir
+     * nada, y devuelve TODOS los errores encontrados en vez de detenerse en
+     * el primero. Es lo que permite que el administrador vea qué filas están
+     * mal —y en qué— antes de confirmar.
+     *
+     * @return JsonResponse
+     */
+    public function previsualizarImportacion(Request $request): JsonResponse
+    {
+        $this->authorize('create', Usuario::class);
+
+        $request->validate([
+            'file' => 'required|mimes:xlsx,csv,xls|max:5120',
+            'tipo' => 'required|in:estudiante,docente,administrador',
+        ]);
+
+        $tipo = $request->input('tipo');
+
+        $filasValidas = 0;
+        $errores      = [];
+        // Los RUT y usuarios repetidos DENTRO del archivo no los detecta
+        // `Rule::unique`, que sólo mira la base de datos.
+        $rutsVistos      = [];
+        $usernamesVistos = [];
+
+        $importacion = new UsuariosImport(
+            procesarFila: function (array $fila, int $numeroFilaExcel) use (
+                $tipo,
+                &$filasValidas,
+                &$errores,
+                &$rutsVistos,
+                &$usernamesVistos
+            ): void {
+                $datos = $this->mapearFila($fila, $tipo);
+
+                $mensajes = $this->erroresDeFila($datos, $tipo);
+
+                if ($datos['rut'] && isset($rutsVistos[$datos['rut']])) {
+                    $mensajes[] = "El RUT se repite en la fila {$rutsVistos[$datos['rut']]} del archivo.";
+                } elseif ($datos['rut']) {
+                    $rutsVistos[$datos['rut']] = $numeroFilaExcel;
+                }
+
+                if ($datos['username'] && isset($usernamesVistos[$datos['username']])) {
+                    $mensajes[] = "El usuario se repite en la fila {$usernamesVistos[$datos['username']]} del archivo.";
+                } elseif ($datos['username']) {
+                    $usernamesVistos[$datos['username']] = $numeroFilaExcel;
+                }
+
+                if ($mensajes === []) {
+                    $filasValidas++;
+                    return;
+                }
+
+                $errores[] = [
+                    'fila'      => $numeroFilaExcel,
+                    'rut'       => $datos['rut'],
+                    'nombre'    => trim(($datos['nombre1'] ?? '') . ' ' . ($datos['apellido1'] ?? '')),
+                    'problemas' => $mensajes,
+                ];
+            },
+            maxFilas: self::MAX_FILAS_IMPORTACION
+        );
+
+        try {
+            Excel::import($importacion, $request->file('file'));
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'ok'      => false,
+                'mensaje' => collect($e->errors())->flatten()->first(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Error al previsualizar importación', ['tipo' => $tipo, 'error' => $e->getMessage()]);
+
+            return response()->json([
+                'ok'      => false,
+                'mensaje' => 'No se pudo leer el archivo. Revisa que sea .xlsx o .csv y que tenga la fila de encabezados.',
+            ], 422);
+        }
+
+        return response()->json([
+            'ok'            => true,
+            'total'         => $importacion->totalProcesadas(),
+            'validas'       => $filasValidas,
+            'con_problemas' => count($errores),
+            // Se acotan para no devolver miles de errores a la pantalla.
+            'errores'       => array_slice($errores, 0, 50),
+            'errores_omitidos' => max(0, count($errores) - 50),
+        ]);
+    }
+
+    /**
+     * Errores de validación de una fila, sin lanzar excepción.
+     *
+     * {@see self::validarFila()} corta en el primer fallo porque la
+     * importación real es transaccional; la previsualización necesita
+     * justamente lo contrario: verlos todos.
+     *
+     * @return array<int, string>
+     */
+    private function erroresDeFila(array $datos, string $tipo): array
+    {
+        $validador = Validator::make($datos, $this->reglasDeFila($tipo));
+
+        return $validador->fails() ? $validador->errors()->all() : [];
+    }
+
+    /**
      * Deja el RUT del request en el formato con el que se guarda ({@see Rut}).
      *
      * Tiene que pasar ANTES de validar: las reglas `unique` comparan texto, así
@@ -396,7 +574,11 @@ class UsuarioController extends Controller
             'agno_ingreso' => 'nullable|integer|min:1900|max:2100',
             'id_carrera'   => ['nullable', Rule::exists(Carrera::class, 'id_carrera')],
             'username'     => ['required', 'string', 'max:10', Rule::unique(Usuario::class, 'username')],
-            'password'     => 'required|string|min:6',
+            // Password::defaults() es la política del sistema (AppServiceProvider).
+            // Antes aquí había min:6 y en cambio-de-contraseña min:8+letras+números,
+            // de modo que el alta aceptaba claves que luego el propio sistema
+            // rechazaba al primer cambio.
+            'password'     => ['required', 'string', Password::defaults()],
         ]);
 
         DB::beginTransaction();
@@ -441,7 +623,7 @@ class UsuarioController extends Controller
             'titulo'    => 'nullable|string|max:255',
             'cargo'     => 'nullable|string|max:100',
             'username'  => ['required', 'string', 'max:10', Rule::unique(Usuario::class, 'username')],
-            'password'  => 'required|string|min:6',
+            'password'  => ['required', 'string', Password::defaults()],
         ]);
 
         DB::beginTransaction();
@@ -480,7 +662,7 @@ class UsuarioController extends Controller
             'apellido2' => 'nullable|string|max:255',
             'email'     => 'nullable|email|max:255',
             'username'  => ['required', 'string', 'max:30', Rule::unique(Usuario::class, 'username')],
-            'password'  => 'required|string|min:6',
+            'password'  => ['required', 'string', Password::defaults()],
         ]);
 
         DB::beginTransaction();
@@ -620,14 +802,23 @@ class UsuarioController extends Controller
         return $datos;
     }
 
-    private function validarFila(array $datos, string $tipo, int $numeroFila)
+    /**
+     * Reglas de una fila del archivo de importación.
+     *
+     * Vive aparte para que la previsualización y la importación real validen
+     * exactamente lo mismo: si divergen, el administrador aprueba una
+     * previsualización limpia y la importación falla igualmente.
+     *
+     * @return array<string, mixed>
+     */
+    private function reglasDeFila(string $tipo): array
     {
         $reglas = [
             'rut'       => ['required', 'string', 'max:20', new RutValido],
             'nombre1'   => 'required|string|max:100',
             'apellido1' => 'required|string|max:100',
-            'username'  => ['required', 'string', 'max:30', Rule::unique(Usuario::class, 'username')], 
-            'password'  => 'required|string|min:6',
+            'username'  => ['required', 'string', 'max:30', Rule::unique(Usuario::class, 'username')],
+            'password'  => ['required', 'string', Password::defaults()],
             'email'     => 'nullable|email|max:255',
         ];
 
@@ -641,13 +832,18 @@ class UsuarioController extends Controller
             $reglas['titulo'] = 'nullable|string|max:255';
         }
 
+        return $reglas;
+    }
+
+    private function validarFila(array $datos, string $tipo, int $numeroFila)
+    {
         $mensajes = [
             'required' => "Fila {$numeroFila}: El campo :attribute es obligatorio.",
             'unique'   => "Fila {$numeroFila}: El :attribute ya existe en el sistema.",
             'exists'   => "Fila {$numeroFila}: El ID de carrera no existe.",
         ];
 
-        Validator::make($datos, $reglas, $mensajes)->validate();
+        Validator::make($datos, $this->reglasDeFila($tipo), $mensajes)->validate();
     }
 
     // FIN BLOQUE DE INSERCIONES EN DB

@@ -171,17 +171,20 @@ export function getLabel(contextType: ContextType): string {
  * @param contextType - The context type to get description for
  * @returns Description of the context type
  *
+ * Debe coincidir con lo que devuelve AssignmentWizardController::getContextTypes();
+ * esto es el respaldo cuando el backend no manda descripción.
+ *
  * @example
- *   getDescription(ContextType.CARRERA)  // → "Restricción a una carrera específica"
+ *   getDescription(ContextType.CARRERA)  // → "Solo dentro de una carrera"
  */
 export function getDescription(contextType: ContextType): string {
   const descriptions: Record<ContextType, string> = {
-    [ContextType.GLOBAL]: 'Aplica en todos los contextos del sistema',
-    [ContextType.ACTIVIDAD]: 'Restricción a una actividad específica',
-    [ContextType.CARRERA]: 'Restricción a una carrera específica',
-    [ContextType.CURSO]: 'Restricción a un curso específico',
-    [ContextType.DEPARTAMENTO]: 'Restricción a un departamento específico',
-    [ContextType.FACULTAD]: 'Restricción a una facultad específica',
+    [ContextType.GLOBAL]: 'Aplica en todo el sistema',
+    [ContextType.ACTIVIDAD]: 'Solo dentro de una actividad',
+    [ContextType.CARRERA]: 'Solo dentro de una carrera',
+    [ContextType.CURSO]: 'Solo dentro de un curso',
+    [ContextType.DEPARTAMENTO]: 'Solo dentro de un departamento',
+    [ContextType.FACULTAD]: 'Solo dentro de una facultad',
   };
 
   return descriptions[contextType] || '';

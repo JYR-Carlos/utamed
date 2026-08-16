@@ -8,6 +8,11 @@
 		onSubmit: () => void;
 		submitLabel?: string;
 		isLoading?: boolean;
+		/**
+		 * Bloquea el envío sin mostrar el spinner: para cuando el formulario
+		 * aún no está completo, que no es lo mismo que estar procesando.
+		 */
+		submitDisabled?: boolean;
 		/** Contenido del cuerpo del modal (formulario). */
 		children?: Snippet;
 	}
@@ -19,6 +24,7 @@
 		onSubmit,
 		submitLabel = 'Guardar',
 		isLoading = false,
+		submitDisabled = false,
 		children
 	}: Props = $props();
 
@@ -64,7 +70,7 @@
 
 			<div class="modal-footer">
 				<button onclick={onClose} class="btn-cancel" disabled={isLoading}>Cancelar</button>
-				<button onclick={onSubmit} class="btn-submit" disabled={isLoading}>
+				<button onclick={onSubmit} class="btn-submit" disabled={isLoading || submitDisabled}>
 					{#if isLoading}
 						<span class="spinner"></span>
 					{/if}

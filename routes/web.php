@@ -129,6 +129,15 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::get('usuarios/buscar-por-rut', [UsuarioController::class, 'buscarPorRut'])
         ->name('usuarios.buscarPorRut');
 
+    // Importación masiva: plantilla → previsualización → importación. Las tres
+    // van antes del resource para que 'usuarios/importar' no se interprete
+    // como 'usuarios/{usuario}'.
+    Route::get('usuarios/plantilla-importacion', [UsuarioController::class, 'plantillaImportacion'])
+        ->name('usuarios.plantilla-importacion');
+
+    Route::post('usuarios/importar/previsualizar', [UsuarioController::class, 'previsualizarImportacion'])
+        ->name('usuarios.importar.previsualizar');
+
     Route::post('usuarios/importar', [UsuarioController::class, 'import'])
         ->name('usuarios.importar');
 

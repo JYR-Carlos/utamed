@@ -278,6 +278,7 @@
 
 <InscripcionDeleteConfirm
   bind:isOpen={showDeleteConfirm}
+  {inscripcion}
   onConfirm={confirmDelete}
   onCancel={cancelDelete}
 />

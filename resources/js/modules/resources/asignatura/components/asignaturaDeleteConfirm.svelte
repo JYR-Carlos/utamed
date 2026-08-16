@@ -8,7 +8,7 @@
    * visita exitosa, así que el modal se cierra en ambos casos y el resultado
    * lo comunica el flash; onError solo cubre errores de validación (422).
    */
-  import DeleteConfirmation from '@/components/custom/admin/DeleteConfirmation.svelte';
+  import ConfirmationModal from '@/components/admin/ConfirmationModal.svelte';
   import { router } from '@inertiajs/svelte';
   import type { Asignatura } from '@/types/admin.types';
 
@@ -35,7 +35,9 @@
   let isLoading = $state(false);
 
   function handleConfirm() {
-    if (!deletingAsignatura) return;
+    // isLoading bloquea el botón en ConfirmationModal, de modo que un
+    // segundo clic no puede duplicar el DELETE.
+    if (!deletingAsignatura || isLoading) return;
     isLoading = true;
     router.delete(`${routePrefix}/asignaturas/${deletingAsignatura.id_asignatura}`, {
       onSuccess: () => {
@@ -50,10 +52,18 @@
   }
 </script>
 
-<DeleteConfirmation
+<ConfirmationModal
   bind:isOpen
-  title="¿Eliminar Asignatura?"
-  message="Esta acción no se puede deshacer. Si la asignatura está asignada a planes, no podrá ser eliminada."
+  tone="danger"
+  title="Eliminar asignatura"
+  recordName={deletingAsignatura?.nombre ?? null}
+  recordMeta={[
+    deletingAsignatura?.cod_asignatura ?? '',
+    deletingAsignatura?.creditos_sct ? `${deletingAsignatura.creditos_sct} créditos SCT` : '',
+  ]}
+  message="La asignatura se elimina del catálogo de forma definitiva. Si está incluida en algún plan de estudio, el sistema no permitirá eliminarla."
+  confirmPhrase={deletingAsignatura?.cod_asignatura ?? null}
+  confirmLabel="Eliminar asignatura"
   onConfirm={handleConfirm}
   {onCancel}
   {isLoading}
