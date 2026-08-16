@@ -18,6 +18,7 @@
    */
   import { router } from '@inertiajs/svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
+  import PageHeader from '@/components/admin/PageHeader.svelte';
   import ConfirmationModal from '@/components/admin/ConfirmationModal.svelte';
   import PermissionsModal from '@/components/custom/admin/permissions-modal/PermissionsModal.svelte';
   import {
@@ -419,42 +420,26 @@
 
 <AdminLayout {breadcrumbs}>
   <div>
-    <div class="flex justify-between items-start mb-6">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900 mb-1">Usuarios</h1>
-        <p class="text-sm text-gray-500">Gestión de estudiantes, docentes y administradores</p>
-      </div>
-      <div class="flex gap-4">
-        <button
-          onclick={openCreateModal}
-          class="group relative flex items-center justify-start h-12 w-12 hover:w-48 bg-linear-to-br from-blue-500 to-blue-600 text-white rounded-full font-medium cursor-pointer transition-all duration-500 ease-in-out shadow-sm active:scale-95 overflow-hidden px-3"
-        >
-          <div class="flex items-center justify-center shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-          </div>
-          <span class="ml-3 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-in-out">
-            Nuevo {USER_TYPE_LABELS[currentTipo]}
-          </span>
+    <PageHeader title="Usuarios" subtitle="Gestión de estudiantes, docentes y administradores">
+      {#snippet secondaryActions()}
+        <!-- Importar es secundaria y va etiquetada: el círculo verde con
+             flecha de descarga sugería exportar, justo lo contrario. -->
+        <button onclick={openImportModal} class="btn btn-neutral">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V3m0 0L7.5 7.5M12 3l4.5 4.5M3.75 16.5v2.25A2.25 2.25 0 0 0 6 21h12a2.25 2.25 0 0 0 2.25-2.25V16.5" />
+          </svg>
+          Importar desde archivo
         </button>
-
-        <button
-          onclick={openImportModal}
-          class="group relative flex items-center justify-start h-12 w-12 hover:w-56 bg-linear-to-br from-green-500 to-green-600 text-white rounded-full font-medium cursor-pointer transition-all duration-500 ease-in-out shadow-sm active:scale-95 overflow-hidden px-3"
-        >
-          <div class="flex items-center justify-center shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
-            </svg>
-          </div>
-          <span class="ml-3 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out-in">
-            Importar {USER_TYPE_LABELS[currentTipo]}s
-          </span>
+      {/snippet}
+      {#snippet primaryAction()}
+        <button onclick={openCreateModal} class="btn btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          Nuevo {USER_TYPE_LABELS[currentTipo].toLowerCase()}
         </button>
-      </div>
-      
-    </div>
+      {/snippet}
+    </PageHeader>
 
     <div class="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit mb-6">
       <button

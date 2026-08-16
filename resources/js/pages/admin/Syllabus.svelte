@@ -1,5 +1,6 @@
 <script lang="ts">
   import AdminLayout from '@/layouts/AdminLayout.svelte';
+  import PageHeader from '@/components/admin/PageHeader.svelte';
   import { router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import {
@@ -289,17 +290,13 @@
 </script>
 
 <AdminLayout {breadcrumbs}>
-  <div class="container mx-auto max-w-7xl">
-    <!-- Encabezado -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-slate-900 mb-1 flex items-center gap-3">
-        <BookOpen class="text-blue-600" size={32} />
-        Syllabus de Cursos
-      </h1>
-      <p class="text-slate-500 text-sm">
-        Gestión de syllabus y fechas límite de entrega. Solo administradores.
-      </p>
-    </div>
+  <div>
+    <!-- El icono junto al título sólo aparecía aquí, y «Solo
+         administradores» describía el permiso, no la tarea. -->
+    <PageHeader
+      title="Syllabus de cursos"
+      subtitle="Define la fecha límite de entrega y crea el syllabus de cada curso."
+    />
 
     <!-- Filtros -->
     <Card.Root class="mb-6 shadow-sm">

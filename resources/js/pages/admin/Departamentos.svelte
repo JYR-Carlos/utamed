@@ -15,6 +15,7 @@
    */
   import { page } from '@inertiajs/svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
+  import PageHeader from '@/components/admin/PageHeader.svelte';
   import DepartamentoList from '@/modules/resources/departamento/components/departamentoList.svelte';
   import DepartamentoForm from '@/modules/resources/departamento/components/departamentoForm.svelte';
   import DepartamentoDeleteConfirm from '@/modules/resources/departamento/components/departamentoDeleteConfirm.svelte';
@@ -161,34 +162,30 @@
 
 <AdminLayout {breadcrumbs}>
   <div>
-    <div class="flex justify-between items-start mb-8">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900 mb-1">Departamentos</h1>
-        <p class="text-sm text-gray-500">Gestión de departamentos por facultad</p>
-      </div>
-      {#if canCreate}
-        <button
-          onclick={openCreateModal}
-          class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0 rounded-lg font-medium cursor-pointer transition-all shadow-sm active:scale-95"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          Nuevo Departamento
-        </button>
-      {/if}
-    </div>
+    <PageHeader title="Departamentos" subtitle="Gestión de departamentos por facultad">
+      {#snippet primaryAction()}
+        {#if canCreate}
+          <button onclick={openCreateModal} class="btn btn-primary">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Nuevo departamento
+          </button>
+        {/if}
+      {/snippet}
+    </PageHeader>
 
     {#if flashSuccess}
       <div

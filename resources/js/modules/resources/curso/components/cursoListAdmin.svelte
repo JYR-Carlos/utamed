@@ -163,14 +163,8 @@
       {/each}
     </select>
 
-    <!-- Crear curso -->
-    <button
-      onclick={onCreateNew}
-      class="ml-auto flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:scale-[0.98] transition shadow-sm"
-    >
-      <Plus size={15} />
-      Crear Curso
-    </button>
+    <!-- La acción de crear vive en la cabecera de la página, como en el
+         resto de módulos; aquí quedaba enterrada entre los filtros. -->
   </div>
 
   <!-- ── Tabla ────────────────────────────────────────────────────────────── -->

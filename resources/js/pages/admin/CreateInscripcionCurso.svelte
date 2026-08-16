@@ -92,9 +92,9 @@
   }
 </script>
 
-<AdminLayout {breadcrumbs}>
-  <div class="max-w-2xl mx-auto px-4 sm:px-6 md:px-8">
-    <div class="py-6">
+<AdminLayout {breadcrumbs} width="narrow">
+  <div>
+    <div>
       <!-- Header -->
       <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900">Nueva Inscripción de Estudiante</h1>

@@ -64,9 +64,11 @@
   <table class="w-full text-sm">
     <thead class="bg-gray-50 border-b border-gray-200">
       <tr>
+        <!-- Sin columna ID: el identificador de la base de datos no le sirve
+             a quien gestiona facultades, y ninguna otra tabla lo mostraba. -->
         <th class="px-6 py-3 text-left font-semibold text-gray-700"></th>
-        <th class="px-6 py-3 text-left font-semibold text-gray-700">ID</th>
         <th class="px-6 py-3 text-left font-semibold text-gray-700">Nombre</th>
+        <th class="px-6 py-3 text-left font-semibold text-gray-700">Departamentos</th>
         <th class="px-6 py-3 text-left font-semibold text-gray-700">Acciones</th>
       </tr>
     </thead>
@@ -90,9 +92,6 @@
             </button>
           </td>
 
-          <!-- ID -->
-          <td class="px-6 py-3 text-gray-600">{facultad.id_facultad}</td>
-
           <!-- Nombre -->
           <td class="px-6 py-3 text-gray-900 font-medium">
             <div class="flex items-center gap-2">
@@ -100,36 +99,38 @@
                 {facultad.nombre}
               </span>
               {#if facultad.fecha_eliminacion}
-                <span
-                  class="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600"
-                >
-                  Eliminada
-                </span>
+                <span class="badge badge-off">Eliminada</span>
               {/if}
             </div>
           </td>
 
+          <!-- Cuántos departamentos cuelgan de ella: es el dato que la
+               columna ID ocupaba sin aportar nada. -->
+          <td class="px-6 py-3 text-gray-600">
+            {#if facultad.departamentos?.length}
+              {facultad.departamentos.length}
+            {:else}
+              <span class="text-gray-400">Ninguno</span>
+            {/if}
+          </td>
+
           <!-- Acciones -->
-          <td class="px-6 py-3 flex items-center gap-2">
-            {#if canEdit && !facultad.fecha_eliminacion}
-              <button
-                onclick={() => handleEdit(facultad)}
-                class="text-blue-600 hover:text-blue-800 font-medium text-xs border-0 bg-transparent cursor-pointer"
-              >
-                Editar
-              </button>
-            {/if}
-            {#if canDelete && !facultad.fecha_eliminacion}
-              <button
-                onclick={() => handleDelete(facultad)}
-                class="text-red-600 hover:text-red-800 font-medium text-xs border-0 bg-transparent cursor-pointer"
-              >
-                Eliminar
-              </button>
-            {/if}
-            {#if facultad.fecha_eliminacion}
-              <span class="text-gray-300 text-[11px] italic">No disponible</span>
-            {/if}
+          <td class="px-6 py-3">
+            <div class="flex items-center gap-1.5">
+              {#if canEdit && !facultad.fecha_eliminacion}
+                <button onclick={() => handleEdit(facultad)} class="btn btn-neutral btn-sm">
+                  Editar
+                </button>
+              {/if}
+              {#if canDelete && !facultad.fecha_eliminacion}
+                <button onclick={() => handleDelete(facultad)} class="btn btn-neutral btn-sm">
+                  Eliminar
+                </button>
+              {/if}
+              {#if facultad.fecha_eliminacion}
+                <span class="text-gray-400 text-xs">Eliminada</span>
+              {/if}
+            </div>
           </td>
         </tr>
 
@@ -137,6 +138,7 @@
         {#if expandedRows[facultad.id_facultad]}
           <tr class="bg-gray-50">
             <td colspan="4" class="px-6 py-4">
+              <!-- 4 columnas: expandir, nombre, departamentos, acciones -->
               <div class="space-y-4">
                 <!-- Encabezado de Departamentos -->
                 <div class="flex justify-between items-center mb-3">
@@ -144,10 +146,10 @@
                   {#if !facultad.fecha_eliminacion}
                     <button
                       onclick={() => handleAddDepartamento(facultad)}
-                      class="inline-flex items-center gap-1 text-sm px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md font-medium transition-colors border-0 cursor-pointer"
+                      class="btn btn-neutral btn-sm"
                     >
                       <Plus size={14} />
-                      Agregar
+                      Agregar departamento
                     </button>
                   {/if}
                 </div>
@@ -158,9 +160,8 @@
                     <table class="w-full text-sm bg-white rounded-lg border border-gray-200">
                       <thead class="bg-gray-50">
                         <tr>
-                          <th class="px-4 py-2 text-left font-semibold text-gray-700">ID</th>
                           <th class="px-4 py-2 text-left font-semibold text-gray-700">
-                            Nombre Departamento
+                            Nombre del departamento
                           </th>
                           <th class="px-4 py-2 text-left font-semibold text-gray-700">Acciones</th>
                         </tr>
@@ -170,7 +171,6 @@
                           <tr
                             class={`hover:bg-gray-50 ${dept.fecha_eliminacion ? 'opacity-60 bg-gray-50/40' : ''}`}
                           >
-                            <td class="px-4 py-2 text-gray-600">{dept.id_departamento}</td>
                             <td class="px-4 py-2">
                               <div class="flex items-center gap-2">
                                 <span
@@ -189,11 +189,11 @@
                             </td>
                             <td class="px-4 py-2">
                               {#if dept.fecha_eliminacion}
-                                <span class="text-gray-300 text-[11px] italic">No disponible</span>
+                                <span class="text-gray-400 text-xs">Eliminado</span>
                               {:else}
                                 <button
                                   onclick={() => handleDeleteDepartamento(dept.id_departamento)}
-                                  class="text-red-600 hover:text-red-800 font-medium text-xs inline-flex items-center gap-1 border-0 bg-transparent cursor-pointer"
+                                  class="btn btn-neutral btn-sm"
                                 >
                                   <Trash2 size={12} />
                                   Eliminar

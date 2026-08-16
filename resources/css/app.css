@@ -373,6 +373,14 @@
         color: var(--action-danger);
     }
 
+    /* Página actual en cualquier paginador del panel. */
+    .page-current {
+        background-color: var(--action-primary);
+        border-color: var(--action-primary);
+        color: var(--action-primary-fg);
+        font-weight: 600;
+    }
+
     /* Marca de campo obligatorio: un solo tratamiento en todo el
        panel, en vez de asteriscos negros aquí y rojos allá. */
     .req::after {

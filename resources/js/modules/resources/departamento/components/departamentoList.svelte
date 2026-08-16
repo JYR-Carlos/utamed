@@ -171,52 +171,31 @@
           </td>
           <!-- Acciones -->
           <td class="px-4 py-3">
+            <!-- Mismos botones que el resto de tablas del panel: antes eran
+                 enlaces de texto, y «Discontinuar» bloqueado se pintaba en
+                 gris claro, indistinguible de un enlace apagado. -->
             {#if !isDiscontinuado}
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1.5">
                 {#if canEdit}
-                  <button
-                    onclick={() => handleEdit(departamento)}
-                    class="text-blue-600 hover:text-blue-800 font-medium text-xs border-0 bg-transparent cursor-pointer"
-                  >
+                  <button onclick={() => handleEdit(departamento)} class="btn btn-neutral btn-sm">
                     Editar
                   </button>
                 {/if}
                 {#if canDelete}
-                  {#if carrerasCount > 0}
-                    <!-- Disabled with tooltip -->
-                    <span
-                      class="relative group inline-flex"
-                      title="Debe reasignar o discontinuar las carreras asociadas antes de cerrar este departamento."
-                    >
-                      <button
-                        disabled
-                        class="text-gray-300 font-medium text-xs border-0 bg-transparent cursor-not-allowed select-none"
-                      >
-                        Discontinuar
-                      </button>
-                      <!-- Tooltip -->
-                      <span
-                        class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded-md bg-gray-800 px-2.5 py-1.5 text-[11px] leading-snug text-white opacity-0 group-hover:opacity-100 transition-opacity z-50 text-center shadow-lg"
-                      >
-                        Debe reasignar o discontinuar las carreras asociadas antes de cerrar este
-                        departamento.
-                        <span
-                          class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"
-                        ></span>
-                      </span>
-                    </span>
-                  {:else}
-                    <button
-                      onclick={() => handleDelete(departamento)}
-                      class="text-red-500 hover:text-red-700 font-medium text-xs border-0 bg-transparent cursor-pointer"
-                    >
-                      Discontinuar
-                    </button>
-                  {/if}
+                  <button
+                    onclick={() => handleDelete(departamento)}
+                    disabled={carrerasCount > 0}
+                    title={carrerasCount > 0
+                      ? 'Traslada o discontinúa antes las carreras de este departamento.'
+                      : undefined}
+                    class="btn btn-neutral btn-sm"
+                  >
+                    Eliminar
+                  </button>
                 {/if}
               </div>
             {:else}
-              <span class="text-gray-300 text-[11px] italic">No disponible</span>
+              <span class="text-gray-400 text-xs">Discontinuado</span>
             {/if}
           </td>
         </tr>
