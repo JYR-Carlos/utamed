@@ -749,12 +749,16 @@
                   <div class="fields-divider"></div>
                 {/if}
 
-                <!-- Periodo del curso (Año / Semestre real) -->
+                <!-- Periodo del curso.
+                     «Año Real» y «Semestre Real» distinguían este dato del
+                     año/semestre planificado en la malla, pero desde la
+                     pantalla no había forma de saber frente a qué eran
+                     «reales»: se nombra por lo que son. -->
                 <div class="periodo-section">
-                  <p class="periodo-label">Periodo del curso</p>
+                  <p class="periodo-label">¿Cuándo se dicta este curso?</p>
                   <div class="fields-grid">
                     <div class="field">
-                      <label class="field-label" for="wiz-agno">Año Real *</label>
+                      <label class="field-label req" for="wiz-agno">Año</label>
                       <input
                         id="wiz-agno"
                         type="number"
@@ -767,7 +771,7 @@
                     </div>
 
                     <div class="field">
-                      <label class="field-label" for="wiz-semestre">Semestre Real *</label>
+                      <label class="field-label req" for="wiz-semestre">Semestre</label>
                       <select
                         id="wiz-semestre"
                         bind:value={semestreReal}
@@ -1228,13 +1232,11 @@
       {#if currentStep === 4}
         <div class="wiz-footer">
           {#if selectedTipos.size === 0}
-            <p class="docente-required-hint">Debes seleccionar al menos un componente.</p>
+            <p class="docente-required-hint">Para crear el curso, elige al menos un componente.</p>
           {:else if !selectedDocente}
-            <p class="docente-required-hint">Debes seleccionar un docente para continuar.</p>
+            <p class="docente-required-hint">Falta elegir el docente del curso.</p>
           {:else if docentesPorComponenteIncompleto}
-            <p class="docente-required-hint">
-              Debes asignar un docente a cada componente antes de continuar.
-            </p>
+            <p class="docente-required-hint">Falta asignar un docente a cada componente.</p>
           {/if}
           <div class="wiz-footer-actions">
             <button type="button" class="btn-cancel" onclick={onClose} disabled={isLoading}>
@@ -1554,18 +1556,46 @@
     gap: 0.625rem;
   }
 
+  /*
+   * Tarjeta de opción del asistente.
+   *
+   * Con sólo un borde gris y el texto a la izquierda se leían como campos de
+   * texto deshabilitados, no como algo que se pueda pulsar. La flecha y el
+   * cambio de fondo al pasar el ratón las devuelven a parecer opciones.
+   */
   .option-card {
-    padding: 0.75rem;
+    padding: 0.75rem 2rem 0.75rem 0.75rem;
     border: 1.5px solid #e5e7eb;
     border-radius: 8px;
     background: white;
     text-align: left;
     cursor: pointer;
     transition: all 0.15s;
+    position: relative;
+  }
+  .option-card::after {
+    content: '';
+    position: absolute;
+    right: 0.85rem;
+    top: 50%;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-top: 2px solid #9ca3af;
+    border-right: 2px solid #9ca3af;
+    transform: translateY(-50%) rotate(45deg);
+    transition: border-color 0.15s;
   }
   .option-card:hover {
     border-color: #3b82f6;
     background: #eff6ff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+  }
+  .option-card:hover::after {
+    border-color: #3b82f6;
+  }
+  .option-card:focus-visible {
+    outline: 2px solid var(--action-primary);
+    outline-offset: 2px;
   }
 
   .option-card-name {
@@ -2193,14 +2223,20 @@
     gap: 0.75rem;
   }
 
+  /*
+   * Qué falta para poder crear el curso.
+   *
+   * Iba en rojo de error, así que el paso 4 se abría en estado de fallo
+   * antes de que el usuario tocara nada. Es una indicación de progreso, no
+   * un error: se muestra en tono neutro y sólo explica qué queda por hacer.
+   */
   .docente-required-hint {
     font-size: 0.8rem;
-    color: #b91c1c;
+    color: var(--state-info);
     margin: 0;
     padding: 0.4rem 0.75rem;
-    background: #fef2f2;
+    background: var(--state-info-soft);
     border-radius: 6px;
-    border: 1px solid #fecaca;
   }
 
   .btn-cancel {

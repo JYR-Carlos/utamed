@@ -47,11 +47,13 @@ Route::get('dashboard', function () {
 
     // Solo admins y superadmins llegan aquí
     if ($user->hasRole('Administrador') || $user->hasRole('SuperAdmin')) {
+        $cursosAbiertos = \App\Models\Curso\Curso::where('estado_interno', 'ABIERTO');
+
         return Inertia::render('Dashboard', [
             'stats' => [
                 'usuarios' => \App\Models\Usuario\Usuario::count(),
                 'cursos_total' => \App\Models\Curso\Curso::count(),
-                'cursos_pendientes' => \App\Models\Curso\Curso::where('estado_interno', 'ABIERTO')
+                'cursos_pendientes' => (clone $cursosAbiertos)
                     ->where(function ($query) {
                         $query->where('estado_acta', '!=', 'ENVIADO')
                             ->orWhereNull('estado_acta');
@@ -59,6 +61,16 @@ Route::get('dashboard', function () {
                     ->count(),
                 'facultades' => \App\Models\Administrativo\Facultad::count(),
                 'carreras' => \App\Models\Administrativo\Carrera::count(),
+            ],
+            // Lo que requiere acción, que es la pregunta que el administrador
+            // trae al abrir el panel. Antes el dashboard sólo mostraba totales
+            // acompañados de líneas de tendencia decorativas.
+            'pendientes' => [
+                'cursos_sin_syllabus' => (clone $cursosAbiertos)->doesntHave('programas')->count(),
+                'cursos_sin_componentes' => (clone $cursosAbiertos)->doesntHave('componentes')->count(),
+                'carreras_sin_director' => \App\Models\Administrativo\Carrera::whereNull('fecha_eliminacion')
+                    ->doesntHave('jefesDeCarreraActivos')
+                    ->count(),
             ],
         ]);
     }

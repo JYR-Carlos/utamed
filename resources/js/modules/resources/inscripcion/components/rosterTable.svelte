@@ -355,10 +355,15 @@
                 {/if}
               </td>
               <td class="px-4 py-3 align-middle min-w-[140px]">
+                <!-- Píldora con borde y flecha: sin el borde parecía una
+                     insignia de estado y nada indicaba que abriera un menú
+                     para cambiarlo. -->
                 {#if transitions.length > 0}
                   <button
                     type="button"
-                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer whitespace-nowrap disabled:cursor-wait {cfg.cls}"
+                    title="Cambiar el estado de esta inscripción"
+                    aria-label="Cambiar el estado de esta inscripción"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer whitespace-nowrap border border-current/25 hover:brightness-95 disabled:cursor-wait {cfg.cls}"
                     class:animate-pulse={item._saving}
                     onclick={openMenu}
                     data-inscripcion-id={item.id_inscripcion_curso}

@@ -1,8 +1,13 @@
 <script lang="ts">
   /**
-   * cursoSelector — Paso 1 del flujo de inscripciones: grilla de cursos con
-   * búsqueda en cliente para elegir cuál gestionar (el padre pasa al roster
-   * en onSelect).
+   * cursoSelector — Paso 1 del flujo de inscripciones: elegir el curso cuya
+   * nómina se va a gestionar.
+   *
+   * Era la única vista en tarjetas de todo el panel: 219 cursos en una
+   * rejilla sin orden ni filtros, con el centro de cada tarjeta vacío y sin
+   * el único dato por el que se elige un curso aquí —cuántos estudiantes
+   * tiene inscritos—. Ahora es una tabla como las demás, con ese dato y con
+   * filtro por carrera.
    */
   import type { CursoItem } from '../types/inscripcion.types';
   import { cursoDisplayName } from '../types/inscripcion.types';
@@ -17,34 +22,36 @@
   let { cursos, onSelect }: Props = $props();
 
   let courseSearch = $state('');
+  let carreraFiltro = $state('');
+
+  const carreras = $derived(
+    [...new Set(cursos.map((c) => c.carrera_nombre).filter(Boolean))].sort() as string[],
+  );
 
   const filteredCursos = $derived(
-    courseSearch.trim().length === 0
-      ? cursos
-      : cursos.filter((c) => {
-          const term = courseSearch.toLowerCase();
-          return (
-            c.cod_curso.toLowerCase().includes(term) ||
-            (c.nombre ?? '').toLowerCase().includes(term) ||
-            (c.asignatura_nombre ?? '').toLowerCase().includes(term) ||
-            (c.carrera_nombre ?? '').toLowerCase().includes(term)
-          );
-        }),
+    cursos.filter((c) => {
+      if (carreraFiltro && c.carrera_nombre !== carreraFiltro) return false;
+      const term = courseSearch.trim().toLowerCase();
+      if (!term) return true;
+      return (
+        c.cod_curso.toLowerCase().includes(term) ||
+        (c.nombre ?? '').toLowerCase().includes(term) ||
+        (c.asignatura_nombre ?? '').toLowerCase().includes(term) ||
+        (c.carrera_nombre ?? '').toLowerCase().includes(term)
+      );
+    }),
   );
 </script>
 
-<div class="max-w-[1100px] space-y-7">
-  <!-- Header -->
-  <div>
-    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Inscripciones de Cursos</h1>
-    <p class="text-sm text-gray-500 mt-1">
-      Selecciona un curso para gestionar su nómina de estudiantes.
-    </p>
-  </div>
+<div class="space-y-6">
+  <header>
+    <h1 class="page-title">Inscripciones</h1>
+    <p class="page-subtitle">Elige un curso para gestionar su nómina de estudiantes.</p>
+  </header>
 
-  <!-- Search + count -->
-  <div class="flex items-center gap-4">
-    <div class="relative flex-1 max-w-md">
+  <!-- Filtros -->
+  <div class="flex flex-wrap items-center gap-3">
+    <div class="relative flex-1 min-w-[240px] max-w-md">
       <svg
         class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
         xmlns="http://www.w3.org/2000/svg"
@@ -56,6 +63,7 @@
         stroke-width="2"
         stroke-linecap="round"
         stroke-linejoin="round"
+        aria-hidden="true"
       >
         <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
       </svg>
@@ -63,103 +71,95 @@
         type="search"
         bind:value={courseSearch}
         placeholder="Buscar por código, nombre o carrera…"
-        class="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition-shadow"
+        class="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition"
       />
     </div>
-    <span class="text-sm text-gray-400 shrink-0 tabular-nums">
+
+    <select
+      bind:value={carreraFiltro}
+      class="px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:border-blue-400"
+    >
+      <option value="">Todas las carreras</option>
+      {#each carreras as carrera}
+        <option value={carrera}>{carrera}</option>
+      {/each}
+    </select>
+
+    <span class="text-sm text-gray-500 shrink-0 tabular-nums ml-auto">
       {filteredCursos.length}
       curso{filteredCursos.length !== 1 ? 's' : ''}
     </span>
   </div>
 
-  <!-- Empty state -->
-  {#if filteredCursos.length === 0}
-    <div class="flex flex-col items-center gap-3 py-20 text-center">
-      <div
-        class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-300"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M22 10v6M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c3 3 9 3 12 0v-5" />
-        </svg>
-      </div>
-      <p class="text-gray-500 text-sm">
-        {courseSearch ? `Sin resultados para «${courseSearch}».` : 'No hay cursos disponibles.'}
-      </p>
-    </div>
-  {:else}
-    <!-- Course grid -->
-    <div class="grid grid-cols-[repeat(auto-fill,minmax(256px,1fr))] gap-4">
-      {#each filteredCursos as c (c.id_curso)}
-        <button
-          type="button"
-          class="group relative flex flex-col text-left bg-white border border-gray-200 rounded-2xl p-5 cursor-pointer overflow-hidden hover:border-blue-200 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-          onclick={() => onSelect(c.id_curso)}
-        >
-          <!-- Left accent bar -->
-          <div
-            class="absolute left-0 inset-y-0 w-[3px] bg-gradient-to-b from-blue-400 to-indigo-500 rounded-l-2xl"
-          ></div>
-
-          <div class="pl-3 flex flex-col h-full">
-            <!-- Badges -->
-            <div class="flex items-center gap-2 mb-3">
-              <span
-                class="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[0.6875rem] font-mono font-bold ring-1 ring-inset ring-blue-100"
-              >
-                {c.cod_curso}
-              </span>
-              {#if c.agno_real}
-                <span class="text-[0.6875rem] text-gray-400 font-medium tabular-nums">
-                  {c.agno_real} · S{c.semestre_real}
-                </span>
-              {/if}
-            </div>
-
-            <!-- Course name -->
-            <p class="font-semibold text-sm text-gray-900 leading-snug flex-1 mb-1.5">
-              {cursoDisplayName(c)}
-            </p>
-
-            <!-- Career -->
-            {#if c.carrera_nombre}
-              <p class="text-xs text-gray-400 leading-snug mb-3 line-clamp-2">{c.carrera_nombre}</p>
-            {:else}
-              <div class="mb-3"></div>
-            {/if}
-
-            <!-- Footer -->
-            <div
-              class="pt-3 border-t border-gray-100 flex items-center gap-1 text-xs font-semibold text-blue-500 group-hover:text-blue-600 transition-colors"
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"
+              >Curso</th
             >
-              Ver Nómina
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="group-hover:translate-x-0.5 transition-transform duration-150"
-              >
-                <path d="m9 18 6-6-6-6" />
-              </svg>
-            </div>
-          </div>
-        </button>
-      {/each}
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"
+              >Carrera</th
+            >
+            <th
+              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap"
+              >Periodo</th
+            >
+            <th
+              class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap"
+              >Inscritos</th
+            >
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {#if filteredCursos.length === 0}
+            <tr>
+              <td colspan="5" class="px-4 py-14 text-center text-gray-400 text-sm">
+                {courseSearch || carreraFiltro
+                  ? 'Ningún curso coincide con el filtro.'
+                  : 'No hay cursos disponibles.'}
+              </td>
+            </tr>
+          {:else}
+            {#each filteredCursos as c (c.id_curso)}
+              <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-4 py-3">
+                  <p class="font-medium text-gray-900 leading-snug">{cursoDisplayName(c)}</p>
+                  <p class="text-xs text-gray-400 font-mono mt-0.5">{c.cod_curso}</p>
+                </td>
+                <td class="px-4 py-3 text-gray-600">
+                  {c.carrera_nombre ?? '—'}
+                </td>
+                <td class="px-4 py-3 text-gray-600 whitespace-nowrap tabular-nums">
+                  {#if c.agno_real}
+                    {c.agno_real} · Semestre {c.semestre_real}
+                  {:else}
+                    <span class="text-gray-400">Sin periodo</span>
+                  {/if}
+                </td>
+                <td class="px-4 py-3 text-right tabular-nums">
+                  {#if (c.inscritos_count ?? 0) > 0}
+                    <span class="font-semibold text-gray-900">{c.inscritos_count}</span>
+                  {:else}
+                    <span class="text-gray-400">0</span>
+                  {/if}
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <button
+                    type="button"
+                    class="btn btn-neutral btn-sm"
+                    onclick={() => onSelect(c.id_curso)}
+                  >
+                    Ver nómina
+                  </button>
+                </td>
+              </tr>
+            {/each}
+          {/if}
+        </tbody>
+      </table>
     </div>
-  {/if}
+  </div>
 </div>

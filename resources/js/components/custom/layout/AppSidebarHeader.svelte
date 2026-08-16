@@ -191,10 +191,13 @@
       <span class="text-xs">Buscar</span>
     </button>
 
+    <!-- Estos dos botones no decían qué hacían: sólo una flecha, sin
+         etiqueta accesible y con un título que no cambiaba al alternar. -->
     <button
       class="icon-btn hidden lg:flex items-center justify-center group relative"
       onclick={() => (showSidebar = !showSidebar)}
-      title="Ocultar sidebar"
+      aria-label={showSidebar ? 'Ocultar el menú lateral' : 'Mostrar el menú lateral'}
+      title={showSidebar ? 'Ocultar el menú lateral' : 'Mostrar el menú lateral'}
     >
       {#if showSidebar}
         <ChevronLeft size={20} class="group-hover:text-slate-900" />
@@ -207,7 +210,8 @@
     <button
       class="icon-btn flex items-center justify-center group relative"
       onclick={() => (showHeader = !showHeader)}
-      title="Ocultar encabezado"
+      aria-label="Ocultar esta barra superior"
+      title="Ocultar esta barra superior"
     >
       <ChevronUp size={20} class="group-hover:text-slate-900" />
     </button>
@@ -255,11 +259,21 @@
 </header>
 
 <style>
+  /*
+   * Tres zonas con anchos propios y una separación que nunca se cierra.
+   *
+   * Antes `.header-left` llevaba `overflow: hidden` sin separación con la
+   * zona central, así que la ruta de navegación se cortaba a media palabra
+   * justo donde empieza el buscador —«Dashboar», «Cursos Ofertado»— y
+   * parecía que la caja de búsqueda la tapaba. El único indicador de
+   * «dónde estoy» estaba roto en todas las pantallas.
+   */
   .global-header {
     height: 64px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 1.5rem;
     padding: 0 1.5rem;
     background: #ffffff;
     border-bottom: 1px solid #f1f5f9;
@@ -272,15 +286,18 @@
     display: flex;
     align-items: center;
     gap: 1rem;
-    flex: 1;
+    flex: 1 1 0;
     min-width: 0;
-    overflow: hidden;
   }
 
+  /* Si no cabe, la ruta se abrevia con puntos suspensivos en vez de
+     cortarse a mitad de letra. */
   .breadcrumb-wrapper {
     min-width: 0;
-    overflow: hidden;
     flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .header-center {

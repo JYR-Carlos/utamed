@@ -67,10 +67,15 @@ class InscripcionCursoController extends Controller
             $this->perPage($request)
         );
 
-        // Obtener cursos disponibles
+        // Obtener cursos disponibles.
+        // El listado del admin cuenta las inscripciones vigentes: es el dato
+        // por el que se elige un curso en esta pantalla, y antes obligaba a
+        // abrir la nómina de uno en uno para saberlo.
         $cursos = $idDocente
             ? $this->inscripcionService->getCursosByDocente($idDocente)
-            : Curso::orderBy('cod_curso')->get();
+            : Curso::withCount([
+                'inscripcionCursos as inscritos_count' => fn($q) => $q->where('estado_inscripcion', 'INSCRITO'),
+            ])->orderBy('cod_curso')->get();
 
         // Renderizar según rol
         if ($user->docente) {

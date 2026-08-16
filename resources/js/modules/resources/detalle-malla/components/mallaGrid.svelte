@@ -101,15 +101,17 @@
                 {getTipoRamoLabel(asignacion.tipo_ramo)}
               </span>
             {/if}
+            <!-- Con fondo gris y texto gris claro parecían deshabilitados;
+                 con borde y texto oscuro se leen como pulsables. -->
             <div class="flex gap-1.5">
               <button
                 onclick={() => onEdit(asignacion)}
-                class="px-2 py-1 bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-700 border-0 rounded text-[11px] font-medium cursor-pointer transition-colors"
+                class="px-2 py-1 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-[11px] font-medium cursor-pointer transition-colors"
                 >Editar</button
               >
               <button
                 onclick={() => onDelete(asignacion)}
-                class="px-2 py-1 bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-600 border-0 rounded text-[11px] font-medium cursor-pointer transition-colors"
+                class="px-2 py-1 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-[11px] font-medium cursor-pointer transition-colors"
                 >Quitar</button
               >
             </div>

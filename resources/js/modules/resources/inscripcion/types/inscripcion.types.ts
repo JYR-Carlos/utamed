@@ -21,6 +21,12 @@ export interface CursoItem {
     carrera_nombre?: string;
     agno_real?: number;
     semestre_real?: number;
+    /**
+     * Estudiantes con inscripción vigente (estado INSCRITO). Lo calcula
+     * InscripcionCursoController::index() con withCount; es el dato por el
+     * que se elige un curso en el selector.
+     */
+    inscritos_count?: number;
 }
 
 export interface RosterItem {

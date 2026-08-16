@@ -15,7 +15,10 @@
     BookOpenCheck,
     LayoutGrid,
     Users,
+    UserCheck,
     Building2,
+    Landmark,
+    CalendarRange,
     ScrollText,
     BarChart2,
   } from 'lucide-svelte';
@@ -143,15 +146,23 @@
   );
 
   // ── Admin menu items ──────────────────────────────────────
+  /**
+   * Un icono distinto por destino.
+   *
+   * Tres pares compartían el mismo: Administración y Facultades (edificio),
+   * Asignaturas y Cursos Ofertados (libro), Usuarios e Inscripciones
+   * (personas). Con el icono repetido, la barra sólo se podía leer palabra
+   * por palabra.
+   */
   const adminMenuItems: Array<{ href: string; icon: any; label: string }> = [
     { href: '/admin/usuarios', icon: Users, label: 'Usuarios' },
-    { href: '/admin/facultades', icon: Building2, label: 'Facultades' },
-    { href: '/admin/departamentos', icon: Folder, label: 'Departamentos' },
+    { href: '/admin/facultades', icon: Landmark, label: 'Facultades' },
+    { href: '/admin/departamentos', icon: Building2, label: 'Departamentos' },
     { href: '/admin/carreras', icon: GraduationCap, label: 'Carreras' },
     { href: '/admin/asignaturas', icon: BookOpen, label: 'Asignaturas' },
     { href: '/admin/planes', icon: ClipboardList, label: 'Planes de Estudio' },
-    { href: '/admin/cursos', icon: BookOpen, label: 'Cursos Ofertados' },
-    { href: '/admin/inscripciones_cursos', icon: Users, label: 'Inscripciones' },
+    { href: '/admin/cursos', icon: CalendarRange, label: 'Cursos Ofertados' },
+    { href: '/admin/inscripciones_cursos', icon: UserCheck, label: 'Inscripciones' },
     { href: '/admin/syllabus', icon: ScrollText, label: 'Syllabus' },
   ];
 
@@ -230,17 +241,20 @@
     {@const meta = sectionMeta[id]}
     {@const Icon = meta.icon}
     {@const open = openSection === id}
+    <!-- El grupo abierto ya no se pinta con el mismo fondo indigo que el
+         elemento activo: había dos cosas resaltadas a la vez y ninguna era
+         claramente «donde estoy». Abierto sólo oscurece el texto. -->
     <div class="px-4 mb-1">
       <button
         onclick={() => toggleSection(id)}
         class="w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all group {open
-          ? 'bg-indigo-50 text-indigo-700'
-          : 'text-slate-700 hover:bg-slate-50'}"
+          ? 'text-slate-900'
+          : 'text-slate-500 hover:bg-slate-50'}"
       >
         <Icon
           size={18}
           class="{open
-            ? 'text-indigo-500'
+            ? 'text-slate-500'
             : 'text-slate-400 group-hover:text-indigo-500'} shrink-0 transition-colors"
         />
         <span class="flex-1 text-left text-[12px] font-extrabold tracking-widest uppercase"
@@ -840,9 +854,6 @@
               : 'text-slate-400 group-hover:text-indigo-500'} shrink-0 transition-colors"
           />
           Dashboard
-          {#if isActive('/dashboard')}
-            <div class="ml-auto h-2 w-2 rounded-full bg-indigo-500 shrink-0"></div>
-          {/if}
         </Link>
       </div>
       <div class="px-4 flex flex-col gap-1">
@@ -863,9 +874,9 @@
                 : 'text-slate-400 group-hover:text-indigo-500'} shrink-0 transition-colors"
             />
             <span class="flex-1 truncate">{item.label}</span>
-            {#if isActive(item.href)}
-              <div class="h-2 w-2 rounded-full bg-indigo-500 shrink-0"></div>
-            {/if}
+            <!-- Sin punto a la derecha: no tenía significado declarado y se
+                 confundía con un indicador de novedades. El fondo y el color
+                 ya marcan cuál es la sección activa. -->
           </Link>
         {/each}
         <div class="h-px bg-slate-100 my-4 mx-4"></div>
