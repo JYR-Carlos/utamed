@@ -396,7 +396,7 @@
             <!-- Submit Button -->
             <Button
               type="submit"
-              class="mt-1 flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#F5F4F0] py-3.5 text-[15px] font-semibold text-[#1A1625] shadow-none transition-all duration-150 hover:brightness-95 active:scale-[0.98] disabled:opacity-50"
+              class="mt-1 cursor-pointer hover:text-white hover:font-semibold flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#F5F4F0] py-3.5 text-[15px] font-semibold text-[#1A1625] shadow-none transition-all duration-150 hover:brightness-95 active:scale-[0.98] disabled:opacity-50"
               disabled={isRateLimited || $form.processing}
             >
               {#if $form.processing}
