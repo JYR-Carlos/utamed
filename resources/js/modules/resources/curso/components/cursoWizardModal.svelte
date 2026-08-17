@@ -78,7 +78,6 @@
 
   // ── Remaining form fields ────────────────────────────────────────────────
   let codCurso = $state<number | ''>('');
-  let nombre = $state('');
   let fechaInicio = $state('');
   let agnoReal = $state(new Date().getFullYear());
   let semestreReal = $state<1 | 2>(1);
@@ -93,6 +92,7 @@
   let porcentajeAprobacion = $state<number>(60);
   let porcentajeAsistencia = $state<number>(75);
   let inscribirAutomaticamente = $state(false);
+  
 
 
   // ── Letra de grupo (indice_grupo) ──────────────────────────────────────────
@@ -103,6 +103,17 @@
 
   // ── Computed current step (1–4) ──────────────────────────────────────────
   const currentStep = $derived(!selectedCarrera ? 1 : !selectedPlan ? 2 : !selectedAsig ? 3 : 4);
+
+  // NOmbre del curso derivado
+  let nombre = $derived.by(() => {
+    const asignatura = selectedAsig
+    const grupoLetra = intToLetters(indiceGrupo? indiceGrupo : 0)
+
+    return asignatura?.nombre + " - " + "Grupo " + grupoLetra
+  });
+
+
+
 
   // Grouped asignaturas by year → semester
   const asigByYear = $derived.by(() => {
@@ -369,6 +380,11 @@
     !mismoDocenteTodos &&
       selectedTiposOrdered.some((tc) => !docentesPorComponente[tc.id_tipo_componente]),
   );
+
+  // TOMÁS SILVA CONTINUAR DESDE ACA!!!!!!!!!
+  function handleIntranetImportCURCODIGO() {
+
+  }
 
   function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
@@ -863,6 +879,7 @@
 
                 <!-- Docentes sugeridos -->
                 <div class="docentes-section">
+                  <p class="tipo-comp-label">Selección de docente</p>
                   <p class="docentes-hint">
                     {#if loadingDocentes}
                       Buscando docentes sugeridos...
@@ -1008,6 +1025,7 @@
                 <!-- Asignación de docentes por componente -->
                 {#if selectedDocente}
                   <div class="asignacion-docentes-section">
+                    
                     <p class="jefe-imparte-label">
                       ¿{selectedDocente.nombre_completo} dictará clases en todos los componentes
                       del curso?
@@ -1082,30 +1100,37 @@
                 {/if}
 
                 <!-- Remaining fields -->
-                <div class="fields-grid">
+                <div class="flex flex-col gap-4">
+                  <div class="field px-4 py-2 bg-gray-100 rounded-3xl">
+                    <label class="field-label" for="wiz-nombre">Nombre del Curso (generado automáticamente)</label>
+                    <p class="text-sm">{nombre}</p>
+              
+                  </div>
+                  
                   <div class="field">
                     <label class="field-label" for="wiz-cod-curso">Código del Curso *</label>
-                    <input
-                      id="wiz-cod-curso"
-                      type="text"
-                      bind:value={codCurso}
-                      class="field-input"
-                      placeholder="Ej: 12345"
-                      maxlength="9"
-                      required
-                    />
+                    <div class="flex gap-5">
+                      <input
+                        id="wiz-cod-curso"
+                        type="text"
+                        bind:value={codCurso}
+                        class="field-input"
+                        placeholder="Ej: 12345"
+                        maxlength="9"
+                        required
+                        />
+                      <button 
+                        class="text-sm font-semibold text-center px-4 py-2 border-2 border-amber-900 cursor-pointer rounded-4xl bg-amber-300 hover:text-white hover:bg-amber-700 transition-all text-black"
+                        onclick={handleIntranetImportCURCODIGO}
+                      >
+                        Importar desde Intranet
+                      </button>
+
+                    </div>
+                    
                   </div>
 
-                  <div class="field">
-                    <label class="field-label" for="wiz-nombre">Nombre del Curso</label>
-                    <input
-                      id="wiz-nombre"
-                      type="text"
-                      bind:value={nombre}
-                      class="field-input"
-                      placeholder="Nombre personalizado (opcional)"
-                    />
-                  </div>
+                  
 
                   <div class="field">
                     <label class="field-label" for="wiz-fecha">Fecha de Inicio</label>
