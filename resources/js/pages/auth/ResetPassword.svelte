@@ -34,7 +34,7 @@
 </script>
 
 <svelte:head>
-    <title>Restablecer Contraseña | UTAMed</title>
+    <title>Restablecer Contraseña | UTAmed</title>
 </svelte:head>
 
 <AuthBase title="Restablecer Contraseña" description="Ingresa tu nueva contraseña a continuación">

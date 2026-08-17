@@ -48,7 +48,7 @@
       <div class="mb-10 flex items-center gap-3">
         <Link href={home()} class="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <AppLogoIcon class="size-8 fill-current text-[#2A66AC]" />
-          <span class="text-2xl font-bold tracking-tight text-gray-900">UTAMed</span>
+          <span class="text-2xl font-bold tracking-tight text-gray-900">UTAmed</span>
         </Link>
       </div>
 

@@ -1,6 +1,6 @@
 <script lang="ts">
     /**
-     * Página de bienvenida de UTAMed - Estética Académica Moderna
+     * Página de bienvenida de UTAmed - Estética Académica Moderna
      *
      * Diseño inspirado en "Swiss Style" / Bauhaus para facultad de diseño.
      * Enfoque en tipografía, grillas estructuradas, y claridad institucional.
@@ -81,7 +81,7 @@
 </script>
 
 <svelte:head>
-    <title>UTAMed | Entorno Virtual de Aprendizaje</title>
+    <title>UTAmed | Entorno Virtual de Aprendizaje</title>
 </svelte:head>
 
 <div class="relative min-h-screen font-sans text-[#F5F3FF] selection:bg-[#5B9BD5]/30 selection:text-[#F5F3FF]">
@@ -117,8 +117,8 @@
             <div class="flex items-center gap-3">
                 <AppLogoIcon class="size-6 fill-current text-[#F5F3FF] -rotate-3" />
                 <div class="flex flex-col leading-none">
-                    <span class="text-lg font-bold tracking-tight text-[#F5F3FF]">UTAMed</span>
-                    <span class="text-[0.6rem] uppercase tracking-widest text-[#C4BFE0] font-medium">Facultad de Diseño</span>
+                    <span class="text-lg font-bold tracking-tight text-[#F5F3FF]">UTAmed</span>
+                    <span class="text-[0.6rem] uppercase tracking-widest text-[#C4BFE0] font-medium">EDIT - FAE - UTA</span>
                 </div>
             </div>
 
@@ -191,7 +191,7 @@
                     <div class="relative aspect-[4/3] rounded-[20px] border border-[rgba(255,255,255,0.12)] bg-[rgba(28,44,64,0.45)] p-2 shadow-[0_24px_64px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
                         <img
                             src="/banner-utamed.jpg"
-                            alt="Estudiantes de Diseño UTAMed"
+                            alt="Estudiantes de Diseño UTAmed"
                             class="w-full h-full object-cover rounded-2xl filter saturate-[.8] contrast-[1.1]"
                         />
 
@@ -245,7 +245,7 @@
                 <div class="space-y-4 col-span-2">
                     <div class="flex items-center gap-2">
                         <AppLogoIcon class="size-5 fill-current text-[#F5F3FF]" />
-                        <span class="font-bold text-[#F5F3FF] tracking-tight">UTAMed</span>
+                        <span class="font-bold text-[#F5F3FF] tracking-tight">UTAmed</span>
                     </div>
                     <p class="text-[#C4BFE0] text-sm max-w-xs leading-relaxed">
                         Universidad de Tarapacá.<br/>

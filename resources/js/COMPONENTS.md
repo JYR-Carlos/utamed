@@ -1,4 +1,4 @@
-# Guía de Componentes - UTAMed
+# Guía de Componentes - UTAmed
 
 Documentación completa de los componentes reutilizables del frontend.
 

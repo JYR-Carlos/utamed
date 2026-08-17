@@ -28,10 +28,10 @@
 </script>
 
 <svelte:head>
-    <title>Registrarse | UTAMed</title>
+    <title>Registrarse | UTAmed</title>
 </svelte:head>
 
-<AuthBase title="Registrarse" description="Crea tu cuenta para unirte a UTAMed">
+<AuthBase title="Registrarse" description="Crea tu cuenta para unirte a UTAmed">
     <Form {...RegisteredUserController.store.form()} resetOnSuccess={['password', 'password_confirmation']} className="flex flex-col gap-6">
         {#snippet children({ errors, processing }: BaseFormSnippetProps)}
             <div class="grid gap-6">

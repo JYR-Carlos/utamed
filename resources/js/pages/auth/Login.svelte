@@ -235,7 +235,7 @@
 </script>
 
 <svelte:head>
-  <title>Iniciar Sesión | UTAMed</title>
+  <title>Iniciar Sesión | UTAmed</title>
 </svelte:head>
 
 <div class="relative min-h-screen w-full overflow-hidden bg-[#0d1522]">
@@ -278,7 +278,7 @@
         >
       </h1>
       <p class="mx-auto mt-3 max-w-[320px] text-center text-[15px] leading-[1.5] text-[#C4BFE0]">
-        Ingresa tus credenciales institucionales para acceder a tu portal académico UTAMed.
+        Ingresa tus credenciales institucionales para acceder a tu portal académico UTAmed.
       </p>
 
       {#if status}
