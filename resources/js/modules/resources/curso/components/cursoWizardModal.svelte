@@ -104,12 +104,13 @@
   // ── Computed current step (1–4) ──────────────────────────────────────────
   const currentStep = $derived(!selectedCarrera ? 1 : !selectedPlan ? 2 : !selectedAsig ? 3 : 4);
 
-  // NOmbre del curso derivado
+  // Nombre del curso, derivado de la asignatura y la letra del grupo.
+  // Mientras la letra se está calculando (o si la petición falla) se muestra
+  // sólo el nombre de la asignatura, en lugar de un «Grupo » sin letra.
   let nombre = $derived.by(() => {
-    const asignatura = selectedAsig
-    const grupoLetra = intToLetters(indiceGrupo? indiceGrupo : 0)
-
-    return asignatura?.nombre + " - " + "Grupo " + grupoLetra
+    if (!selectedAsig) return '';
+    const grupoLetra = intToLetters(indiceGrupo ?? 0);
+    return grupoLetra ? `${selectedAsig.nombre} - Grupo ${grupoLetra}` : selectedAsig.nombre;
   });
 
 
@@ -1100,16 +1101,20 @@
                 {/if}
 
                 <!-- Remaining fields -->
-                <div class="flex flex-col gap-4">
-                  <div class="field px-4 py-2 bg-gray-100 rounded-3xl">
-                    <label class="field-label" for="wiz-nombre">Nombre del Curso (generado automáticamente)</label>
-                    <p class="text-sm">{nombre}</p>
-              
+                <div class="fields-stack">
+                  <div class="field">
+                    <span class="field-label">Nombre del Curso</span>
+                    <p class="field-readonly" class:empty={!nombre}>
+                      {nombre || 'Se completará con la asignatura y la letra del grupo.'}
+                    </p>
+                    <p class="field-hint">
+                      Se genera automáticamente; cambia si eliges otra letra de grupo.
+                    </p>
                   </div>
-                  
+
                   <div class="field">
                     <label class="field-label" for="wiz-cod-curso">Código del Curso *</label>
-                    <div class="flex gap-5">
+                    <div class="cod-curso-row">
                       <input
                         id="wiz-cod-curso"
                         type="text"
@@ -1119,10 +1124,26 @@
                         maxlength="9"
                         required
                         />
-                      <button 
-                        class="text-sm font-semibold text-center px-4 py-2 border-2 border-amber-900 cursor-pointer rounded-4xl bg-amber-300 hover:text-white hover:bg-amber-700 transition-all text-black"
+                      <button
+                        type="button"
+                        class="btn-import"
                         onclick={handleIntranetImportCURCODIGO}
                       >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7 10 12 15 17 10" />
+                          <line x1="12" x2="12" y1="15" y2="3" />
+                        </svg>
                         Importar desde Intranet
                       </button>
 
@@ -2184,6 +2205,97 @@
     font-size: 0.75rem;
     color: #9ca3af;
     margin: 0;
+  }
+
+  .fields-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  /*
+   * Valor que rellena el sistema (nombre del curso).
+   *
+   * Iba en una píldora gris muy redondeada que no se parecía a ningún otro
+   * campo del asistente y se leía como un botón. Se dibuja con la misma caja
+   * que el input que le sigue, pero apagada y con borde discontinuo, para que
+   * quede claro que es un campo que se rellena solo y no se puede escribir.
+   */
+  .field-readonly {
+    display: flex;
+    align-items: center;
+    min-height: 2.25rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px dashed #d1d5db;
+    border-radius: 6px;
+    background: #f9fafb;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #111827;
+    margin: 0;
+  }
+
+  .field-readonly.empty {
+    font-weight: 400;
+    color: #9ca3af;
+  }
+
+  /*
+   * Código del curso + acción de importarlo desde la Intranet.
+   *
+   * El botón iba en ámbar y con esquinas de píldora: competía visualmente con
+   * «Crear Curso» y no se parecía a ningún otro control del asistente. Es una
+   * acción secundaria que rellena un campo, así que toma el azul de acento y
+   * el mismo radio y altura que el input al que acompaña.
+   */
+  .cod-curso-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .cod-curso-row .field-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .btn-import {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-shrink: 0;
+    padding: 0.5rem 0.875rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    background: #eff6ff;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #1d4ed8;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background 0.15s,
+      border-color 0.15s,
+      color 0.15s;
+  }
+  .btn-import:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+    color: #1e40af;
+  }
+  .btn-import:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 500px) {
+    .cod-curso-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .btn-import {
+      justify-content: center;
+    }
   }
 
   .genera-acta-section {

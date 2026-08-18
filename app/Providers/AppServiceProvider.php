@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Foundation\Console\ServeCommand;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Password;
@@ -60,5 +61,20 @@ class AppServiceProvider extends ServiceProvider
 
             return $this->app->isLocal() ? $rule : $rule->uncompromised();
         });
+
+        // `serve` (sin --no-reload) recorta el entorno del servidor embebido a
+        // ServeCommand::$passthroughVariables, y compara con `in_array`, que
+        // distingue mayúsculas. Windows expone `SystemRoot` y `Path` con esa
+        // capitalización, así que no casan con 'SYSTEMROOT'/'PATH' de la lista
+        // y se eliminan del proceso hijo. Sin `SystemRoot`, Winsock no puede
+        // inicializarse y el servidor falla con «Failed to listen … (reason: ?)»
+        // en todos los puertos. Reañadimos las claves tal como las nombra el SO.
+        if (PHP_OS_FAMILY === 'Windows') {
+            foreach (['SystemRoot', 'Path'] as $variable) {
+                if (! in_array($variable, ServeCommand::$passthroughVariables, true)) {
+                    ServeCommand::$passthroughVariables[] = $variable;
+                }
+            }
+        }
     }
 }
