@@ -147,11 +147,18 @@ return [
         Features::registration(),
         Features::resetPasswords(),
         Features::emailVerification(),
-        Features::twoFactorAuthentication([
-            'confirm' => true,
-            'confirmPassword' => true,
-            // 'window' => 0
-        ]),
+
+        // 2FA desactivado: App\Models\Usuario\Usuario no usa el trait
+        // Laravel\Fortify\TwoFactorAuthenticatable ni tiene las columnas
+        // two_factor_secret / two_factor_recovery_codes, así que las rutas que
+        // Fortify registraba con esta feature fallaban al invocarse.
+        // Para reactivarlo: añadir el trait al modelo + migración de columnas y
+        // descomentar esta línea (ver también routes/settings.php).
+        // Features::twoFactorAuthentication([
+        //     'confirm' => true,
+        //     'confirmPassword' => true,
+        //     // 'window' => 0
+        // ]),
     ],
 
 ];

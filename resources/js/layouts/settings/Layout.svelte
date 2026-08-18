@@ -5,7 +5,6 @@
     import { cn } from '@/lib/utils';
     import { edit as appearance } from '@/routes/appearance';
     import { edit } from '@/routes/profile';
-    import { show as editTwoFactor } from '@/routes/two-factor';
     import { edit as editPassword } from '@/routes/user-password';
     import { type NavItem } from '@/types';
     import { Link, page } from '@inertiajs/svelte';
@@ -20,10 +19,8 @@
             title: 'Password',
             href: editPassword().url,
         },
-        {
-            title: 'Two-Factor',
-            href: editTwoFactor().url,
-        },
+        // 2FA retirado: la ruta settings/two-factor está desactivada
+        // (config/fortify.php + routes/settings.php). Restaurar aquí al reimplementarlo.
         {
             title: 'Appearance',
             href: appearance().url,

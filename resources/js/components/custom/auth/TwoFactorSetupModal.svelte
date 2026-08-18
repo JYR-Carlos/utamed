@@ -6,7 +6,8 @@
     import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
     import { Spinner } from '@/components/ui/spinner';
     import { createTwoFactorAuth } from '@/lib/two-factor-auth.svelte';
-    import { confirm } from '@/routes/two-factor';
+    // 2FA retirado: '@/routes/two-factor' ya no lo genera Wayfinder. Ver lib/two-factor-routes.ts.
+    import { confirm } from '@/lib/two-factor-routes';
     import type { BaseFormSnippetProps } from '@/types/forms';
     import { Form } from '@inertiajs/svelte';
     import { Check, Copy, ScanLine } from 'lucide-svelte';

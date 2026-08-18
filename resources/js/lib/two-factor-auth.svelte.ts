@@ -1,4 +1,5 @@
-import { qrCode, recoveryCodes, secretKey } from '@/routes/two-factor';
+// 2FA retirado: '@/routes/two-factor' ya no lo genera Wayfinder. Ver two-factor-routes.ts.
+import { qrCode, recoveryCodes, secretKey } from '@/lib/two-factor-routes';
 
 const fetchJson = async <T>(url: string): Promise<T> => {
     const response = await fetch(url, {

@@ -21,7 +21,8 @@
     import AppLayout from '@/layouts/AppLayout.svelte';
     import SettingsLayout from '@/layouts/settings/Layout.svelte';
     import { createTwoFactorAuth } from '@/lib/two-factor-auth.svelte';
-    import { disable, enable } from '@/routes/two-factor';
+    // 2FA retirado: '@/routes/two-factor' ya no lo genera Wayfinder. Ver lib/two-factor-routes.ts.
+    import { disable, enable } from '@/lib/two-factor-routes';
     import type { BreadcrumbItem } from '@/types';
     import { Form } from '@inertiajs/svelte';
     import { ShieldBan, ShieldCheck } from 'lucide-svelte';

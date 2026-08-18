@@ -231,7 +231,7 @@
     </div>
 
     <!-- ── Visualización centralizada del programa ────────────────────────── -->
-    <ProgramaDetailView {programa} {userRole} {userId} />
+    <ProgramaDetailView {programa} cursoId={curso.id_curso} {userRole} {userId} />
 
     <!-- ── Panel de acciones (permisos y estado) ─────────────────────────── -->
     {#if showActionPanel}

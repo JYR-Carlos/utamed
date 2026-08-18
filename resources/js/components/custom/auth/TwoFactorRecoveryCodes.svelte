@@ -3,7 +3,8 @@
     import { Button } from '@/components/ui/button';
     import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
     import { createTwoFactorAuth } from '@/lib/two-factor-auth.svelte';
-    import { regenerateRecoveryCodes } from '@/routes/two-factor';
+    // 2FA retirado: '@/routes/two-factor' ya no lo genera Wayfinder. Ver lib/two-factor-routes.ts.
+    import { regenerateRecoveryCodes } from '@/lib/two-factor-routes';
     import { Form } from '@inertiajs/svelte';
     import { Eye, EyeOff, LockKeyhole, RefreshCw } from 'lucide-svelte';
     import { onMount, tick } from 'svelte';
