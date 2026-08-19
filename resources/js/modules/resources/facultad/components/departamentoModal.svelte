@@ -1,24 +1,19 @@
 <script lang="ts">
   /**
-   * Componente: Modal Crear Departamento (Contextual)
+   * departamentoModal — Creación contextual de un departamento desde la
+   * fila de una facultad (la facultad llega pre-seleccionada y se muestra
+   * como texto de solo lectura).
    *
-   * Modal para crear un departamento dentro de una facultad.
-   * Facultad viene pre-seleccionada.
-   *
-   * Props:
-   * - isOpen: boolean controla visibilidad
-   * - facultadNombre: nombre de la facultad (read-only)
-   * - facultadId: id de la facultad
-   * - isLoading: boolean para mostrar estado loading
-   * - onSubmit: callback cuando se envía el formulario
-   * - onClose: callback para cerrar el modal
+   * Componente controlado: delega en onSubmit({nombre, id_facultad}).
    */
   import FormModal from '@/components/custom/admin/FormModal.svelte';
 
   interface Props {
     isOpen?: boolean;
+    /** Nombre visible de la facultad destino (solo lectura). */
     facultadNombre?: string;
     facultadId?: number;
+    /** Enviando; lo controla el padre porque es quien hace la petición. */
     isLoading?: boolean;
     onSubmit?: (formData: { nombre: string; id_facultad: number }) => void;
     onClose?: () => void;

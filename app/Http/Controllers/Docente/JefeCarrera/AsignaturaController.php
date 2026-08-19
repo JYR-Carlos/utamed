@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Docente\JefeCarrera;
 
+use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Asignatura;
 use Illuminate\Http\Request;
@@ -18,6 +19,8 @@ use Inertia\Inertia;
  */
 class AsignaturaController extends Controller
 {
+    use LimitsPageSize;
+
     use ResolvesJefaturaCarrera;
 
     private const PREFIX = '/docente/jefe-carrera';
@@ -50,7 +53,7 @@ class AsignaturaController extends Controller
         }
 
         $asignaturas = $query->orderBy('cod_asignatura')
-            ->paginate($request->integer('per_page', 15))
+            ->paginate($this->perPage($request))
             ->withQueryString();
 
         return Inertia::render('admin/Asignaturas', [

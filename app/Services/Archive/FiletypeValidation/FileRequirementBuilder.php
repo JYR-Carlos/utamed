@@ -47,8 +47,6 @@ class FileRequirementBuilder
         );
       }
 
-      $currentMaxSize = $config['max_size'] ?? $globalMaxFileSize;
-
       // Guardamos el perfil específico para la validación dinámica de tamaño
       $this->typeConfigs[$configType->value] = [
         'extensions' => array_map('strtolower', $config['extensions']),
@@ -94,22 +92,70 @@ class FileRequirementBuilder
         return;
       }
 
-      $extension = strtolower($value->extension());
-      $mimeType = $value->getMimeType();
-      $fileSize = $value->getSize();
+      // `extensions:` y `mimetypes:` son uniones planas de todas las categorías
+      // habilitadas, así que un archivo con extensión de una categoría y MIME de
+      // otra pasa ambas reglas. Antes ese cruce no casaba con ningún typeConfig y
+      // el closure salía sin comprobar el tamaño: bastaba renombrar un archivo
+      // para saltarse el límite de su categoría y quedar sólo bajo
+      // `upload_max_filesize`.
+      $match = $this->resolveSizeLimit($value);
 
-      foreach ($this->typeConfigs as $config) {
-        if (\in_array($extension, $config['extensions']) && \in_array($mimeType, $config['mimes'])) {
-          if ($fileSize > $config['max_size']) {
-            $maxMb = round($config['max_size'] / 1024 / 1024, 2);
-            $fail("Los archivos tipo {$config['label']} no pueden superar los {$maxMb} MB.");
-          }
-          return;
-        }
+      if ($match === null) {
+        $fail('El archivo no corresponde a ninguno de los tipos permitidos: su extensión y su contenido no coinciden.');
+        return;
+      }
+
+      if ($value->getSize() > $match['max_size']) {
+        $maxMb = round($match['max_size'] / 1024 / 1024, 2);
+        $fail("Los archivos tipo {$match['label']} no pueden superar los {$maxMb} MB.");
       }
     };
 
     return $rules;
+  }
+
+  /**
+   * Resuelve el límite de tamaño aplicable a un archivo concreto.
+   *
+   * Estrategia, de más a menos específica:
+   * 1. **Coincidencia completa** (extensión y MIME de la misma categoría): manda
+   *    el límite de esa categoría.
+   * 2. **Coincidencia parcial** (sólo extensión o sólo MIME): se aplica el límite
+   *    **más restrictivo** de las categorías candidatas. Así, cruzar la extensión
+   *    de una categoría con el MIME de otra no concede el techo de la más
+   *    permisiva (MEDIA y RAW_ART llegan a 1 GB).
+   * 3. **Sin coincidencia**: null, y quien llama rechaza el archivo.
+   *
+   * Se comparan tanto la extensión declarada por el cliente como la deducida del
+   * contenido: basta que una de las dos pertenezca a la categoría.
+   *
+   * @return array{max_size:int, label:string}|null
+   */
+  protected function resolveSizeLimit(\Illuminate\Http\UploadedFile $file): ?array
+  {
+    $clientExtension  = strtolower($file->getClientOriginalExtension());
+    $guessedExtension = strtolower((string) $file->extension());
+    $mimeType         = $file->getMimeType();
+
+    $partial = null;
+
+    foreach ($this->typeConfigs as $config) {
+      $extensionMatches = \in_array($clientExtension, $config['extensions'], true)
+        || \in_array($guessedExtension, $config['extensions'], true);
+      $mimeMatches = \in_array($mimeType, $config['mimes'], true);
+
+      if ($extensionMatches && $mimeMatches) {
+        return ['max_size' => (int) $config['max_size'], 'label' => $config['label']];
+      }
+
+      if ($extensionMatches || $mimeMatches) {
+        if ($partial === null || $config['max_size'] < $partial['max_size']) {
+          $partial = ['max_size' => (int) $config['max_size'], 'label' => $config['label']];
+        }
+      }
+    }
+
+    return $partial;
   }
 
   /**

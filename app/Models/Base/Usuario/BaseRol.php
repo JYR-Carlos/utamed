@@ -21,7 +21,8 @@ abstract class BaseRol extends CustomBaseModel implements HasContext
     use GlobalContextAware;
     use FiltersContextScope;
     const DELETED_AT = 'fecha_eliminacion';
-    public $timestamps = false;
+    const CREATED_AT = 'fecha_creacion';
+    const UPDATED_AT = null;
     protected $connection = 'pgsql';
     protected $table = 'rol';
     protected $primaryKey = 'id_rol';

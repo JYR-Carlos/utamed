@@ -34,6 +34,23 @@ use Carbon\Carbon;
 class ComponenteController extends Controller
 {
     /**
+     * Verifica que el componente pertenezca al curso de la URL; si no, aborta 404.
+     *
+     * Las seis rutas de escritura colgaban directamente del `{componente}`, sin
+     * `{curso}` y sin comprobación de pertenencia: bastaba conocer el ID del
+     * componente para manipularlo (F-2). El patrón correcto ya estaba escrito en
+     * `setTitularByDt`, en este mismo controlador.
+     */
+    private function assertComponenteDeCurso(Curso $curso, Componente $componente): void
+    {
+        if ($componente->id_curso === $curso->id_curso) {
+            return;
+        }
+
+        abort(404, 'Componente no encontrado en este curso.');
+    }
+
+    /**
      * Obtiene todos los componentes de un curso.
      * 
      * Retorna JSON con los datos de porcentaje de aprobación, asistencia obligatoria, etc.
@@ -44,6 +61,7 @@ class ComponenteController extends Controller
      */
     public function indexByCurso(Curso $curso)
     {
+        $this->authorize('viewAny', Componente::class);
         $componentes = Componente::where('id_curso', $curso->id_curso)
             ->with(['tipoComponente', 'docenteComponentes.docente.usuario'])
             ->get();
@@ -77,6 +95,7 @@ class ComponenteController extends Controller
      */
     public function store(StoreComponenteRequest $request, Curso $curso)
     {
+        $this->authorize('create', Componente::class);
         $validated = $request->validated();
 
         try {
@@ -147,8 +166,11 @@ class ComponenteController extends Controller
      * @param  Componente  $componente  Componente a actualizar
      * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse  JSON o redirección
      */
-    public function update(UpdateComponenteRequest $request, Componente $componente)
+    public function update(UpdateComponenteRequest $request, Curso $curso, Componente $componente)
     {
+        $this->authorize('update', $componente);
+        $this->assertComponenteDeCurso($curso, $componente);
+
         $validated = $request->validated();
 
         try {
@@ -205,8 +227,11 @@ class ComponenteController extends Controller
      * @param  Componente  $componente  Componente a eliminar
      * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse  JSON o redirección
      */
-    public function destroy(Request $request, Componente $componente)
+    public function destroy(Request $request, Curso $curso, Componente $componente)
     {
+        $this->authorize('delete', $componente);
+        $this->assertComponenteDeCurso($curso, $componente);
+
         try {
             $componente->delete();
             if ($request->wantsJson()) {
@@ -225,8 +250,11 @@ class ComponenteController extends Controller
      * Agrega un docente adicional a un componente existente.
      * El primer docente asignado es titular; los siguientes no lo son.
      */
-    public function addDocente(Request $request, Componente $componente)
+    public function addDocente(Request $request, Curso $curso, Componente $componente)
     {
+        $this->authorize('update', $componente);
+        $this->assertComponenteDeCurso($curso, $componente);
+
         $validated = $request->validate([
             'id_docente' => 'required|integer|exists:docente,id_docente',
         ]);
@@ -273,8 +301,15 @@ class ComponenteController extends Controller
      * No se puede eliminar el único docente. Si se elimina el titular,
      * el siguiente por orden de id_docente_componente asciende automáticamente.
      */
-    public function removeDocente(Componente $componente, DocenteComponente $docenteComponente)
+    public function removeDocente(Curso $curso, Componente $componente, DocenteComponente $docenteComponente)
     {
+        $this->authorize('update', $componente);
+        $this->assertComponenteDeCurso($curso, $componente);
+
+        if ($docenteComponente->id_componente !== $componente->id_componente) {
+            abort(404, 'La asignación docente no pertenece a este componente.');
+        }
+
         if ($componente->docenteComponentes()->count() <= 1) {
             return response()->json(['error' => 'No se puede eliminar el único docente asignado.'], 422);
         }
@@ -319,7 +354,22 @@ class ComponenteController extends Controller
      * Cambia el titular de un componente.
      * Solo un docente puede ser titular a la vez.
      */
-    public function setTitular(Request $request, Componente $componente)
+    public function setTitular(Request $request, Curso $curso, Componente $componente)
+    {
+        $this->authorize('update', $componente);
+        $this->assertComponenteDeCurso($curso, $componente);
+
+        return $this->aplicarTitular($request, $componente);
+    }
+
+    /**
+     * Cuerpo compartido de setTitular() y setTitularByDt().
+     *
+     * Cada entrada pública trae su propia autorización —permiso administrativo en
+     * un caso, ser el DT del curso en el otro—, así que la comprobación no puede
+     * vivir aquí.
+     */
+    private function aplicarTitular(Request $request, Componente $componente)
     {
         $validated = $request->validate([
             'id_docente_componente' => 'required|integer|exists:docente_componente,id_docente_componente',
@@ -388,7 +438,7 @@ class ComponenteController extends Controller
             abort(403, 'El componente no pertenece al curso indicado.');
         }
 
-        return $this->setTitular($request, $componente);
+        return $this->aplicarTitular($request, $componente);
     }
 
     /**
@@ -396,8 +446,11 @@ class ComponenteController extends Controller
      * Valida la regla: solo la componente principal (mayor jerarquía) genera acta por defecto.
      * Advierte al usuario si activa genera_acta en una componente no principal.
      */
-    public function toggleGeneraActa(Request $request, Componente $componente)
+    public function toggleGeneraActa(Request $request, Curso $curso, Componente $componente)
     {
+        $this->authorize('update', $componente);
+        $this->assertComponenteDeCurso($curso, $componente);
+
         $validated = $request->validate([
             'genera_acta' => 'required|boolean',
         ]);

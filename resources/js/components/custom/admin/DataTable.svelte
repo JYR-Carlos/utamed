@@ -2,13 +2,13 @@
   import { router, page } from '@inertiajs/svelte';
   import type { Snippet } from 'svelte';
   import type { PaginatedResponse } from '@/types/admin.types';
-  import { sleep } from '@/lib';
   import { scale } from 'svelte/transition';
 
   interface Props {
     data: PaginatedResponse<any>;
     columns: { key: string; label: string; sortable?: boolean; class?: string }[];
     onEdit?: (item: any) => void;
+    onDelete?: (item: any) => void;
     onPasswordChange?: (item: any) => void;
     onToggleActive?: (item: any) => void;
     onCustomAction?: (item: any) => void;
@@ -25,6 +25,7 @@
     data,
     columns,
     onEdit,
+    onDelete,
     onPasswordChange,
     onToggleActive,
     onCustomAction,
@@ -34,7 +35,11 @@
     cellSnippet,
   }: Props = $props();
 
-  let searchTerm = $state('');
+  // Hay columna de "Acciones" si se pasó al menos un handler de acción de fila.
+  const hasActions = $derived(
+    !!(onEdit || onDelete || onPasswordChange || onToggleActive || onCustomAction || onSyllabus),
+  );
+
   // Usar solo el pathname para evitar duplicación de query params con el objeto params
   let currentPath = $derived(new URL($page.url, window.location.origin).pathname);
 
@@ -44,6 +49,13 @@
   function urlParams(): URLSearchParams {
     return new URL($page.url, window.location.origin).searchParams;
   }
+
+  // El buscador arranca con lo que ya venga en la URL: si no, tras recargar la
+  // página la caja aparece vacía mientras la tabla sigue filtrada.
+  let searchTerm = $state(urlParams().get('search') ?? '');
+  let buscando = $state(false);
+  /** Término efectivamente aplicado en el servidor (el de la URL). */
+  let searchAplicado = $derived(urlParams().get('search') ?? '');
 
   let activeSortKey = $derived(urlParams().get('sort_key'));
   let activeSortDir = $derived(urlParams().get('sort_dir') as SortDir);
@@ -128,13 +140,62 @@
   }
 
   // ── Navigation ───────────────────────────────────────────────────────────
-  async function handleSearch() {
+
+  /** Espera tras la última tecla antes de consultar al servidor. */
+  const SEARCH_DEBOUNCE_MS = 300;
+
+  let searchDebounce: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * Lanza la búsqueda contra el servidor.
+   *
+   * Se salta la petición si el término ya es el aplicado (teclas que no cambian
+   * el texto, Enter repetido): cada visita recarga el listado completo.
+   */
+  function runSearch() {
+    clearTimeout(searchDebounce);
+
+    const term = searchTerm.trim();
+    if (term === searchAplicado) return;
+
     // Preserve tipo, sort, per_page — drop page (reset to 1)
     const params = currentParamsExcept('search', 'page');
-    if (searchTerm) params.search = searchTerm;
-    await sleep(1000);
-    router.get(currentPath, params, { preserveState: true, preserveScroll: true });
+    if (term) params.search = term;
+
+    router.get(currentPath, params, {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true, // no llenar el historial con una entrada por búsqueda
+      onStart: () => (buscando = true),
+      onFinish: () => (buscando = false),
+    });
   }
+
+  /**
+   * Rebota la búsqueda mientras se escribe.
+   *
+   * Se dispara en `input` —no en `keydown`— porque en `keydown` el valor ligado
+   * aún no incluye la tecla recién pulsada y se buscaba siempre un carácter por
+   * detrás de lo escrito.
+   */
+  function handleSearchInput() {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(runSearch, SEARCH_DEBOUNCE_MS);
+  }
+
+  function handleSearchKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      runSearch();
+    }
+  }
+
+  function clearSearch() {
+    searchTerm = '';
+    runSearch();
+  }
+
+  $effect(() => () => clearTimeout(searchDebounce));
 
   function goToPage(p: number) {
     const params = currentParamsExcept('page');
@@ -189,19 +250,47 @@
 <div class="bg-white rounded-lg shadow overflow-hidden onscroll={closeDropdown}">
   <!-- Search Bar -->
   <div class="p-4 border-b border-gray-200 flex gap-2">
-    <input
-      type="text"
-      bind:value={searchTerm}
-      placeholder={searchPlaceholder}
-      onkeydown={() => handleSearch()}
-      class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-shadow"
-    />
-    <button
-      onclick={handleSearch}
-      class="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition-colors cursor-pointer"
-    >
-      Buscar
-    </button>
+    <div class="relative flex-1">
+      <input
+        type="text"
+        bind:value={searchTerm}
+        placeholder={searchPlaceholder}
+        oninput={handleSearchInput}
+        onkeydown={handleSearchKeydown}
+        class="w-full px-4 py-2 pr-28 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-shadow"
+      />
+      <div
+        class="absolute inset-y-0 right-2 flex items-center gap-2 text-xs text-gray-400 pointer-events-none"
+      >
+        {#if buscando}
+          <span>Buscando…</span>
+        {/if}
+        {#if searchTerm}
+          <button
+            onclick={clearSearch}
+            title="Limpiar búsqueda"
+            aria-label="Limpiar búsqueda"
+            class="pointer-events-auto p-1 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg
+            >
+          </button>
+        {/if}
+      </div>
+    </div>
+    <!-- El botón «Buscar» se retiró: la búsqueda ya se lanza sola al escribir
+         (con rebote de 300 ms) y con Enter, igual que en Cursos e
+         Inscripciones. Tenerlo sugería que había que pulsarlo. -->
   </div>
   <!-- Pagination -->
   <div class="px-4 py-3 flex items-center justify-between border-t border-gray-200 flex-wrap gap-3">
@@ -250,8 +339,9 @@
                   onclick={() => goToPage(btn.n)}
                   class="min-w-8 h-8 px-2 text-sm rounded-md border cursor-pointer transition-all
                     {btn.n === data.current_page
-                    ? 'bg-blue-500 border-blue-500 text-white font-semibold'
+                    ? 'page-current'
                     : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'}"
+                  aria-current={btn.n === data.current_page ? 'page' : undefined}
                 >
                   {btn.n}
                 </button>
@@ -352,7 +442,7 @@
               </span>
             </th>
           {/each}
-          {#if onEdit || onCustomAction || onSyllabus || onPasswordChange || onToggleActive}
+          {#if hasActions}
             <th
               class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-500 tracking-wide w-1 whitespace-nowrap"
             >
@@ -365,7 +455,7 @@
         {#if data.data.length === 0}
           <tr>
             <td
-              colspan={columns.length + (onEdit ? 1 : 0)}
+              colspan={columns.length + (hasActions ? 1 : 0)}
               class="text-center text-gray-400 py-12 px-4"
             >
               No se encontraron resultados
@@ -390,7 +480,7 @@
                   {/if}
                 </td>
               {/each}
-              {#if onEdit || onPasswordChange || onToggleActive || onCustomAction || onSyllabus}
+              {#if hasActions}
                 <td
                   class="px-4 py-3 border-b border-gray-100 align-middle text-center relative w-1 whitespace-nowrap"
                 >
@@ -446,10 +536,7 @@
             onSyllabus?.(menuState?.item);
             closeDropdown();
           }}
-          class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors hover:bg-gray-50 {menuState
-            ?.item?.has_programa
-            ? 'text-blue-700'
-            : 'text-gray-700'}"
+          class="menu-item"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -484,7 +571,7 @@
             onCustomAction?.(menuState?.item);
             closeDropdown();
           }}
-          class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-indigo-700 hover:bg-indigo-50 transition-colors"
+          class="menu-item"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -512,7 +599,7 @@
             onEdit?.(menuState?.item);
             closeDropdown();
           }}
-          class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50 transition-colors"
+          class="menu-item"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -538,7 +625,7 @@
             onPasswordChange?.(menuState?.item);
             closeDropdown();
           }}
-          class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-green-700 hover:bg-green-50 transition-colors"
+          class="menu-item"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -564,10 +651,7 @@
             onToggleActive?.(menuState?.item);
             closeDropdown();
           }}
-          class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors {menuState
-            ?.item?.usuario?.esta_activo
-            ? 'text-blue-700 hover:bg-blue-50'
-            : 'text-red-600 hover:bg-red-50'}"
+          class="menu-item"
         >
           {#if menuState?.item?.usuario?.esta_activo}
             <svg
@@ -606,6 +690,73 @@
           {menuState?.item?.usuario?.esta_activo ? 'Desactivar' : 'Activar'}
         </button>
       {/if}
+
+      {#if onDelete}
+        {#if onEdit || onPasswordChange || onToggleActive || onCustomAction || onSyllabus}
+          <div class="h-px bg-gray-100 my-1"></div>
+        {/if}
+        <button
+          onclick={() => {
+            onDelete?.(menuState?.item);
+            closeDropdown();
+          }}
+          class="menu-item menu-item-danger"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><polyline points="3 6 5 6 21 6" /><path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+            /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg
+          >
+          Eliminar
+        </button>
+      {/if}
     </div>
   {/if}
 </div>
+
+<style>
+  /*
+   * Menú de acciones de fila.
+   *
+   * Antes cada entrada llevaba su propio color —violeta para permisos, gris
+   * para editar, verde para contraseña, azul para desactivar, rojo para
+   * eliminar— sin que la agrupación significara nada. Ahora todas comparten
+   * un tratamiento neutro y el rojo queda reservado a lo que destruye datos,
+   * que es la única distinción que el usuario necesita ver de un vistazo.
+   */
+  .menu-item {
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--action-neutral-fg);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    transition: background-color 0.15s;
+  }
+
+  .menu-item:hover {
+    background: var(--action-neutral-hover);
+  }
+
+  .menu-item-danger {
+    color: var(--action-danger);
+  }
+
+  .menu-item-danger:hover {
+    background: var(--action-danger-soft);
+  }
+</style>

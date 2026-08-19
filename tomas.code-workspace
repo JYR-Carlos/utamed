@@ -1,0 +1,119 @@
+{
+  "folders": [
+    // --- BACKEND PRINCIPAL ---
+    {
+      "name": "app/Http/Controllers",
+      "path": "app/Http/Controllers",
+    },
+    {
+      "name": "app/Models",
+      "path": "app/Models",
+    },
+    {
+      "name": "app/Services",
+      "path": "app/Services",
+    },
+
+    // --- BACKEND RESTO ---
+    {
+      "name": "app/Providers",
+      "path": "app/Providers",
+    },
+    {
+      "name": "routes",
+      "path": "routes",
+    },
+    {
+      "name": "config",
+      "path": "config",
+    },
+    {
+      "name": "app (Resto)",
+      "path": "app",
+      "settings": {
+        "files.exclude": {
+          "Http/Controllers": true,
+          "Models": true,
+          "Services": true,
+        },
+      },
+    },
+
+    // --- FRONTEND PRINCIPAL ---
+    {
+      "name": "resources/js/modules",
+      "path": "resources/js/modules",
+    },
+    {
+      "name": "resources/js/pages",
+      "path": "resources/js/pages",
+    },
+    {
+      "name": "resources/js/types",
+      "path": "resources/js/types",
+    },
+
+    // --- FRONTEND RESTO ---
+    {
+      "name": "resources (Resto)",
+      "path": "resources",
+      "settings": {
+        "files.exclude": {
+          "js/modules": true,
+          "js/pages": true,
+          "js/types": true,
+        },
+      },
+    },
+
+    // --- INFRAESTRUCTURA, SCRIPTS Y RESTO ---
+    {
+      "name": "database-model/init_scripts",
+      "path": "database-model/init_scripts",
+    },
+    {
+      "name": "database-model (Resto)",
+      "path": "database-model",
+      "settings": {
+        "files.exclude": {
+          "init_scripts": true,
+        },
+      },
+    },
+    {
+      "name": "scripts (Raíz)",
+      "path": "scripts",
+    },
+    {
+      "name": "storage",
+      "path": "storage",
+    },
+    {
+      "name": "tests",
+      "path": "tests",
+    },
+    {
+      "name": "Raíz del Proyecto (Resto)",
+      "path": ".",
+      "settings": {
+        "files.exclude": {
+          "app": true,
+          "config": true,
+          "routes": true,
+          "resources": true,
+          "database-model": true,
+          "scripts": true,
+          "storage": true,
+          "tests": true,
+          "bootstrap": true,
+          "database": true,
+          "deploy": true,
+          "docs": true,
+          "public": true,
+          "temp": true,
+        },
+      },
+    },
+  ],
+  "settings": {},
+}

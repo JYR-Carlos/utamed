@@ -71,7 +71,7 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
             'id_estudiante',
             'id_componente'
         )
-            ->withPivot('id_inscripcion_componente', 'nota_componente', 'id_estudiante', 'id_componente');
+            ->withPivot('id_inscripcion_componente', 'cod_inscripcion_curso_uta', 'nota_componente', 'id_estudiante', 'id_componente');
     }
 
     public function cursosInscritos()

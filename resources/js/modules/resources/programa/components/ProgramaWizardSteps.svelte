@@ -1,4 +1,6 @@
 <script lang="ts">
+  import type { WizardUnidad, WizardActividad, WizardComponente } from '@/modules/resources/programa/types/programa.types';
+
   interface Props {
     step: number;
     syllabusType?: 'simplified' | 'combined' | 'complete' | null;
@@ -27,18 +29,11 @@
     items_evaluacion: { titulo: string; descripcion: string }[];
 
     // Sección VII (BASICO): Actividades
-    actividades: {
-      id_actividad: number | null;
-      nombre: string;
-      tipo: string;
-      id_unidad?: number | null;
-      id_seccion?: number | null;
-      nombre_unidad?: string;
-    }[];
+    actividades: WizardActividad[];
     existingActividades?: { id_actividad: number; nombre: string; fecha_limite: string }[];
 
     // Sección VI: Unidades
-    unidades: { numero: number; titulo: string; contenidos: string; resultados_aprendizaje: { resultado: string }[] }[];
+    unidades: WizardUnidad[];
 
     // Sección VII: Planificación
     resultados_aprendizaje: { resultado: string }[];
@@ -51,13 +46,7 @@
     // Sección IX: Aspectos Administrativos
     normativa_curso: string;
     ponderacion_optativa: string;
-    componentes: {
-      componente: string;
-      porcentaje: number;
-      genera_acta: boolean;
-      aprobacion_obligatoria: boolean;
-      asistencia_obligatoria: number;
-    }[];
+    componentes: WizardComponente[];
   }
 
   let {

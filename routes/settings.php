@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
-use App\Http\Controllers\Settings\TwoFactorAuthenticationController;
+// use App\Http\Controllers\Settings\TwoFactorAuthenticationController; // 2FA retirado (ver más abajo)
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -23,6 +23,10 @@ Route::middleware('auth')->group(function () {
         return Inertia::render('settings/Appearance');
     })->name('appearance.edit');
 
-    Route::get('settings/two-factor', [TwoFactorAuthenticationController::class, 'show'])
-        ->name('two-factor.show');
+    // 2FA retirado junto con Features::twoFactorAuthentication() en config/fortify.php.
+    // Esta ruta la registra la aplicación (no Fortify), así que no desaparece sola:
+    // sin el trait TwoFactorAuthenticatable en Usuario, show() reventaba al llamar a
+    // hasEnabledTwoFactorAuthentication(). Descomentar al reimplementar la feature.
+    // Route::get('settings/two-factor', [TwoFactorAuthenticationController::class, 'show'])
+    //     ->name('two-factor.show');
 });

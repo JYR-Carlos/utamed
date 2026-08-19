@@ -78,22 +78,43 @@
 
   // ── Remaining form fields ────────────────────────────────────────────────
   let codCurso = $state<number | ''>('');
-  let nombre = $state('');
   let fechaInicio = $state('');
   let agnoReal = $state(new Date().getFullYear());
   let semestreReal = $state<1 | 2>(1);
-  let jefeImpartesClases = $state(true); // ← Nuevo: ¿El jefe dicta clases?
+  // ¿El docente titular dicta clases en todos los componentes, o uno distinto por componente?
+  let mismoDocenteTodos = $state(true);
+  let docentesPorComponente = $state<Record<number, number | null>>({});
   let asigSearch = $state('');
   let docenteSearch = $state('');
   // Componente (Cátedra) settings
-  let generaActa = $state(true);
+  let generaActaPorComponente = $state<Record<number, boolean>>({});
   let aprobacionObligatoria = $state(false);
   let porcentajeAprobacion = $state<number>(60);
   let porcentajeAsistencia = $state<number>(75);
-  let esColegiado = $state(false);
+  let inscribirAutomaticamente = $state(false);
+  
+
+
+  // ── Letra de grupo (indice_grupo) ──────────────────────────────────────────
+  let indiceGrupo = $state<number | null>(null);
+  let indiceGrupoSugerido = $state<number | null>(null);
+  let indicesGrupoTomados = $state<number[]>([]);
+  let loadingLetra = $state(false);
 
   // ── Computed current step (1–4) ──────────────────────────────────────────
   const currentStep = $derived(!selectedCarrera ? 1 : !selectedPlan ? 2 : !selectedAsig ? 3 : 4);
+
+  // Nombre del curso, derivado de la asignatura y la letra del grupo.
+  // Mientras la letra se está calculando (o si la petición falla) se muestra
+  // sólo el nombre de la asignatura, en lugar de un «Grupo » sin letra.
+  let nombre = $derived.by(() => {
+    if (!selectedAsig) return '';
+    const grupoLetra = intToLetters(indiceGrupo ?? 0);
+    return grupoLetra ? `${selectedAsig.nombre} - Grupo ${grupoLetra}` : selectedAsig.nombre;
+  });
+
+
+
 
   // Grouped asignaturas by year → semester
   const asigByYear = $derived.by(() => {
@@ -140,11 +161,24 @@
     );
   });
 
-  const principalTipo = $derived.by(() => {
-    if (selectedTipos.size === 0) return null;
-    const selected = tiposComponente.filter((tc) => selectedTipos.has(tc.id_tipo_componente));
-    selected.sort((a, b) => (a.prioridad ?? 99) - (b.prioridad ?? 99));
-    return selected[0] ?? null;
+  const selectedTiposOrdered = $derived.by(() => {
+    return tiposComponente
+      .filter((tc) => selectedTipos.has(tc.id_tipo_componente))
+      .sort((a, b) => (a.prioridad ?? 99) - (b.prioridad ?? 99));
+  });
+
+  const principalTipo = $derived.by(() => selectedTiposOrdered[0] ?? null);
+
+  // Colegiado no es una opción manual: se activa solo si terminas asignando
+  // más de un docente distinto entre los componentes del curso.
+  const esColegiadoAuto = $derived.by(() => {
+    if (mismoDocenteTodos) return false;
+    const idsUnicos = new Set(
+      selectedTiposOrdered
+        .map((tc) => docentesPorComponente[tc.id_tipo_componente])
+        .filter((id): id is number => !!id),
+    );
+    return idsUnicos.size > 1;
   });
 
   const filteredOtrosDocentes = $derived.by(() => {
@@ -205,6 +239,8 @@
     historicDocentes = [];
     otrosDocentes = [];
     cursosAnteriores = [];
+    mismoDocenteTodos = true;
+    docentesPorComponente = {};
 
     loadingDocentes = true;
     loadingCursosAnteriores = true;
@@ -231,6 +267,66 @@
     loadingCursosAnteriores = false;
   }
 
+  // ── Letra de grupo (indice_grupo) sugerida ────────────────────────────────
+  function intToLetters(n: number): string {
+    let result = '';
+    while (n > 0) {
+      n -= 1;
+      result = String.fromCharCode(65 + (n % 26)) + result;
+      n = Math.floor(n / 26);
+    }
+    return result;
+  }
+
+  let letraRequestId = 0;
+
+  async function fetchLetraSugerida() {
+    if (!selectedPlan || !selectedAsig) return;
+    const requestId = ++letraRequestId;
+    loadingLetra = true;
+    try {
+      const params = new URLSearchParams({
+        id_asignatura: String(selectedAsig.id_asignatura),
+        id_plan: String(selectedPlan.id_plan),
+        agno_real: String(agnoReal),
+        semestre_real: String(semestreReal),
+      });
+      const res = await fetch(`/admin/cursos/proxima-letra?${params}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (requestId !== letraRequestId) return;
+      if (res.ok) {
+        const json = await res.json();
+        if (requestId !== letraRequestId) return;
+        indiceGrupoSugerido = json.proximo_indice ?? 1;
+        indicesGrupoTomados = json.indices_tomados ?? [];
+        indiceGrupo = indiceGrupoSugerido;
+      }
+    } finally {
+      if (requestId === letraRequestId) loadingLetra = false;
+    }
+  }
+
+  $effect(() => {
+    if (selectedPlan && selectedAsig && agnoReal && semestreReal) {
+      fetchLetraSugerida();
+    }
+  });
+
+  const letraOptions = $derived.by(() => {
+    const maxTomado = indicesGrupoTomados.length ? Math.max(...indicesGrupoTomados) : 0;
+    const maxOpcion = Math.max(maxTomado, indiceGrupoSugerido ?? 1) + 3;
+    const opciones: { indice: number; letra: string; tomada: boolean }[] = [];
+    for (let i = 1; i <= maxOpcion; i++) {
+      opciones.push({
+        indice: i,
+        letra: intToLetters(i),
+        tomada: indicesGrupoTomados.includes(i) && i !== indiceGrupo,
+      });
+    }
+    return opciones;
+  });
+
   // ── Reset when modal closes ──────────────────────────────────────────────
   $effect(() => {
     if (!isOpen) {
@@ -249,14 +345,18 @@
       fechaInicio = '';
       agnoReal = new Date().getFullYear();
       semestreReal = 1;
-      jefeImpartesClases = true;
+      mismoDocenteTodos = true;
+      docentesPorComponente = {};
       asigSearch = '';
       docenteSearch = '';
-      generaActa = true;
+      generaActaPorComponente = {};
       aprobacionObligatoria = false;
       porcentajeAprobacion = 60;
       porcentajeAsistencia = 75;
-      esColegiado = false;
+      indiceGrupo = null;
+      indiceGrupoSugerido = null;
+      indicesGrupoTomados = [];
+      loadingLetra = false;
     }
   });
 
@@ -277,6 +377,16 @@
   }
 
   // ── Submit ───────────────────────────────────────────────────────────────
+  const docentesPorComponenteIncompleto = $derived(
+    !mismoDocenteTodos &&
+      selectedTiposOrdered.some((tc) => !docentesPorComponente[tc.id_tipo_componente]),
+  );
+
+  // TOMÁS SILVA CONTINUAR DESDE ACA!!!!!!!!!
+  function handleIntranetImportCURCODIGO() {
+
+  }
+
   function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
     if (
@@ -285,9 +395,20 @@
       codCurso === '' ||
       !selectedDocente ||
       selectedTipos.size === 0 ||
-      !principalTipo
+      !principalTipo ||
+      docentesPorComponenteIncompleto
     )
       return;
+
+    const docentesPorComponenteFinal: Record<number, number> = {};
+    const generaActaFinal: Record<number, boolean> = {};
+    for (const tc of selectedTiposOrdered) {
+      const idDocente = mismoDocenteTodos
+        ? selectedDocente.id_docente
+        : docentesPorComponente[tc.id_tipo_componente];
+      if (idDocente) docentesPorComponenteFinal[tc.id_tipo_componente] = idDocente;
+      generaActaFinal[tc.id_tipo_componente] = generaActaPorComponente[tc.id_tipo_componente] ?? true;
+    }
 
     onSubmit({
       id_asignatura: selectedAsig.id_asignatura,
@@ -298,16 +419,18 @@
       numero_semestre: selectedAsig.agno_planificado,
       agno_real: agnoReal,
       semestre_real: semestreReal,
-      jefe_imparte_clases: jefeImpartesClases,
+      indice_grupo: indiceGrupo ?? undefined,
       id_docente_sugerido: selectedDocente?.id_docente,
       id_tipo_componente_principal: principalTipo.id_tipo_componente,
       tipos_componente_ids: [...selectedTipos],
-      genera_acta: generaActa,
+      docentes_por_componente: docentesPorComponenteFinal,
+      genera_acta_por_componente: generaActaFinal,
       aprobacion_obligatoria: aprobacionObligatoria,
       porcentaje_aprobacion: porcentajeAprobacion,
       porcentaje_asistencia_obligatoria: porcentajeAsistencia,
-      es_colegiado: esColegiado,
+      inscribir_automaticamente: inscribirAutomaticamente,
     } as any);
+
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -398,6 +521,8 @@
                   selectedDocente = null;
                   planes = [];
                   asignaturas = [];
+                  mismoDocenteTodos = true;
+                  docentesPorComponente = {};
                 }}
               >
                 Cambiar
@@ -447,6 +572,8 @@
                   selectedAsig = null;
                   selectedDocente = null;
                   asignaturas = [];
+                  mismoDocenteTodos = true;
+                  docentesPorComponente = {};
                 }}
               >
                 Cambiar
@@ -510,6 +637,8 @@
                   selectedDocente = null;
                   historicDocentes = [];
                   otrosDocentes = [];
+                  mismoDocenteTodos = true;
+                  docentesPorComponente = {};
                 }}
               >
                 Cambiar
@@ -637,34 +766,62 @@
                   <div class="fields-divider"></div>
                 {/if}
 
-                <!-- ¿El jefe imparte clases? -->
-                <div class="jefe-imparte-section">
-                  <p class="jefe-imparte-label">¿El jefe de curso imparte clases en este curso?</p>
-                  <p class="jefe-imparte-hint">
-                    Si selecciona NO, el jefe solo tendrá acceso administrativo y no estará asignado
-                    a ningún componente.
-                  </p>
-                  <div class="jefe-imparte-toggle">
-                    <label class="toggle-label">
+                <!-- Periodo del curso.
+                     «Año Real» y «Semestre Real» distinguían este dato del
+                     año/semestre planificado en la malla, pero desde la
+                     pantalla no había forma de saber frente a qué eran
+                     «reales»: se nombra por lo que son. -->
+                <div class="periodo-section">
+                  <p class="periodo-label">¿Cuándo se dicta este curso?</p>
+                  <div class="fields-grid">
+                    <div class="field">
+                      <label class="field-label req" for="wiz-agno">Año</label>
                       <input
-                        type="radio"
-                        name="jefe-imparte"
-                        value={true}
-                        bind:group={jefeImpartesClases}
-                        class="toggle-radio"
+                        id="wiz-agno"
+                        type="number"
+                        bind:value={agnoReal}
+                        class="field-input"
+                        min="2000"
+                        max="2100"
+                        required
                       />
-                      <span>Sí, imparte clases</span>
-                    </label>
-                    <label class="toggle-label">
-                      <input
-                        type="radio"
-                        name="jefe-imparte"
-                        value={false}
-                        bind:group={jefeImpartesClases}
-                        class="toggle-radio"
-                      />
-                      <span>No, solo administrativo</span>
-                    </label>
+                    </div>
+
+                    <div class="field">
+                      <label class="field-label req" for="wiz-semestre">Semestre</label>
+                      <select
+                        id="wiz-semestre"
+                        bind:value={semestreReal}
+                        class="field-input"
+                        required
+                      >
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                      </select>
+                    </div>
+
+                    <div class="field">
+                      <label class="field-label" for="wiz-letra">Letra del grupo</label>
+                      <select
+                        id="wiz-letra"
+                        bind:value={indiceGrupo}
+                        class="field-input"
+                        disabled={loadingLetra}
+                      >
+                        {#each letraOptions as opt (opt.indice)}
+                          <option value={opt.indice} disabled={opt.tomada}>
+                            {opt.letra}{opt.tomada ? ' (ocupada)' : ''}
+                          </option>
+                        {/each}
+                      </select>
+                      <p class="field-hint">
+                        {#if loadingLetra}
+                          Calculando letra disponible…
+                        {:else}
+                          Sugerida automáticamente; puedes elegir otra disponible.
+                        {/if}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -723,6 +880,7 @@
 
                 <!-- Docentes sugeridos -->
                 <div class="docentes-section">
+                  <p class="tipo-comp-label">Selección de docente</p>
                   <p class="docentes-hint">
                     {#if loadingDocentes}
                       Buscando docentes sugeridos...
@@ -865,31 +1023,135 @@
                 <!-- Divider -->
                 <div class="fields-divider"></div>
 
+                <!-- Asignación de docentes por componente -->
+                {#if selectedDocente}
+                  <div class="asignacion-docentes-section">
+                    
+                    <p class="jefe-imparte-label">
+                      ¿{selectedDocente.nombre_completo} dictará clases en todos los componentes
+                      del curso?
+                    </p>
+                    <p class="jefe-imparte-hint">
+                      El jefe de curso siempre queda con acceso administrativo. Si eliges la
+                      segunda opción, podrás asignar un docente distinto a cada componente.
+                    </p>
+                    <div class="jefe-imparte-toggle">
+                      <label class="toggle-label">
+                        <input
+                          type="radio"
+                          name="modo-docente-componente"
+                          value={true}
+                          bind:group={mismoDocenteTodos}
+                          class="toggle-radio"
+                        />
+                        <span>Sí, en todos los componentes</span>
+                      </label>
+                      <label class="toggle-label">
+                        <input
+                          type="radio"
+                          name="modo-docente-componente"
+                          value={false}
+                          bind:group={mismoDocenteTodos}
+                          class="toggle-radio"
+                        />
+                        <span>No, un docente distinto por componente</span>
+                      </label>
+                    </div>
+
+                    {#if !mismoDocenteTodos}
+                      <div class="por-componente-list">
+                        {#each selectedTiposOrdered as tc (tc.id_tipo_componente)}
+                          <div class="por-componente-row">
+                            <span class="por-componente-tipo">{tc.tipo}</span>
+                            <select
+                              class="field-input"
+                              value={docentesPorComponente[tc.id_tipo_componente] ?? ''}
+                              onchange={(e) => {
+                                const raw = (e.currentTarget as HTMLSelectElement).value;
+                                docentesPorComponente = {
+                                  ...docentesPorComponente,
+                                  [tc.id_tipo_componente]: raw ? Number(raw) : null,
+                                };
+                              }}
+                            >
+                              <option value="">Selecciona un docente…</option>
+                              {#if historicDocentes.length > 0}
+                                <optgroup label="Historial">
+                                  {#each historicDocentes as d}
+                                    <option value={d.id_docente}>{d.nombre_completo}</option>
+                                  {/each}
+                                </optgroup>
+                              {/if}
+                              {#if otrosDocentes.length > 0}
+                                <optgroup label="Otros docentes">
+                                  {#each otrosDocentes as d}
+                                    <option value={d.id_docente}>{d.nombre_completo}</option>
+                                  {/each}
+                                </optgroup>
+                              {/if}
+                            </select>
+                          </div>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+
+                  <!-- Divider -->
+                  <div class="fields-divider"></div>
+                {/if}
+
                 <!-- Remaining fields -->
-                <div class="fields-grid">
+                <div class="fields-stack">
                   <div class="field">
-                    <label class="field-label" for="wiz-cod-curso">Código del Curso *</label>
-                    <input
-                      id="wiz-cod-curso"
-                      type="text"
-                      bind:value={codCurso}
-                      class="field-input"
-                      placeholder="Ej: 12345"
-                      maxlength="9"
-                      required
-                    />
+                    <span class="field-label">Nombre del Curso</span>
+                    <p class="field-readonly" class:empty={!nombre}>
+                      {nombre || 'Se completará con la asignatura y la letra del grupo.'}
+                    </p>
+                    <p class="field-hint">
+                      Se genera automáticamente; cambia si eliges otra letra de grupo.
+                    </p>
                   </div>
 
                   <div class="field">
-                    <label class="field-label" for="wiz-nombre">Nombre del Curso</label>
-                    <input
-                      id="wiz-nombre"
-                      type="text"
-                      bind:value={nombre}
-                      class="field-input"
-                      placeholder="Nombre personalizado (opcional)"
-                    />
+                    <label class="field-label" for="wiz-cod-curso">Código del Curso *</label>
+                    <div class="cod-curso-row">
+                      <input
+                        id="wiz-cod-curso"
+                        type="text"
+                        bind:value={codCurso}
+                        class="field-input"
+                        placeholder="Ej: 12345"
+                        maxlength="9"
+                        required
+                        />
+                      <button
+                        type="button"
+                        class="btn-import"
+                        onclick={handleIntranetImportCURCODIGO}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7 10 12 15 17 10" />
+                          <line x1="12" x2="12" y1="15" y2="3" />
+                        </svg>
+                        Importar desde Intranet
+                      </button>
+
+                    </div>
+                    
                   </div>
+
+                  
 
                   <div class="field">
                     <label class="field-label" for="wiz-fecha">Fecha de Inicio</label>
@@ -904,36 +1166,38 @@
                       autocomplete="off"
                     />
                   </div>
-
-                  <div class="field">
-                    <label class="field-label" for="wiz-agno">Año Real *</label>
-                    <input
-                      id="wiz-agno"
-                      type="number"
-                      bind:value={agnoReal}
-                      class="field-input"
-                      min="2000"
-                      max="2100"
-                      required
-                    />
-                  </div>
-
-                  <div class="field">
-                    <label class="field-label" for="wiz-semestre">Semestre Real *</label>
-                    <select
-                      id="wiz-semestre"
-                      bind:value={semestreReal}
-                      class="field-input"
-                      required
-                    >
-                      <option value={1}>1</option>
-                      <option value={2}>2</option>
-                    </select>
-                  </div>
                 </div>
 
                 <!-- Componente (Cátedra) settings -->
                 <div class="fields-section-title">Configuración del Componente</div>
+
+                <!-- Genera acta, por componente -->
+                <div class="genera-acta-section">
+                  <p class="field-label">¿Qué componentes generan acta?</p>
+                  <div class="por-componente-list">
+                    {#each selectedTiposOrdered as tc (tc.id_tipo_componente)}
+                      <div class="por-componente-row">
+                        <span class="por-componente-tipo">{tc.tipo}</span>
+                        <label class="field-check-label">
+                          <input
+                            type="checkbox"
+                            checked={generaActaPorComponente[tc.id_tipo_componente] ?? true}
+                            onchange={(e) => {
+                              generaActaPorComponente = {
+                                ...generaActaPorComponente,
+                                [tc.id_tipo_componente]: (e.currentTarget as HTMLInputElement)
+                                  .checked,
+                              };
+                            }}
+                            class="field-check"
+                          />
+                          Genera acta
+                        </label>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+
                 <div class="fields-grid">
                   <div class="field">
                     <label class="field-label" for="wiz-pct-aprobacion">% Aprobación *</label>
@@ -967,13 +1231,6 @@
 
                   <div class="field field-checkbox">
                     <label class="field-check-label">
-                      <input type="checkbox" bind:checked={generaActa} class="field-check" />
-                      Genera Acta
-                    </label>
-                  </div>
-
-                  <div class="field field-checkbox">
-                    <label class="field-check-label">
                       <input
                         type="checkbox"
                         bind:checked={aprobacionObligatoria}
@@ -983,19 +1240,37 @@
                     </label>
                   </div>
 
-                  <div class="field field-checkbox">
-                    <label class="field-check-label">
-                      <input type="checkbox" bind:checked={esColegiado} class="field-check" />
-                      Curso Colegiado
-                    </label>
-                    <p class="text-xs text-slate-500 mt-0.5 ml-6">
-                      Múltiples docentes por componente. Deberás configurar titular por componente.
+                  <div class="field">
+                    <span class="field-label">Curso Colegiado</span>
+                    <p class="colegiado-auto-badge" class:active={esColegiadoAuto}>
+                      {esColegiadoAuto
+                        ? 'Sí — hay más de un docente asignado entre los componentes'
+                        : 'No — un solo docente asignado'}
                     </p>
                   </div>
+                </div>
+
+                <!-- Operaciones Administrativas -->
+                <div class="fields-section-title" style="margin-top: 1.5rem; text-align: left;">Operaciones Administrativas</div>
+
+                <div class="admin-ops-section" style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; margin-top: 0.75rem; width: 100%;">
+                  <label class="field-check-label" style="display: flex; items-center; gap: 0.5rem; text-align: left; cursor: pointer;">
+                    <input
+                      type="checkbox"
+                      bind:checked={inscribirAutomaticamente}
+                      class="field-check"
+                    />
+                    <span>Inscribir automáticamente a los alumnos desde la Intranet</span>
+                  </label>
+                  <p class="field-hint" style="margin-left: 1.5rem; margin-top: 0.25rem; font-size: 0.75rem; color: #6b7280; text-align: left;">
+                    Busca las componentes correspondientes en la Intranet y matricula automáticamente a los alumnos inscritos al crear el curso.
+                  </p>
                 </div>
               </div>
             </div>
           {/if}
+
+
         </section>
       </div>
 
@@ -1003,9 +1278,11 @@
       {#if currentStep === 4}
         <div class="wiz-footer">
           {#if selectedTipos.size === 0}
-            <p class="docente-required-hint">Debes seleccionar al menos un componente.</p>
+            <p class="docente-required-hint">Para crear el curso, elige al menos un componente.</p>
           {:else if !selectedDocente}
-            <p class="docente-required-hint">Debes seleccionar un docente para continuar.</p>
+            <p class="docente-required-hint">Falta elegir el docente del curso.</p>
+          {:else if docentesPorComponenteIncompleto}
+            <p class="docente-required-hint">Falta asignar un docente a cada componente.</p>
           {/if}
           <div class="wiz-footer-actions">
             <button type="button" class="btn-cancel" onclick={onClose} disabled={isLoading}>
@@ -1019,7 +1296,8 @@
                 !selectedPlan ||
                 codCurso === '' ||
                 !selectedDocente ||
-                selectedTipos.size === 0}
+                selectedTipos.size === 0 ||
+                docentesPorComponenteIncompleto}
             >
               {#if isLoading}
                 <span class="btn-spinner"></span>
@@ -1324,18 +1602,46 @@
     gap: 0.625rem;
   }
 
+  /*
+   * Tarjeta de opción del asistente.
+   *
+   * Con sólo un borde gris y el texto a la izquierda se leían como campos de
+   * texto deshabilitados, no como algo que se pueda pulsar. La flecha y el
+   * cambio de fondo al pasar el ratón las devuelven a parecer opciones.
+   */
   .option-card {
-    padding: 0.75rem;
+    padding: 0.75rem 2rem 0.75rem 0.75rem;
     border: 1.5px solid #e5e7eb;
     border-radius: 8px;
     background: white;
     text-align: left;
     cursor: pointer;
     transition: all 0.15s;
+    position: relative;
+  }
+  .option-card::after {
+    content: '';
+    position: absolute;
+    right: 0.85rem;
+    top: 50%;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-top: 2px solid #9ca3af;
+    border-right: 2px solid #9ca3af;
+    transform: translateY(-50%) rotate(45deg);
+    transition: border-color 0.15s;
   }
   .option-card:hover {
     border-color: #3b82f6;
     background: #eff6ff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+  }
+  .option-card:hover::after {
+    border-color: #3b82f6;
+  }
+  .option-card:focus-visible {
+    outline: 2px solid var(--action-primary);
+    outline-offset: 2px;
   }
 
   .option-card-name {
@@ -1674,9 +1980,45 @@
   }
 
   /* ── Fields ── */
-  /* ── ¿El jefe imparte clases? ── */
-  .jefe-imparte-section {
+  /* ── Periodo del curso (Año / Semestre real) ── */
+  .periodo-section {
+    margin-bottom: 0.25rem;
+  }
+
+  .periodo-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 0.5rem;
+  }
+
+  /* ── Asignación de docentes por componente ── */
+  .asignacion-docentes-section {
     margin-bottom: 0.75rem;
+  }
+
+  .por-componente-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.875rem;
+  }
+
+  .por-componente-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .por-componente-tipo {
+    flex: 0 0 130px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .por-componente-row .field-input {
+    flex: 1;
   }
 
   .jefe-imparte-label {
@@ -1854,6 +2196,129 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 
+  .field-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .field-hint {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    margin: 0;
+  }
+
+  .fields-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  /*
+   * Valor que rellena el sistema (nombre del curso).
+   *
+   * Iba en una píldora gris muy redondeada que no se parecía a ningún otro
+   * campo del asistente y se leía como un botón. Se dibuja con la misma caja
+   * que el input que le sigue, pero apagada y con borde discontinuo, para que
+   * quede claro que es un campo que se rellena solo y no se puede escribir.
+   */
+  .field-readonly {
+    display: flex;
+    align-items: center;
+    min-height: 2.25rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px dashed #d1d5db;
+    border-radius: 6px;
+    background: #f9fafb;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #111827;
+    margin: 0;
+  }
+
+  .field-readonly.empty {
+    font-weight: 400;
+    color: #9ca3af;
+  }
+
+  /*
+   * Código del curso + acción de importarlo desde la Intranet.
+   *
+   * El botón iba en ámbar y con esquinas de píldora: competía visualmente con
+   * «Crear Curso» y no se parecía a ningún otro control del asistente. Es una
+   * acción secundaria que rellena un campo, así que toma el azul de acento y
+   * el mismo radio y altura que el input al que acompaña.
+   */
+  .cod-curso-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .cod-curso-row .field-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .btn-import {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-shrink: 0;
+    padding: 0.5rem 0.875rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    background: #eff6ff;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #1d4ed8;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background 0.15s,
+      border-color 0.15s,
+      color 0.15s;
+  }
+  .btn-import:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+    color: #1e40af;
+  }
+  .btn-import:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 500px) {
+    .cod-curso-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .btn-import {
+      justify-content: center;
+    }
+  }
+
+  .genera-acta-section {
+    margin-bottom: 1rem;
+  }
+
+  .colegiado-auto-badge {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    margin: 0;
+  }
+
+  .colegiado-auto-badge.active {
+    color: #4338ca;
+    background: #eef2ff;
+    border-color: #c7d2fe;
+  }
+
   .field-checkbox {
     display: flex;
     align-items: center;
@@ -1895,14 +2360,20 @@
     gap: 0.75rem;
   }
 
+  /*
+   * Qué falta para poder crear el curso.
+   *
+   * Iba en rojo de error, así que el paso 4 se abría en estado de fallo
+   * antes de que el usuario tocara nada. Es una indicación de progreso, no
+   * un error: se muestra en tono neutro y sólo explica qué queda por hacer.
+   */
   .docente-required-hint {
     font-size: 0.8rem;
-    color: #b91c1c;
+    color: var(--state-info);
     margin: 0;
     padding: 0.4rem 0.75rem;
-    background: #fef2f2;
+    background: var(--state-info-soft);
     border-radius: 6px;
-    border: 1px solid #fecaca;
   }
 
   .btn-cancel {

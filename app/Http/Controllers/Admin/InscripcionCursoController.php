@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreInscripcionCursoRequest;
 use App\Http\Requests\UpdateInscripcionCursoRequest;
@@ -10,6 +11,8 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
 use App\Models\Usuario\Estudiante;
 use App\Services\InscripcionCursoService;
+use App\Support\Csv;
+use App\Services\IntranetService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
@@ -36,6 +39,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class InscripcionCursoController extends Controller
 {
+    use LimitsPageSize;
+
     private InscripcionCursoService $inscripcionService;
 
     public function __construct(InscripcionCursoService $inscripcionService)
@@ -59,13 +64,18 @@ class InscripcionCursoController extends Controller
         $inscripciones = $this->inscripcionService->getFiltered(
             $filters,
             $idDocente,
-            $request->input('per_page', 15)
+            $this->perPage($request)
         );
 
-        // Obtener cursos disponibles
+        // Obtener cursos disponibles.
+        // El listado del admin cuenta las inscripciones vigentes: es el dato
+        // por el que se elige un curso en esta pantalla, y antes obligaba a
+        // abrir la nómina de uno en uno para saberlo.
         $cursos = $idDocente
             ? $this->inscripcionService->getCursosByDocente($idDocente)
-            : Curso::orderBy('cod_curso')->get();
+            : Curso::withCount([
+                'inscripcionCursos as inscritos_count' => fn($q) => $q->where('estado_inscripcion', 'INSCRITO'),
+            ])->orderBy('cod_curso')->get();
 
         // Renderizar según rol
         if ($user->docente) {
@@ -397,7 +407,9 @@ class InscripcionCursoController extends Controller
         $idDocente = $user->docente?->id_docente;
 
         try {
-            $inscripciones = $this->inscripcionService->getFiltered($filters, $idDocente, 999999);
+            // Recorrido perezoso: `getFiltered(..., 999999)` materializaba hasta un
+            // millón de modelos con sus relaciones antes de emitir nada.
+            $inscripciones = $this->inscripcionService->streamFiltered($filters, $idDocente);
 
             $filename = 'inscripciones_' . ($idCurso ?? 'todas') . '_' . now()->format('Y-m-d_H-i-s') . '.csv';
 
@@ -425,9 +437,15 @@ class InscripcionCursoController extends Controller
                 ]);
 
                 // Data
+                //
+                // Cada celda pasa por Csv::fila(): `fputcsv()` escapa comillas y
+                // separadores, pero no neutraliza fórmulas, y estos valores vienen
+                // de la importación masiva de usuarios, que acepta nombres desde un
+                // .xlsx sin sanear. Un nombre como `=cmd|'/c calc'!A1` se ejecutaba
+                // al abrir el archivo en la máquina del administrador.
                 foreach ($inscripciones as $inscripcion) {
                     $estudiante = $inscripcion->estudiante;
-                    fputcsv($file, [
+                    fputcsv($file, Csv::fila([
                         $inscripcion->id_curso,
                         $inscripcion->curso->cod_curso ?? '',
                         $inscripcion->curso->nombre ?? '',
@@ -439,7 +457,7 @@ class InscripcionCursoController extends Controller
                         $inscripcion->estado_inscripcion ?? '',
                         $inscripcion->num_intento ?? '1',
                         $inscripcion->promedio_parcial ?? ''
-                    ]);
+                    ]));
                 }
 
                 fclose($file);
@@ -451,4 +469,43 @@ class InscripcionCursoController extends Controller
             return back()->withErrors(['error' => 'Error al exportar inscripciones']);
         }
     }
+
+    /**
+     * Sincroniza e inscribe automáticamente a los alumnos de la Intranet al curso especificado.
+     */
+    public function inscripcionAutomatica(Request $request, int $idCurso, IntranetService $intranetService)
+    {
+        $curso = Curso::findOrFail($idCurso);
+
+        try {
+            $resultado = $intranetService->inscribirAutomaticamente($curso);
+
+            $mensaje = "Inscripción automática completada. Se procesaron {$resultado->total_procesados} alumnos ({$resultado->inscritos_exitosamente} inscritos exitosamente, {$resultado->alumnos_creados} nuevos creados).";
+
+            if ($request->header('X-Inertia')) {
+                return redirect()->back()->with('success', $mensaje);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $mensaje,
+                'data'    => $resultado->toArray(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error en inscripción automática para curso #{$idCurso}: " . $e->getMessage());
+
+            $mensajeError = "No se pudo realizar la inscripción automática desde la Intranet: " . $e->getMessage();
+
+            if ($request->header('X-Inertia')) {
+                return redirect()->back()->with('error', $mensajeError);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $mensajeError,
+            ], 422);
+        }
+    }
+
 }
+

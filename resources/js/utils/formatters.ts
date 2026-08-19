@@ -3,37 +3,22 @@
  */
 
 /**
- * Format date to locale string
- * @param date - Date string or Date object
- * @returns Formatted date (e.g., "15/01/2024")
+ * Formatea una fecha como texto numérico corto en es-CL (DD/MM/AAAA).
+ *
+ * Para strings usa {@link parseFechaSoloDia}, evitando el desfase UTC→hora local
+ * de Chile (ver la nota de locale más abajo). Para mostrar fecha + hora usar
+ * {@link formatFechaHora}.
+ *
+ * @param date - Fecha ISO/"YYYY-MM-DD..." o `Date`.
+ * @returns Ej. "15/01/2024". Devuelve la entrada como texto si no es parseable.
  */
 export function formatDate(date: string | Date): string {
     try {
-        const d = typeof date === 'string' ? new Date(date) : date;
-        return d.toLocaleDateString('es-ES', {
+        const d = typeof date === 'string' ? parseFechaSoloDia(date) : date;
+        return d.toLocaleDateString('es-CL', {
             year: 'numeric',
             month: '2-digit',
             day: '2-digit'
-        });
-    } catch {
-        return date?.toString() || 'Fecha inválida';
-    }
-}
-
-/**
- * Format datetime to locale string
- * @param date - Date string or Date object
- * @returns Formatted datetime (e.g., "15/01/2024 14:30")
- */
-export function formatDateTime(date: string | Date): string {
-    try {
-        const d = typeof date === 'string' ? new Date(date) : date;
-        return d.toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
         });
     } catch {
         return date?.toString() || 'Fecha inválida';
@@ -192,6 +177,21 @@ export function formatFechaCorta(val: string | null | undefined): string {
     return parseFechaSoloDia(val).toLocaleDateString('es-CL', {
         day: '2-digit',
         month: 'short',
+        year: 'numeric'
+    });
+}
+
+/**
+ * Formatea una fecha-solo-día como texto largo en es-CL, sin el día de la semana.
+ * Usa {@link parseFechaSoloDia} para evitar el desfase UTC→hora local de Chile.
+ * @param val - Fecha ISO/string, o null/undefined.
+ * @returns Ej. "3 de marzo de 2026". Devuelve '' si val es null/undefined/vacío.
+ */
+export function formatFechaTextoLargo(val: string | null | undefined): string {
+    if (!val) return '';
+    return parseFechaSoloDia(val).toLocaleDateString('es-CL', {
+        day: 'numeric',
+        month: 'long',
         year: 'numeric'
     });
 }

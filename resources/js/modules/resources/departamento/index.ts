@@ -1,11 +1,9 @@
 /**
- * Barrel export para el módulo de Departamentos
+ * Módulo Departamento — barrel principal.
  *
- * Centraliza la exportación de componentes y servicios relacionados con departamentos
- * para facilitar imports concisos en otras partes de la aplicación.
- *
- * Uso:
- *   import { DepartamentoList, departamentoApi } from '@/modules/resources/departamento';
+ * Departamentos académicos anidados bajo facultades, con carreras asociadas.
+ * El borrado es discontinuación (soft delete) y se bloquea mientras el
+ * departamento tenga carreras.
  */
 
 // Componentes
@@ -15,4 +13,3 @@ export { default as DepartamentoDeleteConfirm } from './components/departamentoD
 
 // Servicios
 export { createDepartamento, updateDepartamento, deleteDepartamento } from './services/departamentoApi';
-export type { } from './services/departamentoApi';

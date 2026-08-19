@@ -30,6 +30,7 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
     protected $fillable = [
         'nombre',
         'fecha_limite',
+        'nro_dias_adicionales_para_bloqueo',
         'visible',
         'ponderacion',
         'exigencia',
@@ -40,15 +41,14 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
         'es_plantilla',
         'id_componente',
         'id_unidad',
-        'uuid_archivo'
+        'uuid_archivo_enunciado'
     ];
 
     protected $casts = [
         'visible' => 'boolean',
         'tipo_actividad' => TipoActividad::class,
         'es_grupal' => 'boolean',
-        'es_plantilla' => 'boolean',
-        'fecha_limite' => 'date:Y-m-d',
+        'es_plantilla' => 'boolean'
     ];
 
     // Relaciones
@@ -74,7 +74,7 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
     public function archivo()
     {
         $instance = new \App\Models\Operaciones\Archivo();
-        return new BelongsTo($instance->newQuery(), $this, 'uuid_archivo', 'uuid_archivo', 'archivo');
+        return new BelongsTo($instance->newQuery(), $this, 'uuid_archivo_enunciado', 'uuid_archivo', 'archivo');
     }
 
     // Relaciones inversas
@@ -82,6 +82,11 @@ abstract class BaseActividad extends CustomBaseModel implements HasOwnedContext
     public function actividadAsignadaGrupos()
     {
         return $this->hasMany(\App\Models\Agenda\ActividadAsignadaGrupo::class, 'id_actividad', 'id_actividad');
+    }
+
+    public function rubricas()
+    {
+        return $this->hasMany(\App\Models\Agenda\Rubrica::class, 'id_actividad', 'id_actividad');
     }
 
 }

@@ -11,9 +11,39 @@
    * Se activa haciendo clic en cualquier fila de la tabla principal.
    * La tabla de fondo queda levemente oscurecida (backdrop) con blur mínimo.
    */
-  import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight, Calendar, Copy } from 'lucide-svelte';
+  import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight, Calendar, Copy, UserPlus } from 'lucide-svelte';
   import { router } from '@inertiajs/svelte';
   import type { Curso, Componente } from '../types/curso.types';
+
+  let isInscribiendo = $state(false);
+
+  function handleInscribirAutomatica(cursoObj: Curso) {
+    if (!cursoObj) return;
+    isInscribiendo = true;
+    router.post(`/admin/cursos/${cursoObj.id_curso}/inscripcion-automatica`, {}, {
+      preserveScroll: true,
+      onSuccess: (pageObj: any) => {
+        isInscribiendo = false;
+        const flashErr = pageObj?.props?.flash?.error;
+        const flashSucc = pageObj?.props?.flash?.success;
+        if (flashErr) {
+          alert(`Error de Inscripción Intranet:\n\n${flashErr}`);
+        } else if (flashSucc) {
+          alert(`Inscripción Intranet:\n\n${flashSucc}`);
+        }
+      },
+      onError: (err: any) => {
+        isInscribiendo = false;
+        const msg = typeof err === 'string' ? err : (err?.error || 'Error al conectar con la Intranet');
+        alert(`Error al procesar inscripción automática:\n\n${msg}`);
+      },
+      onFinish: () => {
+        isInscribiendo = false;
+      }
+    });
+  }
+
+
 
   interface Props {
     isOpen?: boolean;
@@ -167,7 +197,7 @@
   }
 
   const TABS: { id: Tab; label: string }[] = [
-    { id: 'secciones', label: 'Secciones' },
+    { id: 'secciones', label: 'Componentes' },
     { id: 'equipo', label: 'Equipo Docente' },
     { id: 'configuracion', label: 'Configuración' },
   ];
@@ -246,12 +276,16 @@
 
     <!-- ── Contenido (scrollable) ──────────────────────────────────────────── -->
     <div class="flex-1 overflow-y-auto" role="tabpanel">
-      <!-- Tab 1: Secciones / Componentes -->
+      <!-- Tab 1: Componentes.
+           Esta pestaña los llamaba «secciones» mientras el modal que abre se
+           titula «Crear componente» y el asistente pregunta «¿qué componentes
+           tendrá este curso?»: son la misma cosa (cátedra, laboratorio,
+           taller) y ahora se llaman igual en todas partes. -->
       {#if activeTab === 'secciones'}
         <div class="p-6 space-y-4">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold text-gray-800">
-              Secciones del Curso
+              Componentes del curso
               {#if (curso.componentes?.length ?? 0) > 0}
                 <span
                   class="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600"
@@ -260,12 +294,9 @@
                 </span>
               {/if}
             </h3>
-            <button
-              onclick={() => onAddComponente(curso)}
-              class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:scale-[0.97] transition shadow-sm"
-            >
+            <button onclick={() => onAddComponente(curso)} class="btn btn-primary btn-sm">
               <Plus size={12} />
-              Añadir Sección
+              Añadir componente
             </button>
           </div>
 
@@ -276,8 +307,11 @@
               <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-3">
                 <Plus size={18} class="text-gray-400" />
               </div>
-              <p class="text-sm font-medium text-gray-600">Sin secciones</p>
-              <p class="text-xs text-gray-400 mt-1">Añade secciones para organizar este curso.</p>
+              <p class="text-sm font-medium text-gray-600">Sin componentes</p>
+              <p class="text-xs text-gray-400 mt-1">
+                Añade al menos un componente (cátedra, laboratorio o taller) para poder asignar
+                docentes y actividades.
+              </p>
             </div>
           {:else}
             <div class="rounded-xl border border-gray-200 overflow-hidden">
@@ -322,20 +356,25 @@
                         {/if}
                       </td>
                       <td class="px-4 py-3 text-right">
+                        <!-- Iconos de 16 px en un objetivo de 36 px: los de
+                             13 px con relleno 1.5 daban un área de pulsación
+                             de unos 26 px, por debajo del mínimo. -->
                         <div class="flex items-center justify-end gap-0.5">
                           <button
                             onclick={() => onEditComponente(curso, comp)}
-                            class="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition"
-                            title="Editar sección"
+                            class="btn-icon"
+                            aria-label="Editar componente"
+                            title="Editar componente"
                           >
-                            <Edit2 size={13} />
+                            <Edit2 size={16} />
                           </button>
                           <button
                             onclick={() => onDeleteComponente(curso, comp)}
-                            class="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
-                            title="Eliminar sección"
+                            class="btn-icon btn-icon-danger"
+                            aria-label="Eliminar componente"
+                            title="Eliminar componente"
                           >
-                            <Trash2 size={13} />
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </td>
@@ -351,13 +390,10 @@
       {:else if activeTab === 'equipo'}
         <div class="p-6 space-y-4">
           <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-gray-800">Equipo Docente</h3>
-            <button
-              onclick={() => onTeam(curso)}
-              class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100 transition"
-            >
-              <Users size={13} />
-              Gestionar equipo
+            <h3 class="text-sm font-semibold text-gray-800">Equipo docente</h3>
+            <button onclick={() => onTeam(curso)} class="btn btn-neutral btn-sm">
+              <Users size={14} />
+              Ver equipo completo
             </button>
           </div>
 
@@ -389,8 +425,12 @@
               </span>
             </div>
 
+            <!-- La pestaña sólo tiene sitio para el titular; el aviso dice qué
+                 falta y el botón de arriba es dónde verlo, en vez de
+                 mandar a buscar un control por su nombre. -->
             <p class="text-xs text-gray-400 text-center py-2">
-              Para ver todos los miembros del equipo, usa "Gestionar equipo".
+              Aquí se muestra el docente titular. El resto del equipo está en «Ver equipo
+              completo».
             </p>
           {:else}
             <div
@@ -607,25 +647,30 @@
     <div
       class="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex-shrink-0"
     >
-      <button
-        onclick={handleClose}
-        class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
-      >
-        Cerrar
-      </button>
+      <button onclick={handleClose} class="btn btn-ghost"> Cerrar </button>
+      <!-- Cuatro acciones con cuatro tratamientos distintos (texto, contorno
+           verde, contorno violeta, sólido azul) no dejaban ver cuál es la
+           principal. Ahora sólo «Editar curso» va destacada. -->
       <div class="flex items-center gap-2">
         <button
+          onclick={() => handleInscribirAutomatica(curso!)}
+          disabled={isInscribiendo}
+          class="btn btn-neutral"
+          title="Trae la nómina de estudiantes que la Intranet tiene inscritos en este curso"
+        >
+          <UserPlus size={14} />
+          {isInscribiendo ? 'Inscribiendo…' : 'Inscribir desde Intranet'}
+        </button>
+        <button
           onclick={() => onCopy(curso)}
-          class="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 active:scale-[0.98] transition"
+          class="btn btn-neutral"
           title="Copiar este curso en un nuevo período"
         >
           <Copy size={14} />
           Copiar
         </button>
-        <button
-          onclick={() => onEdit(curso)}
-          class="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:scale-[0.98] transition shadow-sm"
-        >
+
+        <button onclick={() => onEdit(curso)} class="btn btn-primary">
           <Edit2 size={14} />
           Editar curso
         </button>

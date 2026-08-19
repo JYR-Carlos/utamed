@@ -1,3 +1,10 @@
+/**
+ * Módulo Inscripción — barrel principal.
+ *
+ * Gestión de la nómina de estudiantes por curso en dos pasos: selector de
+ * curso → roster con máquina de estados (ver TRANSITIONS en los types) e
+ * inscripción masiva.
+ */
 export { default as CursoSelector } from './components/cursoSelector.svelte';
 export { default as RosterTable } from './components/rosterTable.svelte';
 export { default as AddEstudiantesModal } from './components/addEstudiantesModal.svelte';

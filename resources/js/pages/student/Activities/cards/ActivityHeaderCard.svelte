@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Rubrica } from '@/types/rubrica';
+  import { formatFechaCorta } from '@/utils/formatters';
 
   interface Props {
     cod_actividad: string;
@@ -12,7 +13,6 @@
   }
 
   let {
-    cod_actividad,
     nombre_actividad,
     nombre_curso,
     descripcion,
@@ -24,8 +24,6 @@
 
 <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
   <div class="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500">
-    <span class="font-mono text-slate-700">{cod_actividad}</span>
-    <span class="text-slate-300">·</span>
     <span>{nombre_curso}</span>
   </div>
 
@@ -84,7 +82,7 @@
           <line x1="8" y1="2" x2="8" y2="6" />
           <line x1="3" y1="10" x2="21" y2="10" />
         </svg>
-        {fecha_limite}
+        {formatFechaCorta(fecha_limite)}
       </span>
     </div>
     <div class="space-y-1">

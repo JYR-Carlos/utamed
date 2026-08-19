@@ -216,7 +216,7 @@
             class="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 border border-indigo-200 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors no-underline"
           >
             <MessageSquare size={14} />
-            Mensajes del Curso
+            Mensajes de actividades
           </Link>
         </div>
       </div>
@@ -407,10 +407,11 @@
                         <span class="hidden sm:inline">Actividades</span>
                       </Link>
 
-                      <!-- Link to direct message with this student -->
+                      <!-- Hilos de agenda del estudiante (por actividad/grupo).
+                           El canal directo sin actividad vive en Mensajería. -->
                       <Link
                         href="/docente/cursos/{curso.id_curso}/mensajes?est={est.id_estudiante}"
-                        title="Enviar mensaje directo"
+                        title="Mensajes de actividades de este estudiante"
                         class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-md border border-indigo-200 bg-white text-indigo-600 hover:bg-indigo-50 transition-colors no-underline"
                       >
                         <MessageSquare size={13} />

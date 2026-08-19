@@ -1,5 +1,6 @@
 <script lang="ts">
   import AdminLayout from '@/layouts/AdminLayout.svelte';
+  import PageHeader from '@/components/admin/PageHeader.svelte';
   import { router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import {
@@ -289,17 +290,13 @@
 </script>
 
 <AdminLayout {breadcrumbs}>
-  <div class="container mx-auto max-w-7xl">
-    <!-- Encabezado -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-slate-900 mb-1 flex items-center gap-3">
-        <BookOpen class="text-blue-600" size={32} />
-        Syllabus de Cursos
-      </h1>
-      <p class="text-slate-500 text-sm">
-        Gestión de syllabus y fechas límite de entrega. Solo administradores.
-      </p>
-    </div>
+  <div>
+    <!-- El icono junto al título sólo aparecía aquí, y «Solo
+         administradores» describía el permiso, no la tarea. -->
+    <PageHeader
+      title="Syllabus de cursos"
+      subtitle="Define la fecha límite de entrega y crea el syllabus de cada curso."
+    />
 
     <!-- Filtros -->
     <Card.Root class="mb-6 shadow-sm">
@@ -347,7 +344,10 @@
             </select>
           </div>
 
-          <Button onclick={aplicarFiltros} size="sm" class="h-9">Buscar</Button>
+          <!-- Este botón salía del `--primary` del tema (granate institucional)
+               mientras el resto del panel usa el azul de acción: se ancla al
+               mismo token que las demás acciones primarias. -->
+          <Button onclick={aplicarFiltros} size="sm" class="btn btn-primary h-9">Buscar</Button>
 
           {#if searchQ || filtroSemestre || filtroAgno}
             <Button variant="ghost" onclick={limpiarFiltros} size="sm" class="h-9 text-slate-500">
@@ -376,14 +376,17 @@
               <th class="text-left py-3 px-4 font-semibold text-slate-600">Estado syllabus</th>
               <th class="text-left py-3 px-4 font-semibold text-slate-600">Fecha básico</th>
               <th class="text-left py-3 px-4 font-semibold text-slate-600">Fecha completo</th>
-              <th class="text-center py-3 px-4 font-semibold text-slate-600">Acción</th>
-              <th class="text-center py-3 px-4 font-semibold text-slate-600">Ver/Editar</th>
+              <!-- Una sola columna de acciones: «Acción» y «Ver/Editar» eran
+                   dos columnas contiguas y estrechas, así que el botón partía
+                   su etiqueta en dos líneas y su icono quedaba separado del
+                   texto, leyéndose como un control suelto. -->
+              <th class="text-right py-3 px-4 font-semibold text-slate-600">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {#if cursos.length === 0}
               <tr>
-                <td colspan="7" class="text-center py-16 text-slate-400">
+                <td colspan="6" class="text-center py-16 text-slate-400">
                   <FileText size={40} class="mx-auto mb-3 opacity-40" />
                   <p>No se encontraron cursos</p>
                 </td>
@@ -470,7 +473,8 @@
                 </td>
 
                 <!-- ACCIÓN: lógica de días vs definir fecha -->
-                <td class="py-3 px-4 text-center">
+                <td class="py-3 px-4 text-right">
+                  <div class="flex items-center justify-end gap-2 flex-wrap">
                   {#if accion.tipo === 'dias-basico'}
                     {@const d = accion.dias ?? 0}
                     <div
@@ -510,44 +514,33 @@
                       </span>
                     </div>
                   {:else if accion.tipo === 'definir-completo'}
-                    <button
-                      onclick={() => abrirDialogCompleto(curso)}
-                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
-                    >
-                      <Calendar size={13} />
-                      Definir fecha<br />completo
+                    <button onclick={() => abrirDialogCompleto(curso)} class="btn btn-neutral btn-sm">
+                      <Calendar size={14} />
+                      Definir fecha completo
                     </button>
                   {:else}
                     <!-- definir-basico (default) -->
-                    <button
-                      onclick={() => abrirDialogBasico(curso)}
-                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                    >
-                      <Calendar size={13} />
+                    <button onclick={() => abrirDialogBasico(curso)} class="btn btn-neutral btn-sm">
+                      <Calendar size={14} />
                       Definir fecha
                     </button>
                   {/if}
-                </td>
 
-                <!-- Ver / Editar syllabus -->
-                <td class="py-3 px-4 text-center">
                   {#if curso.programa}
                     <a
                       href="/admin/cursos/{curso.id_curso}/programa/revisar"
-                      class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium text-xs"
+                      class="btn btn-neutral btn-sm"
                     >
-                      <Edit size={13} />
-                      Ver / Editar
+                      <Edit size={14} />
+                      Ver syllabus
                     </a>
                   {:else}
-                    <button
-                      onclick={() => abrirCrearDialog(curso)}
-                      class="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-800 font-medium text-xs"
-                    >
-                      <Plus size={13} />
+                    <button onclick={() => abrirCrearDialog(curso)} class="btn btn-primary btn-sm">
+                      <Plus size={14} />
                       Crear syllabus
                     </button>
                   {/if}
+                  </div>
                 </td>
               </tr>
             {/each}
@@ -596,14 +589,12 @@
     </Dialog.Header>
 
     <div class="space-y-5 py-2">
+      <!-- La etiqueta no repite el título del diálogo: decía dos veces
+           «Fecha límite — Syllabus básico» en la misma ventana. -->
       {#if dialog.modo === 'basico'}
         <div class="space-y-1.5">
-          <Label
-            for="fecha-basico"
-            class="text-sm font-medium text-slate-700 flex items-center gap-1.5"
-          >
-            <span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-400"></span>
-            Fecha límite — Syllabus básico
+          <Label for="fecha-basico" class="text-sm font-medium text-slate-700">
+            Fecha límite de entrega
           </Label>
           <DatePickerCL
             id="fecha-basico"
@@ -616,12 +607,8 @@
         </div>
       {:else}
         <div class="space-y-1.5">
-          <Label
-            for="fecha-completo"
-            class="text-sm font-medium text-slate-700 flex items-center gap-1.5"
-          >
-            <span class="inline-block w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
-            Fecha límite — Syllabus completo
+          <Label for="fecha-completo" class="text-sm font-medium text-slate-700">
+            Fecha límite de entrega
           </Label>
           <DatePickerCL
             id="fecha-completo"
@@ -646,12 +633,8 @@
 
     <Dialog.Footer class="gap-2">
       <Button variant="ghost" onclick={cerrarDialog} disabled={dialog.saving}>Cancelar</Button>
-      <Button
-        onclick={guardarFechas}
-        disabled={dialog.saving}
-        class="bg-blue-600 hover:bg-blue-700"
-      >
-        {dialog.saving ? 'Guardando…' : 'Guardar fechas'}
+      <Button onclick={guardarFechas} disabled={dialog.saving} class="btn btn-primary">
+        {dialog.saving ? 'Guardando…' : 'Guardar fecha'}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>
@@ -666,41 +649,25 @@
 >
   <Dialog.Content class="max-w-sm">
     <Dialog.Header>
-      <Dialog.Title class="flex items-center gap-2 text-slate-900">
-        <Plus size={18} class="text-emerald-600" />
-        Crear syllabus
-      </Dialog.Title>
+      <Dialog.Title class="text-slate-900">Crear syllabus</Dialog.Title>
       <Dialog.Description class="text-slate-500 text-sm">
         {crearDialog.curso?.nombre ?? ''}
       </Dialog.Description>
     </Dialog.Header>
 
     <div class="space-y-4 py-2">
-      <!-- Tipo determinado automáticamente por las fechas definidas -->
-      <div
-        class="flex items-center gap-3 p-3 rounded-lg border
-        {crearDialog.tipo === 'BASICO'
-          ? 'border-blue-200 bg-blue-50'
-          : 'border-indigo-200 bg-indigo-50'}"
-      >
+      <!-- El tipo lo determinan las fechas ya definidas, no el usuario. Se
+           enuncia como un hecho: presentado como tarjeta con punto y borde
+           de color parecía una opción única que había que elegir. -->
+      <p class="text-sm text-slate-700 leading-relaxed">
         {#if crearDialog.tipo === 'BASICO'}
-          <span class="inline-block w-3 h-3 rounded-full bg-blue-400 shrink-0"></span>
-          <div>
-            <p class="text-sm font-medium text-slate-800">Syllabus básico</p>
-            <p class="text-xs text-slate-500">
-              5 secciones obligatorias. El docente podrá completarlo antes de la fecha límite.
-            </p>
-          </div>
+          Se creará un <strong>syllabus básico</strong> de 5 secciones obligatorias. El docente
+          podrá completarlo hasta la fecha límite.
         {:else}
-          <span class="inline-block w-3 h-3 rounded-full bg-indigo-400 shrink-0"></span>
-          <div>
-            <p class="text-sm font-medium text-slate-800">Syllabus completo</p>
-            <p class="text-xs text-slate-500">
-              9 secciones. Toma los datos de la versión básica y la completa.
-            </p>
-          </div>
+          Se creará un <strong>syllabus completo</strong> de 9 secciones, tomando como base los
+          datos de la versión básica.
         {/if}
-      </div>
+      </p>
 
       {#if crearDialog.error}
         <p class="text-sm text-red-600 bg-red-50 rounded-md px-3 py-2 border border-red-200">
@@ -713,11 +680,9 @@
       <Button variant="ghost" onclick={cerrarCrearDialog} disabled={crearDialog.saving}
         >Cancelar</Button
       >
-      <Button
-        onclick={crearPrograma}
-        disabled={crearDialog.saving}
-        class="bg-emerald-600 hover:bg-emerald-700"
-      >
+      <!-- Primario azul como el resto del panel: el verde no distinguía
+           «crear» de nada, sólo de las otras pantallas. -->
+      <Button onclick={crearPrograma} disabled={crearDialog.saving} class="btn btn-primary">
         {crearDialog.saving ? 'Creando…' : 'Crear syllabus'}
       </Button>
     </Dialog.Footer>

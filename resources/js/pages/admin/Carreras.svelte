@@ -18,6 +18,7 @@
    * - carreraApi: abstracción HTTP (CRUD + cascada)
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
+  import PageHeader from '@/components/admin/PageHeader.svelte';
   import { router, page, useForm } from '@inertiajs/svelte';
   import CarreraList from '@/modules/resources/carrera/components/carreraList.svelte';
   import CarreraForm from '@/modules/resources/carrera/components/carreraForm.svelte';
@@ -173,32 +174,27 @@
 </script>
 
 <AdminLayout {breadcrumbs}>
-  <div class="max-w-7xl mx-auto">
-    <!-- Page header -->
-    <div class="flex items-start justify-between mb-6">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900 leading-tight">Carreras</h1>
-        <p class="mt-1 text-sm text-gray-500">Gestión de carreras por departamento</p>
-      </div>
-      <button
-        onclick={openCreateModal}
-        class="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm shadow-blue-200/60 transition-all active:scale-95 cursor-pointer"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          ><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg
-        >
-        Nueva Carrera
-      </button>
-    </div>
+  <div>
+    <PageHeader title="Carreras" subtitle="Gestión de carreras por departamento">
+      {#snippet primaryAction()}
+        <button onclick={openCreateModal} class="btn btn-primary">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+            ><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg
+          >
+          Nueva carrera
+        </button>
+      {/snippet}
+    </PageHeader>
 
     <!-- Componente: Lista de Carreras (tabla con toolbar) -->
     <CarreraList

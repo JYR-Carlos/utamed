@@ -1,15 +1,19 @@
 <script lang="ts">
   /**
-   * Panel lateral deslizante (Slide-over) para ver la malla curricular de un plan.
+   * mallaSlideOver — Panel lateral (slide-over) de solo lectura con la malla
+   * curricular de un plan.
    *
-   * Muestra el árbol de asignaturas organizadas por año y semestre sin navegar
-   * a una nueva página, preservando el estado (filtros, paginación) de la tabla principal.
+   * Muestra las asignaturas organizadas por año y semestre sin navegar a
+   * otra página, preservando filtros y paginación de la tabla principal.
+   * La malla la carga el padre vía fetchMalla() y la pasa por props.
    */
   import type { Plan, MallaData, AsignacionPlan } from '@/types/admin.types';
+  import { getTipoRamoLabel } from '@/modules/resources/detalle-malla/types/mallaCurricular.types';
 
   interface Props {
     isOpen: boolean;
     plan: Plan | null;
+    /** Malla cargada por el padre; null mientras carga. */
     malla: MallaData | null;
     isLoading: boolean;
     onClose: () => void;
@@ -47,6 +51,33 @@
     if (event.key === 'Escape') onClose();
   }
 </script>
+
+{#snippet columnaSemestre(titulo: string, dotClass: string, asignaciones: AsignacionPlan[])}
+  <div class="semester-col">
+    <div class="semester-label">
+      <span class="semester-dot {dotClass}"></span>
+      {titulo}
+    </div>
+    <div class="asignaturas-list">
+      {#if asignaciones.length === 0}
+        <p class="empty-semester">Sin asignaturas</p>
+      {:else}
+        {#each asignaciones as asig}
+          <div class="asig-card">
+            <div class="asig-top">
+              <span class="asig-code">{asig.asignatura?.cod_asignatura}</span>
+              <span class="asig-sct">{asig.asignatura?.creditos_sct ?? 0} SCT</span>
+            </div>
+            <p class="asig-name">{asig.asignatura?.nombre}</p>
+            {#if asig.tipo_ramo}
+              <span class="asig-tipo">{getTipoRamoLabel(asig.tipo_ramo)}</span>
+            {/if}
+          </div>
+        {/each}
+      {/if}
+    </div>
+  </div>
+{/snippet}
 
 <svelte:window onkeydown={handleKeydown} />
 
@@ -137,57 +168,8 @@
             </h3>
 
             <div class="semesters-grid">
-              <!-- Semestre 1 -->
-              <div class="semester-col">
-                <div class="semester-label">
-                  <span class="semester-dot dot-1"></span>
-                  Semestre 1
-                </div>
-                <div class="asignaturas-list">
-                  {#if semesters.semestre1.length === 0}
-                    <p class="empty-semester">Sin asignaturas</p>
-                  {:else}
-                    {#each semesters.semestre1 as asig}
-                      <div class="asig-card">
-                        <div class="asig-top">
-                          <span class="asig-code">{asig.asignatura?.cod_asignatura}</span>
-                          <span class="asig-sct">{asig.asignatura?.creditos_sct ?? 0} SCT</span>
-                        </div>
-                        <p class="asig-name">{asig.asignatura?.nombre}</p>
-                        {#if asig.tipo_ramo}
-                          <span class="asig-tipo">{asig.tipo_ramo}</span>
-                        {/if}
-                      </div>
-                    {/each}
-                  {/if}
-                </div>
-              </div>
-
-              <!-- Semestre 2 -->
-              <div class="semester-col">
-                <div class="semester-label">
-                  <span class="semester-dot dot-2"></span>
-                  Semestre 2
-                </div>
-                <div class="asignaturas-list">
-                  {#if semesters.semestre2.length === 0}
-                    <p class="empty-semester">Sin asignaturas</p>
-                  {:else}
-                    {#each semesters.semestre2 as asig}
-                      <div class="asig-card">
-                        <div class="asig-top">
-                          <span class="asig-code">{asig.asignatura?.cod_asignatura}</span>
-                          <span class="asig-sct">{asig.asignatura?.creditos_sct ?? 0} SCT</span>
-                        </div>
-                        <p class="asig-name">{asig.asignatura?.nombre}</p>
-                        {#if asig.tipo_ramo}
-                          <span class="asig-tipo">{asig.tipo_ramo}</span>
-                        {/if}
-                      </div>
-                    {/each}
-                  {/if}
-                </div>
-              </div>
+              {@render columnaSemestre('Semestre 1', 'dot-1', semesters.semestre1)}
+              {@render columnaSemestre('Semestre 2', 'dot-2', semesters.semestre2)}
             </div>
           </section>
         {/each}

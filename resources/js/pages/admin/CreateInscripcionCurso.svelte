@@ -92,9 +92,9 @@
   }
 </script>
 
-<AdminLayout {breadcrumbs}>
-  <div class="max-w-2xl mx-auto px-4 sm:px-6 md:px-8">
-    <div class="py-6">
+<AdminLayout {breadcrumbs} width="narrow">
+  <div>
+    <div>
       <!-- Header -->
       <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900">Nueva Inscripción de Estudiante</h1>
@@ -112,8 +112,9 @@
 
           <!-- Curso -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Curso *</label>
+            <label for="curso" class="block text-sm font-medium text-gray-700 mb-2">Curso *</label>
             <select
+              id="curso"
               bind:value={formData.id_curso}
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
@@ -132,8 +133,11 @@
 
           <!-- Estudiante -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Estudiante *</label>
+            <label for="estudiante" class="block text-sm font-medium text-gray-700 mb-2"
+              >Estudiante *</label
+            >
             <select
+              id="estudiante"
               bind:value={formData.id_estudiante}
               required
               disabled={!formData.id_curso || estudiantesDisponibles.length === 0}
@@ -161,10 +165,11 @@
 
           <!-- Código Inscripción UTA -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2"
+            <label for="cod_inscripcion_uta" class="block text-sm font-medium text-gray-700 mb-2"
               >Código Inscripción UTA</label
             >
             <input
+              id="cod_inscripcion_uta"
               type="text"
               bind:value={formData.cod_inscripcion_uta}
               placeholder="ej: INS-2024-001"
@@ -177,8 +182,11 @@
 
           <!-- Fecha Inscripción -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha de Inscripción</label>
+            <label for="fecha_inscripcion" class="block text-sm font-medium text-gray-700 mb-2"
+              >Fecha de Inscripción</label
+            >
             <input
+              id="fecha_inscripcion"
               type="date"
               bind:value={formData.fecha_inscripcion}
               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
@@ -190,9 +198,11 @@
 
           <!-- Estado Inscripción -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Estado de Inscripción</label
+            <label for="estado_inscripcion" class="block text-sm font-medium text-gray-700 mb-2"
+              >Estado de Inscripción</label
             >
             <select
+              id="estado_inscripcion"
               bind:value={formData.estado_inscripcion}
               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
             >
@@ -209,8 +219,11 @@
 
           <!-- Número Intento -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Número de Intento</label>
+            <label for="num_intento" class="block text-sm font-medium text-gray-700 mb-2"
+              >Número de Intento</label
+            >
             <input
+              id="num_intento"
               type="number"
               bind:value={formData.num_intento}
               min="1"

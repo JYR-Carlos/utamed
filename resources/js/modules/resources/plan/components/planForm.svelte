@@ -1,20 +1,22 @@
 <script lang="ts">
   /**
-   * Componente formulario de planes curriculares.
+   * planForm — Modal de creación/edición de planes curriculares.
    *
-   * Formulario modal para crear y editar planes.
-   * Requiere seleccionar carrera y año.
-   *
-   * Props: Recibe formData del padre (bindable).
-   * Parent es responsable de manejar el estado de formData e isOpen.
+   * Componente controlado al máximo: el padre es dueño de formData
+   * (bindable), de isOpen y del envío (onSubmit no recibe datos porque el
+   * padre ya tiene el formulario). Los créditos SCT totales son de solo
+   * lectura: los calcula el backend a partir de la malla.
    */
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import type { Plan, Carrera, PlanFormData } from '@/types/admin.types';
 
   interface Props {
     isOpen: boolean;
+    /** Plan a editar; null para modo creación. */
     editingPlan: Plan | null;
+    /** Opciones del select de carrera. */
     carreras: Carrera[];
+    /** Estado del formulario; vive en el padre y se bindea aquí. */
     formData: PlanFormData;
     isLoading: boolean;
     onClose: () => void;

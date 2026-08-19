@@ -17,7 +17,7 @@
    *   3. El estado local se actualiza optimistamente; en error se revierte.
    */
 
-  import { page, router } from '@inertiajs/svelte';
+  import { router } from '@inertiajs/svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import * as Card from '@/components/ui/card';
   import { Badge } from '@/components/ui/badge';
@@ -90,12 +90,6 @@
   );
 
   // ── Derived ─────────────────────────────────────────────────────────────────
-
-  const csrfToken = $derived(
-    ($page.props as any).__inertia?.csrf_token ??
-    (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content ??
-    '',
-  );
 
   const toggleUrl = $derived(`/docente/cursos/${curso.id_curso}/delegacion-permisos/toggle`);
 

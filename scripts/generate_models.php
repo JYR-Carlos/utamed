@@ -119,6 +119,16 @@ $notFillableColumns = [
   ['table' => 'Curso', 'colname' => 'letra_grupo'],    // Generada de grupo_indice (STORED)
 ];
 
+// Configurar columnas $hidden (atributos ocultos al serializar a array/JSON)
+$hiddenColumns = [
+  // Globales (todas las tablas)
+  'password',
+  'remember_token',
+  // Específicas por tabla
+  ['table' => 'usuario', 'colname' => 'passhash'],
+  ['table' => 'usuario', 'colname' => 'token_recuerdame_sesion'],
+];
+
 // Directorio para Models
 $modelDir = app_path(path: 'Models');
 // Derivados del base de Models
@@ -326,6 +336,28 @@ $relationNames = [
     ],
     'usuario.usuario' => [
       'id_usuario' => 'accionesAuditoria', // usuario->accionesAuditoria()
+    ],
+  ],
+
+  // curso.mensaje: emisor y receptor (relación con usuario.usuario)
+  'curso.mensaje' => [
+    '_self' => [
+      'id_usuario_emisor' => 'emisor',     // belongsTo en Mensaje: usuario emisor
+      'id_usuario_receptor' => 'receptor', // belongsTo en Mensaje: usuario receptor
+    ],
+    'usuario.usuario' => [
+      'id_usuario_emisor' => 'mensajesEnviados',   // hasMany en Usuario: mensajes enviados
+      'id_usuario_receptor' => 'mensajesRecibidos', // hasMany en Usuario: mensajes recibidos
+    ],
+  ],
+
+  // curso.interaccion_mensaje: lector (belongsTo en InteraccionMensaje) e interacciones (hasMany en Mensaje)
+  'curso.interaccion_mensaje' => [
+    '_self' => [
+      'id_usuario_lector' => 'lector', // belongsTo en InteraccionMensaje: lector()
+    ],
+    'curso.mensaje' => [
+      'id_mensaje' => 'interacciones', // hasMany en Mensaje: interacciones()
     ],
   ],
 
@@ -1978,6 +2010,10 @@ foreach ($tables as $tableInfo) {
   $timestampsStorage = "";
   if ($hasCreatedAt && $hasUpdatedAt) {
     $timestampsStorage = "{$tab}const CREATED_AT = '$createdAtColumn';\n{$tab}const UPDATED_AT = '$updatedAtColumn';\n";
+  } elseif ($hasCreatedAt) {
+    $timestampsStorage = "{$tab}const CREATED_AT = '$createdAtColumn';\n{$tab}const UPDATED_AT = null;\n";
+  } elseif ($hasUpdatedAt) {
+    $timestampsStorage = "{$tab}const CREATED_AT = null;\n{$tab}const UPDATED_AT = '$updatedAtColumn';\n";
   } else {
     $timestampsStorage = "{$tab}public \$timestamps = false;\n";
   }
@@ -2809,6 +2845,35 @@ EOL;
     ? "{$tab}protected \$casts = [\n{$castsEntries}\n{$tab}];\n\n"
     : '';
 
+  // ==================================================================================
+  // PASO 4.5.c: GENERAR ARRAY $hidden
+  // ==================================================================================
+  // Oculta columnas sensibles (ej: passhash, token_recuerdame_sesion) al serializar a JSON/Array
+  // ==================================================================================
+  $hiddenEntries = collect($columns)
+    ->filter(function ($col) use ($hiddenColumns, $tableName, $className) {
+      foreach ($hiddenColumns as $hidden) {
+        if (is_string($hidden)) {
+          if ($col->column_name === $hidden) {
+            return true;
+          }
+        } elseif (is_array($hidden) && isset($hidden['table'], $hidden['colname'])) {
+          if ((strcasecmp($hidden['table'], $tableName) === 0 || strcasecmp($hidden['table'], $className) === 0) && $col->column_name === $hidden['colname']) {
+            return true;
+          }
+        }
+      }
+      return false;
+    })
+    ->map(function ($col) use ($tab) {
+      return "{$tab}{$tab}'{$col->column_name}'";
+    })
+    ->implode(",\n");
+
+  $hiddenLine = $hiddenEntries
+    ? "{$tab}protected \$hidden = [\n{$hiddenEntries}\n{$tab}];\n\n"
+    : '';
+
   // Generar Base Model
   $baseContent = <<<PHP
 <?php
@@ -2826,7 +2891,7 @@ abstract class Base{$className} extends CustomBaseModel{$implementsClause}
 {$allTraitsAndConsts}{$typedPropertiesLine}    protected \$connection = 'pgsql';
     protected \$table = '{$tableName}';
 {$primaryKeyLine}{$incrementingLine}
-{$fillableLine}{$castsLine}{$relations}{$contextScopeMethods}
+{$fillableLine}{$hiddenLine}{$castsLine}{$relations}{$contextScopeMethods}
 }
 
 PHP;

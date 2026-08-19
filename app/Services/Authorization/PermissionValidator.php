@@ -3,7 +3,6 @@
 namespace App\Services\Authorization;
 
 use App\Models\Usuario\Usuario;
-use App\Enums\PermissionTypeEnum as PermisoType;
 use App\Enums\ContextType;
 use App\Contracts\HasContext;
 use App\Enums\PermissionTypeEnum;
@@ -36,23 +35,29 @@ class PermissionValidator
     protected const TIPO_ESPECIAL = 'especial';
     protected const TIPO_ROL = 'rol';
 
+    /** Valor devuelto por WildcardMatcher::getPriority() cuando el patrón no aplica. */
+    protected const PRIORITY_NO_MATCH = 999;
+
     /**
      * Configuración cargada en constructor
      */
-    // Para el caché
-    // protected int $cacheTtl;
     protected string $globalWildcard;
+
+    protected PermissionCache $cache;
 
     /**
      * Constructor - inyectar dependencias y cargar configuración
+     *
+     * `$cache` es opcional para no romper a quien construya el validador a mano
+     * (los tests unitarios lo hacen).
      */
     public function __construct(
         protected ContextResolver $contextResolver,
-        protected GlobalContextService $globalContext
+        protected GlobalContextService $globalContext,
+        ?PermissionCache $cache = null
     ) {
-        // Para el caché
-        // $this->cacheTtl     = config('configFile.cache_ttl');
         $this->globalWildcard = WildcardMatcher::GLOBAL_WILDCARD;
+        $this->cache = $cache ?? app(PermissionCache::class);
     }
 
     /**
@@ -140,24 +145,25 @@ class PermissionValidator
      */
     public function getContextsFromPermission(Usuario $user, Permissions $permission): array
     {
-        // TODO: Recuperar de caché: Cache::get("perm:{$user->id_usuario}:contexts:{$permission->value}:0")
+        return $this->cache->recordarContextos(
+            $user->id_usuario,
+            $permission->value,
+            function () use ($user, $permission) {
+                // 1. Obtener contextos con DENY en UPE
+                $deniedContexts = $this->getDeniedContexts($user, $permission);
 
-        // 1. Obtener contextos con DENY en UPE
-        $deniedContexts = $this->getDeniedContexts($user, $permission);
+                // 2. Obtener contextos con GRANT en UPE
+                $grantedContextsUPE = $this->getGrantedContextsFromSpecial($user, $permission);
 
-        // 2. Obtener contextos con GRANT en UPE
-        $grantedContextsUPE = $this->getGrantedContextsFromSpecial($user, $permission);
+                // 3. Obtener contextos de URA
+                $grantedContextsURA = $this->getGrantedContextsFromRoles($user, $permission);
 
-        // 3. Obtener contextos de URA
-        $grantedContextsURA = $this->getGrantedContextsFromRoles($user, $permission);
+                // 4. Combinar: (UPE + URA) - DENY
+                $allGranted = array_unique(array_merge($grantedContextsUPE, $grantedContextsURA));
 
-        // 4. Combinar: (UPE + URA) - DENY
-        $allGranted = array_unique(...$grantedContextsUPE, ...$grantedContextsURA);
-        $result = array_values(array_diff($allGranted, $deniedContexts));
-
-        // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:contexts:{$permission->value}:0", $result)
-
-        return $result;
+                return array_values(array_diff($allGranted, $deniedContexts));
+            }
+        );
     }
 
     /**
@@ -272,15 +278,16 @@ class PermissionValidator
      */
     protected function hasSuperAdminPermission(Usuario $user): bool
     {
-        $hasSuperAdmin = DB::connection('pgsql')
-            ->table('usuario.vw_permisos_usuario')
-            ->where('id_usuario', $user->id_usuario)
-            ->where('slug', $this->globalWildcard)
-            ->where('id_contexto', $this->globalContext->getContextId())
-            ->where('esta_permitido', true)
-            ->exists();
-
-        return $hasSuperAdmin;
+        return $this->cache->recordarSuperAdmin(
+            $user->id_usuario,
+            fn() => DB::connection('pgsql')
+                ->table('usuario.vw_permisos_usuario')
+                ->where('id_usuario', $user->id_usuario)
+                ->where('slug', $this->globalWildcard)
+                ->where('id_contexto', $this->globalContext->getContextId())
+                ->where('esta_permitido', true)
+                ->exists()
+        );
     }
 
     /**
@@ -484,13 +491,21 @@ class PermissionValidator
      */
     protected function checkSpecialPermission(Usuario $user, Permissions $permission, int $contextId): ?bool
     {
-        // TODO: Recuperar permisos UPE de caché: Cache::get("perm:{$user->id_usuario}:upe:{$permission->value}:{$contextId}")
+        return $this->cache->recordarUpe(
+            $user->id_usuario,
+            $permission->value,
+            $contextId,
+            fn() => $this->resolveSpecialPermission($user, $permission, $contextId)
+        );
+    }
 
+    /**
+     * Resolución sin caché de {@see checkSpecialPermission()}.
+     */
+    protected function resolveSpecialPermission(Usuario $user, Permissions $permission, int $contextId): ?bool
+    {
         // Generar todos los patrones (exacto, wildcard mismo recurso, ancestros, global)
         $patterns = WildcardMatcher::generatePermissionPatterns($permission);
-
-        // Buscar en UPE con prioridad: exacto > wildcard recurso > wildcard global
-        $resourceWildcard = WildcardMatcher::toResourceWildcard($permission);
 
         $results = DB::connection('pgsql')
             ->table('usuario.vw_permisos_usuario')
@@ -501,13 +516,14 @@ class PermissionValidator
             ->get();
 
         if ($results->isEmpty()) {
-            // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:upe:{$permission->value}:{$contextId}", 'null')
             return null;
         }
 
-        // Transformar slugs a Permissions enum para mantener consistencia tipado
-        /** @var Permissions[] $transformedSlugs */
-        $transformedSlugs = [];
+        // Elegir el match más específico (menor prioridad). En caso de empate gana
+        // el DENY: dos patrones igual de específicos con veredictos opuestos deben
+        // resolverse del lado seguro.
+        $bestPriority = PHP_INT_MAX;
+        $bestResult = null;
 
         foreach ($results as $result) {
             $castedPermission = Permissions::tryFrom($result->slug);
@@ -517,32 +533,27 @@ class PermissionValidator
                 continue;
             }
 
-            $transformedSlugs[] = $castedPermission;
-        }
+            $priority = WildcardMatcher::getPriority($permission, $castedPermission);
 
-        // Si hay múltiples resultados, elegir el de mayor prioridad (menor número)
-        // Esto asegura que lo más específico gana sobre lo general
-        $bestResult = null;
-        $bestPriority = 999;
+            // 999 = el patrón no aplica realmente a este permiso
+            if ($priority >= self::PRIORITY_NO_MATCH) {
+                continue;
+            }
 
-        foreach ($transformedSlugs as $slug) {
-            $priority = WildcardMatcher::getPriority($permission, $slug);
-            if ($priority < $bestPriority) {
+            $isDeny = !$result->esta_permitido;
+
+            if ($priority < $bestPriority || ($priority === $bestPriority && $isDeny)) {
                 $bestPriority = $priority;
                 $bestResult = $result;
             }
         }
 
+
         if ($bestResult === null) {
-            // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:upe:{$permission}:{$contextId}", 'null')
             return null;
         }
 
-        $permissionResult = $bestResult->esta_permitido ? true : false;
-
-        // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:upe:{$permission}:{$contextId}", $permissionResult ? 'grant' : 'deny')
-
-        return $permissionResult;
+        return (bool) $bestResult->esta_permitido;
     }
 
     /**
@@ -558,22 +569,23 @@ class PermissionValidator
      */
     protected function checkRolePermission(Usuario $user, Permissions $permission, int $contextId): bool
     {
-        // TODO: Recuperar permisos URA de caché: Cache::get("perm:{$user->id_usuario}:ura:{$permission}:{$contextId}")
+        return $this->cache->recordarUra(
+            $user->id_usuario,
+            $permission->value,
+            $contextId,
+            function () use ($user, $permission, $contextId) {
+                // Patrones: exacto, wildcard mismo recurso, ancestros, global
+                $patterns = WildcardMatcher::generatePermissionPatterns($permission);
 
-        // Generar todos los patrones (exacto, wildcard mismo recurso, ancestros, global)
-        $patterns = WildcardMatcher::generatePermissionPatterns($permission);
-
-        $hasPermission = DB::connection('pgsql')
-            ->table('usuario.vw_permisos_usuario')
-            ->where('id_usuario', $user->id_usuario)
-            ->where('id_contexto', $contextId)
-            ->where('tipo_asignacion', self::TIPO_ROL)
-            ->whereIn('slug', $patterns)
-            ->exists();
-
-        // TODO: Guardar en caché: Cache::put("perm:{$user->id_usuario}:ura:{$permission}:{$contextId}", $hasPermission ? 'true' : 'false')
-
-        return $hasPermission;
+                return DB::connection('pgsql')
+                    ->table('usuario.vw_permisos_usuario')
+                    ->where('id_usuario', $user->id_usuario)
+                    ->where('id_contexto', $contextId)
+                    ->where('tipo_asignacion', self::TIPO_ROL)
+                    ->whereIn('slug', $patterns)
+                    ->exists();
+            }
+        );
     }
 
     /**

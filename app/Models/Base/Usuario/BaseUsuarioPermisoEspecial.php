@@ -13,7 +13,8 @@ use App\Extensions\Compoships\BelongsTo;
 abstract class BaseUsuarioPermisoEspecial extends CustomBaseModel
 {
     use Compoships;
-    public $timestamps = false;
+    const CREATED_AT = 'fecha_creacion';
+    const UPDATED_AT = null;
     protected $connection = 'pgsql';
     protected $table = 'usuario_permiso_especial';
     protected $primaryKey = 'id_upe';

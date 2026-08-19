@@ -1,4 +1,12 @@
 <script lang="ts">
+  /**
+   * rosterTable — Paso 2 del flujo de inscripciones: nómina del curso con
+   * cambio de estado por fila (menú contextual limitado a TRANSITIONS) y
+   * eliminación definitiva.
+   *
+   * Presentacional: el padre carga el roster y ejecuta los cambios; las
+   * filas con _saving muestran spinner mientras se aplica el PATCH.
+   */
   import type { CursoItem, RosterItem, EstadoInscripcion } from '../types/inscripcion.types';
   import {
     TRANSITIONS,
@@ -12,12 +20,16 @@
   interface Props {
     roster: RosterItem[];
     loadingRoster: boolean;
+    /** Mensaje de error de carga; muestra el estado con botón reintentar. */
     rosterError: string;
     activeCursoId: number;
     selectedCurso: CursoItem | null;
+    /** Vuelve al selector de cursos. */
     onBack: () => void;
     onRetry: () => void;
+    /** Abre el modal de inscripción masiva. */
     onAddStudents: () => void;
+    /** Aplica una transición de estado permitida por TRANSITIONS. */
     onChangeEstado: (item: RosterItem, next: EstadoInscripcion) => void;
     onDelete: (item: RosterItem) => void;
   }
@@ -343,10 +355,15 @@
                 {/if}
               </td>
               <td class="px-4 py-3 align-middle min-w-[140px]">
+                <!-- Píldora con borde y flecha: sin el borde parecía una
+                     insignia de estado y nada indicaba que abriera un menú
+                     para cambiarlo. -->
                 {#if transitions.length > 0}
                   <button
                     type="button"
-                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer whitespace-nowrap disabled:cursor-wait {cfg.cls}"
+                    title="Cambiar el estado de esta inscripción"
+                    aria-label="Cambiar el estado de esta inscripción"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer whitespace-nowrap border border-current/25 hover:brightness-95 disabled:cursor-wait {cfg.cls}"
                     class:animate-pulse={item._saving}
                     onclick={openMenu}
                     data-inscripcion-id={item.id_inscripcion_curso}

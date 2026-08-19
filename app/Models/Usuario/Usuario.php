@@ -4,11 +4,15 @@ namespace App\Models\Usuario;
 
 use App\Models\Base\Usuario\BaseUsuario;
 use App\Support\Permissions;
+use App\Support\Rut;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Access\Authorizable as AuthorizableContract;
 use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
 use Illuminate\Foundation\Auth\Access\Authorizable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Services\Authorization\GlobalContextService;
 use App\Services\Authorization\PermissionValidator;
 use App\Contracts\HasContext;
 use App\Enums\PermissionTypeEnum;
@@ -52,6 +56,26 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     public function getAuthPassword()
     {
         return $this->passhash;
+    }
+
+    /**
+     * El RUT se guarda siempre en el formato canónico ({@see Rut}): sin puntos y
+     * con guion.
+     *
+     * La columna tiene UNIQUE, pero el UNIQUE compara texto: si una vía escribe
+     * "12.345.678-9" y otra "12345678-9", la misma persona entra dos veces. El
+     * mutador cierra esa puerta para cualquier escritura que pase por Eloquent
+     * —controladores, servicios, seeders y factories— sin que cada una tenga que
+     * acordarse de normalizar.
+     *
+     * Ojo: los mutadores no alcanzan a las cláusulas `where`, así que las
+     * búsquedas por RUT normalizan el término aparte.
+     */
+    protected function rut(): Attribute
+    {
+        return Attribute::make(
+            set: fn(int|string|null $valor) => Rut::normalizar($valor),
+        );
     }
 
     /**
@@ -128,13 +152,67 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
      */
     public function hasAnyRole(array $roles): bool
     {
+        return $this->hasAnyRoleInContext($roles, null);
+    }
+
+    /**
+     * Verificar si el usuario tiene alguno de los roles **en un contexto concreto**.
+     *
+     * `hasRole()`/`hasAnyRole()` responden "en cualquier contexto", lo que convierte
+     * un rol acotado (jefe de una carrera, admin de un departamento) en un rol
+     * global. Cuando la decisión depende del ámbito hay que usar este método.
+     *
+     * @param array    $roles      Nombres de rol (se normalizan a minúsculas)
+     * @param int|null $contextId  Contexto donde exigir el rol; null = cualquiera
+     */
+    public function hasAnyRoleInContext(array $roles, ?int $contextId): bool
+    {
         $normalizedRoles = array_map(
             fn($role) => strtolower(trim($role)),
             $roles
         );
 
-        $roleNames = array_column($this->getAllRoles(), 'nombre');
+        $roleNames = array_column($this->getAllRoles($contextId), 'nombre');
         return !empty(array_intersect($normalizedRoles, $roleNames));
+    }
+
+    /**
+     * Alias con los que el rol administrativo aparece en la BD.
+     *
+     * Existen los cuatro porque la comparación de roles nunca estuvo unificada;
+     * mientras no exista el RolesEnum, ésta es la lista canónica y ningún sitio
+     * debe escribir la suya.
+     *
+     * TODO: reemplazar por RolesEnum (ver el TODO de hasRole más arriba).
+     */
+    public const ROLES_ADMINISTRATIVOS = ['SuperAdmin', 'Super Admin', 'Admin', 'Administrador'];
+
+    /**
+     * Verificar si el usuario tiene alguno de los roles en el contexto global.
+     */
+    public function hasAnyRoleGlobally(array $roles): bool
+    {
+        return $this->hasAnyRoleInContext(
+            $roles,
+            app(GlobalContextService::class)->getContextId()
+        );
+    }
+
+    /**
+     * ¿Es administrador de todo el sistema?
+     *
+     * El rol tiene que estar asignado **en el contexto global**: tenerlo acotado a
+     * una carrera o a un curso no convierte a nadie en administrador del sistema.
+     *
+     * Es la definición única de "administrador", por el mismo motivo que
+     * {@see self::ROLES_ADMINISTRATIVOS} es la lista única de alias: cada sitio que
+     * escribía la suya era un sitio donde la respuesta podía diferir. La usan el
+     * middleware {@see \App\Http\Middleware\IsAdmin} y el SSO hacia SGEQ.
+     */
+    public function esAdministradorGlobal(): bool
+    {
+        return $this->isSuperAdmin()
+            || $this->hasAnyRoleGlobally(self::ROLES_ADMINISTRATIVOS);
     }
 
     /**
@@ -247,8 +325,31 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
+     * ¿La fila pivote de usuario_rol_asignacion está vigente (y, si se pide, en
+     * el contexto indicado)?
+     *
+     * El pivote no declara casts, así que según el driver `esta_activo` puede
+     * llegar como bool o como el `t`/`f` de Postgres; `(bool) 'f'` sería `true`,
+     * de ahí la comparación explícita.
+     */
+    private function asignacionVigente($pivot, ?int $contextId): bool
+    {
+        if (!$pivot) {
+            return false;
+        }
+
+        $esVerdadero = static fn($v) => $v === true || $v === 1 || $v === '1' || $v === 't' || $v === 'true';
+
+        if (!$esVerdadero($pivot->esta_activo) || $esVerdadero($pivot->fue_eliminado)) {
+            return false;
+        }
+
+        return $contextId === null || (int) $pivot->id_contexto === $contextId;
+    }
+
+    /**
      * Obtener todos los roles (nombre e id) del usuario.
-     * 
+     *
      * Permite filtrar por contexto específico.
      * 
      * @param int|null $contextId El contexto por cual filtrar roles (null para todos los contextos)
@@ -262,6 +363,20 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
      */
     public function getAllRoles(?int $contextId = null): array
     {
+        // Si la relación ya está cargada, resolver en memoria. `share()` la carga
+        // en cada request y aun así cada hasRole()/hasAnyRole() lanzaba su propia
+        // consulta: sólo /dashboard encadenaba cinco (A-6).
+        if ($this->relationLoaded('rolesAsignados')) {
+            return $this->rolesAsignados
+                ->filter(fn($role) => $this->asignacionVigente($role->pivot ?? null, $contextId))
+                ->map(fn($role) => [
+                    'id' => $role->id_rol,
+                    'nombre' => strtolower($role->nombre),
+                ])
+                ->values()
+                ->all();
+        }
+
         $query = $this->rolesAsignados()
             ->wherePivot('esta_activo', true)
             ->wherePivot('fue_eliminado', false);
@@ -429,5 +544,92 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
         ], fn ($p) => $p !== null && trim((string) $p) !== '');
 
         return trim(implode(' ', $partes));
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Búsqueda de usuarios
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Caracteres acentuados y su equivalente plano, en el mismo orden.
+     *
+     * Son los dos argumentos de `translate()` de Postgres y sustituyen a la
+     * extensión `unaccent`, que no está instalada (crearla exige superusuario).
+     * Sólo minúsculas: la comparación baja ambos lados con `lower()`.
+     */
+    private const ACENTOS = 'áàäâãéèëêíìïîóòöôõúùüûñç';
+    private const SIN_ACENTOS = 'aaaaaeeeeiiiiooooouuuunc';
+
+    /** Columnas de texto libre contra las que se compara cada palabra buscada. */
+    private const COLUMNAS_BUSQUEDA = ['nombre1', 'nombre2', 'apellido1', 'apellido2', 'username', 'email'];
+
+    /** Tope de palabras por búsqueda: acota las subcondiciones de la consulta. */
+    private const MAX_PALABRAS_BUSQUEDA = 6;
+
+    /**
+     * Filtra usuarios por un término escrito a mano en un buscador.
+     *
+     * El término se parte en palabras y **cada** palabra debe aparecer en
+     * alguna de las columnas ({@see self::COLUMNAS_BUSQUEDA}) o en el RUT. Eso
+     * es lo que hace que "Fernando Rodríguez" encuentre al usuario: comparar el
+     * término completo contra una sola columna nunca acierta con un nombre
+     * completo, que es precisamente como se busca a una persona.
+     *
+     * Dos normalizaciones más, por cómo están los datos:
+     *  - Acentos: "Rodriguez" encuentra a "Rodríguez" (nadie los teclea).
+     *  - RUT: en la BD conviven "23.671.848-4" y "23671848-4" —los sembrados
+     *    con puntos, los que crea la app sin ellos, porque los normaliza al
+     *    guardar—, así que se comparan ambos lados sin puntos ni guion.
+     *
+     * Término vacío o sólo espacios no filtra nada.
+     */
+    public function scopeBuscar(Builder $query, ?string $termino): Builder
+    {
+        $palabras = preg_split('/\s+/u', trim((string) $termino), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        foreach (array_slice($palabras, 0, self::MAX_PALABRAS_BUSQUEDA) as $palabra) {
+            $texto = self::patronLike(self::sinAcentos($palabra));
+            $rut = preg_replace('/[^0-9kK]/u', '', $palabra);
+
+            $query->where(function (Builder $q) use ($texto, $rut) {
+                foreach (self::COLUMNAS_BUSQUEDA as $columna) {
+                    $q->orWhereRaw(
+                        "translate(lower(coalesce({$columna}, '')), ?, ?) like ?",
+                        [self::ACENTOS, self::SIN_ACENTOS, $texto]
+                    );
+                }
+
+                if ($rut !== '') {
+                    $q->orWhereRaw(
+                        "regexp_replace(lower(rut), '[^0-9k]', '', 'g') like ?",
+                        [self::patronLike(strtolower($rut))]
+                    );
+                }
+            });
+        }
+
+        return $query;
+    }
+
+    /** Minúsculas y sin acentos, con el mismo mapa que aplica `translate()` en SQL. */
+    private static function sinAcentos(string $valor): string
+    {
+        $mapa = array_combine(
+            mb_str_split(self::ACENTOS),
+            mb_str_split(self::SIN_ACENTOS)
+        );
+
+        return strtr(mb_strtolower($valor, 'UTF-8'), $mapa);
+    }
+
+    /**
+     * Envuelve el valor en comodines, escapando los que traiga el propio texto.
+     *
+     * Sin escapar, un "%" tecleado por el usuario haría de comodín y devolvería
+     * la tabla entera en vez de los usuarios que tienen ese carácter.
+     */
+    private static function patronLike(string $valor): string
+    {
+        return '%' . str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $valor) . '%';
     }
 }

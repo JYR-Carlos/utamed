@@ -33,7 +33,7 @@
 </script>
 
 <svelte:head>
-    <title>¿Olvidaste tu contraseña? | UTAMed</title>
+    <title>¿Olvidaste tu contraseña? | UTAmed</title>
 </svelte:head>
 
 <AuthBase title="¿Olvidaste tu contraseña?" description="Ingresa tu correo para recibir un enlace de recuperación">

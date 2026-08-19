@@ -41,3 +41,6 @@ db_backup_*.sql
 /backup/**
 /logs/**
 todo.*
+
+# Salidas temporales de scripts/migracion_desde_diff.ps1 -SoloSql
+/tmp/**

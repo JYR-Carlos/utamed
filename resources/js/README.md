@@ -1,6 +1,6 @@
-# Frontend - UTAMed
+# Frontend - UTAmed
 
-Documentación completa del frontend de UTAMed, una aplicación de gestión académica construida con tecnologías modernas.
+Documentación completa del frontend de UTAmed, una aplicación de gestión académica construida con tecnologías modernas.
 
 ## 📚 Tabla de Contenidos
 

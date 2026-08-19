@@ -13,6 +13,7 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\Componente;
 use App\Models\Curso\Unidad;
 use App\Models\Curso\InscripcionCurso;
+use App\Services\Agenda\GrupoIndividualService;
 use App\Services\Docente\ConversacionDocenteService;
 use App\Services\Docente\NombreUsuario;
 use Illuminate\Http\Request;
@@ -36,6 +37,8 @@ use Inertia\Inertia;
  */
 class DocenteActivityController extends Controller
 {
+    use ContaPendientesMensajes;
+
     // =========================================================================
     // HELPERS PRIVADOS
     // =========================================================================
@@ -52,6 +55,66 @@ class DocenteActivityController extends Controller
         }
 
         abort(404, 'Actividad no encontrada en este curso.');
+    }
+
+    /**
+     * Guard de escritura sobre la evaluación de una actividad.
+     *
+     * Estas operaciones estaban gobernadas por `viewPrograma`, un permiso de
+     * **lectura** que basta con estar asignado a cualquier componente del curso:
+     * el docente de un laboratorio podía borrar los grupos y fijar las notas de la
+     * cátedra completa (B-5). Aquí el ámbito es el componente del que cuelga la
+     * actividad.
+     *
+     * No se usa `manageTeam` —el modelo de política estricta del informe— porque
+     * limita a titular y dejaría al docente de componente sin poder calificar lo
+     * que dicta.
+     */
+    private function assertPuedeEditarEvaluacion(Curso $curso, Actividad $actividad): void
+    {
+        /** @var \App\Models\Usuario\Usuario $user */
+        $user = Auth::user();
+
+        if ($user->isSuperAdmin() || $user->hasAnyRoleGlobally(\App\Models\Usuario\Usuario::ROLES_ADMINISTRATIVOS)) {
+            return;
+        }
+
+        $docente = $user->docente;
+
+        if (!$docente) {
+            abort(403, 'Solo un docente puede modificar la evaluación de una actividad.');
+        }
+
+        // El titular manda sobre todas las actividades del curso.
+        if ($curso->id_docente_titular === $docente->id_docente) {
+            return;
+        }
+
+        $actividad->loadMissing('componente');
+
+        $esDocenteDelComponente = $actividad->componente
+            && $actividad->componente->docenteComponentes()
+                ->where('id_docente', $docente->id_docente)
+                ->exists();
+
+        if ($esDocenteDelComponente) {
+            return;
+        }
+
+        Log::channel('seguridad')->warning(
+            'Acceso denegado: escritura de evaluación fuera del componente propio',
+            [
+                'evento'        => 'ESCRITURA_EVALUACION_FUERA_DE_COMPONENTE',
+                'id_usuario'    => $user->id_usuario,
+                'id_docente'    => $docente->id_docente,
+                'id_curso'      => $curso->id_curso,
+                'id_actividad'  => $actividad->id_actividad,
+                'id_componente' => $actividad->componente?->id_componente,
+                'ip'            => request()->ip(),
+            ]
+        );
+
+        abort(403, 'No puedes modificar la evaluación de un componente que no dictas.');
     }
 
     /**
@@ -118,6 +181,18 @@ class DocenteActivityController extends Controller
         // Permisos granulares del docente en el contexto de este curso (B-02)
         $userPermissions = $this->userPermissionsParaCurso($curso, $esTitular);
 
+        // Mensajería de agenda: vive DENTRO de la actividad, así que el badge de
+        // "por responder" se entrega junto a cada tarjeta. La mensajería de nivel
+        // curso (curso.mensaje) es otra cosa y no se cuenta aquí.
+        $pendientes = $this->pendientesPorActividad([$curso->id_curso]);
+
+        $actividades = $actividades->map(function (Actividad $actividad) use ($pendientes) {
+            $datos = $actividad->toArray();
+            $datos['mensajes_pendientes'] = $pendientes[$actividad->id_actividad] ?? 0;
+
+            return $datos;
+        });
+
         return Inertia::render('docente/Actividades', [
             'curso' => array_merge($curso->toArray(), ['userPermissions' => $userPermissions, 'es_titular_curso' => $esTitular]),
             'actividades' => $actividades,
@@ -148,6 +223,7 @@ class DocenteActivityController extends Controller
             'es_grupal' => 'boolean',
             'max_integrantes' => 'integer|min:1|max:100',
             'visible' => 'boolean',
+            'nro_dias_adicionales_para_bloqueo' => 'nullable|integer|min:0',
             'ponderacion' => 'required|integer|min:0|max:100',
             'exigencia' => 'required|integer|min:0|max:100',
             'id_componente' => 'required|integer|min:1',
@@ -162,7 +238,15 @@ class DocenteActivityController extends Controller
         // id_contexto is handled automatically by the DB trigger tr_actividad_pre_insert
         try {
             $actividad = Actividad::create($validated);
-            
+
+            // Las actividades individuales no pasan por el flujo manual de
+            // creación de grupos: cada estudiante inscrito necesita su propio
+            // grupo de 1 integrante para que agenda/evaluación tengan dónde
+            // colgarse (ver GrupoIndividualService).
+            if (!$actividad->es_grupal) {
+                (new GrupoIndividualService())->asegurarGruposDelCurso($curso, $actividad);
+            }
+
             Log::info('[DocenteActivity::store] Actividad creada', [
                 'id_actividad' => $actividad->id_actividad,
                 'nombre'       => $actividad->nombre,
@@ -189,21 +273,23 @@ class DocenteActivityController extends Controller
     public function update(Request $request, Curso $curso, Actividad $actividad)
     {
         $this->authorize('manageTeam', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
 
-        // Verify the activity belongs to this course through its componente
-        $actividadCursoId = $actividad->componente?->id_curso;
-        if ($actividadCursoId && $actividadCursoId !== $curso->id_curso) {
-            abort(404, 'Actividad no encontrada en este curso.');
-        }
-
+        // tipo_entrega NO se valida al editar: el formulario lo muestra
+        // deshabilitado —no es editable— y lo reenvía tal como está guardado. Los
+        // datos existentes traen valores fuera de este vocabulario ('archivo'),
+        // así que exigir in:online,presencial,hibrido tumbaba con un 422
+        // *cualquier* edición, incluido el cambio SUMATIVA/FORMATIVA, y la
+        // actividad seguía mostrando su tipo anterior. Al no validarlo tampoco
+        // llega a $validated, de modo que la columna conserva su valor.
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'fecha_limite' => 'required|date',
             'tipo_actividad' => 'required|string|in:SUMATIVA,FORMATIVA',
-            'tipo_entrega' => 'required|string|in:online,presencial,hibrido',
             'es_grupal' => 'boolean',
             'max_integrantes' => 'integer|min:1|max:100',
             'visible' => 'boolean',
+            'nro_dias_adicionales_para_bloqueo' => 'nullable|integer|min:0',
             'ponderacion' => 'required|integer|min:0|max:100',
             'exigencia' => 'required|integer|min:0|max:100',
             'id_componente' => 'required|integer|min:1',
@@ -223,17 +309,38 @@ class DocenteActivityController extends Controller
     }
 
     /**
+     * Alterna la visibilidad de una actividad para los estudiantes, sin pasar
+     * por el formulario completo de edición (toggle del ojito en la lista).
+     */
+    public function toggleVisibilidad(Curso $curso, Actividad $actividad)
+    {
+        $this->authorize('manageTeam', $curso);
+
+        $this->assertActividadDeCurso($curso, $actividad);
+
+        try {
+            $actividad->update(['visible' => !$actividad->visible]);
+
+            $mensaje = $actividad->visible
+                ? "Actividad '{$actividad->nombre}' visible para los estudiantes."
+                : "Actividad '{$actividad->nombre}' oculta para los estudiantes.";
+
+            return redirect()->back()->with('success', $mensaje);
+        } catch (\Exception $e) {
+            Log::error('Error toggling activity visibility: ' . $e->getMessage());
+
+            return redirect()->back()
+                ->with('error', 'No se pudo cambiar la visibilidad de la actividad.');
+        }
+    }
+
+    /**
      * Delete an activity
      */
     public function destroy(Curso $curso, Actividad $actividad)
     {
         $this->authorize('manageTeam', $curso);
-
-        // Verify the activity belongs to this course through its componente
-        $actividadCursoId = $actividad->componente?->id_curso;
-        if ($actividadCursoId && $actividadCursoId !== $curso->id_curso) {
-            abort(404, 'Actividad no encontrada en este curso.');
-        }
+        $this->assertActividadDeCurso($curso, $actividad);
 
         try {
             $nombreActividad = $actividad->nombre;
@@ -301,23 +408,37 @@ class DocenteActivityController extends Controller
             ->orderByDesc('semestre_real')
             ->get();
 
-        $data = $cursos->map(function ($curso) use ($idDocente) {
+        // Una sola consulta para las actividades de todos los componentes. Antes
+        // se lanzaba una por componente de cada curso, anidada dentro del map
+        // (B-8): un docente con seis cursos de tres componentes pagaba dieciocho.
+        $componenteIds = $cursos
+            ->flatMap(fn ($curso) => $curso->componentes->pluck('id_componente'))
+            ->unique()
+            ->values();
+
+        $actividadesPorComponente = $componenteIds->isEmpty()
+            ? collect()
+            : Actividad::whereIn('id_componente', $componenteIds)
+                ->withCount('actividadAsignadaGrupos')
+                ->orderBy('fecha_limite', 'asc')
+                ->get()
+                ->groupBy('id_componente');
+
+        $data = $cursos->map(function ($curso) use ($idDocente, $actividadesPorComponente) {
             $esTitularCurso = $curso->id_docente_titular === $idDocente;
 
             $componentes = $curso->componentes
                 // Titular del curso ve todos; el resto sólo los que imparte.
                 ->filter(fn ($c) => $esTitularCurso || $c->docenteComponentes->isNotEmpty())
-                ->map(function ($c) {
-                    $actividades = Actividad::where('id_componente', $c->id_componente)
-                        ->withCount('actividadAsignadaGrupos')
-                        ->orderBy('fecha_limite', 'asc')
-                        ->get()
+                ->map(function ($c) use ($actividadesPorComponente) {
+                    $actividades = $actividadesPorComponente
+                        ->get($c->id_componente, collect())
                         ->map(fn ($a) => [
                             'id_actividad'   => $a->id_actividad,
                             'nombre'         => $a->nombre,
                             'tipo_actividad' => $a->tipo_actividad instanceof \BackedEnum ? $a->tipo_actividad->value : $a->tipo_actividad,
                             'es_grupal'      => (bool) $a->es_grupal,
-                            'fecha_limite'   => $a->fecha_limite,
+                            'fecha_limite'   => $a->fecha_limite?->format('Y-m-d'),
                             'tiene_grupos'   => $a->actividad_asignada_grupos_count > 0,
                         ])
                         ->values();
@@ -359,11 +480,18 @@ class DocenteActivityController extends Controller
     public function showEvaluacion(Curso $curso, Actividad $actividad)
     {
         $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
 
         $user = Auth::user();
         $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
 
         $actividad->load(['componente', 'unidad']);
+
+        // Aquí se reparaban al vuelo los grupos individuales faltantes, con un
+        // bucle de consultas en cada carga de la pantalla (B-7). Ahora los crea
+        // la escritura: al crear la actividad y al inscribir al estudiante
+        // (evento en InscripcionCurso). Para los datos anteriores está el comando
+        // `agenda:backfill-grupos-individuales`.
 
         // Grupos con sus integrantes (modelo nuevo: actividad_asignada_grupo)
         $grupos = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
@@ -373,6 +501,8 @@ class DocenteActivityController extends Controller
                 'grupo'      => $g->id_actividad_asignada_grupo,
                 'nota'       => $g->nota,
                 'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
+                'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
+                'estado_calculado' => $g->calcularEstadoGrupo($actividad),
                 'integrantes' => $g->integranteGrupos->map(fn($m) => [
                     'id_asignado_actividad' => $m->id_asignado_actividad,
                     'id_estudiante'  => $m->id_estudiante,
@@ -428,7 +558,7 @@ class DocenteActivityController extends Controller
                 'id_actividad'    => $actividad->id_actividad,
                 'nombre'          => $actividad->nombre,
                 'descripcion'     => $actividad->descripcion ?? '',
-                'fecha_limite'    => $actividad->fecha_limite,
+                'fecha_limite'    => $actividad->fecha_limite?->format('Y-m-d'),
                 'es_sumativa'     => $esSumativa,
                 'trae_archivo'    => $traeArchivo,
                 'es_grupal'       => (bool) $actividad->es_grupal,
@@ -463,7 +593,14 @@ class DocenteActivityController extends Controller
             'id_actividad'               => 'required|integer|exists:actividad,id_actividad',
         ]);
 
-        $idActividad = $request->input('id_actividad');
+        // `exists:actividad` sólo comprobaba que el ID existiera en el sistema: la
+        // actividad llega por el cuerpo del request y no estaba acotada al curso,
+        // así que se podía escribir la rúbrica de cualquier actividad (B-2).
+        $actividad = Actividad::findOrFail($request->integer('id_actividad'));
+        $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+
+        $idActividad = $actividad->id_actividad;
 
         try {
             $existente = \App\Models\Agenda\Rubrica::where('id_actividad', $idActividad)
@@ -496,6 +633,7 @@ class DocenteActivityController extends Controller
         $this->authorize('viewPrograma', $curso);
 
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
@@ -517,6 +655,7 @@ class DocenteActivityController extends Controller
         $this->authorize('viewPrograma', $curso);
 
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
@@ -559,6 +698,8 @@ class DocenteActivityController extends Controller
     public function updateIntegrante(Request $request, Curso $curso, Actividad $actividad, int $grupo, IntegranteGrupo $asignado)
     {
         $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         if ($asignado->id_actividad_asignada_grupo !== $grupo) {
             abort(404, 'Integrante no encontrado en este grupo.');
@@ -590,6 +731,8 @@ class DocenteActivityController extends Controller
     public function recalcularNotasIndividuales(Curso $curso, Actividad $actividad, int $grupo)
     {
         $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
@@ -611,6 +754,29 @@ class DocenteActivityController extends Controller
     // =========================================================================
 
     /**
+     * Actualiza la configuración de un grupo (ej: holgura personal o nombre del grupo)
+     */
+    public function updateGrupo(Request $request, Curso $curso, Actividad $actividad, int $grupo)
+    {
+        $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+
+        $validated = $request->validate([
+            'nro_dias_adicionales_para_bloqueo_personal' => 'nullable|integer|min:0',
+            'nombre_grupo' => 'nullable|string|max:100',
+        ]);
+
+        $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
+            ->where('id_actividad', $actividad->id_actividad)
+            ->firstOrFail();
+
+        $grupoModel->update($validated);
+
+        return redirect()->back()->with('success', 'Configuración del grupo actualizada correctamente.');
+    }
+
+    /**
      * Crea un nuevo grupo para una actividad grupal
      * Solo acepta estudiantes inscritos en el curso
      */
@@ -620,6 +786,7 @@ class DocenteActivityController extends Controller
 
         // Verificar que la actividad pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         // Verificar que la actividad es grupal
         if (!$actividad->es_grupal) {
@@ -687,6 +854,7 @@ class DocenteActivityController extends Controller
 
         // Verificar que la actividad pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         // Obtener el grupo
         $actividadGrupo = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
@@ -778,6 +946,7 @@ class DocenteActivityController extends Controller
 
         // Verificar que la actividad actual pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         // Verificar que la actividad es grupal
         if (!$actividad->es_grupal) {
@@ -785,7 +954,7 @@ class DocenteActivityController extends Controller
         }
 
         $validated = $request->validate([
-            'id_actividad_origen' => 'required|integer|exists:agenda.actividad,id_actividad',
+            'id_actividad_origen' => 'required|integer|exists:actividad,id_actividad',
         ]);
 
         $actividadOrigen = Actividad::find($validated['id_actividad_origen']);
@@ -961,6 +1130,8 @@ class DocenteActivityController extends Controller
     public function descargarEntrega(Curso $curso, Actividad $actividad, int $grupo, Agenda $agenda)
     {
         $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         // Verificar que la agenda pertenece al grupo y actividad correctos
         if ($agenda->id_actividad_asignada_grupo !== $grupo) {
@@ -1019,6 +1190,9 @@ class DocenteActivityController extends Controller
                 'u.id_usuario',
                 NombreUsuario::sqlConcat('u', 'nombre'),
                 'u.email',
+                // Postgres exige que lo que ordena un SELECT DISTINCT esté en el
+                // SELECT. No altera las filas: depende de id_usuario, que ya está.
+                'u.apellido1',
             )
             ->distinct()
             ->orderBy('u.apellido1')
@@ -1098,7 +1272,7 @@ class DocenteActivityController extends Controller
     // 2. Fecha: 04/06/2025
     // 3. Se agrega método storeEvaluacion: crea atómicamente el mensaje de tipo
     //    "Evaluación" en agenda.agenda y el registro en agenda.evaluacion, luego
-    //    actualiza la nota y cierra el grupo. También cierra la rúbrica si estaba
+    //    actualiza la nota del grupo. También cierra la rúbrica si estaba
     //    en estado POSTULADA (primera evaluación).
 
     /**
@@ -1109,7 +1283,8 @@ class DocenteActivityController extends Controller
      * 2. Verifica que no exista ya una evaluación para el id_agenda_entrega indicado.
      * 3. Inserta un registro en agenda.agenda con tipo "Evaluación".
      * 4. Inserta un registro en agenda.evaluacion vinculado al agenda anterior.
-     * 5. Actualiza nota y estado del grupo a CERRADA.
+     * 5. Actualiza la nota del grupo. El grupo NO se cierra: se deja ACTIVA para
+     *    poder implementar apelación/reevaluación más adelante.
      * 6. Si la rúbrica estaba POSTULADA, la cierra.
      *
      * POST docente/cursos/{curso}/actividades/{actividad}/grupos/{grupo}/evaluacion
@@ -1119,14 +1294,15 @@ class DocenteActivityController extends Controller
         $this->authorize('viewPrograma', $curso);
 
         $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
             ->where('id_actividad', $actividad->id_actividad)
             ->firstOrFail();
 
         $validated = $request->validate([
-            'id_agenda_entrega'  => 'nullable|integer|exists:agenda.agenda,id_agenda',
-            'id_rubrica'         => 'required|integer|exists:agenda.rubrica,id_rubrica',
+            'id_agenda_entrega'  => 'nullable|integer|exists:agenda,id_agenda',
+            'id_rubrica'         => 'required|integer|exists:rubrica,id_rubrica',
             'resultado'          => 'nullable|array',
             'resultado_rubrica'  => 'nullable|array',
             'puntaje_obtenido'   => 'nullable|numeric|min:0|max:999',
@@ -1173,10 +1349,10 @@ class DocenteActivityController extends Controller
                     'id_agenda'           => $idAgendaEvaluacion,
                 ]);
 
-                // 3. Actualizar nota y cerrar el grupo
+                // 3. Actualizar nota. El grupo se mantiene ACTIVA (no se cierra al
+                //    evaluar) para dejar espacio a apelación/reevaluación a futuro.
                 $grupoModel->update([
-                    'nota'                      => $validated['nota'] ?? null,
-                    'estado_actividad_asignada' => EstadoActividadAsignada::CERRADA,
+                    'nota' => $validated['nota'] ?? null,
                 ]);
 
                 // 3b. Sembrar/refrescar la nota individual de cada integrante a partir
@@ -1220,16 +1396,16 @@ class DocenteActivityController extends Controller
         ]);
 
         // Verificar que el grupo pertenece al curso
-        $grupoExiste = DB::table('agenda.actividad_asignada_grupo as aag')
-            ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
-            ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
-            ->where('aag.id_actividad_asignada_grupo', $grupo)
-            ->where('c.id_curso', $curso->id_curso)
-            ->exists();
+        $grupoModel = ActividadAsignadaGrupo::where('id_actividad_asignada_grupo', $grupo)
+            ->whereHas('actividad.componente', fn($q) => $q->where('id_curso', $curso->id_curso))
+            ->first();
 
-        if (!$grupoExiste) {
+        if (!$grupoModel) {
             abort(404, 'Grupo no encontrado en este curso.');
         }
+
+        // …y que el docente pueda escribir sobre el componente de esa actividad.
+        $this->assertPuedeEditarEvaluacion($curso, $grupoModel->actividad);
 
         // 1. Autor: Juan Y.
         // 2. Fecha: 02/06/2026

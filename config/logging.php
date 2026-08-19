@@ -73,6 +73,17 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Pista de auditoría de seguridad (IDOR, escaladas de privilegio, denegaciones
+        // de policy). Se retiene más tiempo que el log general y va a su propio
+        // archivo para poder vigilarlo por separado.
+        'seguridad' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/seguridad.log'),
+            'level' => 'info',
+            'days' => env('LOG_SEGURIDAD_DAYS', 90),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

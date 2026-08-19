@@ -6,6 +6,7 @@
  */
 
 import type { FormDataConvertible } from '@inertiajs/core';
+import type { DataSyllabus, SeccionPrograma } from './syllabus.types';
 
 /**
  * Facultad (Faculty) entity
@@ -174,19 +175,10 @@ export interface Programa {
     fecha_rechazo?: string | null;
     /**
      * Secciones renderizadas del programa (consumidas por ProgramaDocument).
-     * Estructura heterogénea entre controladores; se modela de forma laxa a propósito.
      */
-    secciones?: ProgramaSeccion[];
-    /** JSONB structure containing syllabus data */
-    data_syllabus?: {
-        metadata?: {
-            tipo_syllabus: string;
-            curso?: string;
-            asignatura?: string;
-            creditos?: number;
-        };
-        secciones?: Record<string, any>;
-    };
+    secciones?: SeccionPrograma[];
+    /** Estructura JSONB del syllabus (ver App\Syllabus en el backend). */
+    data_syllabus?: DataSyllabus;
     /** Completeness percentage (0-100) */
     completenessPercentage?: number;
     /** Creator user information */
@@ -200,22 +192,6 @@ export type ProgramaEstado =
     | 'ENVIADO'
     | 'COMPLETO'
     | 'APROBADO';
-
-/**
- * Sección de un programa tal como la consume ProgramaDocument.
- * Se mantiene estructuralmente compatible con la interfaz `Seccion` interna de
- * ese componente; el resto de campos varían según el tipo de sección, por lo
- * que se admite un índice abierto en lugar de recurrir a `any`.
- */
-export interface ProgramaSeccion {
-    numeral_romano?: string;
-    nombre_seccion: string;
-    contenidos?: Array<{ texto_contenido: string | null }>;
-    contenidos_programa?: Array<{ texto_contenido: string | null }>;
-    componentes?: unknown[];
-    ponderacion_optativa?: { porcentaje?: number } | null;
-    [key: string]: unknown;
-}
 
 export interface Curso {
     id_curso: number;
@@ -552,17 +528,23 @@ export interface CursoFormData {
     numero_semestre?: number;
     agno_real?: number;
     semestre_real?: number;
-    jefe_imparte_clases?: boolean;
     id_docente_sugerido?: number;
+    /** Letra de grupo (índice numérico); si se omite, el backend calcula la próxima disponible */
+    indice_grupo?: number;
     // Componente settings
     id_tipo_componente_principal?: number;
     tipos_componente_ids?: number[];
-    genera_acta?: boolean;
+    /** Docente asignado a cada componente (clave: id_tipo_componente, valor: id_docente) */
+    docentes_por_componente?: Record<number, number>;
+    /** Si cada componente genera acta (clave: id_tipo_componente, valor: boolean) */
+    genera_acta_por_componente?: Record<number, boolean>;
     aprobacion_obligatoria?: boolean;
     porcentaje_aprobacion?: number;
     porcentaje_asistencia_obligatoria?: number;
-    es_colegiado?: boolean;
+    /** Inscribir alumnos automáticamente desde la Intranet tras crear el curso */
+    inscribir_automaticamente?: boolean;
     [key: string]: FormDataConvertible;
+
 }
 
 export interface EstudianteFormData {

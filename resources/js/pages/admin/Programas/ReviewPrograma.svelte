@@ -7,6 +7,7 @@
   import ProgramaDetailView from '@/modules/resources/programa/components/ProgramaDetailView.svelte';
   import SyllabusModal from '@/modules/resources/programa/components/SyllabusModal.svelte';
   import type { Permission } from '@/types/permissions/permissions';
+  import { formatFechaCorta } from '@/utils/formatters';
 
   interface Props {
     programa: any;
@@ -48,12 +49,7 @@
   }
 
   function formatDate(val: string | null | undefined): string {
-    if (!val) return '—';
-    return new Date(val).toLocaleDateString('es-CL', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
+    return val ? formatFechaCorta(val) : '—';
   }
 
   function isOverdue(val: string | null | undefined): boolean {
@@ -149,26 +145,28 @@
       {#if editingDates}
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="date-basico" class="block text-sm font-medium text-gray-700 mb-1">
               Fecha límite — Básico
               <span class="text-xs text-gray-400 font-normal ml-1"
                 >(plazo para entregar el programa básico)</span
               >
             </label>
             <input
+              id="date-basico"
               type="date"
               bind:value={dateBasico}
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="date-syllabus" class="block text-sm font-medium text-gray-700 mb-1">
               Fecha límite — Syllabus completo
               <span class="text-xs text-gray-400 font-normal ml-1"
                 >(debe ser posterior al básico)</span
               >
             </label>
             <input
+              id="date-syllabus"
               type="date"
               bind:value={dateSyllabus}
               min={dateBasico || undefined}
@@ -233,7 +231,7 @@
     </div>
 
     <!-- ── Visualización centralizada del programa ────────────────────────── -->
-    <ProgramaDetailView {programa} {userRole} {userId} />
+    <ProgramaDetailView {programa} cursoId={curso.id_curso} {userRole} {userId} />
 
     <!-- ── Panel de acciones (permisos y estado) ─────────────────────────── -->
     {#if showActionPanel}

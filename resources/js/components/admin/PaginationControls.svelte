@@ -73,7 +73,7 @@
         {:else}
           <button
             onclick={() => onPageChange(btn.n)}
-            class={`min-w-[2rem] h-8 px-2 text-sm rounded-md border transition cursor-pointer ${btn.n === currentPage ? 'bg-blue-500 border-blue-500 text-white font-semibold' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+            class={`min-w-[2rem] h-8 px-2 text-sm rounded-md border transition cursor-pointer ${btn.n === currentPage ? 'page-current' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
             aria-current={btn.n === currentPage ? 'page' : undefined}
           >
             {btn.n}

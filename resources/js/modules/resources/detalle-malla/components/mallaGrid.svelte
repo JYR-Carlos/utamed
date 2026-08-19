@@ -1,15 +1,48 @@
 <script lang="ts">
+  /**
+   * mallaGrid — Malla curricular de un plan, agrupada por año y semestre.
+   *
+   * Presentacional: reagrupa las asignaciones en cliente (mallaByYear) sin
+   * depender de la agrupación del backend, y delega editar/quitar en el
+   * padre vía callbacks. Ambas columnas de semestre comparten el snippet
+   * columnaSemestre; solo cambia la paleta (azul/índigo).
+   */
   import type { AsignacionPlan, MallaData } from '../types/mallaCurricular.types';
   import { getTipoRamoLabel } from '../types/mallaCurricular.types';
 
   interface Props {
     malla: MallaData;
+    /** Abre el modal de edición de la asignación (año/semestre/tipo). */
     onEdit: (asignacion: AsignacionPlan) => void;
+    /** Abre la confirmación para quitar la asignatura del plan. */
     onDelete: (asignacion: AsignacionPlan) => void;
   }
 
   let { malla, onEdit, onDelete }: Props = $props();
 
+  /** Clases por columna; strings literales completos para el JIT de Tailwind. */
+  interface EstilosSemestre {
+    punto: string;
+    codigo: string;
+    badge: string;
+    hover: string;
+  }
+
+  const estilosSemestre1: EstilosSemestre = {
+    punto: 'bg-blue-500',
+    codigo: 'text-blue-600',
+    badge: 'bg-blue-100 text-blue-700',
+    hover: 'hover:border-blue-300',
+  };
+
+  const estilosSemestre2: EstilosSemestre = {
+    punto: 'bg-indigo-500',
+    codigo: 'text-indigo-600',
+    badge: 'bg-indigo-100 text-indigo-700',
+    hover: 'hover:border-indigo-300',
+  };
+
+  /** Reagrupa las asignaciones por año y, dentro de cada año, por semestre. */
   const mallaByYear = $derived.by(() => {
     const years: Record<number, { semestre1: AsignacionPlan[]; semestre2: AsignacionPlan[] }> = {};
     Object.values(malla).forEach((list) => {
@@ -31,6 +64,63 @@
     Object.entries(mallaByYear).sort(([a], [b]) => Number(a) - Number(b)),
   );
 </script>
+
+{#snippet columnaSemestre(titulo: string, asignaciones: AsignacionPlan[], estilos: EstilosSemestre)}
+  <div class="p-3">
+    <p
+      class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"
+    >
+      <span class="w-2 h-2 rounded-full {estilos.punto} inline-block"></span>
+      {titulo}
+    </p>
+    <div class="flex flex-col gap-2">
+      {#if asignaciones.length === 0}
+        <p class="text-xs text-gray-300 italic py-2 text-center">Sin asignaturas</p>
+      {:else}
+        {#each asignaciones as asignacion}
+          <div
+            class="bg-white border border-gray-200 rounded-md p-2.5 {estilos.hover} transition-colors"
+          >
+            <div class="flex items-start justify-between gap-2 mb-1">
+              <span class="font-mono text-xs font-bold {estilos.codigo}"
+                >{asignacion.asignatura?.cod_asignatura}</span
+              >
+              <span
+                class="text-[10px] {estilos.badge} px-1.5 py-0.5 rounded-full font-semibold shrink-0"
+              >
+                {asignacion.asignatura?.creditos_sct ?? 0} SCT
+              </span>
+            </div>
+            <p class="text-xs text-gray-800 font-medium leading-snug mb-1.5">
+              {asignacion.asignatura?.nombre}
+            </p>
+            {#if asignacion.tipo_ramo}
+              <span
+                class="inline-block text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mb-1.5"
+              >
+                {getTipoRamoLabel(asignacion.tipo_ramo)}
+              </span>
+            {/if}
+            <!-- Con fondo gris y texto gris claro parecían deshabilitados;
+                 con borde y texto oscuro se leen como pulsables. -->
+            <div class="flex gap-1.5">
+              <button
+                onclick={() => onEdit(asignacion)}
+                class="px-2 py-1 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-[11px] font-medium cursor-pointer transition-colors"
+                >Editar</button
+              >
+              <button
+                onclick={() => onDelete(asignacion)}
+                class="px-2 py-1 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-[11px] font-medium cursor-pointer transition-colors"
+                >Quitar</button
+              >
+            </div>
+          </div>
+        {/each}
+      {/if}
+    </div>
+  </div>
+{/snippet}
 
 <div class="flex flex-col overflow-hidden h-full">
   <!-- Header -->
@@ -76,113 +166,8 @@
 
             <!-- Semesters grid -->
             <div class="grid grid-cols-2 divide-x divide-gray-200">
-              <!-- Semestre 1 -->
-              <div class="p-3">
-                <p
-                  class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"
-                >
-                  <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
-                  Semestre 1
-                </p>
-                <div class="flex flex-col gap-2">
-                  {#if semesters.semestre1.length === 0}
-                    <p class="text-xs text-gray-300 italic py-2 text-center">Sin asignaturas</p>
-                  {:else}
-                    {#each semesters.semestre1 as asignacion}
-                      <div
-                        class="bg-white border border-gray-200 rounded-md p-2.5 hover:border-blue-300 transition-colors"
-                      >
-                        <div class="flex items-start justify-between gap-2 mb-1">
-                          <span class="font-mono text-xs font-bold text-blue-600"
-                            >{asignacion.asignatura?.cod_asignatura}</span
-                          >
-                          <span
-                            class="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0"
-                          >
-                            {asignacion.asignatura?.creditos_sct ?? 0} SCT
-                          </span>
-                        </div>
-                        <p class="text-xs text-gray-800 font-medium leading-snug mb-1.5">
-                          {asignacion.asignatura?.nombre}
-                        </p>
-                        {#if asignacion.tipo_ramo}
-                          <span
-                            class="inline-block text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mb-1.5"
-                          >
-                            {getTipoRamoLabel(asignacion.tipo_ramo)}
-                          </span>
-                        {/if}
-                        <div class="flex gap-1.5">
-                          <button
-                            onclick={() => onEdit(asignacion)}
-                            class="px-2 py-1 bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-700 border-0 rounded text-[11px] font-medium cursor-pointer transition-colors"
-                            >Editar</button
-                          >
-                          <button
-                            onclick={() => onDelete(asignacion)}
-                            class="px-2 py-1 bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-600 border-0 rounded text-[11px] font-medium cursor-pointer transition-colors"
-                            >Quitar</button
-                          >
-                        </div>
-                      </div>
-                    {/each}
-                  {/if}
-                </div>
-              </div>
-
-              <!-- Semestre 2 -->
-              <div class="p-3">
-                <p
-                  class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"
-                >
-                  <span class="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span>
-                  Semestre 2
-                </p>
-                <div class="flex flex-col gap-2">
-                  {#if semesters.semestre2.length === 0}
-                    <p class="text-xs text-gray-300 italic py-2 text-center">Sin asignaturas</p>
-                  {:else}
-                    {#each semesters.semestre2 as asignacion}
-                      <div
-                        class="bg-white border border-gray-200 rounded-md p-2.5 hover:border-indigo-300 transition-colors"
-                      >
-                        <div class="flex items-start justify-between gap-2 mb-1">
-                          <span class="font-mono text-xs font-bold text-indigo-600"
-                            >{asignacion.asignatura?.cod_asignatura}</span
-                          >
-                          <span
-                            class="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0"
-                          >
-                            {asignacion.asignatura?.creditos_sct ?? 0} SCT
-                          </span>
-                        </div>
-                        <p class="text-xs text-gray-800 font-medium leading-snug mb-1.5">
-                          {asignacion.asignatura?.nombre}
-                        </p>
-                        {#if asignacion.tipo_ramo}
-                          <span
-                            class="inline-block text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mb-1.5"
-                          >
-                            {getTipoRamoLabel(asignacion.tipo_ramo)}
-                          </span>
-                        {/if}
-                        <div class="flex gap-1.5">
-                          <button
-                            onclick={() => onEdit(asignacion)}
-                            class="px-2 py-1 bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-700 border-0 rounded text-[11px] font-medium cursor-pointer transition-colors"
-                            >Editar</button
-                          >
-                          <button
-                            onclick={() => onDelete(asignacion)}
-                            class="px-2 py-1 bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-600 border-0 rounded text-[11px] font-medium cursor-pointer transition-colors"
-                            >Quitar</button
-                          >
-                        </div>
-                      </div>
-                    {/each}
-                  {/if}
-                </div>
-              </div>
+              {@render columnaSemestre('Semestre 1', semesters.semestre1, estilosSemestre1)}
+              {@render columnaSemestre('Semestre 2', semesters.semestre2, estilosSemestre2)}
             </div>
           </div>
         {/each}

@@ -2,19 +2,16 @@
 
 namespace App\Http\Controllers\Student;
 
-use App\Enums\DB\EstadoActividadAsignada;
 use App\Enums\DB\TipoActividad;
 use App\Enums\DB\TipoMensaje;
 use App\Http\Controllers\Controller;
 use App\Models\Agenda\Actividad;
 use App\Models\Agenda\Agenda;
-use App\Models\Agenda\AsignadoActividad;
 use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 /**
@@ -51,11 +48,27 @@ class ActivityController extends Controller
             abort(403, 'No estás inscrito en este curso.');
         }
 
+        // La actividad debe pertenecer al curso de la URL. Sin este guard, estar
+        // inscrito en un curso bastaba para abrir actividades de cursos ajenos y,
+        // peor, para que asegurarGrupo() auto-inscribiera al estudiante en ellas.
+        $actividad->loadMissing('componente');
+
+        if ($actividad->componente?->id_curso !== $curso->id_curso) {
+            abort(404, 'Actividad no encontrada en este curso.');
+        }
+
         if (!$actividad->visible) {
             abort(403, 'Esta actividad no está disponible.');
         }
 
         $actividad->load(['componente.tipoComponente', 'unidad', 'archivo']);
+
+        // Aquí se creaba el grupo individual del estudiante de forma perezosa: un
+        // GET que escribía en la base (C-13), y la vía por la que un estudiante
+        // acababa inscrito en actividades de cursos ajenos (C-1). Los grupos los
+        // crea ahora la escritura —alta de la actividad y de la inscripción—, y
+        // `agenda:backfill-grupos-individuales` cubre lo anterior. Si aun así
+        // falta, más abajo el grupo queda en null y la vista lo soporta.
 
         // Buscar el grupo del estudiante para esta actividad
         $integranteGrupo = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
@@ -82,10 +95,11 @@ class ActivityController extends Controller
             : collect();
 
         
-        $ultimaNota = $integranteGrupo?->evaluacion->nota_obtenida ?? $grupo?->nota;
+        $ultimaNota = $integranteGrupo?->nota_individual ?? $grupo?->nota;
         
         $interacciones = [];
         $ultimaEntrega = null;
+        $rubricaUltimaEvaluacion = null;
 
         if ($grupo) {
             $agendas = Agenda::where('id_actividad_asignada_grupo', $grupo->id_actividad_asignada_grupo)
@@ -121,13 +135,10 @@ class ActivityController extends Controller
                 ];
             })->values()->toArray();
 
-            // Obtener la rúbrica de la última evaluación
-            foreach (array_reverse($interacciones) as $item) {
-                if ($item['rubrica'] !== null) {
-                    $rubrica = $item['rubrica'];
-                    break;
-                }
-            }
+            // Rúbrica usada en la evaluación más reciente (no la última rúbrica creada)
+            $ultimaEvaluacionAgenda = $agendas->reverse()->first(fn (Agenda $a) => $a->evaluacion !== null);
+            $rubricaUltimaEvaluacion = $ultimaEvaluacionAgenda?->evaluacion?->rubrica;
+
             // obtiene la ultima entrega del estudiante
             foreach (array_reverse($interacciones) as $item) {
                 if ($item['tipo_interaccion'] === "Entrega de avance") {
@@ -135,14 +146,16 @@ class ActivityController extends Controller
                     break;
                 }
             }
-            
-        }
-        // RUBRICA SIN EVALUACIONES (SÓLO CABECERA)
-        $rubrica = Rubrica::where('id_actividad','=', $actividad->id_actividad)
-         ->orderByDesc('id_rubrica')->first();
 
-        // Derivar estado legible para el estudiante
-        $estado = $grupo?->estado_actividad_asignada?->value;
+        }
+        // Si ya hay una evaluación, se muestra la rúbrica que efectivamente se usó en ella;
+        // si aún no hay evaluación, se muestra sólo la cabecera de la rúbrica vigente.
+        $rubrica = $rubricaUltimaEvaluacion
+            ?? Rubrica::where('id_actividad', '=', $actividad->id_actividad)
+                ->orderByDesc('id_rubrica')->first();
+
+        // Derivar estado de la actividad según visibilidad y holguras (base + personal del grupo si existe)
+        $estado = $grupo ? $grupo->calcularEstadoGrupo($actividad) : $actividad->calcularEstadoBase();
 
         // Entregas del estudiante (archivos enviados)
         $entradas = collect($interacciones)
@@ -161,12 +174,13 @@ class ActivityController extends Controller
             'cod_actividad'         => (string) $actividad->id_actividad,
             'nombre_actividad'      => $actividad->nombre ?? '',
             'descripcion'           => '', 
-            'dias_holgura'          => $actividad->nro_dias_adicionales_para_bloqueo,
-            'fecha_limite'          => $actividad->fecha_limite ? (string) $actividad->fecha_limite : '',
+            'dias_holgura'          => (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0),
+            'dias_holgura_personal' => (int) ($grupo?->nro_dias_adicionales_para_bloqueo_personal ?? 0),
+            'fecha_limite'          => $actividad->fecha_limite?->format('Y-m-d') ?? '',
             'es_sumativa'           => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
             'trae_archivo'          => $actividad->uuid_archivo !== null,
             'entrega_obligatoria'   => strtolower($actividad->tipo_entrega ?? '') !== 'sin entrega',
-            'ultima_nota'           => (float) $ultimaNota,
+            'ultima_nota'           => $ultimaNota !== null ? (float) $ultimaNota : null,
             'ultima_evaluacion'     => null,
             'ultima_entrega'        => $ultimaEntrega,
             'estado'                => $estado,

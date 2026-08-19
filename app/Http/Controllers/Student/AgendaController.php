@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
-use App\Models\Agenda\Actividad;
 use App\Models\Agenda\ActividadAsignadaGrupo;
 
 use App\Services\Archive\Handlers\AgendaArchiveHandler;
@@ -20,7 +19,6 @@ use App\Models\Agenda\Agenda;
 use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Usuario\Usuario;
 use App\Enums\DB\TipoMensaje;
-use App\Services\Archive\ArchiveStorageResult;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,8 +28,11 @@ use Illuminate\Http\Request;
  *
  * Permite al estudiante enviar mensajes de texto al docente y subir entregas de
  * archivos sobre las actividades de los grupos a los que pertenece. La subida de
- * archivos delega en AgendaArchiveHandler (validación, antivirus, compresión y
- * almacenamiento) y respeta la fecha límite más la holgura `nro_dias_adicionales_para_bloqueo`.
+ * archivos delega en AgendaArchiveHandler (validación de tipo y tamaño, compresión
+ * y almacenamiento) y respeta la fecha límite más la holgura
+ * `nro_dias_adicionales_para_bloqueo`. **No hay antivirus**: el hook existe pero
+ * ninguna subclase lo implementa, así que con `ARCHIVE_VIRUS_SCAN_ENABLED=true` el
+ * pipeline rechaza las subidas en vez de aprobarlas sin escanear.
  */
 class AgendaController extends Controller
 {
@@ -100,15 +101,21 @@ class AgendaController extends Controller
             ->firstOrFail();
 
         $actividad = $actividadAsignadaGrupo->actividad;
-        if ($actividad) {
-            $limiteReal = $actividad->fecha_limite->copy()
-                ->addDays($actividad->nro_dias_adicionales_para_bloqueo ?? 0)
-                ->endOfDay();
-            if (now()->isAfter($limiteReal)) {
-                return back()->withErrors([
-                    'error_general' => 'La fecha límite de entrega ha vencido. No se pueden subir archivos.',
-                ]);
-            }
+
+        // Guard invertido: con `if ($actividad) { … }`, un grupo sin actividad
+        // asociada saltaba entera la comprobación de plazo y la entrega se aceptaba.
+        if (!$actividad) {
+            abort(404, 'El grupo no tiene una actividad asociada.');
+        }
+
+        $limiteReal = $actividad->fecha_limite->copy()
+            ->addDays($actividad->nro_dias_adicionales_para_bloqueo ?? 0)
+            ->endOfDay();
+
+        if (now()->isAfter($limiteReal)) {
+            return back()->withErrors([
+                'error_general' => 'La fecha límite de entrega ha vencido. No se pueden subir archivos.',
+            ]);
         }
 
         DB::beginTransaction();
@@ -176,6 +183,12 @@ class AgendaController extends Controller
 
             DB::rollBack();
 
+            // Aquí caen también los errores de configuración del pipeline (por
+            // ejemplo, el antivirus habilitado sin escáner implementado). El
+            // estudiante ve un mensaje genérico, pero tiene que llegar al log:
+            // es un fallo de operación, no del archivo que subió.
+            report($e);
+
             return back()->withErrors([
                 'error_general' => 'Error al procesar el archivo.'
             ]);
@@ -190,6 +203,9 @@ class AgendaController extends Controller
 
         } catch (\Throwable $e) {
 
+            // Esta rama no revertía: cualquier excepción fuera de la jerarquía
+            // Archive dejaba la transacción abierta con la agenda ya insertada.
+            DB::rollBack();
 
             report($e);
 

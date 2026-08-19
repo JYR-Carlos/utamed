@@ -47,7 +47,7 @@
   interface ActividadExtendida extends Actividad {
     componente?: {
       id_componente: number;
-      tipo_componente?: { nombre: string };
+      tipo_componente?: { tipo: string };
     } | null;
   }
 
@@ -247,6 +247,7 @@
     <!-- ── Summary metric cards ──────────────────────────────────────────── -->
     <div class="px-6 py-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
       {#each METRIC_CARDS as card (card.id)}
+        {@const Icon = card.icon}
         <button
           onclick={() => (estadoFiltro = card.id === 'total' ? 'todas' : (card.id as EstadoFiltro))}
           class="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-gradient-to-br {card.color} border
@@ -259,7 +260,7 @@
           <div
             class="w-9 h-9 rounded-lg {card.iconBg} text-white flex items-center justify-center shrink-0"
           >
-            <svelte:component this={card.icon} size={17} />
+            <Icon size={17} />
           </div>
           <div class="flex flex-col min-w-0">
             <span class="text-xl font-extrabold {card.textColor} leading-none">

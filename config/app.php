@@ -60,12 +60,17 @@ return [
     |--------------------------------------------------------------------------
     |
     | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. The timezone
-    | is set to "UTC" by default as it is suitable for most use cases.
+    | will be used by the PHP date and date-time functions.
+    |
+    | La UTA opera en horario de Chile continental y las columnas de fecha son
+    | `timestamp` sin zona: lo que se graba es hora de pared, así que tiene que
+    | ser la de Santiago. Con UTC un mensaje de las 11:14 quedaba como 15:14.
+    | El mismo huso va en la conexión pgsql (config/database.php), porque varias
+    | columnas se llenan con el DEFAULT now() del motor y no desde PHP.
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'America/Santiago'),
 
     /*
     |--------------------------------------------------------------------------

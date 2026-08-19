@@ -1,5 +1,6 @@
 <script lang="ts">
   import AdminLayout from '@/layouts/AdminLayout.svelte';
+  import PageHeader from '@/components/admin/PageHeader.svelte';
   import { Link } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import { CheckCircle, Clock, XCircle, Eye } from 'lucide-svelte';
@@ -60,11 +61,8 @@
 </script>
 
 <AdminLayout {breadcrumbs}>
-  <div class="container mx-auto px-6 py-8">
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-slate-900 mb-2">Programas de Cursos</h1>
-      <p class="text-slate-600">Revisión y aprobación de syllabus</p>
-    </div>
+  <div>
+    <PageHeader title="Programas de cursos" subtitle="Revisión y aprobación de syllabus" />
 
     <!-- Estadísticas -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">

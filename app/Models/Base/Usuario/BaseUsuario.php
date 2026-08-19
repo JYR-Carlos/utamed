@@ -21,7 +21,8 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     use GlobalContextAware;
     use FiltersContextScope;
     const DELETED_AT = 'fecha_eliminacion';
-    public $timestamps = false;
+    const CREATED_AT = 'fecha_creacion';
+    const UPDATED_AT = null;
     protected $connection = 'pgsql';
     protected $table = 'usuario';
     protected $primaryKey = 'id_usuario';
@@ -38,6 +39,11 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
         'apellido2',
         'esta_activo',
         'fecha_verificacion_email',
+        'token_recuerdame_sesion'
+    ];
+
+    protected $hidden = [
+        'passhash',
         'token_recuerdame_sesion'
     ];
 
@@ -62,6 +68,21 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     public function accionesAuditoria()
     {
         return $this->hasMany(\App\Models\Auditoria\ProgramaHistorial::class, 'id_usuario', 'id_usuario');
+    }
+
+    public function interaccionMensajes()
+    {
+        return $this->hasMany(\App\Models\Curso\InteraccionMensaje::class, 'id_usuario_lector', 'id_usuario');
+    }
+
+    public function mensajesEnviados()
+    {
+        return $this->hasMany(\App\Models\Curso\Mensaje::class, 'id_usuario_emisor', 'id_usuario');
+    }
+
+    public function mensajesRecibidos()
+    {
+        return $this->hasMany(\App\Models\Curso\Mensaje::class, 'id_usuario_receptor', 'id_usuario');
     }
 
     public function programasCreados()

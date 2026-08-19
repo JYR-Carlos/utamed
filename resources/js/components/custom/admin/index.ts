@@ -5,6 +5,8 @@
  */
 
 export { default as DataTable } from './DataTable.svelte';
-export { default as DeleteConfirmation } from './DeleteConfirmation.svelte';
+// La confirmación vive en @/components/admin/ConfirmationModal.svelte, base
+// única del panel: identifica el registro afectado y admite escribir para
+// confirmar. DeleteConfirmation se retiró al unificar las tres bases.
 export { default as FormModal } from './FormModal.svelte';
 export { default as PermissionsModal } from './permissions-modal/PermissionsModal.svelte';

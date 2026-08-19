@@ -18,7 +18,7 @@ interface ApiOptions {
 }
 
 /**
- * Crea una nueva facultad.
+ * POST /admin/facultades — crea una facultad.
  */
 export function createFacultad(data: FacultadFormData, options: ApiOptions = {}) {
     router.post('/admin/facultades', data, {
@@ -28,7 +28,7 @@ export function createFacultad(data: FacultadFormData, options: ApiOptions = {})
 }
 
 /**
- * Actualiza una facultad existente.
+ * PUT /admin/facultades/{id} — actualiza una facultad existente.
  */
 export function updateFacultad(id: number, data: FacultadFormData, options: ApiOptions = {}) {
     router.put(`/admin/facultades/${id}`, data, {
@@ -38,7 +38,8 @@ export function updateFacultad(id: number, data: FacultadFormData, options: ApiO
 }
 
 /**
- * Elimina una facultad (soft delete).
+ * DELETE /admin/facultades/{id} — elimina una facultad (soft delete); el
+ * backend rechaza si tiene departamentos asociados.
  */
 export function deleteFacultad(id: number, options: ApiOptions = {}) {
     router.delete(`/admin/facultades/${id}`, {
@@ -48,7 +49,9 @@ export function deleteFacultad(id: number, options: ApiOptions = {}) {
 }
 
 /**
- * Crea un nuevo departamento dentro de una facultad.
+ * POST /admin/departamentos — crea un departamento desde la vista de
+ * facultades (duplica departamentoApi.createDepartamento para no acoplar
+ * módulos; mantener ambas si cambia la ruta).
  */
 export function createDepartamento(data: { nombre: string; id_facultad: number }, options: ApiOptions = {}) {
     router.post('/admin/departamentos', data, {
@@ -58,7 +61,8 @@ export function createDepartamento(data: { nombre: string; id_facultad: number }
 }
 
 /**
- * Elimina un departamento (soft delete).
+ * DELETE /admin/departamentos/{id} — elimina un departamento (soft delete);
+ * duplica departamentoApi.deleteDepartamento (misma nota que arriba).
  */
 export function deleteDepartamento(id: number, options: ApiOptions = {}) {
     router.delete(`/admin/departamentos/${id}`, {

@@ -184,7 +184,7 @@ beforeEach(function () {
 
     foreach ($permisosSlug as $slug) {
       $permiso = Permiso::where('slug', $slug)->first();
-      $rol->permisos()->attach($permiso->id_permiso, ['puede_delegar_permisos' => false]);
+      $rol->permisos()->attach($permiso->id_permiso, ['puede_delegar_permiso' => false]);
     }
 
     foreach ($contextIds as $contextId) {

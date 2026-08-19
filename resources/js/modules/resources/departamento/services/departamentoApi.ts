@@ -18,7 +18,7 @@ interface ApiOptions {
 }
 
 /**
- * Crea un nuevo departamento asociado a una facultad.
+ * POST /admin/departamentos — crea un departamento asociado a una facultad.
  */
 export function createDepartamento(data: DepartamentoFormData, options: ApiOptions = {}) {
     router.post('/admin/departamentos', data, {
@@ -28,7 +28,7 @@ export function createDepartamento(data: DepartamentoFormData, options: ApiOptio
 }
 
 /**
- * Actualiza los datos de un departamento existente.
+ * PUT /admin/departamentos/{id} — actualiza un departamento existente.
  */
 export function updateDepartamento(id: number, data: DepartamentoFormData, options: ApiOptions = {}) {
     router.put(`/admin/departamentos/${id}`, data, {
@@ -38,7 +38,8 @@ export function updateDepartamento(id: number, data: DepartamentoFormData, optio
 }
 
 /**
- * Elimina un departamento (soft delete).
+ * DELETE /admin/departamentos/{id} — discontinúa un departamento (soft
+ * delete); el backend rechaza si aún tiene carreras asociadas.
  */
 export function deleteDepartamento(id: number, options: ApiOptions = {}) {
     router.delete(`/admin/departamentos/${id}`, {

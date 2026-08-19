@@ -1,5 +1,6 @@
 <script lang="ts">
   import ProgramasListView from '@/modules/resources/programa/components/ProgramasListView.svelte';
+  import type { DataSyllabus } from '@/types/syllabus.types';
 
   interface Programa {
     id_programa: number;
@@ -8,14 +9,7 @@
     creado_por: number;
     revisado_por?: number;
     fecha_creacion: string;
-    data_syllabus: {
-      metadata?: {
-        tipo_syllabus: string;
-        curso?: string;
-        asignatura?: string;
-      };
-      secciones?: object;
-    };
+    data_syllabus?: DataSyllabus;
     completenessPercentage?: number;
     creator?: { id_usuario: number; nombre_completo: string };
     reviewer?: { id_usuario: number; nombre_completo: string };

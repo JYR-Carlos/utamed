@@ -3,7 +3,9 @@
 namespace App\Http\Requests;
 
 use App\Models\Administrativo\Asignatura;
+use App\Models\Administrativo\AsignacionPlan;
 use App\Models\Administrativo\Plan;
+use App\Models\Curso\Curso;
 use App\Models\Usuario\Docente;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,7 +31,41 @@ class StoreCursoRequest extends FormRequest
             'cod_curso' => 'required|integer|min:1|max:999999999|unique:curso,cod_curso',
             'nombre' => 'nullable|string|max:255',
             'fecha_inicio'        => 'nullable|date',
-            'indice_grupo'        => 'nullable|integer|min:1',
+            'agno_real'           => 'nullable|integer|min:2000|max:2100',
+            'semestre_real'       => 'nullable|integer|in:1,2',
+            'indice_grupo'        => [
+                'nullable',
+                'integer',
+                'min:1',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (!$value) {
+                        return;
+                    }
+
+                    $asignacionPlan = AsignacionPlan::where('id_asignatura', $this->input('id_asignatura'))
+                        ->where('id_plan', $this->input('id_plan'))
+                        ->whereNull('fecha_eliminacion')
+                        ->first();
+
+                    if (!$asignacionPlan) {
+                        return; // otra regla ya falla por asignatura/plan inválidos
+                    }
+
+                    $agnoReal = $this->input('agno_real');
+                    $semestreReal = $this->input('semestre_real');
+
+                    $query = Curso::where('id_asignacion_plan', $asignacionPlan->id_asignacion_plan)
+                        ->where('indice_grupo', (int) $value)
+                        ->whereNull('fecha_eliminacion');
+
+                    $agnoReal === null ? $query->whereNull('agno_real') : $query->where('agno_real', $agnoReal);
+                    $semestreReal === null ? $query->whereNull('semestre_real') : $query->where('semestre_real', $semestreReal);
+
+                    if ($query->exists()) {
+                        $fail('Ya existe un curso con esa letra de grupo para el mismo periodo.');
+                    }
+                },
+            ],
             'id_docente_sugerido'               => [
                 'required',
                 'integer',
@@ -54,14 +90,17 @@ class StoreCursoRequest extends FormRequest
             'id_tipo_componente_principal'      => 'required|integer|exists:tipo_componente,id_tipo_componente',
             'tipos_componente_ids'              => 'nullable|array|min:1',
             'tipos_componente_ids.*'            => 'integer|exists:tipo_componente,id_tipo_componente',
-            'jefe_imparte_clases'               => 'nullable|boolean',
-            'genera_acta'                       => 'nullable|boolean',
+            'docentes_por_componente'           => 'nullable|array',
+            'docentes_por_componente.*'         => ['nullable', 'integer', Rule::exists('docente', 'id_docente')],
+            'genera_acta_por_componente'         => 'nullable|array',
+            'genera_acta_por_componente.*'       => 'boolean',
             'aprobacion_obligatoria'            => 'nullable|boolean',
             'porcentaje_aprobacion'             => 'nullable|numeric|min:0|max:100',
             'porcentaje_asistencia_obligatoria' => 'nullable|numeric|min:0|max:100',
-            'es_colegiado'                      => 'nullable|boolean',
+            'inscribir_automaticamente'         => 'nullable|boolean',
         ];
     }
+
 
     /**
      * Get the error messages for the defined validation rules.

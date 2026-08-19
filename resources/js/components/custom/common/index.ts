@@ -14,3 +14,4 @@ export { default as UserInfo } from './UserInfo.svelte';
 export { default as UserMenuContent } from './UserMenuContent.svelte';
 export { default as PlaceholderPattern } from './PlaceholderPattern.svelte';
 export { default as AppearanceTabs } from './AppearanceTabs.svelte';
+export { default as BotonSgeq } from './BotonSgeq.svelte';

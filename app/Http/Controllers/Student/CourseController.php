@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\Student;
 
+use App\Enums\DB\TipoActividad;
 use App\Http\Controllers\Controller;
 use App\Models\Agenda\Actividad;
+use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
+use App\Services\Student\StudentSyllabusPresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -146,29 +149,52 @@ class CourseController extends Controller
             ->orderBy('fecha_limite', 'asc')
             ->get();
 
-        $actividadesData = $actividades->map(fn (Actividad $actividad) => [
-            'id_actividad'    => $actividad->id_actividad,
-            'nombre'          => $actividad->nombre,
-            'es_sumativa'     => $actividad->tipo_actividad === 'SUMATIVA',
-            'con_entrega'     => $actividad->tipo_entrega !== 'SIN_ENTREGA',
-            'es_grupal'       => (bool) $actividad->es_grupal,
-            'max_integrantes' => $actividad->max_integrantes ?? 1,
-            'fecha_limite'    => $actividad->fecha_limite,
-            'visible'         => (bool) $actividad->visible,
-        ])->values();
+        $actividadIds = $actividades->pluck('id_actividad');
 
-        return Inertia::render('student/Courses/Show', [
-            'curso' => [
-                'id_curso'          => $curso->id_curso,
-                'nombre'            => $curso->nombre,
-                'cod_curso'         => $curso->cod_curso,
-                'cod_asignatura'    => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? '',
-                'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
-                'semestre_real'     => $curso->semestre_real,
-                'agno_real'         => $curso->agno_real,
-                'unidades'          => $curso->unidades_real
+        // Grupos asignados al estudiante para estas actividades
+        $gruposDelEstudiante = ActividadAsignadaGrupo::whereIn('id_actividad', $actividadIds)
+            ->whereHas('miembros', fn($q) => $q->where('id_estudiante', $estudiante->id_estudiante))
+            ->get()
+            ->keyBy('id_actividad');
+
+        $actividadesData = $actividades->map(function (Actividad $actividad) use ($gruposDelEstudiante) {
+            /** @var mixed $grupo ActividadAsignadaGrupo|null */
+            $grupo = $gruposDelEstudiante->get($actividad->id_actividad);
+            $estado = $grupo ? $grupo->calcularEstadoGrupo($actividad) : $actividad->calcularEstadoBase();
+
+            return [
+                'id_actividad'    => $actividad->id_actividad,
+                'nombre'          => $actividad->nombre,
+                'es_sumativa'     => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
+                'con_entrega'     => $actividad->tipo_entrega !== 'SIN_ENTREGA',
+                'es_grupal'       => (bool) $actividad->es_grupal,
+                'max_integrantes' => $actividad->max_integrantes ?? 1,
+                'fecha_limite'    => $actividad->fecha_limite?->format('Y-m-d'),
+                'visible'         => (bool) $actividad->visible,
+                'estado'          => $estado,
+            ];
+        })->values();
+
+        return Inertia::render('student/Courses/Show', array_merge(
+            [
+                'curso' => [
+                    'id_curso'          => $curso->id_curso,
+                    'nombre'            => $curso->nombre,
+                    'cod_curso'         => $curso->cod_curso,
+                    'cod_asignatura'    => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? '',
+                    'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+                    'carrera_nombre'    => $curso->asignacionPlan?->plan?->carrera?->nombre ?? '',
+                    'letra_grupo'       => $curso->letra_grupo,
+                    'semestre_real'     => $curso->semestre_real,
+                    'agno_real'         => $curso->agno_real,
+                    'unidades'          => $curso->unidades_real,
+                    // Créditos y horas: la ficha del encabezado los muestra junto
+                    // al período, y el programa embebido los daba vacíos.
+                    'asignatura'        => $curso->asignacionPlan?->asignatura,
+                ],
+                'actividades' => $actividadesData,
             ],
-            'actividades' => $actividadesData,
-        ]);
+            StudentSyllabusPresenter::build($curso, $estudiante)
+        ));
     }
 }

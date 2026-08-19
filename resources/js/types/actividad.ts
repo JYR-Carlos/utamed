@@ -11,10 +11,16 @@ export interface Actividad {
     exigencia?: number;
     id_componente?: number;
     id_unidad?: number;
-    componente?: { id_componente: number; tipo_componente?: { nombre: string } | null } | null;
+    componente?: { id_componente: number; tipo_componente?: { tipo: string } | null } | null;
     seccion?: { id_seccion?: number; tipo?: string } | null;
     unidad?: { id_unidad: number; nombre: string } | null;
     ultima_nota?: number | null;
+    /**
+     * Mensajes de agenda de esta actividad cuyo último turno es del estudiante.
+     * Es la mensajería de nivel actividad; no incluye la mensajería del curso
+     * (curso.mensaje), que se lleva aparte en /docente/cursos/{id}/mensajeria.
+     */
+    mensajes_pendientes?: number;
 }
 
 export interface Integrante {

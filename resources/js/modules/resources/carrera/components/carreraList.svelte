@@ -1,23 +1,12 @@
 <script lang="ts">
   /**
-   * Componente: Lista de Carreras
+   * carreraList — Tabla de carreras con toolbar de búsqueda, filtro de
+   * estado (activas/todas) y paginación.
    *
-   * Tabla expandible con toolbar para filtros, búsqueda, status toggle y paginación.
-   * Muestra información enriquecida de carreras con atributos, estado RBAC, etc.
-   *
-   * Props:
-   * - carreras: PaginatedResponse<Carrera> - Datos paginados del servidor
-   * - searchTerm: string - Término de búsqueda actual
-   * - status: string - Filtro de estado (active/all)
-   * - perPage: number - Registros por página
-   * - paginationOptions: number[] - Opciones de per-page
-   * - statusOptions: {ACTIVE, ALL} - Opciones de estado
-   * - onSearchChange: (term: string) => void - Callback búsqueda
-   * - onStatusChange: (status: string) => void - Callback estado
-   * - onPerPageChange: (value: number) => void - Callback per-page
-   * - onPageChange: (page: number) => void - Callback cambio página
-   * - onEdit: (carrera: Carrera) => void - Callback editar
-   * - onDiscontinue: (carrera: Carrera) => void - Callback discontinuar
+   * Presentacional: búsqueda, filtros y paginación se resuelven en el
+   * servidor; cada control solo dispara su callback y el padre hace la
+   * visita Inertia. onSearchChange actualiza el término mientras se escribe
+   * y onSearch lo aplica (Enter o botón).
    */
   import AttriBadges from '@/components/admin/AttriBadges.svelte';
   import PaginationControls from '@/components/admin/PaginationControls.svelte';
@@ -26,16 +15,20 @@
   interface Props {
     carreras?: PaginatedResponse<Carrera>;
     searchTerm?: string;
+    /** Filtro de estado actual ('active' | 'all'). */
     status?: string;
     perPage?: number;
     paginationOptions?: readonly number[];
     statusOptions?: { ACTIVE: string; ALL: string };
+    /** Actualiza el término mientras se escribe (sin buscar aún). */
     onSearchChange?: (term: string) => void;
+    /** Aplica la búsqueda (Enter o botón). */
     onSearch?: () => void;
     onStatusChange?: (status: string) => void;
     onPerPageChange?: (value: number) => void;
     onPageChange?: (page: number) => void;
     onEdit?: (carrera: Carrera) => void;
+    /** Abre la confirmación de discontinuación (soft delete). */
     onDiscontinue?: (carrera: Carrera) => void;
   }
 
@@ -156,9 +149,11 @@
             class="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-400 whitespace-nowrap"
             >Planes Activos</th
           >
+          <!-- «Estado RBAC» nombraba el subsistema de permisos, no el dato:
+               lo que muestra la columna es si la carrera tiene director. -->
           <th
             class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 whitespace-nowrap"
-            >Estado RBAC</th
+            >Director</th
           >
           <th
             class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400"
@@ -188,9 +183,6 @@
                   class={`font-semibold text-[13px] leading-snug ${carrera.fecha_eliminacion ? 'text-gray-400 line-through' : 'text-gray-900'}`}
                 >
                   {carrera.nombre}
-                </div>
-                <div class="text-[11px] text-gray-400 font-mono mt-0.5">
-                  #{carrera.id_carrera}
                 </div>
               </td>
 
@@ -236,58 +228,42 @@
                 </span>
               </td>
 
-              <!-- Estado RBAC (has_director) -->
+              <!-- Ambos estados se muestran como insignia: antes «Director
+                   Asignado» era una píldora y «Sin director» texto gris, de
+                   modo que el mismo campo se leía de dos formas distintas. -->
               <td class="px-4 py-3 align-middle">
                 {#if carrera.has_director}
-                  <span
-                    class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-purple-50 text-purple-700 text-[11px] font-semibold border border-purple-100"
-                  >
-                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-                    Director Asignado
-                  </span>
+                  <span class="badge badge-ok">Asignado</span>
                 {:else}
-                  <span class="text-gray-400 text-[11px]">Sin director</span>
+                  <span class="badge badge-off">Sin asignar</span>
                 {/if}
               </td>
 
               <!-- Estado (Activa/Discontinuada) -->
               <td class="px-4 py-3 align-middle">
                 {#if carrera.fecha_eliminacion}
-                  <span
-                    class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-[11px] font-semibold"
-                  >
-                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                    Discontinuada
-                  </span>
+                  <span class="badge badge-off">Discontinuada</span>
                 {:else}
-                  <span
-                    class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold border border-emerald-100"
-                  >
-                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    Activa
-                  </span>
+                  <span class="badge badge-ok">Activa</span>
                 {/if}
               </td>
 
               <!-- Acciones -->
               <td class="px-4 py-3 align-middle">
                 {#if !carrera.fecha_eliminacion}
-                  <div class="flex items-center gap-2">
-                    <button
-                      onclick={() => onEdit(carrera)}
-                      class="text-blue-600 hover:text-blue-800 font-medium text-xs border-0 bg-transparent cursor-pointer transition-colors"
-                    >
+                  <div class="flex items-center gap-1.5">
+                    <button onclick={() => onEdit(carrera)} class="btn btn-neutral btn-sm">
                       Editar
                     </button>
                     <button
                       onclick={() => onDiscontinue(carrera)}
-                      class="text-red-600 hover:text-red-800 font-medium text-xs border-0 bg-transparent cursor-pointer transition-colors"
+                      class="btn btn-neutral btn-sm"
                     >
                       Discontinuar
                     </button>
                   </div>
                 {:else}
-                  <span class="text-gray-300 text-[11px] italic">No disponible</span>
+                  <span class="text-gray-400 text-xs">Discontinuada</span>
                 {/if}
               </td>
             </tr>

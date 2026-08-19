@@ -1,9 +1,11 @@
 <script lang="ts">
   /**
-   * Componente lista de usuarios.
+   * usuarioList — Tabla paginada de usuarios con acciones de editar,
+   * eliminar, cambiar contraseña, activar/desactivar y permisos.
    *
-   * Muestra tabla paginada de usuarios con opciones para editar, eliminar, cambiar contraseña, toggle activo.
-   * Soporta múltiples tipos: estudiante, docente, administrador.
+   * Presentacional: delega toda acción en el padre. Las columnas cambian
+   * según el tipo de usuario (COLUMN_CONFIGS); las claves con puntos
+   * ('usuario.rut') las resuelve DataTable sobre el objeto anidado.
    */
   import DataTable from '@/components/custom/admin/DataTable.svelte';
   import type { UsuarioItem, PaginatedResponse } from '@/types/admin.types';
@@ -12,20 +14,22 @@
 
   interface Props {
     data: PaginatedResponse<UsuarioItem>;
+    /** Define qué columnas se muestran. */
     userType: UserType;
     onEdit: (usuario: UsuarioItem) => void;
+    onDelete?: (usuario: UsuarioItem) => void;
     onPasswordChange: (usuario: UsuarioItem) => void;
     onToggleActive: (usuario: UsuarioItem) => void;
+    /** Abre el modal de permisos (acción custom del DataTable). */
     onPermissions: (usuario: UsuarioItem) => void;
   }
 
-  let { data, userType, onEdit, onPasswordChange, onToggleActive, onPermissions }: Props =
+  let { data, userType, onEdit, onDelete, onPasswordChange, onToggleActive, onPermissions }: Props =
     $props();
 
+  /** Columnas por tipo de usuario. */
   const COLUMN_CONFIGS: Record<UserType, Array<{ key: string; label: string; class?: string }>> = {
     estudiante: [
-      // { key: 'usuario.id_usuario', label: 'ID Usuario'},
-      // { key: 'estudiante.id_estudiante', label: 'ID Estudiante' },
       { key: 'usuario.rut', label: 'RUT', class: 'whitespace-nowrap' },
       { key: 'usuario.nombre1', label: 'Nombre' },
       { key: 'usuario.apellido1', label: 'Apellido' },
@@ -33,8 +37,6 @@
       { key: 'estudiante.carrera.nombre', label: 'Carrera' },
     ],
     docente: [
-      // { key: 'usuario.id_usuario', label: 'ID Usuario'},
-      // { key: 'docente.id_docente', label: 'ID Docente' },
       { key: 'usuario.rut', label: 'RUT', class: 'whitespace-nowrap' },
       { key: 'usuario.nombre1', label: 'Nombre' },
       { key: 'usuario.apellido1', label: 'Apellido' },
@@ -42,7 +44,6 @@
       { key: 'docente.cargo', label: 'Cargo' },
     ],
     administrador: [
-      // { key: 'usuario.id_usuario', label: 'ID' },
       { key: 'usuario.rut', label: 'RUT', class: 'whitespace-nowrap' },
       { key: 'usuario.username', label: 'Usuario' },
       { key: 'usuario.nombre1', label: 'Nombre' },
@@ -58,8 +59,10 @@
   {data}
   {columns}
   {onEdit}
+  {onDelete}
   {onPasswordChange}
   {onToggleActive}
   onCustomAction={onPermissions}
   customActionLabel="Permisos"
+  searchPlaceholder="Buscar por nombre completo, RUT, usuario o email..."
 />

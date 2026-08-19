@@ -196,7 +196,7 @@
       <div class="relative">
         <textarea
           bind:value={nuevoMensaje}
-          placeholder="Escribe tu mensaje aquí..."
+          placeholder="Escribe tu mensaje sobre esta actividad..."
           class="w-full p-4 pr-16 text-sm border-gray-300 rounded-2xl focus:ring-primary focus:border-primary resize-none shadow-sm"
           rows="3"
         ></textarea>

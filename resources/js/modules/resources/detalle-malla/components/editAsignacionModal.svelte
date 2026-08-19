@@ -1,13 +1,24 @@
 <script lang="ts">
+  /**
+   * editAsignacionModal — Edita la posición de una asignatura dentro de la
+   * malla de un plan: año, semestre y tipo de ramo.
+   *
+   * Hace el PUT directamente vía mallaApi.editAsignacion; el padre solo
+   * recibe onSuccess para recargar la malla.
+   */
   import type { AsignacionPlan } from '../types/mallaCurricular.types';
+  import { TIPO_RAMO_LABELS } from '../types/mallaCurricular.types';
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import { editAsignacion } from '../services/mallaApi';
 
   interface Props {
     isOpen: boolean;
     planId: number;
+    /** Asignación a editar; null mientras el modal está cerrado. */
     editingAsignacion: AsignacionPlan | null;
+    /** Callback tras guardar (p.ej. recargar la malla). */
     onSuccess: () => void;
+    /** Prefijo base de rutas (p.ej. '/admin' o '/docente/jefe-carrera'). */
     routePrefix?: string;
   }
 
@@ -19,6 +30,8 @@
     routePrefix = '/admin',
   }: Props = $props();
 
+  // tipo_ramo admite string porque la opción "Sin tipo" del select usa ''
+  // como valor; handleSubmit lo normaliza a number|null antes de enviar.
   let editForm = $state<{
     agno_planificado: number;
     semestre_planificado: number;
@@ -27,6 +40,8 @@
   let editLoading = $state(false);
   let editError = $state<string | null>(null);
 
+  // Carga los datos de la asignación al abrir. Solo ESCRIBE editForm (no lo
+  // lee), así que el efecto no se re-dispara mientras el usuario edita.
   $effect.pre(() => {
     if (isOpen && editingAsignacion) {
       editForm = {
@@ -43,6 +58,7 @@
     editError = null;
   }
 
+  /** Normaliza tipo_ramo ('' → null) y envía el PUT. */
   function handleSubmit() {
     if (!editingAsignacion) return;
     editLoading = true;
@@ -138,9 +154,9 @@
       class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 bg-white"
     >
       <option value="">Sin tipo (opcional)</option>
-      <option value={1}>Electivo Profesional</option>
-      <option value={2}>Plan Común</option>
-      <option value={3}>Formación Profesional</option>
+      {#each Object.entries(TIPO_RAMO_LABELS) as [id, label]}
+        <option value={Number(id)}>{label}</option>
+      {/each}
     </select>
   </div>
 </FormModal>

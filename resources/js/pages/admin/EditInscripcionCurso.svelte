@@ -101,9 +101,9 @@
   }
 </script>
 
-<AdminLayout {breadcrumbs}>
-  <div class="max-w-2xl mx-auto px-4 sm:px-6 md:px-8">
-    <div class="py-6">
+<AdminLayout {breadcrumbs} width="narrow">
+  <div>
+    <div>
       <!-- Header -->
       <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900">Editar Inscripción</h1>
@@ -126,8 +126,9 @@
 
           <!-- Course Info (Read-only) -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Curso</label>
+            <label for="edit-curso" class="block text-sm font-medium text-gray-700 mb-2">Curso</label>
             <input
+              id="edit-curso"
               type="text"
               value="{curso.cod_curso} - {curso.nombre}"
               disabled
@@ -137,8 +138,11 @@
 
           <!-- Student Info (Read-only) -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Estudiante</label>
+            <label for="edit-estudiante" class="block text-sm font-medium text-gray-700 mb-2"
+              >Estudiante</label
+            >
             <input
+              id="edit-estudiante"
               type="text"
               value="{inscripcion.estudiante?.usuario?.nombre1}
 							{inscripcion.estudiante?.usuario?.apellido1}
@@ -150,10 +154,11 @@
 
           <!-- Código Inscripción UTA -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2"
+            <label for="edit-cod_inscripcion_uta" class="block text-sm font-medium text-gray-700 mb-2"
               >Código Inscripción UTA</label
             >
             <input
+              id="edit-cod_inscripcion_uta"
               type="text"
               bind:value={formData.cod_inscripcion_uta}
               placeholder="ej: INS-2024-001"
@@ -166,8 +171,11 @@
 
           <!-- Fecha Inscripción -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha de Inscripción</label>
+            <label for="edit-fecha_inscripcion" class="block text-sm font-medium text-gray-700 mb-2"
+              >Fecha de Inscripción</label
+            >
             <input
+              id="edit-fecha_inscripcion"
               type="date"
               bind:value={formData.fecha_inscripcion}
               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
@@ -179,9 +187,11 @@
 
           <!-- Estado Inscripción -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Estado de Inscripción</label
+            <label for="edit-estado_inscripcion" class="block text-sm font-medium text-gray-700 mb-2"
+              >Estado de Inscripción</label
             >
             <select
+              id="edit-estado_inscripcion"
               bind:value={formData.estado_inscripcion}
               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
             >
@@ -198,8 +208,11 @@
 
           <!-- Número Intento -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Número de Intento</label>
+            <label for="edit-num_intento" class="block text-sm font-medium text-gray-700 mb-2"
+              >Número de Intento</label
+            >
             <input
+              id="edit-num_intento"
               type="number"
               bind:value={formData.num_intento}
               min="1"
@@ -212,8 +225,11 @@
 
           <!-- Promedio Parcial -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Promedio Parcial</label>
+            <label for="edit-promedio_parcial" class="block text-sm font-medium text-gray-700 mb-2"
+              >Promedio Parcial</label
+            >
             <input
+              id="edit-promedio_parcial"
               type="number"
               bind:value={formData.promedio_parcial}
               placeholder="0.0"
@@ -262,6 +278,7 @@
 
 <InscripcionDeleteConfirm
   bind:isOpen={showDeleteConfirm}
+  {inscripcion}
   onConfirm={confirmDelete}
   onCancel={cancelDelete}
 />

@@ -25,6 +25,13 @@ class FortifyServiceProvider extends ServiceProvider
             \Laravel\Fortify\Contracts\LoginResponse::class,
             \App\Http\Responses\LoginResponse::class
         );
+
+        // Añade Inertia::clearHistory() al logout para que "atrás" no repinte
+        // los datos de la sesión cerrada desde el historial del navegador.
+        $this->app->singleton(
+            \Laravel\Fortify\Contracts\LogoutResponse::class,
+            \App\Http\Responses\LogoutResponse::class
+        );
     }
 
     /**

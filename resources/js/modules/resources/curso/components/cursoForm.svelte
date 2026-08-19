@@ -271,6 +271,24 @@
           </select>
         </div>
 
+        <!-- Inscribir Automáticamente (Solo al crear nuevo curso) -->
+        {#if !editingCurso}
+          <div class="pt-2 border-t border-gray-100">
+            <label class="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 select-none">
+              <input
+                type="checkbox"
+                bind:checked={formData.inscribir_automaticamente}
+                class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 transition"
+              />
+              <span>Inscribir automáticamente a los alumnos de la Intranet</span>
+            </label>
+            <p class="text-xs text-gray-500 mt-1 pl-6">
+              Busca las componentes asociadas en la Intranet y matricula automáticamente a todos los alumnos inscritos.
+            </p>
+          </div>
+        {/if}
+
+
         <!-- Buttons -->
         <div class="flex justify-end gap-3 pt-4">
           <button

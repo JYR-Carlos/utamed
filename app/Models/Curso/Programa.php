@@ -4,6 +4,7 @@ namespace App\Models\Curso;
 
 use App\Models\Base\Curso\BasePrograma;
 use App\Services\ProgramaService;
+use App\Syllabus\SyllabusSecciones;
 
 /**
  * Modelo Programa
@@ -52,7 +53,7 @@ class Programa extends BasePrograma
     /**
      * Devuelve las secciones del data_syllabus.
      */
-    public function getSecciones(): array
+    public function getSecciones(): SyllabusSecciones
     {
         return ProgramaService::getSecciones($this);
     }

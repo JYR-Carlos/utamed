@@ -12,6 +12,12 @@
   import { onMount } from 'svelte';
   import ProgramaWizardSteps from './ProgramaWizardSteps.svelte';
   import type { Curso, Programa } from '@/types/admin.types';
+  import type { ProgramaFull } from '@/modules/resources/programa/types/programa.types';
+  import type {
+    DataSyllabusSecciones,
+    DataSyllabusSeccionesBasico,
+    DataSyllabusSeccionesCompleto,
+  } from '@/types/syllabus.types';
   import {
     loadComponentes,
     loadActividades,
@@ -21,36 +27,6 @@
     aprobarPrograma,
     extractErrorMessage,
   } from '@/modules/resources/programa/services/programaApi';
-
-  interface ContenidoPrograma {
-    id_contenido_programa?: number;
-    texto_contenido: string | null;
-    valor_numerico?: number | null;
-    orden_item: number;
-  }
-
-  interface SeccionPrograma {
-    id_estructura_programa?: number;
-    nombre_seccion: string;
-    numeral_romano?: string;
-    orden: number;
-    es_lista?: boolean;
-    es_actual?: boolean;
-    contenidos_programa: ContenidoPrograma[];
-  }
-
-  interface ProgramaFull extends Omit<Programa, 'secciones'> {
-    es_plantilla?: boolean;
-    version_programa: number;
-    secciones?: SeccionPrograma[];
-  }
-
-  interface WizardSection {
-    nombre_seccion: string;
-    numeral_romano: string;
-    orden: number;
-    contenidos: { texto_contenido: string; orden_item: number }[];
-  }
 
   interface Props {
     isOpen: boolean;
@@ -87,8 +63,6 @@
   // ── View/edit state (populated) ─────────────────────────────────────────────
   let loadingPrograma = $state(false);
   let programaData = $state<ProgramaFull | null>(null);
-  let editedSections = $state<SeccionPrograma[]>([]);
-  let isSaving = $state(false);
   let isApproving = $state(false);
   let isEditMode = $state(false);
   let viewError = $state('');
@@ -243,43 +217,19 @@
 
   // ── Init on mount: decide mode and load data ─────────────────────────────────
   onMount(() => {
-    // console.log(
-    //   '🔍 SyllabusModal onMount - syllabusType (prop):',
-    //   syllabusType,
-    //   'selectedSyllabusType:',
-    //   selectedSyllabusType,
-    //   'has_programa:',
-    //   curso?.has_programa,
-    // );
-    // console.log(
-    //   `📊 STEPS derivation test: selectedSyllabusType=${selectedSyllabusType}, STEPS.length=${STEPS.length}, ALL_STEPS.length=${ALL_STEPS.length}`,
-    // );
-    // console.log(
-    //   `📈 Contexto: modo wizard=${mode === 'wizard'}, curso_id=${curso?.id_curso}, curso_asignatura=${curso?.asignatura_nombre}`,
-    // );
-
     // Si es 'combined' y existe un programa BASICO, iniciar wizard COMPLETO pre-poblado
     if (syllabusType === 'combined' && curso?.has_programa) {
       mode = 'wizard';
-      // console.log('✨ Modo WIZARD COMPLETO - continuando desde BASICO');
       loadAndPrefillFromBasico();
     }
     // Si existe programa general, cargar en modo view
     else if (curso?.has_programa) {
       mode = 'view';
-      // console.log('📖 Modo VIEW - cargando programa existente');
       loadPrograma();
     }
     // Si no existe programa, iniciar wizard
     else {
       mode = 'wizard';
-      // console.log(
-      //   '✨ Modo WIZARD - inicializando nuevo programa',
-      //   'syllabusType:',
-      //   syllabusType,
-      //   'STEPS.length que se va a usar:',
-      //   STEPS.length,
-      // );
       initializeWizard();
     }
 
@@ -338,9 +288,13 @@
 
   /**
    * Pre-fills all wizard fields from a JSONB secciones object.
+   *
+   * `raw` puede venir en formato BASICO (solo I, II, VI, VII, VIII) o COMPLETO
+   * (las 9), por eso se tipa como parcial y cada sub-contenido se castea de
+   * forma laxa: el resto de la función ya es defensivo ante campos ausentes.
    */
-  function prefillWizardFromData(raw: Record<string, any>) {
-    const cI = raw?.I?.contenido ?? {};
+  function prefillWizardFromData(raw: Partial<DataSyllabusSeccionesCompleto>) {
+    const cI: any = raw?.I?.contenido ?? {};
     if (cI.nombre_asignatura) nombre_asignatura = cI.nombre_asignatura;
     if (cI.codigo) codigo = String(cI.codigo);
     if (cI.creditos_sct != null) creditos_sct = String(cI.creditos_sct);
@@ -349,13 +303,13 @@
     if (cI.horas?.laboratorio != null) horas_laboratorio = String(cI.horas.laboratorio);
     if (cI.categoria) categoria = cI.categoria;
 
-    const cII = raw?.II?.contenido ?? {};
+    const cII: any = raw?.II?.contenido ?? {};
     if (cII.texto) presentacion = cII.texto;
 
-    const cIII = raw?.III?.contenido ?? {};
+    const cIII: any = raw?.III?.contenido ?? {};
     if (cIII.texto) estandares = cIII.texto;
 
-    const cIV = raw?.IV?.contenido ?? {};
+    const cIV: any = raw?.IV?.contenido ?? {};
     if (Array.isArray(cIV.competencias_especificas) && cIV.competencias_especificas.length > 0)
       competencias_especificas = cIV.competencias_especificas.map((c: any) => ({
         titulo: c.titulo ?? '',
@@ -367,14 +321,14 @@
     if (Array.isArray(cIV.subcompetencias) && cIV.subcompetencias.length > 0)
       subcompetencias = cIV.subcompetencias.map((s: any) => ({ titulo: s.titulo ?? '' }));
 
-    const cV = raw?.V?.contenido ?? {};
+    const cV: any = raw?.V?.contenido ?? {};
     if (Array.isArray(cV.items) && cV.items.length > 0)
       items_evaluacion = cV.items.map((i: any) => ({
         titulo: i.titulo ?? '',
         descripcion: i.descripcion ?? '',
       }));
 
-    const cVI = raw?.VI?.contenido ?? {};
+    const cVI: any = raw?.VI?.contenido ?? {};
     if (Array.isArray(cVI.unidades) && cVI.unidades.length > 0) {
       unidades = cVI.unidades.map((u: any) => ({
         numero: u.numero ?? 1,
@@ -387,11 +341,11 @@
       }));
     }
 
-    const cVII = raw?.VII?.contenido ?? {};
+    const cVII: any = raw?.VII?.contenido ?? {};
     if (cVII.metodologia?.tipo_estrategia) metodologia = cVII.metodologia.tipo_estrategia;
     if (cVII.evaluacion?.tipo_evaluacion) evaluacion = cVII.evaluacion.tipo_evaluacion;
 
-    const cVIII = raw?.VIII?.contenido ?? {};
+    const cVIII: any = raw?.VIII?.contenido ?? {};
     if (Array.isArray(cVIII.recursos) && cVIII.recursos.length > 0)
       recursos = cVIII.recursos.map((r: any) => ({
         descripcion: r.descripcion ?? '',
@@ -399,7 +353,7 @@
         ubicacion: r.ubicacion ?? '',
       }));
 
-    const cIX = raw?.IX?.contenido ?? {};
+    const cIX: any = raw?.IX?.contenido ?? {};
     if (cIX.descripcion) normativa_curso = cIX.descripcion;
     if (cIX.ponderacion_optativa?.porcentaje != null)
       ponderacion_optativa = String(cIX.ponderacion_optativa.porcentaje);
@@ -419,8 +373,12 @@
     viewError = '';
     try {
       const result = await loadProgramaJson(curso.id_curso, getBasePath());
-      programaData = result.programa as unknown as ProgramaFull;
-      const raw: Record<string, any> = result.programa?.data_syllabus?.secciones ?? {};
+      programaData = result.programa;
+      // secciones puede venir en el formato asociativo (post-wizard) o, muy
+      // raramente, en el shell secuencial legacy (recién instanciado, sin
+      // guardar aún) — se castea de forma laxa porque el prefill de abajo ya
+      // maneja con seguridad la ausencia de cualquier clave.
+      const raw = (result.programa?.data_syllabus?.secciones ?? {}) as Partial<DataSyllabusSeccionesCompleto>;
 
       // Determinar tipo desde data_syllabus.metadata.tipo_syllabus ("BASICO" | "COMPLETO")
       // normalizado a los valores del frontend ('simplified' | 'complete')
@@ -475,9 +433,8 @@
     if (!curso) return;
     try {
       const result = await loadProgramaJson(curso.id_curso, getBasePath());
-      const raw: Record<string, any> = result.programa?.data_syllabus?.secciones ?? {};
+      const raw = (result.programa?.data_syllabus?.secciones ?? {}) as Partial<DataSyllabusSeccionesCompleto>;
       prefillWizardFromData(raw);
-      // console.log('✅ Pre-relleno desde BASICO completado');
     } catch (err) {
       console.warn('No se pudo pre-cargar datos del programa básico, iniciando en blanco:', err);
     }
@@ -500,8 +457,6 @@
   function resetAll() {
     mode = 'view';
     programaData = null;
-    editedSections = [];
-    isSaving = false;
     isEditMode = false;
     viewError = '';
     step = 1;
@@ -553,35 +508,6 @@
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') handleClose();
-  }
-
-  // ── Save edited sections (creates new version) ───────────────────────────────
-  async function handleSaveEdits() {
-    if (!curso) return;
-    isSaving = true;
-    viewError = '';
-    try {
-      const payload = {
-        secciones: editedSections.map((s, i) => ({
-          nombre_seccion: s.nombre_seccion,
-          numeral_romano: s.numeral_romano ?? '',
-          orden: i + 1,
-          contenidos: s.contenidos_programa.map((c, j) => ({
-            texto_contenido: c.texto_contenido ?? '',
-            orden_item: j + 1,
-          })),
-        })),
-      };
-
-      const result = await savePrograma(curso.id_curso, payload, getBasePath());
-
-      isSaving = false;
-      resetAll();
-      onSuccess(result.programa as Programa);
-    } catch (err) {
-      isSaving = false;
-      viewError = extractErrorMessage(err, 'Error guardando los cambios.');
-    }
   }
 
   // ── Approve (mark as definitivo) ─────────────────────────────────────────────
@@ -645,7 +571,7 @@
     return result;
   }
 
-  function buildSecciones() {
+  function buildSecciones(): DataSyllabusSecciones {
     // Determinar Sección VII basada en el tipo
     const seccionVII =
       selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined'
@@ -783,13 +709,14 @@
     };
 
     // For BASICO types, only return sections I, II, VI, VII, VIII (skip III, IV, V, IX)
-    // For BASICO types, only return sections I, II, VI, VII, VIII (skip III, IV, V, IX)
     if (selectedSyllabusType === 'simplified' || selectedSyllabusType === 'combined') {
       const { III: _, IV: __, V: ___, IX: ____, ...basicSecciones } = baseSecciones;
-      return basicSecciones;
+      // El destructuring de arriba garantiza en runtime la forma BASICO; el
+      // compilador no puede probarlo por sí solo a partir del objeto unión.
+      return basicSecciones as DataSyllabusSeccionesBasico;
     }
 
-    return baseSecciones;
+    return baseSecciones as DataSyllabusSeccionesCompleto;
   }
 
   async function handleGenerate() {
@@ -813,10 +740,7 @@
           nombre_unidad: a.nombre_unidad?.trim() || '',
         })),
       };
-      // console.log('📤 Enviando payload:', JSON.stringify(payload, null, 2));
-
       const result = await generatePrograma(curso.id_curso, payload, getBasePath());
-      // console.log('✅ Respuesta exitosa:', result);
 
       isGenerating = false;
       resetAll();
@@ -868,36 +792,6 @@
   );
   let step10Valid = $derived(true); // Resumen - siempre válido
 
-  // Helper: get the first content text of a section (for display)
-  function firstContent(sec: SeccionPrograma): string {
-    return sec.contenidos_programa?.[0]?.texto_contenido ?? '';
-  }
-
-  // Helper: join all content texts
-  function joinContents(sec: SeccionPrograma): string {
-    return sec.contenidos_programa
-      .map((c) => c.texto_contenido ?? '')
-      .filter(Boolean)
-      .join('\n');
-  }
-
-  function updateSectionContent(secIdx: number, text: string) {
-    const sec = editedSections[secIdx];
-    if (sec.contenidos_programa.length === 0) {
-      editedSections[secIdx] = {
-        ...sec,
-        contenidos_programa: [{ texto_contenido: text, orden_item: 1 }],
-      };
-    } else {
-      // Update the first / only content item; preserve any extra items
-      editedSections[secIdx] = {
-        ...sec,
-        contenidos_programa: sec.contenidos_programa.map((c, i) =>
-          i === 0 ? { ...c, texto_contenido: text } : c,
-        ),
-      };
-    }
-  }
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -1077,7 +971,6 @@
                     title={`${s.label}`}
                     onclick={() => {
                       if (isComplete || isActive) {
-                        // console.log(`🔄 Saltando al paso ${s.id}`);
                         step = s.id as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
                       }
                     }}

@@ -191,10 +191,13 @@
       <span class="text-xs">Buscar</span>
     </button>
 
+    <!-- Estos dos botones no decían qué hacían: sólo una flecha, sin
+         etiqueta accesible y con un título que no cambiaba al alternar. -->
     <button
       class="icon-btn hidden lg:flex items-center justify-center group relative"
       onclick={() => (showSidebar = !showSidebar)}
-      title="Ocultar sidebar"
+      aria-label={showSidebar ? 'Ocultar el menú lateral' : 'Mostrar el menú lateral'}
+      title={showSidebar ? 'Ocultar el menú lateral' : 'Mostrar el menú lateral'}
     >
       {#if showSidebar}
         <ChevronLeft size={20} class="group-hover:text-slate-900" />
@@ -207,7 +210,8 @@
     <button
       class="icon-btn flex items-center justify-center group relative"
       onclick={() => (showHeader = !showHeader)}
-      title="Ocultar encabezado"
+      aria-label="Ocultar esta barra superior"
+      title="Ocultar esta barra superior"
     >
       <ChevronUp size={20} class="group-hover:text-slate-900" />
     </button>
@@ -255,11 +259,21 @@
 </header>
 
 <style>
+  /*
+   * Tres zonas con anchos propios y una separación que nunca se cierra.
+   *
+   * Antes `.header-left` llevaba `overflow: hidden` sin separación con la
+   * zona central, así que la ruta de navegación se cortaba a media palabra
+   * justo donde empieza el buscador —«Dashboar», «Cursos Ofertado»— y
+   * parecía que la caja de búsqueda la tapaba. El único indicador de
+   * «dónde estoy» estaba roto en todas las pantallas.
+   */
   .global-header {
     height: 64px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 1.5rem;
     padding: 0 1.5rem;
     background: #ffffff;
     border-bottom: 1px solid #f1f5f9;
@@ -272,15 +286,18 @@
     display: flex;
     align-items: center;
     gap: 1rem;
-    flex: 1;
+    flex: 1 1 0;
     min-width: 0;
-    overflow: hidden;
   }
 
+  /* Si no cabe, la ruta se abrevia con puntos suspensivos en vez de
+     cortarse a mitad de letra. */
   .breadcrumb-wrapper {
     min-width: 0;
-    overflow: hidden;
     flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .header-center {
@@ -353,85 +370,5 @@
   .icon-btn:hover {
     background: #f1f5f9;
     color: #1e293b;
-  }
-
-  .pulse-dot {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 8px;
-    height: 8px;
-    background: #ef4444;
-    border-radius: 50%;
-    border: 2px solid #fff;
-  }
-
-  .user-pill {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.375rem 0.75rem 0.375rem 0.375rem;
-    background: #f8fafc;
-    border: 1px solid #f1f5f9;
-    border-radius: 20px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .user-pill:hover {
-    background: #f1f5f9;
-    border-color: #e2e8f0;
-  }
-
-  .avatar-sm {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: #3b82f6;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    font-weight: 700;
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
-  }
-
-  @media (min-width: 1024px) {
-    .avatar-sm {
-      width: 32px;
-      height: 32px;
-      font-size: 0.85rem;
-    }
-  }
-
-  .user-meta {
-    display: flex;
-    flex-direction: column;
-    line-height: 1;
-  }
-
-  .user-name {
-    font-size: 0.8125rem;
-    font-weight: 700;
-    color: #1e293b;
-  }
-
-  .user-role {
-    font-size: 0.625rem;
-    font-weight: 600;
-    color: #94a3b8;
-    text-transform: uppercase;
-    margin-top: 0.125rem;
-  }
-
-  @media (min-width: 1024px) {
-    .user-name {
-      font-size: 0.875rem;
-    }
-
-    .user-role {
-      font-size: 0.7rem;
-    }
   }
 </style>

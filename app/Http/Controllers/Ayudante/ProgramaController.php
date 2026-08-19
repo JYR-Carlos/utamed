@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Ayudante;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Programa\SyllabusRules;
 use App\Models\Curso\Programa;
 use App\Models\Agenda\Actividad;
 use App\Models\Curso\Curso;
@@ -12,6 +13,7 @@ use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Auditoria\ProgramaHistorial;
 use App\Services\ProgramaService;
+use App\Traits\ParsesSyllabus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,12 +26,15 @@ use App\Support\Permissions;
 /**
  * Gestión del programa/syllabus de un curso desde el rol de ayudante.
  *
- * El acceso exige rol "ayudante" activo sobre el contexto del curso y el permiso
- * `CURSOS_PROGRAMAS_VER_TODOS`. La edición queda bloqueada cuando el programa está
- * `APROBADO`. El armado del syllabus se delega en ProgramaService.
+ * El acceso exige rol "ayudante" activo sobre el contexto del curso. La lectura
+ * pide `CURSOS_PROGRAMAS_VER_TODOS`; abrir el editor y escribir piden
+ * `CURSOS_PROGRAMAS_MODIFICAR_ALL`. La edición queda bloqueada cuando el programa
+ * está `APROBADO`. El armado del syllabus se delega en ProgramaService.
  */
 class ProgramaController extends Controller
 {
+    use ParsesSyllabus;
+
     /**
      * Ver programa de un curso como ayudante
      *
@@ -86,8 +91,9 @@ class ProgramaController extends Controller
                 ->with('error', 'No estás asignado a este curso como ayudante');
         }
 
-        // Verificar permiso: cursos/programas
-        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER_TODOS, $curso->id_contexto)) {
+        // Mismo permiso de escritura que exige update(): sin él no tiene sentido
+        // abrir el editor para que la escritura se rechace después.
+        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_MODIFICAR_ALL, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para editar el programa de este curso');
         }
@@ -141,8 +147,11 @@ class ProgramaController extends Controller
                 ->with('error', 'No estás asignado a este curso como ayudante');
         }
 
-        // Verificar permiso: cursos/programas
-        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_VER_TODOS, $curso->id_contexto)) {
+        // Permiso de ESCRITURA. Antes se exigía CURSOS_PROGRAMAS_VER_TODOS —un
+        // permiso de lectura— para una operación que reescribe el syllabus entero:
+        // el rol de menor privilegio del sistema escribía con menos control que el
+        // titular (E-4).
+        if (!$user->hasPermission(Permissions::CURSOS_PROGRAMAS_MODIFICAR_ALL, $curso->id_contexto)) {
             return redirect()->route('ayudante.cursos.index')
                 ->with('error', 'No tienes permiso para editar el programa de este curso');
         }
@@ -171,35 +180,15 @@ class ProgramaController extends Controller
 
         $tipoSyllabus = $typeMapping[$syllabusType];
 
-        // Validar payload con el mismo esquema que AdminProgramaController
-        $baseRules = ['secciones' => 'required|array', 'syllabus_type' => 'nullable|string'];
-
-        if ($tipoSyllabus === 'BASICO') {
-            $typeRules = [
-                'secciones.I.contenido.nombre_asignatura' => 'required|string|max:255',
-                'secciones.I.contenido.codigo'           => 'required|string|max:50',
-                'secciones.I.contenido.creditos_sct'     => 'required|integer',
-                'secciones.I.contenido.horas.catedra'    => 'required|integer|min:0',
-                'secciones.I.contenido.horas.taller'     => 'required|integer|min:0',
-                'secciones.I.contenido.horas.laboratorio' => 'required|integer|min:0',
-                'secciones.I.contenido.categoria'        => 'required|string',
-                'secciones.II.contenido.texto'           => 'nullable|string',
-                'secciones.VI.contenido.unidades'        => 'nullable|array',
-                'secciones.VII.contenido.actividades'    => 'nullable|array',
-                'secciones.VIII.contenido.recursos'      => 'nullable|array',
-            ];
-        } else {
-            $typeRules = [
-                'secciones.I.contenido.nombre_asignatura' => 'required|string|max:255',
-                'secciones.I.contenido.codigo'           => 'required|string|max:50',
-                'secciones.I.contenido.creditos_sct'     => 'required|integer',
-                'secciones.II.contenido.texto'           => 'nullable|string',
-                'secciones.VI.contenido.unidades'        => 'nullable|array',
-                'secciones.VIII.contenido.recursos'      => 'nullable|array',
-            ];
-        }
-
-        $validated = $request->validate(array_merge($baseRules, $typeRules));
+        // El comentario decía "el mismo esquema que AdminProgramaController", pero
+        // era una copia recortada: sin topes, sin las secciones III a IX y con la
+        // regla padre `secciones` que dejaba pasar el subárbol entero al JSONB.
+        // Ahora ambos consumen SyllabusRules, así que el ayudante escribe con
+        // exactamente los mismos controles que el titular.
+        $validated = $request->validate([
+            'syllabus_type' => 'nullable|string',
+            ...SyllabusRules::forTipo($tipoSyllabus),
+        ]);
 
         try {
             $estadoInicial = $tipoSyllabus === 'BASICO' ? 'BASICO_COMPLETO' : 'COMPLETO';
@@ -433,15 +422,8 @@ class ProgramaController extends Controller
             ? $programa->data_syllabus 
             : json_decode($programa->data_syllabus, true);
 
-        // Parsear secciones
+        // Parsear secciones (ParsesSyllabus::parseSecciones ya emite la clave 'contenidos')
         $secciones = $this->parseSecciones($dataSyllabus);
-
-        // Renombrar contenidos_programa a contenidos para la vista
-        foreach ($secciones as &$seccion) {
-            $seccion['contenidos'] = $seccion['contenidos_programa'];
-            unset($seccion['contenidos_programa']);
-        }
-        unset($seccion);
 
         $asignatura = $curso->asignacionPlan?->asignatura;
 
@@ -486,164 +468,5 @@ class ProgramaController extends Controller
             'layoutType'     => 'ayudante',
             'backUrl'        => "/ayudante/cursos/{$curso->id_curso}",
         ]);
-    }
-
-    /**
-     * Convierte data_syllabus de estructura IX-secciones a estructura de SeccionPrograma
-     */
-    private function parseSecciones(array $data): array
-    {
-        $seccionesData = $data['secciones'] ?? $data;
-        
-        $romanos = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
-        $nombres = [
-            'I' => 'Identificación',
-            'II' => 'Presentación',
-            'III' => 'Estándares',
-            'IV' => 'Competencias',
-            'V' => 'Evaluación Diagnóstica',
-            'VI' => 'Unidades',
-            'VII' => 'Planificación',
-            'VIII' => 'Recursos',
-            'IX' => 'Aspectos Administrativos',
-        ];
-
-        $secciones = [];
-        foreach ($romanos as $idx => $romano) {
-            $seccionData = $seccionesData[$romano] ?? [];
-            $contenido = $seccionData['contenido'] ?? [];
-            
-            $contenidosPrograma = $this->extraeContenidos($contenido, $romano);
-
-            $seccion = [
-                'nombre_seccion' => $nombres[$romano] ?? "Sección $romano",
-                'numeral_romano' => $romano,
-                'orden' => $idx + 1,
-                'contenidos_programa' => $contenidosPrograma,
-            ];
-
-            // For section IX, add structured component data
-            if ($romano === 'IX') {
-                $seccion['componentes'] = $contenido['tabla_componentes'] ?? [];
-                $seccion['ponderacion_optativa'] = $contenido['ponderacion_optativa'] ?? [];
-            }
-
-            $secciones[] = $seccion;
-        }
-
-        return $secciones;
-    }
-
-    /**
-     * Extrae contenidos de cada sección para mostrar legible
-     */
-    private function extraeContenidos(array $contenido, string $seccionId): array
-    {
-        $contenidos = [];
-
-        if (empty($contenido)) {
-            return [['texto_contenido' => '', 'orden_item' => 1]];
-        }
-
-        switch ($seccionId) {
-            case 'I':
-                $text = sprintf(
-                    "Asignatura: %s\nCódigo: %s\nCréditos SCT: %s\nHoras Cátedra: %s, Taller: %s, Lab: %s\nCategoría: %s",
-                    $contenido['nombre_asignatura'] ?? '',
-                    $contenido['codigo'] ?? '',
-                    $contenido['creditos_sct'] ?? '',
-                    $contenido['horas']['catedra'] ?? 0,
-                    $contenido['horas']['taller'] ?? 0,
-                    $contenido['horas']['laboratorio'] ?? 0,
-                    $contenido['categoria'] ?? ''
-                );
-                break;
-
-            case 'II':
-            case 'III':
-                $text = $contenido['texto'] ?? '';
-                break;
-
-            case 'IV':
-                $esp = implode("\n", array_map(fn($c) => "• " . ($c['titulo'] ?? ''), $contenido['competencias_especificas'] ?? []));
-                $gen = implode("\n", array_map(fn($c) => "• " . ($c['titulo'] ?? ''), $contenido['competencias_genericas'] ?? []));
-                $sub = implode("\n", array_map(fn($c) => "• " . ($c['titulo'] ?? ''), $contenido['subcompetencias'] ?? []));
-                $text = "Específicas:\n$esp\n\nGenéricas:\n$gen\n\nSub:\n$sub";
-                break;
-
-            case 'V':
-                $text = implode("\n", array_map(
-                    fn($i) => "• " . ($i['titulo'] ?? '') . ": " . ($i['descripcion'] ?? ''),
-                    $contenido['items'] ?? []
-                ));
-                break;
-
-            case 'VI':
-                $unidadesText = array_map(function ($u) {
-                    $resultados = implode("\n  ", array_map(
-                        fn($r) => "• " . ($r['resultado'] ?? ''),
-                        $u['resultados_aprendizaje'] ?? []
-                    ));
-                    return sprintf(
-                        "Unidad %d: %s\nContenidos: %s\nResultados:\n  %s",
-                        $u['numero'] ?? 0,
-                        $u['titulo'] ?? '',
-                        implode(", ", array_map(fn($c) => $c['item'] ?? '', $u['contenidos_items'] ?? [])),
-                        $resultados
-                    );
-                }, $contenido['unidades'] ?? []);
-                $text = implode("\n\n", $unidadesText);
-                break;
-
-            case 'VII':
-                $resultados = implode("\n", array_map(
-                    fn($r) => "• " . ($r['resultado'] ?? ''),
-                    $contenido['resultados_aprendizaje']['items'] ?? []
-                ));
-                $text = sprintf(
-                    "Resultados de Aprendizaje:\n%s\n\nMetodología:\n%s\n\nEvaluación:\n%s",
-                    $resultados,
-                    $contenido['metodologia']['tipo_estrategia'] ?? '',
-                    $contenido['evaluacion']['tipo_evaluacion'] ?? ''
-                );
-                break;
-
-            case 'VIII':
-                $text = implode("\n", array_map(
-                    fn($r) => "• " . ($r['descripcion'] ?? '') . " (" . ($r['tipo'] ?? '') . ")",
-                    $contenido['recursos'] ?? []
-                ));
-                break;
-
-            case 'IX':
-                $componentes = implode("\n", array_map(
-                    fn($c) => sprintf("• %s: %s%%, Acta: %s, Oblig: %s, Asist: %s%%",
-                        $c['componente'] ?? '',
-                        $c['porcentaje'] ?? 0,
-                        $c['genera_acta'] ? 'Sí' : 'No',
-                        $c['aprobacion_obligatoria'] ? 'Sí' : 'No',
-                        $c['asistencia_obligatoria'] ?? 0
-                    ),
-                    $contenido['tabla_componentes'] ?? []
-                ));
-                $text = sprintf(
-                    "Normativa:\n%s\n\nPonderación Optativa: %s%%\n\nComponentes:\n%s",
-                    $contenido['descripcion'] ?? '',
-                    $contenido['ponderacion_optativa']['porcentaje'] ?? 0,
-                    $componentes
-                );
-                break;
-
-            default:
-                $text = '';
-        }
-
-        // Return single item array with text content
-        $contenidos[] = [
-            'texto_contenido' => $text,
-            'orden_item' => 1,
-        ];
-
-        return $contenidos;
     }
 }

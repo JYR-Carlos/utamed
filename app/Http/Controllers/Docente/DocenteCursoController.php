@@ -7,7 +7,6 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\DocenteComponente;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
-use App\Models\Usuario\Contexto;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\UsuarioPermisoEspecial;
@@ -92,6 +91,7 @@ class DocenteCursoController extends Controller
                     'id_curso' => $curso->id_curso,
                     'nombre' => $curso->nombre,
                     'cod_curso' => $curso->cod_curso,
+                    'letra_grupo' => $curso->letra_grupo,
                     'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                     'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? 'N/A',
                     'plan_nombre' => $curso->asignacionPlan?->plan?->nombre ?? 'N/A',
@@ -258,7 +258,7 @@ class DocenteCursoController extends Controller
             ->map(fn ($a) => [
                 'id_actividad'   => $a->id_actividad,
                 'nombre'         => $a->nombre,
-                'fecha_limite'   => $a->fecha_limite,
+                'fecha_limite'   => $a->fecha_limite?->format('Y-m-d'),
                 'tipo_actividad' => $a->tipo_actividad,
                 'tipo_entrega'   => $a->tipo_entrega,
                 'es_grupal'      => $a->es_grupal,
@@ -527,7 +527,7 @@ class DocenteCursoController extends Controller
                 if ($role) {
                     // Get permisos for this role with delegation rights
                     $perms = $role->permisos()
-                        ->wherePivot('puede_delegar_permisos', true)
+                        ->wherePivot('puede_delegar_permiso', true)
                         ->get();
 
                     // Filter by slug - include 'cursos' prefix for course/activity management

@@ -2,6 +2,18 @@
 
 namespace App\Traits;
 
+use App\Syllabus\Secciones\SeccionIContenido;
+use App\Syllabus\Secciones\SeccionIVContenido;
+use App\Syllabus\Secciones\SeccionIXContenido;
+use App\Syllabus\Secciones\SeccionTextoContenido;
+use App\Syllabus\Secciones\SeccionVContenido;
+use App\Syllabus\Secciones\SeccionVIContenido;
+use App\Syllabus\Secciones\SeccionVIIBasico;
+use App\Syllabus\Secciones\SeccionVIICompleto;
+use App\Syllabus\Secciones\SeccionVIIIContenido;
+use App\Syllabus\SyllabusSecciones;
+use App\Syllabus\SyllabusTipo;
+
 trait ParsesSyllabus
 {
     /**
@@ -10,8 +22,8 @@ trait ParsesSyllabus
      * Soporta dos formatos:
      * - Formato indexado (SyllabusStructure): array de objetos con 'numeral_romano' y 'contenidos'
      *   ya listos para el frontend — se pasan directamente sin transformación.
-     * - Formato de wizard (associativo): keyed por numeral romano con 'contenido' (objeto estructurado)
-     *   que se parsea/aplana a texto.
+     * - Formato de wizard (asociativo): keyed por numeral romano con 'contenido' (objeto estructurado),
+     *   tipado vía App\Syllabus\SyllabusSecciones y aplanado/formateado a texto legible.
      */
     protected function parseSecciones(array $data): array
     {
@@ -21,6 +33,11 @@ trait ParsesSyllabus
         if (!empty($seccionesData) && array_is_list($seccionesData) && isset($seccionesData[0]['numeral_romano'])) {
             return array_values($seccionesData);
         }
+
+        $tipo = isset($data['metadata']['tipo_syllabus'])
+            ? SyllabusTipo::tryFrom($data['metadata']['tipo_syllabus'])
+            : null;
+        $secciones = SyllabusSecciones::fromArray($seccionesData, $tipo);
 
         $romanos = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
         $nombres = [
@@ -35,124 +52,195 @@ trait ParsesSyllabus
             'IX'   => 'Aspectos Administrativos',
         ];
 
-        $secciones = [];
+        $out = [];
         foreach ($romanos as $idx => $romano) {
-            $seccionData        = $seccionesData[$romano] ?? [];
-            $contenido          = $seccionData['contenido'] ?? [];
-            $contenidosPrograma = $this->extraeContenidos($contenido, $romano);
+            $contenido = $secciones->get($romano);
 
             $seccion = [
                 'nombre_seccion' => $nombres[$romano] ?? "Sección $romano",
                 'numeral_romano' => $romano,
                 'orden'          => $idx + 1,
-                'contenidos'     => $contenidosPrograma,   // frontend expects "contenidos"
+                'contenidos'     => $this->extraeContenidos($contenido),
             ];
 
-            if ($romano === 'IX') {
-                $seccion['componentes']          = $contenido['tabla_componentes'] ?? [];
-                $seccion['ponderacion_optativa'] = $contenido['ponderacion_optativa'] ?? [];
+            if ($romano === 'IX' && $contenido instanceof SeccionIXContenido) {
+                $seccion['componentes'] = array_map(fn ($c) => $c->toArray(), $contenido->tablaComponentes);
+                $seccion['ponderacion_optativa'] = ['porcentaje' => $contenido->ponderacionOptativaPorcentaje];
+            } elseif ($romano === 'IX') {
+                $seccion['componentes'] = [];
+                $seccion['ponderacion_optativa'] = [];
             }
 
-            $secciones[] = $seccion;
+            $out[] = $seccion;
         }
 
-        return $secciones;
+        return $out;
     }
 
-    protected function extraeContenidos(array $contenido, string $seccionId): array
+    /**
+     * Extrae contenidos de cada sección para mostrar legible.
+     */
+    protected function extraeContenidos(?object $contenido): array
     {
-        if (empty($contenido)) {
+        if (!$contenido) {
             return [['texto_contenido' => '', 'orden_item' => 1]];
         }
 
-        switch ($seccionId) {
-            case 'I':
-                $text = sprintf(
-                    "Asignatura: %s\nCódigo: %s\nCréditos SCT: %s\nHoras Cátedra: %s, Taller: %s, Lab: %s\nCategoría: %s",
-                    $contenido['nombre_asignatura'] ?? '',
-                    $contenido['codigo'] ?? '',
-                    $contenido['creditos_sct'] ?? '',
-                    $contenido['horas']['catedra'] ?? 0,
-                    $contenido['horas']['taller'] ?? 0,
-                    $contenido['horas']['laboratorio'] ?? 0,
-                    $contenido['categoria'] ?? ''
-                );
-                break;
-            case 'II':
-            case 'III':
-                $text = $contenido['texto'] ?? '';
-                break;
-            case 'IV':
-                $esp = array_filter(array_map(fn($c) => trim($c['titulo'] ?? ''), $contenido['competencias_especificas'] ?? []));
-                $gen = array_filter(array_map(fn($c) => trim($c['titulo'] ?? ''), $contenido['competencias_genericas'] ?? []));
-                $sub = array_filter(array_map(fn($c) => trim($c['titulo'] ?? ''), $contenido['subcompetencias'] ?? []));
-                if (empty($esp) && empty($gen) && empty($sub)) { $text = ''; break; }
-                $espStr = implode("\n", array_map(fn($t) => '• ' . $t, $esp));
-                $genStr = implode("\n", array_map(fn($t) => '• ' . $t, $gen));
-                $subStr = implode("\n", array_map(fn($t) => '• ' . $t, $sub));
-                $text = "Específicas:\n$espStr\n\nGenéricas:\n$genStr\n\nSub:\n$subStr";
-                break;
-            case 'V':
-                $items = array_filter($contenido['items'] ?? [], fn($i) => !empty(trim($i['titulo'] ?? '')) || !empty(trim($i['descripcion'] ?? '')));
-                if (empty($items)) { $text = ''; break; }
-                $text = implode("\n", array_map(
-                    fn($i) => '• ' . ($i['titulo'] ?? '') . ': ' . ($i['descripcion'] ?? ''),
-                    $items
-                ));
-                break;
-            case 'VI':
-                $unidades = array_filter($contenido['unidades'] ?? [], fn($u) => !empty(trim($u['titulo'] ?? '')));
-                if (empty($unidades)) { $text = ''; break; }
-                $unidadesText = array_map(function ($u) {
-                    $resultados = implode("\n  ", array_map(
-                        fn($r) => '• ' . ($r['resultado'] ?? ''),
-                        $u['resultados_aprendizaje'] ?? []
-                    ));
-                    return sprintf(
-                        "Unidad %d: %s\nContenidos: %s\nResultados:\n  %s",
-                        $u['numero'] ?? 0,
-                        $u['titulo'] ?? '',
-                        implode(', ', array_map(fn($c) => $c['item'] ?? '', $u['contenidos_items'] ?? [])),
-                        $resultados
-                    );
-                }, $unidades);
-                $text = implode("\n\n", $unidadesText);
-                break;
-            case 'VII':
-                $resultadosItems = $contenido['resultados_aprendizaje']['items'] ?? [];
-                $metodologia     = trim($contenido['metodologia']['tipo_estrategia'] ?? '');
-                $evaluacion      = trim($contenido['evaluacion']['tipo_evaluacion'] ?? '');
-                $resultadosItems = array_filter($resultadosItems, fn($r) => !empty(trim($r['resultado'] ?? '')));
-                if (empty($resultadosItems) && $metodologia === '' && $evaluacion === '') { $text = ''; break; }
-                $resultados = implode("\n", array_map(fn($r) => '• ' . ($r['resultado'] ?? ''), $resultadosItems));
-                $text = sprintf(
-                    "Resultados de Aprendizaje:\n%s\n\nMetodología:\n%s\n\nEvaluación:\n%s",
-                    $resultados,
-                    $metodologia,
-                    $evaluacion
-                );
-                break;
-            case 'VIII':
-                $recursos = array_filter($contenido['recursos'] ?? [], fn($r) => !empty(trim($r['recurso'] ?? '')));
-                if (empty($recursos)) { $text = ''; break; }
-                $text = implode("\n", array_map(fn($r) => '• ' . ($r['recurso'] ?? ''), $recursos));
-                break;
-            case 'IX':
-                $asistencia  = trim($contenido['porcentaje_asistencia_minima'] ?? '');
-                $reprobacion = trim($contenido['condicion_reprobacion'] ?? '');
-                $nota        = trim($contenido['nota_minima_aprobacion'] ?? '');
-                if ($asistencia === '' && $reprobacion === '' && $nota === '') { $text = ''; break; }
-                $text = sprintf(
-                    "Asistencia mín.: %s%%\nReprobación: %s\nNota mínima aprobación: %s",
-                    $asistencia,
-                    $reprobacion,
-                    $nota
-                );
-                break;
-            default:
-                $text = json_encode($contenido, JSON_UNESCAPED_UNICODE);
-        }
+        $text = match (true) {
+            $contenido instanceof SeccionIContenido => $this->formatSeccionI($contenido),
+            $contenido instanceof SeccionTextoContenido => $contenido->texto,
+            $contenido instanceof SeccionIVContenido => $this->formatCompetencias($contenido),
+            $contenido instanceof SeccionVContenido => $this->formatEvaluacionDiagnostica($contenido),
+            $contenido instanceof SeccionVIContenido => $this->formatUnidades($contenido),
+            $contenido instanceof SeccionVIIBasico => $this->formatActividades($contenido),
+            $contenido instanceof SeccionVIICompleto => $this->formatPlanificacion($contenido),
+            $contenido instanceof SeccionVIIIContenido => $this->formatRecursos($contenido),
+            $contenido instanceof SeccionIXContenido => $this->formatAspectosAdministrativos($contenido),
+            default => '',
+        };
 
         return [['texto_contenido' => $text ?? '', 'orden_item' => 1]];
+    }
+
+    private function formatSeccionI(SeccionIContenido $c): string
+    {
+        return sprintf(
+            "Asignatura: %s\nCódigo: %s\nCréditos SCT: %s\nHoras Cátedra: %s, Taller: %s, Lab: %s\nCategoría: %s",
+            $c->nombreAsignatura,
+            $c->codigo,
+            $c->creditosSct,
+            $c->horas->catedra,
+            $c->horas->taller,
+            $c->horas->laboratorio,
+            $c->categoria
+        );
+    }
+
+    private function formatCompetencias(SeccionIVContenido $c): string
+    {
+        $esp = array_filter(array_map(fn ($t) => trim($t->titulo), $c->competenciasEspecificas));
+        $gen = array_filter(array_map(fn ($t) => trim($t->titulo), $c->competenciasGenericas));
+        $sub = array_filter(array_map(fn ($t) => trim($t->titulo), $c->subcompetencias));
+
+        if (empty($esp) && empty($gen) && empty($sub)) {
+            return '';
+        }
+
+        $espStr = implode("\n", array_map(fn ($t) => '• ' . $t, $esp));
+        $genStr = implode("\n", array_map(fn ($t) => '• ' . $t, $gen));
+        $subStr = implode("\n", array_map(fn ($t) => '• ' . $t, $sub));
+
+        return "Específicas:\n$espStr\n\nGenéricas:\n$genStr\n\nSub:\n$subStr";
+    }
+
+    private function formatEvaluacionDiagnostica(SeccionVContenido $c): string
+    {
+        $items = array_filter($c->items, fn ($i) => trim($i->titulo) !== '' || trim((string) $i->descripcion) !== '');
+        if (empty($items)) {
+            return '';
+        }
+
+        return implode("\n", array_map(fn ($i) => '• ' . $i->titulo . ': ' . $i->descripcion, $items));
+    }
+
+    private function formatUnidades(SeccionVIContenido $c): string
+    {
+        $unidades = array_filter($c->unidades, fn ($u) => trim($u->titulo) !== '');
+        if (empty($unidades)) {
+            return '';
+        }
+
+        $unidadesText = array_map(function ($u) {
+            $resultados = implode("\n  ", array_map(fn ($r) => '• ' . $r->resultado, $u->resultadosAprendizaje));
+
+            return sprintf(
+                "Unidad %d: %s\nContenidos: %s\nResultados:\n  %s",
+                $u->numero,
+                $u->titulo,
+                implode(', ', $u->contenidosItems),
+                $resultados
+            );
+        }, $unidades);
+
+        return implode("\n\n", $unidadesText);
+    }
+
+    /** Sección VII en syllabus BASICO: lista de actividades de aprendizaje. */
+    private function formatActividades(SeccionVIIBasico $c): string
+    {
+        $actividades = array_filter($c->actividades, fn ($a) => trim($a->nombre) !== '');
+        if (empty($actividades)) {
+            return '';
+        }
+
+        return implode("\n", array_map(function ($a) {
+            $detalle = $a->tipo !== '' ? " ({$a->tipo})" : '';
+            $unidad = $a->nombreUnidad !== '' ? " — Unidad: {$a->nombreUnidad}" : '';
+
+            return "• {$a->nombre}{$detalle}{$unidad}";
+        }, $actividades));
+    }
+
+    /** Sección VII en syllabus COMPLETO: planificación de la enseñanza. */
+    private function formatPlanificacion(SeccionVIICompleto $c): string
+    {
+        $resultadosItems = array_filter($c->resultadosAprendizajeItems, fn ($r) => trim($r->resultado) !== '');
+        $metodologia = trim($c->metodologiaTipoEstrategia);
+        $evaluacion = trim($c->evaluacionTipoEvaluacion);
+
+        if (empty($resultadosItems) && $metodologia === '' && $evaluacion === '') {
+            return '';
+        }
+
+        $resultados = implode("\n", array_map(fn ($r) => '• ' . $r->resultado, $resultadosItems));
+
+        return sprintf(
+            "Resultados de Aprendizaje:\n%s\n\nMetodología:\n%s\n\nEvaluación:\n%s",
+            $resultados,
+            $metodologia,
+            $evaluacion
+        );
+    }
+
+    private function formatRecursos(SeccionVIIIContenido $c): string
+    {
+        $recursos = array_filter($c->recursos, fn ($r) => trim($r->descripcion) !== '');
+        if (empty($recursos)) {
+            return '';
+        }
+
+        return implode("\n", array_map(
+            fn ($r) => '• ' . $r->descripcion . ($r->tipo !== '' ? " ({$r->tipo})" : ''),
+            $recursos
+        ));
+    }
+
+    private function formatAspectosAdministrativos(SeccionIXContenido $c): string
+    {
+        $componentes = array_filter($c->tablaComponentes, fn ($comp) => trim($comp->componente) !== '');
+        $descripcion = trim($c->descripcion);
+
+        if ($descripcion === '' && empty($componentes)) {
+            return '';
+        }
+
+        $componentesText = implode("\n", array_map(
+            fn ($comp) => sprintf(
+                '• %s: %s%% (Acta: %s, Aprobación obligatoria: %s%s)',
+                $comp->componente,
+                $comp->porcentaje,
+                $comp->generaActa ? 'Sí' : 'No',
+                $comp->aprobacionObligatoria ? 'Sí' : 'No',
+                $comp->asistenciaObligatoria !== null ? ", Asistencia obligatoria: {$comp->asistenciaObligatoria}%" : ''
+            ),
+            $componentes
+        ));
+
+        return sprintf(
+            "%s\n\nPonderación optativa: %s%%\n\nComponentes de evaluación:\n%s",
+            $descripcion,
+            $c->ponderacionOptativaPorcentaje,
+            $componentesText
+        );
     }
 }

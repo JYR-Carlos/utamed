@@ -10,6 +10,7 @@
   import CompletenessProgressBar from './CompletenessProgressBar.svelte';
   import { formatDate, formatUserName } from '@/utils/formatters';
   import type { Curso } from '@/types/admin.types';
+  import type { DataSyllabus } from '@/types/syllabus.types';
 
   interface Programa {
     id_programa: number;
@@ -18,14 +19,7 @@
     creado_por: number;
     revisado_por?: number;
     fecha_creacion: string;
-    data_syllabus: {
-      metadata?: {
-        tipo_syllabus: string;
-        curso?: string;
-        asignatura?: string;
-      };
-      secciones?: object;
-    };
+    data_syllabus?: DataSyllabus;
     completenessPercentage?: number;
     creator?: { id_usuario: number; nombre_completo: string };
     reviewer?: { id_usuario: number; nombre_completo: string };
@@ -74,8 +68,8 @@
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (p) =>
-          p.data_syllabus?.metadata?.asignatura?.toLowerCase().includes(query) ||
-          p.data_syllabus?.metadata?.curso?.toLowerCase().includes(query),
+          p.data_syllabus?.metadata?.asignatura?.nombre?.toLowerCase().includes(query) ||
+          p.data_syllabus?.metadata?.asignatura?.codigo?.toLowerCase().includes(query),
       );
     }
 
@@ -267,11 +261,11 @@
                 <div class="flex items-start gap-3">
                   <div class="flex-1">
                     <h3 class="text-lg font-bold text-slate-900">
-                      {programa.data_syllabus?.metadata?.asignatura || 'Sin asignatura'}
+                      {programa.data_syllabus?.metadata?.asignatura?.nombre || 'Sin asignatura'}
                     </h3>
                     <p class="text-sm text-slate-600">
                       Código: <code class="bg-gray-100 px-2 py-1 rounded"
-                        >{programa.data_syllabus?.metadata?.curso || 'N/A'}</code
+                        >{programa.data_syllabus?.metadata?.asignatura?.codigo || 'N/A'}</code
                       >
                     </p>
                   </div>

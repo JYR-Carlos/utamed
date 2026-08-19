@@ -643,4 +643,4 @@ Para acotar el alcance y evitar over-engineering:
 
 ---
 
-*Documento generado como parte de la planificación de refactorización — UTAMed 2026*
+*Documento generado como parte de la planificación de refactorización — UTAmed 2026*

@@ -1,4 +1,12 @@
 <script lang="ts">
+  /**
+   * asignaturaForm — Modal de creación/edición de asignaturas.
+   *
+   * - Crear:  POST {routePrefix}/asignaturas
+   * - Editar: PUT  {routePrefix}/asignaturas/{id}. El backend no modifica el
+   *   registro existente: crea una nueva versión de la asignatura y marca la
+   *   anterior como histórica (de ahí el aviso "Creando nueva versión").
+   */
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import { useForm } from '@inertiajs/svelte';
   import type { Asignatura } from '@/types/admin.types';
@@ -6,8 +14,11 @@
 
   interface Props {
     isOpen?: boolean;
+    /** Asignatura a editar; null para modo creación. */
     editingAsignatura?: Asignatura | null;
+    /** Callback tras guardar con éxito (p.ej. recargar la lista). */
     onSuccess?: () => void;
+    /** Callback al cerrar sin guardar; el padre es quien pone isOpen en false. */
     onClose?: () => void;
     /** Prefijo base de rutas (p.ej. '/admin' o '/docente/jefe-carrera'). */
     routePrefix?: string;
@@ -21,7 +32,8 @@
     routePrefix = '/admin',
   }: Props = $props();
 
-  let formData = useForm({
+  /** Estado limpio del formulario (modo creación). */
+  const valoresIniciales = {
     cod_asignatura: '',
     nombre: '',
     descripcion: '',
@@ -31,42 +43,54 @@
     horas_laboratorio: 0,
     horas_dirigidas: 0,
     horas_autonomas: 0,
-  });
+  };
 
+  /** Valores del formulario a partir de una asignatura existente (modo edición). */
+  function valoresDeAsignatura(asignatura: Asignatura) {
+    return {
+      cod_asignatura: asignatura.cod_asignatura,
+      nombre: asignatura.nombre,
+      descripcion: asignatura.descripcion || '',
+      creditos_sct: asignatura.creditos_sct || 0,
+      horas_catedra: asignatura.horas_catedra || 0,
+      horas_taller: asignatura.horas_taller || 0,
+      horas_laboratorio: asignatura.horas_laboratorio || 0,
+      horas_dirigidas: asignatura.horas_dirigidas || 0,
+      horas_autonomas: asignatura.horas_autonomas || 0,
+    };
+  }
+
+  let formData = useForm({ ...valoresIniciales });
+
+  // Sincroniza el formulario cada vez que se abre el modal. Dependencias
+  // trackeadas: isOpen y editingAsignatura (leídas fuera de untrack).
+  //
+  // Las mutaciones de $formData DEBEN ir dentro de untrack(): leer $formData
+  // aquí suscribe el efecto al store del formulario, y defaults()/reset() lo
+  // actualizan, así que sin untrack el efecto se re-dispara a sí mismo en
+  // bucle (effect_update_depth_exceeded) y el modal queda sin poder cerrarse.
+  //
+  // defaults() persiste entre aperturas, por eso en modo creación se
+  // restablecen explícitamente los valoresIniciales: si no, reset() dejaría
+  // los datos de la última asignatura editada.
   $effect(() => {
-    // Svelte trackeará isOpen y editingAsignatura
-    if (isOpen) {
-      if (editingAsignatura) {
-        // untrack evita que los cambios en $formData reinicien el bucle
-        untrack(() => {
-          $formData.defaults({
-            cod_asignatura: editingAsignatura.cod_asignatura,
-            nombre: editingAsignatura.nombre,
-            descripcion: editingAsignatura.descripcion || '',
-            creditos_sct: editingAsignatura.creditos_sct || 0,
-            horas_catedra: editingAsignatura.horas_catedra || 0,
-            horas_taller: editingAsignatura.horas_taller || 0,
-            horas_laboratorio: editingAsignatura.horas_laboratorio || 0,
-            horas_dirigidas: editingAsignatura.horas_dirigidas || 0,
-            horas_autonomas: editingAsignatura.horas_autonomas || 0,
-          });
-          $formData.reset();
-        });
-      } else {
-        untrack(() => {
-          $formData.reset();
-          $formData.clearErrors();
-        });
-      }
-    }
+    if (!isOpen) return;
+    const asignatura = editingAsignatura;
+    untrack(() => {
+      $formData.defaults(asignatura ? valoresDeAsignatura(asignatura) : { ...valoresIniciales });
+      $formData.reset();
+      $formData.clearErrors();
+    });
   });
 
+  /** Limpia el formulario y delega el cierre al padre (dueño de isOpen). */
   function handleClose() {
     $formData.reset();
     $formData.clearErrors();
     onClose();
   }
 
+  /** Envía el formulario: POST crea una asignatura, PUT genera una nueva versión. */
   function handleSubmit() {
     const url = editingAsignatura
       ? `${routePrefix}/asignaturas/${editingAsignatura.id_asignatura}`
@@ -85,6 +109,10 @@
       $formData.post(url, opts);
     }
   }
+
+  /** Clases compartidas por todos los campos del formulario. */
+  const inputClass =
+    'w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
 </script>
 
 <FormModal
@@ -132,7 +160,7 @@
         id="cod_asignatura"
         type="text"
         bind:value={$formData.cod_asignatura}
-        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        class={inputClass}
         class:border-red-500={$formData.errors.cod_asignatura}
         placeholder="Ej: MED101"
         required
@@ -150,7 +178,7 @@
         id="creditos_sct"
         type="number"
         bind:value={$formData.creditos_sct}
-        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        class={inputClass}
         class:border-red-500={$formData.errors.creditos_sct}
         min="0"
       />
@@ -166,7 +194,7 @@
       id="nombre"
       type="text"
       bind:value={$formData.nombre}
-      class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      class={inputClass}
       class:border-red-500={$formData.errors.nombre}
       placeholder="Ej: Anatomía Humana"
       required
@@ -182,7 +210,7 @@
     <textarea
       id="descripcion"
       bind:value={$formData.descripcion}
-      class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      class={inputClass}
       rows="3"
       placeholder="Descripción de la asignatura"
     ></textarea>
@@ -197,7 +225,7 @@
         id="horas_catedra"
         type="number"
         bind:value={$formData.horas_catedra}
-        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        class={inputClass}
         min="0"
       />
     </div>
@@ -210,7 +238,7 @@
         id="horas_taller"
         type="number"
         bind:value={$formData.horas_taller}
-        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        class={inputClass}
         min="0"
       />
     </div>
@@ -225,7 +253,7 @@
         id="horas_laboratorio"
         type="number"
         bind:value={$formData.horas_laboratorio}
-        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        class={inputClass}
         min="0"
       />
     </div>
@@ -238,7 +266,7 @@
         id="horas_dirigidas"
         type="number"
         bind:value={$formData.horas_dirigidas}
-        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        class={inputClass}
         min="0"
       />
     </div>
@@ -252,7 +280,7 @@
       id="horas_autonomas"
       type="number"
       bind:value={$formData.horas_autonomas}
-      class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white transition-all focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      class={inputClass}
       min="0"
     />
   </div>

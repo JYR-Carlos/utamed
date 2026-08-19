@@ -4,7 +4,9 @@ namespace App\Policies;
 
 use App\Policies\Base\BaseProgramaPolicy;
 use App\Models\Usuario\Usuario;
+use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
+use App\Services\Authorization\JefaturaCarreraResolver;
 
 /**
  * Policy personalizada para Programa.
@@ -259,29 +261,50 @@ class ProgramaPolicy extends BaseProgramaPolicy
 
     /**
      * Determina si el usuario puede aprobar un programa.
-     * 
-     * Administradores y Jefes de Carrera pueden aprobar.
      */
     public function approve(Usuario $user, Programa $model): bool
     {
-        return $user->rolesAsignados()
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->whereIn('nombre', ['Administrador', 'SuperAdmin', 'Super Admin', 'Admin', 'Jefe de Carrera'])
-            ->exists();
+        return $this->puedeResolverPrograma($user, $model);
     }
 
     /**
      * Determina si el usuario puede rechazar un programa.
-     * 
-     * Administradores y Jefes de Carrera pueden rechazar.
      */
     public function reject(Usuario $user, Programa $model): bool
     {
-        return $user->rolesAsignados()
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->whereIn('nombre', ['Administrador', 'SuperAdmin', 'Super Admin', 'Admin', 'Jefe de Carrera'])
+        return $this->puedeResolverPrograma($user, $model);
+    }
+
+    /**
+     * Competencia para sellar el estado de un programa (aprobar o rechazar).
+     *
+     * Ambas operaciones recibían el `Programa` y no lo miraban: bastaba tener el
+     * rol en cualquier contexto, así que un Jefe de Carrera de Medicina aprobaba
+     * el syllabus de cualquier carrera y la firma `revisado_por` quedaba a nombre
+     * de quien no tenía competencia sobre ella (E-1).
+     */
+    private function puedeResolverPrograma(Usuario $user, Programa $programa): bool
+    {
+        // SuperAdmin: permiso wildcard global, sin ámbito.
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        // Administrador **del contexto global**: competencia sobre toda la
+        // universidad. Un "Administrador" acotado a un departamento no la tiene.
+        if ($user->hasAnyRoleGlobally(Usuario::ROLES_ADMINISTRATIVOS)) {
+            return true;
+        }
+
+        // Jefe de Carrera: sólo los programas de cursos de SU carrera.
+        $carreraId = app(JefaturaCarreraResolver::class)->carreraId($user);
+
+        if ($carreraId === null) {
+            return false;
+        }
+
+        return Curso::where('id_curso', $programa->id_curso)
+            ->whereHas('asignacionPlan.plan', fn($q) => $q->where('id_carrera', $carreraId))
             ->exists();
     }
 }

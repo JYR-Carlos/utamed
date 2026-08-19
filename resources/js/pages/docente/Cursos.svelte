@@ -252,7 +252,7 @@
               {@const urgent = (curso.pendientes_calificar ?? 0) > 0}
               {@const pid = `dp-${curso.id_curso}`}
 
-              <article
+              <div
                 class="group relative bg-white border border-[#E8EAF0] rounded-2xl p-[18px_20px_16px] flex flex-col gap-3.5 overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-8px_rgba(0,0,0,0.10),0_2px_4px_rgba(0,0,0,0.04)] focus-visible:ring-4 focus-visible:ring-[var(--ac-soft)] focus-visible:border-[var(--ac)] text-left outline-none border-solid"
                 style="--ac:{a.base};--ac-soft:{a.soft}; hover:border-[var(--ac)]"
                 onclick={() => router.visit(`/docente/cursos/${curso.id_curso}`)}
@@ -284,7 +284,7 @@
                     <span class="relative text-[1.2rem] font-bold text-white tracking-[-0.01em] select-none">{inits}</span>
                   </div>
                   <div class="flex flex-col items-end gap-1.5">
-                    <span class="font-mono text-[0.6875rem] text-[#8B92A6] tracking-[0.02em]">{curso.cod_curso}</span>
+                    <span class="font-mono text-[0.6875rem] text-[#8B92A6] tracking-[0.02em]">{curso.cod_curso}{curso.letra_grupo ? `-${curso.letra_grupo}` : ''}</span>
                     {#if urgent}<span class="inline-block w-2 h-2 rounded-full bg-[#EF4444] shadow-[0_0_0_3px_rgba(239,68,68,0.18)]" title="Tiene actividades pendientes"></span>{/if}
                   </div>
                 </div>
@@ -314,7 +314,7 @@
                   {/if}
                 </div>
 
-              </article>
+              </div>
             {/each}
           </div>
 
@@ -326,7 +326,7 @@
               {@const urgent = (curso.pendientes_calificar ?? 0) > 0}
               {@const pid2 = `dpl-${curso.id_curso}`}
 
-              <article
+              <div
                 class="group relative grid grid-cols-[46px_minmax(200px,1fr)_auto_auto_auto] max-md:grid-cols-[40px_1fr_auto] gap-[14px] items-center bg-white border border-[#E8EAF0] rounded-2xl p-[12px_16px_12px_14px] max-md:p-3 overflow-hidden cursor-pointer transition-all hover:-translate-x-0.5 hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.09)] focus-visible:ring-4 focus-visible:ring-[var(--ac-soft)] focus-visible:border-[var(--ac)] text-left outline-none border-solid"
                 style="--ac:{a.base};--ac-soft:{a.soft}; hover:border-[var(--ac)]"
                 onclick={() => router.visit(`/docente/cursos/${curso.id_curso}`)}
@@ -364,7 +364,7 @@
                     {#if urgent}<span class="inline-block w-2 h-2 rounded-full bg-[#EF4444] shadow-[0_0_0_3px_rgba(239,68,68,0.18)] shrink-0" title="Tiene actividades pendientes"></span>{/if}
                   </div>
                   <div class="flex gap-[5px] items-center text-xs text-[#5C6478] min-w-0 overflow-hidden whitespace-nowrap">
-                    <span class="font-mono text-[0.6875rem] text-[#8B92A6] tracking-[0.02em]">{curso.cod_curso}</span>
+                    <span class="font-mono text-[0.6875rem] text-[#8B92A6] tracking-[0.02em]">{curso.cod_curso}{curso.letra_grupo ? `-${curso.letra_grupo}` : ''}</span>
                     <span aria-hidden="true">·</span>
                     <span>{curso.carrera_nombre || curso.programa_nombre || 'Sin carrera'}</span>
                   </div>
@@ -382,7 +382,7 @@
                 </div>
 
 <div class="w-[30px] h-[30px] rounded-[8px] bg-[#FAFBFC] flex items-center justify-center text-[#5C6478] transition-all group-hover:bg-[var(--ac)] group-hover:text-white shrink-0 max-md:hidden" aria-hidden="true"><ArrowRight size={17} /></div>
-              </article>
+              </div>
             {/each}
           </div>
         {/if}

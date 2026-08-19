@@ -23,7 +23,7 @@
   }: Props = $props();
 
 
-  const { formatName } = { formatName: useFormatName() };
+  const { formatName } = useFormatName();
 
 </script>
 
@@ -60,12 +60,12 @@
 
     <!-- Title -->
     <h3 class="text-xl font-bold text-white mb-1 line-clamp-2 leading-tight">
-      {formatName.formatName(nombre)}
+      {formatName(nombre)}
     </h3>
 
     <!-- Profesor -->
     <p class="text-sm text-white/80 mb-6 flex-grow leading-snug">
-      Docente: {formatName.formatName(profesor)}
+      Docente: {formatName(profesor)}
     </p>
 
     

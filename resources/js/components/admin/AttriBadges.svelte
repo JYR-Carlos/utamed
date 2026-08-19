@@ -1,10 +1,14 @@
 <script lang="ts">
   /**
-   * Componente para mostrar badges de atributos
-   * (Sede, Jornada, Modalidad, etc.)
+   * AttriBadges — Jornada, sede y modalidad de una carrera.
+   *
+   * Los tres son dimensiones distintas de la misma carrera, no estados, así
+   * que comparten tratamiento: antes cada uno tenía su propio color
+   * (violeta, celeste, verde) sin que la diferencia significara nada.
+   *
+   * Cuando faltan los tres, se dice qué falta en vez de pintar un guion:
+   * son campos que se rellenan al editar la carrera.
    */
-  import { CARRERA_ATTRIBUTE_COLORS } from '@/constants/admin';
-
   interface Props {
     sede?: string;
     jornada?: string;
@@ -13,29 +17,18 @@
 
   let { sede, jornada, modalidad }: Props = $props();
 
-  const attributes = [
-    { label: sede, color: 'violet' },
-    { label: jornada, color: 'sky' },
-    { label: modalidad, color: 'emerald' },
-  ].filter((attr) => attr.label);
-
-  const colorClasses: Record<string, { bg: string; text: string; border: string }> = {
-    violet: { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-100' },
-    sky: { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-100' },
-    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100' },
-  };
+  const attributes = $derived([jornada, sede, modalidad].filter(Boolean) as string[]);
 </script>
 
 <div class="flex flex-wrap gap-1">
   {#each attributes as attr}
     <span
-      class="inline-block px-1.5 py-0.5 rounded {colorClasses[attr.color].bg} {colorClasses[attr.color]
-        .text} text-[11px] font-medium border {colorClasses[attr.color].border} leading-tight"
+      class="inline-block px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 text-[11px] font-medium leading-tight"
     >
-      {attr.label}
+      {attr}
     </span>
   {/each}
   {#if attributes.length === 0}
-    <span class="text-gray-300 text-[11px]">—</span>
+    <span class="text-gray-400 text-[11px]">Sin definir</span>
   {/if}
 </div>

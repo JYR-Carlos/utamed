@@ -7,6 +7,7 @@ use App\Http\Controllers\Docente\JefeCarrera\ResolvesJefaturaCarrera;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
+use App\Syllabus\SyllabusData;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -332,29 +333,54 @@ class JefeCarreraController extends Controller
             ->findOrFail($programaId);
 
         $curso = $programa->curso;
-        $perteneceCarrera = $curso && Curso::where('id_curso', $curso->id_curso)
-            ->whereHas('asignacionPlan.plan', fn($q) => $q->where('id_carrera', $jefatura['carrera_id']))
-            ->exists();
 
-        if (!$perteneceCarrera) {
+        if (!$this->programaEsDeCarrera($programa, $jefatura['carrera_id'])) {
             abort(403, 'El programa no pertenece a tu carrera');
         }
 
-        $data = $programa->data_syllabus ?? [];
+        $syllabus = SyllabusData::fromArray($programa->data_syllabus ?? []);
+        $secciones = $syllabus->secciones;
 
-        $syllabus = [
+        $secIX = $secciones->seccionIX();
+        $secVI = $secciones->seccionVI();
+        $secIV = $secciones->seccionIV();
+
+        // "Objetivos" no tiene una sección 1:1 en el contrato; se aproxima con los
+        // títulos de competencias (IV, solo COMPLETO) o, si no hay, con los
+        // resultados de aprendizaje consolidados de las unidades (VI).
+        $objetivos = $secIV
+            ? array_map(fn ($t) => $t->titulo, [...$secIV->competenciasEspecificas, ...$secIV->competenciasGenericas])
+            : array_map(
+                fn ($r) => $r->resultado,
+                array_merge([], ...array_map(fn ($u) => $u->resultadosAprendizaje, $secVI?->unidades ?? []))
+            );
+
+        $unidades = array_map(fn ($u) => [
+            'numero' => $u->numero,
+            'titulo' => $u->titulo,
+            'horas' => 0,
+            'contenidos' => $u->contenidosItems,
+        ], $secVI?->unidades ?? []);
+
+        $evaluaciones = array_map(fn ($c) => [
+            'descripcion' => $c->componente,
+            'ponderacion' => $c->porcentaje . '%',
+            'semana' => '',
+        ], $secIX?->tablaComponentes ?? []);
+
+        $syllabusOut = [
             'titulo' => $curso->asignacionPlan?->asignatura?->nombre ?? $curso->nombre,
             'codigo' => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? $curso->cod_curso,
             'docente' => $this->nombreDocente($curso),
-            'descripcion' => $this->extractString($data, ['descripcion', 'descripcion_curso']) ?? '',
-            'objetivos' => $this->extractList($data, ['objetivos', 'objetivos_aprendizaje']),
-            'unidades' => $this->extractUnidades($data),
-            'evaluaciones' => $this->extractEvaluaciones($data),
+            'descripcion' => $secIX?->descripcion ?? '',
+            'objetivos' => $objetivos,
+            'unidades' => $unidades,
+            'evaluaciones' => $evaluaciones,
             'completud' => method_exists($programa, 'getCompletenessPercentage')
                 ? (int) $programa->getCompletenessPercentage() : 0,
         ];
 
-        return response()->json(['syllabus' => $syllabus]);
+        return response()->json(['syllabus' => $syllabusOut]);
     }
 
     /**
@@ -375,6 +401,10 @@ class JefeCarreraController extends Controller
 
         $programa = Programa::findOrFail($programaId);
         $this->authorize('approve', $programa);
+
+        if (!$this->programaEsDeCarrera($programa, $jefaturaCheck['carrera_id'])) {
+            return back()->with('error', 'El programa no pertenece a tu carrera.');
+        }
 
         $estadosPermitidos = ['COMPLETO', 'BASICO_COMPLETO'];
         if (!in_array($programa->estado, $estadosPermitidos)) {
@@ -419,6 +449,10 @@ class JefeCarreraController extends Controller
         // Autorizar usando la Policy (admins y jefes de carrera pueden rechazar)
         $this->authorize('reject', $programa);
 
+        if (!$this->programaEsDeCarrera($programa, $jefaturaCheck['carrera_id'])) {
+            return back()->with('error', 'El programa no pertenece a tu carrera.');
+        }
+
         $estadosPermitidos = ['COMPLETO', 'APROBADO', 'BASICO_COMPLETO'];
         if (!in_array($programa->estado, $estadosPermitidos)) {
             return back()->with('error', "No se puede devolver un programa en estado {$programa->estado}.");
@@ -452,6 +486,25 @@ class JefeCarreraController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * ¿El programa cuelga de un curso de esta carrera?
+     *
+     * Las policies `approve`/`reject` sólo comprueban que el actor sea jefe de
+     * carrera, no *de qué* carrera, así que el ámbito hay que imponerlo aquí.
+     */
+    private function programaEsDeCarrera(Programa $programa, int $carreraId): bool
+    {
+        $curso = $programa->curso;
+
+        if (!$curso) {
+            return false;
+        }
+
+        return Curso::where('id_curso', $curso->id_curso)
+            ->whereHas('asignacionPlan.plan', fn($q) => $q->where('id_carrera', $carreraId))
+            ->exists();
+    }
 
     /**
      * Query base de cursos de una carrera (no eliminados).
@@ -746,75 +799,5 @@ class JefeCarreraController extends Controller
     {
         return implode(',', array_fill(0, count($items), '?'));
     }
-
-    private function extractString(array $data, array $keys): ?string
-    {
-        foreach ($keys as $k) {
-            if (isset($data[$k]) && is_string($data[$k]) && trim($data[$k]) !== '') {
-                return $data[$k];
-            }
-        }
-        return null;
-    }
-
-    private function extractList(array $data, array $keys): array
-    {
-        foreach ($keys as $k) {
-            if (isset($data[$k]) && is_array($data[$k])) {
-                return array_values(array_filter(array_map(
-                    fn($v) => is_string($v) ? $v : (is_array($v) ? ($v['texto'] ?? $v['descripcion'] ?? null) : null),
-                    $data[$k]
-                )));
-            }
-        }
-        return [];
-    }
-
-    private function extractUnidades(array $data): array
-    {
-        $unidades = $data['unidades'] ?? $data['unidades_tematicas'] ?? [];
-        if (!is_array($unidades)) {
-            return [];
-        }
-        $out = [];
-        $i = 1;
-        foreach ($unidades as $u) {
-            if (!is_array($u)) {
-                continue;
-            }
-            $out[] = [
-                'numero' => (int) ($u['numero'] ?? $i),
-                'titulo' => (string) ($u['titulo'] ?? $u['nombre'] ?? "Unidad {$i}"),
-                'horas' => (int) ($u['horas'] ?? 0),
-                'contenidos' => array_values(array_filter(array_map(
-                    fn($c) => is_string($c) ? $c : null,
-                    is_array($u['contenidos'] ?? null) ? $u['contenidos'] : []
-                ))),
-            ];
-            $i++;
-        }
-        return $out;
-    }
-
-    private function extractEvaluaciones(array $data): array
-    {
-        $evals = $data['evaluaciones'] ?? $data['sistema_evaluacion'] ?? [];
-        if (!is_array($evals)) {
-            return [];
-        }
-        $out = [];
-        foreach ($evals as $e) {
-            if (!is_array($e)) {
-                continue;
-            }
-            $out[] = [
-                'descripcion' => (string) ($e['descripcion'] ?? $e['nombre'] ?? 'Evaluación'),
-                'ponderacion' => (string) ($e['ponderacion'] ?? ''),
-                'semana' => $e['semana'] ?? '',
-            ];
-        }
-        return $out;
-    }
-
 }
 

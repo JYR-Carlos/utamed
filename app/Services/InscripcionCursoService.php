@@ -4,14 +4,15 @@ namespace App\Services;
 
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
-use App\Models\Usuario\Contexto;
 use App\Models\Usuario\Estudiante;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -133,72 +134,6 @@ class InscripcionCursoService
         });
     }
 
-    /**     * Navega hacia arriba en la jerarquía de contextos para encontrar la CARRERA.
-     * 
-     * @param Curso $curso
-     * @return ?\App\Models\Administrativo\Carrera
-     */
-    private function getCarreraFromCurso($curso): ?\App\Models\Administrativo\Carrera
-    {
-        if (!$curso->contexto) {
-            return null;
-        }
-
-        $contexto = $curso->contexto;
-        $maxIteraciones = 10;
-        $iteraciones = 0;
-
-        while ($contexto && $iteraciones < $maxIteraciones) {
-            $contexto->load('tipoContexto', 'carrera');
-
-            // Si este contexto tiene carrera asociada, retornarla
-            if ($contexto->carrera) {
-                return $contexto->carrera;
-            }
-
-            // Subir un nivel en la jerarquía
-            if ($contexto->id_contexto_padre) {
-                $contexto = Contexto::find($contexto->id_contexto_padre);
-            } else {
-                break;
-            }
-
-            $iteraciones++;
-        }
-
-        return null;
-    }
-
-    /**     * Navega hacia arriba en la jerarquía de contextos para encontrar el contexto de CARRERA.
-     */
-    private function getCarreraContextoFromCurso($contexto): ?\App\Models\Usuario\Contexto
-    {
-        $actual = $contexto;
-        $maxIteraciones = 10;
-        $iteraciones = 0;
-
-        while ($actual && $iteraciones < $maxIteraciones) {
-            $actual->load('tipoContexto');
-
-            // Si encontramos carrera, retornar
-            if ($actual->tipoContexto && strtolower($actual->tipoContexto->tipo) === 'carrera') {
-                return $actual;
-            }
-
-            // Navegar hacia el padre
-            if ($actual->id_contexto_padre) {
-                $actual = $actual->contextoPadre;
-            } else {
-                break;
-            }
-
-            $iteraciones++;
-        }
-
-        // Si no encontramos carrera, retornar el contexto actual (podría ser global)
-        return $actual;
-    }
-
     /**
      * Obtiene todos los IDs de contexto en la jerarquía hacia arriba (incluyendo el actual).
      */
@@ -251,6 +186,34 @@ class InscripcionCursoService
      */
     public function getFiltered(array $filters, ?int $idDocente = null, int $perPage = 15): LengthAwarePaginator
     {
+        return $this->buildFilteredQuery($filters, $idDocente)
+            ->paginate($perPage, ['*'], 'page', $filters['page'] ?? 1);
+    }
+
+    /**
+     * Recorre las inscripciones filtradas en bloques, sin materializarlas todas.
+     *
+     * Para exportaciones: la vista paginada pedía `per_page = 999999`, lo que
+     * cargaba en memoria hasta un millón de modelos con sus relaciones antes de
+     * emitir el primer byte. `lazy()` mantiene el consumo acotado al bloque.
+     *
+     * @param  array  $filters    Mismos filtros que getFiltered()
+     * @param  int|null  $idDocente  Acota a los cursos del docente, si aplica
+     * @param  int  $chunkSize  Filas por consulta
+     * @return \Illuminate\Support\LazyCollection<int, InscripcionCurso>
+     */
+    public function streamFiltered(array $filters, ?int $idDocente = null, int $chunkSize = 500): LazyCollection
+    {
+        return $this->buildFilteredQuery($filters, $idDocente)->lazy($chunkSize);
+    }
+
+    /**
+     * Construye la consulta filtrada compartida por la paginación y la exportación.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<InscripcionCurso>
+     */
+    private function buildFilteredQuery(array $filters, ?int $idDocente = null): Builder
+    {
         $query = InscripcionCurso::query();
 
         // Si es docente, filtrar solo sus cursos (titular o asignado por componente)
@@ -290,8 +253,7 @@ class InscripcionCursoService
 
         return $query
             ->with(['curso', 'estudiante.usuario'])
-            ->orderBy('fecha_inscripcion', 'desc')
-            ->paginate($perPage, ['*'], 'page', $filters['page'] ?? 1);
+            ->orderBy('fecha_inscripcion', 'desc');
     }
 
     /**
@@ -395,20 +357,4 @@ class InscripcionCursoService
         }
     }
 
-    /**
-     * Encuentra usuarios con rol 'Estudiante' que no tienen perfil de Estudiante.
-     */
-    private function findUsersWithStudentRoleWithoutProfile(): Collection
-    {
-        return Usuario::whereHas('usuarioRolAsignaciones', function ($query) {
-                $query->whereHas('rol', function ($roleQuery) {
-                    $roleQuery->where('nombre', 'Estudiante');
-                })
-                ->where('esta_activo', true)
-                ->where('fue_eliminado', false);
-            })
-            ->whereDoesntHave('estudiante')
-            ->select('id_usuario', 'nombre1', 'apellido1', 'username', 'rut')
-            ->get();
-    }
 }

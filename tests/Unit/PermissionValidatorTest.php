@@ -29,9 +29,10 @@ beforeEach(function () {
 
     app()->instance(GlobalContextService::class, $globalContextMock);
 
-    // Mock del Cache (sin caché en tests)
-    Cache::shouldReceive('get')->andReturn(null); // No guarda nada en realidad
-    Cache::shouldReceive('put')->andReturn(true); // No tira error al intentar guardar en caché
+    // La caché de permisos usa el store `array` que fija phpunit.xml, y Laravel
+    // lo recrea entre tests. Antes se mockeaba la fachada Cache con get/put; el
+    // validador ahora usa Cache::remember, así que un mock parcial fallaría.
+    Cache::flush();
 });
 
 afterEach(function () {
@@ -416,4 +417,147 @@ test('herencia: DENY explícito en hijo revoca GRANT del padre (hijo gana)', fun
     $curso = new CarreraStub(50);
 
     expect($validator->validate($usuario, Permissions::CURSOS_VER, $curso))->toBeFalse();
+});
+
+// ============================================================================
+// MATRIZ GRANT/DENY CON MÚLTIPLES COINCIDENCIAS (A-2)
+// ============================================================================
+//
+// checkSpecialPermission() puede recibir varias filas UPE que coinciden a la vez
+// con el permiso pedido (exacta, wildcard de recurso, wildcard global). La
+// implementación anterior decidía por el ORDEN de las filas y no por su
+// especificidad, así que el veredicto dependía de cómo Postgres devolviera el
+// resultset. Estos tests fijan la regla: gana la menor prioridad y, en empate,
+// gana el DENY.
+
+/**
+ * Monta un validador cuyo UPE devuelve exactamente las filas indicadas.
+ *
+ * @param array<int, array{0: string, 1: bool}> $filasUpe pares [slug, esta_permitido]
+ */
+function validatorConUpe(array $filasUpe): PermissionValidator
+{
+    $connectionMock = createConnectionMock();
+
+    // isSuperAdmin() → false, y checkRolePermission() → false: sólo decide el UPE.
+    $connectionMock->shouldReceive('exists')->andReturn(false);
+
+    $connectionMock->shouldReceive('get')->andReturn(
+        collect(array_map(
+            fn(array $fila) => (object) ['slug' => $fila[0], 'esta_permitido' => $fila[1]],
+            $filasUpe
+        ))
+    );
+
+    DB::shouldReceive('connection')->with('pgsql')->andReturn($connectionMock);
+
+    $contextResolver = Mockery::mock(ContextResolver::class);
+    $contextResolver->shouldReceive('getContextId')->andReturn([1]);
+    $contextResolver->shouldReceive('getModelContextId')->andReturn([5]);
+    $contextResolver->shouldReceive('getAncestorContextsWithType')->with(5)
+        ->andReturn([
+            ['id_contexto' => 5, 'categoria' => ContextType::FACULTAD],
+            ['id_contexto' => 1, 'categoria' => ContextType::GLOBAL],
+        ]);
+
+    return new PermissionValidator($contextResolver, app(GlobalContextService::class));
+}
+
+test('match exacto DENY vence al wildcard de recurso GRANT', function () {
+    $usuario = new UsuarioStub();
+    $usuario->id_usuario = 20;
+
+    $validator = validatorConUpe([
+        ['facultades:*', true],    // prioridad 2
+        ['facultades:ver', false], // prioridad 1 → gana
+    ]);
+
+    expect($validator->validate($usuario, Permissions::FACULTADES_VER, new CarreraStub(5)))
+        ->toBeFalse();
+});
+
+test('match exacto GRANT vence al wildcard de recurso DENY', function () {
+    $usuario = new UsuarioStub();
+    $usuario->id_usuario = 21;
+
+    $validator = validatorConUpe([
+        ['facultades:*', false],  // prioridad 2
+        ['facultades:ver', true], // prioridad 1 → gana
+    ]);
+
+    expect($validator->validate($usuario, Permissions::FACULTADES_VER, new CarreraStub(5)))
+        ->toBeTrue();
+});
+
+test('wildcard de recurso DENY vence al wildcard global GRANT', function () {
+    $usuario = new UsuarioStub();
+    $usuario->id_usuario = 22;
+
+    $validator = validatorConUpe([
+        ['*', true],             // prioridad 4
+        ['facultades:*', false], // prioridad 2 → gana
+    ]);
+
+    expect($validator->validate($usuario, Permissions::FACULTADES_VER, new CarreraStub(5)))
+        ->toBeFalse();
+});
+
+test('wildcard de recurso GRANT vence al wildcard global DENY', function () {
+    $usuario = new UsuarioStub();
+    $usuario->id_usuario = 23;
+
+    $validator = validatorConUpe([
+        ['*', false],           // prioridad 4
+        ['facultades:*', true], // prioridad 2 → gana
+    ]);
+
+    expect($validator->validate($usuario, Permissions::FACULTADES_VER, new CarreraStub(5)))
+        ->toBeTrue();
+});
+
+test('el veredicto no depende del orden en que llegan las filas', function (int $idUsuario, array $filas) {
+    // Mismo conjunto de filas en distinto orden: el resultado debe ser idéntico
+    // (el DENY exacto, prioridad 1). Éste es exactamente el bug A-2: antes ganaba
+    // la última fila iterada, así que el veredicto lo fijaba Postgres.
+    //
+    // Cada caso usa un id_usuario distinto para que la caché de permisos no
+    // pueda dar por bueno un veredicto calculado en el caso anterior.
+    $usuario = new UsuarioStub();
+    $usuario->id_usuario = $idUsuario;
+
+    expect(validatorConUpe($filas)->validate($usuario, Permissions::FACULTADES_VER, new CarreraStub(5)))
+        ->toBeFalse();
+})->with([
+    'especifico primero' => [240, [['facultades:ver', false], ['facultades:*', true], ['*', true]]],
+    'generico primero'   => [241, [['*', true], ['facultades:*', true], ['facultades:ver', false]]],
+    'intercalado'        => [242, [['facultades:*', true], ['facultades:ver', false], ['*', true]]],
+]);
+
+test('en empate de prioridad gana el DENY', function () {
+    // Dos asignaciones UPE del mismo slug con veredictos opuestos: misma
+    // especificidad, así que se resuelve por el lado seguro.
+    $usuario = new UsuarioStub();
+    $usuario->id_usuario = 26;
+
+    $validator = validatorConUpe([
+        ['facultades:ver', true],
+        ['facultades:ver', false],
+    ]);
+
+    expect($validator->validate($usuario, Permissions::FACULTADES_VER, new CarreraStub(5)))
+        ->toBeFalse();
+});
+
+test('un slug malformado en la BD no anula al resto de coincidencias', function () {
+    // La fila corrupta se descarta con log y el veredicto lo da la fila válida.
+    $usuario = new UsuarioStub();
+    $usuario->id_usuario = 27;
+
+    $validator = validatorConUpe([
+        ['esto-no-es-un-slug-valido', false],
+        ['facultades:ver', true],
+    ]);
+
+    expect($validator->validate($usuario, Permissions::FACULTADES_VER, new CarreraStub(5)))
+        ->toBeTrue();
 });

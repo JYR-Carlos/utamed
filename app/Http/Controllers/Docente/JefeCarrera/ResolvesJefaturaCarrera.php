@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Docente\JefeCarrera;
 
-use App\Models\Administrativo\Carrera;
 use App\Models\Usuario\Usuario;
-use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Services\Authorization\JefaturaCarreraResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 
@@ -24,29 +23,7 @@ trait ResolvesJefaturaCarrera
      */
     protected function resolveJefatura(Usuario $user): ?array
     {
-        $asignacion = UsuarioRolAsignacion::query()
-            ->where('id_usuario', $user->id_usuario)
-            ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
-            ->whereHas('rol', fn($q) => $q->where('nombre', 'Jefe de Carrera'))
-            ->whereHas('contexto.tipoContexto', fn($q) => $q->where('categoria', 'carrera'))
-            ->latest('id_ura')
-            ->first();
-
-        if (!$asignacion) {
-            return null;
-        }
-
-        $carrera = Carrera::query()
-            ->select('id_carrera', 'nombre', 'id_contexto')
-            ->where('id_contexto', $asignacion->id_contexto)
-            ->first();
-
-        return [
-            'id_contexto' => $asignacion->id_contexto,
-            'carrera_id' => $carrera?->id_carrera,
-            'carrera_nombre' => $carrera?->nombre,
-        ];
+        return app(JefaturaCarreraResolver::class)->resolve($user);
     }
 
     /**

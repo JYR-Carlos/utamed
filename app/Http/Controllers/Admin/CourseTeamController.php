@@ -379,8 +379,8 @@ class CourseTeamController extends Controller
             return [
                 'id_permiso' => $perm->id_permiso,
                 'esta_permitido' => true,  // Role permissions are always allowed
-                'puede_delegar' => (bool) ($perm->pivot?->puede_delegar_permisos ?? false),
-                'can_delegate' => (bool) ($perm->pivot?->puede_delegar_permisos ?? false),  // Alias for frontend
+                'puede_delegar' => (bool) ($perm->pivot?->puede_delegar_permiso ?? false),
+                'can_delegate' => (bool) ($perm->pivot?->puede_delegar_permiso ?? false),  // Alias for frontend
                 'source' => 'role'  // Indicates it comes from a role, not directly editable
             ];
         })->values();
@@ -665,8 +665,10 @@ class CourseTeamController extends Controller
     {
         $effectiveContextIds = $this->getDelegablePermissionContextIds($idContexto);
 
-        // If it's a super admin, return all
-        if (!$user->docente) {
+        // Sólo un SuperAdmin real puede delegar cualquier permiso. La condición
+        // anterior era `!$user->docente`: cualquier usuario sin perfil docente que
+        // superara manageTeam obtenía como delegable el catálogo completo (F-3).
+        if ($user->isSuperAdmin()) {
             return \App\Models\Usuario\Permiso::all();
         }
 
@@ -678,7 +680,7 @@ class CourseTeamController extends Controller
 
         $rolePerms = $roleQuery->with([
             'permisos' => function ($query) {
-                $query->wherePivot('puede_delegar_permisos', true);
+                $query->wherePivot('puede_delegar_permiso', true);
             }
         ])
             ->get()

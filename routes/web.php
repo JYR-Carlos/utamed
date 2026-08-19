@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\ComponenteController as AdminSeccionController;
 use App\Http\Controllers\Admin\ProgramaController as AdminProgramaController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Admin\AssignmentWizardController;
+use App\Http\Controllers\Sso\SgeqSsoController;
 
 Route::get('/', function () {
     if (\Illuminate\Support\Facades\Auth::check()) {
@@ -47,11 +48,13 @@ Route::get('dashboard', function () {
 
     // Solo admins y superadmins llegan aquí
     if ($user->hasRole('Administrador') || $user->hasRole('SuperAdmin')) {
+        $cursosAbiertos = \App\Models\Curso\Curso::where('estado_interno', 'ABIERTO');
+
         return Inertia::render('Dashboard', [
             'stats' => [
                 'usuarios' => \App\Models\Usuario\Usuario::count(),
                 'cursos_total' => \App\Models\Curso\Curso::count(),
-                'cursos_pendientes' => \App\Models\Curso\Curso::where('estado_interno', 'ABIERTO')
+                'cursos_pendientes' => (clone $cursosAbiertos)
                     ->where(function ($query) {
                         $query->where('estado_acta', '!=', 'ENVIADO')
                             ->orWhereNull('estado_acta');
@@ -60,6 +63,17 @@ Route::get('dashboard', function () {
                 'facultades' => \App\Models\Administrativo\Facultad::count(),
                 'carreras' => \App\Models\Administrativo\Carrera::count(),
             ],
+            // Lo que requiere acción, que es la pregunta que el administrador
+            // trae al abrir el panel. Antes el dashboard sólo mostraba totales
+            // acompañados de líneas de tendencia decorativas.
+            'pendientes' => [
+                'cursos_sin_syllabus' => (clone $cursosAbiertos)->doesntHave('programas')->count(),
+                'cursos_sin_componentes' => (clone $cursosAbiertos)->doesntHave('componentes')->count(),
+                'carreras_sin_director' => \App\Models\Administrativo\Carrera::whereNull('fecha_eliminacion')
+                    ->doesntHave('jefesDeCarreraActivos')
+                    ->count(),
+            ],
+            'puedeAbrirSgeq' => app(\App\Services\Sso\SgeqSsoService::class)->resolverRol($user) !== null,
         ]);
     }
 
@@ -70,6 +84,12 @@ Route::get('dashboard', function () {
 Route::get('sin-rol', function () {
     return Inertia::render('SinRol');
 })->middleware(['auth'])->name('sin-rol');
+
+// Entrada a SGEQ (préstamo de equipos). Firma un token de identidad y redirige;
+// quién puede pasar lo decide App\Services\Sso\SgeqSsoService.
+Route::get('sso/sgeq', [SgeqSsoController::class, 'redirigir'])
+    ->middleware(['auth', 'verified'])
+    ->name('sso.sgeq');
 
 // Admin Routes
 Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admin.')->group(function () {
@@ -100,7 +120,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     // Componentes routes
     Route::get('cursos/{curso}/componentes', [AdminSeccionController::class, 'indexByCurso'])
         ->name('cursos.componentes.index');
-    Route::get('tipos-componente', fn() => \App\Models\Curso\TipoComponente::all())
+    Route::get('tipos-componente', fn() => \App\Models\Curso\TipoComponente::select('id', 'nombre')->get())
         ->name('tipos-componente.index');
 
     // Actividades routes - Get activities for program wizard
@@ -120,10 +140,23 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::post('cursos/{curso}/copiar', [CursoController::class, 'copiar'])
         ->name('cursos.copiar');
 
+    // Próxima letra de grupo disponible (BEFORE resource to avoid conflict with {curso} binding)
+    Route::get('cursos/proxima-letra', [CursoController::class, 'getProximaLetra'])
+        ->name('cursos.proxima-letra');
+
     Route::resource('cursos', CursoController::class);
 
     Route::get('usuarios/buscar-por-rut', [UsuarioController::class, 'buscarPorRut'])
         ->name('usuarios.buscarPorRut');
+
+    // Importación masiva: plantilla → previsualización → importación. Las tres
+    // van antes del resource para que 'usuarios/importar' no se interprete
+    // como 'usuarios/{usuario}'.
+    Route::get('usuarios/plantilla-importacion', [UsuarioController::class, 'plantillaImportacion'])
+        ->name('usuarios.plantilla-importacion');
+
+    Route::post('usuarios/importar/previsualizar', [UsuarioController::class, 'previsualizarImportacion'])
+        ->name('usuarios.importar.previsualizar');
 
     Route::post('usuarios/importar', [UsuarioController::class, 'import'])
         ->name('usuarios.importar');
@@ -216,21 +249,26 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('inscripciones_cursos.by-curso');
     Route::get('inscripciones_cursos/export/csv', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'exportCsv'])
         ->name('inscripciones_cursos.export.csv');
+    Route::post('cursos/{curso}/inscripcion-automatica', [\App\Http\Controllers\Admin\InscripcionCursoController::class, 'inscripcionAutomatica'])
+        ->name('cursos.inscripcion-automatica');
 
     // Componente Management for Courses
     Route::post('cursos/{curso}/componentes', [AdminSeccionController::class, 'store'])
         ->name('cursos.componentes.store');
-    Route::put('cursos/componentes/{componente}', [AdminSeccionController::class, 'update'])
+    // El {curso} es obligatorio en la URL: sin él estas seis escrituras quedaban
+    // ligadas sólo al ID global del componente, sin ámbito ni comprobación de
+    // pertenencia (F-2).
+    Route::put('cursos/{curso}/componentes/{componente}', [AdminSeccionController::class, 'update'])
         ->name('cursos.componentes.update');
-    Route::delete('cursos/componentes/{componente}', [AdminSeccionController::class, 'destroy'])
+    Route::delete('cursos/{curso}/componentes/{componente}', [AdminSeccionController::class, 'destroy'])
         ->name('cursos.componentes.destroy');
-    Route::post('cursos/componentes/{componente}/docentes', [AdminSeccionController::class, 'addDocente'])
+    Route::post('cursos/{curso}/componentes/{componente}/docentes', [AdminSeccionController::class, 'addDocente'])
         ->name('cursos.componentes.docentes.store');
-    Route::delete('cursos/componentes/{componente}/docentes/{docenteComponente}', [AdminSeccionController::class, 'removeDocente'])
+    Route::delete('cursos/{curso}/componentes/{componente}/docentes/{docenteComponente}', [AdminSeccionController::class, 'removeDocente'])
         ->name('cursos.componentes.docentes.destroy');
-    Route::put('cursos/componentes/{componente}/titular', [AdminSeccionController::class, 'setTitular'])
+    Route::put('cursos/{curso}/componentes/{componente}/titular', [AdminSeccionController::class, 'setTitular'])
         ->name('cursos.componentes.titular');
-    Route::put('cursos/componentes/{componente}/genera-acta', [AdminSeccionController::class, 'toggleGeneraActa'])
+    Route::put('cursos/{curso}/componentes/{componente}/genera-acta', [AdminSeccionController::class, 'toggleGeneraActa'])
         ->name('cursos.componentes.genera-acta');
 
     // Helper endpoints for cascading selects
@@ -366,6 +404,7 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'actividadesJson'])->name('cursos.actividades.json');
     Route::post('cursos/{curso}/actividades', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'store'])->name('cursos.actividades.store');
     Route::put('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'update'])->name('cursos.actividades.update');
+    Route::patch('cursos/{curso}/actividades/{actividad}/visibilidad', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'toggleVisibilidad'])->name('cursos.actividades.visibilidad.toggle');
     Route::delete('cursos/{curso}/actividades/{actividad}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'destroy'])->name('cursos.actividades.destroy');
 
     // ── Centro de calificaciones (transversal): elegir curso → componente → actividad → evaluar
@@ -383,6 +422,7 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::post('cursos/{curso}/rubrica', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'storeRubrica'])->name('cursos.rubrica.store');
 
     Route::post('cursos/{curso}/actividades/{actividad}/grupos-create', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'crearGrupo'])->name('cursos.actividades.grupos.create');
+    Route::patch('cursos/{curso}/actividades/{actividad}/grupos/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'updateGrupo'])->name('cursos.actividades.grupos.update');
     Route::post('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiante', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'agregarEstudianteAGrupo'])->name('cursos.actividades.grupos.estudiante.add');
     Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiantes/{estudiante}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'quitarEstudianteDeGrupo'])->name('cursos.actividades.grupos.estudiante.remove');
     Route::delete('cursos/{curso}/actividades/{actividad}/grupos-delete/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'eliminarGrupo'])->name('cursos.actividades.grupos.new.delete');
@@ -397,6 +437,14 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     // Centro de mensajes del docente (bandeja transversal a todos sus cursos)
     Route::get('mensajes', [\App\Http\Controllers\Docente\MensajesController::class, 'index'])->name('mensajes.index');
     Route::post('mensajes/cursos/{curso}/actividades/{actividad}/enviar', [\App\Http\Controllers\Docente\MensajesController::class, 'send'])->name('mensajes.send');
+
+    // Mensajería por componente (curso.mensaje) — independiente de agenda.agenda.
+    // Se entra desde el curso: la bandeja abre acotada a ese curso y muestra sus
+    // componentes como pestañas, con difusiones y un canal por alumno que
+    // comparten todos los docentes del componente (colegiados incl.).
+    Route::get('cursos/{curso}/mensajeria', [\App\Http\Controllers\Docente\MensajeriaController::class, 'index'])->name('cursos.mensajeria.index');
+    Route::post('cursos/{curso}/mensajeria/componentes/{componente}/difusion', [\App\Http\Controllers\Docente\MensajeriaController::class, 'enviarDifusion'])->name('cursos.mensajeria.difusion');
+    Route::post('cursos/{curso}/mensajeria/componentes/{componente}/alumnos/{alumno}/mensaje', [\App\Http\Controllers\Docente\MensajeriaController::class, 'enviarMensaje'])->name('cursos.mensajeria.mensaje');
 
     // Mensajería (usa agenda.agenda — tipos "Mensaje al profesor" y "Feedback")
     // Nivel 1: vista general del curso
@@ -469,6 +517,12 @@ Route::prefix('estudiante')
                     [\App\Http\Controllers\Student\AgendaController::class, 'storeEntrega']
                 )->name('actividades.agenda.storeEntrega');
             });
+
+        // Mensajería por componente (curso.mensaje) — avisos del equipo docente
+        // y la conversación del alumno con ese equipo. Se entra desde el curso y
+        // sólo muestra ese curso. No pasa por agenda.agenda.
+        Route::get('cursos/{curso}/mensajeria', [\App\Http\Controllers\Student\MensajeriaController::class, 'index'])->name('cursos.mensajeria.index');
+        Route::post('cursos/{curso}/mensajeria/componentes/{componente}/mensaje', [\App\Http\Controllers\Student\MensajeriaController::class, 'enviar'])->name('cursos.mensajeria.enviar');
     });
 
 // Ayudante Routes
@@ -486,6 +540,12 @@ Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name
     // JSON endpoints used by SyllabusModal wizard
     Route::get('cursos/{curso}/componentes', [AdminSeccionController::class, 'indexByCurso'])->name('cursos.componentes.index');
     Route::get('cursos/{curso}/actividades/json', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'actividadesJson'])->name('cursos.actividades.json');
+
+    // Mensajería por componente — misma bandeja que el docente, acotada al curso
+    // desde el que se entra y sólo si el usuario tiene ahí el rol Ayudante.
+    Route::get('cursos/{curso}/mensajeria', [\App\Http\Controllers\Ayudante\MensajeriaController::class, 'index'])->name('cursos.mensajeria.index');
+    Route::post('cursos/{curso}/mensajeria/componentes/{componente}/difusion', [\App\Http\Controllers\Ayudante\MensajeriaController::class, 'enviarDifusion'])->name('cursos.mensajeria.difusion');
+    Route::post('cursos/{curso}/mensajeria/componentes/{componente}/alumnos/{alumno}/mensaje', [\App\Http\Controllers\Ayudante\MensajeriaController::class, 'enviarMensaje'])->name('cursos.mensajeria.mensaje');
 
     Route::get('cursos/{curso}', [\App\Http\Controllers\Ayudante\CourseController::class, 'show'])->name('cursos.show');
 });

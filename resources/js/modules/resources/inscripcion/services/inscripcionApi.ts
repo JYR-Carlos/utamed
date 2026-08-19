@@ -1,8 +1,19 @@
+/**
+ * inscripcionApi — Inscripciones estudiante↔curso del admin.
+ *
+ * Mezcla tres transportes a propósito:
+ * - fetch/axios (JSON puro) para el flujo interactivo del roster, que
+ *   actualiza la tabla sin recargar la página (fetchRoster, fetchDisponibles,
+ *   patchEstado, bulkInscribir);
+ * - router de Inertia para las acciones con visita/redirect (delete y las
+ *   páginas de formulario clásicas).
+ */
 import axios from 'axios';
 import { router } from '@inertiajs/svelte';
 import type { RequestPayload } from '@inertiajs/core';
 import type { EstadoInscripcion, RosterItem, EstudianteDisponible } from '../types/inscripcion.types';
 
+/** GET roster del curso (JSON). */
 export async function fetchRoster(idCurso: number): Promise<RosterItem[]> {
     const res = await fetch(`/admin/inscripciones_cursos/ajax/by-curso?id_curso=${idCurso}`, {
         headers: { Accept: 'application/json' },
@@ -12,6 +23,7 @@ export async function fetchRoster(idCurso: number): Promise<RosterItem[]> {
     return json.inscripciones ?? [];
 }
 
+/** GET estudiantes aún no inscritos en el curso (JSON). */
 export async function fetchDisponibles(idCurso: number): Promise<EstudianteDisponible[]> {
     const res = await fetch(
         `/admin/inscripciones_cursos/ajax/disponibles?id_curso=${idCurso}`,
@@ -22,6 +34,7 @@ export async function fetchDisponibles(idCurso: number): Promise<EstudianteDispo
     return json.estudiantes ?? [];
 }
 
+/** PATCH del estado de una inscripción (transición de la máquina de estados). */
 export async function patchEstado(
     idInscripcion: number,
     estado: EstadoInscripcion,
@@ -33,6 +46,7 @@ export async function patchEstado(
     return data;
 }
 
+/** POST inscripción masiva; devuelve creadas, omitidas (ya inscritas) y errores. */
 export async function bulkInscribir(
     idCurso: number,
     ids: number[],
@@ -44,6 +58,7 @@ export async function bulkInscribir(
     return data;
 }
 
+/** DELETE definitivo de una inscripción (preferir cambiar estado). */
 export function deleteInscripcion(
     id: number,
     options: { onSuccess: () => void; onError: () => void },

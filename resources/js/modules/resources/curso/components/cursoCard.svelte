@@ -1,17 +1,25 @@
 <script lang="ts">
-  /*
-  
-  USADO EN CURSOLISTALUMNO.SVELTE
-
-  */
-
+  /**
+   * cursoCard — Tarjeta de un curso en la vista del estudiante (usada por
+   * cursoListAlumno): imagen, datos básicos y botones "Entrar" y "Programa".
+   */
   import { ArrowRight, BookOpenCheck, BookOpen } from 'lucide-svelte';
 
+  /** Shape mínimo del payload de cursos del estudiante. */
+  interface CursoResumen {
+    nombre: string;
+    cod_curso: string;
+    letra_grupo?: string | null;
+    imagen_url?: string | null;
+    carrera_nombre?: string | null;
+  }
+
   interface Props {
-    curso: any;
+    curso: CursoResumen;
+    /** Oculta el botón "Programa" cuando el curso no tiene syllabus. */
     showSyllabusButton?: boolean;
-    onCourseClick?: (curso: any) => void;
-    onSyllabusClick?: (curso: any) => void;
+    onCourseClick?: (curso: CursoResumen) => void;
+    onSyllabusClick?: (curso: CursoResumen) => void;
   }
 
   let {
@@ -20,7 +28,6 @@
     onCourseClick = () => {},
     onSyllabusClick = () => {},
   }: Props = $props();
-  
 </script>
 
 <div
@@ -46,7 +53,7 @@
     </p>
 
     <p class="text-sm text-slate-500 mt-1">
-      {curso.cod_curso}
+      {curso.cod_curso}{curso.letra_grupo ? `-${curso.letra_grupo}` : ''}
     </p>
 
     <p class="text-sm text-slate-600 mt-2">

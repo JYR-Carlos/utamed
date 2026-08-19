@@ -1,23 +1,24 @@
 <script lang="ts">
   /**
-   * Componente: Confirmación Discontinuar Carrera
+   * carreraDiscontinueConfirm — Confirmación de discontinuación de una
+   * carrera, con explicación del impacto: deja de admitir planes nuevos
+   * pero preserva el historial académico.
    *
-   * Modal de confirmación para discontinuar (soft delete) una carrera.
-   * Muestra advertencia sobre el impacto de la acción.
+   * La explicación describe consecuencias, no implementación: antes decía
+   * «establecerá una fecha de eliminación (Soft Delete)», que es cómo lo
+   * guarda la base de datos, no lo que le ocurre a la carrera.
    *
-   * Props:
-   * - isOpen: boolean - Control de visibilidad
-   * - carrera: Carrera | null - Carrera a discontinuar
-   * - isLoading: boolean - Estado de carga
-   * - onConfirm: () => void - Callback al confirmar
-   * - onCancel: () => void - Callback al cancelar
+   * Totalmente controlado: el padre ejecuta discontinueCarrera() en
+   * onConfirm.
    */
   import ConfirmationModal from '@/components/admin/ConfirmationModal.svelte';
   import type { Carrera } from '@/types/admin.types';
 
   interface Props {
     isOpen: boolean;
+    /** Carrera a discontinuar; se identifica en el diálogo. */
     carrera?: Carrera | null;
+    /** Borrando; lo controla el padre porque es quien hace la petición. */
     isLoading?: boolean;
     onConfirm?: () => void;
     onCancel?: () => void;
@@ -30,48 +31,40 @@
     onConfirm = () => {},
     onCancel = () => {},
   }: Props = $props();
+
+  const meta = $derived(
+    carrera
+      ? [
+          carrera.departamento?.nombre ?? '',
+          carrera.planes_activos_count
+            ? `${carrera.planes_activos_count} plan${carrera.planes_activos_count === 1 ? '' : 'es'} activo${carrera.planes_activos_count === 1 ? '' : 's'}`
+            : '',
+        ]
+      : [],
+  );
 </script>
 
 <ConfirmationModal
   bind:isOpen
-  icon="warning"
-  title="Discontinuar Carrera"
-  message={carrera?.nombre || ''}
+  tone="warning"
+  title="Discontinuar carrera"
+  recordName={carrera?.nombre ?? null}
+  recordMeta={meta}
   {isLoading}
-  isDangerous={true}
-  confirmLabel="Confirmar Discontinuación"
+  confirmLabel="Discontinuar carrera"
   {onCancel}
   {onConfirm}
 >
   <div
-    class="flex gap-3 bg-blue-50 border border-blue-100 rounded-lg p-4 text-[13px] text-blue-800 leading-relaxed"
+    class="rounded-lg p-4 text-[13px] leading-relaxed bg-[var(--state-info-soft)] text-[var(--state-info)]"
   >
-    <svg
-      class="shrink-0 mt-0.5 text-blue-500"
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      ><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
-        x1="12"
-        y1="16"
-        x2="12.01"
-        y2="16"
-      /></svg
-    >
-    <div>
-      <p class="font-semibold mb-1">Impacto de esta acción</p>
-      <p>
-        Esta acción establecerá una <strong>fecha de eliminación (Soft Delete)</strong>. La carrera
-        no admitirá nuevos planes, pero el historial académico de los estudiantes actuales se
-        mantendrá intacto. La carrera seguirá visible en el sistema con estado
-        <strong>Discontinuada</strong>.
-      </p>
-    </div>
+    <p class="font-semibold mb-1">Qué ocurre al discontinuarla</p>
+    <ul class="list-disc pl-4 space-y-1">
+      <li>La carrera deja de admitir planes de estudio nuevos.</li>
+      <li>El historial académico de los estudiantes actuales se conserva intacto.</li>
+      <li>
+        La carrera sigue visible en el sistema con estado <strong>Discontinuada</strong>.
+      </li>
+    </ul>
   </div>
 </ConfirmationModal>

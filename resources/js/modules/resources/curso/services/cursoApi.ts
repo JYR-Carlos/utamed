@@ -106,7 +106,7 @@ export function createComponente(cursoId: number, data: ComponenteFormState, opt
  * Actualiza un componente existente.
  */
 export function updateComponente(cursoId: number, componenteId: number, data: ComponenteFormState, options: ApiOptions = {}) {
-    router.put(`/admin/cursos/componentes/${componenteId}`, data as Record<string, any>, {
+    router.put(`/admin/cursos/${cursoId}/componentes/${componenteId}`, data as Record<string, any>, {
         onSuccess: options.onSuccess,
         onError: options.onError,
     });
@@ -116,7 +116,7 @@ export function updateComponente(cursoId: number, componenteId: number, data: Co
  * Elimina un componente.
  */
 export function deleteComponente(cursoId: number, componenteId: number, options: ApiOptions = {}) {
-    router.delete(`/admin/cursos/componentes/${componenteId}`, {
+    router.delete(`/admin/cursos/${cursoId}/componentes/${componenteId}`, {
         onSuccess: options.onSuccess,
         onError: options.onError,
     });
@@ -147,10 +147,11 @@ export interface AddDocenteResult {
  * Devuelve { docente_componente } si éxito, o { error: string } si falla.
  */
 export async function addDocenteComponente(
+    cursoId: number,
     componenteId: number,
     idDocente: number,
 ): Promise<AddDocenteResult | { error: string }> {
-    const response = await fetch(`/admin/cursos/componentes/${componenteId}/docentes`, {
+    const response = await fetch(`/admin/cursos/${cursoId}/componentes/${componenteId}/docentes`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -171,11 +172,12 @@ export async function addDocenteComponente(
  * Devuelve { message } si éxito, o { error: string } si falla (ej: único docente).
  */
 export async function removeDocenteComponente(
+    cursoId: number,
     componenteId: number,
     idDocenteComponente: number,
 ): Promise<{ message: string } | { error: string }> {
     const response = await fetch(
-        `/admin/cursos/componentes/${componenteId}/docentes/${idDocenteComponente}`,
+        `/admin/cursos/${cursoId}/componentes/${componenteId}/docentes/${idDocenteComponente}`,
         {
             method: 'DELETE',
             headers: {
@@ -195,11 +197,12 @@ export async function removeDocenteComponente(
  * Cambia el titular de un componente.
  */
 export async function setTitularComponente(
+    cursoId: number,
     componenteId: number,
     idDocenteComponente: number,
 ): Promise<{ message: string } | { error: string }> {
     const response = await fetch(
-        `/admin/cursos/componentes/${componenteId}/titular`,
+        `/admin/cursos/${cursoId}/componentes/${componenteId}/titular`,
         {
             method: 'PUT',
             headers: {
@@ -218,11 +221,12 @@ export async function setTitularComponente(
  * Devuelve warning si se activa en un componente no principal.
  */
 export async function toggleGeneraActa(
+    cursoId: number,
     componenteId: number,
     generaActa: boolean,
 ): Promise<{ message: string; genera_acta: boolean; es_componente_principal: boolean; warning: string | null } | { error: string }> {
     const response = await fetch(
-        `/admin/cursos/componentes/${componenteId}/genera-acta`,
+        `/admin/cursos/${cursoId}/componentes/${componenteId}/genera-acta`,
         {
             method: 'PUT',
             headers: {

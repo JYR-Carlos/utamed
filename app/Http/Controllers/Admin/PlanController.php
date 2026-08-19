@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Plan;
 use App\Models\Administrativo\Carrera;
@@ -22,11 +23,14 @@ use Illuminate\Support\Facades\Log;
  */
 class PlanController extends Controller
 {
+    use LimitsPageSize;
+
     /**
      * Muestra un listado paginado de planes con búsqueda y filtros por carrera.
      */
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Plan::class);
         $query = Plan::with('carrera');
 
         // Search functionality
@@ -47,7 +51,7 @@ class PlanController extends Controller
         $planes = $query->orderBy('agno_plan', 'desc')
             ->orderBy('version_plan', 'desc')
             ->withSum('asignaturas as creditos_sct_totales', 'creditos_sct')
-            ->paginate($request->input('per_page', 15))
+            ->paginate($this->perPage($request))
             ->withQueryString();
 
         // Get all carreras for the filter
@@ -65,6 +69,7 @@ class PlanController extends Controller
      */
     public function byCarrera(Carrera $carrera)
     {
+        $this->authorize('viewAny', Plan::class);
         $planes = $carrera->planes()
             ->with('carrera')
             ->orderBy('agno_plan', 'desc')
@@ -79,6 +84,7 @@ class PlanController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('create', Plan::class);
         $validated = $request->validate([
             'id_carrera' => ['required', Rule::exists(Carrera::class, 'id_carrera')],
             'agno_plan' => 'required|integer|min:1900|max:2100',
@@ -105,6 +111,7 @@ class PlanController extends Controller
      */
     public function show(Plan $plan)
     {
+        $this->authorize('view', $plan);
         $plan->load(['carrera', 'asignacionPlanes.asignatura']);
         $plan->setAttribute('creditos_sct_totales', $plan->calculateTotalCredits());
 
@@ -116,6 +123,7 @@ class PlanController extends Controller
      */
     public function update(Request $request, Plan $plan)
     {
+        $this->authorize('update', $plan);
         $validated = $request->validate([
             'id_carrera' => ['required', Rule::exists(Carrera::class, 'id_carrera')],
             'agno_plan' => 'required|integer|min:1900|max:2100',
@@ -133,6 +141,7 @@ class PlanController extends Controller
      */
     public function destroy(Plan $plan)
     {
+        $this->authorize('delete', $plan);
         try {
 
             Log::info('Deleting plan with ID ' . $plan->id_plan);

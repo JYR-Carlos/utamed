@@ -103,7 +103,7 @@
     isAddingDocente = true;
     errorMsg = null;
 
-    const result = await addDocenteComponente(editingComponente.id_componente, id);
+    const result = await addDocenteComponente(cursoId, editingComponente.id_componente, id);
 
     if ('error' in result) {
       errorMsg = result.error;
@@ -122,6 +122,7 @@
     successMsg = null;
 
     const result = await removeDocenteComponente(
+      cursoId,
       editingComponente.id_componente,
       dc.id_docente_componente,
     );
@@ -143,6 +144,7 @@
     isSettingTitular = true;
 
     const result = await setTitularComponente(
+      cursoId,
       editingComponente.id_componente,
       dc.id_docente_componente,
     );

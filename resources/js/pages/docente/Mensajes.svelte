@@ -1,6 +1,11 @@
 <script lang="ts">
   /**
-   * Centro de Mensajes del docente — bandeja transversal a todos sus cursos.
+   * Mensajes de actividades del docente — bandeja transversal a todos sus cursos.
+   *
+   * Es la mensajería de NIVEL ACTIVIDAD: se entra desde la actividad (tarjeta de
+   * docente/Actividades → ?actividad_id=…), no desde el menú lateral. La
+   * mensajería de nivel curso es otra cosa y vive dentro de cada curso, en
+   * /docente/cursos/{id}/mensajeria (curso.mensaje), sin pasar por agenda.
    *
    * Modelo: agenda.agenda. Cada mensaje cuelga de un grupo → actividad → curso.
    * - Izquierda: árbol Curso → Actividad (con badges de pendientes).
@@ -15,7 +20,8 @@
    *   POST /docente/mensajes/cursos/{curso}/actividades/{actividad}/enviar
    */
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
-  import { router } from '@inertiajs/svelte';
+  import { onMount } from 'svelte';
+  import { Link, page, router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import {
     MessageSquare,
@@ -89,7 +95,7 @@
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/docente/dashboard' },
-    { title: 'Mensajes', href: '/docente/mensajes' },
+    { title: 'Mensajes de actividades', href: '/docente/mensajes' },
   ];
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -167,6 +173,23 @@
     });
   }
 
+  // Deep-link desde la tarjeta de la actividad: ?actividad_id=… abre su hilo.
+  // El prop `hilo` es lazy, así que en la carga inicial hay que pedirlo.
+  onMount(() => {
+    const qs = $page.url.split('?')[1] ?? '';
+    const id = Number(new URLSearchParams(qs).get('actividad_id'));
+    if (!id) return;
+
+    for (const c of cursos) {
+      const a = c.actividades.find((x) => x.id_actividad === id);
+      if (a) {
+        expandedCursos[c.id_curso] = true;
+        selectActividad(c, a);
+        return;
+      }
+    }
+  });
+
   function enviar() {
     if (!selectedActividad || !mensaje.trim()) return;
     sending = true;
@@ -205,18 +228,32 @@
         <MessageSquare size={20} />
       </div>
       <div>
-        <h1 class="text-lg font-extrabold text-slate-900 leading-tight">Mensajes</h1>
+        <h1 class="text-lg font-extrabold text-slate-900 leading-tight">
+          Mensajes de actividades
+        </h1>
         <p class="text-xs text-slate-500">
-          Conversaciones de tus cursos, agrupadas por curso y actividad.
+          Consultas y feedback dentro de cada actividad, por grupo de entrega.
         </p>
       </div>
-      {#if totalPendientes > 0}
-        <span
-          class="ml-auto text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700"
-        >
-          {totalPendientes} por responder
-        </span>
-      {/if}
+      <div class="ml-auto flex items-center gap-3">
+        {#if totalPendientes > 0}
+          <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
+            {totalPendientes} por responder
+          </span>
+        {/if}
+        <!-- El otro canal: avisos y consultas que no cuelgan de una actividad.
+             Vive dentro del curso, así que sólo hay a dónde ir cuando ya se
+             eligió una actividad y con ella su curso. -->
+        {#if selectedActividad}
+          <Link
+            href={`/docente/cursos/${selectedActividad.id_curso}/mensajeria`}
+            class="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 no-underline"
+          >
+            Mensajería del curso
+            <ChevronRight size={14} />
+          </Link>
+        {/if}
+      </div>
     </div>
 
     <!-- ── Two-column layout ───────────────────────────────────────────────── -->

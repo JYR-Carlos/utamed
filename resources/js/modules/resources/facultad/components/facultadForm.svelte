@@ -1,25 +1,21 @@
 <script lang="ts">
   /**
-   * Componente: Formulario de Facultad
+   * facultadForm — Modal de creación/edición de facultades (un solo campo:
+   * nombre).
    *
-   * Modal para crear/editar facultades.
-   * Reutilizable en diferentes contextos.
-   *
-   * Props:
-   * - isOpen: boolean controla visibilidad
-   * - isEditing: boolean indica si estamos editando
-   * - facultad: facultad actual (si estamos editando)
-   * - isLoading: boolean para mostrar estado loading
-   * - onSubmit: callback cuando se envía el formulario
-   * - onClose: callback para cerrar el modal
+   * Componente controlado: no hace HTTP; delega en onSubmit({nombre}) y el
+   * padre llama a facultadApi.
    */
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import type { Facultad, FacultadFormData } from '@/types/admin.types';
 
   interface Props {
     isOpen?: boolean;
+    /** Modo edición; el padre lo pasa junto con la facultad. */
     isEditing?: boolean;
+    /** Facultad en edición; null/undefined para modo creación. */
     facultad?: Facultad | null;
+    /** Enviando; lo controla el padre porque es quien hace la petición. */
     isLoading?: boolean;
     onSubmit?: (formData: FacultadFormData) => void;
     onClose?: () => void;
@@ -34,6 +30,9 @@
     onClose = () => {},
   }: Props = $props();
 
+  // $derived con override (Svelte 5.25+): parte del nombre de la facultad en
+  // edición, el input lo sobrescribe al escribir, y cuando cambia la prop
+  // facultad el derived se recalcula descartando el override.
   let nombre = $derived(facultad?.nombre || '');
 
   function handleSubmit() {
@@ -41,6 +40,8 @@
   }
 
   function handleClose() {
+    // Limpia el override manualmente: si facultad no cambia entre aperturas,
+    // el derived no se recalcula solo.
     nombre = '';
     onClose?.();
   }

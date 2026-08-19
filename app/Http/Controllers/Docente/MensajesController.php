@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Docente;
 use App\Http\Controllers\Controller;
 use App\Models\Agenda\Actividad;
 use App\Models\Agenda\ActividadAsignadaGrupo;
-use App\Models\Agenda\Agenda;
 use App\Models\Curso\Curso;
 use App\Enums\DB\TipoMensaje;
 use Illuminate\Http\Request;

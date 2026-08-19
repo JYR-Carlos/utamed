@@ -27,7 +27,7 @@ class FileValidationException extends ArchiveException
     public readonly FileValidationErrorType $errorType = FileValidationErrorType::UNSPECIFIED,
     string $reason = '',
     ?string $archiveId = null,
-    \Throwable $previous = null
+    ?\Throwable $previous = null
   ) {
     $message = match ($this->errorType) {
       FileValidationErrorType::CORRUPTED_FILE => "File is corrupted or unreadable: {$reason}",

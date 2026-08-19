@@ -10,6 +10,7 @@
    */
   import { router } from '@inertiajs/svelte';
   import { Crown, Loader2, Users } from 'lucide-svelte';
+  import { initials } from '@/utils/formatters';
 
   interface DocenteComponente {
     id_docente_componente: number;
@@ -65,16 +66,6 @@
     if (doc.id_docente === idDocenteTitularCurso) return 'text-blue-700 bg-blue-50 border-blue-200';
     if (doc.es_titular) return 'text-amber-700 bg-amber-50 border-amber-200';
     return 'text-gray-600 bg-gray-50 border-gray-200';
-  }
-
-  function initials(name: string): string {
-    return name
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0])
-      .join('')
-      .toUpperCase();
   }
 
   // ─── Confirmar cambio ────────────────────────────────────────────────────

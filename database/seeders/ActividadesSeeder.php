@@ -73,7 +73,10 @@ class ActividadesSeeder extends Seeder
             'ponderacion' => 10,
             'exigencia' => 60,
             'tipo_actividad' => $tipo->value,
-            'tipo_entrega' => 'archivo',
+            // Vocabulario de tipo_entrega del formulario/validador del docente:
+            // online | presencial | hibrido. Sembrar 'archivo' dejaba actividades
+            // que ninguna edición podía guardar.
+            'tipo_entrega' => 'online',
             'es_grupal' => true,
             'max_integrantes' => 5,
             'es_plantilla' => false,
@@ -89,7 +92,10 @@ class ActividadesSeeder extends Seeder
             'ponderacion' => 10,
             'exigencia' => 60,
             'tipo_actividad' => $tipo->value,
-            'tipo_entrega' => 'archivo',
+            // Vocabulario de tipo_entrega del formulario/validador del docente:
+            // online | presencial | hibrido. Sembrar 'archivo' dejaba actividades
+            // que ninguna edición podía guardar.
+            'tipo_entrega' => 'online',
             'es_grupal' => false,
             'max_integrantes' => 1,
             'es_plantilla' => false,
@@ -101,7 +107,7 @@ class ActividadesSeeder extends Seeder
 
       $actividadesParaInsertar[] = [
         'curso' => $curso,
-        'id_componente' => $componente->id_componente, // Guardamos el ID usado
+        'componentes_ids' => $componentes->pluck('id_componente')->toArray(), // IDs de todos los componentes del curso
         'unidades_usadas' => array_unique($unidadesUsadasIds), // Guardamos los IDs únicos usados
         'actividades' => $actividadesCurso,
       ];
@@ -125,7 +131,9 @@ class ActividadesSeeder extends Seeder
         DB::table('actividad')->insert($actividadesCurso);
         $actividadesCreadas += count($actividadesCurso);
 
-        $actividadesInsertadas = Actividad::where('id_componente', $datoCurso['id_componente'])
+        // NOTA DE CORRECCIÓN: Se utiliza whereIn con todos los componentes_ids del curso para recuperar
+        // la totalidad de las actividades creadas (evitando dejar huérfanas las de componentes previos).
+        $actividadesInsertadas = Actividad::whereIn('id_componente', $datoCurso['componentes_ids'])
           ->whereIn('id_unidad', $datoCurso['unidades_usadas'])
           ->orderBy('id_actividad', 'asc') 
           ->take(count($actividadesCurso))

@@ -128,13 +128,6 @@
     mensaje: string;
     archivo?: File;
   }) {
-    // console.log('[handleGuardarEntrada] llamado con:', {
-    //   id_actividad_asignada_grupo,
-    //   tipo: data.tipo,
-    //   tiene_archivo: !!data.archivo,
-    //   nombre_archivo: data.archivo?.name,
-    // });
-
     if (!id_actividad_asignada_grupo) {
       console.error('[handleGuardarEntrada] id_actividad_asignada_grupo es null/undefined.', {
         id_actividad_asignada_grupo,
@@ -496,9 +489,9 @@
   >
     <Enunciado
       onCerrar={toggleEnunciadoModal}
-      url_archivo={''}
-      nombre_archivo={''}
-      tipo_archivo={'pdf'}
+      url_archivo=""
+      nombre_archivo=""
+      tipo_archivo="pdf"
     />
   </div>
 {/if}

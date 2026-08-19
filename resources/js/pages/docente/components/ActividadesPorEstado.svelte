@@ -66,7 +66,7 @@
   }
 
   function componenteLabel(act: Actividad): string {
-    return act.componente?.tipo_componente?.nombre ?? '—';
+    return act.componente?.tipo_componente?.tipo ?? '—';
   }
 
   function tipoActividadLabel(tipo: string): string {

@@ -36,8 +36,26 @@ class AssignmentWizardController extends Controller
    * - key: nombre uppercase para debugging
    * - value: valor lowercase del enum (para castear en frontend)
    */
+  /**
+   * Nadie se asigna roles ni permisos a sí mismo.
+   *
+   * Mismo criterio que `DelegacionPermisosController::assertIsMiembroCurso`, que
+   * ya lo aplica para la delegación en cursos.
+   */
+  private function assertNoEsAutoAsignacion(Usuario $objetivo): void
+  {
+    /** @var Usuario|null $actor */
+    $actor = \Illuminate\Support\Facades\Auth::user();
+
+    if ($actor && (int) $actor->id_usuario === (int) $objetivo->id_usuario) {
+      abort(422, 'No puedes asignarte roles ni permisos a ti mismo.');
+    }
+  }
+
   public function getContextTypes()
   {
+    $this->authorize('viewAny', UsuarioRolAsignacion::class);
+
     $globalContextId = app(GlobalContextService::class)->getContextId();
     $types = [];
 
@@ -63,11 +81,19 @@ class AssignmentWizardController extends Controller
         default => ucfirst($case->value),
       };
 
-      // Descripciones para ayudar al usuario a entender cada opción
+      // Descripciones para ayudar al usuario a entender cada opción.
+      // Se redactan una por una en vez de componerlas con una plantilla:
+      // el "Asignar en un(a) {$label} específico(a)" genérico salía cinco
+      // veces seguidas en pantalla con esa concordancia entre paréntesis.
       // TODO: también esto podría venir de la bd o del enum para evitar hardcodear
       $description = match ($case) {
-        ContextType::GLOBAL => 'Aplica en todos los contextos del sistema',
-        default => "Asignar en un(a) {$label} específico(a)",
+        ContextType::GLOBAL => 'Aplica en todo el sistema',
+        ContextType::FACULTAD => 'Solo dentro de una facultad',
+        ContextType::DEPARTAMENTO => 'Solo dentro de un departamento',
+        ContextType::CARRERA => 'Solo dentro de una carrera',
+        ContextType::CURSO => 'Solo dentro de un curso',
+        ContextType::ACTIVIDAD => 'Solo dentro de una actividad',
+        default => "Solo dentro de: {$label}",
       };
 
       // Mapeo de valores
@@ -96,6 +122,8 @@ class AssignmentWizardController extends Controller
    */
   public function getContextObjects(string $type)
   {
+    $this->authorize('viewAny', UsuarioRolAsignacion::class);
+
     $type = strtoupper($type);
 
     // GLOBAL no tiene objetos específicos
@@ -147,6 +175,8 @@ class AssignmentWizardController extends Controller
    */
   public function getRoles()
   {
+    $this->authorize('viewAny', Rol::class);
+
     $roles = Rol::whereNotIn('nombre', ['SuperAdmin', 'Super Admin'])
       ->orderBy('nombre')
       ->get()
@@ -173,6 +203,8 @@ class AssignmentWizardController extends Controller
    */
   public function getRoleDetail(int $roleId)
   {
+    $this->authorize('viewAny', Rol::class);
+
     $rol = Rol::findOrFail($roleId);
 
     $permisos = \Illuminate\Support\Facades\DB::table('usuario.asignacion_rol_permiso as arp')
@@ -204,6 +236,8 @@ class AssignmentWizardController extends Controller
    */
   public function getPermissions()
   {
+    $this->authorize('viewAny', UsuarioPermisoEspecial::class);
+
     $permissions = Permiso::orderBy('slug')
       ->get()
       ->map(fn($p) => [
@@ -255,7 +289,11 @@ class AssignmentWizardController extends Controller
       'end_date' => 'nullable|date|after_or_equal:start_date',
     ]);
 
+    $this->authorize('create', UsuarioRolAsignacion::class);
+
     $usuario = Usuario::findOrFail($usuarioId);
+    $this->assertNoEsAutoAsignacion($usuario);
+
     $rol = Rol::findOrFail($validated['role_id']);
 
     try {
@@ -365,7 +403,10 @@ class AssignmentWizardController extends Controller
       'can_delegate' => 'boolean',
     ]);
 
+    $this->authorize('create', UsuarioPermisoEspecial::class);
+
     $usuario = Usuario::findOrFail($usuarioId);
+    $this->assertNoEsAutoAsignacion($usuario);
 
     // Resolver el slug del permiso desde su ID
     $permiso = Permiso::findOrFail(id: $validated['permission_id']);
@@ -490,6 +531,8 @@ class AssignmentWizardController extends Controller
     $usuario = Usuario::findOrFail($usuarioId);
     $ura = UsuarioRolAsignacion::findOrFail($uraId);
 
+    $this->authorize('delete', $ura);
+
     if ((int) $ura->id_usuario !== (int) $usuario->id_usuario) {
       return response()->json(['success' => false, 'message' => 'La asignación no pertenece a este usuario.'], 403);
     }
@@ -514,6 +557,8 @@ class AssignmentWizardController extends Controller
   {
     $usuario = Usuario::findOrFail($usuarioId);
     $upe = UsuarioPermisoEspecial::findOrFail($upeId);
+
+    $this->authorize('delete', $upe);
 
     if ((int) $upe->id_usuario !== (int) $usuario->id_usuario) {
       return response()->json(['success' => false, 'message' => 'El permiso no pertenece a este usuario.'], 403);

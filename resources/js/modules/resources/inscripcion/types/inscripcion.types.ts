@@ -1,3 +1,10 @@
+/**
+ * Tipos, máquina de estados y helpers del módulo Inscripción.
+ *
+ * Una inscripción vincula estudiante↔curso y evoluciona por estados; las
+ * transiciones manuales permitidas están en TRANSITIONS (APROBADO/REPROBADO
+ * no aparecen como origen porque los fija el cierre académico, no el admin).
+ */
 export type EstadoInscripcion =
     | 'INSCRITO'
     | 'RETIRADO'
@@ -9,13 +16,17 @@ export type EstadoInscripcion =
 export interface CursoItem {
     id_curso: number;
     cod_curso: string;
-    nome?: string;
-    nome_real?: string;
     nombre?: string;
     asignatura_nombre?: string;
     carrera_nombre?: string;
     agno_real?: number;
     semestre_real?: number;
+    /**
+     * Estudiantes con inscripción vigente (estado INSCRITO). Lo calcula
+     * InscripcionCursoController::index() con withCount; es el dato por el
+     * que se elige un curso en el selector.
+     */
+    inscritos_count?: number;
 }
 
 export interface RosterItem {
@@ -32,7 +43,9 @@ export interface RosterItem {
         id_estudiante: number;
         usuario?: { nombre1: string; apellido1: string; username: string };
     };
+    /** Solo UI: fila con cambio de estado en curso (spinner + rollback). */
     _saving?: boolean;
+    /** Solo UI: estado previo para revertir si el PATCH falla. */
     _prevEstado?: EstadoInscripcion;
 }
 
@@ -43,6 +56,7 @@ export interface EstudianteDisponible {
 
 // ── State machine config ────────────────────────────────────────────────────
 
+/** Transiciones manuales permitidas por estado (menú de acciones del roster). */
 export const TRANSITIONS: Partial<
     Record<EstadoInscripcion, { label: string; next: EstadoInscripcion; icon: string }[]>
 > = {
@@ -61,6 +75,7 @@ export const TRANSITIONS: Partial<
     ],
 };
 
+/** Presentación por estado: etiqueta, clases del badge y estilo de fila. */
 export const ESTADO_CFG: Record<
     EstadoInscripcion,
     { label: string; cls: string; rowCls: string }

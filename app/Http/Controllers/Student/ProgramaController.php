@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
-use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
+use App\Services\Student\StudentSyllabusPresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -45,112 +45,10 @@ class ProgramaController extends Controller
                 ->with('error', 'No estás inscrito en este curso');
         }
 
-        // Obtener el mejor programa visible: APROBADO tiene preferencia; si no, BASICO_COMPLETO
-        // (versión básica ya completada es pública sin necesidad de aprobación)
-        $programa = Programa::where('id_curso', $curso->id_curso)
-            ->whereIn('estado', ['APROBADO', 'BASICO_COMPLETO'])
-            ->where('es_actual', true)
-            ->with('autor')
-            ->orderByRaw("CASE estado WHEN 'APROBADO' THEN 0 WHEN 'BASICO_COMPLETO' THEN 1 ELSE 2 END")
-            ->first();
-
-        // Si no hay programa, mostrar página con aviso en lugar de 404
-        if (!$programa) {
-            $curso->load([
-                'asignacionPlan.asignatura',
-                'asignacionPlan.plan.carrera',
-                'componentes.docente.usuario',
-            ]);
-
-            $cursoData = [
-                'id_curso'   => $curso->id_curso,
-                'nombre'     => $curso->nombre,
-                'cod_curso'  => $curso->cod_curso,
-                'asignatura' => $curso->asignacionPlan?->asignatura,
-                'carrera'    => $curso->asignacionPlan?->plan?->carrera,
-            ];
-
-            $primerComponente = $curso->componentes->first();
-            $docenteUsuario = $primerComponente?->docente?->usuario;
-
-            return Inertia::render('student/Courses/Syllabus', [
-                'programa' => null,
-                'curso'    => $cursoData,
-                'docente'  => $docenteUsuario ? ['nombre' => $docenteUsuario->nombre, 'email' => $docenteUsuario->email] : null,
-                'datos'    => null,
-            ]);
-        }
-
-        // Cargar relaciones del curso (incluye componentes para obtener docente)
         $curso->load([
             'asignacionPlan.asignatura',
             'asignacionPlan.plan.carrera',
-            'componentes.docente.usuario',
         ]);
-
-        // Procesar data_syllabus correctamente
-        $dataSyllabus = is_array($programa->data_syllabus) 
-            ? $programa->data_syllabus 
-            : json_decode($programa->data_syllabus, true);
-
-        // Extraer secciones raw para datos estructurados
-        $seccionesRaw = $dataSyllabus['secciones'] ?? $dataSyllabus;
-
-        // Determinar tipo de syllabus (BASICO o COMPLETO)
-        $tipoSyllabus = $dataSyllabus['metadata']['tipo_syllabus'] ?? 'COMPLETO';
-
-        // ── Datos estructurados para la vista del alumno ──────────────────────
-        $secI   = $seccionesRaw['I']['contenido']    ?? [];
-        $secII  = $seccionesRaw['II']['contenido']   ?? [];
-        $secIV  = $seccionesRaw['IV']['contenido']   ?? [];
-        $secVI  = $seccionesRaw['VI']['contenido']   ?? [];
-        $secVII = $seccionesRaw['VII']['contenido']  ?? [];
-        $secVIII= $seccionesRaw['VIII']['contenido'] ?? [];
-        $secIX  = $seccionesRaw['IX']['contenido']   ?? [];
-
-        $resultados = $secVII['resultados_aprendizaje']['items'] ?? [];
-
-        $datos = [
-            // Sección I: Identificación (BÁSICO)
-            'categoria'                => $secI['categoria'] ?? '',
-            
-            // Sección II: Presentación (BÁSICO)
-            'descripcion'              => $secII['texto'] ?? '',
-            
-            // Sección IV: Competencias (COMPLETO)
-            'competencias_especificas' => $secIV['competencias_especificas'] ?? [],
-            'competencias_genericas'   => $secIV['competencias_genericas'] ?? [],
-            
-            // Sección VI: Unidades (BÁSICO)
-            'unidades'                 => $secVI['unidades'] ?? [],
-            
-            // Sección VII: Resultados de Aprendizaje (COMPLETO)
-            'resultados_aprendizaje'   => $resultados,
-            
-            // Sección VIII: Recursos (BÁSICO)
-            'recursos'                 => $secVIII['recursos'] ?? [],
-            
-            // Sección IX: Aspectos Administrativos (BÁSICO)
-            'componentes'              => $secIX['tabla_componentes'] ?? [],
-            'normativa'                => $secIX['descripcion'] ?? '',
-        ];
-
-        // ── Docente (primer componente) ──────────────────────────────────────────
-        $primerComponente = $curso->componentes->first();
-        $docenteUsuario = $primerComponente?->docente?->usuario;
-        $docenteData = $docenteUsuario ? [
-            'nombre' => $docenteUsuario->nombre,
-            'email'  => $docenteUsuario->email,
-        ] : null;
-
-        $programaData = [
-            'id_programa'      => $programa->id_programa,
-            'version_programa' => $programa->version_programa,
-            'estado'           => $programa->estado,
-            'creado_por'       => $programa->autor?->nombre,
-            'fecha_creacion'   => $programa->fecha_creacion,
-            'tipo_syllabus'    => $tipoSyllabus,
-        ];
 
         $cursoData = [
             'id_curso'   => $curso->id_curso,
@@ -160,12 +58,10 @@ class ProgramaController extends Controller
             'carrera'    => $curso->asignacionPlan?->plan?->carrera,
         ];
 
-        return Inertia::render('student/Courses/Syllabus', [
-            'programa' => $programaData,
-            'curso'    => $cursoData,
-            'docente'  => $docenteData,
-            'datos'    => $datos,
-        ]);
+        return Inertia::render('student/Courses/Syllabus', array_merge(
+            ['curso' => $cursoData],
+            StudentSyllabusPresenter::build($curso, $user->estudiante)
+        ));
     }
 
 }

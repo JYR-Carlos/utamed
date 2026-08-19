@@ -50,7 +50,7 @@ abstract class BaseArchivo extends CustomBaseModel implements HasContext
 
     public function actividades()
     {
-        return $this->hasMany(\App\Models\Agenda\Actividad::class, 'uuid_archivo', 'uuid_archivo');
+        return $this->hasMany(\App\Models\Agenda\Actividad::class, 'uuid_archivo_enunciado', 'uuid_archivo');
     }
 
     public function agendas()

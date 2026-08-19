@@ -2,6 +2,7 @@
   import { Button } from '@/components/ui/button';
   import { ArrowLeft, Edit2, Save, X } from 'lucide-svelte';
   import { router } from '@inertiajs/svelte';
+  import { store as storePrograma } from '@/actions/App/Http/Controllers/Admin/ProgramaController';
   import ProgramaStateBadges from './ProgramaStateBadges.svelte';
   import CompletenessProgressBar from './CompletenessProgressBar.svelte';
   // import SyllabusEditor from '../SyllabusEditor.svelte';
@@ -29,11 +30,13 @@
 
   interface Props {
     programa: Programa;
+    /** Las rutas de escritura del programa cuelgan del curso, no del id_programa. */
+    cursoId: number;
     userRole: string;
     userId: number;
   }
 
-  let { programa, userRole, userId }: Props = $props();
+  let { programa, cursoId, userRole, userId }: Props = $props();
 
   let isEditing = $state(false);
   let editedSyllabus = $state<typeof programa.data_syllabus | null>(null);
@@ -93,14 +96,22 @@
 
     isSaving = true;
     try {
-      const response = await fetch(`/admin/programas/${programa.id_programa}`, {
-        method: 'PUT',
+      // No existe una ruta de escritura por id_programa: guardar es un POST a
+      // admin.cursos.programa.store, que crea una versión nueva del programa del
+      // curso a partir de las secciones enviadas (mismo endpoint que SyllabusModal).
+      const action = storePrograma['/admin/cursos/{curso}/programa'](cursoId);
+
+      const response = await fetch(action.url, {
+        method: action.method.toUpperCase(),
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
           'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
         },
         body: JSON.stringify({
-          data_syllabus: editedSyllabus,
+          syllabus_type: editedSyllabus.metadata?.tipo_syllabus === 'BASICO' ? 'simplified' : 'complete',
+          secciones: editedSyllabus.secciones ?? {},
         }),
       });
 

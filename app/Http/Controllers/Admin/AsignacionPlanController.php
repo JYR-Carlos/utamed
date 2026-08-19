@@ -7,7 +7,6 @@ use App\Models\Administrativo\Plan;
 use App\Models\Administrativo\Asignatura;
 use App\Models\Administrativo\AsignacionPlan;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 
@@ -50,6 +49,7 @@ class AsignacionPlanController extends Controller
      */
     public function mallaJson(Plan $plan)
     {
+        $this->authorize('viewAny', AsignacionPlan::class);
         ['plan' => $plan, 'malla' => $malla] = $this->prepareMallaData($plan);
 
         return response()->json([
@@ -64,6 +64,7 @@ class AsignacionPlanController extends Controller
      */
     public function index(Request $request, Plan $plan)
     {
+        $this->authorize('viewAny', AsignacionPlan::class);
         ['plan' => $plan, 'malla' => $malla] = $this->prepareMallaData($plan);
 
         return Inertia::render('admin/DetalleMalla', [
@@ -82,6 +83,7 @@ class AsignacionPlanController extends Controller
      */
     public function store(Request $request, Plan $plan)
     {
+        $this->authorize('create', AsignacionPlan::class);
         // Preparar datos: castear tipo_ramo a null si está vacío
         $requestData = $request->all();
         if (empty($requestData['tipo_ramo'])) {
@@ -173,6 +175,8 @@ class AsignacionPlanController extends Controller
                 ->where('id_asignatura', $asignatura->id_asignatura)
                 ->firstOrFail();
 
+            $this->authorize('update', $asignacion);
+
             $asignacion->update($validated);
 
             return back()->with('success', 'Asignación actualizada exitosamente.');
@@ -194,6 +198,8 @@ class AsignacionPlanController extends Controller
         $asignacion = AsignacionPlan::where('id_plan', $plan->id_plan)
             ->where('id_asignatura', $asignatura->id_asignatura)
             ->firstOrFail();
+
+        $this->authorize('delete', $asignacion);
 
         $asignacion->delete();
 

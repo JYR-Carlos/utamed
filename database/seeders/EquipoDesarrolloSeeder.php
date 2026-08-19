@@ -6,6 +6,7 @@ use Illuminate\Database\Seeder;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Rol;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class EquipoDesarrolloSeeder extends Seeder
@@ -18,7 +19,7 @@ class EquipoDesarrolloSeeder extends Seeder
     // Arreglo modificable con los datos de los usuarios
     $equipo = [
       [
-        'rut' => '11.111.111-1',
+        'rut' => '11111111-1',
         'nombre1' => 'Rodrigo',
         'nombre2' => '',
         'apellido1' => 'PA',
@@ -26,7 +27,7 @@ class EquipoDesarrolloSeeder extends Seeder
         'es_superadmin' => true,
       ],
       [
-        'rut' => '22.222.222-2',
+        'rut' => '22222222-2',
         'nombre1' => 'Christian',
         'nombre2' => '',
         'apellido1' => 'PA',
@@ -34,7 +35,7 @@ class EquipoDesarrolloSeeder extends Seeder
         'es_superadmin' => false,
       ],
       [
-        'rut' => '33.333.333-3',
+        'rut' => '33333333-3',
         'nombre1' => 'Francisco',
         'nombre2' => '',
         'apellido1' => 'PA',
@@ -42,7 +43,7 @@ class EquipoDesarrolloSeeder extends Seeder
         'es_superadmin' => false,
       ],
       [
-        'rut' => '44.444.444-4',
+        'rut' => '44444444-4',
         'nombre1' => 'Juan',
         'nombre2' => '',
         'apellido1' => 'PA',
@@ -50,7 +51,7 @@ class EquipoDesarrolloSeeder extends Seeder
         'es_superadmin' => false,
       ],
       [
-        'rut' => '55.555.555-5',
+        'rut' => '55555555-5',
         'nombre1' => 'Tomás',
         'nombre2' => '',
         'apellido1' => 'PA',
@@ -65,6 +66,19 @@ class EquipoDesarrolloSeeder extends Seeder
     if (!$superAdmin || !$rolSuperAdmin) {
       throw new \Exception("El usuario 'superadmin' no existe o el rol 'SuperAdmin' no existe. Asegúrate de ejecutar los seeders correspondientes antes de este.");
     }
+
+    // Asegurar que el usuario base superadmin tenga su rol asignado para permitir autorizaciones en el resto del seeding
+    DB::table('usuario.usuario_rol_asignacion')->updateOrInsert(
+      ['id_usuario' => $superAdmin->id_usuario, 'id_rol' => $rolSuperAdmin->id_rol],
+      [
+        'id_contexto' => 1,
+        'esta_activo' => true,
+        'creado_por' => $superAdmin->id_usuario,
+        'asignado_por' => $superAdmin->id_usuario,
+        'fecha_inicio_planificada' => now(),
+        'fecha_fin_planificada' => now()->addYears(10),
+      ]
+    );
 
     foreach ($equipo as $datos) {
       // Generar credenciales base para que pase la validación del modelo
@@ -89,20 +103,23 @@ class EquipoDesarrolloSeeder extends Seeder
 
       $this->command->info("✓ Usuario {$usuario->nombre1} creado/actualizado.");
 
-      // Lógica de asignación de rol usando los traits de tu sistema
+      // Asignación directa de rol SuperAdmin en la BD para superadministradores del equipo
       if ($datos['es_superadmin'] && $rolSuperAdmin) {
-
-        // Si Rodrigo es el primer SuperAdmin, se asigna a sí mismo el rol
-        // para evitar depender de un 'superadmin' genérico que podría no existir aún
-        $asignacion = $usuario->giveRole($rolSuperAdmin)
-          ->as($superAdmin)
-          ->inGlobalContext();
-
-        if ($asignacion) {
-          $this->command->info("  - Rol 'SuperAdmin' asignado exitosamente.");
-        } else {
-          $this->command->error("  - Error al asignar el rol SuperAdmin.");
-        }
+        DB::table('usuario.usuario_rol_asignacion')->updateOrInsert(
+          [
+            'id_usuario' => $usuario->id_usuario,
+            'id_rol' => $rolSuperAdmin->id_rol,
+          ],
+          [
+            'id_contexto' => 1,
+            'esta_activo' => true,
+            'creado_por' => $superAdmin->id_usuario,
+            'asignado_por' => $superAdmin->id_usuario,
+            'fecha_inicio_planificada' => now(),
+            'fecha_fin_planificada' => now()->addYears(10),
+          ]
+        );
+        $this->command->info("  - Rol 'SuperAdmin' asignado exitosamente.");
       }
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Facultad;
 use App\Services\FacultadService;
@@ -20,6 +21,8 @@ use Inertia\Inertia;
  */
 class FacultadController extends Controller
 {
+    use LimitsPageSize;
+
     public function __construct(private readonly FacultadService $facultadService)
     {
     }
@@ -42,7 +45,7 @@ class FacultadController extends Controller
         }
 
         $facultades = $query->orderBy('nombre')
-            ->paginate($request->input('per_page', 15))
+            ->paginate($this->perPage($request))
             ->withQueryString();
 
         $user = Auth::user();

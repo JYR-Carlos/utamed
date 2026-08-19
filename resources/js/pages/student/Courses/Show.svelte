@@ -1,8 +1,23 @@
 <script lang="ts">
+  /**
+   * Ficha del curso para el alumno.
+   *
+   * Orden de lectura: primero qué curso es (encabezado), después de qué trata y
+   * cómo se evalúa, y al final las actividades. Antes la página abría
+   * directamente con la lista de entregas y el programa quedaba escondido tras
+   * un acordeón cerrado, lo que dejaba al alumno sin contexto.
+   *
+   * El dato urgente —la próxima entrega— y un atajo a la lista viajan en el
+   * encabezado, para que ordenar el contenido no le cueste al alumno el plazo
+   * que necesita ver.
+   */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, Curso } from '@/types';
+  import type { DatosSyllabusAlumno, DocenteAlumno } from '@/types/syllabus.types';
   import ActividadesView from '../Activities/ActividadesView.svelte';
-  import Syllabus from './Syllabus.svelte';
+  import CursoEncabezado from './components/CursoEncabezado.svelte';
+  import CursoInformacion from './components/CursoInformacion.svelte';
+  import { parseFechaSoloDia } from '@/utils/formatters';
 
   interface Actividad {
     id_actividad: number;
@@ -15,38 +30,64 @@
     visible: boolean;
   }
 
+  interface Programa {
+    id_programa: number;
+    version_programa: string;
+    estado: string;
+    creado_por?: string;
+    fecha_creacion?: string;
+    tipo_syllabus?: string;
+  }
+
   interface Props {
     curso?: Curso;
     actividades?: Actividad[];
+    programa?: Programa | null;
+    docentes?: DocenteAlumno[];
+    datos?: DatosSyllabusAlumno | null;
   }
 
-  let { curso, actividades = [] }: Props = $props();
+  let { curso, actividades = [], programa = null, docentes = [], datos = null }: Props = $props();
 
   const id_curso = $derived(curso?.id_curso || 0);
-
-  let activeModuleId = $state('module-1-2');
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Dashboard', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
-    { title: curso?.nombre ?? 'Curso', href: '' },
+    { title: curso?.asignatura_nombre ?? curso?.nombre ?? 'Curso', href: '' },
   ]);
 
-  // Estados de los filtros
+  // ─── Próxima entrega ────────────────────────────────────────────────────────
+  // La más cercana entre las que aún no vencen; las vencidas ya no son "próxima".
+  const proximaEntrega = $derived.by(() => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    return (
+      actividades
+        .filter((a) => a.con_entrega && parseFechaSoloDia(a.fecha_limite) >= hoy)
+        .sort(
+          (a, b) =>
+            parseFechaSoloDia(a.fecha_limite).getTime() -
+            parseFechaSoloDia(b.fecha_limite).getTime(),
+        )[0] ?? null
+    );
+  });
+
+  // ─── Filtros de actividades ─────────────────────────────────────────────────
   let filterSumativa = $state(false);
   let filterEntrega = $state(false);
   let filterGrupal = $state(false);
 
-  const actividadesBase = $derived(actividades);
+  const hayFiltros = $derived(filterSumativa || filterEntrega || filterGrupal);
 
   const actividadesFiltradas = $derived(
-    actividadesBase.filter((actividad) => {
-      const cumpleSumativa = !filterSumativa || actividad.es_sumativa;
-      const cumpleEntrega = !filterEntrega || actividad.con_entrega;
-      const cumpleGrupal = !filterGrupal || actividad.es_grupal;
-
-      return cumpleSumativa && cumpleEntrega && cumpleGrupal;
-    }),
+    actividades.filter(
+      (actividad) =>
+        (!filterSumativa || actividad.es_sumativa) &&
+        (!filterEntrega || actividad.con_entrega) &&
+        (!filterGrupal || actividad.es_grupal),
+    ),
   );
 
   function clearFilters() {
@@ -56,54 +97,64 @@
   }
 
   function toggleFilter(type: string) {
-    if (type === 'sumativa') {
-      filterSumativa = !filterSumativa;
-    } else if (type === 'entrega') {
-      filterEntrega = !filterEntrega;
-    } else if (type === 'grupal') {
-      filterGrupal = !filterGrupal;
-    }
+    if (type === 'sumativa') filterSumativa = !filterSumativa;
+    else if (type === 'entrega') filterEntrega = !filterEntrega;
+    else if (type === 'grupal') filterGrupal = !filterGrupal;
   }
 
-  let showSyllabus = $state(false);
+  function irAActividades() {
+    const destino = document.getElementById('actividades');
+    if (!destino) return;
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    destino.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  }
 </script>
 
-
-
 <StudentLayout {breadcrumbs}>
-  <div class="flex flex-col gap-4 px-2 py-4">
-    <!-- Heritage stripe -->
+  <div class="h-full px-5 md:px-10 lg:px-20 bg-white relative">
+    <div class="relative mx-auto px-4">
+      <CursoEncabezado
+        {curso}
+        {proximaEntrega}
+        tienePrograma={!!programa}
+        totalActividades={actividades.length}
+        onIrAActividades={irAActividades}
+      />
 
-    <!-- Content Views -->
-    <div class="w-full md:flex-1">
-        <div class="space-y-4 px-2">
-          <button
-            class="px-4 py-2 rounded bg-primary text-secondary hover:bg-secondary hover:text-primary font-semibold focus:outline-none"
-            onclick={() => (showSyllabus = !showSyllabus)}
-            aria-expanded={showSyllabus}
-            aria-controls="syllabus-section"
-          >
-            {showSyllabus ? '▼' : '►'} Acerca de este curso
-          </button>
-          {#if showSyllabus}
-            <div id="syllabus-section" class="pl-4 border-gray-200 mb-2">
-              <Syllabus {curso} />
-            </div>
-          {/if}
-
-          <div id="actividades-section" class="pl-4 border-gray-200">
-            <ActividadesView
-              {activeModuleId}
-              {id_curso}
-              {filterSumativa}
-              {filterEntrega}
-              {filterGrupal}
-              filtered={actividadesFiltradas}
-              onToggleFilter={toggleFilter}
-              onClearFilters={clearFilters}
-            />
-          </div>
+      <section class="mb-10">
+        <div class="flex flex-col gap-1 mb-6">
+          <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Sobre el curso</h2>
+          <p class="text-sm text-gray-600">
+            Contenidos, equipo docente y ponderaciones de la asignatura.
+          </p>
         </div>
+        <CursoInformacion {curso} {programa} {docentes} {datos} />
+      </section>
+
+      <section id="actividades" class="pb-10 scroll-mt-6">
+        <div class="flex flex-col gap-1 mb-6">
+          <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Actividades</h2>
+          <p class="text-sm text-gray-600">
+            {#if hayFiltros}
+              {actividadesFiltradas.length} de {actividades.length} actividades
+            {:else}
+              {actividades.length}
+              {actividades.length === 1 ? 'actividad publicada' : 'actividades publicadas'}
+            {/if}
+          </p>
+        </div>
+        <ActividadesView
+          {id_curso}
+          {filterSumativa}
+          {filterEntrega}
+          {filterGrupal}
+          {hayFiltros}
+          filtered={actividadesFiltradas}
+          onToggleFilter={toggleFilter}
+          onClearFilters={clearFilters}
+        />
+      </section>
     </div>
   </div>
 </StudentLayout>

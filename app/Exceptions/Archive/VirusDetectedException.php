@@ -31,7 +31,7 @@ class VirusDetectedException extends ArchiveException
     public readonly VirusDetectionErrorType $errorType = VirusDetectionErrorType::VIRUS_FOUND,
     string $details = '',
     ?string $archiveId = null,
-    \Throwable $previous = null
+    ?\Throwable $previous = null
   ) {
     $message = match ($this->errorType) {
       VirusDetectionErrorType::VIRUS_FOUND => "Virus detected: {$details}",
