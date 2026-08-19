@@ -199,6 +199,23 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
+     * ¿Es administrador de todo el sistema?
+     *
+     * El rol tiene que estar asignado **en el contexto global**: tenerlo acotado a
+     * una carrera o a un curso no convierte a nadie en administrador del sistema.
+     *
+     * Es la definición única de "administrador", por el mismo motivo que
+     * {@see self::ROLES_ADMINISTRATIVOS} es la lista única de alias: cada sitio que
+     * escribía la suya era un sitio donde la respuesta podía diferir. La usan el
+     * middleware {@see \App\Http\Middleware\IsAdmin} y el SSO hacia SGEQ.
+     */
+    public function esAdministradorGlobal(): bool
+    {
+        return $this->isSuperAdmin()
+            || $this->hasAnyRoleGlobally(self::ROLES_ADMINISTRATIVOS);
+    }
+
+    /**
      * Verificar si el usuario tiene TODOS los roles especificados.
      * 
      * Retorna true solamente si el usuario tiene todos los roles en cualquier contexto.
