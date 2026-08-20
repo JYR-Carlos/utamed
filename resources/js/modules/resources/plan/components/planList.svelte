@@ -36,9 +36,6 @@
    */
   function getRawValue(item: Plan, key: string) {
     const value = key.split('.').reduce((v: any, k: string) => v?.[k], item);
-    if (key === 'agno_plan' && value) {
-      return new Date(value).getFullYear();
-    }
     return value ?? '-';
   }
 </script>
