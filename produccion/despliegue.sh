@@ -72,7 +72,11 @@ echo "[3/9] Actualizando rama \$BRANCH..."
 git checkout "\$BRANCH"
 git pull origin "\$BRANCH"
 
+git submodule sync --recursive
+git submodule update --init --recursive
+
 echo "[4/9] Instalando dependencias PHP..."
+
 composer install \
     --no-dev \
     --prefer-dist \
