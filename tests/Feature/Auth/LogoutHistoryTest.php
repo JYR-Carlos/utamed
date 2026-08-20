@@ -25,7 +25,10 @@ test('las páginas de Inertia cifran su historial', function () {
         $this->actingAs($user)->get('/settings/appearance')
     )->toArray();
 
-    expect($page['encryptHistory'])->toBeTrue();
+    // Cifrado desactivado (config/inertia.php): rompía el login en producción
+    // sin HTTPS. Reactivar este assert (toBeTrue) junto con `history.encrypt`
+    // cuando ese entorno tenga HTTPS.
+    expect($page['encryptHistory'])->toBeFalse();
 });
 
 test('el logout marca el historial de Inertia para ser invalidado', function () {
