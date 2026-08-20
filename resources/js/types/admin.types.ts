@@ -206,6 +206,7 @@ export interface Curso {
     horas_dirigidas?: number;
     horas_autonomas?: number;
     carrera_nombre?: string;
+    id_carrera?: number;
     docente_nombre?: string;
     docente_email?: string;
     docente_cargo?: string;
@@ -342,6 +343,8 @@ export interface Docente {
     titulo?: string;
     cargo?: string;
     usuario?: Usuario;
+    /** true = tiene un rol activo en el contexto de la carrera consultada; null = no se consultó ninguna carrera */
+    pertenece_carrera?: boolean | null;
 }
 
 export interface Administrador {

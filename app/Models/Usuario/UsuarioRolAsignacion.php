@@ -30,5 +30,21 @@ class UsuarioRolAsignacion extends BaseUsuarioRolAsignacion
 
         static::saved($olvidar);
         static::deleted($olvidar);
+
+        // El wizard de asignación de roles (y sync-permissions, y el equipo
+        // de curso) sólo crea esta fila de RBAC; nadie más da de alta el
+        // perfil en usuario.docente. Sin él, el usuario tiene el rol pero es
+        // invisible para todo lo que lee por Docente (sidebar, selectores de
+        // profesor, Jefe de Carrera...). Igual que arriba: va por evento de
+        // modelo para cubrir cualquier vía de escritura sin acordarse en cada una.
+        static::saved(function (self $asignacion) {
+            if (!$asignacion->esta_activo) {
+                return;
+            }
+            $nombreRol = $asignacion->rol?->nombre;
+            if ($nombreRol && (str_starts_with($nombreRol, 'Docente') || $nombreRol === 'Jefe de Carrera')) {
+                \App\Models\Usuario\Docente::firstOrCreate(['id_usuario' => $asignacion->id_usuario]);
+            }
+        });
     }
 }

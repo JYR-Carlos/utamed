@@ -37,6 +37,7 @@ class DocenteResource extends JsonResource
             'titulo' => $this->titulo,
             'cargo' => $this->cargo,
             'usuario' => new UsuarioDataResource($this->whenLoaded('usuario')),
+            'pertenece_carrera' => $this->pertenece_carrera ?? null,
         ];
     }
 }
