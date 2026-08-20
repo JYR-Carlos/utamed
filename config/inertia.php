@@ -46,14 +46,18 @@ return [
     | Sin él, `encryptHistory()` del cliente (@inertiajs/core) lanza
     | "Unable to encrypt history" sin capturar en cuanto no hay clave aún en
     | sessionStorage (típicamente el primer visit de la sesión) — no degrada
-    | con gracia pese a lo que sugiere el nombre. Mientras no haya HTTPS en
-    | producción, desactivar con INERTIA_ENCRYPT_HISTORY=false en el .env de
-    | ese entorno; el default sigue en true para local/tests.
+    | con gracia pese a lo que sugiere el nombre, y rompe el login en
+    | producción porque ahí todavía no hay HTTPS.
+    |
+    | Desactivado hasta que producción tenga HTTPS. La cabecera `no-store` de
+    | HandleInertiaRequests sigue cubriendo la recarga del documento completo;
+    | queda pendiente la navegación SPA con "atrás" tras logout.
     |
     */
 
     'history' => [
-        'encrypt' => env('INERTIA_ENCRYPT_HISTORY', true),
+        // 'encrypt' => env('INERTIA_ENCRYPT_HISTORY', true),
+        'encrypt' => false,
     ],
 
     /*
