@@ -58,6 +58,8 @@
   // Copia local de docentes asignados (se actualiza en tiempo real en modo edición)
   let docentesAsignados = $state<DocenteAsignadoComponente[]>([]);
   let nuevoDocenteId = $state<number | string>('');
+  let docenteSearch = $state('');
+  let perteneceFilter = $state<'all' | 'in' | 'out'>('all');
   let isAddingDocente = $state(false);
   let isSettingTitular = $state(false);
   let errorMsg = $state<string | null>(null);
@@ -87,6 +89,8 @@
       docentesAsignados = [];
     }
     nuevoDocenteId = '';
+    docenteSearch = '';
+    perteneceFilter = 'all';
     errorMsg = null;
     successMsg = null;
   });
@@ -95,6 +99,30 @@
   const docentesDisponibles = $derived(
     docentes.filter((d) => !docentesAsignados.some((da) => da.id_docente === d.id_docente)),
   );
+
+  function matchesPerteneceFilter(d: Docente): boolean {
+    if (perteneceFilter === 'all') return true;
+    if (perteneceFilter === 'in') return d.pertenece_carrera === true;
+    return d.pertenece_carrera !== true;
+  }
+
+  function docenteLabel(d: Docente): string {
+    return d.nombre_completo || `${d.nombre1 ?? ''} ${d.apellido1 ?? ''}`.trim();
+  }
+
+  const filteredDocentesCreate = $derived.by(() => {
+    const term = docenteSearch.trim().toLowerCase();
+    return docentes.filter(
+      (d) => matchesPerteneceFilter(d) && (!term || docenteLabel(d).toLowerCase().includes(term)),
+    );
+  });
+
+  const filteredDocentesDisponibles = $derived.by(() => {
+    const term = docenteSearch.trim().toLowerCase();
+    return docentesDisponibles.filter(
+      (d) => matchesPerteneceFilter(d) && (!term || docenteLabel(d).toLowerCase().includes(term)),
+    );
+  });
 
   async function handleAddDocente() {
     const id = Number(nuevoDocenteId);
@@ -180,6 +208,97 @@
   }
 </script>
 
+{#snippet docenteBuscador(
+  items: Docente[],
+  selectedId: number | string | undefined,
+  onSelect: (id: number) => void,
+)}
+  {@const term = docenteSearch.trim().toLowerCase()}
+  {@const filtered = items.filter(
+    (d) => matchesPerteneceFilter(d) && (!term || docenteLabel(d).toLowerCase().includes(term)),
+  )}
+  <input
+    type="search"
+    bind:value={docenteSearch}
+    placeholder="Buscar docente por nombre…"
+    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition mb-2"
+  />
+  <div class="flex gap-1.5 mb-2">
+    <button
+      type="button"
+      onclick={() => (perteneceFilter = 'all')}
+      class="px-2.5 py-1 rounded-full text-xs font-semibold border transition {perteneceFilter ===
+      'all'
+        ? 'bg-blue-50 border-blue-400 text-blue-700'
+        : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300'}"
+    >
+      Todos
+    </button>
+    <button
+      type="button"
+      onclick={() => (perteneceFilter = 'in')}
+      class="px-2.5 py-1 rounded-full text-xs font-semibold border transition {perteneceFilter ===
+      'in'
+        ? 'bg-blue-50 border-blue-400 text-blue-700'
+        : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300'}"
+    >
+      De la carrera
+    </button>
+    <button
+      type="button"
+      onclick={() => (perteneceFilter = 'out')}
+      class="px-2.5 py-1 rounded-full text-xs font-semibold border transition {perteneceFilter ===
+      'out'
+        ? 'bg-blue-50 border-blue-400 text-blue-700'
+        : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300'}"
+    >
+      Externos
+    </button>
+  </div>
+  <div class="max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+    {#if filtered.length === 0}
+      <p class="text-sm text-gray-400 italic px-3 py-2">Sin coincidencias.</p>
+    {:else}
+      {#each filtered as doc (doc.id_docente)}
+        <button
+          type="button"
+          onclick={() => onSelect(doc.id_docente)}
+          class="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-blue-50 transition {String(
+            selectedId,
+          ) === String(doc.id_docente)
+            ? 'bg-blue-50'
+            : ''}"
+        >
+          <span class="truncate">
+            {docenteLabel(doc)}
+            {#if doc.pertenece_carrera}
+              <span
+                class="ml-1.5 inline-block px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wide align-middle"
+              >
+                De la carrera
+              </span>
+            {/if}
+          </span>
+          {#if String(selectedId) === String(doc.id_docente)}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="text-blue-600 shrink-0"><polyline points="20 6 9 17 4 12" /></svg
+            >
+          {/if}
+        </button>
+      {/each}
+    {/if}
+  </div>
+{/snippet}
+
 {#if isOpen}
   <!-- Modal Overlay -->
   <div
@@ -229,21 +348,27 @@
         {#if !editingComponente}
           <!-- CREAR: selector de docente titular inicial -->
           <div>
-            <label for="id_docente" class="block text-sm font-medium text-gray-700 mb-1">
-              Docente Titular Inicial
-            </label>
-            <select
-              id="id_docente"
-              bind:value={formData.id_docente}
-              class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
-            >
-              <option value={undefined}>Sin asignar</option>
-              {#each docentes as doc}
-                <option value={doc.id_docente}>
-                  {doc.nombre_completo || `${doc.nombre1 ?? ''} ${doc.apellido1 ?? ''}`.trim()}
-                </option>
-              {/each}
-            </select>
+            <p class="block text-sm font-medium text-gray-700 mb-1">Docente Titular Inicial</p>
+            {#if formData.id_docente}
+              {@const seleccionado = docentes.find((d) => d.id_docente === formData.id_docente)}
+              <p class="text-xs text-gray-500 mb-2">
+                Seleccionado: <span class="font-medium text-gray-800"
+                  >{seleccionado ? docenteLabel(seleccionado) : `Docente #${formData.id_docente}`}</span
+                >
+                <button
+                  type="button"
+                  onclick={() => (formData.id_docente = undefined)}
+                  class="ml-1 text-blue-600 hover:underline">Quitar</button
+                >
+              </p>
+            {:else}
+              <p class="text-xs text-gray-500 mb-2">Sin asignar (opcional).</p>
+            {/if}
+            {@render docenteBuscador(
+              filteredDocentesCreate,
+              formData.id_docente,
+              (id) => (formData.id_docente = formData.id_docente === id ? undefined : id),
+            )}
           </div>
         {:else}
           <!-- EDITAR: gestión de docentes en tiempo real -->
@@ -303,28 +428,21 @@
 
             <!-- Agregar docente -->
             {#if docentesDisponibles.length > 0}
-              <div class="flex gap-2">
-                <select
-                  bind:value={nuevoDocenteId}
-                  class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
-                >
-                  <option value="">Seleccionar docente…</option>
-                  {#each docentesDisponibles as doc}
-                    <option value={doc.id_docente}>
-                      {doc.nombre_completo || `${doc.nombre1 ?? ''} ${doc.apellido1 ?? ''}`.trim()}
-                    </option>
-                  {/each}
-                </select>
-                <button
-                  type="button"
-                  onclick={handleAddDocente}
-                  disabled={!nuevoDocenteId || isAddingDocente}
-                  class="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus size={14} />
-                  {isAddingDocente ? '…' : 'Agregar'}
-                </button>
-              </div>
+              <p class="text-sm font-medium text-gray-700 mb-1">Agregar docente</p>
+              {@render docenteBuscador(
+                filteredDocentesDisponibles,
+                nuevoDocenteId,
+                (id) => (nuevoDocenteId = Number(nuevoDocenteId) === id ? '' : id),
+              )}
+              <button
+                type="button"
+                onclick={handleAddDocente}
+                disabled={!nuevoDocenteId || isAddingDocente}
+                class="mt-2 w-full flex items-center justify-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus size={14} />
+                {isAddingDocente ? '…' : 'Agregar'}
+              </button>
             {/if}
           </div>
         {/if}

@@ -48,6 +48,7 @@ class CursoResource extends JsonResource
             // Computed properties for table display
             'asignatura_nombre'    => $this->asignacionPlan?->asignatura?->nombre,
             'carrera_nombre'       => $this->asignacionPlan?->plan?->carrera?->nombre,
+            'id_carrera'           => $this->asignacionPlan?->plan?->carrera?->id_carrera,
             'numero_semestre'      => $this->asignacionPlan?->semestre_planificado,
             'docente_nombre'       => $docenteUser
                 ? trim(($docenteUser->nombre1 ?? '') . ' ' . ($docenteUser->apellido1 ?? ''))
