@@ -2,6 +2,7 @@
 
 namespace App\Models\Agenda;
 
+use App\Enums\DB\EstadoActividadAsignada;
 use App\Models\Base\Agenda\BaseActividadAsignadaGrupo;
 
 /**
@@ -85,5 +86,36 @@ class ActividadAsignadaGrupo extends BaseActividadAsignadaGrupo
         }
 
         return $esPostFin ? 'CERRADA' : 'ACTIVA';
+    }
+
+    /**
+     * Persiste en la BD el estado calculado (calcularEstadoGrupo), si difiere
+     * del guardado. El registro no queda "vivo" por sí solo -nada recalcula el
+     * paso del tiempo-, así que hay que llamar a esto en los puntos donde se
+     * lee o se escribe el grupo para que la columna no quede pegada en el
+     * valor con el que se creó.
+     *
+     * 'NO VISIBLE' no es un valor válido de agenda.en_estado_actividad_asignada
+     * (sólo PLANIFICADA/ACTIVA/CERRADA), así que en ese caso no se escribe nada
+     * y la columna conserva su último estado persistible.
+     *
+     * @return bool true si el registro se actualizó.
+     */
+    public function sincronizarEstado(?Actividad $actividad = null): bool
+    {
+        $estadoCalculado = $this->calcularEstadoGrupo($actividad);
+
+        if (!EstadoActividadAsignada::tryFrom($estadoCalculado)) {
+            return false;
+        }
+
+        if ($this->estado_actividad_asignada?->value === $estadoCalculado) {
+            return false;
+        }
+
+        $this->estado_actividad_asignada = $estadoCalculado;
+        $this->save();
+
+        return true;
     }
 }

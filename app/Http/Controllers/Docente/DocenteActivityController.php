@@ -298,11 +298,12 @@ class DocenteActivityController extends Controller
 
         try {
             $actividad->update($validated);
-            
+            $this->sincronizarEstadosDeGrupos($actividad);
+
             return redirect()->back()->with('success', 'Actividad actualizada correctamente.');
         } catch (\Exception $e) {
             Log::error('Error updating activity: ' . $e->getMessage());
-            
+
             return redirect()->back()
                 ->with('error', 'No se pudo actualizar la actividad. Por favor, inténtalo nuevamente.');
         }
@@ -320,6 +321,7 @@ class DocenteActivityController extends Controller
 
         try {
             $actividad->update(['visible' => !$actividad->visible]);
+            $this->sincronizarEstadosDeGrupos($actividad);
 
             $mensaje = $actividad->visible
                 ? "Actividad '{$actividad->nombre}' visible para los estudiantes."
@@ -332,6 +334,19 @@ class DocenteActivityController extends Controller
             return redirect()->back()
                 ->with('error', 'No se pudo cambiar la visibilidad de la actividad.');
         }
+    }
+
+    /**
+     * Recalcula y persiste el estado (PLANIFICADA/ACTIVA/CERRADA) de cada
+     * grupo de la actividad. Se llama justo después de tocar 'visible',
+     * 'fecha_limite' o la holgura, que son los campos de los que depende el
+     * cálculo (ver ActividadAsignadaGrupo::calcularEstadoGrupo).
+     */
+    private function sincronizarEstadosDeGrupos(Actividad $actividad): void
+    {
+        $actividad->actividadAsignadaGrupos->each(
+            fn (ActividadAsignadaGrupo $grupo) => $grupo->sincronizarEstado($actividad)
+        );
     }
 
     /**
@@ -497,20 +512,24 @@ class DocenteActivityController extends Controller
         $grupos = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
             ->with(['integranteGrupos.estudiante.usuario'])
             ->get()
-            ->map(fn($g) => [
-                'grupo'      => $g->id_actividad_asignada_grupo,
-                'nota'       => $g->nota,
-                'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
-                'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
-                'estado_calculado' => $g->calcularEstadoGrupo($actividad),
-                'integrantes' => $g->integranteGrupos->map(fn($m) => [
-                    'id_asignado_actividad' => $m->id_asignado_actividad,
-                    'id_estudiante'  => $m->id_estudiante,
-                    'nota_individual' => $m->nota_individual !== null ? (float) $m->nota_individual : null,
-                    'diferencia_decimas' => (int) ($m->diferencia_decimas ?? 0),
-                    'nombre_completo' => $m->estudiante?->usuario?->nombre_completo ?? '',
-                ])->values(),
-            ])
+            ->map(function ($g) use ($actividad) {
+                $g->sincronizarEstado($actividad);
+
+                return [
+                    'grupo'      => $g->id_actividad_asignada_grupo,
+                    'nota'       => $g->nota,
+                    'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
+                    'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
+                    'estado_calculado' => $g->calcularEstadoGrupo($actividad),
+                    'integrantes' => $g->integranteGrupos->map(fn($m) => [
+                        'id_asignado_actividad' => $m->id_asignado_actividad,
+                        'id_estudiante'  => $m->id_estudiante,
+                        'nota_individual' => $m->nota_individual !== null ? (float) $m->nota_individual : null,
+                        'diferencia_decimas' => (int) ($m->diferencia_decimas ?? 0),
+                        'nombre_completo' => $m->estudiante?->usuario?->nombre_completo ?? '',
+                    ])->values(),
+                ];
+            })
             ->values();
 
         // Campos calculados de la actividad
@@ -546,6 +565,26 @@ class DocenteActivityController extends Controller
             ->sortBy('nombre_completo')
             ->values();
 
+        // Otras actividades grupales del curso con grupos ya conformados, candidatas
+        // a reutilizar vía copiarGruposDeActividad() (botón "Reutilizar grupos").
+        $actividadesConGrupos = collect();
+        if ($actividad->es_grupal) {
+            $actividadesConGrupos = Actividad::whereHas('componente', fn($q) => $q->where('id_curso', $curso->id_curso))
+                ->where('id_actividad', '!=', $actividad->id_actividad)
+                ->where('es_grupal', true)
+                ->whereHas('actividadAsignadaGrupos')
+                ->withCount('actividadAsignadaGrupos')
+                ->orderByDesc('fecha_limite')
+                ->get(['id_actividad', 'nombre', 'fecha_limite'])
+                ->map(fn($a) => [
+                    'id_actividad'    => $a->id_actividad,
+                    'nombre'          => $a->nombre,
+                    'fecha_limite'    => $a->fecha_limite?->format('Y-m-d'),
+                    'cantidad_grupos' => $a->actividad_asignada_grupos_count,
+                ])
+                ->values();
+        }
+
         return Inertia::render('docente/Activities/Index', [
             'curso'     => [
                 'id_curso'        => $curso->id_curso,
@@ -569,6 +608,7 @@ class DocenteActivityController extends Controller
             'rubrica'              => $rubricaData,
             'rubrica_id'           => $rubricaId,
             'estudiantesInscritos' => $estudiantesInscritos,
+            'actividadesConGrupos' => $actividadesConGrupos,
             'interaccionesGrupo'   => Inertia::lazy(function () {
                 $grupoId = request('grupo_id');
                 if (!$grupoId) return [];
@@ -924,7 +964,9 @@ class DocenteActivityController extends Controller
             ->with(['miembros.estudiante.usuario'])
             ->get();
 
-        $gruposFormateados = $grupos->map(function ($grupo) {
+        $gruposFormateados = $grupos->map(function ($grupo) use ($actividad) {
+            $grupo->sincronizarEstado($actividad);
+
             return [
                 'grupo'                    => $grupo->id_actividad_asignada_grupo,
                 'nota'                     => $grupo->nota,
@@ -938,7 +980,63 @@ class DocenteActivityController extends Controller
     }
 
     /**
-     * Copia los grupos de una actividad anterior a la actividad actual
+     * Lista los grupos de una actividad origen (del mismo curso) con el detalle
+     * de sus integrantes, marcando cuáles siguen inscritos en el curso. Alimenta
+     * el paso 2 del modal "Reutilizar grupos": el docente ve cómo quedó cada
+     * grupo antes de elegir cuáles copiar, porque no todos se mantienen intactos
+     * de una actividad a otra (integrantes que se desinscribieron, grupos que se
+     * desintegraron, etc.).
+     */
+    public function gruposDeActividadOrigen(Curso $curso, Actividad $actividad, Actividad $origen)
+    {
+        $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+
+        if ($origen->componente?->id_curso !== $curso->id_curso) {
+            abort(404, 'La actividad origen no pertenece a este curso.');
+        }
+
+        $idsInscritos = InscripcionCurso::where('id_curso', $curso->id_curso)
+            ->pluck('id_estudiante');
+
+        $grupos = ActividadAsignadaGrupo::where('id_actividad', $origen->id_actividad)
+            ->with('miembros.estudiante.usuario')
+            ->get()
+            ->map(function ($g) use ($idsInscritos) {
+                $integrantes = $g->miembros->map(fn ($m) => [
+                    'id_estudiante'   => $m->id_estudiante,
+                    'nombre_completo' => trim(
+                        ($m->estudiante?->usuario?->nombre1 ?? '') . ' ' .
+                        ($m->estudiante?->usuario?->nombre2 ?? '') . ' ' .
+                        ($m->estudiante?->usuario?->apellido1 ?? '') . ' ' .
+                        ($m->estudiante?->usuario?->apellido2 ?? '')
+                    ),
+                    'inscrito' => $idsInscritos->contains($m->id_estudiante),
+                ])->values();
+
+                return [
+                    'grupo'                => $g->id_actividad_asignada_grupo,
+                    'integrantes'          => $integrantes,
+                    'cantidad_integrantes' => $integrantes->count(),
+                    'cantidad_vigentes'    => $integrantes->where('inscrito', true)->count(),
+                ];
+            })
+            ->values();
+
+        return response()->json($grupos);
+    }
+
+    /**
+     * Copia a la actividad actual los grupos que el docente eligió de una
+     * actividad origen del mismo curso (paso 2 del modal "Reutilizar grupos").
+     *
+     * Antes se copiaban TODOS los grupos de la actividad origen de forma
+     * automática, y un grupo entero se descartaba en silencio si un solo
+     * integrante ya no estaba inscrito (B): con cursos de varios semestres,
+     * eso podía dejar el botón sin efecto aparente. Ahora el docente elige los
+     * grupos (`grupos`) y cada uno se copia con los integrantes que sigan
+     * inscritos; si ninguno sigue inscrito, ese grupo puntual se omite.
      */
     public function copiarGruposDeActividad(Request $request, Curso $curso, Actividad $actividad)
     {
@@ -950,84 +1048,82 @@ class DocenteActivityController extends Controller
 
         // Verificar que la actividad es grupal
         if (!$actividad->es_grupal) {
-            return response()->json(['error' => 'Esta actividad no es grupal.'], 422);
+            return redirect()->back()->withErrors(['error' => 'Esta actividad no es grupal.']);
         }
 
         $validated = $request->validate([
             'id_actividad_origen' => 'required|integer|exists:actividad,id_actividad',
+            'grupos'               => 'required|array|min:1',
+            'grupos.*'             => 'required|integer',
         ]);
 
         $actividadOrigen = Actividad::find($validated['id_actividad_origen']);
 
         // Verificar que la actividad origen pertenece al mismo curso
         if ($actividadOrigen->componente?->id_curso !== $curso->id_curso) {
-            return response()->json(
-                ['error' => 'La actividad origen no pertenece a este curso.'],
-                422
-            );
+            return redirect()->back()->withErrors(['error' => 'La actividad origen no pertenece a este curso.']);
         }
 
         if (!$actividadOrigen->es_grupal) {
-            return response()->json(
-                ['error' => 'La actividad origen no es grupal.'],
-                422
-            );
+            return redirect()->back()->withErrors(['error' => 'La actividad origen no es grupal.']);
         }
 
         try {
             DB::beginTransaction();
 
-            // Obtener grupos de la actividad origen
+            $idsInscritos = InscripcionCurso::where('id_curso', $curso->id_curso)
+                ->pluck('id_estudiante');
+
+            // Sólo los grupos elegidos por el docente, y sólo si realmente
+            // pertenecen a la actividad origen (evita colar ids de otra parte).
             $gruposOrigen = ActividadAsignadaGrupo::where('id_actividad', $actividadOrigen->id_actividad)
+                ->whereIn('id_actividad_asignada_grupo', $validated['grupos'])
                 ->with('miembros')
                 ->get();
 
-            $gruposCreados = 0;
+            $gruposCreados  = 0;
+            $gruposOmitidos = 0;
 
             foreach ($gruposOrigen as $grupoOrigen) {
-                // Obtener los estudiantes del grupo origen
-                $estudiantes = $grupoOrigen->miembros->pluck('id_estudiante')->toArray();
+                // Sólo se traen los integrantes que siguen inscritos en el curso;
+                // el grupo puede llegar "achicado" respecto al original.
+                $estudiantesVigentes = $grupoOrigen->miembros
+                    ->pluck('id_estudiante')
+                    ->intersect($idsInscritos)
+                    ->values();
 
-                // Verificar que todos siguen inscritos en el curso
-                $estudiantesInscritos = InscripcionCurso::where('id_curso', $curso->id_curso)
-                    ->whereIn('id_estudiante', $estudiantes)
-                    ->count();
-
-                // Solo crear el grupo si todos los estudiantes están inscritos
-                if ($estudiantesInscritos === count($estudiantes) && count($estudiantes) > 0) {
-                    // Crear nuevo grupo
-                    $nuevoGrupo = ActividadAsignadaGrupo::create([
-                        'id_actividad'              => $actividad->id_actividad,
-                        'estado_actividad_asignada' => 'PLANIFICADA',
-                    ]);
-
-                    // Agregar integrantes
-                    foreach ($estudiantes as $id_estudiante) {
-                        IntegranteGrupo::create([
-                            'id_actividad_asignada_grupo' => $nuevoGrupo->id_actividad_asignada_grupo,
-                            'id_estudiante'              => $id_estudiante,
-                        ]);
-                    }
-
-                    $gruposCreados++;
+                if ($estudiantesVigentes->isEmpty()) {
+                    $gruposOmitidos++;
+                    continue;
                 }
+
+                $nuevoGrupo = ActividadAsignadaGrupo::create([
+                    'id_actividad'              => $actividad->id_actividad,
+                    'estado_actividad_asignada' => 'PLANIFICADA',
+                ]);
+
+                foreach ($estudiantesVigentes as $id_estudiante) {
+                    IntegranteGrupo::create([
+                        'id_actividad_asignada_grupo' => $nuevoGrupo->id_actividad_asignada_grupo,
+                        'id_estudiante'              => $id_estudiante,
+                    ]);
+                }
+
+                $gruposCreados++;
             }
 
             DB::commit();
 
-            return response()->json([
-                'success' => "Se copiaron {$gruposCreados} grupos correctamente.",
-                'grupos_creados' => $gruposCreados,
-                'grupos_total_origen' => count($gruposOrigen),
-            ]);
+            $mensaje = $gruposOmitidos > 0
+                ? "Se copiaron {$gruposCreados} grupo(s). {$gruposOmitidos} grupo(s) se omitieron porque ningún integrante sigue inscrito en el curso."
+                : "Se copiaron {$gruposCreados} grupo(s) correctamente.";
+
+            return redirect()->back()->with('success', $mensaje);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error copying groups: ' . $e->getMessage());
 
-            return response()->json(
-                ['error' => 'No se pudieron copiar los grupos.'],
-                500
-            );
+            return redirect()->back()->withErrors(['error' => 'No se pudieron copiar los grupos.']);
         }
     }
 
