@@ -32,6 +32,8 @@
     grado?: string;
     titulo?: string;
     cargo?: string;
+    /** true = tiene un rol activo en el contexto de la carrera seleccionada */
+    pertenece_carrera?: boolean | null;
   }
 
   interface CursoAnterior {
@@ -86,6 +88,7 @@
   let docentesPorComponente = $state<Record<number, number | null>>({});
   let asigSearch = $state('');
   let docenteSearch = $state('');
+  let perteneceFilter = $state<'all' | 'in' | 'out'>('all');
   // Componente (Cátedra) settings
   let generaActaPorComponente = $state<Record<number, boolean>>({});
   let aprobacionObligatoria = $state(false);
@@ -151,13 +154,20 @@
     Object.values(filteredAsigByYear).reduce((n, s) => n + s.s1.length + s.s2.length, 0),
   );
 
+  function matchesPerteneceFilter(d: DocenteOption): boolean {
+    if (perteneceFilter === 'all') return true;
+    if (perteneceFilter === 'in') return d.pertenece_carrera === true;
+    return d.pertenece_carrera !== true;
+  }
+
   const filteredHistoricDocentes = $derived.by(() => {
     const term = docenteSearch.trim().toLowerCase();
-    if (!term) return historicDocentes;
     return historicDocentes.filter(
       (d) =>
-        d.nombre_completo?.toLowerCase().includes(term) ||
-        d.cargo?.toLowerCase().includes(term),
+        matchesPerteneceFilter(d) &&
+        (!term ||
+          d.nombre_completo?.toLowerCase().includes(term) ||
+          d.cargo?.toLowerCase().includes(term)),
     );
   });
 
@@ -183,11 +193,12 @@
 
   const filteredOtrosDocentes = $derived.by(() => {
     const term = docenteSearch.trim().toLowerCase();
-    if (!term) return otrosDocentes;
     return otrosDocentes.filter(
       (d) =>
-        d.nombre_completo?.toLowerCase().includes(term) ||
-        d.cargo?.toLowerCase().includes(term),
+        matchesPerteneceFilter(d) &&
+        (!term ||
+          d.nombre_completo?.toLowerCase().includes(term) ||
+          d.cargo?.toLowerCase().includes(term)),
     );
   });
 
@@ -245,8 +256,10 @@
     loadingDocentes = true;
     loadingCursosAnteriores = true;
 
+    const idCarreraQuery = selectedCarrera ? `?id_carrera=${selectedCarrera.id_carrera}` : '';
+
     const [docentesRes, cursosRes] = await Promise.allSettled([
-      fetch(`/admin/asignaturas/${asig.id_asignatura}/docentes-sugeridos`, {
+      fetch(`/admin/asignaturas/${asig.id_asignatura}/docentes-sugeridos${idCarreraQuery}`, {
         headers: { Accept: 'application/json' },
       }),
       fetch(`/admin/asignaturas/${asig.id_asignatura}/cursos-anteriores`, {
@@ -349,6 +362,7 @@
       docentesPorComponente = {};
       asigSearch = '';
       docenteSearch = '';
+      perteneceFilter = 'all';
       generaActaPorComponente = {};
       aprobacionObligatoria = false;
       porcentajeAprobacion = 60;
@@ -920,6 +934,33 @@
                           class="docente-search-input"
                         />
                       </div>
+
+                      <div class="pertenece-filter-bar">
+                        <button
+                          type="button"
+                          class="pertenece-chip"
+                          class:active={perteneceFilter === 'all'}
+                          onclick={() => (perteneceFilter = 'all')}
+                        >
+                          Todos
+                        </button>
+                        <button
+                          type="button"
+                          class="pertenece-chip"
+                          class:active={perteneceFilter === 'in'}
+                          onclick={() => (perteneceFilter = 'in')}
+                        >
+                          De la carrera
+                        </button>
+                        <button
+                          type="button"
+                          class="pertenece-chip"
+                          class:active={perteneceFilter === 'out'}
+                          onclick={() => (perteneceFilter = 'out')}
+                        >
+                          Externos
+                        </button>
+                      </div>
                     {/if}
 
                     <!-- Docentes históricos first -->
@@ -942,7 +983,12 @@
                               {(d.nombre_completo?.[0] ?? '?').toUpperCase()}
                             </div>
                             <div class="docente-info">
-                              <div class="docente-name">{d.nombre_completo}</div>
+                              <div class="docente-name">
+                                {d.nombre_completo}
+                                {#if d.pertenece_carrera}
+                                  <span class="badge-pertenece">De la carrera</span>
+                                {/if}
+                              </div>
                               {#if d.cargo}<div class="docente-meta">{d.cargo}</div>{/if}
                             </div>
                             {#if selectedDocente?.id_docente === d.id_docente}
@@ -967,9 +1013,13 @@
                     {/if}
 
                     <!-- Sin resultados de búsqueda -->
-                    {#if docenteSearch.trim() && filteredHistoricDocentes.length === 0 && filteredOtrosDocentes.length === 0}
+                    {#if (docenteSearch.trim() || perteneceFilter !== 'all') && filteredHistoricDocentes.length === 0 && filteredOtrosDocentes.length === 0}
                       <p class="step-empty">
-                        No se encontraron docentes para &ldquo;{docenteSearch}&rdquo;.
+                        {#if docenteSearch.trim()}
+                          No se encontraron docentes para &ldquo;{docenteSearch}&rdquo;.
+                        {:else}
+                          No hay docentes {perteneceFilter === 'in' ? 'de la carrera' : 'externos'} disponibles.
+                        {/if}
                       </p>
                     {/if}
 
@@ -993,7 +1043,12 @@
                                 {(d.nombre_completo?.[0] ?? '?').toUpperCase()}
                               </div>
                               <div class="docente-info">
-                                <div class="docente-name">{d.nombre_completo}</div>
+                                <div class="docente-name">
+                                  {d.nombre_completo}
+                                  {#if d.pertenece_carrera}
+                                    <span class="badge-pertenece">De la carrera</span>
+                                  {/if}
+                                </div>
                                 {#if d.cargo}<div class="docente-meta">{d.cargo}</div>{/if}
                               </div>
                               {#if selectedDocente?.id_docente === d.id_docente}
@@ -1850,6 +1905,46 @@
   }
   .docente-search-input::-webkit-search-cancel-button {
     cursor: pointer;
+  }
+
+  .pertenece-filter-bar {
+    display: flex;
+    gap: 0.375rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .pertenece-chip {
+    padding: 0.3rem 0.7rem;
+    border: 1.5px solid #d1d5db;
+    border-radius: 999px;
+    background: white;
+    color: #4b5563;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .pertenece-chip:hover {
+    border-color: #93c5fd;
+  }
+  .pertenece-chip.active {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #1d4ed8;
+  }
+
+  .badge-pertenece {
+    background: #dcfce7;
+    color: #166534;
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid #bbf7d0;
+    margin-left: 0.375rem;
+    vertical-align: middle;
   }
 
   .docentes-section {

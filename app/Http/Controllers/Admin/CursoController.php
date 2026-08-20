@@ -286,7 +286,7 @@ class CursoController extends Controller
      * Retorna docentes sugeridos para una asignatura.
      * Históricamente la han impartido primero, luego el resto.
      */
-    public function getDocentesSugeridos(Asignatura $asignatura)
+    public function getDocentesSugeridos(Request $request, Asignatura $asignatura)
     {
         $this->authorize('viewAny', Curso::class);
         $historicos = Docente::with('usuario')
@@ -305,19 +305,24 @@ class CursoController extends Controller
             ->orderBy('id_docente')
             ->get();
 
-        $format = fn ($d) => [
-            'id_docente'      => $d->id_docente,
-            'nombre_completo' => trim(
-                ($d->usuario->nombre1  ?? '') . ' ' .
-                ($d->usuario->nombre2  ?? '') . ' ' .
-                ($d->usuario->apellido1 ?? '') . ' ' .
-                ($d->usuario->apellido2 ?? '')
-            ),
-            'email'  => $d->usuario->email  ?? null,
-            'grado'  => $d->grado,
-            'titulo' => $d->titulo,
-            'cargo'  => $d->cargo,
-        ];
+        $perteneceIds = $this->docentesPerteneceCarrera($request->integer('id_carrera') ?: null);
+
+        $format = function ($d) use ($perteneceIds) {
+            return [
+                'id_docente'      => $d->id_docente,
+                'nombre_completo' => trim(
+                    ($d->usuario->nombre1  ?? '') . ' ' .
+                    ($d->usuario->nombre2  ?? '') . ' ' .
+                    ($d->usuario->apellido1 ?? '') . ' ' .
+                    ($d->usuario->apellido2 ?? '')
+                ),
+                'email'  => $d->usuario->email  ?? null,
+                'grado'  => $d->grado,
+                'titulo' => $d->titulo,
+                'cargo'  => $d->cargo,
+                'pertenece_carrera' => $perteneceIds === null ? null : $perteneceIds->contains($d->id_usuario),
+            ];
+        };
 
         return response()->json([
             'historicos' => $historicos->map($format)->values(),
@@ -326,9 +331,35 @@ class CursoController extends Controller
     }
 
     /**
+     * IDs de usuario con un rol activo en el contexto de una carrera (i.e. "pertenecen" a
+     * ella para efectos de docencia). Null si no se pasa carrera: el llamador debe tratar
+     * la pertenencia como desconocida en vez de "externo".
+     *
+     * Mismo criterio que usa JefaturaCarreraResolver para resolver de qué carrera es Jefe
+     * un usuario: el rol se asigna con el id_contexto de la Carrera (AssignmentWizardController).
+     */
+    private function docentesPerteneceCarrera(?int $idCarrera): ?\Illuminate\Support\Collection
+    {
+        if (!$idCarrera) {
+            return null;
+        }
+
+        $idContexto = Carrera::find($idCarrera)?->id_contexto;
+        if (!$idContexto) {
+            return collect();
+        }
+
+        return \App\Models\Usuario\UsuarioRolAsignacion::where('id_contexto', $idContexto)
+            ->where('esta_activo', true)
+            ->where('fue_eliminado', false)
+            ->pluck('id_usuario')
+            ->unique();
+    }
+
+    /**
      * Get all docentes.
      */
-    public function getDocentes()
+    public function getDocentes(Request $request)
     {
         $this->authorize('viewAny', Curso::class);
         // docente table has no fecha_eliminacion column – no soft-delete filter here
@@ -336,6 +367,11 @@ class CursoController extends Controller
             ->whereHas('usuario', fn ($q) => $q->where('esta_activo', true))
             ->orderBy('id_docente')
             ->get();
+
+        $perteneceIds = $this->docentesPerteneceCarrera($request->integer('id_carrera') ?: null);
+        $docentes->each(function ($d) use ($perteneceIds) {
+            $d->pertenece_carrera = $perteneceIds === null ? null : $perteneceIds->contains($d->id_usuario);
+        });
 
         return response()->json([
             'data' => \App\Http\Resources\DocenteResource::collection($docentes)

@@ -212,9 +212,10 @@
   // HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async function loadDocentes() {
+  async function loadDocentes(idCarrera?: number) {
     try {
-      const response = await fetch('/api/docentes', {
+      const url = idCarrera ? `/api/docentes?id_carrera=${idCarrera}` : '/api/docentes';
+      const response = await fetch(url, {
         headers: {
           Accept: 'application/json',
         },
@@ -236,6 +237,7 @@
             titulo: docente.titulo,
             cargo: docente.cargo,
             usuario: docente.usuario,
+            pertenece_carrera: docente.pertenece_carrera,
           }));
         } else {
           docentes = [];
@@ -249,6 +251,7 @@
           titulo: docente.titulo,
           cargo: docente.cargo,
           usuario: docente.usuario,
+          pertenece_carrera: docente.pertenece_carrera,
         }));
       }
     } catch (error) {
@@ -285,14 +288,14 @@
   function openComponenteModal(curso: Curso) {
     editingCurso = curso;
     editingComponente = null;
-    loadDocentes();
+    loadDocentes(curso.id_carrera);
     showComponenteModal = true;
   }
 
   function openEditComponenteModal(curso: Curso, componente: Componente) {
     editingCurso = curso;
     editingComponente = componente;
-    loadDocentes();
+    loadDocentes(curso.id_carrera);
     showComponenteModal = true;
   }
 
