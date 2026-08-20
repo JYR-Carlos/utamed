@@ -43,12 +43,17 @@ return [
     | página al servidor, que redirige al login.
     |
     | Requiere contexto seguro (HTTPS o localhost) para `window.crypto.subtle`.
-    | Sin él Inertia avisa por consola y guarda en claro, sin romper nada.
+    | Sin él, `encryptHistory()` del cliente (@inertiajs/core) lanza
+    | "Unable to encrypt history" sin capturar en cuanto no hay clave aún en
+    | sessionStorage (típicamente el primer visit de la sesión) — no degrada
+    | con gracia pese a lo que sugiere el nombre. Mientras no haya HTTPS en
+    | producción, desactivar con INERTIA_ENCRYPT_HISTORY=false en el .env de
+    | ese entorno; el default sigue en true para local/tests.
     |
     */
 
     'history' => [
-        'encrypt' => true,
+        'encrypt' => env('INERTIA_ENCRYPT_HISTORY', true),
     ],
 
     /*
