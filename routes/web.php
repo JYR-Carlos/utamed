@@ -427,6 +427,7 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiantes/{estudiante}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'quitarEstudianteDeGrupo'])->name('cursos.actividades.grupos.estudiante.remove');
     Route::delete('cursos/{curso}/actividades/{actividad}/grupos-delete/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'eliminarGrupo'])->name('cursos.actividades.grupos.new.delete');
     Route::get('cursos/{curso}/actividades/{actividad}/grupos-list', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'gruposPorActividad'])->name('cursos.actividades.grupos.list');
+    Route::get('cursos/{curso}/actividades/{actividad}/grupos-origen/{origen}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'gruposDeActividadOrigen'])->name('cursos.actividades.grupos.origen');
     Route::post('cursos/{curso}/actividades/{actividad}/grupos-copy', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'copiarGruposDeActividad'])->name('cursos.actividades.grupos.copy');
 
     // Gestión de entregas/archivos
