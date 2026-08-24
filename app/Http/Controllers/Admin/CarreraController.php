@@ -165,10 +165,10 @@ class CarreraController extends Controller
     {
         $this->authorize('update', $carrera);
         $validated = $request->validate([
-            'nombre'    => 'required|string|max:255',
-            'jornada'   => 'nullable|string|max:100',
-            'sede'      => 'nullable|string|max:100',
-            'modalidad' => 'nullable|string|max:100',
+            'nombre'      => 'required|string|max:255',
+            'jornada'     => 'nullable|string|max:100',
+            'sede'        => 'nullable|string|max:100',
+            'modalidad'   => 'nullable|string|max:100',
             // id_departamento y id_facultad son intencionalmente omitidos (read-only post-creación)
         ]);
 

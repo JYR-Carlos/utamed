@@ -17,6 +17,7 @@ use App\Models\Curso\TipoComponente;
 use App\Models\Usuario\Docente;
 use App\Services\CursoService;
 use App\Services\IntranetService;
+use App\Support\LetraGrupo;
 use Illuminate\Http\Request;
 
 use Illuminate\Support\Facades\DB;
@@ -421,6 +422,196 @@ class CursoController extends Controller
             ),
             'indices_tomados' => $indicesTomados,
         ]);
+    }
+
+    /**
+     * "Mirar antes de tocar" (sin guardar nada): detecta las componentes que
+     * tendría el curso a partir de Intranet (o del Plan de Estudios si
+     * Intranet no responde) ANTES de crear el curso. El wizard llama esto en
+     * vez de dejar que la persona elija las componentes a mano.
+     */
+    public function previewComponentes(Request $request)
+    {
+        $this->authorize('viewAny', Curso::class);
+        $validated = $request->validate([
+            'id_asignatura' => 'required|integer|exists:asignatura,id_asignatura',
+            'id_plan'       => 'required|integer|exists:plan,id_plan',
+            'agno_real'     => 'required|integer',
+            'semestre_real' => 'required|integer|in:1,2',
+            'indice_grupo'  => 'nullable|integer|min:1',
+        ]);
+
+        $letraGrupo = LetraGrupo::fromIndice($validated['indice_grupo'] ?? null);
+
+        $resultado = app(IntranetService::class)->previsualizarComponentes(
+            idAsignatura: $validated['id_asignatura'],
+            idPlan: $validated['id_plan'],
+            agno: $validated['agno_real'],
+            semestre: $validated['semestre_real'],
+            letraGrupo: $letraGrupo
+        );
+
+        return response()->json($resultado->toArray());
+    }
+
+    /**
+     * "Mirar antes de tocar" para un curso YA CREADO: arma el mismo reporte
+     * que previewComponentes(), pero usando los datos ya guardados del curso.
+     * No escribe nada; sincronizarIntranet() ejecuta sólo lo que se confirme.
+     */
+    public function previewSincronizarIntranet(Curso $curso)
+    {
+        $this->authorize('update', $curso);
+        $curso->loadMissing('asignacionPlan');
+
+        $asignacionPlan = $curso->asignacionPlan;
+        if (!$asignacionPlan) {
+            return response()->json([
+                'origen' => 'PLAN',
+                'componentes' => [],
+                'id_tipo_componente_principal' => null,
+                'advertencias' => ['El curso no tiene una asignación de plan válida; no se puede sincronizar.'],
+            ]);
+        }
+
+        $letraGrupo = $curso->letra_grupo ?: LetraGrupo::fromIndice($curso->indice_grupo);
+
+        $resultado = app(IntranetService::class)->previsualizarComponentes(
+            idAsignatura: $asignacionPlan->id_asignatura,
+            idPlan: $asignacionPlan->id_plan,
+            agno: $curso->agno_real ?? (int) now()->year,
+            semestre: $curso->semestre_real ?? 1,
+            letraGrupo: $letraGrupo
+        );
+
+        return response()->json($resultado->toArray());
+    }
+
+    /**
+     * Ejecuta (crea en BD) sólo las componentes que la persona aceptó tras
+     * revisar el preview. Es idempotente: si ya existen, no las duplica.
+     */
+    public function sincronizarIntranet(Request $request, Curso $curso)
+    {
+        $this->authorize('update', $curso);
+        $validated = $request->validate([
+            'tipos_componente_ids'      => 'required|array|min:1',
+            'tipos_componente_ids.*'    => 'integer|exists:tipo_componente,id_tipo_componente',
+            'inscribir_automaticamente' => 'nullable|boolean',
+        ]);
+
+        try {
+            $resultado = app(IntranetService::class)->sincronizarComponentes(
+                $curso,
+                $validated['tipos_componente_ids'],
+                (bool) ($validated['inscribir_automaticamente'] ?? false)
+            );
+
+            return response()->json($resultado->toArray());
+        } catch (\Exception $e) {
+            Log::error('[CursoController@sincronizarIntranet] Error al sincronizar: ' . $e->getMessage(), [
+                'curso_id' => $curso->id_curso,
+            ]);
+
+            return response()->json([
+                'error' => 'No se pudo sincronizar con la Intranet: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * "Mirar antes de tocar" para VARIOS cursos a la vez (los que aún no
+     * tienen ninguna componente): mismo problema que sincronizar un curso a
+     * la vez, misma solución — arma el reporte de todos antes de escribir
+     * nada, para que la persona decida cuáles confirmar.
+     */
+    public function previewSincronizarMasivo()
+    {
+        $this->authorize('viewAny', Curso::class);
+
+        $cursos = Curso::query()
+            ->whereNull('fecha_eliminacion')
+            ->whereDoesntHave('componentes')
+            ->with('asignacionPlan.asignatura')
+            ->limit(50)
+            ->get();
+
+        $intranetService = app(IntranetService::class);
+
+        $reporte = $cursos->map(function (Curso $curso) use ($intranetService) {
+            $asignacionPlan = $curso->asignacionPlan;
+            if (!$asignacionPlan) {
+                return null;
+            }
+
+            $letraGrupo = $curso->letra_grupo ?: LetraGrupo::fromIndice($curso->indice_grupo);
+
+            $preview = $intranetService->previsualizarComponentes(
+                idAsignatura: $asignacionPlan->id_asignatura,
+                idPlan: $asignacionPlan->id_plan,
+                agno: $curso->agno_real ?? (int) now()->year,
+                semestre: $curso->semestre_real ?? 1,
+                letraGrupo: $letraGrupo
+            );
+
+            return [
+                'id_curso'   => $curso->id_curso,
+                'cod_curso'  => $curso->cod_curso,
+                'asignatura' => $asignacionPlan->asignatura?->nombre,
+                'preview'    => $preview->toArray(),
+            ];
+        })->filter()->values();
+
+        return response()->json(['cursos' => $reporte]);
+    }
+
+    /**
+     * Ejecuta la sincronización masiva sólo sobre los cursos que la persona
+     * confirmó tras revisar previewSincronizarMasivo().
+     */
+    public function sincronizarMasivo(Request $request)
+    {
+        $this->authorize('viewAny', Curso::class);
+        $validated = $request->validate([
+            'ids_curso'   => 'required|array|min:1',
+            'ids_curso.*' => 'integer|exists:curso,id_curso',
+        ]);
+
+        $intranetService = app(IntranetService::class);
+        $reporte = [];
+
+        foreach ($validated['ids_curso'] as $idCurso) {
+            $curso = Curso::with('asignacionPlan.asignatura')->find($idCurso);
+            if (!$curso || !$curso->asignacionPlan) {
+                $reporte[] = ['id_curso' => $idCurso, 'error' => 'Curso no encontrado o sin asignación de plan.'];
+                continue;
+            }
+
+            try {
+                $letraGrupo = $curso->letra_grupo ?: LetraGrupo::fromIndice($curso->indice_grupo);
+                $preview = $intranetService->previsualizarComponentes(
+                    idAsignatura: $curso->asignacionPlan->id_asignatura,
+                    idPlan: $curso->asignacionPlan->id_plan,
+                    agno: $curso->agno_real ?? (int) now()->year,
+                    semestre: $curso->semestre_real ?? 1,
+                    letraGrupo: $letraGrupo
+                );
+
+                $idsTipos = collect($preview->componentes)->pluck('id_tipo_componente')->all();
+                $resultado = $intranetService->sincronizarComponentes($curso, $idsTipos);
+
+                $reporte[] = [
+                    'id_curso'  => $idCurso,
+                    'cod_curso' => $curso->cod_curso,
+                    'resultado' => $resultado->toArray(),
+                ];
+            } catch (\Exception $e) {
+                Log::error('[CursoController@sincronizarMasivo] Error al sincronizar curso #' . $idCurso . ': ' . $e->getMessage());
+                $reporte[] = ['id_curso' => $idCurso, 'error' => $e->getMessage()];
+            }
+        }
+
+        return response()->json(['resultados' => $reporte]);
     }
 
     /**

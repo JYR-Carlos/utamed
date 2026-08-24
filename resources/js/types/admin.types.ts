@@ -550,6 +550,30 @@ export interface CursoFormData {
 
 }
 
+/** Una componente detectada por el preview, con su procedencia. */
+export interface ComponenteDetectada {
+    id_tipo_componente: number;
+    tipo: string;
+    origen: 'INTRANET' | 'PLAN';
+    cur_codigo?: number | null;
+}
+
+/** Respuesta de /admin/cursos/preview-componentes y .../sincronizar-intranet/preview. */
+export interface ResultadoPreviewComponentes {
+    origen: 'INTRANET' | 'PLAN';
+    componentes: ComponenteDetectada[];
+    id_tipo_componente_principal: number | null;
+    advertencias: string[];
+}
+
+/** Respuesta de POST .../sincronizar-intranet (ejecución, ya confirmada). */
+export interface ResultadoSincronizacionComponentes {
+    origen: 'INTRANET' | 'PLAN';
+    componentes_creadas: string[];
+    componentes_existentes: string[];
+    advertencias: string[];
+}
+
 export interface EstudianteFormData {
     rut: string;
     nombre1: string;

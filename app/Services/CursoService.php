@@ -372,7 +372,12 @@ class CursoService
      * @param int|null $contextoExistente
      * @return Contexto
      */
-    private function createOrUpdateContext(string $codigoCurso, ?int $contextoExistente = null): Contexto
+    /**
+     * Público a propósito: IntranetService lo reutiliza para crear el contexto
+     * de las componentes que sincroniza sobre un curso ya existente, en vez de
+     * duplicar esta lógica.
+     */
+    public function createOrUpdateContext(string $codigoCurso, ?int $contextoExistente = null): Contexto
     {
         $nombreContexto = "Curso: " . $codigoCurso;
 

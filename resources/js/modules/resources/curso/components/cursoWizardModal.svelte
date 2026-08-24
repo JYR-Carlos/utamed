@@ -8,7 +8,13 @@
    *  3. Seleccionar Asignatura (del plan, agrupada por año/semestre)
    *  4. Seleccionar Docente sugerido + ingresar datos del curso
    */
-  import type { Carrera, CursoFormData, TipoComponente } from '@/types/admin.types';
+  import type {
+    Carrera,
+    CursoFormData,
+    TipoComponente,
+    ComponenteDetectada,
+    ResultadoPreviewComponentes,
+  } from '@/types/admin.types';
 
   interface Plan {
     id_plan: number;
@@ -103,6 +109,14 @@
   let indiceGrupoSugerido = $state<number | null>(null);
   let indicesGrupoTomados = $state<number[]>([]);
   let loadingLetra = $state(false);
+
+  // ── Preview de componentes (Intranet → fallback Plan de Estudios) ─────────
+  // Cero selección manual: el usuario ya no elige qué componentes tendrá el
+  // curso, sólo ve lo detectado (con su procedencia) y asigna docentes.
+  let previewComponentes = $state<ComponenteDetectada[]>([]);
+  let previewOrigen = $state<'INTRANET' | 'PLAN' | null>(null);
+  let previewAdvertencias = $state<string[]>([]);
+  let loadingPreview = $state(false);
 
   // ── Computed current step (1–4) ──────────────────────────────────────────
   const currentStep = $derived(!selectedCarrera ? 1 : !selectedPlan ? 2 : !selectedAsig ? 3 : 4);
@@ -252,6 +266,10 @@
     cursosAnteriores = [];
     mismoDocenteTodos = true;
     docentesPorComponente = {};
+    previewComponentes = [];
+    previewOrigen = null;
+    previewAdvertencias = [];
+    selectedTipos = new Set();
 
     loadingDocentes = true;
     loadingCursosAnteriores = true;
@@ -326,6 +344,57 @@
     }
   });
 
+  // ── Preview de componentes: "mirar antes de tocar" ────────────────────────
+  // Se llama con lo que la persona YA escribió en el formulario (asignatura,
+  // carrera, plan, año, semestre, letra) — no requiere que el curso exista.
+  let previewRequestId = 0;
+
+  async function fetchPreviewComponentes() {
+    if (!selectedAsig || !selectedPlan || !agnoReal || !semestreReal) return;
+    const requestId = ++previewRequestId;
+    loadingPreview = true;
+    try {
+      const params = new URLSearchParams({
+        id_asignatura: String(selectedAsig.id_asignatura),
+        id_plan: String(selectedPlan.id_plan),
+        agno_real: String(agnoReal),
+        semestre_real: String(semestreReal),
+      });
+      if (indiceGrupo) params.set('indice_grupo', String(indiceGrupo));
+
+      const res = await fetch(`/admin/cursos/preview-componentes?${params}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (requestId !== previewRequestId) return;
+
+      if (res.ok) {
+        const json: ResultadoPreviewComponentes = await res.json();
+        if (requestId !== previewRequestId) return;
+        previewComponentes = json.componentes;
+        previewOrigen = json.origen;
+        previewAdvertencias = json.advertencias;
+        selectedTipos = new Set(json.componentes.map((c) => c.id_tipo_componente));
+      } else {
+        previewComponentes = [];
+        previewOrigen = null;
+        previewAdvertencias = [
+          'No se pudo consultar la Intranet ni derivar componentes del Plan de Estudios. Revisa manualmente desde la ficha del curso una vez creado.',
+        ];
+        selectedTipos = new Set();
+      }
+    } finally {
+      if (requestId === previewRequestId) loadingPreview = false;
+    }
+  }
+
+  $effect(() => {
+    // Depende también de indiceGrupo: la letra filtra la consulta a Intranet,
+    // así que cambiar de paralelo debe volver a detectar las componentes.
+    if (selectedPlan && selectedAsig && agnoReal && semestreReal && indiceGrupo) {
+      fetchPreviewComponentes();
+    }
+  });
+
   const letraOptions = $derived.by(() => {
     const maxTomado = indicesGrupoTomados.length ? Math.max(...indicesGrupoTomados) : 0;
     const maxOpcion = Math.max(maxTomado, indiceGrupoSugerido ?? 1) + 3;
@@ -371,6 +440,10 @@
       indiceGrupoSugerido = null;
       indicesGrupoTomados = [];
       loadingLetra = false;
+      previewComponentes = [];
+      previewOrigen = null;
+      previewAdvertencias = [];
+      loadingPreview = false;
     }
   });
 
@@ -842,51 +915,62 @@
                 <!-- Divider -->
                 <div class="fields-divider"></div>
 
-                <!-- Componentes del curso -->
+                <!-- Componentes del curso: detectadas automáticamente, cero
+                     selección manual — sólo se muestran con su procedencia. -->
                 <div class="tipo-comp-section">
-                  <p class="tipo-comp-label">¿Qué componentes tendrá este curso?</p>
+                  <p class="tipo-comp-label">Componentes del curso</p>
                   <p class="tipo-comp-sublabel">
-                    Selecciona uno o más. El componente principal se determinará automáticamente
-                    (Cátedra &rsaquo; Taller &rsaquo; Laboratorio).
+                    {#if loadingPreview}
+                      Detectando componentes…
+                    {:else if previewOrigen === 'INTRANET'}
+                      Detectadas en la Intranet. El componente principal se determina
+                      automáticamente (Cátedra &rsaquo; Taller &rsaquo; Laboratorio).
+                    {:else if previewOrigen === 'PLAN'}
+                      Derivadas de las horas del Plan de Estudios (la Intranet no tiene oferta
+                      para este periodo).
+                    {:else}
+                      Se detectarán automáticamente al completar año, semestre y letra de grupo.
+                    {/if}
                   </p>
-                  <div class="tipo-comp-list">
-                    {#each tiposComponente as tc}
-                      {@const isSelected = selectedTipos.has(tc.id_tipo_componente)}
-                      {@const isPrincipal =
-                        isSelected &&
-                        principalTipo?.id_tipo_componente === tc.id_tipo_componente}
-                      <button
-                        type="button"
-                        class="tipo-comp-btn"
-                        class:selected={isSelected}
-                        onclick={() => {
-                          const next = new Set(selectedTipos);
-                          if (next.has(tc.id_tipo_componente)) next.delete(tc.id_tipo_componente);
-                          else next.add(tc.id_tipo_componente);
-                          selectedTipos = next;
-                        }}
-                      >
-                        <span class="tipo-comp-btn-name">{tc.tipo}</span>
-                        {#if isPrincipal}
-                          <span class="tipo-comp-principal-badge">Principal</span>
-                        {/if}
-                        {#if isSelected}
-                          <svg
-                            class="tipo-comp-check"
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="3"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg
+
+                  {#if loadingPreview}
+                    <div class="inline-spinner"></div>
+                  {:else if previewComponentes.length === 0}
+                    <p class="step-empty">
+                      No se detectó ninguna componente. Revisa el Plan de Estudios de esta
+                      asignatura antes de continuar.
+                    </p>
+                  {:else}
+                    <div class="tipo-comp-list">
+                      {#each previewComponentes as pc (pc.id_tipo_componente)}
+                        {@const isPrincipal = principalTipo?.id_tipo_componente === pc.id_tipo_componente}
+                        <div class="tipo-comp-btn selected">
+                          <span class="tipo-comp-btn-name">{pc.tipo}</span>
+                          <span
+                            class="origen-badge"
+                            class:origen-intranet={pc.origen === 'INTRANET'}
+                            class:origen-plan={pc.origen === 'PLAN'}
                           >
-                        {/if}
-                      </button>
-                    {/each}
-                  </div>
+                            {pc.origen === 'INTRANET' ? '🟢 Intranet' : '🔵 Plan de Estudios'}
+                          </span>
+                          {#if isPrincipal}
+                            <span class="tipo-comp-principal-badge">Principal</span>
+                          {/if}
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+
+                  {#if previewAdvertencias.length > 0}
+                    <div class="preview-advertencias">
+                      <p class="preview-advertencias-title">⚠️ Advertencias</p>
+                      <ul>
+                        {#each previewAdvertencias as adv}
+                          <li>{adv}</li>
+                        {/each}
+                      </ul>
+                    </div>
+                  {/if}
                 </div>
 
                 <!-- Divider -->
@@ -1333,7 +1417,10 @@
       {#if currentStep === 4}
         <div class="wiz-footer">
           {#if selectedTipos.size === 0}
-            <p class="docente-required-hint">Para crear el curso, elige al menos un componente.</p>
+            <p class="docente-required-hint">
+              No se detectó ninguna componente para este curso; revisa el Plan de Estudios de la
+              asignatura antes de continuar.
+            </p>
           {:else if !selectedDocente}
             <p class="docente-required-hint">Falta elegir el docente del curso.</p>
           {:else if docentesPorComponenteIncompleto}
@@ -2216,6 +2303,16 @@
     line-height: 1;
   }
 
+  /* Ya no son botones clicables (cero selección manual): son chips que sólo
+     muestran lo que se detectó. */
+  .tipo-comp-btn {
+    cursor: default;
+  }
+  .tipo-comp-btn:hover {
+    border-color: #d1d5db;
+    background: #ffffff;
+  }
+
   .tipo-comp-principal-badge {
     font-size: 0.625rem;
     font-weight: 700;
@@ -2227,9 +2324,45 @@
     border-radius: 999px;
   }
 
-  .tipo-comp-check {
-    color: #6366f1;
-    flex-shrink: 0;
+  /* ── Origen de componente (Intranet vs Plan de Estudios) ── */
+  .origen-badge {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .origen-badge.origen-intranet {
+    background: #dcfce7;
+    color: #15803d;
+  }
+  .origen-badge.origen-plan {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+
+  /* ── Advertencias del preview: cero skip silencioso ── */
+  .preview-advertencias {
+    margin-top: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+  }
+  .preview-advertencias-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #92400e;
+    margin: 0 0 0.25rem;
+  }
+  .preview-advertencias ul {
+    margin: 0;
+    padding-left: 1.1rem;
+  }
+  .preview-advertencias li {
+    font-size: 0.75rem;
+    color: #92400e;
+    line-height: 1.4;
   }
 
   .fields-section-title {

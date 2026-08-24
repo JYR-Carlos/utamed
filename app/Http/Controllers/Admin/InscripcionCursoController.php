@@ -482,6 +482,14 @@ class InscripcionCursoController extends Controller
 
             $mensaje = "Inscripción automática completada. Se procesaron {$resultado->total_procesados} alumnos ({$resultado->inscritos_exitosamente} inscritos exitosamente, {$resultado->alumnos_creados} nuevos creados).";
 
+            // Antes esta ruta sólo devolvía el resumen numérico: las advertencias
+            // (componentes de Intranet sin equivalente en UTAMED, etc.) quedaban
+            // en el JSON pero nunca llegaban al flash que realmente lee esta
+            // pantalla. Cero skip silencioso también aplica al mensaje flash.
+            if ($resultado->advertencias !== []) {
+                $mensaje .= ' Advertencias: ' . implode(' | ', $resultado->advertencias);
+            }
+
             if ($request->header('X-Inertia')) {
                 return redirect()->back()->with('success', $mensaje);
             }

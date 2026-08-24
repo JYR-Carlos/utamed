@@ -25,7 +25,7 @@ use App\Enums\External\TipoAsignatura;
  * CREAR CLASES PARA TIPAR EL RETORNO DE LAS VISTAS (NO MODELOS PORQUE NO SON DE ESTE SISTEMA)
  * 
  * metodos:
- *  traer_cur_codigos(semestre real, año real, cod carrera, cod plan, cod asignatura)
+ *  traer_cur_codigos(semestre real, año real, cod plan, cod asignatura)
  *      esto trae todos los cur-codigos de los cursos 
  *  traer_ins_id(cur_codigo) {}
  * 
@@ -42,9 +42,12 @@ class IntranetViewConnectionProvider extends ServiceProvider
                  * Obtiene los CUR_CODIGO de las componentes (cursos) asociadas a una asignatura.
                  * Permite filtrar opcionalmente por tipo de asignatura (C, T, L) y grupo (A, B, C...).
                  *
+                 * No filtra por carrera: Asignatura + Plan + Año + Semestre + Grupo ya
+                 * identifican la oferta sin ambigüedad, y el código de carrera de Oracle
+                 * no tiene equivalente confiable en UTAMED (ver migración 05, revertida).
+                 *
                  * @param int $semestre Semestre de la asignatura (number(1))
                  * @param int $agno Año académico (number(4))
-                 * @param int $carreraCod Código de carrera (number(3))
                  * @param int $planCod Código de plan de estudios (number(4))
                  * @param string $asigCodigo Código de asignatura (varchar(10))
                  * @param TipoAsignatura|string|null $tipoAsig Opcional: Tipo de asignatura (Cátedra, Taller, Laboratorio) (varchar(1))
@@ -55,7 +58,6 @@ class IntranetViewConnectionProvider extends ServiceProvider
                 public function traer_cur_codigos(
                     int $semestre,
                     int $agno,
-                    int $carreraCod,
                     int $planCod,
                     string $asigCodigo,
                     TipoAsignatura|string|null $tipoAsig = null,
@@ -67,9 +69,6 @@ class IntranetViewConnectionProvider extends ServiceProvider
                     }
                     if (abs($agno) > 9999) {
                         throw new \InvalidArgumentException("El año excede el límite permitido de 4 dígitos: {$agno}");
-                    }
-                    if (abs($carreraCod) > 999) {
-                        throw new \InvalidArgumentException("El código de carrera excede el límite permitido de 3 dígitos: {$carreraCod}");
                     }
                     if (abs($planCod) > 9999) {
                         throw new \InvalidArgumentException("El código de plan excede el límite permitido de 4 dígitos: {$planCod}");
@@ -90,7 +89,6 @@ class IntranetViewConnectionProvider extends ServiceProvider
                     $query = VwCarreraCurso::select(['CUR_CODIGO', 'CURSO_TIPO_ASIG', 'CURSO_GRUPO_ASIG'])
                         ->where('CURSO_SEMESTRE_ASIG', $semestre)
                         ->where('CURSO_ANO', $agno)
-                        ->where('CARRERA_COD', $carreraCod)
                         ->where('PLAN_ANO', $planCod)
                         ->where('ASIG_CODIGO', $asigCodigo);
 
