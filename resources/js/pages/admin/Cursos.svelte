@@ -22,6 +22,8 @@
   import SyllabusTypeSelector from '@/modules/resources/programa/components/SyllabusTypeSelector.svelte';
   import { CourseTeamModal, CursoWizardModal } from '@/modules/resources/curso/components';
   import CursoCopyPreviewModal from '@/modules/resources/curso/components/cursoCopyPreviewModal.svelte';
+  import CursoSincronizarIntranetModal from '@/modules/resources/curso/components/cursoSincronizarIntranetModal.svelte';
+  import CursoSincronizarMasivoModal from '@/modules/resources/curso/components/cursoSincronizarMasivoModal.svelte';
   // ── Componentes modulares FASE 1 ──
   import CursoForm from '@/modules/resources/curso/components/cursoForm.svelte';
   import CursoDeleteConfirm from '@/modules/resources/curso/components/cursoDeleteConfirm.svelte';
@@ -98,6 +100,9 @@
   let showSyllabusModal = $state(false);
   let showCopyModal = $state(false);
   let copyingCurso = $state<Curso | null>(null);
+  let showSyncModal = $state(false);
+  let syncingCurso = $state<Curso | null>(null);
+  let showSyncMasivoModal = $state(false);
   let isLoading = $state(false);
   let editingCurso = $state<Curso | null>(null);
   let deletingCurso = $state<Curso | null>(null);
@@ -429,6 +434,12 @@
     closeSlideOver();
   }
 
+  function openSyncModal(curso: Curso) {
+    syncingCurso = curso;
+    showSyncModal = true;
+    closeSlideOver();
+  }
+
   function openSyllabusModal(curso: Curso) {
     if (curso.has_programa || curso.id_programa || curso.programa_estado) {
       router.visit(`/admin/cursos/${curso.id_curso}/programa/revisar`, { method: 'get' });
@@ -487,6 +498,11 @@
   <div>
     <!-- TODO: FALTA FILTRAR POR DEPARTAMENTO/CARRERA -->
     <PageHeader title="Cursos ofertados" subtitle="Gestión de cursos del sistema completo">
+      {#snippet secondaryActions()}
+        <button onclick={() => (showSyncMasivoModal = true)} class="btn btn-neutral">
+          Sincronizar con Intranet
+        </button>
+      {/snippet}
       {#snippet primaryAction()}
         <button onclick={openCreateModal} class="btn btn-primary">
           <svg
@@ -768,6 +784,7 @@
       openSyllabusModal(curso);
     }}
     onCopy={openCopyModal}
+    onSincronizarIntranet={openSyncModal}
     onAddComponente={(curso) => {
       closeSlideOver();
       openComponenteModal(curso);
@@ -844,6 +861,33 @@
       }}
     />
   {/if}
+
+  <!-- Sincronización con Intranet: revisar antes de confirmar (un curso) -->
+  <CursoSincronizarIntranetModal
+    isOpen={showSyncModal}
+    curso={syncingCurso}
+    onClose={() => {
+      showSyncModal = false;
+      syncingCurso = null;
+    }}
+    onSuccess={(msg) => {
+      showSyncModal = false;
+      syncingCurso = null;
+      showToast(msg, 'success');
+    }}
+  />
+
+  <!-- Sincronización con Intranet: revisar antes de confirmar (varios cursos) -->
+  <CursoSincronizarMasivoModal
+    isOpen={showSyncMasivoModal}
+    onClose={() => {
+      showSyncMasivoModal = false;
+    }}
+    onSuccess={(msg) => {
+      showSyncMasivoModal = false;
+      showToast(msg, 'success');
+    }}
+  />
 
   <!-- ComponenteForm Modal - Crear/Editar componentes -->
   {#if editingCurso}

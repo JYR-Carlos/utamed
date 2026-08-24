@@ -13,6 +13,15 @@ use App\Models\Base\Curso\BaseTipoComponente;
 class TipoComponente extends BaseTipoComponente
 {
     /**
+     * Sin esto, `prioridad` (accessor) nunca viajaba al frontend al serializar
+     * el catálogo completo (Inertia sólo serializa atributos de BD + $appends),
+     * así que el wizard siempre ordenaba con el mismo valor por defecto (99)
+     * y "componente principal" quedaba en el orden de la BD, no en la
+     * jerarquía Cátedra > Taller > Laboratorio.
+     */
+    protected $appends = ['prioridad'];
+
+    /**
      * Jerarquía de prioridad de componentes.
      * Menor número = mayor prioridad = componente principal.
      * CATEDRA > TALLER > LABORATORIO

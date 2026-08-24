@@ -15,34 +15,6 @@
   import { router } from '@inertiajs/svelte';
   import type { Curso, Componente } from '../types/curso.types';
 
-  let isInscribiendo = $state(false);
-
-  function handleInscribirAutomatica(cursoObj: Curso) {
-    if (!cursoObj) return;
-    isInscribiendo = true;
-    router.post(`/admin/cursos/${cursoObj.id_curso}/inscripcion-automatica`, {}, {
-      preserveScroll: true,
-      onSuccess: (pageObj: any) => {
-        isInscribiendo = false;
-        const flashErr = pageObj?.props?.flash?.error;
-        const flashSucc = pageObj?.props?.flash?.success;
-        if (flashErr) {
-          alert(`Error de Inscripción Intranet:\n\n${flashErr}`);
-        } else if (flashSucc) {
-          alert(`Inscripción Intranet:\n\n${flashSucc}`);
-        }
-      },
-      onError: (err: any) => {
-        isInscribiendo = false;
-        const msg = typeof err === 'string' ? err : (err?.error || 'Error al conectar con la Intranet');
-        alert(`Error al procesar inscripción automática:\n\n${msg}`);
-      },
-      onFinish: () => {
-        isInscribiendo = false;
-      }
-    });
-  }
-
 
 
   interface Props {
@@ -57,6 +29,7 @@
     onAddComponente?: (curso: Curso) => void;
     onEditComponente?: (curso: Curso, comp: Componente) => void;
     onDeleteComponente?: (curso: Curso, comp: Componente) => void;
+    onSincronizarIntranet?: (curso: Curso) => void;
   }
 
   let {
@@ -71,6 +44,7 @@
     onAddComponente = () => {},
     onEditComponente = () => {},
     onDeleteComponente = () => {},
+    onSincronizarIntranet = () => {},
   }: Props = $props();
 
   type Tab = 'secciones' | 'equipo' | 'configuracion';
@@ -653,13 +627,12 @@
            principal. Ahora sólo «Editar curso» va destacada. -->
       <div class="flex items-center gap-2">
         <button
-          onclick={() => handleInscribirAutomatica(curso!)}
-          disabled={isInscribiendo}
+          onclick={() => onSincronizarIntranet(curso!)}
           class="btn btn-neutral"
-          title="Trae la nómina de estudiantes que la Intranet tiene inscritos en este curso"
+          title="Detecta componentes y alumnos en la Intranet, y deja revisar antes de confirmar"
         >
           <UserPlus size={14} />
-          {isInscribiendo ? 'Inscribiendo…' : 'Inscribir desde Intranet'}
+          Sincronizar con Intranet
         </button>
         <button
           onclick={() => onCopy(curso)}

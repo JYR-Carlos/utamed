@@ -22,7 +22,6 @@ class IntranetViewConnectionTest extends TestCase
     private function validateTraerCurCodigos(
         int $semestre,
         int $ano,
-        int $carreraCod,
         int $planCod,
         string $asigCodigo,
         TipoAsignatura|string|null $tipoAsig = null,
@@ -33,9 +32,6 @@ class IntranetViewConnectionTest extends TestCase
         }
         if (abs($ano) > 9999) {
             throw new InvalidArgumentException("El año excede el límite permitido de 4 dígitos: {$ano}");
-        }
-        if (abs($carreraCod) > 999) {
-            throw new InvalidArgumentException("El código de carrera excede el límite permitido de 3 dígitos: {$carreraCod}");
         }
         if (abs($planCod) > 9999) {
             throw new InvalidArgumentException("El código de plan excede el límite permitido de 4 dígitos: {$planCod}");
@@ -59,7 +55,7 @@ class IntranetViewConnectionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('El semestre excede el límite permitido de 1 dígito');
 
-        $this->validateTraerCurCodigos(12, 2026, 123, 2020, 'INF-101');
+        $this->validateTraerCurCodigos(12, 2026, 2020, 'INF-101');
     }
 
     public function test_valida_ano_excesivo()
@@ -67,15 +63,7 @@ class IntranetViewConnectionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('El año excede el límite permitido de 4 dígitos');
 
-        $this->validateTraerCurCodigos(1, 20260, 123, 2020, 'INF-101');
-    }
-
-    public function test_valida_carrera_cod_excesivo()
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('El código de carrera excede el límite permitido de 3 dígitos');
-
-        $this->validateTraerCurCodigos(1, 2026, 1234, 2020, 'INF-101');
+        $this->validateTraerCurCodigos(1, 20260, 2020, 'INF-101');
     }
 
     public function test_valida_asig_codigo_excesivo()
@@ -83,7 +71,7 @@ class IntranetViewConnectionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('El código de asignatura excede el límite permitido de 10 caracteres');
 
-        $this->validateTraerCurCodigos(1, 2026, 123, 2020, 'CODIGO_EXCESIVAMENTE_LARGO');
+        $this->validateTraerCurCodigos(1, 2026, 2020, 'CODIGO_EXCESIVAMENTE_LARGO');
     }
 
     public function test_valida_tipo_asig_excesivo()
@@ -91,7 +79,7 @@ class IntranetViewConnectionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('El tipo de asignatura excede el límite permitido de 1 carácter');
 
-        $this->validateTraerCurCodigos(1, 2026, 123, 2020, 'INF-101', 'CATEDRA');
+        $this->validateTraerCurCodigos(1, 2026, 2020, 'INF-101', 'CATEDRA');
     }
 
     public function test_valida_grupo_asig_excesivo()
@@ -99,14 +87,14 @@ class IntranetViewConnectionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('El grupo de asignatura excede el límite permitido de 2 caracteres');
 
-        $this->validateTraerCurCodigos(1, 2026, 123, 2020, 'INF-101', TipoAsignatura::Catedra, 'GRUPO_LARGO');
+        $this->validateTraerCurCodigos(1, 2026, 2020, 'INF-101', TipoAsignatura::Catedra, 'GRUPO_LARGO');
     }
 
     public function test_mocking_de_oracle_data_service_sin_base_de_datos()
     {
         $mock = Mockery::mock();
         $mock->shouldReceive('traer_cur_codigos')
-            ->with(1, 2026, 123, 2020, 'INF-101', TipoAsignatura::Catedra, 'A')
+            ->with(1, 2026, 2020, 'INF-101', TipoAsignatura::Catedra, 'A')
             ->once()
             ->andReturn(collect([
                 new ComponenteCursoData(
@@ -116,7 +104,7 @@ class IntranetViewConnectionTest extends TestCase
                 )
             ]));
 
-        $resultado = $mock->traer_cur_codigos(1, 2026, 123, 2020, 'INF-101', TipoAsignatura::Catedra, 'A');
+        $resultado = $mock->traer_cur_codigos(1, 2026, 2020, 'INF-101', TipoAsignatura::Catedra, 'A');
 
         $this->assertCount(1, $resultado);
         $this->assertEquals(202610000351, $resultado->first()->cur_codigo);
