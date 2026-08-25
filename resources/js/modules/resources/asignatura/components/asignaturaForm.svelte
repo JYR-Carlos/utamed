@@ -3,9 +3,11 @@
    * asignaturaForm — Modal de creación/edición de asignaturas.
    *
    * - Crear:  POST {routePrefix}/asignaturas
-   * - Editar: PUT  {routePrefix}/asignaturas/{id}. El backend no modifica el
-   *   registro existente: crea una nueva versión de la asignatura y marca la
-   *   anterior como histórica (de ahí el aviso "Creando nueva versión").
+   * - Editar: PUT  {routePrefix}/asignaturas/{id}. Requiere elegir un tipo de
+   *   edición:
+   *   - correctiva: corrige datos mal escritos, actualiza el registro existente.
+   *   - version: cambio grande; el backend crea una nueva versión de la
+   *     asignatura y marca la anterior como histórica.
    */
   import FormModal from '@/components/custom/admin/FormModal.svelte';
   import { useForm } from '@inertiajs/svelte';
@@ -43,6 +45,8 @@
     horas_laboratorio: 0,
     horas_dirigidas: 0,
     horas_autonomas: 0,
+    /** Solo aplica en modo edición; se ignora al crear. */
+    tipo_edicion: '' as '' | 'correctiva' | 'version',
   };
 
   /** Valores del formulario a partir de una asignatura existente (modo edición). */
@@ -57,6 +61,8 @@
       horas_laboratorio: asignatura.horas_laboratorio || 0,
       horas_dirigidas: asignatura.horas_dirigidas || 0,
       horas_autonomas: asignatura.horas_autonomas || 0,
+      // Se exige elegir el tipo de edición en cada apertura del modal.
+      tipo_edicion: '' as '' | 'correctiva' | 'version',
     };
   }
 
@@ -90,7 +96,7 @@
     onClose();
   }
 
-  /** Envía el formulario: POST crea una asignatura, PUT genera una nueva versión. */
+  /** Envía el formulario: POST crea una asignatura, PUT aplica el tipo de edición elegido. */
   function handleSubmit() {
     const url = editingAsignatura
       ? `${routePrefix}/asignaturas/${editingAsignatura.id_asignatura}`
@@ -117,38 +123,69 @@
 
 <FormModal
   bind:isOpen
-  title={editingAsignatura ? 'Crear Nueva Versión de Asignatura' : 'Nueva Asignatura'}
+  title={editingAsignatura ? 'Editar Asignatura' : 'Nueva Asignatura'}
   onClose={handleClose}
   onSubmit={handleSubmit}
   isLoading={$formData.processing}
+  submitDisabled={!!editingAsignatura && !$formData.tipo_edicion}
 >
   {#if editingAsignatura}
-    <div class="mb-4 flex gap-3 items-start bg-blue-50 border border-blue-300 rounded-lg px-4 py-3">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        class="text-blue-500 mt-0.5 shrink-0"
-        ><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line
-          x1="12"
-          y1="8"
-          x2="12.01"
-          y2="8"
-        /></svg
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-2" for="tipo_edicion_correctiva"
+        >Tipo de edición</label
       >
-      <div>
-        <p class="text-sm font-semibold text-blue-800">Creando nueva versión</p>
-        <p class="text-xs text-blue-700 mt-0.5">
-          Los cambios crearán una <strong>nueva versión</strong> de la asignatura. La versión anterior
-          será marcada como histórica. Esto preserva el historial completo de cambios.
-        </p>
+      <div class="space-y-2">
+        <label
+          for="tipo_edicion_correctiva"
+          class="flex items-start gap-3 border rounded-lg px-4 py-3 cursor-pointer transition-colors"
+          class:border-blue-500={$formData.tipo_edicion === 'correctiva'}
+          class:bg-blue-50={$formData.tipo_edicion === 'correctiva'}
+          class:border-gray-300={$formData.tipo_edicion !== 'correctiva'}
+        >
+          <input
+            id="tipo_edicion_correctiva"
+            type="radio"
+            name="tipo_edicion"
+            value="correctiva"
+            bind:group={$formData.tipo_edicion}
+            class="mt-1"
+          />
+          <div>
+            <p class="text-sm font-semibold text-gray-800">Edición correctiva</p>
+            <p class="text-xs text-gray-600 mt-0.5">
+              Corrige datos mal escritos (typos, errores menores). Actualiza el registro existente,
+              sin crear una nueva versión.
+            </p>
+          </div>
+        </label>
+
+        <label
+          for="tipo_edicion_version"
+          class="flex items-start gap-3 border rounded-lg px-4 py-3 cursor-pointer transition-colors"
+          class:border-blue-500={$formData.tipo_edicion === 'version'}
+          class:bg-blue-50={$formData.tipo_edicion === 'version'}
+          class:border-gray-300={$formData.tipo_edicion !== 'version'}
+        >
+          <input
+            id="tipo_edicion_version"
+            type="radio"
+            name="tipo_edicion"
+            value="version"
+            bind:group={$formData.tipo_edicion}
+            class="mt-1"
+          />
+          <div>
+            <p class="text-sm font-semibold text-gray-800">Edición versionada</p>
+            <p class="text-xs text-gray-600 mt-0.5">
+              Cambio grande que implica una nueva asignatura. Crea una <strong>nueva versión</strong> y
+              marca la anterior como histórica, preservando el historial completo de cambios.
+            </p>
+          </div>
+        </label>
       </div>
+      {#if $formData.errors.tipo_edicion}
+        <p class="text-red-500 text-sm">{$formData.errors.tipo_edicion}</p>
+      {/if}
     </div>
   {/if}
 

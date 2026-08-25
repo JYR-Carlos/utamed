@@ -510,6 +510,12 @@ export interface AsignaturaFormData {
     horas_dirigidas?: number;
     /** Autonomous study hours */
     horas_autonomas?: number;
+    /**
+     * Edit type, required only when updating an existing subject:
+     * 'correctiva' updates the record in place, 'version' soft-deletes the
+     * previous record and creates a new versioned one.
+     */
+    tipo_edicion?: 'correctiva' | 'version';
     /** Allow additional form fields */
     [key: string]: FormDataConvertible;
 }

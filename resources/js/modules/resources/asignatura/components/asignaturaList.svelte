@@ -16,7 +16,7 @@
     asignaturas: PaginatedResponse<Asignatura>;
     /** Abre el modal de creación. */
     onCreateNew?: () => void;
-    /** Abre el modal de edición (crea nueva versión al guardar). */
+    /** Abre el modal de edición (el padre elige corrección o nueva versión al guardar). */
     onEdit?: (asignatura: Asignatura) => void;
     /** Abre la confirmación de borrado. */
     onDelete?: (asignatura: Asignatura) => void;
@@ -41,7 +41,8 @@
   <PageHeader title="Asignaturas" subtitle="Gestión del catálogo de asignaturas">
     {#snippet note()}
       <p class="badge badge-info">
-        Al editar una asignatura se crea una nueva versión y se conserva el historial de cambios.
+        Al editar una asignatura eliges el tipo: corrección en el mismo registro, o nueva versión
+        que conserva el historial de cambios.
       </p>
     {/snippet}
     {#snippet primaryAction()}

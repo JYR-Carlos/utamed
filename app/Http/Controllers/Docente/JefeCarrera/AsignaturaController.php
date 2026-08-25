@@ -29,7 +29,11 @@ class AsignaturaController extends Controller
     {
         $carreraId = $this->carreraIdOrAbort();
 
-        $query = Asignatura::select(['id_asignatura', 'cod_asignatura', 'nombre', 'creditos_sct', 'fecha_creacion'])
+        $query = Asignatura::select([
+            'id_asignatura', 'cod_asignatura', 'nombre', 'descripcion', 'creditos_sct',
+            'horas_catedra', 'horas_taller', 'horas_laboratorio', 'horas_dirigidas', 'horas_autonomas',
+            'fecha_creacion',
+        ])
             ->active()
             ->withCount('asignacionPlanes as planes_count')
             // Solo asignaturas usadas en planes de la carrera del jefe.
@@ -97,6 +101,7 @@ class AsignaturaController extends Controller
         $this->assertAsignaturaDeCarrera($asignatura, $carreraId);
 
         $validated = $request->validate([
+            'tipo_edicion' => ['required', Rule::in(['correctiva', 'version'])],
             'cod_asignatura' => [
                 'required',
                 'string',
@@ -115,13 +120,22 @@ class AsignaturaController extends Controller
             'horas_autonomas' => 'nullable|integer|min:0',
         ]);
 
-        try {
-            // Versionado: soft-delete de la versión anterior + nueva versión.
-            $asignatura->delete();
-            Asignatura::create($validated);
+        $tipoEdicion = $validated['tipo_edicion'];
+        unset($validated['tipo_edicion']);
 
-            return redirect(self::PREFIX . '/asignaturas')
-                ->with('success', 'Asignatura actualizada exitosamente. Se ha creado una nueva versión del registro.');
+        try {
+            if ($tipoEdicion === 'correctiva') {
+                // Edición correctiva: actualiza el registro existente, sin versionar.
+                $asignatura->update($validated);
+                $message = 'Asignatura corregida exitosamente.';
+            } else {
+                // Edición versionada: soft-delete de la versión anterior + nueva versión.
+                $asignatura->delete();
+                Asignatura::create($validated);
+                $message = 'Asignatura actualizada exitosamente. Se ha creado una nueva versión del registro.';
+            }
+
+            return redirect(self::PREFIX . '/asignaturas')->with('success', $message);
         } catch (\Exception $e) {
             Log::error('Error al actualizar asignatura (jefe de carrera): ' . $e->getMessage());
 
