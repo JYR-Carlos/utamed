@@ -161,7 +161,8 @@ test('caso real: usuario con permiso específico solo puede esa acción', functi
 test('match exacto de slug anidado retorna true', function () {
     expect(WildcardMatcher::matches(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::CURSOS_INSCRIPCIONES_VER))->toBeTrue();
     expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR, Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR))->toBeTrue();
-    expect(WildcardMatcher::matches(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::ACTIVIDADES_GRUPOS_CREAR, Permissions::ACTIVIDADES_GRUPOS_CREAR))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1, Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1))->toBeTrue();
 });
 
 test('match exacto de slug anidado con acción diferente retorna false', function () {
@@ -181,11 +182,12 @@ test('wildcard de recurso anidado coincide con cualquier acción del mismo recur
     expect(WildcardMatcher::matches(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::CURSOS_INSCRIPCIONES_ALL))->toBeTrue();
     expect(WildcardMatcher::matches(Permissions::CURSOS_INSCRIPCIONES_ELIMINAR_INSCRIPCIONES, Permissions::CURSOS_INSCRIPCIONES_ALL))->toBeTrue();
     expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR, Permissions::USUARIOS_PERMISOS_ROLES_ALL))->toBeTrue();
-    expect(WildcardMatcher::matches(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, Permissions::CURSOS_ACTIVIDADES_GRUPOS_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::ACTIVIDADES_GRUPOS_CREAR, Permissions::ACTIVIDADES_GRUPOS_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1, Permissions::CURSOS_PROGRAMAS_MODIFICAR_ALL))->toBeTrue();
 });
 
 test('wildcard de recurso anidado NO coincide con otro recurso del mismo nivel', function () {
-    expect(WildcardMatcher::matches(Permissions::CURSOS_SECCIONES_VER, Permissions::CURSOS_INSCRIPCIONES_ALL))->toBeFalse();
+    expect(WildcardMatcher::matches(Permissions::COMPONENTES_VER, Permissions::CURSOS_INSCRIPCIONES_ALL))->toBeFalse();
     expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_INDIVIDUALES_VER_DISPONIBLES, Permissions::USUARIOS_PERMISOS_ROLES_ALL))->toBeFalse();
 });
 
@@ -196,16 +198,18 @@ test('wildcard de recurso anidado NO coincide con otro recurso del mismo nivel',
 test('wildcard de recurso padre hereda a hijos directos', function () {
     // 'cursos:*' debe matchear cualquier acción en cualquier subrecurso de cursos
     expect(WildcardMatcher::matches(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::CURSOS_ALL))->toBeTrue();
-    expect(WildcardMatcher::matches(Permissions::CURSOS_SECCIONES_CREAR, Permissions::CURSOS_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_UNIDADES_CREAR, Permissions::CURSOS_ALL))->toBeTrue();
     expect(WildcardMatcher::matches(Permissions::CURSOS_UNIDADES_EDITAR, Permissions::CURSOS_ALL))->toBeTrue();
-    expect(WildcardMatcher::matches(Permissions::CURSOS_ACTIVIDADES_ELIMINAR, Permissions::CURSOS_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_PROGRAMAS_AGREGAR, Permissions::CURSOS_ALL))->toBeTrue();
 });
 
 test('wildcard de recurso padre hereda a nietos y profundidades arbitrarias', function () {
-    expect(WildcardMatcher::matches(Permissions::CURSOS_ACTIVIDADES_GRUPOS_VER, Permissions::CURSOS_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::ACTIVIDADES_GRUPOS_VER, Permissions::ACTIVIDADES_ALL))->toBeTrue();
     expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR, Permissions::USUARIOS_ALL))->toBeTrue();
     expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_INDIVIDUALES_VER_DISPONIBLES, Permissions::USUARIOS_ALL))->toBeTrue();
-    expect(WildcardMatcher::matches(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, Permissions::CURSOS_ACTIVIDADES_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::ACTIVIDADES_GRUPOS_CREAR, Permissions::ACTIVIDADES_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1, Permissions::CURSOS_ALL))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1, Permissions::CURSOS_PROGRAMAS_ALL))->toBeTrue();
 });
 
 test('wildcard de recurso padre NO hereda en dirección inversa', function () {
@@ -234,18 +238,21 @@ test('wildcard de recurso plano NO matchea recursos anidados (solo hereda con :*
 test('extractResource soporta rutas anidadas', function () {
     expect(WildcardMatcher::extractResource(Permissions::CURSOS_INSCRIPCIONES_VER))->toBe('cursos/inscripciones');
     expect(WildcardMatcher::extractResource(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR))->toBe('usuarios/permisos/roles');
-    expect(WildcardMatcher::extractResource(Permissions::CURSOS_ACTIVIDADES_GRUPOS_ALL))->toBe('cursos/actividades/grupos');
+    expect(WildcardMatcher::extractResource(Permissions::ACTIVIDADES_GRUPOS_ALL))->toBe('actividades/grupos');
+    expect(WildcardMatcher::extractResource(Permissions::CURSOS_PROGRAMAS_MODIFICAR_ALL))->toBe('cursos/programas/modificar');
 });
 
 test('extractAction soporta slugs anidados', function () {
     expect(WildcardMatcher::extractAction(Permissions::CURSOS_INSCRIPCIONES_VER))->toBe('ver');
     expect(WildcardMatcher::extractAction(Permissions::CURSOS_INSCRIPCIONES_ALL))->toBe('*');
     expect(WildcardMatcher::extractAction(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR))->toBe('gestionar');
+    expect(WildcardMatcher::extractAction(Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1))->toBe('modulo_1');
 });
 
 test('extractResourceSegments retorna los segmentos de la ruta', function () {
     expect(WildcardMatcher::extractResourceSegments(Permissions::CURSOS_INSCRIPCIONES_VER))->toBe(['cursos', 'inscripciones']);
-    expect(WildcardMatcher::extractResourceSegments(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR))->toBe(['cursos', 'actividades', 'grupos']);
+    expect(WildcardMatcher::extractResourceSegments(Permissions::ACTIVIDADES_GRUPOS_CREAR))->toBe(['actividades', 'grupos']);
+    expect(WildcardMatcher::extractResourceSegments(Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1))->toBe(['cursos', 'programas', 'modificar']);
     expect(WildcardMatcher::extractResourceSegments(Permissions::FACULTADES_VER))->toBe(['facultades']);
     expect(WildcardMatcher::extractResourceSegments(Permissions::GLOBAL_WILDCARD))->toBe(['*']);
 });
@@ -302,9 +309,9 @@ test('getPriority retorna 2 para wildcard del mismo recurso anidado', function (
 
 test('getPriority retorna 3 para wildcard de recurso ancestro', function () {
     expect(WildcardMatcher::getPriority(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::CURSOS_ALL))->toBe(3);
-    expect(WildcardMatcher::getPriority(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, Permissions::CURSOS_ALL))->toBe(3);
+    expect(WildcardMatcher::getPriority(Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1, Permissions::CURSOS_ALL))->toBe(3);
     expect(WildcardMatcher::getPriority(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR, Permissions::USUARIOS_ALL))->toBe(3);
-    expect(WildcardMatcher::getPriority(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, Permissions::CURSOS_ACTIVIDADES_ALL))->toBe(3);
+    expect(WildcardMatcher::getPriority(Permissions::ACTIVIDADES_GRUPOS_CREAR, Permissions::ACTIVIDADES_ALL))->toBe(3);
 });
 
 // ============================================================================
@@ -317,13 +324,12 @@ test('caso real: director puede gestionar todo en cursos con cursos:*', function
         Permissions::CURSOS_INSCRIPCIONES_VER,
         Permissions::CURSOS_INSCRIPCIONES_INSCRIBIR_ALUMNOS,
         Permissions::CURSOS_INSCRIPCIONES_ELIMINAR_INSCRIPCIONES,
-        Permissions::CURSOS_SECCIONES_VER,
-        Permissions::CURSOS_SECCIONES_CREAR,
         Permissions::CURSOS_UNIDADES_VER,
-        Permissions::CURSOS_ACTIVIDADES_VER,
-        Permissions::CURSOS_ACTIVIDADES_EVALUAR,
-        Permissions::CURSOS_ACTIVIDADES_GRUPOS_VER,
-        Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR,
+        Permissions::CURSOS_UNIDADES_CREAR,
+        Permissions::CURSOS_UNIDADES_EDITAR,
+        Permissions::CURSOS_PROGRAMAS_VER_TODOS,
+        Permissions::CURSOS_PROGRAMAS_AGREGAR,
+        Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1,
     ] as $slug) {
         expect(WildcardMatcher::matches($slug, Permissions::CURSOS_ALL))
             ->toBeTrue("Se esperaba match de '{$slug->value}' con " . Permissions::CURSOS_ALL->value);
@@ -341,7 +347,8 @@ test('caso real: admin de permisos puede gestionar roles con usuarios/permisos/r
 test('caso real: wildcard global matchea slugs anidados', function () {
     expect(WildcardMatcher::matches(Permissions::CURSOS_INSCRIPCIONES_VER, Permissions::GLOBAL_WILDCARD))->toBeTrue();
     expect(WildcardMatcher::matches(Permissions::USUARIOS_PERMISOS_ROLES_GESTIONAR, Permissions::GLOBAL_WILDCARD))->toBeTrue();
-    expect(WildcardMatcher::matches(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, Permissions::GLOBAL_WILDCARD))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::ACTIVIDADES_GRUPOS_CREAR, Permissions::GLOBAL_WILDCARD))->toBeTrue();
+    expect(WildcardMatcher::matches(Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1, Permissions::GLOBAL_WILDCARD))->toBeTrue();
 });
 
 // ============================================================================
@@ -368,13 +375,13 @@ test('generatePermissionPatterns genera patrones para slug anidado 2 niveles', f
 });
 
 test('generatePermissionPatterns genera patrones para slug anidado 3 niveles', function () {
-    $patterns = WildcardMatcher::generatePermissionPatterns(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR);
+    $patterns = WildcardMatcher::generatePermissionPatterns(Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1);
     expect($patterns)->toBe([
-        Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR->value,      // exacto
-        Permissions::CURSOS_ACTIVIDADES_GRUPOS_ALL->value,        // wildcard mismo recurso
-        Permissions::CURSOS_ACTIVIDADES_ALL->value,               // wildcard ancestro 1
-        Permissions::CURSOS_ALL->value,                           // wildcard ancestro 2
-        Permissions::GLOBAL_WILDCARD->value,                      // wildcard global
+        Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1->value,      // exacto
+        Permissions::CURSOS_PROGRAMAS_MODIFICAR_ALL->value,           // wildcard mismo recurso
+        Permissions::CURSOS_PROGRAMAS_ALL->value,                     // wildcard ancestro 1
+        Permissions::CURSOS_ALL->value,                               // wildcard ancestro 2
+        Permissions::GLOBAL_WILDCARD->value,                          // wildcard global
     ]);
 });
 
@@ -398,7 +405,7 @@ test('generatePermissionPatterns con wildcard global', function () {
 });
 
 test('todos los patrones generados coinciden con el permiso solicitado', function () {
-    $requested = Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR;
+    $requested = Permissions::CURSOS_PROGRAMAS_MODIFICAR_MODULO_1;
     $patterns = WildcardMatcher::generatePermissionPatterns($requested);
     $requestedValue = $requested->value;
 

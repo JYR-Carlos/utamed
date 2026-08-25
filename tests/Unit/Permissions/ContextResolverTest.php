@@ -3,13 +3,13 @@
 use App\Services\ContextResolver;
 
 // Cargar los stubs (se cargan solo en testing)
-require_once __DIR__ . '/../Stubs/CarreraStub.php';
-require_once __DIR__ . '/../Stubs/PlanStub.php';
-require_once __DIR__ . '/../Stubs/AsignacionPlanStub.php';
-require_once __DIR__ . '/../Stubs/UsuarioStub.php';
-require_once __DIR__ . '/../Stubs/CursoStub.php';
-require_once __DIR__ . '/../Stubs/EstudianteStub.php';
-require_once __DIR__ . '/../Stubs/InscripcionCursoStub.php';
+require_once __DIR__ . '/../../Stubs/CarreraStub.php';
+require_once __DIR__ . '/../../Stubs/PlanStub.php';
+require_once __DIR__ . '/../../Stubs/AsignacionPlanStub.php';
+require_once __DIR__ . '/../../Stubs/UsuarioStub.php';
+require_once __DIR__ . '/../../Stubs/CursoStub.php';
+require_once __DIR__ . '/../../Stubs/EstudianteStub.php';
+require_once __DIR__ . '/../../Stubs/InscripcionCursoStub.php';
 
 // Usar alias para evitar conflictos con los modelos reales
 use App\Models\Administrativo\Carrera as CarreraStub;

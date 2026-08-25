@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Integration;
+namespace Tests\Integration\Permissions;
 
 use App\Models\Administrativo\AsignacionPlan;
 use App\Models\Administrativo\Asignatura;
