@@ -63,28 +63,7 @@ class EstudianteService
      */
     public function crearDesdeIntranet(AlumnoIntranetData $datos, Carrera $carrera): Estudiante
     {
-        return DB::transaction(function () use ($datos, $carrera) {
-            $rutFormateado = $this->formatRut($datos->alum_rut, $datos->alum_digito);
-            $username = (string)$datos->alum_rut;
-
-            $usuario = Usuario::create([
-                'username'    => $username,
-                'passhash'    => Hash::make($username),
-                'rut'         => $rutFormateado,
-                'nombre1'     => $datos->alum_nombre,
-                'nombre2'     => null,
-                'apellido1'   => $datos->alum_apellido_pat,
-                'apellido2'   => $datos->alum_apellido_mat,
-                'email'       => null,
-                'esta_activo' => true,
-            ]);
-
-            return Estudiante::create([
-                'id_usuario'   => $usuario->id_usuario,
-                'id_carrera'   => $carrera->id_carrera,
-                'agno_ingreso' => (int)now()->year,
-            ]);
-        });
+        return Estudiante::createFromIntranet($datos, $carrera);
     }
 
     /**

@@ -427,3 +427,14 @@ A continuación se describe el flujo completo desde la configuración hasta que 
    solo-lectura (estado APROBADO o PUBLICADO).
 ```
 
+---
+
+## Convenciones de Datos y Formato de Nombres
+
+- **Almacenamiento en Base de Datos (PostgreSQL)**:
+  - Todos los nombres y apellidos (`Usuario->nombre1`, `nombre2`, `apellido1`, `apellido2`) se guardan **SIEMPRE en MAYÚSCULAS** (`MB_CASE_UPPER`) mediante mutadores de Eloquent.
+  - Esto garantiza que no existan discrepancias por casing (`"González"` vs `"GONZÁLEZ"` vs `"gonzalez"`), asegurando búsquedas deterministas, unicidad y consistencia en integraciones.
+- **Visualización en Frontend (Svelte)**:
+  - La capa de presentación (UI Svelte / Inertia) es la encargada de transformar y formatear los nombres a formato capitalizado (*Title Case* / `capitalize`) para su lectura agradable en pantalla.
+
+

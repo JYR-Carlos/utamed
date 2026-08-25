@@ -79,6 +79,46 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
+     * ESTÁNDAR DE NOMBRES EN BASE DE DATOS:
+     * 
+     * Todos los nombres y apellidos se guardan SIEMPRE en MAYÚSCULAS en la base de datos
+     * (PostgreSQL) para evitar discrepancias de casing, búsquedas inconsistentes o duplicidades.
+     * La transformación visual a formato Capitalizado / Title Case para el usuario
+     * es responsabilidad exclusiva de la capa de presentación (Frontend Svelte / Resources).
+     */
+    protected function nombre1(): Attribute
+    {
+        return Attribute::make(
+            set: fn(?string $val) => !is_null($val) ? mb_strtoupper(preg_replace('/\s+/u', ' ', trim($val)), 'UTF-8') : null,
+        );
+    }
+
+    protected function nombre2(): Attribute
+    {
+        return Attribute::make(
+            set: fn(?string $val) => (!is_null($val) && trim($val) !== '')
+                ? mb_strtoupper(preg_replace('/\s+/u', ' ', trim($val)), 'UTF-8')
+                : null,
+        );
+    }
+
+    protected function apellido1(): Attribute
+    {
+        return Attribute::make(
+            set: fn(?string $val) => !is_null($val) ? mb_strtoupper(preg_replace('/\s+/u', ' ', trim($val)), 'UTF-8') : null,
+        );
+    }
+
+    protected function apellido2(): Attribute
+    {
+        return Attribute::make(
+            set: fn(?string $val) => (!is_null($val) && trim($val) !== '')
+                ? mb_strtoupper(preg_replace('/\s+/u', ' ', trim($val)), 'UTF-8')
+                : null,
+        );
+    }
+
+    /**
      * Verificar permiso con resolución automática de contexto desde un recurso.
      * 
      * @param Permissions $slug Slug del permiso
