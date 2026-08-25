@@ -56,7 +56,6 @@ return [
 
         'oracle' => [
             'driver'         => 'oracle',
-            // TODO: revisar .env para guardar las credenciales reales una vez las tengamos
             'host'           => env('ORACLE_DB_HOST', ''),
             'port'           => env('ORACLE_DB_PORT', '1521'),
             'database'       => env('ORACLE_DB_DATABASE', ''),
