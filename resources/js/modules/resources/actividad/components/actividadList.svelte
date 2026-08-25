@@ -23,7 +23,6 @@
     Trash2,
     ClipboardList,
     MessageSquare,
-    Plus,
     Eye,
     EyeOff,
     Clock,
@@ -32,25 +31,41 @@
     Monitor,
     MapPin,
     Shuffle,
+    Upload,
+    X,
+    FileText,
+    Download,
   } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
   import { formatFechaTextoLargo, parseFechaSoloDia } from '@/utils/formatters';
+  import FormModal from '@/components/custom/admin/FormModal.svelte';
+  import { subirEnunciadoActividad } from '../services/actividadApi';
+
+  interface ReglasEnunciado {
+    extensiones_pdf: string[];
+    extensiones_img: string[];
+    max_mb_pdf: number;
+    max_mb_imagen: number;
+  }
+
+  const REGLAS_DEFAULT: ReglasEnunciado = {
+    extensiones_pdf: ['pdf'],
+    extensiones_img: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'tiff'],
+    max_mb_pdf: 100,
+    max_mb_imagen: 50,
+  };
 
   interface Props {
     actividades: Actividad[];
     idCurso: number;
-    /** Permisos del docente sobre el curso (titular vs colaborador). */
     canCreate?: boolean;
     canEdit?: boolean;
     canDelete?: boolean;
-    /** Abre el modal de edición. */
     onEdit?: (actividad: Actividad) => void;
-    /** Abre la confirmación de borrado. */
     onDelete?: (actividad: Actividad) => void;
-    /** Abre el modal de creación (botón del estado vacío). */
     onCreateClick?: () => void;
-    /** Alterna visible/oculta para los estudiantes (ojito). */
     onToggleVisible?: (actividad: Actividad) => void;
+    reglasEnunciado?: ReglasEnunciado;
   }
 
   let {
@@ -63,6 +78,7 @@
     onDelete = () => {},
     onCreateClick = () => {},
     onToggleVisible = () => {},
+    reglasEnunciado = REGLAS_DEFAULT,
   }: Props = $props();
 
   // ── Acento por tipo de actividad ──────────────────────────────────────────
@@ -96,6 +112,110 @@
     if (diffDias < 0) return { bg: '#FEF2F2', fg: '#B91C1C', label: 'Vencida' };
     if (diffDias <= 3) return { bg: '#FEF3CC', fg: '#92580B', label: 'Próxima' };
     return { bg: '#FAFBFC', fg: '#2B3142', label: 'Fecha límite' };
+  }
+
+  // ── Estado del modal de enunciado ──────────────────────────────────────────
+
+  let modalAbierto = $state(false);
+  let actividadObjetivo = $state<Actividad | null>(null);
+  let archivoSeleccionado = $state<File | null>(null);
+  let errorArchivo = $state('');
+  let subiendo = $state(false);
+  let inputFileEl: HTMLInputElement | undefined = $state();
+
+  // ── Validación de archivo ──────────────────────────────────────────────────
+
+  function checkValidDocument(file: File): boolean {
+    const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+
+    const esPdf = reglasEnunciado.extensiones_pdf.includes(extension);
+    const esImagen = reglasEnunciado.extensiones_img.includes(extension);
+
+    if (!esPdf && !esImagen) {
+      errorArchivo = `Formato no permitido. Solo se aceptan PDF e imágenes (${reglasEnunciado.extensiones_pdf.join(', ')}).`;
+      return false;
+    }
+
+    const maxMb = esPdf ? reglasEnunciado.max_mb_pdf : reglasEnunciado.max_mb_imagen;
+    const maxBytes = maxMb * 1024 * 1024;
+    if (file.size > maxBytes) {
+      errorArchivo = `El archivo supera el límite de ${maxMb} MB.`;
+      return false;
+    }
+
+    if (file.size === 0) {
+      errorArchivo = 'El archivo está vacío.';
+      return false;
+    }
+
+    errorArchivo = '';
+    return true;
+  }
+
+  // ── Handlers del modal ─────────────────────────────────────────────────────
+
+  function handleAssignEnunciado(actividad: Actividad) {
+    actividadObjetivo = actividad;
+    archivoSeleccionado = null;
+    errorArchivo = '';
+    modalAbierto = true;
+  }
+
+  function manejarSeleccionArchivo(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0];
+      if (checkValidDocument(file)) {
+        archivoSeleccionado = file;
+        errorArchivo = '';
+      } else {
+        archivoSeleccionado = null;
+      }
+    }
+  }
+
+  function removerArchivo() {
+    archivoSeleccionado = null;
+    if (inputFileEl) {
+      inputFileEl.value = '';
+    }
+  }
+
+  function formatearTamano(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const unidades = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + unidades[i];
+  }
+
+  function handleSubirEnunciado() {
+    if (!actividadObjetivo || !archivoSeleccionado) return;
+
+    subiendo = true;
+    errorArchivo = '';
+
+    subirEnunciadoActividad(
+      idCurso,
+      actividadObjetivo.id_actividad,
+      archivoSeleccionado,
+      {
+        onSuccess: () => {
+          modalAbierto = false;
+          actividadObjetivo = null;
+          archivoSeleccionado = null;
+          subiendo = false;
+        },
+        onError: (errors) => {
+          if (errors.archivo) {
+            errorArchivo = errors.archivo;
+          } else {
+            errorArchivo = 'Error al subir el enunciado.';
+          }
+          subiendo = false;
+        },
+      },
+    );
   }
 </script>
 
@@ -218,6 +338,15 @@
               Individual
             {/if}
           </div>
+          {#if actividad.archivo_enunciado}
+            <a
+              href={`/docente/cursos/${idCurso}/actividades/${actividad.id_actividad}/enunciado/descargar`}
+              class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs bg-emerald-50 text-emerald-700 border border-emerald-200"
+            >
+              <FileText size={13} aria-hidden="true" />
+              Ver Enunciado
+            </a>
+          {/if}
         </div>
 
         <!-- Fecha límite, coloreada según urgencia real -->
@@ -234,8 +363,18 @@
           </div>
         </div>
 
-        <!-- Acciones: evaluar y mensajes de la actividad -->
+        <!-- Acciones: enunciado + evaluar + mensajes -->
         <div class="flex items-stretch gap-2">
+          {#if canEdit}
+            <button
+              onclick={() => handleAssignEnunciado(actividad)}
+              class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-[10px] font-semibold text-sm border border-[#E8EAF0] bg-blue-500 text-white hover:bg-blue-600 transition-all"
+              title={actividad.archivo_enunciado ? 'Reemplazar enunciado' : 'Asignar enunciado'}
+            >
+              <Upload size={14} />
+              Enunciado
+            </button>
+          {/if}
           <Link
             href={`/docente/cursos/${idCurso}/actividades/${actividad.id_actividad}/evaluacion`}
             class="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-[10px] font-semibold text-sm no-underline border border-[var(--ac)] bg-[var(--ac-soft)] text-[var(--ac)] hover:bg-[var(--ac)] hover:text-white transition-all"
@@ -243,8 +382,6 @@
             <ClipboardList size={15} />
             Evaluar
           </Link>
-          <!-- Mensajería de agenda: es de esta actividad, por eso se entra desde
-               aquí y no desde el menú lateral. -->
           <Link
             href={`/docente/mensajes?actividad_id=${actividad.id_actividad}`}
             class="relative inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-[10px] font-semibold text-sm no-underline border border-[#E8EAF0] bg-white text-[#5C6478] hover:bg-[#FAFBFC] hover:text-[#0E1220] transition-all"
@@ -260,8 +397,87 @@
               </span>
             {/if}
           </Link>
+    
         </div>
       </div>
     {/each}
   </div>
+{/if}
+
+<!-- Modal de enunciado -->
+{#if modalAbierto && actividadObjetivo}
+  <FormModal
+    bind:isOpen={modalAbierto}
+    title={actividadObjetivo.archivo_enunciado ? 'Reemplazar enunciado' : 'Asignar enunciado'}
+    submitLabel={subiendo ? 'Subiendo...' : 'Guardar'}
+    isLoading={subiendo}
+    submitDisabled={!archivoSeleccionado || subiendo}
+    onClose={() => {
+      modalAbierto = false;
+      actividadObjetivo = null;
+      archivoSeleccionado = null;
+    }}
+    onSubmit={handleSubirEnunciado}
+  >
+    <div class="space-y-4">
+      <p class="text-sm text-[#5C6478]">
+        Archivo descriptivo de la actividad <strong>{actividadObjetivo.nombre}</strong>.
+      </p>
+
+      {#if !archivoSeleccionado}
+        <label
+          class="flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors group"
+        >
+          <div class="flex flex-col items-center gap-2 text-center">
+            <Upload class="w-8 h-8 text-blue-400 group-hover:text-blue-600 transition-colors" />
+            <p class="text-sm font-semibold text-gray-700">
+              Arrastra tu archivo aquí o haz clic para seleccionar
+            </p>
+            <p class="text-xs text-gray-500">
+              Formatos: PDF, PNG, JPG, WebP (según configuración del servidor)
+            </p>
+          </div>
+          <input
+            type="file"
+            class="hidden"
+            accept=".pdf,image/*"
+            onchange={manejarSeleccionArchivo}
+            bind:this={inputFileEl}
+            disabled={subiendo}
+          />
+        </label>
+      {:else}
+        <div class="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
+          <div class="flex items-center gap-3 min-w-0">
+            <FileText class="w-5 h-5 text-green-600 shrink-0" />
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-gray-900 truncate">{archivoSeleccionado.name}</p>
+              <p class="text-xs text-gray-500">{formatearTamano(archivoSeleccionado.size)}</p>
+            </div>
+          </div>
+          <button
+            class="flex-shrink-0 p-2 hover:bg-red-100 rounded-lg transition-colors text-red-600"
+            onclick={removerArchivo}
+            disabled={subiendo}
+            aria-label="remover archivo"
+          >
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+      {/if}
+
+      {#if errorArchivo}
+        <div class="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+          <svg class="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          <p class="text-sm text-red-700">{errorArchivo}</p>
+        </div>
+      {/if}
+    </div>
+  </FormModal>
 {/if}

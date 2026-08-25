@@ -34,7 +34,11 @@ class AsignaturaController extends Controller
     public function index(Request $request)
     {
         $this->authorize('viewAny', Asignatura::class);
-        $query = Asignatura::select(['id_asignatura', 'cod_asignatura', 'nombre', 'creditos_sct', 'fecha_creacion'])
+        $query = Asignatura::select([
+            'id_asignatura', 'cod_asignatura', 'nombre', 'descripcion', 'creditos_sct',
+            'horas_catedra', 'horas_taller', 'horas_laboratorio', 'horas_dirigidas', 'horas_autonomas',
+            'fecha_creacion',
+        ])
             ->active() // Solo versiones no eliminadas
             ->withCount('asignacionPlanes as planes_count')
             ->where(function ($q) {
@@ -114,16 +118,17 @@ class AsignaturaController extends Controller
     }
 
     /**
-     * Implementa versionado de asignaturas mediante creación de nueva versión + soft delete.
-     * 
-     * Editar una asignatura NO actualiza el registro existente.
-     * En su lugar:
-     * 1. Marca la versión anterior como eliminada (soft delete)
-     * 2. Crea una NUEVA versión con los datos modificados
-     * 
-     * Esto preserva el historial completo de cambios y mantiene
+     * Edita una asignatura según el tipo de edición indicado:
+     *
+     * - 'correctiva': corrige datos mal escritos (typos, errores menores).
+     *   Actualiza el registro existente en el sitio, sin versionar.
+     * - 'version': cambio grande que implica una nueva asignatura.
+     *   1. Marca la versión anterior como eliminada (soft delete)
+     *   2. Crea una NUEVA versión con los datos modificados
+     *
+     * El versionado preserva el historial completo de cambios y mantiene
      * la trazabilidad de qué versión estaba activa en cada momento.
-     * 
+     *
      * La versión "activa" es aquella que:
      * - No está eliminada (fecha_eliminacion IS NULL)
      * - Tiene el fecha_creacion más reciente
@@ -132,6 +137,7 @@ class AsignaturaController extends Controller
     {
         $this->authorize('update', $asignatura);
         $validated = $request->validate([
+            'tipo_edicion' => ['required', Rule::in(['correctiva', 'version'])],
             'cod_asignatura' => [
                 'required',
                 'string',
@@ -151,15 +157,22 @@ class AsignaturaController extends Controller
             'horas_autonomas' => 'nullable|integer|min:0',
         ]);
 
+        $tipoEdicion = $validated['tipo_edicion'];
+        unset($validated['tipo_edicion']);
+
         try {
-            // 1. Marcar la versión anterior como eliminada (soft delete)
-            $asignatura->delete();
+            if ($tipoEdicion === 'correctiva') {
+                // Edición correctiva: actualiza el registro existente, sin versionar.
+                $asignatura->update($validated);
+                $message = 'Asignatura corregida exitosamente.';
+            } else {
+                // Edición versionada: soft delete de la versión anterior + nueva versión.
+                $asignatura->delete();
+                Asignatura::create($validated);
+                $message = 'Asignatura actualizada exitosamente. Se ha creado una nueva versión del registro.';
+            }
 
-            // 2. Crear la nueva versión con los datos modificados
-            $newAsignatura = Asignatura::create($validated);
-
-            return redirect()->route('admin.asignaturas.index')
-                ->with('success', 'Asignatura actualizada exitosamente. Se ha creado una nueva versión del registro.');
+            return redirect()->route('admin.asignaturas.index')->with('success', $message);
         } catch (\Exception $e) {
             return back()->with('error', 'Error al actualizar asignatura: ' . $e->getMessage());
         }

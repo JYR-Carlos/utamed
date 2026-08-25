@@ -43,9 +43,15 @@
     actividades: Actividad[];
     componentes: any[];
     unidades: any[];
+    reglasEnunciado?: {
+      extensiones_pdf: string[];
+      extensiones_img: string[];
+      max_mb_pdf: number;
+      max_mb_imagen: number;
+    };
   }
 
-  let { curso, actividades, componentes, unidades }: Props = $props();
+  let { curso, actividades, componentes, unidades, reglasEnunciado }: Props = $props();
 
   const canCreate = $derived(
     curso.es_titular_curso || hasPermission(curso.userPermissions ?? [], 'actividades:crear'),
@@ -212,6 +218,7 @@
       {canCreate}
       {canEdit}
       {canDelete}
+      {reglasEnunciado}
       onEdit={openEditModal}
       onDelete={openDeleteDialog}
       onCreateClick={openCreateModal}

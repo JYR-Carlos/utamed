@@ -12,6 +12,7 @@ use App\Models\Curso\InscripcionCurso;
 use App\Models\Usuario\Estudiante;
 use App\Services\InscripcionCursoService;
 use App\Support\Csv;
+use App\Support\Permissions;
 use App\Services\IntranetService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -355,6 +356,9 @@ class InscripcionCursoController extends Controller
      */
     public function getEstudiantesDisponibles(Request $request)
     {
+        $user = $request->user();
+        abort_unless($user && $user->can('viewAny', InscripcionCurso::class), 403, 'No autorizado para consultar estudiantes disponibles.');
+
         $idCurso = $request->query('id_curso');
 
         if (!$idCurso) {
@@ -375,6 +379,9 @@ class InscripcionCursoController extends Controller
      */
     public function getByCurso(Request $request)
     {
+        $user = $request->user();
+        abort_unless($user && $user->can('viewAny', InscripcionCurso::class), 403, 'No autorizado para consultar inscripciones del curso.');
+
         $idCurso = $request->query('id_curso');
 
         if (!$idCurso) {
@@ -476,6 +483,17 @@ class InscripcionCursoController extends Controller
     public function inscripcionAutomatica(Request $request, int $idCurso, IntranetService $intranetService)
     {
         $curso = Curso::findOrFail($idCurso);
+
+        $user = $request->user();
+        abort_unless(
+            $user && (
+                $user->can(Permissions::CURSOS_INSCRIPCIONES_INSCRIBIR_ALUMNOS, $curso)
+                || $user->can('create', [InscripcionCurso::class, $curso])
+                || $user->can('create', InscripcionCurso::class)
+            ),
+            403,
+            'No autorizado para realizar sincronización e inscripción automática en este curso.'
+        );
 
         try {
             $resultado = $intranetService->inscribirAutomaticamente($curso);

@@ -15,14 +15,14 @@ class TestIntranetConnection extends Command
      *
      * @var string
      */
-    protected $signature = 'intranet:test {--limit=3 : Cantidad de registros a mostrar por modelo}';
+    protected $signature = 'intranet:test {--limit=3 : Cantidad de registros a consultar}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Prueba la conexión a la base de datos Oracle de la Intranet y ejecuta queries con los modelos Eloquent';
+    protected $description = 'Prueba la conexión y ejecuta queries con LIMIT a los modelos Eloquent de Oracle sin COUNTs pesados';
 
     /**
      * Execute the console command.
@@ -35,36 +35,19 @@ class TestIntranetConnection extends Command
 
         $limit = (int) $this->option('limit');
 
-        // 1. Mostrar configuración detectada (sin revelar contraseña)
-        $config = config('database.connections.oracle');
+        // 1. Probar conexión básica (SELECT 1 FROM DUAL)
         $this->line('');
-        $this->info('1. Configuración detectada en config/database.php:');
-        $this->table(
-            ['Parámetro', 'Valor'],
-            [
-                ['Host', $config['host'] ?? '(vacío)'],
-                ['Port', $config['port'] ?? '(vacío)'],
-                ['Database (SID)', $config['database'] ?? '(vacío)'],
-                ['Service Name', $config['service_name'] ?? '(vacío)'],
-                ['Username', $config['username'] ?? '(vacío)'],
-                ['Password', !empty($config['password']) ? '******** (definida)' : '(no definida)'],
-                ['Charset', $config['charset'] ?? '(vacío)'],
-            ]
-        );
-
-        // 2. Probar conexión básica (SELECT 1 FROM DUAL)
-        $this->line('');
-        $this->info('2. Probando conexión cruda a Oracle (SELECT 1 FROM DUAL)...');
+        $this->info('1. Probando conexión básica (SELECT 1 FROM DUAL)...');
         $startTime = microtime(true);
 
         try {
-            $rawResult = DB::connection('oracle')->select('SELECT 1 AS TEST, SYSDATE AS FECHA_ACTUAL FROM DUAL');
+            $rawResult = DB::connection('oracle')->select('SELECT 1 AS TEST, SYSDATE AS FECHA_ACTUAL, USER AS USUARIO_ACTUAL FROM DUAL');
             $elapsedMs = round((microtime(true) - $startTime) * 1000, 2);
 
             $this->info("   [OK] Conexión establecida exitosamente en {$elapsedMs} ms.");
             if (!empty($rawResult)) {
                 $row = (array) $rawResult[0];
-                $this->line("   Resultado DUAL: " . json_encode($row));
+                $this->line("   Info Sesión: " . json_encode($row));
             }
         } catch (\Throwable $e) {
             $this->error("   [ERROR] Falló la conexión básica a Oracle:");
@@ -72,43 +55,48 @@ class TestIntranetConnection extends Command
             return Command::FAILURE;
         }
 
-        // 3. Probar Modelo VwAlumno
+        // 2. Probar Modelo VwAlumno (CON LIMIT ESTRICTO)
         $this->line('');
-        $this->info("3. Probando modelo VwAlumno (Tabla: " . (new VwAlumno())->getTable() . ")...");
+        $this->info("2. Probando modelo VwAlumno (Tabla: " . (new VwAlumno())->getTable() . ", Limit: {$limit})...");
+        $t0 = microtime(true);
         try {
-            $countAlumnos = VwAlumno::count();
-            $this->info("   [OK] Total de registros encontrados: {$countAlumnos}");
+            $alumnos = VwAlumno::take($limit)->get();
+            $ms = round((microtime(true) - $t0) * 1000, 2);
 
-            $alumnos = VwAlumno::limit($limit)->get();
             if ($alumnos->isNotEmpty()) {
+                $this->info("   [OK] Consulta exitosa en {$ms} ms. Retornó {$alumnos->count()} registros:");
                 $rows = $alumnos->map(function ($a) {
+                    $rut = $a->ALUM_RUT . '-' . $a->ALUM_DIGITO;
+                    $nombre = trim($a->ALUM_NOMBRE ?? '');
+                    $paterno = trim($a->ALUM_APELLIDO_PAT ?? '');
+                    $materno = trim($a->ALUM_APELLIDO_MAT ?? '');
                     return [
-                        'RUT' => $a->ALUM_RUT . '-' . $a->ALUM_DIGITO,
-                        'Nombre' => trim($a->ALUM_NOMBRE ?? ''),
-                        'Paterno' => trim($a->ALUM_APELLIDO_PAT ?? ''),
-                        'Materno' => trim($a->ALUM_APELLIDO_MAT ?? ''),
-                        'F. Nacimiento' => $a->ALUM_FECHA_NACIMIENTO?->format('Y-m-d') ?? 'N/A',
+                        'RUT' => $rut,
+                        'Nombre' => $nombre,
+                        'Paterno' => $paterno,
+                        'Materno' => $materno,
                     ];
                 })->toArray();
 
-                $this->table(['RUT', 'Nombre', 'Paterno', 'Materno', 'F. Nacimiento'], $rows);
+                $this->table(['RUT', 'Nombre', 'Paterno', 'Materno'], $rows);
             } else {
-                $this->warn("   No se retornaron registros en VwAlumno.");
+                $this->warn("   [VACÍO] La consulta no retornó registros (en {$ms} ms).");
             }
         } catch (\Throwable $e) {
             $this->error("   [ERROR] Falló la consulta en VwAlumno:");
             $this->error("   " . $e->getMessage());
         }
 
-        // 4. Probar Modelo VwCarreraCurso
+        // 3. Probar Modelo VwCarreraCurso (CON LIMIT ESTRICTO)
         $this->line('');
-        $this->info("4. Probando modelo VwCarreraCurso (Tabla: " . (new VwCarreraCurso())->getTable() . ")...");
+        $this->info("3. Probando modelo VwCarreraCurso (Tabla: " . (new VwCarreraCurso())->getTable() . ", Limit: {$limit})...");
+        $t0 = microtime(true);
         try {
-            $countCursos = VwCarreraCurso::count();
-            $this->info("   [OK] Total de registros encontrados: {$countCursos}");
+            $cursos = VwCarreraCurso::take($limit)->get();
+            $ms = round((microtime(true) - $t0) * 1000, 2);
 
-            $cursos = VwCarreraCurso::limit($limit)->get();
             if ($cursos->isNotEmpty()) {
+                $this->info("   [OK] Consulta exitosa en {$ms} ms. Retornó {$cursos->count()} registros:");
                 $rows = $cursos->map(function ($c) {
                     return [
                         'CUR_CODIGO' => $c->CUR_CODIGO,
@@ -117,31 +105,31 @@ class TestIntranetConnection extends Command
                         'Grupo' => $c->CURSO_GRUPO_ASIG,
                         'Semestre' => $c->CURSO_SEMESTRE_ASIG,
                         'Año' => $c->CURSO_ANO,
-                        'Carrera' => $c->CARRERA_COD,
-                        'Plan' => $c->PLAN_ANO,
                     ];
                 })->toArray();
 
-                $this->table(['CUR_CODIGO', 'ASIG_CODIGO', 'Tipo', 'Grupo', 'Semestre', 'Año', 'Carrera', 'Plan'], $rows);
+                $this->table(['CUR_CODIGO', 'ASIG_CODIGO', 'Tipo', 'Grupo', 'Semestre', 'Año'], $rows);
             } else {
-                $this->warn("   No se retornaron registros en VwCarreraCurso.");
+                $this->warn("   [VACÍO] La consulta no retornó registros (en {$ms} ms).");
             }
         } catch (\Throwable $e) {
             $this->error("   [ERROR] Falló la consulta en VwCarreraCurso:");
             $this->error("   " . $e->getMessage());
         }
 
-        // 5. Probar Modelo VwInscripcion y Relaciones Eloquent
+        // 4. Probar Modelo VwInscripcion (CON LIMIT ESTRICTO Y RELACIONES)
         $this->line('');
-        $this->info("5. Probando modelo VwInscripcion (Tabla: " . (new VwInscripcion())->getTable() . ") con relaciones...");
+        $this->info("4. Probando modelo VwInscripcion (Tabla: " . (new VwInscripcion())->getTable() . ", Limit: {$limit})...");
+        $t0 = microtime(true);
         try {
-            $countInscripciones = VwInscripcion::count();
-            $this->info("   [OK] Total de inscripciones encontradas: {$countInscripciones}");
+            $inscripciones = VwInscripcion::with(['alumno', 'carreraCurso'])->take($limit)->get();
+            $ms = round((microtime(true) - $t0) * 1000, 2);
 
-            $inscripciones = VwInscripcion::with(['alumno', 'carreraCurso'])->limit($limit)->get();
             if ($inscripciones->isNotEmpty()) {
+                $this->info("   [OK] Consulta exitosa en {$ms} ms. Retornó {$inscripciones->count()} registros:");
                 $rows = $inscripciones->map(function ($i) {
-                    $alumnoNom = $i->alumno ? trim($i->alumno->ALUM_NOMBRE . ' ' . $i->alumno->ALUM_APELLIDO_PAT) : '(sin relación)';
+                    $alumno = $i->alumno;
+                    $alumnoNom = $alumno ? trim($alumno->ALUM_NOMBRE . ' ' . $alumno->ALUM_APELLIDO_PAT) : '(sin relación cargada)';
                     return [
                         'INS_ID' => $i->INS_ID,
                         'RUT' => $i->ALUM_RUT,
@@ -154,7 +142,7 @@ class TestIntranetConnection extends Command
 
                 $this->table(['INS_ID', 'RUT', 'Alumno (Eager Loaded)', 'CUR_CODIGO', 'Asignatura', 'Año/Sem'], $rows);
             } else {
-                $this->warn("   No se retornaron registros en VwInscripcion.");
+                $this->warn("   [VACÍO] La consulta no retornó registros (en {$ms} ms).");
             }
         } catch (\Throwable $e) {
             $this->error("   [ERROR] Falló la consulta en VwInscripcion:");

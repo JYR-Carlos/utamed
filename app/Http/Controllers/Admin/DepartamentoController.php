@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Administrativo\Departamento;
 use App\Models\Administrativo\Facultad;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -57,13 +58,15 @@ class DepartamentoController extends Controller
         // Get all facultades for the filter
         $facultades = Facultad::orderBy('nombre')->get();
 
+        $user = Auth::user();
+
         return Inertia::render('admin/Departamentos', [
             'departamentos' => $departamentos,
-            'facultades' => $facultades,
-            'filters' => $request->only(['search', 'id_facultad']),
-            'canCreate' => auth()->check(),
-            'canEdit' => auth()->check(),
-            'canDelete' => auth()->check(),
+            'facultades'    => $facultades,
+            'filters'        => $request->only(['search', 'id_facultad']),
+            'canCreate'      => $user?->can('create', Departamento::class) ?? false,
+            'canEdit'        => $user?->can('update', new Departamento()) ?? false,
+            'canDelete'      => $user?->can('delete', new Departamento()) ?? false,
         ]);
     }
 

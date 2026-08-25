@@ -18,6 +18,8 @@ class AsignaturaResource extends JsonResource
             'horas_catedra' => $this->horas_catedra,
             'horas_taller' => $this->horas_taller,
             'horas_laboratorio' => $this->horas_laboratorio,
+            'horas_dirigidas' => $this->horas_dirigidas,
+            'horas_autonomas' => $this->horas_autonomas,
         ];
     }
 }

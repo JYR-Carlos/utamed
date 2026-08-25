@@ -16,6 +16,7 @@
   import Enunciado from './Agenda/Enunciado.svelte';
 
   interface Props {
+    id_curso: number;
     cod_curso: string;
     nombre_curso: string;
     cod_actividad: string;
@@ -49,9 +50,15 @@
       apellido1: string;
       apellido2: string;
     }>;
+    archivo_enunciado?: {
+      nombre_original: string;
+      mime_type: string | null;
+      peso_bytes: number | null;
+    } | null;
   }
 
   let {
+    id_curso,
     cod_curso,
     nombre_curso,
     cod_actividad,
@@ -68,6 +75,7 @@
     rubrica,
     id_actividad_asignada_grupo,
     resto_integrantes,
+    archivo_enunciado = null,
   }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
@@ -98,6 +106,13 @@
   })
   const puedeSubirArchivo = $derived.by(() => {
     return (estado === 'ACTIVA' && !excedioHolgura) || puedeApelar;
+  });
+
+  const tipoEnunciado = $derived.by(() => {
+    if (!archivo_enunciado?.mime_type) return 'otro';
+    if (archivo_enunciado.mime_type === 'application/pdf') return 'pdf';
+    if (archivo_enunciado.mime_type.startsWith('image/')) return 'imagen';
+    return 'otro';
   });
 
   function toggleRubricaModal() {
@@ -260,41 +275,43 @@
           <hr class="border-slate-200" />
 
           <div class="flex flex-col gap-2">
-            <button
-              class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
-              onclick={toggleEnunciadoModal}
-            >
-              <svg
-                class="text-slate-400 group-hover:text-slate-500"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
+            {#if archivo_enunciado}
+              <button
+                class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                onclick={toggleEnunciadoModal}
               >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-              </svg>
-              <span class="flex-1">Ver Enunciado</span>
-              <svg
-                class="text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-500"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
+                <svg
+                  class="text-slate-400 group-hover:text-slate-500"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                <span class="flex-1">Ver Enunciado</span>
+                <svg
+                  class="text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-500"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            {/if}
 
             {#if es_sumativa}
               <button
@@ -489,9 +506,9 @@
   >
     <Enunciado
       onCerrar={toggleEnunciadoModal}
-      url_archivo=""
-      nombre_archivo=""
-      tipo_archivo="pdf"
+      url_archivo={archivo_enunciado ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/enunciado/descargar` : ''}
+      nombre_archivo={archivo_enunciado?.nombre_original ?? 'Enunciado de la Actividad'}
+      tipo_archivo={tipoEnunciado}
     />
   </div>
 {/if}

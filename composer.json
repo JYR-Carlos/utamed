@@ -44,6 +44,7 @@
     },
     "scripts": {
         "db:soft-reset": "pwsh -ExecutionPolicy Bypass -File scripts/db_reset.ps1",
+        "db:soft-reset-linux": "cd database-model && bash scripts/soft_reset.sh",
         "db:soft-reset-testing": "pwsh -ExecutionPolicy Bypass -File scripts/db_reset.ps1 -Testing",
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

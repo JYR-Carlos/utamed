@@ -21,6 +21,11 @@ export interface Actividad {
      * (curso.mensaje), que se lleva aparte en /docente/cursos/{id}/mensajeria.
      */
     mensajes_pendientes?: number;
+    archivo_enunciado?: {
+        nombre_original: string;
+        mime_type: string | null;
+        peso_bytes: number | null;
+    } | null;
 }
 
 export interface Integrante {
