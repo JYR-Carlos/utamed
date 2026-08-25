@@ -220,7 +220,7 @@
               <td class="px-5 py-3.5">
                 <div>
                   <p class="font-semibold text-gray-900 leading-snug">
-                    {curso.asignatura_nombre || '—'}
+                    {curso.nombre || '(sin nombre) ' + curso.asignatura_nombre }
                   </p>
                   <p class="text-xs text-gray-500 font-mono mt-0.5">{curso.cod_curso}</p>
                 </div>

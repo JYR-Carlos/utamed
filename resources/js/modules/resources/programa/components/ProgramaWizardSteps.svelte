@@ -85,6 +85,12 @@
   function removeItem(arr: any[], index: number) {
     return arr.filter((_, i) => i !== index);
   }
+
+  // Sección VIII: deben coincidir con SyllabusRules::seccionVIII()
+  // (app/Http/Requests/Programa/SyllabusRules.php) — el backend es la
+  // fuente de verdad; si cambia allá, actualizar aquí también.
+  const RECURSO_TIPOS = ['Libro', 'Documentación Online', 'Video', 'Herramienta Software', 'Base de Datos'];
+  const MAX_RECURSOS = 300;
 </script>
 
 {#if step === 1}
@@ -744,11 +750,9 @@
             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
           />
           <select bind:value={rec.tipo} class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-            <option>Libro</option>
-            <option>Documentación Online</option>
-            <option>Video</option>
-            <option>Herramienta Software</option>
-            <option>Base de Datos</option>
+            {#each RECURSO_TIPOS as tipoOpcion}
+              <option>{tipoOpcion}</option>
+            {/each}
           </select>
           <input
             type="text"
@@ -761,12 +765,14 @@
           {/if}
         </div>
       {/each}
-      {#if recursos.length < 10}
+      {#if recursos.length < MAX_RECURSOS}
         <button
           type="button"
           onclick={() => (recursos = addItem(recursos, { descripcion: '', tipo: 'Libro', ubicacion: '' }))}
           class="w-full px-3 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 text-sm">+ Agregar recurso</button
         >
+      {:else}
+        <p class="text-xs text-slate-500 italic">Se alcanzó el máximo de {MAX_RECURSOS} recursos.</p>
       {/if}
     </div>
   </div>

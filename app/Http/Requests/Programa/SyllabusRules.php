@@ -85,6 +85,10 @@ final class SyllabusRules
     /**
      * Sección VIII (bibliografía / recursos): común a ambos tipos.
      *
+     * El tope `max:300` y la lista de tipos (`in:...`) se replican en el wizard
+     * (RECURSO_TIPOS y MAX_RECURSOS en ProgramaWizardSteps.svelte) porque no hay
+     * un catálogo en BD: si cambian aquí, actualizar también ese archivo.
+     *
      * @return array<string, mixed>
      */
     private static function seccionVIII(): array

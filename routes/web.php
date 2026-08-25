@@ -144,6 +144,20 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::get('cursos/proxima-letra', [CursoController::class, 'getProximaLetra'])
         ->name('cursos.proxima-letra');
 
+    // Detección automática de componentes (Intranet → fallback Plan de Estudios),
+    // ANTES de crear el curso — cero selección manual en el wizard. (BEFORE
+    // resource to avoid conflict with {curso} binding)
+    Route::get('cursos/preview-componentes', [CursoController::class, 'previewComponentes'])
+        ->name('cursos.preview-componentes');
+
+    // Sincronización masiva (varios cursos sin componentes a la vez): mismo
+    // patrón de "revisar antes de confirmar" que la de un curso. (BEFORE
+    // resource to avoid conflict with {curso} binding)
+    Route::get('cursos/sincronizar-intranet-masivo/preview', [CursoController::class, 'previewSincronizarMasivo'])
+        ->name('cursos.sincronizar-intranet-masivo.preview');
+    Route::post('cursos/sincronizar-intranet-masivo', [CursoController::class, 'sincronizarMasivo'])
+        ->name('cursos.sincronizar-intranet-masivo');
+
     Route::resource('cursos', CursoController::class);
 
     Route::get('usuarios/buscar-por-rut', [UsuarioController::class, 'buscarPorRut'])
@@ -220,6 +234,13 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('cursos.docente.assign');
     Route::delete('cursos/{curso}/docente', [CursoController::class, 'unassignDocente'])
         ->name('cursos.docente.unassign');
+
+    // Sincronizar un curso ya existente con Intranet: preview ("mirar antes
+    // de tocar") y confirmación (ejecuta sólo lo aceptado).
+    Route::get('cursos/{curso}/sincronizar-intranet/preview', [CursoController::class, 'previewSincronizarIntranet'])
+        ->name('cursos.sincronizar-intranet.preview');
+    Route::post('cursos/{curso}/sincronizar-intranet', [CursoController::class, 'sincronizarIntranet'])
+        ->name('cursos.sincronizar-intranet');
 
     // Course Team Management
     Route::get('cursos/{curso}/team', [CourseTeamController::class, 'index'])->name('cursos.team.index');
@@ -427,6 +448,7 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
     Route::delete('cursos/{curso}/actividades/{actividad}/grupos/{grupo}/estudiantes/{estudiante}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'quitarEstudianteDeGrupo'])->name('cursos.actividades.grupos.estudiante.remove');
     Route::delete('cursos/{curso}/actividades/{actividad}/grupos-delete/{grupo}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'eliminarGrupo'])->name('cursos.actividades.grupos.new.delete');
     Route::get('cursos/{curso}/actividades/{actividad}/grupos-list', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'gruposPorActividad'])->name('cursos.actividades.grupos.list');
+    Route::get('cursos/{curso}/actividades/{actividad}/grupos-origen/{origen}', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'gruposDeActividadOrigen'])->name('cursos.actividades.grupos.origen');
     Route::post('cursos/{curso}/actividades/{actividad}/grupos-copy', [\App\Http\Controllers\Docente\DocenteActivityController::class, 'copiarGruposDeActividad'])->name('cursos.actividades.grupos.copy');
 
     // Gestión de entregas/archivos

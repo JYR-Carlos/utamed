@@ -13,6 +13,8 @@
    *
    * Endpoints que usa (todos bajo /docente/cursos/{curso}/actividades/{actividad}):
    *   POST   …/grupos-create                                   crear grupo
+   *   GET    …/grupos-origen/{origen}                          grupos de otra actividad, para reutilizar (en ReutilizarGruposModal)
+   *   POST   …/grupos-copy                                     copiar grupos elegidos desde otra actividad
    *   DELETE …/grupos-delete/{grupo}                           eliminar grupo
    *   POST   …/grupos/{grupo}/estudiante                       agregar integrante
    *   DELETE …/grupos/{grupo}/estudiantes/{estudiante}         quitar integrante
@@ -28,7 +30,7 @@
   import { router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
-  import { ChevronLeft, Plus, Users, Pencil } from 'lucide-svelte';
+  import { ChevronLeft, Plus, Users, Pencil, Copy } from 'lucide-svelte';
   import { ConfirmDialog } from '@/components/custom/common';
   import { formatFechaHora } from '@/utils/formatters';
   import AgendaDocente from './Agenda/AgendaDocente.svelte';
@@ -37,6 +39,7 @@
   import MatrizEvaluacion from './MatrizEvaluacion.svelte';
   import GrupoCard from './components/GrupoCard.svelte';
   import NuevoGrupoModal from './components/NuevoGrupoModal.svelte';
+  import ReutilizarGruposModal from './components/ReutilizarGruposModal.svelte';
   import EntregasModal from './components/EntregasModal.svelte';
 
   // ─── Tipos ────────────────────────────────────────────────────────────────
@@ -77,6 +80,13 @@
     nombre_completo: string;
   };
 
+  type ActividadOrigen = {
+    id_actividad: number;
+    nombre: string;
+    fecha_limite: string | null;
+    cantidad_grupos: number;
+  };
+
   // ─── Props desde Inertia ──────────────────────────────────────────────────
   interface Props {
     curso: { id_curso: number; nombre: string; cod_curso: string };
@@ -97,6 +107,10 @@
     rubrica_id?: number | null;
     estudiantesInscritos?: EstudianteInscrito[];
     interaccionesGrupo?: Interaccion[];
+    /** Otras actividades grupales del curso con grupos ya formados, para reutilizar. */
+    actividadesConGrupos?: ActividadOrigen[];
+    /** Prop compartida globalmente por HandleInertiaRequests (mensajes de la última acción). */
+    flash?: { success?: string; error?: string };
   }
 
   let {
@@ -107,6 +121,8 @@
     rubrica_id = null,
     estudiantesInscritos = [],
     interaccionesGrupo = [],
+    flash,
+    actividadesConGrupos = [],
   }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
@@ -165,6 +181,12 @@
   let nuevoGrupoLoading = $state(false);
   let nuevoGrupoError = $state<string | null>(null);
 
+  // Reutilizar grupos de una actividad anterior
+  let showReutilizarGrupos = $state(false);
+  let actividadOrigenSeleccionada = $state<number | null>(null);
+  let reutilizarGruposLoading = $state(false);
+  let reutilizarGruposError = $state<string | null>(null);
+
   // Agregar estudiante a grupo existente
   let addingToGrupo = $state<number | null>(null);
   let addingEstudianteId = $state<number>(0);
@@ -215,6 +237,28 @@
         onError: (errors) => {
           nuevoGrupoError = (Object.values(errors)[0] as string) ?? 'Error al crear el grupo.';
           nuevoGrupoLoading = false;
+        },
+      },
+    );
+  }
+
+  function copiarGrupos(grupoIds: number[]) {
+    if (actividadOrigenSeleccionada === null || grupoIds.length === 0) return;
+    reutilizarGruposLoading = true;
+    reutilizarGruposError = null;
+    router.post(
+      `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos-copy`,
+      { id_actividad_origen: actividadOrigenSeleccionada, grupos: grupoIds },
+      {
+        onSuccess: () => {
+          showReutilizarGrupos = false;
+          actividadOrigenSeleccionada = null;
+          reutilizarGruposLoading = false;
+        },
+        onError: (errors) => {
+          reutilizarGruposError =
+            (Object.values(errors)[0] as string) ?? 'Error al copiar los grupos.';
+          reutilizarGruposLoading = false;
         },
       },
     );
@@ -457,6 +501,18 @@
       </h2>
     </div>
 
+    <!-- ── Flash messages (resultado de la última acción) ── -->
+    {#if flash?.success}
+      <div class="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+        {flash.success}
+      </div>
+    {/if}
+    {#if flash?.error}
+      <div class="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+        {flash.error}
+      </div>
+    {/if}
+
     <div class="w-full grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 items-start">
       <!-- ── Columna izquierda: información de la actividad ── -->
       <div
@@ -503,6 +559,19 @@
           <div class="flex items-center gap-2">
             <span class="text-xs text-gray-500 font-medium">{grupos.length} grupos</span>
             {#if actividad.es_grupal && actividad.es_titular}
+              {#if actividadesConGrupos.length > 0}
+                <button
+                  onclick={() => {
+                    showReutilizarGrupos = true;
+                    actividadOrigenSeleccionada = null;
+                    reutilizarGruposError = null;
+                  }}
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-uta-blue text-uta-blue text-xs font-semibold rounded-xl hover:bg-uta-blue/5 transition-colors"
+                >
+                  <Copy class="w-3.5 h-3.5" />
+                  Reutilizar Grupos
+                </button>
+              {/if}
               <button
                 onclick={() => {
                   showNuevoGrupo = true;
@@ -569,17 +638,32 @@
             <p class="text-xs text-gray-400 mt-1">
               Crea el primer grupo con los estudiantes inscritos
             </p>
-            <button
-              onclick={() => {
-                showNuevoGrupo = true;
-                seleccion = new Set();
-                nuevoGrupoError = null;
-              }}
-              class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-uta-blue text-white text-sm font-semibold rounded-xl hover:bg-uta-blue-hover transition-colors"
-            >
-              <Plus class="w-4 h-4" />
-              Crear primer grupo
-            </button>
+            <div class="mt-4 flex items-center gap-2">
+              <button
+                onclick={() => {
+                  showNuevoGrupo = true;
+                  seleccion = new Set();
+                  nuevoGrupoError = null;
+                }}
+                class="inline-flex items-center gap-2 px-4 py-2 bg-uta-blue text-white text-sm font-semibold rounded-xl hover:bg-uta-blue-hover transition-colors"
+              >
+                <Plus class="w-4 h-4" />
+                Crear primer grupo
+              </button>
+              {#if actividadesConGrupos.length > 0}
+                <button
+                  onclick={() => {
+                    showReutilizarGrupos = true;
+                    actividadOrigenSeleccionada = null;
+                    reutilizarGruposError = null;
+                  }}
+                  class="inline-flex items-center gap-2 px-4 py-2 border border-uta-blue text-uta-blue text-sm font-semibold rounded-xl hover:bg-uta-blue/5 transition-colors"
+                >
+                  <Copy class="w-4 h-4" />
+                  Reutilizar grupos
+                </button>
+              {/if}
+            </div>
           </div>
         {/if}
       </div>
@@ -597,6 +681,21 @@
       onToggleSeleccion={toggleSeleccion}
       onCrear={crearGrupo}
       onCerrar={() => (showNuevoGrupo = false)}
+    />
+  {/if}
+
+  <!-- ── Modal: Reutilizar Grupos ── -->
+  {#if showReutilizarGrupos}
+    <ReutilizarGruposModal
+      idCurso={curso.id_curso}
+      idActividad={actividad.id_actividad}
+      actividades={actividadesConGrupos}
+      seleccionada={actividadOrigenSeleccionada}
+      loading={reutilizarGruposLoading}
+      error={reutilizarGruposError}
+      onSeleccionar={(id) => (actividadOrigenSeleccionada = id)}
+      onCopiar={copiarGrupos}
+      onCerrar={() => (showReutilizarGrupos = false)}
     />
   {/if}
 
