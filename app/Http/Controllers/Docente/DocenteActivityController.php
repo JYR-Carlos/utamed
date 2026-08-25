@@ -2,36 +2,50 @@
 
 namespace App\Http\Controllers\Docente;
 
-use App\Http\Controllers\Controller;
 use App\Enums\DB\EstadoActividadAsignada;
 use App\Enums\DB\TipoActividad;
+use App\Exceptions\Archive\ArchiveException;
+use App\Exceptions\Archive\CompressionException;
+use App\Exceptions\Archive\FileValidationException;
+use App\Exceptions\Archive\StorageException;
+use App\Exceptions\Archive\VirusDetectedException;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Archive\ActivityFileRequest;
 use App\Models\Agenda\Actividad;
 use App\Models\Agenda\ActividadAsignadaGrupo;
-use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Agenda\Agenda;
-use App\Models\Curso\Curso;
+use App\Models\Agenda\Evaluacion;
+use App\Models\Agenda\IntegranteGrupo;
+use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Componente;
-use App\Models\Curso\Unidad;
+use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
+use App\Models\Curso\Unidad;
+use App\Models\Usuario\Usuario;
 use App\Services\Agenda\GrupoIndividualService;
+use App\Services\Archive\Handlers\ActivityArchiveHandler;
 use App\Services\Docente\ConversacionDocenteService;
 use App\Services\Docente\NombreUsuario;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Inertia\Response;
 
 /**
  * Controlador para gestión de actividades/tareas en los cursos del docente.
- * 
+ *
  * Tablas implicadas:
  * - curso.curso: Cursos donde existen actividades
  * - agenda.actividad: Actividades/tareas del curso
  * - curso.seccion: Secciones del curso (para validar acceso docente)
  * - curso.unidad: Unidades temáticas donde se agrupan actividades
  * - usuario.docente: Perfil del docente autenticado
- * 
+ *
  * Permite al docente ver, crear, actualizar y eliminar actividades en sus cursos,
  * validando siempre que sea responsable de alguna sección del curso.
  */
@@ -72,10 +86,10 @@ class DocenteActivityController extends Controller
      */
     private function assertPuedeEditarEvaluacion(Curso $curso, Actividad $actividad): void
     {
-        /** @var \App\Models\Usuario\Usuario $user */
+        /** @var Usuario $user */
         $user = Auth::user();
 
-        if ($user->isSuperAdmin() || $user->hasAnyRoleGlobally(\App\Models\Usuario\Usuario::ROLES_ADMINISTRATIVOS)) {
+        if ($user->isSuperAdmin() || $user->hasAnyRoleGlobally(Usuario::ROLES_ADMINISTRATIVOS)) {
             return;
         }
 
@@ -104,13 +118,13 @@ class DocenteActivityController extends Controller
         Log::channel('seguridad')->warning(
             'Acceso denegado: escritura de evaluación fuera del componente propio',
             [
-                'evento'        => 'ESCRITURA_EVALUACION_FUERA_DE_COMPONENTE',
-                'id_usuario'    => $user->id_usuario,
-                'id_docente'    => $docente->id_docente,
-                'id_curso'      => $curso->id_curso,
-                'id_actividad'  => $actividad->id_actividad,
+                'evento' => 'ESCRITURA_EVALUACION_FUERA_DE_COMPONENTE',
+                'id_usuario' => $user->id_usuario,
+                'id_docente' => $docente->id_docente,
+                'id_curso' => $curso->id_curso,
+                'id_actividad' => $actividad->id_actividad,
                 'id_componente' => $actividad->componente?->id_componente,
-                'ip'            => request()->ip(),
+                'ip' => request()->ip(),
             ]
         );
 
@@ -134,8 +148,8 @@ class DocenteActivityController extends Controller
 
         return collect(Auth::user()->getAllPermissions($curso->id_contexto))
             ->map(fn ($perm) => [
-                'id_permiso'     => $perm['id_permiso'],
-                'slug'           => $perm['slug'],
+                'id_permiso' => $perm['id_permiso'],
+                'slug' => $perm['slug'],
                 'esta_permitido' => (bool) $perm['esta_permitido'],
             ])
             ->values()
@@ -144,12 +158,12 @@ class DocenteActivityController extends Controller
 
     /**
      * Muestra todas las actividades de un curso específico.
-     * 
+     *
      * Valida que el docente autenticado sea responsable de alguna sección del curso.
      * Obtiene actividades ordenadas por fecha límite y secciones/unidades para edición.
-     * 
+     *
      * @param  Curso  $curso  Curso cuyas actividades se solicitan
-     * @return \Illuminate\Http\Response|\Inertia\Response  Redirección si no autorizado, o vista con actividades
+     * @return \Illuminate\Http\Response|Response Redirección si no autorizado, o vista con actividades
      */
     public function show(Curso $curso)
     {
@@ -160,7 +174,7 @@ class DocenteActivityController extends Controller
 
         // Get activities for this course via componente relationship (actividad has no id_curso column)
         $actividades = Actividad::whereHas('componente', fn($q) => $q->where('id_curso', $curso->id_curso))
-            ->with(['componente.tipoComponente', 'unidad'])
+            ->with(['componente.tipoComponente', 'unidad', 'archivo'])
             ->orderBy('fecha_limite', 'asc')
             ->get();
 
@@ -189,6 +203,11 @@ class DocenteActivityController extends Controller
         $actividades = $actividades->map(function (Actividad $actividad) use ($pendientes) {
             $datos = $actividad->toArray();
             $datos['mensajes_pendientes'] = $pendientes[$actividad->id_actividad] ?? 0;
+            $datos['archivo_enunciado'] = $actividad->archivo ? [
+                'nombre_original' => $actividad->archivo->nombre_original,
+                'mime_type' => $actividad->archivo->mime_type,
+                'peso_bytes' => $actividad->archivo->peso_bytes,
+            ] : null;
 
             return $datos;
         });
@@ -199,6 +218,12 @@ class DocenteActivityController extends Controller
             'componentes' => $componentes,
             'unidades' => $unidades,
             'estados' => $estados,
+            'reglas_enunciado' => [
+                'extensiones_pdf' => config('filetypes.pdf.extensions'),
+                'extensiones_img' => config('filetypes.image.extensions'),
+                'max_mb_pdf' => (int) (config('filetypes.pdf.max_size') / 1048576),
+                'max_mb_imagen' => (int) (config('filetypes.image.max_size') / 1048576),
+            ],
         ]);
     }
 
@@ -211,7 +236,7 @@ class DocenteActivityController extends Controller
 
         Log::info('[DocenteActivity::store] Inicio', [
             'id_curso' => $curso->id_curso,
-            'payload'  => $request->except(['_token']),
+            'payload' => $request->except(['_token']),
         ]);
 
         // Validate the request
@@ -244,24 +269,24 @@ class DocenteActivityController extends Controller
             // grupo de 1 integrante para que agenda/evaluación tengan dónde
             // colgarse (ver GrupoIndividualService).
             if (!$actividad->es_grupal) {
-                (new GrupoIndividualService())->asegurarGruposDelCurso($curso, $actividad);
+                (new GrupoIndividualService)->asegurarGruposDelCurso($curso, $actividad);
             }
 
             Log::info('[DocenteActivity::store] Actividad creada', [
                 'id_actividad' => $actividad->id_actividad,
-                'nombre'       => $actividad->nombre,
-                'id_contexto'  => $actividad->id_contexto ?? null,
+                'nombre' => $actividad->nombre,
+                'id_contexto' => $actividad->id_contexto ?? null,
             ]);
 
             return redirect()->back()->with('success', "Actividad '{$actividad->nombre}' creada correctamente.");
         } catch (\Exception $e) {
             Log::error('[DocenteActivity::store] Error al crear actividad', [
-                'message'   => $e->getMessage(),
+                'message' => $e->getMessage(),
                 'exception' => get_class($e),
-                'trace'     => $e->getTraceAsString(),
+                'trace' => $e->getTraceAsString(),
                 'validated' => $validated,
             ]);
-            
+
             return redirect()->back()
                 ->with('error', 'No se pudo crear la actividad. Por favor, inténtalo nuevamente.');
         }
@@ -360,23 +385,137 @@ class DocenteActivityController extends Controller
         try {
             $nombreActividad = $actividad->nombre;
             $actividad->delete();
-            
+
             return redirect()->back()->with('success', "Actividad '{$nombreActividad}' eliminada correctamente.");
         } catch (\Exception $e) {
             Log::error('Error deleting activity: ' . $e->getMessage());
-            
+
             return redirect()->back()
                 ->withErrors(['error' => 'Error al eliminar la actividad.']);
         }
     }
 
+    // =========================================================================
+    // ENUNCIADO DE LA ACTIVIDAD
+    // =========================================================================
+
+    /**
+     * Sube/reemplaza el archivo de enunciado asociado a una actividad.
+     *
+     * Un solo archivo activo por actividad: si ya existe uno, se reemplaza
+     * (el archivo anterior queda huérfano para limpieza asíncrona).
+     *
+     * El pipeline completo: ActivityFileRequest → ActivityArchiveHandler::store()
+     * → ActivityArchiveService (valida tipo/tamaño, comprime) → Archivo DB →
+     * uuid_archivo_enunciado en actividad.
+     */
+    public function subirEnunciado(ActivityFileRequest $request, Curso $curso, Actividad $actividad)
+    {
+        $this->authorize('manageTeam', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+
+        try {
+            $result = ActivityArchiveHandler::store(
+                actividad: $actividad,
+                file: $request->getFile(),
+                fileName: $request->getFileName()
+            );
+
+            $actividad->uuid_archivo_enunciado = $result->uuidArchivo;
+            $actividad->save();
+
+            // Verificar que el campo persistió correctamente
+            $actividad->refresh();
+
+            Log::info('[DocenteActivity::subirEnunciado] Enunciado asignado', [
+                'id_actividad' => $actividad->id_actividad,
+                'uuid_archivo' => $result->uuidArchivo,
+                'uuid_persistido_en_db' => $actividad->uuid_archivo_enunciado,
+                'nombre_original' => $request->getFile()->getClientOriginalName(),
+            ]);
+
+            return redirect()->back()->with('success', 'Enunciado asignado correctamente.');
+        } catch (FileValidationException $e) {
+            return redirect()->back()->withErrors([
+                'archivo' => 'El archivo no es válido: ' . $e->getMessage(),
+            ]);
+        } catch (VirusDetectedException $e) {
+            return redirect()->back()->withErrors([
+                'archivo' => 'Alerta de seguridad: se detectó un virus en el archivo.',
+            ]);
+        } catch (CompressionException $e) {
+            return redirect()->back()->withErrors([
+                'archivo' => 'Hubo un problema al comprimir el archivo.',
+            ]);
+        } catch (StorageException $e) {
+            report($e);
+
+            return redirect()->back()->withErrors([
+                'archivo' => 'No se pudo guardar el archivo. ' . $e->getMessage(),
+            ]);
+        } catch (ArchiveException $e) {
+            report($e);
+
+            return redirect()->back()->withErrors([
+                'archivo' => 'Error al procesar el archivo.',
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()->back()->withErrors([
+                'archivo' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Descarga el archivo de enunciado de una actividad.
+     *
+     * Patrón idéntico a descargarEntrega() pero sin verificar grupo: el
+     * enunciado es de nivel actividad completa.
+     */
+    public function descargarEnunciado(Curso $curso, Actividad $actividad)
+    {
+        $actividad->load('componente');
+        $this->authorize('viewPrograma', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+
+        Log::info('[DocenteActivity::descargarEnunciado] Solicitud', [
+            'id_actividad' => $actividad->id_actividad,
+            'uuid_archivo_enunciado' => $actividad->uuid_archivo_enunciado,
+            'tiene_archivo' => $actividad->archivo !== null,
+        ]);
+
+        if (!$actividad->uuid_archivo_enunciado || !$actividad->archivo) {
+            abort(404, 'Esta actividad no tiene enunciado asociado.');
+        }
+
+        $rutaArchivo = Storage::disk('local_archives')->path($actividad->archivo->ruta_fisica);
+
+        if (!file_exists($rutaArchivo)) {
+            Log::warning('Archivo de enunciado no encontrado en disco', [
+                'id_actividad' => $actividad->id_actividad,
+                'ruta_fisica' => $actividad->archivo->ruta_fisica,
+                'ruta_completa' => $rutaArchivo,
+                'disk' => 'local_archives',
+            ]);
+            abort(404, 'El archivo de enunciado no existe en el servidor.');
+        }
+
+        return response()->download(
+            $rutaArchivo,
+            $actividad->archivo->nombre_original,
+            ['Content-Type' => $actividad->archivo->mime_type]
+        );
+    }
+
     /**
      * Retorna las actividades de un curso en formato JSON para el modal de programa.
-     * 
+     *
      * Nota: Las actividades se relacionan con cursos a través de la tabla seccion.
-     * 
+     *
      * @param  Curso  $curso  Curso cuyas actividades se solicitan
-     * @return \Illuminate\Http\JsonResponse  Array de actividades
+     * @return JsonResponse Array de actividades
      */
     public function actividadesJson(Curso $curso)
     {
@@ -412,9 +551,9 @@ class DocenteActivityController extends Controller
         $idDocente = $docente->id_docente;
 
         $cursos = Curso::where(function ($q) use ($idDocente) {
-                $q->where('id_docente_titular', $idDocente)
-                    ->orWhereHas('componentes.docenteComponentes', fn ($dq) => $dq->where('id_docente', $idDocente));
-            })
+            $q->where('id_docente_titular', $idDocente)
+                ->orWhereHas('componentes.docenteComponentes', fn ($dq) => $dq->where('id_docente', $idDocente));
+        })
             ->whereNull('fecha_eliminacion')
             ->with(['componentes' => function ($q) use ($idDocente) {
                 $q->with(['tipoComponente', 'docenteComponentes' => fn ($dq) => $dq->where('id_docente', $idDocente)]);
@@ -449,21 +588,21 @@ class DocenteActivityController extends Controller
                     $actividades = $actividadesPorComponente
                         ->get($c->id_componente, collect())
                         ->map(fn ($a) => [
-                            'id_actividad'   => $a->id_actividad,
-                            'nombre'         => $a->nombre,
+                            'id_actividad' => $a->id_actividad,
+                            'nombre' => $a->nombre,
                             'tipo_actividad' => $a->tipo_actividad instanceof \BackedEnum ? $a->tipo_actividad->value : $a->tipo_actividad,
-                            'es_grupal'      => (bool) $a->es_grupal,
-                            'fecha_limite'   => $a->fecha_limite?->format('Y-m-d'),
-                            'tiene_grupos'   => $a->actividad_asignada_grupos_count > 0,
+                            'es_grupal' => (bool) $a->es_grupal,
+                            'fecha_limite' => $a->fecha_limite?->format('Y-m-d'),
+                            'tiene_grupos' => $a->actividad_asignada_grupos_count > 0,
                         ])
                         ->values();
 
                     return [
-                        'id_componente'         => $c->id_componente,
-                        'tipo_componente'       => $c->tipoComponente->tipo ?? 'N/A',
-                        'imparte'               => $c->docenteComponentes->isNotEmpty(),
+                        'id_componente' => $c->id_componente,
+                        'tipo_componente' => $c->tipoComponente->tipo ?? 'N/A',
+                        'imparte' => $c->docenteComponentes->isNotEmpty(),
                         'es_titular_componente' => (bool) ($c->docenteComponentes->first()?->es_titular),
-                        'actividades'           => $actividades,
+                        'actividades' => $actividades,
                     ];
                 })
                 ->filter(fn ($c) => count($c['actividades']) > 0)
@@ -471,17 +610,17 @@ class DocenteActivityController extends Controller
                 ->values();
 
             return [
-                'id_curso'         => $curso->id_curso,
-                'nombre'           => $curso->nombre,
-                'cod_curso'        => $curso->cod_curso,
-                'agno_real'        => $curso->agno_real,
-                'semestre_real'    => $curso->semestre_real,
+                'id_curso' => $curso->id_curso,
+                'nombre' => $curso->nombre,
+                'cod_curso' => $curso->cod_curso,
+                'agno_real' => $curso->agno_real,
+                'semestre_real' => $curso->semestre_real,
                 'es_titular_curso' => $esTitularCurso,
-                'componentes'      => $componentes,
+                'componentes' => $componentes,
             ];
         })
-        ->filter(fn ($c) => count($c['componentes']) > 0)
-        ->values();
+            ->filter(fn ($c) => count($c['componentes']) > 0)
+            ->values();
 
         return Inertia::render('docente/Calificaciones', [
             'cursos' => $data,
@@ -516,14 +655,14 @@ class DocenteActivityController extends Controller
                 $g->sincronizarEstado($actividad);
 
                 return [
-                    'grupo'      => $g->id_actividad_asignada_grupo,
-                    'nota'       => $g->nota,
+                    'grupo' => $g->id_actividad_asignada_grupo,
+                    'nota' => $g->nota,
                     'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
                     'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
                     'estado_calculado' => $g->calcularEstadoGrupo($actividad),
                     'integrantes' => $g->integranteGrupos->map(fn($m) => [
                         'id_asignado_actividad' => $m->id_asignado_actividad,
-                        'id_estudiante'  => $m->id_estudiante,
+                        'id_estudiante' => $m->id_estudiante,
                         'nota_individual' => $m->nota_individual !== null ? (float) $m->nota_individual : null,
                         'diferencia_decimas' => (int) ($m->diferencia_decimas ?? 0),
                         'nombre_completo' => $m->estudiante?->usuario?->nombre_completo ?? '',
@@ -533,7 +672,7 @@ class DocenteActivityController extends Controller
             ->values();
 
         // Campos calculados de la actividad
-        $esSumativa  = $actividad->tipo_actividad === TipoActividad::SUMATIVA;
+        $esSumativa = $actividad->tipo_actividad === TipoActividad::SUMATIVA;
         $traeArchivo = $actividad->tipo_entrega !== 'presencial';
 
         // 1. Autor: GitHub Copilot
@@ -545,11 +684,11 @@ class DocenteActivityController extends Controller
         $rubricaData = null;
         $rubricaId = null;
         try {
-            $rubricaModel = \App\Models\Agenda\Rubrica::where('id_actividad', $actividad->id_actividad)
+            $rubricaModel = Rubrica::where('id_actividad', $actividad->id_actividad)
                 ->orderByDesc('id_rubrica')
                 ->first();
             $rubricaData = $rubricaModel?->rubrica;
-            $rubricaId   = $rubricaModel?->id_rubrica;
+            $rubricaId = $rubricaModel?->id_rubrica;
         } catch (\Exception $e) {
             Log::warning('No se pudo cargar rúbrica para actividad ' . $actividad->id_actividad . ': ' . $e->getMessage());
         }
@@ -559,7 +698,7 @@ class DocenteActivityController extends Controller
             ->with('estudiante.usuario')
             ->get()
             ->map(fn($i) => [
-                'id_estudiante'   => $i->id_estudiante,
+                'id_estudiante' => $i->id_estudiante,
                 'nombre_completo' => $i->estudiante?->usuario?->nombre_completo ?? '',
             ])
             ->sortBy('nombre_completo')
@@ -577,43 +716,45 @@ class DocenteActivityController extends Controller
                 ->orderByDesc('fecha_limite')
                 ->get(['id_actividad', 'nombre', 'fecha_limite'])
                 ->map(fn($a) => [
-                    'id_actividad'    => $a->id_actividad,
-                    'nombre'          => $a->nombre,
-                    'fecha_limite'    => $a->fecha_limite?->format('Y-m-d'),
+                    'id_actividad' => $a->id_actividad,
+                    'nombre' => $a->nombre,
+                    'fecha_limite' => $a->fecha_limite?->format('Y-m-d'),
                     'cantidad_grupos' => $a->actividad_asignada_grupos_count,
                 ])
                 ->values();
         }
 
         return Inertia::render('docente/Activities/Index', [
-            'curso'     => [
-                'id_curso'        => $curso->id_curso,
-                'nombre'          => $curso->nombre,
-                'cod_curso'       => $curso->cod_curso,
+            'curso' => [
+                'id_curso' => $curso->id_curso,
+                'nombre' => $curso->nombre,
+                'cod_curso' => $curso->cod_curso,
                 'es_titular_curso' => $esTitular,
                 'userPermissions' => $this->userPermissionsParaCurso($curso, $esTitular),
             ],
             'actividad' => [
-                'id_actividad'    => $actividad->id_actividad,
-                'nombre'          => $actividad->nombre,
-                'descripcion'     => $actividad->descripcion ?? '',
-                'fecha_limite'    => $actividad->fecha_limite?->format('Y-m-d'),
-                'es_sumativa'     => $esSumativa,
-                'trae_archivo'    => $traeArchivo,
-                'es_grupal'       => (bool) $actividad->es_grupal,
+                'id_actividad' => $actividad->id_actividad,
+                'nombre' => $actividad->nombre,
+                'descripcion' => $actividad->descripcion ?? '',
+                'fecha_limite' => $actividad->fecha_limite?->format('Y-m-d'),
+                'es_sumativa' => $esSumativa,
+                'trae_archivo' => $traeArchivo,
+                'es_grupal' => (bool) $actividad->es_grupal,
                 'max_integrantes' => $actividad->max_integrantes,
-                'es_titular'      => $esTitular,
+                'es_titular' => $esTitular,
             ],
-            'grupos'               => $grupos,
-            'rubrica'              => $rubricaData,
-            'rubrica_id'           => $rubricaId,
+            'grupos' => $grupos,
+            'rubrica' => $rubricaData,
+            'rubrica_id' => $rubricaId,
             'estudiantesInscritos' => $estudiantesInscritos,
             'actividadesConGrupos' => $actividadesConGrupos,
-            'interaccionesGrupo'   => Inertia::lazy(function () {
+            'interaccionesGrupo' => Inertia::lazy(function () {
                 $grupoId = request('grupo_id');
-                if (!$grupoId) return [];
+                if (!$grupoId) {
+                    return [];
+                }
 
-                return (new ConversacionDocenteService())->hiloCompletoGrupo((int) $grupoId);
+                return (new ConversacionDocenteService)->hiloCompletoGrupo((int) $grupoId);
             }),
         ]);
     }
@@ -627,10 +768,10 @@ class DocenteActivityController extends Controller
         $this->authorize('viewPrograma', $curso);
 
         $request->validate([
-            'rubrica'                     => 'required|array',
-            'rubrica.niveles'             => 'required|array|min:1',
+            'rubrica' => 'required|array',
+            'rubrica.niveles' => 'required|array|min:1',
             'rubrica.detalles_evaluacion' => 'required|array',
-            'id_actividad'               => 'required|integer|exists:actividad,id_actividad',
+            'id_actividad' => 'required|integer|exists:actividad,id_actividad',
         ]);
 
         // `exists:actividad` sólo comprobaba que el ID existiera en el sistema: la
@@ -643,7 +784,7 @@ class DocenteActivityController extends Controller
         $idActividad = $actividad->id_actividad;
 
         try {
-            $existente = \App\Models\Agenda\Rubrica::where('id_actividad', $idActividad)
+            $existente = Rubrica::where('id_actividad', $idActividad)
                 ->where('estado_rubrica', 'POSTULADA')
                 ->orderByDesc('id_rubrica')
                 ->first();
@@ -651,14 +792,15 @@ class DocenteActivityController extends Controller
             if ($existente) {
                 $existente->update(['rubrica' => $request->input('rubrica')]);
             } else {
-                \App\Models\Agenda\Rubrica::create([
-                    'rubrica'        => $request->input('rubrica'),
+                Rubrica::create([
+                    'rubrica' => $request->input('rubrica'),
                     'estado_rubrica' => 'POSTULADA',
-                    'id_actividad'   => $idActividad,
+                    'id_actividad' => $idActividad,
                 ]);
             }
         } catch (\Exception $e) {
             Log::error('Error al guardar rúbrica: ' . $e->getMessage());
+
             return redirect()->back()->withErrors(['error' => 'Error al guardar la rúbrica.']);
         }
 
@@ -755,7 +897,7 @@ class DocenteActivityController extends Controller
 
         $asignado->update([
             'diferencia_decimas' => $validated['diferencia_decimas'],
-            'nota_individual'    => $this->calcularNotaIndividual($grupoModel->nota, (float) $validated['diferencia_decimas']),
+            'nota_individual' => $this->calcularNotaIndividual($grupoModel->nota, (float) $validated['diferencia_decimas']),
         ]);
 
         return redirect()->back()->with('success', 'Nota individual actualizada.');
@@ -862,7 +1004,7 @@ class DocenteActivityController extends Controller
 
             // Crear grupo
             $grupo = ActividadAsignadaGrupo::create([
-                'id_actividad'              => $actividad->id_actividad,
+                'id_actividad' => $actividad->id_actividad,
                 'estado_actividad_asignada' => 'PLANIFICADA',
             ]);
 
@@ -870,7 +1012,7 @@ class DocenteActivityController extends Controller
             foreach ($validated['estudiantes'] as $id_estudiante) {
                 IntegranteGrupo::create([
                     'id_actividad_asignada_grupo' => $grupo->id_actividad_asignada_grupo,
-                    'id_estudiante'              => $id_estudiante,
+                    'id_estudiante' => $id_estudiante,
                 ]);
             }
 
@@ -938,7 +1080,7 @@ class DocenteActivityController extends Controller
         try {
             IntegranteGrupo::create([
                 'id_actividad_asignada_grupo' => $grupo,
-                'id_estudiante'              => $validated['id_estudiante'],
+                'id_estudiante' => $validated['id_estudiante'],
             ]);
 
             return redirect()->back()->with('success', 'Estudiante agregado al grupo.');
@@ -959,7 +1101,7 @@ class DocenteActivityController extends Controller
         // Verificar que la actividad pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
 
-        /** @var \Illuminate\Database\Eloquent\Collection<ActividadAsignadaGrupo> */
+        /** @var Collection<ActividadAsignadaGrupo> */
         $grupos = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
             ->with(['miembros.estudiante.usuario'])
             ->get();
@@ -968,11 +1110,11 @@ class DocenteActivityController extends Controller
             $grupo->sincronizarEstado($actividad);
 
             return [
-                'grupo'                    => $grupo->id_actividad_asignada_grupo,
-                'nota'                     => $grupo->nota,
+                'grupo' => $grupo->id_actividad_asignada_grupo,
+                'nota' => $grupo->nota,
                 'estado_actividad_asignada' => $grupo->estado_actividad_asignada?->value,
-                'integrantes'              => $grupo->getMiembrosConDetalles(),
-                'cantidad_integrantes'     => $grupo->miembros()->count(),
+                'integrantes' => $grupo->getMiembrosConDetalles(),
+                'cantidad_integrantes' => $grupo->miembros()->count(),
             ];
         });
 
@@ -1005,7 +1147,7 @@ class DocenteActivityController extends Controller
             ->get()
             ->map(function ($g) use ($idsInscritos) {
                 $integrantes = $g->miembros->map(fn ($m) => [
-                    'id_estudiante'   => $m->id_estudiante,
+                    'id_estudiante' => $m->id_estudiante,
                     'nombre_completo' => trim(
                         ($m->estudiante?->usuario?->nombre1 ?? '') . ' ' .
                         ($m->estudiante?->usuario?->nombre2 ?? '') . ' ' .
@@ -1016,10 +1158,10 @@ class DocenteActivityController extends Controller
                 ])->values();
 
                 return [
-                    'grupo'                => $g->id_actividad_asignada_grupo,
-                    'integrantes'          => $integrantes,
+                    'grupo' => $g->id_actividad_asignada_grupo,
+                    'integrantes' => $integrantes,
                     'cantidad_integrantes' => $integrantes->count(),
-                    'cantidad_vigentes'    => $integrantes->where('inscrito', true)->count(),
+                    'cantidad_vigentes' => $integrantes->where('inscrito', true)->count(),
                 ];
             })
             ->values();
@@ -1053,8 +1195,8 @@ class DocenteActivityController extends Controller
 
         $validated = $request->validate([
             'id_actividad_origen' => 'required|integer|exists:actividad,id_actividad',
-            'grupos'               => 'required|array|min:1',
-            'grupos.*'             => 'required|integer',
+            'grupos' => 'required|array|min:1',
+            'grupos.*' => 'required|integer',
         ]);
 
         $actividadOrigen = Actividad::find($validated['id_actividad_origen']);
@@ -1081,7 +1223,7 @@ class DocenteActivityController extends Controller
                 ->with('miembros')
                 ->get();
 
-            $gruposCreados  = 0;
+            $gruposCreados = 0;
             $gruposOmitidos = 0;
 
             foreach ($gruposOrigen as $grupoOrigen) {
@@ -1094,18 +1236,19 @@ class DocenteActivityController extends Controller
 
                 if ($estudiantesVigentes->isEmpty()) {
                     $gruposOmitidos++;
+
                     continue;
                 }
 
                 $nuevoGrupo = ActividadAsignadaGrupo::create([
-                    'id_actividad'              => $actividad->id_actividad,
+                    'id_actividad' => $actividad->id_actividad,
                     'estado_actividad_asignada' => 'PLANIFICADA',
                 ]);
 
                 foreach ($estudiantesVigentes as $id_estudiante) {
                     IntegranteGrupo::create([
                         'id_actividad_asignada_grupo' => $nuevoGrupo->id_actividad_asignada_grupo,
-                        'id_estudiante'              => $id_estudiante,
+                        'id_estudiante' => $id_estudiante,
                     ]);
                 }
 
@@ -1144,30 +1287,30 @@ class DocenteActivityController extends Controller
         $entregas = Agenda::whereHas('actividadAsignadaGrupo', function ($query) use ($actividad) {
             $query->where('id_actividad', $actividad->id_actividad);
         })
-        ->with(['usuario', 'archivo', 'evaluacion'])
-        ->orderBy('fecha_envio', 'desc')
-        ->get()
-        ->map(function ($entrega) {
-            return [
-                'id_agenda' => $entrega->id_agenda,
-                'fecha_envio' => $entrega->fecha_envio,
-                'mensaje' => $entrega->mensaje,
-                'tipo_registro' => $entrega->tipo_mensaje?->value,
-                'archivo' => $entrega->uuid_archivo_subido ? [
-                    'uuid' => $entrega->archivo?->uuid_archivo,
-                    'nombre_original' => $entrega->archivo?->nombre_original,
-                    'extension' => $entrega->archivo?->extension,
-                    'mime_type' => $entrega->archivo?->mime_type,
-                    'peso_bytes' => $entrega->archivo?->peso_bytes,
-                    'fecha_creacion' => $entrega->archivo?->fecha_creacion,
-                ] : null,
-                'usuario_emisor' => [
-                    'nombre' => $entrega->usuario?->nombre_completo ?? '',
-                    'rut' => $entrega->usuario?->rut,
-                ],
-                'evaluada' => $entrega->evaluacion !== null,
-            ];
-        });
+            ->with(['usuario', 'archivo', 'evaluacion'])
+            ->orderBy('fecha_envio', 'desc')
+            ->get()
+            ->map(function ($entrega) {
+                return [
+                    'id_agenda' => $entrega->id_agenda,
+                    'fecha_envio' => $entrega->fecha_envio,
+                    'mensaje' => $entrega->mensaje,
+                    'tipo_registro' => $entrega->tipo_mensaje?->value,
+                    'archivo' => $entrega->uuid_archivo_subido ? [
+                        'uuid' => $entrega->archivo?->uuid_archivo,
+                        'nombre_original' => $entrega->archivo?->nombre_original,
+                        'extension' => $entrega->archivo?->extension,
+                        'mime_type' => $entrega->archivo?->mime_type,
+                        'peso_bytes' => $entrega->archivo?->peso_bytes,
+                        'fecha_creacion' => $entrega->archivo?->fecha_creacion,
+                    ] : null,
+                    'usuario_emisor' => [
+                        'nombre' => $entrega->usuario?->nombre_completo ?? '',
+                        'rut' => $entrega->usuario?->rut,
+                    ],
+                    'evaluada' => $entrega->evaluacion !== null,
+                ];
+            });
 
         return response()->json($entregas);
     }
@@ -1248,10 +1391,11 @@ class DocenteActivityController extends Controller
             return response()->json(['error' => 'No hay archivo asociado a esta entrega.'], 404);
         }
 
-        $rutaArchivo = storage_path('app/' . $agenda->archivo->ruta_fisica);
+        $rutaArchivo = Storage::disk('local_archives')->path($agenda->archivo->ruta_fisica);
 
         if (!file_exists($rutaArchivo)) {
             Log::warning("Archivo no encontrado en: {$rutaArchivo}");
+
             return response()->json(['error' => 'El archivo no existe en el servidor.'], 404);
         }
 
@@ -1322,17 +1466,19 @@ class DocenteActivityController extends Controller
 
         $estudiantesConMeta = $estudiantes->map(fn($e) => array_merge((array) $e, [
             'total_mensajes' => $mensajesCount[$e->id_estudiante] ?? 0,
-            'ultima_fecha'   => $ultimasFechas[$e->id_estudiante] ?? null,
+            'ultima_fecha' => $ultimasFechas[$e->id_estudiante] ?? null,
         ]));
 
         return Inertia::render('docente/MensajesCurso', [
-            'curso'       => $curso,
+            'curso' => $curso,
             'estudiantes' => $estudiantesConMeta->values(),
             'mensajesEstudiante' => Inertia::lazy(function () use ($curso) {
                 $idEstudiante = request('estudiante_id');
-                if (!$idEstudiante) return [];
+                if (!$idEstudiante) {
+                    return [];
+                }
 
-                $service   = new ConversacionDocenteService();
+                $service = new ConversacionDocenteService;
                 $gruposIds = $service->gruposDeEstudianteEnCurso($curso->id_curso, (int) $idEstudiante);
 
                 return $service->conversacionEstudiante($gruposIds);
@@ -1358,7 +1504,7 @@ class DocenteActivityController extends Controller
             abort(404, 'Estudiante no encontrado en este curso.');
         }
 
-        $service   = new ConversacionDocenteService();
+        $service = new ConversacionDocenteService;
         $gruposIds = $service->gruposDeEstudianteEnCurso($curso->id_curso, $idEstudiante);
 
         return response()->json($service->conversacionEstudiante($gruposIds));
@@ -1397,14 +1543,14 @@ class DocenteActivityController extends Controller
             ->firstOrFail();
 
         $validated = $request->validate([
-            'id_agenda_entrega'  => 'nullable|integer|exists:agenda,id_agenda',
-            'id_rubrica'         => 'required|integer|exists:rubrica,id_rubrica',
-            'resultado'          => 'nullable|array',
-            'resultado_rubrica'  => 'nullable|array',
-            'puntaje_obtenido'   => 'nullable|numeric|min:0|max:999',
-            'evaluacion_obtenida'=> 'nullable|string|max:500',
-            'mensaje'            => 'nullable|string|max:2000',
-            'nota'               => 'nullable|numeric|min:1|max:7',
+            'id_agenda_entrega' => 'nullable|integer|exists:agenda,id_agenda',
+            'id_rubrica' => 'required|integer|exists:rubrica,id_rubrica',
+            'resultado' => 'nullable|array',
+            'resultado_rubrica' => 'nullable|array',
+            'puntaje_obtenido' => 'nullable|numeric|min:0|max:999',
+            'evaluacion_obtenida' => 'nullable|string|max:500',
+            'mensaje' => 'nullable|string|max:2000',
+            'nota' => 'nullable|numeric|min:1|max:7',
         ]);
 
         // Verificar que la entrega referenciada pertenece al mismo grupo
@@ -1427,22 +1573,22 @@ class DocenteActivityController extends Controller
                 // 2. Fecha: 02/06/2026
                 // 3. agenda.agenda usa tipo_mensaje ENUM directamente; no existe tipo_registro_agenda.
                 $idAgendaEvaluacion = DB::table('agenda.agenda')->insertGetId([
-                    'mensaje'                     => $validated['mensaje'] ?? '',
-                    'id_usuario_emisor'           => Auth::id(),
+                    'mensaje' => $validated['mensaje'] ?? '',
+                    'id_usuario_emisor' => Auth::id(),
                     'id_actividad_asignada_grupo' => $grupo,
-                    'tipo_mensaje'                => 'Evaluación',
-                    'fecha_envio'                 => now(),
+                    'tipo_mensaje' => 'Evaluación',
+                    'fecha_envio' => now(),
                 ], 'id_agenda');
 
                 // 2. Crear registro en evaluacion vinculado al mensaje anterior
-                \App\Models\Agenda\Evaluacion::create([
-                    'puntaje_obtenido'    => $validated['puntaje_obtenido'] ?? null,
-                    'resultado'           => $validated['resultado_rubrica'] ?? $validated['resultado'] ?? null,
-                    'evaluacion_obtenida' => isset($validated['nota']) ? (string)$validated['nota'] : ($validated['evaluacion_obtenida'] ?? null),
-                    'fecha_evaluacion'    => now(),
-                    'id_rubrica'          => $validated['id_rubrica'],
-                    'id_usuario_evaluador'=> Auth::id(),
-                    'id_agenda'           => $idAgendaEvaluacion,
+                Evaluacion::create([
+                    'puntaje_obtenido' => $validated['puntaje_obtenido'] ?? null,
+                    'resultado' => $validated['resultado_rubrica'] ?? $validated['resultado'] ?? null,
+                    'evaluacion_obtenida' => isset($validated['nota']) ? (string) $validated['nota'] : ($validated['evaluacion_obtenida'] ?? null),
+                    'fecha_evaluacion' => now(),
+                    'id_rubrica' => $validated['id_rubrica'],
+                    'id_usuario_evaluador' => Auth::id(),
+                    'id_agenda' => $idAgendaEvaluacion,
                 ]);
 
                 // 3. Actualizar nota. El grupo se mantiene ACTIVA (no se cierra al
@@ -1473,9 +1619,10 @@ class DocenteActivityController extends Controller
             });
         } catch (\Exception $e) {
             Log::error('[storeEvaluacion] Error al registrar evaluación: ' . $e->getMessage(), [
-                'grupo'  => $grupoModel->id_actividad_asignada_grupo,
-                'trace'  => $e->getTraceAsString(),
+                'grupo' => $grupoModel->id_actividad_asignada_grupo,
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return redirect()->back()->with('error', 'No se pudo registrar la evaluación. Por favor, inténtalo nuevamente.');
         }
     }
@@ -1508,11 +1655,11 @@ class DocenteActivityController extends Controller
         // 3. agenda.agenda usa columna ENUM tipo_mensaje directamente.
         //    Devuelve redirect()->back() para compatibilidad con Inertia.js.
         DB::table('agenda.agenda')->insert([
-            'mensaje'                     => $validated['mensaje'],
-            'id_usuario_emisor'           => Auth::id(),
+            'mensaje' => $validated['mensaje'],
+            'id_usuario_emisor' => Auth::id(),
             'id_actividad_asignada_grupo' => $grupo,
-            'tipo_mensaje'                => 'Feedback',
-            'fecha_envio'                 => now(),
+            'tipo_mensaje' => 'Feedback',
+            'fecha_envio' => now(),
         ]);
 
         return redirect()->back()->with('success', 'Feedback enviado correctamente.');
@@ -1540,8 +1687,6 @@ class DocenteActivityController extends Controller
         }
 
         // Hilo completo del grupo (mensajes, feedback, entregas y evaluaciones).
-        return response()->json((new ConversacionDocenteService())->hiloCompletoGrupo($grupo));
+        return response()->json((new ConversacionDocenteService)->hiloCompletoGrupo($grupo));
     }
-
-
 }

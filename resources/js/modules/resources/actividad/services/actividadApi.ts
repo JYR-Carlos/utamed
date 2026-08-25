@@ -64,3 +64,21 @@ export function deleteActividad(
         onError: options.onError,
     });
 }
+
+/** POST multipart /docente/cursos/{id}/actividades/{id}/enunciado — sube/reemplaza enunciado. */
+export function subirEnunciadoActividad(
+    idCurso: number,
+    idActividad: number,
+    archivo: File,
+    options: ApiOptions = {},
+) {
+    router.post(
+        `/docente/cursos/${idCurso}/actividades/${idActividad}/enunciado`,
+        { archivo },
+        {
+            forceFormData: true,
+            onSuccess: options.onSuccess,
+            onError: options.onError,
+        },
+    );
+}

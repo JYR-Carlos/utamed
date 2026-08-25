@@ -12,6 +12,7 @@ use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 /**
@@ -169,6 +170,7 @@ class ActivityController extends Controller
 
 
         return Inertia::render('student/Activities/Index', [
+            'id_curso'              => $curso->id_curso,
             'cod_curso'             => $curso->cod_curso,
             'nombre_curso'          => $curso->asignacionPlan?->asignatura?->nombre ?? $curso->nombre,
             'cod_actividad'         => (string) $actividad->id_actividad,
@@ -188,8 +190,65 @@ class ActivityController extends Controller
             'listado_interacciones' => $interacciones,
             'rubrica'               => $rubrica,
             'id_actividad_asignada_grupo' => $grupo?->id_actividad_asignada_grupo,
-            'resto_integrantes'     => $restoIntegrantes
+            'resto_integrantes'     => $restoIntegrantes,
+            'archivo_enunciado'     => $actividad->archivo ? [
+                'nombre_original' => $actividad->archivo->nombre_original,
+                'mime_type' => $actividad->archivo->mime_type,
+                'peso_bytes' => $actividad->archivo->peso_bytes,
+            ] : null,
         ]);
+    }
+
+    /**
+     * Descarga el archivo de enunciado de una actividad.
+     *
+     * Verifica que el estudiante esté inscrito en el curso y que la actividad
+     * pertenezca al mismo antes de servir el archivo.
+     */
+    public function descargarEnunciado(Curso $curso, Actividad $actividad)
+    {
+        /** @var Usuario $user */
+        $user = Auth::user();
+
+        if (!$user->estudiante) {
+            abort(403, 'Solo los estudiantes pueden acceder a este recurso.');
+        }
+
+        $estudiante = $user->estudiante;
+
+        $inscrito = $estudiante->inscripcionCursos()
+            ->where('id_curso', $curso->id_curso)
+            ->where('estado_inscripcion', 'INSCRITO')
+            ->first();
+
+        if (!$inscrito) {
+            abort(403, 'No estás inscrito en este curso.');
+        }
+
+        $actividad->loadMissing('componente');
+
+        if ($actividad->componente?->id_curso !== $curso->id_curso) {
+            abort(404, 'Actividad no encontrada en este curso.');
+        }
+
+        $actividad->load('archivo');
+
+        if (!$actividad->uuid_archivo_enunciado || !$actividad->archivo) {
+            abort(404, 'Esta actividad no tiene enunciado asociado.');
+        }
+
+        $rutaArchivo = Storage::disk('local_archives')->path($actividad->archivo->ruta_fisica);
+
+        if (!file_exists($rutaArchivo)) {
+            abort(404, 'El archivo de enunciado no existe en el servidor.');
+        }
+
+        $headers = [
+            'Content-Type' => $actividad->archivo->mime_type,
+            'Content-Disposition' => 'inline; filename="' . $actividad->archivo->nombre_original . '"',
+        ];
+
+        return response()->file($rutaArchivo, $headers);
     }
 }
 
