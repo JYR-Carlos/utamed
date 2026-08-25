@@ -1,148 +1,132 @@
 /**
  * Servicio de API para gestión de permisos granulares del Docente Titular.
  * 
- * ⚠️ IMPORTANTE: Este servicio debe ser refactorizado para usar Inertia router
- * en lugar de fetch directo. Los endpoints correspondientes en el backend
- * deben retornar Inertia::render() para GET y redirects para POST.
- * 
- * @see app/Http/Controllers/Docente/CursoPermisosController
+ * Consume los endpoints AJAX de CursoPermisosController (/docente/cursos/{id}/permisos-syllabus
+ * y /docente/cursos/{id}/componentes/{id}/permisos).
  */
-import { router } from '@inertiajs/svelte';
+
+function getXsrfToken(): string {
+  const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
 
 export interface PermisoSlug {
-    id_permiso: number;
-    slug: string;
-    nombre: string;
+  id_permiso: number;
+  slug: string;
+  nombre: string;
 }
 
 export interface DocenteConPermisos {
-    id_usuario: number;
-    id_docente: number;
-    nombre: string;
-    es_titular?: boolean;
-    /** { [id_permiso]: bool } */
-    permisos: Record<number, boolean>;
+  id_usuario: number;
+  id_docente: number;
+  nombre: string;
+  es_titular?: boolean;
+  /** { [id_permiso]: bool } */
+  permisos: Record<number, boolean>;
 }
 
 export interface SyllabusPermisosResponse {
-    docentes: DocenteConPermisos[];
-    slugs_disponibles: PermisoSlug[];
-    id_contexto_curso: number;
+  docentes: DocenteConPermisos[];
+  slugs_disponibles: PermisoSlug[];
+  id_contexto_curso: number;
 }
 
 export interface ComponentePermisosResponse {
-    docentes: DocenteConPermisos[];
-    slugs_disponibles: PermisoSlug[];
-    id_contexto_componente: number;
+  docentes: DocenteConPermisos[];
+  slugs_disponibles: PermisoSlug[];
+  id_contexto_componente: number;
 }
 
 // ─── Syllabus ───────────────────────────────────────────────────────────────
 
 /**
- * Carga los permisos de syllabus para un curso usando Inertia router.
- * 
- * NOTA: El endpoint debe retornar una página Inertia con los datos,
- * no JSON puro. Esta es una versión transitoria que requiere backend updates.
- * 
- * @deprecated Pending backend refactor to use Inertia::render()
+ * Carga los permisos de syllabus para un curso vía AJAX.
  */
 export async function getSyllabusPermisos(
-    cursoId: number,
-    basePath = '/docente',
+  cursoId: number,
+  basePath = '/docente',
 ): Promise<SyllabusPermisosResponse> {
-    return new Promise((resolve, reject) => {
-        router.get(`${basePath}/cursos/${cursoId}/permisos-syllabus`, {}, {
-            onSuccess: (page: any) => {
-                // El backend debería retornar estos datos en props
-                resolve({
-                    docentes: page.props?.docentes ?? [],
-                    slugs_disponibles: page.props?.slugs_disponibles ?? [],
-                    id_contexto_curso: page.props?.id_contexto_curso ?? 0,
-                });
-            },
-            onError: (errors: any) => {
-                reject(new Error('Error al cargar permisos del syllabus'));
-            },
-        });
-    });
+  const res = await fetch(`${basePath}/cursos/${cursoId}/permisos-syllabus`, {
+    headers: {
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message ?? 'Error al cargar permisos del syllabus');
+  }
+  return res.json();
 }
 
 /**
- * Actualiza los permisos de syllabus para un docente usando Inertia router.
- * 
- * NOTA: Después de actualizar, el backend debería retornar a la página
- * de permisos con los datos actualizados, o hacer un redirect.
+ * Actualiza los permisos de syllabus para un docente vía AJAX.
  */
 export async function syncSyllabusPermiso(
-    cursoId: number,
-    payload: { id_usuario: number; slug: string; otorgar: boolean },
-    basePath = '/docente',
+  cursoId: number,
+  payload: { id_usuario: number; slug: string; otorgar: boolean },
+  basePath = '/docente',
 ): Promise<void> {
-    return new Promise((resolve, reject) => {
-        router.post(`${basePath}/cursos/${cursoId}/permisos-syllabus`, payload, {
-            onSuccess: () => {
-                resolve();
-            },
-            onError: (errors: any) => {
-                reject(new Error('Error al actualizar permiso'));
-            },
-        });
-    });
+  const res = await fetch(`${basePath}/cursos/${cursoId}/permisos-syllabus`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-XSRF-TOKEN': getXsrfToken(),
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message ?? 'Error al actualizar permiso');
+  }
 }
 
 // ─── Componente colegiado ────────────────────────────────────────────────────
 
 /**
- * Carga los permisos de un componente colegiado usando Inertia router.
- * 
- * @deprecated Pending backend refactor to use Inertia::render()
+ * Carga los permisos de un componente colegiado vía AJAX.
  */
 export async function getComponentePermisos(
-    cursoId: number,
-    componenteId: number,
-    basePath = '/docente',
+  cursoId: number,
+  componenteId: number,
+  basePath = '/docente',
 ): Promise<ComponentePermisosResponse> {
-    return new Promise((resolve, reject) => {
-        router.get(
-            `${basePath}/cursos/${cursoId}/componentes/${componenteId}/permisos`,
-            {},
-            {
-                onSuccess: (page: any) => {
-                    resolve({
-                        docentes: page.props?.docentes ?? [],
-                        slugs_disponibles: page.props?.slugs_disponibles ?? [],
-                        id_contexto_componente: page.props?.id_contexto_componente ?? 0,
-                    });
-                },
-                onError: (errors: any) => {
-                    reject(new Error('Error al cargar permisos del componente'));
-                },
-            },
-        );
-    });
+  const res = await fetch(`${basePath}/cursos/${cursoId}/componentes/${componenteId}/permisos`, {
+    headers: {
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message ?? 'Error al cargar permisos del componente');
+  }
+  return res.json();
 }
 
 /**
- * Actualiza los permisos de un componente colegiado usando Inertia router.
+ * Actualiza los permisos de un componente colegiado vía AJAX.
  */
 export async function syncComponentePermiso(
-    cursoId: number,
-    componenteId: number,
-    payload: { id_usuario: number; slug: string; otorgar: boolean },
-    basePath = '/docente',
+  cursoId: number,
+  componenteId: number,
+  payload: { id_usuario: number; slug: string; otorgar: boolean },
+  basePath = '/docente',
 ): Promise<void> {
-    return new Promise((resolve, reject) => {
-        router.post(
-            `${basePath}/cursos/${cursoId}/componentes/${componenteId}/permisos`,
-            payload,
-            {
-                onSuccess: () => {
-                    resolve();
-                },
-                onError: (errors: any) => {
-                    reject(new Error('Error al actualizar permiso'));
-                },
-            },
-        );
-    });
+  const res = await fetch(`${basePath}/cursos/${cursoId}/componentes/${componenteId}/permisos`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-XSRF-TOKEN': getXsrfToken(),
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message ?? 'Error al actualizar permiso');
+  }
 }
