@@ -81,6 +81,7 @@ test('inscribe automaticamente alumnos desde la intranet creando usuario con con
             'fecha_inicio_planificada' => now(),
             'fecha_fin_planificada'    => now()->addYears(100),
             'esta_activo'              => true,
+            'fue_eliminado'            => false,
             'creado_por'               => $usuarioDocente->id_usuario,
         ]
     );
@@ -263,6 +264,7 @@ test('cuando el alumno ya existe en la bd no consulta la intranet para crearlo y
             'fecha_inicio_planificada' => now(),
             'fecha_fin_planificada'    => now()->addYears(100),
             'esta_activo'              => true,
+            'fue_eliminado'            => false,
             'creado_por'               => $usuarioDocente->id_usuario,
         ]
     );
@@ -419,6 +421,7 @@ test('inscribe automaticamente 10 alumnos simultaneamente (5 preexistentes y 5 n
             'fecha_inicio_planificada' => now(),
             'fecha_fin_planificada'    => now()->addYears(100),
             'esta_activo'              => true,
+            'fue_eliminado'            => false,
             'creado_por'               => $usuarioDocente->id_usuario,
         ]
     );

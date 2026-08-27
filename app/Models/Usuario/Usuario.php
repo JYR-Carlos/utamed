@@ -489,6 +489,11 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
      */
     public function can($ability, $arguments = []): bool
     {
+        // Normalizar Permissions enum a su valor string, como documenta el parámetro
+        if ($ability instanceof Permissions) {
+            $ability = $ability->value;
+        }
+
         // Detectar si es slug completo (contiene ':') o wildcard ('*')
         $isSlugCompleto = str_contains($ability, ':');
         $isGlobalWildcard = $ability === Permissions::GLOBAL_WILDCARD->value;
