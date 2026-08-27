@@ -15,4 +15,5 @@ export {
   updateActividad,
   deleteActividad,
   toggleVisibilidadActividad,
+  updateGrupo,
 } from './services/actividadApi';

@@ -742,6 +742,7 @@ class DocenteActivityController extends Controller
                 'es_grupal' => (bool) $actividad->es_grupal,
                 'max_integrantes' => $actividad->max_integrantes,
                 'es_titular' => $esTitular,
+                'nro_dias_adicionales_para_bloqueo' => (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0),
             ],
             'grupos' => $grupos,
             'rubrica' => $rubricaData,

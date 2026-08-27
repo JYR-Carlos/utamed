@@ -65,6 +65,20 @@ export function deleteActividad(
     });
 }
 
+/** PATCH /docente/cursos/{id}/actividades/{id}/grupos/{grupo} — actualiza configuración de un grupo (holgura personal, nombre). */
+export function updateGrupo(
+    idCurso: number,
+    idActividad: number,
+    idGrupo: number,
+    data: { nro_dias_adicionales_para_bloqueo_personal?: number; nombre_grupo?: string },
+    options: ApiOptions = {},
+) {
+    router.patch(`/docente/cursos/${idCurso}/actividades/${idActividad}/grupos/${idGrupo}`, data, {
+        onSuccess: options.onSuccess,
+        onError: options.onError,
+    });
+}
+
 /** POST multipart /docente/cursos/{id}/actividades/{id}/enunciado — sube/reemplaza enunciado. */
 export function subirEnunciadoActividad(
     idCurso: number,
