@@ -1,0 +1,8 @@
+{
+  "projectId": "87d87527-cf4f-4523-8ca9-933b043b7a6e",
+  "shape": "css-only",
+  "buildCmd": "node .design-sync/build-css.mjs",
+  "cssEntry": "resources/css/app.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "out": "./ds-bundle"
+}
