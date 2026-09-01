@@ -76,9 +76,17 @@ class EstudianteService
             return $estudiante;
         }
 
-        /** @var \App\DTOs\External\AlumnoIntranetData|null $datosIntranet */
-        $oracleService = app('OracleDataService');
-        $datosIntranet = $oracleService->traer_alumno($alumRut);
+        try {
+            /** @var \App\DTOs\External\AlumnoIntranetData|null $datosIntranet */
+            $oracleService = app('OracleDataService');
+            $datosIntranet = $oracleService->traer_alumno($alumRut);
+        } catch (\Throwable $e) {
+            Log::warning('Error al consultar datos del alumno en la Intranet', [
+                'alum_rut' => $alumRut,
+                'error'    => $e->getMessage(),
+            ]);
+            return null;
+        }
 
         if (!$datosIntranet) {
             Log::warning('No se encontraron datos del alumno en la Intranet', ['alum_rut' => $alumRut]);

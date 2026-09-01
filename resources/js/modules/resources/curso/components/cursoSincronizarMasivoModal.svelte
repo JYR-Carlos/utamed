@@ -41,12 +41,15 @@
 
   async function cargarPreview() {
     paso = 'cargando';
+    errorMsg = '';
     try {
       const res = await fetch('/admin/cursos/sincronizar-intranet-masivo/preview', {
         headers: { Accept: 'application/json' },
       });
-      if (!res.ok) throw new Error('No se pudo consultar la Intranet.');
-      const json = await res.json();
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(json?.error ?? json?.message ?? `Error al consultar la Intranet (código ${res.status}).`);
+      }
       cursos = json.cursos ?? [];
       // Sólo se pre-marcan los que no tienen advertencias: lo demás requiere
       // mirada humana antes de aceptarse (no se "adivina" por la persona).
@@ -71,6 +74,7 @@
   async function confirmar() {
     if (aceptados.size === 0) return;
     paso = 'ejecutando';
+    errorMsg = '';
     try {
       const res = await fetch('/admin/cursos/sincronizar-intranet-masivo', {
         method: 'POST',
@@ -82,8 +86,10 @@
         },
         body: JSON.stringify({ ids_curso: [...aceptados] }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? 'No se pudo sincronizar.');
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(json?.error ?? json?.message ?? `Error al sincronizar (código ${res.status}).`);
+      }
 
       const resultados = (json.resultados ?? []) as Array<{
         id_curso: number;
@@ -189,7 +195,7 @@
   .masivo-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(15, 23, 42, 0.4);
     backdrop-filter: blur(4px);
     z-index: 60;
   }
@@ -200,146 +206,183 @@
     transform: translate(-50%, -50%);
     z-index: 61;
     background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
-    width: min(560px, calc(100vw - 2rem));
-    max-height: 85dvh;
+    border-radius: 20px;
+    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.22);
+    width: min(680px, calc(100vw - 2rem));
+    min-height: min(500px, 75dvh);
+    max-height: 88dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
   }
   .masivo-header {
-    padding: 1.25rem 1.5rem 1rem;
+    padding: 1.5rem 1.75rem 1.25rem;
     border-bottom: 1px solid #f1f5f9;
+    background: #ffffff;
+    flex-shrink: 0;
   }
   .masivo-title {
-    font-size: 1.0625rem;
+    font-size: 1.15rem;
     font-weight: 700;
-    color: #111827;
+    color: #0f172a;
     margin: 0;
+    line-height: 1.3;
   }
   .masivo-subtitle {
-    font-size: 0.8125rem;
-    color: #6b7280;
-    margin: 0.2rem 0 0;
+    font-size: 0.85rem;
+    color: #64748b;
+    margin: 0.25rem 0 0;
   }
   .masivo-body {
     flex: 1 1 0;
     min-height: 0;
     overflow-y: auto;
-    padding: 1.25rem 1.5rem;
+    padding: 1.5rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
   }
   .masivo-warning {
     background: #fffbeb;
     border: 1px solid #fde68a;
-    border-radius: 8px;
-    padding: 0.875rem 1rem;
-    font-size: 0.8125rem;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    font-size: 0.875rem;
     color: #92400e;
-    line-height: 1.5;
+    line-height: 1.6;
   }
   .masivo-loading {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.625rem;
-    color: #6b7280;
-    font-size: 0.875rem;
-    padding: 1rem 0;
+    justify-content: center;
+    gap: 0.75rem;
+    color: #64748b;
+    font-size: 0.925rem;
+    padding: 4rem 1rem;
+    text-align: center;
+    margin: auto 0;
   }
   .masivo-empty {
-    color: #9ca3af;
-    font-size: 0.875rem;
+    color: #64748b;
+    font-size: 0.925rem;
+    padding: 2rem;
+    text-align: center;
   }
   .masivo-list {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.65rem;
   }
   .masivo-row {
     display: flex;
     align-items: flex-start;
-    gap: 0.625rem;
-    padding: 0.625rem 0.75rem;
-    border: 1.5px solid #e5e7eb;
-    border-radius: 8px;
+    gap: 0.85rem;
+    padding: 0.85rem 1.15rem;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
     cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .masivo-row:hover {
+    border-color: #93c5fd;
+    background: #f8fafc;
   }
   .masivo-row input {
-    margin-top: 0.2rem;
+    margin-top: 0.25rem;
   }
   .masivo-row-info {
     flex: 1;
     min-width: 0;
   }
   .masivo-row-title {
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     font-weight: 600;
-    color: #111827;
+    color: #0f172a;
   }
   .masivo-origen {
-    margin-left: 0.25rem;
+    margin-left: 0.35rem;
   }
   .masivo-row-tipos {
-    font-size: 0.75rem;
-    color: #6b7280;
-    margin-top: 0.125rem;
+    font-size: 0.775rem;
+    color: #64748b;
+    margin-top: 0.2rem;
   }
   .masivo-row-advertencia {
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     color: #92400e;
-    margin-top: 0.25rem;
+    margin-top: 0.35rem;
+    background: #fef3c7;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    display: inline-block;
   }
   .masivo-resumen {
-    font-size: 0.875rem;
-    color: #374151;
+    font-size: 0.925rem;
+    color: #0f172a;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    padding: 1.25rem 1.5rem;
+    border-radius: 12px;
   }
   .masivo-error {
-    color: #b91c1c;
-    font-size: 0.875rem;
+    color: #991b1b;
+    font-size: 0.925rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    padding: 1.25rem 1.5rem;
+    border-radius: 12px;
   }
   .masivo-footer {
     display: flex;
     justify-content: flex-end;
-    gap: 0.625rem;
-    padding: 1rem 1.5rem;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.25rem 1.75rem;
     border-top: 1px solid #f1f5f9;
+    background: #ffffff;
     flex-shrink: 0;
   }
   .btn-cancel,
   .btn-submit {
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-size: 0.8125rem;
+    padding: 0.65rem 1.25rem;
+    border-radius: 10px;
+    font-size: 0.875rem;
     font-weight: 600;
     cursor: pointer;
     border: 1px solid transparent;
+    transition: all 0.15s ease;
   }
   .btn-cancel {
-    background: #fff;
-    color: #374151;
-    border-color: #d1d5db;
+    background: #ffffff;
+    color: #475569;
+    border-color: #cbd5e1;
   }
   .btn-cancel:hover {
-    background: #f3f4f6;
+    background: #f8fafc;
+    color: #1e293b;
+    border-color: #94a3b8;
   }
   .btn-submit {
-    background: #3b82f6;
-    color: #fff;
-  }
-  .btn-submit:hover {
     background: #2563eb;
+    color: #ffffff;
+  }
+  .btn-submit:hover:not(:disabled) {
+    background: #1d4ed8;
   }
   .btn-submit:disabled {
     background: #93c5fd;
     cursor: not-allowed;
+    opacity: 0.7;
   }
   .inline-spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid #e5e7eb;
-    border-top-color: #3b82f6;
+    width: 28px;
+    height: 28px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #2563eb;
     border-radius: 50%;
-    animation: spin 0.6s linear infinite;
+    animation: spin 0.7s linear infinite;
   }
   @keyframes spin {
     to {

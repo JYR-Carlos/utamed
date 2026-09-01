@@ -117,7 +117,7 @@ class CursoController extends Controller
                     return redirect()
                         ->route('admin.cursos.index')
                         ->with('success', "Curso creado exitosamente. Se inscribieron {$resultado->inscritos_exitosamente} alumnos automáticamente desde la Intranet.");
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     Log::error('[CursoController@store] Error en inscripción automática tras creación: ' . $e->getMessage());
                     return redirect()
                         ->route('admin.cursos.index')
@@ -134,7 +134,7 @@ class CursoController extends Controller
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::warning('[CursoController@store] ValidationException', ['errors' => $e->errors()]);
             throw $e;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('[CursoController@store] Error inesperado: ' . $e->getMessage(), [
                 'exception' => get_class($e),
                 'data' => $request->validated()
@@ -508,7 +508,7 @@ class CursoController extends Controller
             );
 
             return response()->json($resultado->toArray());
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('[CursoController@sincronizarIntranet] Error al sincronizar: ' . $e->getMessage(), [
                 'curso_id' => $curso->id_curso,
             ]);
@@ -605,7 +605,7 @@ class CursoController extends Controller
                     'cod_curso' => $curso->cod_curso,
                     'resultado' => $resultado->toArray(),
                 ];
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 Log::error('[CursoController@sincronizarMasivo] Error al sincronizar curso #' . $idCurso . ': ' . $e->getMessage());
                 $reporte[] = ['id_curso' => $idCurso, 'error' => $e->getMessage()];
             }

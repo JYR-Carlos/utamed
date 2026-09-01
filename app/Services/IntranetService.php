@@ -54,7 +54,20 @@ class IntranetService
             throw new \InvalidArgumentException("El curso #{$curso->id_curso} no tiene una carrera asociada en su asignación de plan.");
         }
 
-        $componentesIntranet = $this->resolverComponentesIntranet($curso);
+        try {
+            $componentesIntranet = $this->resolverComponentesIntranet($curso);
+        } catch (\Throwable $e) {
+            Log::warning("[IntranetService@inscribirAutomaticamente] Error al consultar componentes de Intranet: " . $e->getMessage());
+            return new ResultadoInscripcionAutomatica(
+                total_procesados: 0,
+                inscritos_exitosamente: 0,
+                alumnos_creados: 0,
+                ya_inscritos: 0,
+                errores: [],
+                componentes_procesadas: [],
+                advertencias: ["No fue posible consultar la Intranet para inscribir alumnos: {$e->getMessage()}"]
+            );
+        }
 
         $totalProcesados = 0;
         $inscritosExitosamente = 0;
@@ -75,8 +88,14 @@ class IntranetService
             }
 
             /** @var Collection<int, InscripcionData> $inscripcionesIntranet */
-            $oracleService = app('OracleDataService');
-            $inscripcionesIntranet = $oracleService->traer_ins_id([$compIntranet->cur_codigo]);
+            try {
+                $oracleService = app('OracleDataService');
+                $inscripcionesIntranet = $oracleService->traer_ins_id([$compIntranet->cur_codigo]);
+            } catch (\Throwable $e) {
+                Log::warning("[IntranetService@inscribirAutomaticamente] Error al consultar inscripciones de Intranet para acta {$compIntranet->cur_codigo}: " . $e->getMessage());
+                $advertencias[] = "No fue posible consultar inscripciones de Intranet para el acta {$compIntranet->cur_codigo}: {$e->getMessage()}";
+                continue;
+            }
 
             $inscritosComponenteCount = 0;
 
@@ -145,7 +164,7 @@ class IntranetService
                     // Asignar el rol Estudiante en el contexto de la componente
                     $this->estudianteService->asignarRolEnContexto($estudiante, $compUtamed->id_contexto);
 
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     Log::error("Error al inscribir alumno RUT {$inscripcionData->alum_rut}: " . $e->getMessage());
                     $errores[] = [
                         'rut'    => $inscripcionData->alum_rut,
@@ -412,8 +431,13 @@ class IntranetService
 
         if ($inscribirAlumnos) {
             $curso->load(['componentes.tipoComponente']);
-            $resultadoInscripcion = $this->inscribirAutomaticamente($curso);
-            $advertencias = array_merge($advertencias, $resultadoInscripcion->advertencias);
+            try {
+                $resultadoInscripcion = $this->inscribirAutomaticamente($curso);
+                $advertencias = array_merge($advertencias, $resultadoInscripcion->advertencias);
+            } catch (\Throwable $e) {
+                Log::warning('[IntranetService@sincronizarComponentes] Error al inscribir alumnos automáticamente: ' . $e->getMessage());
+                $advertencias[] = 'No fue posible inscribir los alumnos desde la Intranet: ' . $e->getMessage();
+            }
         }
 
         return new ResultadoSincronizacionComponentes(
