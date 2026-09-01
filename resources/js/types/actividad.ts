@@ -9,6 +9,7 @@ export interface Actividad {
     visible: boolean;
     ponderacion?: number;
     exigencia?: number;
+    nro_dias_adicionales_para_bloqueo?: number;
     id_componente?: number;
     id_unidad?: number;
     componente?: { id_componente: number; tipo_componente?: { tipo: string } | null } | null;

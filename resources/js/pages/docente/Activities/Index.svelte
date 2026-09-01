@@ -20,6 +20,7 @@
    *   DELETE …/grupos/{grupo}/estudiantes/{estudiante}         quitar integrante
    *   PUT    …/grupos/{grupo}/integrantes/{asignado}           guardar décimas
    *   POST   …/grupos/{grupo}/recalcular-notas                 recalcular notas
+   *   PATCH  …/grupos/{grupo}                                  actualizar holgura personal
    *   GET    …/grupos/{grupo}/entregas                         entregas (lazy, en EntregasModal)
    *   GET    …/grupos/{grupo}/entregas/{agenda}/descargar      descargar archivo
    *   POST   …/grupos/{grupo}/evaluacion                       registrar evaluación
@@ -72,6 +73,7 @@
     grupo: number;
     nota: number | null;
     estado_actividad_asignada: string | null;
+    nro_dias_adicionales_para_bloqueo_personal: number;
     integrantes: IntegranteData[];
   };
 
@@ -100,6 +102,7 @@
       es_grupal: boolean;
       max_integrantes?: number;
       es_titular: boolean;
+      nro_dias_adicionales_para_bloqueo: number;
     };
     grupos: GrupoData[];
     rubrica?: Rubrica | null;
@@ -350,6 +353,14 @@
     );
   }
 
+  function actualizarHolguraPersonal(grupoId: number, dias: number) {
+    router.patch(
+      `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}`,
+      { nro_dias_adicionales_para_bloqueo_personal: dias },
+      { preserveScroll: true },
+    );
+  }
+
   function formatDecimas(d: number | undefined): string {
     const v = d ?? 0;
     return `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`;
@@ -523,17 +534,18 @@
         </p>
 
         <div
-          class="text-sm text-slate-700 px-4 sm:px-6 md:px-8 py-4 rounded-2xl bg-uta-blue-light border border-uta-blue/15 break-words"
+          class="text-sm font-semibold text-slate-700 px-4 sm:px-6 md:px-8 py-4 rounded-2xl bg-uta-blue-light border border-uta-blue/15 break-words"
         >
-          Descripción:
-          <br />
-          {actividad.descripcion}
-          <br class="mb-4" />
+
           Fecha límite: {formatFechaHora(actividad.fecha_limite)}
           <br />
           Tipo Actividad: {actividad.es_sumativa ? 'Sumativa' : 'Formativa'}
           <br />
           Entrega de Archivo: {actividad.trae_archivo ? 'Sí' : 'No'}
+          {#if actividad.nro_dias_adicionales_para_bloqueo > 0}
+            <br />
+            Holgura: {actividad.nro_dias_adicionales_para_bloqueo} día{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 's' : ''} adicional{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 'es' : ''}
+          {/if}
         </div>
 
         <!-- Botones de acción de la actividad -->
@@ -626,6 +638,7 @@
             onAgregarAGrupo={agregarAGrupo}
             onVerEntregas={verEntregas}
             onVerAgenda={abrirAgendaGrupo}
+            onActualizarHolguraPersonal={actualizarHolguraPersonal}
           />
         {/each}
 

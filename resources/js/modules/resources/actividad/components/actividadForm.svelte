@@ -60,6 +60,7 @@
     'fecha_limite',
     'ponderacion',
     'exigencia',
+    'nro_dias_adicionales_para_bloqueo',
     'id_componente',
     'id_unidad',
   ];
@@ -86,6 +87,7 @@
     visible: true,
     ponderacion: 0,
     exigencia: 60,
+    nro_dias_adicionales_para_bloqueo: 0,
     id_componente: 0,
     id_unidad: 0,
   };
@@ -253,6 +255,22 @@
       />
       {#if errors.exigencia}<p class="mt-1 text-xs text-red-600">{errors.exigencia}</p>{/if}
     </div>
+  </div>
+
+  <div class="mb-4">
+    <label for="nro_dias_adicionales_para_bloqueo" class="block font-medium text-gray-700 mb-2 text-sm">
+      Días de holgura
+      <span class="text-gray-400 font-normal text-xs ml-1">Días adicionales después de la fecha límite para bloquear entregas</span>
+    </label>
+    <input
+      id="nro_dias_adicionales_para_bloqueo"
+      type="number"
+      min="0"
+      bind:value={formData.nro_dias_adicionales_para_bloqueo}
+      class="{inputClass} {errors.nro_dias_adicionales_para_bloqueo ? 'border-red-400' : 'border-gray-300'}"
+      placeholder="0"
+    />
+    {#if errors.nro_dias_adicionales_para_bloqueo}<p class="mt-1 text-xs text-red-600">{errors.nro_dias_adicionales_para_bloqueo}</p>{/if}
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

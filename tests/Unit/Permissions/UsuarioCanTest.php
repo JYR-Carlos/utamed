@@ -9,9 +9,9 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 // Cargar stubs
-require_once __DIR__ . '/../Stubs/CarreraStub.php';
-require_once __DIR__ . '/../Stubs/UsuarioStub.php';
-require_once __DIR__ . '/../Stubs/CarreraPolicyStub.php';
+require_once __DIR__ . '/../../Stubs/CarreraStub.php';
+require_once __DIR__ . '/../../Stubs/UsuarioStub.php';
+require_once __DIR__ . '/../../Stubs/CarreraPolicyStub.php';
 
 use App\Models\Administrativo\Carrera as CarreraStub;
 use App\Models\Usuario\Usuario as UsuarioStub;

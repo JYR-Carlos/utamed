@@ -32,6 +32,7 @@
     grupo: number;
     nota: number | null;
     estado_actividad_asignada: string | null;
+    nro_dias_adicionales_para_bloqueo_personal: number;
     integrantes: IntegranteData[];
   };
 
@@ -64,6 +65,7 @@
     onAgregarAGrupo: (grupoId: number) => void;
     onVerEntregas: (grupo: GrupoData) => void;
     onVerAgenda: (grupo: GrupoData) => void;
+    onActualizarHolguraPersonal: (grupoId: number, dias: number) => void;
   }
 
   let {
@@ -87,12 +89,42 @@
     onAgregarAGrupo,
     onVerEntregas,
     onVerAgenda,
+    onActualizarHolguraPersonal,
   }: Props = $props();
 
   function handleOnEstadoChange() {
 
   }
+
+  let editandoHolgura = $state(false);
+  let holguraTemp = $state(0);
+
+  function iniciarEdicionHolgura() {
+    holguraTemp = grupo.nro_dias_adicionales_para_bloqueo_personal;
+    editandoHolgura = true;
+  }
+
+  function guardarHolgura() {
+    onActualizarHolguraPersonal(grupo.grupo, holguraTemp);
+    editandoHolgura = false;
+  }
+
+  function cancelarEdicionHolgura() {
+    editandoHolgura = false;
+  }
   
+  function getDiasHolguraText(dias: number): string {
+    if (dias === 0) {
+      return "Sin holgura asignada"
+    }
+    else if (dias === 1) {
+      return dias + " día adicional de holgura"
+    }
+    else {
+      return dias + " días adicionales de holgura"
+    }
+    
+  }
 </script>
 
 <div
@@ -142,6 +174,43 @@
       <span class="font-normal text-gray-400 italic text-xs">Sin calificar</span>
     {/if}
   </div>
+
+  <!-- Holgura personal del grupo -->
+  {#if esTitular}
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-gray-600 font-normal">Holgura personal:</span>
+      {#if editandoHolgura}
+        <div class="flex items-center gap-1">
+          <input
+            type="number"
+            min="0"
+            bind:value={holguraTemp}
+            class="w-16 text-xs border border-gray-300 rounded-lg px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-uta-blue focus:ring-2 focus:ring-uta-blue/20 transition-shadow"
+          />
+          <span class="text-[10px] text-gray-400">días</span>
+          <button
+            onclick={guardarHolgura}
+            class="px-2 py-1 text-[11px] font-semibold bg-uta-blue text-white rounded-lg hover:bg-uta-blue-hover transition-colors"
+          >
+            Guardar
+          </button>
+          <button
+            onclick={cancelarEdicionHolgura}
+            class="p-1 text-gray-400 hover:text-gray-600 transition"
+          >
+            <X class="w-3 h-3" />
+          </button>
+        </div>
+      {:else}
+        <button
+          onclick={iniciarEdicionHolgura}
+          class=" cursor-pointer bordertext-sm font-semibold text-uta-blue/70 hover:text-uta-blue transition-colors"
+        >
+          {getDiasHolguraText(grupo.nro_dias_adicionales_para_bloqueo_personal)} 
+        </button>
+      {/if}
+    </div>
+  {/if}
 
   <!-- Integrantes -->
   <div>

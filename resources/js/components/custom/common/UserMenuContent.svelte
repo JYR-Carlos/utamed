@@ -24,22 +24,11 @@
     </div>
 </DropdownMenuLabel>
 <DropdownMenuSeparator />
-<DropdownMenuGroup>
-    <DropdownMenuItem>
-        <Link class="block w-full" href={edit()} prefetch as="button">
-            <div class="flex items-center">
-                <Settings class="mr-2 h-4 w-4" />
-                <span>Settings</span>
-            </div>
-        </Link>
-    </DropdownMenuItem>
-</DropdownMenuGroup>
-<DropdownMenuSeparator />
 <DropdownMenuItem>
     <Link class="block w-full" method="post" onclick={handleLogout} href={logout.url()} as="button">
         <div class="flex items-center">
             <LogOut class="mr-2 h-4 w-4" />
-            <span>Log out</span>
+            <span>Cerrar Sesión</span>
         </div>
     </Link>
 </DropdownMenuItem>

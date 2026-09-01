@@ -92,7 +92,7 @@ class CursoPermisosController extends Controller
             return array_merge($docente, ['permisos' => $permisos]);
         });
 
-        return Inertia::render('docente/PermisosSyllabus', [
+        return response()->json([
             'curso'              => $curso,
             'docentes'           => $matrix->values(),
             'slugs_disponibles'  => $slugsDisponibles->values(),
@@ -105,7 +105,7 @@ class CursoPermisosController extends Controller
      *
      * Body: { id_usuario: int, slug: string, otorgar: bool }
      * Otorga o revoca un permiso de syllabus a un docente del curso.
-     * Retorna un redirect a la página de permisos.
+     * Retorna una respuesta JSON.
      */
     public function syllabusSync(Request $request, Curso $curso)
     {
@@ -127,7 +127,10 @@ class CursoPermisosController extends Controller
             origen:     'CursoPermisos:syllabus',
         );
 
-        return back()->with('success', 'Permiso actualizado exitosamente.');
+        return response()->json([
+            'ok'      => true,
+            'message' => 'Permiso actualizado exitosamente.',
+        ]);
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -163,7 +166,7 @@ class CursoPermisosController extends Controller
             return array_merge($docente, ['permisos' => $permisos]);
         });
 
-        return Inertia::render('docente/PermisosComponente', [
+        return response()->json([
             'curso'                  => $curso,
             'componente'             => $componente,
             'docentes'               => $matrix->values(),
@@ -176,7 +179,7 @@ class CursoPermisosController extends Controller
      * POST /docente/cursos/{curso}/componentes/{componente}/permisos
      *
      * Body: { id_usuario: int, slug: string, otorgar: bool }
-     * Retorna un redirect a la página de permisos del componente.
+     * Retorna una respuesta JSON.
      */
     public function componenteSync(Request $request, Curso $curso, Componente $componente)
     {
@@ -198,7 +201,10 @@ class CursoPermisosController extends Controller
             origen:     'CursoPermisos:componente',
         );
 
-        return back()->with('success', 'Permiso actualizado exitosamente.');
+        return response()->json([
+            'ok'      => true,
+            'message' => 'Permiso actualizado exitosamente.',
+        ]);
     }
 
     // ────────────────────────────────────────────────────────────────────────

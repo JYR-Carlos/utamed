@@ -45,12 +45,16 @@ describe('ContextType::parentMap()', function () {
     expect(ContextType::parentMap()['curso'])->toBe(ContextType::CARRERA);
   });
 
-  test('ACTIVIDAD apunta a CURSO', function () {
-    expect(ContextType::parentMap()['actividad'])->toBe(ContextType::CURSO);
+  test('COMPONENTE apunta a CURSO', function () {
+    expect(ContextType::parentMap()['componente'])->toBe(ContextType::CURSO);
   });
 
-  test('contiene exactamente 6 entradas (una por case)', function () {
-    expect(ContextType::parentMap())->toHaveCount(6);
+  test('ACTIVIDAD apunta a COMPONENTE', function () {
+    expect(ContextType::parentMap()['actividad'])->toBe(ContextType::COMPONENTE);
+  });
+
+  test('contiene exactamente 7 entradas (una por case)', function () {
+    expect(ContextType::parentMap())->toHaveCount(7);
   });
 });
 
@@ -80,8 +84,12 @@ describe('ContextType::immediateParent()', function () {
     expect(ContextType::CURSO->immediateParent())->toBe(ContextType::CARRERA);
   });
 
-  test('ACTIVIDAD->immediateParent() = CURSO', function () {
-    expect(ContextType::ACTIVIDAD->immediateParent())->toBe(ContextType::CURSO);
+  test('COMPONENTE->immediateParent() = CURSO', function () {
+    expect(ContextType::COMPONENTE->immediateParent())->toBe(ContextType::CURSO);
+  });
+
+  test('ACTIVIDAD->immediateParent() = COMPONENTE', function () {
+    expect(ContextType::ACTIVIDAD->immediateParent())->toBe(ContextType::COMPONENTE);
   });
 });
 
@@ -123,8 +131,19 @@ describe('ContextType::ancestorChain()', function () {
     ]);
   });
 
-  test('ACTIVIDAD->ancestorChain() = [CURSO, CARRERA, DEPARTAMENTO, FACULTAD, GLOBAL]', function () {
+  test('COMPONENTE->ancestorChain() = [CURSO, CARRERA, DEPARTAMENTO, FACULTAD, GLOBAL]', function () {
+    expect(ContextType::COMPONENTE->ancestorChain())->toBe([
+      ContextType::CURSO,
+      ContextType::CARRERA,
+      ContextType::DEPARTAMENTO,
+      ContextType::FACULTAD,
+      ContextType::GLOBAL ,
+    ]);
+  });
+
+  test('ACTIVIDAD->ancestorChain() = [COMPONENTE, CURSO, CARRERA, DEPARTAMENTO, FACULTAD, GLOBAL]', function () {
     expect(ContextType::ACTIVIDAD->ancestorChain())->toBe([
+      ContextType::COMPONENTE,
       ContextType::CURSO,
       ContextType::CARRERA,
       ContextType::DEPARTAMENTO,
@@ -255,46 +274,57 @@ describe('ContextType::descendantTypes()', function () {
     expect(ContextType::ACTIVIDAD->descendantTypes())->toBe([]);
   });
 
-  test('CURSO->descendantTypes() = [ACTIVIDAD]', function () {
-    expect(ContextType::CURSO->descendantTypes())->toBe([ContextType::ACTIVIDAD]);
+  test('COMPONENTE->descendantTypes() = [ACTIVIDAD]', function () {
+    expect(ContextType::COMPONENTE->descendantTypes())->toBe([ContextType::ACTIVIDAD]);
   });
 
-  test('CARRERA->descendantTypes() contiene CURSO y ACTIVIDAD', function () {
-    $result = ContextType::CARRERA->descendantTypes();
-
-    expect($result)->toContain(ContextType::CURSO);
+  test('CURSO->descendantTypes() contiene COMPONENTE y ACTIVIDAD', function () {
+    $result = ContextType::CURSO->descendantTypes();
+    expect($result)->toContain(ContextType::COMPONENTE);
     expect($result)->toContain(ContextType::ACTIVIDAD);
     expect($result)->toHaveCount(2);
   });
 
-  test('DEPARTAMENTO->descendantTypes() contiene CARRERA, CURSO y ACTIVIDAD', function () {
-    $result = ContextType::DEPARTAMENTO->descendantTypes();
+  test('CARRERA->descendantTypes() contiene CURSO, COMPONENTE y ACTIVIDAD', function () {
+    $result = ContextType::CARRERA->descendantTypes();
 
-    expect($result)->toContain(ContextType::CARRERA);
     expect($result)->toContain(ContextType::CURSO);
+    expect($result)->toContain(ContextType::COMPONENTE);
     expect($result)->toContain(ContextType::ACTIVIDAD);
     expect($result)->toHaveCount(3);
   });
 
-  test('FACULTAD->descendantTypes() contiene DEPARTAMENTO, CARRERA, CURSO y ACTIVIDAD', function () {
+  test('DEPARTAMENTO->descendantTypes() contiene CARRERA, CURSO, COMPONENTE y ACTIVIDAD', function () {
+    $result = ContextType::DEPARTAMENTO->descendantTypes();
+
+    expect($result)->toContain(ContextType::CARRERA);
+    expect($result)->toContain(ContextType::CURSO);
+    expect($result)->toContain(ContextType::COMPONENTE);
+    expect($result)->toContain(ContextType::ACTIVIDAD);
+    expect($result)->toHaveCount(4);
+  });
+
+  test('FACULTAD->descendantTypes() contiene DEPARTAMENTO, CARRERA, CURSO, COMPONENTE y ACTIVIDAD', function () {
     $result = ContextType::FACULTAD->descendantTypes();
 
     expect($result)->toContain(ContextType::DEPARTAMENTO);
     expect($result)->toContain(ContextType::CARRERA);
     expect($result)->toContain(ContextType::CURSO);
+    expect($result)->toContain(ContextType::COMPONENTE);
     expect($result)->toContain(ContextType::ACTIVIDAD);
-    expect($result)->toHaveCount(4);
+    expect($result)->toHaveCount(5);
   });
 
-  test('GLOBAL->descendantTypes() contiene los 5 tipos concretos', function () {
+  test('GLOBAL->descendantTypes() contiene los 6 tipos concretos', function () {
     $result = ContextType::GLOBAL ->descendantTypes();
 
     expect($result)->toContain(ContextType::FACULTAD);
     expect($result)->toContain(ContextType::DEPARTAMENTO);
     expect($result)->toContain(ContextType::CARRERA);
     expect($result)->toContain(ContextType::CURSO);
+    expect($result)->toContain(ContextType::COMPONENTE);
     expect($result)->toContain(ContextType::ACTIVIDAD);
-    expect($result)->toHaveCount(5);
+    expect($result)->toHaveCount(6);
   });
 
   test('cada resultado de descendantTypes() es descendiente del tipo llamado', function () {

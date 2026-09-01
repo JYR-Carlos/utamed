@@ -16,6 +16,8 @@ use App\Models\Administrativo\Plan;
 use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
 use App\Models\Curso\TipoComponente;
+use App\Models\Usuario\Docente;
+use App\Models\Usuario\Usuario;
 use App\Services\IntranetService;
 use Illuminate\Support\Facades\DB;
 
@@ -93,6 +95,18 @@ beforeEach(function () {
         'semestre_planificado' => 1,
         'fecha_creacion' => now(),
     ], 'id_asignacion_plan');
+
+    $usuarioDocente = Usuario::firstOrCreate(
+        ['rut' => '99999999-9'],
+        [
+            'username' => 'docente_isc_test',
+            'passhash' => bcrypt('password'),
+            'nombre1' => 'Docente',
+            'apellido1' => 'ISC Test',
+            'esta_activo' => true,
+        ]
+    );
+    $this->idDocente = Docente::firstOrCreate(['id_usuario' => $usuarioDocente->id_usuario])->id_docente;
 });
 
 afterEach(function () {
@@ -173,6 +187,7 @@ test('sincronizarComponentes es idempotente: no duplica una componente que ya ex
         'agno_real' => 2026,
         'semestre_real' => 1,
         'id_asignacion_plan' => $this->idAsignacionPlan,
+        'id_docente_titular' => $this->idDocente,
     ]);
     $curso->refresh();
 
@@ -199,6 +214,7 @@ test('inscribirAutomaticamente reporta advertencia (no la descarta en silencio) 
         'agno_real' => 2026,
         'semestre_real' => 1,
         'id_asignacion_plan' => $this->idAsignacionPlan,
+        'id_docente_titular' => $this->idDocente,
     ]);
     $curso->refresh();
 
