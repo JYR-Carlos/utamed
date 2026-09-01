@@ -454,16 +454,7 @@
         {/if}
       {/if}
 
-      <!-- Footer style links -->
-      <div class="h-px bg-slate-100 my-4 mx-4"></div>
-
-      <Link
-        href="/settings"
-        class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-all group"
-      >
-        <Settings size={18} class="text-slate-400 group-hover:text-indigo-500 transition-colors" />
-        Configuración
-      </Link>
+      
     {/if}
 
     <!-- ══ JEFE DE CARRERA ══════════════════════════════════ -->
@@ -620,17 +611,7 @@
             </Link>
           {/each}
         {/if}
-        <!-- Footer style links -->
-        <Link
-          href="/settings"
-          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-all group"
-        >
-          <Settings
-            size={18}
-            class="text-slate-400 group-hover:text-indigo-500 transition-colors"
-          />
-          Configuración
-        </Link>
+        
       </div>
     {/if}
 
@@ -732,16 +713,7 @@
         <!-- Footer style links -->
         <div class="h-px bg-slate-100 my-4 mx-4"></div>
 
-        <Link
-          href="/settings"
-          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-all group"
-        >
-          <Settings
-            size={18}
-            class="text-slate-400 group-hover:text-indigo-500 transition-colors"
-          />
-          Configuración
-        </Link>
+        
       </div>
     {/if}
 
@@ -789,16 +761,7 @@
           </Link>
         {/each}
         <div class="h-px bg-slate-100 my-4 mx-4"></div>
-        <Link
-          href="/settings"
-          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-all group"
-        >
-          <Settings
-            size={18}
-            class="text-slate-400 group-hover:text-indigo-500 transition-colors"
-          />
-          Configuración
-        </Link>
+        
       </div>
     {/if}
   </div>
