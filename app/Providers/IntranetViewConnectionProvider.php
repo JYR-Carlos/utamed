@@ -87,6 +87,7 @@ class IntranetViewConnectionProvider extends ServiceProvider
                     }
 
                     $query = VwCarreraCurso::select(['CUR_CODIGO', 'CURSO_TIPO_ASIG', 'CURSO_GRUPO_ASIG'])
+                        ->distinct()
                         ->where('CURSO_SEMESTRE_ASIG', $semestre)
                         ->where('CURSO_ANO', $agno)
                         ->where('PLAN_ANO', $planCod)
