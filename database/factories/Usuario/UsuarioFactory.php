@@ -4,6 +4,7 @@ namespace Database\Factories\Usuario;
 
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
+use App\Services\Authorization\RoleAssignmentBuilder;
 use App\Support\DataGenerators\ChileanNameGenerator;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -104,9 +105,11 @@ class UsuarioFactory extends Factory
             $rol = Rol::where('nombre', 'Estudiante')->first();
             $superAdmin = Usuario::where('username', 'superadmin')->first();
 
-            $usuario->giveRole($rol)
-                ->as($superAdmin)
-                ->inGlobalContext(); // solo para testing 
+            // Construcción directa: la factory corre sin usuario autenticado
+            // (giveRole() exige un actor autenticado desde H-3, ver AssignsPermissions).
+            (new RoleAssignmentBuilder($usuario, $rol, $superAdmin))
+                ->inGlobalContext() // solo para testing
+                ->save();
         });
     }
 
@@ -116,9 +119,9 @@ class UsuarioFactory extends Factory
             $rol = Rol::where('nombre', 'Docente Titular')->first();
             $superAdmin = Usuario::where('username', 'superadmin')->first();
 
-            $usuario->giveRole($rol)
-                ->as($superAdmin)
-                ->inGlobalContext(); // solo para testing
+            (new RoleAssignmentBuilder($usuario, $rol, $superAdmin))
+                ->inGlobalContext() // solo para testing
+                ->save();
         });
     }
 

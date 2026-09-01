@@ -362,6 +362,7 @@
       });
       if (indiceGrupo) params.set('indice_grupo', String(indiceGrupo));
 
+      console.log('[CursoWizardModal] preview-componentes →', Object.fromEntries(params));
       const res = await fetch(`/admin/cursos/preview-componentes?${params}`, {
         headers: { Accept: 'application/json' },
       });
@@ -370,11 +371,14 @@
       if (res.ok) {
         const json: ResultadoPreviewComponentes = await res.json();
         if (requestId !== previewRequestId) return;
+        console.log('[CursoWizardModal] preview-componentes ← OK', json);
         previewComponentes = json.componentes;
         previewOrigen = json.origen;
         previewAdvertencias = json.advertencias;
         selectedTipos = new Set(json.componentes.map((c) => c.id_tipo_componente));
       } else {
+        const body = await res.text();
+        console.error('[CursoWizardModal] preview-componentes ← ERROR', res.status, body);
         previewComponentes = [];
         previewOrigen = null;
         previewAdvertencias = [
@@ -382,6 +386,8 @@
         ];
         selectedTipos = new Set();
       }
+    } catch (err) {
+      console.error('[CursoWizardModal] preview-componentes ← EXCEPTION', err);
     } finally {
       if (requestId === previewRequestId) loadingPreview = false;
     }
@@ -484,8 +490,21 @@
       selectedTipos.size === 0 ||
       !principalTipo ||
       docentesPorComponenteIncompleto
-    )
+    ) {
+      console.warn('[CursoWizardModal] Submit bloqueado por el formulario, motivo(s):', {
+        sinAsignatura: !selectedAsig,
+        sinPlan: !selectedPlan,
+        sinCodCurso: codCurso === '',
+        sinDocente: !selectedDocente,
+        sinComponentesDetectadas: selectedTipos.size === 0,
+        sinComponentePrincipal: !principalTipo,
+        docentesPorComponenteIncompleto,
+        previewOrigen,
+        previewComponentes,
+        previewAdvertencias,
+      });
       return;
+    }
 
     const docentesPorComponenteFinal: Record<number, number> = {};
     const generaActaFinal: Record<number, boolean> = {};

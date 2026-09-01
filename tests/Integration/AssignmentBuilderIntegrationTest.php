@@ -10,7 +10,7 @@
  *   - RoleAssignmentBuilder:       on(), onAll(), for(), waitFor(), save()
  *   - AssignsPermissions:          givePermission(), giveRole(), invalidatePermission(), invalidateRole()
  *   - Step builder pattern:        PermissionBuilderStart -> PermissionBuilderReady
- *   - Auto-save via __destruct
+ *   - save() explícito y obligatorio (sin __destruct: R-1, ver auditoria_relbac_autorizacion.md)
  *   - Flag $saved (no doble persistencia)
  *
  * No usa RefreshDatabase: limpieza manual en beforeEach.
@@ -73,7 +73,7 @@ beforeEach(function () {
   $adminSistema = Usuario::firstOrCreate(
     ['username' => 'admin_sistema'],
     [
-      'rut' => '00000000-0',
+      'rut' => '99999999-9',
       'nombre1' => 'Admin',
       'apellido1' => 'Sistema',
       'email' => 'admin@sistema.local',
@@ -482,36 +482,27 @@ describe('PermissionAssignmentBuilder — onAllCurrentInstances() y onEveryInsta
 // GRUPO 5: PermissionAssignmentBuilder — auto-save y flag $saved
 // ============================================================================
 
-describe('PermissionAssignmentBuilder — auto-save y doble persistencia', function () {
+describe('PermissionAssignmentBuilder — save() explícito y doble persistencia', function () {
 
-  test('auto-save via destruct persiste el UPE al salir del scope', function () {
+  test('sin ->save() explícito, la cadena no persiste nada (R-1: __destruct eliminado)', function () {
     $recipientId = $this->recipient->id_usuario;
+    $countBefore = UsuarioPermisoEspecial::where('id_usuario', $recipientId)->count();
 
-    // unset() fuerza __destruct inmediatamente
+    // Ni asignar a variable y destruirla, ni dejarla morir al final del statement,
+    // debe persistir nada: ya no existe ningún auto-guardado implícito.
     $builder = $this->recipient
       ->givePermission($this->permiso)
       ->on($this->carreraA)
       ->for(30);
+    unset($builder);
 
-    $countBefore = UsuarioPermisoEspecial::where('id_usuario', $recipientId)->count();
-    unset($builder); // dispara __destruct → save()
-    $countAfter = UsuarioPermisoEspecial::where('id_usuario', $recipientId)->count();
-
-    expect($countAfter)->toBe($countBefore + 1);
-  });
-
-  test('cadena sin asignar persiste automaticamente al final del statement', function () {
-    $recipientId = $this->recipient->id_usuario;
-    $countBefore = UsuarioPermisoEspecial::where('id_usuario', $recipientId)->count();
-
-    // No se asigna a variable → se destruye al final del punto y coma
     $this->recipient->givePermission($this->permiso)->on($this->carreraA);
 
     $countAfter = UsuarioPermisoEspecial::where('id_usuario', $recipientId)->count();
-    expect($countAfter)->toBe($countBefore + 1);
+    expect($countAfter)->toBe($countBefore);
   });
 
-  test('save() explicito mas __destruct no duplica el registro', function () {
+  test('llamar a save() dos veces no duplica el registro', function () {
     $recipientId = $this->recipient->id_usuario;
 
     $builder = $this->recipient
@@ -519,23 +510,12 @@ describe('PermissionAssignmentBuilder — auto-save y doble persistencia', funct
       ->on($this->carreraA);
 
     $builder->save();
-    $countAfterSave = UsuarioPermisoEspecial::where('id_usuario', $recipientId)->count();
+    $countAfterFirstSave = UsuarioPermisoEspecial::where('id_usuario', $recipientId)->count();
 
-    unset($builder); // __destruct debe detectar $saved = true y no persistir de nuevo
-    $countAfterDestruct = UsuarioPermisoEspecial::where('id_usuario', $recipientId)->count();
+    $builder->save(); // el flag $saved debe evitar una segunda persistencia
+    $countAfterSecondSave = UsuarioPermisoEspecial::where('id_usuario', $recipientId)->count();
 
-    expect($countAfterDestruct)->toBe($countAfterSave);
-  });
-
-  test('builder sin contexto no persiste nada en __destruct', function () {
-    $recipientId = $this->recipient->id_usuario;
-    $countBefore = UsuarioPermisoEspecial::where('id_usuario', $recipientId)->count();
-
-    $builder = $this->recipient->givePermission($this->permiso);
-    unset($builder); // sin contexto → __destruct no hace nada
-
-    $countAfter = UsuarioPermisoEspecial::where('id_usuario', $recipientId)->count();
-    expect($countAfter)->toBe($countBefore);
+    expect($countAfterSecondSave)->toBe($countAfterFirstSave);
   });
 });
 
@@ -643,14 +623,14 @@ describe('RoleAssignmentBuilder — for() y waitFor()', function () {
     expect((int) round(Carbon::now()->diffInDays($inicio)))->toBe(7);
   });
 
-  test('auto-save del RoleAssignmentBuilder via __destruct', function () {
+  test('sin ->save() explícito, RoleAssignmentBuilder no persiste nada (R-1: __destruct eliminado)', function () {
     $recipientId = $this->recipient->id_usuario;
     $countBefore = UsuarioRolAsignacion::where('id_usuario', $recipientId)->count();
 
     $this->recipient->giveRole($this->rol)->on($this->carreraA);
 
     $countAfter = UsuarioRolAsignacion::where('id_usuario', $recipientId)->count();
-    expect($countAfter)->toBe($countBefore + 1);
+    expect($countAfter)->toBe($countBefore);
   });
 });
 
@@ -799,8 +779,7 @@ describe('Tipos de retorno de los builders', function () {
     $builder = $this->recipient->givePermission($this->permiso);
     expect($builder)->toBeInstanceOf(PermissionBuilderStart::class);
     expect($builder)->toBeInstanceOf(PermissionAssignmentBuilder::class);
-    // destruir sin guardar (sin contexto)
-    $builder->__destruct();
+    // sin ->save() explícito no persiste nada (R-1: __destruct eliminado)
   });
 
   test('giveRole() devuelve una instancia de RoleAssignmentBuilder', function () {
@@ -978,7 +957,6 @@ describe('Step-builder — métodos de contexto devuelven PermissionBuilderReady
 
     expect($builder)->toBeInstanceOf(PermissionBuilderStart::class);
     expect($builder)->toBeInstanceOf(PermissionAssignmentBuilder::class);
-
-    $builder->__destruct(); // limpiar sin guardar
+    // sin ->save() explícito no persiste nada (R-1: __destruct eliminado)
   });
 });

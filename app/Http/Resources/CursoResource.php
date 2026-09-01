@@ -14,10 +14,15 @@ class CursoResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        // Cargar programa actual del curso si existe
-        $programa = $this->programas()
-            ->where('es_actual', true)
-            ->first();
+        // Cargar programa actual del curso si existe. Si el llamador ya
+        // precargó 'programas' (p. ej. filtrada a es_actual=true desde un
+        // listado paginado), se usa esa colección en memoria; si no
+        // (show()/previewCopia() sobre un único curso), se consulta directo.
+        // Sin esto, CursoResource::collection() sobre N cursos disparaba N
+        // consultas adicionales (N+1) en cada carga del listado admin.
+        $programa = $this->relationLoaded('programas')
+            ? $this->programas->first()
+            : $this->programas()->where('es_actual', true)->first();
 
         // Docente del componente Cátedra (para mostrar en tabla)
         $componenteCatedra = $this->relationLoaded('componentes')

@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Builder declarativo para asignar roles (URA) a un usuario.
  *
- * Se persiste automaticamente al finalizar la cadena (via __destruct).
+ * Requiere ->save() explícito: la cadena no persiste nada por sí sola.
  *
  * @example Asignar rol con duracion:
  *   $user->giveRole($rol)->on($facultad)->for(60);
@@ -303,11 +303,11 @@ class RoleAssignmentBuilder
   /**
    * Persiste los registros URA en la base de datos.
    *
-   * Se llama automaticamente en __destruct. Puede invocarse
-   * explicitamente si se necesita acceso a los modelos creados.
+   * Debe invocarse explícitamente: sin esta llamada, la cadena no persiste nada.
    *
    * Valida previamente que:
    * - El actor tenga autorización para asignar el rol
+   * - Se haya especificado al menos un contexto
    * - El rol sea compatible con los contextos especificados
    *
    * @return UsuarioRolAsignacion|Collection<int, UsuarioRolAsignacion>
@@ -323,18 +323,16 @@ class RoleAssignmentBuilder
     // Validar que el actor tenga autorización ANTES de persistir
     $this->validateActorAuthorization();
 
-    // Validar que el rol sea compatible con los contextos de asignación
-    if (!empty($this->contextIds)) {
-      $this->validateRoleContextCompatibility();
-    }
-
-    $this->saved = true;
-
     if (empty($this->contextIds)) {
       throw new \InvalidArgumentException(
         'Debe especificar un contexto usando ->on($recurso) o ->onAll($class) antes de guardar.'
       );
     }
+
+    // Validar que el rol sea compatible con los contextos de asignación
+    $this->validateRoleContextCompatibility();
+
+    $this->saved = true;
 
     $payload = [
       'id_usuario' => $this->recipient->id_usuario,
@@ -348,32 +346,24 @@ class RoleAssignmentBuilder
       'creado_por' => $this->actor->id_usuario,
     ];
 
-    if (\count($this->contextIds) === 1) {
-      return UsuarioRolAsignacion::create(
-        [...$payload, 'id_contexto' => $this->contextIds[0]]
-      );
-    }
+    // Atomicidad: o se crean todas las filas de contexto solicitadas, o ninguna.
+    return DB::transaction(function () use ($payload) {
+      if (\count($this->contextIds) === 1) {
+        return UsuarioRolAsignacion::create(
+          [...$payload, 'id_contexto' => $this->contextIds[0]]
+        );
+      }
 
-    $records = collect();
-    foreach ($this->contextIds as $contextId) {
-      $records->push(
-        UsuarioRolAsignacion::create(
-          [...$payload, 'id_contexto' => $contextId]
-        )
-      );
-    }
+      $records = collect();
+      foreach ($this->contextIds as $contextId) {
+        $records->push(
+          UsuarioRolAsignacion::create(
+            [...$payload, 'id_contexto' => $contextId]
+          )
+        );
+      }
 
-    return $records;
-  }
-
-  /**
-   * Auto-save al salir del scope.
-   * El flag $saved evita doble persistencia si se llamo save() explicitamente.
-   */
-  public function __destruct()
-  {
-    if (!$this->saved && !empty($this->contextIds)) {
-      $this->save();
-    }
+      return $records;
+    });
   }
 }

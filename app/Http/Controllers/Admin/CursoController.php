@@ -61,6 +61,9 @@ class CursoController extends Controller
                 'componentes.tipoComponente',
                 'docenteTitular.usuario',
                 'componentes.docenteComponentes.docente.usuario',
+                // Filtrada a es_actual=true: es lo único que CursoResource necesita,
+                // y evita traer el historial completo de programas por curso.
+                'programas' => fn ($q) => $q->where('es_actual', true),
             ])
             ->when($request->search, function ($query, $search) {
                 $query->where('nombre', 'ilike', "%{$search}%")

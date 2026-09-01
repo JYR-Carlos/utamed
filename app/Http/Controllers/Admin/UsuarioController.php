@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
 use App\Rules\RutValido;
+use App\Services\Authorization\DelegationAuthorizer;
 use App\Services\Authorization\GlobalContextService;
 use App\Services\Authorization\PermissionCache;
+use App\Support\Permissions;
 use App\Support\Rut;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Usuario\Usuario;
@@ -1080,7 +1082,7 @@ class UsuarioController extends Controller
 
         DB::beginTransaction();
         try {
-            // Buscar registro específico según tipo
+            // Buscar registro específico según tipo y eliminar el perfil primero (si aplica)
             if ($tipo === 'estudiante') {
                 $record = Estudiante::findOrFail($id);
                 $usuarioId = $record->id_usuario;
@@ -1091,14 +1093,7 @@ class UsuarioController extends Controller
                 $record->delete();
             } else {
                 $record = Usuario::findOrFail($id);
-            }
-
-            // Obtener ID del usuario base
-            $usuarioId = ($tipo === 'administrador') ? $record->id_usuario : $record->id_usuario;
-
-            // Eliminar perfil específico primero (si aplica)
-            if ($tipo !== 'administrador') {
-                $record->delete();
+                $usuarioId = $record->id_usuario;
             }
 
             // Eliminar registro base de usuario
@@ -1296,7 +1291,7 @@ class UsuarioController extends Controller
      * @param  Usuario  $usuario  El usuario cuyo permisos sincronizar
      * @return \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse  JSON o redirección
      */
-    public function syncPermissions(Request $request, Usuario $usuario)
+    public function syncPermissions(Request $request, Usuario $usuario, DelegationAuthorizer $delegationAuthorizer)
     {
         // Validar roles e permisos especiales desde el request
         $validated = $request->validate([
@@ -1309,11 +1304,11 @@ class UsuarioController extends Controller
         $validated['roles'] ??= [];
         $validated['special_permissions'] ??= [];
 
-        $this->assertPuedeSincronizarPermisos($usuario, $validated['roles']);
-
         // Obtener contexto global
         // TODO: Ampliar para soportar sincronización multi-contexto
         $idContexto = app(GlobalContextService::class)->getContextId();
+
+        $this->assertPuedeSincronizarPermisos($usuario, $validated['roles'], $idContexto, $delegationAuthorizer);
 
         // Obtener admin que realiza la acción (para auditoría)
         $adminId = Auth::id() ?? 1; // Fallback only for dev/seeder
@@ -1460,11 +1455,17 @@ class UsuarioController extends Controller
      * validateActorAuthorization(). Sin este guard era la vía abierta para
      * concederse a uno mismo el rol SuperAdmin.
      *
-     * @param  Usuario  $objetivo          Usuario cuyos permisos se sincronizan
-     * @param  array    $rolesSolicitados  IDs de rol que el request pretende asignar
+     * @param  Usuario               $objetivo             Usuario cuyos permisos se sincronizan
+     * @param  array                 $rolesSolicitados     IDs de rol que el request pretende asignar
+     * @param  int                   $idContexto           Contexto de destino de la sincronización
+     * @param  DelegationAuthorizer  $delegationAuthorizer Regla compartida "¿puede delegar esto, aquí?"
      */
-    private function assertPuedeSincronizarPermisos(Usuario $objetivo, array $rolesSolicitados): void
-    {
+    private function assertPuedeSincronizarPermisos(
+        Usuario $objetivo,
+        array $rolesSolicitados,
+        int $idContexto,
+        DelegationAuthorizer $delegationAuthorizer
+    ): void {
         /** @var Usuario|null $actor */
         $actor = Auth::user();
 
@@ -1490,21 +1491,37 @@ class UsuarioController extends Controller
             abort(403, 'Solo un SuperAdmin puede modificar los permisos de otro SuperAdmin.');
         }
 
-        // 4. Sólo un SuperAdmin puede conceder roles administrativos.
+        // 4. Sólo puede conceder roles cuyos permisos reales pueda delegar en el contexto
+        //    de destino — misma regla que usa RoleAssignmentBuilder, no una lista de alias
+        //    por nombre (ver H-2: un rol nuevo y potente que no esté en la lista de alias
+        //    administrativos podía concederse sin ninguna validación de contenido).
         if (!$actorEsSuperAdmin && !empty($rolesSolicitados)) {
-            $aliasAdmin = array_map('strtolower', Usuario::ROLES_ADMINISTRATIVOS);
+            $permisosDeLosRoles = $this->permisosOtorgadosPorRoles($rolesSolicitados);
 
-            $administrativos = Rol::whereIn('id_rol', $rolesSolicitados)
-                ->pluck('nombre')
-                ->filter(fn($nombre) => in_array(strtolower(trim($nombre)), $aliasAdmin, true));
-
-            if ($administrativos->isNotEmpty()) {
-                $this->logIntentoEscalada($actor, $objetivo, 'CONCESION_ROL_ADMINISTRATIVO', [
-                    'roles_solicitados' => $administrativos->values()->all(),
+            if (!$delegationAuthorizer->actorPuedeDelegar($actor, $permisosDeLosRoles, [$idContexto])) {
+                $this->logIntentoEscalada($actor, $objetivo, 'CONCESION_ROL_NO_DELEGABLE', [
+                    'roles_solicitados' => $rolesSolicitados,
                 ]);
-                abort(403, 'Solo un SuperAdmin puede conceder roles administrativos.');
+                abort(403, 'No tienes permiso para delegar uno o más de los permisos que otorgan los roles solicitados.');
             }
         }
+    }
+
+    /**
+     * Resuelve los permisos reales (como enums) que otorgan un conjunto de roles.
+     *
+     * @param  int[]  $roleIds
+     * @return Permissions[]
+     */
+    private function permisosOtorgadosPorRoles(array $roleIds): array
+    {
+        return DB::table('usuario.asignacion_rol_permiso')
+            ->join('usuario.permiso', 'usuario.asignacion_rol_permiso.id_permiso', '=', 'usuario.permiso.id_permiso')
+            ->whereIn('usuario.asignacion_rol_permiso.id_rol', $roleIds)
+            ->pluck('usuario.permiso.slug')
+            ->unique()
+            ->map(Permissions::from(...))
+            ->all();
     }
 
     /**
@@ -1527,13 +1544,20 @@ class UsuarioController extends Controller
      * `show`/`update`/`destroy` reciben el ID del **perfil** (estudiante o
      * docente), no el del usuario, así que para autorizar contra `UsuarioPolicy`
      * hay que traducirlo primero.
+     *
+     * `id_estudiante`, `id_docente` e `id_usuario` son secuencias independientes
+     * de tablas distintas: un `tipo` no reconocido (vacío, typo, manipulado) NO
+     * puede caer en "administrador" por defecto, porque entonces `$id` se
+     * reinterpreta silenciosamente como `id_usuario` de una persona sin ninguna
+     * relación con el estudiante/docente que la UI mostraba.
      */
     private function resolveUsuarioPorTipo(string $tipo, $id): Usuario
     {
         return match ($tipo) {
-            'estudiante' => Estudiante::findOrFail($id)->usuario,
-            'docente'    => Docente::findOrFail($id)->usuario,
-            default      => Usuario::findOrFail($id),
+            'estudiante'    => Estudiante::findOrFail($id)->usuario,
+            'docente'       => Docente::findOrFail($id)->usuario,
+            'administrador' => Usuario::findOrFail($id),
+            default         => abort(422, "Tipo de usuario inválido: {$tipo}"),
         };
     }
 

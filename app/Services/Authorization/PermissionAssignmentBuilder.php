@@ -21,6 +21,7 @@ use App\Services\Authorization\PermissionContextConstraints;
 
 use App\Exceptions\DontHavePermissionException;
 use \Illuminate\Database\RecordNotFoundException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Builder declarativo para asignar permisos individuales (UPE) a un usuario.
@@ -34,7 +35,7 @@ use \Illuminate\Database\RecordNotFoundException;
  *   ->onEveryInstance()->on($carrera)      // ERROR: idem
  *   ->onAllChildrenOf($x)->onEveryInstance() // ERROR: idem
  *
- * Se persiste automaticamente al finalizar la cadena (via __destruct).
+ * Requiere ->save() explícito: la cadena no persiste nada por sí sola.
  *
  * @example GRANT con duracion y delegacion:
  *   $user->givePermission($permiso)->on($facultad)->for(30)->canDelegate();
@@ -463,16 +464,16 @@ class PermissionAssignmentBuilder implements PermissionBuilderStart, PermissionB
   /**
    * Persiste los registros UPE en la base de datos.
    *
-   * Se llama automaticamente en __destruct. Puede invocarse
-   * explicitamente si se necesita acceso a los modelos creados.
+   * Debe invocarse explícitamente: sin esta llamada, la cadena no persiste nada.
    *
-   * Valida previamente que el actor tenga autorización para asignar el permiso
-   * y que el permiso sea compatible con los tipos de contexto.
+   * Valida previamente que el actor tenga autorización para asignar el permiso,
+   * que se haya especificado al menos un contexto, y que el permiso sea
+   * compatible con los tipos de contexto.
    *
    * @return UsuarioPermisoEspecial|Collection<int, UsuarioPermisoEspecial>
    * @throws \InvalidArgumentException Si no se especifico ningun contexto
    * @throws \InvalidArgumentException Si el permiso no es compatible con los contextos
-   * @throws RecordNotFoundException Si el slug del permiso no existe 
+   * @throws RecordNotFoundException Si el slug del permiso no existe
    * @throws DontHavePermissionException Si el actor no tiene autorización
    */
   public function save(): UsuarioPermisoEspecial|Collection
@@ -484,16 +485,16 @@ class PermissionAssignmentBuilder implements PermissionBuilderStart, PermissionB
     // Validar que el actor tenga autorización ANTES de persistir
     $this->validateActorAuthorization();
 
-    // Validar que el permiso sea compatible con los contextos (OPCIÓN 1 - doble-check)
-    $this->validateContextCompatibility();
-
-    $this->saved = true;
-
     if (empty($this->contextIds)) {
       throw new \InvalidArgumentException(
         'Debe especificar un contexto usando ->on($recurso), ->onAllCurrentInstances($type) o ->onEveryInstance() antes de guardar.'
       );
     }
+
+    // Validar que el permiso sea compatible con los contextos (OPCIÓN 1 - doble-check)
+    $this->validateContextCompatibility();
+
+    $this->saved = true;
 
     // Obtener o crear el modelo Permiso desde el slug
     $permiso = Permiso::where(
@@ -515,34 +516,26 @@ class PermissionAssignmentBuilder implements PermissionBuilderStart, PermissionB
       'creado_por' => $this->actor->id_usuario,
     ];
 
-    if (\count($this->contextIds) === 1) {
-      return UsuarioPermisoEspecial::create([
-        ...$payload,
-        'id_contexto' => $this->contextIds[0]
-      ]);
-    }
-
-    $records = collect();
-    foreach ($this->contextIds as $contextId) {
-      $records->push(
-        UsuarioPermisoEspecial::create([
+    // Atomicidad: o se crean todas las filas de contexto solicitadas, o ninguna.
+    return DB::transaction(function () use ($payload) {
+      if (\count($this->contextIds) === 1) {
+        return UsuarioPermisoEspecial::create([
           ...$payload,
-          'id_contexto' => $contextId
-        ])
-      );
-    }
+          'id_contexto' => $this->contextIds[0]
+        ]);
+      }
 
-    return $records;
-  }
+      $records = collect();
+      foreach ($this->contextIds as $contextId) {
+        $records->push(
+          UsuarioPermisoEspecial::create([
+            ...$payload,
+            'id_contexto' => $contextId
+          ])
+        );
+      }
 
-  /**
-   * Auto-save al salir del scope.
-   * El flag $saved evita doble persistencia si se llamo save() explicitamente.
-   */
-  public function __destruct()
-  {
-    if (!$this->saved && !empty($this->contextIds)) {
-      $this->save();
-    }
+      return $records;
+    });
   }
 }

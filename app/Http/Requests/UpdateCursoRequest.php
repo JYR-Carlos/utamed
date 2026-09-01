@@ -11,11 +11,13 @@ use Illuminate\Validation\Rule;
 class UpdateCursoRequest extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * La autorización se maneja en el controlador vía CursoPolicy
+     * (CursoController@update llama $this->authorize('update', $curso)),
+     * igual que UpdateInscripcionCursoRequest.
      */
     public function authorize(): bool
     {
-        return true; // TODO: Implement authorization logic
+        return true;
     }
 
     /**

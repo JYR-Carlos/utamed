@@ -60,7 +60,7 @@ beforeEach(function () {
   $adminSistema = Usuario::firstOrCreate(
     ['username' => 'admin_sistema'],
     [
-      'rut' => '00000000-0',
+      'rut' => '99999999-9',
       'nombre1' => 'Admin',
       'apellido1' => 'Sistema',
       'email' => 'admin@sistema.local',

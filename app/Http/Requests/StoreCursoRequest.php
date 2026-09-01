@@ -7,17 +7,36 @@ use App\Models\Administrativo\AsignacionPlan;
 use App\Models\Administrativo\Plan;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Docente;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class StoreCursoRequest extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * La autorización se maneja en el controlador vía CursoPolicy
+     * (CursoController@store llama $this->authorize('create', Curso::class)),
+     * igual que StoreInscripcionCursoRequest.
      */
     public function authorize(): bool
     {
-        return true; // TODO: Implement authorization logic
+        return true;
+    }
+
+    /**
+     * La validación del FormRequest corre antes de que el controlador reciba
+     * la petición, así que sin esto un 422 aquí nunca aparece en los
+     * Log::info de CursoController@store.
+     */
+    protected function failedValidation(Validator $validator): void
+    {
+        Log::warning('[StoreCursoRequest] Validación fallida al crear curso', [
+            'errors' => $validator->errors()->toArray(),
+            'data' => $this->all(),
+        ]);
+
+        parent::failedValidation($validator);
     }
 
     /**

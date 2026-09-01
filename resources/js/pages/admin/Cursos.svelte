@@ -366,9 +366,11 @@
           isLoading = false;
           handleFlashMessages(pageObj?.props);
         },
-        onError: () => {
+        onError: (errors) => {
+          console.error('[Cursos.svelte] Error al crear curso:', errors);
           isLoading = false;
-          showToast('Error al crear curso', 'error');
+          const detalle = errors ? Object.values(errors).join(' ') : '';
+          showToast(detalle ? `Error al crear curso: ${detalle}` : 'Error al crear curso', 'error');
         },
       });
     }
@@ -418,10 +420,11 @@
         isLoading = false;
         handleFlashMessages(pageObj?.props);
       },
-      onError: () => {
-
+      onError: (errors) => {
+        console.error('[Cursos.svelte] Error al crear curso (wizard):', errors);
         isLoading = false;
-        showToast('Error al crear curso', 'error');
+        const detalle = errors ? Object.values(errors).join(' ') : '';
+        showToast(detalle ? `Error al crear curso: ${detalle}` : 'Error al crear curso', 'error');
       },
     });
   }
