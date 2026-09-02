@@ -29,7 +29,7 @@ class DiagnosticoCursoIntranet extends Command
 
     public function handle(IntranetService $intranetService): int
     {
-        $cursoId = (int) $this->argument('curso');
+        $cursoId = $this->argument('curso');
 
         $this->line('');
         $this->info('╔═══════════════════════════════════════════════════════════════════════════╗');
@@ -48,7 +48,7 @@ class DiagnosticoCursoIntranet extends Command
             'asignacionPlan.plan.carrera',
             'componentes.tipoComponente',
             'docenteTitular.usuario',
-        ])->find($cursoId);
+        ])->where('cod_curso',$cursoId);
 
         if (!$curso) {
             $this->error("  [FALLO] No se encontró ningún curso con id_curso = {$cursoId} en PostgreSQL.");
