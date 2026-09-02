@@ -7,7 +7,6 @@ use App\Models\Administrativo\Asignatura;
 use App\Models\Administrativo\Plan;
 use App\Models\External\VwCarreraCurso;
 use Illuminate\Console\Command;
-use Tests\Integration\External\IntranetTestHelper;
 
 class ListAcademicCatalogCommand extends Command
 {
@@ -33,8 +32,6 @@ class ListAcademicCatalogCommand extends Command
 
     public function handle(): int
     {
-        IntranetTestHelper::loadOracleConfig();
-
         $this->displayBanner();
 
         $view = $this->argument('view') ?? 'ambas';

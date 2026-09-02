@@ -462,29 +462,46 @@ class CursoController extends Controller
     public function previewSincronizarIntranet(Curso $curso)
     {
         $this->authorize('update', $curso);
-        $curso->loadMissing('asignacionPlan');
 
-        $asignacionPlan = $curso->asignacionPlan;
-        if (!$asignacionPlan) {
-            return response()->json([
-                'origen' => 'PLAN',
-                'componentes' => [],
-                'id_tipo_componente_principal' => null,
-                'advertencias' => ['El curso no tiene una asignación de plan válida; no se puede sincronizar.'],
+        try {
+            $curso->loadMissing('asignacionPlan.asignatura', 'asignacionPlan.plan');
+
+            $asignacionPlan = $curso->asignacionPlan;
+            if (!$asignacionPlan) {
+                return response()->json([
+                    'origen' => 'PLAN',
+                    'componentes' => [],
+                    'id_tipo_componente_principal' => null,
+                    'advertencias' => ['El curso no tiene una asignación de plan válida; no se puede sincronizar.'],
+                ]);
+            }
+
+            $letraGrupo = $curso->letra_grupo ?: LetraGrupo::fromIndice($curso->indice_grupo);
+
+            $resultado = app(IntranetService::class)->previsualizarComponentes(
+                idAsignatura: $asignacionPlan->id_asignatura,
+                idPlan: $asignacionPlan->id_plan,
+                agno: $curso->agno_real ?? (int) now()->year,
+                semestre: $curso->semestre_real ?? 1,
+                letraGrupo: $letraGrupo
+            );
+
+            return response()->json($resultado->toArray());
+        } catch (\Throwable $e) {
+            Log::error("[CursoController@previewSincronizarIntranet] Error al previsualizar curso #{$curso->id_curso}: " . $e->getMessage(), [
+                'curso_id'         => $curso->id_curso,
+                'cod_curso'        => $curso->cod_curso,
+                'usuario_id'       => auth()->id(),
+                'exception_class'  => get_class($e),
+                'file'             => $e->getFile() . ':' . $e->getLine(),
+                'trace'            => $e->getTraceAsString(),
+                'previous'         => $e->getPrevious()?->getMessage(),
             ]);
+
+            return response()->json([
+                'error' => 'Error al consultar previsualización con la Intranet: ' . $e->getMessage(),
+            ], 500);
         }
-
-        $letraGrupo = $curso->letra_grupo ?: LetraGrupo::fromIndice($curso->indice_grupo);
-
-        $resultado = app(IntranetService::class)->previsualizarComponentes(
-            idAsignatura: $asignacionPlan->id_asignatura,
-            idPlan: $asignacionPlan->id_plan,
-            agno: $curso->agno_real ?? (int) now()->year,
-            semestre: $curso->semestre_real ?? 1,
-            letraGrupo: $letraGrupo
-        );
-
-        return response()->json($resultado->toArray());
     }
 
     /**
@@ -509,8 +526,15 @@ class CursoController extends Controller
 
             return response()->json($resultado->toArray());
         } catch (\Throwable $e) {
-            Log::error('[CursoController@sincronizarIntranet] Error al sincronizar: ' . $e->getMessage(), [
-                'curso_id' => $curso->id_curso,
+            Log::error("[CursoController@sincronizarIntranet] Error al sincronizar curso #{$curso->id_curso}: " . $e->getMessage(), [
+                'curso_id'         => $curso->id_curso,
+                'cod_curso'        => $curso->cod_curso,
+                'usuario_id'       => auth()->id(),
+                'payload'          => $request->all(),
+                'exception_class'  => get_class($e),
+                'file'             => $e->getFile() . ':' . $e->getLine(),
+                'trace'            => $e->getTraceAsString(),
+                'previous'         => $e->getPrevious()?->getMessage(),
             ]);
 
             return response()->json([
@@ -529,40 +553,61 @@ class CursoController extends Controller
     {
         $this->authorize('viewAny', Curso::class);
 
-        $cursos = Curso::query()
-            ->whereNull('fecha_eliminacion')
-            ->whereDoesntHave('componentes')
-            ->with('asignacionPlan.asignatura')
-            ->limit(50)
-            ->get();
+        try {
+            $cursos = Curso::query()
+                ->whereNull('fecha_eliminacion')
+                ->whereDoesntHave('componentes')
+                ->with('asignacionPlan.asignatura')
+                ->limit(50)
+                ->get();
 
-        $intranetService = app(IntranetService::class);
+            $intranetService = app(IntranetService::class);
 
-        $reporte = $cursos->map(function (Curso $curso) use ($intranetService) {
-            $asignacionPlan = $curso->asignacionPlan;
-            if (!$asignacionPlan) {
-                return null;
-            }
+            $reporte = $cursos->map(function (Curso $curso) use ($intranetService) {
+                $asignacionPlan = $curso->asignacionPlan;
+                if (!$asignacionPlan) {
+                    return null;
+                }
 
-            $letraGrupo = $curso->letra_grupo ?: LetraGrupo::fromIndice($curso->indice_grupo);
+                try {
+                    $letraGrupo = $curso->letra_grupo ?: LetraGrupo::fromIndice($curso->indice_grupo);
 
-            $preview = $intranetService->previsualizarComponentes(
-                idAsignatura: $asignacionPlan->id_asignatura,
-                idPlan: $asignacionPlan->id_plan,
-                agno: $curso->agno_real ?? (int) now()->year,
-                semestre: $curso->semestre_real ?? 1,
-                letraGrupo: $letraGrupo
-            );
+                    $preview = $intranetService->previsualizarComponentes(
+                        idAsignatura: $asignacionPlan->id_asignatura,
+                        idPlan: $asignacionPlan->id_plan,
+                        agno: $curso->agno_real ?? (int) now()->year,
+                        semestre: $curso->semestre_real ?? 1,
+                        letraGrupo: $letraGrupo
+                    );
 
-            return [
-                'id_curso'   => $curso->id_curso,
-                'cod_curso'  => $curso->cod_curso,
-                'asignatura' => $asignacionPlan->asignatura?->nombre,
-                'preview'    => $preview->toArray(),
-            ];
-        })->filter()->values();
+                    return [
+                        'id_curso'   => $curso->id_curso,
+                        'cod_curso'  => $curso->cod_curso,
+                        'asignatura' => $asignacionPlan->asignatura?->nombre,
+                        'preview'    => $preview->toArray(),
+                    ];
+                } catch (\Throwable $e) {
+                    Log::warning("[CursoController@previewSincronizarMasivo] Falló preview para curso #{$curso->id_curso}: " . $e->getMessage());
+                    return [
+                        'id_curso'   => $curso->id_curso,
+                        'cod_curso'  => $curso->cod_curso,
+                        'asignatura' => $asignacionPlan->asignatura?->nombre,
+                        'error'      => $e->getMessage(),
+                    ];
+                }
+            })->filter()->values();
 
-        return response()->json(['cursos' => $reporte]);
+            return response()->json(['cursos' => $reporte]);
+        } catch (\Throwable $e) {
+            Log::error('[CursoController@previewSincronizarMasivo] Error al obtener preview masivo: ' . $e->getMessage(), [
+                'usuario_id'      => auth()->id(),
+                'exception_class' => get_class($e),
+                'file'            => $e->getFile() . ':' . $e->getLine(),
+                'trace'           => $e->getTraceAsString(),
+            ]);
+
+            return response()->json(['error' => 'Error al generar previsualización masiva: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -606,7 +651,13 @@ class CursoController extends Controller
                     'resultado' => $resultado->toArray(),
                 ];
             } catch (\Throwable $e) {
-                Log::error('[CursoController@sincronizarMasivo] Error al sincronizar curso #' . $idCurso . ': ' . $e->getMessage());
+                Log::error('[CursoController@sincronizarMasivo] Error al sincronizar curso #' . $idCurso . ': ' . $e->getMessage(), [
+                    'curso_id'        => $idCurso,
+                    'usuario_id'      => auth()->id(),
+                    'exception_class' => get_class($e),
+                    'file'            => $e->getFile() . ':' . $e->getLine(),
+                    'trace'           => $e->getTraceAsString(),
+                ]);
                 $reporte[] = ['id_curso' => $idCurso, 'error' => $e->getMessage()];
             }
         }

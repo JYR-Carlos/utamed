@@ -14,7 +14,6 @@ use App\Models\Curso\TipoComponente;
 use App\Services\IntranetService;
 use App\Support\LetraGrupo;
 use Illuminate\Console\Command;
-use Tests\Integration\External\IntranetTestHelper;
 
 class RunIntranetServiceCommand extends Command
 {
@@ -44,8 +43,6 @@ class RunIntranetServiceCommand extends Command
 
     public function handle(IntranetService $intranetService): int
     {
-        IntranetTestHelper::loadOracleConfig();
-
         $this->displayBanner();
 
         $action = $this->argument('action');

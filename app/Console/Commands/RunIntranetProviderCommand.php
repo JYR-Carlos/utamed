@@ -8,7 +8,6 @@ use App\DTOs\External\InscripcionData;
 use App\Enums\External\TipoAsignatura;
 use App\Models\External\VwInscripcion;
 use Illuminate\Console\Command;
-use Tests\Integration\External\IntranetTestHelper;
 
 class RunIntranetProviderCommand extends Command
 {
@@ -38,8 +37,6 @@ class RunIntranetProviderCommand extends Command
 
     public function handle(): int
     {
-        IntranetTestHelper::loadOracleConfig();
-
         $this->displayBanner();
 
         $action = $this->argument('action');
