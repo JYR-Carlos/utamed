@@ -174,20 +174,22 @@ class AsignacionPlanController extends Controller
             $asignacion = AsignacionPlan::where('id_plan', $plan->id_plan)
                 ->where('id_asignatura', $asignatura->id_asignatura)
                 ->firstOrFail();
-
-            $this->authorize('update', $asignacion);
-
-            $asignacion->update($validated);
-
-            return back()->with('success', 'Asignación actualizada exitosamente.');
         } catch (\Exception $e) {
-            Log::error('Error actualizando la asignación de la asignatura al plan/malla:', [
+            Log::error('Error validando la asignación de la asignatura al plan/malla:', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'data' => $validated
             ]);
             return back()->with('error', 'No se pudo actualizar la asignacaión de malla: ' . $e->getMessage())->withInput();
         }
+
+        // authorize() fuera del try/catch(\Exception): AuthorizationException lo extiende,
+        // así que quedaba atrapada y devuelta como error genérico 200 en vez de un 403 real.
+        $this->authorize('update', $asignacion);
+
+        $asignacion->update($validated);
+
+        return back()->with('success', 'Asignación actualizada exitosamente.');
     }
 
     /**

@@ -235,30 +235,36 @@ contador de `retry_after` en `RATE_LIMIT_EXCEEDED`.
 
 ---
 
-### VC9 — Sidebar de rol (`RoleSidebar.svelte`)
-**Un único componente para los cinco layouts.** Es el elemento más transversal
-del sistema y merece diseño propio.
+### VC9 — Sidebar de rol (`RoleSidebar.svelte` + `CourseListNav.svelte`)
+**Un único componente para los cinco layouts, y un único patrón de fila
+dentro de él.** Las secciones por rol no son diseños distintos: son la misma
+plantilla (`navLink` para destinos simples, `CourseListNav` para listas de
+curso) con distinta data y distintos props de qué acciones mostrar — la
+diferencia entre roles es de **funcionalidad/recursos accesibles**, no de
+layout. Es el elemento más transversal del sistema.
 
-- **Cabecera:** logo + `UTAMED` + `SISTEMA DE GESTIÓN`.
+- **Cabecera:** logo + `UTAMED` (azul marino `#22213F`) + `SISTEMA DE GESTIÓN`.
 - **Conmutador de rol:** aparece **sólo si `availableSections.length > 1`**;
-  pastillas en fondo `slate-100`, activa en blanco con texto `indigo-600`.
+  pastillas en fondo `slate-100`, activa en blanco con texto `indigo-600`
+  (única excepción al azul marino, junto con `/admin`).
   Secciones y sus iconos ya elegidos: `Docente` (GraduationCap),
   `Jefe de Carrera` (ClipboardList), `Estudiante` (GraduationCap),
   `Ayudantía` (BookOpen), `Administración` (Building2).
-- **Sección Docente:** buscador de cursos + período vigente desplegado +
-  bloque "Histórico" colapsado agrupado como `Año X · Semestre Y`; cada curso es
-  una tarjeta con accesos a *Programa* y *Actividades*.
-- **Sección Administración:** 9 destinos, **un icono distinto cada uno** (nota
-  del código: tres pares compartían icono y *"la barra sólo se podía leer palabra
-  por palabra"*) — Usuarios `Users`, Facultades `Landmark`, Departamentos
-  `Building2`, Carreras `GraduationCap`, Asignaturas `BookOpen`, Planes
-  `ClipboardList`, Cursos Ofertados `CalendarRange`, Inscripciones `UserCheck`,
-  Syllabus `ScrollText`.
-- **Sección Jefe de Carrera:** Dashboard · Seguimiento · Métricas · Planes ·
-  Asignaturas · Carrera.
-- **Sección Estudiante:** Dashboard · Cursos (lista expandible).
-- **Sección Ayudantía:** Dashboard · cursos con *Programa* / *Crear programa*.
-- **Pie:** enlace a `/settings` + `NavUser`.
+- **`navLink` (snippet compartido):** fila Link+icono con estado activo por
+  prefijo de URL; acento azul marino en toda la app, indigo únicamente dentro
+  de `/admin` (parámetro `admin`, nunca color libre). La usan Dashboard de
+  cada rol, los 6 destinos de Jefe de Carrera, los 9 de Administración y el
+  pie (`Configuración`).
+- **`CourseListNav` (componente compartido):** buscador + período vigente +
+  histórico colapsado (`Año X · Semestre Y`); cada curso muestra código
+  (`cod_curso`, monoespaciado) y nombre. Accesos a *Programa* / *Actividades*
+  son opcionales por rol, según qué rutas existen:
+  - **Docente:** `showPrograma` + `showActividades` (tiene ambas rutas).
+  - **Ayudante:** sólo `showPrograma` (ve/crea programa; sin ruta de
+    actividades propia).
+  - **Estudiante:** ninguna — el detalle de curso ya embebe el syllabus, así
+    que la fila entera es el único destino.
+- **Pie:** enlace a `/settings` (mismo `navLink`) + `NavUser`.
 - **Detección de sección activa:** por prefijo de URL; si la ruta no mapea, abre
   la primera disponible.
 

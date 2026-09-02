@@ -12,6 +12,7 @@ use App\Models\Agenda\Actividad;
 use App\Services\ProgramaService;
 use App\Support\Permissions;
 use App\Traits\ParsesSyllabus;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -716,11 +717,14 @@ class ProgramaController extends Controller
             'fecha_limite_entrega_syllabus' => 'sometimes|nullable|date',
         ]);
 
-        // Cross-field: syllabus date must be >= basic date, using DB fallback
+        // Cross-field: syllabus date must be >= basic date, using DB fallback.
+        // Un lado puede venir como string crudo del request y el otro como Carbon
+        // (cast del modelo) si solo se actualiza uno de los dos campos: unificar
+        // a Carbon antes de comparar, si no la comparación floja de PHP no ordena por fecha.
         $basico   = $validated['fecha_limite_entrega_basico']   ?? $curso->fecha_limite_entrega_basico;
         $syllabus = $validated['fecha_limite_entrega_syllabus'] ?? $curso->fecha_limite_entrega_syllabus;
 
-        if ($basico && $syllabus && $syllabus < $basico) {
+        if ($basico && $syllabus && Carbon::parse($syllabus) < Carbon::parse($basico)) {
             return back()->withErrors([
                 'fecha_limite_entrega_syllabus' => 'La fecha límite del syllabus debe ser igual o posterior a la del básico.',
             ]);

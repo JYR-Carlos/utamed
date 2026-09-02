@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { useFormatName } from '@/hooks';
+  import { useFormatName, useInitials } from '@/hooks';
   import { Link } from '@inertiajs/svelte';
 
   interface Props {
@@ -7,67 +7,47 @@
     nombre: string;
     cod_curso: string;
     profesor: string;
-    progreso: number;
-    color: string;
-    iconColor?: string;
+    semestre_real: number;
+    agno_real: number;
   }
 
-  let {
-    id_curso,
-    nombre,
-    cod_curso,
-    profesor,
-    progreso,
-    color,
-    iconColor = 'text-white',
-  }: Props = $props();
-
+  let { id_curso, nombre, cod_curso, profesor, semestre_real, agno_real }: Props = $props();
 
   const { formatName } = useFormatName();
+  const { getInitials } = useInitials();
 
+  let sinDocente = $derived(profesor === '(sin docente asignado)');
+  let periodoLabel = $derived(
+    `${semestre_real === 1 ? 'Primer' : 'Segundo'} semestre ${agno_real}`,
+  );
 </script>
 
 <Link
   href={`/estudiante/cursos/${id_curso}`}
-  class="group relative overflow-hidden rounded-3xl bg-gradient-to-br {color} p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full flex flex-col"
+  class="group flex h-full flex-col gap-2.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
 >
-  <!-- Content -->
-  <div class="relative z-10 flex flex-col h-full">
-    <!-- Header -->
-    <div class="flex justify-between items-start mb-4">
-      <div class="flex-1">
-        <span
-          class="text-xs font-bold px-2.5 py-1 rounded-lg bg-white/20 text-white backdrop-blur-sm inline-block"
-        >
-          {cod_curso}
-        </span>
-      </div>
-      <button
-        onclick={(e) => e.preventDefault()}
-        class="text-white/60 hover:text-white transition-colors p-1 ml-2"
-        title="Más opciones"
-      >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2m0 7a1 1 0 110-2 1 1 0 010 2m0 7a1 1 0 110-2 1 1 0 010 2"
-          />
-        </svg>
-      </button>
+  <div class="flex items-start gap-2.5">
+    <div
+      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#22213F]/10 text-[13px] font-bold text-[#22213F]"
+    >
+      {getInitials(nombre)}
     </div>
+    <div class="flex min-w-0 flex-col gap-0.5">
+      <span class="font-mono text-[11px] text-slate-500">{cod_curso}</span>
+      <span
+        class="line-clamp-2 text-[15px] font-semibold leading-tight text-slate-900 group-hover:text-[#22213F]"
+      >
+        {formatName(nombre)}
+      </span>
+    </div>
+  </div>
 
-    <!-- Title -->
-    <h3 class="text-xl font-bold text-white mb-1 line-clamp-2 leading-tight">
-      {formatName(nombre)}
-    </h3>
-
-    <!-- Profesor -->
-    <p class="text-sm text-white/80 mb-6 flex-grow leading-snug">
-      Docente: {formatName(profesor)}
-    </p>
-
-    
+  <div class="mt-auto flex flex-col gap-1 border-t border-slate-100 pt-2.5">
+    {#if sinDocente}
+      <span class="text-[12.5px] italic text-slate-500">{profesor}</span>
+    {:else}
+      <span class="text-[12.5px] text-slate-800">{formatName(profesor)}</span>
+    {/if}
+    <span class="text-[11.5px] text-slate-500">{periodoLabel}</span>
   </div>
 </Link>

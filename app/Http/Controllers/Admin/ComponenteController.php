@@ -15,6 +15,7 @@ use App\Models\Usuario\Rol;
 use App\Models\Usuario\Docente;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
@@ -117,29 +118,35 @@ class ComponenteController extends Controller
                 return back()->with('error', 'Ya existe un componente de este tipo en el curso.');
             }
 
-            $componente = Componente::create([
-                'id_curso'                          => $curso->id_curso,
-                'id_tipo_componente'                => $validated['id_tipo_componente'],
-                'genera_acta'                       => false,
-                'porcentaje_aprobacion'             => 60,
-                'aprobacion_obligatoria'            => false,
-                'porcentaje_asistencia_obligatoria' => 0,
-                // id_contexto es asignado automáticamente por trigger tr_componente_pre_insert
-            ]);
-
-            // Asignar docente a través de la tabla pivot docente_componente
-            // El primero asignado es siempre es_titular = true
-            if (!empty($validated['id_docente'])) {
-                DocenteComponente::create([
-                    'id_componente' => $componente->id_componente,
-                    'id_docente'    => $validated['id_docente'],
-                    'es_titular'    => true,
+            // Componente + docente_componente van juntos: sin transacción, un fallo
+            // en el segundo insert deja el componente huérfano (sin docente responsable).
+            $componente = DB::transaction(function () use ($curso, $validated) {
+                $componente = Componente::create([
+                    'id_curso'                          => $curso->id_curso,
+                    'id_tipo_componente'                => $validated['id_tipo_componente'],
+                    'genera_acta'                       => false,
+                    'porcentaje_aprobacion'             => 60,
+                    'aprobacion_obligatoria'            => false,
+                    'porcentaje_asistencia_obligatoria' => 0,
+                    // id_contexto es asignado automáticamente por trigger tr_componente_pre_insert
                 ]);
 
-                if ($curso->id_contexto) {
-                    $this->assignDocenteRolCurso($validated['id_docente'], $curso->id_contexto, true, $curso->id_docente_titular);
+                // Asignar docente a través de la tabla pivot docente_componente
+                // El primero asignado es siempre es_titular = true
+                if (!empty($validated['id_docente'])) {
+                    DocenteComponente::create([
+                        'id_componente' => $componente->id_componente,
+                        'id_docente'    => $validated['id_docente'],
+                        'es_titular'    => true,
+                    ]);
+
+                    if ($curso->id_contexto) {
+                        $this->assignDocenteRolCurso($validated['id_docente'], $curso->id_contexto, true, $curso->id_docente_titular);
+                    }
                 }
-            }
+
+                return $componente;
+            });
 
             if ($request->wantsJson()) {
                 return response()->json([
@@ -233,7 +240,26 @@ class ComponenteController extends Controller
         $this->assertComponenteDeCurso($curso, $componente);
 
         try {
+            // Capturar los docentes ANTES de borrar: si este era su único componente
+            // en el curso, hay que revocarles el rol de curso (igual que removeDocente()).
+            $idsDocentes = $componente->docenteComponentes()->pluck('id_docente');
+            $componente->load('curso');
+            $idContexto = $componente->curso?->id_contexto;
+
             $componente->delete();
+
+            if ($idContexto) {
+                foreach ($idsDocentes as $idDocente) {
+                    $tieneOtrosComponentes = DocenteComponente::where('id_docente', $idDocente)
+                        ->whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso))
+                        ->exists();
+
+                    if (!$tieneOtrosComponentes) {
+                        $this->revokeDocenteRolCurso($idDocente, $idContexto);
+                    }
+                }
+            }
+
             if ($request->wantsJson()) {
                 return response()->json(['message' => 'Componente eliminado exitosamente.']);
             }

@@ -15,11 +15,14 @@ use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Plan;
 use App\Models\Curso\TipoComponente;
 use App\Models\Usuario\Docente;
+use App\Models\Usuario\Rol;
+use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Services\CursoService;
 use App\Services\IntranetService;
 use App\Support\LetraGrupo;
 use Illuminate\Http\Request;
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -716,6 +719,90 @@ class CursoController extends Controller
             ]);
             return back()->withErrors(['error' => 'Error al copiar el curso: ' . $e->getMessage()]);
         }
+    }
+
+    /**
+     * Asigna (o reemplaza) el Docente Titular del curso: fija id_docente_titular
+     * y otorga el rol RBAC 'Docente Titular' en el contexto del curso.
+     */
+    public function assignDocente(Request $request, Curso $curso)
+    {
+        $this->authorize('update', $curso);
+        $validated = $request->validate([
+            'id_docente' => 'required|integer|exists:docente,id_docente',
+        ]);
+
+        $curso->update(['id_docente_titular' => $validated['id_docente']]);
+        $this->syncDocenteTitularRol($curso, $validated['id_docente']);
+
+        return back()->with('success', 'Docente Titular asignado exitosamente.');
+    }
+
+    /**
+     * Quita el Docente Titular del curso: limpia id_docente_titular y revoca
+     * el rol 'Docente Titular' en el contexto del curso.
+     */
+    public function unassignDocente(Curso $curso)
+    {
+        $this->authorize('update', $curso);
+        $idDocenteAnterior = $curso->id_docente_titular;
+
+        $curso->update(['id_docente_titular' => null]);
+
+        if ($idDocenteAnterior && $curso->id_contexto) {
+            $this->revokeDocenteTitularRol($curso, $idDocenteAnterior);
+        }
+
+        return back()->with('success', 'Docente Titular removido exitosamente.');
+    }
+
+    private function syncDocenteTitularRol(Curso $curso, int $idDocente): void
+    {
+        if (!$curso->id_contexto) {
+            return;
+        }
+
+        $docente = Docente::find($idDocente);
+        $rol = Rol::where('nombre', 'Docente Titular')->first();
+        if (!$docente || !$docente->id_usuario || !$rol) {
+            return;
+        }
+
+        UsuarioRolAsignacion::updateOrCreate(
+            [
+                'id_usuario'  => $docente->id_usuario,
+                'id_contexto' => $curso->id_contexto,
+                'id_rol'      => $rol->id_rol,
+            ],
+            [
+                'asignado_por'             => Auth::id(),
+                'fecha_inicio_planificada' => now(),
+                'fecha_fin_planificada'    => now()->addYears(100),
+                'fecha_fin_real'           => null,
+                'fue_eliminado'            => false,
+                'esta_activo'              => true,
+            ]
+        );
+    }
+
+    private function revokeDocenteTitularRol(Curso $curso, int $idDocente): void
+    {
+        $docente = Docente::find($idDocente);
+        $rol = Rol::where('nombre', 'Docente Titular')->first();
+        if (!$docente || !$docente->id_usuario || !$rol) {
+            return;
+        }
+
+        UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
+            ->where('id_contexto', $curso->id_contexto)
+            ->where('id_rol', $rol->id_rol)
+            ->where('esta_activo', true)
+            ->update([
+                'esta_activo'    => false,
+                'fue_eliminado'  => true,
+                'fecha_fin_real' => now(),
+                'eliminado_por'  => Auth::id(),
+            ]);
     }
 
     /**

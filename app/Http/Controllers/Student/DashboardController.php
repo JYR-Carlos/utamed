@@ -74,6 +74,8 @@ class DashboardController extends Controller
                 'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                 'fecha_inicio' => $curso->fecha_inicio,
                 'fecha_fin' => $curso->fecha_fin,
+                'semestre_real' => $curso->semestre_real,
+                'agno_real' => $curso->agno_real,
                 'profesor' => $profesor,
             ];
         });
@@ -132,6 +134,7 @@ class DashboardController extends Controller
             ->map(fn($componente) => [
                 'id_curso'  => (int) $componente->id_curso,
                 'nombre'    => $componente->curso_nombre,
+                'cod_curso' => $componente->cod_curso,
                 'no_leidos' => $noLeidos[(int) $componente->id_componente] ?? 0,
             ])
             ->filter(fn(array $fila) => $fila['no_leidos'] > 0)
@@ -139,6 +142,7 @@ class DashboardController extends Controller
             ->map(fn($delCurso) => [
                 'id_curso'  => $delCurso->first()['id_curso'],
                 'nombre'    => $delCurso->first()['nombre'],
+                'cod_curso' => $delCurso->first()['cod_curso'],
                 'no_leidos' => $delCurso->sum('no_leidos'),
             ])
             ->sortByDesc('no_leidos')

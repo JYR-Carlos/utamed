@@ -14,7 +14,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 use App\Models\Usuario\UsuarioPermisoEspecial;
+use App\Services\Authorization\DelegationAuthorizer;
 use App\Services\Authorization\GlobalContextService;
+use App\Support\Permissions;
 
 /**
  * Controlador para la gestión del equipo de un curso.
@@ -228,13 +230,16 @@ class CourseTeamController extends Controller
             ->where('esta_activo', true)
             ->where('fue_eliminado', false);
 
-        // Si se especifica un rol concreto, solo se elimina esa asignación
+        // Si se especifica un rol concreto, solo se elimina esa asignación.
+        // Lookup case-insensitive (igual que store()): un match fallido ya no
+        // deja el filtro por id_rol sin aplicar (desactivaba TODOS los roles).
         $roleName = $request->input('role_name');
         if ($roleName) {
-            $rol = Rol::where('nombre', $roleName)->first();
-            if ($rol) {
-                $query->where('id_rol', $rol->id_rol);
+            $rol = Rol::whereRaw('LOWER(nombre) = ?', [strtolower($roleName)])->first();
+            if (!$rol) {
+                return back()->with('error', 'El rol especificado no existe.');
             }
+            $query->where('id_rol', $rol->id_rol);
         }
 
         $query->update([
@@ -420,7 +425,7 @@ class CourseTeamController extends Controller
      * @param  Usuario  $usuario  Usuario cuyo roles y permisos se sincronizan
      * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de éxito o error
      */
-    public function syncMemberPermissions(Request $request, Curso $curso, Usuario $usuario)
+    public function syncMemberPermissions(Request $request, Curso $curso, Usuario $usuario, DelegationAuthorizer $delegationAuthorizer)
     {
         $this->authorize('manageTeam', $curso);
 
@@ -428,6 +433,12 @@ class CourseTeamController extends Controller
             'roles' => 'array',
             'special_permissions' => 'array'
         ]);
+
+        // Ambas claves son opcionales: sin este fallback, omitir 'special_permissions'
+        // en el request igual desactivaba TODOS los permisos especiales existentes más
+        // abajo (mismo bug ya corregido en UsuarioController::syncPermissions, D-9).
+        $validated['roles'] ??= [];
+        $validated['special_permissions'] ??= [];
 
         if (!$curso->id_contexto) {
             return back()->with('error', 'El curso no tiene un contexto configurado.');
@@ -458,21 +469,38 @@ class CourseTeamController extends Controller
         $delegablePermIds = $this->getDelegablePermissions($currentUser, $idContexto)->pluck('id_permiso')->toArray();
 
         try {
-            DB::transaction(function () use ($idContexto, $usuario, $currentUser, $validated, $delegablePermIds, $curso, $adminId) {
+            DB::transaction(function () use ($idContexto, $usuario, $currentUser, $validated, $delegablePermIds, $curso, $adminId, $delegationAuthorizer) {
                 // 1. Sync Roles - Restricted if user is Docente
                 $isDocente = $currentUser && $currentUser->docente;
                 if ($isDocente) {
-                    $allowedRoleIds = Rol::whereIn('nombre', ['ayudante', 'estudiante'])->pluck('id_rol')->toArray();
+                    // Ya no se filtra por nombre de rol (whitelist 'ayudante'/'estudiante'):
+                    // se valida el permiso REAL que otorga cada rol contra lo que el actor
+                    // puede delegar en este contexto (mismo criterio que UsuarioController
+                    // adoptó para H-2 — un rol nuevo/potente no listado por nombre podía
+                    // concederse sin validar su contenido).
+                    $puedeGestionarRol = fn (int $rolId) => $delegationAuthorizer->actorPuedeDelegar(
+                        $currentUser,
+                        $this->permisosOtorgadosPorRoles([$rolId]),
+                        [$idContexto]
+                    );
+
+                    $rolesActualesIds = UsuarioRolAsignacion::where('id_usuario', $usuario->id_usuario)
+                        ->where('id_contexto', $idContexto)
+                        ->where('esta_activo', true)
+                        ->where('fue_eliminado', false)
+                        ->pluck('id_rol');
+
+                    $rolesGestionables = $rolesActualesIds->filter($puedeGestionarRol)->values();
 
                     UsuarioRolAsignacion::where('id_usuario', $usuario->id_usuario)
                         ->where('id_contexto', $idContexto)
-                        ->whereIn('id_rol', $allowedRoleIds)
+                        ->whereIn('id_rol', $rolesGestionables)
                         ->where('esta_activo', true)
                         ->update(['esta_activo' => false, 'fue_eliminado' => true, 'fecha_fin_real' => now()]);
 
                     if (!empty($validated['roles'])) {
                         foreach ($validated['roles'] as $rolId) {
-                            if (in_array($rolId, $allowedRoleIds)) {
+                            if ($puedeGestionarRol((int) $rolId)) {
                                 $rol = Rol::findOrFail($rolId);
                                 $usuario->giveRole($rol)
                                     ->on($curso)       // ← Curso implementa HasOwnedContext
@@ -659,6 +687,24 @@ class CourseTeamController extends Controller
             Log::error('Error searching assistants: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Resuelve los permisos reales (como enums) que otorga un conjunto de roles.
+     * Mismo helper que UsuarioController::permisosOtorgadosPorRoles (H-2).
+     *
+     * @param  int[]  $roleIds
+     * @return Permissions[]
+     */
+    private function permisosOtorgadosPorRoles(array $roleIds): array
+    {
+        return DB::table('usuario.asignacion_rol_permiso')
+            ->join('usuario.permiso', 'usuario.asignacion_rol_permiso.id_permiso', '=', 'usuario.permiso.id_permiso')
+            ->whereIn('usuario.asignacion_rol_permiso.id_rol', $roleIds)
+            ->pluck('usuario.permiso.slug')
+            ->unique()
+            ->map(Permissions::from(...))
+            ->all();
     }
 
     private function getDelegablePermissions(Usuario $user, ?int $idContexto = null)

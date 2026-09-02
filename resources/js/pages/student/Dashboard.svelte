@@ -1,12 +1,12 @@
 <script lang="ts">
   import StudentLayout from '@/layouts/StudentLayout.svelte';
-  import type { BreadcrumbItem, SidebarCourse } from '@/types';
-  import { page, router } from '@inertiajs/svelte'; 
-  import { Calendar } from 'lucide-svelte';
+  import type { BreadcrumbItem } from '@/types';
+  import { page, Link } from '@inertiajs/svelte';
+  import { BookOpen, Award, CalendarClock, Bell, LifeBuoy, ArrowUpRight, ClipboardX } from 'lucide-svelte';
   import ProfileCard from '@/components/student/ProfileCard.svelte';
   import CourseCard from '@/components/student/CourseCard.svelte';
   import MensajesSinLeerCard from '@/components/student/MensajesSinLeerCard.svelte';
-  import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import PropuestaCard from '@/components/student/PropuestaCard.svelte';
 
   /**
    * Props recibidas del servidor.
@@ -27,7 +27,8 @@
       fecha_inicio: string;
       fecha_fin?: string;
       profesor: string;
-      progreso: number;
+      semestre_real: number;
+      agno_real: number;
     }>;
     stats: {
       total_cursos: number;
@@ -36,79 +37,17 @@
     /** Mensajes de curso (curso.mensaje) que el alumno aún no abre. */
     mensajeria?: {
       no_leidos: number;
-      cursos: Array<{ id_curso: number; nombre: string; no_leidos: number }>;
+      cursos: Array<{ id_curso: number; nombre: string; cod_curso: string; no_leidos: number }>;
     };
     isAyudante?: boolean;
     semestreActual: number;
   }
 
-  let {
-    estudiante,
-    cursos,
-    stats,
-    mensajeria,
-    isAyudante = false,
-    semestreActual,
-  }: Props = $props();
+  let { estudiante, cursos, stats, mensajeria, isAyudante = false, semestreActual }: Props = $props();
 
-  const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/estudiante/dashboard' },];
+  const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/estudiante/dashboard' }];
 
-  // Variables de estado mutables
-  let anoAcademico = $state('2026');
-  let semestre = $derived(semestreActual.toString())
-
-  // FUNCIÓN PARA EL BOTÓN VER TODOS: Navega al Index enviando las variables actuales
-  function handleVerTodos() {
-    router.visit('/estudiante/cursos', {
-      method: 'get',
-      data: {
-        semestre: semestre,
-        agno: anoAcademico
-      }
-    });
-  }
-
-  // Get TA courses from shared props
-  let ayudanteCourses = $derived(($page.props.auth?.ayudante_courses as SidebarCourse[]) || []);
-
-  // Colores para los cursos (rotativos)
-  const colorGradients = [
-    'from-purple-600 to-purple-400',
-    'from-cyan-600 to-cyan-400',
-    'from-orange-600 to-orange-400',
-    'from-pink-600 to-pink-400',
-    'from-emerald-600 to-emerald-400',
-  ];
-  
-  const mosaicClasses = [
-    'md:col-span-1 col-span-2',
-    'md:col-span-1 col-span-2',
-    'md:col-span-2 col-span-2',
-  ];
-
-  const getGridClass = (index: number) => {
-    if (index >= 3) return 'hidden';
-    return mosaicClasses[index % mosaicClasses.length];
-  };
-
-  const cursosList = $derived(
-    cursos.map((curso, index) => ({
-      ...curso,
-      progreso: curso.progreso,
-      color: colorGradients[index % colorGradients.length],
-      iconColor: 'text-white',
-    })),
-  );
-
-  const ayudantecursosList = $derived(
-    ayudanteCourses.map((curso, index) => ({
-      ...curso,
-      estudiantes: 0,
-      proximaSesion: '—',
-      color: colorGradients[index % colorGradients.length],
-      iconColor: 'text-white',
-    })),
-  );
+  const anoAcademico = new Date().getFullYear();
 
   const authUser = $derived(($page.props.auth as any)?.user);
   const nombreCompleto = $derived(stats?.nombre_completo || authUser?.name || 'Estudiante');
@@ -127,11 +66,11 @@
 
 <StudentLayout {breadcrumbs}>
   <div class="h-full px-5 md:px-10 lg:px-20 bg-white relative">
-    <div class="relative mx-auto px-4">
+    <div class="relative mx-auto max-w-6xl px-4 py-6">
       <header class="flex items-center justify-between gap-4 flex-wrap mb-8">
         <div class="flex flex-col gap-1">
           <span class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-0.5 w-fit">
-            Semestre {semestre} · {anoAcademico}
+            Semestre {semestreActual} · {anoAcademico}
           </span>
           <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
             Portal Estudiante
@@ -142,109 +81,103 @@
         </div>
       </header>
 
-      <MensajesSinLeerCard total={mensajeria?.no_leidos ?? 0} cursos={mensajeria?.cursos ?? []} />
+      <div class="flex flex-col gap-6">
+        <ProfileCard
+          nombre={nameParts.nombre}
+          apellido1={nameParts.apellido1}
+          apellido2={nameParts.apellido2}
+          {rut}
+          {carrera}
+          semestre={semestreActual}
+          agno={anoAcademico}
+        />
 
-      <div class="grid grid-cols-12 gap-6">
-        <div class="col-span-12 lg:col-span-3 space-y-6">
-          <ProfileCard
-            nombre={nameParts.nombre}
-            apellido1={nameParts.apellido1}
-            apellido2={nameParts.apellido2}
-            {rut}
-            {carrera}
-          />
-
-          <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600/5 via-cyan-600/5 to-orange-600/5 p-px">
-            <div class="relative rounded-3xl bg-white backdrop-blur-xl p-6 border border-gray-200">
-              <div class="relative space-y-4">
-                <div class="flex items-center gap-2 mb-4">
-                  <Calendar class="w-4 h-4 text-indigo-600" />
-                  <h4 class="text-sm text-gray-700 font-medium">Periodo Académico</h4>
-                </div>
-
-                <div class="space-y-2">
-                  <p class="text-xs text-gray-600 font-medium">Año</p>
-                  <select
-                    bind:value={anoAcademico}
-                    class="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
-                  >
-                    <option value="2026">2026</option>
-                    <option value="2025">2025</option>
-                    <option value="2024">2024</option>
-                  </select>
-                </div>
-
-                <div class="space-y-2">
-                  <p class="text-xs text-gray-600 font-medium">Semestre</p>
-                  <div class="grid grid-cols-2 gap-2">
-                    <button
-                      onclick={() => (semestre = '1')}
-                      class={`py-3 rounded-xl font-medium text-sm transition-all ${
-                        semestre === '1'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      Sem 1
-                    </button>
-                    <button
-                      onclick={() => (semestre = '2')}
-                      class={`py-3 rounded-xl font-medium text-sm transition-all ${
-                        semestre === '2'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      Sem 2
-                    </button>
-                  </div>
-                </div>
-              </div>
+        {#if isAyudante}
+          <section
+            class="flex flex-wrap items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#22213F]/10">
+              <LifeBuoy class="h-[18px] w-[18px] text-[#22213F]" />
             </div>
-          </div>
-        </div>
-
-        <div class="col-span-12 lg:col-span-8">
-          <div class="flex flex-col md:flex-row md:items-center gap-4 mb-6">
-            <div class="flex flex-col gap-1 flex-1 min-w-0">
-              <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Mis Cursos</h2>
-              <p class="text-sm sm:text-base text-gray-600 break-words">
-                {`${cursosList.length} asignaturas inscritas · Semestre ${semestre} ${anoAcademico}`}
-              </p>
+            <div class="flex flex-col gap-0.5">
+              <span class="text-sm font-semibold text-slate-900">También eres ayudante</span>
+              <span class="text-[12.5px] text-slate-500">
+                Redactas syllabus y respondes mensajería como ayudante — es un área de trabajo
+                aparte, no otro curso más.
+              </span>
             </div>
-
-            <button
-              onclick={handleVerTodos}
-              class="flex items-center justify-center md:justify-between w-full sm:w-fit md:w-60 gap-2 rounded-2xl px-4 py-3 sm:py-5 border-2 bg-primary text-secondary hover:bg-secondary hover:text-primary transition-colors shrink-0"
+            <Link
+              href="/ayudante/dashboard"
+              class="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-[13.5px] font-medium text-slate-900 transition-colors hover:bg-slate-50"
             >
-              <p class="text-sm sm:text-md text-center font-bold">Ver todos</p>
-              <ChevronRight class="w-4 h-4 shrink-0" />
-            </button>
-          </div>
+              Ir a mi área de ayudante
+              <ArrowUpRight class="h-3.5 w-3.5 text-slate-500" />
+            </Link>
+          </section>
+        {/if}
 
-          {#if cursosList.length > 0}
-            <p class="font-semibold text-md p-4">Accesos directos</p>
-            <div class="grid grid-cols-2 mx-auto md:grid-cols-2 gap-6 auto-rows-[200px]">
-              {#each cursosList as curso, index}
-                <div class={getGridClass(index)}>
-                  <CourseCard {...curso} />
-                </div>
-              {/each}
+        {#if cursos.length === 0}
+          <div
+            class="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"
+          >
+            <div class="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100">
+              <ClipboardX class="h-5 w-5 text-slate-400" />
             </div>
-          {:else}
-            <div class="rounded-3xl border border-gray-200 bg-gray-50 p-12 text-center">
-              <div class="mb-4 flex justify-center">
-                <div class="rounded-full bg-gray-100 p-4">
-                  <svg class="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                  </svg>
-                </div>
+            <span class="text-base font-semibold text-slate-900">Aún no tienes cursos matriculados</span>
+            <p class="max-w-sm text-sm text-slate-500">
+              Tu matrícula de este semestre está en trámite. En cuanto se confirme, tus cursos
+              aparecerán aquí.
+            </p>
+          </div>
+        {:else}
+          <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+            <!-- Columna principal: cursos + notas. En mobile va DESPUÉS de la
+                 columna lateral (order-2): entregas y mensajes son más urgentes
+                 que una lista de cursos que el alumno ya conoce. -->
+            <div class="order-2 flex flex-col gap-4 lg:order-1 lg:min-w-0 lg:flex-1">
+              <div class="flex items-center gap-2">
+                <BookOpen class="h-4 w-4 text-slate-500" />
+                <h2 class="text-base font-semibold text-slate-900">Tus cursos</h2>
+                <span class="ml-auto text-xs text-slate-500">
+                  {cursos.length} {cursos.length === 1 ? 'curso' : 'cursos'}
+                </span>
               </div>
-              <h3 class="mb-2 text-lg font-bold text-gray-900">No tienes cursos inscritos</h3>
-              <p class="text-gray-600">Los cursos en los que te inscribas aparecerán aquí.</p>
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {#each cursos as curso (curso.id_curso)}
+                  <CourseCard {...curso} />
+                {/each}
+              </div>
+
+              <PropuestaCard
+                icon={Award}
+                title="Notas recientes"
+                emptyTitle="Aún no hay notas"
+                emptyDescription="Aparecerán aquí cuando se evalúe tu primera actividad sumativa."
+              />
             </div>
-          {/if}
-        </div>
+
+            <div class="order-1 flex flex-col gap-4 lg:order-2 lg:w-[360px] lg:flex-none">
+              <PropuestaCard
+                icon={CalendarClock}
+                title="Próximas entregas"
+                emptyTitle="Aún no hay entregas"
+                emptyDescription="Tus cursos todavía no han publicado actividades con fecha."
+              />
+
+              <MensajesSinLeerCard
+                total={mensajeria?.no_leidos ?? 0}
+                cursos={mensajeria?.cursos ?? []}
+              />
+
+              <PropuestaCard
+                icon={Bell}
+                title="Novedades de tus actividades"
+                emptyTitle="Sin novedades todavía"
+                emptyDescription="Aparecerán cuando el equipo docente interactúe en una actividad."
+              />
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
   </div>
