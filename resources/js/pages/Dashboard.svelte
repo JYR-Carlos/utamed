@@ -12,6 +12,7 @@
   import { page, Link } from '@inertiajs/svelte';
   import { Users, BookOpen, GraduationCap, Building2, CheckCircle2 } from 'lucide-svelte';
   import SoftCard from '@/components/custom/dashboard/SoftCard.svelte';
+  import BotonSgeq from '@/components/custom/common/BotonSgeq.svelte';
   import DashboardDocente from './dashboards/DashboardDocente.svelte';
   import DashboardAlumno from './dashboards/DashboardAlumno.svelte';
   import DashboardAyudante from './dashboards/DashboardAyudante.svelte';
@@ -34,6 +35,8 @@
   interface Props {
     stats: Stats;
     pendientes?: Pendientes | null;
+    /** El servidor ya evaluó si esta persona puede entrar a SGEQ. */
+    puedeAbrirSgeq?: boolean;
     ayudanteCourses?: Array<{
       id_curso: number;
       nombre: string;
@@ -42,7 +45,7 @@
     }>;
   }
 
-  let { stats, pendientes = null, ayudanteCourses = [] }: Props = $props();
+  let { stats, pendientes = null, puedeAbrirSgeq = false, ayudanteCourses = [] }: Props = $props();
   let user = $derived($page.props.auth.user);
   let roles = $derived(($page.props.auth.roles as string[]) || []);
 
@@ -99,11 +102,12 @@
 <AppLayout breadcrumbs={[{ title: 'Dashboard', href: '/dashboard' }]}>
   <div class="px-4 py-6 md:px-8 max-w-[1600px] mx-auto min-h-[calc(100vh-64px)]">
     <!-- Bienvenida -->
-    <header class="mb-8">
+    <header class="mb-8 flex flex-wrap items-center justify-between gap-4">
       <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
         ¡Hola, {user.nombre1 || 'Usuario'}!
       </h1>
-      
+
+      <BotonSgeq visible={puedeAbrirSgeq} />
     </header>
 
     <!-- Una sola columna: la lateral derecha sólo contenía enlaces repetidos

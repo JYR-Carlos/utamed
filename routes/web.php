@@ -37,6 +37,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
+use App\Http\Controllers\Sso\SgeqSsoController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -94,6 +95,7 @@ Route::get('dashboard', function () {
                     ->doesntHave('jefesDeCarreraActivos')
                     ->count(),
             ],
+            'puedeAbrirSgeq' => app(\App\Services\Sso\SgeqSsoService::class)->resolverRol($user) !== null,
         ]);
     }
 
@@ -104,6 +106,12 @@ Route::get('dashboard', function () {
 Route::get('sin-rol', function () {
     return Inertia::render('SinRol');
 })->middleware(['auth'])->name('sin-rol');
+
+// Entrada a SGEQ (préstamo de equipos). Firma un token de identidad y redirige;
+// quién puede pasar lo decide App\Services\Sso\SgeqSsoService.
+Route::get('sso/sgeq', [SgeqSsoController::class, 'redirigir'])
+    ->middleware(['auth', 'verified'])
+    ->name('sso.sgeq');
 
 // Admin Routes
 Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admin.')->group(function () {

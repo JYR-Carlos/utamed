@@ -239,3 +239,52 @@ test('inscribirAutomaticamente reporta advertencia (no la descarta en silencio) 
     expect($resultado->advertencias)->toHaveCount(1);
     expect($resultado->advertencias[0])->toContain('no tiene equivalente configurado en UTAMED');
 });
+
+test('inscribirAutomaticamente es tolerante si Oracle falla con un Error fatal (ej. OCI_DEFAULT no definido)', function () {
+    $curso = Curso::create([
+        'cod_curso' => 939393939,
+        'nombre' => 'ISC Test Curso',
+        'fecha_inicio' => now(),
+        'fecha_fin' => now()->addMonths(4),
+        'agno_real' => 2026,
+        'semestre_real' => 1,
+        'id_asignacion_plan' => $this->idAsignacionPlan,
+        'id_docente_titular' => $this->idDocente,
+    ]);
+    $curso->refresh();
+
+    $mock = Mockery::mock();
+    $mock->shouldReceive('traer_cur_codigos')->andThrow(new \Error('Undefined constant "Yajra\Pdo\OCI_DEFAULT"'));
+    app()->bind('OracleDataService', fn() => $mock);
+
+    $resultado = app(IntranetService::class)->inscribirAutomaticamente($curso);
+
+    expect($resultado->inscritos_exitosamente)->toBe(0);
+    expect($resultado->advertencias)->toHaveCount(1);
+    expect($resultado->advertencias[0])->toContain('No fue posible consultar la Intranet para inscribir alumnos');
+});
+
+test('sincronizarComponentes con inscribirAlumnos crea componentes exitosamente aun cuando Oracle falle con Error fatal', function () {
+    $curso = Curso::create([
+        'cod_curso' => 949494949,
+        'nombre' => 'ISC Test Curso',
+        'fecha_inicio' => now(),
+        'fecha_fin' => now()->addMonths(4),
+        'agno_real' => 2026,
+        'semestre_real' => 1,
+        'id_asignacion_plan' => $this->idAsignacionPlan,
+        'id_docente_titular' => $this->idDocente,
+    ]);
+    $curso->refresh();
+
+    $mock = Mockery::mock();
+    $mock->shouldReceive('traer_cur_codigos')->andThrow(new \Error('Undefined constant "Yajra\Pdo\OCI_DEFAULT"'));
+    app()->bind('OracleDataService', fn() => $mock);
+
+    $servicio = app(IntranetService::class);
+    $resultado = $servicio->sincronizarComponentes($curso, [$this->tipoCatedra->id_tipo_componente], true);
+
+    expect($resultado->componentes_creadas)->toHaveCount(1);
+    expect($resultado->advertencias)->not->toBeEmpty();
+    expect(Componente::where('id_curso', $curso->id_curso)->count())->toBe(1);
+});

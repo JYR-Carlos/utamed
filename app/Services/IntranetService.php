@@ -54,7 +54,25 @@ class IntranetService
             throw new \InvalidArgumentException("El curso #{$curso->id_curso} no tiene una carrera asociada en su asignación de plan.");
         }
 
-        $componentesIntranet = $this->resolverComponentesIntranet($curso);
+        try {
+            $componentesIntranet = $this->resolverComponentesIntranet($curso);
+        } catch (\Throwable $e) {
+            Log::warning("[IntranetService@inscribirAutomaticamente] Error al consultar componentes de Intranet: " . $e->getMessage(), [
+                'curso_id'  => $curso->id_curso,
+                'exception' => get_class($e),
+                'file'      => $e->getFile() . ':' . $e->getLine(),
+                'trace'     => $e->getTraceAsString(),
+            ]);
+            return new ResultadoInscripcionAutomatica(
+                total_procesados: 0,
+                inscritos_exitosamente: 0,
+                alumnos_creados: 0,
+                ya_inscritos: 0,
+                errores: [],
+                componentes_procesadas: [],
+                advertencias: ["No fue posible consultar la Intranet para inscribir alumnos: {$e->getMessage()}"]
+            );
+        }
 
         $totalProcesados = 0;
         $inscritosExitosamente = 0;
@@ -75,8 +93,20 @@ class IntranetService
             }
 
             /** @var Collection<int, InscripcionData> $inscripcionesIntranet */
-            $oracleService = app('OracleDataService');
-            $inscripcionesIntranet = $oracleService->traer_ins_id([$compIntranet->cur_codigo]);
+            try {
+                $oracleService = app('OracleDataService');
+                $inscripcionesIntranet = $oracleService->traer_ins_id([$compIntranet->cur_codigo]);
+            } catch (\Throwable $e) {
+                Log::warning("[IntranetService@inscribirAutomaticamente] Error al consultar inscripciones de Intranet para acta {$compIntranet->cur_codigo}: " . $e->getMessage(), [
+                    'curso_id'   => $curso->id_curso,
+                    'cur_codigo' => $compIntranet->cur_codigo,
+                    'exception'  => get_class($e),
+                    'file'       => $e->getFile() . ':' . $e->getLine(),
+                    'trace'      => $e->getTraceAsString(),
+                ]);
+                $advertencias[] = "No fue posible consultar inscripciones de Intranet para el acta {$compIntranet->cur_codigo}: {$e->getMessage()}";
+                continue;
+            }
 
             $inscritosComponenteCount = 0;
 
@@ -145,8 +175,15 @@ class IntranetService
                     // Asignar el rol Estudiante en el contexto de la componente
                     $this->estudianteService->asignarRolEnContexto($estudiante, $compUtamed->id_contexto);
 
-                } catch (\Exception $e) {
-                    Log::error("Error al inscribir alumno RUT {$inscripcionData->alum_rut}: " . $e->getMessage());
+                } catch (\Throwable $e) {
+                    Log::error("Error al inscribir alumno RUT {$inscripcionData->alum_rut}: " . $e->getMessage(), [
+                        'curso_id'  => $curso->id_curso,
+                        'alum_rut'  => $inscripcionData->alum_rut,
+                        'ins_id'    => $inscripcionData->ins_id,
+                        'exception' => get_class($e),
+                        'file'      => $e->getFile() . ':' . $e->getLine(),
+                        'trace'     => $e->getTraceAsString(),
+                    ]);
                     $errores[] = [
                         'rut'    => $inscripcionData->alum_rut,
                         'motivo' => $e->getMessage(),
@@ -221,14 +258,20 @@ class IntranetService
         $asignacionPlan = AsignacionPlan::where('id_asignatura', $idAsignatura)
             ->where('id_plan', $idPlan)
             ->whereNull('fecha_eliminacion')
+            ->with(['plan', 'asignatura'])
             ->first();
 
         if (!$asignacionPlan) {
+            Log::warning("[IntranetService@resolverComponentesDesdeParametros] No se encontró asignacion_plan activa para id_asignatura={$idAsignatura}, id_plan={$idPlan}");
             return collect();
         }
 
         $planCod = (int)($asignacionPlan->plan?->agno_plan ?? $asignacionPlan->plan?->cod_plan ?? $asignacionPlan->plan?->id_plan ?? 0);
         $asigCodigo = (string)($asignacionPlan->asignatura?->cod_asignatura ?? '');
+
+        if ($asigCodigo === '') {
+            Log::warning("[IntranetService@resolverComponentesDesdeParametros] Código de asignatura vacío para AsignacionPlan #{$asignacionPlan->id_asignacion_plan}");
+        }
 
         $oracleService = app('OracleDataService');
 
@@ -277,7 +320,16 @@ class IntranetService
                 $idAsignatura, $idPlan, $agno, $semestre, $letraGrupo
             );
         } catch (\Throwable $e) {
-            Log::warning('[IntranetService@previsualizarComponentes] Intranet no disponible, se usa el Plan de Estudios como respaldo: ' . $e->getMessage());
+            Log::warning('[IntranetService@previsualizarComponentes] Intranet no disponible, se usa el Plan de Estudios como respaldo: ' . $e->getMessage(), [
+                'id_asignatura' => $idAsignatura,
+                'id_plan'       => $idPlan,
+                'agno'          => $agno,
+                'semestre'      => $semestre,
+                'letra_grupo'   => $letraGrupo,
+                'exception'     => get_class($e),
+                'file'          => $e->getFile() . ':' . $e->getLine(),
+                'trace'         => $e->getTraceAsString(),
+            ]);
             $advertencias[] = 'No fue posible consultar la Intranet; se usó el Plan de Estudios (horas de la asignatura) como respaldo.';
         }
 
@@ -374,7 +426,11 @@ class IntranetService
                 );
                 $origen = $preview->origen;
             } catch (\Throwable $e) {
-                Log::warning('[IntranetService@sincronizarComponentes] No se pudo determinar el origen: ' . $e->getMessage());
+                Log::warning('[IntranetService@sincronizarComponentes] No se pudo determinar el origen: ' . $e->getMessage(), [
+                    'curso_id'  => $curso->id_curso,
+                    'exception' => get_class($e),
+                    'file'      => $e->getFile() . ':' . $e->getLine(),
+                ]);
             }
         }
 
@@ -412,8 +468,18 @@ class IntranetService
 
         if ($inscribirAlumnos) {
             $curso->load(['componentes.tipoComponente']);
-            $resultadoInscripcion = $this->inscribirAutomaticamente($curso);
-            $advertencias = array_merge($advertencias, $resultadoInscripcion->advertencias);
+            try {
+                $resultadoInscripcion = $this->inscribirAutomaticamente($curso);
+                $advertencias = array_merge($advertencias, $resultadoInscripcion->advertencias);
+            } catch (\Throwable $e) {
+                Log::warning('[IntranetService@sincronizarComponentes] Error al inscribir alumnos automáticamente: ' . $e->getMessage(), [
+                    'curso_id'  => $curso->id_curso,
+                    'exception' => get_class($e),
+                    'file'      => $e->getFile() . ':' . $e->getLine(),
+                    'trace'     => $e->getTraceAsString(),
+                ]);
+                $advertencias[] = 'No fue posible inscribir los alumnos desde la Intranet: ' . $e->getMessage();
+            }
         }
 
         return new ResultadoSincronizacionComponentes(

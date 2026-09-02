@@ -7,6 +7,7 @@
   import CourseCard from '@/components/student/CourseCard.svelte';
   import MensajesSinLeerCard from '@/components/student/MensajesSinLeerCard.svelte';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import BotonSgeq from '@/components/custom/common/BotonSgeq.svelte';
 
   /**
    * Props recibidas del servidor.
@@ -40,6 +41,8 @@
     };
     isAyudante?: boolean;
     semestreActual: number;
+    /** El servidor ya evaluó si esta persona puede entrar a SGEQ. */
+    puedeAbrirSgeq?: boolean;
   }
 
   let {
@@ -49,6 +52,7 @@
     mensajeria,
     isAyudante = false,
     semestreActual,
+    puedeAbrirSgeq = false,
   }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/estudiante/dashboard' },];
@@ -140,6 +144,8 @@
             Bienvenido, <strong class="text-slate-700 font-semibold">{nameParts.nombre}</strong>
           </p>
         </div>
+
+        <BotonSgeq visible={puedeAbrirSgeq} />
       </header>
 
       <MensajesSinLeerCard total={mensajeria?.no_leidos ?? 0} cursos={mensajeria?.cursos ?? []} />

@@ -14,7 +14,6 @@ use App\Models\Curso\TipoComponente;
 use App\Services\IntranetService;
 use App\Support\LetraGrupo;
 use Illuminate\Console\Command;
-use Tests\Integration\External\IntranetTestHelper;
 
 class RunIntranetServiceCommand extends Command
 {
@@ -25,7 +24,7 @@ class RunIntranetServiceCommand extends Command
      */
     protected $signature = 'intranet:service
         {action? : Acción a ejecutar: [preview | sync | inscribir | auto]}
-        {--curso= : ID del curso en UTAMED (id_curso en PostgreSQL)}
+        {--curso= : Código del curso en UTAMED (cod_curso)}
         {--asig= : ID o Código de asignatura en UTAMED (ej. IE124 o ID numérico)}
         {--plan= : ID o Año de plan de estudios en UTAMED (ej. 2020 o ID numérico)}
         {--agno= : Año académico (ej. 2024)}
@@ -44,8 +43,6 @@ class RunIntranetServiceCommand extends Command
 
     public function handle(IntranetService $intranetService): int
     {
-        IntranetTestHelper::loadOracleConfig();
-
         $this->displayBanner();
 
         $action = $this->argument('action');
@@ -118,13 +115,21 @@ class RunIntranetServiceCommand extends Command
      */
     protected function handlePreview(IntranetService $intranetService): int
     {
-        $cursoId = $this->option('curso');
+        $cursoInput = $this->option('curso');
         $curso = null;
 
-        if ($cursoId) {
-            $curso = Curso::with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera', 'componentes.tipoComponente'])->find((int)$cursoId);
+        if ($cursoInput) {
+            $curso = Curso::with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera', 'componentes.tipoComponente'])
+                ->where('cod_curso', $cursoInput)
+                ->first();
+
+            if (!$curso && is_numeric($cursoInput)) {
+                $curso = Curso::with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera', 'componentes.tipoComponente'])
+                    ->find((int)$cursoInput);
+            }
+
             if (!$curso) {
-                $this->error("No se encontró el curso con ID #{$cursoId} en UTAMED.");
+                $this->error("No se encontró el curso con código '{$cursoInput}' en UTAMED.");
                 return Command::FAILURE;
             }
         }
@@ -483,9 +488,9 @@ class RunIntranetServiceCommand extends Command
      */
     protected function resolveCurso(): ?Curso
     {
-        $cursoId = $this->option('curso');
+        $cursoInput = $this->option('curso');
 
-        if (!$cursoId) {
+        if (!$cursoInput) {
             $cursosRecientes = Curso::with(['asignacionPlan.asignatura', 'asignacionPlan.plan'])
                 ->orderBy('id_curso', 'desc')
                 ->take(5)
@@ -496,26 +501,33 @@ class RunIntranetServiceCommand extends Command
                 $choices = [];
                 foreach ($cursosRecientes as $c) {
                     $asigCod = $c->asignacionPlan?->asignatura?->cod_asignatura ?? 'N/A';
-                    $choices[$c->id_curso] = "#{$c->id_curso} - {$c->nombre} (Asig: {$asigCod}, Año: {$c->agno_real}, Sem: {$c->semestre_real})";
+                    $choices[$c->cod_curso] = "Código [{$c->cod_curso}] - {$c->nombre} (Asig: {$asigCod}, Año: {$c->agno_real}, Sem: {$c->semestre_real})";
                 }
-                $choices['manual'] = 'Ingresar ID de curso manualmente';
+                $choices['manual'] = 'Ingresar código de curso manualmente';
 
                 $seleccion = $this->choice('Seleccione un curso:', $choices, array_key_first($choices));
 
                 if ($seleccion === 'manual') {
-                    $cursoId = (int)$this->ask('Ingrese el ID del curso (id_curso)');
+                    $cursoInput = trim((string) $this->ask('Ingrese el código del curso (cod_curso)'));
                 } else {
-                    $cursoId = (int)$seleccion;
+                    $cursoInput = (string) $seleccion;
                 }
             } else {
-                $cursoId = (int)$this->ask('Ingrese el ID del curso (id_curso)');
+                $cursoInput = trim((string) $this->ask('Ingrese el código del curso (cod_curso)'));
             }
         }
 
-        $curso = Curso::with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera', 'componentes.tipoComponente'])->find((int)$cursoId);
+        $curso = Curso::with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera', 'componentes.tipoComponente'])
+            ->where('cod_curso', $cursoInput)
+            ->first();
+
+        if (!$curso && is_numeric($cursoInput)) {
+            $curso = Curso::with(['asignacionPlan.asignatura', 'asignacionPlan.plan.carrera', 'componentes.tipoComponente'])
+                ->find((int) $cursoInput);
+        }
 
         if (!$curso) {
-            $this->error("No se encontró el curso #{$cursoId} en UTAMED.");
+            $this->error("No se encontró el curso con código '{$cursoInput}' en UTAMED.");
             return null;
         }
 
