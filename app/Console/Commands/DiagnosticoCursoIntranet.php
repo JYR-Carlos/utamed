@@ -17,7 +17,7 @@ class DiagnosticoCursoIntranet extends Command
      * @var string
      */
     protected $signature = 'intranet:diag-curso
-        {curso : ID numérico del curso en UTAMED (id_curso)}
+        {curso : Código del curso en UTAMED (cod_curso)}
         {--dry-run : Ejecuta una simulación completa de sincronización en PostgreSQL con rollback inmediato}';
 
     /**
@@ -25,17 +25,17 @@ class DiagnosticoCursoIntranet extends Command
      *
      * @var string
      */
-    protected $description = 'Ejecuta un diagnóstico completo en 5 etapas para un curso específico sin dependencias de tests, ideal para producción.';
+    protected $description = 'Ejecuta un diagnóstico completo en 5 etapas para un curso específico por su código (cod_curso) sin dependencias de tests, ideal para producción.';
 
     public function handle(IntranetService $intranetService): int
     {
-        $cursoId = $this->argument('curso');
+        $codCurso = trim((string) $this->argument('curso'));
 
         $this->line('');
         $this->info('╔═══════════════════════════════════════════════════════════════════════════╗');
         $this->info('║         DIAGNÓSTICO INTEGRAL DE CURSO (INTRANET / PRODUCCIÓN)            ║');
         $this->info('╚═══════════════════════════════════════════════════════════════════════════╝');
-        $this->line("Analizando Curso ID #{$cursoId}...");
+        $this->line("Analizando curso con código: [{$codCurso}]...");
         $this->line('');
 
         // -------------------------------------------------------------
@@ -48,14 +48,23 @@ class DiagnosticoCursoIntranet extends Command
             'asignacionPlan.plan.carrera',
             'componentes.tipoComponente',
             'docenteTitular.usuario',
-        ])->where('cod_curso',$cursoId);
+        ])->where('cod_curso', $codCurso)->first();
+
+        if (!$curso && is_numeric($codCurso)) {
+            $curso = Curso::with([
+                'asignacionPlan.asignatura',
+                'asignacionPlan.plan.carrera',
+                'componentes.tipoComponente',
+                'docenteTitular.usuario',
+            ])->find((int) $codCurso);
+        }
 
         if (!$curso) {
-            $this->error("  [FALLO] No se encontró ningún curso con id_curso = {$cursoId} en PostgreSQL.");
+            $this->error("  [FALLO] No se encontró ningún curso con código '{$codCurso}' en PostgreSQL.");
             return Command::FAILURE;
         }
 
-        $this->info("  ✔ Curso encontrado: # Código: [{$curso->cod_curso}] | Nombre: '{$curso->nombre}'");
+        $this->info("  ✔ Curso encontrado: Código [{$curso->cod_curso}] | Nombre: '{$curso->nombre}'");
         $this->line("    - Año Real: " . ($curso->agno_real ?? '<null>'));
         $this->line("    - Semestre Real: " . ($curso->semestre_real ?? '<null>'));
         $this->line("    - Índice Grupo: " . ($curso->indice_grupo ?? '<null>'));
