@@ -1,65 +1,34 @@
 <script lang="ts">
+  import { Upload } from 'lucide-svelte';
+
   interface Props {
     disponible: boolean;
+    esGrupal: boolean;
     onSubirClick: () => void;
   }
 
-  let { disponible, onSubirClick }: Props = $props();
+  let { disponible, esGrupal, onSubirClick }: Props = $props();
 
-  const labelEstado = $derived(
-    disponible ? "Adjunta aquí tu archivo" : "Nueva entrega no disponible."
+  const titulo = $derived(esGrupal ? 'Entrega del grupo' : 'Tu entrega');
+  const subtitulo = $derived(
+    disponible ? 'Arrastra tu archivo o selecciónalo' : 'Nueva entrega no disponible',
   );
 </script>
 
-<div
-  class="mb-[18px] flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-slate-200 bg-white p-6 text-center sm:flex-row sm:text-left"
->
-  <div
-    class="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600"
-  >
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
+<section class="rounded-xl border border-dashed border-[#D6D9E0] bg-[#F8FAFC] p-6">
+  <div class="flex flex-col items-center gap-2.5 text-center">
+    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-[#22213F]/10">
+      <Upload class="h-[18px] w-[18px] text-[#22213F]" />
+    </div>
+    <h3 class="text-sm font-semibold text-[#1A1A24]">{titulo}</h3>
+    <p class="text-xs text-[#5A5E6E]">{subtitulo}</p>
+    {#if disponible}
+      <button
+        class="mt-1 rounded-lg bg-[#22213F] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#15142e]"
+        onclick={onSubirClick}
+      >
+        Seleccionar archivo
+      </button>
+    {/if}
   </div>
-
-  <div class="flex-1">
-    <h3 class="text-base font-bold text-slate-900">Subir trabajo</h3>
-    <p class="text-xs text-slate-500">{labelEstado}</p>
-  </div>
-
-  <button
-    class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors
-           bg-blue-600 hover:bg-blue-700
-           disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none disabled:hover:bg-slate-300"
-    disabled={!disponible}
-    onclick={onSubirClick}
-  >
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.6"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-
-    Subir archivo
-  </button>
-</div>
+</section>

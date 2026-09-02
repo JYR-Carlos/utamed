@@ -104,7 +104,7 @@ class ActivityController extends Controller
 
         if ($grupo) {
             $agendas = Agenda::where('id_actividad_asignada_grupo', $grupo->id_actividad_asignada_grupo)
-                ->with(['usuario.docente', 'evaluacion.rubrica'])
+                ->with(['usuario.docente', 'evaluacion.rubrica', 'archivo'])
                 ->orderBy('fecha_envio', 'asc')
                 ->get();
 
@@ -133,6 +133,9 @@ class ActivityController extends Controller
                     'rubrica'            => $rubricaData,
                     'puntaje_obtenido'   => $evaluacion?->puntaje_obtenido,
                     'resultado'          => $evaluacion?->resultado,
+                    'archivo'            => $agenda->tipo_mensaje === TipoMensaje::ENTREGA_DE_ARCHIVO
+                        ? $agenda->getArchivoInfo()
+                        : null,
                 ];
             })->values()->toArray();
 
@@ -140,9 +143,13 @@ class ActivityController extends Controller
             $ultimaEvaluacionAgenda = $agendas->reverse()->first(fn (Agenda $a) => $a->evaluacion !== null);
             $rubricaUltimaEvaluacion = $ultimaEvaluacionAgenda?->evaluacion?->rubrica;
 
-            // obtiene la ultima entrega del estudiante
+            // Última entrega del estudiante. La comparación usaba el string
+            // "Entrega de avance", que no coincide con ningún valor real del
+            // enum TipoMensaje ('Entrega de archivo') ni con el que envía el
+            // modal ('Entrega de Avance' se traduce a ENTREGA_DE_ARCHIVO en
+            // AgendaController::mapearTipoMensaje) — nunca encontraba nada.
             foreach (array_reverse($interacciones) as $item) {
-                if ($item['tipo_interaccion'] === "Entrega de avance") {
+                if ($item['tipo_interaccion'] === TipoMensaje::ENTREGA_DE_ARCHIVO->value) {
                     $ultimaEntrega = $item;
                     break;
                 }
@@ -180,6 +187,7 @@ class ActivityController extends Controller
             'dias_holgura_personal' => (int) ($grupo?->nro_dias_adicionales_para_bloqueo_personal ?? 0),
             'fecha_limite'          => $actividad->fecha_limite?->format('Y-m-d') ?? '',
             'es_sumativa'           => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
+            'es_grupal'             => (bool) $actividad->es_grupal,
             'trae_archivo'          => $actividad->uuid_archivo !== null,
             'entrega_obligatoria'   => strtolower($actividad->tipo_entrega ?? '') !== 'sin entrega',
             'ultima_nota'           => $ultimaNota !== null ? (float) $ultimaNota : null,
@@ -249,6 +257,72 @@ class ActivityController extends Controller
         ];
 
         return response()->file($rutaArchivo, $headers);
+    }
+
+    /**
+     * Descarga un archivo que el propio estudiante entregó como agenda de la
+     * actividad (mensaje tipo "Entrega de archivo"). Espejo de
+     * Docente\DocenteActivityController::descargarEntrega, pero acotado a que
+     * el usuario autenticado pertenezca al grupo dueño de esa entrega.
+     */
+    public function descargarEntrega(Curso $curso, Actividad $actividad, Agenda $agenda)
+    {
+        /** @var Usuario $user */
+        $user = Auth::user();
+
+        if (!$user->estudiante) {
+            abort(403, 'Solo los estudiantes pueden acceder a este recurso.');
+        }
+
+        $estudiante = $user->estudiante;
+
+        $inscrito = $estudiante->inscripcionCursos()
+            ->where('id_curso', $curso->id_curso)
+            ->where('estado_inscripcion', 'INSCRITO')
+            ->first();
+
+        if (!$inscrito) {
+            abort(403, 'No estás inscrito en este curso.');
+        }
+
+        $actividad->loadMissing('componente');
+
+        if ($actividad->componente?->id_curso !== $curso->id_curso) {
+            abort(404, 'Actividad no encontrada en este curso.');
+        }
+
+        $agenda->loadMissing('actividadAsignadaGrupo');
+        $grupo = $agenda->actividadAsignadaGrupo;
+
+        if (!$grupo || $grupo->id_actividad !== $actividad->id_actividad) {
+            abort(404, 'Entrega no encontrada en esta actividad.');
+        }
+
+        $esIntegrante = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
+            ->where('id_actividad_asignada_grupo', $grupo->id_actividad_asignada_grupo)
+            ->exists();
+
+        if (!$esIntegrante) {
+            abort(403, 'Esta entrega no te pertenece.');
+        }
+
+        $agenda->loadMissing('archivo');
+
+        if (!$agenda->uuid_archivo_subido || !$agenda->archivo) {
+            abort(404, 'No hay archivo asociado a esta entrega.');
+        }
+
+        $rutaArchivo = Storage::disk('local_archives')->path($agenda->archivo->ruta_fisica);
+
+        if (!file_exists($rutaArchivo)) {
+            abort(404, 'El archivo no existe en el servidor.');
+        }
+
+        return response()->download(
+            $rutaArchivo,
+            $agenda->archivo->nombre_original,
+            ['Content-Type' => $agenda->archivo->mime_type]
+        );
     }
 }
 

@@ -2,18 +2,21 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica, RubricaResponse } from '@/types/rubrica';
+  import { FileText, Info, X } from 'lucide-svelte';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaView from './Agenda/Rubrica.svelte';
   import ActivityHeaderCard from './cards/ActivityHeaderCard.svelte';
-  import ActivityStateCard from './cards/ActivityStateCard.svelte';
+  import ActivityDeadlineCard from './cards/ActivityDeadlineCard.svelte';
   import ActivityPendingCard from './cards/ActivityPendingCard.svelte';
+  import ActivitySubmittedCard from './cards/ActivitySubmittedCard.svelte';
   import ActivityRubricaCard from './cards/ActivityRubricaCard.svelte';
   import ActivityAgendaCard from './cards/ActivityAgendaCard.svelte';
-  import { router, page } from '@inertiajs/svelte';
+  import { router } from '@inertiajs/svelte';
   import ActivityGradeCard from './cards/ActivityGradeCard.svelte';
   import Entrega from './Agenda/Entrega.svelte';
   import ActivityMembersCard from './cards/ActivityMembersCard.svelte';
   import Enunciado from './Agenda/Enunciado.svelte';
+  import { formatFechaCorta, parseFechaSoloDia } from '@/utils/formatters';
 
   interface Props {
     id_curso: number;
@@ -24,11 +27,20 @@
     descripcion: string;
     fecha_limite: string;
     es_sumativa: boolean;
+    es_grupal: boolean;
     dias_holgura: number;
+    dias_holgura_personal?: number;
     entrega_obligatoria: boolean;
     ultima_nota?: number | null;
+    ultima_entrega?: {
+      id_interaccion: number;
+      fecha_emision: string;
+      archivo?: {
+        nombre_original: string | null;
+        peso_bytes: number | null;
+      } | null;
+    } | null;
     estado?: string | null;
-    entradas: Array<{ id: number }>;
     listado_interacciones?: Array<{
       id_interaccion: number;
       fecha_emision: string;
@@ -66,11 +78,13 @@
     descripcion,
     fecha_limite,
     es_sumativa,
+    es_grupal,
     dias_holgura,
+    dias_holgura_personal = 0,
     entrega_obligatoria,
     ultima_nota,
+    ultima_entrega = null,
     estado,
-    entradas: _entradas,
     listado_interacciones = [],
     rubrica,
     id_actividad_asignada_grupo,
@@ -87,32 +101,40 @@
 
   let showRubricaModal = $state(false);
   let showAgendaModal = $state(false);
+  let showEntregaModal = $state(false);
+  let showEnunciadoModal = $state(false);
 
-  //
-  const exedioFechaLimite = $derived.by(() => {
-    return new Date(fecha_limite) < new Date();
-  });
-  const excedioHolgura = $derived.by(() => {
-    const limite = new Date(fecha_limite);
-    const limiteConHolgura = new Date(limite);
-    limiteConHolgura.setDate(limiteConHolgura.getDate() + dias_holgura);
-    return limiteConHolgura < new Date();
-  });
-  const estaActiva = $derived.by(() => {
-    return estado === 'ACTIVA' || ultima_nota;
-  });
-  const puedeApelar = $derived.by(() => {
-    return false;
-  })
-  const puedeSubirArchivo = $derived.by(() => {
-    return (estado === 'ACTIVA' && !excedioHolgura) || puedeApelar;
+  // El backend ya calcula 'estado' (ACTIVA/CERRADA) considerando la holgura
+  // de la actividad Y la holgura personal del grupo — ver
+  // ActividadAsignadaGrupo::calcularEstadoGrupo. Antes se recalculaba acá con
+  // sólo `dias_holgura` (sin la personal) y bloqueaba entregas a alumnos con
+  // holgura personal vigente.
+  const puedeApelar = false;
+  const puedeSubirArchivo = $derived((estado === 'ACTIVA' || puedeApelar) && entrega_obligatoria);
+
+  const tieneEntregaRegistrada = $derived(ultima_entrega !== null);
+
+  // Última interacción de tipo evaluación/feedback: alimenta el pie de la
+  // card de nota ("Publicada {fecha} · {evaluador}") con datos reales, sin
+  // inventar una ponderación o fecha que el backend no envía.
+  const ultimaEvaluacion = $derived.by(() => {
+    for (let i = listado_interacciones.length - 1; i >= 0; i--) {
+      if (listado_interacciones[i].es_retroalimentacion) return listado_interacciones[i];
+    }
+    return null;
   });
 
-  const tipoEnunciado = $derived.by(() => {
-    if (!archivo_enunciado?.mime_type) return 'otro';
-    if (archivo_enunciado.mime_type === 'application/pdf') return 'pdf';
-    if (archivo_enunciado.mime_type.startsWith('image/')) return 'imagen';
-    return 'otro';
+  const fechaEfectiva = $derived.by(() => {
+    const base = parseFechaSoloDia(fecha_limite);
+    const d = new Date(base);
+    d.setDate(d.getDate() + (dias_holgura || 0) + (dias_holgura_personal || 0));
+    return d;
+  });
+
+  // Enunciado.svelte sólo distingue 'pdf' (previsualizable en iframe) del
+  // resto (prompt de descarga); no tiene una rama específica para imágenes.
+  const tipoEnunciado = $derived.by((): 'pdf' | 'otro' => {
+    return archivo_enunciado?.mime_type === 'application/pdf' ? 'pdf' : 'otro';
   });
 
   function toggleRubricaModal() {
@@ -121,15 +143,11 @@
   function toggleAgendaModal() {
     showAgendaModal = !showAgendaModal;
   }
-
-  let showEntregaModal = $state(false);
   function toggleEntregaModal() {
     showAgendaModal = false;
     showRubricaModal = false;
     showEntregaModal = !showEntregaModal;
   }
-
-  let showEnunciadoModal = $state(false);
   function toggleEnunciadoModal() {
     showAgendaModal = false;
     showRubricaModal = false;
@@ -137,12 +155,7 @@
     showEnunciadoModal = !showEnunciadoModal;
   }
 
-  
-  function handleGuardarEntrada(data: {
-    tipo: string;
-    mensaje: string;
-    archivo?: File;
-  }) {
+  function handleGuardarEntrada(data: { tipo: string; mensaje: string; archivo?: File }) {
     if (!id_actividad_asignada_grupo) {
       console.error('[handleGuardarEntrada] id_actividad_asignada_grupo es null/undefined.', {
         id_actividad_asignada_grupo,
@@ -153,26 +166,19 @@
       });
       alert(
         'Error: No se encontró el grupo asignado para esta actividad.\n' +
-        `(cod_actividad=${cod_actividad}, id_actividad_asignada_grupo=${id_actividad_asignada_grupo})\n` +
-        'Revisa la consola del navegador para más detalles.'
+          `(cod_actividad=${cod_actividad}, id_actividad_asignada_grupo=${id_actividad_asignada_grupo})\n` +
+          'Revisa la consola del navegador para más detalles.',
       );
       return;
     }
 
-    // Entrega de avance con archivo
     if (data.tipo === 'Entrega de Avance' && data.archivo) {
       router.post(
         `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/entregas`,
-        {
-          tipo: data.tipo,
-          mensaje: data.mensaje,
-          archivo: data.archivo,
-        },
+        { tipo: data.tipo, mensaje: data.mensaje, archivo: data.archivo },
         {
           forceFormData: true,
-          onSuccess: () => {
-            router.reload();
-          },
+          onSuccess: () => router.reload(),
           onError: (errors) => {
             if (errors.archivo) {
               alert(errors.archivo);
@@ -186,220 +192,152 @@
           },
         },
       );
-
       return;
     }
-    // Mensaje normal de agenda
+
     router.post(
       `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/agenda`,
+      { tipo: data.tipo, mensaje: data.mensaje },
       {
-        tipo: data.tipo,
-        mensaje: data.mensaje,
-      },
-      {
-        onSuccess: () => {
-          router.reload();
-        },
-
-        onError: (errors) => {
-          alert(errors.error || 'Error al enviar mensaje');
-        },
+        onSuccess: () => router.reload(),
+        onError: (errors) => alert(errors.error || 'Error al enviar mensaje'),
       },
     );
   }
 </script>
 
 <StudentLayout {breadcrumbs}>
-  <div
-    class="min-h-screen bg-slate-50 text-slate-800 antialiased selection:bg-blue-500 selection:text-white"
-  >
-    <div class="mx-auto max-w-7xl px-4 py-8 md:px-6 lg:px-8">
-      <div class="grid grid-cols-1 gap-8 md:grid-cols-4">
-        <aside class="space-y-6 md:col-span-1" aria-label="Información de la actividad">
-          <button
-            class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
-            onclick={() => window.history.back()}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            Volver
-          </button>
-
-          <div class="space-y-1">
-            <div class="text-xs font-semibold tracking-wider text-slate-400 uppercase">
-              {cod_curso}
-            </div>
-            <div class="text-base font-bold text-slate-900 leading-tight">{nombre_curso}</div>
-          </div>
-
-          <hr class="border-slate-200" />
-
-          <div class="space-y-3">
-            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Estado de la actividad
-            </div>
-
-            <div
-              class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm
-                {estado === 'ACTIVA' ? 'bg-emerald-100 text-emerald-800' :
-                 estado === 'CERRADA' ? 'bg-slate-100 text-slate-600' :
-                 'bg-amber-100 text-amber-800'}"
-            >
-              {estado?.toUpperCase()}
-            </div>
-            {#if exedioFechaLimite}
-              <div
-                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm bg-red-400"
-              >
-                Ha excedido la fecha límite
-              </div>
-            {:else if !exedioFechaLimite && puedeSubirArchivo}
-              <div
-                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-sm bg-green-400"
-              >
-                Aún se aceptan entregas
-              </div>
-            {/if}
-          </div>
-
-          <hr class="border-slate-200" />
-
-          <div class="flex flex-col gap-2">
-            {#if archivo_enunciado}
-              <button
-                class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
-                onclick={toggleEnunciadoModal}
-              >
-                <svg
-                  class="text-slate-400 group-hover:text-slate-500"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                  <line x1="16" y1="17" x2="8" y2="17" />
-                </svg>
-                <span class="flex-1">Ver Enunciado</span>
-                <svg
-                  class="text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-500"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
-            {/if}
-
-            {#if es_sumativa}
-              <button
-                class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
-                onclick={toggleRubricaModal}
-              >
-                <svg
-                  class="text-slate-400 group-hover:text-slate-500"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path
-                    d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
-                  />
-                  <rect x="9" y="3" width="6" height="4" rx="2" />
-                  <line x1="9" y1="12" x2="15" y2="12" />
-                  <line x1="9" y1="16" x2="12" y2="16" />
-                </svg>
-                <span class="flex-1">Ver Rúbrica</span>
-                <svg
-                  class="text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-500"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
-            {/if}
-          </div>
-
-          <ActivityMembersCard usuarios={resto_integrantes} />
-        </aside>
-
-        <main class="space-y-6 md:col-span-3">
+  <div class="min-h-screen bg-[#FAFBFC]">
+    <div class="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8 md:px-6 lg:px-8">
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px] lg:items-start">
+        <main class="flex flex-col gap-5">
           <ActivityHeaderCard
-            {cod_actividad}
             {nombre_actividad}
             {nombre_curso}
             {descripcion}
-            {fecha_limite}
             {es_sumativa}
             {entrega_obligatoria}
+            {estado}
           />
 
-          {#if estaActiva}
-            <div class="grid sm:grid-cols-2 grid-cols-1 gap-6">
-              <ActivityGradeCard {ultima_nota} {es_sumativa} />
-              <ActivityRubricaCard rubrica={rubrica?.rubrica} onRubricaClick={toggleRubricaModal} />
-            </div>
+          {#if fecha_limite}
+            <ActivityDeadlineCard {fecha_limite} {dias_holgura} {dias_holgura_personal} {estado} />
           {/if}
 
-          <ActivityPendingCard
-            disponible={puedeSubirArchivo}
-            onSubirClick={() => toggleEntregaModal()}
-          />
+          {#if entrega_obligatoria}
+            {#if tieneEntregaRegistrada}
+              <ActivitySubmittedCard
+                esGrupal={es_grupal}
+                fecha_entrega={ultima_entrega?.fecha_emision}
+                archivo={ultima_entrega?.archivo}
+                urlDescarga={ultima_entrega
+                  ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/entregas/${ultima_entrega.id_interaccion}/descargar`
+                  : null}
+                puedeReemplazar={puedeSubirArchivo}
+                onReemplazarClick={toggleEntregaModal}
+              />
+            {:else}
+              <ActivityPendingCard disponible={puedeSubirArchivo} esGrupal={es_grupal} onSubirClick={toggleEntregaModal} />
+            {/if}
+          {/if}
 
-          {#if id_actividad_asignada_grupo}
-            <ActivityAgendaCard
-              {cod_curso}
-              {nombre_curso}
-              {cod_actividad}
-              {nombre_actividad}
-              {listado_interacciones}
-              {id_actividad_asignada_grupo}
-              onAgendaClick={toggleAgendaModal}
+          {#if ultima_nota !== null && ultima_nota !== undefined}
+            <ActivityGradeCard
+              {ultima_nota}
+              {es_sumativa}
+              fecha_evaluacion={ultimaEvaluacion?.fecha_emision}
+              evaluador={ultimaEvaluacion?.emisor}
+              onVerRubricaClick={rubrica ? toggleRubricaModal : undefined}
             />
           {/if}
+
+          {#if es_sumativa}
+            <ActivityRubricaCard rubrica={rubrica?.rubrica} onRubricaClick={toggleRubricaModal} />
+          {/if}
+
+          {#if id_actividad_asignada_grupo}
+            <ActivityAgendaCard {listado_interacciones} onAgendaClick={toggleAgendaModal} />
+          {/if}
         </main>
+
+        <aside class="flex flex-col gap-5" aria-label="Contexto de la actividad">
+          {#if fecha_limite}
+            <section class="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+              <div class="flex items-center gap-2">
+                <Info class="h-[15px] w-[15px] text-[#5A5E6E]" />
+                <h3 class="text-[13px] font-semibold text-[#1A1A24]">Cómo se calcula tu fecha</h3>
+              </div>
+              <div class="flex flex-col">
+                <div class="flex gap-2.5">
+                  <div class="flex flex-none flex-col items-center">
+                    <span class="mt-1 h-[7px] w-[7px] rounded-full bg-[#C9D6E6]"></span>
+                    <span class="w-px flex-1 bg-[#E5E7EB]"></span>
+                  </div>
+                  <div class="flex flex-col pb-3">
+                    <span class="text-[11px] text-[#5A5E6E]">Fecha del curso</span>
+                    <span class="text-[12.5px] font-semibold text-[#1A1A24]">{formatFechaCorta(fecha_limite)}</span>
+                  </div>
+                </div>
+                {#if dias_holgura > 0}
+                  <div class="flex gap-2.5">
+                    <div class="flex flex-none flex-col items-center">
+                      <span class="mt-1 h-[7px] w-[7px] rounded-full bg-[#C9D6E6]"></span>
+                      <span class="w-px flex-1 bg-[#E5E7EB]"></span>
+                    </div>
+                    <div class="flex flex-col pb-3">
+                      <span class="text-[11px] text-[#5A5E6E]">Holgura de la actividad</span>
+                      <span class="text-[12.5px] font-semibold text-[#1A1A24]"
+                        >+{dias_holgura} {dias_holgura === 1 ? 'día' : 'días'}</span
+                      >
+                    </div>
+                  </div>
+                {/if}
+                {#if dias_holgura_personal > 0}
+                  <div class="flex gap-2.5">
+                    <div class="flex flex-none flex-col items-center">
+                      <span class="mt-1 h-[7px] w-[7px] rounded-full bg-[#C9D6E6]"></span>
+                      <span class="w-px flex-1 bg-[#E5E7EB]"></span>
+                    </div>
+                    <div class="flex flex-col pb-3">
+                      <span class="text-[11px] text-[#5A5E6E]">Tu holgura personal</span>
+                      <span class="text-[12.5px] font-semibold text-[#1A1A24]"
+                        >+{dias_holgura_personal} {dias_holgura_personal === 1 ? 'día' : 'días'}</span
+                      >
+                    </div>
+                  </div>
+                {/if}
+                <div class="flex gap-2.5">
+                  <div class="flex flex-none flex-col items-center">
+                    <span class="mt-1 h-[7px] w-[7px] rounded-full bg-emerald-600"></span>
+                  </div>
+                  <div class="flex flex-col">
+                    <span class="text-[11px] font-semibold text-emerald-700">Tu fecha efectiva</span>
+                    <span class="text-[13px] font-semibold text-[#1A1A24]">
+                      {formatFechaCorta(fechaEfectiva.toISOString())}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          {/if}
+
+          {#if archivo_enunciado}
+            <button
+              class="group flex w-full items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white p-3.5 text-left shadow-sm transition-colors hover:bg-[#F8FAFC]"
+              onclick={toggleEnunciadoModal}
+            >
+              <FileText class="h-4 w-4 shrink-0 text-[#5A5E6E]" />
+              <span class="flex-1 truncate text-sm font-semibold text-[#1A1A24]">Ver enunciado</span>
+            </button>
+          {/if}
+
+          <ActivityMembersCard usuarios={es_grupal ? resto_integrantes : []} />
+        </aside>
       </div>
     </div>
   </div>
 </StudentLayout>
 
-<!-- 
-  SECCIÓN DE MODALES  
-  -->
 {#if showAgendaModal}
   <div
     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
@@ -431,43 +369,25 @@
     onclick={(e) => e.target === e.currentTarget && toggleRubricaModal()}
     onkeydown={(e) => e.key === 'Escape' && toggleRubricaModal()}
   >
-    <div
-      class="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-200"
-    >
-      <div class="flex items-center justify-between border-b border-slate-100 p-5 md:px-6">
+    <div class="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
+      <div class="flex items-center justify-between border-b border-[#E5E7EB] p-5 md:px-6">
         <div>
-          <div class="text-xs font-bold tracking-wider text-slate-400 uppercase">
-            Rúbrica de Evaluación
-          </div>
-          <div class="text-base font-black text-slate-900 mt-0.5">{nombre_actividad}</div>
+          <div class="text-xs font-semibold uppercase tracking-wider text-[#5A5E6E]">Rúbrica de evaluación</div>
+          <div class="mt-0.5 text-base font-semibold text-[#1A1A24]">{nombre_actividad}</div>
         </div>
         <button
-          class="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          class="rounded-lg p-1 text-[#5A5E6E] transition-colors hover:bg-[#F8FAFC] hover:text-[#1A1A24]"
           onclick={toggleRubricaModal}
           aria-label="Cerrar"
         >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
+          <X class="h-[18px] w-[18px]" />
         </button>
       </div>
       <div class="flex-1 overflow-y-auto p-5 md:p-6">
         {#if rubrica}
           <RubricaView rubrica={rubrica?.rubrica} />
         {:else}
-          <p class="text-center text-sm font-medium text-slate-400 py-8">
-            No hay rúbrica disponible para esta actividad.
-          </p>
+          <p class="py-8 text-center text-sm font-medium text-[#5A5E6E]">No hay rúbrica disponible para esta actividad.</p>
         {/if}
       </div>
     </div>

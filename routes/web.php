@@ -538,6 +538,8 @@ Route::prefix('estudiante')
             ->name('cursos.actividades.show');
         Route::get('cursos/{curso}/actividades/{actividad}/enunciado/descargar', [ActivityController::class, 'descargarEnunciado'])
             ->name('cursos.actividades.enunciado.descargar');
+        Route::get('cursos/{curso}/actividades/{actividad}/entregas/{agenda}/descargar', [ActivityController::class, 'descargarEntrega'])
+            ->name('cursos.actividades.entregas.descargar');
 
         // Agenda routes
         Route::controller(AgendaController::class)
