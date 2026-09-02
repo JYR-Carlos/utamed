@@ -55,7 +55,7 @@ class DiagnosticoCursoIntranet extends Command
             return Command::FAILURE;
         }
 
-        $this->info("  ✔ Curso encontrado: #{$curso->id_curso} | Código: [{$curso->cod_curso}] | Nombre: '{$curso->nombre}'");
+        $this->info("  ✔ Curso encontrado: # Código: [{$curso->cod_curso}] | Nombre: '{$curso->nombre}'");
         $this->line("    - Año Real: " . ($curso->agno_real ?? '<null>'));
         $this->line("    - Semestre Real: " . ($curso->semestre_real ?? '<null>'));
         $this->line("    - Índice Grupo: " . ($curso->indice_grupo ?? '<null>'));
