@@ -126,7 +126,12 @@ export function goToPage(page: number, estado: string) {
  */
 export function extractErrorMessage(err: unknown, fallback = 'Error inesperado.'): string {
     if (err instanceof AxiosError) {
-        return err.response?.data?.error ?? err.message;
+        const data = err.response?.data;
+        if (data?.errors) {
+            const firstErrorKey = Object.keys(data.errors)[0];
+            return data.message ? `${data.message} (${data.errors[firstErrorKey][0]})` : data.errors[firstErrorKey][0];
+        }
+        return data?.error ?? data?.message ?? err.message;
     }
     if (err instanceof Error) {
         return err.message;

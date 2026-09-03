@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatDomainUrl } from '@/utils/formatters';
   import { Button } from '@/components/ui/button';
   import { ArrowLeft, Edit2, Save, X } from 'lucide-svelte';
   import { router } from '@inertiajs/svelte';
@@ -343,14 +344,37 @@
                     </ul>
                   {/if}
 
-                  <!-- VIII: Recursos -->
-                {:else if seccion === 'VIII' && c.recursos?.length}
-                  <ul class="space-y-1">
-                    {#each c.recursos as r}
-                      <li class="text-sm text-slate-700">
-                        {#if r.url}<a href={r.url} target="_blank" class="text-blue-600 hover:underline">{r.titulo ?? r.url}</a>{:else}{r.titulo ??
-                            r}{/if}
-                        {#if r.tipo}<span class="ml-2 text-xs text-slate-400">[{r.tipo}]</span>{/if}
+                  <!-- VIII: Bibliografía -->
+                {:else if seccion === 'VIII' && c.bibliografias?.length}
+                  <ul class="space-y-3">
+                    {#each c.bibliografias as r}
+                      <li class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm flex items-start">
+                        <div class="flex-1">
+                          <p class="font-semibold text-slate-900">{r.titulo}</p>
+                          <p class="text-xs text-slate-500 mt-1">
+                            {#if r.autor}{r.autor} - {/if}{r.anio}
+                            {#if r.editorial} ({r.editorial}){/if}
+                          </p>
+                          {#if r.cita}
+                            <p class="text-xs text-slate-500 mt-1 italic">"{r.cita}"</p>
+                          {/if}
+                          
+                          {#if r.es_bibliografia_uta}
+                            <span class="inline-flex mt-2 items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              Base de Datos UTA
+                            </span>
+                          {:else if r.url}
+                            <a href={r.url} target="_blank" class="inline-flex mt-2 items-center gap-1 text-xs text-blue-600 hover:underline truncate max-w-full">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="flex-shrink-0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                              {formatDomainUrl(r.url)}
+                            </a>
+                          {:else if r.uuid_archivo}
+                            <span class="inline-flex mt-2 items-center gap-1 text-xs text-slate-600 bg-slate-200 px-2 py-0.5 rounded">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+                              Archivo Físico Adjunto
+                            </span>
+                          {/if}
+                        </div>
                       </li>
                     {/each}
                   </ul>
