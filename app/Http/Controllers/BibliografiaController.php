@@ -6,6 +6,7 @@ use App\Models\Curso\Bibliografia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class BibliografiaController extends Controller
 {
@@ -21,7 +22,36 @@ class BibliografiaController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $bibliografia
+            'data' => [
+                'id_bibliografia' => $bibliografia->id_bibliografia,
+                'titulo' => $bibliografia->titulo,
+                'autor' => $bibliografia->autor,
+                'anio' => $bibliografia->anio,
+                'es_bibliografia_uta' => $bibliografia->es_bibliografia_uta,
+                'url' => $bibliografia->url,
+                'tiene_archivo' => $bibliografia->uuid_archivo !== null,
+            ]
+        ]);
+    }
+
+    /**
+     * Sube un archivo físico temporalmente (o definitivamente) y devuelve su UUID
+     * POST /api/bibliografias/archivo
+     */
+    public function uploadArchivo(Request $request)
+    {
+        $request->validate([
+            'archivo' => 'required|file|mimes:pdf,epub,doc,docx,ppt,pptx|max:51200' // 50MB max
+        ]);
+
+        $file = $request->file('archivo');
+        
+        // Guardar físicamente
+        $uuid_archivo = (string) Str::uuid();
+        $path = $file->storeAs('bibliografias', $uuid_archivo . '.' . $file->getClientOriginalExtension(), 'local');
+
+        return response()->json([
+            'uuid_archivo' => $path
         ]);
     }
 
