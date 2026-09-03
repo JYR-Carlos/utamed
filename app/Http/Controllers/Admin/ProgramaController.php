@@ -1038,7 +1038,7 @@ class ProgramaController extends Controller
                     $bibliografia->update([
                         'titulo' => $bibData['titulo'],
                         'autor' => $bibData['autor'] ?? null,
-                        'anio' => $bibData['anio'] ?? date('Y'),
+                        'agno' => $bibData['anio'] ?? date('Y'),
                         'es_bibliografia_uta' => $bibData['es_bibliografia_uta'] ?? false,
                         'url' => $bibData['url'] ?? null,
                         'uuid_archivo' => $bibData['uuid_archivo'] ?? null,
@@ -1053,7 +1053,7 @@ class ProgramaController extends Controller
                 'id_programa' => $programa->id_programa,
                 'titulo' => $bibData['titulo'],
                 'autor' => $bibData['autor'] ?? null,
-                'anio' => $bibData['anio'] ?? date('Y'),
+                'agno' => $bibData['anio'] ?? date('Y'),
                 'es_bibliografia_uta' => $bibData['es_bibliografia_uta'] ?? false,
                 'url' => $bibData['url'] ?? null,
                 'uuid_archivo' => $bibData['uuid_archivo'] ?? null,
