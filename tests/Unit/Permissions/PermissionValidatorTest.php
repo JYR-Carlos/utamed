@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\DB;
 require_once __DIR__ . '/../../Stubs/CarreraStub.php';
 require_once __DIR__ . '/../../Stubs/UsuarioStub.php';
 
-use App\Models\Administrativo\Carrera as CarreraStub;
-use App\Models\Usuario\Usuario as UsuarioStub;
+use Tests\Stubs\CarreraStub;
+use Tests\Stubs\UsuarioStub;
 
 // ============================================================================
 // SETUP Y HELPERS

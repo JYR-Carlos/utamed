@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Models\Administrativo;
+namespace Tests\Stubs;
 
 /**
  * Stub de AsignacionPlan para testing sin BD
  * Usa nombre StudlyCase para coincidir con mappings
  */
-class AsignacionPlan
+class AsignacionPlanStub
 {
     protected $planModel;
     

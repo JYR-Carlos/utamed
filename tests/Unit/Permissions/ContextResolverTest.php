@@ -12,13 +12,13 @@ require_once __DIR__ . '/../../Stubs/EstudianteStub.php';
 require_once __DIR__ . '/../../Stubs/InscripcionCursoStub.php';
 
 // Usar alias para evitar conflictos con los modelos reales
-use App\Models\Administrativo\Carrera as CarreraStub;
-use App\Models\Administrativo\Plan as PlanStub;
-use App\Models\Administrativo\AsignacionPlan as AsignacionPlanStub;
-use App\Models\Usuario\Usuario as UsuarioStub;
-use App\Models\Curso\Curso as CursoStub;
-use App\Models\Usuario\Estudiante as EstudianteStub;
-use App\Models\Curso\InscripcionCurso as InscripcionCursoStub;
+use Tests\Stubs\CarreraStub;
+use Tests\Stubs\PlanStub;
+use Tests\Stubs\AsignacionPlanStub;
+use Tests\Stubs\UsuarioStub;
+use Tests\Stubs\CursoStub;
+use Tests\Stubs\EstudianteStub;
+use Tests\Stubs\InscripcionCursoStub;
 use App\Services\Authorization\GlobalContextService;
 
 // ============================================================================

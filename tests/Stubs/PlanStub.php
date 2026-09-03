@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Models\Administrativo;
+namespace Tests\Stubs;
 
 /**
  * Stub de Plan para testing sin BD
  */
-class Plan
+class PlanStub
 {
     protected $carreraModel;
     

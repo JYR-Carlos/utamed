@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Usuario;
+namespace Tests\Stubs;
 
 use App\Contracts\HasContext;
 use App\Services\Authorization\PermissionValidator;
@@ -10,7 +10,7 @@ use App\Services\Authorization\PermissionValidator;
  * 
  * Incluye métodos de autorización para tests de can()
  */
-class Usuario
+class UsuarioStub
 {
     public $id_usuario;
 

@@ -13,8 +13,8 @@ require_once __DIR__ . '/../../Stubs/CarreraStub.php';
 require_once __DIR__ . '/../../Stubs/UsuarioStub.php';
 require_once __DIR__ . '/../../Stubs/CarreraPolicyStub.php';
 
-use App\Models\Administrativo\Carrera as CarreraStub;
-use App\Models\Usuario\Usuario as UsuarioStub;
+use Tests\Stubs\CarreraStub;
+use Tests\Stubs\UsuarioStub;
 
 // ============================================================================
 // HELPERS

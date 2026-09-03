@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Usuario;
+namespace Tests\Stubs;
 
 /**
  * Stub de Estudiante para testing
@@ -12,7 +12,7 @@ namespace App\Models\Usuario;
  * - Estudiante → Usuario (global)
  * - Estudiante → Carrera (contexto directo)
  */
-class Estudiante
+class EstudianteStub
 {
     private $usuario;
     private $carrera;

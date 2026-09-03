@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Models\Curso;
+namespace Tests\Stubs;
 
 /**
  * Stub de InscripcionCurso para testing
  * Simula una tabla pivot entre Curso y Estudiante
  * Usa nombre StudlyCase para coincidir con mappings
  */
-class InscripcionCurso
+class InscripcionCursoStub
 {
     private $curso;
     private $estudiante;
