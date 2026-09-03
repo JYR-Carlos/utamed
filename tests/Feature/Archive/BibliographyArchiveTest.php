@@ -537,4 +537,38 @@ describe('SyllabusArchiveHandler - End-to-End Store Execution', function () {
 
     expect($archivo->pendiente_de_borrado)->toBeTrue();
   });
+
+  test('uploadArchivo controller endpoint resolves unidad using num_unidad without SQL error', function () {
+    $user = \App\Models\Usuario\Usuario::factory()->create(['esta_activo' => true]);
+    $docente = \App\Models\Usuario\Docente::create([
+      'id_usuario' => $user->id_usuario,
+      'grado' => 'Doctor',
+      'titulo' => 'Profesor',
+      'cargo' => 'Jornada Completa',
+    ]);
+
+    $curso = Curso::first();
+    $curso->update(['id_docente_titular' => $docente->id_docente]);
+    $this->actingAs($user);
+
+    $file = UploadedFile::fake()->create('guia_farmacologia.pdf', 500, 'application/pdf');
+
+    $response = $this->postJson('/api/bibliografias/archivo', [
+      'archivo' => $file,
+      'id_curso' => $curso->id_curso,
+      'id_unidad' => 1,
+      'nombre_archivo' => 'guia_farmacologia',
+    ]);
+
+    $response->assertStatus(200);
+    $response->assertJsonStructure([
+      'success',
+      'uuid_archivo',
+      'nombre_original',
+      'file_name',
+      'size_bytes',
+      'mime_type',
+    ]);
+    expect($response->json('uuid_archivo'))->toBeString();
+  });
 });
