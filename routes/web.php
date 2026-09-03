@@ -620,6 +620,11 @@ Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name
 // API Routes for AJAX/Fetch calls
 Route::prefix('api')->middleware(['auth', 'verified'])->group(function () {
     Route::get('docentes', [CursoController::class, 'getDocentes']);
+
+    // Bibliografía (Visualización y Descargas)
+    Route::get('bibliografias/{id_bibliografia}', [\App\Http\Controllers\BibliografiaController::class, 'show'])->name('api.bibliografias.show');
+    Route::get('bibliografias/{id_bibliografia}/archivo', [\App\Http\Controllers\BibliografiaController::class, 'showArchivo'])->name('api.bibliografias.archivo');
+    Route::get('bibliografias/{id_bibliografia}/descarga', [\App\Http\Controllers\BibliografiaController::class, 'downloadArchivo'])->name('api.bibliografias.descarga');
 });
 
 require __DIR__ . '/settings.php';
