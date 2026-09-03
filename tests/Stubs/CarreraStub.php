@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Administrativo;
+namespace Tests\Stubs;
 
 use App\Contracts\HasOwnedContext;
 use Illuminate\Database\Eloquent\Model;
@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Stub de Carrera para testing sin BD
  */
-class Carrera implements HasOwnedContext
+class CarreraStub implements HasOwnedContext
 {
     protected $attributes = [];
     
