@@ -94,10 +94,17 @@ final class SyllabusRules
     private static function seccionVIII(): array
     {
         return [
-            'secciones.VIII.contenido.recursos' => 'nullable|array|max:300',
-            'secciones.VIII.contenido.recursos.*.descripcion' => 'nullable|string|max:' . self::MAX_TEXTO_CORTO,
-            'secciones.VIII.contenido.recursos.*.tipo' => 'nullable|string|in:Libro,Documentación Online,Video,Herramienta Software,Base de Datos',
-            'secciones.VIII.contenido.recursos.*.ubicacion' => 'nullable|string|max:' . self::MAX_TEXTO_CORTO,
+            'secciones.VIII.contenido.bibliografias' => 'nullable|array|max:100',
+            'secciones.VIII.contenido.bibliografias.*.id_bibliografia' => 'nullable|uuid',
+            'secciones.VIII.contenido.bibliografias.*.titulo' => 'required|string|max:' . self::MAX_TEXTO_CORTO,
+            'secciones.VIII.contenido.bibliografias.*.autor' => 'nullable|string|max:' . self::MAX_TEXTO_CORTO,
+            'secciones.VIII.contenido.bibliografias.*.cita' => 'nullable|string|max:' . self::MAX_TEXTO_LARGO,
+            'secciones.VIII.contenido.bibliografias.*.editorial' => 'nullable|string|max:' . self::MAX_TEXTO_CORTO,
+            'secciones.VIII.contenido.bibliografias.*.anio' => 'required|integer|min:1900|max:2100',
+            'secciones.VIII.contenido.bibliografias.*.es_bibliografia_uta' => 'required|boolean',
+            'secciones.VIII.contenido.bibliografias.*.url' => 'nullable|url|max:' . self::MAX_TEXTO_CORTO,
+            'secciones.VIII.contenido.bibliografias.*.uuid_archivo' => 'nullable|uuid',
+            'secciones.VIII.contenido.bibliografias.*.id_unidad' => 'nullable|integer',
         ];
     }
 

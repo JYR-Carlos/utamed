@@ -332,6 +332,12 @@ class ProgramaController extends Controller
                 $this->createActividadesFromSyllabus($curso, $actividadesByCreate);
             }
 
+            // ── Sincronizar bibliografías desde sección VIII del syllabus ─────────
+            $seccionVIII = $validated['secciones']['VIII']['contenido']['bibliografias'] ?? [];
+            if (!empty($seccionVIII)) {
+                $this->createBibliografiasFromSyllabus($programa, $seccionVIII);
+            }
+
             Log::info('Programa creado', [
                 'id_programa' => $programa->id_programa,
                 'id_curso' => $curso->id_curso,
@@ -414,6 +420,11 @@ class ProgramaController extends Controller
                 $validated['contenido'],
                 $isConversionTrigger  // Flag para conversión automática
             );
+
+            if ($seccionId === 'VIII') {
+                $seccionVIII = $validated['contenido']['bibliografias'] ?? [];
+                $this->createBibliografiasFromSyllabus($programa, $seccionVIII);
+            }
 
             Log::info('Sección actualizada', [
                 'id_programa' => $programa->id_programa,
@@ -1000,6 +1011,60 @@ class ProgramaController extends Controller
         Unidad::where('id_curso', $curso->id_curso)
             ->whereNotIn('id_unidad', $keptIds)
             ->whereDoesntHave('actividades')
+            ->delete();
+    }
+
+    /**
+     * Sincroniza las bibliografías del programa a partir de la sección VIII del syllabus.
+     */
+    private function createBibliografiasFromSyllabus(Programa $programa, array $bibliografiasData): void
+    {
+        if (empty($bibliografiasData)) {
+            \App\Models\Curso\Bibliografia::where('id_programa', $programa->id_programa)->delete();
+            return;
+        }
+
+        $keptIds = [];
+
+        foreach ($bibliografiasData as $bibData) {
+            if (empty($bibData['titulo'])) {
+                continue;
+            }
+
+            // Actualizar si ya existe por ID, o crear nueva
+            if (!empty($bibData['uuid_bibliografia'])) {
+                $bibliografia = \App\Models\Curso\Bibliografia::find($bibData['uuid_bibliografia']);
+                if ($bibliografia && $bibliografia->id_programa === $programa->id_programa) {
+                    $bibliografia->update([
+                        'titulo' => $bibData['titulo'],
+                        'autor' => $bibData['autor'] ?? null,
+                        'anio' => $bibData['anio'] ?? date('Y'),
+                        'es_bibliografia_uta' => $bibData['es_bibliografia_uta'] ?? false,
+                        'url' => $bibData['url'] ?? null,
+                        'uuid_archivo' => $bibData['uuid_archivo'] ?? null,
+                    ]);
+                    $keptIds[] = $bibliografia->uuid_bibliografia;
+                    continue;
+                }
+            }
+
+            // Crear nueva bibliografía
+            $nueva = \App\Models\Curso\Bibliografia::create([
+                'id_programa' => $programa->id_programa,
+                'titulo' => $bibData['titulo'],
+                'autor' => $bibData['autor'] ?? null,
+                'anio' => $bibData['anio'] ?? date('Y'),
+                'es_bibliografia_uta' => $bibData['es_bibliografia_uta'] ?? false,
+                'url' => $bibData['url'] ?? null,
+                'uuid_archivo' => $bibData['uuid_archivo'] ?? null,
+                'agregado_por' => \Illuminate\Support\Facades\Auth::id(),
+            ]);
+            $keptIds[] = $nueva->uuid_bibliografia;
+        }
+
+        // Eliminar bibliografías que ya no aparecen
+        \App\Models\Curso\Bibliografia::where('id_programa', $programa->id_programa)
+            ->whereNotIn('uuid_bibliografia', $keptIds)
             ->delete();
     }
 
