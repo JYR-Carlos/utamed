@@ -130,15 +130,10 @@ class CarreraDisenioMultimediaSeeder extends Seeder
             ['cod' => 'DM094', 'nombre' => 'Ética',                                      'creditos' => 2, 'c' => 2, 't' => 1, 'l' => 0, 'tipo' => 'FH', 'agno' => 5, 'sem' => 1],
             ['cod' => 'DM095', 'nombre' => 'Taller Profesional IV',                      'creditos' => 6, 'c' => 0, 't' => 4, 'l' => 0, 'tipo' => 'FE', 'agno' => 5, 'sem' => 1],
 
-            // Año 5, Semestre 2 — 28 créditos
+            // Año 5, Semestre 2 — 14 créditos
             ['cod' => 'DM096', 'nombre' => 'Estrategias de Marketing',                   'creditos' => 4, 'c' => 2, 't' => 2, 'l' => 0, 'tipo' => 'FE', 'agno' => 5, 'sem' => 2],
             ['cod' => 'DM097', 'nombre' => 'Taller de Estrategias Publicitarias',        'creditos' => 5, 'c' => 2, 't' => 2, 'l' => 0, 'tipo' => 'FE', 'agno' => 5, 'sem' => 2],
             ['cod' => 'DM098', 'nombre' => 'Taller de Identidad Corporativa',            'creditos' => 5, 'c' => 2, 't' => 2, 'l' => 0, 'tipo' => 'FE', 'agno' => 5, 'sem' => 2],
-
-            // Repetición en el plan (misma asignatura en segundo semestre de título)
-            ['cod' => 'DM093', 'nombre' => 'Seminario de Título',                        'creditos' => 6, 'c' => 2, 't' => 2, 'l' => 0, 'tipo' => 'FE', 'agno' => 5, 'sem' => 2],
-            ['cod' => 'DM094', 'nombre' => 'Ética',                                      'creditos' => 2, 'c' => 2, 't' => 1, 'l' => 0, 'tipo' => 'FH', 'agno' => 5, 'sem' => 2],
-            ['cod' => 'DM095', 'nombre' => 'Taller Profesional IV',                      'creditos' => 6, 'c' => 0, 't' => 4, 'l' => 0, 'tipo' => 'FE', 'agno' => 5, 'sem' => 2],
         ];
 
         $asignaturasCreadas = 0;

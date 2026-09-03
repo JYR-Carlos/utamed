@@ -46,6 +46,11 @@ abstract class BaseUnidad extends CustomBaseModel implements HasOwnedContext
         return $this->hasMany(\App\Models\Agenda\Actividad::class, 'id_unidad', 'id_unidad');
     }
 
+    public function bibliografias()
+    {
+        return $this->hasMany(\App\Models\Curso\Bibliografia::class, 'id_unidad', 'id_unidad');
+    }
+
     /**
      * Scope para filtrar por contexto jerárquico.
      * 

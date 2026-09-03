@@ -361,6 +361,22 @@ $relationNames = [
     ],
   ],
 
+  // curso.bibliografia: programa, unidad, docente que agrega
+  'curso.bibliografia' => [
+    '_self' => [
+      'agregado_por' => 'agregador', // belongsTo en Bibliografia: usuario.docente
+    ],
+    'curso.programa' => [
+      'id_programa' => 'bibliografias', // hasMany en Programa
+    ],
+    'curso.unidad' => [
+      'id_unidad' => 'bibliografias', // hasMany en Unidad
+    ],
+    'usuario.docente' => [
+      'agregado_por' => 'bibliografiasAgregadas', // hasMany en Docente
+    ],
+  ],
+
 ];
 
 // ==================================================================================
