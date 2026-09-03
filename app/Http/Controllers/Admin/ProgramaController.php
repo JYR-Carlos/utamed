@@ -1038,14 +1038,12 @@ class ProgramaController extends Controller
                 continue;
             }
 
-            // Resolver id_unidad si se especificó (puede venir como num_unidad o id_unidad)
+            // Resolver id_unidad a partir del número ordinal de unidad en el syllabus
             $resolvedIdUnidad = null;
             if (!empty($bibData['id_unidad'])) {
                 $unidadObj = Unidad::where('id_curso', $programa->id_curso)
-                    ->where(function ($q) use ($bibData) {
-                        $q->where('id_unidad', $bibData['id_unidad'])
-                            ->orWhere('num_unidad', $bibData['id_unidad']);
-                    })->first();
+                    ->where('num_unidad', (int) $bibData['id_unidad'])
+                    ->first();
                 $resolvedIdUnidad = $unidadObj?->id_unidad;
             }
 
