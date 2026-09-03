@@ -60,16 +60,15 @@ class BibliografiaController extends Controller
 
         $unidad = null;
         if ($request->getUnidadId()) {
+            $numUnidad = (int) $request->getUnidadId();
+
             $unidad = Unidad::where('id_curso', $curso->id_curso)
-                ->where(function ($q) use ($request) {
-                    $q->where('num_unidad', $request->getUnidadId())
-                        ->orWhere('id_unidad', $request->getUnidadId());
-                })
+                ->where('num_unidad', $numUnidad)
                 ->first();
 
             if (!$unidad) {
                 $unidad = new Unidad([
-                    'num_unidad' => $request->getUnidadId(),
+                    'num_unidad' => $numUnidad,
                     'nombre' => 'unidad',
                 ]);
             }
