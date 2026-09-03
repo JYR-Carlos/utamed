@@ -623,6 +623,7 @@ Route::prefix('api')->middleware(['auth', 'verified'])->group(function () {
 
     // Bibliografía (Visualización y Descargas)
     Route::get('bibliografias/{id_bibliografia}', [\App\Http\Controllers\BibliografiaController::class, 'show'])->name('api.bibliografias.show');
+    Route::post('bibliografias/archivo', [\App\Http\Controllers\BibliografiaController::class, 'uploadArchivo'])->name('api.bibliografias.upload');
     Route::get('bibliografias/{id_bibliografia}/archivo', [\App\Http\Controllers\BibliografiaController::class, 'showArchivo'])->name('api.bibliografias.archivo');
     Route::get('bibliografias/{id_bibliografia}/descarga', [\App\Http\Controllers\BibliografiaController::class, 'downloadArchivo'])->name('api.bibliografias.descarga');
 });
