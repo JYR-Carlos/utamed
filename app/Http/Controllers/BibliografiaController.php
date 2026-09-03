@@ -2,10 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\Archive\CompressionException;
+use App\Exceptions\Archive\FileValidationException;
+use App\Exceptions\Archive\StorageException;
+use App\Exceptions\Archive\VirusDetectedException;
+use App\Http\Requests\Archive\BibliografiaFileRequest;
 use App\Models\Curso\Bibliografia;
-use Illuminate\Http\Request;
+use App\Models\Curso\Curso;
+use App\Models\Curso\Programa;
+use App\Models\Curso\Unidad;
+use App\Services\Archive\Handlers\SyllabusArchiveHandler;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class BibliografiaController extends Controller
@@ -15,44 +23,103 @@ class BibliografiaController extends Controller
      */
     public function show(string $id_bibliografia)
     {
-        $bibliografia = Bibliografia::findOrFail($id_bibliografia);
+        $bibliografia = Bibliografia::where('uuid_bibliografia', $id_bibliografia)
+            ->orWhere('uuid_archivo', $id_bibliografia)
+            ->firstOrFail();
 
-        // TODO: Validar que el usuario tenga acceso al programa/curso asociado
-        // Ej: $this->authorize('view', $bibliografia);
+        if ($bibliografia->programa?->curso) {
+            $this->authorize('viewPrograma', $bibliografia->programa->curso);
+        }
 
         return response()->json([
             'success' => true,
             'data' => [
-                'id_bibliografia' => $bibliografia->id_bibliografia,
+                'uuid_bibliografia' => $bibliografia->uuid_bibliografia,
+                'id_programa' => $bibliografia->id_programa,
+                'id_unidad' => $bibliografia->id_unidad,
                 'titulo' => $bibliografia->titulo,
                 'autor' => $bibliografia->autor,
-                'anio' => $bibliografia->anio,
+                'cita' => $bibliografia->cita,
+                'anio' => $bibliografia->agno,
                 'es_bibliografia_uta' => $bibliografia->es_bibliografia_uta,
                 'url' => $bibliografia->url,
+                'uuid_archivo' => $bibliografia->uuid_archivo,
                 'tiene_archivo' => $bibliografia->uuid_archivo !== null,
-            ]
+            ],
         ]);
     }
 
     /**
-     * Sube un archivo físico temporalmente (o definitivamente) y devuelve su UUID
+     * Sube un archivo físico asociado a un curso y syllabus mediante SyllabusArchiveHandler.
      * POST /api/bibliografias/archivo
      */
-    public function uploadArchivo(Request $request)
+    public function uploadArchivo(BibliografiaFileRequest $request)
     {
-        $request->validate([
-            'archivo' => 'required|file|mimes:pdf,epub,doc,docx,ppt,pptx|max:51200' // 50MB max
-        ]);
+        $curso = Curso::findOrFail($request->getCursoId());
+        $this->authorize('viewPrograma', $curso);
 
-        $file = $request->file('archivo');
-        
-        // Guardar físicamente
-        $uuid_archivo = (string) Str::uuid();
-        $path = $file->storeAs('bibliografias', $uuid_archivo . '.' . $file->getClientOriginalExtension(), 'local');
+        $unidad = null;
+        if ($request->getUnidadId()) {
+            $unidad = Unidad::where('id_curso', $curso->id_curso)
+                ->where('numero', $request->getUnidadId())
+                ->first();
+        }
 
-        return response()->json([
-            'uuid_archivo' => $path
-        ]);
+        $programa = null;
+        if ($request->getProgramaId()) {
+            $programa = Programa::where('id_curso', $curso->id_curso)
+                ->where('id_programa', $request->getProgramaId())
+                ->first();
+        }
+
+        try {
+            $result = SyllabusArchiveHandler::storeBibliografia(
+                curso: $curso,
+                file: $request->file('archivo'),
+                unidad: $unidad,
+                programa: $programa,
+                fileName: $request->getFileName()
+            );
+
+            return response()->json([
+                'success' => true,
+                'uuid_archivo' => $result->uuidArchivo,
+                'nombre_original' => $result->originalName,
+                'file_name' => $result->fileName,
+                'size_bytes' => $result->sizeBytes,
+                'mime_type' => $result->mimeType,
+            ]);
+        } catch (FileValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El archivo no es válido: ' . $e->getMessage(),
+                'error_type' => $e->errorType->value,
+            ], 422);
+        } catch (VirusDetectedException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Alerta de seguridad: se detectó un virus en el archivo.',
+            ], 422);
+        } catch (CompressionException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al procesar el archivo: ' . $e->getMessage(),
+            ], 422);
+        } catch (StorageException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de almacenamiento: ' . $e->getMessage(),
+            ], 500);
+        } catch (\Throwable $e) {
+            Log::error('[BibliografiaController::uploadArchivo] Error inesperado', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error inesperado al almacenar el archivo.',
+            ], 500);
+        }
     }
 
     /**
@@ -60,23 +127,33 @@ class BibliografiaController extends Controller
      */
     public function showArchivo(string $id_bibliografia)
     {
-        $bibliografia = Bibliografia::findOrFail($id_bibliografia);
-
-        // TODO: Validar acceso
-        // $this->authorize('view', $bibliografia);
+        $bibliografia = Bibliografia::with(['archivo', 'programa.curso'])
+            ->where('uuid_bibliografia', $id_bibliografia)
+            ->orWhere('uuid_archivo', $id_bibliografia)
+            ->firstOrFail();
 
         if ($bibliografia->es_bibliografia_uta || !$bibliografia->uuid_archivo) {
             abort(404, 'Esta bibliografía no tiene un archivo físico asociado.');
         }
 
-        // Asumiendo que se guardan en storage/app/bibliografias/
-        $path = 'bibliografias/' . $bibliografia->uuid_archivo;
-
-        if (!Storage::exists($path)) {
-            abort(404, 'Archivo no encontrado en el servidor.');
+        if ($bibliografia->programa?->curso) {
+            $this->authorize('viewPrograma', $bibliografia->programa->curso);
         }
 
-        return response()->file(Storage::path($path));
+        $archivo = $bibliografia->archivo;
+        if (!$archivo) {
+            abort(404, 'Registro de archivo no encontrado.');
+        }
+
+        $disk = config('files.storage.disk', 'local_archives');
+        if (!Storage::disk($disk)->exists($archivo->ruta_fisica)) {
+            abort(404, 'El archivo físico no fue encontrado en el disco de almacenamiento.');
+        }
+
+        return Storage::disk($disk)->response($archivo->ruta_fisica, $archivo->nombre_original, [
+            'Content-Type' => $archivo->mime_type ?: 'application/octet-stream',
+            'Content-Disposition' => 'inline; filename="' . addslashes($archivo->nombre_original) . '"',
+        ]);
     }
 
     /**
@@ -84,24 +161,32 @@ class BibliografiaController extends Controller
      */
     public function downloadArchivo(string $id_bibliografia)
     {
-        $bibliografia = Bibliografia::findOrFail($id_bibliografia);
-
-        // TODO: Validar acceso
-        // $this->authorize('view', $bibliografia);
+        $bibliografia = Bibliografia::with(['archivo', 'programa.curso'])
+            ->where('uuid_bibliografia', $id_bibliografia)
+            ->orWhere('uuid_archivo', $id_bibliografia)
+            ->firstOrFail();
 
         if ($bibliografia->es_bibliografia_uta || !$bibliografia->uuid_archivo) {
             abort(404, 'Esta bibliografía no tiene un archivo físico asociado para descargar.');
         }
 
-        $path = 'bibliografias/' . $bibliografia->uuid_archivo;
-
-        if (!Storage::exists($path)) {
-            abort(404, 'Archivo no encontrado en el servidor.');
+        if ($bibliografia->programa?->curso) {
+            $this->authorize('viewPrograma', $bibliografia->programa->curso);
         }
 
-        // Descarga con el nombre original o título
-        $filename = \Illuminate\Support\Str::slug($bibliografia->titulo) . '.pdf'; 
+        $archivo = $bibliografia->archivo;
+        if (!$archivo) {
+            abort(404, 'Registro de archivo no encontrado.');
+        }
 
-        return Storage::download($path, $filename);
+        $disk = config('files.storage.disk', 'local_archives');
+        if (!Storage::disk($disk)->exists($archivo->ruta_fisica)) {
+            abort(404, 'El archivo físico no fue encontrado en el disco de almacenamiento.');
+        }
+
+        $extension = $archivo->extension ?: 'pdf';
+        $downloadName = $archivo->nombre_original ?: (Str::slug($bibliografia->titulo) . '.' . $extension);
+
+        return Storage::disk($disk)->download($archivo->ruta_fisica, $downloadName);
     }
 }

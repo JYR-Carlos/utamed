@@ -5,6 +5,8 @@
 
   export let isOpen = false;
   export let unidades: any[] = [];
+  export let idCurso: number | null = null;
+  export let idPrograma: number | null = null;
   export let onClose: () => void;
   export let onSave: (data: BibliografiaSyllabus) => void;
 
@@ -54,6 +56,21 @@
 
     const payload = new FormData();
     payload.append("archivo", file);
+    if (idCurso) {
+      payload.append("id_curso", String(idCurso));
+    }
+    if (formData.id_unidad) {
+      payload.append("id_unidad", String(formData.id_unidad));
+    }
+    if (idPrograma) {
+      payload.append("id_programa", String(idPrograma));
+    }
+    if (formData.titulo) {
+      payload.append("titulo", formData.titulo);
+    }
+    if (formData.autor) {
+      payload.append("autor", formData.autor);
+    }
 
     try {
       const response = await axios.post("/api/bibliografias/archivo", payload, {
