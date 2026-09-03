@@ -66,6 +66,11 @@ abstract class BasePrograma extends CustomBaseModel implements HasOwnedContext
         return $this->hasMany(\App\Models\Auditoria\ProgramaHistorial::class, 'id_programa', 'id_programa');
     }
 
+    public function bibliografias()
+    {
+        return $this->hasMany(\App\Models\Curso\Bibliografia::class, 'id_programa', 'id_programa');
+    }
+
     /**
      * Scope para filtrar por contexto jerárquico.
      * 
