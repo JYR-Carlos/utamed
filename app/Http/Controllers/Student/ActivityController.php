@@ -62,7 +62,18 @@ class ActivityController extends Controller
             abort(403, 'Esta actividad no está disponible.');
         }
 
-        $actividad->load(['componente.tipoComponente', 'unidad', 'archivo']);
+        $actividad->load(['componente.tipoComponente', 'componente.docenteComponentes.docente.usuario', 'unidad', 'archivo']);
+
+        // Equipo docente del componente de la actividad: a quién le escribe el
+        // alumno en la agenda (titular primero, luego colegiados).
+        $equipoDocente = ($actividad->componente?->docenteComponentes ?? collect())
+            ->filter(fn($dc) => $dc->docente?->usuario !== null)
+            ->sortBy(fn($dc) => !$dc->es_titular)
+            ->map(fn($dc) => [
+                'nombre' => trim("{$dc->docente->usuario->nombre1} {$dc->docente->usuario->apellido1}"),
+                'es_titular' => (bool) $dc->es_titular,
+            ])
+            ->values();
 
         // Aquí se creaba el grupo individual del estudiante de forma perezosa: un
         // GET que escribía en la base (C-13), y la vía por la que un estudiante
@@ -199,6 +210,7 @@ class ActivityController extends Controller
             'rubrica'               => $rubrica,
             'id_actividad_asignada_grupo' => $grupo?->id_actividad_asignada_grupo,
             'resto_integrantes'     => $restoIntegrantes,
+            'equipo_docente'        => $equipoDocente,
             'archivo_enunciado'     => $actividad->archivo ? [
                 'nombre_original' => $actividad->archivo->nombre_original,
                 'mime_type' => $actividad->archivo->mime_type,

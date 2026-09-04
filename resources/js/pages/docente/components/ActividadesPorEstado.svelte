@@ -1,34 +1,35 @@
 <script lang="ts">
   /**
-   * Actividades Por Estado — Docente Titular.
+   * Actividades por estado — tablero de tres columnas.
    *
-   * Componente de presentación pura que clasifica un array de actividades
-   * en tres columnas de estado:
+   * El vocabulario es el de `agenda.estado_actividad_asignada`:
    *
-   *  • En Progreso  — Publicadas (visible) con fecha límite futura.
-   *  • Pendientes   — No publicadas (!visible), pendientes de lanzar.
-   *  • Vencidas     — Publicadas (visible) con fecha límite pasada.
+   *  • Planificada — todavía no visible para los alumnos.
+   *  • Activa      — visible y aún abierta (sin fecha límite, o con fecha futura).
+   *  • Cerrada     — visible y con la fecha límite ya pasada.
    *
-   * Cada tarjeta muestra metadatos de la actividad y enlaza a la página
-   * de evaluación/calificación correspondiente.
+   * Cada tarjeta enlaza a la evaluación de la actividad. El avance
+   * (`calificados`/`total_grupos`) y el promedio son opcionales: quien no los
+   * envía simplemente no muestra la barra de progreso.
    *
    * Props:
-   *  - actividades : ActividadExtendida[] — Lista de actividades del curso.
-   *  - idCurso     : number               — ID del curso para construir rutas.
+   *  - actividades : Actividad[] — Lista de actividades del curso.
+   *  - idCurso     : number      — ID del curso para construir rutas.
    */
   import { Link } from '@inertiajs/svelte';
   import {
-    Clock,
-    AlertCircle,
-    CheckCircle2,
     Calendar,
+    Clock,
+    EyeOff,
+    Lock,
+    AlertTriangle,
     Users,
     User,
-    ExternalLink,
     ClipboardList,
   } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
-  import { formatFechaCorta } from '@/utils/formatters';
+  import { formatFechaCorta, formatNota } from '@/utils/formatters';
+
   // ── Props ─────────────────────────────────────────────────────────────────
 
   interface Props {
@@ -37,193 +38,198 @@
   }
 
   let { actividades, idCurso }: Props = $props();
-  // ── Classification ────────────────────────────────────────────────────────
+
+  // ── Clasificación ─────────────────────────────────────────────────────────
+
+  type EstadoId = 'planificada' | 'activa' | 'cerrada';
 
   const now = new Date();
 
-  const enProgreso = $derived(
-    actividades.filter((a) => a.visible && new Date(a.fecha_limite) > now),
-  );
-  const pendientes = $derived(actividades.filter((a) => !a.visible));
-  const vencidas = $derived(
-    actividades.filter((a) => a.visible && new Date(a.fecha_limite) <= now),
-  );
+  function estadoDe(a: Actividad): EstadoId {
+    if (!a.visible) return 'planificada';
+    // Sin fecha límite la actividad sigue abierta: nunca vence sola.
+    if (!a.fecha_limite) return 'activa';
+    return new Date(a.fecha_limite) > now ? 'activa' : 'cerrada';
+  }
+
+  const planificadas = $derived(actividades.filter((a) => estadoDe(a) === 'planificada'));
+  const activas = $derived(actividades.filter((a) => estadoDe(a) === 'activa'));
+  const cerradas = $derived(actividades.filter((a) => estadoDe(a) === 'cerrada'));
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  /** Days remaining (positive) or overdue (negative) relative to now. */
-  function daysRelative(d: string): number {
-    const diff = new Date(d).getTime() - now.getTime();
-    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  /** Días que faltan (positivo) o que pasaron (negativo) respecto de hoy. */
+  function diasRestantes(d: string): number {
+    return Math.ceil((new Date(d).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   }
 
-  function daysLabel(d: string): string {
-    const days = daysRelative(d);
-    if (days === 0) return 'Vence hoy';
-    if (days === 1) return 'Vence mañana';
-    if (days > 1) return `${days} días restantes`;
-    return `Hace ${Math.abs(days)} día${Math.abs(days) !== 1 ? 's' : ''}`;
+  function cierreLabel(a: Actividad): string {
+    if (!a.fecha_limite) return 'Sin fecha de cierre';
+    const dias = diasRestantes(a.fecha_limite);
+    if (dias <= 0) return 'Cierra hoy';
+    if (dias === 1) return 'Cierra mañana';
+    return `Cierra en ${dias} días`;
   }
 
-  function componenteLabel(act: Actividad): string {
-    return act.componente?.tipo_componente?.tipo ?? '—';
+  /** Sigla de 3 letras del componente ("Cátedra" → "CÁT"). */
+  function siglaComponente(a: Actividad): string {
+    const tipo = a.componente?.tipo_componente?.tipo;
+    return tipo ? tipo.slice(0, 3).toUpperCase() : '—';
   }
 
-  function tipoActividadLabel(tipo: string): string {
-    return tipo === 'SUMATIVA' ? 'Sumativa' : 'Formativa';
+  function nombreComponente(a: Actividad): string {
+    return a.componente?.tipo_componente?.tipo ?? 'Sin componente';
   }
 
-  function tipoActividadClass(tipo: string): string {
-    return tipo === 'SUMATIVA'
-      ? 'bg-violet-100 text-violet-700 border-violet-200'
-      : 'bg-sky-100 text-sky-700 border-sky-200';
+  function ponderacionLabel(a: Actividad): string {
+    return a.ponderacion != null ? `${a.ponderacion}%` : '';
   }
 
-  // Column config for DRY rendering
-  const COLUMNS = $derived([
-    {
-      id: 'en-progreso' as const,
-      label: 'En Progreso',
-      count: enProgreso.length,
-      items: enProgreso,
-      Icon: Clock,
-      accent: {
-        header: 'bg-emerald-50 border-emerald-200',
-        dot: 'bg-emerald-500',
-        badge: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-        icon: 'text-emerald-600',
-        daysText: 'text-emerald-600',
-        card: 'hover:border-emerald-300',
-      },
-    },
-    {
-      id: 'pendientes' as const,
-      label: 'Pendientes',
-      count: pendientes.length,
-      items: pendientes,
-      Icon: AlertCircle,
-      accent: {
-        header: 'bg-amber-50 border-amber-200',
-        dot: 'bg-amber-500',
-        badge: 'bg-amber-100 text-amber-800 border-amber-200',
-        icon: 'text-amber-500',
-        daysText: 'text-amber-600',
-        card: 'hover:border-amber-300',
-      },
-    },
-    {
-      id: 'vencidas' as const,
-      label: 'Vencidas',
-      count: vencidas.length,
-      items: vencidas,
-      Icon: CheckCircle2,
-      accent: {
-        header: 'bg-red-50 border-red-200',
-        dot: 'bg-red-400',
-        badge: 'bg-red-100 text-red-800 border-red-200',
-        icon: 'text-red-400',
-        daysText: 'text-red-500',
-        card: 'hover:border-red-300',
-      },
-    },
+  function sinCalificar(a: Actividad): number {
+    return Math.max(0, (a.total_grupos ?? 0) - (a.calificados ?? 0));
+  }
+
+  function pctCalificado(a: Actividad): number {
+    const total = a.total_grupos ?? 0;
+    return total === 0 ? 0 : Math.round(((a.calificados ?? 0) / total) * 100);
+  }
+
+  const COLUMNAS = $derived([
+    { id: 'planificada' as const, label: 'Planificada', items: planificadas, dot: 'bg-[#64748B]' },
+    { id: 'activa' as const, label: 'Activa', items: activas, dot: 'bg-[#059669]' },
+    { id: 'cerrada' as const, label: 'Cerrada', items: cerradas, dot: 'bg-[#475569]' },
   ]);
+
+  const TAG =
+    'font-mono text-[10.5px] font-bold tracking-[0.06em] rounded-[5px] px-1.5 py-0.5 bg-[#F5F1EA] border border-[#E5E7EB] text-[#5A5E6E]';
 </script>
 
-<!-- ── Three-column Kanban layout ──────────────────────────────────────────── -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-  {#each COLUMNS as col (col.id)}
-    <section class="flex flex-col gap-3">
-      <!-- Column header -->
-      <div
-        class="flex items-center justify-between px-4 py-3 rounded-xl border {col.accent.header}"
-      >
-        <div class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full {col.accent.dot} shrink-0"></span>
-          <h3 class="text-sm font-bold text-slate-700">{col.label}</h3>
-        </div>
-        <span class="text-xs font-bold px-2 py-0.5 rounded-full border {col.accent.badge}">
-          {col.count}
-        </span>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-start">
+  {#each COLUMNAS as col (col.id)}
+    <section
+      class="flex flex-col gap-2.5 rounded-xl border border-[#E5E7EB] bg-[#F5F1EA] p-3"
+      aria-label="Actividades en estado {col.label}"
+    >
+      <!-- Cabecera de columna -->
+      <div class="flex items-center gap-2 px-0.5">
+        <span class="w-2 h-2 rounded-full {col.dot} shrink-0" aria-hidden="true"></span>
+        <h3 class="text-[13px] font-semibold text-[#1A1A24] m-0">{col.label}</h3>
+        <span class="ml-auto font-mono text-[11.5px] tabular-nums text-[#5A5E6E]"
+          >{col.items.length}</span
+        >
       </div>
 
-      <!-- Activity cards -->
       {#if col.items.length === 0}
         <div
-          class="flex flex-col items-center gap-2 py-10 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-100"
+          class="flex flex-col items-center gap-2 rounded-[10px] border border-dashed border-[#D6D9E0] bg-white/60 py-8 text-center text-[#98A0AE]"
         >
-          <ClipboardList size={28} class="opacity-30" />
-          <p class="text-xs">Sin actividades en esta categoría</p>
+          <ClipboardList size={24} class="opacity-40" />
+          <p class="text-[12px] m-0">Sin actividades en este estado</p>
         </div>
       {:else}
         {#each col.items as act (act.id_actividad)}
-          <div
-            class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm transition-all {col
-              .accent.card}"
+          {@const pendientes = sinCalificar(act)}
+          <Link
+            href="/docente/cursos/{idCurso}/actividades/{act.id_actividad}/evaluacion"
+            class="flex flex-col gap-2 rounded-[10px] p-3 no-underline transition-colors duration-150 {col.id ===
+            'cerrada'
+              ? 'bg-[#F8FAFC] border border-[#CBD5E1] hover:bg-white'
+              : col.id === 'activa'
+                ? 'bg-white border border-[#A7F3D0] border-l-[3px] border-l-[#059669] shadow-[0_1px_2px_rgba(0,0,0,.04)] hover:border-[#6EE7B7]'
+                : 'bg-white border border-[#E5E7EB] shadow-[0_1px_2px_rgba(0,0,0,.04)] hover:border-[#D0CBC1]'}"
           >
-            <!-- Activity name + type badge -->
-            <div class="flex items-start justify-between gap-2 mb-3">
-              <p class="font-semibold text-slate-800 text-sm leading-snug flex-1 min-w-0 pr-1">
-                {act.nombre}
-              </p>
+            <!-- Sigla del componente + estado -->
+            <div class="flex items-center gap-1.5">
+              <span class={TAG} title={nombreComponente(act)}>{siglaComponente(act)}</span>
               <span
-                class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 shrink-0"
+                class="text-[10.5px] font-medium tracking-[0.02em] text-[#5A5E6E] rounded-[5px] border border-[#E5E7EB] px-1.5 py-0.5"
               >
-                {#if act.es_grupal}
-                  <Users size={9} />
-                  Grupal
-                {:else}
-                  <User size={9} />
-                  Individual
-                {/if}
+                {act.tipo_actividad === 'SUMATIVA' ? 'Sumativa' : 'Formativa'}
               </span>
-            </div>
 
-            <!-- Meta row -->
-            <div class="flex flex-col gap-1.5 text-xs text-slate-500 mb-4">
-              <!-- Deadline -->
-              {#if col.id !== 'pendientes'}
-                <span class="flex items-center gap-1.5">
-                  <Calendar size={11} class="shrink-0" />
-                  {formatFechaCorta(act.fecha_limite)}
-                  <span class="font-semibold {col.accent.daysText}">
-                    · {daysLabel(act.fecha_limite)}
-                  </span>
+              {#if col.id === 'planificada'}
+                <span
+                  class="ml-auto inline-flex items-center gap-1 rounded-full bg-[#FFFBEB] border border-[#FDE68A] px-2 py-0.5 text-[11px] font-semibold text-[#B45309]"
+                >
+                  <EyeOff size={12} />
+                  Oculta
                 </span>
-              {/if}
-
-              <!-- Tipo de actividad -->
-              <span
-                class="self-start inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border {tipoActividadClass(
-                  act.tipo_actividad,
-                )}"
-              >
-                {tipoActividadLabel(act.tipo_actividad)}
-              </span>
-
-              <!-- Component -->
-              <span class="flex items-center gap-1.5">
-                <col.Icon size={11} class="{col.accent.icon} shrink-0" />
-                {componenteLabel(act)}
-              </span>
-
-              <!-- Pending visibility note -->
-              {#if col.id === 'pendientes'}
-                <span class="inline-flex items-center gap-1 text-amber-600 font-medium">
-                  <AlertCircle size={11} />
-                  No publicada para estudiantes
+              {:else if col.id === 'activa'}
+                <span class="ml-auto text-[11px] font-semibold text-[#047857]"
+                  >{cierreLabel(act)}</span
+                >
+              {:else if pendientes > 0}
+                <span
+                  class="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-[#B45309]"
+                >
+                  <AlertTriangle size={12} />
+                  {pendientes} sin calificar
+                </span>
+              {:else}
+                <span
+                  class="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-[#475569]"
+                >
+                  <Lock size={12} />
+                  Cerrada
                 </span>
               {/if}
             </div>
 
-            <!-- CTA -->
-            <Link
-              href="/docente/cursos/{idCurso}/actividades/{act.id_actividad}/evaluacion"
-              class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors no-underline"
+            <!-- Nombre -->
+            <span
+              class="text-[13.5px] font-semibold leading-[1.35] text-pretty {col.id === 'cerrada'
+                ? 'text-[#334155]'
+                : 'text-[#1A1A24]'}"
             >
-              <ExternalLink size={12} />
-              Ver evaluación
-            </Link>
-          </div>
+              {act.nombre}
+            </span>
+
+            <!-- Pie: fecha + ponderación -->
+            <div
+              class="flex flex-col gap-1.5 border-t pt-2 {col.id === 'cerrada'
+                ? 'border-[#CBD5E1]'
+                : 'border-[#E5E7EB]'}"
+            >
+              <div class="flex items-center gap-2.5 text-[11.5px] text-[#5A5E6E]">
+                <span class="flex items-center gap-1.5">
+                  {#if col.id === 'planificada'}
+                    <Calendar size={13} />
+                    {act.fecha_limite
+                      ? `Cierra ${formatFechaCorta(act.fecha_limite)}`
+                      : 'Sin fecha de cierre'}
+                  {:else}
+                    <Clock size={13} />
+                    {act.fecha_limite ? formatFechaCorta(act.fecha_limite) : 'Sin fecha de cierre'}
+                  {/if}
+                </span>
+                <span class="flex items-center gap-1" title={act.es_grupal ? 'Grupal' : 'Individual'}>
+                  {#if act.es_grupal}<Users size={12} />{:else}<User size={12} />{/if}
+                </span>
+                {#if ponderacionLabel(act)}
+                  <span class="ml-auto font-mono tabular-nums">{ponderacionLabel(act)}</span>
+                {/if}
+              </div>
+
+              {#if (act.total_grupos ?? 0) > 0}
+                <div class="flex items-center gap-2">
+                  <div class="flex-1 h-1.5 rounded-full bg-[#EEF1F5] overflow-hidden">
+                    <div
+                      class="h-1.5 rounded-full bg-[#002F6C]"
+                      style="width:{pctCalificado(act)}%"
+                    ></div>
+                  </div>
+                  <span class="font-mono text-[11px] tabular-nums text-[#5A5E6E] shrink-0">
+                    {act.calificados ?? 0}/{act.total_grupos} calificadas
+                  </span>
+                  {#if act.promedio_nota != null}
+                    <span class="font-mono text-[11px] tabular-nums text-[#5A5E6E] shrink-0">
+                      · prom. {formatNota(act.promedio_nota)}
+                    </span>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+          </Link>
         {/each}
       {/if}
     </section>

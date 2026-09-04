@@ -5,7 +5,6 @@
   import { AlertCircle, CheckCircle, CalendarDays, Pencil, Save, X } from 'lucide-svelte';
   import { hasPermission } from '@/services/permissionValidator';
   import ProgramaDetailView from '@/modules/resources/programa/components/ProgramaDetailView.svelte';
-  import SyllabusModal from '@/modules/resources/programa/components/SyllabusModal.svelte';
   import type { Permission } from '@/types/permissions/permissions';
   import { formatFechaCorta } from '@/utils/formatters';
 
@@ -25,17 +24,15 @@
   let showRejectionReason = $state(false);
   let rejectionReason = $state('');
 
-  // ── Complete-syllabus modal ───────────────────────────────────────────────
-  let isSyllabusModalOpen = $state(false);
-
-  const cursoForModal = $derived({
-    ...curso,
-    asignatura_nombre: curso.asignatura_nombre ?? curso.nombre,
-    cod_curso: curso.cod_curso ?? '',
-    id_contexto: curso.id_contexto ?? 0,
-    id_asignacion_plan: curso.id_asignacion_plan ?? 0,
-    has_programa: true,
-  });
+  /**
+   * Completar el syllabus abre el asistente, que es una página propia
+   * (`/admin/cursos/{curso}/programa/editar`). `tipo=COMPLETO` porque desde un
+   * básico entregado el único camino hacia arriba es escribir las nueve
+   * secciones.
+   */
+  function irAlAsistente() {
+    router.visit(`/admin/cursos/${curso.id_curso}/programa/editar?tipo=COMPLETO`);
+  }
 
   // ── Deadline editor ───────────────────────────────────────────────────────
   let editingDates = $state(false);
@@ -114,10 +111,6 @@
     );
   }
 
-  function handleCompleteSuccess() {
-    isSyllabusModalOpen = false;
-    router.reload();
-  }
 </script>
 
 <div class="min-h-screen bg-gray-50 p-6">
@@ -315,7 +308,7 @@
               </p>
             </div>
             <Button
-              onclick={() => (isSyllabusModalOpen = true)}
+              onclick={irAlAsistente}
               class="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
             >
               Completar Syllabus
@@ -326,13 +319,3 @@
     {/if}
   </div>
 </div>
-
-{#if isSyllabusModalOpen}
-  <SyllabusModal
-    bind:isOpen={isSyllabusModalOpen}
-    curso={cursoForModal}
-    syllabusType="combined"
-    onClose={() => (isSyllabusModalOpen = false)}
-    onSuccess={handleCompleteSuccess}
-  />
-{/if}

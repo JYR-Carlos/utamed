@@ -1,449 +1,208 @@
 <script lang="ts">
   /**
-   * Dashboard del docente — Teacher Portal.
-   * Layout compacto sin scroll vertical en pantallas de 16 pulgadas.
+   * Dashboard del docente — /docente/dashboard.
+   *
+   * Responde "¿qué me está pidiendo atención hoy?" en el primer vistazo:
+   * alertas de syllabus arriba, cursos como titular y como componente en el
+   * mismo nivel jerárquico, y las dos mensajerías del sistema (curso.mensaje
+   * y agenda.agenda) como bloques separados — ver [[mensajeria-dos-niveles]].
+   *
+   * "Grupos por evaluar" transversal a todos los cursos con permiso delegado
+   * incluido no tiene todavía una consulta que lo arme (requiere cruzar
+   * calificaciones, delegación de permisos y grupos sin nota); se muestra
+   * como PropuestaCard en vez de inventar datos.
    */
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
-  import { page, Link } from '@inertiajs/svelte';
-  import {
-    BookOpen,
-    Users,
-    Award,
-    ClipboardList,
-    MessageSquare,
-    Calendar,
-    GraduationCap,
-    BarChart3,
-    ArrowRight,
-    CheckCircle2,
-    Clock,
-    Sparkles,
-    ShieldCheck,
-  } from 'lucide-svelte';
+  import { Link } from '@inertiajs/svelte';
+  import { BookOpen, ListChecks, Archive, CalendarOff } from 'lucide-svelte';
+  import AlertasSyllabus from '@/components/docente/AlertasSyllabus.svelte';
+  import CursoTitularCard from '@/components/docente/CursoTitularCard.svelte';
+  import ComponenteCard from '@/components/docente/ComponenteCard.svelte';
+  import MensajeriaCursoCard from '@/components/docente/MensajeriaCursoCard.svelte';
+  import AgendaPendienteCard from '@/components/docente/AgendaPendienteCard.svelte';
+  import ProximasFechasCard from '@/components/docente/ProximasFechasCard.svelte';
+  import JefaturaBridgeCard from '@/components/docente/JefaturaBridgeCard.svelte';
+  import PropuestaCard from '@/components/docente/PropuestaCard.svelte';
 
-  interface Curso {
+  interface CursoTitular {
     id_curso: number;
     nombre: string;
-    cod_curso?: string;
-    tiene_programa?: boolean;
+    cod_curso: string;
+    letra_grupo?: string | null;
+    estado_syllabus: 'NO_INICIADO' | 'BORRADOR' | 'RECHAZADO' | 'EN_REVISION' | 'APROBADO';
+    rechazo?: { razon: string; por: string | null; fecha: string | null } | null;
+  }
+
+  interface AlertaSyllabus {
+    id_curso: number;
+    nombre: string;
+    cod_curso: string;
+    letra_grupo?: string | null;
+    estado_syllabus: 'BORRADOR' | 'RECHAZADO' | 'EN_REVISION';
+    rechazo?: { razon: string; por: string | null; fecha: string | null } | null;
+  }
+
+  interface ComponenteCurso {
+    id_curso: number;
+    id_componente: number;
+    nombre: string;
+    cod_curso: string;
+    letra_grupo?: string | null;
+    tipo_componente: string;
+    titular_nombre?: string | null;
   }
 
   interface Props {
-    docente: {
-      id_docente: number;
-      grado?: string;
-      titulo?: string;
-      cargo?: string;
-      id_usuario: number;
-    };
-    stats: {
-      total_cursos: number;
-      nombre_completo: string;
-    };
-    cursos?: Curso[];
-    /** Nivel curso (curso.mensaje): avisos y canales sin leer. */
-    mensajeria?: {
-      no_leidos: number;
-    };
-    jefatura?: {
-      has_access: boolean;
-      id_contexto?: number | null;
-      carrera?: {
-        id_carrera: number;
-        nombre: string;
-      } | null;
-    };
+    docente: { id_docente: number; grado?: string; titulo?: string; cargo?: string; id_usuario: number } | null;
+    stats: { nombre_completo: string; total_cursos: number; total_titular?: number; total_componente?: number };
+    periodo?: { ano: number; sem: number; fecha_inicio: string | null } | null;
+    cursosTitular: CursoTitular[];
+    componentes: ComponenteCurso[];
+    alertasSyllabus: AlertaSyllabus[];
+    mensajeria: { no_leidos: number; cursos: Array<{ id_curso: number; nombre: string; cod_curso: string; no_leidos: number }> };
+    agendaPendiente: Array<{ quien: string; actividad_nombre: string; id_curso: number | null; cod_curso: string | null; fecha_envio: string | null }>;
+    proximasFechasLimite: Array<{ id_actividad: number; nombre: string; id_curso: number | null; cod_curso: string | null; fecha_limite: string | null }>;
+    jefatura: { has_access: boolean; id_contexto?: number | null; carrera?: { id_carrera: number; nombre: string } | null; pendientes_revision?: number };
+    entreSemestres?: { ultimo_semestre: number | null; ultimo_agno: number | null; ultima_fecha_fin: string | null } | null;
   }
 
-  let { docente, stats, cursos = [], mensajeria, jefatura }: Props = $props();
-
-  // Sólo la mensajería de nivel curso llega al dashboard. Los mensajes de agenda
-  // pertenecen a cada actividad y su contador vive en la vista de actividades.
-  let mensajeriaNoLeidos = $derived(mensajeria?.no_leidos ?? 0);
-
-  let sharedCourses = $derived(($page.props.auth as any)?.docente_courses ?? []);
-  let allCursos = $derived(cursos.length > 0 ? cursos : sharedCourses);
-
-  // Asistencia: centro dedicado que guía elegir curso → componente → tomar
-  // asistencia. Habilitado si el docente tiene cursos asignados.
-  let asistenciaHabilitada = $derived(allCursos.length > 0);
-
-  // Calificaciones: centro dedicado que guía curso → componente → actividad →
-  // evaluar grupo. Habilitado si el docente tiene cursos asignados.
-  let calificacionesHabilitada = $derived(allCursos.length > 0);
+  let {
+    docente,
+    stats,
+    periodo,
+    cursosTitular,
+    componentes,
+    alertasSyllabus,
+    mensajeria,
+    agendaPendiente,
+    proximasFechasLimite,
+    jefatura,
+    entreSemestres = null,
+  }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/docente/dashboard' }];
 
-  const now = new Date();
-  const periodoActual = `${now.getFullYear()} · Semestre ${now.getMonth() < 6 ? 1 : 2}`;
+  const primerNombre = $derived(stats.nombre_completo.split(' ')[0] || stats.nombre_completo);
+
+  function formatFecha(fecha: string | null | undefined): string | null {
+    if (!fecha) return null;
+    const d = new Date(fecha);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
 </script>
 
 <DocenteLayout {breadcrumbs}>
-  <div
-    class="flex flex-col gap-5 2xl:gap-7 p-4 md:p-5 lg:p-6 2xl:p-8 min-[1920px]:p-10 max-w-[1400px] 2xl:max-w-[1700px] min-[1920px]:max-w-[2000px] mx-auto w-full"
-  >
-    <!-- ── Header ─────────────────────────────────────────── -->
-    <header class="flex items-center justify-between gap-4 flex-wrap">
-      <div class="flex flex-col gap-1">
-        <span
-          class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-0.5 w-fit"
-        >
-          {periodoActual}
-        </span>
-        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
-          Portal Docente
-        </h1>
-        <p class="text-sm text-slate-500">
-          Bienvenido, <strong class="text-slate-700 font-semibold">{stats.nombre_completo}</strong
-          >{#if docente.grado}
-            — {docente.grado}{/if}
-        </p>
-      </div>
-      <div class="flex gap-2 items-center shrink-0">
-        {#if jefatura?.has_access}
-          <Link
-            href="/docente/jefe-carrera/dashboard"
-            class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors no-underline"
-            title="Entrar a ambiente Jefe de Carrera"
-          >
-            <ShieldCheck size={15} />
-            Entrar a Jefatura
-          </Link>
-        {/if}
-        <span
-          class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 border border-dashed border-slate-200 bg-slate-50 rounded-lg px-3 py-2"
-          title="Notificaciones y Vista Estudiante disponibles próximamente"
-        >
-          <Clock size={13} />
-          Próximamente
-        </span>
-      </div>
-    </header>
-
-    <!-- ── Metric Cards ──────────────────────────────────── -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 2xl:gap-5">
-      <div
-        class="flex items-center gap-4 2xl:gap-5 px-5 py-4 2xl:px-6 2xl:py-5 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200"
-      >
-        <div
-          class="w-11 h-11 2xl:w-13 2xl:h-13 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0"
-        >
-          <BookOpen size={20} />
-        </div>
-        <div class="flex flex-col min-w-0">
-          <span class="text-2xl 2xl:text-3xl font-extrabold text-indigo-900 leading-none"
-            >{stats.total_cursos}</span
-          >
-          <span class="text-xs font-semibold text-indigo-400 uppercase tracking-widest mt-0.5"
-            >Cursos Asignados</span
-          >
-        </div>
-      </div>
-      <div
-        class="flex items-center gap-4 2xl:gap-5 px-5 py-4 2xl:px-6 2xl:py-5 rounded-xl bg-gradient-to-br from-violet-50 to-violet-100 border border-violet-200"
-      >
-        <div
-          class="w-11 h-11 2xl:w-13 2xl:h-13 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0"
-        >
-          <Award size={20} />
-        </div>
-        <div class="flex flex-col min-w-0">
-          <span class="text-base md:text-lg font-bold text-violet-900 leading-tight truncate"
-            >{docente.grado || '—'}</span
-          >
-          <span class="text-xs font-semibold text-violet-400 uppercase tracking-widest mt-0.5"
-            >Grado Académico</span
-          >
-        </div>
-      </div>
-      <div
-        class="flex items-center gap-4 2xl:gap-5 px-5 py-4 2xl:px-6 2xl:py-5 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200"
-      >
-        <div
-          class="w-11 h-11 2xl:w-13 2xl:h-13 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0"
-        >
-          <Users size={20} />
-        </div>
-        <div class="flex flex-col min-w-0">
-          <span class="text-base md:text-lg font-bold text-emerald-900 leading-tight truncate"
-            >{docente.cargo || '—'}</span
-          >
-          <span class="text-xs font-semibold text-emerald-400 uppercase tracking-widest mt-0.5"
-            >Cargo</span
-          >
-        </div>
-      </div>
-      <div
-        class="flex items-center gap-4 2xl:gap-5 px-5 py-4 2xl:px-6 2xl:py-5 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200"
-      >
-        <div
-          class="w-11 h-11 2xl:w-13 2xl:h-13 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0"
-        >
-          <BarChart3 size={20} />
-        </div>
-        <div class="flex flex-col min-w-0">
-          <span class="text-2xl font-extrabold text-amber-900 leading-none">—</span>
-          <span class="text-xs font-semibold text-amber-400 uppercase tracking-widest mt-0.5"
-            >Act. Pendientes</span
-          >
-          <span class="text-[10px] text-amber-400/70 leading-none mt-0.5">No disponible aún</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── Master Grid: 2/3 + 1/3 ──────────────────────── -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 2xl:gap-7 items-start">
-      <!-- Left Column: Acciones Rápidas — 3 cols × 2 rows -->
-      <section class="lg:col-span-2">
-        <h2 class="text-base font-bold text-slate-700 mb-3 tracking-tight">Acciones Rápidas</h2>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 2xl:gap-5">
-          <!-- Mis Cursos — activo -->
-          <Link
-            href="/docente/cursos"
-            class="flex flex-col gap-3 p-5 rounded-xl border bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 no-underline transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
-          >
-            <div class="flex items-start justify-between">
-              <div
-                class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0"
-              >
-                <BookOpen size={18} />
-              </div>
-              <span class="text-xl font-extrabold text-indigo-900">{stats.total_cursos}</span>
-            </div>
-            <div>
-              <h3 class="text-sm font-bold text-indigo-900 m-0 leading-tight">Mis Cursos</h3>
-              <p class="text-xs text-indigo-700/70 leading-snug m-0 mt-1">
-                Gestiona tus cursos y programas
-              </p>
-            </div>
-            <div class="flex items-center gap-1 text-xs font-semibold text-indigo-700 mt-auto">
-              Ver todos <ArrowRight size={13} />
-            </div>
-          </Link>
-
-          <!-- Asistencia — activo -->
-          {#if asistenciaHabilitada}
-            <Link
-              href="/docente/asistencia"
-              class="flex flex-col gap-3 p-5 rounded-xl border bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 no-underline transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <div class="flex items-start justify-between">
-                <div
-                  class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0"
-                >
-                  <ClipboardList size={18} />
-                </div>
-              </div>
-              <div>
-                <h3 class="text-sm font-bold text-indigo-900 m-0 leading-tight">Asistencia</h3>
-                <p class="text-xs text-indigo-700/70 leading-snug m-0 mt-1">
-                  Registra asistencia de estudiantes
-                </p>
-              </div>
-              <div class="flex items-center gap-1 text-xs font-semibold text-indigo-700 mt-auto">
-                Tomar asistencia
-                <ArrowRight size={13} />
-              </div>
-            </Link>
-          {:else}
-            <button
-              class="flex flex-col gap-3 p-5 rounded-xl border bg-slate-50 border-slate-200 cursor-not-allowed opacity-65 text-left font-[inherit]"
-              disabled
-            >
-              <div class="flex items-start justify-between">
-                <div
-                  class="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 flex items-center justify-center shrink-0"
-                >
-                  <ClipboardList size={18} />
-                </div>
-              </div>
-              <div>
-                <h3 class="text-sm font-bold text-slate-500 m-0 leading-tight">Asistencia</h3>
-                <p class="text-xs text-slate-400 leading-snug m-0 mt-1">
-                  Sin cursos asignados
-                </p>
-              </div>
-            </button>
+  <div class="mx-auto flex w-full max-w-[1400px] flex-col gap-5 p-4 md:p-6 2xl:p-8">
+    {#if entreSemestres}
+      <header class="flex flex-col gap-1">
+        <h1 class="text-2xl font-semibold tracking-tight text-[#1A1A24] md:text-[28px]">Hola, {primerNombre}</h1>
+        <span class="text-sm text-[#5A5E6E]">
+          Receso académico
+          {#if entreSemestres.ultimo_semestre && entreSemestres.ultima_fecha_fin}
+            · el {entreSemestres.ultimo_semestre}º semestre {entreSemestres.ultimo_agno} cerró el {formatFecha(entreSemestres.ultima_fecha_fin)}
           {/if}
+        </span>
+      </header>
 
-          <!-- Calificaciones — activo -->
-          {#if calificacionesHabilitada}
+      <section class="flex items-start gap-6 rounded-xl border border-[#E5E7EB] bg-white p-8 shadow-sm">
+        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] bg-[#F1F5F9]">
+          <CalendarOff class="h-[22px] w-[22px] text-[#5A5E6E]" />
+        </div>
+        <div class="flex max-w-[620px] flex-col gap-2.5">
+          <h3 class="text-lg font-semibold text-[#1A1A24]">No hay cursos activos en este momento</h3>
+          <p class="text-sm leading-relaxed text-[#4A4E5C]">
+            No tienes cursos como titular ni como componente en el período vigente. Cuando la jefatura de carrera te
+            asigne los cursos del próximo período, aparecerán aquí junto con sus syllabus por redactar.
+          </p>
+          <div class="flex gap-2 pt-1">
             <Link
-              href="/docente/calificaciones"
-              class="flex flex-col gap-3 p-5 rounded-xl border bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 no-underline transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
+              href="/docente/cursos"
+              class="flex items-center gap-1.5 rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2 text-[13.5px] font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F8FAFC]"
             >
-              <div class="flex items-start justify-between">
-                <div
-                  class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0"
-                >
-                  <BarChart3 size={18} />
-                </div>
-              </div>
-              <div>
-                <h3 class="text-sm font-bold text-indigo-900 m-0 leading-tight">Calificaciones</h3>
-                <p class="text-xs text-indigo-700/70 leading-snug m-0 mt-1">
-                  Evalúa actividades con rúbrica y nota
-                </p>
-              </div>
-              <div class="flex items-center gap-1 text-xs font-semibold text-indigo-700 mt-auto">
-                Evaluar actividades <ArrowRight size={13} />
-              </div>
+              <Archive class="h-[15px] w-[15px] text-[#5A5E6E]" />
+              Ver mis cursos históricos
             </Link>
-          {:else}
-            <button
-              class="flex flex-col gap-3 p-5 rounded-xl border bg-slate-50 border-slate-200 cursor-not-allowed opacity-65 text-left font-[inherit]"
-              disabled
-            >
-              <div class="flex items-start justify-between">
-                <div
-                  class="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 flex items-center justify-center shrink-0"
-                >
-                  <BarChart3 size={18} />
-                </div>
-              </div>
-              <div>
-                <h3 class="text-sm font-bold text-slate-500 m-0 leading-tight">Calificaciones</h3>
-                <p class="text-xs text-slate-400 leading-snug m-0 mt-1">
-                  Sin cursos asignados
-                </p>
-              </div>
-            </button>
-          {/if}
-
-          <!-- Mensajería del curso — activo.
-               El contador es la suma de todos sus cursos, pero la bandeja vive
-               dentro de cada uno, así que lleva a la lista de cursos. -->
-          <Link
-            href="/docente/cursos"
-            class="flex flex-col gap-3 p-5 rounded-xl border bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 no-underline transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
-          >
-            <div class="flex items-start justify-between">
-              <div
-                class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0"
-              >
-                <MessageSquare size={18} />
-              </div>
-              {#if mensajeriaNoLeidos > 0}
-                <span
-                  class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 uppercase tracking-wider"
-                  >{mensajeriaNoLeidos} sin leer</span
-                >
-              {/if}
-            </div>
-            <div>
-              <h3 class="text-sm font-bold text-indigo-900 m-0 leading-tight">Mensajería</h3>
-              <p class="text-xs text-indigo-700/70 leading-snug m-0 mt-1">
-                Avisos y canal por alumno, dentro de cada curso
-              </p>
-            </div>
-            <div class="flex items-center gap-1 text-xs font-semibold text-indigo-700 mt-auto">
-              Elegir curso <ArrowRight size={13} />
-            </div>
-          </Link>
-
-          <!-- Calendario — activo -->
-          <Link
-            href="/docente/calendario"
-            class="flex flex-col gap-3 p-5 rounded-xl border bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 no-underline transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
-          >
-            <div class="flex items-start justify-between">
-              <div
-                class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0"
-              >
-                <Calendar size={18} />
-              </div>
-            </div>
-            <div>
-              <h3 class="text-sm font-bold text-indigo-900 m-0 leading-tight">Calendario</h3>
-              <p class="text-xs text-indigo-700/70 leading-snug m-0 mt-1">
-                Actividades a vencer de tus cursos
-              </p>
-            </div>
-            <div class="flex items-center gap-1 text-xs font-semibold text-indigo-700 mt-auto">
-              Ver calendario <ArrowRight size={13} />
-            </div>
-          </Link>
+          </div>
         </div>
       </section>
-
-      <!-- Right Column: Sidebar Widgets -->
-      <aside class="lg:col-span-1 flex flex-col gap-4 pt-8">
-        <!-- Estado de Programas -->
-        <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-          <h3 class="text-sm font-bold text-slate-700 mb-3 uppercase tracking-wide">
-            Estado de Programas
-          </h3>
-          <div class="flex flex-col">
-            {#if allCursos.length === 0}
-              <p class="text-sm text-slate-400 text-center py-2">Sin cursos asignados</p>
-            {:else}
-              {#each allCursos.slice(0, 5) as curso (curso.id_curso)}
-                <div
-                  class="flex items-center justify-between gap-2 py-2 border-b border-slate-100 last:border-b-0"
-                >
-                  <div class="flex flex-col min-w-0">
-                    <span class="text-sm font-semibold text-slate-700 truncate">{curso.nombre}</span
-                    >
-                    {#if curso.cod_curso}
-                      <span class="text-xs text-slate-400">{curso.cod_curso}</span>
-                    {/if}
-                  </div>
-                  {#if curso.tiene_programa}
-                    <span
-                      class="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 whitespace-nowrap shrink-0"
-                    >
-                      <CheckCircle2 size={11} /> Generado
-                    </span>
-                  {:else}
-                    <span
-                      class="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap shrink-0"
-                    >
-                      <Clock size={11} /> Pendiente
-                    </span>
-                  {/if}
-                </div>
-              {/each}
-              {#if allCursos.length > 5}
-                <Link
-                  href="/docente/cursos"
-                  class="text-sm text-indigo-600 font-semibold no-underline block mt-2 hover:underline"
-                >
-                  Ver todos ({allCursos.length}) →
-                </Link>
-              {/if}
+    {:else}
+      <header class="flex items-start justify-between gap-6">
+        <div class="flex min-w-0 flex-col gap-1">
+          <h1 class="text-2xl font-semibold tracking-tight text-[#1A1A24] md:text-[28px]">Hola, {primerNombre}</h1>
+          <span class="text-sm text-[#5A5E6E]">
+            {#if periodo}
+              {periodo.sem}º semestre {periodo.ano}
+              {#if periodo.fecha_inicio} · período vigente desde {formatFecha(periodo.fecha_inicio)}{/if} ·
             {/if}
-          </div>
+            {stats.total_cursos} {stats.total_cursos === 1 ? 'curso' : 'cursos'}
+          </span>
+        </div>
+        <Link
+          href="/docente/cursos"
+          class="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F8FAFC]"
+        >
+          <BookOpen class="h-[15px] w-[15px] text-[#5A5E6E]" />
+          Ver todos mis cursos
+        </Link>
+      </header>
+
+      {#if jefatura.has_access && jefatura.carrera}
+        <JefaturaBridgeCard carreraNombre={jefatura.carrera.nombre} pendientesRevision={jefatura.pendientes_revision ?? 0} />
+      {/if}
+
+      {#if alertasSyllabus.length > 0}
+        <AlertasSyllabus alertas={alertasSyllabus} />
+      {/if}
+
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:items-start">
+        <div class="flex flex-col gap-4 lg:col-span-8">
+          {#if cursosTitular.length > 0}
+            <section class="flex flex-col gap-3.5 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+              <div class="flex items-center gap-2">
+                <BookOpen class="h-4 w-4 text-[#5A5E6E]" />
+                <h3 class="text-base font-semibold text-[#1A1A24]">Cursos que dirijo</h3>
+                <span class="text-xs text-[#5A5E6E]">soy titular</span>
+                <span class="ml-auto font-mono text-xs text-[#5A5E6E]">{cursosTitular.length}</span>
+              </div>
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {#each cursosTitular as curso (curso.id_curso)}
+                  <CursoTitularCard {...curso} />
+                {/each}
+              </div>
+            </section>
+          {/if}
+
+          {#if componentes.length > 0}
+            <section class="flex flex-col gap-3.5 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+              <div class="flex items-center gap-2">
+                <BookOpen class="h-4 w-4 text-[#5A5E6E]" />
+                <h3 class="text-base font-semibold text-[#1A1A24]">Cursos donde imparto un componente</h3>
+                <span class="ml-auto font-mono text-xs text-[#5A5E6E]">{componentes.length}</span>
+              </div>
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {#each componentes as comp (comp.id_componente)}
+                  <ComponenteCard {...comp} />
+                {/each}
+              </div>
+            </section>
+          {/if}
+
+          <PropuestaCard
+            icon={ListChecks}
+            title="Grupos por evaluar"
+            emptyTitle="Aún no hay una lista unificada"
+            emptyDescription="Reunirá los grupos sin nota de todos tus cursos, incluyendo los que evalúas por permiso delegado. Mientras tanto, evalúa desde Calificaciones."
+          />
         </div>
 
-        <!-- Recursos Docentes -->
-        <div class="rounded-xl p-5 bg-gradient-to-br from-indigo-600 to-violet-700 text-white">
-          <div class="flex items-center gap-2 text-sm font-bold mb-3">
-            <GraduationCap size={17} />
-            <span>Recursos Docentes</span>
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <button
-              class="flex justify-between items-center px-3 py-2 rounded-lg bg-white/10 text-sm font-medium text-white/90 cursor-not-allowed opacity-60 text-left w-full border-0 font-[inherit]"
-              disabled
-            >
-              Documentación del Sistema <span>→</span>
-            </button>
-            <button
-              class="flex justify-between items-center px-3 py-2 rounded-lg bg-white/10 text-sm font-medium text-white/90 cursor-not-allowed opacity-60 text-left w-full border-0 font-[inherit]"
-              disabled
-            >
-              Guía de Programas <span>→</span>
-            </button>
-            <button
-              class="flex justify-between items-center px-3 py-2 rounded-lg bg-white/10 text-sm font-medium text-white/90 cursor-not-allowed opacity-60 text-left w-full border-0 font-[inherit]"
-              disabled
-            >
-              Soporte Técnico <span>→</span>
-            </button>
-          </div>
+        <div class="flex flex-col gap-4 lg:col-span-4">
+          <MensajeriaCursoCard total={mensajeria.no_leidos} cursos={mensajeria.cursos} />
+          <AgendaPendienteCard items={agendaPendiente} />
+          <ProximasFechasCard items={proximasFechasLimite} />
         </div>
-      </aside>
-    </div>
+      </div>
+    {/if}
   </div>
 </DocenteLayout>

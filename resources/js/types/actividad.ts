@@ -13,8 +13,19 @@ export interface Actividad {
     id_unidad?: number;
     componente?: { id_componente: number; tipo_componente?: { tipo: string } | null } | null;
     seccion?: { id_seccion?: number; tipo?: string } | null;
-    unidad?: { id_unidad: number; nombre: string } | null;
+    unidad?: { id_unidad: number; nombre: string; num_unidad?: number } | null;
     ultima_nota?: number | null;
+    /**
+     * Entregas de archivo realmente recibidas (agenda.agenda con
+     * tipo_mensaje = 'Entrega de archivo'). Es lo que se pierde al borrar.
+     */
+    total_entregas?: number;
+    /** Grupos asignados de la actividad (cada uno es una entrega evaluable). */
+    total_grupos?: number;
+    /** Grupos con nota puesta. */
+    calificados?: number;
+    /** Promedio de las notas puestas, o null si todavía no hay ninguna. */
+    promedio_nota?: number | null;
     /**
      * Mensajes de agenda de esta actividad cuyo último turno es del estudiante.
      * Es la mensajería de nivel actividad; no incluye la mensajería del curso

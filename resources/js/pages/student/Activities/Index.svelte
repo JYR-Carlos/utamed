@@ -67,6 +67,7 @@
       mime_type: string | null;
       peso_bytes: number | null;
     } | null;
+    equipo_docente?: Array<{ nombre: string; es_titular: boolean }>;
   }
 
   let {
@@ -90,6 +91,7 @@
     id_actividad_asignada_grupo,
     resto_integrantes,
     archivo_enunciado = null,
+    equipo_docente = [],
   }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
@@ -155,42 +157,18 @@
     showEnunciadoModal = !showEnunciadoModal;
   }
 
-  function handleGuardarEntrada(data: { tipo: string; mensaje: string; archivo?: File }) {
+  function handleGuardarEntrada(data: { tipo: string; mensaje: string }) {
     if (!id_actividad_asignada_grupo) {
       console.error('[handleGuardarEntrada] id_actividad_asignada_grupo es null/undefined.', {
         id_actividad_asignada_grupo,
         cod_actividad,
         cod_curso,
         data_tipo: data.tipo,
-        tiene_archivo: !!data.archivo,
       });
       alert(
         'Error: No se encontró el grupo asignado para esta actividad.\n' +
           `(cod_actividad=${cod_actividad}, id_actividad_asignada_grupo=${id_actividad_asignada_grupo})\n` +
           'Revisa la consola del navegador para más detalles.',
-      );
-      return;
-    }
-
-    if (data.tipo === 'Entrega de Avance' && data.archivo) {
-      router.post(
-        `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/entregas`,
-        { tipo: data.tipo, mensaje: data.mensaje, archivo: data.archivo },
-        {
-          forceFormData: true,
-          onSuccess: () => router.reload(),
-          onError: (errors) => {
-            if (errors.archivo) {
-              alert(errors.archivo);
-              return;
-            }
-            if (errors.error_general) {
-              alert(errors.error_general);
-              return;
-            }
-            alert('Error al enviar la entrega');
-          },
-        },
       );
       return;
     }
@@ -350,12 +328,15 @@
     <Agenda
       onCerrar={toggleAgendaModal}
       onInteraccionEnviada={handleGuardarEntrada}
+      {id_curso}
       {cod_curso}
       {nombre_curso}
       {cod_actividad}
       {nombre_actividad}
+      {entrega_obligatoria}
       {listado_interacciones}
       {id_actividad_asignada_grupo}
+      equipoDocente={equipo_docente}
     />
   </div>
 {/if}
@@ -394,7 +375,7 @@
   </div>
 {/if}
 
-{#if showEntregaModal}
+{#if showEntregaModal && id_actividad_asignada_grupo}
   <div
     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
     role="dialog"
@@ -405,12 +386,19 @@
   >
     <Entrega
       onCerrar={toggleEntregaModal}
-      onEntregaEnviada={handleGuardarEntrada}
+      onEntregaCompletada={() => {
+        showEntregaModal = false;
+        router.reload();
+      }}
+      onAvisarDocente={() => {
+        showEntregaModal = false;
+        showAgendaModal = true;
+      }}
+      {id_actividad_asignada_grupo}
       {cod_curso}
-      {nombre_curso}
-      {cod_actividad}
       {nombre_actividad}
       {entrega_obligatoria}
+      esReemplazo={tieneEntregaRegistrada}
     />
   </div>
 {/if}

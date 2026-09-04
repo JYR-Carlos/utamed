@@ -1,41 +1,143 @@
 <script lang="ts">
-  import { Link, router } from '@inertiajs/svelte';
+  /**
+   * Visor del documento de syllabus — `/docente/cursos/{curso}/programa` y
+   * `/admin/cursos/{curso}/programa/revisar` (lámina «Visor de syllabus
+   * (documento)»).
+   *
+   * Docente titular y revisor leen exactamente el mismo documento: mismo índice
+   * de 240, misma columna de lectura de 760, mismo historial de 280, mismos
+   * banners y el mismo sello. Lo único que se recompone es el pie de acciones y
+   * las migas. **El documento se lee; escribir ocurre en el wizard**
+   * (`SyllabusWizard`, su propia página), por eso no hay ni un control de
+   * edición dentro del papel.
+   *
+   * Correspondencia con el modelo (no hay estado RECHAZADO en la BD):
+   *
+   *   BORRADOR + razón de rechazo vigente → «RECHAZADO»
+   *   BORRADOR                            → «BORRADOR»
+   *   BASICO_COMPLETO                     → «BÁSICO COMPLETO»
+   *   COMPLETO / ENVIADO                  → «EN REVISIÓN»
+   *   APROBADO / PUBLICADO                → «APROBADO» (sellado, sin acciones)
+   *
+   * Rechazar devuelve el programa a BORRADOR y deja la razón en
+   * `auditoria.programa_historial`; esa tabla es además la única fuente de
+   * fechas del documento, porque `curso.programa` no tiene ninguna columna de
+   * fecha (`$timestamps = false`).
+   *
+   * De la lámina quedó fuera lo que el modelo no guarda: el prerrequisito de la
+   * sección I (no existe tabla de prerrequisitos), la columna «Horas» por unidad
+   * (`UnidadSyllabus` no la tiene) y el marcado en rojo del índice de las
+   * secciones citadas en un rechazo (la razón es texto libre, no referencias).
+   */
+  import { Link, router, page } from '@inertiajs/svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import AyudanteLayout from '@/layouts/AyudanteLayout.svelte';
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
-  import Alert from '@/components/ui/alert/alert.svelte';
-  import { Card, CardContent } from '@/components/ui/card';
-  import { Button } from '@/components/ui/button';
   import {
-    ArrowLeft,
-    Printer,
-    AlertCircle,
-    CheckCircle,
-    Plus,
-    Edit2,
+    AlertOctagon,
+    BadgeCheck,
     CalendarDays,
+    Check,
+    CheckCircle2,
+    ChevronRight,
     Clock,
-    Save,
+    FilePlus,
+    FileText,
+    File as FileIcon,
+    GitBranch,
+    Lock,
     Pencil,
+    PenTool,
+    Printer,
+    Save,
+    Send,
+    Trash2,
+    User,
     X,
+    XCircle,
   } from 'lucide-svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Curso, Asignatura, Programa } from '@/types/admin.types';
-  import { parseFechaSoloDia, formatFechaCorta, formatFechaLarga } from '@/utils/formatters';
-  import SyllabusModal from '@/modules/resources/programa/components/SyllabusModal.svelte';
+  import {
+    parseFechaSoloDia,
+    formatFechaCorta,
+    formatFechaHora,
+    formatFechaLarga,
+  } from '@/utils/formatters';
   import DatePickerCL from '@/components/custom/common/DatePickerCL.svelte';
   import ProgramaDocument from '@/modules/resources/programa/components/ProgramaDocument.svelte';
-  import { toast } from 'svelte-sonner';
+  import SyllabusIndice from '@/modules/resources/programa/components/SyllabusIndice.svelte';
+  import SyllabusHistorial from '@/modules/resources/programa/components/SyllabusHistorial.svelte';
+  import SyllabusRechazoDialog from '@/modules/resources/programa/components/SyllabusRechazoDialog.svelte';
+  import {
+    estadoVisual,
+    estaSellado,
+    estaEnRevision,
+    type EventoHistorial,
+  } from '@/modules/resources/programa/utils/syllabusEstado';
   import { hasPermission } from '@/services/permissionValidator';
   import type { Permission } from '@/types/permissions/permissions';
 
+  interface SeccionSyllabus {
+    numeral_romano?: string;
+    nombre_seccion: string;
+    contenidos?: Array<{ texto_contenido: string | null }>;
+    contenidos_programa?: Array<{ texto_contenido: string | null }>;
+    componentes?: any[];
+    ponderacion_optativa?: { porcentaje?: number } | null;
+  }
+
+  /**
+   * Lo que el visor necesita por encima del tipo compartido `Programa`. Se
+   * omiten `secciones` (aquí llegan ya aplanadas por `ParsesSyllabus`, sin el
+   * `orden` del tipo administrativo) para no chocar con esa declaración.
+   */
+  interface ProgramaVisor extends Omit<Programa, 'secciones'> {
+    secciones?: SeccionSyllabus[];
+    secciones_requeridas?: string[];
+    tipo_syllabus?: string | null;
+    historial?: EventoHistorial[];
+    fecha_modificacion?: string | null;
+    fecha_aprobacion?: string | null;
+    autor?: string | null;
+    revisor?: string | null;
+    razon_rechazo?: string | null;
+    fecha_rechazo?: string | null;
+    rechazado_por?: string | null;
+  }
+
+  /**
+   * Nombres canónicos de las nueve secciones — los mismos que emite
+   * `App\Traits\ParsesSyllabus`. Sólo se usan para nombrar una sección exigida
+   * que no viene en el JSONB del programa.
+   */
+  const NOMBRES_SECCION: Record<string, string> = {
+    I: 'Identificación',
+    II: 'Presentación',
+    III: 'Estándares',
+    IV: 'Competencias',
+    V: 'Evaluación Diagnóstica',
+    VI: 'Unidades',
+    VII: 'Planificación',
+    VIII: 'Recursos',
+    IX: 'Aspectos Administrativos',
+  };
+
   interface Props {
-    curso: Curso;
+    curso: Curso & {
+      cod_asignatura?: string | null;
+      letra_grupo?: string | null;
+      agno_real?: number | null;
+      semestre_real?: number | null;
+      docente_titular?: string | null;
+    };
     asignatura?: Asignatura | null;
-    programa: Programa | null;
+    programa: ProgramaVisor | null;
     canApprove?: boolean;
     canEdit?: boolean;
+    canCreate?: boolean;
+    canDelete?: boolean;
     userPermissions?: Permission[];
     userId?: number;
     layoutType?: 'docente' | 'ayudante' | 'estudiante' | 'admin';
@@ -50,16 +152,16 @@
     programa,
     canApprove = false,
     canEdit = false,
+    canCreate = false,
+    canDelete = false,
     userPermissions = [],
-    userId = 0,
     layoutType = 'docente',
     backUrl,
     breadcrumbs = [],
-    mode = 'view',
   }: Props = $props();
 
-  // Normalise: some controllers send asignatura separately, others embed it in curso
   const asignatura = $derived(asignaturaProp ?? curso?.asignatura ?? null);
+  const esAdmin = $derived(layoutType === 'admin');
 
   const resolvedBackUrl = $derived(
     backUrl ??
@@ -67,683 +169,982 @@
         ? `/ayudante/cursos/${curso?.id_curso}`
         : layoutType === 'estudiante'
           ? `/estudiante/cursos/${curso?.id_curso}`
-          : layoutType === 'admin'
+          : esAdmin
             ? '/admin/cursos'
             : '/docente/cursos'),
   );
 
-  let title = $derived(`Programa: ${asignatura?.nombre ?? curso?.nombre ?? ''}`);
+  const codigo = $derived(curso?.cod_asignatura ?? asignatura?.cod_asignatura ?? null);
+  const titulo = $derived(asignatura?.nombre ?? curso?.asignatura_nombre ?? curso?.nombre ?? '');
+  const rotuloCurso = $derived([codigo, titulo].filter(Boolean).join(' '));
 
-  // Datos normalizados para ProgramaDocument
-  const secciones = $derived(programa?.secciones ?? []);
-  const metadata = $derived(
-    programa
-      ? {
-          version: programa.version_programa,
-          fecha_creacion: programa.fecha_creacion,
-        }
-      : undefined,
+  // ── Estado del documento ──────────────────────────────────────────────────
+
+  const fueRechazado = $derived(
+    programa?.estado === 'BORRADOR' && !!programa?.razon_rechazo?.trim(),
+  );
+  const sellado = $derived(estaSellado(programa?.estado));
+  const enRevision = $derived(estaEnRevision(programa?.estado));
+  const badge = $derived(estadoVisual(programa?.estado ?? null, fueRechazado));
+  const tipoSyllabus = $derived(
+    programa?.tipo_syllabus ?? programa?.data_syllabus?.metadata?.tipo_syllabus ?? null,
   );
 
-  // Curso preparado para los modales
-  const preparedCurso = $derived({
-    ...curso,
-    asignatura_nombre: asignatura?.nombre ?? curso?.asignatura_nombre ?? curso?.nombre,
-    has_programa: !!programa,
-    // Embed asignatura fields so SyllabusModal.initializeWizard can read them
-    creditos_sct: asignatura?.creditos_sct ?? curso?.creditos_sct,
-    horas_catedra: asignatura?.horas_catedra ?? curso?.horas_catedra,
-    horas_taller: asignatura?.horas_taller ?? curso?.horas_taller,
-    horas_laboratorio: asignatura?.horas_laboratorio ?? curso?.horas_laboratorio,
-  });
-  let isSyllabusModalOpen = $state(false);
-  let selectedSyllabusType = $state<'simplified' | 'combined' | 'complete' | null>(null);
-  let isLoading = $state(false);
-  let permissionError = $state<string | null>(null);
+  const secciones = $derived<SeccionSyllabus[]>(programa?.secciones ?? []);
 
-  // Permisos: servidor ya calculó canEdit via policy; frontend puede complementar con permisos explícitos
+  /**
+   * Numerales que este tipo de syllabus exige para poder entregarse
+   * (`ProgramaService::getRequiredSecciones`). Es un criterio de completitud,
+   * **no** el índice: hay programas guardados con la estructura antigua de
+   * `SyllabusStructure`, cuyos numerales y nombres no coinciden con los nueve
+   * del asistente. El documento manda sobre qué secciones se listan.
+   */
+  const requeridas = $derived(programa?.secciones_requeridas ?? []);
+
+  function tieneContenido(seccion: SeccionSyllabus | undefined): boolean {
+    const items = seccion?.contenidos ?? seccion?.contenidos_programa ?? [];
+    return items.some((c) => c.texto_contenido?.trim());
+  }
+
+  /**
+   * Índice del documento: lo que el programa trae, en su propio orden, más las
+   * secciones exigidas que ni siquiera existen en el JSONB — que se muestran
+   * como pendientes en vez de desaparecer.
+   */
+  const seccionesDelTipo = $derived.by(() => {
+    const presentes = secciones.filter((s) => !!s.numeral_romano);
+    const vistos = new Set(presentes.map((s) => s.numeral_romano));
+
+    const faltantes = requeridas
+      .filter((numeral) => !vistos.has(numeral))
+      .map(
+        (numeral): SeccionSyllabus => ({
+          numeral_romano: numeral,
+          nombre_seccion: NOMBRES_SECCION[numeral] ?? `Sección ${numeral}`,
+        }),
+      );
+
+    return [...presentes, ...faltantes];
+  });
+
+  const pendientes = $derived(
+    seccionesDelTipo.filter(
+      (s) => requeridas.includes(s.numeral_romano ?? '') && !tieneContenido(s),
+    ),
+  );
+
+  const entradasIndice = $derived(
+    seccionesDelTipo.map((s) => ({
+      numeral: s.numeral_romano ?? '',
+      nombre: s.nombre_seccion,
+      completa: tieneContenido(s),
+    })),
+  );
+
+  const documentoCompleto = $derived(requeridas.length > 0 && pendientes.length === 0);
+
+  const razonBloqueoEnvio = $derived(
+    documentoCompleto
+      ? null
+      : requeridas.length === 0
+        ? 'Este documento no declara qué secciones exige'
+        : `Faltan ${pendientes.length === 1 ? 'la sección' : 'las secciones'} ${pendientes
+            .map((s) => s.numeral_romano)
+            .join(', ')}`,
+  );
+
+  // ── Permisos ──────────────────────────────────────────────────────────────
+
   const canEditPrograma = $derived(
     canEdit ||
       hasPermission(userPermissions, 'cursos/programas:modificar:modulo_1') ||
       hasPermission(userPermissions, 'cursos/programas:*'),
   );
 
-  function openCompleteWizard() {
-    // Salta el selector y abre directamente el wizard COMPLETO pre-poblado desde BASICO
-    selectedSyllabusType = 'combined';
-    isSyllabusModalOpen = true;
-  }
+  /** Docente y ayudante: sólo se edita mientras el documento no esté sellado. */
+  const puedeEditar = $derived(canEditPrograma && (esAdmin || !sellado));
+  const puedeCrear = $derived(canCreate || (canEditPrograma && layoutType !== 'estudiante'));
 
-  function openEditBasico() {
-    selectedSyllabusType = 'simplified';
-    isSyllabusModalOpen = true;
-  }
+  // ── Índice: sección visible ───────────────────────────────────────────────
 
-  function openEditCompleto() {
-    selectedSyllabusType = 'complete';
-    isSyllabusModalOpen = true;
-  }
+  let seccionActiva = $state<string | null>(null);
 
-  function closeSyllabusModal() {
-    isSyllabusModalOpen = false;
-    selectedSyllabusType = null;
-  }
+  $effect(() => {
+    // Depende del documento renderizado: al cambiar de programa se re-observa.
+    void seccionesDelTipo.length;
 
-  function handleSyllabusSuccess(updatedPrograma: Programa) {
-    closeSyllabusModal();
-    toast.success('Programa guardado correctamente');
-    router.reload({ only: ['programa'] });
-  }
+    const nodos = Array.from(document.querySelectorAll<HTMLElement>('[id^="seccion-"]'));
+    if (nodos.length === 0) return;
 
-  // ── Deadline display ──────────────────────────────────────────────────────
-  // D-04: el parseo UTC-safe (`parseDeadlineDate`) se promovió a
-  // `parseFechaSoloDia` en `@/utils/formatters`; aquí se importa en vez de
-  // duplicarlo. El formato largo con weekday equivale exactamente a
-  // `formatFechaLarga`, por lo que `formatDeadline` ahora lo reexporta.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible) seccionActiva = visible.target.id.replace('seccion-', '');
+      },
+      { rootMargin: '-10% 0px -70% 0px', threshold: 0 },
+    );
 
-  /** ISO/timestamp → string largo en es-CL (weekday incluido). */
-  const formatDeadline = formatFechaLarga;
-
-  function daysLeft(val: string | null | undefined): number | null {
-    if (!val) return null;
-    const diff = Math.ceil((parseFechaSoloDia(val).getTime() - Date.now()) / 86_400_000);
-    return diff;
-  }
-
-  /**
-   * Returns which deadline is relevant for the docente right now:
-   * - No program / BORRADOR → basic deadline
-   * - BASICO_COMPLETO        → syllabus deadline
-   * - anything else          → null (nothing pending)
-   */
-  const activeDeadline = $derived.by(() => {
-    if (layoutType !== 'docente') return null;
-    const estado = programa?.estado ?? null;
-    if (!estado || estado === 'BORRADOR') {
-      const d = curso.fecha_limite_entrega_basico;
-      return d ? { label: 'Fecha límite — entrega del programa básico', value: d } : null;
-    }
-    if (estado === 'BASICO_COMPLETO') {
-      const d = curso.fecha_limite_entrega_syllabus;
-      return d ? { label: 'Fecha límite — entrega del syllabus completo', value: d } : null;
-    }
-    return null;
+    nodos.forEach((n) => observer.observe(n));
+    return () => observer.disconnect();
   });
 
-  // ── Admin: deadline editor ─────────────────────────────────────────────────
-  /** ISO string → "YYYY-MM-DD" para el DatePicker */
-  function toDateInput(val: string | null | undefined): string {
-    if (!val) return '';
-    return val.slice(0, 10);
+  // ── Asistente ─────────────────────────────────────────────────────────────
+  // Escribir ya no ocurre en un modal encima del documento: el asistente es una
+  // página propia (`docente/SyllabusWizard.svelte`) con su URL.
+
+  /**
+   * Abre el asistente. `tipo` sólo hace falta cuando se decide el tipo aquí:
+   * al crear desde cero y al promover un básico a completo. Editando, el tipo
+   * lo dicta el propio programa.
+   */
+  function irAlAsistente(tipo?: 'BASICO' | 'COMPLETO') {
+    const base = esAdmin
+      ? `${rutaAdmin}/editar`
+      : layoutType === 'ayudante'
+        ? `/ayudante/cursos/${curso.id_curso}/programa/editar`
+        : `${rutaDocente}/editar`;
+    router.visit(tipo ? `${base}?tipo=${tipo}` : base);
   }
 
-  /** Fecha corta es-CL; conserva el em-dash cuando no hay valor (D-04). */
+  const abrirEdicion = () => irAlAsistente();
+
+  // ── Transiciones de estado ────────────────────────────────────────────────
+
+  let accionEnCurso = $state<'basico' | 'enviar' | 'aprobar' | 'rechazar' | 'eliminar' | null>(
+    null,
+  );
+
+  const rutaDocente = $derived(`/docente/cursos/${curso.id_curso}/programa`);
+  const rutaAdmin = $derived(`/admin/cursos/${curso.id_curso}/programa`);
+
+  function completarBasico() {
+    accionEnCurso = 'basico';
+    router.put(
+      `${rutaDocente}/completar-basico`,
+      {},
+      { onFinish: () => (accionEnCurso = null) },
+    );
+  }
+
+  function enviarParaRevision() {
+    if (!documentoCompleto) return;
+    accionEnCurso = 'enviar';
+    router.put(`${rutaDocente}/enviar`, {}, { onFinish: () => (accionEnCurso = null) });
+  }
+
+  let confirmandoEliminar = $state(false);
+
+  function eliminarPrograma() {
+    accionEnCurso = 'eliminar';
+    router.delete(rutaDocente, {
+      onFinish: () => {
+        accionEnCurso = null;
+        confirmandoEliminar = false;
+      },
+    });
+  }
+
+  function aprobar() {
+    accionEnCurso = 'aprobar';
+    router.put(`${rutaAdmin}/aprobar`, {}, { onFinish: () => (accionEnCurso = null) });
+  }
+
+  let rechazoAbierto = $state(false);
+
+  function rechazar(razon: string) {
+    accionEnCurso = 'rechazar';
+    router.put(
+      `${rutaAdmin}/rechazar`,
+      { razon_rechazo: razon, accion_tipo: 'rechazo' },
+      {
+        onSuccess: () => (rechazoAbierto = false),
+        onFinish: () => (accionEnCurso = null),
+      },
+    );
+  }
+
+  // ── Historial: panel fijo en ≥1440, slide-over abajo ───────────────────────
+
+  const historial = $derived<EventoHistorial[]>(programa?.historial ?? []);
+  let historialAbierto = $state(false);
+
+  // ── Fechas límite ─────────────────────────────────────────────────────────
+
+  function toDateInput(val: string | null | undefined): string {
+    return val ? val.slice(0, 10) : '';
+  }
+
   function formatDate(val: string | null | undefined): string {
     return val ? formatFechaCorta(val) : '—';
   }
 
-  function isOverdue(val: string | null | undefined): boolean {
-    if (!val) return false;
-    return parseFechaSoloDia(val) < new Date();
+  function diasRestantes(val: string | null | undefined): number | null {
+    if (!val) return null;
+    return Math.ceil((parseFechaSoloDia(val).getTime() - Date.now()) / 86_400_000);
   }
 
-  let editingDates = $state(false);
-  let isSavingDates = $state(false);
-  let dateBasico = $state<string | null>(
-    toDateInput(curso.fecha_limite_entrega_basico) || null,
-  );
-  let dateSyllabus = $state<string | null>(
+  function estaVencida(val: string | null | undefined): boolean {
+    return !!val && parseFechaSoloDia(val) < new Date();
+  }
+
+  /** Plazo que le corre al docente ahora mismo, según el estado del documento. */
+  const plazoVigente = $derived.by(() => {
+    if (esAdmin || layoutType !== 'docente') return null;
+    const estado = programa?.estado ?? null;
+    if (!estado || estado === 'BORRADOR') {
+      const d = curso.fecha_limite_entrega_basico;
+      return d ? { label: 'Entrega del programa básico', value: d } : null;
+    }
+    if (estado === 'BASICO_COMPLETO') {
+      const d = curso.fecha_limite_entrega_syllabus;
+      return d ? { label: 'Entrega del syllabus completo', value: d } : null;
+    }
+    return null;
+  });
+
+  let editandoFechas = $state(false);
+  let guardandoFechas = $state(false);
+  let fechaBasico = $state<string | null>(toDateInput(curso.fecha_limite_entrega_basico) || null);
+  let fechaSyllabus = $state<string | null>(
     toDateInput(curso.fecha_limite_entrega_syllabus) || null,
   );
 
-  function saveDates() {
-    isSavingDates = true;
+  function guardarFechas() {
+    guardandoFechas = true;
     router.put(
-      `/admin/cursos/${curso.id_curso}/programa/fechas`,
+      `${rutaAdmin}/fechas`,
       {
-        fecha_limite_entrega_basico: dateBasico || null,
-        fecha_limite_entrega_syllabus: dateSyllabus || null,
+        fecha_limite_entrega_basico: fechaBasico || null,
+        fecha_limite_entrega_syllabus: fechaSyllabus || null,
       },
       {
-        onSuccess: () => {
-          editingDates = false;
-        },
-        onFinish: () => {
-          isSavingDates = false;
-        },
+        onSuccess: () => (editandoFechas = false),
+        onFinish: () => (guardandoFechas = false),
       },
     );
   }
 
-  function cancelDateEdit() {
-    dateBasico = toDateInput(curso.fecha_limite_entrega_basico) || null;
-    dateSyllabus = toDateInput(curso.fecha_limite_entrega_syllabus) || null;
-    editingDates = false;
+  function cancelarEdicionFechas() {
+    fechaBasico = toDateInput(curso.fecha_limite_entrega_basico) || null;
+    fechaSyllabus = toDateInput(curso.fecha_limite_entrega_syllabus) || null;
+    editandoFechas = false;
   }
 
-  // ── Admin: approval actions ────────────────────────────────────────────────
-  let isApproving = $state(false);
-  let isRejecting = $state(false);
-  let showRejectionReason = $state(false);
-  let rejectionReason = $state('');
+  // ── Flash ─────────────────────────────────────────────────────────────────
 
-  const canApprovePrograma = $derived(canApprove);
+  const flash = $derived(($page.props as any)?.flash ?? {});
+  const flashError = $derived(flash.error as string | undefined);
+  const flashOk = $derived((flash.success ?? flash.warning) as string | undefined);
 
-  const showActionPanel = $derived(
-    layoutType === 'admin' &&
-      canApprovePrograma &&
-      (programa?.estado === 'COMPLETO' ||
-        programa?.estado === 'APROBADO' ||
-        programa?.estado === 'BASICO_COMPLETO'),
-  );
+  // ── Vocabulario visual compartido ─────────────────────────────────────────
 
-  function handleApprove() {
-    isApproving = true;
-    router.put(
-      `/admin/cursos/${curso.id_curso}/programa/aprobar`,
-      {},
-      { onFinish: () => (isApproving = false) },
-    );
-  }
-
-  function handleReject() {
-    isRejecting = true;
-    router.put(
-      `/admin/cursos/${curso.id_curso}/programa/rechazar`,
-      { razon_rechazo: rejectionReason, accion_tipo: 'rechazo' },
-      { onFinish: () => (isRejecting = false) },
-    );
-  }
-
-  function openAdminSyllabusModal() {
-    selectedSyllabusType = 'combined';
-    isSyllabusModalOpen = true;
-  }
-
-  function handleAdminSyllabusSuccess() {
-    isSyllabusModalOpen = false;
-    router.reload();
-  }
+  const BTN_OUTLINE =
+    'inline-flex items-center gap-[7px] rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2.5 text-[14px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA] disabled:opacity-50';
+  const BTN_PRIMARY =
+    'inline-flex items-center gap-[7px] rounded-lg border border-[#002F6C] bg-[#002F6C] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#1B4789] disabled:opacity-60';
+  const BTN_PELIGRO =
+    'inline-flex items-center gap-[7px] rounded-lg border border-[#F0D2D2] bg-white px-3.5 py-2.5 text-[14px] font-medium text-[#B91C1C] transition-colors hover:bg-[#FEF2F2] disabled:opacity-50';
+  const BTN_BLOQUEADO =
+    'inline-flex cursor-not-allowed items-center gap-[7px] rounded-lg border border-[#E0E3E9] bg-[#E9EBEF] px-4 py-2.5 text-[14px] font-semibold text-[#9AA0AE]';
+  const META = 'inline-flex items-center gap-1.5';
 </script>
 
-{#snippet pageContent()}
-  <div class="p-6 max-w-5xl mx-auto space-y-6">
-    <!-- Permission Error Alert -->
-    {#if permissionError}
-      <div class="flex gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
-        <AlertCircle class="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-        <div class="flex-1">
-          <p class="text-sm font-medium text-red-900">Acceso Denegado</p>
-          <p class="text-sm text-red-700 mt-1">{permissionError}</p>
-        </div>
-      </div>
-    {/if}
-
-    <!-- Header with Back Button and Mode Controls -->
-    <div class="flex items-center justify-between no-print">
-      <div class="flex items-center gap-4">
-        <Link href={resolvedBackUrl}>
-          <Button variant="ghost" size="icon" disabled={isLoading}>
-            <ArrowLeft class="size-5" />
-          </Button>
-        </Link>
-        <div>
-          <h1 class="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
-          <p class="text-muted-foreground">
-            {curso?.nombre ?? ''}{#if asignatura?.cod_asignatura}
-              - {asignatura.cod_asignatura}{/if}
-          </p>
-        </div>
-      </div>
-      <div class="flex gap-2">
-        <!-- Print button -->
-        <Button variant="outline" onclick={() => window.print()} disabled={isLoading}>
-          <Printer class="mr-2 size-4" />
-          Imprimir
-        </Button>
-      </div>
-    </div>
-
-    <!-- Main Info Card -->
-    {#if asignatura}
-      <div class="no-print grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div class="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Código</p>
-          <p class="text-base font-bold text-gray-900">{asignatura.cod_asignatura}</p>
-        </div>
-        <div class="rounded-xl border border-indigo-100 bg-indigo-50 px-5 py-4 shadow-sm">
-          <p class="text-xs font-semibold text-indigo-400 uppercase tracking-wide mb-1">
-            Créditos SCT
-          </p>
-          <p class="text-2xl font-extrabold text-indigo-700">{asignatura.creditos_sct}</p>
-        </div>
-        <div class="rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 shadow-sm">
-          <p class="text-xs font-semibold text-blue-400 uppercase tracking-wide mb-1">
-            Horas Cátedra
-          </p>
-          <p class="text-2xl font-extrabold text-blue-700">{asignatura.horas_catedra}</p>
-        </div>
-        <div
-          class="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm flex flex-col justify-center"
-        >
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Versión</p>
-          {#if programa}
-            <span
-              class="inline-flex items-center gap-1.5 self-start rounded-full bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-700 ring-1 ring-indigo-300"
-            >
-              v{programa.version_programa ?? programa.version}
-            </span>
-          {:else}
-            <span
-              class="inline-flex items-center self-start rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-500 ring-1 ring-gray-300"
-              >No generado</span
-            >
-          {/if}
-        </div>
-      </div>
-    {/if}
-
-    <!-- Admin: Fechas límite de entrega (siempre visible para admin) -->
-    {#if layoutType === 'admin'}
-      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm no-print">
-        <div class="flex items-center justify-between mb-4">
-          <div class="flex items-center gap-2">
-            <CalendarDays class="h-5 w-5 text-blue-600" />
-            <h2 class="text-base font-semibold text-gray-900">Fechas límite de entrega</h2>
-          </div>
-          {#if !editingDates}
-            <Button
-              variant="ghost"
-              size="sm"
-              onclick={() => (editingDates = true)}
-              class="gap-1.5 text-gray-600"
-            >
-              <Pencil class="h-3.5 w-3.5" />
-              Editar
-            </Button>
-          {/if}
-        </div>
-
-        {#if editingDates}
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label for="admin-date-basico" class="block text-sm font-medium text-gray-700 mb-1">
-                Fecha límite — Básico
-                <span class="text-xs text-gray-400 font-normal ml-1"
-                  >(plazo para entregar el programa básico)</span
-                >
-              </label>
-              <DatePickerCL
-                id="admin-date-basico"
-                value={dateBasico}
-                onchange={(v) => (dateBasico = v)}
-                disabled={isSavingDates}
-              />
-            </div>
-            <div>
-              <label for="admin-date-syllabus" class="block text-sm font-medium text-gray-700 mb-1">
-                Fecha límite — Syllabus completo
-                <span class="text-xs text-gray-400 font-normal ml-1"
-                  >(debe ser posterior al básico)</span
-                >
-              </label>
-              <DatePickerCL
-                id="admin-date-syllabus"
-                value={dateSyllabus}
-                minValue={dateBasico}
-                onchange={(v) => (dateSyllabus = v)}
-                disabled={isSavingDates}
-              />
-            </div>
-          </div>
-          <div class="flex gap-2 mt-4 justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onclick={cancelDateEdit}
-              disabled={isSavingDates}
-              class="gap-1.5"
-            >
-              <X class="h-3.5 w-3.5" />
-              Cancelar
-            </Button>
-            <Button
-              size="sm"
-              onclick={saveDates}
-              disabled={isSavingDates}
-              class="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Save class="h-3.5 w-3.5" />
-              {isSavingDates ? 'Guardando...' : 'Guardar fechas'}
-            </Button>
-          </div>
-        {:else}
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="rounded-lg border border-gray-100 bg-gray-50 p-3">
-              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Básico</p>
-              <p
-                class={`text-sm font-semibold ${isOverdue(curso.fecha_limite_entrega_basico) && programa?.estado === 'BORRADOR' ? 'text-red-600' : 'text-gray-900'}`}
-              >
-                {formatDate(curso.fecha_limite_entrega_basico)}
-              </p>
-              {#if isOverdue(curso.fecha_limite_entrega_basico) && programa?.estado === 'BORRADOR'}
-                <p class="text-xs text-red-500 mt-0.5">Plazo vencido</p>
-              {/if}
-            </div>
-            <div class="rounded-lg border border-gray-100 bg-gray-50 p-3">
-              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
-                Syllabus completo
-              </p>
-              <p
-                class={`text-sm font-semibold ${isOverdue(curso.fecha_limite_entrega_syllabus) && programa?.estado === 'BASICO_COMPLETO' ? 'text-red-600' : 'text-gray-900'}`}
-              >
-                {formatDate(curso.fecha_limite_entrega_syllabus)}
-              </p>
-              {#if isOverdue(curso.fecha_limite_entrega_syllabus) && programa?.estado === 'BASICO_COMPLETO'}
-                <p class="text-xs text-red-500 mt-0.5">Plazo vencido</p>
-              {/if}
-            </div>
-          </div>
-          {#if !curso.fecha_limite_entrega_basico && !curso.fecha_limite_entrega_syllabus}
-            <p class="text-sm text-gray-400 italic mt-1">
-              No se han definido fechas límite para este curso.
-            </p>
-          {/if}
+{#snippet metaFila()}
+  <div
+    class="flex flex-wrap items-center gap-x-[18px] gap-y-2 border-t border-dashed border-[#E5E7EB] pt-2.5 text-[12px] text-[#5A5E6E]"
+  >
+    {#if tipoSyllabus}
+      <span class={META}>
+        <FileText size={14} class="text-[#9AA0AE]" aria-hidden="true" />
+        Tipo <strong class="font-semibold text-[#1A1A24]">{tipoSyllabus}</strong>
+        {#if requeridas.length > 0}
+          · {requeridas.length}
+          {requeridas.length === 1 ? 'sección exigida' : 'secciones exigidas'}
         {/if}
-      </div>
+      </span>
     {/if}
-
-    <!-- Deadline Banner (no-print, docente only) -->
-    {#if activeDeadline}
-      {@const days = daysLeft(activeDeadline.value)}
-      {@const overdue = days !== null && days < 0}
-      {@const urgent = days !== null && days >= 0 && days <= 3}
-      <div
-        class="no-print flex items-start gap-3 rounded-lg border p-4 {overdue
-          ? 'border-red-200 bg-red-50'
-          : urgent
-            ? 'border-yellow-200 bg-yellow-50'
-            : 'border-blue-200 bg-blue-50'}"
-      >
-        <CalendarDays
-          class="h-5 w-5 flex-shrink-0 mt-0.5 {overdue
-            ? 'text-red-600'
-            : urgent
-              ? 'text-yellow-600'
-              : 'text-blue-600'}"
-        />
-        <div class="flex-1 min-w-0">
-          <p
-            class="text-sm font-medium {overdue
-              ? 'text-red-900'
-              : urgent
-                ? 'text-yellow-900'
-                : 'text-blue-900'}"
-          >
-            {activeDeadline.label}
-          </p>
-          <p
-            class="text-sm {overdue
-              ? 'text-red-700'
-              : urgent
-                ? 'text-yellow-700'
-                : 'text-blue-700'} mt-0.5"
-          >
-            {formatDeadline(activeDeadline.value)}
-            {#if days !== null}
-              &nbsp;·&nbsp;
-              {#if overdue}
-                <span class="font-semibold"
-                  >Vencido hace {Math.abs(days)} día{Math.abs(days) !== 1 ? 's' : ''}</span
-                >
-              {:else if days === 0}
-                <span class="font-semibold">Vence hoy</span>
-              {:else}
-                <Clock class="inline h-3.5 w-3.5 -mt-0.5" />
-                <span> {days} día{days !== 1 ? 's' : ''} restante{days !== 1 ? 's' : ''}</span>
-              {/if}
-            {/if}
-          </p>
-        </div>
-      </div>
+    {#if programa?.version_programa}
+      <span class={META}>
+        <GitBranch size={14} class="text-[#9AA0AE]" aria-hidden="true" />
+        Versión <strong class="font-semibold text-[#1A1A24]">{programa.version_programa}</strong>
+      </span>
     {/if}
-
-    {#if programa}
-      <!-- Estado del programa (no-print) -->
-      <div
-        class="no-print flex items-center gap-3 rounded-xl border bg-white px-5 py-3 shadow-sm"
-        class:border-yellow-200={programa.estado === 'BORRADOR'}
-        class:border-amber-200={programa.estado === 'BASICO_COMPLETO'}
-        class:border-blue-200={programa.estado === 'ENVIADO' || programa.estado === 'COMPLETO'}
-        class:border-green-200={programa.estado === 'APROBADO'}
-        class:border-gray-200={![
-          'BORRADOR',
-          'BASICO_COMPLETO',
-          'ENVIADO',
-          'COMPLETO',
-          'APROBADO',
-        ].includes(programa.estado)}
-      >
-        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Estado</span>
-        {#if programa.estado === 'BORRADOR'}
-          <span
-            class="inline-flex items-center gap-1.5 rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-800 ring-1 ring-yellow-300"
-            >⚪ Borrador</span
-          >
-        {:else if programa.estado === 'BASICO_COMPLETO'}
-          <span
-            class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-300"
-            >🟡 Básico Completo</span
-          >
-        {:else if programa.estado === 'ENVIADO' || programa.estado === 'COMPLETO'}
-          <span
-            class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 ring-1 ring-blue-300"
-            >🔵 Pendiente de Aprobación</span
-          >
-        {:else if programa.estado === 'APROBADO'}
-          <span
-            class="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800 ring-1 ring-green-300"
-            >✅ Aprobado</span
-          >
-        {:else}
-          <span
-            class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600 ring-1 ring-gray-300"
-            >{programa.estado}</span
-          >
-        {/if}
-        <span class="text-xs text-gray-400">v{programa.version_programa}</span>
-      </div>
-
-      <!-- Banner: razón de rechazo (solo cuando el programa está en BORRADOR y fue rechazado) -->
-      {#if programa.estado === 'BORRADOR' && programa.razon_rechazo}
-        <div
-          class="no-print flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-5 shadow-sm"
-        >
-          <AlertCircle class="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold text-red-900">Programa devuelto para revisión</p>
-            <p class="mt-1 text-sm text-red-800 whitespace-pre-wrap">{programa.razon_rechazo}</p>
-            {#if programa.fecha_rechazo}
-              <p class="mt-2 text-xs text-red-500">{formatDate(programa.fecha_rechazo)}</p>
-            {/if}
-          </div>
-        </div>
-      {/if}
-
-      <!-- Documento del programa -->
-      <ProgramaDocument {secciones} {metadata}>
-        {#snippet actions()}
-          {#if canEditPrograma && layoutType !== 'admin'}
-            {#if programa.estado === 'BASICO_COMPLETO'}
-              <div class="mt-8 flex flex-col items-center gap-3 pt-6 border-t border-slate-200">
-                <div
-                  class="rounded-lg border border-amber-200 bg-amber-50 p-4 w-full max-w-xl text-center"
-                >
-                  <p class="text-sm font-medium text-amber-900 mb-1">📝 Programa básico creado</p>
-                  <p class="text-sm text-amber-700 mb-3">
-                    Puedes completarlo con todas las secciones del programa completo (III, IV, V,
-                    VII, IX).
-                  </p>
-                  <button
-                    onclick={openCompleteWizard}
-                    class="inline-flex items-center gap-2 px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
-                  >
-                    Completar Syllabus
-                  </button>
-                </div>
-                <button
-                  onclick={openEditBasico}
-                  class="flex items-center gap-2 px-4 py-1.5 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-                >
-                  <Edit2 size={14} />
-                  Editar sección básica
-                </button>
-              </div>
-            {:else if programa.estado !== 'APROBADO'}
-              {@const esTipoBasico = programa.data_syllabus?.metadata?.tipo_syllabus === 'BASICO'}
-              <div class="mt-8 flex justify-center pt-6 border-t border-slate-200">
-                <button
-                  onclick={esTipoBasico ? openEditBasico : openEditCompleto}
-                  class="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  <Edit2 size={18} />
-                  {esTipoBasico ? 'Editar programa básico' : 'Editar Contenidos'}
-                </button>
-              </div>
-            {/if}
-          {/if}
-        {/snippet}
-      </ProgramaDocument>
-    {:else}
-      <!-- No hay programa - mostrar botón para crear -->
-      <Card class="border-blue-200 bg-blue-50 no-print">
-        <CardContent class="pt-6">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="text-lg font-semibold text-blue-900 mb-2">Crear Programa de Cátedra</h3>
-              <p class="text-sm text-blue-800">
-                Inicia la creación del programa básico de la asignatura.
-              </p>
-            </div>
-            <Button
-              variant="default"
-              size="lg"
-              onclick={() => {
-                selectedSyllabusType = 'simplified';
-                isSyllabusModalOpen = true;
-              }}
-            >
-              <Plus class="mr-2 size-5" />
-              Crear Programa
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+    {#if programa?.fecha_modificacion}
+      <span class={META}>
+        <CalendarDays size={14} class="text-[#9AA0AE]" aria-hidden="true" />
+        Última modificación {formatFechaHora(programa.fecha_modificacion)}
+      </span>
     {/if}
-
-    <!-- Admin: Panel de acciones (aprobación / rechazo) -->
-    {#if showActionPanel}
-      <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm no-print">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Acciones</h2>
-
-        {#if programa?.estado === 'COMPLETO' && canApprovePrograma}
-          <div class="space-y-4">
-            <Alert variant="default">
-              <AlertCircle class="h-4 w-4" />
-              <div>
-                <p class="font-medium">Syllabus completo pendiente de aprobación</p>
-                <p class="text-sm">
-                  El docente ha completado todas las secciones. Puedes aprobarlo o devolverlo para
-                  revisión.
-                </p>
-              </div>
-            </Alert>
-
-            {#if showRejectionReason}
-              <div>
-                <label for="rejection-reason" class="block text-sm font-medium text-gray-900 mb-2"
-                  >Motivo (opcional)</label
-                >
-                <textarea
-                  id="rejection-reason"
-                  bind:value={rejectionReason}
-                  rows="3"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  placeholder="Indica al docente qué debe corregir..."
-                ></textarea>
-              </div>
-            {/if}
-
-            <div class="flex gap-3 pt-2">
-              <Button
-                onclick={handleApprove}
-                disabled={isApproving}
-                class="flex-1 bg-green-600 hover:bg-green-700 text-white"
-              >
-                {isApproving ? 'Aprobando...' : 'Aprobar Syllabus'}
-              </Button>
-              <Button
-                onclick={() => {
-                  showRejectionReason = !showRejectionReason;
-                  if (!showRejectionReason) rejectionReason = '';
-                }}
-                variant="outline"
-                class="px-6"
-              >
-                {showRejectionReason ? 'Cancelar' : 'Devolver para revisión'}
-              </Button>
-              {#if showRejectionReason}
-                <Button
-                  onclick={handleReject}
-                  disabled={isRejecting}
-                  class="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                >
-                  {isRejecting ? 'Devolviendo...' : 'Confirmar'}
-                </Button>
-              {/if}
-            </div>
-          </div>
-        {:else if programa?.estado === 'APROBADO'}
-          <Alert variant="default">
-            <CheckCircle class="h-4 w-4" />
-            <div>
-              <p class="font-medium">Syllabus completo aprobado</p>
-              <p class="text-sm">El programa está publicado y disponible para los estudiantes.</p>
-            </div>
-          </Alert>
-        {:else if programa?.estado === 'BASICO_COMPLETO'}
-          <div
-            class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 flex items-center justify-between gap-4"
-          >
-            <div>
-              <p class="font-medium text-emerald-900">✅ Programa básico entregado</p>
-              <p class="text-sm text-emerald-700 mt-1">
-                La versión básica no requiere aprobación. Una vez que el docente complete el
-                syllabus (secciones III–IX), aparecerá aquí para aprobación.
-              </p>
-            </div>
-            <Button
-              onclick={openAdminSyllabusModal}
-              class="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
-              >Completar Syllabus</Button
-            >
-          </div>
-        {/if}
-      </div>
+    {#if programa?.autor}
+      <span class={META}>
+        <User size={14} class="text-[#9AA0AE]" aria-hidden="true" />
+        Autor {programa.autor}
+      </span>
     {/if}
-
-    <!-- Syllabus Modal Editor -->
-    {#if isSyllabusModalOpen}
-      <SyllabusModal
-        bind:isOpen={isSyllabusModalOpen}
-        curso={preparedCurso}
-        syllabusType={selectedSyllabusType}
-        onClose={closeSyllabusModal}
-        onSuccess={layoutType === 'admin' ? handleAdminSyllabusSuccess : handleSyllabusSuccess}
-        canApprove={canApprovePrograma}
-      />
+    {#if programa?.fecha_aprobacion}
+      <span class={META}>
+        <CheckCircle2 size={14} class="text-[#059669]" aria-hidden="true" />
+        Aprobado {formatDate(programa.fecha_aprobacion)}
+      </span>
+    {/if}
+    {#if sellado && programa?.revisor}
+      <span class={META}>
+        <PenTool size={14} class="text-[#9AA0AE]" aria-hidden="true" />
+        Revisado por {programa.revisor}
+      </span>
     {/if}
   </div>
+{/snippet}
+
+{#snippet pageContent()}
+  <div class="min-h-screen bg-white pb-4 print:pb-0">
+    <div class="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-6 sm:px-8">
+      <!-- ── Migas ── -->
+      <nav
+        class="flex flex-wrap items-center gap-1.5 text-[12px] text-[#5A5E6E] print:hidden"
+        aria-label="Ruta de navegación"
+      >
+        {#if esAdmin}
+          <span class="font-semibold text-[#4F46E5]">Admin</span>
+          <ChevronRight size={12} class="text-[#9AA0AE]" aria-hidden="true" />
+          <Link
+            href="/admin/syllabus"
+            class="rounded-lg px-1.5 py-1 font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F5F1EA] hover:text-[#002F6C]"
+          >
+            Syllabus
+          </Link>
+        {:else}
+          <Link
+            href={resolvedBackUrl}
+            class="rounded-lg px-1.5 py-1 font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F5F1EA] hover:text-[#002F6C]"
+          >
+            Mis cursos
+          </Link>
+        {/if}
+        <ChevronRight size={12} class="text-[#9AA0AE]" aria-hidden="true" />
+        <span class="px-1">{rotuloCurso}</span>
+        <ChevronRight size={12} class="text-[#9AA0AE]" aria-hidden="true" />
+        <span class="px-1 font-medium text-[#1A1A24]" aria-current="page">Programa</span>
+      </nav>
+
+      {#if flashError}
+        <p
+          class="m-0 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-[13px] font-medium text-[#B91C1C] print:hidden"
+          role="alert"
+        >
+          {flashError}
+        </p>
+      {/if}
+      {#if flashOk}
+        <p
+          class="m-0 rounded-lg border border-[#A7F3D0] bg-[#ECFDF5] px-4 py-3 text-[13px] font-medium text-[#047857] print:hidden"
+          role="status"
+        >
+          {flashOk}
+        </p>
+      {/if}
+
+      <div
+        class="overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,.08)]"
+      >
+        <!-- ── Cabecera del documento ── -->
+        <header
+          class="flex flex-col gap-2.5 border-b border-[#E5E7EB] bg-white px-5 pt-3.5 pb-4 sm:px-7 {esAdmin
+            ? 'shadow-[inset_3px_0_0_#4F46E5]'
+            : ''}"
+        >
+          <div class="flex flex-wrap items-start gap-5">
+            <div class="flex min-w-0 flex-col gap-1.5">
+              <div class="flex flex-wrap items-baseline gap-2.5">
+                {#if codigo}
+                  <span class="font-mono text-[14px] text-[#5A5E6E]">{codigo}</span>
+                {/if}
+                <h1 class="m-0 text-[24px] font-semibold tracking-[-0.01em] text-[#1A1A24]">
+                  {titulo}
+                </h1>
+              </div>
+              <div class="flex flex-wrap items-center gap-2.5 text-[12.5px] text-[#5A5E6E]">
+                {#if curso.letra_grupo}
+                  <span
+                    class="inline-flex h-5 w-5 items-center justify-center rounded-[5px] bg-[#F5F1EA] text-[11.5px] font-semibold text-[#5A5E6E]"
+                    aria-hidden="true">{curso.letra_grupo}</span
+                  >
+                  <span>Grupo {curso.letra_grupo}</span>
+                {/if}
+                {#if curso.agno_real && curso.semestre_real}
+                  <span class="text-[#D6D9E0]" aria-hidden="true">·</span>
+                  <span>{curso.semestre_real}.º semestre {curso.agno_real}</span>
+                {/if}
+                {#if curso.carrera_nombre}
+                  <span class="text-[#D6D9E0]" aria-hidden="true">·</span>
+                  <span>{curso.carrera_nombre}</span>
+                {/if}
+              </div>
+            </div>
+
+            <div class="ml-auto flex flex-none flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onclick={() => window.print()}
+                class="inline-flex items-center gap-[7px] rounded-lg border border-[#D6D9E0] bg-white px-3 py-2 text-[13px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA] print:hidden"
+              >
+                <Printer size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+                Imprimir
+              </button>
+              {#if programa && historial.length > 0}
+                <button
+                  type="button"
+                  onclick={() => (historialAbierto = true)}
+                  class="inline-flex items-center gap-[7px] rounded-lg border border-[#D6D9E0] bg-white px-3 py-2 text-[13px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA] print:hidden xl:hidden"
+                >
+                  <Clock size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+                  Historial
+                </button>
+              {/if}
+              <span
+                class="inline-flex items-center gap-[7px] rounded-full border px-3 py-1 text-[12.5px] font-semibold {badge.pill}"
+              >
+                <span class="h-[7px] w-[7px] rounded-full {badge.dot}" aria-hidden="true"></span>
+                {badge.label}
+              </span>
+            </div>
+          </div>
+
+          {#if programa}
+            {@render metaFila()}
+          {/if}
+        </header>
+
+        {#if programa}
+          <!-- ── Banner de rechazo: primer contenido de la pantalla ── -->
+          {#if fueRechazado && !esAdmin}
+            <div class="bg-[#F5F1EA] px-5 pt-5 sm:px-7">
+              <div
+                class="flex gap-3.5 rounded-[10px] border border-[#E5B4B4] border-l-4 border-l-[#8A1538] bg-[#FDF3F3] px-5 py-4"
+                role="alert"
+              >
+                <AlertOctagon size={20} class="mt-0.5 flex-none text-[#8A1538]" aria-hidden="true" />
+                <div class="flex min-w-0 flex-col gap-2">
+                  <div class="flex flex-wrap items-baseline gap-2.5">
+                    <span class="text-[15.5px] font-semibold text-[#7A1230]">
+                      Syllabus rechazado{programa.rechazado_por ? ` por ${programa.rechazado_por}` : ''}
+                    </span>
+                    {#if programa.fecha_rechazo}
+                      <span class="text-[12.5px] text-[#8A6A6A]"
+                        >{formatDate(programa.fecha_rechazo)}</span
+                      >
+                    {/if}
+                  </div>
+                  <p
+                    class="m-0 max-w-[800px] text-[14.5px] leading-[1.6] text-pretty whitespace-pre-wrap text-[#4A2028]"
+                  >
+                    {programa.razon_rechazo}
+                  </p>
+                  {#if puedeEditar}
+                    <div class="flex flex-wrap items-center gap-3.5 pt-0.5 print:hidden">
+                      <button
+                        type="button"
+                        onclick={abrirEdicion}
+                        class="inline-flex items-center gap-[7px] rounded-lg border border-[#8A1538] bg-[#8A1538] px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#7A1230]"
+                      >
+                        <Pencil size={14} aria-hidden="true" />
+                        Editar syllabus
+                      </button>
+                    </div>
+                  {/if}
+                </div>
+              </div>
+            </div>
+          {/if}
+
+          <!-- ── Plazo vigente del docente ── -->
+          {#if plazoVigente}
+            {@const dias = diasRestantes(plazoVigente.value)}
+            {@const vencido = dias !== null && dias < 0}
+            {@const urgente = dias !== null && dias >= 0 && dias <= 3}
+            <div class="bg-[#F5F1EA] px-5 pt-5 sm:px-7 print:hidden">
+              <p
+                class="m-0 flex flex-wrap items-center gap-2 rounded-[10px] border px-4 py-3 text-[13px] {vencido
+                  ? 'border-[#F6C9C9] bg-[#FEF2F2] text-[#B91C1C]'
+                  : urgente
+                    ? 'border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]'
+                    : 'border-[#C9D6E6] bg-[#E8EDF5] text-[#002F6C]'}"
+              >
+                <CalendarDays size={15} class="flex-none" aria-hidden="true" />
+                <span class="font-semibold">{plazoVigente.label}</span>
+                <span>· {formatFechaLarga(plazoVigente.value)}</span>
+                {#if dias !== null}
+                  <span class="font-semibold">
+                    ·
+                    {#if vencido}
+                      Vencido hace {Math.abs(dias)}
+                      {Math.abs(dias) === 1 ? 'día' : 'días'}
+                    {:else if dias === 0}
+                      Vence hoy
+                    {:else}
+                      {dias}
+                      {dias === 1 ? 'día restante' : 'días restantes'}
+                    {/if}
+                  </span>
+                {/if}
+              </p>
+            </div>
+          {/if}
+
+          <!-- ── Índice · lectura · contexto ── -->
+          <div
+            class="flex flex-col items-start gap-6 bg-[#F5F1EA] px-5 py-6 sm:px-7 lg:flex-row print:bg-white print:p-0"
+          >
+            <div class="w-full lg:w-[240px] lg:flex-none print:hidden">
+              <SyllabusIndice
+                entradas={entradasIndice}
+                activa={seccionActiva}
+                tipo={tipoSyllabus}
+                {requeridas}
+                mostrarProgreso={!sellado && !enRevision}
+              />
+            </div>
+
+            <div class="flex w-full min-w-0 flex-col gap-3 lg:w-[760px] lg:flex-none">
+              {#if sellado}
+                <div class="flex justify-end print:justify-start">
+                  <span
+                    class="inline-flex flex-wrap items-center gap-2.5 rounded-[10px] border border-[#A7F3D0] bg-[#ECFDF5] px-3.5 py-2"
+                  >
+                    <BadgeCheck size={17} class="text-[#047857]" aria-hidden="true" />
+                    <span class="text-[13px] font-semibold text-[#047857]">APROBADO</span>
+                    {#if programa.fecha_aprobacion || programa.revisor}
+                      <span class="h-3.5 w-px bg-[#A7F3D0]" aria-hidden="true"></span>
+                      <span class="text-[12.5px] text-[#0F6B4F]">
+                        {[
+                          programa.fecha_aprobacion ? formatDate(programa.fecha_aprobacion) : null,
+                          programa.revisor,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    {/if}
+                  </span>
+                </div>
+              {/if}
+
+              <ProgramaDocument
+                secciones={seccionesDelTipo}
+                pendientes={sellado || enRevision ? [] : pendientes}
+              />
+            </div>
+
+            {#if historial.length > 0}
+              <div class="hidden xl:block xl:w-[280px] xl:flex-none print:hidden">
+                <SyllabusHistorial eventos={historial} />
+              </div>
+            {/if}
+          </div>
+
+          <!-- ── Pie de acciones ── -->
+          <div
+            class="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-[#E5E7EB] bg-white px-5 py-3.5 shadow-[0_-1px_3px_rgba(0,0,0,.06)] sm:px-7 print:hidden"
+          >
+            {#if sellado && !esAdmin}
+              <p class="m-0 flex items-center gap-2 text-[13px] text-[#5A5E6E]">
+                <Lock size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+                Sellado{programa.fecha_aprobacion
+                  ? ` el ${formatDate(programa.fecha_aprobacion)}`
+                  : ''}. Para modificarlo, solicita reapertura a tu jefatura.
+              </p>
+            {:else if enRevision && !esAdmin}
+              <p class="m-0 flex items-center gap-2 text-[13px] text-[#5A5E6E]">
+                <Send size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+                En revisión desde {formatFechaCorta(programa.fecha_modificacion)}. Mientras dure la
+                revisión el documento sólo se lee.
+              </p>
+            {:else if esAdmin}
+              <p class="m-0 text-[12.5px] text-[#5A5E6E]">
+                Tu decisión queda registrada con tu nombre y fecha en el historial del syllabus.
+              </p>
+            {:else}
+              <p class="m-0 text-[12.5px] text-[#5A5E6E]">
+                Editar abre el asistente del syllabus. Aquí solo se lee.
+              </p>
+            {/if}
+
+            <div class="ml-auto flex flex-wrap items-center gap-2">
+              {#if esAdmin}
+                {#if puedeEditar}
+                  <button type="button" onclick={abrirEdicion} class={BTN_OUTLINE}>
+                    <Pencil size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+                    Editar
+                  </button>
+                {/if}
+                {#if canApprove}
+                  <button
+                    type="button"
+                    onclick={() => (rechazoAbierto = true)}
+                    disabled={accionEnCurso !== null}
+                    class="inline-flex items-center gap-[7px] rounded-lg border border-[#DC2626] bg-white px-3.5 py-2.5 text-[14px] font-semibold text-[#B91C1C] transition-colors hover:bg-[#FEF2F2] disabled:opacity-50"
+                  >
+                    <XCircle size={15} aria-hidden="true" />
+                    {sellado ? 'Revocar aprobación' : 'Rechazar'}
+                  </button>
+                  {#if !sellado}
+                    <button
+                      type="button"
+                      onclick={aprobar}
+                      disabled={accionEnCurso !== null}
+                      class="inline-flex items-center gap-[7px] rounded-lg border border-[#059669] bg-[#059669] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#047857] disabled:opacity-60"
+                    >
+                      <Check size={15} aria-hidden="true" />
+                      {accionEnCurso === 'aprobar' ? 'Aprobando…' : 'Aprobar'}
+                    </button>
+                  {/if}
+                {/if}
+              {:else if !sellado && !enRevision}
+                {#if canDelete}
+                  {#if confirmandoEliminar}
+                    <span class="text-[12.5px] font-medium text-[#B91C1C]"
+                      >¿Eliminar este syllabus?</span
+                    >
+                    <button
+                      type="button"
+                      onclick={() => (confirmandoEliminar = false)}
+                      class={BTN_OUTLINE}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onclick={eliminarPrograma}
+                      disabled={accionEnCurso !== null}
+                      class="inline-flex items-center gap-[7px] rounded-lg border border-[#DC2626] bg-[#DC2626] px-3.5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#B91C1C] disabled:opacity-60"
+                    >
+                      <Trash2 size={15} aria-hidden="true" />
+                      {accionEnCurso === 'eliminar' ? 'Eliminando…' : 'Sí, eliminar'}
+                    </button>
+                  {:else}
+                    <button
+                      type="button"
+                      onclick={() => (confirmandoEliminar = true)}
+                      class={BTN_PELIGRO}
+                    >
+                      <Trash2 size={15} aria-hidden="true" />
+                      Eliminar
+                    </button>
+                  {/if}
+                {/if}
+                {#if puedeEditar && !confirmandoEliminar}
+                  <button type="button" onclick={abrirEdicion} class={BTN_OUTLINE}>
+                    <Pencil size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+                    {tipoSyllabus === 'BASICO' && programa.estado === 'BASICO_COMPLETO'
+                      ? 'Editar sección básica'
+                      : 'Editar'}
+                  </button>
+                {/if}
+                {#if puedeEditar && !confirmandoEliminar}
+                  {#if tipoSyllabus === 'BASICO' && programa.estado === 'BASICO_COMPLETO'}
+                    <!--
+                      La versión básica ya está entregada y es pública. El único
+                      camino hacia arriba es escribir las secciones que le faltan
+                      al COMPLETO (III, IV, V, IX): «Enviar para revisión» aquí
+                      promovería el documento con esas secciones vacías y el
+                      revisor no podría aprobarlo.
+                    -->
+                    <button
+                      type="button"
+                      onclick={() => irAlAsistente('COMPLETO')}
+                      class={BTN_PRIMARY}
+                    >
+                      <FileText size={15} aria-hidden="true" />
+                      Completar syllabus
+                    </button>
+                  {:else if tipoSyllabus === 'BASICO'}
+                    <!-- La versión básica no pasa por aprobación: se entrega y ya. -->
+                    {#if documentoCompleto}
+                      <button
+                        type="button"
+                        onclick={completarBasico}
+                        disabled={accionEnCurso !== null}
+                        class={BTN_PRIMARY}
+                      >
+                        <Check size={15} aria-hidden="true" />
+                        {accionEnCurso === 'basico' ? 'Entregando…' : 'Completar básico'}
+                      </button>
+                    {:else}
+                      <span class="relative inline-flex flex-col items-end gap-1.5">
+                        <span
+                          class="rounded-md bg-[#1A1A24] px-2.5 py-1.5 text-[12px] text-white shadow-[0_6px_16px_rgba(0,0,0,.2)]"
+                        >
+                          {razonBloqueoEnvio}
+                        </span>
+                        <span class={BTN_BLOQUEADO} aria-disabled="true">
+                          <Check size={15} aria-hidden="true" />
+                          Completar básico
+                        </span>
+                      </span>
+                    {/if}
+                  {:else if documentoCompleto}
+                    <button
+                      type="button"
+                      onclick={enviarParaRevision}
+                      disabled={accionEnCurso !== null}
+                      class={BTN_PRIMARY}
+                    >
+                      <Send size={15} aria-hidden="true" />
+                      {accionEnCurso === 'enviar' ? 'Enviando…' : 'Enviar para revisión'}
+                    </button>
+                  {:else}
+                    <span class="relative inline-flex flex-col items-end gap-1.5">
+                      <span
+                        class="rounded-md bg-[#1A1A24] px-2.5 py-1.5 text-[12px] text-white shadow-[0_6px_16px_rgba(0,0,0,.2)]"
+                      >
+                        {razonBloqueoEnvio}
+                      </span>
+                      <span class={BTN_BLOQUEADO} aria-disabled="true">
+                        <Send size={15} aria-hidden="true" />
+                        Enviar para revisión
+                      </span>
+                    </span>
+                  {/if}
+                {/if}
+              {/if}
+            </div>
+          </div>
+        {:else}
+          <!-- ── Curso sin syllabus ── -->
+          <div
+            class="flex flex-col items-center gap-[18px] bg-[#F5F1EA] px-6 py-14 text-center sm:px-10"
+          >
+            <span
+              class="flex h-[52px] w-[52px] items-center justify-center rounded-xl border border-[#E5E7EB] bg-white"
+            >
+              {#if esAdmin}
+                <Clock size={22} class="text-[#5A5E6E]" aria-hidden="true" />
+              {:else}
+                <FilePlus size={22} class="text-[#002F6C]" aria-hidden="true" />
+              {/if}
+            </span>
+
+            {#if esAdmin}
+              <div class="flex max-w-[460px] flex-col gap-2">
+                <h2 class="m-0 text-[20px] font-semibold text-[#1A1A24]">
+                  El docente titular aún no ha creado el syllabus
+                </h2>
+                <p class="m-0 text-[14px] text-pretty text-[#5A5E6E]">
+                  {#if curso.docente_titular}
+                    Titular: <strong class="font-semibold text-[#1A1A24]"
+                      >{curso.docente_titular}</strong
+                    >.
+                  {/if}
+                  Lo habitual es esperar; crear en su nombre es la excepción y queda registrado en
+                  la auditoría del programa.
+                </p>
+              </div>
+              {#if puedeCrear}
+                <button
+                  type="button"
+                  onclick={() => irAlAsistente('COMPLETO')}
+                  class={BTN_OUTLINE}
+                >
+                  <FilePlus size={16} class="text-[#5A5E6E]" aria-hidden="true" />
+                  Crear en nombre del titular
+                </button>
+              {/if}
+            {:else}
+              <div class="flex max-w-[440px] flex-col gap-1.5">
+                <h2 class="m-0 text-[20px] font-semibold text-[#1A1A24]">
+                  Este curso aún no tiene syllabus
+                </h2>
+                <p class="m-0 text-[14px] text-pretty text-[#5A5E6E]">
+                  Elige el tipo de programa. Podrás cambiarlo mientras esté en borrador.
+                </p>
+              </div>
+              {#if puedeCrear}
+                <div class="flex flex-wrap items-start justify-center gap-3.5 pt-1">
+                  <div class="flex w-[260px] flex-col gap-2">
+                    <button
+                      type="button"
+                      onclick={() => irAlAsistente('BASICO')}
+                      class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#002F6C] bg-white px-4 py-2.5 text-[14px] font-semibold text-[#002F6C] transition-colors hover:bg-[#E8EDF5]"
+                    >
+                      <FileIcon size={16} aria-hidden="true" />
+                      Crear syllabus BÁSICO
+                    </button>
+                    <span class="text-[12px] leading-[1.45] text-[#5A5E6E]">
+                      5 secciones — para cursos electivos y talleres
+                    </span>
+                  </div>
+                  <div class="flex w-[260px] flex-col gap-2">
+                    <button
+                      type="button"
+                      onclick={() => irAlAsistente('COMPLETO')}
+                      class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#002F6C] bg-[#002F6C] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#1B4789]"
+                    >
+                      <FileText size={16} aria-hidden="true" />
+                      Crear syllabus COMPLETO
+                    </button>
+                    <span class="text-[12px] leading-[1.45] text-[#5A5E6E]">
+                      9 secciones — para asignaturas del plan de estudios
+                    </span>
+                  </div>
+                </div>
+              {:else}
+                <p class="m-0 text-[13px] text-[#5A5E6E]">
+                  No tienes permiso para crear el syllabus de este curso.
+                </p>
+              {/if}
+            {/if}
+          </div>
+        {/if}
+      </div>
+
+      <!-- ── Admin: plazos de entrega del curso ── -->
+      {#if esAdmin}
+        <section
+          class="flex flex-col gap-3.5 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,.08)] print:hidden"
+        >
+          <div class="flex flex-wrap items-center gap-3">
+            <CalendarDays size={16} class="text-[#5A5E6E]" aria-hidden="true" />
+            <h2 class="m-0 text-[14px] font-semibold text-[#1A1A24]">Fechas límite de entrega</h2>
+            {#if !editandoFechas}
+              <button
+                type="button"
+                onclick={() => (editandoFechas = true)}
+                class="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-[13px] font-medium text-[#002F6C] transition-colors hover:bg-[#F5F1EA]"
+              >
+                <Pencil size={14} aria-hidden="true" />
+                Editar
+              </button>
+            {/if}
+          </div>
+
+          {#if editandoFechas}
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div class="flex flex-col gap-1.5">
+                <label for="fecha-basico" class="text-[13px] font-medium text-[#1A1A24]">
+                  Básico
+                  <span class="font-normal text-[#5A5E6E]">— plazo del programa básico</span>
+                </label>
+                <DatePickerCL
+                  id="fecha-basico"
+                  value={fechaBasico}
+                  onchange={(v) => (fechaBasico = v)}
+                  disabled={guardandoFechas}
+                />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label for="fecha-syllabus" class="text-[13px] font-medium text-[#1A1A24]">
+                  Syllabus completo
+                  <span class="font-normal text-[#5A5E6E]">— posterior al básico</span>
+                </label>
+                <DatePickerCL
+                  id="fecha-syllabus"
+                  value={fechaSyllabus}
+                  minValue={fechaBasico}
+                  onchange={(v) => (fechaSyllabus = v)}
+                  disabled={guardandoFechas}
+                />
+              </div>
+            </div>
+            <div class="flex justify-end gap-2">
+              <button
+                type="button"
+                onclick={cancelarEdicionFechas}
+                disabled={guardandoFechas}
+                class={BTN_OUTLINE}
+              >
+                <X size={14} aria-hidden="true" />
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onclick={guardarFechas}
+                disabled={guardandoFechas}
+                class={BTN_PRIMARY}
+              >
+                <Save size={14} aria-hidden="true" />
+                {guardandoFechas ? 'Guardando…' : 'Guardar fechas'}
+              </button>
+            </div>
+          {:else}
+            <dl class="m-0 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div class="rounded-lg border border-[#EDEFF3] bg-[#FCFBF9] px-3.5 py-2.5">
+                <dt class="text-[11px] font-medium tracking-[0.04em] text-[#5A5E6E] uppercase">
+                  Básico
+                </dt>
+                <dd
+                  class="m-0 text-[13.5px] font-semibold {estaVencida(
+                    curso.fecha_limite_entrega_basico,
+                  ) && programa?.estado === 'BORRADOR'
+                    ? 'text-[#B91C1C]'
+                    : 'text-[#1A1A24]'}"
+                >
+                  {formatDate(curso.fecha_limite_entrega_basico)}
+                </dd>
+              </div>
+              <div class="rounded-lg border border-[#EDEFF3] bg-[#FCFBF9] px-3.5 py-2.5">
+                <dt class="text-[11px] font-medium tracking-[0.04em] text-[#5A5E6E] uppercase">
+                  Syllabus completo
+                </dt>
+                <dd
+                  class="m-0 text-[13.5px] font-semibold {estaVencida(
+                    curso.fecha_limite_entrega_syllabus,
+                  ) && programa?.estado === 'BASICO_COMPLETO'
+                    ? 'text-[#B91C1C]'
+                    : 'text-[#1A1A24]'}"
+                >
+                  {formatDate(curso.fecha_limite_entrega_syllabus)}
+                </dd>
+              </div>
+            </dl>
+          {/if}
+        </section>
+      {/if}
+    </div>
+  </div>
+
+  <!-- ── Historial como slide-over bajo 1440px ── -->
+  {#if historialAbierto}
+    <div
+      class="fixed inset-0 z-50 flex justify-end bg-[#1A1A24]/40 print:hidden"
+      role="presentation"
+      onclick={(e) => {
+        if (e.target === e.currentTarget) historialAbierto = false;
+      }}
+    >
+      <div
+        class="flex h-full w-full max-w-[360px] flex-col gap-4 overflow-y-auto bg-white p-5 shadow-[0_0_40px_rgba(0,0,0,.2)]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="historial-titulo"
+      >
+        <div class="flex items-center gap-2">
+          <Clock size={16} class="text-[#5A5E6E]" aria-hidden="true" />
+          <h2 id="historial-titulo" class="m-0 text-[14px] font-semibold text-[#1A1A24]">
+            Historial
+          </h2>
+          <button
+            type="button"
+            onclick={() => (historialAbierto = false)}
+            class="ml-auto rounded-lg border border-transparent p-1.5 text-[#5A5E6E] transition-colors hover:bg-[#F5F1EA]"
+            aria-label="Cerrar historial"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+        <SyllabusHistorial eventos={historial} plano />
+      </div>
+    </div>
+  {/if}
+
+  <SyllabusRechazoDialog
+    abierto={rechazoAbierto}
+    curso={rotuloCurso}
+    revocando={sellado}
+    enviando={accionEnCurso === 'rechazar'}
+    onCancelar={() => (rechazoAbierto = false)}
+    onConfirmar={rechazar}
+  />
 {/snippet}
 
 {#if layoutType === 'ayudante'}
@@ -754,7 +1155,7 @@
   <StudentLayout {breadcrumbs}>
     {@render pageContent()}
   </StudentLayout>
-{:else if layoutType === 'admin'}
+{:else if esAdmin}
   <AdminLayout {breadcrumbs}>
     {@render pageContent()}
   </AdminLayout>

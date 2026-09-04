@@ -120,6 +120,9 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('cursos.programa.show');
     Route::get('cursos/{curso}/programa/revisar', [AdminProgramaController::class, 'show'])
         ->name('cursos.programa.revisar');
+    // Asistente de syllabus: pantalla propia, ya no un modal sobre el visor.
+    Route::get('cursos/{curso}/programa/editar', [AdminProgramaController::class, 'edit'])
+        ->name('cursos.programa.edit');
     Route::post('cursos/{curso}/programa', [AdminProgramaController::class, 'store'])
         ->name('cursos.programa.store');
     Route::put('cursos/{curso}/programa/aprobar', [AdminProgramaController::class, 'approve'])
@@ -317,6 +320,13 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('planes.asignaturas-disponibles');
 });
 
+// Perfil de docente incompleto (rol asignado, sin ficha usuario.docente).
+// Fuera de is_docente a propósito: es el destino cuando esa comprobación
+// falla por falta de perfil, no por falta de rol.
+Route::get('docente/perfil-incompleto', [DashboardController::class, 'perfilIncompleto'])
+    ->middleware(['auth', 'verified'])
+    ->name('docente.perfil-incompleto');
+
 // Docente Routes
 Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('docente.')->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -507,6 +517,10 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
         ->name('cursos.programa.json');
     Route::get('cursos/{curso}/programa', [ProgramaController::class, 'show'])
         ->name('cursos.programa.show');
+    // Asistente de syllabus: pantalla propia, ya no un modal sobre el visor.
+    // `?tipo=BASICO|COMPLETO` elige el tipo al crear o al promover un básico.
+    Route::get('cursos/{curso}/programa/editar', [ProgramaController::class, 'edit'])
+        ->name('cursos.programa.edit');
     Route::delete('cursos/{curso}/programa', [ProgramaController::class, 'destroy'])
         ->name('cursos.programa.destroy');
     // Estado transitions: docente marks basic as done, or sends complete for review

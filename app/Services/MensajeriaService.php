@@ -141,22 +141,13 @@ class MensajeriaService
             return [];
         }
 
-        // El staff ve todo el componente; el alumno sólo lo suyo (difusiones +
-        // los individuales donde él aparece).
-        $alcance = $esStaff
-            ? '1 = 1'
-            : "(m.tipo_mensaje = 'MENSAJE_PARA_TODO_EL_CURSO'
-                OR :id_alcance IN (m.id_usuario_emisor, m.id_usuario_receptor))";
+        [$alcance, $extra] = $this->alcanceBandeja($idUsuario, $esStaff);
 
         $bindings = [
             'ids'      => $this->pgIntArray($componenteIds),
             'id_lector' => $idUsuario,
             'id_emisor' => $idUsuario,
-        ];
-
-        if (!$esStaff) {
-            $bindings['id_alcance'] = $idUsuario;
-        }
+        ] + $extra;
 
         $filas = DB::select("
             SELECT m.id_componente, COUNT(*) AS no_leidos
@@ -177,6 +168,68 @@ class MensajeriaService
         return collect($filas)->pluck('no_leidos', 'id_componente')
             ->map(fn($n) => (int) $n)
             ->all();
+    }
+
+    /**
+     * Instante del mensaje SIN LEER más reciente por componente. Mismo alcance
+     * y mismos filtros que {@see noLeidosPorComponente}, así que un componente
+     * sin no leídos no aparece en el resultado: esto data la bandeja, no la
+     * cuenta.
+     *
+     * @param  int[]  $componenteIds
+     * @param  bool   $esStaff  TRUE = ve todos los canales del componente;
+     *                          FALSE = sólo su propio canal.
+     * @return array<int,string>  [id_componente => fecha_creacion]
+     */
+    public function ultimoNoLeidoPorComponente(array $componenteIds, int $idUsuario, bool $esStaff): array
+    {
+        if (empty($componenteIds)) {
+            return [];
+        }
+
+        [$alcance, $extra] = $this->alcanceBandeja($idUsuario, $esStaff);
+
+        $filas = DB::select("
+            SELECT m.id_componente, MAX(m.fecha_creacion) AS ultimo
+            FROM curso.mensaje m
+            WHERE m.id_componente = ANY(string_to_array(:ids, ',')::int[])
+              AND m.fecha_eliminacion IS NULL
+              AND m.id_usuario_emisor <> :id_emisor
+              AND ({$alcance})
+              AND NOT EXISTS (
+                    SELECT 1 FROM curso.interaccion_mensaje im
+                    WHERE im.id_mensaje = m.id_mensaje
+                      AND im.id_usuario_lector = :id_lector
+                      AND im.fecha_eliminacion IS NULL
+              )
+            GROUP BY m.id_componente
+        ", [
+            'ids'       => $this->pgIntArray($componenteIds),
+            'id_lector' => $idUsuario,
+            'id_emisor' => $idUsuario,
+        ] + $extra);
+
+        return collect($filas)->pluck('ultimo', 'id_componente')->all();
+    }
+
+    /**
+     * Filtro de alcance de la bandeja: el staff ve todo el componente; el
+     * alumno sólo lo suyo (difusiones + los individuales donde él aparece).
+     * Devuelve el fragmento SQL y el binding extra que ese fragmento necesita.
+     *
+     * @return array{0:string,1:array<string,int>}
+     */
+    private function alcanceBandeja(int $idUsuario, bool $esStaff): array
+    {
+        if ($esStaff) {
+            return ['1 = 1', []];
+        }
+
+        return [
+            "(m.tipo_mensaje = 'MENSAJE_PARA_TODO_EL_CURSO'
+              OR :id_alcance IN (m.id_usuario_emisor, m.id_usuario_receptor))",
+            ['id_alcance' => $idUsuario],
+        ];
     }
 
     /**

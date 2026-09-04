@@ -221,9 +221,12 @@ class PermisosCursoService
     /**
      * Retorna los docentes del curso distintos al usuario autenticado.
      *
-     * Cada elemento: { id_usuario, id_docente, nombre }
+     * Cada elemento: { id_usuario, id_docente, nombre, es_titular, tipo_componente }
+     * `tipo_componente` es el del primer componente encontrado para ese docente
+     * (Cátedra/Taller/Laboratorio) — sólo para mostrar contexto en la UI, no
+     * afecta qué permisos puede tener.
      *
-     * @return Collection<int, array{id_usuario: int, id_docente: int, nombre: string}>
+     * @return Collection<int, array{id_usuario: int, id_docente: int, nombre: string, es_titular: bool, tipo_componente: ?string}>
      */
     public function miembrosDelCurso(Curso $curso): Collection
     {
@@ -231,19 +234,24 @@ class PermisosCursoService
         $authUser = Auth::user();
 
         return $curso->componentes()
-            ->with(['docenteComponentes.docente.usuario'])
+            ->with(['tipoComponente', 'docenteComponentes.docente.usuario'])
             ->get()
-            ->flatMap(fn ($c) => $c->docenteComponentes)
-            ->filter(fn ($dc) => $dc->docente && $dc->id_docente !== $authUser->docente->id_docente)
-            ->map(fn ($dc) => [
-                'id_usuario' => $dc->docente->usuario->id_usuario,
-                'id_docente' => $dc->id_docente,
-                'nombre'     => trim(
-                    ($dc->docente->usuario->nombre1   ?? '') . ' ' .
-                    ($dc->docente->usuario->apellido1 ?? '')
-                ),
-                'es_titular' => (bool) $dc->es_titular,
-            ])
+            ->flatMap(fn ($c) => $c->docenteComponentes->map(fn ($dc) => [$dc, $c]))
+            ->filter(fn ($par) => $par[0]->docente && $par[0]->id_docente !== $authUser->docente->id_docente)
+            ->map(function ($par) {
+                [$dc, $componente] = $par;
+
+                return [
+                    'id_usuario' => $dc->docente->usuario->id_usuario,
+                    'id_docente' => $dc->id_docente,
+                    'nombre'     => trim(
+                        ($dc->docente->usuario->nombre1   ?? '') . ' ' .
+                        ($dc->docente->usuario->apellido1 ?? '')
+                    ),
+                    'es_titular'      => (bool) $dc->es_titular,
+                    'tipo_componente' => $componente->tipoComponente->tipo ?? null,
+                ];
+            })
             ->unique('id_usuario')
             ->values();
     }

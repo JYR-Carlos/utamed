@@ -59,18 +59,20 @@ class JefeCarreraController extends Controller
             ->with(['asignacionPlan.asignatura', 'docenteTitular.usuario', 'programas'])
             ->get();
 
-        // Estados de syllabus
-        $resumen = ['no_iniciado' => 0, 'en_revision' => 0, 'aprobado' => 0];
-        $syllabusEntregados = 0;
+        // Estados de syllabus. Las cuatro cubetas cubren el universo del período:
+        // el donut del dashboard sólo cuadra si BORRADOR también se cuenta (antes
+        // se perdía y `no_iniciado + en_revision + aprobado` no sumaba el total).
+        $resumen = ['no_iniciado' => 0, 'borrador' => 0, 'en_revision' => 0, 'aprobado' => 0];
         foreach ($cursosPeriodo as $curso) {
             $estado = $this->estadoSyllabusUi($curso);
             if ($estado === 'NO_INICIADO') {
                 $resumen['no_iniciado']++;
+            } elseif ($estado === 'BORRADOR') {
+                $resumen['borrador']++;
             } elseif ($estado === 'EN_REVISION') {
                 $resumen['en_revision']++;
             } elseif ($estado === 'APROBADO') {
                 $resumen['aprobado']++;
-                $syllabusEntregados++;
             }
         }
 
@@ -81,9 +83,32 @@ class JefeCarreraController extends Controller
                 ->distinct()
                 ->count('id_estudiante');
 
+        // Comprobación del período: cursos cuyo titular existe de verdad (la FK es
+        // NOT NULL, pero la fila de docente/usuario puede no resolver).
+        $cursosConDocente = $cursosPeriodo
+            ->filter(fn($curso) => $curso->docenteTitular?->usuario !== null)
+            ->count();
+
         $metricas = $this->metricasResumen($cursoIds);
 
         $alertas = $this->construirAlertas($resumen, $metricas['alumnos_en_riesgo']);
+
+        // El plazo de entrega vive en cada curso (`curso.fecha_limite_entrega_syllabus`),
+        // no en el período: sólo se anuncia si TODOS los cursos comparten la misma
+        // fecha (misma regla que `seguimiento()`).
+        $plazos = $cursosPeriodo
+            ->pluck('fecha_limite_entrega_syllabus')
+            ->filter()
+            ->map(fn($f) => $f instanceof \DateTimeInterface ? $f->format('Y-m-d') : substr((string) $f, 0, 10))
+            ->unique()
+            ->values();
+
+        $inicioPeriodo = $cursosPeriodo
+            ->pluck('fecha_inicio')
+            ->filter()
+            ->map(fn($f) => $f instanceof \DateTimeInterface ? $f->format('Y-m-d') : substr((string) $f, 0, 10))
+            ->sort()
+            ->first();
 
         return Inertia::render('jefe-carrera/Dashboard', [
             'carrera' => [
@@ -92,11 +117,17 @@ class JefeCarreraController extends Controller
                     : (now()->month <= 6 ? 'Primero' : 'Segundo'),
                 'ano' => $periodo['ano'] ?? (int) now()->year,
             ],
+            'periodo' => [
+                'inicio' => $inicioPeriodo,
+                'plazo_syllabus' => $plazos->count() === 1 ? $plazos->first() : null,
+                'ultimo_aprobado' => $this->ultimaAprobacion($cursosPeriodo),
+                'anterior' => $this->periodoAnterior($carreraId, $periodo),
+            ],
             'stats' => [
-                'syllabus_entregados' => $syllabusEntregados,
+                'syllabus_entregados' => $resumen['aprobado'],
                 'syllabus_total' => $cursosPeriodo->count(),
                 'cursos_activos' => $cursosPeriodo->count(),
-                'cursos_tendencia' => $this->cursosTendencia($carreraId),
+                'cursos_con_docente' => $cursosConDocente,
                 'estudiantes_matriculados' => $estudiantesMatriculados,
             ],
             'resumen_estados' => $resumen,
@@ -107,6 +138,9 @@ class JefeCarreraController extends Controller
                 'alumnos_en_riesgo' => $metricas['alumnos_en_riesgo'],
                 'carga_docente' => $metricas['carga_docente'],
             ],
+            // Sella el instante de la consulta: el pie del rail de alertas dice
+            // "Actualizado …" y esa es la única fecha honesta que puede dar.
+            'generado_en' => now()->toIso8601String(),
         ]);
     }
 
@@ -161,11 +195,22 @@ class JefeCarreraController extends Controller
             });
         }
 
-        // Materializar y mapear (el estado de syllabus se deriva en PHP)
-        $cursos = $query->orderByDesc('agno_real')
+        // Materializar (el estado de syllabus se deriva en PHP)
+        $cursosModelo = $query->orderByDesc('agno_real')
             ->orderByDesc('semestre_real')
-            ->get()
-            ->map(fn($curso) => $this->mapCursoSeguimiento($curso));
+            ->get();
+
+        // Fecha real de última actualización de cada programa, desde la auditoría.
+        $programaIds = $cursosModelo
+            ->map(fn($curso) => $this->programaActual($curso)?->id_programa)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $ultimaAccion = $this->ultimaAccionPorPrograma($programaIds);
+
+        $cursos = $cursosModelo->map(fn($curso) => $this->mapCursoSeguimiento($curso, $ultimaAccion));
 
         // Filtro por estado de syllabus (post-map, ya que es derivado)
         if ($estadoUi !== '') {
@@ -187,10 +232,18 @@ class JefeCarreraController extends Controller
             ->map(fn($a) => (int) $a)
             ->all();
 
+        // El plazo de entrega vive en cada curso (`curso.fecha_limite_entrega_syllabus`),
+        // no en el período. La cabecera sólo puede anunciar "plazo de entrega X"
+        // si TODOS los cursos filtrados comparten la misma fecha; si conviven
+        // varias, no hay un plazo único que anunciar y se calla.
+        $plazos = $cursos->pluck('fecha_limite_syllabus')->filter()->unique()->values();
+        $plazoSyllabus = $plazos->count() === 1 ? $plazos->first() : null;
+
         return Inertia::render('jefe-carrera/Seguimiento', [
             'cursos' => $paged,
             'semestres_disponibles' => ['Primero', 'Segundo'],
             'agnos_disponibles' => $agnosDisponibles,
+            'plazo_syllabus' => $plazoSyllabus,
             'filters' => [
                 'q' => $q,
                 'semestre' => $semestre,
@@ -201,6 +254,10 @@ class JefeCarreraController extends Controller
                 'current_page' => $page,
                 'last_page' => $lastPage,
                 'total' => $total,
+                // Universo sin filtrar, para poder decir "N de M cursos": el
+                // estado del syllabus es un campo derivado y el total cambia al
+                // filtrar, así que la tabla lo explica en vez de sorprender.
+                'total_carrera' => $this->cursosCarreraQuery($carreraId)->count(),
             ],
             'carrera' => [
                 'nombre' => $jefatura['carrera_nombre'] ?? 'Carrera',
@@ -368,14 +425,31 @@ class JefeCarreraController extends Controller
             'semana' => '',
         ], $secIX?->tablaComponentes ?? []);
 
+        // Procedencia del documento, para el pie del índice del panel: quién lo
+        // redactó y cuándo se movió por última vez. El autor sale de
+        // `curso.programa.creado_por`; la fecha, de la auditoría (la tabla
+        // `programa` no tiene columnas de fecha).
+        $autor = $programa->creado_por
+            ? DB::table('usuario.usuario')
+                ->where('id_usuario', $programa->creado_por)
+                ->selectRaw("TRIM(CONCAT(nombre1,' ',COALESCE(apellido1,''))) AS nombre")
+                ->value('nombre')
+            : null;
+
         $syllabusOut = [
             'titulo' => $curso->asignacionPlan?->asignatura?->nombre ?? $curso->nombre,
             'codigo' => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? $curso->cod_curso,
+            'letra_grupo' => $curso->letra_grupo,
+            'agno_real' => $curso->agno_real,
+            'semestre_real' => $curso->semestre_real,
             'docente' => $this->nombreDocente($curso),
             'descripcion' => $secIX?->descripcion ?? '',
             'objetivos' => $objetivos,
             'unidades' => $unidades,
             'evaluaciones' => $evaluaciones,
+            'version' => $programa->version_programa !== null ? (int) $programa->version_programa : null,
+            'autor' => $autor ?: null,
+            'ultima_accion' => $this->ultimaAccionPorPrograma([$programaId])[$programaId] ?? null,
             'completud' => method_exists($programa, 'getCompletenessPercentage')
                 ? (int) $programa->getCompletenessPercentage() : 0,
         ];
@@ -440,8 +514,13 @@ class JefeCarreraController extends Controller
         /** @var Usuario $user */
         $user = Auth::user();
 
+        // La razón es obligatoria: viaja al docente y queda en el historial del
+        // syllabus, así que devolver un programa "sin motivo" no es una opción.
+        // El formulario la exige también en cliente (lámina «Solicitar cambios»).
         $request->validate([
-            'notas' => ['nullable', 'string', 'max:3000'],
+            'notas' => ['required', 'string', 'max:500'],
+        ], [
+            'notas.required' => 'Indica la razón de la solicitud de cambios.',
         ]);
 
         $programa = Programa::findOrFail($programaId);
@@ -536,23 +615,72 @@ class JefeCarreraController extends Controller
     }
 
     /**
-     * Conteo de cursos por los últimos hasta 6 períodos (cronológico ascendente).
-     * @return int[]
+     * Período inmediatamente anterior al vigente y su número de cursos.
+     *
+     * Es el único término de comparación real que tiene la tarjeta "Cursos
+     * activos": sin él la tarjeta se dibuja sin delta, nunca con uno inventado.
+     *
+     * @return array{label:string,cursos:int}|null
      */
-    private function cursosTendencia(int $carreraId): array
+    private function periodoAnterior(int $carreraId, ?array $periodo): ?array
     {
-        $rows = $this->cursosCarreraQuery($carreraId)
+        if (!$periodo) {
+            return null;
+        }
+
+        $row = $this->cursosCarreraQuery($carreraId)
             ->whereNotNull('agno_real')
             ->whereNotNull('semestre_real')
+            ->whereRaw('(agno_real, semestre_real) < (?, ?)', [$periodo['ano'], $periodo['sem']])
             ->selectRaw('agno_real, semestre_real, COUNT(*) as total')
             ->groupBy('agno_real', 'semestre_real')
             ->orderByDesc('agno_real')
             ->orderByDesc('semestre_real')
-            ->limit(6)
-            ->get();
+            ->first();
 
-        // Vienen desc; invertir para que el sparkline lea antiguo→reciente
-        return $rows->reverse()->pluck('total')->map(fn($t) => (int) $t)->values()->all();
+        if (!$row) {
+            return null;
+        }
+
+        return [
+            'label' => $row->agno_real . '-' . $row->semestre_real,
+            'cursos' => (int) $row->total,
+        ];
+    }
+
+    /**
+     * Fecha de la última aprobación de un syllabus del período.
+     *
+     * `curso.programa` no tiene ninguna columna de fecha (ver el DDL: sólo
+     * estado, versión, autor y revisor), así que el único registro temporal es
+     * `auditoria.programa_historial`, donde el disparador `fn_programa_modificado`
+     * deja `estado_nuevo` en cada cambio de estado.
+     *
+     * @param  \Illuminate\Support\Collection<int,Curso>  $cursosPeriodo
+     */
+    private function ultimaAprobacion($cursosPeriodo): ?string
+    {
+        $programaIds = $cursosPeriodo
+            ->map(fn($curso) => $this->programaActual($curso))
+            ->filter(fn($programa) => $programa && in_array($programa->estado, ['APROBADO', 'PUBLICADO'], true))
+            ->map(fn($programa) => $programa->id_programa)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($programaIds)) {
+            return null;
+        }
+
+        $row = DB::connection('pgsql')->selectOne(
+            'SELECT MAX(fecha_accion) AS ultima
+             FROM auditoria.programa_historial
+             WHERE id_programa IN (' . $this->placeholders($programaIds) . ")
+               AND estado_nuevo IN ('APROBADO', 'PUBLICADO')",
+            $programaIds
+        );
+
+        return $row?->ultima;
     }
 
     /**
@@ -586,9 +714,43 @@ class JefeCarreraController extends Controller
     }
 
     /**
-     * Construye la fila de seguimiento para un curso.
+     * MAX(fecha_accion) de auditoria.programa_historial, por programa.
+     *
+     * Es el único registro temporal real de un programa: `curso.programa` no
+     * tiene ninguna columna de fecha, y las filas del historial las escriben los
+     * disparadores `auditoria.fn_programa_creado` / `fn_programa_modificado`.
+     *
+     * @param  int[]  $programaIds
+     * @return array<int,string> id_programa => 'YYYY-MM-DD HH:MM:SS'
      */
-    private function mapCursoSeguimiento(Curso $curso): array
+    private function ultimaAccionPorPrograma(array $programaIds): array
+    {
+        if (empty($programaIds)) {
+            return [];
+        }
+
+        $rows = DB::connection('pgsql')->select(
+            'SELECT id_programa, MAX(fecha_accion) AS ultima
+             FROM auditoria.programa_historial
+             WHERE id_programa IN (' . $this->placeholders($programaIds) . ')
+             GROUP BY id_programa',
+            $programaIds
+        );
+
+        $mapa = [];
+        foreach ($rows as $row) {
+            $mapa[(int) $row->id_programa] = $row->ultima;
+        }
+
+        return $mapa;
+    }
+
+    /**
+     * Construye la fila de seguimiento para un curso.
+     *
+     * @param  array<int,string>  $ultimaAccion  id_programa => fecha (ver ultimaAccionPorPrograma)
+     */
+    private function mapCursoSeguimiento(Curso $curso, array $ultimaAccion = []): array
     {
         $programa = $this->programaActual($curso);
         $estado = $this->estadoSyllabusUi($curso);
@@ -603,13 +765,15 @@ class JefeCarreraController extends Controller
             'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? $curso->cod_curso ?? '—',
             'nombre_asignatura' => $curso->asignacionPlan?->asignatura?->nombre ?? $curso->nombre ?? 'Asignatura',
             'seccion' => $curso->cod_curso ?? '—',
+            'letra_grupo' => $curso->letra_grupo,
+            'fecha_limite_syllabus' => $curso->fecha_limite_entrega_syllabus,
             'docente' => [
                 'nombre' => $this->nombreDocente($curso),
                 'inicial' => $this->inicialDocente($curso),
                 'color' => $this->colorDocente($curso->id_docente_titular),
             ],
             'estado_syllabus' => $estado,
-            'fecha_actualizacion' => null,
+            'fecha_actualizacion' => $programa ? ($ultimaAccion[$programa->id_programa] ?? null) : null,
             'completud' => $completud,
             'id_programa' => $programa?->id_programa,
         ];
@@ -680,8 +844,12 @@ class JefeCarreraController extends Controller
             $cursoIds
         );
 
+        // DISTINCT id_estudiante: el resumen habla de *alumnos*, no de inscripciones.
+        // Sin el DISTINCT, un alumno bajo 4,0 en tres cursos contaba tres veces y
+        // el porcentaje "N de M matriculados" (M sí es distinto) podía pasar de 100%.
         $riesgo = DB::connection('pgsql')->selectOne(
-            "SELECT COUNT(*) FILTER (WHERE promedio_parcial IS NOT NULL AND promedio_parcial < 4.0) AS en_riesgo
+            "SELECT COUNT(DISTINCT id_estudiante)
+                    FILTER (WHERE promedio_parcial IS NOT NULL AND promedio_parcial < 4.0) AS en_riesgo
              FROM curso.inscripcion_curso
              WHERE id_curso IN ($ph)",
             $cursoIds
@@ -749,34 +917,52 @@ class JefeCarreraController extends Controller
 
     /**
      * Genera alertas reales para el dashboard.
+     *
+     * El orden es el de severidad y la primera `critica` es la que se lleva la
+     * única acción rellena de la pantalla; `icono` viaja como dato para que la
+     * vista no tenga que deducir el significado de cada alerta.
      */
     private function construirAlertas(array $resumen, int $alumnosEnRiesgo): array
     {
         $alertas = [];
         $id = 1;
 
-        if ($resumen['no_iniciado'] > 0) {
-            $n = $resumen['no_iniciado'];
+        if (($resumen['en_revision'] ?? 0) > 0) {
+            $n = $resumen['en_revision'];
             $alertas[] = [
                 'id' => $id++,
                 'tipo' => 'critica',
-                'titulo' => "{$n} curso" . ($n !== 1 ? 's' : '') . ' del período aún no '
-                    . ($n !== 1 ? 'tienen' : 'tiene') . ' programa creado',
+                'icono' => 'alert-triangle',
+                'titulo' => "{$n} syllabus pendiente" . ($n !== 1 ? 's' : '') . ' de revisión',
+                'count' => $n,
+                'accion_label' => 'Revisar ahora',
+                'accion_url' => '/docente/jefe-carrera/seguimiento?estado=EN_REVISION',
+            ];
+        }
+
+        if (($resumen['no_iniciado'] ?? 0) > 0) {
+            $n = $resumen['no_iniciado'];
+            $alertas[] = [
+                'id' => $id++,
+                'tipo' => 'advertencia',
+                'icono' => 'book-open',
+                'titulo' => "{$n} curso" . ($n !== 1 ? 's' : '') . ' sin syllabus iniciado',
                 'count' => $n,
                 'accion_label' => 'Ver cursos',
                 'accion_url' => '/docente/jefe-carrera/seguimiento?estado=NO_INICIADO',
             ];
         }
 
-        if ($resumen['en_revision'] > 0) {
-            $n = $resumen['en_revision'];
+        if (($resumen['borrador'] ?? 0) > 0) {
+            $n = $resumen['borrador'];
             $alertas[] = [
                 'id' => $id++,
                 'tipo' => 'advertencia',
-                'titulo' => "{$n} programa" . ($n !== 1 ? 's' : '') . ' pendiente' . ($n !== 1 ? 's' : '') . ' de aprobación',
+                'icono' => 'file-pen-line',
+                'titulo' => "{$n} syllabus en borrador sin enviar a revisión",
                 'count' => $n,
-                'accion_label' => 'Revisar',
-                'accion_url' => '/docente/jefe-carrera/seguimiento?estado=EN_REVISION',
+                'accion_label' => 'Ver cursos',
+                'accion_url' => '/docente/jefe-carrera/seguimiento?estado=BORRADOR',
             ];
         }
 
@@ -784,7 +970,9 @@ class JefeCarreraController extends Controller
             $alertas[] = [
                 'id' => $id++,
                 'tipo' => 'info',
-                'titulo' => "{$alumnosEnRiesgo} alumno" . ($alumnosEnRiesgo !== 1 ? 's' : '') . ' con promedio bajo 4.0',
+                'icono' => 'user-x',
+                'titulo' => "{$alumnosEnRiesgo} alumno" . ($alumnosEnRiesgo !== 1 ? 's' : '')
+                    . ' con promedio bajo 4,0',
                 'count' => $alumnosEnRiesgo,
                 'accion_label' => 'Ver métricas',
                 'accion_url' => '/docente/jefe-carrera/metricas',

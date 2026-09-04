@@ -10,6 +10,8 @@ use App\Models\Curso\Componente;
 use App\Models\Curso\Unidad;
 use App\Models\Agenda\Actividad;
 use App\Services\ProgramaService;
+use App\Services\SyllabusViewerPresenter;
+use App\Services\SyllabusWizardPresenter;
 use App\Support\Permissions;
 use App\Traits\ParsesSyllabus;
 use Carbon\Carbon;
@@ -147,12 +149,12 @@ class ProgramaController extends Controller
         // Validar autorización - docente puede ver su programa, admin/jefe puede revisar
         if ($programa) {
             $this->authorize('view', $programa);  // Changed from 'approve' to 'view' to allow docentes
+        } else {
+            // Sin programa no hay modelo que autorizar: se valida el acceso al
+            // curso, que es para lo que existe `viewPrograma` en la policy.
+            $this->authorize('viewPrograma', $curso);
         }
 
-        if (!$programa) {
-            return redirect()->route('admin.cursos.index')
-                ->with('error', 'No hay programa para este curso');
-        }
 
         // Obtener permisos especiales del usuario para el contexto del curso (si está configurado)
         $userPermissions = [];
@@ -168,56 +170,102 @@ class ProgramaController extends Controller
             })->values()->toArray();
         }
 
-        // Cargar relaciones del programa para nombre de creador/revisor
-        $programa->loadMissing(['autor', 'revisor']);
+        // Sin programa la vista no redirige: dibuja el estado vacío de admin
+        // ("el titular aún no ha creado el syllabus"), igual que el del docente.
+        $programaData = null;
 
-        // Normalizar data_syllabus al contrato que espera ProgramaDocument
-        $rawSyllabus = is_array($programa->data_syllabus)
-            ? $programa->data_syllabus
-            : json_decode($programa->data_syllabus, true);
+        if ($programa) {
+            // Normalizar data_syllabus al contrato que espera ProgramaDocument
+            $rawSyllabus = is_array($programa->data_syllabus)
+                ? $programa->data_syllabus
+                : json_decode($programa->data_syllabus, true);
 
-        $secciones = $this->parseSecciones($rawSyllabus ?? []);
+            $programaData = array_merge(
+                [
+                    'id_programa'      => $programa->id_programa,
+                    'version_programa' => $programa->version_programa,
+                    'estado'           => $programa->estado,
+                    'creado_por'       => $programa->creado_por,
+                    'revisado_por'     => $programa->revisado_por,
+                    'secciones'        => $this->parseSecciones($rawSyllabus ?? []),
+                ],
+                SyllabusViewerPresenter::documento($programa),
+                SyllabusViewerPresenter::ultimoRechazo($programa),
+            );
+        }
 
         $asignatura = $curso->asignacionPlan?->asignatura;
 
         return Inertia::render('docente/Programa', [
-            'curso' => [
-                'id_curso'                      => $curso->id_curso,
-                'nombre'                        => $curso->nombre,
-                'cod_curso'                     => $curso->cod_curso,
-                'id_asignacion_plan'            => $curso->id_asignacion_plan,
-                'id_contexto'                   => $curso->id_contexto,
-                'asignatura_nombre'             => $asignatura?->nombre,
-                'carrera_nombre'                => $curso->asignacionPlan?->plan?->carrera?->nombre,
-                'asignatura'                    => $asignatura,
-                'fecha_limite_entrega_basico'   => $curso->fecha_limite_entrega_basico,
-                'fecha_limite_entrega_syllabus' => $curso->fecha_limite_entrega_syllabus,
-            ],
-            'programa' => [
-                'id_programa'      => $programa->id_programa,
-                'version_programa' => $programa->version_programa,
-                'estado'           => $programa->estado,
-                'creado_por'       => $programa->creado_por,
-                'revisado_por'     => $programa->revisado_por,
-                'fecha_creacion'   => $programa->fecha_creacion,
-                'secciones'        => $secciones,
-                'creator'  => $programa->autor  ? [
-                    'id_usuario'      => $programa->autor->id_usuario,
-                    'nombre_completo' => trim(collect([$programa->autor->nombre1, $programa->autor->nombre2, $programa->autor->apellido1, $programa->autor->apellido2])->filter()->implode(' ')),
-                ] : null,
-                'reviewer' => $programa->revisor ? [
-                    'id_usuario'      => $programa->revisor->id_usuario,
-                    'nombre_completo' => trim(collect([$programa->revisor->nombre1, $programa->revisor->nombre2, $programa->revisor->apellido1, $programa->revisor->apellido2])->filter()->implode(' ')),
-                ] : null,
-            ],
+            'curso' => array_merge(
+                [
+                    'id_curso'                      => $curso->id_curso,
+                    'nombre'                        => $curso->nombre,
+                    'cod_curso'                     => $curso->cod_curso,
+                    'id_asignacion_plan'            => $curso->id_asignacion_plan,
+                    'id_contexto'                   => $curso->id_contexto,
+                    'asignatura_nombre'             => $asignatura?->nombre,
+                    'carrera_nombre'                => $curso->asignacionPlan?->plan?->carrera?->nombre,
+                    'asignatura'                    => $asignatura,
+                    'fecha_limite_entrega_basico'   => $curso->fecha_limite_entrega_basico,
+                    'fecha_limite_entrega_syllabus' => $curso->fecha_limite_entrega_syllabus,
+                ],
+                SyllabusViewerPresenter::cabeceraCurso($curso),
+            ),
+            'programa'        => $programaData,
             'asignatura'      => $asignatura,
-            'canEdit'         => $user->can('update', $programa),
-            'canApprove'      => $user->can('approve', $programa),
+            'canEdit'         => $programa ? $user->can('update', $programa) : $user->can('create', [Programa::class, $curso]),
+            'canApprove'      => $programa ? $user->can('approve', $programa) : false,
+            'canCreate'       => $programa === null && $user->can('create', [Programa::class, $curso]),
+            'canDelete'       => $programa !== null && $user->can('delete', $programa),
             'userPermissions' => $userPermissions,
             'layoutType'      => 'admin',
             'backUrl'         => '/admin/cursos',
             'userId'          => $user->id_usuario,
         ]);
+    }
+
+    /**
+     * Página del asistente de syllabus para el revisor —
+     * `/admin/cursos/{curso}/programa/editar`.
+     *
+     * Misma pantalla que ve el docente (`docente/SyllabusWizard`); lo que cambia
+     * es el layout, las migas y el aviso de que se está escribiendo el documento
+     * de otra persona. A diferencia del docente, aquí sí se puede editar un
+     * programa APROBADO: guardar crea una versión nueva.
+     */
+    public function edit(Request $request, Curso $curso)
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        /** @var \App\Models\Usuario\Usuario $user */
+        $user = Auth::user();
+
+        $programa = Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->first();
+
+        if ($programa) {
+            $this->authorize('update', $programa);
+        } else {
+            $this->authorize('create', [Programa::class, $curso]);
+        }
+
+        if (SyllabusWizardPresenter::seccionesEditables($user, $curso) === []) {
+            return redirect()->route('admin.cursos.programa.revisar', $curso->id_curso)
+                ->with('error', 'Ninguna sección del syllabus está delegada a ti en este curso. Pide a la jefatura o al docente titular que te asigne los módulos que debes redactar.');
+        }
+
+        $tipo = strtoupper((string) $request->query('tipo', ''));
+        $tipoSolicitado = in_array($tipo, ['BASICO', 'COMPLETO'], true) ? $tipo : null;
+
+        return Inertia::render('docente/SyllabusWizard', SyllabusWizardPresenter::build(
+            $curso,
+            $user,
+            $programa,
+            $tipoSolicitado,
+            'admin',
+        ));
     }
 
     /**
@@ -257,8 +305,8 @@ class ProgramaController extends Controller
         $validated = $request->validate(SyllabusRules::forTipo($tipoSyllabus));
 
         try {
-            // Validar permisos para cada sección antes de guardar
-            $this->validatePermissionsForAllSecciones($user, $curso);
+            // Validar permisos sólo de las secciones que este guardado cambia
+            $this->validatePermissionsForSeccionesEscritas($user, $curso, $validated['secciones'] ?? []);
 
             // Determinar estado inicial según tipo
             $estadoInicial = $tipoSyllabus === 'BASICO' ? 'BASICO_COMPLETO' : 'COMPLETO';
@@ -332,8 +380,11 @@ class ProgramaController extends Controller
 
         $this->authorize('update', $programa);
 
-        // Validar permiso para esta sección específica
-        $this->validatePermissionForSeccion($user, $seccionId, $programa->id_curso);
+        // Validar permiso para esta sección específica.
+        // (Antes se pasaba `id_curso` donde se esperaba el id de contexto, así
+        //  que la comprobación miraba un contexto que no era el del curso.)
+        $cursoDelPrograma = Curso::findOrFail($programa->id_curso);
+        $this->validatePermissionForSeccion($user, $seccionId, $cursoDelPrograma);
 
         // Validar que el programa esté en estado editable (BORRADOR, BASICO_COMPLETO o COMPLETO)
         if (!in_array($programa->estado, ['BORRADOR', 'BASICO_COMPLETO', 'COMPLETO'])) {
@@ -409,7 +460,7 @@ class ProgramaController extends Controller
             ->first();
 
         if (!$programa) {
-            return response()->json(['error' => 'No hay programa activo.'], 404);
+            return redirect()->back()->with('error', 'No hay programa activo.');
         }
 
         // Validar autorización (usar la política)
@@ -419,15 +470,14 @@ class ProgramaController extends Controller
             // Solo se puede aprobar la versión COMPLETO (tipo_syllabus = COMPLETO, estado = COMPLETO)
             // La versión BASICO no requiere aprobación; se marca directamente como BASICO_COMPLETO.
             if ($programa->estado !== 'COMPLETO') {
-                return response()->json([
-                    'error' => "Solo se puede aprobar un programa en estado COMPLETO. Estado actual: {$programa->estado}"
-                ], 422);
+                return redirect()->back()->with(
+                    'error',
+                    "Solo se puede aprobar un programa en estado COMPLETO. Estado actual: {$programa->estado}"
+                );
             }
 
             if ($programa->getTipoSyllabus() !== 'COMPLETO') {
-                return response()->json([
-                    'error' => 'La versión básica (BASICO) no requiere aprobación.'
-                ], 422);
+                return redirect()->back()->with('error', 'La versión básica (BASICO) no requiere aprobación.');
             }
 
             // Validar completitud según tipo de syllabus
@@ -436,15 +486,16 @@ class ProgramaController extends Controller
                 $secciones = $programa->getSecciones();
                 $missing = array_filter($required, fn ($s) => !$secciones->hasContenido($s));
                 
-                return response()->json([
-                    'error' => 'El programa debe tener todas las secciones requeridas completas. Faltan: ' . implode(', ', $missing)
-                ], 422);
+                return redirect()->back()->with(
+                    'error',
+                    'El programa debe tener todas las secciones requeridas completas. Faltan: ' . implode(', ', $missing)
+                );
             }
 
-            // Cambiar estado a APROBADO
+            // Cambiar estado a APROBADO. `fecha_aprobacion` no es columna de
+            // curso.programa: la fecha del sello la deja tr_programa_modificado.
             $programa->update([
-                'estado' => 'APROBADO',
-                'fecha_aprobacion' => now(),
+                'estado'       => 'APROBADO',
                 'revisado_por' => $user->id_usuario,
             ]);
 
@@ -452,10 +503,10 @@ class ProgramaController extends Controller
                 'id_programa' => $programa->id_programa,
                 'tipo_syllabus' => $programa->getTipoSyllabus(),
                 'aprobado_por' => $user->id_usuario,
-                'fecha_aprobacion' => now(),
             ]);
 
-            return redirect()->route('admin.cursos.index')
+            // Se vuelve al documento, ya sellado: la decisión se toma leyéndolo.
+            return redirect()->route('admin.cursos.programa.revisar', $curso->id_curso)
                 ->with('success', 'Programa aprobado correctamente');
 
         } catch (\Exception $e) {
@@ -463,8 +514,8 @@ class ProgramaController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            
-            return response()->json(['error' => $e->getMessage()], 500);
+
+            return redirect()->back()->with('error', 'Error al aprobar el programa: ' . $e->getMessage());
         }
     }
 
@@ -658,6 +709,14 @@ class ProgramaController extends Controller
         // Validar autorización (usar la política)
         $this->authorize('reject', $programa);
 
+        // La razón es obligatoria: es el único contenido que explica al docente
+        // por qué el documento volvió atrás, y queda en el historial. Va fuera
+        // del try para que la ValidationException llegue al formulario en vez de
+        // convertirse en un flash genérico.
+        $validated = $request->validate([
+            'razon_rechazo' => 'required|string|max:500',
+        ]);
+
         try {
             // Validar estado actual — se puede devolver desde COMPLETO o APROBADO
             $estadosPermitidos = ['COMPLETO', 'APROBADO', 'BASICO_COMPLETO'];
@@ -665,8 +724,7 @@ class ProgramaController extends Controller
                 return redirect()->back()->with('error', "No se puede devolver un programa en estado {$programa->estado}.");
             }
 
-            // Obtener razón del rechazo (el tag 'accion_tipo' del frontend confirma la acción)
-            $razonRechazo = trim($request->input('razon_rechazo', 'No especificada'));
+            $razonRechazo = trim($validated['razon_rechazo']);
             $estadoOrigen = $programa->estado;
 
             // Envolver en transacción para que SET LOCAL aplique al trigger
@@ -677,9 +735,8 @@ class ProgramaController extends Controller
                 DB::statement("SELECT set_config('app.actor_id',      ?, true)", [(string) $user->id_usuario]);
 
                 $programa->update([
-                    'estado'           => 'BORRADOR',
-                    'fecha_aprobacion' => null,
-                    'revisado_por'     => null,
+                    'estado'       => 'BORRADOR',
+                    'revisado_por' => null,
                 ]);
             });
 
@@ -739,34 +796,76 @@ class ProgramaController extends Controller
      * Valida que el usuario tenga permiso para editar una sección específica
      * Acepta tanto el permiso específico del módulo como el wildcard de modificación
      */
-    private function validatePermissionForSeccion($user, string $seccionId, int $idContexto): void
+    private function validatePermissionForSeccion($user, string $seccionId, Curso $curso): void
     {
-        $permission = $this->getPermissionForSeccion($seccionId);
-
-        // Intentar primero con el permiso específico del módulo
-        if ($user->hasPermission($permission, $idContexto)) {
+        // Regla única, compartida con la barra de pasos del asistente: el
+        // titular escribe todo su documento; los `modulo_N` son para los
+        // miembros del equipo en quienes él delega secciones.
+        if (SyllabusWizardPresenter::puedeEscribirSeccion($user, $curso, $seccionId)) {
             return;
         }
 
-        // Si no tiene el permiso específico, verificar si tiene wildcard de modificación
-        if ($user->hasPermission(Permissions::CURSOS_PROGRAMAS_MODIFICAR_ALL, $idContexto)) {
-            return;
-        }
-
-        // Si no tiene ninguno, denegar acceso
         abort(403, "No tienes permiso para editar la sección {$seccionId}");
     }
 
     /**
-     * Valida que el usuario tenga permisos para todas las secciones
+     * Valida los permisos de módulo de las secciones que este guardado **cambia**.
+     *
+     * Antes se exigían las nueve siempre, lo que volvía inútil la delegación por
+     * módulo (`cursos/programas/modificar:modulo_N`): quien tenía delegada sólo
+     * la sección VI recibía 403 al guardar, aunque el resto del documento
+     * llegara idéntico. El guardado sigue enviando el syllabus completo —
+     * `ProgramaService::generateProgramaWithSyllabus` crea una versión nueva y
+     * reemplaza, no fusiona—, así que la pregunta correcta no es "¿qué secciones
+     * viajan?" sino "¿cuáles vienen distintas de lo que ya había?".
+     *
+     * @param  array<string, mixed>  $secciones  Secciones validadas del request.
      */
-    private function validatePermissionsForAllSecciones($user, Curso $curso): void
+    private function validatePermissionsForSeccionesEscritas($user, Curso $curso, array $secciones): void
     {
-        $secciones = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+        $actual = Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->first();
 
-        foreach ($secciones as $seccion) {
-            $this->validatePermissionForSeccion($user, $seccion, $curso->id_contexto);
+        $previas = $actual?->data_syllabus['secciones'] ?? [];
+
+        foreach (['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'] as $seccion) {
+            if (!array_key_exists($seccion, $secciones)) {
+                continue;
+            }
+
+            // Sin cambios respecto de la versión vigente: no hay escritura que autorizar.
+            if (array_key_exists($seccion, $previas)
+                && $this->mismoContenido($previas[$seccion], $secciones[$seccion])) {
+                continue;
+            }
+
+            $this->validatePermissionForSeccion($user, $seccion, $curso);
         }
+    }
+
+    /**
+     * Compara dos secciones ignorando el orden de las claves. Ante la duda
+     * (formas distintas, normalizaciones del DTO) devuelve false: el peor caso
+     * es pedir el permiso, que es exactamente lo que se hacía antes.
+     */
+    private function mismoContenido(mixed $antes, mixed $ahora): bool
+    {
+        $normalizar = function (mixed $valor) use (&$normalizar): mixed {
+            if (!is_array($valor)) {
+                return $valor;
+            }
+
+            $salida = [];
+            foreach ($valor as $clave => $item) {
+                $salida[$clave] = $normalizar($item);
+            }
+            ksort($salida);
+
+            return $salida;
+        };
+
+        return $normalizar($antes) == $normalizar($ahora);
     }
 
     /**

@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Administrativo;
 
 use App\Http\Controllers\Controller;
-use App\Models\Auditoria\ProgramaHistorial;
 use App\Models\Curso\Programa;
 use App\Models\Curso\Curso;
 use App\Services\ProgramaService;
+use App\Services\SyllabusViewerPresenter;
+use App\Services\SyllabusWizardPresenter;
 use App\Traits\ParsesSyllabus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -145,24 +146,18 @@ class ProgramaController extends Controller
 
             $secciones = $this->parseSecciones($dataSyllabus);
 
-            // Recuperar última razón de rechazo cuando el programa está en BORRADOR
-            $ultimoRechazo = null;
-            if ($programa->estado === 'BORRADOR') {
-                $ultimoRechazo = ProgramaHistorial::where('id_programa', $programa->id_programa)
-                    ->where('accion', 'RECHAZO')
-                    ->orderByDesc('fecha_accion')
-                    ->first(['observaciones', 'fecha_accion']);
-            }
-
-            $programaData = [
-                'id_programa'      => $programa->id_programa,
-                'version_programa' => $programa->version_programa,
-                'estado'           => $programa->estado,
-                'secciones'        => $secciones,
-                'fecha_creacion'   => $programa->fecha_creacion,
-                'razon_rechazo'    => $ultimoRechazo?->observaciones,
-                'fecha_rechazo'    => $ultimoRechazo?->fecha_accion,
-            ];
+            // Fechas, autoría e historial salen de auditoria.programa_historial:
+            // curso.programa no tiene ninguna columna de fecha (ver presenter).
+            $programaData = array_merge(
+                [
+                    'id_programa'      => $programa->id_programa,
+                    'version_programa' => $programa->version_programa,
+                    'estado'           => $programa->estado,
+                    'secciones'        => $secciones,
+                ],
+                SyllabusViewerPresenter::documento($programa),
+                SyllabusViewerPresenter::ultimoRechazo($programa),
+            );
         }
 
         // Permisos del usuario en el contexto del curso
@@ -179,31 +174,88 @@ class ProgramaController extends Controller
         $asignatura = $curso->asignacionPlan?->asignatura;
 
         return Inertia::render('docente/Programa', [
-            'curso' => [
-                'id_curso'                    => $curso->id_curso,
-                'nombre'                      => $curso->nombre,
-                'cod_curso'                   => $curso->cod_curso,
-                'id_asignacion_plan'          => $curso->id_asignacion_plan,
-                'id_contexto'                 => $curso->id_contexto,
-                'asignatura_nombre'           => $asignatura?->nombre,
-                'carrera_nombre'              => $curso->asignacionPlan?->plan?->carrera?->nombre,
-                'asignatura'                  => $asignatura,
-                'carrera'                     => $curso->asignacionPlan?->plan?->carrera,
-                'creditos_sct'                => $asignatura?->creditos_sct,
-                'horas_catedra'               => $asignatura?->horas_catedra,
-                'horas_taller'                => $asignatura?->horas_taller,
-                'horas_laboratorio'           => $asignatura?->horas_laboratorio,
-                'fecha_limite_entrega_basico'    => $curso->fecha_limite_entrega_basico,
-                'fecha_limite_entrega_syllabus'  => $curso->fecha_limite_entrega_syllabus,
-            ],
+            'curso' => array_merge(
+                [
+                    'id_curso'                    => $curso->id_curso,
+                    'nombre'                      => $curso->nombre,
+                    'cod_curso'                   => $curso->cod_curso,
+                    'id_asignacion_plan'          => $curso->id_asignacion_plan,
+                    'id_contexto'                 => $curso->id_contexto,
+                    'asignatura_nombre'           => $asignatura?->nombre,
+                    'carrera_nombre'              => $curso->asignacionPlan?->plan?->carrera?->nombre,
+                    'asignatura'                  => $asignatura,
+                    'carrera'                     => $curso->asignacionPlan?->plan?->carrera,
+                    'creditos_sct'                => $asignatura?->creditos_sct,
+                    'horas_catedra'               => $asignatura?->horas_catedra,
+                    'horas_taller'                => $asignatura?->horas_taller,
+                    'horas_laboratorio'           => $asignatura?->horas_laboratorio,
+                    'fecha_limite_entrega_basico'    => $curso->fecha_limite_entrega_basico,
+                    'fecha_limite_entrega_syllabus'  => $curso->fecha_limite_entrega_syllabus,
+                ],
+                SyllabusViewerPresenter::cabeceraCurso($curso),
+            ),
             'programa'        => $programaData,
             'asignatura'      => $asignatura,
             'canApprove'      => $canApprove,
             'canEdit'         => $canEdit,
+            'canCreate'       => $programa === null && $user->can('create', [Programa::class, $curso]),
+            'canDelete'       => $programa !== null && $user->can('delete', $programa),
             'userPermissions' => $userPermissions,
             'layoutType'      => 'docente',
             'backUrl'         => '/docente/cursos',
         ]);
+    }
+
+    /**
+     * Página del asistente de syllabus — `/docente/cursos/{curso}/programa/editar`.
+     *
+     * El asistente dejó de ser un modal: es una pantalla propia con su URL, de
+     * modo que se puede enlazar, recargar y volver atrás. Sirve tanto para crear
+     * (sin programa aún, con `?tipo=BASICO|COMPLETO`) como para editar el
+     * programa vigente, y para promover un BÁSICO a COMPLETO (`?tipo=COMPLETO`).
+     *
+     * Guardar sigue yendo a `POST {base}/cursos/{curso}/programa`, que crea una
+     * versión nueva; por eso aquí no hay autoguardado.
+     */
+    public function edit(Request $request, Curso $curso): Response|RedirectResponse
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        /** @var \App\Models\Usuario\Usuario $user */
+        $user = Auth::user();
+
+        $programa = Programa::where('id_curso', $curso->id_curso)
+            ->where('es_actual', true)
+            ->first();
+
+        if ($programa) {
+            $this->authorize('view', $programa);
+
+            if ($programa->estado === 'APROBADO') {
+                return Redirect::route('docente.cursos.programa.show', $curso->id_curso)
+                    ->with('error', 'El syllabus está aprobado: solicita la reapertura a tu jefatura antes de editarlo.');
+            }
+        } else {
+            $this->authorize('create', [Programa::class, $curso]);
+        }
+
+        // Sin ninguna sección escribible el asistente no tiene nada que ofrecer,
+        // y el guardado respondería 403 igualmente.
+        if (SyllabusWizardPresenter::seccionesEditables($user, $curso) === []) {
+            return Redirect::route('docente.cursos.programa.show', $curso->id_curso)
+                ->with('error', 'Ninguna sección del syllabus está delegada a ti en este curso. Pide a la jefatura o al docente titular que te asigne los módulos que debes redactar.');
+        }
+
+        $tipo = strtoupper((string) $request->query('tipo', ''));
+        $tipoSolicitado = in_array($tipo, ['BASICO', 'COMPLETO'], true) ? $tipo : null;
+
+        return Inertia::render('docente/SyllabusWizard', SyllabusWizardPresenter::build(
+            $curso,
+            $user,
+            $programa,
+            $tipoSolicitado,
+            'docente',
+        ));
     }
 
     /**
@@ -220,10 +272,11 @@ class ProgramaController extends Controller
 
         $user = Auth::user();
 
+        // `curso.programa` no tiene `aprobado_por` ni `fecha_aprobacion`: la firma
+        // real es `revisado_por` y la fecha la deja el trigger de auditoría.
         $programa->update([
-            'estado' => 'APROBADO',
-            'aprobado_por' => $user->id_usuario,
-            'fecha_aprobacion' => now(),
+            'estado'       => 'APROBADO',
+            'revisado_por' => $user->id_usuario,
         ]);
 
         return Redirect::route('docente.cursos.programa.show', $curso->id_curso)

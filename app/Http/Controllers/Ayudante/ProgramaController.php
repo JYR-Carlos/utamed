@@ -13,6 +13,7 @@ use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Auditoria\ProgramaHistorial;
 use App\Services\ProgramaService;
+use App\Services\SyllabusWizardPresenter;
 use App\Traits\ParsesSyllabus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -52,7 +53,7 @@ class ProgramaController extends Controller
      */
     public function create(Curso $curso): Response|RedirectResponse
     {
-        return $this->renderProgramaView($curso, 'create');
+        return $this->edit($curso);
     }
 
     /**
@@ -108,7 +109,18 @@ class ProgramaController extends Controller
                 ->with('error', 'No puedes editar un programa aprobado');
         }
 
-        return $this->renderProgramaView($curso, 'edit');
+        // Editar es el asistente, que ahora es una página propia y no un modal
+        // sobre el visor: la misma pantalla que ven docente y revisor.
+        $tipo = strtoupper((string) request()->query('tipo', ''));
+        $tipoSolicitado = in_array($tipo, ['BASICO', 'COMPLETO'], true) ? $tipo : null;
+
+        return Inertia::render('docente/SyllabusWizard', SyllabusWizardPresenter::build(
+            $curso,
+            $user,
+            $programa,
+            $tipoSolicitado,
+            'ayudante',
+        ));
     }
 
     /**

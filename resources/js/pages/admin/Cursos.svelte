@@ -11,14 +11,13 @@
    *
    * Mantiene:
    * - CourseTeamModal: Gestión de equipos
-   * - SyllabusModal: Gestión de programas
+   * - SyllabusTypeSelector: elección del tipo antes de abrir el asistente
    * - CursoWizardModal: Wizard para crear cursos
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import PageHeader from '@/components/admin/PageHeader.svelte';
   import { page, router } from '@inertiajs/svelte';
 
-  import SyllabusModal from '@/modules/resources/programa/components/SyllabusModal.svelte';
   import SyllabusTypeSelector from '@/modules/resources/programa/components/SyllabusTypeSelector.svelte';
   import { CourseTeamModal, CursoWizardModal } from '@/modules/resources/curso/components';
   import CursoCopyPreviewModal from '@/modules/resources/curso/components/cursoCopyPreviewModal.svelte';
@@ -97,7 +96,6 @@
   let showTeamModal = $state(false);
   let showInscriptionModal = $state(false);
   let showSyllabusTypeSelector = $state(false);
-  let showSyllabusModal = $state(false);
   let showCopyModal = $state(false);
   let copyingCurso = $state<Curso | null>(null);
   let showSyncModal = $state(false);
@@ -108,7 +106,6 @@
   let deletingCurso = $state<Curso | null>(null);
   let managingTeamCurso = $state<Curso | null>(null);
   let syllabusTargetCurso = $state<Curso | null>(null);
-  let selectedSyllabusType = $state<'simplified' | 'combined' | 'complete' | null>(null);
   let selectedCursoForInscription = $state<Curso | null>(null);
   let docentes = $state<Docente[]>([]);
   let availableAsignaturas = $state<Asignatura[]>([]);
@@ -443,6 +440,7 @@
     closeSlideOver();
   }
 
+  /** Con programa, se va al visor; sin él, se elige tipo y luego al asistente. */
   function openSyllabusModal(curso: Curso) {
     if (curso.has_programa || curso.id_programa || curso.programa_estado) {
       router.visit(`/admin/cursos/${curso.id_curso}/programa/revisar`, { method: 'get' });
@@ -452,48 +450,21 @@
     }
   }
 
+  /**
+   * El asistente de syllabus dejó de ser un modal: elegido el tipo, se navega a
+   * su página (`/admin/cursos/{curso}/programa/editar?tipo=…`).
+   */
   function handleSyllabusTypeSelect(type: 'simplified' | 'combined' | 'complete') {
-    selectedSyllabusType = type;
+    const curso = syllabusTargetCurso;
     showSyllabusTypeSelector = false;
-    showSyllabusModal = true;
+    if (!curso) return;
+    const tipo = type === 'complete' ? 'COMPLETO' : 'BASICO';
+    router.visit(`/admin/cursos/${curso.id_curso}/programa/editar?tipo=${tipo}`);
   }
 
   function closeSyllabusTypeSelector() {
     showSyllabusTypeSelector = false;
-  }
-
-  function closeSyllabusModal() {
-    showSyllabusModal = false;
     syllabusTargetCurso = null;
-    selectedSyllabusType = null;
-  }
-
-  function handleSyllabusSuccess(programa: Programa) {
-    if (syllabusTargetCurso) {
-      const idx = cursos.data.findIndex((c) => c.id_curso === syllabusTargetCurso!.id_curso);
-      if (idx !== -1) {
-        const cursoActualizado = {
-          ...cursos.data[idx],
-          has_programa: true,
-          id_programa: programa.id_programa,
-          programa_estado: programa.estado,
-        };
-
-        // Reasignar `cursos` (no solo mutar cursos.data[idx]) para que Svelte
-        // detecte el cambio: la mutación en el elemento del array no siempre
-        // dispara el re-render cuando `cursos` viene de un prop de Inertia.
-        cursos = {
-          ...cursos,
-          data: cursos.data.map((c, i) => (i === idx ? cursoActualizado : c)),
-        };
-
-        if (slideOverCurso?.id_curso === syllabusTargetCurso.id_curso) {
-          slideOverCurso = cursoActualizado;
-        }
-      }
-    }
-    closeSyllabusModal();
-    showToast('Programa generado exitosamente', 'success');
   }
 </script>
 
@@ -697,19 +668,6 @@
       onSelect={handleSyllabusTypeSelect}
       {existingSyllabusType}
     />
-  {/if}
-
-  <!-- Syllabus Modal (Programa wizard) - use key block to remount on type change -->
-  {#if showSyllabusModal && syllabusTargetCurso}
-    {#key `${syllabusTargetCurso?.id_curso}-${selectedSyllabusType}`}
-      <SyllabusModal
-        bind:isOpen={showSyllabusModal}
-        curso={syllabusTargetCurso}
-        onClose={closeSyllabusModal}
-        onSuccess={handleSyllabusSuccess}
-        syllabusType={selectedSyllabusType}
-      />
-    {/key}
   {/if}
 
   <!-- Toast Notifications Stack -->

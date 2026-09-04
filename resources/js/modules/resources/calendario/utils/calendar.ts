@@ -22,20 +22,28 @@ export const MESES = [
 ];
 
 /** Encabezados de la semana iniciando en Lunes (convención chilena). */
-export const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+export const DIAS_SEMANA = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
 
-const DIAS_LARGOS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const DIAS_LARGOS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
-/** Paleta de acentos por curso — tonos distinguibles entre sí. */
+/**
+ * Paleta de acentos por curso.
+ *
+ * El color pertenece al CURSO, no al tipo de evento: con varios cursos abiertos
+ * la primera pregunta del docente es "de qué curso es esta fecha". Los cinco
+ * primeros tonos son los del lenguaje visual institucional; los tres restantes
+ * continúan el pool para docentes con más de cinco cursos, corriendo el turno
+ * cuando dos cursos colisionarían.
+ */
 export const ACCENTS: CursoAccent[] = [
-  { base: '#4F46E5', soft: '#EEF0FF', text: '#3730A3', border: '#C7CBFF' },
-  { base: '#0891B2', soft: '#E0F5FB', text: '#0E6A80', border: '#A5E4F2' },
-  { base: '#DB2777', soft: '#FCE7F1', text: '#9D174D', border: '#F7C0DA' },
-  { base: '#16A34A', soft: '#E3F8EC', text: '#11713A', border: '#B2E7C7' },
-  { base: '#EA580C', soft: '#FDEDE1', text: '#9A3412', border: '#F8CBA8' },
-  { base: '#7C3AED', soft: '#F3EEFF', text: '#5B21B6', border: '#D9C7FB' },
-  { base: '#CA8A04', soft: '#FBF3D6', text: '#854D0E', border: '#F0DC9A' },
-  { base: '#0D9488', soft: '#DEF5F2', text: '#0B6157', border: '#A4E3DB' },
+  { base: '#0F5B9B', soft: '#EAF2FA', text: '#0F5B9B', border: '#C4DAF0' },
+  { base: '#8A2B4E', soft: '#FBEDF1', text: '#8A2B4E', border: '#EBC9D5' },
+  { base: '#1F6F45', soft: '#EAF5EF', text: '#1F6F45', border: '#C3E2D0' },
+  { base: '#6B4BA8', soft: '#F1ECFA', text: '#6B4BA8', border: '#D8CCEF' },
+  { base: '#A2551A', soft: '#FBF0E6', text: '#A2551A', border: '#EDD5BC' },
+  { base: '#0E6A80', soft: '#E5F1F5', text: '#0B5464', border: '#BCDDE7' },
+  { base: '#31456B', soft: '#ECEEF4', text: '#31456B', border: '#C9D0DF' },
+  { base: '#8A6D14', soft: '#F7F1DE', text: '#6F5710', border: '#E5D8A9' },
 ];
 
 /** Devuelve el acento estable para una posición de curso. */
@@ -54,6 +62,25 @@ export function toKey(d: Date): string {
 /** Clave 'YYYY-MM-DD' de hoy. */
 export function todayKey(): string {
   return toKey(new Date());
+}
+
+/** Convierte una clave 'YYYY-MM-DD' en un Date local. */
+export function fromKey(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** Describe un día suelto (sin depender de la matriz mensual). */
+export function describirDia(iso: string, mesReferencia?: number): CalendarDay {
+  const date = fromKey(iso);
+  const dow = date.getDay();
+  return {
+    iso,
+    dayOfMonth: date.getDate(),
+    inMonth: mesReferencia === undefined ? true : date.getMonth() === mesReferencia,
+    isToday: iso === todayKey(),
+    isWeekend: dow === 0 || dow === 6,
+  };
 }
 
 /**
@@ -98,11 +125,69 @@ export function buildMonthMatrix(year: number, month: number): CalendarDay[][] {
   return weeks;
 }
 
-/** Formatea 'YYYY-MM-DD' como "Lunes 22 de junio de 2026". */
+/** Lunes de la semana que contiene `iso`. */
+export function inicioSemana(iso: string): string {
+  const d = fromKey(iso);
+  const offset = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - offset);
+  return toKey(d);
+}
+
+/** Los siete días (lunes → domingo) de la semana que contiene `iso`. */
+export function buildWeekDays(iso: string): CalendarDay[] {
+  const today = todayKey();
+  const start = fromKey(inicioSemana(iso));
+  const dias: CalendarDay[] = [];
+
+  for (let i = 0; i < 7; i++) {
+    const current = new Date(start);
+    current.setDate(start.getDate() + i);
+    const key = toKey(current);
+    const dow = current.getDay();
+    dias.push({
+      iso: key,
+      dayOfMonth: current.getDate(),
+      inMonth: true,
+      isToday: key === today,
+      isWeekend: dow === 0 || dow === 6,
+    });
+  }
+
+  return dias;
+}
+
+/** Desplaza una clave 'YYYY-MM-DD' en N días. */
+export function sumarDias(iso: string, dias: number): string {
+  const d = fromKey(iso);
+  d.setDate(d.getDate() + dias);
+  return toKey(d);
+}
+
+/** Minutos desde medianoche de una hora 'HH:MM' (0 si no es válida). */
+export function minutosDeHora(hora: string): number {
+  const [h, m] = (hora ?? '').split(':').map(Number);
+  if (Number.isNaN(h)) return 0;
+  return h * 60 + (Number.isNaN(m) ? 0 : m);
+}
+
+/** Minutos transcurridos hoy, para la línea de "ahora" de la vista semana. */
+export function minutosAhora(): number {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+/** Formatea 'YYYY-MM-DD' como "lunes 22 de junio de 2026". */
 export function formatLargo(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   const date = new Date(y, m - 1, d);
   return `${DIAS_LARGOS[date.getDay()]} ${d} de ${MESES[m - 1].toLowerCase()} de ${y}`;
+}
+
+/** Formatea 'YYYY-MM-DD' como "lunes 22 jun" (cabeceras de la agenda). */
+export function formatMedio(iso: string): string {
+  const [, m, d] = iso.split('-').map(Number);
+  const date = fromKey(iso);
+  return `${DIAS_LARGOS[date.getDay()]} ${d} ${MESES[m - 1].slice(0, 3).toLowerCase()}`;
 }
 
 /** Formatea 'YYYY-MM-DD' como "22 jun" (compacto). */
@@ -111,10 +196,26 @@ export function formatCorto(iso: string): string {
   return `${d} ${MESES[m - 1].slice(0, 3).toLowerCase()}`;
 }
 
+/** Rango de una semana: "14 – 20 sep 2026". */
+export function formatRangoSemana(dias: CalendarDay[]): string {
+  if (dias.length === 0) return '';
+  const primero = dias[0];
+  const ultimo = dias[dias.length - 1];
+  const [ay, am, ad] = primero.iso.split('-').map(Number);
+  const [by, bm, bd] = ultimo.iso.split('-').map(Number);
+
+  if (am === bm) return `${ad} – ${bd} ${MESES[am - 1].slice(0, 3).toLowerCase()} ${by}`;
+  if (ay === by) {
+    return `${ad} ${MESES[am - 1].slice(0, 3).toLowerCase()} – ${bd} ${MESES[bm - 1]
+      .slice(0, 3)
+      .toLowerCase()} ${by}`;
+  }
+  return `${formatCorto(primero.iso)} ${ay} – ${formatCorto(ultimo.iso)} ${by}`;
+}
+
 /** Días enteros desde hoy hasta `iso` (negativo si ya pasó). */
 export function diasRestantes(iso: string): number {
-  const [y, m, d] = iso.split('-').map(Number);
-  const target = new Date(y, m - 1, d);
+  const target = fromKey(iso);
   const now = new Date();
   const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.round((target.getTime() - base.getTime()) / 86_400_000);

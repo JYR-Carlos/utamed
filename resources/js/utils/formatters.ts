@@ -234,6 +234,23 @@ export function initials(name: string): string {
 }
 
 /**
+ * Formatea una nota en la escala institucional 1,0–7,0.
+ *
+ * Convención del lenguaje visual: un decimal y coma decimal (es-CL). El 0 no
+ * existe en la escala, así que `null` es «sin nota», no «cero»: quien llama debe
+ * renderizar el vacío (pastilla punteada) en vez de un dígito.
+ *
+ * @param nota - Nota numérica, o null/undefined si no está puesta.
+ * @returns Ej. "5,8". Devuelve '' si no hay nota.
+ */
+export function formatNota(nota: number | string | null | undefined): string {
+    if (nota === null || nota === undefined || nota === '') return '';
+    const n = typeof nota === 'string' ? Number(nota) : nota;
+    if (!Number.isFinite(n)) return '';
+    return n.toFixed(1).replace('.', ',');
+}
+
+/**
  * Formatea un tamaño en bytes a una cadena legible (B / KB / MB).
  * (Rescatado de `Activities/Index.svelte:formatBytes`.)
  * @param bytes - Tamaño en bytes, o null.
