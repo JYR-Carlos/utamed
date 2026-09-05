@@ -25,6 +25,7 @@ use App\Http\Controllers\Docente\DocenteCursoController;
 use App\Http\Controllers\Docente\JefeCarreraController;
 use App\Http\Controllers\Docente\MensajeriaController;
 use App\Http\Controllers\Docente\MensajesController;
+use App\Http\Controllers\Sso\SgeqSsoController;
 use App\Http\Controllers\Student\ActivityController;
 use App\Http\Controllers\Student\AgendaController;
 use App\Http\Controllers\Student\CourseController;
@@ -94,6 +95,7 @@ Route::get('dashboard', function () {
                     ->doesntHave('jefesDeCarreraActivos')
                     ->count(),
             ],
+            'puedeAbrirSgeq' => app(\App\Services\Sso\SgeqSsoService::class)->resolverRol($user) !== null,
         ]);
     }
 
@@ -104,6 +106,12 @@ Route::get('dashboard', function () {
 Route::get('sin-rol', function () {
     return Inertia::render('SinRol');
 })->middleware(['auth'])->name('sin-rol');
+
+// Entrada a SGEQ (préstamo de equipos). Firma un token de identidad y redirige;
+// quién puede pasar lo decide App\Services\Sso\SgeqSsoService.
+Route::get('sso/sgeq', [SgeqSsoController::class, 'redirigir'])
+    ->middleware(['auth', 'verified'])
+    ->name('sso.sgeq');
 
 // Admin Routes
 Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admin.')->group(function () {

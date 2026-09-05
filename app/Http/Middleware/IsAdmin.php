@@ -37,19 +37,10 @@ class IsAdmin
             return redirect('/login');
         }
 
-        if (!$this->isAdmin($user)) {
+        if (!$user->esAdministradorGlobal()) {
             return redirect()->route('dashboard')->with('error', 'No tienes permisos para acceder a esta sección. Acceso restringido a administradores.');
         }
 
         return $next($request);
-    }
-
-    /**
-     * Admin = permiso wildcard global ('*') o rol administrativo en el contexto global.
-     */
-    private function isAdmin(Usuario $user): bool
-    {
-        return $user->isSuperAdmin()
-            || $user->hasAnyRoleGlobally(Usuario::ROLES_ADMINISTRATIVOS);
     }
 }

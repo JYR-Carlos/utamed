@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Usuario\Usuario;
 use App\Models\Curso\InscripcionCurso;
 use App\Services\MensajeriaService;
+use App\Services\Sso\SgeqSsoService;
 use Carbon\Carbon;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -19,7 +20,7 @@ class DashboardController extends Controller
      *
      * @return \Illuminate\Http\RedirectResponse|\Inertia\Response
      */
-    public function index(MensajeriaService $mensajeria)
+    public function index(MensajeriaService $mensajeria, SgeqSsoService $sgeq)
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -104,6 +105,9 @@ class DashboardController extends Controller
                 'nombre_completo' => trim("{$user->nombre1} {$user->apellido1}"),
             ],
             'isAyudante' => $isAyudante,
+            // El acceso a SGEQ depende de la carrera, así que el botón no se
+            // muestra a quien igual rebotaría al hacer clic.
+            'puedeAbrirSgeq' => $sgeq->resolverRol($user) !== null,
             'semestreActual' => $semestreActual
 
         ]);
