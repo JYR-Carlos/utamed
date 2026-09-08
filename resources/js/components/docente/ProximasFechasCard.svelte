@@ -12,6 +12,7 @@
     nombre: string;
     id_curso: number | null;
     cod_curso: string | null;
+    nombre_curso: string | null;
     fecha_limite: string | null;
   }
 
@@ -38,7 +39,7 @@
           <div class="flex min-w-0 flex-1 flex-col gap-0.5">
             <span class="text-[13.5px] font-medium leading-snug text-[#1A1A24]">{item.nombre}</span>
             {#if item.cod_curso}
-              <span class="font-mono text-[11px] text-[#5A5E6E]">{item.cod_curso}</span>
+              <span class="font-mono text-[11px] text-[#5A5E6E]">{item.nombre_curso}</span>
             {/if}
           </div>
           <span class="shrink-0 text-[12.5px] font-semibold text-[#4A4E5C]">{item.fecha_limite}</span>

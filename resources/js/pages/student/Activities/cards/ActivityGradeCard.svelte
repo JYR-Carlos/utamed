@@ -48,10 +48,10 @@
     {/if}
   </div>
 
-  <div class="flex items-end gap-2.5">
-    <span class="text-[40px] font-semibold leading-none tracking-tight text-[#1A1A24]">{gradeLabel}</span>
+  <div class="flex flex-col items-center gap-2.5 text-center">
+    <span class="text-[80px] font-semibold leading-none tracking-tight text-[#1A1A24]">{gradeLabel}</span>
     <div class="flex flex-col pb-1">
-      <span class="text-xs text-[#5A5E6E]">escala 1,0 – 7,0</span>
+      <!--<span class="text-xs text-[#5A5E6E]">escala 1,0 – 7,0</span>-->
       <span class="text-xs text-[#5A5E6E]">{es_sumativa ? 'Nota sumativa' : 'Nota formativa'}</span>
     </div>
   </div>
