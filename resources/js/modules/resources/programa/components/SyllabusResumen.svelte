@@ -8,7 +8,10 @@
    * lectura sean la misma imagen.
    */
   import { Info } from 'lucide-svelte';
-  import type { WizardUnidad, WizardActividad } from '@/modules/resources/programa/types/programa.types';
+  import type {
+    WizardUnidad,
+    WizardActividad,
+  } from '@/modules/resources/programa/types/programa.types';
   import type { BibliografiaSyllabus } from '@/types/syllabus.types';
   import { formatDomainUrl } from '@/utils/formatters';
 
@@ -56,6 +59,59 @@
   const bibliografiasConTitulo = $derived(bibliografias.filter((b) => b.titulo?.trim()));
   const recursosConTexto = $derived(recursos.filter((r) => r.descripcion.trim()));
 
+  const bibliografiasPorGrupo = $derived.by(() => {
+    const validas = bibliografiasConTitulo;
+    if (validas.length === 0) return [];
+
+    const mapaUnidades = new Map<number, { titulo: string; bibs: BibliografiaSyllabus[] }>();
+    unidadesConTitulo.forEach((u) => {
+      mapaUnidades.set(u.numero, { titulo: u.titulo, bibs: [] });
+    });
+
+    const generales: BibliografiaSyllabus[] = [];
+
+    for (const b of validas) {
+      const num = b.id_unidad != null ? Number(b.id_unidad) : null;
+      if (num != null && mapaUnidades.has(num)) {
+        mapaUnidades.get(num)!.bibs.push(b);
+      } else if (num != null && num > 0) {
+        if (!mapaUnidades.has(num)) {
+          mapaUnidades.set(num, { titulo: `Unidad ${num}`, bibs: [] });
+        }
+        mapaUnidades.get(num)!.bibs.push(b);
+      } else {
+        generales.push(b);
+      }
+    }
+
+    const resultado: Array<{ encabezado: string; bibs: BibliografiaSyllabus[] }> = [];
+
+    for (const [numero, info] of mapaUnidades.entries()) {
+      if (info.bibs.length > 0) {
+        resultado.push({
+          encabezado: `UNIDAD ${numero}: ${info.titulo.toUpperCase()}`,
+          bibs: info.bibs,
+        });
+      }
+    }
+
+    if (generales.length > 0) {
+      resultado.push({
+        encabezado: 'BIBLIOGRAFÍA GENERAL',
+        bibs: generales,
+      });
+    }
+
+    if (resultado.length === 0 && validas.length > 0) {
+      resultado.push({
+        encabezado: 'BIBLIOGRAFÍA GENERAL',
+        bibs: validas,
+      });
+    }
+
+    return resultado;
+  });
+
   const horas = $derived(
     [
       Number(horas_catedra) ? `${horas_catedra} cátedra` : null,
@@ -80,7 +136,9 @@
   >
     <header class="flex flex-col gap-1.5 border-b border-[#EDEFF3] pb-[18px]">
       <span class="font-mono text-[12.5px] text-[#5A5E6E]">
-        {[codigo, tipo, version ? `versión ${version}` : 'versión nueva'].filter(Boolean).join(' · ')}
+        {[codigo, tipo, version ? `versión ${version}` : 'versión nueva']
+          .filter(Boolean)
+          .join(' · ')}
       </span>
       <h2 class="m-0 text-[22px] font-semibold tracking-[-0.01em]">
         {nombreAsignatura || 'Sin nombre'}
@@ -92,7 +150,9 @@
         <span class={NUM}>I.</span>
         <h3 class={TIT}>Identificación</h3>
       </div>
-      <dl class="m-0 grid grid-cols-1 gap-x-7 gap-y-3 border-y border-[#EDEFF3] py-4 sm:grid-cols-2">
+      <dl
+        class="m-0 grid grid-cols-1 gap-x-7 gap-y-3 border-y border-[#EDEFF3] py-4 sm:grid-cols-2"
+      >
         <div class="flex flex-col">
           <dt class="text-[12px] text-[#5A5E6E]">Créditos SCT</dt>
           <dd class="m-0 text-[14.5px] font-medium">{creditos_sct || '—'}</dd>
@@ -129,7 +189,7 @@
       </div>
       {#if unidadesConTitulo.length > 0}
         <div class="flex flex-col gap-3.5">
-          {#each unidadesConTitulo as u}
+          {#each unidadesConTitulo as u (u.numero)}
             <div class="flex flex-col gap-1">
               <span class="font-mono text-[12px] text-[#5A5E6E]">Unidad {u.numero}</span>
               <span class="text-[15px] font-semibold">{u.titulo}</span>
@@ -151,7 +211,7 @@
       </div>
       {#if actividadesConNombre.length > 0}
         <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5">
-          {#each actividadesConNombre as a}
+          {#each actividadesConNombre as a (a.nombre)}
             <li>
               {a.nombre}{a.tipo ? ` (${a.tipo})` : ''}{a.nombre_unidad
                 ? ` — Unidad: ${a.nombre_unidad}`
@@ -164,37 +224,73 @@
       {/if}
     </section>
 
-    <section class="flex flex-col gap-2.5">
+    <section class="flex flex-col gap-3">
       <div class="flex items-baseline gap-2.5">
         <span class={NUM}>VIII.</span>
         <h3 class={TIT}>Bibliografía y Recursos</h3>
       </div>
-      {#if bibliografiasConTitulo.length > 0}
-        <ul class="m-0 flex list-disc flex-col gap-2 pl-5 text-[14px]">
-          {#each bibliografiasConTitulo as b}
-            <li>
-              <span class="font-semibold text-[#1A1A24]">{b.titulo}</span>
-              {#if b.autor} · <span class="text-[#5A5E6E]">{b.autor}</span>{/if}
-              <span class="font-mono text-[12px] text-[#5A5E6E]">({b.anio})</span>
-              {#if b.editorial} <span class="italic text-[#9AA0AE]">· {b.editorial}</span>{/if}
-              {#if b.es_bibliografia_uta}
-                <span class="ml-1 rounded-full bg-[#E8EDF5] px-2 py-0.5 text-[10.5px] font-bold text-[#002F6C]">Oficial UTA</span>
-              {/if}
-              {#if b.url}
-                · <a href={b.url} target="_blank" rel="noopener noreferrer" class="text-[#002F6C] underline hover:text-[#1B4789]">{formatDomainUrl(b.url)}</a>
-              {/if}
-              {#if b.uuid_archivo}
-                · <a href={`/api/bibliografias/${b.uuid_archivo}/archivo`} target="_blank" rel="noopener noreferrer" class="font-medium text-[#002F6C] underline hover:text-[#1B4789]">Ver archivo</a>
-              {/if}
-              {#if b.cita}
-                <span class="block text-[12.5px] italic text-[#5A5E6E]">«{b.cita}»</span>
-              {/if}
-            </li>
+      {#if bibliografiasPorGrupo.length > 0}
+        <div class="flex flex-col gap-4">
+          {#each bibliografiasPorGrupo as grupo (grupo.encabezado)}
+            <div class="flex flex-col gap-1.5">
+              <div class="border-b border-[#D6D9E0] pb-0.5">
+                <span
+                  class="font-mono text-[12px] font-bold tracking-[0.03em] text-[#002F6C] uppercase"
+                >
+                  {grupo.encabezado}
+                </span>
+              </div>
+              <ul class="m-0 flex list-disc flex-col gap-1.5 text-[14px] marker:text-[#9AA0AE]">
+                {#each grupo.bibs as b (b.uuid_bibliografia ?? b.titulo)}
+                  <li
+                    class="text-pretty transition-colors list-inside px-2 py-0.5 border border-transparent {b.es_bibliografia_uta
+                      ? 'bg-[#EBF3FA]'
+                      : ''}"
+                  >
+                    <span class="font-semibold text-[#1A1A24]">{b.titulo}</span>
+                    {#if b.autor}
+                      · <span class="text-[#5A5E6E]">{b.autor}</span>{/if}
+                    <span class="font-mono text-[12px] text-[#5A5E6E]">({b.anio})</span>
+                    {#if b.editorial}
+                      <span class="italic text-[#9AA0AE]">· {b.editorial}</span>{/if}
+                    {#if b.es_bibliografia_uta}
+                      <span
+                        class="ml-1 rounded bg-[#002F6C] px-1.5 py-0.5 text-[10.5px] font-bold text-white"
+                        >Oficial UTA</span
+                      >
+                    {/if}
+                    {#if b.url}
+                      · <a
+                        href={b.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-[#002F6C] underline hover:text-[#1B4789]"
+                        >{formatDomainUrl(b.url)}</a
+                      >
+                    {/if}
+                    {#if b.uuid_archivo}
+                      · <a
+                        href={`/api/bibliografias/${b.uuid_archivo}/archivo`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="font-medium text-[#002F6C] underline hover:text-[#1B4789]"
+                        >Ver archivo</a
+                      >
+                    {/if}
+                    {#if b.cita}
+                      <span class="block text-[12.5px] italic text-[#5A5E6E] mt-0.5 leading-snug"
+                        >«{b.cita}»</span
+                      >
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+            </div>
           {/each}
-        </ul>
+        </div>
       {:else if recursosConTexto.length > 0}
         <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5 text-[14px]">
-          {#each recursosConTexto as r}
+          {#each recursosConTexto as r (r.descripcion)}
             <li>{r.descripcion}{r.tipo ? ` (${r.tipo})` : ''}</li>
           {/each}
         </ul>
@@ -208,8 +304,8 @@
     class="m-0 flex w-full max-w-[760px] items-start gap-2.5 rounded-[9px] border border-[#E3D9C6] bg-[#F5F1EA] px-3.5 py-3 text-[12.5px] leading-[1.5] text-[#6B5B3E]"
   >
     <Info size={15} class="mt-0.5 shrink-0" aria-hidden="true" />
-    Al guardar, el syllabus básico queda <strong class="font-semibold">entregado</strong> y visible
-    para los alumnos —la versión básica no pasa por aprobación—. Completarlo hasta las nueve
-    secciones se hace desde el visor del programa.
+    Al guardar, el syllabus básico queda <strong class="font-semibold">entregado</strong> y visible para
+    los alumnos —la versión básica no pasa por aprobación—. Completarlo hasta las nueve secciones se hace
+    desde el visor del programa.
   </p>
 </div>

@@ -386,10 +386,29 @@ describe('Syllabus - Generación y Sincronización de Bibliografías', function 
         $uuidArchivo = (string) Str::uuid7();
         $dataSyllabus = [
             'secciones' => [
+                'VI' => [
+                    'contenido' => [
+                        'unidades' => [
+                            [
+                                'numero' => 1,
+                                'titulo' => 'Introducción',
+                                'contenidos_items' => [],
+                                'resultados_aprendizaje' => [],
+                            ],
+                            [
+                                'numero' => 2,
+                                'titulo' => 'Farmacología',
+                                'contenidos_items' => [],
+                                'resultados_aprendizaje' => [],
+                            ],
+                        ],
+                    ],
+                ],
                 'VIII' => [
                     'contenido' => [
                         'bibliografias' => [
                             [
+                                'id_unidad' => 1,
                                 'titulo' => 'Libro 1',
                                 'autor' => 'Pérez, Juan',
                                 'anio' => 2025,
@@ -399,11 +418,12 @@ describe('Syllabus - Generación y Sincronización de Bibliografías', function 
                                 'uuid_archivo' => null,
                             ],
                             [
+                                'id_unidad' => 2,
                                 'titulo' => 'Libro 2',
                                 'autor' => 'Gómez, Ana',
                                 'anio' => 2026,
                                 'cita' => null,
-                                'es_bibliografia_uta' => false,
+                                'es_bibliografia_uta' => true,
                                 'uuid_archivo' => $uuidArchivo,
                             ],
                         ],
@@ -418,9 +438,10 @@ describe('Syllabus - Generación y Sincronización de Bibliografías', function 
 
         $texto = $secVIII['contenidos'][0]['texto_contenido'];
 
-        // Debe usar \n simple (no \n\n) para evitar saltos excesivos entre ítems
-        expect($texto)->toContain("• Pérez, Juan (2025). Libro 1. [Enlace web: https://ejemplo.com/libro1] — «Páginas 45-60»\n• Gómez, Ana (2026). Libro 2. [Archivo adjunto: /api/bibliografias/{$uuidArchivo}/archivo]");
-        expect($texto)->not->toContain("\n\n");
+        // Debe separar por unidad con títulos en mayúsculas, \n en citas sin em dash
+        expect($texto)->toContain("UNIDAD 1: INTRODUCCIÓN\n• Pérez, Juan (2025). Libro 1. [Enlace web: https://ejemplo.com/libro1]\n  «Páginas 45-60»");
+        expect($texto)->toContain("UNIDAD 2: FARMACOLOGÍA\n• Gómez, Ana (2026). Libro 2. [Biblioteca UTA · Archivo adjunto: /api/bibliografias/{$uuidArchivo}/archivo]");
+        expect($texto)->not->toContain(' — ');
     });
 });
 

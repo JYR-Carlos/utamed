@@ -14,7 +14,7 @@
 export type BloqueSyllabus =
   | { tipo: 'campo'; etiqueta: string; valor: string }
   | { tipo: 'subtitulo'; texto: string }
-  | { tipo: 'lista'; items: Array<{ texto: string; anidado: boolean }> }
+  | { tipo: 'lista'; items: Array<{ texto: string; anidado: boolean; cita?: string }> }
   | { tipo: 'parrafo'; texto: string };
 
 /** Secciones que el backend emite como prosa libre (`SeccionTextoContenido`). */
@@ -70,6 +70,17 @@ export function bloquesDeSeccion(
       const anidado = /^\s{2,}/.test(linea);
       if (lista === null) lista = [];
       lista.push({ texto: item, anidado });
+      continue;
+    }
+
+    // Líneas secundarias/indentadas o citas que pertenecen al ítem actual de la lista
+    if (lista && lista.length > 0 && (/^\s{2,}/.test(linea) || contenido.startsWith('«'))) {
+      const ultimo = lista[lista.length - 1];
+      if (contenido.startsWith('«')) {
+        ultimo.cita = contenido;
+      } else {
+        ultimo.texto += ' ' + contenido;
+      }
       continue;
     }
 
