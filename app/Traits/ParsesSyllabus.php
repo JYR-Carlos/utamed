@@ -202,16 +202,70 @@ trait ParsesSyllabus
         );
     }
 
+    /**
+     * Formatea el contenido de la Sección VIII para su lectura en el documento del syllabus.
+     * Prioriza la estructura relacional de bibliografías académicas.
+     */
     private function formatRecursos(SeccionVIIIContenido $c): string
     {
-        $recursos = array_filter($c->recursos, fn ($r) => trim($r->descripcion) !== '');
-        if (empty($recursos)) {
+        if (!empty($c->bibliografias)) {
+            return $this->formatBibliografias($c->bibliografias);
+        }
+
+        return $this->formatRecursosLegacy($c->recursos);
+    }
+
+    /**
+     * Formatea entradas estructuradas de bibliografía académica.
+     *
+     * @param \App\Syllabus\Secciones\BibliografiaSyllabus[] $bibliografias
+     */
+    private function formatBibliografias(array $bibliografias): string
+    {
+        $valid = array_filter($bibliografias, fn ($b) => trim($b->titulo) !== '');
+        if (empty($valid)) {
+            return '';
+        }
+
+        return implode("\n\n", array_map(function ($b) {
+            $autor = !empty($b->autor) ? trim($b->autor) : 'Autor desconocido';
+            $editorial = !empty($b->editorial) ? '. ' . trim($b->editorial) : '';
+            $cita = !empty($b->cita) ? "\n   «" . trim($b->cita) . '»' : '';
+            
+            $tipoRecurso = [];
+            if ($b->es_bibliografia_uta) {
+                $tipoRecurso[] = 'Biblioteca UTA';
+            }
+            if (!empty($b->url)) {
+                $tipoRecurso[] = 'Enlace web: ' . $b->url;
+            }
+            if (!empty($b->uuid_archivo)) {
+                $tipoRecurso[] = 'Archivo adjunto disponible';
+            }
+            if (!empty($b->id_unidad)) {
+                $tipoRecurso[] = 'Unidad ' . $b->id_unidad;
+            }
+
+            $etiqueta = !empty($tipoRecurso) ? ' [' . implode(' · ', $tipoRecurso) . ']' : '';
+
+            return "• {$autor} ({$b->anio}). {$b->titulo}{$editorial}.{$etiqueta}{$cita}";
+        }, $valid));
+    }
+
+    /**
+     * @deprecated Formateo de lista plana de recursos genéricos. Se mantiene por retrocompatibilidad con esquemas antiguos.
+     * @param \App\Syllabus\Secciones\RecursoSyllabus[] $recursos
+     */
+    private function formatRecursosLegacy(array $recursos): string
+    {
+        $filtrados = array_filter($recursos, fn ($r) => trim($r->descripcion) !== '');
+        if (empty($filtrados)) {
             return '';
         }
 
         return implode("\n", array_map(
             fn ($r) => '• ' . $r->descripcion . ($r->tipo !== '' ? " ({$r->tipo})" : ''),
-            $recursos
+            $filtrados
         ));
     }
 

@@ -153,6 +153,10 @@ export interface BibliografiaSyllabus {
 
 export interface SeccionVIIIContenido {
   bibliografias: BibliografiaSyllabus[];
+  /**
+   * @deprecated Sección VIII ahora utiliza `bibliografias`. Mantenido por retrocompatibilidad con esquemas anteriores.
+   */
+  recursos?: Array<{ descripcion: string; tipo: string; ubicacion: string | null }>;
 }
 
 export interface ComponenteEvaluacion {

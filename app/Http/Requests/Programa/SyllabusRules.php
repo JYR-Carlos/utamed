@@ -105,6 +105,12 @@ final class SyllabusRules
             'secciones.VIII.contenido.bibliografias.*.url' => 'nullable|url|max:' . self::MAX_TEXTO_CORTO,
             'secciones.VIII.contenido.bibliografias.*.uuid_archivo' => 'nullable|uuid',
             'secciones.VIII.contenido.bibliografias.*.id_unidad' => 'nullable|integer',
+
+            // @deprecated Recursos textuales simples mantenidos por retrocompatibilidad
+            'secciones.VIII.contenido.recursos' => 'nullable|array|max:300',
+            'secciones.VIII.contenido.recursos.*.descripcion' => 'nullable|string|max:' . self::MAX_TEXTO_CORTO,
+            'secciones.VIII.contenido.recursos.*.tipo' => 'nullable|string|in:Libro,Documentación Online,Video,Herramienta Software,Base de Datos',
+            'secciones.VIII.contenido.recursos.*.ubicacion' => 'nullable|string|max:' . self::MAX_TEXTO_CORTO,
         ];
     }
 
