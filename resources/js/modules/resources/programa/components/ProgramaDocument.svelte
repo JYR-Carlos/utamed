@@ -55,7 +55,9 @@
 
   function segmentarTexto(texto: string | null | undefined): SegmentoTexto[] {
     if (!texto) return [];
-    const partes = texto.split(/(https?:\/\/[^\s,\]\)>]+|\/api\/bibliografias\/[a-zA-Z0-9-]+\/archivo)/g);
+    const partes = texto.split(
+      /(https?:\/\/[^\s,\])>]+|\/api\/bibliografias\/[a-zA-Z0-9-]+\/archivo)/g,
+    );
     return partes.map((parte): SegmentoTexto => {
       if (/^\/api\/bibliografias\/[a-zA-Z0-9-]+\/archivo$/.test(parte)) {
         return { tipo: 'archivo', texto: 'Ver archivo', href: parte };
@@ -72,7 +74,7 @@
 </script>
 
 {#snippet renderizarTexto(texto: string | null | undefined)}
-  {#each segmentarTexto(texto) as seg}
+  {#each segmentarTexto(texto) as seg (seg.texto + seg.tipo)}
     {#if seg.tipo === 'archivo'}
       <a
         href={seg.href}
@@ -98,7 +100,14 @@
 {/snippet}
 
 <article
-  class="flex w-full max-w-[760px] flex-col gap-[30px] rounded-[10px] border border-[#E5E7EB] bg-white px-6 py-9 text-[15px] leading-[1.65] text-[#1A1A24] sm:px-12 sm:pb-10"
+  class="
+  flex w-full max-w-190 flex-col gap-7.5 rounded-[10px]
+  border border-[#E5E7EB] bg-white
+  px-6 py-9
+  text-[15px]
+  leading-[1.65]
+  text-[#1A1A24]
+  sm:px-12 sm:pb-10"
 >
   {#each conContenido as seccion (seccion.numeral_romano ?? seccion.nombre_seccion)}
     {@const bloques = bloquesDeSeccion(contenidoDe(seccion), seccion.numeral_romano)}
@@ -124,7 +133,7 @@
         <dl
           class="m-0 grid grid-cols-1 gap-x-7 gap-y-3 border-y border-[#EDEFF3] py-4 sm:grid-cols-2"
         >
-          {#each bloques as bloque}
+          {#each bloques as bloque, index (bloque.tipo + index)}
             {#if bloque.tipo === 'campo'}
               <div class="flex flex-col">
                 <dt class="text-[12px] text-[#5A5E6E]">{bloque.etiqueta}</dt>
@@ -136,21 +145,41 @@
           {/each}
         </dl>
       {:else}
-        {#each bloques as bloque}
+        {#each bloques as bloque, index (bloque.tipo + index)}
           {#if bloque.tipo === 'subtitulo'}
-            <p class="m-0 mt-1 text-[13px] font-semibold tracking-[0.02em] text-[#5A5E6E]">
-              {bloque.texto}
-            </p>
+            <div class="mt-3.5 border-b border-[#D6D9E0] pb-0.5 first:mt-0">
+              <span
+                class="font-mono text-[12px] font-bold tracking-[0.03em] text-[#002F6C] uppercase"
+              >
+                {bloque.texto}
+              </span>
+            </div>
           {:else if bloque.tipo === 'campo'}
             <p class="m-0 flex flex-wrap gap-x-2.5">
               <span class="font-mono text-[12px] text-[#5A5E6E]">{bloque.etiqueta}</span>
-              <span class="min-w-0 flex-1 text-pretty">{@render renderizarTexto(bloque.valor)}</span>
+              <span class="min-w-0 flex-1 text-pretty">{@render renderizarTexto(bloque.valor)}</span
+              >
             </p>
           {:else if bloque.tipo === 'lista'}
-            <ul class="m-0 flex list-disc flex-col gap-[7px] pl-5 marker:text-[#9AA0AE]">
-              {#each bloque.items as item}
-                <li class:ml-5={item.anidado} class="text-pretty">
-                  {@render renderizarTexto(item.texto)}
+            {@const esListaBiblio =
+              seccion.numeral_romano === 'VIII' ||
+              bloque.items.some((i) => i.texto.includes('Biblioteca UTA'))}
+            <ul class="m-0 flex list-disc flex-col gap-1.5 marker:text-[#9AA0AE]">
+              {#each bloque.items as item (item.texto)}
+                {@const esUta = item.texto.includes('Biblioteca UTA')}
+                <li
+                  class:ml-5={item.anidado}
+                  class="
+                    text-pretty transition-colors list-inside {esListaBiblio
+                    ? `px-2 py-0.5 border border-transparent ${esUta ? 'bg-[#EBF3FA]' : ''}`
+                    : ``}"
+                >
+                  <span>{@render renderizarTexto(item.texto)}</span>
+                  {#if item.cita}
+                    <span class="block mt-0.5 text-[13px] italic text-[#5A5E6E] leading-snug">
+                      {@render renderizarTexto(item.cita)}
+                    </span>
+                  {/if}
                 </li>
               {/each}
             </ul>
@@ -189,7 +218,7 @@
               </tr>
             </thead>
             <tbody>
-              {#each seccion.componentes as comp}
+              {#each seccion.componentes as comp, index (comp.componente + index)}
                 <tr class="border-t border-[#EDEFF3]">
                   <td class="px-3.5 py-2.5 font-medium">{comp.componente}</td>
                   <td class="px-3.5 py-2.5 tabular-nums">{comp.porcentaje}%</td>

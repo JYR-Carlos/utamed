@@ -60,7 +60,7 @@ trait ParsesSyllabus
                 'nombre_seccion' => $nombres[$romano] ?? "Sección $romano",
                 'numeral_romano' => $romano,
                 'orden'          => $idx + 1,
-                'contenidos'     => $this->extraeContenidos($contenido),
+                'contenidos'     => $this->extraeContenidos($contenido, $secciones),
             ];
 
             if ($romano === 'IX' && $contenido instanceof SeccionIXContenido) {
@@ -80,11 +80,13 @@ trait ParsesSyllabus
     /**
      * Extrae contenidos de cada sección para mostrar legible.
      */
-    protected function extraeContenidos(?object $contenido): array
+    protected function extraeContenidos(?object $contenido, ?\App\Syllabus\SyllabusSecciones $secciones = null): array
     {
         if (!$contenido) {
             return [['texto_contenido' => '', 'orden_item' => 1]];
         }
+
+        $seccionVI = $secciones?->get('VI');
 
         $text = match (true) {
             $contenido instanceof SeccionIContenido => $this->formatSeccionI($contenido),
@@ -94,7 +96,7 @@ trait ParsesSyllabus
             $contenido instanceof SeccionVIContenido => $this->formatUnidades($contenido),
             $contenido instanceof SeccionVIIBasico => $this->formatActividades($contenido),
             $contenido instanceof SeccionVIICompleto => $this->formatPlanificacion($contenido),
-            $contenido instanceof SeccionVIIIContenido => $this->formatRecursos($contenido),
+            $contenido instanceof SeccionVIIIContenido => $this->formatRecursos($contenido, $seccionVI instanceof SeccionVIContenido ? $seccionVI : null),
             $contenido instanceof SeccionIXContenido => $this->formatAspectosAdministrativos($contenido),
             default => '',
         };
@@ -206,50 +208,77 @@ trait ParsesSyllabus
      * Formatea el contenido de la Sección VIII para su lectura en el documento del syllabus.
      * Prioriza la estructura relacional de bibliografías académicas.
      */
-    private function formatRecursos(SeccionVIIIContenido $c): string
+    private function formatRecursos(SeccionVIIIContenido $c, ?SeccionVIContenido $seccionVI = null): string
     {
         if (!empty($c->bibliografias)) {
-            return $this->formatBibliografias($c->bibliografias);
+            $unidadTitulos = [];
+            if ($seccionVI) {
+                foreach ($seccionVI->unidades as $u) {
+                    $unidadTitulos[$u->numero] = $u->titulo;
+                }
+            }
+            return $this->formatBibliografias($c->bibliografias, $unidadTitulos);
         }
 
         return $this->formatRecursosLegacy($c->recursos);
     }
 
     /**
-     * Formatea entradas estructuradas de bibliografía académica.
+     * Formatea entradas estructuradas de bibliografía académica agrupadas por unidad.
      *
      * @param \App\Syllabus\Secciones\BibliografiaSyllabus[] $bibliografias
+     * @param array<int, string> $unidadTitulos
      */
-    private function formatBibliografias(array $bibliografias): string
+    private function formatBibliografias(array $bibliografias, array $unidadTitulos = []): string
     {
         $valid = array_filter($bibliografias, fn ($b) => trim($b->titulo) !== '');
         if (empty($valid)) {
             return '';
         }
 
-        return implode("\n", array_map(function ($b) {
-            $autor = !empty($b->autor) ? trim($b->autor) : 'Autor desconocido';
-            $editorial = !empty($b->editorial) ? '. ' . trim($b->editorial) : '';
-            $cita = !empty($b->cita) ? ' — «' . trim($b->cita) . '»' : '';
-            
-            $tipoRecurso = [];
-            if ($b->es_bibliografia_uta) {
-                $tipoRecurso[] = 'Biblioteca UTA';
-            }
-            if (!empty($b->url)) {
-                $tipoRecurso[] = 'Enlace web: ' . $b->url;
-            }
-            if (!empty($b->uuid_archivo)) {
-                $tipoRecurso[] = 'Archivo adjunto: /api/bibliografias/' . $b->uuid_archivo . '/archivo';
-            }
-            if (!empty($b->id_unidad)) {
-                $tipoRecurso[] = 'Unidad ' . $b->id_unidad;
+        // Agrupar por id_unidad (número ordinal de unidad)
+        $grupos = [];
+        foreach ($valid as $b) {
+            $key = !empty($b->id_unidad) ? (int) $b->id_unidad : 0;
+            $grupos[$key][] = $b;
+        }
+
+        ksort($grupos);
+
+        $bloquesTexto = [];
+        foreach ($grupos as $idUnidad => $items) {
+            if ($idUnidad > 0) {
+                $nombre = !empty($unidadTitulos[$idUnidad]) ? ': ' . mb_strtoupper(trim($unidadTitulos[$idUnidad])) : ':';
+                $encabezado = "UNIDAD {$idUnidad}{$nombre}";
+            } else {
+                $encabezado = "BIBLIOGRAFÍA GENERAL:";
             }
 
-            $etiqueta = !empty($tipoRecurso) ? ' [' . implode(' · ', $tipoRecurso) . ']' : '';
+            $lineasItems = array_map(function ($b) {
+                $autor = !empty($b->autor) ? trim($b->autor) : 'Autor desconocido';
+                $editorial = !empty($b->editorial) ? '. ' . trim($b->editorial) : '';
+                $cita = !empty($b->cita) ? "\n  «" . trim($b->cita) . '»' : '';
+                
+                $tipoRecurso = [];
+                if ($b->es_bibliografia_uta) {
+                    $tipoRecurso[] = 'Biblioteca UTA';
+                }
+                if (!empty($b->url)) {
+                    $tipoRecurso[] = 'Enlace web: ' . $b->url;
+                }
+                if (!empty($b->uuid_archivo)) {
+                    $tipoRecurso[] = 'Archivo adjunto: /api/bibliografias/' . $b->uuid_archivo . '/archivo';
+                }
 
-            return "• {$autor} ({$b->anio}). {$b->titulo}{$editorial}.{$etiqueta}{$cita}";
-        }, $valid));
+                $etiqueta = !empty($tipoRecurso) ? ' [' . implode(' · ', $tipoRecurso) . ']' : '';
+
+                return "• {$autor} ({$b->anio}). {$b->titulo}{$editorial}.{$etiqueta}{$cita}";
+            }, $items);
+
+            $bloquesTexto[] = $encabezado . "\n" . implode("\n", $lineasItems);
+        }
+
+        return implode("\n\n", $bloquesTexto);
     }
 
     /**
