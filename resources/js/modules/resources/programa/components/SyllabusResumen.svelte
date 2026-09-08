@@ -9,6 +9,8 @@
    */
   import { Info } from 'lucide-svelte';
   import type { WizardUnidad, WizardActividad } from '@/modules/resources/programa/types/programa.types';
+  import type { BibliografiaSyllabus } from '@/types/syllabus.types';
+  import { formatDomainUrl } from '@/utils/formatters';
 
   interface Props {
     codigo: string;
@@ -24,7 +26,11 @@
     presentacion: string;
     unidades: WizardUnidad[];
     actividades: WizardActividad[];
-    recursos: { descripcion: string; tipo: string; ubicacion: string }[];
+    bibliografias?: BibliografiaSyllabus[];
+    /**
+     * @deprecated Sección VIII ahora utiliza `bibliografias`. Mantenido por retrocompatibilidad con esquemas anteriores.
+     */
+    recursos?: { descripcion: string; tipo: string; ubicacion: string }[];
   }
 
   let {
@@ -41,11 +47,13 @@
     presentacion,
     unidades,
     actividades,
-    recursos,
+    bibliografias = [],
+    recursos = [],
   }: Props = $props();
 
   const unidadesConTitulo = $derived(unidades.filter((u) => u.titulo.trim()));
   const actividadesConNombre = $derived(actividades.filter((a) => a.nombre.trim()));
+  const bibliografiasConTitulo = $derived(bibliografias.filter((b) => b.titulo?.trim()));
   const recursosConTexto = $derived(recursos.filter((r) => r.descripcion.trim()));
 
   const horas = $derived(
@@ -159,10 +167,29 @@
     <section class="flex flex-col gap-2.5">
       <div class="flex items-baseline gap-2.5">
         <span class={NUM}>VIII.</span>
-        <h3 class={TIT}>Recursos</h3>
+        <h3 class={TIT}>Bibliografía y Recursos</h3>
       </div>
-      {#if recursosConTexto.length > 0}
-        <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5">
+      {#if bibliografiasConTitulo.length > 0}
+        <ul class="m-0 flex list-disc flex-col gap-2 pl-5 text-[14px]">
+          {#each bibliografiasConTitulo as b}
+            <li>
+              <span class="font-semibold text-[#1A1A24]">{b.titulo}</span>
+              {#if b.autor} · <span class="text-[#5A5E6E]">{b.autor}</span>{/if}
+              <span class="font-mono text-[12px] text-[#5A5E6E]">({b.anio})</span>
+              {#if b.editorial} <span class="italic text-[#9AA0AE]">· {b.editorial}</span>{/if}
+              {#if b.es_bibliografia_uta}
+                <span class="ml-1 rounded-full bg-[#E8EDF5] px-2 py-0.5 text-[10.5px] font-bold text-[#002F6C]">Oficial UTA</span>
+              {/if}
+              {#if b.url}
+                · <a href={b.url} target="_blank" rel="noopener noreferrer" class="text-[#002F6C] underline">{formatDomainUrl(b.url)}</a>
+              {:else if b.uuid_archivo}
+                · <span class="font-medium text-[#2E7D32]">Archivo adjunto</span>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      {:else if recursosConTexto.length > 0}
+        <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5 text-[14px]">
           {#each recursosConTexto as r}
             <li>{r.descripcion}{r.tipo ? ` (${r.tipo})` : ''}</li>
           {/each}

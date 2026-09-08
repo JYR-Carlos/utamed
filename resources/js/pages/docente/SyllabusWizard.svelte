@@ -55,6 +55,7 @@
     WizardActividad,
     WizardComponente,
   } from '@/modules/resources/programa/types/programa.types';
+  import type { BibliografiaSyllabus } from '@/types/syllabus.types';
   import { formatFechaHora } from '@/utils/formatters';
 
   interface Props {
@@ -191,6 +192,28 @@
   let metodologia = $state(String(sec('VII').metodologia?.tipo_estrategia ?? ''));
   let evaluacion = $state(String(sec('VII').evaluacion?.tipo_evaluacion ?? ''));
 
+  /** Bibliografías y recursos estructurados (Sección VIII) */
+  let bibliografias = $state<BibliografiaSyllabus[]>(
+    Array.isArray(sec('VIII').bibliografias) && sec('VIII').bibliografias.length > 0
+      ? sec('VIII').bibliografias.map((b: any) => ({
+          id_bibliografia: b?.id_bibliografia ?? b?.uuid_bibliografia ?? null,
+          uuid_bibliografia: b?.uuid_bibliografia ?? b?.id_bibliografia ?? null,
+          titulo: b?.titulo ?? '',
+          autor: b?.autor ?? '',
+          cita: b?.cita ?? '',
+          editorial: b?.editorial ?? '',
+          anio: Number(b?.anio) || new Date().getFullYear(),
+          es_bibliografia_uta: Boolean(b?.es_bibliografia_uta),
+          url: b?.url ?? null,
+          uuid_archivo: b?.uuid_archivo ?? null,
+          id_unidad: b?.id_unidad != null ? Number(b.id_unidad) : null,
+        }))
+      : [],
+  );
+
+  /**
+   * @deprecated Sección VIII ahora utiliza `bibliografias`. Mantenido por retrocompatibilidad con esquemas anteriores.
+   */
   let recursos = $state<{ descripcion: string; tipo: string; ubicacion: string }[]>(
     Array.isArray(sec('VIII').recursos) && sec('VIII').recursos.length > 0
       ? sec('VIII').recursos.map((r: any) => ({
@@ -286,7 +309,10 @@
           ? actividades.some((a) => a.nombre.trim())
           : resultadosConsolidados.length > 0 && !!metodologia.trim() && !!evaluacion.trim();
       case 'VIII':
-        return recursos.some((r) => r.descripcion.trim());
+        return (
+          bibliografias.some((b) => b.titulo?.trim()) ||
+          recursos.some((r) => r.descripcion?.trim())
+        );
       case 'IX':
         return !!normativa_curso.trim() && componentes.some((c) => c.componente.trim());
       default:
@@ -326,7 +352,13 @@
           (metodologia.trim() ? 0 : 1) +
           (evaluacion.trim() ? 0 : 1),
       );
-      sumar('VIII', recursos.filter((r) => r.descripcion.trim()).length >= 2 ? 0 : 1);
+      sumar(
+        'VIII',
+        bibliografias.filter((b) => b.titulo?.trim()).length >= 2 ||
+          recursos.filter((r) => r.descripcion?.trim()).length >= 2
+          ? 0
+          : 1,
+      );
       sumar(
         'IX',
         (normativa_curso.trim() ? 0 : 1) + (componentes.some((c) => c.componente.trim()) ? 0 : 1),
@@ -440,6 +472,22 @@
       VII: seccionVII,
       VIII: {
         contenido: {
+          bibliografias: bibliografias
+            .filter((b) => b.titulo?.trim())
+            .map((b) => ({
+              id_bibliografia: b.id_bibliografia ?? b.uuid_bibliografia ?? null,
+              uuid_bibliografia: b.uuid_bibliografia ?? b.id_bibliografia ?? null,
+              titulo: b.titulo.trim(),
+              autor: b.autor?.trim() || null,
+              cita: b.cita?.trim() || null,
+              editorial: b.editorial?.trim() || null,
+              anio: Number(b.anio) || new Date().getFullYear(),
+              es_bibliografia_uta: Boolean(b.es_bibliografia_uta),
+              url: b.url?.trim() || null,
+              uuid_archivo: b.uuid_archivo || null,
+              id_unidad: b.id_unidad != null ? Number(b.id_unidad) : null,
+            })),
+          // @deprecated Recursos textuales simples mantenidos por retrocompatibilidad
           recursos: recursos
             .filter((r) => r.descripcion.trim())
             .map((r) => ({
@@ -695,6 +743,7 @@
               {presentacion}
               {unidades}
               {actividades}
+              {bibliografias}
               {recursos}
             />
           {:else}
@@ -721,6 +770,7 @@
               resultados_aprendizaje={resultadosConsolidados}
               bind:metodologia
               bind:evaluacion
+              bind:bibliografias
               bind:recursos
               bind:normativa_curso
               bind:ponderacion_optativa
