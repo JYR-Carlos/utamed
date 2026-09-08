@@ -227,10 +227,10 @@ trait ParsesSyllabus
             return '';
         }
 
-        return implode("\n\n", array_map(function ($b) {
+        return implode("\n", array_map(function ($b) {
             $autor = !empty($b->autor) ? trim($b->autor) : 'Autor desconocido';
             $editorial = !empty($b->editorial) ? '. ' . trim($b->editorial) : '';
-            $cita = !empty($b->cita) ? "\n   «" . trim($b->cita) . '»' : '';
+            $cita = !empty($b->cita) ? ' — «' . trim($b->cita) . '»' : '';
             
             $tipoRecurso = [];
             if ($b->es_bibliografia_uta) {
@@ -240,7 +240,7 @@ trait ParsesSyllabus
                 $tipoRecurso[] = 'Enlace web: ' . $b->url;
             }
             if (!empty($b->uuid_archivo)) {
-                $tipoRecurso[] = 'Archivo adjunto disponible';
+                $tipoRecurso[] = 'Archivo adjunto: /api/bibliografias/' . $b->uuid_archivo . '/archivo';
             }
             if (!empty($b->id_unidad)) {
                 $tipoRecurso[] = 'Unidad ' . $b->id_unidad;

@@ -181,9 +181,13 @@
                 <span class="ml-1 rounded-full bg-[#E8EDF5] px-2 py-0.5 text-[10.5px] font-bold text-[#002F6C]">Oficial UTA</span>
               {/if}
               {#if b.url}
-                · <a href={b.url} target="_blank" rel="noopener noreferrer" class="text-[#002F6C] underline">{formatDomainUrl(b.url)}</a>
-              {:else if b.uuid_archivo}
-                · <span class="font-medium text-[#2E7D32]">Archivo adjunto</span>
+                · <a href={b.url} target="_blank" rel="noopener noreferrer" class="text-[#002F6C] underline hover:text-[#1B4789]">{formatDomainUrl(b.url)}</a>
+              {/if}
+              {#if b.uuid_archivo}
+                · <a href={`/api/bibliografias/${b.uuid_archivo}/archivo`} target="_blank" rel="noopener noreferrer" class="font-medium text-[#002F6C] underline hover:text-[#1B4789]">Ver archivo</a>
+              {/if}
+              {#if b.cita}
+                <span class="block text-[12.5px] italic text-[#5A5E6E]">«{b.cita}»</span>
               {/if}
             </li>
           {/each}

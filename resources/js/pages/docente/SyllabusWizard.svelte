@@ -24,6 +24,7 @@
    * campo que las provoca.
    */
   import { router } from '@inertiajs/svelte';
+  import { Toaster, toast } from 'svelte-sonner';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import AyudanteLayout from '@/layouts/AyudanteLayout.svelte';
@@ -558,9 +559,11 @@
       );
       firmaGuardada = firma;
       guardadoEn = new Date().toISOString();
+      toast.success('Syllabus guardado correctamente.');
       return true;
     } catch (err) {
       errorGuardado = extractErrorMessage(err, 'No pudimos guardar el syllabus.');
+      toast.error(errorGuardado);
       return false;
     } finally {
       guardando = false;
@@ -627,6 +630,7 @@
 <svelte:window onkeydown={alTeclear} />
 
 {#snippet contenido()}
+  <Toaster richColors position="top-right" />
   <!-- Fondo blanco: el gris #EDEFF3 de la lámina es el mantel del lienzo de
        diseño, no una superficie de la aplicación. -->
   <div class="min-h-screen bg-white py-4 sm:py-6">

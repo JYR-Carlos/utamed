@@ -47,9 +47,55 @@
   /** Sólo se dibujan las secciones con contenido; las vacías van a «pendientes». */
   const conContenido = $derived(secciones.filter((s) => contenidoDe(s).trim() !== ''));
 
+  interface SegmentoTexto {
+    tipo: 'texto' | 'url' | 'archivo';
+    texto: string;
+    href?: string;
+  }
+
+  function segmentarTexto(texto: string | null | undefined): SegmentoTexto[] {
+    if (!texto) return [];
+    const partes = texto.split(/(https?:\/\/[^\s,\]\)>]+|\/api\/bibliografias\/[a-zA-Z0-9-]+\/archivo)/g);
+    return partes.map((parte): SegmentoTexto => {
+      if (/^\/api\/bibliografias\/[a-zA-Z0-9-]+\/archivo$/.test(parte)) {
+        return { tipo: 'archivo', texto: 'Ver archivo', href: parte };
+      }
+      if (/^https?:\/\//.test(parte)) {
+        return { tipo: 'url', texto: parte, href: parte };
+      }
+      return { tipo: 'texto', texto: parte };
+    });
+  }
+
   const NUM = 'w-[34px] shrink-0 font-mono text-[12.5px] text-[#9AA0AE]';
   const TITULO = 'm-0 text-[19px] font-semibold tracking-[-0.01em] text-[#1A1A24]';
 </script>
+
+{#snippet renderizarTexto(texto: string | null | undefined)}
+  {#each segmentarTexto(texto) as seg}
+    {#if seg.tipo === 'archivo'}
+      <a
+        href={seg.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="font-medium text-[#002F6C] underline hover:text-[#1B4789]"
+      >
+        Ver archivo
+      </a>
+    {:else if seg.tipo === 'url'}
+      <a
+        href={seg.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="text-[#002F6C] underline hover:text-[#1B4789] break-all"
+      >
+        {seg.texto}
+      </a>
+    {:else}
+      {seg.texto}
+    {/if}
+  {/each}
+{/snippet}
 
 <article
   class="flex w-full max-w-[760px] flex-col gap-[30px] rounded-[10px] border border-[#E5E7EB] bg-white px-6 py-9 text-[15px] leading-[1.65] text-[#1A1A24] sm:px-12 sm:pb-10"
@@ -85,7 +131,7 @@
                 <dd class="m-0 text-[14.5px] font-medium">{bloque.valor}</dd>
               </div>
             {:else if bloque.tipo === 'parrafo'}
-              <p class="m-0 text-pretty sm:col-span-2">{bloque.texto}</p>
+              <p class="m-0 text-pretty sm:col-span-2">{@render renderizarTexto(bloque.texto)}</p>
             {/if}
           {/each}
         </dl>
@@ -98,16 +144,18 @@
           {:else if bloque.tipo === 'campo'}
             <p class="m-0 flex flex-wrap gap-x-2.5">
               <span class="font-mono text-[12px] text-[#5A5E6E]">{bloque.etiqueta}</span>
-              <span class="min-w-0 flex-1 text-pretty">{bloque.valor}</span>
+              <span class="min-w-0 flex-1 text-pretty">{@render renderizarTexto(bloque.valor)}</span>
             </p>
           {:else if bloque.tipo === 'lista'}
             <ul class="m-0 flex list-disc flex-col gap-[7px] pl-5 marker:text-[#9AA0AE]">
               {#each bloque.items as item}
-                <li class:ml-5={item.anidado} class="text-pretty">{item.texto}</li>
+                <li class:ml-5={item.anidado} class="text-pretty">
+                  {@render renderizarTexto(item.texto)}
+                </li>
               {/each}
             </ul>
           {:else}
-            <p class="m-0 text-pretty">{bloque.texto}</p>
+            <p class="m-0 text-pretty">{@render renderizarTexto(bloque.texto)}</p>
           {/if}
         {/each}
       {/if}
