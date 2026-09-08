@@ -41,13 +41,24 @@ export function updateActividad(
     });
 }
 
-/** PATCH /docente/cursos/{id}/actividades/{id}/visibilidad — alterna visible/oculta. */
+/**
+ * PATCH /docente/cursos/{id}/actividades/{id}/visibilidad — alterna visible/oculta.
+ *
+ * `preserveScroll` + `preserveState` son parte del contrato de la interacción:
+ * el interruptor vive dentro de la fila de una tabla que puede tener decenas de
+ * actividades y se acciona muchas veces seguidas. Sin ellos cada clic devolvía
+ * al docente al principio de la página y le borraba los filtros que tenía
+ * puestos. Las props sí se refrescan: `preserveState` conserva la instancia del
+ * componente, no los datos.
+ */
 export function toggleVisibilidadActividad(
     idCurso: number,
     idActividad: number,
     options: ApiOptions = {},
 ) {
     router.patch(`/docente/cursos/${idCurso}/actividades/${idActividad}/visibilidad`, {}, {
+        preserveScroll: true,
+        preserveState: true,
         onSuccess: options.onSuccess,
         onError: options.onError,
     });
@@ -60,6 +71,7 @@ export function deleteActividad(
     options: ApiOptions = {},
 ) {
     router.delete(`/docente/cursos/${idCurso}/actividades/${idActividad}`, {
+        preserveScroll: true,
         onSuccess: options.onSuccess,
         onError: options.onError,
     });

@@ -1,33 +1,44 @@
 <script lang="ts">
+  import { Users } from 'lucide-svelte';
+  import { initials } from '@/utils/formatters';
 
   interface Props {
     usuarios: Array<{
-        id_estudiante: number,
-        nombre1: string,
-        nombre2: string,
-        apellido1: string,
-        apellido2: string
+      id_estudiante: number;
+      nombre1: string;
+      nombre2: string;
+      apellido1: string;
+      apellido2: string;
     }>;
   }
 
-  let { usuarios } = $props();
+  let { usuarios }: Props = $props();
 
-  const ocultar = $derived(usuarios.length === 0)
+  function nombreCompleto(u: Props['usuarios'][number]): string {
+    return [u.nombre1, u.nombre2, u.apellido1, u.apellido2].filter(Boolean).join(' ');
+  }
 </script>
 
-{#if !ocultar}
-<div class="flex flex-col w-full  gap-3 rounded-xl border border-slate-200 bg-white p-3.5 text-left text-sm font-semibold text-slate-700 shadow-sm transition-all">
-  <p class="text-sm">Otros Integrantes</p>
-  {#each usuarios as u}
-    <div class="flex justify-between items-center">
-        <p class="font-normal text-wrap wrap-break-word">{[u.nombre1, u.nombre2, u.apellido1, u.apellido2].filter(Boolean).join(" ")}</p>
-        
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-        </svg>
-
+{#if usuarios.length > 0}
+  <section class="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+    <div class="flex items-center gap-2">
+      <Users class="h-[15px] w-[15px] text-[#5A5E6E]" />
+      <span class="text-[13px] font-semibold text-[#1A1A24]">Integrantes</span>
     </div>
-    
-  {/each}
-</div>
+    <div class="flex flex-col gap-2">
+      {#each usuarios as u (u.id_estudiante)}
+        <div class="flex items-center gap-2.5">
+          <div
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F5F1EA] text-[11px] font-semibold text-[#5A5E6E]"
+          >
+            {initials(nombreCompleto(u))}
+          </div>
+          <span class="min-w-0 truncate text-[12.5px] font-medium text-[#1A1A24]">{nombreCompleto(u)}</span>
+        </div>
+      {/each}
+    </div>
+    <span class="border-t border-[#E5E7EB] pt-2.5 text-[11px] text-[#5A5E6E]">
+      Tú no apareces en la lista: se muestra al resto del grupo.
+    </span>
+  </section>
 {/if}

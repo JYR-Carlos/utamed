@@ -122,6 +122,14 @@ class FacultadController extends Controller
     {
         $this->authorize('delete', $facultad);
 
+        // Facultad usa SoftDeletes: delete() nunca lanza excepción por FK, así que
+        // el catch de abajo no detectaba departamentos asociados. Chequeo explícito
+        // (mismo patrón que AsignaturaController::destroy).
+        if ($facultad->departamentos()->count() > 0) {
+            return redirect()->route('admin.facultades.index')
+                ->with('error', 'No se puede eliminar la facultad porque tiene departamentos asociados.');
+        }
+
         try {
             $this->facultadService->delete($facultad, Auth::user());
 
@@ -129,7 +137,7 @@ class FacultadController extends Controller
                 ->with('success', 'Facultad eliminada exitosamente.');
         } catch (\Exception $e) {
             return redirect()->route('admin.facultades.index')
-                ->with('error', 'No se puede eliminar la facultad porque tiene departamentos asociados.');
+                ->with('error', 'No se pudo eliminar la facultad: ' . $e->getMessage());
         }
     }
 }

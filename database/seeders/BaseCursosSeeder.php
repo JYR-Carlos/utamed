@@ -13,6 +13,7 @@ use App\Models\Curso\TipoComponente;
 use App\Models\Usuario\Docente;
 use App\Models\Usuario\Estudiante;
 use App\Models\Usuario\Usuario;
+use App\Services\Authorization\RoleAssignmentBuilder;
 
 class BaseCursosSeeder extends Seeder
 {
@@ -77,8 +78,9 @@ class BaseCursosSeeder extends Seeder
                         throw new \Exception("El curso '{$curso->nombre}' no tiene un contexto asociado.");
                     }
 
-                    $asignacionRol = $usuarioDocente->giveRole($rolDocenteTitular)
-                        ->as($superAdmin)
+                    // Construcción directa: este seeder corre sin usuario autenticado
+                    // (giveRole() exige un actor autenticado desde H-3, ver AssignsPermissions).
+                    $asignacionRol = (new RoleAssignmentBuilder($usuarioDocente, $rolDocenteTitular, $superAdmin))
                         ->on($curso)
                         ->save();
 

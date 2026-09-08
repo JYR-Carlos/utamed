@@ -11,10 +11,15 @@
   import { formatBytes, formatFechaHora } from '@/utils/formatters';
   import type { Rubrica } from '@/types/rubrica';
 
+  // Es el mismo objeto que arma Activities/Index.svelte y que el modal devuelve
+  // tal cual por onVerAgenda, así que el tipo tiene que declarar la forma
+  // completa: si aquí falta un campo, el grupo que sale del modal deja de
+  // encajar donde entró.
   type GrupoData = {
     grupo: number;
     nota: number | null;
     estado_actividad_asignada: string | null;
+    nro_dias_adicionales_para_bloqueo_personal: number;
     integrantes: { id_estudiante: number; nombre_completo: string }[];
   };
 

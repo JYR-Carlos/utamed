@@ -194,12 +194,51 @@ class DocenteCursoController extends Controller
                 ],
             ]);
 
+        // Asistencia agregada por inscripción-componente. Una fila de
+        // `curso.asistencia` = un estudiante en una sesión implícita
+        // (dia + hora_inicio + hora_fin), así que basta contar filas para
+        // saber cuántas sesiones tuvo y en cuántas estuvo presente.
+        $inscripcionIds = $misEstudiantes->pluck('id_inscripcion_componente')->all();
+
+        $asistenciaPorInscripcion = empty($inscripcionIds)
+            ? collect()
+            : DB::table('curso.asistencia')
+                ->whereIn('id_inscripcion_componente', $inscripcionIds)
+                ->groupBy('id_inscripcion_componente')
+                ->selectRaw('id_inscripcion_componente,
+                             COUNT(*) AS total,
+                             COUNT(*) FILTER (WHERE esta_presente) AS presentes')
+                ->get()
+                ->keyBy('id_inscripcion_componente');
+
+        $misEstudiantes = $misEstudiantes->map(function ($e) use ($asistenciaPorInscripcion) {
+            $fila = $asistenciaPorInscripcion->get($e['id_inscripcion_componente']);
+            $e['asistencia'] = [
+                'presentes' => (int) ($fila->presentes ?? 0),
+                'total'     => (int) ($fila->total ?? 0),
+            ];
+
+            return $e;
+        });
+
+        // Nº de sesiones registradas por componente (mismo criterio de sesión
+        // implícita que usa AsistenciaController).
+        $sesionesPorComponente = $misComponentes->isEmpty()
+            ? collect()
+            : DB::table('curso.asistencia as a')
+                ->join('curso.inscripcion_componente as ic', 'ic.id_inscripcion_componente', '=', 'a.id_inscripcion_componente')
+                ->whereIn('ic.id_componente', $misComponentes->pluck('id_componente'))
+                ->groupBy('ic.id_componente')
+                ->selectRaw('ic.id_componente, COUNT(DISTINCT (a.dia, a.hora_inicio, a.hora_fin)) AS sesiones')
+                ->pluck('sesiones', 'id_componente');
+
         $misComponentesData = $misComponentes->map(fn ($c) => [
             'id_componente'   => $c->id_componente,
             'tipo_componente' => $c->tipoComponente->tipo ?? 'N/A',
             'es_titular'      => $c->docenteComponentes->first()?->es_titular ?? false,
             'total_docentes'  => $c->docenteComponentes->count(),
             'total_estudiantes' => $misEstudiantes->where('id_componente', $c->id_componente)->count(),
+            'total_sesiones'  => (int) ($sesionesPorComponente[$c->id_componente] ?? 0),
         ]);
 
         // --- Datos adicionales para el titular ---
@@ -249,13 +288,32 @@ class DocenteCursoController extends Controller
                 ->all();
 
         // Actividades del curso (todas las componentes) para el kanban de seguimiento
-        $actividades = \App\Models\Agenda\Actividad::whereHas(
+        $actividadesModelo = \App\Models\Agenda\Actividad::whereHas(
                 'componente',
                 fn ($q) => $q->where('id_curso', $curso->id_curso)
             )
             ->with(['componente.tipoComponente'])
-            ->get()
-            ->map(fn ($a) => [
+            ->get();
+
+        // Avance de evaluación por actividad: cada grupo asignado es una entrega
+        // evaluable; `nota` no nula = calificada. Sirve para la barra de progreso
+        // y el promedio que muestran las tarjetas del kanban.
+        $avancePorActividad = $actividadesModelo->isEmpty()
+            ? collect()
+            : DB::table('agenda.actividad_asignada_grupo')
+                ->whereIn('id_actividad', $actividadesModelo->pluck('id_actividad'))
+                ->groupBy('id_actividad')
+                ->selectRaw('id_actividad,
+                             COUNT(*) AS total_grupos,
+                             COUNT(nota) AS calificados,
+                             AVG(nota) AS promedio')
+                ->get()
+                ->keyBy('id_actividad');
+
+        $actividades = $actividadesModelo->map(function ($a) use ($avancePorActividad) {
+            $avance = $avancePorActividad->get($a->id_actividad);
+
+            return [
                 'id_actividad'   => $a->id_actividad,
                 'nombre'         => $a->nombre,
                 'fecha_limite'   => $a->fecha_limite?->format('Y-m-d'),
@@ -264,20 +322,28 @@ class DocenteCursoController extends Controller
                 'es_grupal'      => $a->es_grupal,
                 'max_integrantes' => $a->max_integrantes,
                 'visible'        => $a->visible,
+                'ponderacion'    => $a->ponderacion !== null ? (float) $a->ponderacion : null,
                 'id_componente'  => $a->id_componente,
+                'total_grupos'   => (int) ($avance->total_grupos ?? 0),
+                'calificados'    => (int) ($avance->calificados ?? 0),
+                'promedio_nota'  => $avance?->promedio !== null ? round((float) $avance->promedio, 1) : null,
                 'componente'     => $a->componente ? [
                     'id_componente'  => $a->componente->id_componente,
+                    // Clave `tipo`: es la que lee el tipo compartido `Actividad`
+                    // y el kanban. Antes se emitía `nombre` y la tarjeta mostraba «—».
                     'tipo_componente' => $a->componente->tipoComponente ? [
-                        'nombre' => $a->componente->tipoComponente->tipo,
+                        'tipo' => $a->componente->tipoComponente->tipo,
                     ] : null,
                 ] : null,
-            ]);
+            ];
+        });
 
         return Inertia::render('docente/CursoDetalle', [
             'curso' => [
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
                 'cod_curso' => $curso->cod_curso,
+                'letra_grupo' => $curso->letra_grupo,
                 'fecha_inicio' => $curso->fecha_inicio,
                 'fecha_fin' => $curso->fecha_fin,
                 'agno_real' => $curso->agno_real,
@@ -287,6 +353,9 @@ class DocenteCursoController extends Controller
                 'tiene_programa' => $tienePrograma,
                 'es_titular_curso' => $esTitularCurso,
                 'id_docente_titular' => $curso->id_docente_titular,
+                // Permite marcar «tú» en el mapa de componentes sin volver a
+                // consultar quién es el docente autenticado.
+                'id_docente_actual' => $idDocente,
                 'userPermissions' => $userPermissions,
                 'asignatura' => [
                     'nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',

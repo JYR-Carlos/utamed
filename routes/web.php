@@ -25,6 +25,7 @@ use App\Http\Controllers\Docente\DocenteCursoController;
 use App\Http\Controllers\Docente\JefeCarreraController;
 use App\Http\Controllers\Docente\MensajeriaController;
 use App\Http\Controllers\Docente\MensajesController;
+use App\Http\Controllers\Sso\SgeqSsoController;
 use App\Http\Controllers\Student\ActivityController;
 use App\Http\Controllers\Student\AgendaController;
 use App\Http\Controllers\Student\CourseController;
@@ -37,7 +38,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
-use App\Http\Controllers\Sso\SgeqSsoController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -128,6 +128,9 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('cursos.programa.show');
     Route::get('cursos/{curso}/programa/revisar', [AdminProgramaController::class, 'show'])
         ->name('cursos.programa.revisar');
+    // Asistente de syllabus: pantalla propia, ya no un modal sobre el visor.
+    Route::get('cursos/{curso}/programa/editar', [AdminProgramaController::class, 'edit'])
+        ->name('cursos.programa.edit');
     Route::post('cursos/{curso}/programa', [AdminProgramaController::class, 'store'])
         ->name('cursos.programa.store');
     Route::put('cursos/{curso}/programa/aprobar', [AdminProgramaController::class, 'approve'])
@@ -325,6 +328,13 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('planes.asignaturas-disponibles');
 });
 
+// Perfil de docente incompleto (rol asignado, sin ficha usuario.docente).
+// Fuera de is_docente a propósito: es el destino cuando esa comprobación
+// falla por falta de perfil, no por falta de rol.
+Route::get('docente/perfil-incompleto', [DashboardController::class, 'perfilIncompleto'])
+    ->middleware(['auth', 'verified'])
+    ->name('docente.perfil-incompleto');
+
 // Docente Routes
 Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('docente.')->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -515,6 +525,10 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
         ->name('cursos.programa.json');
     Route::get('cursos/{curso}/programa', [ProgramaController::class, 'show'])
         ->name('cursos.programa.show');
+    // Asistente de syllabus: pantalla propia, ya no un modal sobre el visor.
+    // `?tipo=BASICO|COMPLETO` elige el tipo al crear o al promover un básico.
+    Route::get('cursos/{curso}/programa/editar', [ProgramaController::class, 'edit'])
+        ->name('cursos.programa.edit');
     Route::delete('cursos/{curso}/programa', [ProgramaController::class, 'destroy'])
         ->name('cursos.programa.destroy');
     // Estado transitions: docente marks basic as done, or sends complete for review
@@ -536,6 +550,7 @@ Route::prefix('estudiante')
     ->group(function () {
         // rutas generales
         Route::get('dashboard', [App\Http\Controllers\Student\DashboardController::class, 'index'])->name('dashboard');
+        Route::get('perfil', [App\Http\Controllers\Student\PerfilController::class, 'show'])->name('perfil');
         Route::get('cursos', [CourseController::class, 'index'])->name('cursos.index');
 
         // Programa (Syllabus) View - MUST be before generic {curso} route
@@ -546,6 +561,8 @@ Route::prefix('estudiante')
             ->name('cursos.actividades.show');
         Route::get('cursos/{curso}/actividades/{actividad}/enunciado/descargar', [ActivityController::class, 'descargarEnunciado'])
             ->name('cursos.actividades.enunciado.descargar');
+        Route::get('cursos/{curso}/actividades/{actividad}/entregas/{agenda}/descargar', [ActivityController::class, 'descargarEntrega'])
+            ->name('cursos.actividades.entregas.descargar');
 
         // Agenda routes
         Route::controller(AgendaController::class)

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Docente;
 
 use App\Enums\DB\EstadoActividadAsignada;
 use App\Enums\DB\TipoActividad;
+use App\Enums\DB\TipoMensaje;
 use App\Exceptions\Archive\ArchiveException;
 use App\Exceptions\Archive\CompressionException;
 use App\Exceptions\Archive\FileValidationException;
@@ -170,7 +171,12 @@ class DocenteActivityController extends Controller
         $this->authorize('viewPrograma', $curso);
 
         $user = Auth::user();
-        $esTitular = $curso->id_docente_titular === $user->docente->id_docente;
+        $idDocente = $user->docente->id_docente;
+        $esTitular = $curso->id_docente_titular === $idDocente;
+
+        // La cabecera de la lámina nombra la asignatura y el periodo; ambos
+        // cuelgan de asignacion_plan, no de curso.
+        $curso->loadMissing(['asignacionPlan.asignatura']);
 
         // Get activities for this course via componente relationship (actividad has no id_curso column)
         $actividades = Actividad::whereHas('componente', fn($q) => $q->where('id_curso', $curso->id_curso))
@@ -178,10 +184,21 @@ class DocenteActivityController extends Controller
             ->orderBy('fecha_limite', 'asc')
             ->get();
 
+        // Componentes en los que ESTE docente dicta. El titular manda sobre todo
+        // el curso; el docente de componente sólo debe ver lo suyo, y el filtro
+        // de la barra le viene puesto y bloqueado (lámina f).
+        $misComponentesIds = Componente::where('id_curso', $curso->id_curso)
+            ->whereHas('docenteComponentes', fn ($q) => $q->where('id_docente', $idDocente))
+            ->pluck('id_componente')
+            ->all();
+
         // Get componentes for dropdown
         $componentes = Componente::where('id_curso', $curso->id_curso)
             ->with('tipoComponente')
-            ->get();
+            ->get()
+            ->map(fn (Componente $c) => array_merge($c->toArray(), [
+                'es_mio' => in_array($c->id_componente, $misComponentesIds, true),
+            ]));
 
         // Get units for dropdown
         $unidades = Unidad::where('id_curso', $curso->id_curso)
@@ -200,7 +217,42 @@ class DocenteActivityController extends Controller
         // curso (curso.mensaje) es otra cosa y no se cuenta aquí.
         $pendientes = $this->pendientesPorActividad([$curso->id_curso]);
 
-        $actividades = $actividades->map(function (Actividad $actividad) use ($pendientes) {
+        $idsActividad = $actividades->pluck('id_actividad');
+
+        // Avance de evaluación por actividad. Mismo criterio que el kanban de
+        // DocenteCursoController: cada grupo asignado es una unidad evaluable y
+        // `nota` no nula = calificada. NO es un contador de entregas.
+        $avancePorActividad = $idsActividad->isEmpty()
+            ? collect()
+            : DB::table('agenda.actividad_asignada_grupo')
+                ->whereIn('id_actividad', $idsActividad)
+                ->groupBy('id_actividad')
+                ->selectRaw('id_actividad,
+                             COUNT(*) AS total_grupos,
+                             COUNT(nota) AS calificados,
+                             AVG(nota) AS promedio')
+                ->get()
+                ->keyBy('id_actividad');
+
+        // Entregas realmente recibidas: filas de agenda.agenda del tipo
+        // «Entrega de archivo» colgadas de los grupos de la actividad. Es lo que
+        // la confirmación de borrado enumera como pérdida irreversible.
+        $entregasPorActividad = $idsActividad->isEmpty()
+            ? collect()
+            : DB::table('agenda.agenda as a')
+                ->join(
+                    'agenda.actividad_asignada_grupo as aag',
+                    'aag.id_actividad_asignada_grupo',
+                    '=',
+                    'a.id_actividad_asignada_grupo'
+                )
+                ->whereIn('aag.id_actividad', $idsActividad)
+                ->where('a.tipo_mensaje', TipoMensaje::ENTREGA_DE_ARCHIVO->value)
+                ->groupBy('aag.id_actividad')
+                ->selectRaw('aag.id_actividad, COUNT(*) AS total_entregas')
+                ->pluck('total_entregas', 'id_actividad');
+
+        $actividades = $actividades->map(function (Actividad $actividad) use ($pendientes, $avancePorActividad, $entregasPorActividad) {
             $datos = $actividad->toArray();
             $datos['mensajes_pendientes'] = $pendientes[$actividad->id_actividad] ?? 0;
             $datos['archivo_enunciado'] = $actividad->archivo ? [
@@ -209,11 +261,28 @@ class DocenteActivityController extends Controller
                 'peso_bytes' => $actividad->archivo->peso_bytes,
             ] : null;
 
+            $avance = $avancePorActividad->get($actividad->id_actividad);
+            $datos['total_grupos'] = (int) ($avance->total_grupos ?? 0);
+            $datos['calificados'] = (int) ($avance->calificados ?? 0);
+            $datos['promedio_nota'] = $avance?->promedio !== null
+                ? round((float) $avance->promedio, 1)
+                : null;
+            $datos['total_entregas'] = (int) ($entregasPorActividad[$actividad->id_actividad] ?? 0);
+
             return $datos;
         });
 
         return Inertia::render('docente/Actividades', [
-            'curso' => array_merge($curso->toArray(), ['userPermissions' => $userPermissions, 'es_titular_curso' => $esTitular]),
+            'curso' => array_merge($curso->toArray(), [
+                'userPermissions' => $userPermissions,
+                'es_titular_curso' => $esTitular,
+                // El header mostraba «{cod_asignatura} - {asignatura_nombre}» y
+                // ambas claves llegaban vacías: no son columnas de curso.
+                'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
+                'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre,
+                'mis_componentes_ids' => $misComponentesIds,
+                'total_estudiantes' => $curso->inscripcionCursos()->count(),
+            ]),
             'actividades' => $actividades,
             'componentes' => $componentes,
             'unidades' => $unidades,
