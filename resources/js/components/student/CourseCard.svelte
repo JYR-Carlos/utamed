@@ -28,14 +28,14 @@
 >
   <div class="flex items-start gap-2.5">
     <div
-      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#22213F]/10 text-[13px] font-bold text-[#22213F]"
+      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light text-[13px] font-bold text-uta-blue"
     >
       {getInitials(nombre)}
     </div>
     <div class="flex min-w-0 flex-col gap-0.5">
       <span class="font-mono text-[11px] text-slate-500">{cod_curso}</span>
       <span
-        class="line-clamp-2 text-[15px] font-semibold leading-tight text-slate-900 group-hover:text-[#22213F]"
+        class="line-clamp-2 text-[15px] font-semibold leading-tight text-slate-900 group-hover:text-uta-blue"
       >
         {formatName(nombre)}
       </span>

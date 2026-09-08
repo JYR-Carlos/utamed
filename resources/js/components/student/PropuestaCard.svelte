@@ -3,7 +3,8 @@
    * Cascarón de una sección "Propuesta": el diseño ya existe, pero el dato que
    * mostraría todavía no viaja del backend (notas recientes, próximas entregas,
    * novedades de actividad). Se muestra siempre en su estado vacío honesto en
-   * vez de inventar contenido — la pastilla índigo la distingue del resto.
+   * vez de inventar contenido — el borde punteado y la pastilla "PROPUESTA"
+   * la distinguen del resto.
    */
   interface Props {
     icon: any;
@@ -16,13 +17,13 @@
 </script>
 
 <section
-  class="flex flex-col gap-3 rounded-xl border border-dashed border-indigo-200 bg-white p-4 shadow-sm"
+  class="flex flex-col gap-3 rounded-xl border border-dashed border-slate-300 bg-white p-4 shadow-sm"
 >
   <div class="flex items-center gap-2">
     <Icon class="h-4 w-4 text-slate-500" />
     <h3 class="text-[15px] font-semibold text-slate-900">{title}</h3>
     <span
-      class="ml-auto inline-flex shrink-0 items-center rounded-full border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-indigo-600"
+      class="ml-auto inline-flex shrink-0 items-center rounded-full border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-slate-500"
     >
       PROPUESTA
     </span>

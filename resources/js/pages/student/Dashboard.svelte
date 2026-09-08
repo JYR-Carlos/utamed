@@ -3,7 +3,6 @@
   import type { BreadcrumbItem } from '@/types';
   import { page, Link } from '@inertiajs/svelte';
   import { BookOpen, Award, CalendarClock, Bell, LifeBuoy, ArrowUpRight, ClipboardX } from 'lucide-svelte';
-  import ProfileCard from '@/components/student/ProfileCard.svelte';
   import CourseCard from '@/components/student/CourseCard.svelte';
   import MensajesSinLeerCard from '@/components/student/MensajesSinLeerCard.svelte';
   import PropuestaCard from '@/components/student/PropuestaCard.svelte';
@@ -13,12 +12,6 @@
    * Props recibidas del servidor.
    */
   interface Props {
-    estudiante: {
-      id_estudiante: number;
-      rut: string;
-      id_usuario: number;
-      nombre_carrera: string;
-    };
     cursos: Array<{
       id_curso: number;
       nombre: string;
@@ -47,7 +40,6 @@
   }
 
   let {
-    estudiante,
     cursos,
     stats,
     mensajeria,
@@ -62,17 +54,7 @@
 
   const authUser = $derived(($page.props.auth as any)?.user);
   const nombreCompleto = $derived(stats?.nombre_completo || authUser?.name || 'Estudiante');
-  const rut = $derived(estudiante?.rut || '20.000.000-0');
-  const carrera = $derived(estudiante?.nombre_carrera || 'No disponible');
-
-  const nameParts = $derived.by(() => {
-    const parts = nombreCompleto.split(' ');
-    return {
-      nombre: parts[0] || '',
-      apellido1: parts[1] || '',
-      apellido2: parts[2] || '',
-    };
-  });
+  const primerNombre = $derived(nombreCompleto.split(' ')[0] || 'Estudiante');
 </script>
 
 <StudentLayout {breadcrumbs}>
@@ -80,37 +62,37 @@
     <div class="relative mx-auto max-w-6xl px-4 py-6">
       <header class="flex items-center justify-between gap-4 flex-wrap mb-8">
         <div class="flex flex-col gap-1">
-          <span class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-0.5 w-fit">
+          <span class="inline-flex items-center gap-1.5 text-xs font-bold text-uta-blue bg-uta-blue-light border border-uta-blue/20 rounded-full px-3 py-0.5 w-fit">
             Semestre {semestreActual} · {anoAcademico}
           </span>
           <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
             Portal Estudiante
           </h1>
           <p class="text-sm text-slate-500">
-            Bienvenido, <strong class="text-slate-700 font-semibold">{nameParts.nombre}</strong>
+            Te damos la bienvenida, <strong class="text-slate-700 font-semibold">{primerNombre}</strong>
           </p>
         </div>
 
-        <BotonSgeq visible={puedeAbrirSgeq} />
+        <div class="flex items-center gap-3">
+          <Link
+            href="/estudiante/perfil"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-uta-blue/30 hover:bg-uta-blue-light hover:text-uta-blue"
+          >
+            Ver perfil
+            <ArrowUpRight class="h-3.5 w-3.5" />
+          </Link>
+
+          <BotonSgeq visible={puedeAbrirSgeq} />
+        </div>
       </header>
 
       <div class="flex flex-col gap-6">
-        <ProfileCard
-          nombre={nameParts.nombre}
-          apellido1={nameParts.apellido1}
-          apellido2={nameParts.apellido2}
-          {rut}
-          {carrera}
-          semestre={semestreActual}
-          agno={anoAcademico}
-        />
-
         {#if isAyudante}
           <section
             class="flex flex-wrap items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
           >
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#22213F]/10">
-              <LifeBuoy class="h-[18px] w-[18px] text-[#22213F]" />
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
+              <LifeBuoy class="h-[18px] w-[18px] text-uta-blue" />
             </div>
             <div class="flex flex-col gap-0.5">
               <span class="text-sm font-semibold text-slate-900">También eres ayudante</span>

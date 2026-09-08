@@ -31,7 +31,6 @@ class DashboardController extends Controller
         }
 
         $estudiante = $user->estudiante;
-        $nombreCarrera = $estudiante->carrera->nombre;
         // Obtener las inscripciones del estudiante
         $inscripciones = InscripcionCurso::where('id_estudiante', $estudiante->id_estudiante)
             ->where('estado_inscripcion', 'INSCRITO')
@@ -93,12 +92,6 @@ class DashboardController extends Controller
 
         return Inertia::render('student/Dashboard', [
             'mensajeria' => $this->mensajesSinLeer($mensajeria, (int) $user->id_usuario),
-            'estudiante' => [
-                'id_estudiante' => $estudiante->id_estudiante,
-                'rut' => $user->rut, 
-                'id_usuario' => $user->id_usuario,
-                'nombre_carrera' => $nombreCarrera
-            ],
             'cursos' => $cursosData,
             'stats' => [
                 'total_cursos' => $cursosData->count(),

@@ -550,6 +550,7 @@ Route::prefix('estudiante')
     ->group(function () {
         // rutas generales
         Route::get('dashboard', [App\Http\Controllers\Student\DashboardController::class, 'index'])->name('dashboard');
+        Route::get('perfil', [App\Http\Controllers\Student\PerfilController::class, 'show'])->name('perfil');
         Route::get('cursos', [CourseController::class, 'index'])->name('cursos.index');
 
         // Programa (Syllabus) View - MUST be before generic {curso} route
