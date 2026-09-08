@@ -89,6 +89,7 @@ class DashboardController extends Controller
 
         //vista del semestre por defecto (entre 1 y 2)
         $semestreActual = Carbon::now()->month > 6 ? 2 : 1;
+        $agnoActual = Carbon::now()->year;
 
         return Inertia::render('student/Dashboard', [
             'mensajeria' => $this->mensajesSinLeer($mensajeria, (int) $user->id_usuario),
@@ -101,7 +102,11 @@ class DashboardController extends Controller
             // El acceso a SGEQ depende de la carrera, así que el botón no se
             // muestra a quien igual rebotaría al hacer clic.
             'puedeAbrirSgeq' => $sgeq->resolverRol($user) !== null,
-            'semestreActual' => $semestreActual
+            'semestreActual' => $semestreActual,
+            'periodoActual' => [
+                'semestre' => $semestreActual,
+                'agno' => $agnoActual,
+            ],
 
         ]);
     }

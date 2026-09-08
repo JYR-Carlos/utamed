@@ -15,15 +15,10 @@
   let { icon: Icon, title, emptyTitle, emptyDescription }: Props = $props();
 </script>
 
-<section class="flex flex-col gap-3 rounded-xl border border-dashed border-[#C9D6E6] bg-white p-4 shadow-sm">
+<section class="flex flex-row-reverse justify-between gap-3 rounded-xl border border-dashed border-[#C9D6E6] bg-white p-4 shadow-sm">
   <div class="flex items-center gap-2">
     <Icon class="h-4 w-4 text-[#5A5E6E]" />
-    <h3 class="text-[15px] font-semibold text-[#1A1A24]">{title}</h3>
-    <span
-      class="ml-auto inline-flex shrink-0 items-center rounded-full border border-[#C9D6E6] bg-[#E8EDF5] px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-[#002F6C]"
-    >
-      PROPUESTA
-    </span>
+    <p class="text-xl font-semibold text-[#1A1A24]">{title}</p>
   </div>
 
   <div class="flex flex-col items-center gap-1 rounded-lg border border-dashed border-slate-200 p-4 text-center">
