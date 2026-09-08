@@ -19,6 +19,7 @@ beforeEach(function () {
     // Asegurar que la restricción actualizada esté activa en la conexión de pruebas
     DB::statement('ALTER TABLE curso.bibliografia DROP CONSTRAINT IF EXISTS chk_url_notrq_when_no_es_bibuta');
     DB::statement('ALTER TABLE curso.bibliografia ADD CONSTRAINT chk_url_notrq_when_no_es_bibuta CHECK (es_bibliografia_uta = TRUE OR url IS NOT NULL OR uuid_archivo IS NOT NULL)');
+    DB::statement('ALTER TABLE curso.bibliografia DROP CONSTRAINT IF EXISTS uq_bibliografia');
 
     $this->usuario = Usuario::factory()->create(['esta_activo' => true]);
     $this->docente = Docente::create([
@@ -296,4 +297,130 @@ describe('Syllabus - Generación y Sincronización de Bibliografías', function 
         expect($archivo2->fresh()->pendiente_de_borrado)->toBeTrue();
         expect(Bibliografia::where('id_programa', $programa->id_programa)->count())->toBe(0);
     });
+
+    test('permite reutilizar el mismo archivo en múltiples bibliografías y versiones de programa sin conflicto de unicidad', function () {
+        $uuidArchivo = (string) Str::uuid7();
+        $archivo = Archivo::create([
+            'uuid_archivo' => $uuidArchivo,
+            'ruta_fisica' => 'archivos/syllabus/2026-s1/shared.pdf',
+            'nombre_original' => 'shared.pdf',
+            'extension' => 'pdf',
+            'mime_type' => 'application/pdf',
+            'peso_bytes' => 12000,
+            'pendiente_de_borrado' => false,
+        ]);
+
+        $curso = $this->curso;
+
+        // Programa versión 1
+        $programa1 = ProgramaService::generateProgramaWithSyllabus(
+            $curso,
+            $this->usuario,
+            [
+                'secciones' => [],
+                'tipo_syllabus' => 'BASICO',
+                'estado' => 'BASICO_COMPLETO',
+                'syllabus_creation_type' => 'simplified',
+            ]
+        );
+
+        $controller = new \App\Http\Controllers\Admin\ProgramaController();
+        $reflector = new ReflectionMethod($controller, 'createBibliografiasFromSyllabus');
+        $reflector->setAccessible(true);
+
+        $reflector->invoke($controller, $programa1, [
+            [
+                'titulo' => 'Manual Compartido v1',
+                'autor' => 'Dr. Smith',
+                'anio' => 2026,
+                'es_bibliografia_uta' => false,
+                'uuid_archivo' => $archivo->uuid_archivo,
+            ],
+        ]);
+
+        // Programa versión 2 (nueva versión del mismo curso con el mismo archivo)
+        $programa2 = ProgramaService::generateProgramaWithSyllabus(
+            $curso,
+            $this->usuario,
+            [
+                'secciones' => [],
+                'tipo_syllabus' => 'BASICO',
+                'estado' => 'BASICO_COMPLETO',
+                'syllabus_creation_type' => 'simplified',
+            ]
+        );
+
+        $reflector->invoke($controller, $programa2, [
+            [
+                'titulo' => 'Manual Compartido v2',
+                'autor' => 'Dr. Smith',
+                'anio' => 2026,
+                'es_bibliografia_uta' => false,
+                'uuid_archivo' => $archivo->uuid_archivo,
+            ],
+            [
+                'titulo' => 'Otra Lectura Reutilizando Archivo',
+                'autor' => 'Dr. Jones',
+                'anio' => 2026,
+                'es_bibliografia_uta' => false,
+                'uuid_archivo' => $archivo->uuid_archivo,
+            ],
+        ]);
+
+        // Deben existir 3 registros de bibliografía apuntando al mismo uuid_archivo sin error de unicidad
+        $bibs = Bibliografia::where('uuid_archivo', $archivo->uuid_archivo)->get();
+        expect($bibs)->toHaveCount(3);
+        expect($archivo->fresh()->pendiente_de_borrado)->toBeFalse();
+    });
+
+    test('formatea bibliografias con interlineado compacto, cita en linea y enlace a archivo', function () {
+        $controller = new class {
+            use \App\Traits\ParsesSyllabus;
+
+            public function testParse(array $data): array
+            {
+                return $this->parseSecciones($data);
+            }
+        };
+
+        $uuidArchivo = (string) Str::uuid7();
+        $dataSyllabus = [
+            'secciones' => [
+                'VIII' => [
+                    'contenido' => [
+                        'bibliografias' => [
+                            [
+                                'titulo' => 'Libro 1',
+                                'autor' => 'Pérez, Juan',
+                                'anio' => 2025,
+                                'cita' => 'Páginas 45-60',
+                                'url' => 'https://ejemplo.com/libro1',
+                                'es_bibliografia_uta' => false,
+                                'uuid_archivo' => null,
+                            ],
+                            [
+                                'titulo' => 'Libro 2',
+                                'autor' => 'Gómez, Ana',
+                                'anio' => 2026,
+                                'cita' => null,
+                                'es_bibliografia_uta' => false,
+                                'uuid_archivo' => $uuidArchivo,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $secciones = $controller->testParse($dataSyllabus);
+        $secVIII = collect($secciones)->firstWhere('numeral_romano', 'VIII');
+        expect($secVIII)->not->toBeNull();
+
+        $texto = $secVIII['contenidos'][0]['texto_contenido'];
+
+        // Debe usar \n simple (no \n\n) para evitar saltos excesivos entre ítems
+        expect($texto)->toContain("• Pérez, Juan (2025). Libro 1. [Enlace web: https://ejemplo.com/libro1] — «Páginas 45-60»\n• Gómez, Ana (2026). Libro 2. [Archivo adjunto: /api/bibliografias/{$uuidArchivo}/archivo]");
+        expect($texto)->not->toContain("\n\n");
+    });
 });
+

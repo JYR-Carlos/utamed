@@ -1023,8 +1023,13 @@ class ProgramaController extends Controller
             $oldBibs = \App\Models\Curso\Bibliografia::where('id_programa', $programa->id_programa)->get();
             foreach ($oldBibs as $old) {
                 if ($old->uuid_archivo) {
-                    \App\Models\Operaciones\Archivo::where('uuid_archivo', $old->uuid_archivo)
-                        ->update(['pendiente_de_borrado' => true]);
+                    $stillReferenced = \App\Models\Curso\Bibliografia::where('uuid_archivo', $old->uuid_archivo)
+                        ->where('uuid_bibliografia', '!=', $old->uuid_bibliografia)
+                        ->exists();
+                    if (!$stillReferenced) {
+                        \App\Models\Operaciones\Archivo::where('uuid_archivo', $old->uuid_archivo)
+                            ->update(['pendiente_de_borrado' => true]);
+                    }
                 }
                 $old->delete();
             }
@@ -1051,10 +1056,15 @@ class ProgramaController extends Controller
             if (!empty($bibData['uuid_bibliografia'])) {
                 $bibliografia = \App\Models\Curso\Bibliografia::find($bibData['uuid_bibliografia']);
                 if ($bibliografia && $bibliografia->id_programa === $programa->id_programa) {
-                    // Si el archivo cambió, marcar el anterior como pendiente de borrado
+                    // Si el archivo cambió, marcar el anterior como pendiente de borrado solo si no está en uso
                     if ($bibliografia->uuid_archivo && $bibliografia->uuid_archivo !== ($bibData['uuid_archivo'] ?? null)) {
-                        \App\Models\Operaciones\Archivo::where('uuid_archivo', $bibliografia->uuid_archivo)
-                            ->update(['pendiente_de_borrado' => true]);
+                        $stillReferenced = \App\Models\Curso\Bibliografia::where('uuid_archivo', $bibliografia->uuid_archivo)
+                            ->where('uuid_bibliografia', '!=', $bibliografia->uuid_bibliografia)
+                            ->exists();
+                        if (!$stillReferenced) {
+                            \App\Models\Operaciones\Archivo::where('uuid_archivo', $bibliografia->uuid_archivo)
+                                ->update(['pendiente_de_borrado' => true]);
+                        }
                     }
 
                     $bibliografia->update([
@@ -1095,8 +1105,13 @@ class ProgramaController extends Controller
 
         foreach ($deletedBibs as $delBib) {
             if ($delBib->uuid_archivo) {
-                \App\Models\Operaciones\Archivo::where('uuid_archivo', $delBib->uuid_archivo)
-                    ->update(['pendiente_de_borrado' => true]);
+                $stillReferenced = \App\Models\Curso\Bibliografia::where('uuid_archivo', $delBib->uuid_archivo)
+                    ->where('uuid_bibliografia', '!=', $delBib->uuid_bibliografia)
+                    ->exists();
+                if (!$stillReferenced) {
+                    \App\Models\Operaciones\Archivo::where('uuid_archivo', $delBib->uuid_archivo)
+                        ->update(['pendiente_de_borrado' => true]);
+                }
             }
             $delBib->delete();
         }
