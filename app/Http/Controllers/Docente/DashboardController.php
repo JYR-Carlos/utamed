@@ -555,6 +555,7 @@ class DashboardController extends Controller
                 'nombre' => $a->nombre,
                 'id_curso' => $a->componente?->curso?->id_curso,
                 'cod_curso' => $a->componente?->curso?->cod_curso,
+                'nombre_curso' => $a->componente?->curso?->nombre,
                 'fecha_limite' => $a->fecha_limite?->format('d-m-Y'),
             ])
             ->values()

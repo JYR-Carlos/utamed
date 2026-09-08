@@ -219,6 +219,54 @@
             {/if}
           {/if}
 
+          {#if es_sumativa}
+            <ActivityRubricaCard rubrica={rubrica?.rubrica} onRubricaClick={toggleRubricaModal} />
+          {/if}
+
+          {#if fecha_limite}
+            <section class="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+              <div class="flex items-center gap-2">
+                <Info class="h-[15px] w-[15px] text-[#5A5E6E]" />
+                <h3 class="text-[13px] font-semibold text-[#1A1A24]">Fecha de entrega</h3>
+              </div>
+              <div class="flex-col sm:flex gap-7 justify-between px-4 py-2">
+                <div class="flex gap-2.5">
+                  <div class="flex flex-none flex-col items-center">
+                    <span class="mt-1 h-[7px] w-[7px] rounded-full bg-[#C9D6E6]"></span>
+                    <span class="w-px flex-1 bg-[#E5E7EB]"></span>
+                  </div>
+                  <div class="flex flex-col pb-3">
+                    <span class="text-sm text-[#5A5E6E]">Fecha definida</span>
+                    <span class="text-[12.5px] font-semibold text-[#1A1A24]">{formatFechaCorta(fecha_limite)}</span>
+                  </div>
+                </div>
+                
+                {#if dias_holgura > 0 || dias_holgura_personal > 0}
+                  <div class="flex flex-col  gap-2.5 bg-green-100 px-6 py-2 rounded-3xl">
+                    <div class="flex gap-4 items-center">
+                      <Info class="h-[15px] w-[15px] text-[#5A5E6E]" />
+                      <span class="text-sm">Se han asignado {dias_holgura + dias_holgura_personal} días extra</span>
+                    </div>
+                    
+                    <div class="flex gap-4">
+                      <span class="text-sm font-semibold">Nueva fecha</span>
+                      <span class="text-sm">{formatFechaCorta(fechaEfectiva.toISOString())}</span>
+                    </div>
+                    
+                  </div>
+                {/if}
+        
+              </div>
+            </section>
+          {/if}
+
+          {#if id_actividad_asignada_grupo}
+            <ActivityAgendaCard {listado_interacciones} onAgendaClick={toggleAgendaModal} />
+          {/if}
+        </main>
+
+        <aside class="flex flex-col gap-5" aria-label="Contexto de la actividad">
+          
           {#if ultima_nota !== null && ultima_nota !== undefined}
             <ActivityGradeCard
               {ultima_nota}
@@ -228,77 +276,7 @@
               onVerRubricaClick={rubrica ? toggleRubricaModal : undefined}
             />
           {/if}
-
-          {#if es_sumativa}
-            <ActivityRubricaCard rubrica={rubrica?.rubrica} onRubricaClick={toggleRubricaModal} />
-          {/if}
-
-          {#if id_actividad_asignada_grupo}
-            <ActivityAgendaCard {listado_interacciones} onAgendaClick={toggleAgendaModal} />
-          {/if}
-        </main>
-
-        <aside class="flex flex-col gap-5" aria-label="Contexto de la actividad">
-          {#if fecha_limite}
-            <section class="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
-              <div class="flex items-center gap-2">
-                <Info class="h-[15px] w-[15px] text-[#5A5E6E]" />
-                <h3 class="text-[13px] font-semibold text-[#1A1A24]">Cómo se calcula tu fecha</h3>
-              </div>
-              <div class="flex flex-col">
-                <div class="flex gap-2.5">
-                  <div class="flex flex-none flex-col items-center">
-                    <span class="mt-1 h-[7px] w-[7px] rounded-full bg-[#C9D6E6]"></span>
-                    <span class="w-px flex-1 bg-[#E5E7EB]"></span>
-                  </div>
-                  <div class="flex flex-col pb-3">
-                    <span class="text-[11px] text-[#5A5E6E]">Fecha del curso</span>
-                    <span class="text-[12.5px] font-semibold text-[#1A1A24]">{formatFechaCorta(fecha_limite)}</span>
-                  </div>
-                </div>
-                {#if dias_holgura > 0}
-                  <div class="flex gap-2.5">
-                    <div class="flex flex-none flex-col items-center">
-                      <span class="mt-1 h-[7px] w-[7px] rounded-full bg-[#C9D6E6]"></span>
-                      <span class="w-px flex-1 bg-[#E5E7EB]"></span>
-                    </div>
-                    <div class="flex flex-col pb-3">
-                      <span class="text-[11px] text-[#5A5E6E]">Holgura de la actividad</span>
-                      <span class="text-[12.5px] font-semibold text-[#1A1A24]"
-                        >+{dias_holgura} {dias_holgura === 1 ? 'día' : 'días'}</span
-                      >
-                    </div>
-                  </div>
-                {/if}
-                {#if dias_holgura_personal > 0}
-                  <div class="flex gap-2.5">
-                    <div class="flex flex-none flex-col items-center">
-                      <span class="mt-1 h-[7px] w-[7px] rounded-full bg-[#C9D6E6]"></span>
-                      <span class="w-px flex-1 bg-[#E5E7EB]"></span>
-                    </div>
-                    <div class="flex flex-col pb-3">
-                      <span class="text-[11px] text-[#5A5E6E]">Tu holgura personal</span>
-                      <span class="text-[12.5px] font-semibold text-[#1A1A24]"
-                        >+{dias_holgura_personal} {dias_holgura_personal === 1 ? 'día' : 'días'}</span
-                      >
-                    </div>
-                  </div>
-                {/if}
-                <div class="flex gap-2.5">
-                  <div class="flex flex-none flex-col items-center">
-                    <span class="mt-1 h-[7px] w-[7px] rounded-full bg-emerald-600"></span>
-                  </div>
-                  <div class="flex flex-col">
-                    <span class="text-[11px] font-semibold text-emerald-700">Tu fecha efectiva</span>
-                    <span class="text-[13px] font-semibold text-[#1A1A24]">
-                      {formatFechaCorta(fechaEfectiva.toISOString())}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </section>
-          {/if}
-
+          
           {#if archivo_enunciado}
             <button
               class="group flex w-full items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white p-3.5 text-left shadow-sm transition-colors hover:bg-[#F8FAFC]"
@@ -312,6 +290,8 @@
           <ActivityMembersCard usuarios={es_grupal ? resto_integrantes : []} />
         </aside>
       </div>
+      
+
     </div>
   </div>
 </StudentLayout>
