@@ -12,8 +12,8 @@ import type { ComponenteFormState, TipoComponente, Docente, CursoFormData, Docen
  * Opciones para las llamadas HTTP
  */
 interface ApiOptions {
-    onSuccess?: () => void;
-    onError?: () => void;
+    onSuccess?: (page?: any) => void;
+    onError?: (errors?: Record<string, string>) => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -24,9 +24,16 @@ interface ApiOptions {
  * Crea un nuevo curso.
  */
 export function createCurso(data: CursoFormData, options: ApiOptions = {}) {
+    console.log('[cursoApi.createCurso] POST /admin/cursos', data);
     router.post('/admin/cursos', data, {
-        onSuccess: options.onSuccess,
-        onError: options.onError,
+        onSuccess: (page) => {
+            console.log('[cursoApi.createCurso] Éxito', page?.props);
+            options.onSuccess?.(page);
+        },
+        onError: (errors) => {
+            console.error('[cursoApi.createCurso] Error de validación/servidor:', errors);
+            options.onError?.(errors);
+        },
     });
 }
 
@@ -34,9 +41,16 @@ export function createCurso(data: CursoFormData, options: ApiOptions = {}) {
  * Actualiza los datos de un curso existente.
  */
 export function updateCurso(id: number, data: CursoFormData, options: ApiOptions = {}) {
+    console.log(`[cursoApi.updateCurso] PUT /admin/cursos/${id}`, data);
     router.put(`/admin/cursos/${id}`, data, {
-        onSuccess: options.onSuccess,
-        onError: options.onError,
+        onSuccess: (page) => {
+            console.log('[cursoApi.updateCurso] Éxito', page?.props);
+            options.onSuccess?.(page);
+        },
+        onError: (errors) => {
+            console.error('[cursoApi.updateCurso] Error de validación/servidor:', errors);
+            options.onError?.(errors);
+        },
     });
 }
 

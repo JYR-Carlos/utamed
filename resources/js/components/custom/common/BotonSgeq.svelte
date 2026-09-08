@@ -27,7 +27,7 @@
     href="/sso/sgeq"
     target="_blank"
     rel="noopener noreferrer"
-    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 {className}"
+    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-uta-blue/30 hover:bg-uta-blue-light hover:text-uta-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-uta-blue {className}"
   >
     <ExternalLink class="h-4 w-4" aria-hidden="true" />
     Préstamo de equipos

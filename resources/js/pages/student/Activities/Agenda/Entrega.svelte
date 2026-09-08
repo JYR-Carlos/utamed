@@ -1,232 +1,293 @@
 <script lang="ts">
-  import { Upload, X } from 'lucide-svelte';
+  /**
+   * Entrega formal de la actividad: subir el archivo ES la entrega, en un
+   * solo paso atómico (AgendaController::storeEntrega ya lo envuelve en una
+   * transacción). No hay intentos ni recibo — esos nacen de la fecha (más
+   * holgura), no de un contador — y una entrega no se anula, sólo se
+   * reemplaza mientras la actividad siga activa.
+   */
+  import { router } from '@inertiajs/svelte';
+  import { UploadCloud, X, Check, Loader, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-svelte';
 
   interface Props {
     onCerrar: () => void;
-    onEntregaEnviada: (data: { tipo: string; mensaje: string; archivo?: File }) => void;
+    onEntregaCompletada: () => void;
+    onAvisarDocente?: () => void;
+    id_actividad_asignada_grupo: number;
     cod_curso: string;
-    nombre_curso: string;
-    cod_actividad: string;
     nombre_actividad: string;
     entrega_obligatoria: boolean;
+    esReemplazo: boolean;
   }
 
   let {
     onCerrar,
-    onEntregaEnviada,
+    onEntregaCompletada,
+    onAvisarDocente,
+    id_actividad_asignada_grupo,
     cod_curso,
-    nombre_curso,
-    cod_actividad,
     nombre_actividad,
     entrega_obligatoria,
+    esReemplazo,
   }: Props = $props();
 
-  let descripcion = $state('');
+  type Paso = 'seleccion' | 'confirmando' | 'subiendo' | 'exito' | 'error';
+  let paso = $state<Paso>('seleccion');
+
   let archivo: File | undefined = $state();
+  let descripcion = $state('');
+  let confirmado = $state(false);
+  let progreso = $state(0);
+  let mensajeError = $state('');
+  let dragOver = $state(false);
   let inputFile: HTMLInputElement | undefined = $state();
-  let enviando = $state(false);
-  let error = $state('');
+
+  function formatearTamano(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const unidades = ['B', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${Math.round((bytes / Math.pow(k, i)) * 10) / 10} ${unidades[i]}`;
+  }
+
+  function elegirArchivo(f: File | undefined) {
+    if (!f) return;
+    archivo = f;
+  }
 
   function manejarSeleccionArchivo(event: Event) {
     const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      archivo = input.files[0];
-      error = '';
-    }
+    elegirArchivo(input.files?.[0]);
   }
 
-  function removerArchivo() {
-    archivo = undefined;
-    if (inputFile) {
-      inputFile.value = '';
-    }
+  function manejarDrop(event: DragEvent) {
+    event.preventDefault();
+    dragOver = false;
+    elegirArchivo(event.dataTransfer?.files?.[0]);
   }
 
-  function formatearTamano(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const tamaños = ['Bytes', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + tamaños[i];
+  function irAConfirmar() {
+    if (!archivo) return;
+    if (entrega_obligatoria && descripcion.trim().length === 0) return;
+    paso = 'confirmando';
   }
 
-  function manejarEnvio() {
-    error = '';
+  function confirmarEntrega() {
+    if (!archivo || !confirmado) return;
 
-    if (entrega_obligatoria && !archivo) {
-      error = 'Debes seleccionar un archivo para entregar.';
-      return;
-    }
+    paso = 'subiendo';
+    progreso = 0;
+    mensajeError = '';
 
-    if (!archivo) {
-      error = 'Selecciona un archivo para continuar.';
-      return;
-    }
+    router.post(
+      `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/entregas`,
+      { mensaje: descripcion.trim(), archivo },
+      {
+        forceFormData: true,
+        onProgress: (event) => {
+          progreso = event?.percentage ?? progreso;
+        },
+        onSuccess: () => {
+          progreso = 100;
+          paso = 'exito';
+          setTimeout(onEntregaCompletada, 900);
+        },
+        onError: (errors) => {
+          mensajeError = errors.archivo || errors.error_general || 'No se pudo registrar la entrega.';
+          paso = 'error';
+        },
+      },
+    );
+  }
 
-    if (descripcion.trim().length === 0) {
-      error = 'Agrega una descripción de tu entrega.';
-      return;
-    }
-
-    enviando = true;
-
-    // Simular envío
-    setTimeout(() => {
-      const tipo = "Entrega de Avance" // CAMBIAR LUEGO A LOS ENUMERABLES SEGÚN EL TIPO DE ARCHIVO SUBIDO
-      onEntregaEnviada({
-        archivo,
-        tipo,
-        mensaje: descripcion.trim(),
-      });
-
-      descripcion = '';
-      
-      if (inputFile) {
-        inputFile.value = '';
-      }
-      enviando = false;
-    }, 500);
+  function reintentar() {
+    paso = 'confirmando';
+    mensajeError = '';
   }
 </script>
 
-<div class="w-full sm:w-[90%] max-w-2xl flex rounded-4xl bg-white shadow-2xl overflow-hidden flex-col">
-  <!-- Header -->
-  <div class="flex justify-between items-center px-6 sm:px-8 py-6 border-b border-gray-100 shrink-0">
-    <div>
-      <p class="text-xl sm:text-2xl font-bold text-primary">Agregar Entrega</p>
-      <p class="text-xs sm:text-sm text-gray-500 mt-1">
-        {cod_curso} - {nombre_actividad}
-      </p>
+<div class="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+  {#if paso === 'seleccion'}
+    <div class="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
+      <div class="flex flex-col">
+        <span class="text-[15px] font-semibold text-[#1A1A24]">{esReemplazo ? 'Reemplazar entrega' : 'Entregar la actividad'}</span>
+        <span class="text-xs text-[#5A5E6E]">{cod_curso} · {nombre_actividad}</span>
+      </div>
+      <button class="rounded-full p-1.5 text-[#5A5E6E] transition-colors hover:bg-[#F8FAFC]" onclick={onCerrar} aria-label="cerrar">
+        <X class="h-5 w-5" />
+      </button>
     </div>
 
-    <button
-      class="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0"
-      onclick={onCerrar}
-      aria-label="cerrar"
-      disabled={enviando}
-    >
-      <X class="w-5 h-5 sm:w-6 sm:h-6" />
-    </button>
-  </div>
-
-  <!-- Contenido -->
-  <div class="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-6">
-    <!-- Selector de Archivo -->
-    <div class="space-y-3">
-      <p class="block text-sm font-semibold text-gray-700">
-        Selecciona tu archivo
-        {#if entrega_obligatoria}
-          <span class="text-red-500">*</span>
-        {/if}
-      </p>
-
+    <div class="flex flex-col gap-4 p-5">
       {#if !archivo}
         <label
-          class="flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-primary/30 rounded-2xl bg-primary/5 hover:bg-primary/10 cursor-pointer transition-colors group"
+          class="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors {dragOver
+            ? 'border-[#002F6C] bg-[#E8EDF5]'
+            : 'border-[#C9D6E6] bg-[#F8FAFC] hover:bg-[#F1F5F9]'} cursor-pointer"
+          ondragover={(e) => {
+            e.preventDefault();
+            dragOver = true;
+          }}
+          ondragleave={() => (dragOver = false)}
+          ondrop={manejarDrop}
         >
-          <div class="flex flex-col items-center gap-2 text-center">
-            <Upload class="w-8 h-8 text-primary/60 group-hover:text-primary transition-colors" />
-            <p class="text-sm font-semibold text-gray-700">
-              Arrastra tu archivo aquí o haz clic para seleccionar
-            </p>
-            <p class="text-xs text-gray-500">
-              Formatos permitidos: PDF, DOC, DOCX, TXT (máx. 25MB)
-            </p>
-          </div>
-          <input
-            type="file"
-            class="hidden"
-            accept=".pdf,.doc,.docx,.txt"
-            onchange={manejarSeleccionArchivo}
-            bind:this={inputFile}
-            disabled={enviando}
-          />
+          <UploadCloud class="h-7 w-7 text-[#002F6C]" />
+          <span class="text-sm font-semibold text-[#1A1A24]">Arrastra tu archivo aquí o haz clic para seleccionar</span>
+          <span class="text-xs text-[#5A5E6E]">Hasta 25 MB</span>
+          <input type="file" class="hidden" onchange={manejarSeleccionArchivo} bind:this={inputFile} />
         </label>
       {:else}
-        <div class="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-2xl">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="flex-shrink-0">
-              <svg
-                class="w-5 h-5 text-green-600"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"
-                />
-                <path
-                  fill-rule="evenodd"
-                  d="M3 4a2 2 0 00-2 2v4a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2H3zm0 2h10v4H3V6z"
-                />
-              </svg>
-            </div>
-            <div class="min-w-0">
-              <p class="text-sm font-semibold text-gray-900 truncate">{archivo.name}</p>
-              <p class="text-xs text-gray-500">{formatearTamano(archivo.size)}</p>
-            </div>
+        <div class="flex items-center gap-3 rounded-lg border border-[#E5E7EB] p-3">
+          <span class="flex h-[34px] w-[30px] shrink-0 items-center justify-center rounded-[5px] border border-[#E5E7EB] bg-[#F5F1EA] font-mono text-[9.5px] font-bold text-[#5A5E6E]">
+            {(archivo.name.split('.').pop() ?? 'ARC').slice(0, 3).toUpperCase()}
+          </span>
+          <div class="flex min-w-0 flex-col">
+            <span class="truncate text-[12.5px] font-semibold text-[#1A1A24]">{archivo.name}</span>
+            <span class="font-mono text-[11px] text-[#5A5E6E]">{formatearTamano(archivo.size)}</span>
           </div>
-          <button
-            class="flex-shrink-0 p-2 hover:bg-red-100 rounded-lg transition-colors text-red-600"
-            onclick={removerArchivo}
-            disabled={enviando}
-            aria-label="remover archivo"
-          >
-            <X class="w-4 h-4" />
+          <button class="ml-auto shrink-0 text-[#5A5E6E] hover:text-[#B91C1C]" onclick={() => (archivo = undefined)} aria-label="quitar archivo">
+            <X class="h-4 w-4" />
           </button>
         </div>
       {/if}
-    </div>
 
-    <!-- Descripción -->
-    <div class="space-y-3">
-      <p class="block text-sm font-semibold text-gray-700">
-        Descripción de tu entrega
-        <span class="text-red-500">*</span>
-      </p>
-      <!-- svelte-ignore element_invalid_self_closing_tag -->
-      <textarea
-        class="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-        placeholder="Describe qué incluye tu entrega, cambios realizados, comentarios importantes, etc."
-        rows="4"
-        bind:value={descripcion}
-        disabled={enviando}
-      />
-      <p class="text-xs text-gray-500">
-        {descripcion.length} / 500 caracteres
-      </p>
-    </div>
-
-    <!-- Mensaje de Error -->
-    {#if error}
-      <div class="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
-        <svg class="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fill-rule="evenodd"
-            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-            clip-rule="evenodd"
-          />
-        </svg>
-        <p class="text-sm text-red-700">{error}</p>
+      <div class="flex flex-col gap-1.5">
+        <label for="entrega-descripcion" class="text-[13px] font-semibold text-[#1A1A24]">
+          Descripción de tu entrega {#if entrega_obligatoria}<span class="text-[#DC2626]">*</span>{/if}
+        </label>
+        <textarea
+          id="entrega-descripcion"
+          bind:value={descripcion}
+          rows="3"
+          maxlength="500"
+          placeholder="Qué incluye tu entrega, cambios realizados, comentarios importantes…"
+          class="resize-none rounded-lg border border-[#D6D9E0] px-3 py-2.5 text-[13.5px] text-[#1A1A24] outline-none focus:border-[#002F6C]"
+        ></textarea>
+        <span class="self-end font-mono text-[11px] text-[#5A5E6E]">{descripcion.length} / 500</span>
       </div>
-    {/if}
-  </div>
+    </div>
 
-  <!-- Footer -->
-  <div class="flex justify-end gap-3 px-6 sm:px-8 py-4 border-t border-gray-100 bg-gray-50 shrink-0">
-    <button
-      class="px-6 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors font-semibold text-sm disabled:opacity-50"
-      onclick={onCerrar}
-      disabled={enviando}
-    >
-      Cancelar
-    </button>
-    <button
-      class="px-6 py-2 rounded-lg bg-primary text-secondary hover:bg-primary/90 transition-colors font-semibold text-sm disabled:opacity-50"
-      onclick={manejarEnvio}
-      disabled={enviando || !archivo || descripcion.trim().length === 0}
-    >
-      {enviando ? 'Enviando...' : 'Enviar Entrega'}
-    </button>
-  </div>
+    <div class="flex items-center gap-2 border-t border-[#E5E7EB] px-5 py-3.5">
+      <button class="rounded-lg px-3 py-2 text-[13.5px] font-medium text-[#002F6C] transition-colors hover:bg-[#F8FAFC]" onclick={onCerrar}>
+        Cancelar
+      </button>
+      <button
+        class="ml-auto flex items-center gap-1.5 rounded-lg bg-[#002F6C] px-4 py-2 text-[13.5px] font-semibold text-white transition-colors hover:bg-[#00214d] disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={!archivo || (entrega_obligatoria && descripcion.trim().length === 0)}
+        onclick={irAConfirmar}
+      >
+        Continuar
+      </button>
+    </div>
+  {:else if paso === 'confirmando' && archivo}
+    <div class="flex items-center gap-2.5 border-b border-[#E5E7EB] px-5 py-4">
+      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#E8EDF5]">
+        <UploadCloud class="h-4 w-4 text-[#002F6C]" />
+      </div>
+      <div class="flex flex-col">
+        <span class="text-[15px] font-semibold text-[#1A1A24]">Confirmar entrega</span>
+        <span class="text-[11.5px] text-[#5A5E6E]">Queda sellada la hora de este envío</span>
+      </div>
+    </div>
+    <div class="flex flex-col gap-3 p-5">
+      <div class="flex items-center gap-2.5 rounded-lg border border-[#E5E7EB] p-2.5">
+        <span class="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[5px] border border-[#E5E7EB] bg-[#F5F1EA] font-mono text-[9.5px] font-bold text-[#5A5E6E]">
+          {(archivo.name.split('.').pop() ?? 'ARC').slice(0, 3).toUpperCase()}
+        </span>
+        <div class="flex min-w-0 flex-col">
+          <span class="truncate text-[12.5px] font-semibold text-[#1A1A24]">{archivo.name}</span>
+          <span class="font-mono text-[11px] text-[#5A5E6E]">{formatearTamano(archivo.size)}</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-1.5 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] p-3">
+        <span class="text-xs font-semibold text-[#1A1A24]">Al confirmar:</span>
+        <span class="flex items-start gap-1.5 text-xs text-[#5A5E6E]">
+          <Check class="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#059669]" />
+          Se registra la hora de este envío como tu entrega.
+        </span>
+        {#if esReemplazo}
+          <span class="flex items-start gap-1.5 text-xs text-[#5A5E6E]">
+            <Check class="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#059669]" />
+            Reemplaza la entrega anterior; la anterior deja de contar.
+          </span>
+        {/if}
+        <span class="flex items-start gap-1.5 text-xs text-[#5A5E6E]">
+          <Check class="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#059669]" />
+          Mientras la actividad siga activa, puedes volver a reemplazarla.
+        </span>
+      </div>
+      <label class="flex cursor-pointer items-start gap-2 text-[12.5px] text-[#1A1A24]">
+        <input type="checkbox" bind:checked={confirmado} class="mt-0.5 h-[15px] w-[15px] accent-[#002F6C]" />
+        <span>Confirmo que este archivo es mi entrega de la actividad.</span>
+      </label>
+    </div>
+    <div class="flex items-center gap-2 border-t border-[#E5E7EB] px-5 py-3.5">
+      <button class="rounded-lg px-3 py-2 text-[13.5px] font-medium text-[#002F6C] transition-colors hover:bg-[#F8FAFC]" onclick={() => (paso = 'seleccion')}>
+        Volver
+      </button>
+      <button
+        class="ml-auto flex items-center gap-1.5 rounded-lg bg-[#002F6C] px-4.5 py-2.5 text-[13.5px] font-semibold text-white shadow-sm transition-colors hover:bg-[#00214d] disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={!confirmado}
+        onclick={confirmarEntrega}
+      >
+        <UploadCloud class="h-4 w-4" />
+        Entregar ahora
+      </button>
+    </div>
+  {:else if paso === 'subiendo'}
+    <div class="flex flex-col gap-3.5 p-6">
+      <div class="flex items-center gap-2">
+        <Loader class="h-4 w-4 animate-spin text-[#002F6C]" />
+        <span class="text-sm font-semibold text-[#1A1A24]">Entregando la actividad</span>
+        <span class="ml-auto font-mono text-xs font-semibold text-[#002F6C]">{progreso}%</span>
+      </div>
+      <div class="h-2 overflow-hidden rounded-full bg-[#EEF1F5]">
+        <div class="h-2 rounded-full bg-[#002F6C] transition-all" style="width:{progreso}%"></div>
+      </div>
+      <span class="text-[11.5px] text-[#5A5E6E]">No cierres esta ventana mientras se sube el archivo.</span>
+    </div>
+  {:else if paso === 'exito' && archivo}
+    <div class="flex flex-col gap-3 p-6">
+      <div class="flex items-center gap-2">
+        <CheckCircle2 class="h-4 w-4 text-[#059669]" />
+        <span class="text-sm font-semibold text-[#1A1A24]">Entrega registrada</span>
+      </div>
+      <div class="flex flex-col gap-1.5 rounded-lg border border-[#A7F3D0] bg-[#F8FAFC] p-3">
+        <div class="flex items-baseline gap-2">
+          <span class="w-14 shrink-0 text-[11.5px] text-[#5A5E6E]">Archivo</span>
+          <span class="truncate text-[12.5px] font-semibold text-[#1A1A24]">{archivo.name}</span>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="w-14 shrink-0 text-[11.5px] text-[#5A5E6E]">Peso</span>
+          <span class="font-mono text-xs">{formatearTamano(archivo.size)}</span>
+        </div>
+      </div>
+    </div>
+  {:else if paso === 'error'}
+    <div class="flex flex-col gap-3 p-6">
+      <div class="flex items-center gap-2">
+        <AlertCircle class="h-4 w-4 text-[#B91C1C]" />
+        <span class="text-sm font-semibold text-[#1A1A24]">La entrega no se completó</span>
+      </div>
+      <p class="text-[12.5px] text-[#1A1A24]">{mensajeError}</p>
+      <p class="text-[12px] text-[#5A5E6E]">No se registró ninguna entrega parcial. Tu archivo no se perdió: sigue seleccionado.</p>
+      <div class="flex gap-2 pt-1">
+        <button
+          class="flex items-center gap-1.5 rounded-lg bg-[#002F6C] px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#00214d]"
+          onclick={reintentar}
+        >
+          <RotateCcw class="h-3.5 w-3.5" />
+          Reintentar
+        </button>
+        {#if onAvisarDocente}
+          <button
+            class="rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2 text-[13px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F8FAFC]"
+            onclick={onAvisarDocente}
+          >
+            Avisar al docente
+          </button>
+        {/if}
+      </div>
+    </div>
+  {/if}
 </div>

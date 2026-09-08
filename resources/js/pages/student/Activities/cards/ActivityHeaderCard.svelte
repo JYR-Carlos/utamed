@@ -1,101 +1,62 @@
 <script lang="ts">
-  import type { Rubrica } from '@/types/rubrica';
-  import { formatFechaCorta } from '@/utils/formatters';
-
   interface Props {
-    cod_actividad: string;
     nombre_actividad: string;
     nombre_curso: string;
     descripcion: string;
-    fecha_limite: string;
     es_sumativa: boolean;
     entrega_obligatoria: boolean;
+    estado?: string | null;
   }
 
   let {
     nombre_actividad,
     nombre_curso,
     descripcion,
-    fecha_limite,
     es_sumativa,
     entrega_obligatoria,
+    estado,
   }: Props = $props();
+
+  const estadoInfo = $derived(
+    estado === 'CERRADA'
+      ? { label: 'Cerrada', badge: 'bg-slate-100 text-slate-600 border-slate-300', dot: 'bg-slate-500' }
+      : { label: 'Activa', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-600' },
+  );
 </script>
 
-<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-  <div class="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500">
-    <span>{nombre_curso}</span>
+<section class="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6">
+  <div class="flex items-start gap-4">
+    <div class="flex min-w-0 flex-col gap-1">
+      <span class="text-[11.5px] font-medium text-[#5A5E6E]">{nombre_curso}</span>
+      <h1 class="text-xl font-semibold leading-tight text-[#1A1A24] md:text-2xl">{nombre_actividad}</h1>
+    </div>
+    <span
+      class="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold {estadoInfo.badge}"
+    >
+      <span class="h-1.5 w-1.5 rounded-full {estadoInfo.dot}"></span>
+      {estadoInfo.label}
+    </span>
   </div>
 
-  <h1 class="mt-2 text-2xl font-black tracking-tight text-slate-900 md:text-3xl">
-    {nombre_actividad}
-  </h1>
-
-  <div class="mt-4 flex flex-wrap gap-2">
-    {#if es_sumativa}
-      <span
-        class="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 border border-amber-100"
-      >
-        <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>Sumativa
-      </span>
-    {:else}
-      <span
-        class="inline-flex items-center gap-1.5 rounded-md bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800 border border-sky-100"
-      >
-        <span class="h-1.5 w-1.5 rounded-full bg-sky-500"></span>Formativa
-      </span>
-    {/if}
+  <div class="flex flex-wrap gap-2">
+    <span
+      class="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold
+      {es_sumativa ? 'border-amber-100 bg-amber-50 text-amber-800' : 'border-sky-100 bg-sky-50 text-sky-800'}"
+    >
+      <span class="h-1.5 w-1.5 rounded-full {es_sumativa ? 'bg-amber-500' : 'bg-sky-500'}"></span>
+      {es_sumativa ? 'Sumativa' : 'Formativa'}
+    </span>
     {#if entrega_obligatoria}
       <span
-        class="inline-flex items-center gap-1.5 rounded-md bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-800 border border-rose-100"
+        class="inline-flex items-center gap-1.5 rounded-md border border-red-100 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700"
       >
-        <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>Entrega obligatoria
+        <span class="h-1.5 w-1.5 rounded-full bg-red-600"></span>
+        Entrega obligatoria
       </span>
     {/if}
   </div>
 
   {#if descripcion}
-    <div class="mt-6">
-      <span class="text-xs font-bold tracking-wider text-slate-400 uppercase"
-        >Descripción</span
-      >
-      <p class="mt-1 text-sm leading-relaxed text-slate-600">{descripcion}</p>
-    </div>
+    <p class="text-sm leading-relaxed text-[#1A1A24]">{descripcion}</p>
   {/if}
-
-  <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3 border-t border-slate-100 pt-6">
-    <div class="space-y-1">
-      <span class="text-xs font-medium text-slate-400">Fecha límite</span>
-      <span class="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <rect x="3" y="4" width="18" height="18" rx="2" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-        </svg>
-        {formatFechaCorta(fecha_limite)}
-      </span>
-    </div>
-    <div class="space-y-1">
-      <span class="text-xs font-medium text-slate-400">Tipo</span>
-      <span class="block text-sm font-semibold text-slate-700"
-        >{es_sumativa ? 'Sumativa' : 'Formativa'}</span
-      >
-    </div>
-    <div class="space-y-1">
-      <span class="text-xs font-medium text-slate-400">Entrega</span>
-      <span class="block text-sm font-semibold text-slate-700"
-        >{entrega_obligatoria ? 'Obligatoria' : 'Opcional'}</span
-      >
-    </div>
-  </div>
-</div>
+</section>

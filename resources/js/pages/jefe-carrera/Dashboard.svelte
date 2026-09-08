@@ -1,33 +1,48 @@
 <script lang="ts">
   /**
-   * Dashboard Ejecutivo — Jefe de Carrera
-   * Pantalla 1: Métricas KPI en Bento Box + Panel de Alertas
+   * Dashboard ejecutivo — Jefatura de Carrera.
+   *
+   * Lámina «Dashboard ejecutivo»: bento de 12 columnas donde la tarjeta de
+   * syllabus (5×2) ancla la lectura y el rail de alertas (4×3) corre a lo alto
+   * para que la acción quede a la vista sin desplazar.
+   *
+   * Reglas de la lámina que no son decorativas:
+   *  - La ÚNICA acción rellena de la pantalla vive en el rail de alertas. La
+   *    cabecera cede la primaria: no lleva botón.
+   *  - Sin alertas el rail conserva su altura con confirmación y comprobaciones
+   *    del período; nunca un hueco ni una ilustración.
+   *  - Escala tipográfica sin ampliar: el KPI es 28px, igual que el h1.
+   *
+   * Todos los datos llegan del controlador ya acotados a la carrera del jefe
+   * (`JefeCarreraController::dashboard`). Los defaults son vacíos a propósito:
+   * la vista no fabrica cifras de ejemplo.
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
+  import AlertasRail from '@/components/jefe-carrera/AlertasRail.svelte';
   import type { BreadcrumbItem } from '@/types';
-  import { Link, router } from '@inertiajs/svelte';
+  import { Link } from '@inertiajs/svelte';
   import {
-    AlertTriangle,
-    BookOpen,
-    Bell,
-    ChevronRight,
-    Send,
-    ClipboardList,
-    CheckCircle2,
-    BarChart2,
-    GraduationCap,
+    ArrowDownRight,
     ArrowUpRight,
+    BarChart2,
+    BookOpen,
     CalendarCheck,
+    ChevronRight,
+    ClipboardList,
+    GraduationCap,
     ListChecks,
-    UserX,
+    Minus,
     Users,
+    UserX,
   } from 'lucide-svelte';
+  import { formatFechaCorta } from '@/utils/formatters';
 
-  // ─── Types ───────────────────────────────────────────────────────────────────
+  // ─── Tipos ───────────────────────────────────────────────────────────────
 
   interface Alerta {
     id: number;
     tipo: 'critica' | 'advertencia' | 'info';
+    icono?: string | null;
     titulo: string;
     count: number;
     accion_label: string;
@@ -36,580 +51,422 @@
 
   interface Props {
     carrera?: { nombre: string; semestre: string; ano: number };
+    periodo?: {
+      inicio: string | null;
+      plazo_syllabus: string | null;
+      ultimo_aprobado: string | null;
+      anterior: { label: string; cursos: number } | null;
+    };
     stats?: {
       syllabus_entregados: number;
       syllabus_total: number;
       cursos_activos: number;
-      cursos_tendencia: number[];
+      cursos_con_docente: number;
       estudiantes_matriculados: number;
     };
-    alertas?: Alerta[];
     resumen_estados?: {
       no_iniciado: number;
+      borrador: number;
       en_revision: number;
       aprobado: number;
     };
+    alertas?: Alerta[];
     metricas_resumen?: {
       asistencia_promedio: number | null;
       avance_evaluacion: number | null;
       alumnos_en_riesgo: number;
       carga_docente: { docentes: number; cursos: number; promedio: number };
     };
+    generado_en?: string | null;
   }
 
   let {
-    carrera = { nombre: 'Diseño Multimedia', semestre: 'Primero', ano: 2026 },
+    carrera = { nombre: 'Carrera', semestre: '', ano: 0 },
+    periodo = { inicio: null, plazo_syllabus: null, ultimo_aprobado: null, anterior: null },
     stats = {
-      syllabus_entregados: 18,
-      syllabus_total: 25,
-      cursos_activos: 25,
-      cursos_tendencia: [22, 20, 23, 25, 24, 25],
-      estudiantes_matriculados: 412,
+      syllabus_entregados: 0,
+      syllabus_total: 0,
+      cursos_activos: 0,
+      cursos_con_docente: 0,
+      estudiantes_matriculados: 0,
     },
-    alertas = [
-      {
-        id: 1,
-        tipo: 'critica' as const,
-        titulo: '3 Docentes no han entregado el Syllabus este semestre',
-        count: 3,
-        accion_label: 'Enviar Recordatorio',
-        accion_url: '/docente/jefe-carrera/seguimiento?estado=NO_INICIADO',
-      },
-      {
-        id: 2,
-        tipo: 'advertencia' as const,
-        titulo: '5 Syllabus llevan más de 7 días en revisión sin respuesta',
-        count: 5,
-        accion_label: 'Ver detalle',
-        accion_url: '/docente/jefe-carrera/seguimiento?estado=EN_REVISION',
-      },
-      {
-        id: 3,
-        tipo: 'info' as const,
-        titulo: '2 Programas rechazados están pendientes de corrección docente',
-        count: 2,
-        accion_label: 'Ver lista',
-        accion_url: '/docente/jefe-carrera/seguimiento?estado=RECHAZADO',
-      },
-    ] as Alerta[],
-    resumen_estados = { no_iniciado: 7, en_revision: 5, aprobado: 18 },
+    resumen_estados = { no_iniciado: 0, borrador: 0, en_revision: 0, aprobado: 0 },
+    alertas = [],
     metricas_resumen = {
-      asistencia_promedio: 87,
-      avance_evaluacion: 64,
-      alumnos_en_riesgo: 23,
-      carga_docente: { docentes: 12, cursos: 25, promedio: 2.1 },
+      asistencia_promedio: null,
+      avance_evaluacion: null,
+      alumnos_en_riesgo: 0,
+      carga_docente: { docentes: 0, cursos: 0, promedio: 0 },
     },
+    generado_en = null,
   }: Props = $props();
 
-  // ─── Helpers de formato para KPIs ─────────────────────────────────────────────
-  const fmtPct = (v: number | null): string => (v === null ? '—' : `${Math.round(v)}%`);
-
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Jefe de Carrera', href: '/docente/jefe-carrera/dashboard' },
+    { title: 'Jefatura de Carrera', href: '/docente/jefe-carrera/dashboard' },
+    { title: 'Dashboard', href: '/docente/jefe-carrera/dashboard' },
   ];
 
-  // ─── Donut chart math ────────────────────────────────────────────────────────
+  // ─── Cabecera ────────────────────────────────────────────────────────────
 
-  const DONUT_R = 46;
-  const DONUT_CX = 60;
-  const DONUT_CY = 60;
-  const DONUT_SW = 10;
-  const circumference = 2 * Math.PI * DONUT_R; // ≈ 289
+  const periodoLabel = $derived(
+    carrera.semestre && carrera.ano ? `${carrera.semestre} semestre ${carrera.ano}` : '',
+  );
+
+  const subtitulo = $derived(
+    [
+      periodoLabel,
+      periodo.inicio ? `período vigente desde ${formatFechaCorta(periodo.inicio)}` : '',
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  );
+
+  // ─── Donut de syllabus ───────────────────────────────────────────────────
+  // Los cortes salen de los conteos reales; las cuatro cubetas cubren el total
+  // del período (BORRADOR incluido), así que el donut siempre cuadra.
+
+  const SEGMENTOS = [
+    { key: 'aprobado', label: 'Aprobado', color: '#059669' },
+    { key: 'en_revision', label: 'En revisión', color: '#D97706' },
+    { key: 'borrador', label: 'Borrador', color: '#A8A29E' },
+    { key: 'no_iniciado', label: 'No iniciado', color: '#64748B' },
+  ] as const;
+
+  const leyenda = $derived(
+    SEGMENTOS.map((s) => ({ ...s, n: resumen_estados[s.key] ?? 0 })),
+  );
 
   const pct = $derived(
     stats.syllabus_total > 0
       ? Math.round((stats.syllabus_entregados / stats.syllabus_total) * 100)
       : 0,
   );
-  const arcLength = $derived((pct / 100) * circumference);
 
-  // ─── Sparkline math ──────────────────────────────────────────────────────────
-
-  const SPARK_W = 96;
-  const SPARK_H = 32;
-
-  const spark = $derived.by(() => {
-    const vals = stats.cursos_tendencia;
-    if (vals.length < 2)
-      return { polyline: '', dots: [] as { x: number; y: number; isLast: boolean }[] };
-    const minV = Math.min(...vals);
-    const maxV = Math.max(...vals);
-    const range = maxV - minV || 1;
-    const dots = vals.map((v, i) => ({
-      x: parseFloat(((i / (vals.length - 1)) * SPARK_W).toFixed(2)),
-      y: parseFloat((SPARK_H - ((v - minV) / range) * (SPARK_H - 8) - 4).toFixed(2)),
-      isLast: i === vals.length - 1,
-    }));
-    return { polyline: dots.map((d) => `${d.x},${d.y}`).join(' '), dots };
+  const donutGradient = $derived.by(() => {
+    const total = stats.syllabus_total;
+    if (total <= 0) return '';
+    let acc = 0;
+    const cortes = leyenda.map((s) => {
+      const desde = (acc / total) * 100;
+      acc += s.n;
+      const hasta = (acc / total) * 100;
+      return `${s.color} ${desde.toFixed(2)}% ${hasta.toFixed(2)}%`;
+    });
+    return `conic-gradient(${cortes.join(', ')})`;
   });
 
-  // ─── Alert visual config ─────────────────────────────────────────────────────
+  /**
+   * Pie de la tarjeta de syllabus. El plazo sólo existe si TODOS los cursos del
+   * período comparten la misma `fecha_limite_entrega_syllabus`; cuando ya está
+   * todo aprobado, el dato que importa es la última aprobación.
+   */
+  const pieSyllabus = $derived.by(() => {
+    const todoAprobado = stats.syllabus_total > 0 && pct === 100;
+    if (todoAprobado && periodo.ultimo_aprobado) {
+      return `Último aprobado: ${formatFechaCorta(periodo.ultimo_aprobado)}`;
+    }
+    if (periodo.plazo_syllabus) {
+      return `Plazo de entrega: ${formatFechaCorta(periodo.plazo_syllabus)}`;
+    }
+    if (periodo.ultimo_aprobado) {
+      return `Último aprobado: ${formatFechaCorta(periodo.ultimo_aprobado)}`;
+    }
+    return '';
+  });
 
-  function getAlertStyle(tipo: string) {
-    if (tipo === 'critica')
-      return {
-        border: 'border-l-red-400',
-        bg: 'bg-red-50',
-        btnCls: 'bg-red-600 hover:bg-red-700 text-white',
-      };
-    if (tipo === 'advertencia')
-      return {
-        border: 'border-l-amber-400',
-        bg: 'bg-amber-50',
-        btnCls: 'bg-amber-500 hover:bg-amber-600 text-white',
-      };
-    return {
-      border: 'border-l-blue-400',
-      bg: 'bg-blue-50',
-      btnCls: 'bg-blue-600 hover:bg-blue-700 text-white',
-    };
-  }
+  // ─── Cursos activos: delta contra el período anterior ────────────────────
+
+  const anterior = $derived(periodo.anterior);
+  const delta = $derived(anterior ? stats.cursos_activos - anterior.cursos : 0);
+
+  // ─── Rail de alertas: estado «todo al día» ───────────────────────────────
+
+  const comprobaciones = $derived(
+    stats.syllabus_total > 0
+      ? [
+          {
+            label: 'Syllabus aprobados',
+            hecho: resumen_estados.aprobado,
+            total: stats.syllabus_total,
+          },
+          {
+            label: 'Cursos con docente titular',
+            hecho: stats.cursos_con_docente,
+            total: stats.syllabus_total,
+          },
+        ]
+      : [],
+  );
+
+  /** Sólo afirma lo que los datos sostienen: nunca «todo aprobado» si hay borradores. */
+  const confirmacion = $derived.by(() => {
+    if (stats.syllabus_total === 0) {
+      return 'Ninguna alerta activa: todavía no hay cursos en el período vigente.';
+    }
+    if (resumen_estados.aprobado === stats.syllabus_total) {
+      return `Ninguna alerta activa en la carrera. Los ${stats.syllabus_total} syllabus del período están aprobados y no hay cursos sin iniciar.`;
+    }
+    return `Ninguna alerta activa en la carrera. Ningún curso del período está sin syllabus iniciado ni pendiente de tu revisión.`;
+  });
+
+  // ─── Resumen de métricas ─────────────────────────────────────────────────
+
+  /** Umbral de lectura de las barras: verde va bien, ámbar va atrasado. */
+  const UMBRAL_OK = 75;
+
+  const fmtPct = (v: number) => `${Math.round(v)}%`;
+  const fmtDecimal = (v: number) =>
+    v.toLocaleString('es-CL', { maximumFractionDigits: 1 });
+
+  const pctRiesgo = $derived(
+    stats.estudiantes_matriculados > 0
+      ? (metricas_resumen.alumnos_en_riesgo / stats.estudiantes_matriculados) * 100
+      : null,
+  );
+
+  // ─── Lenguaje visual ─────────────────────────────────────────────────────
+
+  const CARD =
+    'rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,.08)]';
+  const BTN_GHOST =
+    'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-[#002F6C] no-underline transition-colors hover:bg-[#F5F1EA]';
+  const TILE =
+    'flex flex-col rounded-[10px] border border-[#E5E7EB] p-3.5 no-underline transition-colors hover:bg-[#F5F1EA]';
+  const KPI = 'text-[28px] font-semibold leading-none tracking-[-0.01em] text-[#1A1A24]';
 </script>
 
 <AdminLayout {breadcrumbs}>
-  <div class="min-h-screen px-6 py-8">
-    <!-- ─── Page Header ───────────────────────────────────────────────────── -->
-    <div class="mb-7 flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-indigo-600 mb-1">
-          Jefe de Carrera
-        </p>
-        <h1 class="text-2xl font-bold text-gray-900">{carrera.nombre}</h1>
-        <p class="mt-0.5 text-sm text-gray-500">
-          Semestre {carrera.semestre}&nbsp;&middot;&nbsp;{carrera.ano}
-        </p>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <Link
-          href="/docente/jefe-carrera/metricas"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
-        >
-          <BarChart2 size={15} />
-          Métricas de Rendimiento
-        </Link>
-        <Link
-          href="/docente/jefe-carrera/seguimiento"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
-        >
-          <ClipboardList size={15} />
-          Seguimiento Operativo
-        </Link>
-        <button
-          class="relative rounded-lg border border-gray-200 bg-white p-2 text-gray-500 shadow-sm transition-colors hover:bg-gray-50"
-          aria-label="Ver notificaciones"
-        >
-          <Bell size={18} />
-          {#if alertas.some((a) => a.tipo === 'critica')}
-            <span
-              class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"
-            ></span>
-          {/if}
-        </button>
-      </div>
+  <!-- ─── Cabecera: sin acción primaria, se la queda el rail de alertas ──── -->
+  <div class="mb-4 flex min-w-0 flex-col gap-1">
+    <div class="flex items-center gap-1.5 text-[12px] text-[#5A5E6E]">
+      <span>Jefatura de Carrera</span>
+      <ChevronRight class="h-3 w-3" aria-hidden="true" />
+      <span class="font-medium text-[#1A1A24]">Dashboard</span>
     </div>
+    <h1 class="m-0 text-[28px] font-semibold tracking-[-0.01em] text-[#1A1A24]">
+      Jefatura de Carrera — {carrera.nombre}
+    </h1>
+    {#if subtitulo}
+      <span class="text-[14px] text-[#5A5E6E]">{subtitulo}</span>
+    {/if}
+  </div>
 
-    <!-- ─── KPI Strip: Rendimiento de la Carrera ──────────────────────────── -->
-    <div class="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <!-- Asistencia promedio -->
-      <a
-        href="/docente/jefe-carrera/metricas"
-        class="group rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-emerald-200 hover:shadow"
-      >
-        <div class="mb-3 flex items-center justify-between">
-          <span class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-            Asistencia
-          </span>
-          <span class="rounded-xl bg-emerald-50 p-2">
-            <CalendarCheck size={16} class="text-emerald-600" />
-          </span>
-        </div>
-        <p class="text-3xl font-extrabold leading-none tracking-tight text-gray-900">
-          {fmtPct(metricas_resumen.asistencia_promedio)}
-        </p>
-        <p class="mt-1.5 text-xs text-gray-400">Promedio del período</p>
-      </a>
-
-      <!-- Avance de evaluación -->
-      <a
-        href="/docente/jefe-carrera/metricas"
-        class="group rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-blue-200 hover:shadow"
-      >
-        <div class="mb-3 flex items-center justify-between">
-          <span class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-            Avance Evaluación
-          </span>
-          <span class="rounded-xl bg-blue-50 p-2">
-            <ListChecks size={16} class="text-blue-600" />
-          </span>
-        </div>
-        <p class="text-3xl font-extrabold leading-none tracking-tight text-gray-900">
-          {fmtPct(metricas_resumen.avance_evaluacion)}
-        </p>
-        <p class="mt-1.5 text-xs text-gray-400">Actividades calificadas</p>
-      </a>
-
-      <!-- Alumnos en riesgo -->
-      <a
-        href="/docente/jefe-carrera/metricas"
-        class="group rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-red-200 hover:shadow"
-      >
-        <div class="mb-3 flex items-center justify-between">
-          <span class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-            En Riesgo
-          </span>
-          <span class="rounded-xl bg-red-50 p-2">
-            <UserX size={16} class="text-red-600" />
-          </span>
-        </div>
-        <p class="text-3xl font-extrabold leading-none tracking-tight text-gray-900">
-          {metricas_resumen.alumnos_en_riesgo}
-        </p>
-        <p class="mt-1.5 text-xs text-gray-400">Alumnos bajo 4,0</p>
-      </a>
-
-      <!-- Carga docente -->
-      <a
-        href="/docente/jefe-carrera/metricas"
-        class="group rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-violet-200 hover:shadow"
-      >
-        <div class="mb-3 flex items-center justify-between">
-          <span class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-            Carga Docente
-          </span>
-          <span class="rounded-xl bg-violet-50 p-2">
-            <Users size={16} class="text-violet-600" />
-          </span>
-        </div>
-        <p class="text-3xl font-extrabold leading-none tracking-tight text-gray-900">
-          {metricas_resumen.carga_docente.promedio.toLocaleString('es-CL', {
-            maximumFractionDigits: 1,
-          })}
-        </p>
-        <p class="mt-1.5 text-xs text-gray-400">
-          {metricas_resumen.carga_docente.cursos} cursos · {metricas_resumen.carga_docente.docentes}
-          docentes
-        </p>
-      </a>
-    </div>
-
-    <!-- ─── Bento KPI Grid (Row 1) ────────────────────────────────────────── -->
-    <div class="mb-4 grid grid-cols-12 gap-4">
-      <!-- Card 1: Cumplimiento de Syllabus (Donut) ── 5 cols -->
-      <div
-        class="col-span-12 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm md:col-span-5"
-      >
-        <div class="mb-5 flex items-start justify-between">
-          <div>
-            <p class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-              Cumplimiento
-            </p>
-            <h3 class="mt-0.5 text-base font-bold text-gray-900">Syllabus Entregados</h3>
-          </div>
-          <span class="rounded-xl bg-emerald-50 p-2">
-            <BookOpen size={18} class="text-emerald-600" />
-          </span>
-        </div>
-
-        <div class="flex items-center gap-7">
-          <!-- Donut SVG -->
-          <div class="relative flex-shrink-0">
-            <svg
-              width="120"
-              height="120"
-              viewBox="0 0 120 120"
-              role="img"
-              aria-label="Cumplimiento syllabus: {pct}%"
-            >
-              <!-- Track -->
-              <circle
-                cx={DONUT_CX}
-                cy={DONUT_CY}
-                r={DONUT_R}
-                fill="none"
-                stroke="#E5E7EB"
-                stroke-width={DONUT_SW}
-              />
-              <!-- Progress arc -->
-              <circle
-                cx={DONUT_CX}
-                cy={DONUT_CY}
-                r={DONUT_R}
-                fill="none"
-                stroke="#10B981"
-                stroke-width={DONUT_SW}
-                stroke-linecap="round"
-                stroke-dasharray="{arcLength} {circumference}"
-                transform="rotate(-90 {DONUT_CX} {DONUT_CY})"
-              />
-              <!-- Center % -->
-              <text
-                x={DONUT_CX}
-                y={DONUT_CY - 4}
-                text-anchor="middle"
-                font-size="22"
-                font-weight="700"
-                fill="#111827">{pct}%</text
-              >
-              <text
-                x={DONUT_CX}
-                y={DONUT_CY + 14}
-                text-anchor="middle"
-                font-size="9"
-                font-weight="500"
-                fill="#9CA3AF">completado</text
-              >
-            </svg>
-          </div>
-
-          <!-- Legend -->
-          <div class="flex-1 space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-emerald-500"></span>
-                <span class="text-xs text-gray-600">Entregados</span>
-              </div>
-              <span class="text-sm font-bold text-gray-900">{stats.syllabus_entregados}</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-gray-200"></span>
-                <span class="text-xs text-gray-600">Pendientes</span>
-              </div>
-              <span class="text-sm font-bold text-gray-400">
-                {stats.syllabus_total - stats.syllabus_entregados}
-              </span>
-            </div>
-            <div class="mt-1 border-t border-gray-100 pt-2">
-              <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-400">Total cursos</span>
-                <span class="text-xs font-semibold text-gray-600">{stats.syllabus_total}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+  <!-- ─── Bento de 12 columnas ───────────────────────────────────────────── -->
+  <div class="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-12">
+    <!-- 1. Syllabus entregados (5×2) -->
+    <section class="{CARD} flex flex-col gap-4 lg:col-span-5 lg:row-span-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <ClipboardList class="h-4 w-4 text-[#5A5E6E]" aria-hidden="true" />
+        <h2 class="m-0 text-base font-semibold text-[#1A1A24]">Syllabus entregados</h2>
+        <span class="ml-auto text-[12px] text-[#5A5E6E]">
+          {stats.cursos_activos} curso{stats.cursos_activos === 1 ? '' : 's'} ofertado{stats.cursos_activos ===
+          1
+            ? ''
+            : 's'}
+        </span>
       </div>
 
-      <!-- Card 2: Cursos Activos + Sparkline ── 4 cols -->
-      <div
-        class="col-span-12 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm md:col-span-4"
-      >
-        <div class="mb-5 flex items-start justify-between">
-          <div>
-            <p class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-              Este Semestre
-            </p>
-            <h3 class="mt-0.5 text-base font-bold text-gray-900">Cursos Activos</h3>
-          </div>
-          <span class="rounded-xl bg-blue-50 p-2">
-            <ClipboardList size={18} class="text-blue-600" />
-          </span>
-        </div>
-
-        <div class="flex items-end justify-between gap-4">
-          <div>
-            <p class="text-5xl font-extrabold leading-none tracking-tight text-gray-900">
-              {stats.cursos_activos}
-            </p>
-            <div class="mt-2 flex items-center gap-1">
-              <ArrowUpRight size={13} class="text-emerald-500" />
-              <span class="text-xs font-medium text-emerald-600">+2 vs semestre anterior</span>
-            </div>
-          </div>
-
-          <!-- Sparkline -->
-          <div class="flex flex-shrink-0 flex-col items-end gap-1">
-            <svg
-              width={SPARK_W}
-              height={SPARK_H + 6}
-              viewBox="0 0 {SPARK_W} {SPARK_H + 6}"
-              aria-label="Tendencia cursos activos"
-            >
-              <polyline
-                points={spark.polyline}
-                fill="none"
-                stroke="#3B82F6"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-              {#each spark.dots as dot}
-                <circle
-                  cx={dot.x}
-                  cy={dot.y}
-                  r={dot.isLast ? 3 : 1.5}
-                  fill={dot.isLast ? '#3B82F6' : '#BFDBFE'}
-                />
-              {/each}
-            </svg>
-            <p class="text-[10px] text-gray-400">Últimos 6 semestres</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Card 3: Estudiantes Matriculados ── 3 cols -->
-      <div
-        class="col-span-12 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm md:col-span-3"
-      >
-        <div class="mb-5 flex items-start justify-between">
-          <div>
-            <p class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-              Total Carrera
-            </p>
-            <h3 class="mt-0.5 text-base font-bold text-gray-900">Estudiantes</h3>
-          </div>
-          <span class="rounded-xl bg-violet-50 p-2">
-            <GraduationCap size={18} class="text-violet-600" />
-          </span>
-        </div>
-
-        <p class="mb-5 text-5xl font-extrabold leading-none tracking-tight text-gray-900">
-          {stats.estudiantes_matriculados.toLocaleString('es-CL')}
-        </p>
-
-        <!-- Estado mini-breakdown -->
-        <div class="grid grid-cols-3 gap-1.5">
-          <div class="rounded-xl bg-red-50 px-1 py-2 text-center">
-            <p class="text-base font-bold text-red-600">{resumen_estados.no_iniciado}</p>
-            <p class="mt-0.5 text-[9px] font-semibold leading-tight text-red-400">Sin inicio</p>
-          </div>
-          <div class="rounded-xl bg-amber-50 px-1 py-2 text-center">
-            <p class="text-base font-bold text-amber-600">{resumen_estados.en_revision}</p>
-            <p class="mt-0.5 text-[9px] font-semibold leading-tight text-amber-400">Revisión</p>
-          </div>
-          <div class="rounded-xl bg-emerald-50 px-1 py-2 text-center">
-            <p class="text-base font-bold text-emerald-600">{resumen_estados.aprobado}</p>
-            <p class="mt-0.5 text-[9px] font-semibold leading-tight text-emerald-400">Aprobado</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ─── Bottom Row ────────────────────────────────────────────────────── -->
-    <div class="grid grid-cols-12 gap-4">
-      <!-- Panel: Requiere Atención ── 8 cols -->
-      <div
-        class="col-span-12 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm md:col-span-8"
-      >
-        <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <div class="flex items-center gap-2.5">
-            <div class="rounded-lg bg-red-50 p-1.5">
-              <AlertTriangle size={15} class="text-red-500" />
-            </div>
-            <h3 class="text-sm font-bold text-gray-900">Requiere Atención</h3>
-            {#if alertas.length > 0}
-              <span
-                class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-[11px] font-bold text-red-600"
-                >{alertas.length}</span
-              >
-            {/if}
-          </div>
-          <Link
-            href="/docente/jefe-carrera/seguimiento"
-            class="flex items-center gap-0.5 text-xs font-medium text-indigo-600 transition-colors hover:text-indigo-700"
+      {#if stats.syllabus_total > 0}
+        <div class="flex flex-wrap items-center gap-6">
+          <div
+            class="flex h-[132px] w-[132px] shrink-0 items-center justify-center rounded-full"
+            style="background: {donutGradient}"
+            role="img"
+            aria-label="{stats.syllabus_entregados} de {stats.syllabus_total} syllabus aprobados ({pct}%)"
           >
-            Ver todos <ChevronRight size={13} />
-          </Link>
-        </div>
+            <div class="flex h-24 w-24 flex-col items-center justify-center rounded-full bg-white">
+              <span class="text-[26px] font-semibold leading-none text-[#1A1A24]">
+                {stats.syllabus_entregados}
+              </span>
+              <span class="mt-1 text-[12px] text-[#5A5E6E]">de {stats.syllabus_total}</span>
+            </div>
+          </div>
 
-        <div class="divide-y divide-gray-50">
-          {#each alertas as alerta (alerta.id)}
-            {@const s = getAlertStyle(alerta.tipo)}
-            <div
-              class="flex items-center gap-4 border-l-4 px-6 py-4 transition-colors hover:bg-gray-50 {s.border} {s.bg}"
-            >
-              <p class="flex-1 text-sm font-medium leading-snug text-gray-800">{alerta.titulo}</p>
-              <button
-                onclick={() => router.get(alerta.accion_url)}
-                class="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm transition-colors {s.btnCls}"
-              >
-                <Send size={11} />
-                {alerta.accion_label}
-              </button>
+          <div class="flex min-w-[180px] flex-1 flex-col gap-3">
+            <div class="flex flex-col gap-0.5">
+              <span class={KPI}>{pct}%</span>
+              <span class="text-[12px] text-[#5A5E6E]">de avance del período</span>
+            </div>
+            <div class="flex flex-col gap-2">
+              {#each leyenda as s (s.key)}
+                <div class="flex items-center gap-2 text-[13px]">
+                  <span
+                    class="h-2 w-2 shrink-0 rounded-full"
+                    style="background: {s.color}"
+                    aria-hidden="true"
+                  ></span>
+                  <span class="flex-1 {s.n === 0 ? 'text-[#5A5E6E]' : 'text-[#1A1A24]'}">
+                    {s.label}
+                  </span>
+                  <span
+                    class="font-semibold tabular-nums {s.n === 0
+                      ? 'text-[#5A5E6E]'
+                      : 'text-[#1A1A24]'}"
+                  >
+                    {s.n}
+                  </span>
+                </div>
+              {/each}
+            </div>
+          </div>
+        </div>
+      {:else}
+        <div
+          class="flex flex-1 flex-col items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-[#D6D9E0] bg-[#F5F1EA] px-4 py-8 text-center"
+        >
+          <span class="text-[14px] font-semibold text-[#1A1A24]">Sin cursos en el período</span>
+          <span class="max-w-[320px] text-[13px] text-[#5A5E6E]">
+            No hay cursos vigentes en la carrera, así que todavía no hay syllabus que seguir.
+          </span>
+        </div>
+      {/if}
+
+      <div class="mt-auto flex flex-wrap items-center gap-2 border-t border-[#E5E7EB] pt-3">
+        {#if pieSyllabus}
+          <span class="text-[12px] text-[#5A5E6E]">{pieSyllabus}</span>
+        {/if}
+        <Link href="/docente/jefe-carrera/seguimiento" class="{BTN_GHOST} ml-auto">
+          Ver seguimiento
+          <ArrowUpRight class="h-3.5 w-3.5" aria-hidden="true" />
+        </Link>
+      </div>
+    </section>
+
+    <!-- 2. Cursos activos (3) -->
+    <section class="{CARD} flex flex-col gap-2 lg:col-span-3">
+      <div class="flex items-center gap-2">
+        <BookOpen class="h-4 w-4 text-[#5A5E6E]" aria-hidden="true" />
+        <span class="text-[12px] text-[#5A5E6E]">Cursos activos</span>
+      </div>
+      <span class={KPI}>{stats.cursos_activos}</span>
+      {#if anterior}
+        <div class="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
+          {#if delta > 0}
+            <ArrowUpRight class="h-3.5 w-3.5 text-[#059669]" aria-hidden="true" />
+            <span class="text-[12px] font-semibold text-[#047857]">+{delta}</span>
+          {:else if delta < 0}
+            <ArrowDownRight class="h-3.5 w-3.5 text-[#DC2626]" aria-hidden="true" />
+            <span class="text-[12px] font-semibold text-[#B91C1C]">{delta}</span>
+          {:else}
+            <Minus class="h-3.5 w-3.5 text-[#5A5E6E]" aria-hidden="true" />
+            <span class="text-[12px] font-semibold text-[#5A5E6E]">=</span>
+          {/if}
+          <span class="text-[12px] text-[#5A5E6E]">
+            vs. {anterior.label} ({anterior.cursos})
+          </span>
+        </div>
+      {/if}
+    </section>
+
+    <!-- 4. Alertas (4×3) — rail alto a la derecha -->
+    <div class="lg:col-span-4 lg:row-span-3">
+      <AlertasRail {alertas} {comprobaciones} {confirmacion} {generado_en} />
+    </div>
+
+    <!-- 3. Estudiantes matriculados (3) -->
+    <section class="{CARD} flex flex-col gap-2 lg:col-span-3">
+      <div class="flex items-center gap-2">
+        <Users class="h-4 w-4 text-[#5A5E6E]" aria-hidden="true" />
+        <span class="text-[12px] text-[#5A5E6E]">Estudiantes matriculados</span>
+      </div>
+      <span class={KPI}>{stats.estudiantes_matriculados.toLocaleString('es-CL')}</span>
+      <span class="mt-auto pt-2 text-[12px] text-[#5A5E6E]">Matrícula vigente del período</span>
+    </section>
+
+    <!-- 5. Resumen de métricas (8) -->
+    <section class="{CARD} flex flex-col gap-4 lg:col-span-8">
+      <div class="flex flex-wrap items-center gap-2">
+        <BarChart2 class="h-4 w-4 text-[#5A5E6E]" aria-hidden="true" />
+        <h2 class="m-0 text-base font-semibold text-[#1A1A24]">Resumen de métricas</h2>
+        <Link href="/docente/jefe-carrera/metricas" class="{BTN_GHOST} ml-auto">
+          Abrir Métricas
+          <ArrowUpRight class="h-3.5 w-3.5" aria-hidden="true" />
+        </Link>
+      </div>
+
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <!-- Asistencia promedio -->
+        <Link href="/docente/jefe-carrera/metricas" class={TILE}>
+          <div class="flex items-center gap-2">
+            <CalendarCheck class="h-[15px] w-[15px] text-[#5A5E6E]" aria-hidden="true" />
+            <span class="text-[12px] text-[#5A5E6E]">Asistencia promedio</span>
+            <ArrowUpRight class="ml-auto h-[13px] w-[13px] text-[#5A5E6E]" aria-hidden="true" />
+          </div>
+          {#if metricas_resumen.asistencia_promedio !== null}
+            <span class="{KPI} mt-2.5">{fmtPct(metricas_resumen.asistencia_promedio)}</span>
+            <div class="mt-2.5 h-1 overflow-hidden rounded-full bg-[#F1F5F9]">
+              <div
+                class="h-full rounded-full {metricas_resumen.asistencia_promedio >= UMBRAL_OK
+                  ? 'bg-[#059669]'
+                  : 'bg-[#D97706]'}"
+                style="width: {Math.min(100, Math.max(0, metricas_resumen.asistencia_promedio))}%"
+              ></div>
             </div>
           {:else}
-            <div class="px-6 py-12 text-center">
-              <CheckCircle2 size={32} class="mx-auto mb-2 text-emerald-400" />
-              <p class="text-sm font-medium text-gray-500">Sin alertas pendientes</p>
-              <p class="mt-0.5 text-xs text-gray-400">Todo está en orden este semestre</p>
+            <span class="{KPI} mt-2.5 text-[#98A0AE]">—</span>
+            <span class="mt-2.5 text-[12px] text-[#5A5E6E]">Sin asistencia registrada</span>
+          {/if}
+        </Link>
+
+        <!-- Avance de evaluación -->
+        <Link href="/docente/jefe-carrera/metricas" class={TILE}>
+          <div class="flex items-center gap-2">
+            <ListChecks class="h-[15px] w-[15px] text-[#5A5E6E]" aria-hidden="true" />
+            <span class="text-[12px] text-[#5A5E6E]">Avance de evaluación</span>
+            <ArrowUpRight class="ml-auto h-[13px] w-[13px] text-[#5A5E6E]" aria-hidden="true" />
+          </div>
+          {#if metricas_resumen.avance_evaluacion !== null}
+            <span class="{KPI} mt-2.5">{fmtPct(metricas_resumen.avance_evaluacion)}</span>
+            <div class="mt-2.5 h-1 overflow-hidden rounded-full bg-[#F1F5F9]">
+              <div
+                class="h-full rounded-full {metricas_resumen.avance_evaluacion >= UMBRAL_OK
+                  ? 'bg-[#059669]'
+                  : 'bg-[#D97706]'}"
+                style="width: {Math.min(100, Math.max(0, metricas_resumen.avance_evaluacion))}%"
+              ></div>
             </div>
-          {/each}
-        </div>
+          {:else}
+            <span class="{KPI} mt-2.5 text-[#98A0AE]">—</span>
+            <span class="mt-2.5 text-[12px] text-[#5A5E6E]">Sin actividades evaluables</span>
+          {/if}
+        </Link>
+
+        <!-- Alumnos en riesgo -->
+        <Link href="/docente/jefe-carrera/metricas" class={TILE}>
+          <div class="flex items-center gap-2">
+            <UserX class="h-[15px] w-[15px] text-[#5A5E6E]" aria-hidden="true" />
+            <span class="text-[12px] text-[#5A5E6E]">Alumnos en riesgo</span>
+            <ArrowUpRight class="ml-auto h-[13px] w-[13px] text-[#5A5E6E]" aria-hidden="true" />
+          </div>
+          <span class="{KPI} mt-2.5">{metricas_resumen.alumnos_en_riesgo}</span>
+          <span class="mt-2.5 text-[12px] text-[#5A5E6E]">
+            {#if pctRiesgo !== null}
+              {fmtDecimal(pctRiesgo)}% de {stats.estudiantes_matriculados.toLocaleString('es-CL')}
+              matriculados
+            {:else}
+              Promedio parcial bajo 4,0
+            {/if}
+          </span>
+        </Link>
+
+        <!-- Carga docente promedio -->
+        <Link href="/docente/jefe-carrera/metricas" class={TILE}>
+          <div class="flex items-center gap-2">
+            <GraduationCap class="h-[15px] w-[15px] text-[#5A5E6E]" aria-hidden="true" />
+            <span class="text-[12px] text-[#5A5E6E]">Carga docente promedio</span>
+            <ArrowUpRight class="ml-auto h-[13px] w-[13px] text-[#5A5E6E]" aria-hidden="true" />
+          </div>
+          {#if metricas_resumen.carga_docente.docentes > 0}
+            <span class="{KPI} mt-2.5">{fmtDecimal(metricas_resumen.carga_docente.promedio)}</span>
+            <span class="mt-2.5 text-[12px] text-[#5A5E6E]">
+              cursos por docente · {metricas_resumen.carga_docente.docentes} titulares
+            </span>
+          {:else}
+            <span class="{KPI} mt-2.5 text-[#98A0AE]">—</span>
+            <span class="mt-2.5 text-[12px] text-[#5A5E6E]">Sin docentes titulares</span>
+          {/if}
+        </Link>
       </div>
-
-      <!-- Panel: Resumen del Semestre ── 4 cols -->
-      <div
-        class="col-span-12 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm md:col-span-4"
-      >
-        <div class="mb-5 flex items-center gap-2">
-          <BarChart2 size={15} class="text-gray-400" />
-          <h3 class="text-sm font-bold text-gray-900">Resumen del Semestre</h3>
-        </div>
-
-        <div class="space-y-4">
-          <div>
-            <div class="mb-1.5 flex justify-between text-xs">
-              <span class="font-medium text-gray-600">Aprobados</span>
-              <span class="font-bold text-emerald-600"
-                >{resumen_estados.aprobado} / {stats.syllabus_total}</span
-              >
-            </div>
-            <div class="h-1.5 overflow-hidden rounded-full bg-gray-100">
-              <div
-                class="h-full rounded-full bg-emerald-500 transition-all duration-700"
-                style="width: {stats.syllabus_total
-                  ? (resumen_estados.aprobado / stats.syllabus_total) * 100
-                  : 0}%"
-              ></div>
-            </div>
-          </div>
-
-          <div>
-            <div class="mb-1.5 flex justify-between text-xs">
-              <span class="font-medium text-gray-600">En Revisión</span>
-              <span class="font-bold text-amber-600"
-                >{resumen_estados.en_revision} / {stats.syllabus_total}</span
-              >
-            </div>
-            <div class="h-1.5 overflow-hidden rounded-full bg-gray-100">
-              <div
-                class="h-full rounded-full bg-amber-400 transition-all duration-700"
-                style="width: {stats.syllabus_total
-                  ? (resumen_estados.en_revision / stats.syllabus_total) * 100
-                  : 0}%"
-              ></div>
-            </div>
-          </div>
-
-          <div>
-            <div class="mb-1.5 flex justify-between text-xs">
-              <span class="font-medium text-gray-600">Sin Iniciar</span>
-              <span class="font-bold text-red-500"
-                >{resumen_estados.no_iniciado} / {stats.syllabus_total}</span
-              >
-            </div>
-            <div class="h-1.5 overflow-hidden rounded-full bg-gray-100">
-              <div
-                class="h-full rounded-full bg-red-400 transition-all duration-700"
-                style="width: {stats.syllabus_total
-                  ? (resumen_estados.no_iniciado / stats.syllabus_total) * 100
-                  : 0}%"
-              ></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-6 border-t border-gray-100 pt-4">
-          <Link
-            href="/docente/jefe-carrera/seguimiento"
-            class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
-          >
-            <ClipboardList size={14} />
-            Ver Seguimiento Completo
-          </Link>
-        </div>
-      </div>
-    </div>
+    </section>
   </div>
 </AdminLayout>

@@ -457,8 +457,10 @@ class InscripcionCursoController extends Controller
                         $inscripcion->curso->cod_curso ?? '',
                         $inscripcion->curso->nombre ?? '',
                         $inscripcion->id_estudiante,
-                        $estudiante->usuario->nombre1 . ' ' . ($estudiante->usuario->apellido1 ?? ''),
-                        $estudiante->usuario->username ?? '',
+                        // Nullsafe: registros huérfanos (estudiante/usuario en null) ya no
+                        // truncan el stream a mitad de descarga con un fatal error.
+                        trim(($estudiante?->usuario?->nombre1 ?? '') . ' ' . ($estudiante?->usuario?->apellido1 ?? '')),
+                        $estudiante?->usuario?->username ?? '',
                         $inscripcion->cod_inscripcion_uta ?? '',
                         $inscripcion->fecha_inscripcion ?? '',
                         $inscripcion->estado_inscripcion ?? '',

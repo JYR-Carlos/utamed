@@ -1,418 +1,199 @@
 <script lang="ts">
+  /**
+   * Columna de lectura del syllabus — 760 px, una sola medida, sin tarjetas por
+   * sección (lámina «Visor de syllabus (documento)»).
+   *
+   * El documento se lee; escribir ocurre en el wizard (`SyllabusModal`). Por eso
+   * aquí no hay ningún control de edición: el pie de acciones vive en la página.
+   *
+   * Las secciones llegan ya aplanadas a texto por `App\Traits\ParsesSyllabus`;
+   * `bloquesDeSeccion` recupera su estructura (campos, subtítulos, listas) para
+   * componerlas tipográficamente. La única sección con datos estructurados de
+   * verdad es la IX, que trae su tabla de componentes de evaluación.
+   */
   import type { Snippet } from 'svelte';
-  import {
-    FileText,
-    Hash,
-    BookOpen,
-    Target,
-    Layers,
-    FlaskConical,
-    BookMarked,
-    Library,
-    ClipboardList,
-  } from 'lucide-svelte';
-  import { formatFechaTextoLargo } from '@/utils/formatters';
+  import { Link } from 'lucide-svelte';
+  import { bloquesDeSeccion, textoDeSeccion } from '../utils/syllabusTexto';
+
+  interface ComponenteEvaluacion {
+    componente: string;
+    porcentaje: number | string;
+    genera_acta?: boolean;
+    aprobacion_obligatoria?: boolean;
+    asistencia_obligatoria?: number | string | null;
+  }
 
   interface Seccion {
     numeral_romano?: string;
     nombre_seccion: string;
     contenidos?: Array<{ texto_contenido: string | null }>;
     contenidos_programa?: Array<{ texto_contenido: string | null }>;
-    componentes?: any[];
+    componentes?: ComponenteEvaluacion[];
     ponderacion_optativa?: { porcentaje?: number } | null;
-  }
-
-  interface Metadata {
-    version?: number | string;
-    creado_por?: string;
-    fecha_creacion?: string;
   }
 
   interface Props {
     secciones: Seccion[];
-    metadata?: Metadata;
-    /** Snippet Svelte 5 para renderizar acciones (aprobar/rechazar, editar, etc.) */
+    /** Secciones exigidas por el tipo de syllabus que aún no tienen contenido. */
+    pendientes?: Seccion[];
+    /** Snippet para el sello/acciones que el padre inyecta bajo el documento. */
     actions?: Snippet;
   }
 
-  let { secciones, metadata, actions }: Props = $props();
+  let { secciones, pendientes = [], actions }: Props = $props();
 
-  function parseContent(text: string | null | undefined): string[] {
-    if (!text) return [];
-    return text
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l);
-  }
+  const contenidoDe = (s: Seccion) => textoDeSeccion(s.contenidos ?? s.contenidos_programa);
 
-  function getContenidos(seccion: Seccion) {
-    return seccion.contenidos || seccion.contenidos_programa || [];
-  }
+  /** Sólo se dibujan las secciones con contenido; las vacías van a «pendientes». */
+  const conContenido = $derived(secciones.filter((s) => contenidoDe(s).trim() !== ''));
 
-  function formatDate(dateString?: string): string {
-    return dateString ? formatFechaTextoLargo(dateString) : 'N/A';
-  }
-
-  // Icono y color de acento por sección
-  const SECTION_META: Record<
-    string,
-    { icon: typeof FileText; accent: string; bg: string; badge: string }
-  > = {
-    I: {
-      icon: FileText,
-      accent: 'text-slate-700',
-      bg: 'bg-slate-50',
-      badge: 'bg-slate-100 text-slate-700 ring-slate-300',
-    },
-    II: {
-      icon: BookOpen,
-      accent: 'text-indigo-700',
-      bg: 'bg-indigo-50',
-      badge: 'bg-indigo-100 text-indigo-700 ring-indigo-300',
-    },
-    III: {
-      icon: Target,
-      accent: 'text-violet-700',
-      bg: 'bg-violet-50',
-      badge: 'bg-violet-100 text-violet-700 ring-violet-300',
-    },
-    IV: {
-      icon: Layers,
-      accent: 'text-blue-700',
-      bg: 'bg-blue-50',
-      badge: 'bg-blue-100 text-blue-700 ring-blue-300',
-    },
-    V: {
-      icon: Hash,
-      accent: 'text-cyan-700',
-      bg: 'bg-cyan-50',
-      badge: 'bg-cyan-100 text-cyan-700 ring-cyan-300',
-    },
-    VI: {
-      icon: BookMarked,
-      accent: 'text-teal-700',
-      bg: 'bg-teal-50',
-      badge: 'bg-teal-100 text-teal-700 ring-teal-300',
-    },
-    VII: {
-      icon: FlaskConical,
-      accent: 'text-emerald-700',
-      bg: 'bg-emerald-50',
-      badge: 'bg-emerald-100 text-emerald-700 ring-emerald-300',
-    },
-    VIII: {
-      icon: Library,
-      accent: 'text-amber-700',
-      bg: 'bg-amber-50',
-      badge: 'bg-amber-100 text-amber-700 ring-amber-300',
-    },
-    IX: {
-      icon: ClipboardList,
-      accent: 'text-rose-700',
-      bg: 'bg-rose-50',
-      badge: 'bg-rose-100 text-rose-700 ring-rose-300',
-    },
-  };
-
-  function getSectionMeta(numeral?: string) {
-    return SECTION_META[numeral ?? ''] ?? SECTION_META['II'];
-  }
-
-  const seccionI = $derived(secciones.find((s) => s.numeral_romano === 'I'));
-  const seccionesRest = $derived(
-    secciones.filter((s) => {
-      if (s.numeral_romano === 'I') return false;
-      const items = s.contenidos || s.contenidos_programa || [];
-      return items.some((c) => c.texto_contenido?.trim());
-    }),
-  );
+  const NUM = 'w-[34px] shrink-0 font-mono text-[12.5px] text-[#9AA0AE]';
+  const TITULO = 'm-0 text-[19px] font-semibold tracking-[-0.01em] text-[#1A1A24]';
 </script>
 
-<!-- ═══════════════════════════════════════════════════════════════
-     Sección I: Identificación — tabla de metadatos estilizada
-     ═══════════════════════════════════════════════════════════════ -->
-{#if seccionI}
-  {@const meta = getSectionMeta('I')}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-6">
-    <!-- Section header bar -->
-    <div
-      class="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200"
+<article
+  class="flex w-full max-w-[760px] flex-col gap-[30px] rounded-[10px] border border-[#E5E7EB] bg-white px-6 py-9 text-[15px] leading-[1.65] text-[#1A1A24] sm:px-12 sm:pb-10"
+>
+  {#each conContenido as seccion (seccion.numeral_romano ?? seccion.nombre_seccion)}
+    {@const bloques = bloquesDeSeccion(contenidoDe(seccion), seccion.numeral_romano)}
+    <section
+      id="seccion-{seccion.numeral_romano}"
+      class="flex scroll-mt-6 flex-col gap-3"
+      aria-labelledby="titulo-{seccion.numeral_romano}"
     >
-      <span
-        class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold ring-1 {meta.badge}"
-        >I</span
-      >
-      <h2 class="text-base font-semibold tracking-wide text-slate-800 uppercase">
-        {seccionI.nombre_seccion}
-      </h2>
-    </div>
+      <div class="flex items-baseline gap-2.5">
+        <span class={NUM}>{seccion.numeral_romano}.</span>
+        <h2 id="titulo-{seccion.numeral_romano}" class={TITULO}>{seccion.nombre_seccion}</h2>
+        <a
+          href="#seccion-{seccion.numeral_romano}"
+          class="text-[#C3C8D2] transition-colors hover:text-[#002F6C]"
+          aria-label="Enlace a la sección {seccion.nombre_seccion}"
+        >
+          <Link size={13} aria-hidden="true" />
+        </a>
+      </div>
 
-    <!-- Identification grid -->
-    <div class="divide-y divide-gray-100">
-      {#each getContenidos(seccionI) as contenido}
-        {#each parseContent(contenido.texto_contenido) as line, li}
-          {@const parts = line.split(':')}
-          {@const label = parts[0]?.trim()}
-          {@const value = parts.slice(1).join(':').trim() || line}
-          <div class="grid grid-cols-5 gap-0">
-            <div class="col-span-2 px-6 py-3 bg-slate-50 flex items-center">
-              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide"
-                >{label}</span
-              >
-            </div>
-            <div class="col-span-3 px-6 py-3 flex items-center">
-              <span class="text-sm font-medium text-slate-900">{value}</span>
-            </div>
+      <!-- Sección I: rejilla de identificación a dos columnas -->
+      {#if seccion.numeral_romano === 'I'}
+        <dl
+          class="m-0 grid grid-cols-1 gap-x-7 gap-y-3 border-y border-[#EDEFF3] py-4 sm:grid-cols-2"
+        >
+          {#each bloques as bloque}
+            {#if bloque.tipo === 'campo'}
+              <div class="flex flex-col">
+                <dt class="text-[12px] text-[#5A5E6E]">{bloque.etiqueta}</dt>
+                <dd class="m-0 text-[14.5px] font-medium">{bloque.valor}</dd>
+              </div>
+            {:else if bloque.tipo === 'parrafo'}
+              <p class="m-0 text-pretty sm:col-span-2">{bloque.texto}</p>
+            {/if}
+          {/each}
+        </dl>
+      {:else}
+        {#each bloques as bloque}
+          {#if bloque.tipo === 'subtitulo'}
+            <p class="m-0 mt-1 text-[13px] font-semibold tracking-[0.02em] text-[#5A5E6E]">
+              {bloque.texto}
+            </p>
+          {:else if bloque.tipo === 'campo'}
+            <p class="m-0 flex flex-wrap gap-x-2.5">
+              <span class="font-mono text-[12px] text-[#5A5E6E]">{bloque.etiqueta}</span>
+              <span class="min-w-0 flex-1 text-pretty">{bloque.valor}</span>
+            </p>
+          {:else if bloque.tipo === 'lista'}
+            <ul class="m-0 flex list-disc flex-col gap-[7px] pl-5 marker:text-[#9AA0AE]">
+              {#each bloque.items as item}
+                <li class:ml-5={item.anidado} class="text-pretty">{item.texto}</li>
+              {/each}
+            </ul>
+          {:else}
+            <p class="m-0 text-pretty">{bloque.texto}</p>
+          {/if}
+        {/each}
+      {/if}
+
+      <!-- Sección IX: tabla de componentes de evaluación (dato estructurado real) -->
+      {#if seccion.componentes && seccion.componentes.length > 0}
+        <div class="overflow-x-auto rounded-lg border border-[#EDEFF3]">
+          <table class="w-full border-collapse text-[14px]">
+            <thead>
+              <tr class="bg-[#FCFBF9]">
+                <th
+                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-[#5A5E6E] uppercase"
+                  >Componente</th
+                >
+                <th
+                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-[#5A5E6E] uppercase"
+                  >%</th
+                >
+                <th
+                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-[#5A5E6E] uppercase"
+                  >Acta</th
+                >
+                <th
+                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-[#5A5E6E] uppercase"
+                  >Aprobación oblig.</th
+                >
+                <th
+                  class="px-3.5 py-2.5 text-left text-[11px] font-semibold tracking-[0.04em] text-[#5A5E6E] uppercase"
+                  >Asistencia oblig.</th
+                >
+              </tr>
+            </thead>
+            <tbody>
+              {#each seccion.componentes as comp}
+                <tr class="border-t border-[#EDEFF3]">
+                  <td class="px-3.5 py-2.5 font-medium">{comp.componente}</td>
+                  <td class="px-3.5 py-2.5 tabular-nums">{comp.porcentaje}%</td>
+                  <td class="px-3.5 py-2.5 text-[#5A5E6E]">{comp.genera_acta ? 'Sí' : 'No'}</td>
+                  <td class="px-3.5 py-2.5 text-[#5A5E6E]"
+                    >{comp.aprobacion_obligatoria ? 'Sí' : 'No'}</td
+                  >
+                  <td class="px-3.5 py-2.5 tabular-nums text-[#5A5E6E]">
+                    {comp.asistencia_obligatoria != null ? `${comp.asistencia_obligatoria}%` : '—'}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+        {#if seccion.ponderacion_optativa?.porcentaje}
+          <p class="m-0 text-[13px] text-[#5A5E6E]">
+            Ponderación de la prueba optativa:
+            <strong class="font-semibold text-[#1A1A24]"
+              >{seccion.ponderacion_optativa.porcentaje}%</strong
+            >
+          </p>
+        {/if}
+      {/if}
+    </section>
+  {/each}
+
+  <!-- Lo que el tipo de syllabus exige y todavía no está escrito -->
+  {#if pendientes.length > 0}
+    <div class="flex flex-col gap-3 border-t border-[#EDEFF3] pt-[22px]">
+      <span class="text-[12px] font-semibold tracking-[0.06em] text-[#5A5E6E] uppercase">
+        Pendientes de redactar
+      </span>
+      <div class="flex flex-col gap-2.5">
+        {#each pendientes as seccion (seccion.numeral_romano)}
+          <div
+            class="flex items-center gap-3 rounded-lg border border-dashed border-[#D6D9E0] bg-[#FCFBF9] px-4 py-3.5"
+          >
+            <span class={NUM}>{seccion.numeral_romano}.</span>
+            <span class="text-[14.5px] font-medium text-[#5A5E6E]">{seccion.nombre_seccion}</span>
+            <span class="ml-auto text-[12.5px] text-[#9AA0AE]">Sin contenido</span>
           </div>
         {/each}
-      {/each}
-    </div>
-  </div>
-{/if}
-
-<!-- ═══════════════════════════════════════════════════════════════
-     Secciones II+
-     ═══════════════════════════════════════════════════════════════ -->
-{#if seccionesRest.length > 0}
-  <div class="space-y-6 mb-6">
-    {#each seccionesRest as seccion (seccion.numeral_romano)}
-      {@const meta = getSectionMeta(seccion.numeral_romano)}
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <!-- Section header bar -->
-        <div
-          class="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200"
-        >
-          <span
-            class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold ring-1 {meta.badge}"
-          >
-            {seccion.numeral_romano}
-          </span>
-          <h2 class="text-base font-semibold tracking-wide text-gray-800 uppercase">
-            {seccion.nombre_seccion}
-          </h2>
-        </div>
-
-        <!-- Section body -->
-        <div class="px-8 py-6">
-          {#if getContenidos(seccion).length > 0}
-            {#each getContenidos(seccion) as contenido}
-              {#if contenido.texto_contenido?.trim()}
-                <!-- II / III / IV: Texto libre con buen espaciado -->
-                {#if seccion.numeral_romano === 'II' || seccion.numeral_romano === 'III' || seccion.numeral_romano === 'IV'}
-                  <p class="text-gray-700 leading-relaxed whitespace-pre-wrap text-[0.9375rem]">
-                    {contenido.texto_contenido}
-                  </p>
-
-                  <!-- V: Lista con bullets numerados estilizados -->
-                {:else if seccion.numeral_romano === 'V'}
-                  <ul class="space-y-3">
-                    {#each parseContent(contenido.texto_contenido) as item, idx}
-                      <li class="flex gap-3 items-start">
-                        <span
-                          class="flex-shrink-0 w-6 h-6 rounded-full bg-cyan-100 text-cyan-700 text-xs font-bold flex items-center justify-center mt-0.5"
-                        >
-                          {idx + 1}
-                        </span>
-                        <span class="text-gray-700 leading-relaxed text-[0.9375rem]">{item}</span>
-                      </li>
-                    {/each}
-                  </ul>
-
-                  <!-- VI: Unidades con barra lateral de color -->
-                {:else if seccion.numeral_romano === 'VI'}
-                  <div class="space-y-4">
-                    {#each parseContent(contenido.texto_contenido) as item}
-                      <div class="border-l-4 border-teal-500 pl-4 py-1">
-                        <p
-                          class="whitespace-pre-wrap text-gray-700 leading-relaxed text-[0.9375rem]"
-                        >
-                          {item}
-                        </p>
-                      </div>
-                    {/each}
-                  </div>
-
-                  <!-- VII: Metodología — texto con fondo sutil -->
-                {:else if seccion.numeral_romano === 'VII'}
-                  <div class="rounded-xl bg-emerald-50 border border-emerald-100 px-6 py-5">
-                    <p class="whitespace-pre-wrap text-gray-700 leading-relaxed text-[0.9375rem]">
-                      {contenido.texto_contenido}
-                    </p>
-                  </div>
-
-                  <!-- VIII: Bibliografía — lista estilizada -->
-                {:else if seccion.numeral_romano === 'VIII'}
-                  <ul class="space-y-2">
-                    {#each parseContent(contenido.texto_contenido) as item}
-                      {#if item.includes('•')}
-                        <li class="flex gap-3 items-start text-[0.9375rem]">
-                          <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500 mt-2"
-                          ></span>
-                          <span class="text-gray-700">{item.replace('•', '').trim()}</span>
-                        </li>
-                      {:else}
-                        <li class="flex gap-3 items-start text-[0.9375rem]">
-                          <span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500 mt-2"
-                          ></span>
-                          <span class="text-gray-700">{item}</span>
-                        </li>
-                      {/if}
-                    {/each}
-                  </ul>
-
-                  <!-- IX: Evaluación — tabla completa con diseño moderno -->
-                {:else if seccion.numeral_romano === 'IX'}
-                  <div class="space-y-4">
-                    {#each parseContent(contenido.texto_contenido) as item}
-                      {#if !item.includes('•')}
-                        <p class="text-gray-700 leading-relaxed text-[0.9375rem]">{item}</p>
-                      {/if}
-                    {/each}
-
-                    {#if seccion.componentes && seccion.componentes.length > 0}
-                      <div class="mt-4 overflow-hidden rounded-xl border border-gray-200">
-                        <table class="w-full text-sm">
-                          <thead>
-                            <tr class="bg-rose-50 border-b border-rose-200">
-                              <th
-                                class="px-4 py-3 text-left text-xs font-semibold text-rose-700 uppercase tracking-wide"
-                                >Componente</th
-                              >
-                              <th
-                                class="px-4 py-3 text-center text-xs font-semibold text-rose-700 uppercase tracking-wide"
-                                >Genera Acta</th
-                              >
-                              <th
-                                class="px-4 py-3 text-center text-xs font-semibold text-rose-700 uppercase tracking-wide"
-                                >%</th
-                              >
-                              <th
-                                class="px-4 py-3 text-center text-xs font-semibold text-rose-700 uppercase tracking-wide"
-                                >Aprobación Oblig.</th
-                              >
-                              <th
-                                class="px-4 py-3 text-center text-xs font-semibold text-rose-700 uppercase tracking-wide"
-                                >Asistencia Oblig.</th
-                              >
-                            </tr>
-                          </thead>
-                          <tbody class="divide-y divide-gray-100">
-                            {#each seccion.componentes as comp, ci}
-                              <tr
-                                class="{ci % 2 === 0
-                                  ? 'bg-white'
-                                  : 'bg-gray-50'} hover:bg-rose-50 transition-colors"
-                              >
-                                <td class="px-4 py-3 font-medium text-gray-900"
-                                  >{comp.componente}</td
-                                >
-                                <td class="px-4 py-3 text-center">
-                                  {#if comp.genera_acta}
-                                    <span
-                                      class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full"
-                                      >Sí</span
-                                    >
-                                  {:else}
-                                    <span
-                                      class="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full"
-                                      >No</span
-                                    >
-                                  {/if}
-                                </td>
-                                <td class="px-4 py-3 text-center">
-                                  <span
-                                    class="inline-flex items-center text-sm font-bold text-rose-700"
-                                    >{comp.porcentaje}%</span
-                                  >
-                                </td>
-                                <td class="px-4 py-3 text-center text-gray-700">
-                                  {#if comp.aprobacion_obligatoria}
-                                    <span
-                                      class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full"
-                                      >Sí</span
-                                    >
-                                  {:else}
-                                    <span class="text-xs text-gray-400">No</span>
-                                  {/if}
-                                </td>
-                                <td class="px-4 py-3 text-center text-gray-700">
-                                  <span class="text-sm font-medium"
-                                    >{comp.asistencia_obligatoria}%</span
-                                  >
-                                </td>
-                              </tr>
-                            {/each}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {#if seccion.ponderacion_optativa?.porcentaje}
-                        <div
-                          class="mt-3 flex items-center gap-3 rounded-xl bg-rose-50 border border-rose-200 px-5 py-3"
-                        >
-                          <span class="text-sm font-semibold text-rose-800"
-                            >Ponderación Prueba Optativa:</span
-                          >
-                          <span class="text-lg font-bold text-rose-700"
-                            >{seccion.ponderacion_optativa.porcentaje}%</span
-                          >
-                        </div>
-                      {/if}
-                    {/if}
-                  </div>
-
-                  <!-- Resto: texto libre -->
-                {:else}
-                  <p class="text-gray-700 whitespace-pre-wrap leading-relaxed text-[0.9375rem]">
-                    {contenido.texto_contenido}
-                  </p>
-                {/if}
-              {/if}
-            {/each}
-          {:else}
-            <p class="text-gray-400 italic text-sm">(Sin contenido)</p>
-          {/if}
-        </div>
       </div>
-    {/each}
-  </div>
-{/if}
-
-<!-- ═══════════════════════════════════════════════════════════════
-     Pie de documento — metadatos y versión
-     ═══════════════════════════════════════════════════════════════ -->
-{#if metadata}
-  <div
-    class="rounded-2xl border border-gray-200 bg-gradient-to-r from-slate-50 to-white px-6 py-4 mb-6"
-  >
-    <div class="flex flex-wrap items-center justify-between gap-4 text-sm text-gray-500">
-      <div class="flex items-center gap-6">
-        {#if metadata.creado_por}
-          <span>
-            <span class="font-medium text-gray-700">Elaborado por:</span>
-            {metadata.creado_por}
-          </span>
-        {/if}
-        {#if metadata.fecha_creacion}
-          <span>
-            <span class="font-medium text-gray-700">Fecha:</span>
-            {formatDate(metadata.fecha_creacion)}
-          </span>
-        {/if}
-      </div>
-      {#if metadata.version}
-        <span
-          class="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-300"
-        >
-          <FileText class="w-3 h-3" />
-          v{metadata.version}
-        </span>
-      {/if}
     </div>
-  </div>
-{/if}
+  {/if}
 
-<!-- Acciones (aprobar/rechazar, editar, etc.) — inyectado por el padre -->
-{#if actions}
-  {@render actions()}
-{/if}
+  {#if conContenido.length === 0 && pendientes.length === 0}
+    <p class="m-0 text-[14px] text-[#9AA0AE]">Este documento todavía no tiene contenido.</p>
+  {/if}
+
+  {#if actions}
+    {@render actions()}
+  {/if}
+</article>
