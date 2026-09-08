@@ -49,13 +49,7 @@
     <h3 class="text-lg font-bold text-gray-900 leading-tight flex-1 min-w-0">
       {actividad.nombre}
     </h3>
-    <span
-      class="shrink-0 text-xs font-bold px-2.5 py-1 rounded-lg {actividad.es_sumativa
-        ? 'bg-uta-red-light text-uta-red'
-        : 'bg-uta-blue-light text-uta-blue'}"
-    >
-      {actividad.es_sumativa ? 'Sumativa' : 'Formativa'}
-    </span>
+    
   </div>
 
   <div class="flex flex-wrap items-center gap-2">
@@ -70,6 +64,7 @@
         Individual
       {/if}
     </span>
+    
     <span
       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-600 bg-gray-50 border border-gray-100"
     >
@@ -80,6 +75,13 @@
         <FileMinus2 class="w-3.5 h-3.5" />
         Sin entrega
       {/if}
+    </span>
+    <span
+      class="shrink-0 text-xs font-bold px-2.5 py-1 rounded-lg {actividad.es_sumativa
+        ? 'bg-uta-red-light text-uta-primary'
+        : 'bg-uta-blue-light text-uta-blue'}"
+    >
+      {actividad.es_sumativa ? 'Sumativa' : 'Formativa'}
     </span>
     <span
       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium sm:ml-auto {plazo.urgente

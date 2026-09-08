@@ -19,14 +19,10 @@
 <section
   class="flex flex-col gap-3 rounded-xl border border-dashed border-slate-300 bg-white p-4 shadow-sm"
 >
-  <div class="flex items-center gap-2">
+  <div class="flex flex-row-reverse justify-between items-center gap-2">
     <Icon class="h-4 w-4 text-slate-500" />
-    <h3 class="text-[15px] font-semibold text-slate-900">{title}</h3>
-    <span
-      class="ml-auto inline-flex shrink-0 items-center rounded-full border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-slate-500"
-    >
-      PROPUESTA
-    </span>
+    <p class="text-xl font-semibold text-slate-900">{title}</p>
+    
   </div>
 
   <div
