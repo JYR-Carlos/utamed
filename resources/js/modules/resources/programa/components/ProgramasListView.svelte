@@ -5,7 +5,6 @@
   import { router } from '@inertiajs/svelte';
   import ProgramaStateBadges from './ProgramaStateBadges.svelte';
   import ProgramaActionButtons from './ProgramaActionButtons.svelte';
-  import SyllabusModal from './SyllabusModal.svelte';
   import SyllabusTypeSelector from './SyllabusTypeSelector.svelte';
   import CompletenessProgressBar from './CompletenessProgressBar.svelte';
   import { formatDate, formatUserName } from '@/utils/formatters';
@@ -38,9 +37,6 @@
   let searchQuery = $state('');
   let selectedFilter = $state<string | null>(null);
   let showSyllabusTypeSelector = $state(false);
-  let showSyllabusModal = $state(false);
-  let selectedSyllabusType = $state<'simplified' | 'combined' | 'complete' | null>(null);
-  let currentCurso = $state<Curso | null>(null);
 
   // Detectar si existe un programa activo (cualquier estado) para mostrar opción de "Continuar"
   const existingSyllabusType = $derived.by(() => {
@@ -106,47 +102,24 @@
   }
 
   function openSyllabusTypeSelector() {
-    // Construir un objeto Curso mínimo con los datos disponibles
-    currentCurso = {
-      id_curso: cursoId,
-      cod_curso: cursoId,
-      nombre: cursoNombre,
-      asignatura_nombre: cursoNombre,
-      id_asignacion_plan: 0,
-      id_contexto: 0,
-      has_programa: existingSyllabusType !== null,
-    } as Curso;
     showSyllabusTypeSelector = true;
-    selectedSyllabusType = null;
   }
 
   function closeSyllabusTypeSelector() {
     showSyllabusTypeSelector = false;
-    selectedSyllabusType = null;
   }
 
+  /**
+   * Elegido el tipo se navega al asistente, que ya no es un modal sino la
+   * página `/admin/cursos/{curso}/programa/editar`.
+   */
   function handleSyllabusTypeSelect(type: 'simplified' | 'combined' | 'complete') {
-    selectedSyllabusType = type;
     showSyllabusTypeSelector = false;
-    showSyllabusModal = true;
+    const tipo = type === 'complete' ? 'COMPLETO' : 'BASICO';
+    router.visit(`/admin/cursos/${cursoId}/programa/editar?tipo=${tipo}`);
   }
 
-  function openSyllabusModal() {
-    showSyllabusTypeSelector = true;
-  }
-
-  function closeSyllabusModal() {
-    showSyllabusModal = false;
-    showSyllabusTypeSelector = false;
-    selectedSyllabusType = null;
-    currentCurso = null;
-  }
-
-  function handleSyllabusSuccess() {
-    closeSyllabusModal();
-    // Recargar los programas
-    router.reload({ only: ['programas'] });
-  }
+  const openSyllabusModal = openSyllabusTypeSelector;
 </script>
 
 <div class="space-y-6">
@@ -346,23 +319,12 @@
   </div>
 
   <!-- SyllabusTypeSelector para elegir tipo de programa -->
-  {#if showSyllabusTypeSelector && currentCurso}
+  {#if showSyllabusTypeSelector}
     <SyllabusTypeSelector
       bind:isOpen={showSyllabusTypeSelector}
       onClose={closeSyllabusTypeSelector}
       onSelect={handleSyllabusTypeSelect}
       {existingSyllabusType}
-    />
-  {/if}
-
-  <!-- Syllabus Modal -->
-  {#if showSyllabusModal && currentCurso}
-    <SyllabusModal
-      bind:isOpen={showSyllabusModal}
-      curso={currentCurso}
-      syllabusType={selectedSyllabusType}
-      onClose={closeSyllabusModal}
-      onSuccess={handleSyllabusSuccess}
     />
   {/if}
 </div>

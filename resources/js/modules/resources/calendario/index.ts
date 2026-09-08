@@ -1,16 +1,35 @@
 /**
  * Módulo Calendario — barrel principal.
  *
- * Calendario mensual de eventos académicos (actividades/agenda) del
- * estudiante y docente, con filtro por curso, diálogo por día y lista de
- * próximos eventos.
+ * Calendario académico del docente en tres vistas (mes, semana y agenda) sobre
+ * las mismas marcas: fechas límite de actividades, sesiones de asistencia ya
+ * tomadas e hitos de syllabus, todas coloreadas por CURSO, con filtro por curso
+ * y por familia, detalle del día y detección de sobrecarga por grupo.
  */
 export {
+  CalendarAgenda,
   CalendarMonth,
+  CalendarWeek,
+  CalendarioVacio,
   CourseFilter,
   DayEventsDialog,
   EventPill,
-  UpcomingList,
+  ItemCard,
+  ResumenPeriodo,
+  TipoEventoFilter,
 } from './components';
-export type { CalendarCurso, CalendarDay, CalendarEvento, CursoAccent } from './types';
+export type {
+  CalendarCurso,
+  CalendarDay,
+  CalendarEvento,
+  CalendarHito,
+  CalendarItem,
+  CalendarSesion,
+  CursoAccent,
+  FamiliaItem,
+  Sobrecarga,
+  TipoHito,
+} from './types';
 export * from './utils/calendar';
+export * from './utils/estilos';
+export * from './utils/sobrecarga';

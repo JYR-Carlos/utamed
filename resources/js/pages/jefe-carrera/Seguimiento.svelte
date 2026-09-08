@@ -1,36 +1,44 @@
 <script lang="ts">
   /**
-   * Seguimiento Operativo de Cursos y Syllabus — Jefe de Carrera
+   * Seguimiento de syllabus — Jefatura de Carrera.
    *
-   * Pantalla 2: Data grid con filtros contextuales y badges de estado.
-   * Pantalla 3 (embed): Slide-over de previsualización de syllabus con
-   *   sticky footer ejecutivo (Aprobar / Solicitar Cambios).
+   * Lámina «Seguimiento de syllabus»: data grid con filtros sobre un campo
+   * derivado, slide-over de previsualización con índice romano y footer de
+   * decisión persistente.
+   *
+   * Dos reglas mandan sobre el resto:
+   *  - Las acciones por fila obedecen al ESTADO. Aprobar y rechazar sólo
+   *    existen en «En revisión»; «No iniciado» no tiene previsualización porque
+   *    no hay documento. Nada se dibuja en gris deshabilitado: lo que no se
+   *    permite, no se dibuja.
+   *  - El vacío nombra el filtro responsable y ofrece la salida; nunca dice
+   *    sólo «sin resultados».
+   *
+   * Todos los datos llegan del controlador ya acotados a la carrera del jefe.
+   * La vista no fabrica filas de ejemplo.
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
-  import { Link, router } from '@inertiajs/svelte';
+  import { router } from '@inertiajs/svelte';
   import {
     Search,
     X,
-    Filter,
+    XCircle,
     Eye,
     Check,
-    XCircle,
-    MessageSquare,
-    MoreVertical,
+    MoreHorizontal,
     ArrowLeft,
-    Calendar,
+    ChevronLeft,
+    ChevronRight,
+    ChevronDown,
+    MessageSquare,
+    Send,
     FileText,
-    BookOpen,
-    CheckCircle,
-    Info,
   } from 'lucide-svelte';
   import { untrack } from 'svelte';
-  import { Input } from '@/components/ui/input';
-  import { Button } from '@/components/ui/button';
-  import { Label } from '@/components/ui/label';
+  import { formatFechaCorta } from '@/utils/formatters';
 
-  // ─── Types ───────────────────────────────────────────────────────────────────
+  // ─── Tipos ───────────────────────────────────────────────────────────────
 
   type EstadoSyllabus = 'NO_INICIADO' | 'BORRADOR' | 'EN_REVISION' | 'APROBADO' | 'RECHAZADO';
 
@@ -45,6 +53,8 @@
     cod_asignatura: string;
     nombre_asignatura: string;
     seccion: string;
+    letra_grupo: string | null;
+    fecha_limite_syllabus: string | null;
     docente: Docente;
     estado_syllabus: EstadoSyllabus;
     fecha_actualizacion: string | null;
@@ -55,11 +65,17 @@
   interface SyllabusData {
     titulo: string;
     codigo: string;
+    letra_grupo: string | null;
+    agno_real: number | null;
+    semestre_real: number | null;
     docente: string;
     descripcion: string;
     objetivos: string[];
     unidades: { numero: number; titulo: string; horas: number; contenidos: string[] }[];
     evaluaciones: { descripcion: string; ponderacion: string; semana: number | string }[];
+    version: number | null;
+    autor: string | null;
+    ultima_accion: string | null;
     completud: number;
   }
 
@@ -67,28 +83,35 @@
     cursos?: CursoSeguimiento[];
     semestres_disponibles?: string[];
     agnos_disponibles?: number[];
+    plazo_syllabus?: string | null;
     filters?: { q?: string; semestre?: string; agno?: string; estado?: string };
-    pagination?: { current_page: number; last_page: number; total: number };
+    pagination?: {
+      current_page: number;
+      last_page: number;
+      total: number;
+      total_carrera?: number;
+    };
     carrera?: { nombre: string };
   }
 
   let {
-    cursos = mockCursos(),
-    semestres_disponibles = ['Primero', 'Segundo'],
-    agnos_disponibles = [2026, 2025, 2024],
+    cursos = [],
+    semestres_disponibles = [],
+    agnos_disponibles = [],
+    plazo_syllabus = null,
     filters = {},
-    pagination = { current_page: 1, last_page: 1, total: 8 },
-    carrera = { nombre: 'Diseño Multimedia' },
+    pagination = { current_page: 1, last_page: 1, total: 0, total_carrera: 0 },
+    carrera = { nombre: 'Mi Carrera' },
   }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Jefe de Carrera', href: '/docente/jefe-carrera/dashboard' },
-    { title: 'Seguimiento Operativo', href: '/docente/jefe-carrera/seguimiento' },
+    { title: 'Jefatura de Carrera', href: '/docente/jefe-carrera/dashboard' },
+    { title: 'Seguimiento', href: '/docente/jefe-carrera/seguimiento' },
   ];
 
-  // ─── Filter state ────────────────────────────────────────────────────────────
+  // ─── Filtros ─────────────────────────────────────────────────────────────
 
-  // untrack: capture the prop's initial value only; state is managed locally after that
+  // untrack: captura el valor inicial del prop; a partir de ahí manda el estado local.
   let searchQ = $state(untrack(() => filters.q ?? ''));
   let filtroSemestre = $state(untrack(() => filters.semestre ?? ''));
   let filtroAgno = $state(untrack(() => filters.agno ?? ''));
@@ -96,14 +119,33 @@
   let openKebab = $state<number | null>(null);
 
   const hasFilters = $derived(!!(searchQ || filtroSemestre || filtroAgno || filtroEstado));
+  const totalCarrera = $derived(pagination.total_carrera ?? pagination.total);
 
-  function aplicarFiltros() {
+  /** Rango mostrado en el pie de la tabla (el controlador pagina de 10 en 10). */
+  const POR_PAGINA = 10;
+  const rangoDesde = $derived((pagination.current_page - 1) * POR_PAGINA + 1);
+  const rangoHasta = $derived(Math.min(pagination.current_page * POR_PAGINA, pagination.total));
+
+  const ESTADO_LABEL: Record<EstadoSyllabus, string> = {
+    NO_INICIADO: 'No iniciado',
+    BORRADOR: 'Borrador',
+    EN_REVISION: 'En revisión',
+    APROBADO: 'Aprobado',
+    RECHAZADO: 'Rechazado',
+  };
+
+  function navegar(params: Record<string, string>) {
+    router.get('/docente/jefe-carrera/seguimiento', params, { preserveState: true });
+  }
+
+  function aplicarFiltros(page?: number) {
     const params: Record<string, string> = {};
     if (searchQ) params.q = searchQ;
     if (filtroSemestre) params.semestre = filtroSemestre;
     if (filtroAgno) params.agno = filtroAgno;
     if (filtroEstado) params.estado = filtroEstado;
-    router.get('/docente/jefe-carrera/seguimiento', params, { preserveState: true });
+    if (page && page > 1) params.page = String(page);
+    navegar(params);
   }
 
   function limpiarFiltros() {
@@ -111,50 +153,67 @@
     filtroSemestre = '';
     filtroAgno = '';
     filtroEstado = '';
-    router.get('/docente/jefe-carrera/seguimiento', {});
+    navegar({});
   }
 
-  // ─── Status badge config ─────────────────────────────────────────────────────
+  /** Período que describe la cabecera, con lo que haya seleccionado. */
+  const periodoLabel = $derived.by(() => {
+    const partes: string[] = [];
+    if (filtroSemestre) partes.push(`${filtroSemestre} semestre`);
+    if (filtroAgno) partes.push(filtroAgno);
+    return partes.join(' ');
+  });
+
+  /** Nombra el filtro culpable del vacío, para que la salida sea evidente. */
+  const filtroCulpable = $derived.by(() => {
+    if (filtroEstado) {
+      const periodo = periodoLabel ? ` en ${periodoLabel}` : '';
+      return `Ningún curso con estado «${ESTADO_LABEL[filtroEstado as EstadoSyllabus] ?? filtroEstado}»${periodo}`;
+    }
+    if (searchQ) return `Ningún curso coincide con «${searchQ}»`;
+    if (periodoLabel) return `Ningún curso en ${periodoLabel}`;
+    return 'Ningún curso coincide con los filtros';
+  });
+
+  // ─── Pastillas de estado ─────────────────────────────────────────────────
 
   const estadoConfig: Record<EstadoSyllabus, { label: string; cls: string; dot: string }> = {
     NO_INICIADO: {
-      label: 'No Iniciado',
-      cls: 'bg-red-100 text-red-700 border-red-200',
-      dot: 'bg-red-500',
+      label: 'No iniciado',
+      cls: 'border-[#CBD5E1] bg-[#F1F5F9] text-[#475569]',
+      dot: 'bg-[#64748B]',
     },
     BORRADOR: {
       label: 'Borrador',
-      cls: 'bg-gray-100 text-gray-600 border-gray-200',
-      dot: 'bg-gray-400',
+      cls: 'border-[#E5E7EB] bg-[#F5F1EA] text-[#5A5E6E]',
+      dot: 'bg-[#A8A29E]',
     },
     EN_REVISION: {
-      label: 'En Revisión',
-      cls: 'bg-amber-100 text-amber-700 border-amber-200',
-      dot: 'bg-amber-500',
+      label: 'En revisión',
+      cls: 'border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]',
+      dot: 'bg-[#D97706]',
     },
     APROBADO: {
       label: 'Aprobado',
-      cls: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      dot: 'bg-emerald-500',
+      cls: 'border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]',
+      dot: 'bg-[#059669]',
     },
     RECHAZADO: {
       label: 'Rechazado',
-      cls: 'bg-red-100 text-red-700 border-red-200',
-      dot: 'bg-red-500',
+      cls: 'border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]',
+      dot: 'bg-[#DC2626]',
     },
   };
 
-  function formatFecha(iso: string | null): string {
-    if (!iso) return '—';
-    const [year, month, day] = iso.slice(0, 10).split('-').map(Number);
-    return new Date(year, month - 1, day).toLocaleDateString('es-CL', {
-      day: '2-digit',
-      month: 'short',
-      year: '2-digit',
-    });
-  }
+  /** Hay documento que previsualizar en todo estado salvo «No iniciado». */
+  const tieneDocumento = (c: CursoSeguimiento) =>
+    c.estado_syllabus !== 'NO_INICIADO' && !!c.id_programa;
 
-  // ─── Slide-over (Pantalla 3) ─────────────────────────────────────────────────
+  /** Aprobar y rechazar sólo existen mientras el syllabus está en revisión. */
+  const admiteDecision = (c: CursoSeguimiento) =>
+    c.estado_syllabus === 'EN_REVISION' && !!c.id_programa;
+
+  // ─── Slide-over de previsualización ──────────────────────────────────────
 
   interface SlideOverState {
     isOpen: boolean;
@@ -162,8 +221,6 @@
     syllabus: SyllabusData | null;
     isLoading: boolean;
     approving: boolean;
-    rejecting: boolean;
-    notes: string;
   }
 
   let slideOver = $state<SlideOverState>({
@@ -172,13 +229,49 @@
     syllabus: null,
     isLoading: false,
     approving: false,
-    rejecting: false,
-    notes: '',
   });
 
+  /** Índice del documento, construido con las secciones que TRAE el syllabus. */
+  const ROMANOS = ['I.', 'II.', 'III.', 'IV.', 'V.', 'VI.', 'VII.', 'VIII.', 'IX.'];
+
+  const secciones = $derived.by(() => {
+    const s = slideOver.syllabus;
+    if (!s) return [] as { id: string; titulo: string; romano: string }[];
+    const presentes: { id: string; titulo: string }[] = [
+      { id: 'identificacion', titulo: 'Identificación' },
+    ];
+    if (s.descripcion) presentes.push({ id: 'presentacion', titulo: 'Presentación' });
+    if (s.objetivos.length > 0) presentes.push({ id: 'objetivos', titulo: 'Objetivos' });
+    if (s.unidades.length > 0) presentes.push({ id: 'unidades', titulo: 'Unidades' });
+    if (s.evaluaciones.length > 0) presentes.push({ id: 'evaluacion', titulo: 'Evaluación' });
+    return presentes.map((sec, i) => ({ ...sec, romano: ROMANOS[i] ?? `${i + 1}.` }));
+  });
+
+  let seccionActiva = $state('identificacion');
+  let panelDocumento = $state<HTMLElement | null>(null);
+
+  function irASeccion(id: string) {
+    seccionActiva = id;
+    panelDocumento?.querySelector(`#sec-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /** Marca como activa la sección cuyo encabezado está más arriba pero visible. */
+  function alDesplazar() {
+    if (!panelDocumento) return;
+    const tope = panelDocumento.getBoundingClientRect().top;
+    let actual = secciones[0]?.id ?? '';
+    for (const sec of secciones) {
+      const el = panelDocumento.querySelector(`#sec-${sec.id}`);
+      if (el && el.getBoundingClientRect().top - tope <= 24) actual = sec.id;
+    }
+    if (actual) seccionActiva = actual;
+  }
+
   async function abrirSlideOver(curso: CursoSeguimiento) {
-    slideOver = { ...slideOver, isOpen: true, curso, isLoading: true, syllabus: null, notes: '' };
+    slideOver = { ...slideOver, isOpen: true, curso, isLoading: true, syllabus: null };
     openKebab = null;
+    seccionActiva = 'identificacion';
+    cerrarSolicitud();
 
     if (!curso.id_programa) {
       slideOver = { ...slideOver, isLoading: false, syllabus: null };
@@ -193,7 +286,7 @@
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      // Solo aplica si el panel sigue abierto sobre el mismo curso
+      // Sólo aplica si el panel sigue abierto sobre el mismo curso.
       if (slideOver.isOpen && slideOver.curso?.id_curso === curso.id_curso) {
         slideOver = { ...slideOver, isLoading: false, syllabus: data?.syllabus ?? null };
       }
@@ -206,6 +299,7 @@
 
   function cerrarSlideOver() {
     slideOver = { ...slideOver, isOpen: false };
+    cerrarSolicitud();
   }
 
   function aprobarSyllabus() {
@@ -224,374 +318,352 @@
     );
   }
 
-  function solicitarCambios() {
+  // ─── Solicitud de cambios: la razón es obligatoria ───────────────────────
+
+  const RAZON_MAX = 500;
+
+  let solicitudAbierta = $state(false);
+  let razon = $state('');
+  let enviandoSolicitud = $state(false);
+  let razonError = $state<string | null>(null);
+  let razonInput = $state<HTMLTextAreaElement | null>(null);
+
+  const razonVacia = $derived(razon.trim().length === 0);
+
+  function abrirSolicitud() {
+    solicitudAbierta = true;
+    razon = '';
+    razonError = null;
+  }
+
+  function cerrarSolicitud() {
+    solicitudAbierta = false;
+    razon = '';
+    razonError = null;
+    enviandoSolicitud = false;
+  }
+
+  function enviarSolicitud() {
     const programa_id = slideOver.curso?.id_programa;
     if (!programa_id) return;
-    slideOver = { ...slideOver, rejecting: true };
+
+    // El botón nunca se dibuja gris: si falta la razón, el envío no sale y el
+    // foco vuelve al campo, que ya estaba en error desde que se abrió.
+    if (razonVacia) {
+      razonError = 'La razón es obligatoria: se envía al docente y queda en el historial.';
+      razonInput?.focus();
+      return;
+    }
+
+    enviandoSolicitud = true;
     router.post(
       `/docente/jefe-carrera/programas/${programa_id}/rechazar`,
-      { notas: slideOver.notes },
+      { notas: razon.trim() },
       {
         onSuccess: () => cerrarSlideOver(),
+        onError: (errors: Record<string, string>) => {
+          razonError = (Object.values(errors)[0] as string) ?? 'No se pudo enviar la solicitud.';
+          razonInput?.focus();
+        },
         onFinish: () => {
-          slideOver = { ...slideOver, rejecting: false };
+          enviandoSolicitud = false;
         },
       },
     );
   }
 
   function handleWindowKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      if (slideOver.isOpen) cerrarSlideOver();
-      else openKebab = null;
-    }
+    if (e.key !== 'Escape') return;
+    if (solicitudAbierta) cerrarSolicitud();
+    else if (slideOver.isOpen) cerrarSlideOver();
+    else openKebab = null;
   }
 
-  // ─── Mock data helpers (demo / standalone) ───────────────────────────────────
+  // ─── Lenguaje visual ─────────────────────────────────────────────────────
 
-  function mockCursos(): CursoSeguimiento[] {
-    const docentes: Docente[] = [
-      { nombre: 'Prof. María González', inicial: 'MG', color: '#6366F1' },
-      { nombre: 'Prof. Carlos Vega', inicial: 'CV', color: '#F59E0B' },
-      { nombre: 'Prof. Ana Rodríguez', inicial: 'AR', color: '#10B981' },
-      { nombre: 'Prof. Luis Herrera', inicial: 'LH', color: '#3B82F6' },
-      { nombre: 'Prof. Sofía Martínez', inicial: 'SM', color: '#EC4899' },
-    ];
-    const estados: EstadoSyllabus[] = [
-      'APROBADO',
-      'EN_REVISION',
-      'NO_INICIADO',
-      'BORRADOR',
-      'RECHAZADO',
-      'APROBADO',
-      'EN_REVISION',
-      'NO_INICIADO',
-    ];
-    const asignaturas = [
-      ['DM-101', 'Diseño Visual Digital I'],
-      ['DM-203', 'Tipografía Aplicada'],
-      ['DM-215', 'Fotografía y Composición'],
-      ['DM-310', 'Motion Graphics'],
-      ['DM-322', 'UX/UI Design'],
-      ['DM-408', 'Branding Estratégico'],
-      ['DM-412', 'Producción Audiovisual'],
-      ['DM-501', 'Proyecto de Título'],
-    ];
-    return asignaturas.map(([cod, nombre], i) => ({
-      id_curso: i + 1,
-      cod_asignatura: cod,
-      nombre_asignatura: nombre,
-      seccion: `SEC-${String(i + 1).padStart(2, '0')}`,
-      docente: docentes[i % docentes.length],
-      estado_syllabus: estados[i],
-      fecha_actualizacion:
-        estados[i] !== 'NO_INICIADO' ? `2026-03-${String(i + 1).padStart(2, '0')}` : null,
-      completud:
-        estados[i] === 'APROBADO'
-          ? 100
-          : estados[i] === 'EN_REVISION'
-            ? 85
-            : estados[i] === 'BORRADOR'
-              ? 50
-              : 0,
-      id_programa: estados[i] !== 'NO_INICIADO' ? i + 100 : null,
-    }));
-  }
-
-  function buildMockSyllabus(curso: CursoSeguimiento): SyllabusData {
-    return {
-      titulo: curso.nombre_asignatura,
-      codigo: curso.cod_asignatura,
-      docente: curso.docente.nombre,
-      descripcion:
-        'Esta asignatura desarrolla en el estudiante las competencias fundamentales del diseño comunicacional orientado a medios digitales e interactivos, abordando metodologías de trabajo y herramientas propias del campo disciplinar.',
-      objetivos: [
-        'Comprender los principios del diseño de interfaces digitales y su relación con la experiencia del usuario.',
-        'Aplicar metodologías de diseño centrado en el usuario (DCU) en proyectos reales.',
-        'Gestionar flujos de trabajo en herramientas de diseño contemporáneas (Figma, Adobe CC).',
-        'Desarrollar proyectos de comunicación visual adaptados a contextos digitales específicos.',
-      ],
-      unidades: [
-        {
-          numero: 1,
-          titulo: 'Fundamentos del Diseño Digital',
-          horas: 12,
-          contenidos: [
-            'Historia y evolución del diseño digital',
-            'Principios visuales aplicados a pantallas',
-            'Psicología del color en medios digitales',
-          ],
-        },
-        {
-          numero: 2,
-          titulo: 'Metodologías de Diseño UX',
-          horas: 16,
-          contenidos: [
-            'Design Thinking y Double Diamond',
-            'Investigación de usuarios: entrevistas y tests',
-            'Prototipado de baja y alta fidelidad',
-          ],
-        },
-        {
-          numero: 3,
-          titulo: 'Producción Visual Digital',
-          horas: 20,
-          contenidos: [
-            'Diseño vectorial avanzado en Illustrator',
-            'Composición y recursos para redes sociales',
-            'Motion graphics básico con After Effects',
-          ],
-        },
-      ],
-      evaluaciones: [
-        { descripcion: 'Proyecto parcial: Branding Digital', ponderacion: '30%', semana: 8 },
-        {
-          descripcion: 'Ejercicios prácticos acumulativos',
-          ponderacion: '20%',
-          semana: 'Continuo',
-        },
-        {
-          descripcion: 'Proyecto final: Campaña digital integrada',
-          ponderacion: '50%',
-          semana: 16,
-        },
-      ],
-      completud: curso.completud,
-    };
-  }
+  const CARD = 'rounded-xl border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,.08)]';
+  const TH =
+    'px-4 py-2.5 text-left text-[12px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]';
+  const CAMPO =
+    'h-[38px] rounded-lg border border-[#D6D9E0] bg-white text-[14px] text-[#1A1A24] focus:border-[#002F6C] focus:outline-none';
+  const ICON_BTN =
+    'inline-flex h-[30px] w-[30px] items-center justify-center rounded-lg border transition-colors';
+  const BTN_OUTLINE =
+    'inline-flex items-center gap-[7px] rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2.5 text-[14px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA]';
+  const BTN_PRIMARY =
+    'inline-flex items-center gap-[7px] rounded-lg border border-[#002F6C] bg-[#002F6C] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#1B4789] disabled:opacity-60';
 </script>
 
 <svelte:window onkeydown={handleWindowKeydown} />
 
 <AdminLayout {breadcrumbs}>
-  <div class="min-h-screen px-6 py-8">
-    <!-- ─── Page Header ───────────────────────────────────────────────────── -->
-    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <Link
-          href="/docente/jefe-carrera/dashboard"
-          class="mb-2 inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
-        >
-          <ArrowLeft size={14} />
-          Volver al Dashboard
-        </Link>
-        <h1 class="text-2xl font-bold text-gray-900">Seguimiento Operativo</h1>
-        <p class="mt-0.5 text-sm text-gray-500">
-          {carrera.nombre}&nbsp;&middot;&nbsp;Estado de syllabus por asignatura
-        </p>
+  <!-- ─── Cabecera ───────────────────────────────────────────────────────── -->
+  <div class="mb-4 flex flex-wrap items-start gap-6">
+    <div class="flex min-w-0 flex-col gap-1">
+      <div class="flex items-center gap-1.5 text-[12px] text-[#5A5E6E]">
+        <span>Jefatura de Carrera</span>
+        <ChevronRight class="h-3 w-3" aria-hidden="true" />
+        <span class="font-medium text-[#1A1A24]">Seguimiento</span>
       </div>
+      <h1 class="m-0 text-[28px] font-semibold tracking-[-0.01em] text-[#1A1A24]">
+        Seguimiento de syllabus — {carrera.nombre}
+      </h1>
+      <span class="text-[14px] text-[#5A5E6E]">
+        {periodoLabel || 'Todos los períodos'}{plazo_syllabus
+          ? ` · plazo de entrega ${formatFechaCorta(plazo_syllabus)}`
+          : ''}
+      </span>
+    </div>
+  </div>
+
+  <!-- ─── Barra de filtros ───────────────────────────────────────────────── -->
+  <div class="{CARD} mb-4 flex flex-wrap items-center gap-2.5 px-4 py-3.5">
+    <!-- Búsqueda -->
+    <div class="relative flex min-w-[260px] flex-1 items-center">
+      <Search class="pointer-events-none absolute left-[11px] h-[15px] w-[15px] text-[#5A5E6E]" />
+      <input
+        bind:value={searchQ}
+        placeholder="Buscar asignatura o docente…"
+        aria-label="Buscar asignatura o docente"
+        class="{CAMPO} w-full px-[34px]"
+        onkeydown={(e) => e.key === 'Enter' && aplicarFiltros()}
+      />
+      {#if searchQ}
+        <button
+          onclick={() => {
+            searchQ = '';
+            aplicarFiltros();
+          }}
+          class="absolute right-[11px] text-[#5A5E6E] hover:text-[#1A1A24]"
+          aria-label="Limpiar búsqueda"
+        >
+          <X class="h-[15px] w-[15px]" />
+        </button>
+      {/if}
     </div>
 
-    <!-- ─── Filters Bar ───────────────────────────────────────────────────── -->
-    <div class="mb-4 rounded-xl border border-gray-100 bg-white px-5 py-4 shadow-sm">
-      <div class="flex flex-wrap items-end gap-3">
-        <!-- Search -->
-        <div class="min-w-[220px] flex-1">
-          <Label class="mb-1 block text-xs font-medium text-gray-500"
-            >Buscar asignatura o docente</Label
-          >
-          <div class="relative">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-            <Input
-              bind:value={searchQ}
-              placeholder="Nombre o código…"
-              class="h-9 pl-9 text-sm"
-              onkeydown={(e) => e.key === 'Enter' && aplicarFiltros()}
-            />
-          </div>
-        </div>
+    <!-- Semestre: conmutador segmentado -->
+    <div class="flex flex-none gap-[3px] rounded-lg bg-[#F1F5F9] p-[3px]">
+      {#each semestres_disponibles as s (s)}
+        {@const activo = filtroSemestre === s}
+        <button
+          onclick={() => {
+            filtroSemestre = activo ? '' : s;
+            aplicarFiltros();
+          }}
+          aria-pressed={activo}
+          class="flex h-8 items-center rounded-md px-3 text-[13px] transition-colors {activo
+            ? 'bg-white font-semibold text-[#002F6C] shadow-[0_1px_2px_rgba(0,0,0,.06)]'
+            : 'font-medium text-[#5A5E6E] hover:text-[#1A1A24]'}"
+        >
+          {s}
+        </button>
+      {/each}
+    </div>
 
-        <!-- Año -->
-        <div>
-          <Label class="mb-1 block text-xs font-medium text-gray-500">Año</Label>
-          <select
-            bind:value={filtroAgno}
-            class="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Todos</option>
-            {#each agnos_disponibles as a (a)}
-              <option value={String(a)}>{a}</option>
-            {/each}
-          </select>
-        </div>
+    <!-- Año -->
+    <div class="relative flex-none">
+      <select
+        bind:value={filtroAgno}
+        onchange={() => aplicarFiltros()}
+        aria-label="Filtrar por año"
+        class="{CAMPO} appearance-none py-0 pl-3 pr-8"
+      >
+        <option value="">Año: todos</option>
+        {#each agnos_disponibles as a (a)}
+          <option value={String(a)}>Año {a}</option>
+        {/each}
+      </select>
+      <ChevronDown
+        class="pointer-events-none absolute right-[11px] top-3 h-3.5 w-3.5 text-[#5A5E6E]"
+      />
+    </div>
 
-        <!-- Semestre -->
-        <div>
-          <Label class="mb-1 block text-xs font-medium text-gray-500">Semestre</Label>
-          <select
-            bind:value={filtroSemestre}
-            class="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Todos</option>
-            {#each semestres_disponibles as s (s)}
-              <option value={s}>{s}</option>
-            {/each}
-          </select>
-        </div>
+    <!-- Estado: se resalta cuando hay filtro activo -->
+    <div class="relative flex-none">
+      <select
+        bind:value={filtroEstado}
+        onchange={() => aplicarFiltros()}
+        aria-label="Filtrar por estado del syllabus"
+        class="h-[38px] appearance-none rounded-lg border bg-white py-0 pl-3 pr-8 text-[14px] focus:outline-none {filtroEstado
+          ? 'border-[#002F6C] font-medium text-[#002F6C]'
+          : 'border-[#D6D9E0] text-[#1A1A24] focus:border-[#002F6C]'}"
+      >
+        <option value="">Estado: todos</option>
+        <option value="NO_INICIADO">No iniciado</option>
+        <option value="BORRADOR">Borrador</option>
+        <option value="EN_REVISION">En revisión</option>
+        <option value="APROBADO">Aprobado</option>
+        <option value="RECHAZADO">Rechazado</option>
+      </select>
+      <ChevronDown
+        class="pointer-events-none absolute right-[11px] top-3 h-3.5 w-3.5 {filtroEstado
+          ? 'text-[#002F6C]'
+          : 'text-[#5A5E6E]'}"
+      />
+    </div>
 
-        <!-- Estado -->
-        <div>
-          <Label class="mb-1 block text-xs font-medium text-gray-500">Estado</Label>
-          <select
-            bind:value={filtroEstado}
-            class="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Todos los estados</option>
-            <option value="NO_INICIADO">No Iniciado</option>
-            <option value="BORRADOR">Borrador</option>
-            <option value="EN_REVISION">En Revisión</option>
-            <option value="APROBADO">Aprobado</option>
-            <option value="RECHAZADO">Rechazado</option>
-          </select>
-        </div>
+    {#if hasFilters}
+      <button
+        onclick={limpiarFiltros}
+        class="inline-flex flex-none items-center gap-1.5 rounded-lg px-2.5 py-2 text-[13px] font-semibold text-[#002F6C] transition-colors hover:bg-[#F5F1EA]"
+      >
+        <X class="h-3.5 w-3.5" />
+        Limpiar
+      </button>
+    {/if}
+  </div>
 
-        <Button onclick={aplicarFiltros} size="sm" class="h-9 px-4">
-          <Filter size={13} class="mr-1.5" />
-          Filtrar
-        </Button>
+  <!-- ─── Tabla ──────────────────────────────────────────────────────────── -->
+  <div class="{CARD} overflow-hidden">
+    <div class="flex flex-wrap items-center gap-2.5 border-b border-[#E5E7EB] px-4 py-3">
+      <span class="text-[14px] font-semibold text-[#1A1A24]">
+        {pagination.total} de {totalCarrera}
+        {totalCarrera === 1 ? 'curso' : 'cursos'}
+      </span>
+      <span class="text-[12px] text-[#5A5E6E]">
+        coinciden con los filtros · el estado es un campo derivado, el total varía al filtrar
+      </span>
+    </div>
 
+    {#if cursos.length === 0}
+      <!-- El vacío nombra el filtro responsable y ofrece la salida -->
+      <div class="flex flex-col items-center gap-3 px-8 py-11 text-center">
         {#if hasFilters}
-          <button
-            onclick={limpiarFiltros}
-            class="flex h-9 items-center gap-1 px-3 text-sm text-gray-500 transition-colors hover:text-gray-700"
+          <div
+            class="h-20 w-[120px] rounded-lg border border-[#E5E7EB]"
+            style="background:repeating-linear-gradient(135deg,#F5F1EA 0 8px,#EFE9DF 8px 16px)"
+            aria-hidden="true"
+          ></div>
+          <span class="text-[16px] font-semibold text-[#1A1A24]">{filtroCulpable}</span>
+          <p class="m-0 max-w-[420px] text-[14px] text-[#5A5E6E]">
+            {#if totalCarrera > 0}
+              Los {totalCarrera}
+              {totalCarrera === 1 ? 'curso' : 'cursos'} de la carrera siguen ahí; sólo la combinación
+              de filtros deja la tabla sin filas.
+            {:else}
+              La carrera todavía no tiene cursos registrados.
+            {/if}
+          </p>
+          {#if totalCarrera > 0}
+            <div class="flex gap-2">
+              <button onclick={limpiarFiltros} class={BTN_OUTLINE}>
+                <X class="h-[15px] w-[15px] text-[#5A5E6E]" />
+                Limpiar filtros
+              </button>
+              <button onclick={limpiarFiltros} class={BTN_PRIMARY}>
+                Ver los {totalCarrera} cursos
+              </button>
+            </div>
+          {/if}
+        {:else}
+          <FileText class="h-9 w-9 text-[#C9D6E6]" />
+          <span class="text-[16px] font-semibold text-[#1A1A24]"
+            >La carrera todavía no tiene cursos registrados</span
           >
-            <X size={13} />
-            Limpiar
-          </button>
+          <p class="m-0 max-w-[420px] text-[14px] text-[#5A5E6E]">
+            En cuanto se creen cursos para esta carrera, aparecerán aquí con el estado de su
+            syllabus.
+          </p>
         {/if}
       </div>
-    </div>
-
-    <!-- Result count -->
-    <p class="mb-3 text-xs font-medium text-gray-400">
-      {pagination.total} asignatura{pagination.total !== 1 ? 's' : ''} encontrada{pagination.total !==
-      1
-        ? 's'
-        : ''}
-    </p>
-
-    <!-- ─── Data Grid ─────────────────────────────────────────────────────── -->
-    <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+    {:else}
       <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="border-b border-gray-100">
-              <th
-                class="py-3.5 pl-6 pr-4 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400"
-                >Asignatura / Código</th
-              >
-              <th
-                class="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400"
-                >Docente Asignado</th
-              >
-              <th
-                class="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400"
-                >Estado del Syllabus</th
-              >
-              <th
-                class="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400"
-                >Última Actualización</th
-              >
-              <th
-                class="py-3.5 pl-4 pr-6 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-400"
-                >Acciones</th
-              >
+        <table class="w-full border-collapse text-[14px]">
+          <thead class="bg-[#F5F1EA]">
+            <tr>
+              <th class="{TH} w-[104px]">Código</th>
+              <th class={TH}>Asignatura</th>
+              <th class="{TH} w-[70px] px-2">Grupo</th>
+              <th class="{TH} w-[180px]">Docente titular</th>
+              <th class="{TH} w-[150px]">Actualizado</th>
+              <th class="{TH} w-[150px]">Estado</th>
+              <th class="w-[190px] px-4 py-2.5"><span class="sr-only">Acciones</span></th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-50">
-            {#if cursos.length === 0}
-              <tr>
-                <td colspan="5" class="py-20 text-center">
-                  <FileText size={36} class="mx-auto mb-3 text-gray-200" />
-                  <p class="text-sm font-medium text-gray-400">No se encontraron asignaturas</p>
-                  <p class="mt-1 text-xs text-gray-300">Ajusta los filtros de búsqueda</p>
-                </td>
-              </tr>
-            {/if}
-
-            {#each cursos as curso (curso.id_curso)}
+          <tbody>
+            {#each cursos as curso, i (curso.id_curso)}
               {@const badge = estadoConfig[curso.estado_syllabus] ?? estadoConfig.NO_INICIADO}
-              <tr class="transition-colors hover:bg-gray-50/60">
-                <!-- Asignatura / Código -->
-                <td class="py-4 pl-6 pr-4">
-                  <p class="font-semibold leading-tight text-gray-900">{curso.nombre_asignatura}</p>
-                  <p class="mt-0.5 font-mono text-xs text-gray-400">{curso.cod_asignatura}</p>
-                </td>
-
-                <!-- Docente -->
-                <td class="px-4 py-4">
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                      style="background-color: {curso.docente.color}"
-                      aria-hidden="true"
+              {@const conDoc = tieneDocumento(curso)}
+              {@const conDecision = admiteDecision(curso)}
+              <tr class="border-t border-[#E5E7EB] {i % 2 === 1 ? 'bg-[#FCFBF9]' : ''}">
+                <td class="px-4 py-2.5 font-mono text-[13px] text-[#5A5E6E]"
+                  >{curso.cod_asignatura}</td
+                >
+                <td class="px-4 py-2.5 font-medium text-[#1A1A24]">{curso.nombre_asignatura}</td>
+                <td class="px-2 py-2.5">
+                  {#if curso.letra_grupo}
+                    <span
+                      class="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md bg-[#F5F1EA] text-[12px] font-semibold text-[#5A5E6E]"
+                      >{curso.letra_grupo}</span
                     >
-                      {curso.docente.inicial}
-                    </div>
-                    <span class="text-sm leading-tight text-gray-700">{curso.docente.nombre}</span>
-                  </div>
-                </td>
-
-                <!-- Estado del Syllabus (CRÍTICO) -->
-                <td class="px-4 py-4">
-                  <span
-                    class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold {badge.cls}"
-                  >
-                    <span class="h-1.5 w-1.5 rounded-full {badge.dot}"></span>
-                    {badge.label}
-                  </span>
-                  {#if curso.estado_syllabus !== 'NO_INICIADO'}
-                    <div class="mt-1.5 flex max-w-[90px] items-center gap-1.5">
-                      <div class="h-1 flex-1 overflow-hidden rounded-full bg-gray-100">
-                        <div
-                          class="h-full rounded-full transition-all {curso.completud >= 80
-                            ? 'bg-emerald-500'
-                            : curso.completud >= 50
-                              ? 'bg-amber-400'
-                              : 'bg-red-400'}"
-                          style="width: {curso.completud}%"
-                        ></div>
-                      </div>
-                      <span class="flex-shrink-0 text-[10px] text-gray-400">{curso.completud}%</span
-                      >
-                    </div>
+                  {:else}
+                    <span class="text-[#98A0AE]">—</span>
                   {/if}
                 </td>
-
-                <!-- Última Actualización -->
-                <td class="px-4 py-4">
-                  <div class="flex items-center gap-1.5">
-                    {#if curso.fecha_actualizacion}
-                      <Calendar size={11} class="text-gray-300" />
-                    {/if}
-                    <span class="text-xs text-gray-500"
-                      >{formatFecha(curso.fecha_actualizacion)}</span
-                    >
-                  </div>
+                <td class="px-4 py-2.5 text-[#1A1A24]">{curso.docente.nombre}</td>
+                <td class="px-4 py-2.5 text-[#5A5E6E]">
+                  {curso.fecha_actualizacion ? formatFechaCorta(curso.fecha_actualizacion) : '—'}
+                </td>
+                <td class="px-4 py-2.5">
+                  <span
+                    class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[3px] text-[12px] font-medium {badge.cls}"
+                  >
+                    <span class="h-1.5 w-1.5 rounded-full {badge.dot}" aria-hidden="true"></span>
+                    {badge.label}
+                  </span>
                 </td>
 
-                <!-- Acciones -->
-                <td class="py-4 pl-4 pr-6">
-                  <div class="flex items-center justify-center gap-1">
-                    <!-- Ver Syllabus -->
+                <!-- Acciones: sólo las que el estado permite -->
+                <td class="px-4 py-2.5">
+                  <div class="flex justify-end gap-1">
+                    {#if conDoc}
+                      <button
+                        onclick={() => abrirSlideOver(curso)}
+                        class="{ICON_BTN} border-[#D6D9E0] hover:bg-[#F5F1EA]"
+                        aria-label="Previsualizar syllabus de {curso.nombre_asignatura}"
+                        title="Previsualizar"
+                      >
+                        <Eye class="h-[15px] w-[15px] text-[#002F6C]" />
+                      </button>
+                    {/if}
+                    {#if conDecision}
+                      <button
+                        onclick={() => abrirSlideOver(curso)}
+                        class="{ICON_BTN} border-[#A7F3D0] bg-[#ECFDF5] hover:bg-[#D1FAE5]"
+                        aria-label="Revisar para aprobar {curso.nombre_asignatura}"
+                        title="Aprobar"
+                      >
+                        <Check class="h-[15px] w-[15px] text-[#047857]" />
+                      </button>
+                      <button
+                        onclick={() => abrirSlideOver(curso)}
+                        class="{ICON_BTN} border-[#FECACA] bg-[#FEF2F2] hover:bg-[#FEE2E2]"
+                        aria-label="Revisar para solicitar cambios en {curso.nombre_asignatura}"
+                        title="Solicitar cambios"
+                      >
+                        <XCircle class="h-[15px] w-[15px] text-[#B91C1C]" />
+                      </button>
+                    {/if}
                     <button
-                      onclick={() => abrirSlideOver(curso)}
-                      class="inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-100"
+                      onclick={() =>
+                        router.visit(`/docente/cursos/${curso.id_curso}/mensajeria`)}
+                      class="{ICON_BTN} border-[#D6D9E0] hover:bg-[#F5F1EA]"
+                      aria-label="Mensajería de {curso.nombre_asignatura}"
+                      title="Mensajería del curso"
                     >
-                      <Eye size={13} />
-                      Ver
+                      <MessageSquare class="h-[15px] w-[15px] text-[#5A5E6E]" />
                     </button>
 
-                    <!-- Kebab -->
                     <div class="relative">
                       <button
                         onclick={() => {
                           openKebab = openKebab === curso.id_curso ? null : curso.id_curso;
                         }}
-                        class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                        aria-label="Más opciones"
+                        class="{ICON_BTN} border-transparent hover:bg-[#F5F1EA]"
+                        aria-label="Más opciones de {curso.nombre_asignatura}"
                       >
-                        <MoreVertical size={15} />
+                        <MoreHorizontal class="h-[15px] w-[15px] text-[#5A5E6E]" />
                       </button>
 
                       {#if openKebab === curso.id_curso}
@@ -602,38 +674,24 @@
                           role="presentation"
                         ></div>
                         <div
-                          class="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
+                          class="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white py-1 shadow-lg"
                         >
                           <button
-                            onclick={() => abrirSlideOver(curso)}
-                            class="flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                            onclick={() => router.visit(`/docente/cursos/${curso.id_curso}`)}
+                            class="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-[#1A1A24] hover:bg-[#F5F1EA]"
                           >
-                            <Eye size={14} class="text-gray-400" />
-                            Ver Syllabus
+                            <FileText class="h-3.5 w-3.5 text-[#5A5E6E]" />
+                            Ver el curso
                           </button>
-                          {#if curso.estado_syllabus === 'EN_REVISION'}
+                          {#if conDoc}
                             <button
                               onclick={() => abrirSlideOver(curso)}
-                              class="flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50"
+                              class="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-[#1A1A24] hover:bg-[#F5F1EA]"
                             >
-                              <Check size={14} class="text-emerald-500" />
-                              Aprobar
-                            </button>
-                            <button
-                              onclick={() => abrirSlideOver(curso)}
-                              class="flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                            >
-                              <XCircle size={14} class="text-red-400" />
-                              Solicitar Cambios
+                              <Eye class="h-3.5 w-3.5 text-[#5A5E6E]" />
+                              Previsualizar syllabus
                             </button>
                           {/if}
-                          <div class="my-1 border-t border-gray-100"></div>
-                          <button
-                            class="flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
-                          >
-                            <MessageSquare size={14} class="text-gray-400" />
-                            Enviar Mensaje
-                          </button>
                         </div>
                       {/if}
                     </div>
@@ -645,293 +703,453 @@
         </table>
       </div>
 
-      <!-- Pagination -->
-      {#if pagination.last_page > 1}
-        <div class="flex items-center justify-between border-t border-gray-100 px-6 py-3.5">
-          <p class="text-xs text-gray-400">{pagination.total} registros</p>
-          <div class="flex items-center gap-1">
-            {#each Array.from({ length: pagination.last_page }, (_, i) => i + 1) as page}
-              <button
-                onclick={() =>
-                  router.get('/docente/jefe-carrera/seguimiento', { page: String(page) })}
-                class="h-7 w-7 rounded-lg text-xs font-medium transition-colors {page ===
-                pagination.current_page
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'}"
-              >
-                {page}
-              </button>
-            {/each}
-          </div>
-        </div>
-      {/if}
-    </div>
+      <!-- Pie: recuento + paginación -->
+      <div class="flex items-center gap-2 border-t border-[#E5E7EB] px-4 py-2.5">
+        <span class="mr-auto text-[12px] text-[#5A5E6E]">
+          Mostrando {rangoDesde}–{rangoHasta} de {pagination.total}
+          {pagination.total === 1 ? 'curso filtrado' : 'cursos filtrados'}
+        </span>
+        {#if pagination.last_page > 1}
+          <button
+            onclick={() => aplicarFiltros(pagination.current_page - 1)}
+            disabled={pagination.current_page <= 1}
+            class="{ICON_BTN} border-[#D6D9E0] hover:bg-[#F5F1EA] disabled:opacity-40"
+            aria-label="Página anterior"
+          >
+            <ChevronLeft class="h-3.5 w-3.5 text-[#5A5E6E]" />
+          </button>
+          {#each Array.from({ length: pagination.last_page }, (_, i) => i + 1) as page (page)}
+            <button
+              onclick={() => aplicarFiltros(page)}
+              aria-current={page === pagination.current_page ? 'page' : undefined}
+              class="inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-lg border px-2 text-[13px] transition-colors {page ===
+              pagination.current_page
+                ? 'border-[#002F6C] bg-[#002F6C] font-semibold text-white'
+                : 'border-[#D6D9E0] font-medium text-[#1A1A24] hover:bg-[#F5F1EA]'}"
+            >
+              {page}
+            </button>
+          {/each}
+          <button
+            onclick={() => aplicarFiltros(pagination.current_page + 1)}
+            disabled={pagination.current_page >= pagination.last_page}
+            class="{ICON_BTN} border-[#D6D9E0] hover:bg-[#F5F1EA] disabled:opacity-40"
+            aria-label="Página siguiente"
+          >
+            <ChevronRight class="h-3.5 w-3.5 text-[#5A5E6E]" />
+          </button>
+        {/if}
+      </div>
+    {/if}
   </div>
 </AdminLayout>
 
-<!-- ═══════════════════════════════════════════════════════════════════════════
-     PANTALLA 3: Slide-over de Previsualización de Syllabus
-     Renderizado fuera del AdminLayout para apilamiento z-index correcto.
-════════════════════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════════════
+     Slide-over de previsualización. Fuera del AdminLayout para apilar bien
+     el z-index. El fondo se oscurece pero deja ver la tabla: no se pierde el
+     sitio en la lista.
+════════════════════════════════════════════════════════════════════════ -->
 
-<!-- Backdrop -->
 {#if slideOver.isOpen}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div
-    class="fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-[2px]"
+    class="fixed inset-0 z-40 bg-[rgba(26,26,36,.45)]"
     onclick={cerrarSlideOver}
     role="presentation"
   ></div>
 {/if}
 
-<!-- Panel — 50% viewport width, slides from right -->
 <div
-  class="fixed right-0 top-0 z-50 flex h-full w-full flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out md:w-1/2 {slideOver.isOpen
+  class="fixed right-0 top-0 z-50 flex h-full w-full max-w-[720px] flex-col bg-white shadow-[0_20px_40px_rgba(0,0,0,.15)] transition-transform duration-300 ease-in-out {slideOver.isOpen
     ? 'translate-x-0'
     : 'translate-x-full'}"
   role="dialog"
   aria-modal="true"
-  aria-label="Previsualización de Syllabus"
+  aria-label="Previsualización de syllabus"
 >
   {#if slideOver.isOpen && slideOver.curso}
     {@const curso = slideOver.curso}
     {@const badge = estadoConfig[curso.estado_syllabus] ?? estadoConfig.NO_INICIADO}
 
-    <!-- ── Header ── -->
-    <div class="flex-shrink-0 border-b border-gray-100 px-8 pb-5 pt-7">
-      <div class="flex items-start justify-between">
-        <div>
-          <div class="mb-1 flex items-center gap-2">
-            <BookOpen size={15} class="text-indigo-500" />
-            <span class="text-[11px] font-semibold uppercase tracking-widest text-indigo-600">
-              Syllabus
-            </span>
-          </div>
-          <h2 class="text-xl font-bold leading-tight text-gray-900">
-            {curso.nombre_asignatura}
-          </h2>
-          <p class="mt-0.5 text-sm text-gray-500">
-            {curso.cod_asignatura}&nbsp;&middot;&nbsp;{curso.docente.nombre}
-          </p>
-        </div>
-        <button
-          onclick={cerrarSlideOver}
-          class="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-          aria-label="Cerrar panel"
-        >
-          <X size={20} />
-        </button>
-      </div>
-
-      <div class="mt-3 flex items-center gap-3">
-        <span
-          class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold {badge.cls}"
-        >
-          <span class="h-1.5 w-1.5 rounded-full {badge.dot}"></span>
-          {badge.label}
+    <!-- ── Cabecera ── -->
+    <div class="flex flex-none items-center gap-3 border-b border-[#E5E7EB] px-5 py-4">
+      <button
+        onclick={cerrarSlideOver}
+        class="{ICON_BTN} h-8 w-8 border-[#D6D9E0] hover:bg-[#F5F1EA]"
+        aria-label="Volver a la lista"
+      >
+        <ArrowLeft class="h-4 w-4 text-[#1A1A24]" />
+      </button>
+      <div class="flex min-w-0 flex-col">
+        <span class="truncate font-mono text-[11.5px] text-[#5A5E6E]">
+          {curso.cod_asignatura}{curso.letra_grupo ? ` · Grupo ${curso.letra_grupo}` : ''}{periodoLabel
+            ? ` · ${periodoLabel}`
+            : ''}
         </span>
-        {#if curso.fecha_actualizacion}
-          <span class="flex items-center gap-1 text-xs text-gray-400">
-            <Calendar size={11} />
-            Actualizado: {formatFecha(curso.fecha_actualizacion)}
-          </span>
-        {/if}
+        <span class="truncate text-[16px] font-semibold leading-[1.3] text-[#1A1A24]"
+          >{curso.nombre_asignatura}</span
+        >
       </div>
+      <span
+        class="ml-auto inline-flex flex-none items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium {badge.cls}"
+      >
+        <span class="h-1.5 w-1.5 rounded-full {badge.dot}" aria-hidden="true"></span>
+        {badge.label}
+      </span>
+      <button
+        onclick={cerrarSlideOver}
+        class="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[#5A5E6E] transition-colors hover:bg-[#F5F1EA] hover:text-[#1A1A24]"
+        aria-label="Cerrar panel"
+      >
+        <X class="h-4 w-4" />
+      </button>
     </div>
 
-    <!-- ── Scrollable content ── -->
-    <div class="flex-1 overflow-y-auto px-8 py-6">
-      {#if slideOver.isLoading}
-        <!-- Skeleton -->
-        <div class="space-y-6 animate-pulse">
-          {#each [1, 2, 3] as _}
-            <div>
-              <div class="mb-3 h-2.5 w-1/4 rounded-full bg-gray-100"></div>
-              <div class="h-3 w-full rounded bg-gray-50"></div>
-              <div class="mt-1.5 h-3 w-5/6 rounded bg-gray-50"></div>
-              <div class="mt-1.5 h-3 w-4/6 rounded bg-gray-50"></div>
-            </div>
+    <!-- ── Cuerpo: índice + documento ── -->
+    <div class="flex min-h-0 flex-1">
+      {#if secciones.length > 0}
+        <nav
+          class="hidden w-[212px] flex-none flex-col gap-0.5 overflow-y-auto border-r border-[#E5E7EB] bg-[#FCFBF9] px-3 py-3.5 sm:flex"
+          aria-label="Contenido del syllabus"
+        >
+          <span
+            class="px-2 pb-2 pt-0.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#5A5E6E]"
+            >Contenido</span
+          >
+          {#each secciones as sec (sec.id)}
+            {@const activa = seccionActiva === sec.id}
+            <button
+              onclick={() => irASeccion(sec.id)}
+              class="flex gap-2 rounded-lg px-2 py-[7px] text-left text-[12.5px] transition-colors {activa
+                ? 'bg-[#E8EDF5] font-semibold text-[#002F6C]'
+                : 'text-[#1A1A24] hover:bg-[#F5F1EA]'}"
+            >
+              <span
+                class="w-[22px] flex-none font-mono {activa ? 'text-[#002F6C]' : 'text-[#5A5E6E]'}"
+                >{sec.romano}</span
+              >
+              {sec.titulo}
+            </button>
           {/each}
-        </div>
-      {:else if !slideOver.syllabus}
-        <!-- No syllabus -->
-        <div class="py-20 text-center">
-          <FileText size={40} class="mx-auto mb-3 text-gray-200" />
-          <p class="text-sm font-medium text-gray-500">Este curso no tiene un syllabus creado</p>
-          <p class="mt-1 text-xs text-gray-400">El docente aún no ha iniciado el documento</p>
-        </div>
-      {:else}
-        {@const s = slideOver.syllabus}
 
-        <!-- Descripción -->
-        <section class="mb-8">
-          <h3 class="mb-3 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-            Descripción del Curso
-          </h3>
-          <p class="text-sm leading-relaxed text-gray-700">{s.descripcion}</p>
-        </section>
+          {#if slideOver.syllabus?.ultima_accion || slideOver.syllabus?.version != null}
+            <div
+              class="mt-auto flex flex-col gap-1 border-t border-[#E5E7EB] pt-2.5 text-[11.5px] text-[#5A5E6E]"
+            >
+              {#if slideOver.syllabus?.ultima_accion}
+                <span>Movido {formatFechaCorta(slideOver.syllabus.ultima_accion)}</span>
+              {/if}
+              {#if slideOver.syllabus?.version != null}
+                <span>
+                  Versión {slideOver.syllabus.version}{slideOver.syllabus.autor
+                    ? ` · ${slideOver.syllabus.autor}`
+                    : ''}
+                </span>
+              {/if}
+            </div>
+          {/if}
+        </nav>
+      {/if}
 
-        <!-- Objetivos de Aprendizaje -->
-        <section class="mb-8">
-          <h3 class="mb-3 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-            Objetivos de Aprendizaje
-          </h3>
-          <ul class="space-y-2.5">
-            {#each s.objetivos as obj, i}
-              <li class="flex items-start gap-3 text-sm text-gray-700">
-                <span
-                  class="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-600"
-                  >{i + 1}</span
-                >
-                <span class="leading-relaxed">{obj}</span>
-              </li>
-            {/each}
-          </ul>
-        </section>
-
-        <!-- Unidades Temáticas -->
-        <section class="mb-8">
-          <h3 class="mb-3 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-            Unidades Temáticas
-          </h3>
-          <div class="space-y-3">
-            {#each s.unidades as unidad}
-              <div class="rounded-xl border border-gray-100 p-4">
-                <div class="mb-2.5 flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span
-                      class="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-50 text-[11px] font-bold text-indigo-600"
-                      >U{unidad.numero}</span
-                    >
-                    <h4 class="text-sm font-semibold text-gray-800">{unidad.titulo}</h4>
-                  </div>
-                  <span
-                    class="rounded-full bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-400"
-                    >{unidad.horas}h</span
-                  >
-                </div>
-                <ul class="ml-8 space-y-1">
-                  {#each unidad.contenidos as contenido}
-                    <li class="flex items-center gap-1.5 text-xs text-gray-600">
-                      <span class="h-1 w-1 flex-shrink-0 rounded-full bg-gray-300"></span>
-                      {contenido}
-                    </li>
-                  {/each}
-                </ul>
+      <div
+        bind:this={panelDocumento}
+        onscroll={alDesplazar}
+        class="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-6 py-5"
+      >
+        {#if slideOver.isLoading}
+          <div class="animate-pulse space-y-6">
+            {#each [1, 2, 3] as bloque (bloque)}
+              <div>
+                <div class="mb-3 h-2.5 w-1/4 rounded-full bg-[#E5E7EB]"></div>
+                <div class="h-3 w-full rounded bg-[#F5F1EA]"></div>
+                <div class="mt-1.5 h-3 w-5/6 rounded bg-[#F5F1EA]"></div>
+                <div class="mt-1.5 h-3 w-4/6 rounded bg-[#F5F1EA]"></div>
               </div>
             {/each}
           </div>
-        </section>
-
-        <!-- Sistema de Evaluación -->
-        <section class="mb-8">
-          <h3 class="mb-3 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-            Sistema de Evaluación
-          </h3>
-          <div class="overflow-hidden rounded-xl border border-gray-100">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="border-b border-gray-100 bg-gray-50">
-                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500"
-                    >Evaluación</th
-                  >
-                  <th class="px-4 py-2.5 text-center text-xs font-semibold text-gray-500"
-                    >Ponderación</th
-                  >
-                  <th class="px-4 py-2.5 text-center text-xs font-semibold text-gray-500">Semana</th
-                  >
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-50">
-                {#each s.evaluaciones as ev}
-                  <tr>
-                    <td class="px-4 py-2.5 text-xs text-gray-700">{ev.descripcion}</td>
-                    <td class="px-4 py-2.5 text-center">
-                      <span class="text-xs font-bold text-indigo-600">{ev.ponderacion}</span>
-                    </td>
-                    <td class="px-4 py-2.5 text-center text-xs text-gray-500">
-                      Sem. {ev.semana}
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+        {:else if !slideOver.syllabus}
+          <div class="py-20 text-center">
+            <FileText class="mx-auto mb-3 h-10 w-10 text-[#C9D6E6]" />
+            <p class="m-0 text-[14px] font-medium text-[#5A5E6E]">
+              Este curso no tiene un syllabus creado
+            </p>
+            <p class="mt-1 text-[12.5px] text-[#98A0AE]">
+              El docente aún no ha iniciado el documento
+            </p>
           </div>
-        </section>
+        {:else}
+          {@const s = slideOver.syllabus}
+          {@const romano = (id: string) => secciones.find((x) => x.id === id)?.romano ?? ''}
 
-        <!-- Notas de revisión (solo en estado EN_REVISION) -->
-        {#if curso.estado_syllabus === 'EN_REVISION'}
-          <section class="mb-6">
-            <label
-              for="notas-revision"
-              class="mb-2 block text-[11px] font-semibold uppercase tracking-widest text-gray-400"
+          <!-- Identificación -->
+          <section id="sec-identificacion" class="flex flex-col gap-2.5">
+            <div class="flex items-baseline gap-2">
+              <span class="font-mono text-[12px] text-[#5A5E6E]">{romano('identificacion')}</span>
+              <h2 class="m-0 text-[16px] font-semibold text-[#1A1A24]">Identificación</h2>
+            </div>
+            <div
+              class="grid grid-cols-1 gap-x-5 gap-y-2.5 rounded-[10px] border border-[#E5E7EB] bg-[#FCFBF9] p-3.5 sm:grid-cols-2"
             >
-              Notas de Revisión
-            </label>
-            <textarea
-              id="notas-revision"
-              bind:value={slideOver.notes}
-              placeholder="Escribe los comentarios para solicitar cambios…"
-              rows={3}
-              class="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            ></textarea>
+              <div class="flex flex-col">
+                <span class="text-[11.5px] text-[#5A5E6E]">Asignatura</span>
+                <span class="text-[13px] font-medium text-[#1A1A24]">{s.titulo}</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-[11.5px] text-[#5A5E6E]">Código</span>
+                <span class="font-mono text-[13px] text-[#1A1A24]">{s.codigo}</span>
+              </div>
+              {#if s.letra_grupo}
+                <div class="flex flex-col">
+                  <span class="text-[11.5px] text-[#5A5E6E]">Grupo</span>
+                  <span class="text-[13px] font-medium text-[#1A1A24]">{s.letra_grupo}</span>
+                </div>
+              {/if}
+              {#if s.agno_real}
+                <div class="flex flex-col">
+                  <span class="text-[11.5px] text-[#5A5E6E]">Período</span>
+                  <span class="text-[13px] font-medium text-[#1A1A24]"
+                    >{s.semestre_real ?? '—'}º semestre {s.agno_real}</span
+                  >
+                </div>
+              {/if}
+              <div class="flex flex-col">
+                <span class="text-[11.5px] text-[#5A5E6E]">Docente titular</span>
+                <span class="text-[13px] font-medium text-[#1A1A24]">{s.docente}</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-[11.5px] text-[#5A5E6E]">Completud</span>
+                <span class="text-[13px] font-medium text-[#1A1A24]">{s.completud}%</span>
+              </div>
+            </div>
           </section>
+
+          <!-- Presentación -->
+          {#if s.descripcion}
+            <section id="sec-presentacion" class="flex flex-col gap-2">
+              <div class="flex items-baseline gap-2">
+                <span class="font-mono text-[12px] text-[#5A5E6E]">{romano('presentacion')}</span>
+                <h2 class="m-0 text-[16px] font-semibold text-[#1A1A24]">Presentación</h2>
+              </div>
+              <p class="m-0 text-pretty text-[13.5px] leading-relaxed text-[#1A1A24]">
+                {s.descripcion}
+              </p>
+            </section>
+          {/if}
+
+          <!-- Objetivos -->
+          {#if s.objetivos.length > 0}
+            <section id="sec-objetivos" class="flex flex-col gap-2">
+              <div class="flex items-baseline gap-2">
+                <span class="font-mono text-[12px] text-[#5A5E6E]">{romano('objetivos')}</span>
+                <h2 class="m-0 text-[16px] font-semibold text-[#1A1A24]">Objetivos</h2>
+              </div>
+              <ul class="m-0 flex list-disc flex-col gap-1.5 pl-[18px] text-[13.5px] text-[#1A1A24]">
+                {#each s.objetivos as obj, i (i)}
+                  <li>{obj}</li>
+                {/each}
+              </ul>
+            </section>
+          {/if}
+
+          <!-- Unidades -->
+          {#if s.unidades.length > 0}
+            <section id="sec-unidades" class="flex flex-col gap-2">
+              <div class="flex items-baseline gap-2">
+                <span class="font-mono text-[12px] text-[#5A5E6E]">{romano('unidades')}</span>
+                <h2 class="m-0 text-[16px] font-semibold text-[#1A1A24]">Unidades</h2>
+              </div>
+              <div class="overflow-hidden rounded-[10px] border border-[#E5E7EB]">
+                <table class="w-full border-collapse text-[13px]">
+                  <thead class="bg-[#F5F1EA]">
+                    <tr>
+                      <th
+                        class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]"
+                        >Unidad</th
+                      >
+                      <th
+                        class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]"
+                        >Resultado de aprendizaje</th
+                      >
+                      <th
+                        class="w-[70px] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]"
+                        >Horas</th
+                      >
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each s.unidades as unidad, ui (ui)}
+                      <tr class="border-t border-[#E5E7EB] align-top">
+                        <td class="px-3 py-2.5 font-medium text-[#1A1A24]"
+                          >{unidad.numero}. {unidad.titulo}</td
+                        >
+                        <td class="px-3 py-2.5 text-[#1A1A24]">
+                          {#if unidad.contenidos.length > 0}
+                            <ul class="m-0 flex list-disc flex-col gap-1 pl-4">
+                              {#each unidad.contenidos as contenido, ci (ci)}
+                                <li>{contenido}</li>
+                              {/each}
+                            </ul>
+                          {:else}
+                            <span class="text-[#98A0AE]">Sin resultados declarados</span>
+                          {/if}
+                        </td>
+                        <td class="px-3 py-2.5 text-[#5A5E6E]">
+                          {unidad.horas > 0 ? unidad.horas : '—'}
+                        </td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          {/if}
+
+          <!-- Evaluación -->
+          {#if s.evaluaciones.length > 0}
+            <section id="sec-evaluacion" class="flex flex-col gap-2">
+              <div class="flex items-baseline gap-2">
+                <span class="font-mono text-[12px] text-[#5A5E6E]">{romano('evaluacion')}</span>
+                <h2 class="m-0 text-[16px] font-semibold text-[#1A1A24]">Evaluación</h2>
+              </div>
+              <div class="overflow-hidden rounded-[10px] border border-[#E5E7EB]">
+                <table class="w-full border-collapse text-[13px]">
+                  <thead class="bg-[#F5F1EA]">
+                    <tr>
+                      <th
+                        class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]"
+                        >Evaluación</th
+                      >
+                      <th
+                        class="w-[110px] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]"
+                        >Ponderación</th
+                      >
+                      <th
+                        class="w-[90px] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]"
+                        >Semana</th
+                      >
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each s.evaluaciones as ev, i (i)}
+                      <tr class="border-t border-[#E5E7EB]">
+                        <td class="px-3 py-2.5 text-[#1A1A24]">{ev.descripcion}</td>
+                        <td class="px-3 py-2.5 font-mono text-[#1A1A24]">{ev.ponderacion}</td>
+                        <td class="px-3 py-2.5 text-[#5A5E6E]">
+                          {ev.semana === '' || ev.semana === null ? '—' : `Sem. ${ev.semana}`}
+                        </td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          {/if}
         {/if}
-      {/if}
-    </div>
-
-    <!-- ── Sticky Footer ── -->
-    <div class="flex-shrink-0 border-t border-gray-100 bg-white px-8 py-4">
-      <div class="flex items-center justify-between gap-3">
-        <!-- Left: completud chip -->
-        <div class="flex items-center gap-1.5">
-          <Info size={13} class="text-gray-400" />
-          {#if slideOver.syllabus}
-            <span class="text-xs text-gray-400">
-              Completud:
-              <span class="font-semibold text-gray-600">{slideOver.syllabus.completud}%</span>
-            </span>
-          {:else}
-            <span class="text-xs text-gray-300">Sin documento</span>
-          {/if}
-        </div>
-
-        <!-- Right: action buttons -->
-        <div class="flex items-center gap-2">
-          <button
-            onclick={cerrarSlideOver}
-            class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
-          >
-            Cerrar
-          </button>
-
-          {#if slideOver.syllabus && curso.estado_syllabus === 'EN_REVISION'}
-            <button
-              onclick={solicitarCambios}
-              disabled={slideOver.rejecting}
-              class="inline-flex items-center gap-1.5 rounded-lg bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-200 disabled:opacity-60"
-            >
-              <MessageSquare size={14} />
-              {slideOver.rejecting ? 'Enviando…' : 'Solicitar Cambios'}
-            </button>
-            <button
-              onclick={aprobarSyllabus}
-              disabled={slideOver.approving}
-              class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-60"
-            >
-              <CheckCircle size={14} />
-              {slideOver.approving ? 'Aprobando…' : 'Aprobar Documento'}
-            </button>
-          {:else if slideOver.syllabus && curso.estado_syllabus === 'APROBADO'}
-            <span
-              class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700"
-            >
-              <CheckCircle size={14} />
-              Documento Aprobado
-            </span>
-          {/if}
-        </div>
       </div>
     </div>
+
+    <!-- ── Footer de decisión: fijo, sólo cuando el estado la admite ── -->
+    {#if admiteDecision(curso) && slideOver.syllabus}
+      <div
+        class="flex flex-none items-center gap-3 border-t border-[#E5E7EB] bg-white px-5 py-3.5 shadow-[0_-1px_3px_rgba(0,0,0,.06)]"
+      >
+        <div class="flex min-w-0 flex-col">
+          <span class="text-[12.5px] font-semibold text-[#1A1A24]">Decisión de jefatura</span>
+          <span class="text-[12px] text-[#5A5E6E]">Queda registrada con tu nombre y fecha</span>
+        </div>
+        <div class="ml-auto flex flex-none gap-2">
+          <button onclick={abrirSolicitud} class={BTN_OUTLINE}>
+            <MessageSquare class="h-[15px] w-[15px] text-[#5A5E6E]" />
+            Solicitar cambios
+          </button>
+          <button onclick={aprobarSyllabus} disabled={slideOver.approving} class={BTN_PRIMARY}>
+            <Check class="h-[15px] w-[15px]" />
+            {slideOver.approving ? 'Aprobando…' : 'Aprobar'}
+          </button>
+        </div>
+      </div>
+    {/if}
   {/if}
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     Solicitar cambios. La razón es obligatoria: el campo nace en error y el
+     botón nunca se dibuja gris — si falta, el envío no sale y el foco vuelve
+     al textarea. Rojo porque la acción devuelve el syllabus al docente.
+════════════════════════════════════════════════════════════════════════ -->
+
+{#if solicitudAbierta && slideOver.curso}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div
+    class="fixed inset-0 z-[60] flex items-center justify-center bg-[rgba(26,26,36,.45)] p-4"
+    onclick={cerrarSolicitud}
+    role="presentation"
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div
+      class="w-full max-w-[720px] overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-[0_20px_40px_rgba(0,0,0,.15)]"
+      onclick={(e) => e.stopPropagation()}
+      role="dialog"
+      tabindex="-1"
+      aria-modal="true"
+      aria-label="Solicitar cambios"
+    >
+      <div
+        class="flex flex-wrap items-center gap-2.5 border-b border-[#E5E7EB] bg-[#FCFBF9] px-5 py-3"
+      >
+        <MessageSquare class="h-[15px] w-[15px] text-[#5A5E6E]" />
+        <span class="text-[12.5px] font-semibold text-[#1A1A24]">
+          Solicitar cambios — {slideOver.curso.cod_asignatura}
+          {slideOver.curso.nombre_asignatura}
+        </span>
+        <span class="ml-auto text-[12px] text-[#5A5E6E]">volverá a estado Rechazado</span>
+      </div>
+
+      <div class="flex flex-col gap-2 px-5 py-4">
+        <label for="razon-solicitud" class="text-[13px] font-semibold text-[#1A1A24]">
+          Razón de la solicitud <span class="text-[#DC2626]">*</span>
+        </label>
+        <textarea
+          id="razon-solicitud"
+          bind:this={razonInput}
+          bind:value={razon}
+          rows="3"
+          maxlength={RAZON_MAX}
+          placeholder="Indica qué debe corregir el docente antes de reenviar"
+          aria-invalid={razonVacia}
+          class="w-full resize-y rounded-lg border px-3 py-2.5 text-[14px] text-[#1A1A24] placeholder-[#98A0AE] focus:outline-none {razonVacia
+            ? 'border-[#DC2626]'
+            : 'border-[#002F6C] outline outline-2 outline-offset-1 outline-[rgba(0,47,108,.25)]'}"
+        ></textarea>
+        <div class="flex items-center gap-2.5">
+          <span class="text-[12px] {razonVacia ? 'text-[#DC2626]' : 'text-[#5A5E6E]'}">
+            {razonError ??
+              (razonVacia
+                ? 'La razón es obligatoria: se envía al docente y queda en el historial.'
+                : 'Se envía al docente y queda en el historial del syllabus.')}
+          </span>
+          <span class="ml-auto font-mono text-[11.5px] tabular-nums text-[#5A5E6E]">
+            {razon.length} / {RAZON_MAX}
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 border-t border-[#E5E7EB] px-5 py-3.5">
+        <button
+          onclick={cerrarSolicitud}
+          class="rounded-lg px-3 py-2.5 text-[14px] font-medium text-[#002F6C] transition-colors hover:bg-[#F5F1EA]"
+        >
+          Volver al documento
+        </button>
+        <button
+          onclick={enviarSolicitud}
+          disabled={enviandoSolicitud}
+          class="ml-auto inline-flex items-center gap-[7px] rounded-lg border border-[#DC2626] bg-[#DC2626] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#B91C1C] disabled:opacity-60"
+        >
+          <Send class="h-[15px] w-[15px]" />
+          {enviandoSolicitud ? 'Enviando…' : 'Enviar solicitud'}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}

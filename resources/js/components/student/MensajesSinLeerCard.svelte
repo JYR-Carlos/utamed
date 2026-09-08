@@ -1,77 +1,72 @@
 <script lang="ts">
   /**
-   * Aviso de mensajes de curso pendientes de leer.
+   * Mensajes de nivel curso (avisos del componente + canal con el equipo
+   * docente) pendientes de leer, agrupados por curso.
    *
-   * El alumno no tiene bandeja global: la mensajería se entra desde cada curso,
-   * así que sin este aviso un mensaje del equipo docente puede quedar días sin
-   * abrirse. Por eso el cuadro lista los cursos con pendientes y cada uno lleva
-   * directo a su bandeja.
-   *
-   * Sólo cuenta los mensajes de nivel curso (avisos al componente y el canal con
-   * el equipo docente). Las consultas de una entrega viven en la actividad.
+   * El alumno no tiene bandeja global: la mensajería se entra desde cada
+   * curso, así que sin este aviso un mensaje puede quedar días sin abrirse.
+   * Sólo cuenta mensajes de nivel curso — las consultas de una entrega viven
+   * en la actividad (agenda), no aquí.
    */
   import { Link } from '@inertiajs/svelte';
-  import { MessagesSquare, ChevronRight } from 'lucide-svelte';
+  import { Mail, ChevronRight } from 'lucide-svelte';
 
   interface CursoConMensajes {
     id_curso: number;
     nombre: string;
+    cod_curso: string;
     no_leidos: number;
   }
 
   interface Props {
-    /** Total de mensajes sin leer; con 0 el cuadro no se muestra. */
     total?: number;
     cursos?: CursoConMensajes[];
   }
 
   let { total = 0, cursos = [] }: Props = $props();
-
-  const resumen = $derived(
-    `${total} ${total === 1 ? 'mensaje sin leer' : 'mensajes sin leer'} · ` +
-      `${cursos.length} ${cursos.length === 1 ? 'curso' : 'cursos'}`,
-  );
 </script>
 
-{#if total > 0}
-  <section
-    class="mb-8 rounded-3xl border border-amber-200 bg-amber-50/60 p-6"
-    aria-label="Mensajes de curso sin leer"
-  >
-    <div class="flex items-start gap-4">
-      <div
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white"
-      >
-        <MessagesSquare class="h-5 w-5" />
-      </div>
+<section class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <div class="flex items-center gap-2">
+    <Mail class="h-4 w-4 text-slate-500" />
+    <h3 class="text-[15px] font-semibold text-slate-900">Mensajes de tus cursos</h3>
+    <span
+      class="ml-auto shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold {total > 0
+        ? 'border-red-200 bg-red-50 text-red-700'
+        : 'border-slate-200 bg-slate-100 text-slate-600'}"
+    >
+      {total}
+    </span>
+  </div>
 
-      <div class="min-w-0 flex-1">
-        <h2 class="text-base font-bold text-amber-900">
-          Tienes mensajes de curso pendientes de leer
-        </h2>
-        <p class="mt-0.5 text-sm text-amber-800/80">{resumen}</p>
-
-        <ul class="mt-4 flex flex-col gap-2">
-          {#each cursos as curso (curso.id_curso)}
-            <li>
-              <Link
-                href={`/estudiante/cursos/${curso.id_curso}/mensajeria`}
-                class="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 no-underline transition-colors hover:border-amber-300 hover:bg-amber-50"
-              >
-                <span class="truncate">{curso.nombre}</span>
-                <span class="flex shrink-0 items-center gap-2">
-                  <span
-                    class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800"
-                  >
-                    {curso.no_leidos}
-                  </span>
-                  <ChevronRight class="h-4 w-4 text-amber-700" />
-                </span>
-              </Link>
-            </li>
-          {/each}
-        </ul>
-      </div>
+  {#if cursos.length > 0}
+    <div class="flex flex-col gap-2">
+      {#each cursos as curso (curso.id_curso)}
+        <Link
+          href={`/estudiante/cursos/${curso.id_curso}/mensajeria`}
+          class="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2.5 transition-colors hover:border-slate-300 hover:bg-slate-50"
+        >
+          <div class="flex min-w-0 flex-col gap-0.5">
+            <span class="font-mono text-[10.5px] text-slate-500">{curso.cod_curso}</span>
+            <span class="truncate text-[13px] font-semibold text-slate-900">{curso.nombre}</span>
+          </div>
+          <span
+            class="ml-auto flex shrink-0 items-center gap-2 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700"
+          >
+            {curso.no_leidos}
+          </span>
+          <ChevronRight class="h-4 w-4 shrink-0 text-slate-400" />
+        </Link>
+      {/each}
     </div>
-  </section>
-{/if}
+  {:else}
+    <div
+      class="flex flex-col items-center gap-1 rounded-lg border border-dashed border-slate-200 p-4 text-center"
+    >
+      <span class="text-[13px] font-semibold text-slate-900">Sin mensajes todavía</span>
+      <p class="text-[12px] text-slate-500">
+        Aparecerán cuando el equipo docente escriba en alguno de tus cursos.
+      </p>
+    </div>
+  {/if}
+</section>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Sidebar de navegación UTAMED" description="Sidebar único de 240px para los cinco layouts: estudiante sin conmutador, docente/jefe de carrera y super admin." -->
+<helmet><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><script src="https://unpkg.com/lucide@0.544.0/dist/umd/lucide.min.js"></script><style>body{margin:0;background:#F5F1EA;font-family:Inter,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}*{box-sizing:border-box}a{color:#002F6C;text-decoration:none}a:hover{color:#00214d}</style></helmet>
+<div style="min-width:1440px;background:#F5F1EA;color:#1A1A24;font-size:14px;line-height:1.5;padding:40px 40px 72px">
+<div style="max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:28px">
+
+<header style="display:flex;align-items:flex-end;justify-content:space-between;gap:32px">
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#5A5E6E">UTAMED · componente transversal</span>
+<h1 style="font-size:28px;font-weight:600;margin:0;letter-spacing:-.01em">Sidebar de navegación</h1>
+<p style="font-size:14px;color:#5A5E6E;margin:0;max-width:760px">240px fijo, superficie blanca con borde derecho. Un solo componente para los cinco layouts: el conmutador aparece únicamente con más de una sección disponible y el cuerpo se reemplaza según la sección activa.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:4px;text-align:right;font-size:12px;color:#5A5E6E"><span>Iconos lucide · 16px · stroke 1.75</span><span>Activo: azul UTA en secciones académicas, indigo en /admin</span></div>
+</header>
+
+<div style="display:flex;gap:24px;align-items:flex-start">
+
+<div style="display:flex;flex-direction:column;gap:10px;width:320px">
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5A5E6E">a · un solo rol</span><span style="font-size:13px;font-weight:600">Estudiante — sin conmutador</span></div>
+<div style="display:flex;height:720px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);background:#F5F1EA">
+<aside style="width:240px;flex:none;background:#FFFFFF;border-right:1px solid #E5E7EB;display:flex;flex-direction:column">
+<div style="padding:18px 16px 14px;display:flex;align-items:flex-start;gap:10px"><div style="width:30px;height:30px;flex:none;border-radius:7px;background:#002F6C;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">U</div><div style="display:flex;flex-direction:column"><span style="font-size:16px;font-weight:700;letter-spacing:.04em;color:#002F6C;line-height:1.2">UTAMED</span><span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5A5E6E">Sistema de gestión</span></div></div>
+<div style="flex:1;overflow:hidden;padding:6px 12px 12px;display:flex;flex-direction:column;gap:2px">
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:34px;border-radius:8px;background:#E8EDF5;color:#002F6C;font-size:13px;font-weight:600"><i data-lucide="layout-dashboard" style="width:16px;height:16px;flex:none;color:#002F6C"></i>Dashboard</div>
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:34px;border-radius:8px;color:#1A1A24;font-size:13px;font-weight:500"><i data-lucide="book-open" style="width:16px;height:16px;flex:none;color:#5A5E6E"></i>Cursos<i data-lucide="chevron-down" style="width:14px;height:14px;flex:none;margin-left:auto;color:#5A5E6E"></i></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:2px 0 0 12px;margin-left:10px;border-left:1px solid #E5E7EB">
+<div style="display:flex;flex-direction:column;padding:6px 8px;border-radius:8px;background:#F8F7F4"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">DMU-2201</span><span style="font-size:12.5px;font-weight:500;line-height:1.35">Narrativa Interactiva</span></div>
+<div style="display:flex;flex-direction:column;padding:6px 8px;border-radius:8px"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">DMU-2304</span><span style="font-size:12.5px;font-weight:500;line-height:1.35">Modelado 3D</span></div>
+<div style="display:flex;flex-direction:column;padding:6px 8px;border-radius:8px"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">DMU-2210</span><span style="font-size:12.5px;font-weight:500;line-height:1.35">Tipografía Digital</span></div>
+<div style="display:flex;flex-direction:column;padding:6px 8px;border-radius:8px"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">DMU-2115</span><span style="font-size:12.5px;font-weight:500;line-height:1.35">Fotografía y Composición</span></div>
+</div>
+</div>
+<div style="border-top:1px solid #E5E7EB;padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:32px;border-radius:8px;color:#1A1A24;font-size:13px;font-weight:500"><i data-lucide="settings" style="width:16px;height:16px;flex:none;color:#5A5E6E"></i>Ajustes</div>
+<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#F8F7F4"><div style="width:30px;height:30px;flex:none;border-radius:999px;background:#E8EDF5;color:#002F6C;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600">VS</div><div style="display:flex;flex-direction:column;min-width:0"><span style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Valentina Soto</span><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">21.345.678-9</span></div></div>
+</div>
+</aside>
+<div style="flex:1;background:#F5F1EA"></div>
+</div>
+<p style="font-size:12px;color:#5A5E6E;margin:0">Una sola sección disponible: el conmutador no se renderiza y el cuerpo empieza directamente en Dashboard. Sin huecos ni pastilla única decorativa.</p>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px;width:320px">
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5A5E6E">b · dos roles</span><span style="font-size:13px;font-weight:600">Docente + Jefe de Carrera — sección Docente</span></div>
+<div style="display:flex;height:720px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);background:#F5F1EA">
+<aside style="width:240px;flex:none;background:#FFFFFF;border-right:1px solid #E5E7EB;display:flex;flex-direction:column">
+<div style="padding:18px 16px 14px;display:flex;align-items:flex-start;gap:10px"><div style="width:30px;height:30px;flex:none;border-radius:7px;background:#002F6C;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">U</div><div style="display:flex;flex-direction:column"><span style="font-size:16px;font-weight:700;letter-spacing:.04em;color:#002F6C;line-height:1.2">UTAMED</span><span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5A5E6E">Sistema de gestión</span></div></div>
+<div style="padding:0 12px 10px"><div style="display:flex;gap:3px;background:#F1F5F9;border-radius:10px;padding:3px">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;height:30px;border-radius:8px;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.06);color:#4F46E5;font-size:11.5px;font-weight:600;white-space:nowrap"><i data-lucide="graduation-cap" style="width:14px;height:14px;flex:none;color:#4F46E5"></i>Docente</div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;height:30px;border-radius:8px;color:#5A5E6E;font-size:11.5px;font-weight:500;white-space:nowrap"><i data-lucide="clipboard-list" style="width:14px;height:14px;flex:none;color:#5A5E6E"></i>Jefe de Carrera</div>
+</div></div>
+<div style="flex:1;overflow:hidden;padding:2px 12px 12px;display:flex;flex-direction:column;gap:10px">
+<div style="position:relative;display:flex;align-items:center"><i data-lucide="search" style="width:14px;height:14px;position:absolute;left:10px;color:#5A5E6E"></i><input placeholder="Buscar curso" style="height:32px;width:100%;border:1px solid #D6D9E0;border-radius:8px;padding:0 10px 0 30px;font:400 12.5px Inter,sans-serif;color:#1A1A24;background:#FFFFFF"></div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;align-items:center;gap:6px;padding:0 2px"><span style="font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#5A5E6E">Período vigente · 2026-1</span><i data-lucide="chevron-down" style="width:13px;height:13px;flex:none;margin-left:auto;color:#5A5E6E"></i></div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="border:1px solid #E5E7EB;border-left:3px solid #002F6C;border-radius:8px;padding:8px 10px;background:#F8FAFC;display:flex;flex-direction:column;gap:6px"><div style="display:flex;flex-direction:column"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">DMU-2201 · S1</span><span style="font-size:12.5px;font-weight:600;line-height:1.35">Narrativa Interactiva</span></div><div style="display:flex;gap:6px"><span style="background:#E8EDF5;color:#002F6C;border-radius:6px;padding:3px 7px;font-size:10.5px;font-weight:600">Programa</span><span style="background:#F5F1EA;color:#002F6C;border-radius:6px;padding:3px 7px;font-size:10.5px;font-weight:600">Actividades</span></div></div>
+<div style="border:1px solid #E5E7EB;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;flex-direction:column"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">DMU-2304 · S1</span><span style="font-size:12.5px;font-weight:600;line-height:1.35">Modelado 3D</span></div><div style="display:flex;gap:6px"><span style="background:#F5F1EA;color:#002F6C;border-radius:6px;padding:3px 7px;font-size:10.5px;font-weight:600">Programa</span><span style="background:#F5F1EA;color:#002F6C;border-radius:6px;padding:3px 7px;font-size:10.5px;font-weight:600">Actividades</span></div></div>
+<div style="border:1px solid #E5E7EB;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;flex-direction:column"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">DMU-3102 · S2</span><span style="font-size:12.5px;font-weight:600;line-height:1.35">Animación Digital</span></div><div style="display:flex;gap:6px"><span style="background:#F5F1EA;color:#002F6C;border-radius:6px;padding:3px 7px;font-size:10.5px;font-weight:600">Programa</span><span style="background:#F5F1EA;color:#002F6C;border-radius:6px;padding:3px 7px;font-size:10.5px;font-weight:600">Actividades</span></div></div>
+<div style="border:1px solid #E5E7EB;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;flex-direction:column"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">DMU-3410 · S1</span><span style="font-size:12.5px;font-weight:600;line-height:1.35">Diseño de Interfaces</span></div><div style="display:flex;gap:6px"><span style="background:#F5F1EA;color:#002F6C;border-radius:6px;padding:3px 7px;font-size:10.5px;font-weight:600">Programa</span><span style="background:#F5F1EA;color:#002F6C;border-radius:6px;padding:3px 7px;font-size:10.5px;font-weight:600">Actividades</span></div></div>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#F8F7F4"><i data-lucide="chevron-right" style="width:13px;height:13px;flex:none;color:#5A5E6E"></i><span style="font-size:12.5px;font-weight:600">Histórico</span><span style="margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">7</span></div>
+</div>
+<div style="border-top:1px solid #E5E7EB;padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:32px;border-radius:8px;color:#1A1A24;font-size:13px;font-weight:500"><i data-lucide="settings" style="width:16px;height:16px;flex:none;color:#5A5E6E"></i>Ajustes</div>
+<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#F8F7F4"><div style="width:30px;height:30px;flex:none;border-radius:999px;background:#E8EDF5;color:#002F6C;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600">CM</div><div style="display:flex;flex-direction:column;min-width:0"><span style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Carolina Molina</span><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">14.882.201-K</span></div></div>
+</div>
+</aside>
+<div style="flex:1;background:#F5F1EA"></div>
+</div>
+<p style="font-size:12px;color:#5A5E6E;margin:0">El curso abierto lleva indicador azul UTA y su acceso "Programa" en estado activo: el sidebar declara el contexto además del rol.</p>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px;width:320px">
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5A5E6E">c · /admin</span><span style="font-size:13px;font-weight:600">Super Admin — sección Administración</span></div>
+<div style="display:flex;height:720px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);background:#F5F1EA">
+<aside style="width:240px;flex:none;background:#FFFFFF;border-right:1px solid #E5E7EB;display:flex;flex-direction:column">
+<div style="padding:18px 16px 14px;display:flex;align-items:flex-start;gap:10px"><div style="width:30px;height:30px;flex:none;border-radius:7px;background:#002F6C;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">U</div><div style="display:flex;flex-direction:column"><span style="font-size:16px;font-weight:700;letter-spacing:.04em;color:#002F6C;line-height:1.2">UTAMED</span><span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5A5E6E">Sistema de gestión</span></div></div>
+<div style="padding:0 12px 10px"><div style="display:flex;gap:3px;background:#F1F5F9;border-radius:10px;padding:3px">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;height:30px;border-radius:8px;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.06);color:#4F46E5;font-size:11.5px;font-weight:600;white-space:nowrap"><i data-lucide="building-2" style="width:14px;height:14px;flex:none;color:#4F46E5"></i>Administración</div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;height:30px;border-radius:8px;color:#5A5E6E;font-size:11.5px;font-weight:500;white-space:nowrap"><i data-lucide="graduation-cap" style="width:14px;height:14px;flex:none;color:#5A5E6E"></i>Docente</div>
+</div></div>
+<div style="flex:1;overflow:hidden;padding:2px 12px 12px;display:flex;flex-direction:column;gap:2px">
+<span style="font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#5A5E6E;padding:4px 2px 6px">Administración</span>
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:34px;border-radius:8px;background:#EEF2FF;color:#4F46E5;font-size:13px;font-weight:600"><i data-lucide="users" style="width:16px;height:16px;flex:none;color:#4F46E5"></i>Usuarios</div>
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:34px;border-radius:8px;font-size:13px;font-weight:500"><i data-lucide="landmark" style="width:16px;height:16px;flex:none;color:#5A5E6E"></i>Facultades</div>
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:34px;border-radius:8px;font-size:13px;font-weight:500"><i data-lucide="building-2" style="width:16px;height:16px;flex:none;color:#5A5E6E"></i>Departamentos</div>
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:34px;border-radius:8px;font-size:13px;font-weight:500"><i data-lucide="graduation-cap" style="width:16px;height:16px;flex:none;color:#5A5E6E"></i>Carreras</div>
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:34px;border-radius:8px;font-size:13px;font-weight:500"><i data-lucide="book-open" style="width:16px;height:16px;flex:none;color:#5A5E6E"></i>Asignaturas</div>
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:34px;border-radius:8px;font-size:13px;font-weight:500"><i data-lucide="clipboard-list" style="width:16px;height:16px;flex:none;color:#5A5E6E"></i>Planes</div>
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:34px;border-radius:8px;font-size:13px;font-weight:500"><i data-lucide="calendar-range" style="width:16px;height:16px;flex:none;color:#5A5E6E"></i>Cursos Ofertados</div>
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:34px;border-radius:8px;font-size:13px;font-weight:500"><i data-lucide="user-check" style="width:16px;height:16px;flex:none;color:#5A5E6E"></i>Inscripciones</div>
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:34px;border-radius:8px;font-size:13px;font-weight:500"><i data-lucide="scroll-text" style="width:16px;height:16px;flex:none;color:#5A5E6E"></i>Syllabus</div>
+</div>
+<div style="border-top:1px solid #E5E7EB;padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:10px;padding:0 10px;height:32px;border-radius:8px;color:#1A1A24;font-size:13px;font-weight:500"><i data-lucide="settings" style="width:16px;height:16px;flex:none;color:#5A5E6E"></i>Ajustes</div>
+<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#F8F7F4"><div style="width:30px;height:30px;flex:none;border-radius:999px;background:#E8EDF5;color:#002F6C;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600">RF</div><div style="display:flex;flex-direction:column;min-width:0;gap:2px"><div style="display:flex;align-items:center;gap:6px;min-width:0"><span style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">R. Fuentes</span><span style="flex:none;background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;border-radius:999px;padding:1px 6px;font-size:9px;font-weight:700;letter-spacing:.06em">SUPER ADMIN</span></div><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">9.442.108-3</span></div></div>
+</div>
+</aside>
+<div style="flex:1;background:#F5F1EA"></div>
+</div>
+<p style="font-size:12px;color:#5A5E6E;margin:0">Indigo sólo aquí: pastilla activa del conmutador y destino activo. La pill roja identifica privilegio, no una paleta distinta.</p>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px;width:280px">
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5A5E6E">detalle</span><span style="font-size:13px;font-weight:600">Histórico expandido</span></div>
+<div style="width:240px;background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:12px;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:6px;padding:0 2px"><span style="font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#5A5E6E">Período vigente · 2026-1</span><i data-lucide="chevron-right" style="width:13px;height:13px;flex:none;margin-left:auto;color:#5A5E6E"></i></div>
+<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#F8F7F4"><i data-lucide="chevron-down" style="width:13px;height:13px;flex:none;color:#5A5E6E"></i><span style="font-size:12.5px;font-weight:600">Histórico</span><span style="margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">7</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;padding-left:10px;margin-left:6px;border-left:1px solid #E5E7EB">
+<div style="display:flex;align-items:center;gap:6px;padding:2px 2px"><i data-lucide="chevron-down" style="width:12px;height:12px;flex:none;color:#5A5E6E"></i><span style="font-size:11px;font-weight:600;color:#5A5E6E">Año 2025 · Semestre 2</span><span style="margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:#5A5E6E">4</span></div>
+<div style="border:1px solid #E5E7EB;border-radius:8px;padding:7px 9px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;flex-direction:column"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">DMU-2201 · S1</span><span style="font-size:12px;font-weight:600;line-height:1.35">Narrativa Interactiva</span></div><div style="display:flex;gap:6px"><span style="background:#F5F1EA;color:#002F6C;border-radius:6px;padding:3px 7px;font-size:10.5px;font-weight:600">Programa</span><span style="background:#F5F1EA;color:#002F6C;border-radius:6px;padding:3px 7px;font-size:10.5px;font-weight:600">Actividades</span></div></div>
+<div style="border:1px solid #E5E7EB;border-radius:8px;padding:7px 9px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;flex-direction:column"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#5A5E6E">DMU-1101 · S2</span><span style="font-size:12px;font-weight:600;line-height:1.35">Taller de Diseño I</span></div><div style="display:flex;gap:6px"><span style="background:#F5F1EA;color:#002F6C;border-radius:6px;padding:3px 7px;font-size:10.5px;font-weight:600">Programa</span><span style="background:#F5F1EA;color:#002F6C;border-radius:6px;padding:3px 7px;font-size:10.5px;font-weight:600">Actividades</span></div></div>
+<div style="display:flex;align-items:center;gap:6px;padding:2px 2px"><i data-lucide="chevron-right" style="width:12px;height:12px;flex:none;color:#5A5E6E"></i><span style="font-size:11px;font-weight:600;color:#5A5E6E">Año 2025 · Semestre 1</span><span style="margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:#5A5E6E">3</span></div>
+</div>
+</div>
+<p style="font-size:12px;color:#5A5E6E;margin:0">El histórico agrupa por "Año · Semestre" y abre un grupo a la vez. Los cursos cerrados conservan los mismos accesos en sólo lectura.</p>
+<div style="width:240px;background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:14px;display:flex;flex-direction:column;gap:10px">
+<span style="font-size:13px;font-weight:600">Reglas del componente</span>
+<ul style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:7px;font-size:12px;color:#5A5E6E">
+<li>El conmutador se renderiza sólo con 2+ secciones; conmuta sin recargar.</li>
+<li>Misma paleta en todos los roles; el rol activo se lee en la pastilla blanca.</li>
+<li>Las secciones sin permiso no aparecen: nunca pastillas grises.</li>
+<li>Cabecera y pie fijos; sólo el cuerpo desplaza.</li>
+</ul>
+</div>
+</div>
+
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount(){ this.paint(); }
+  componentDidUpdate(){ this.paint(); }
+  paint(){
+    const go = () => {
+      if (window.lucide && window.lucide.createIcons) window.lucide.createIcons({ attrs: { 'stroke-width': 1.75 } });
+      else setTimeout(go, 100);
+    };
+    go();
+  }
+}
+</script>
+</body>
+</html>

@@ -138,6 +138,15 @@ class DepartamentoController extends Controller
     public function destroy(Departamento $departamento)
     {
         $this->authorize('delete', $departamento);
+
+        // Departamento usa SoftDeletes: delete() nunca lanza excepción por FK, así que
+        // el catch de abajo no detectaba carreras asociadas. Chequeo explícito
+        // (mismo patrón que AsignaturaController::destroy).
+        if ($departamento->carreras()->count() > 0) {
+            return redirect()->route('admin.departamentos.index')
+                ->with('error', 'No se puede eliminar el departamento porque tiene carreras asociadas.');
+        }
+
         try {
             $departamento->delete();
 
@@ -145,7 +154,7 @@ class DepartamentoController extends Controller
                 ->with('success', 'Departamento eliminado exitosamente.');
         } catch (\Exception $e) {
             return redirect()->route('admin.departamentos.index')
-                ->with('error', 'No se puede eliminar el departamento porque tiene carreras asociadas.');
+                ->with('error', 'No se pudo eliminar el departamento: ' . $e->getMessage());
         }
     }
 }
