@@ -21,7 +21,14 @@
    */
   type EscalaDraft = { _id: string; criterio: string };
   type ColumnaDraft = { _id: string; nombre: string; puntos: number | string };
-  type NivelDraft = { _id: string; nombre: string; descripcion: string; escalas: EscalaDraft[] };
+  type NivelDraft = {
+    _id: string;
+    nombre: string;
+    descripcion: string;
+    /** Peso del criterio en porcentaje; entre todos deben sumar 100. */
+    ponderacion: number | string;
+    escalas: EscalaDraft[];
+  };
   type EscalaCalif = { _id: string; puntaje_minimo: number | string; evaluacion: string };
 
   /**
@@ -44,7 +51,23 @@
   }
 
   function makeNivel(cols: number): NivelDraft {
-    return { _id: uid(), nombre: '', descripcion: '', escalas: makeEscalas(cols) };
+    return { _id: uid(), nombre: '', descripcion: '', ponderacion: '', escalas: makeEscalas(cols) };
+  }
+
+  /**
+   * Reparte 100 % entre `total` criterios con dos decimales.
+   *
+   * El sobrante va al primero: con tres criterios, 33,33 % cada uno suma 99,99
+   * y la rúbrica no se podría guardar nunca. Repartir parejo y cuadrar el resto
+   * en una fila es lo que hace que «exactamente 100» sea alcanzable a mano.
+   */
+  function repartirPonderacion(total: number): number[] {
+    if (total <= 0) return [];
+    const base = Math.floor((100 / total) * 100) / 100;
+    const resto = Math.round((100 - base * total) * 100) / 100;
+    return Array.from({ length: total }, (_, i) =>
+      i === 0 ? Math.round((base + resto) * 100) / 100 : base,
+    );
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -83,11 +106,22 @@
   const columnasIniciales = initColumnas();
 
   function initNiveles(): NivelDraft[] {
-    if (!rubrica?.niveles?.length) return [makeNivel(columnasIniciales.length)];
-    return rubrica.niveles.map((n) => ({
+    if (!rubrica?.niveles?.length) {
+      const nuevo = makeNivel(columnasIniciales.length);
+      return [{ ...nuevo, ponderacion: 100 }];
+    }
+
+    // Rúbricas guardadas sin ponderación: se reparte el 100 % en partes
+    // iguales en vez de dejarlas en cero. Con cero, abrir una rúbrica vieja
+    // para corregirle una tilde la volvería inguardable hasta rellenar a mano
+    // todas las filas.
+    const reparto = repartirPonderacion(rubrica.niveles.length);
+
+    return rubrica.niveles.map((n, i) => ({
       _id: uid(),
       nombre: n.nombre,
       descripcion: n.descripcion,
+      ponderacion: n.ponderacion ?? reparto[i],
       escalas: n.escalas.map((e) => ({ _id: uid(), criterio: e.criterio })),
     }));
   }
@@ -128,6 +162,24 @@
 
   const puntajeTotal = $derived(niveles.length * puntajeMaximoCriterio);
 
+  /**
+   * Suma de ponderaciones, redondeada a dos decimales.
+   *
+   * El redondeo no es cosmético: 33.34 + 33.33 + 33.33 da 100.00000000000001 en
+   * coma flotante, y sin redondear la comparación con 100 fallaría justo en el
+   * caso que el reparto automático produce.
+   */
+  const ponderacionTotal = $derived(
+    Math.round(niveles.reduce((sum, n) => sum + (Number(n.ponderacion) || 0), 0) * 100) / 100,
+  );
+
+  const ponderacionValida = $derived(ponderacionTotal === 100);
+
+  function igualarPonderaciones() {
+    const reparto = repartirPonderacion(niveles.length);
+    niveles = niveles.map((n, i) => ({ ...n, ponderacion: reparto[i] }));
+  }
+
   const rubricaPreview = $derived<Rubrica>({
     columnas: columnas.map((c) => ({
       id: c._id,
@@ -138,6 +190,7 @@
       id: n._id,
       nombre: n.nombre || '(criterio)',
       descripcion: n.descripcion || '',
+      ponderacion: Number(n.ponderacion) || 0,
       nro_escalas: columnas.length,
       puntaje_minimo: 0,
       puntaje_total: puntajeMaximoCriterio,
@@ -230,6 +283,10 @@
       error = 'Todos los criterios deben tener un nombre.';
       return false;
     }
+    if (!ponderacionValida) {
+      error = `Las ponderaciones deben sumar exactamente 100 % (ahora suman ${ponderacionTotal} %).`;
+      return false;
+    }
     if (niveles.some((n) => n.escalas.some((e) => !e.criterio.trim()))) {
       error = 'Todas las celdas de la rúbrica deben tener una descripción.';
       return false;
@@ -249,9 +306,13 @@
           saving = false;
           onClose();
         },
-        onError: () => {
+        onError: (errores) => {
           saving = false;
-          error = 'Error al guardar la rúbrica.';
+          // El servidor revalida la ponderación por su cuenta. Si rechaza, hay
+          // que decir por qué: con un «Error al guardar» genérico, el docente
+          // ve un botón habilitado que no funciona y no tiene cómo saber que el
+          // problema es la suma de los porcentajes.
+          error = Object.values(errores ?? {})[0] ?? 'Error al guardar la rúbrica.';
         },
       },
     );
@@ -299,7 +360,8 @@
 
     <button
       onclick={guardar}
-      disabled={saving}
+      disabled={saving || !ponderacionValida}
+      title={ponderacionValida ? undefined : `Las ponderaciones suman ${ponderacionTotal} %`}
       class="shrink-0 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:opacity-90 transition disabled:opacity-50"
     >
       {saving ? 'Guardando…' : 'Guardar Rúbrica'}
@@ -329,6 +391,28 @@
             del nivel más alto. El puntaje se define arriba, en cada columna, y vale para toda la
             columna.
           </p>
+
+          <!--
+            Contador vivo de ponderación. Va junto al puntaje total y no dentro
+            de la tabla porque es una propiedad de la rúbrica entera: mirando
+            una fila no se puede saber si el conjunto cuadra.
+          -->
+          <div class="border-l border-primary/10 pl-6">
+            <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Ponderación</p>
+            <p
+              class="text-3xl font-black {ponderacionValida ? 'text-emerald-600' : 'text-amber-600'}"
+            >
+              {ponderacionTotal}%
+            </p>
+            {#if !ponderacionValida}
+              <button
+                onclick={igualarPonderaciones}
+                class="text-[11px] font-semibold text-primary/70 underline hover:no-underline"
+              >
+                Repartir en partes iguales
+              </button>
+            {/if}
+          </div>
 
           <!-- Plantillas de niveles -->
           <div class="ml-auto flex flex-col gap-1.5">
@@ -437,6 +521,23 @@
                         rows="2"
                         class="w-full text-xs text-gray-500 italic bg-white border border-gray-200 rounded-xl px-3 py-2 resize-none focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20"
                       ></textarea>
+                      <div
+                        class="flex items-center gap-1.5 bg-white border rounded-xl px-3 py-2 {ponderacionValida
+                          ? 'border-gray-200'
+                          : 'border-amber-300'}"
+                      >
+                        <input
+                          type="number"
+                          bind:value={nivel.ponderacion}
+                          placeholder="0"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          aria-label="Ponderación de {nivel.nombre || 'este criterio'} en porcentaje"
+                          class="w-16 text-sm font-bold text-gray-800 bg-transparent focus:outline-none"
+                        />
+                        <span class="text-xs text-gray-400 font-medium">% de la nota</span>
+                      </div>
                       {#if niveles.length > 1}
                         <button
                           onclick={() => removeNivel(nivel._id)}
