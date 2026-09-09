@@ -297,6 +297,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('inscripciones_cursos.export.csv');
     Route::post('cursos/{curso}/inscripcion-automatica', [InscripcionCursoController::class, 'inscripcionAutomatica'])
         ->name('cursos.inscripcion-automatica');
+    Route::post('cursos/{curso}/sincronizar-inscripciones', [InscripcionCursoController::class, 'sincronizarInscripciones'])
+        ->name('cursos.sincronizar-inscripciones');
 
     // Componente Management for Courses
     Route::post('cursos/{curso}/componentes', [AdminSeccionController::class, 'store'])

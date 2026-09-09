@@ -535,5 +535,86 @@ class InscripcionCursoController extends Controller
         }
     }
 
+    /**
+     * Sincroniza el roster completo contra la Intranet: inscribe a quien apareció
+     * y retira a quien botó el ramo.
+     *
+     * Va aparte de `inscripcionAutomatica` y no como una bandera suya porque no
+     * son la misma acción para quien la ejecuta: una sólo agrega y la otra
+     * también da de baja. Fusionarlas dejaría un botón cuyo efecto depende de un
+     * parámetro que no se ve en la pantalla.
+     *
+     * Pide el mismo permiso que la inscripción automática: quien puede armar el
+     * roster desde la Intranet es quien puede corregirlo contra ella.
+     */
+    public function sincronizarInscripciones(Request $request, int $idCurso, IntranetService $intranetService)
+    {
+        $curso = Curso::findOrFail($idCurso);
+
+        $user = $request->user();
+        abort_unless(
+            $user && (
+                $user->can(Permissions::CURSOS_INSCRIPCIONES_INSCRIBIR_ALUMNOS, $curso)
+                || $user->can('create', [InscripcionCurso::class, $curso])
+                || $user->can('create', InscripcionCurso::class)
+            ),
+            403,
+            'No autorizado para sincronizar inscripciones en este curso.'
+        );
+
+        try {
+            $resultado = $intranetService->sincronizarInscripciones($curso);
+            $inscripcion = $resultado->inscripcion;
+
+            $mensaje = sprintf(
+                'Sincronización completada: %d alumno(s) inscrito(s), %d reactivado(s), %d retirado(s).',
+                $inscripcion->inscritos_exitosamente,
+                count($resultado->reactivados),
+                count($resultado->retirados)
+            );
+
+            // Las advertencias son parte del resultado, no ruido: si no se retiró
+            // a nadie por lectura incompleta, un "sincronización completada" a
+            // secas haría creer que el roster ya está al día.
+            $avisos = array_merge($inscripcion->advertencias, $resultado->advertencias);
+            if ($avisos !== []) {
+                $mensaje .= ' Advertencias: ' . implode(' | ', $avisos);
+            }
+
+            if ($request->header('X-Inertia')) {
+                // 'error' y no 'warning' cuando el retiro no se aplicó: el
+                // middleware de Inertia sólo comparte flash.success y
+                // flash.error, y una tercera clave se perdería en silencio,
+                // que es justo lo que no puede pasar con este aviso.
+                return redirect()->back()->with(
+                    $resultado->retiro_aplicado ? 'success' : 'error',
+                    $mensaje
+                );
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $mensaje,
+                'data'    => $resultado->toArray(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error al sincronizar inscripciones del curso #{$idCurso}: " . $e->getMessage(), [
+                'exception' => get_class($e),
+                'file'      => $e->getFile() . ':' . $e->getLine(),
+            ]);
+
+            $mensajeError = 'No se pudo sincronizar el roster con la Intranet: ' . $e->getMessage();
+
+            if ($request->header('X-Inertia')) {
+                return redirect()->back()->with('error', $mensajeError);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $mensajeError,
+            ], 422);
+        }
+    }
+
 }
 

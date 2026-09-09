@@ -12,6 +12,12 @@
    * - CursoSelector: Grid de selección de curso
    * - RosterTable: Tabla con máquina de estados inline
    * - AddEstudiantesModal: Modal de inscripción masiva
+   *
+   * Sobre el roster vive además la sincronización con la Intranet, que es la
+   * fuente de verdad del ramo: inscribe a quien apareció y retira a quien lo
+   * botó. Es una acción destructiva en el sentido de que cambia el estado de
+   * alumnos que hoy figuran inscritos, así que pide confirmación y muestra
+   * nombre por nombre a quién tocó.
    */
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import { router } from '@inertiajs/svelte';
@@ -141,6 +147,63 @@
     router.visit('/admin/inscripciones_cursos');
   }
 
+  // ── Sincronización con la Intranet ──────────────────────────────────────────
+
+  /** Lo que devuelve /admin/cursos/{id}/sincronizar-inscripciones. */
+  interface ResultadoSync {
+    inscripcion: {
+      inscritos_exitosamente: number;
+      alumnos_creados: number;
+      ya_inscritos: number;
+      advertencias: string[];
+    };
+    retirados: Array<{ rut: string | null; nombre: string | null }>;
+    reactivados: Array<{ rut: string | null; nombre: string | null }>;
+    componentes_sin_respaldo: number;
+    retiro_aplicado: boolean;
+    advertencias: string[];
+  }
+
+  let sincronizando = $state(false);
+  let confirmandoSync = $state(false);
+  let resultadoSync = $state<ResultadoSync | null>(null);
+
+  async function sincronizarConIntranet() {
+    if (!activeCursoId) return;
+    confirmandoSync = false;
+    sincronizando = true;
+    resultadoSync = null;
+
+    try {
+      const res = await fetch(`/admin/cursos/${activeCursoId}/sincronizar-inscripciones`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN':
+            document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+        },
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message ?? 'No se pudo sincronizar con la Intranet.');
+      }
+
+      resultadoSync = json.data as ResultadoSync;
+      // El roster acaba de cambiar en el servidor: se recarga en vez de
+      // parchearlo a mano, porque la sincronización toca filas que esta
+      // pantalla no sabe cuáles son hasta ver la respuesta.
+      await loadRoster(activeCursoId);
+      showToast(json.message, resultadoSync.retiro_aplicado ? 'success' : 'error');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Error al sincronizar', 'error');
+    } finally {
+      sincronizando = false;
+    }
+  }
+
   // ── Toast ────────────────────────────────────────────────────────────────────
   let toast = $state<{ msg: string; type: 'success' | 'error' } | null>(null);
   let toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -154,6 +217,86 @@
 
 <AdminLayout {breadcrumbs}>
   {#if isRosterMode}
+    <!-- ── Sincronización con la Intranet ── -->
+    <div class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-[#C9D6E6] bg-[#F5F8FC] px-4 py-3">
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-semibold text-[#002F6C]">Sincronizar con la Intranet</p>
+        <p class="mt-0.5 text-xs text-[#5A5E6E]">
+          Inscribe a los alumnos que aparecen en el acta y deja en RETIRADO a los que ya no
+          figuran. No borra inscripciones: el estado es reversible.
+        </p>
+      </div>
+
+      {#if confirmandoSync}
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium text-[#B45309]">
+            Se dará de baja a quien ya no figure en la Intranet. ¿Continuar?
+          </span>
+          <button
+            onclick={sincronizarConIntranet}
+            class="rounded-lg bg-[#002F6C] px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+          >
+            Sí, sincronizar
+          </button>
+          <button
+            onclick={() => (confirmandoSync = false)}
+            class="rounded-lg border border-[#D6D9E0] bg-white px-3 py-2 text-xs font-semibold text-[#5A5E6E] transition hover:text-[#1A1A24]"
+          >
+            Cancelar
+          </button>
+        </div>
+      {:else}
+        <button
+          onclick={() => (confirmandoSync = true)}
+          disabled={sincronizando}
+          class="shrink-0 rounded-lg bg-[#002F6C] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+        >
+          {sincronizando ? 'Sincronizando…' : 'Sincronizar roster'}
+        </button>
+      {/if}
+    </div>
+
+    <!--
+      Resultado nombre por nombre. Un contador («3 retirados») no permite
+      revisar si la baja fue correcta, que es justo lo que alguien querría
+      comprobar después de una acción que cambia el estado de sus alumnos.
+    -->
+    {#if resultadoSync}
+      <div class="mb-4 space-y-3 rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm">
+        <p class="font-semibold text-[#1A1A24]">
+          {resultadoSync.inscripcion.inscritos_exitosamente} inscrito(s) ·
+          {resultadoSync.reactivados.length} reactivado(s) ·
+          {resultadoSync.retirados.length} retirado(s)
+        </p>
+
+        {#if resultadoSync.retirados.length > 0}
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-[#B45309]">Retirados</p>
+            <ul class="mt-1 space-y-0.5 text-xs text-[#5A5E6E]">
+              {#each resultadoSync.retirados as alumno}
+                <li>{alumno.nombre ?? '—'} <span class="text-[#98A0AE]">({alumno.rut ?? 's/rut'})</span></li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+
+        {#if resultadoSync.reactivados.length > 0}
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-emerald-700">Reactivados</p>
+            <ul class="mt-1 space-y-0.5 text-xs text-[#5A5E6E]">
+              {#each resultadoSync.reactivados as alumno}
+                <li>{alumno.nombre ?? '—'} <span class="text-[#98A0AE]">({alumno.rut ?? 's/rut'})</span></li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+
+        {#each [...resultadoSync.inscripcion.advertencias, ...resultadoSync.advertencias] as aviso}
+          <p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{aviso}</p>
+        {/each}
+      </div>
+    {/if}
+
     <RosterTable
       {roster}
       {loadingRoster}
