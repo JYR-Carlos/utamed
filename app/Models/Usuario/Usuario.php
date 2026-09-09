@@ -12,6 +12,7 @@ use Illuminate\Foundation\Auth\Access\Authorizable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Hash;
 use App\Services\Authorization\GlobalContextService;
 use App\Services\Authorization\PermissionValidator;
 use App\Contracts\HasContext;
@@ -48,6 +49,34 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
+     * Meses que vale una contraseña antes de que el sistema exija cambiarla.
+     *
+     * Vive aquí, junto a las dos funciones que lo usan, para que la política se
+     * ajuste en un solo sitio y no en cada middleware o vista que la consulte.
+     */
+    public const VIGENCIA_PASSWORD_MESES = 6;
+
+    /** Todavía usa la clave con la que se creó la cuenta. */
+    public const CAMBIO_PASSWORD_PRIMER_INGRESO = 'primer_ingreso';
+
+    /** La eligió ella misma, pero ya pasó {@see self::VIGENCIA_PASSWORD_MESES}. */
+    public const CAMBIO_PASSWORD_VENCIDA = 'vencida';
+
+    /**
+     * `fecha_cambio_passhash` es un timestamp: sin el cast llega como string y
+     * cualquier comparación de fechas queda a merced del formato.
+     *
+     * Se declara con el método `casts()` —y no tocando `$casts`— porque la
+     * propiedad la define BaseUsuario, que se regenera; Eloquent mezcla ambas.
+     */
+    protected function casts(): array
+    {
+        return [
+            'fecha_cambio_passhash' => 'datetime',
+        ];
+    }
+
+    /**
      * Get the password for the user.
      * Overrides default 'password' column.
      *
@@ -56,6 +85,55 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     public function getAuthPassword()
     {
         return $this->passhash;
+    }
+
+    /**
+     * Guarda una contraseña nueva elegida por el propio usuario y deja
+     * constancia de cuándo lo hizo.
+     *
+     * Las dos escrituras van juntas a propósito: si el hash se pudiera cambiar
+     * sin mover la fecha, la política de vigencia mediría cualquier otra cosa.
+     * Por eso este es el único camino que la aplicación usa para un cambio
+     * voluntario de clave.
+     *
+     * No es mass assignment: `passhash` está en `$fillable` pero
+     * `fecha_cambio_passhash` no, y añadirla abriría la puerta a que una
+     * petición la fijara sola.
+     */
+    public function cambiarPassword(string $passwordPlano): void
+    {
+        $this->passhash = Hash::make($passwordPlano);
+        $this->fecha_cambio_passhash = now();
+        $this->save();
+    }
+
+    /**
+     * Motivo por el que hay que obligar al cambio de contraseña, o null si la
+     * clave está vigente.
+     *
+     * Devuelve el motivo en vez de un booleano porque la pantalla de cambio
+     * explica cosas distintas según el caso, y así no tiene que volver a
+     * deducirlo con la misma lógica escrita dos veces.
+     *
+     * @return self::CAMBIO_PASSWORD_*|null
+     */
+    public function motivoCambioPasswordObligatorio(): ?string
+    {
+        if ($this->fecha_cambio_passhash === null) {
+            return self::CAMBIO_PASSWORD_PRIMER_INGRESO;
+        }
+
+        if ($this->fecha_cambio_passhash->lessThan(now()->subMonths(self::VIGENCIA_PASSWORD_MESES))) {
+            return self::CAMBIO_PASSWORD_VENCIDA;
+        }
+
+        return null;
+    }
+
+    /** ¿El sistema debe interceptar a este usuario para que cambie su clave? */
+    public function debeCambiarPassword(): bool
+    {
+        return $this->motivoCambioPasswordObligatorio() !== null;
     }
 
     /**

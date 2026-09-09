@@ -11,6 +11,7 @@
      * - Manejo de errores con focus automático en campos con error
      * - Mensaje de éxito tras actualización
      * - Reset de formulario tras éxito o error
+     * - Aviso cuando el cambio es obligatorio (primer ingreso o clave vencida)
      */
     import PasswordController from '@/actions/App/Http/Controllers/Settings/PasswordController';
 import HeadingSmall from '@/components/custom/common/HeadingSmall.svelte';
@@ -26,6 +27,21 @@ import HeadingSmall from '@/components/custom/common/HeadingSmall.svelte';
     import { Form } from '@inertiajs/svelte';
     import { fade } from 'svelte/transition';
 
+    interface Props {
+        /**
+         * Por qué el sistema está exigiendo el cambio, o null si la clave está
+         * vigente. Lo decide el backend (`Usuario::motivoCambioPasswordObligatorio`),
+         * que es el mismo criterio con el que el middleware bloquea la navegación:
+         * si la vista lo recalculara por su cuenta, el aviso y el bloqueo podrían
+         * discrepar.
+         */
+        motivoCambioObligatorio: 'primer_ingreso' | 'vencida' | null;
+        /** Meses de vigencia de la política, para no repetir el "6" en el texto. */
+        vigenciaMeses: number;
+    }
+
+    let { motivoCambioObligatorio, vigenciaMeses }: Props = $props();
+
     const breadcrumbItems: BreadcrumbItem[] = [
         {
             title: 'Password Settings',
@@ -35,6 +51,14 @@ import HeadingSmall from '@/components/custom/common/HeadingSmall.svelte';
 
     let passwordInput = $state(null as unknown as HTMLInputElement);
     let currentPasswordInput = $state(null as unknown as HTMLInputElement);
+
+    let avisoObligatorio = $derived(
+        motivoCambioObligatorio === 'primer_ingreso'
+            ? 'Estás usando la contraseña con la que se creó tu cuenta. Elige una nueva para continuar.'
+            : motivoCambioObligatorio === 'vencida'
+              ? `Han pasado más de ${vigenciaMeses} meses desde tu último cambio de contraseña. Elige una nueva para continuar.`
+              : null,
+    );
 </script>
 
 <svelte:head>
@@ -45,6 +69,19 @@ import HeadingSmall from '@/components/custom/common/HeadingSmall.svelte';
     <SettingsLayout>
         <div class="space-y-6">
             <HeadingSmall title="Update Password" description="Ensure your account is using a long, random password to stay secure" />
+
+            {#if avisoObligatorio}
+                <div
+                    role="alert"
+                    class="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                    <p class="font-medium">Cambio de contraseña obligatorio</p>
+                    <p class="mt-1">{avisoObligatorio}</p>
+                    <p class="mt-1 text-amber-800 dark:text-amber-200/80">
+                        Mientras tanto, el resto del sistema no está disponible.
+                    </p>
+                </div>
+            {/if}
 
             <Form
                 {...PasswordController.update.form()}
