@@ -60,6 +60,11 @@
     id_actividad_asignada_grupo?: number | null;
     listado_interacciones: Interaccion[];
     equipoDocente?: Array<{ nombre: string; es_titular: boolean }>;
+    /**
+     * Sumativa → la rúbrica del detalle explica el corte de la nota 4,0.
+     * Formativa → muestra la escala cualitativa. Lo decide la actividad.
+     */
+    esSumativa?: boolean;
   }
 
   let {
@@ -74,6 +79,7 @@
     listado_interacciones,
     equipoDocente = [],
     inline = false,
+    esSumativa = undefined,
   }: Props = $props();
 
   type Filtro = 'todo' | 'docente' | 'mios' | 'entregas';
@@ -354,6 +360,7 @@
         retroalimentacion={interaccionSeleccionada.retroalimentacion}
         resultado={interaccionSeleccionada.resultado}
         modoLectura={true}
+        {esSumativa}
       />
     </div>
   {:else if !inline}

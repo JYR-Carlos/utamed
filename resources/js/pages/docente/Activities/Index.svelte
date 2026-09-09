@@ -441,6 +441,8 @@
     tipo: string;
     mensaje: string;
     nota?: number;
+    /** Resultado cualitativo con el que cierra una actividad formativa. */
+    evaluacion_obtenida?: string | null;
     id_agenda_entrega?: number | null;
     resultado_rubrica?: Record<string, string>;
     puntaje_obtenido?: number;
@@ -458,7 +460,10 @@
         {
           id_agenda_entrega: data.id_agenda_entrega ?? null,
           id_rubrica: rubrica_id,
-          nota: data.nota ?? null,
+          // Uno u otro según el tipo de actividad: el servidor rechaza una nota
+          // numérica en una formativa y la exige en una sumativa.
+          nota: actividad.es_sumativa ? (data.nota ?? null) : null,
+          evaluacion_obtenida: actividad.es_sumativa ? null : (data.evaluacion_obtenida ?? null),
           mensaje: data.mensaje,
           resultado_rubrica: data.resultado_rubrica,
           puntaje_obtenido: data.puntaje_obtenido,
@@ -770,6 +775,7 @@
           isLoading={isLoadingInteracciones}
           errorMensaje={errorInteracciones}
           rubricaActividad={rubrica}
+          esSumativa={actividad.es_sumativa}
         />
       </div>
     </div>
@@ -801,7 +807,7 @@
           </button>
         </div>
         {#if rubrica}
-          <RubricaView {rubrica} modoLectura={true} />
+          <RubricaView {rubrica} modoLectura={true} esSumativa={actividad.es_sumativa} />
         {/if}
       </div>
     </div>
@@ -829,6 +835,7 @@
     <MatrizEvaluacion
       {rubrica}
       rubricaId={rubrica_id}
+      esSumativa={actividad.es_sumativa}
       nombreActividad={actividad.nombre}
       nombreGrupo="Grupo #{grupoEntregasSeleccionado.grupo}"
       idCurso={curso.id_curso}
@@ -845,6 +852,7 @@
         {rubrica}
         idCurso={curso.id_curso}
         idActividad={actividad.id_actividad}
+        esSumativa={actividad.es_sumativa}
         onClose={() => (showRubricaEditor = false)}
       />
     {/if}

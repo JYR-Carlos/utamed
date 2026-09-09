@@ -3,15 +3,23 @@
   import { router } from '@inertiajs/svelte';
   import RubricaView from '../../student/Activities/Agenda/Rubrica.svelte';
   import { X, Plus, Trash2, Eye, Pencil } from 'lucide-svelte';
+  import { puntajeMinimoAprobacion } from '@/lib/notas';
 
   interface Props {
     rubrica?: Rubrica | null;
     idCurso: number;
     idActividad: number;
+    /**
+     * Sumativa → la rúbrica se convierte en una nota de 1,0 a 7,0 con 60 % de
+     * exigencia, y no lleva escala cualitativa. Formativa → al revés: la escala
+     * cualitativa es todo el resultado y no hay nota. Lo decide la actividad,
+     * así que viene del padre.
+     */
+    esSumativa: boolean;
     onClose: () => void;
   }
 
-  let { rubrica = null, idCurso, idActividad, onClose }: Props = $props();
+  let { rubrica = null, idCurso, idActividad, esSumativa, onClose }: Props = $props();
 
   // ── Draft types ────────────────────────────────────────────────────────────
   /**
@@ -162,6 +170,9 @@
 
   const puntajeTotal = $derived(niveles.length * puntajeMaximoCriterio);
 
+  /** Puntaje que hay que alcanzar para el 4,0. Sólo aplica a las sumativas. */
+  const puntajeParaCuatro = $derived(puntajeMinimoAprobacion(puntajeTotal));
+
   /**
    * Suma de ponderaciones, redondeada a dos decimales.
    *
@@ -206,10 +217,16 @@
     })),
     detalles_evaluacion: {
       puntaje_total: puntajeTotal,
-      escala_evaluacion: escalaCal.map((e) => ({
-        puntaje_minimo: Number(e.puntaje_minimo) || 0,
-        evaluacion: e.evaluacion || '',
-      })),
+      // En una sumativa la escala cualitativa no se guarda, ni siquiera si la
+      // rúbrica venía con una de antes: si quedara escrita, la vista del alumno
+      // —que la dibuja cuando existe— seguiría mostrando «Aprobado» junto a la
+      // nota, que es la mezcla que se pidió separar.
+      escala_evaluacion: esSumativa
+        ? []
+        : escalaCal.map((e) => ({
+            puntaje_minimo: Number(e.puntaje_minimo) || 0,
+            evaluacion: e.evaluacion || '',
+          })),
     },
   });
 
@@ -281,6 +298,11 @@
     }
     if (niveles.some((n) => !n.nombre.trim())) {
       error = 'Todos los criterios deben tener un nombre.';
+      return false;
+    }
+    if (!esSumativa && escalaCal.every((e) => !e.evaluacion.trim())) {
+      error =
+        'Una actividad formativa se cierra con su escala cualitativa: define al menos un nivel (por ejemplo «Aprobado»).';
       return false;
     }
     if (!ponderacionValida) {
@@ -585,7 +607,36 @@
           </table>
         </div>
 
-        <!-- Escala de calificación -->
+        <!--
+          Lo de abajo depende del tipo de actividad: una formativa se cierra con
+          la escala cualitativa y una sumativa con la nota de 1,0 a 7,0. Se
+          muestra una u otra, nunca las dos, porque tenerlas juntas es lo que
+          hacía que una sumativa terminara con un «Aprobado» al lado del 5,4.
+        -->
+        {#if esSumativa}
+          <div class="bg-gray-50/50 rounded-3xl border border-gray-100 p-6">
+            <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
+              Conversión a nota
+            </p>
+            <div class="flex flex-wrap items-end gap-8">
+              <div>
+                <p class="text-xs text-gray-500">Puntaje para nota 4.0</p>
+                <p class="text-3xl font-black text-primary">
+                  {puntajeParaCuatro}<span class="text-base font-bold text-gray-400"
+                    >/{puntajeTotal} pts</span
+                  >
+                </p>
+              </div>
+              <p class="text-xs text-gray-500 max-w-md leading-relaxed">
+                Escala de 1,0 a 7,0 con 60 % de exigencia. El corte se redondea hacia arriba: con
+                {puntajeTotal} puntos el 60 % exacto es {Math.round(puntajeTotal * 0.6 * 100) / 100}, y
+                como los puntajes son enteros hay que llegar a {puntajeParaCuatro}.
+                <br />
+                Una actividad sumativa no lleva escala cualitativa.
+              </p>
+            </div>
+          </div>
+        {:else}
         <div class="bg-gray-50/50 rounded-3xl border border-gray-100 p-6">
           <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
             Escala de Calificación
@@ -630,6 +681,7 @@
             </button>
           </div>
         </div>
+        {/if}
       </div>
     {:else}
       <!-- Preview -->
@@ -655,8 +707,9 @@
           </div>
         </div>
 
-        <RubricaView rubrica={rubricaPreview} />
+        <RubricaView rubrica={rubricaPreview} {esSumativa} />
 
+        {#if !esSumativa}
         <div class="mt-8 bg-gray-50/50 p-6 rounded-3xl border border-gray-100">
           <p class="text-xs font-bold text-gray-400 uppercase mb-4 tracking-widest">
             Escala de calificación aplicada:
@@ -673,6 +726,7 @@
             {/each}
           </div>
         </div>
+        {/if}
       </div>
     {/if}
   </div>

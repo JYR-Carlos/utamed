@@ -317,6 +317,7 @@
       {listado_interacciones}
       {id_actividad_asignada_grupo}
       equipoDocente={equipo_docente}
+      esSumativa={es_sumativa}
     />
   </div>
 {/if}
@@ -354,7 +355,7 @@
       </div>
       <div class="flex-1 overflow-y-auto p-5 md:p-6">
         {#if rubrica}
-          <RubricaView rubrica={rubrica?.rubrica} />
+          <RubricaView rubrica={rubrica?.rubrica} esSumativa={es_sumativa} />
         {:else}
           <p class="py-8 text-center text-sm font-medium text-[#5A5E6E]">No hay rúbrica disponible para esta actividad.</p>
         {/if}

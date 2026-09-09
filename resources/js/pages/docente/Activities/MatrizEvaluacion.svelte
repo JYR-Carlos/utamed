@@ -1,9 +1,11 @@
 <!--
   MatrizEvaluacion.svelte — Pantalla completa para evaluar a un grupo con una
-  rúbrica. El docente selecciona un nivel por cada criterio; el puntaje y la
-  nota chilena (1–7) se calculan automáticamente (vía `@/lib/notas`) y pueden
-  ajustarse manualmente antes de confirmar. Al confirmar persiste la evaluación
-  en el backend (POST a /docente/cursos/.../evaluacion) y llama `onSuccess`.
+  rúbrica. El docente selecciona un nivel por cada criterio y el resultado
+  depende del tipo de actividad: una sumativa cierra con la nota chilena (1–7,
+  calculada vía `@/lib/notas` con 60 % de exigencia y ajustable a mano) y una
+  formativa con la apreciación cualitativa de la escala de la rúbrica. Al
+  confirmar persiste la evaluación en el backend (POST a
+  /docente/cursos/.../evaluacion) y llama `onSuccess`.
 
   Props: rubrica + rubricaId, identificadores del contexto (idCurso, idActividad,
   idGrupo, idAgendaEntrega opcional), nombres para el encabezado, y callbacks
@@ -13,11 +15,17 @@
   import type { Rubrica } from '@/types/rubrica';
   import { router } from '@inertiajs/svelte';
   import { X, CheckCircle2 } from 'lucide-svelte';
-  import { calcularNotaChilena } from '@/lib/notas';
+  import { calcularNotaChilena, puntajeMinimoAprobacion } from '@/lib/notas';
 
   interface Props {
     rubrica: Rubrica;
     rubricaId: number;
+    /**
+     * Sumativa → nota numérica de 1,0 a 7,0. Formativa → apreciación
+     * cualitativa. Lo decide la actividad, no la rúbrica, así que viene del
+     * padre; el servidor aplica la misma regla al persistir.
+     */
+    esSumativa: boolean;
     nombreActividad: string;
     nombreGrupo: string;
     idCurso: number;
@@ -31,6 +39,7 @@
   let {
     rubrica,
     rubricaId,
+    esSumativa,
     nombreActividad,
     nombreGrupo,
     idCurso,
@@ -80,9 +89,23 @@
   );
 
   const notaCalculada = $derived(
-    todosEvaluados && puntajeMaximo > 0 ? calcularNotaChilena(puntajeObtenido, puntajeMaximo) : null,
+    esSumativa && todosEvaluados && puntajeMaximo > 0
+      ? calcularNotaChilena(puntajeObtenido, puntajeMaximo)
+      : null,
   );
 
+  /**
+   * Puntaje que hay que alcanzar para el 4,0, redondeado hacia arriba. Se
+   * muestra siempre, no sólo al terminar: sirve para saber dónde está el corte
+   * mientras se evalúa, no para explicar el resultado después.
+   */
+  const puntajeParaCuatro = $derived(puntajeMinimoAprobacion(puntajeMaximo));
+
+  /**
+   * Resultado cualitativo, que es con lo que cierra una formativa. En una
+   * sumativa se calcula igual pero no se muestra: mezclar «Aprobado» con un 5,4
+   * es justo lo que se pidió separar.
+   */
   const evaluacionLabel = $derived(
     (() => {
       const escala = rubrica.detalles_evaluacion?.escala_evaluacion;
@@ -90,6 +113,14 @@
       const sorted = [...escala].sort((a, b) => b.puntaje_minimo - a.puntaje_minimo);
       return sorted.find((e) => puntajeObtenido >= e.puntaje_minimo)?.evaluacion ?? null;
     })(),
+  );
+
+  /** Nombres de los niveles; las rúbricas viejas no los traen y se numeran. */
+  const nombresColumnas = $derived(
+    Array.from(
+      { length: maxEscalas },
+      (_, i) => rubrica.columnas?.[i]?.nombre?.trim() || `Nivel ${i + 1}`,
+    ),
   );
 
   // Auto-poblar nota cuando se completa la rúbrica
@@ -111,6 +142,15 @@
       error = 'Selecciona un nivel para cada criterio antes de confirmar.';
       return;
     }
+    if (esSumativa && notaOverride === null) {
+      error = 'Una actividad sumativa se cierra con una nota de 1,0 a 7,0.';
+      return;
+    }
+    if (!esSumativa && !evaluacionLabel) {
+      error =
+        'La rúbrica no tiene escala de evaluación, así que no hay resultado cualitativo con el que cerrar. Edita la rúbrica y agrega una.';
+      return;
+    }
     error = null;
     saving = true;
     router.post(
@@ -118,7 +158,10 @@
       {
         id_agenda_entrega: idAgendaEntrega,
         id_rubrica: rubricaId,
-        nota: notaOverride,
+        // Uno u otro, nunca los dos: el servidor rechaza una nota en una
+        // formativa y exige el cualitativo, y al revés para la sumativa.
+        nota: esSumativa ? notaOverride : null,
+        evaluacion_obtenida: esSumativa ? null : evaluacionLabel,
         mensaje: retroalimentacion,
         resultado_rubrica: { ...seleccion },
         puntaje_obtenido: puntajeObtenido,
@@ -129,9 +172,10 @@
           onSuccess?.();
           onClose();
         },
-        onError: () => {
+        onError: (errores) => {
           saving = false;
-          error = 'Error al guardar la evaluación. Intenta nuevamente.';
+          error =
+            Object.values(errores ?? {})[0] ?? 'Error al guardar la evaluación. Intenta nuevamente.';
         },
       },
     );
@@ -175,10 +219,15 @@
           {criteriosEvaluados}/{totalCriterios}
         </p>
       </div>
-      {#if notaCalculada !== null}
+      {#if esSumativa && notaCalculada !== null}
         <div>
           <p class="text-[10px] uppercase tracking-wider text-white/60">Nota</p>
           <p class="font-black text-2xl leading-none text-yellow-300">{notaCalculada.toFixed(1)}</p>
+        </div>
+      {:else if !esSumativa && evaluacionLabel}
+        <div>
+          <p class="text-[10px] uppercase tracking-wider text-white/60">Resultado</p>
+          <p class="font-black text-lg leading-none text-yellow-300">{evaluacionLabel}</p>
         </div>
       {/if}
     </div>
@@ -227,12 +276,12 @@
               >
                 Criterio de Evaluación
               </th>
-              {#each Array(maxEscalas) as _, ci}
+              {#each nombresColumnas as nombreColumna}
                 <th
                   class="px-5 py-4 text-center text-xs font-black text-gray-500 uppercase tracking-wider border-r border-gray-100 last:border-r-0"
                   style="min-width:210px"
                 >
-                  Nivel {ci + 1}
+                  {nombreColumna}
                 </th>
               {/each}
             </tr>
@@ -310,55 +359,88 @@
       <!-- Nota final + retroalimentación -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
 
-        <!-- Nota -->
-        <div class="bg-gray-50/50 rounded-3xl border border-gray-100 p-6">
-          <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Nota Final (1–7)</p>
-          <div class="flex items-start gap-4">
-            <input
-              type="number"
-              bind:value={notaOverride}
-              min="1"
-              max="7"
-              step="0.1"
-              oninput={() => (notaManualOverride = true)}
-              placeholder="—"
-              class="w-28 text-3xl font-black text-uta-blue bg-white border-2 border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:border-uta-blue/50 focus:ring-2 focus:ring-uta-blue/20 text-center"
-            />
-            <div class="text-sm text-gray-500 leading-relaxed pt-1">
-              {#if !todosEvaluados}
-                <span class="text-amber-600 text-xs">
-                  Completa todos los criterios para calcular la nota automáticamente.
-                </span>
-              {:else if notaCalculada !== null && notaManualOverride}
-                <span class="text-xs">
-                  Calculada automáticamente:
-                  <strong class="text-uta-blue">{notaCalculada.toFixed(1)}</strong>
-                </span>
-                <br />
-                <button
-                  type="button"
-                  onclick={() => {
-                    notaOverride = notaCalculada;
-                    notaManualOverride = false;
-                  }}
-                  class="text-uta-blue underline hover:no-underline text-xs mt-1"
-                >
-                  Restaurar calculada
-                </button>
-              {:else}
-                <span class="text-emerald-600 font-semibold text-xs block">
-                  Calculada con 60 % de exigencia.
-                </span>
-                {#if evaluacionLabel}
-                  <span class="font-black text-gray-700 text-base mt-1 block">{evaluacionLabel}</span>
+        <!--
+          El resultado de la evaluación, que es distinto según el tipo: la
+          sumativa cierra con la nota de 1,0 a 7,0 y la formativa con la
+          apreciación de la escala de la rúbrica. Nunca las dos a la vez, ni en
+          la pantalla ni en lo que se envía.
+        -->
+        {#if esSumativa}
+          <div class="bg-gray-50/50 rounded-3xl border border-gray-100 p-6">
+            <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Nota Final (1–7)</p>
+            <div class="flex items-start gap-4">
+              <input
+                type="number"
+                bind:value={notaOverride}
+                min="1"
+                max="7"
+                step="0.1"
+                oninput={() => (notaManualOverride = true)}
+                placeholder="—"
+                class="w-28 text-3xl font-black text-uta-blue bg-white border-2 border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:border-uta-blue/50 focus:ring-2 focus:ring-uta-blue/20 text-center"
+              />
+              <div class="text-sm text-gray-500 leading-relaxed pt-1">
+                {#if !todosEvaluados}
+                  <span class="text-amber-600 text-xs">
+                    Completa todos los criterios para calcular la nota automáticamente.
+                  </span>
+                {:else if notaCalculada !== null && notaManualOverride}
+                  <span class="text-xs">
+                    Calculada automáticamente:
+                    <strong class="text-uta-blue">{notaCalculada.toFixed(1)}</strong>
+                  </span>
+                  <br />
+                  <button
+                    type="button"
+                    onclick={() => {
+                      notaOverride = notaCalculada;
+                      notaManualOverride = false;
+                    }}
+                    class="text-uta-blue underline hover:no-underline text-xs mt-1"
+                  >
+                    Restaurar calculada
+                  </button>
+                {:else}
+                  <span class="text-emerald-600 font-semibold text-xs block">
+                    Calculada con 60 % de exigencia.
+                  </span>
+                  <span class="text-xs text-gray-400 block mt-1">
+                    {puntajeObtenido}/{puntajeMaximo} pts ({porcentaje}%)
+                  </span>
                 {/if}
-                <span class="text-xs text-gray-400 block mt-1">
-                  {puntajeObtenido}/{puntajeMaximo} pts ({porcentaje}%)
-                </span>
-              {/if}
+              </div>
             </div>
+            <p class="mt-4 text-xs text-gray-500 border-t border-gray-200 pt-3">
+              Nota <strong class="text-uta-blue">4.0</strong> desde
+              <strong class="text-uta-blue">{puntajeParaCuatro}</strong> de {puntajeMaximo} pts
+              (60 % de exigencia, redondeado hacia arriba).
+            </p>
           </div>
-        </div>
+        {:else}
+          <div class="bg-gray-50/50 rounded-3xl border border-gray-100 p-6">
+            <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
+              Resultado (evaluación formativa)
+            </p>
+            {#if !todosEvaluados}
+              <p class="text-amber-600 text-xs">
+                Completa todos los criterios para obtener el resultado.
+              </p>
+            {:else if evaluacionLabel}
+              <p class="text-3xl font-black text-uta-blue">{evaluacionLabel}</p>
+              <p class="text-xs text-gray-400 mt-2">
+                {puntajeObtenido}/{puntajeMaximo} pts ({porcentaje}%) según la escala de la rúbrica.
+              </p>
+              <p class="mt-4 text-xs text-gray-500 border-t border-gray-200 pt-3">
+                Una actividad formativa no lleva nota de 1,0 a 7,0.
+              </p>
+            {:else}
+              <p class="text-amber-600 text-xs">
+                Esta rúbrica no tiene escala de evaluación, así que no hay resultado con el que
+                cerrar. Edita la rúbrica y agrega una.
+              </p>
+            {/if}
+          </div>
+        {/if}
 
         <!-- Retroalimentación -->
         <div class="bg-gray-50/50 rounded-3xl border border-gray-100 p-6">
@@ -386,8 +468,13 @@
     {#if todosEvaluados}
       <p class="text-xs font-semibold text-emerald-700 flex items-center gap-1.5">
         <CheckCircle2 class="w-4 h-4 shrink-0" />
-        Todos los criterios evaluados — {puntajeObtenido}/{puntajeMaximo} pts ({porcentaje}%). Nota
-        calculada: {notaCalculada?.toFixed(1) ?? '—'}. Puedes ajustar la nota manualmente arriba.
+        Todos los criterios evaluados — {puntajeObtenido}/{puntajeMaximo} pts ({porcentaje}%).
+        {#if esSumativa}
+          Nota calculada: {notaCalculada?.toFixed(1) ?? '—'}. Puedes ajustar la nota manualmente
+          arriba.
+        {:else}
+          Resultado: {evaluacionLabel ?? '—'}.
+        {/if}
       </p>
     {:else}
       <p class="text-xs font-semibold text-amber-700">
