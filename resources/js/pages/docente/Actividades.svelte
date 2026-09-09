@@ -149,12 +149,18 @@
   // ── Vista y filtros ───────────────────────────────────────────────────────
 
   type Vista = 'lista' | 'kanban';
-  type ClaveFiltro = 'busqueda' | 'componente' | 'unidad' | 'estado' | 'visibilidad';
+  type ClaveFiltro = 'busqueda' | 'componente' | 'unidad' | 'tipo' | 'estado' | 'visibilidad';
 
   let vista = $state<Vista>('lista');
   let busqueda = $state('');
   let filtroComponente = $state<number | 'todos'>('todos');
   let filtroUnidad = $state<number | 'todas'>('todas');
+  /**
+   * Formativa vs sumativa. Sale del campo `tipo_actividad`, que ya viaja en
+   * cada actividad, así que el filtro se resuelve en el cliente sobre la lista
+   * ya cargada: cambiarlo no vuelve al servidor ni recarga la página.
+   */
+  let filtroTipo = $state<Actividad['tipo_actividad'] | 'todas'>('todas');
   let filtroEstado = $state<EstadoActividad | 'todos'>('todos');
   let filtroVisibilidad = $state<'todas' | 'visibles' | 'ocultas'>('todas');
 
@@ -172,6 +178,7 @@
       if (omitir !== 'componente' && filtroComponente !== 'todos' && a.id_componente !== filtroComponente)
         return false;
       if (omitir !== 'unidad' && filtroUnidad !== 'todas' && a.id_unidad !== filtroUnidad) return false;
+      if (omitir !== 'tipo' && filtroTipo !== 'todas' && a.tipo_actividad !== filtroTipo) return false;
       // En Kanban el estado ES la columna, así que su filtro queda sin uso.
       if (
         omitir !== 'estado' &&
@@ -196,6 +203,7 @@
     busqueda = '';
     if (!componenteBloqueado) filtroComponente = 'todos';
     filtroUnidad = 'todas';
+    filtroTipo = 'todas';
     filtroEstado = 'todos';
     filtroVisibilidad = 'todas';
   }
@@ -221,6 +229,13 @@
         clave: 'unidad',
         etiqueta: u ? `Unidad ${u.num_unidad ?? ''} ${u.nombre}`.trim() : 'Unidad',
         quitar: () => (filtroUnidad = 'todas'),
+      });
+    }
+    if (filtroTipo !== 'todas') {
+      chips.push({
+        clave: 'tipo',
+        etiqueta: filtroTipo === 'FORMATIVA' ? 'Formativa' : 'Sumativa',
+        quitar: () => (filtroTipo = 'todas'),
       });
     }
     if (filtroEstado !== 'todos' && vista === 'lista') {
@@ -619,6 +634,15 @@
                 </select>
               </label>
             {/if}
+
+            <label class="inline-flex items-center">
+              <span class="sr-only">Filtrar por tipo de evaluación</span>
+              <select bind:value={filtroTipo} class={SELECT_FILTRO}>
+                <option value="todas">Evaluación: todas</option>
+                <option value="FORMATIVA">Sólo formativas</option>
+                <option value="SUMATIVA">Sólo sumativas</option>
+              </select>
+            </label>
 
             {#if vista === 'lista'}
               <label class="inline-flex items-center">
