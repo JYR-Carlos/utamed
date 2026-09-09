@@ -14,16 +14,33 @@
   let { rubrica = null, idCurso, idActividad, onClose }: Props = $props();
 
   // ── Draft types ────────────────────────────────────────────────────────────
-  type EscalaDraft = { _id: string; puntos: number | string; criterio: string };
+  /**
+   * La celda ya no lleva puntaje: el puntaje es de la columna. Dejarlo aquí
+   * permitiría que dos celdas de la misma columna valieran distinto, que es
+   * justo lo que se quería quitar.
+   */
+  type EscalaDraft = { _id: string; criterio: string };
+  type ColumnaDraft = { _id: string; nombre: string; puntos: number | string };
   type NivelDraft = { _id: string; nombre: string; descripcion: string; escalas: EscalaDraft[] };
   type EscalaCalif = { _id: string; puntaje_minimo: number | string; evaluacion: string };
+
+  /**
+   * Nombres de arranque para 3, 4 y 5 niveles. El docente los puede reescribir
+   * uno por uno después de aplicarlos: la plantilla es un punto de partida, no
+   * un catálogo cerrado.
+   */
+  const PLANTILLAS_NIVELES: Record<number, readonly string[]> = {
+    3: ['Insuficiente', 'Aceptable', 'Destacado'],
+    4: ['Insuficiente', 'Regular', 'Bueno', 'Excelente'],
+    5: ['Muy Deficiente', 'Deficiente', 'Aceptable', 'Bueno', 'Excelente'],
+  };
 
   function uid() {
     return Math.random().toString(36).slice(2, 10);
   }
 
   function makeEscalas(n: number): EscalaDraft[] {
-    return Array.from({ length: n }, () => ({ _id: uid(), puntos: '', criterio: '' }));
+    return Array.from({ length: n }, () => ({ _id: uid(), criterio: '' }));
   }
 
   function makeNivel(cols: number): NivelDraft {
@@ -31,15 +48,47 @@
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
-  const initCols = rubrica?.niveles?.[0]?.escalas?.length ?? 3;
+
+  /**
+   * Columnas de la rúbrica que se está editando. Tres casos, en este orden:
+   *
+   *  1. La rúbrica ya trae `columnas` → se usan tal cual.
+   *  2. Rúbrica guardada antes de que las columnas tuvieran nombre: se
+   *     reconstruye una por cada escala del primer criterio. El puntaje sale
+   *     del mayor que aparezca en esa columna, porque en el formato viejo cada
+   *     fila podía tener el suyo, y quedarse con el menor bajaría en silencio
+   *     el máximo alcanzable de la rúbrica.
+   *  3. Rúbrica nueva → la plantilla de 3 niveles, para que arranque con los
+   *     nombres puestos en vez de «Nivel 1».
+   */
+  function initColumnas(): ColumnaDraft[] {
+    const guardadas = rubrica?.columnas;
+    if (guardadas?.length) {
+      return guardadas.map((c) => ({ _id: uid(), nombre: c.nombre, puntos: c.puntos }));
+    }
+
+    const filas = rubrica?.niveles ?? [];
+    if (filas.length) {
+      const cols = filas[0]?.escalas?.length ?? 3;
+      return Array.from({ length: cols }, (_, i) => ({
+        _id: uid(),
+        nombre: `Nivel ${i + 1}`,
+        puntos: filas.reduce((max, f) => Math.max(max, Number(f.escalas[i]?.puntos) || 0), 0),
+      }));
+    }
+
+    return PLANTILLAS_NIVELES[3].map((nombre) => ({ _id: uid(), nombre, puntos: '' }));
+  }
+
+  const columnasIniciales = initColumnas();
 
   function initNiveles(): NivelDraft[] {
-    if (!rubrica?.niveles?.length) return [makeNivel(initCols)];
+    if (!rubrica?.niveles?.length) return [makeNivel(columnasIniciales.length)];
     return rubrica.niveles.map((n) => ({
       _id: uid(),
       nombre: n.nombre,
       descripcion: n.descripcion,
-      escalas: n.escalas.map((e) => ({ _id: uid(), puntos: e.puntos, criterio: e.criterio })),
+      escalas: n.escalas.map((e) => ({ _id: uid(), criterio: e.criterio })),
     }));
   }
 
@@ -58,7 +107,7 @@
     }));
   }
 
-  let numCols = $state(initCols);
+  let columnas = $state<ColumnaDraft[]>(columnasIniciales);
   let niveles = $state<NivelDraft[]>(initNiveles());
   let escalaCal = $state<EscalaCalif[]>(initEscalaCalif());
   let tab = $state<'editor' | 'preview'>('editor');
@@ -66,24 +115,39 @@
   let error = $state<string | null>(null);
 
   // ── Computed ──────────────────────────────────────────────────────────────
-  const puntajeTotal = $derived(
-    niveles.reduce((sum, n) => {
-      const max = n.escalas.reduce((m, e) => Math.max(m, Number(e.puntos) || 0), 0);
-      return sum + max;
-    }, 0),
+
+  /**
+   * Lo máximo que puede sacar un criterio: el mayor puntaje entre las columnas.
+   * Como el puntaje es de la columna, ese techo es igual para todos los
+   * criterios, y el total pasa a ser una multiplicación en vez de una suma
+   * fila por fila.
+   */
+  const puntajeMaximoCriterio = $derived(
+    columnas.reduce((m, c) => Math.max(m, Number(c.puntos) || 0), 0),
   );
 
+  const puntajeTotal = $derived(niveles.length * puntajeMaximoCriterio);
+
   const rubricaPreview = $derived<Rubrica>({
+    columnas: columnas.map((c) => ({
+      id: c._id,
+      nombre: c.nombre.trim() || '(nivel)',
+      puntos: Number(c.puntos) || 0,
+    })),
     niveles: niveles.map((n) => ({
       id: n._id,
       nombre: n.nombre || '(criterio)',
       descripcion: n.descripcion || '',
-      nro_escalas: n.escalas.length,
+      nro_escalas: columnas.length,
       puntaje_minimo: 0,
-      puntaje_total: n.escalas.reduce((m, e) => Math.max(m, Number(e.puntos) || 0), 0),
-      escalas: n.escalas.map((e) => ({
+      puntaje_total: puntajeMaximoCriterio,
+      escalas: n.escalas.map((e, i) => ({
         id: e._id,
-        puntos: Number(e.puntos) || 0,
+        // El puntaje se copia desde la columna en vez de leerse de la celda:
+        // así todo lo que ya consumía `escalas[].puntos` —la vista del alumno,
+        // la matriz de evaluación, el puntaje obtenido que se persiste— sigue
+        // funcionando sin enterarse del cambio.
+        puntos: Number(columnas[i]?.puntos) || 0,
         criterio: e.criterio || '',
       })),
     })),
@@ -98,7 +162,7 @@
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   function addNivel() {
-    niveles = [...niveles, makeNivel(numCols)];
+    niveles = [...niveles, makeNivel(columnas.length)];
   }
 
   function removeNivel(id: string) {
@@ -107,17 +171,45 @@
   }
 
   function addColumna() {
-    numCols++;
+    columnas = [...columnas, { _id: uid(), nombre: `Nivel ${columnas.length + 1}`, puntos: '' }];
     niveles = niveles.map((n) => ({
       ...n,
-      escalas: [...n.escalas, { _id: uid(), puntos: '', criterio: '' }],
+      escalas: [...n.escalas, { _id: uid(), criterio: '' }],
     }));
   }
 
   function removeColumna(idx: number) {
-    if (numCols <= 1) return;
-    numCols--;
+    if (columnas.length <= 1) return;
+    columnas = columnas.filter((_, i) => i !== idx);
     niveles = niveles.map((n) => ({ ...n, escalas: n.escalas.filter((_, i) => i !== idx) }));
+  }
+
+  /**
+   * Aplica una de las plantillas de nombres.
+   *
+   * Renombra y ajusta la cantidad de columnas, pero conserva lo ya escrito en
+   * las posiciones que sobreviven —el puntaje de la columna y la descripción de
+   * cada celda—: la plantilla nombra los niveles, no reinicia el trabajo. Si la
+   * plantilla tiene menos columnas que la rúbrica actual las sobrantes se
+   * pierden, que es exactamente lo que se pide al elegir «3 niveles».
+   */
+  function aplicarPlantilla(cantidad: number) {
+    const nombres = PLANTILLAS_NIVELES[cantidad];
+    if (!nombres) return;
+
+    columnas = nombres.map((nombre, i) => ({
+      _id: columnas[i]?._id ?? uid(),
+      nombre,
+      puntos: columnas[i]?.puntos ?? '',
+    }));
+
+    niveles = niveles.map((n) => ({
+      ...n,
+      escalas: Array.from(
+        { length: nombres.length },
+        (_, i) => n.escalas[i] ?? { _id: uid(), criterio: '' },
+      ),
+    }));
   }
 
   function addEscalaCalif() {
@@ -130,6 +222,10 @@
 
   // ── Save ──────────────────────────────────────────────────────────────────
   function validate(): boolean {
+    if (columnas.some((c) => !c.nombre.trim())) {
+      error = 'Todos los niveles de desempeño deben tener un nombre.';
+      return false;
+    }
     if (niveles.some((n) => !n.nombre.trim())) {
       error = 'Todos los criterios deben tener un nombre.';
       return false;
@@ -229,13 +325,34 @@
             <p class="text-3xl font-black text-primary">{puntajeTotal} pts</p>
           </div>
           <p class="text-xs text-gray-500 max-w-xs">
-            Suma automática del puntaje máximo de cada criterio. Ajusta los puntos en cada celda.
+            {niveles.length} criterio{niveles.length === 1 ? '' : 's'} × {puntajeMaximoCriterio} pts
+            del nivel más alto. El puntaje se define arriba, en cada columna, y vale para toda la
+            columna.
           </p>
+
+          <!-- Plantillas de niveles -->
+          <div class="ml-auto flex flex-col gap-1.5">
+            <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Niveles</p>
+            <div class="flex flex-wrap items-center gap-1.5">
+              {#each [3, 4, 5] as cantidad}
+                <button
+                  onclick={() => aplicarPlantilla(cantidad)}
+                  title={PLANTILLAS_NIVELES[cantidad].join(' · ')}
+                  class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition {columnas.length ===
+                  cantidad
+                    ? 'border-primary/40 bg-primary/10 text-primary'
+                    : 'border-gray-200 bg-white text-gray-500 hover:border-primary/30 hover:text-primary'}"
+                >
+                  {cantidad} niveles
+                </button>
+              {/each}
+            </div>
+          </div>
         </div>
 
         <!-- Tabla editor -->
         <div class="overflow-x-auto rounded-3xl border-2 border-gray-100 mb-8">
-          <table class="w-full border-collapse" style="min-width: {200 + numCols * 220}px">
+          <table class="w-full border-collapse" style="min-width: {200 + columnas.length * 220}px">
             <thead>
               <tr class="bg-gray-50 border-b-2 border-gray-100">
                 <th
@@ -244,22 +361,48 @@
                 >
                   Criterio de Evaluación
                 </th>
-                {#each Array(numCols) as _, ci}
+                <!--
+                  El nombre y el puntaje del nivel viven en la cabecera, no en
+                  cada celda: el puntaje es de la columna entera, y tenerlo una
+                  sola vez es lo que impide que dos celdas de la misma columna
+                  terminen valiendo distinto.
+                -->
+                {#each columnas as columna, ci (columna._id)}
                   <th
-                    class="px-5 py-4 text-center text-xs font-black text-gray-500 uppercase tracking-wider border-r border-gray-100 last:border-r-0"
+                    class="px-4 py-3 text-center border-r border-gray-100 last:border-r-0 align-top"
                     style="min-width:200px"
                   >
-                    <div class="flex items-center justify-between gap-2">
-                      <span>Nivel {ci + 1}</span>
-                      {#if numCols > 1}
-                        <button
-                          onclick={() => removeColumna(ci)}
-                          class="p-0.5 text-gray-300 hover:text-red-400 transition rounded"
-                          title="Eliminar nivel"
-                        >
-                          <Trash2 class="w-3 h-3" />
-                        </button>
-                      {/if}
+                    <div class="flex flex-col gap-2">
+                      <div class="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          bind:value={columna.nombre}
+                          placeholder="Nombre del nivel"
+                          class="w-full text-xs font-bold text-gray-700 uppercase tracking-wide bg-white border border-gray-200 rounded-xl px-3 py-2 text-center focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20"
+                        />
+                        {#if columnas.length > 1}
+                          <button
+                            onclick={() => removeColumna(ci)}
+                            class="p-0.5 text-gray-300 hover:text-red-400 transition rounded shrink-0"
+                            title="Eliminar nivel"
+                          >
+                            <Trash2 class="w-3 h-3" />
+                          </button>
+                        {/if}
+                      </div>
+                      <div
+                        class="flex items-center justify-center gap-1.5 bg-primary/5 border border-primary/20 rounded-xl px-3 py-1.5"
+                      >
+                        <input
+                          type="number"
+                          bind:value={columna.puntos}
+                          placeholder="0"
+                          min="0"
+                          aria-label="Puntaje del nivel {columna.nombre || ci + 1}"
+                          class="w-14 text-sm font-black text-primary bg-transparent text-center focus:outline-none"
+                        />
+                        <span class="text-[10px] font-bold uppercase text-primary/60">pts</span>
+                      </div>
                     </div>
                   </th>
                 {/each}
@@ -307,23 +450,17 @@
                   </td>
 
                   <!-- Escala columns -->
-                  {#each nivel.escalas as escala (escala._id)}
+                  <!-- La celda ya sólo describe: su puntaje lo pone la columna. -->
+                  {#each nivel.escalas as escala, ci (escala._id)}
                     <td class="px-5 py-4 border-r border-gray-100 last:border-r-0 align-top">
-                      <div class="flex flex-col gap-2">
-                        <input
-                          type="number"
-                          bind:value={escala.puntos}
-                          placeholder="0"
-                          min="0"
-                          class="w-24 text-sm font-black text-primary bg-primary/5 border border-primary/20 rounded-xl px-3 py-2 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
-                        />
-                        <textarea
-                          bind:value={escala.criterio}
-                          placeholder="Descripción del nivel de desempeño…"
-                          rows="4"
-                          class="w-full text-sm text-gray-600 bg-white border border-gray-200 rounded-xl px-3 py-2 resize-none focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 leading-snug"
-                        ></textarea>
-                      </div>
+                      <textarea
+                        bind:value={escala.criterio}
+                        placeholder="Descripción del nivel de desempeño…"
+                        aria-label="{nivel.nombre || 'Criterio'} — {columnas[ci]?.nombre ||
+                          `nivel ${ci + 1}`}"
+                        rows="4"
+                        class="w-full text-sm text-gray-600 bg-white border border-gray-200 rounded-xl px-3 py-2 resize-none focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 leading-snug"
+                      ></textarea>
                     </td>
                   {/each}
 
@@ -333,7 +470,7 @@
 
               <!-- Add row -->
               <tr>
-                <td colspan={numCols + 2} class="px-5 py-3">
+                <td colspan={columnas.length + 2} class="px-5 py-3">
                   <button
                     onclick={addNivel}
                     class="inline-flex items-center gap-1.5 text-sm font-medium text-primary/60 hover:text-primary transition"
@@ -413,7 +550,7 @@
             <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">
               Niveles de Desempeño
             </p>
-            <p class="text-3xl font-black text-primary">{numCols}</p>
+            <p class="text-3xl font-black text-primary">{columnas.length}</p>
           </div>
         </div>
 
