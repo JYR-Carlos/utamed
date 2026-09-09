@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Rubrica } from '@/types/rubrica';
+  import { puntajeMinimoAprobacion } from '@/lib/notas';
 
   interface Props {
     rubrica?: Rubrica;
@@ -8,9 +9,27 @@
     puntaje_obtenido?: number | null;
     retroalimentacion?: string | null;
     modoLectura?: boolean;
+    /**
+     * Sumativa → se explica el corte de la nota 4,0 y no se muestra escala
+     * cualitativa. Formativa → al revés.
+     *
+     * `undefined` cuando quien dibuja la rúbrica no sabe de qué actividad es
+     * (una rúbrica adjunta a un mensaje suelto de la agenda, por ejemplo). En
+     * ese caso se cae al comportamiento de siempre: se muestra lo que la
+     * rúbrica traiga guardado, sin afirmar nada sobre su tipo.
+     */
+    esSumativa?: boolean;
   }
 
-  let { rubrica, estadoRubrica, resultado, puntaje_obtenido, retroalimentacion, modoLectura = false }: Props = $props();
+  let {
+    rubrica,
+    estadoRubrica,
+    resultado,
+    puntaje_obtenido,
+    retroalimentacion,
+    modoLectura = false,
+    esSumativa = undefined,
+  }: Props = $props();
 
   const totalCriterios = $derived(rubrica?.niveles?.length ?? 0);
   const puntajeMaximo = $derived(
@@ -45,6 +64,19 @@
   const puntajePorColumna = $derived(!!rubrica?.columnas?.length);
 
   const tieneResultado = $derived(!!resultado && Object.keys(resultado).length > 0);
+
+  /** Puntaje que hay que alcanzar para el 4,0; sólo se muestra en sumativas. */
+  const puntajeParaCuatro = $derived(puntajeMinimoAprobacion(puntajeMaximo));
+
+  /**
+   * La escala cualitativa se dibuja si la rúbrica la trae, salvo que la
+   * actividad sea sumativa: las rúbricas guardadas antes de esta separación
+   * conservan su «Aprobado / Reprobado», y mostrarlo junto a una nota es
+   * justamente lo que se quiso separar.
+   */
+  const mostrarEscalaCualitativa = $derived(
+    esSumativa !== true && !!rubrica?.detalles_evaluacion?.escala_evaluacion?.length,
+  );
 
   function esSeleccionada(nivelId: string, escalaId: string): boolean {
     return tieneResultado && resultado?.[nivelId] === escalaId;
@@ -216,8 +248,21 @@
       </table>
     </div>
 
+    <!-- Cómo se traduce el puntaje en resultado -->
+    {#if esSumativa}
+      <div class="rounded-2xl border border-base-300 p-4">
+        <h3 class="font-semibold mb-2">Cómo se calcula la nota</h3>
+        <p class="text-sm text-base-content/70 leading-relaxed">
+          Escala de 1,0 a 7,0 con 60 % de exigencia. La nota
+          <strong class="text-primary">4,0</strong> se alcanza con
+          <strong class="text-primary">{puntajeParaCuatro}</strong>
+          de {puntajeMaximo} pts; el corte se redondea hacia arriba.
+        </p>
+      </div>
+    {/if}
+
     <!-- Escala de evaluación -->
-    {#if rubrica.detalles_evaluacion?.escala_evaluacion?.length}
+    {#if mostrarEscalaCualitativa}
       <div class="rounded-2xl border border-base-300 p-4">
         <h3 class="font-semibold mb-3">
           Escala de evaluación

@@ -1669,15 +1669,34 @@ class DocenteActivityController extends Controller
             ->where('id_actividad', $actividad->id_actividad)
             ->firstOrFail();
 
+        // El resultado que se espera depende del tipo de actividad, y el tipo lo
+        // sabe el servidor: una sumativa cierra con una nota de 1,0 a 7,0 y una
+        // formativa con una apreciación cualitativa. Antes ambos campos eran
+        // opcionales, así que una sumativa se podía cerrar sin nota —dejando la
+        // del grupo y las individuales en NULL sin que nadie se enterara— y una
+        // formativa podía terminar con un número que su escala no define.
+        $esSumativa = $actividad->tipo_actividad === TipoActividad::SUMATIVA;
+
         $validated = $request->validate([
             'id_agenda_entrega' => 'nullable|integer|exists:agenda,id_agenda',
             'id_rubrica' => 'required|integer|exists:rubrica,id_rubrica',
             'resultado' => 'nullable|array',
             'resultado_rubrica' => 'nullable|array',
             'puntaje_obtenido' => 'nullable|numeric|min:0|max:999',
-            'evaluacion_obtenida' => 'nullable|string|max:500',
+            // `prohibited` acepta el campo ausente o nulo y rechaza sólo un
+            // valor real, que es justo lo que se quiere: el frontend manda
+            // `nota: null` para las formativas.
+            'evaluacion_obtenida' => $esSumativa
+                ? 'nullable|string|max:500'
+                : 'required|string|max:500',
             'mensaje' => 'nullable|string|max:2000',
-            'nota' => 'nullable|numeric|min:1|max:7',
+            'nota' => $esSumativa
+                ? 'required|numeric|min:1|max:7'
+                : 'prohibited',
+        ], [
+            'nota.required' => 'Una actividad sumativa se cierra con una nota de 1,0 a 7,0.',
+            'nota.prohibited' => 'Una actividad formativa no lleva nota numérica; se cierra con su escala cualitativa.',
+            'evaluacion_obtenida.required' => 'Indica el resultado cualitativo (por ejemplo «Aprobado») para cerrar una actividad formativa.',
         ]);
 
         // Verificar que la entrega referenciada pertenece al mismo grupo
