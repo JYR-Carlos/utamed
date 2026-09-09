@@ -27,6 +27,15 @@ export interface Nivel {
   id: string;
   nombre: string;
   descripcion: string;
+  /**
+   * Peso del criterio dentro de la rúbrica, en porcentaje. Los de una misma
+   * rúbrica suman 100.
+   *
+   * Opcional por lo mismo que {@link Rubrica.columnas}: las rúbricas guardadas
+   * antes de esta versión no la traen. Al abrirlas, el editor reparte el 100 %
+   * en partes iguales.
+   */
+  ponderacion?: number;
   nro_escalas: number;
   puntaje_total: number;
   puntaje_minimo: number;

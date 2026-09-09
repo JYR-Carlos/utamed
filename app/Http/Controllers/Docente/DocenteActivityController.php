@@ -27,6 +27,7 @@ use App\Services\Agenda\GrupoIndividualService;
 use App\Services\Archive\Handlers\ActivityArchiveHandler;
 use App\Services\Docente\ConversacionDocenteService;
 use App\Services\Docente\NombreUsuario;
+use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -856,7 +857,8 @@ class DocenteActivityController extends Controller
 
         $request->validate([
             'rubrica' => 'required|array',
-            'rubrica.niveles' => 'required|array|min:1',
+            'rubrica.niveles' => ['required', 'array', 'min:1', $this->reglaPonderacionCompleta()],
+            'rubrica.niveles.*.ponderacion' => 'required|numeric|min:0|max:100',
             'rubrica.detalles_evaluacion' => 'required|array',
             'id_actividad' => 'required|integer|exists:actividad,id_actividad',
         ]);
@@ -892,6 +894,44 @@ class DocenteActivityController extends Controller
         }
 
         return redirect()->back()->with('success', 'Rúbrica guardada correctamente.');
+    }
+
+    /**
+     * Regla: las ponderaciones de los criterios deben sumar exactamente 100 %.
+     *
+     * Se valida también en el servidor —el editor ya deshabilita el botón—
+     * porque el frontend es una conveniencia para quien usa la pantalla, no una
+     * garantía: la ruta acepta cualquier POST autenticado, y una rúbrica cuyas
+     * ponderaciones no cierran es un dato inválido que quedaría guardado y
+     * saldría a la luz recién al calificar.
+     *
+     * La suma se redondea a dos decimales antes de comparar. No es cosmética:
+     * 33.34 + 33.33 + 33.33 da 100.00000000000001 en coma flotante, y sin
+     * redondear se rechazaría justo el reparto que ofrece el propio editor.
+     */
+    private function reglaPonderacionCompleta(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (!is_array($value)) {
+                return;
+            }
+
+            $suma = 0.0;
+            foreach ($value as $nivel) {
+                // Un criterio sin ponderación numérica ya lo rechaza la regla
+                // por campo; aquí se ignora para no acumular dos mensajes sobre
+                // el mismo problema.
+                if (is_array($nivel) && is_numeric($nivel['ponderacion'] ?? null)) {
+                    $suma += (float) $nivel['ponderacion'];
+                }
+            }
+
+            $suma = round($suma, 2);
+
+            if ($suma !== 100.0) {
+                $fail("Las ponderaciones de los criterios deben sumar exactamente 100 % (suman {$suma} %).");
+            }
+        };
     }
 
     /**
