@@ -135,6 +135,29 @@ class InscripcionCursoService
     }
 
     /**
+     * Da de baja una inscripción sin borrarla: pasa a RETIRADO y le quita el rol
+     * Estudiante en el contexto del curso.
+     *
+     * Es el inverso exacto de {@see self::reEnroll()}, y las dos mitades tienen
+     * que existir juntas: sin revocar el rol, un alumno que botó el ramo
+     * conservaría el acceso al curso pese a figurar retirado, y sin dejar la
+     * fila en RETIRADO el rol volvería a asignarse en la corrida siguiente.
+     *
+     * No toca `num_intento` ni `promedio_parcial`: retirarse no es un intento
+     * nuevo, y lo que el alumno alcanzó a hacer sigue siendo parte del registro.
+     */
+    public function marcarRetirada(InscripcionCurso $inscripcion): InscripcionCurso
+    {
+        return DB::transaction(function () use ($inscripcion) {
+            $inscripcion->update(['estado_inscripcion' => 'RETIRADO']);
+
+            $this->revokeEstudianteRoleCurso($inscripcion);
+
+            return $inscripcion;
+        });
+    }
+
+    /**
      * Obtiene todos los IDs de contexto en la jerarquía hacia arriba (incluyendo el actual).
      */
     private function getContextoHierarchyIds(int $idContexto): array
