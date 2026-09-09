@@ -192,10 +192,27 @@ class DocenteActivityController extends Controller
             ->pluck('id_componente')
             ->all();
 
-        // Get componentes for dropdown
+        // Get componentes for dropdown.
+        //
+        // El orden es Cátedra > Taller > Laboratorio y sale de
+        // `TipoComponente::PRIORIDAD`, no de un `orderBy` en SQL: la jerarquía es
+        // del dominio, no del catálogo, y el `id_tipo_componente` refleja el
+        // orden en que se sembraron los tipos. Ordenar por id daría el orden
+        // correcto sólo por casualidad, y dejaría de darlo en cuanto alguien
+        // agregue un tipo nuevo o resiembre el catálogo.
+        //
+        // `sortBy` sobre la colección y no en la consulta porque `prioridad` es
+        // un accessor de PHP: no existe como columna que Postgres pueda ordenar.
         $componentes = Componente::where('id_curso', $curso->id_curso)
             ->with('tipoComponente')
             ->get()
+            ->sortBy(fn (Componente $c) => [
+                $c->tipoComponente?->prioridad ?? 99,
+                // Desempate estable entre componentes del mismo tipo (dos
+                // talleres, por ejemplo); sin él el orden lo decide Postgres.
+                $c->id_componente,
+            ])
+            ->values()
             ->map(fn (Componente $c) => array_merge($c->toArray(), [
                 'es_mio' => in_array($c->id_componente, $misComponentesIds, true),
             ]));
