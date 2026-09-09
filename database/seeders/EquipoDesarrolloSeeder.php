@@ -58,6 +58,17 @@ class EquipoDesarrolloSeeder extends Seeder
         'apellido2' => 'SA',
         'es_superadmin' => false,
       ],
+      // Cuenta institucional solicitada por la contraparte. El RUT es el dato real
+      // y vive únicamente aquí; nombre y credenciales son de arranque y se corrigen
+      // desde el panel cuando la persona toma posesión de la cuenta.
+      [
+        'rut' => '70770800-K',
+        'nombre1' => 'Cuenta',
+        'nombre2' => '',
+        'apellido1' => 'Institucional',
+        'apellido2' => '',
+        'es_superadmin' => true,
+      ],
     ];
 
     // Buscar el rol SuperAdmin en la base de datos
