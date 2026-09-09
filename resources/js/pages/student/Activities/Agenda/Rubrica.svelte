@@ -21,6 +21,29 @@
 
   const maxEscalas = $derived(Math.max(...(rubrica?.niveles?.map((n) => n.escalas.length) ?? [0])));
 
+  /**
+   * Rótulos de las columnas.
+   *
+   * Las rúbricas nuevas traen `columnas` con el nombre que escribió el docente
+   * («Insuficiente», «Destacado»…). Las guardadas antes de esa versión no la
+   * traen, y para ellas se mantiene el rótulo genérico de siempre: no hay de
+   * dónde sacar un nombre, y numerarlas es más honesto que inventarlo.
+   */
+  const columnas = $derived(
+    Array.from({ length: maxEscalas }, (_, i) => ({
+      nombre: rubrica?.columnas?.[i]?.nombre?.trim() || `Nivel ${i + 1}`,
+      puntos: rubrica?.columnas?.[i]?.puntos ?? null,
+    })),
+  );
+
+  /**
+   * Si el puntaje viene declarado por columna se muestra una vez en la
+   * cabecera. Repetirlo dentro de cada celda sería decir el mismo número
+   * tantas veces como criterios tenga la rúbrica. En las rúbricas viejas, en
+   * cambio, cada celda podía valer distinto y ese número es el único dato real.
+   */
+  const puntajePorColumna = $derived(!!rubrica?.columnas?.length);
+
   const tieneResultado = $derived(!!resultado && Object.keys(resultado).length > 0);
 
   function esSeleccionada(nivelId: string, escalaId: string): boolean {
@@ -112,9 +135,12 @@
               >Criterio</th
             >
 
-            {#each rubrica.niveles[0]?.escalas ?? [] as escala, i}
+            {#each columnas as columna}
               <th class="text-center text-sm font-semibold text-base-content/70 py-3 px-4 min-w-52">
-                Nivel {i + 1}
+                {columna.nombre}
+                {#if puntajePorColumna}
+                  <span class="block text-xs font-bold text-primary mt-0.5">{columna.puntos} pts</span>
+                {/if}
               </th>
             {/each}
           </tr>
@@ -156,10 +182,17 @@
                             ? 'border-base-200 bg-base-50 opacity-50'
                             : 'border-base-200 bg-base-50'}"
                     >
-                      <div class="flex items-center justify-between gap-2 mb-2">
-                        <span class="text-sm font-bold {seleccionada ? 'text-emerald-700' : 'text-base-content/50'}">
-                          {nivel.escalas[index].puntos} pts
-                        </span>
+                      <div
+                        class="flex items-center justify-between gap-2 {puntajePorColumna &&
+                        !seleccionada
+                          ? ''
+                          : 'mb-2'}"
+                      >
+                        {#if !puntajePorColumna}
+                          <span class="text-sm font-bold {seleccionada ? 'text-emerald-700' : 'text-base-content/50'}">
+                            {nivel.escalas[index].puntos} pts
+                          </span>
+                        {/if}
                         {#if seleccionada}
                           <span class="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">

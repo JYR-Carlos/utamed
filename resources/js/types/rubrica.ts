@@ -1,7 +1,26 @@
 export interface Escala {
   id: string;
+  /**
+   * Puntaje de la celda. Desde que el puntaje se define por columna, todas las
+   * celdas de una misma columna llevan el mismo número: se sigue estampando en
+   * cada celda para que quien ya leía la rúbrica —vista del alumno, matriz de
+   * evaluación, cálculo del puntaje obtenido— lo encuentre donde siempre
+   * estuvo. La columna es la fuente; esto es la copia.
+   */
   puntos: number;
   criterio: string;
+}
+
+/**
+ * Una columna de la rúbrica: un nivel de desempeño con nombre propio.
+ *
+ * El nombre lo escribe el docente (hay plantillas de 3, 4 y 5 niveles como
+ * punto de partida) y el puntaje vale para toda la columna, no celda por celda.
+ */
+export interface ColumnaNivel {
+  id: string;
+  nombre: string;
+  puntos: number;
 }
 
 export interface Nivel {
@@ -26,6 +45,15 @@ export interface DetallesEvaluacion {
 
 export interface Rubrica {
   niveles: Nivel[];
+  /**
+   * Columnas con nombre y puntaje propios.
+   *
+   * Opcional porque las rúbricas guardadas antes de esta versión no la traen:
+   * ahí las columnas no tenían nombre («Nivel 1», «Nivel 2»…) y el puntaje
+   * vivía suelto en cada celda. Quien la lea debe tolerar su ausencia; quien la
+   * escriba, incluirla siempre.
+   */
+  columnas?: ColumnaNivel[];
   detalles_evaluacion: DetallesEvaluacion;
 }
 
