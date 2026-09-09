@@ -524,35 +524,68 @@
       </div>
     {/if}
 
-    <div class="w-full grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 items-start">
-      <!-- ── Columna izquierda: información de la actividad ── -->
+    <!--
+      Resumen arriba y grupos abajo, los dos a ancho completo.
+
+      Antes era un grid de dos columnas iguales (`xl:grid-cols-2`), pero los dos
+      lados no tienen nada que ver en tamaño: a la izquierda van cuatro líneas
+      fijas de datos y un botón, y a la derecha una lista que crece con cada
+      grupo del curso. El resultado era media pantalla casi vacía al lado de una
+      columna larguísima, y encima los grupos —lo que el docente viene a hacer—
+      quedaban confinados a la mitad angosta.
+
+      Puesto uno sobre otro, el resumen ocupa lo que necesita (una banda que se
+      reparte en columnas según quepa) y los grupos usan todo el ancho.
+    -->
+    <div class="flex w-full flex-col gap-6 lg:gap-8">
+      <!-- ── Resumen de la actividad ── -->
       <div
-        class="flex flex-col w-full justify-center gap-6 lg:rounded-2xl lg:border lg:border-gray-200 lg:px-10 lg:py-5 lg:shadow-sm"
+        class="flex flex-col w-full gap-4 lg:rounded-2xl lg:border lg:border-gray-200 lg:px-8 lg:py-5 lg:shadow-sm"
       >
         <p class="text-start text-sm sm:text-base font-semibold text-uta-blue">
           Sobre esta Actividad
         </p>
 
-        <div
-          class="text-sm font-semibold text-slate-700 px-4 sm:px-6 md:px-8 py-4 rounded-2xl bg-uta-blue-light border border-uta-blue/15 break-words"
-        >
+        <div class="flex flex-col gap-4 md:flex-row md:items-stretch">
+          <!--
+            Los datos ya no son cuatro líneas apiladas con <br>: en una banda
+            ancha eso deja una línea de texto corta perdida en mucho blanco.
+            Cada dato es una celda con su rótulo, y la banda las reparte según
+            el ancho disponible.
+          -->
+          <dl
+            class="grid flex-1 grid-cols-2 gap-x-6 gap-y-3 rounded-2xl border border-uta-blue/15 bg-uta-blue-light px-4 py-4 text-sm sm:grid-cols-3 sm:px-6 lg:grid-cols-4"
+          >
+            <div class="min-w-0">
+              <dt class="text-xs font-medium text-slate-500">Fecha límite</dt>
+              <dd class="font-semibold text-slate-700 break-words">
+                {formatFechaHora(actividad.fecha_limite)}
+              </dd>
+            </div>
+            <div class="min-w-0">
+              <dt class="text-xs font-medium text-slate-500">Tipo de actividad</dt>
+              <dd class="font-semibold text-slate-700">
+                {actividad.es_sumativa ? 'Sumativa' : 'Formativa'}
+              </dd>
+            </div>
+            <div class="min-w-0">
+              <dt class="text-xs font-medium text-slate-500">Entrega de archivo</dt>
+              <dd class="font-semibold text-slate-700">{actividad.trae_archivo ? 'Sí' : 'No'}</dd>
+            </div>
+            {#if actividad.nro_dias_adicionales_para_bloqueo > 0}
+              <div class="min-w-0">
+                <dt class="text-xs font-medium text-slate-500">Holgura</dt>
+                <dd class="font-semibold text-slate-700">
+                  {actividad.nro_dias_adicionales_para_bloqueo} día{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 's' : ''} adicional{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 'es' : ''}
+                </dd>
+              </div>
+            {/if}
+          </dl>
 
-          Fecha límite: {formatFechaHora(actividad.fecha_limite)}
-          <br />
-          Tipo Actividad: {actividad.es_sumativa ? 'Sumativa' : 'Formativa'}
-          <br />
-          Entrega de Archivo: {actividad.trae_archivo ? 'Sí' : 'No'}
-          {#if actividad.nro_dias_adicionales_para_bloqueo > 0}
-            <br />
-            Holgura: {actividad.nro_dias_adicionales_para_bloqueo} día{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 's' : ''} adicional{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 'es' : ''}
-          {/if}
-        </div>
-
-        <!-- Botones de acción de la actividad -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+          <!-- Botón de rúbrica: al lado del resumen, no debajo ocupando el ancho. -->
           {#if actividad.es_titular || rubrica}
             <button
-              class="w-full px-4 sm:px-6 md:px-8 py-3 sm:py-4 rounded-xl border border-uta-blue transition-all bg-white text-uta-blue hover:bg-uta-blue hover:text-white flex items-center justify-between gap-4 text-sm font-semibold sm:col-span-2"
+              class="flex shrink-0 items-center justify-between gap-4 rounded-xl border border-uta-blue bg-white px-4 py-3 text-sm font-semibold text-uta-blue transition-all hover:bg-uta-blue hover:text-white sm:px-6 md:w-56"
               onclick={() => actividad.es_titular ? (showRubricaEditor = true) : toggleRubricaModal()}
             >
               <p>{rubrica ? 'Ver Rúbrica' : 'Crear Rúbrica'}</p>
@@ -562,7 +595,7 @@
         </div>
       </div>
 
-      <!-- ── Columna derecha: grupos asignados ── -->
+      <!-- ── Grupos asignados ── -->
       <div class="flex flex-col w-full gap-4">
         <div class="flex justify-between items-center">
           <p class="text-start text-sm sm:text-base font-semibold text-uta-blue">
@@ -609,38 +642,47 @@
           </div>
         {/if}
 
-        {#each grupos as grupo (grupo.grupo)}
-          <GrupoCard
-            {grupo}
-            esTitular={actividad.es_titular}
-            traeArchivo={actividad.trae_archivo}
-            {savingDecimas}
-            {addingToGrupo}
-            bind:addingEstudianteId
-            {addingLoading}
-            {addingError}
-            estudiantesParaGrupo={estudiantesParaGrupo(grupo.grupo)}
-            {getEstadoColor}
-            {formatDecimas}
-            onEliminarGrupo={eliminarGrupo}
-            onQuitarEstudiante={quitarEstudiante}
-            onAjustarDecimas={ajustarDecimas}
-            onRecalcularNotas={recalcularNotas}
-            onAbrirAddForm={(grupoId) => {
-              addingToGrupo = grupoId;
-              addingEstudianteId = 0;
-              addingError = null;
-            }}
-            onCerrarAddForm={() => {
-              addingToGrupo = null;
-              addingError = null;
-            }}
-            onAgregarAGrupo={agregarAGrupo}
-            onVerEntregas={verEntregas}
-            onVerAgenda={abrirAgendaGrupo}
-            onActualizarHolguraPersonal={actualizarHolguraPersonal}
-          />
-        {/each}
+        <!--
+          Grilla y no lista: con el ancho completo disponible, una tarjeta por
+          fila deja el 70% de la pantalla en blanco y obliga a desplazarse por
+          cursos con muchos grupos. `items-start` a propósito no: las tarjetas
+          de una misma fila se estiran a la misma altura para que los bordes no
+          queden escalonados.
+        -->
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+          {#each grupos as grupo (grupo.grupo)}
+            <GrupoCard
+              {grupo}
+              esTitular={actividad.es_titular}
+              traeArchivo={actividad.trae_archivo}
+              {savingDecimas}
+              {addingToGrupo}
+              bind:addingEstudianteId
+              {addingLoading}
+              {addingError}
+              estudiantesParaGrupo={estudiantesParaGrupo(grupo.grupo)}
+              {getEstadoColor}
+              {formatDecimas}
+              onEliminarGrupo={eliminarGrupo}
+              onQuitarEstudiante={quitarEstudiante}
+              onAjustarDecimas={ajustarDecimas}
+              onRecalcularNotas={recalcularNotas}
+              onAbrirAddForm={(grupoId) => {
+                addingToGrupo = grupoId;
+                addingEstudianteId = 0;
+                addingError = null;
+              }}
+              onCerrarAddForm={() => {
+                addingToGrupo = null;
+                addingError = null;
+              }}
+              onAgregarAGrupo={agregarAGrupo}
+              onVerEntregas={verEntregas}
+              onVerAgenda={abrirAgendaGrupo}
+              onActualizarHolguraPersonal={actualizarHolguraPersonal}
+            />
+          {/each}
+        </div>
 
         {#if grupos.length === 0 && actividad.es_grupal && actividad.es_titular}
           <div

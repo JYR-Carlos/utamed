@@ -127,8 +127,14 @@
   }
 </script>
 
+<!--
+  `h-full`: la tarjeta se usa dentro de una grilla, y sin él cada una mide lo
+  que mide su contenido —un grupo con seis integrantes y notas individuales
+  frente a uno vacío—, dejando los bordes inferiores escalonados dentro de la
+  misma fila.
+-->
 <div
-  class="flex flex-col w-full text-sm font-semibold text-slate-800 px-4 sm:px-6 py-4 rounded-2xl bg-white border border-gray-200 shadow-sm gap-3"
+  class="flex h-full flex-col w-full text-sm font-semibold text-slate-800 px-4 sm:px-6 py-4 rounded-2xl bg-white border border-gray-200 shadow-sm gap-3"
 >
   <!-- Número de grupo + estado + eliminar -->
   <div class="flex items-center justify-between gap-2">
