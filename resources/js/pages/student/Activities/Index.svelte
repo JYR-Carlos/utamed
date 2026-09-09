@@ -330,7 +330,15 @@
     onclick={(e) => e.target === e.currentTarget && toggleRubricaModal()}
     onkeydown={(e) => e.key === 'Escape' && toggleRubricaModal()}
   >
-    <div class="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
+    <!--
+      max-w-6xl y no 3xl: la rúbrica es una tabla de un criterio por fila y un
+      nivel por columna, así que su ancho natural crece con la cantidad de
+      niveles. A 3xl las celdas quedaban tan angostas que la descripción de cada
+      nivel se partía en una palabra por línea. El scroll horizontal lo pone la
+      propia tabla (RubricaView envuelve en overflow-x-auto), no este contenedor:
+      así la cabecera del modal y el botón de cerrar quedan siempre a la vista.
+    -->
+    <div class="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
       <div class="flex items-center justify-between border-b border-[#E5E7EB] p-5 md:px-6">
         <div>
           <div class="text-xs font-semibold uppercase tracking-wider text-[#5A5E6E]">Rúbrica de evaluación</div>

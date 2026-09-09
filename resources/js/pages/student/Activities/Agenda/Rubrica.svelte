@@ -89,15 +89,31 @@
       </div>
     {/if}
 
-    <!-- Tabla -->
-    <div class="overflow-x-auto rounded-2xl border border-base-300">
+    <!--
+      Tabla.
+
+      Las columnas tienen ancho mínimo propio: comprimirlas para que quepan
+      todas es lo que dejaba la descripción de cada nivel en una palabra por
+      línea. Cuando no caben, la tabla se desplaza en horizontal en vez de
+      encogerse, y la columna del criterio queda fija (`sticky left-0`) para que
+      al desplazarse no se pierda de vista a qué fila corresponde la celda que
+      se está leyendo.
+
+      Los fondos de fila son opacos y las celdas fijas usan `bg-inherit`: con un
+      fondo traslúcido, el contenido que pasa por debajo al desplazar se
+      transparentaría a través de la columna fija.
+    -->
+    <div class="overflow-x-auto scroll-smooth rounded-2xl border border-base-300">
       <table class="table w-full">
         <thead>
-          <tr class="bg-base-200/60">
-            <th class="min-w-64 text-sm font-semibold text-base-content/70 py-3 px-4">Criterio</th>
+          <tr class="bg-base-200">
+            <th
+              class="sticky left-0 z-20 min-w-72 bg-inherit text-sm font-semibold text-base-content/70 py-3 px-4"
+              >Criterio</th
+            >
 
             {#each rubrica.niveles[0]?.escalas ?? [] as escala, i}
-              <th class="text-center text-sm font-semibold text-base-content/70 py-3 px-4 min-w-44">
+              <th class="text-center text-sm font-semibold text-base-content/70 py-3 px-4 min-w-52">
                 Nivel {i + 1}
               </th>
             {/each}
@@ -106,8 +122,8 @@
 
         <tbody>
           {#each rubrica.niveles as nivel, nivelIdx}
-            <tr class="border-t border-base-200 {nivelIdx % 2 === 0 ? 'bg-white' : 'bg-base-100/40'}">
-              <td class="align-top py-4 px-4">
+            <tr class="border-t border-base-200 {nivelIdx % 2 === 0 ? 'bg-white' : 'bg-base-100'}">
+              <td class="sticky left-0 z-10 bg-inherit align-top py-4 px-4">
                 <div class="space-y-1.5">
                   <h4 class="font-semibold text-base-content leading-snug">
                     {nivel.nombre}
