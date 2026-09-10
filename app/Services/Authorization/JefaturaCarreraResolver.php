@@ -25,7 +25,7 @@ class JefaturaCarreraResolver
         $asignacion = UsuarioRolAsignacion::query()
             ->where('id_usuario', $user->id_usuario)
             ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
+            ->whereRaw('fue_eliminado IS NOT TRUE')
             ->whereHas('rol', fn($q) => $q->where('nombre', 'Jefe de Carrera'))
             ->whereHas('contexto.tipoContexto', fn($q) => $q->where('categoria', 'carrera'))
             ->latest('id_ura')

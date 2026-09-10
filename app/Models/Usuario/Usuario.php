@@ -495,9 +495,19 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
                 ->all();
         }
 
+        // `IS NOT TRUE` y no `= false`: en SQL, `NULL = false` no es verdadero, asi
+        // que `wherePivot('fue_eliminado', false)` descartaba toda asignacion cuya
+        // columna quedo en NULL —cualquiera insertada sin fijarla— y el rol se
+        // volvia invisible aqui mientras seguia concediendo permisos, porque la
+        // vista usuario.vw_permisos_usuario no mira esa columna.
+        //
+        // Es ademas lo que ya hacia la rama en memoria de este mismo metodo
+        // (`asignacionVigente`, que descarta solo si `fue_eliminado` es verdadero):
+        // las dos ramas devolvian cosas distintas segun la relacion estuviera
+        // cargada o no.
         $query = $this->rolesAsignados()
             ->wherePivot('esta_activo', true)
-            ->wherePivot('fue_eliminado', false);
+            ->whereRaw('usuario_rol_asignacion.fue_eliminado IS NOT TRUE');
 
         if ($contextId !== null) {
             $query->wherePivot('id_contexto', $contextId);
