@@ -1229,10 +1229,13 @@ class UsuarioController extends Controller
         $this->authorize('view', $usuario);
 
         // Obtener TODAS las asignaciones de rol activas (todos los contextos)
+        // `IS NOT TRUE` y no `= false`: con `= false` las asignaciones cuya columna
+        // quedo en NULL no se listaban, y el administrador veia al usuario sin un
+        // rol que si estaba concediendo permisos.
         $roles = UsuarioRolAsignacion::with(['rol', 'contexto.curso', 'asignador'])
             ->where('id_usuario', $usuario->id_usuario)
             ->where('esta_activo', true)
-            ->where('fue_eliminado', false)
+            ->whereRaw('fue_eliminado IS NOT TRUE')
             ->whereNull('fecha_fin_real')
             ->where('fecha_fin_planificada', '>=', now())
             ->get()
@@ -1319,10 +1322,14 @@ class UsuarioController extends Controller
             // 1. SINCRONIZAR ROLES: Reemplazar con los nuevos
             // ===============================================
             // Desactivar asignaciones actuales
+            // Mismo motivo que en el listado, y aqui pesa mas: con `= false` esta
+            // baja no alcanzaba a las filas con la columna en NULL, asi que editar
+            // los roles de un usuario desde el panel dejaba intacto justo el rol
+            // que no se veia.
             UsuarioRolAsignacion::where('id_usuario', $usuario->id_usuario)
                 ->where('id_contexto', $idContexto)
                 ->where('esta_activo', true)
-                ->where('fue_eliminado', false)
+                ->whereRaw('fue_eliminado IS NOT TRUE')
                 ->update([
                     'esta_activo' => false,
                     'fue_eliminado' => true,

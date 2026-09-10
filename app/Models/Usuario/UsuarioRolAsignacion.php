@@ -25,6 +25,21 @@ class UsuarioRolAsignacion extends BaseUsuarioRolAsignacion
      */
     protected static function booted(): void
     {
+        // La columna no tiene DEFAULT en la base, asi que toda alta que no la fije
+        // la deja en NULL. Una fila asi es un fantasma: concede permisos —la vista
+        // usuario.vw_permisos_usuario no la mira— pero desaparece de cualquier
+        // consulta que filtre por `fue_eliminado`, incluido el listado y la baja de
+        // roles del panel. Se fija aqui, y no en cada punto de escritura, por lo
+        // mismo que los demas eventos de este modelo.
+        //
+        // NO cubre `DB::table(...)->insert/updateOrInsert`, que no pasa por
+        // Eloquent: ahi hay que fijarla a mano (ver EquipoDesarrolloSeeder).
+        static::creating(function (self $asignacion) {
+            if ($asignacion->fue_eliminado === null) {
+                $asignacion->fue_eliminado = false;
+            }
+        });
+
         $olvidar = fn(self $asignacion) => app(PermissionCache::class)
             ->olvidarUsuario((int) $asignacion->id_usuario);
 

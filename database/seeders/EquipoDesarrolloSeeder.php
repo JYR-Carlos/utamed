@@ -16,16 +16,15 @@ class EquipoDesarrolloSeeder extends Seeder
    */
   public function run(): void
   {
-    // Arreglo modificable con los datos de los usuarios
+    // Arreglo modificable con los datos de los usuarios.
+    //
+    // OJO CON LOS RUT DE RELLENO: el de Rodrigo era '11111111-1' con
+    // es_superadmin => true, y ese RUT ya lo tenia un alumno real. Como el alta de
+    // mas abajo es un firstOrCreate por RUT, el seeder no creaba la cuenta del
+    // equipo: encontraba al alumno y le entregaba SuperAdmin global. Se saca hasta
+    // tener su RUT verdadero; el guardia de abajo impide que vuelva a pasar con
+    // otro, pero un RUT inventado sigue siendo una mala idea aqui.
     $equipo = [
-      [
-        'rut' => '11111111-1',
-        'nombre1' => 'Rodrigo',
-        'nombre2' => '',
-        'apellido1' => 'PA',
-        'apellido2' => 'SA',
-        'es_superadmin' => true,
-      ],
       [
         'rut' => '22222222-2',
         'nombre1' => 'Christian',
@@ -79,11 +78,16 @@ class EquipoDesarrolloSeeder extends Seeder
     }
 
     // Asegurar que el usuario base superadmin tenga su rol asignado para permitir autorizaciones en el resto del seeding
+    // `fue_eliminado => false` explicito: esto escribe por DB::table y no por
+    // Eloquent, asi que no pasa por el default del modelo. Sin fijarla, la columna
+    // queda en NULL y la fila se vuelve un fantasma —concede permisos pero no
+    // aparece en el listado ni en la baja de roles del panel.
     DB::table('usuario.usuario_rol_asignacion')->updateOrInsert(
       ['id_usuario' => $superAdmin->id_usuario, 'id_rol' => $rolSuperAdmin->id_rol],
       [
         'id_contexto' => 1,
         'esta_activo' => true,
+        'fue_eliminado' => false,
         'creado_por' => $superAdmin->id_usuario,
         'asignado_por' => $superAdmin->id_usuario,
         'fecha_inicio_planificada' => now(),
@@ -116,6 +120,24 @@ class EquipoDesarrolloSeeder extends Seeder
 
       // Asignación directa de rol SuperAdmin en la BD para superadministradores del equipo
       if ($datos['es_superadmin'] && $rolSuperAdmin) {
+        // El firstOrCreate de arriba busca por RUT: si el RUT ya existia, este
+        // $usuario NO es la cuenta del equipo, es la de otra persona. Conceder
+        // SuperAdmin global a una cuenta que tiene perfil de estudiante nunca es
+        // lo que este seeder quiere, y es exactamente lo que paso con
+        // '11111111-1'. Se avisa fuerte y se sigue sin asignar, en vez de dejarlo
+        // pasar en silencio.
+        $esAlumno = DB::table('usuario.estudiante')
+          ->where('id_usuario', $usuario->id_usuario)
+          ->exists();
+
+        if ($esAlumno) {
+          $this->command->error(
+            "  ! OMITIDO: el RUT {$datos['rut']} corresponde a {$usuario->nombre1} {$usuario->apellido1}, "
+              . "que tiene perfil de estudiante. NO se le asigna SuperAdmin. Revisa el RUT en el arreglo \$equipo."
+          );
+          continue;
+        }
+
         DB::table('usuario.usuario_rol_asignacion')->updateOrInsert(
           [
             'id_usuario' => $usuario->id_usuario,
@@ -124,6 +146,7 @@ class EquipoDesarrolloSeeder extends Seeder
           [
             'id_contexto' => 1,
             'esta_activo' => true,
+            'fue_eliminado' => false,
             'creado_por' => $superAdmin->id_usuario,
             'asignado_por' => $superAdmin->id_usuario,
             'fecha_inicio_planificada' => now(),
