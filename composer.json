@@ -43,9 +43,10 @@
         }
     },
     "scripts": {
-        "db:soft-reset": "pwsh -ExecutionPolicy Bypass -File scripts/db_reset.ps1",
-        "db:soft-reset-linux": "cd database-model && bash scripts/soft_reset.sh",
-        "db:soft-reset-testing": "pwsh -ExecutionPolicy Bypass -File scripts/db_reset.ps1 -Testing",
+        "db:soft-reset": "@php scripts/run_db_reset.php",
+        "db:soft-reset-linux": "@composer db:soft-reset",
+        "db:soft-reset-linux-testing": "@composer db:soft-reset-testing",
+        "db:soft-reset-testing": "@php scripts/run_db_reset.php --testing",
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
