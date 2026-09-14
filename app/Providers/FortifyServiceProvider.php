@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use App\Support\Rut;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
@@ -57,9 +58,10 @@ class FortifyServiceProvider extends ServiceProvider
             // Field is named 'email' for Fortify compatibility, but contains the RUT
             $rutInput = $request->input('email');
 
-            // Normalize: strip dots and dash so both sides are comparable
-            // e.g. "11.111.111-1" or "11111111-1" or "111111111" all normalize to "111111111"
-            $normalizedInput = preg_replace('/[.\-]/', '', $rutInput ?? '');
+            // Normalize: strip dots and dash, and ensure DV 'K' is uppercase.
+            // Fortify's 'lowercase_usernames' converts the input to lowercase ('70770800-k'),
+            // which causes PostgreSQL case-sensitive '=' comparisons to fail against '70770800-K'.
+            $normalizedInput = Rut::soloDigitos($rutInput);
 
             Log::channel('single')->info('[LOGIN] Intento de login', [
                 'rut_input'      => $rutInput,
@@ -69,7 +71,7 @@ class FortifyServiceProvider extends ServiceProvider
 
             try {
                 $user = \App\Models\Usuario\Usuario::whereRaw(
-                    "REPLACE(REPLACE(rut, '.', ''), '-', '') = ?",
+                    "UPPER(REPLACE(REPLACE(rut, '.', ''), '-', '')) = ?",
                     [$normalizedInput]
                 )->first();
 
