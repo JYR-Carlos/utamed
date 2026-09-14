@@ -20,11 +20,13 @@ class ActividadesSeeder extends Seeder
    */
   public function run(): void
   {
-    // Obtener todos los cursos
-    $cursos = Curso::all();
+    // Obtener solo cursos activos reales (excluyendo plantillas y cursos cerrados del pasado)
+    $cursos = Curso::where('es_plantilla', false)
+      ->where('estado_interno', 'activo')
+      ->get();
 
     if ($cursos->isEmpty()) {
-      $this->command->warn('No hay cursos en la BD. Ejecuta CursosSeeder primero.');
+      $this->command->warn('No hay cursos activos en la BD. Ejecuta BaseCursosSeeder primero.');
       return;
     }
 
@@ -37,16 +39,21 @@ class ActividadesSeeder extends Seeder
     $cursosProcesados = [];
 
     foreach ($cursos as $curso) {
-      // Obtener cualquier unidad
-      $unidades = $curso->unidades;
       $componentes = $curso->componentes()->inRandomOrder()->get();
-
-      if (empty($unidades)) {
-        throw new \Exception("Curso {$curso->cod_curso} no tiene unidades.");
+      if ($componentes->isEmpty()) {
+        continue;
       }
 
-      if (empty($componentes)) {
-        throw new \Exception("Curso {$curso->cod_curso} no tiene componentes.");
+      $componentesIds = $componentes->pluck('id_componente')->toArray();
+      // Si el curso ya tiene actividades creadas, omitir para evitar duplicados
+      if (Actividad::whereIn('id_componente', $componentesIds)->exists()) {
+        continue;
+      }
+
+      // Obtener cualquier unidad
+      $unidades = $curso->unidades;
+      if ($unidades->isEmpty()) {
+        continue;
       }
 
       $tipos = [
@@ -55,12 +62,10 @@ class ActividadesSeeder extends Seeder
       ];
 
       $actividadesCurso = [];
-      // Guardaremos los IDs de las unidades que realmente usamos para poder buscarlas después
       $unidadesUsadasIds = [];
 
       foreach ($componentes as $componente) {
         foreach ($tipos as $tipo) {
-          
           // Seleccionar una unidad al azar fija para este set
           $unidadSeleccionada = $unidades->random();
           $unidadesUsadasIds[] = $unidadSeleccionada->id_unidad;
@@ -73,9 +78,6 @@ class ActividadesSeeder extends Seeder
             'ponderacion' => 10,
             'exigencia' => 60,
             'tipo_actividad' => $tipo->value,
-            // Vocabulario de tipo_entrega del formulario/validador del docente:
-            // online | presencial | hibrido. Sembrar 'archivo' dejaba actividades
-            // que ninguna edición podía guardar.
             'tipo_entrega' => 'online',
             'es_grupal' => true,
             'max_integrantes' => 5,
@@ -92,9 +94,6 @@ class ActividadesSeeder extends Seeder
             'ponderacion' => 10,
             'exigencia' => 60,
             'tipo_actividad' => $tipo->value,
-            // Vocabulario de tipo_entrega del formulario/validador del docente:
-            // online | presencial | hibrido. Sembrar 'archivo' dejaba actividades
-            // que ninguna edición podía guardar.
             'tipo_entrega' => 'online',
             'es_grupal' => false,
             'max_integrantes' => 1,
@@ -107,8 +106,6 @@ class ActividadesSeeder extends Seeder
 
       $actividadesParaInsertar[] = [
         'curso' => $curso,
-        'componentes_ids' => $componentes->pluck('id_componente')->toArray(), // IDs de todos los componentes del curso
-        'unidades_usadas' => array_unique($unidadesUsadasIds), // Guardamos los IDs únicos usados
         'actividades' => $actividadesCurso,
       ];
 
@@ -122,22 +119,17 @@ class ActividadesSeeder extends Seeder
         $cantidadEstudiantes = $estudiantes->count();
 
         if ($estudiantes->isEmpty()) {
-          throw new \Exception("Curso {$datoCurso['curso']->cod_curso} no tiene estudiantes inscritos.");
+          continue;
         }
 
         $curso = $datoCurso['curso'];
         $actividadesCurso = $datoCurso['actividades'];
 
-        DB::table('actividad')->insert($actividadesCurso);
-        $actividadesCreadas += count($actividadesCurso);
-
-        // NOTA DE CORRECCIÓN: Se utiliza whereIn con todos los componentes_ids del curso para recuperar
-        // la totalidad de las actividades creadas (evitando dejar huérfanas las de componentes previos).
-        $actividadesInsertadas = Actividad::whereIn('id_componente', $datoCurso['componentes_ids'])
-          ->whereIn('id_unidad', $datoCurso['unidades_usadas'])
-          ->orderBy('id_actividad', 'asc') 
-          ->take(count($actividadesCurso))
-          ->get();
+        $actividadesInsertadas = [];
+        foreach ($actividadesCurso as $actividadData) {
+          $actividadesInsertadas[] = Actividad::create($actividadData);
+          $actividadesCreadas++;
+        }
 
         // Procesar asignaciones de grupos e integrantes
         foreach ($actividadesInsertadas as $index => $actividad) {
