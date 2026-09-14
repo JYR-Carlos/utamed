@@ -52,8 +52,16 @@
       adjunta_rubrica: boolean;
       rubrica?: Rubrica | null;
       puntaje_obtenido?: number | null;
+      resultado?: Record<string, string> | null;
     }>;
     rubrica?: RubricaResponse | null;
+    ultima_evaluacion?: {
+      id_evaluacion: number;
+      puntaje_obtenido: number | null;
+      resultado: Record<string, string> | null;
+      retroalimentacion?: string | null;
+      rubrica?: Rubrica | null;
+    } | null;
     id_actividad_asignada_grupo?: number | null;
     resto_integrantes: Array<{
       id_estudiante: number;
@@ -84,6 +92,7 @@
     dias_holgura_personal = 0,
     entrega_obligatoria,
     ultima_nota,
+    ultima_evaluacion = null,
     ultima_entrega = null,
     estado,
     listado_interacciones = [],
@@ -354,8 +363,14 @@
         </button>
       </div>
       <div class="flex-1 overflow-y-auto p-5 md:p-6">
-        {#if rubrica}
-          <RubricaView rubrica={rubrica?.rubrica} esSumativa={es_sumativa} />
+        {#if rubrica || ultima_evaluacion?.rubrica || ultimaEvaluacion?.rubrica}
+          <RubricaView
+            rubrica={ultima_evaluacion?.rubrica ?? ultimaEvaluacion?.rubrica ?? rubrica?.rubrica}
+            esSumativa={es_sumativa}
+            resultado={ultima_evaluacion?.resultado ?? ultimaEvaluacion?.resultado}
+            puntaje_obtenido={ultima_evaluacion?.puntaje_obtenido ?? ultimaEvaluacion?.puntaje_obtenido}
+            retroalimentacion={ultima_evaluacion?.retroalimentacion ?? ultimaEvaluacion?.mensaje}
+          />
         {:else}
           <p class="py-8 text-center text-sm font-medium text-[#5A5E6E]">No hay rúbrica disponible para esta actividad.</p>
         {/if}

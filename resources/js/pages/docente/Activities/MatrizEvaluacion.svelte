@@ -14,7 +14,7 @@
 <script lang="ts">
   import type { Rubrica } from '@/types/rubrica';
   import { router } from '@inertiajs/svelte';
-  import { X, CheckCircle2 } from 'lucide-svelte';
+  import { X, CheckCircle2, ChevronLeft } from 'lucide-svelte';
   import { calcularNotaChilena, puntajeMinimoAprobacion } from '@/lib/notas';
 
   interface Props {
@@ -55,7 +55,31 @@
   let notaOverride = $state<number | null>(null);
   let notaManualOverride = $state(false);
   let saving = $state(false);
+  let saveSuccess = $state(false);
   let error = $state<string | null>(null);
+
+  $effect(() => {
+    let isPoppedByBrowser = false;
+
+    // Preservar el state de Inertia para que isValidState(state) no falle ni desmonte la página
+    if (typeof window !== 'undefined') {
+      window.history.pushState(window.history.state, '', window.location.href);
+    }
+
+    const handlePopState = () => {
+      isPoppedByBrowser = true;
+      onClose();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      if (!isPoppedByBrowser && !saveSuccess && typeof window !== 'undefined') {
+        window.history.back();
+      }
+    };
+  });
 
   // ── Derivados ──────────────────────────────────────────────────────────────
 
@@ -169,6 +193,7 @@
       {
         onSuccess: () => {
           saving = false;
+          saveSuccess = true;
           onSuccess?.();
           onClose();
         },
@@ -189,11 +214,13 @@
   <div class="shrink-0 bg-uta-blue text-white px-4 sm:px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
     <div class="flex items-center gap-3 min-w-0">
       <button
+        type="button"
         onclick={onClose}
-        class="p-1.5 rounded-full hover:bg-white/10 transition shrink-0"
-        title="Cerrar"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition text-xs font-semibold text-white shrink-0"
+        title="Volver"
       >
-        <X class="w-5 h-5" />
+        <ChevronLeft class="w-4 h-4" />
+        <span>Volver</span>
       </button>
       <div class="min-w-0">
         <h2 class="text-sm sm:text-base font-bold truncate">Evaluar: {nombreActividad}</h2>
@@ -411,9 +438,8 @@
               </div>
             </div>
             <p class="mt-4 text-xs text-gray-500 border-t border-gray-200 pt-3">
-              Nota <strong class="text-uta-blue">4.0</strong> desde
-              <strong class="text-uta-blue">{puntajeParaCuatro}</strong> de {puntajeMaximo} pts
-              (60 % de exigencia, redondeado hacia arriba).
+              Nota <strong class="text-uta-blue">4.0</strong> con
+              <strong class="text-uta-blue">{puntajeParaCuatro}</strong> de {puntajeMaximo} pts (60 % de exigencia).
             </p>
           </div>
         {:else}
@@ -429,9 +455,6 @@
               <p class="text-3xl font-black text-uta-blue">{evaluacionLabel}</p>
               <p class="text-xs text-gray-400 mt-2">
                 {puntajeObtenido}/{puntajeMaximo} pts ({porcentaje}%) según la escala de la rúbrica.
-              </p>
-              <p class="mt-4 text-xs text-gray-500 border-t border-gray-200 pt-3">
-                Una actividad formativa no lleva nota de 1,0 a 7,0.
               </p>
             {:else}
               <p class="text-amber-600 text-xs">

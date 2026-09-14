@@ -2,7 +2,7 @@
   import type { Rubrica } from '@/types/rubrica';
   import { router } from '@inertiajs/svelte';
   import RubricaView from '../../student/Activities/Agenda/Rubrica.svelte';
-  import { X, Plus, Trash2, Eye, Pencil } from 'lucide-svelte';
+  import { X, Plus, Trash2, Eye, Pencil, ChevronLeft } from 'lucide-svelte';
   import { puntajeMinimoAprobacion } from '@/lib/notas';
 
   interface Props {
@@ -95,7 +95,11 @@
   function initColumnas(): ColumnaDraft[] {
     const guardadas = rubrica?.columnas;
     if (guardadas?.length) {
-      return guardadas.map((c) => ({ _id: uid(), nombre: c.nombre, puntos: c.puntos }));
+      return guardadas.map((c) => ({
+        _id: (c as any).id ?? (c as any)._id ?? uid(),
+        nombre: c.nombre,
+        puntos: c.puntos,
+      }));
     }
 
     const filas = rubrica?.niveles ?? [];
@@ -126,24 +130,31 @@
     const reparto = repartirPonderacion(rubrica.niveles.length);
 
     return rubrica.niveles.map((n, i) => ({
-      _id: uid(),
+      _id: (n as any).id ?? (n as any)._id ?? uid(),
       nombre: n.nombre,
       descripcion: n.descripcion,
       ponderacion: n.ponderacion ?? reparto[i],
-      escalas: n.escalas.map((e) => ({ _id: uid(), criterio: e.criterio })),
+      escalas: n.escalas.map((e) => ({
+        _id: (e as any).id ?? (e as any)._id ?? uid(),
+        criterio: e.criterio,
+      })),
     }));
   }
 
   function initEscalaCalif(): EscalaCalif[] {
     const src = rubrica?.detalles_evaluacion?.escala_evaluacion;
     if (!src?.length) {
+      const maxCol = columnasIniciales.reduce((m, c) => Math.max(m, Number(c.puntos) || 0), 0);
+      const filasCount = rubrica?.niveles?.length ?? 1;
+      const totalEstimado = maxCol > 0 ? filasCount * maxCol : 100;
+      const minAprobado = Math.round(totalEstimado * 0.6);
       return [
-        { _id: uid(), puntaje_minimo: 60, evaluacion: 'Aprobado' },
+        { _id: uid(), puntaje_minimo: minAprobado, evaluacion: 'Aprobado' },
         { _id: uid(), puntaje_minimo: 0, evaluacion: 'Reprobado' },
       ];
     }
     return src.map((e) => ({
-      _id: uid(),
+      _id: (e as any).id ?? (e as any)._id ?? uid(),
       puntaje_minimo: e.puntaje_minimo,
       evaluacion: e.evaluacion,
     }));
@@ -154,7 +165,31 @@
   let escalaCal = $state<EscalaCalif[]>(initEscalaCalif());
   let tab = $state<'editor' | 'preview'>('editor');
   let saving = $state(false);
+  let saveSuccess = $state(false);
   let error = $state<string | null>(null);
+
+  $effect(() => {
+    let isPoppedByBrowser = false;
+
+    // Preservar el state de Inertia para que isValidState(state) no falle ni desmonte la página
+    if (typeof window !== 'undefined') {
+      window.history.pushState(window.history.state, '', window.location.href);
+    }
+
+    const handlePopState = () => {
+      isPoppedByBrowser = true;
+      onClose();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      if (!isPoppedByBrowser && !saveSuccess && typeof window !== 'undefined') {
+        window.history.back();
+      }
+    };
+  });
 
   // ── Computed ──────────────────────────────────────────────────────────────
 
@@ -300,10 +335,34 @@
       error = 'Todos los criterios deben tener un nombre.';
       return false;
     }
-    if (!esSumativa && escalaCal.every((e) => !e.evaluacion.trim())) {
-      error =
-        'Una actividad formativa se cierra con su escala cualitativa: define al menos un nivel (por ejemplo «Aprobado»).';
+    const pts = columnas.map((c) => Number(c.puntos));
+    if (pts.some((p) => isNaN(p) || p < 0)) {
+      error = 'Los puntajes de los niveles deben ser números mayores o iguales a 0.';
       return false;
+    }
+    if (columnas.length > 1) {
+      const isAsc = pts.every((p, i) => i === 0 || p > pts[i - 1]);
+      const isDesc = pts.every((p, i) => i === 0 || p < pts[i - 1]);
+      if (!isAsc && !isDesc) {
+        error =
+          'Los puntajes de los niveles deben estar ordenados (estrictamente creciente o decreciente) sin valores repetidos.';
+        return false;
+      }
+    }
+    if (!esSumativa) {
+      if (escalaCal.every((e) => !e.evaluacion.trim())) {
+        error =
+          'Una actividad formativa se cierra con su escala cualitativa: define al menos un nivel (por ejemplo «Aprobado»).';
+        return false;
+      }
+      if (escalaCal.some((e) => Number(e.puntaje_minimo) < 0 || isNaN(Number(e.puntaje_minimo)))) {
+        error = 'Los puntajes mínimos de la escala de evaluación deben ser mayores o iguales a 0.';
+        return false;
+      }
+      if (escalaCal.some((e) => Number(e.puntaje_minimo) > puntajeTotal)) {
+        error = `Los puntajes mínimos de la escala de evaluación no pueden superar el puntaje total de la rúbrica (${puntajeTotal} pts).`;
+        return false;
+      }
     }
     if (!ponderacionValida) {
       error = `Las ponderaciones deben sumar exactamente 100 % (ahora suman ${ponderacionTotal} %).`;
@@ -324,8 +383,11 @@
       `/docente/cursos/${idCurso}/rubrica`,
       { rubrica: rubricaPreview as any, id_actividad: idActividad },
       {
+        replace: true,
+        preserveState: false,
         onSuccess: () => {
           saving = false;
+          saveSuccess = true;
           onClose();
         },
         onError: (errores) => {
@@ -347,13 +409,17 @@
   <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b bg-white shrink-0 gap-4">
     <div class="flex items-center gap-3 min-w-0">
       <button
+        type="button"
         onclick={onClose}
-        class="p-1.5 rounded-full hover:bg-gray-100 transition shrink-0"
-        title="Cerrar"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 hover:bg-gray-100 transition text-xs font-semibold text-gray-700 shrink-0"
+        title="Volver"
       >
-        <X class="w-5 h-5 text-gray-500" />
+        <ChevronLeft class="w-4 h-4" />
+        <span>Volver</span>
       </button>
-      <h2 class="text-sm sm:text-base font-bold text-gray-900 truncate">Crear Rúbrica</h2>
+      <h2 class="text-sm sm:text-base font-bold text-gray-900 truncate">
+        {rubrica ? 'Rúbrica de la Actividad' : 'Crear Rúbrica'}
+      </h2>
 
       <!-- Tabs -->
       <div class="flex gap-1 ml-2 bg-gray-100 rounded-lg p-1 shrink-0">
@@ -409,9 +475,7 @@
             <p class="text-3xl font-black text-primary">{puntajeTotal} pts</p>
           </div>
           <p class="text-xs text-gray-500 max-w-xs">
-            {niveles.length} criterio{niveles.length === 1 ? '' : 's'} × {puntajeMaximoCriterio} pts
-            del nivel más alto. El puntaje se define arriba, en cada columna, y vale para toda la
-            columna.
+            {niveles.length} criterio{niveles.length === 1 ? '' : 's'} × {puntajeMaximoCriterio} pts (nivel máximo). Puntaje por columna.
           </p>
 
           <!--
@@ -628,11 +692,7 @@
                 </p>
               </div>
               <p class="text-xs text-gray-500 max-w-md leading-relaxed">
-                Escala de 1,0 a 7,0 con 60 % de exigencia. El corte se redondea hacia arriba: con
-                {puntajeTotal} puntos el 60 % exacto es {Math.round(puntajeTotal * 0.6 * 100) / 100}, y
-                como los puntajes son enteros hay que llegar a {puntajeParaCuatro}.
-                <br />
-                Una actividad sumativa no lleva escala cualitativa.
+                Escala de 1,0 a 7,0 (60 % de exigencia). Aprobación (4,0) con {puntajeParaCuatro} de {puntajeTotal} pts.
               </p>
             </div>
           </div>

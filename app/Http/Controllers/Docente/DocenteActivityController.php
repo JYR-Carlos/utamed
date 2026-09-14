@@ -751,7 +751,7 @@ class DocenteActivityController extends Controller
                         'id_asignado_actividad' => $m->id_asignado_actividad,
                         'id_estudiante' => $m->id_estudiante,
                         'nota_individual' => $m->nota_individual !== null ? (float) $m->nota_individual : null,
-                        'diferencia_decimas' => (int) ($m->diferencia_decimas ?? 0),
+                        'diferencia_decimas' => (float) ($m->diferencia_decimas ?? 0),
                         'nombre_completo' => $m->estudiante?->usuario?->nombre_completo ?? '',
                     ])->values(),
                 ];
@@ -855,20 +855,32 @@ class DocenteActivityController extends Controller
     {
         $this->authorize('viewPrograma', $curso);
 
-        $request->validate([
+        $actividad = Actividad::findOrFail($request->integer('id_actividad'));
+        $this->assertActividadDeCurso($curso, $actividad);
+        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+
+        $rubricaInput = $request->input('rubrica');
+        $puntajeTotal = isset($rubricaInput['detalles_evaluacion']['puntaje_total'])
+            ? (float) $rubricaInput['detalles_evaluacion']['puntaje_total']
+            : null;
+
+        $rules = [
             'rubrica' => 'required|array',
             'rubrica.niveles' => ['required', 'array', 'min:1', $this->reglaPonderacionCompleta()],
             'rubrica.niveles.*.ponderacion' => 'required|numeric|min:0|max:100',
             'rubrica.detalles_evaluacion' => 'required|array',
-            'id_actividad' => 'required|integer|exists:actividad,id_actividad',
-        ]);
+            'id_actividad' => 'required|integer',
+        ];
 
-        // `exists:actividad` sólo comprobaba que el ID existiera en el sistema: la
-        // actividad llega por el cuerpo del request y no estaba acotada al curso,
-        // así que se podía escribir la rúbrica de cualquier actividad (B-2).
-        $actividad = Actividad::findOrFail($request->integer('id_actividad'));
-        $this->assertActividadDeCurso($curso, $actividad);
-        $this->assertPuedeEditarEvaluacion($curso, $actividad);
+        if (!empty($rubricaInput['columnas']) && is_array($rubricaInput['columnas'])) {
+            $rules['rubrica.columnas'] = ['array', $this->reglaPuntajesMonotonos()];
+        }
+
+        if ($actividad->tipo_actividad !== TipoActividad::SUMATIVA && !empty($rubricaInput['detalles_evaluacion']['escala_evaluacion'])) {
+            $rules['rubrica.detalles_evaluacion.escala_evaluacion'] = ['array', $this->reglaEscalaFormativaAlcanzable($puntajeTotal)];
+        }
+
+        $request->validate($rules);
 
         $idActividad = $actividad->id_actividad;
 
@@ -894,6 +906,76 @@ class DocenteActivityController extends Controller
         }
 
         return redirect()->back()->with('success', 'Rúbrica guardada correctamente.');
+    }
+
+    /**
+     * Regla: los puntajes de las columnas/niveles deben ser monótonos estrictos (crecientes o decrecientes)
+     * sin valores duplicados y no negativos.
+     */
+    private function reglaPuntajesMonotonos(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (!is_array($value) || count($value) < 2) {
+                return;
+            }
+
+            $puntos = [];
+            foreach ($value as $col) {
+                if (!is_array($col) || !isset($col['puntos']) || !is_numeric($col['puntos'])) {
+                    return;
+                }
+                $p = (float) $col['puntos'];
+                if ($p < 0) {
+                    $fail('Los puntajes de los niveles deben ser números mayores o iguales a 0.');
+                    return;
+                }
+                $puntos[] = $p;
+            }
+
+            $isAsc = true;
+            $isDesc = true;
+            for ($i = 1; $i < count($puntos); $i++) {
+                if ($puntos[$i] <= $puntos[$i - 1]) {
+                    $isAsc = false;
+                }
+                if ($puntos[$i] >= $puntos[$i - 1]) {
+                    $isDesc = false;
+                }
+            }
+
+            if (!$isAsc && !$isDesc) {
+                $fail('Los puntajes de los niveles deben estar ordenados de forma estrictamente creciente o decreciente sin valores repetidos.');
+            }
+        };
+    }
+
+    /**
+     * Regla: en evaluaciones formativas, la escala cualitativa no puede exigir puntajes mínimos
+     * superiores al puntaje total alcanzable de la rúbrica.
+     */
+    private function reglaEscalaFormativaAlcanzable(?float $puntajeTotal): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) use ($puntajeTotal): void {
+            if (!is_array($value)) {
+                return;
+            }
+
+            $maxAlcanzable = $puntajeTotal ?? 0.0;
+            foreach ($value as $escala) {
+                if (!is_array($escala) || !isset($escala['puntaje_minimo'])) {
+                    continue;
+                }
+                $minimo = (float) $escala['puntaje_minimo'];
+                if ($minimo < 0) {
+                    $fail('Los puntajes mínimos de la escala de evaluación deben ser mayores o iguales a 0.');
+                    return;
+                }
+                if ($minimo > $maxAlcanzable) {
+                    $fail("Los puntajes mínimos de la escala de evaluación no pueden superar el puntaje total de la rúbrica ({$maxAlcanzable} pts).");
+                    return;
+                }
+            }
+        };
     }
 
     /**
@@ -1050,7 +1132,7 @@ class DocenteActivityController extends Controller
         DB::transaction(function () use ($grupoModel) {
             foreach ($grupoModel->miembros as $miembro) {
                 $miembro->update([
-                    'nota_individual' => $this->calcularNotaIndividual($grupoModel->nota, $miembro->diferencia_decimas),
+                    'nota_individual' => $this->calcularNotaIndividual($grupoModel->nota, (float) ($miembro->diferencia_decimas ?? 0)),
                 ]);
             }
         });
@@ -1748,7 +1830,7 @@ class DocenteActivityController extends Controller
                 //     fijadas para cada estudiante (snapshot, tope 1.0–7.0).
                 foreach (IntegranteGrupo::where('id_actividad_asignada_grupo', $grupo)->get() as $miembro) {
                     $miembro->update([
-                        'nota_individual' => $this->calcularNotaIndividual($validated['nota'] ?? null, $miembro->diferencia_decimas),
+                        'nota_individual' => $this->calcularNotaIndividual($validated['nota'] ?? null, (float) ($miembro->diferencia_decimas ?? 0)),
                     ]);
                 }
 
