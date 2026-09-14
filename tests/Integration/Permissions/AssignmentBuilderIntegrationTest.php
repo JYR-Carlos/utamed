@@ -101,10 +101,15 @@ beforeEach(function () {
   $testRolIds = Rol::withTrashed()->whereIn('nombre', $testRolNames)->pluck('id_rol');
   if ($testRolIds->isNotEmpty()) {
     UsuarioRolAsignacion::whereIn('id_rol', $testRolIds)->delete();
+    DB::table('usuario.asignacion_rol_permiso')->whereIn('id_rol', $testRolIds)->delete();
     Rol::withTrashed()->whereIn('id_rol', $testRolIds)->forceDelete();
   }
 
-  DB::table('carrera')->where('nombre', 'AB Carrera A')->orWhere('nombre', 'AB Carrera B')->delete();
+  $testCarreraIds = DB::table('carrera')->where('nombre', 'AB Carrera A')->orWhere('nombre', 'AB Carrera B')->pluck('id_carrera');
+  if ($testCarreraIds->isNotEmpty()) {
+    DB::table('estudiante')->whereIn('id_carrera', $testCarreraIds)->delete();
+    DB::table('carrera')->whereIn('id_carrera', $testCarreraIds)->delete();
+  }
   DB::table('departamento')->where('nombre', 'AB Departamento')->delete();
   DB::table('facultad')->where('nombre', 'AB Facultad')->delete();
 
@@ -168,6 +173,11 @@ beforeEach(function () {
   $this->rol = Rol::create([
     'nombre' => 'AB Test Rol',
     'creado_por' => $this->adminSistemaId,
+  ]);
+  DB::table('usuario.asignacion_rol_permiso')->insert([
+    'id_rol' => $this->rol->id_rol,
+    'id_permiso' => $this->permisoModel->id_permiso,
+    'puede_delegar_permiso' => true,
   ]);
 
   // ---- Usuarios ----
