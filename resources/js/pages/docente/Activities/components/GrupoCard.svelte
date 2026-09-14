@@ -45,6 +45,7 @@
     grupo: GrupoData;
     esTitular: boolean;
     traeArchivo: boolean;
+    esGrupal?: boolean;
     /** Estado del estudiante que se está guardando (id_asignado_actividad) o null. */
     savingDecimas: number | null;
     /** Grupo cuyo formulario de "agregar estudiante" está abierto, o null. */
@@ -72,6 +73,7 @@
     grupo,
     esTitular,
     traeArchivo,
+    esGrupal = true,
     savingDecimas,
     addingToGrupo,
     addingEstudianteId = $bindable(),
@@ -136,9 +138,11 @@
 <div
   class="flex h-full flex-col w-full text-sm font-semibold text-slate-800 px-4 sm:px-6 py-4 rounded-2xl bg-white border border-gray-200 shadow-sm gap-3"
 >
-  <!-- Número de grupo + estado + eliminar -->
+  <!-- Número de grupo / nombre estudiante + estado + eliminar -->
   <div class="flex items-center justify-between gap-2">
-    <p class="font-bold text-base">Grupo #{grupo.grupo}</p>
+    <p class="font-bold text-base">
+      {esGrupal ? `Grupo #${grupo.grupo}` : (grupo.integrantes[0]?.nombre_completo ?? 'Estudiante')}
+    </p>
     <div class="flex items-center gap-2">
       {#if grupo.estado_actividad_asignada}
         <span
@@ -155,7 +159,7 @@
           SIN ESTADO
         </span>
       {/if}
-      {#if esTitular}
+      {#if esTitular && esGrupal}
         <button
           onclick={() => onEliminarGrupo(grupo.grupo)}
           class="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition"
@@ -167,9 +171,9 @@
     </div>
   </div>
 
-  <!-- Nota grupal -->
+  <!-- Nota -->
   <div class="flex items-center gap-2">
-    <span class="text-xs text-gray-600 font-normal">Nota grupal:</span>
+    <span class="text-xs text-gray-600 font-normal">{esGrupal ? 'Nota grupal:' : 'Nota:'}</span>
     {#if grupo.nota !== null}
       <span
         class="font-bold text-lg {Number(grupo.nota) >= 4 ? 'text-green-700' : 'text-red-700'}"
@@ -218,34 +222,89 @@
     </div>
   {/if}
 
-  <!-- Integrantes -->
-  <div>
-    <p class="text-xs text-gray-600 font-normal mb-1">Integrantes:</p>
-    <div class="flex flex-wrap gap-2">
-      {#each grupo.integrantes as integrante}
-        <span
-          class="inline-flex items-center gap-1 text-xs bg-gray-50 border border-uta-blue/20 px-2 py-1 rounded-full text-slate-700"
-        >
-          {integrante.nombre_completo}
-          {#if esTitular}
+  <!-- Integrantes (solo en actividades grupales) -->
+  {#if esGrupal}
+    <div>
+      <p class="text-xs text-gray-600 font-normal mb-1">Integrantes:</p>
+      <div class="flex flex-wrap gap-2">
+        {#each grupo.integrantes as integrante}
+          <span
+            class="inline-flex items-center gap-1 text-xs bg-gray-50 border border-uta-blue/20 px-2 py-1 rounded-full text-slate-700"
+          >
+            {integrante.nombre_completo}
+            {#if esTitular}
+              <button
+                onclick={() => onQuitarEstudiante(grupo.grupo, integrante.id_estudiante)}
+                class="ml-0.5 text-gray-400 hover:text-red-500 transition"
+                title="Quitar del grupo"
+              >
+                <X class="w-3 h-3" />
+              </button>
+            {/if}
+          </span>
+        {/each}
+        {#if grupo.integrantes.length === 0}
+          <span class="text-xs text-gray-400 italic">Sin integrantes</span>
+        {/if}
+      </div>
+    </div>
+  {/if}
+
+  <!-- Ajuste de décimas en actividad individual -->
+  {#if !esGrupal && grupo.nota !== null && grupo.integrantes.length > 0}
+    {@const integrante = grupo.integrantes[0]}
+    <div class="border-t border-gray-100 pt-3">
+      <div class="flex items-center justify-between text-xs">
+        <span class="text-gray-600 font-normal">Ajuste de décimas:</span>
+        {#if esTitular}
+          <div class="flex items-center gap-1">
             <button
-              onclick={() => onQuitarEstudiante(grupo.grupo, integrante.id_estudiante)}
-              class="ml-0.5 text-gray-400 hover:text-red-500 transition"
-              title="Quitar del grupo"
+              onclick={() => onAjustarDecimas(grupo.grupo, integrante, -0.1)}
+              disabled={savingDecimas === integrante.id_asignado_actividad || (integrante.diferencia_decimas ?? 0) <= -9.9}
+              class="w-5 h-5 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 transition disabled:opacity-30"
+              title="Restar una décima"
             >
-              <X class="w-3 h-3" />
+              <Minus class="w-3 h-3" />
             </button>
-          {/if}
-        </span>
-      {/each}
-      {#if grupo.integrantes.length === 0}
-        <span class="text-xs text-gray-400 italic">Sin integrantes</span>
+            <span
+              class="w-9 text-center font-mono font-semibold {(integrante.diferencia_decimas ?? 0) === 0
+                ? 'text-gray-400'
+                : (integrante.diferencia_decimas ?? 0) > 0
+                  ? 'text-emerald-600'
+                  : 'text-red-600'}"
+            >
+              {formatDecimas(integrante.diferencia_decimas)}
+            </span>
+            <button
+              onclick={() => onAjustarDecimas(grupo.grupo, integrante, 0.1)}
+              disabled={savingDecimas === integrante.id_asignado_actividad || (integrante.diferencia_decimas ?? 0) >= 9.9}
+              class="w-5 h-5 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 transition disabled:opacity-30"
+              title="Sumar una décima"
+            >
+              <Plus class="w-3 h-3" />
+            </button>
+          </div>
+        {:else}
+          <span class="font-mono text-gray-500">
+            {formatDecimas(integrante.diferencia_decimas)}
+          </span>
+        {/if}
+      </div>
+      {#if (integrante.diferencia_decimas ?? 0) !== 0}
+        <div class="flex items-center justify-between text-xs mt-1">
+          <span class="text-gray-600 font-normal">Nota con décimas:</span>
+          <span
+            class="font-bold {integrante.nota_individual != null && integrante.nota_individual >= 4
+              ? 'text-green-700'
+              : 'text-red-700'}"
+          >
+            {integrante.nota_individual != null ? integrante.nota_individual.toFixed(1) : '—'}
+          </span>
+        </div>
       {/if}
     </div>
-  </div>
-
-  <!-- Notas individuales (nota grupal + décimas por estudiante) -->
-  {#if grupo.nota !== null && grupo.integrantes.length > 0}
+  {:else if esGrupal && grupo.nota !== null && grupo.integrantes.length > 0}
+    <!-- Notas individuales grupales (nota grupal + décimas por estudiante) -->
     <div class="border-t border-gray-100 pt-3">
       <div class="flex items-center justify-between mb-2">
         <p class="text-xs text-gray-600 font-normal">Notas individuales</p>
@@ -322,8 +381,8 @@
     </div>
   {/if}
 
-  <!-- Agregar estudiante a grupo existente (titular) -->
-  {#if esTitular}
+  <!-- Agregar estudiante a grupo existente (titular, solo actividades grupales) -->
+  {#if esTitular && esGrupal}
     {#if addingToGrupo === grupo.grupo}
       <div class="flex items-center gap-2 mt-1">
         <select

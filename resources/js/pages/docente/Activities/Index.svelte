@@ -28,7 +28,7 @@
    *   reload only:['interaccionesGrupo'] con grupo_id          mensajes del grupo
    */
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
-  import { router } from '@inertiajs/svelte';
+  import { Link, router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
   import { ChevronLeft, Plus, Users, Pencil, Copy } from 'lucide-svelte';
@@ -435,6 +435,29 @@
     showRubricaModal = !showRubricaModal;
   }
 
+  $effect(() => {
+    if (!showRubricaModal) return;
+    let isPoppedByBrowser = false;
+
+    if (typeof window !== 'undefined') {
+      window.history.pushState(window.history.state, '', window.location.href);
+    }
+
+    const handlePopState = () => {
+      isPoppedByBrowser = true;
+      showRubricaModal = false;
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      if (!isPoppedByBrowser && typeof window !== 'undefined') {
+        window.history.back();
+      }
+    };
+  });
+
   // Usa router.post() de Inertia para que el token CSRF se gestione
   // automáticamente (igual que el resto del proyecto), en vez de fetch() nativo.
   function manejarInteraccionDocente(data: {
@@ -504,13 +527,13 @@
     <div
       class="w-full flex flex-col lg:flex-row items-start lg:items-center gap-4 sm:gap-6 lg:gap-20 mb-6"
     >
-      <button
+      <Link
         class="flex items-center px-4 sm:px-6 py-3 sm:py-4 bg-uta-blue text-white hover:bg-uta-blue-hover transition-colors rounded-2xl shrink-0"
-        onclick={() => window.history.back()}
+        href="/docente/cursos/{curso.id_curso}/actividades"
       >
         <ChevronLeft class="w-4 h-4 mr-2" />
         <p class="text-sm sm:text-base">Volver</p>
-      </button>
+      </Link>
 
       <h2 class="text-base sm:text-xl md:text-2xl font-semibold break-words leading-snug">
         {curso.nombre}: {actividad.nombre}
@@ -604,10 +627,12 @@
       <div class="flex flex-col w-full gap-4">
         <div class="flex justify-between items-center">
           <p class="text-start text-sm sm:text-base font-semibold text-uta-blue">
-            Grupos Asignados
+            {actividad.es_grupal ? 'Grupos Asignados' : 'Estudiantes Asignados'}
           </p>
           <div class="flex items-center gap-2">
-            <span class="text-xs text-gray-500 font-medium">{grupos.length} grupos</span>
+            <span class="text-xs text-gray-500 font-medium">
+              {grupos.length} {actividad.es_grupal ? (grupos.length === 1 ? 'grupo' : 'grupos') : (grupos.length === 1 ? 'estudiante' : 'estudiantes')}
+            </span>
             {#if actividad.es_grupal && actividad.es_titular}
               {#if actividadesConGrupos.length > 0}
                 <button
@@ -660,6 +685,7 @@
               {grupo}
               esTitular={actividad.es_titular}
               traeArchivo={actividad.trae_archivo}
+              esGrupal={actividad.es_grupal}
               {savingDecimas}
               {addingToGrupo}
               bind:addingEstudianteId
@@ -770,7 +796,9 @@
           onInteraccionEnviada={manejarInteraccionDocente}
           cod_curso={curso.cod_curso}
           nombre_actividad={actividad.nombre}
-          nombre_grupo="Grupo #{grupoSeleccionado.grupo}"
+          nombre_grupo={actividad.es_grupal
+            ? `Grupo #${grupoSeleccionado.grupo}`
+            : (grupoSeleccionado.integrantes[0]?.nombre_completo ?? `Estudiante #${grupoSeleccionado.grupo}`)}
           listado_interacciones={interaccionesGrupo}
           isLoading={isLoadingInteracciones}
           errorMensaje={errorInteracciones}
@@ -819,6 +847,7 @@
       idActividad={actividad.id_actividad}
       nombreActividad={actividad.nombre}
       grupo={grupoEntregasSeleccionado}
+      esGrupal={actividad.es_grupal}
       {rubrica}
       rubricaId={rubrica_id}
       onCerrar={cerrarEntregas}
@@ -837,7 +866,9 @@
       rubricaId={rubrica_id}
       esSumativa={actividad.es_sumativa}
       nombreActividad={actividad.nombre}
-      nombreGrupo="Grupo #{grupoEntregasSeleccionado.grupo}"
+      nombreGrupo={actividad.es_grupal
+        ? `Grupo #${grupoEntregasSeleccionado.grupo}`
+        : (grupoEntregasSeleccionado.integrantes[0]?.nombre_completo ?? `Estudiante #${grupoEntregasSeleccionado.grupo}`)}
       idCurso={curso.id_curso}
       idActividad={actividad.id_actividad}
       idGrupo={grupoEntregasSeleccionado.grupo}
@@ -863,6 +894,8 @@
   onkeydown={(e) => {
     if (e.key === 'Escape') {
       if (showMatrizEvaluacion) cerrarMatrizEvaluacion();
+      else if (showRubricaEditor) showRubricaEditor = false;
+      else if (showRubricaModal) showRubricaModal = false;
       else if (showEntregasModal) cerrarEntregas();
       else showAgendaModal = false;
     }
