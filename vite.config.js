@@ -18,6 +18,12 @@ export default defineConfig({
             formVariants: true,
         }),
     ],
+    server: {
+        host: 'localhost',
+        port: 5173,
+        strictPort: true,
+        cors: true,
+    },
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './resources/js'),
