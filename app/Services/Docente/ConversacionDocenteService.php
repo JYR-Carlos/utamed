@@ -93,6 +93,7 @@ class ConversacionDocenteService
         return DB::table('agenda.agenda as a')
             ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
             ->leftJoin('agenda.evaluacion as ev', 'ev.id_agenda', '=', 'a.id_agenda')
+            ->leftJoin('agenda.rubrica as r', 'r.id_rubrica', '=', 'ev.id_rubrica')
             ->where('a.id_actividad_asignada_grupo', $grupoId)
             ->whereIn('a.tipo_mensaje', self::TIPOS_HILO_COMPLETO)
             ->orderBy('a.fecha_envio', 'asc')
@@ -107,6 +108,7 @@ class ConversacionDocenteService
                 'ev.evaluacion_obtenida',
                 'ev.id_evaluacion',
                 'ev.resultado',
+                'r.rubrica as rubrica_evaluacion',
             )
             ->get()
             ->map(fn ($m) => $this->decorar($m))
@@ -136,7 +138,11 @@ class ConversacionDocenteService
         ]);
 
         if (property_exists($m, 'resultado')) {
-            $datos['resultado'] = $m->resultado ? json_decode($m->resultado, true) : null;
+            $datos['resultado'] = $m->resultado ? (is_string($m->resultado) ? json_decode($m->resultado, true) : $m->resultado) : null;
+        }
+
+        if (property_exists($m, 'rubrica_evaluacion') && $m->rubrica_evaluacion) {
+            $datos['rubrica'] = is_string($m->rubrica_evaluacion) ? json_decode($m->rubrica_evaluacion, true) : $m->rubrica_evaluacion;
         }
 
         return $datos;

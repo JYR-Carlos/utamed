@@ -79,7 +79,11 @@
   );
 
   function esSeleccionada(nivelId: string, escalaId: string): boolean {
-    return tieneResultado && resultado?.[nivelId] === escalaId;
+    return (
+      tieneResultado &&
+      (String(resultado?.[nivelId]) === String(escalaId) ||
+        String(resultado?.[String(nivelId)]) === String(escalaId))
+    );
   }
 </script>
 
@@ -251,12 +255,10 @@
     <!-- Cómo se traduce el puntaje en resultado -->
     {#if esSumativa}
       <div class="rounded-2xl border border-base-300 p-4">
-        <h3 class="font-semibold mb-2">Cómo se calcula la nota</h3>
+        <h3 class="font-semibold mb-2">Cálculo de nota</h3>
         <p class="text-sm text-base-content/70 leading-relaxed">
-          Escala de 1,0 a 7,0 con 60 % de exigencia. La nota
-          <strong class="text-primary">4,0</strong> se alcanza con
-          <strong class="text-primary">{puntajeParaCuatro}</strong>
-          de {puntajeMaximo} pts; el corte se redondea hacia arriba.
+          Escala 1,0 a 7,0 con 60 % de exigencia. Nota <strong class="text-primary">4,0</strong> con
+          <strong class="text-primary">{puntajeParaCuatro}</strong> de {puntajeMaximo} pts.
         </p>
       </div>
     {/if}
