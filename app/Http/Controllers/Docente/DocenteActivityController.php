@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Docente;
 
 use App\Enums\DB\EstadoActividadAsignada;
+use App\Enums\DB\EstadoRubrica;
 use App\Enums\DB\TipoActividad;
 use App\Enums\DB\TipoMensaje;
 use App\Exceptions\Archive\ArchiveException;
@@ -770,15 +771,22 @@ class DocenteActivityController extends Controller
         // Rúbrica: la más reciente asociada directamente a esta actividad
         $rubricaData = null;
         $rubricaId = null;
+        $estadoRubrica = null;
         try {
             $rubricaModel = Rubrica::where('id_actividad', $actividad->id_actividad)
                 ->orderByDesc('id_rubrica')
                 ->first();
             $rubricaData = $rubricaModel?->rubrica;
             $rubricaId = $rubricaModel?->id_rubrica;
+            $estadoRubrica = $rubricaModel?->estado_rubrica instanceof \BackedEnum
+                ? $rubricaModel->estado_rubrica->value
+                : (string) ($rubricaModel?->estado_rubrica ?? '');
         } catch (\Exception $e) {
             Log::warning('No se pudo cargar rúbrica para actividad ' . $actividad->id_actividad . ': ' . $e->getMessage());
         }
+
+        $tieneEvaluaciones = $actividad->hanComenzadoEvaluaciones();
+        $puedeEditarRubrica = $esTitular && !$tieneEvaluaciones;
 
         // Estudiantes inscritos en el curso (para asignación de grupos)
         $estudiantesInscritos = InscripcionCurso::where('id_curso', $curso->id_curso)
@@ -834,6 +842,9 @@ class DocenteActivityController extends Controller
             'grupos' => $grupos,
             'rubrica' => $rubricaData,
             'rubrica_id' => $rubricaId,
+            'estado_rubrica' => $estadoRubrica,
+            'tiene_evaluaciones' => $tieneEvaluaciones,
+            'puede_editar_rubrica' => $puedeEditarRubrica,
             'estudiantesInscritos' => $estudiantesInscritos,
             'actividadesConGrupos' => $actividadesConGrupos,
             'interaccionesGrupo' => Inertia::lazy(function () {
@@ -858,6 +869,13 @@ class DocenteActivityController extends Controller
         $actividad = Actividad::findOrFail($request->integer('id_actividad'));
         $this->assertActividadDeCurso($curso, $actividad);
         $this->assertPuedeEditarEvaluacion($curso, $actividad);
+
+        if ($actividad->hanComenzadoEvaluaciones()) {
+            return redirect()->back()->withErrors([
+                'error' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
+                'rubrica' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
+            ]);
+        }
 
         $rubricaInput = $request->input('rubrica');
         $puntajeTotal = isset($rubricaInput['detalles_evaluacion']['puntaje_total'])
@@ -886,16 +904,22 @@ class DocenteActivityController extends Controller
 
         try {
             $existente = Rubrica::where('id_actividad', $idActividad)
-                ->where('estado_rubrica', 'POSTULADA')
                 ->orderByDesc('id_rubrica')
                 ->first();
 
             if ($existente) {
+                if ($existente->estaBloqueadaParaEdicion()) {
+                    return redirect()->back()->withErrors([
+                        'error' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
+                        'rubrica' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
+                    ]);
+                }
+
                 $existente->update(['rubrica' => $request->input('rubrica')]);
             } else {
                 Rubrica::create([
                     'rubrica' => $request->input('rubrica'),
-                    'estado_rubrica' => 'POSTULADA',
+                    'estado_rubrica' => EstadoRubrica::POSTULADA,
                     'id_actividad' => $idActividad,
                 ]);
             }
@@ -1791,6 +1815,15 @@ class DocenteActivityController extends Controller
             if (!$entregaValida) {
                 return response()->json(['error' => 'La entrega no pertenece a este grupo.'], 422);
             }
+        }
+
+        // Verificar que la rúbrica pertenece a esta actividad
+        $rubricaValida = Rubrica::where('id_rubrica', $validated['id_rubrica'])
+            ->where('id_actividad', $actividad->id_actividad)
+            ->exists();
+
+        if (!$rubricaValida) {
+            return redirect()->back()->withErrors(['id_rubrica' => 'La rúbrica seleccionada no pertenece a esta actividad.']);
         }
 
         try {

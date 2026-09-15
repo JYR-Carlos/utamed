@@ -2,6 +2,8 @@
 
 namespace App\Models\Agenda;
 
+use App\Enums\DB\EstadoRubrica;
+use App\Models\Agenda\Evaluacion;
 use App\Models\Base\Agenda\BaseActividad;
 use DateTimeInterface;
 
@@ -77,5 +79,27 @@ class Actividad extends BaseActividad
     public function calcularEstado(): string
     {
         return $this->calcularEstadoBase();
+    }
+
+    /**
+     * Determina si la actividad ya tiene evaluaciones iniciadas o registradas,
+     * lo cual congela la rúbrica impidiendo cualquier edición posterior.
+     */
+    public function hanComenzadoEvaluaciones(): bool
+    {
+        // 1. Rúbrica explícitamente cerrada
+        if ($this->rubricas()->where('estado_rubrica', EstadoRubrica::CERRADA)->exists()) {
+            return true;
+        }
+
+        // 2. Evaluaciones asociadas a cualquiera de las rúbricas de la actividad
+        if ($this->rubricas()->whereHas('evaluaciones')->exists()) {
+            return true;
+        }
+
+        // 3. Evaluaciones asociadas a grupos de esta actividad (vía agenda)
+        return Evaluacion::whereHas('agenda.actividadAsignadaGrupo', function ($q) {
+            $q->where('id_actividad', $this->id_actividad);
+        })->exists();
     }
 }

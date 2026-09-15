@@ -2,6 +2,7 @@
 
 namespace App\Models\Agenda;
 
+use App\Enums\DB\EstadoRubrica;
 use App\Models\Base\Agenda\BaseRubrica;
 
 /**
@@ -17,9 +18,20 @@ class Rubrica extends BaseRubrica
         'estado_rubrica',
         'id_actividad',
     ];
-    // Agrega aquí tus métodos personalizados
-    // Scopes personalizados
-    // Relaciones adicionales
-    // Accessors/Mutators
-    // etc.
+
+    /**
+     * Determina si esta rúbrica está bloqueada para edición por haber comenzado las evaluaciones.
+     */
+    public function estaBloqueadaParaEdicion(): bool
+    {
+        $estado = $this->estado_rubrica instanceof EstadoRubrica
+            ? $this->estado_rubrica
+            : EstadoRubrica::tryFrom((string) $this->estado_rubrica);
+
+        if ($estado === EstadoRubrica::CERRADA) {
+            return true;
+        }
+
+        return $this->evaluaciones()->exists();
+    }
 }

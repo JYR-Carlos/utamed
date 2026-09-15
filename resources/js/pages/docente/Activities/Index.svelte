@@ -31,7 +31,7 @@
   import { Link, router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
-  import { ChevronLeft, Plus, Users, Pencil, Copy } from 'lucide-svelte';
+  import { ChevronLeft, Plus, Users, Pencil, Copy, Eye, Lock } from 'lucide-svelte';
   import { ConfirmDialog } from '@/components/custom/common';
   import { formatFechaHora } from '@/utils/formatters';
   import AgendaDocente from './Agenda/AgendaDocente.svelte';
@@ -108,6 +108,9 @@
     rubrica?: Rubrica | null;
     // rubrica_id se envía al endpoint storeEvaluacion sin una consulta extra desde el frontend.
     rubrica_id?: number | null;
+    estado_rubrica?: string | null;
+    tiene_evaluaciones?: boolean;
+    puede_editar_rubrica?: boolean;
     estudiantesInscritos?: EstudianteInscrito[];
     interaccionesGrupo?: Interaccion[];
     /** Otras actividades grupales del curso con grupos ya formados, para reutilizar. */
@@ -122,6 +125,9 @@
     grupos,
     rubrica = null,
     rubrica_id = null,
+    estado_rubrica = null,
+    tiene_evaluaciones = false,
+    puede_editar_rubrica = false,
     estudiantesInscritos = [],
     interaccionesGrupo = [],
     flash,
@@ -612,13 +618,33 @@
 
           <!-- Botón de rúbrica: al lado del resumen, no debajo ocupando el ancho. -->
           {#if actividad.es_titular || rubrica}
-            <button
-              class="flex shrink-0 items-center justify-between gap-4 rounded-xl border border-uta-blue bg-white px-4 py-3 text-sm font-semibold text-uta-blue transition-all hover:bg-uta-blue hover:text-white sm:px-6 md:w-56"
-              onclick={() => actividad.es_titular ? (showRubricaEditor = true) : toggleRubricaModal()}
-            >
-              <p>{rubrica ? 'Ver Rúbrica' : 'Crear Rúbrica'}</p>
-              <Pencil class="size-5 shrink-0" />
-            </button>
+            <div class="flex flex-col gap-1.5 shrink-0 md:w-56 md:self-stretch">
+              <button
+                class="flex flex-1 w-full items-center justify-between gap-4 rounded-xl border border-uta-blue bg-white px-4 py-3 text-sm font-semibold text-uta-blue transition-all hover:bg-uta-blue hover:text-white sm:px-6"
+                onclick={() => (actividad.es_titular && puede_editar_rubrica) ? (showRubricaEditor = true) : toggleRubricaModal()}
+              >
+                <p>
+                  {#if !rubrica}
+                    Crear Rúbrica
+                  {:else if puede_editar_rubrica}
+                    Editar Rúbrica
+                  {:else}
+                    Ver Rúbrica
+                  {/if}
+                </p>
+                {#if puede_editar_rubrica || !rubrica}
+                  <Pencil class="size-5 shrink-0" />
+                {:else}
+                  <Eye class="size-5 shrink-0" />
+                {/if}
+              </button>
+              {#if tiene_evaluaciones && rubrica}
+                <div class="flex shrink-0 items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[11px] font-medium leading-tight">
+                  <Lock class="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                  <span>Evaluaciones iniciadas (rúbrica bloqueada)</span>
+                </div>
+              {/if}
+            </div>
           {/if}
         </div>
       </div>
@@ -835,7 +861,7 @@
           </button>
         </div>
         {#if rubrica}
-          <RubricaView {rubrica} modoLectura={true} esSumativa={actividad.es_sumativa} />
+          <RubricaView {rubrica} estadoRubrica={estado_rubrica ?? undefined} modoLectura={true} esSumativa={actividad.es_sumativa} />
         {/if}
       </div>
     </div>
@@ -881,6 +907,7 @@
     {#if showRubricaEditor}
       <RubricaEditor
         {rubrica}
+        bloqueada={!puede_editar_rubrica}
         idCurso={curso.id_curso}
         idActividad={actividad.id_actividad}
         esSumativa={actividad.es_sumativa}

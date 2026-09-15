@@ -2,7 +2,7 @@
   import type { Rubrica } from '@/types/rubrica';
   import { router } from '@inertiajs/svelte';
   import RubricaView from '../../student/Activities/Agenda/Rubrica.svelte';
-  import { X, Plus, Trash2, Eye, Pencil, ChevronLeft } from 'lucide-svelte';
+  import { X, Plus, Trash2, Eye, Pencil, ChevronLeft, Lock } from 'lucide-svelte';
   import { puntajeMinimoAprobacion } from '@/lib/notas';
 
   interface Props {
@@ -16,10 +16,11 @@
      * así que viene del padre.
      */
     esSumativa: boolean;
+    bloqueada?: boolean;
     onClose: () => void;
   }
 
-  let { rubrica = null, idCurso, idActividad, esSumativa, onClose }: Props = $props();
+  let { rubrica = null, idCurso, idActividad, esSumativa, bloqueada = false, onClose }: Props = $props();
 
   // ── Draft types ────────────────────────────────────────────────────────────
   /**
@@ -163,7 +164,7 @@
   let columnas = $state<ColumnaDraft[]>(columnasIniciales);
   let niveles = $state<NivelDraft[]>(initNiveles());
   let escalaCal = $state<EscalaCalif[]>(initEscalaCalif());
-  let tab = $state<'editor' | 'preview'>('editor');
+  let tab = $state<'editor' | 'preview'>(bloqueada ? 'preview' : 'editor');
   let saving = $state(false);
   let saveSuccess = $state(false);
   let error = $state<string | null>(null);
@@ -377,7 +378,7 @@
   }
 
   function guardar() {
-    if (!validate()) return;
+    if (bloqueada || !validate()) return;
     saving = true;
     router.post(
       `/docente/cursos/${idCurso}/rubrica`,
@@ -446,15 +447,29 @@
       </div>
     </div>
 
-    <button
-      onclick={guardar}
-      disabled={saving || !ponderacionValida}
-      title={ponderacionValida ? undefined : `Las ponderaciones suman ${ponderacionTotal} %`}
-      class="shrink-0 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:opacity-90 transition disabled:opacity-50"
-    >
-      {saving ? 'Guardando…' : 'Guardar Rúbrica'}
-    </button>
+    {#if !bloqueada}
+      <button
+        onclick={guardar}
+        disabled={saving || !ponderacionValida}
+        title={ponderacionValida ? undefined : `Las ponderaciones suman ${ponderacionTotal} %`}
+        class="shrink-0 px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:opacity-90 transition disabled:opacity-50"
+      >
+        {saving ? 'Guardando…' : 'Guardar Rúbrica'}
+      </button>
+    {:else}
+      <div class="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold rounded-xl shrink-0">
+        <Lock class="w-3.5 h-3.5 text-amber-600" />
+        <span>Rúbrica bloqueada (evaluaciones iniciadas)</span>
+      </div>
+    {/if}
   </div>
+
+  {#if bloqueada}
+    <div class="px-6 py-2.5 bg-amber-50 border-b border-amber-200 text-xs sm:text-sm text-amber-800 flex items-center gap-2 shrink-0">
+      <Lock class="w-4 h-4 text-amber-600 shrink-0" />
+      <span>Esta rúbrica no se puede editar porque ya han comenzado las evaluaciones de la actividad. Puedes consultar sus criterios en la pestaña <strong>Vista Previa</strong>.</span>
+    </div>
+  {/if}
 
   {#if error}
     <div class="px-6 py-2 bg-red-50 border-b border-red-200 text-sm text-red-700 shrink-0">
