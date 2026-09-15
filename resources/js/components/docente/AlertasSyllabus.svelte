@@ -104,8 +104,9 @@
         {/if}
       </div>
       {#if principal.estado_syllabus !== 'EN_REVISION'}
+        <!-- Directo al asistente: BORRADOR y RECHAZADO (borrador + razón) se editan ahí -->
         <Link
-          href={`/docente/cursos/${principal.id_curso}`}
+          href={`/docente/cursos/${principal.id_curso}/programa/editar`}
           class="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#002F6C] px-3.5 py-2 text-[13px] font-semibold text-white no-underline transition-colors hover:bg-[#00214d]"
         >
           {principal.estado_syllabus === 'RECHAZADO' ? 'Corregir syllabus' : 'Continuar redacción'}
