@@ -220,7 +220,24 @@
     Math.round(niveles.reduce((sum, n) => sum + (Number(n.ponderacion) || 0), 0) * 100) / 100,
   );
 
-  const ponderacionValida = $derived(ponderacionTotal === 100);
+  const errorMonotonia = $derived.by(() => {
+    if (columnas.length <= 1) return null;
+    const pts = columnas.map((c) => {
+      const v = typeof c.puntos === 'number' ? c.puntos : parseFloat(String(c.puntos));
+      return isNaN(v) ? null : v;
+    });
+    if (pts.some((p) => p === null || p < 0)) {
+      return 'Todos los niveles deben tener un puntaje mayor o igual a 0.';
+    }
+    const isAsc = pts.every((p, i) => i === 0 || (p !== null && pts[i - 1] !== null && p > pts[i - 1]!));
+    const isDesc = pts.every((p, i) => i === 0 || (p !== null && pts[i - 1] !== null && p < pts[i - 1]!));
+    if (!isAsc && !isDesc) {
+      return 'Los puntajes de los niveles deben estar ordenados (estrictamente creciente o decreciente) sin repetir valores.';
+    }
+    return null;
+  });
+
+  const ponderacionValida = $derived(ponderacionTotal === 100 && errorMonotonia === null);
 
   function igualarPonderaciones() {
     const reparto = repartirPonderacion(niveles.length);
@@ -402,6 +419,93 @@
       },
     );
   }
+
+  function handlePuntosKeydown(e: KeyboardEvent) {
+    if (['e', 'E', '+', '-'].includes(e.key)) {
+      e.preventDefault();
+    }
+  }
+
+  function handlePuntosInput(col: ColumnaDraft, e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const raw = input.value.trim();
+    if (raw === '') {
+      col.puntos = '';
+      return;
+    }
+    let num = parseFloat(raw);
+    if (isNaN(num)) {
+      col.puntos = '';
+      return;
+    }
+    if (num < 0) {
+      num = 0;
+      input.value = '0';
+    }
+    col.puntos = num;
+  }
+
+  function handlePonderacionKeydown(e: KeyboardEvent) {
+    if (['e', 'E', '+', '-'].includes(e.key)) {
+      e.preventDefault();
+    }
+  }
+
+  function handlePonderacionInput(nivel: NivelDraft, e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const raw = input.value.replace(',', '.');
+    if (raw === '') {
+      nivel.ponderacion = '';
+      return;
+    }
+    let num = parseFloat(raw);
+    if (isNaN(num)) {
+      nivel.ponderacion = '';
+      return;
+    }
+    if (num < 0) {
+      num = 0;
+      input.value = '0';
+    } else if (num > 100) {
+      num = 100;
+      input.value = '100';
+    } else if (raw.includes('.')) {
+      const [intPart, decPart] = raw.split('.');
+      if (decPart && decPart.length > 2) {
+        input.value = `${intPart}.${decPart.slice(0, 2)}`;
+        num = parseFloat(input.value);
+      }
+    }
+    nivel.ponderacion = num;
+  }
+
+  function handleFormativaKeydown(e: KeyboardEvent) {
+    if (['e', 'E', '+', '-'].includes(e.key)) {
+      e.preventDefault();
+    }
+  }
+
+  function handleFormativaInput(esc: EscalaCalif, e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const raw = input.value.trim();
+    if (raw === '') {
+      esc.puntaje_minimo = '';
+      return;
+    }
+    let num = parseFloat(raw);
+    if (isNaN(num)) {
+      esc.puntaje_minimo = '';
+      return;
+    }
+    if (num < 0) {
+      num = 0;
+      input.value = '0';
+    } else if (num > puntajeTotal) {
+      num = puntajeTotal;
+      input.value = String(puntajeTotal);
+    }
+    esc.puntaje_minimo = num;
+  }
 </script>
 
 <!-- Full-screen overlay -->
@@ -471,9 +575,9 @@
     </div>
   {/if}
 
-  {#if error}
+  {#if error || errorMonotonia}
     <div class="px-6 py-2 bg-red-50 border-b border-red-200 text-sm text-red-700 shrink-0">
-      {error}
+      {error || errorMonotonia}
     </div>
   {/if}
 
@@ -576,17 +680,22 @@
                         {/if}
                       </div>
                       <div
-                        class="flex items-center justify-center gap-1.5 bg-primary/5 border border-primary/20 rounded-xl px-3 py-1.5"
+                        class="flex items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 transition-colors {errorMonotonia
+                          ? 'bg-red-50 border border-red-300'
+                          : 'bg-primary/5 border border-primary/20'}"
                       >
                         <input
                           type="number"
                           bind:value={columna.puntos}
+                          onkeydown={handlePuntosKeydown}
+                          oninput={(e) => handlePuntosInput(columna, e)}
                           placeholder="0"
                           min="0"
+                          step="1"
                           aria-label="Puntaje del nivel {columna.nombre || ci + 1}"
-                          class="w-14 text-sm font-black text-primary bg-transparent text-center focus:outline-none"
+                          class="w-14 text-sm font-black {errorMonotonia ? 'text-red-700' : 'text-primary'} bg-transparent text-center focus:outline-none"
                         />
-                        <span class="text-[10px] font-bold uppercase text-primary/60">pts</span>
+                        <span class="text-[10px] font-bold uppercase {errorMonotonia ? 'text-red-400' : 'text-primary/60'}">pts</span>
                       </div>
                     </div>
                   </th>
@@ -630,15 +739,20 @@
                         <input
                           type="number"
                           bind:value={nivel.ponderacion}
+                          onkeydown={handlePonderacionKeydown}
+                          oninput={(e) => handlePonderacionInput(nivel, e)}
                           placeholder="0"
                           min="0"
                           max="100"
-                          step="0.01"
+                          step="1"
                           aria-label="Ponderación de {nivel.nombre || 'este criterio'} en porcentaje"
                           class="w-16 text-sm font-bold text-gray-800 bg-transparent focus:outline-none"
                         />
                         <span class="text-xs text-gray-400 font-medium">% de la nota</span>
                       </div>
+                      {#if Number(nivel.ponderacion) > 100}
+                        <p class="text-[10px] text-red-600 font-medium">No puede superar el 100%.</p>
+                      {/if}
                       {#if niveles.length > 1}
                         <button
                           onclick={() => removeNivel(nivel._id)}
@@ -713,38 +827,56 @@
           </div>
         {:else}
         <div class="bg-gray-50/50 rounded-3xl border border-gray-100 p-6">
-          <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
-            Escala de Calificación
-          </p>
+          <div class="flex items-center justify-between mb-4 max-w-lg">
+            <p class="text-xs font-black text-gray-400 uppercase tracking-widest">
+              Escala de Calificación
+            </p>
+            <span class="text-xs text-gray-500 font-medium">
+              Máximo: <strong class="text-primary font-bold">{puntajeTotal} pts</strong>
+            </span>
+          </div>
           <div class="flex flex-col gap-2 max-w-lg">
             {#each escalaCal as esc (esc._id)}
-              <div class="flex items-center gap-3">
-                <div
-                  class="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 w-36 shrink-0"
-                >
-                  <span class="text-xs text-gray-400 font-medium">≥</span>
+              {@const fueraDeRango = Number(esc.puntaje_minimo) > puntajeTotal}
+              <div class="flex flex-col gap-1">
+                <div class="flex items-center gap-3">
+                  <div
+                    class="flex items-center gap-2 bg-white border rounded-xl px-3 py-2 w-36 shrink-0 transition-colors {fueraDeRango
+                      ? 'border-red-400 bg-red-50/30'
+                      : 'border-gray-200'}"
+                  >
+                    <span class="text-xs text-gray-400 font-medium">≥</span>
+                    <input
+                      type="number"
+                      bind:value={esc.puntaje_minimo}
+                      onkeydown={handleFormativaKeydown}
+                      oninput={(e) => handleFormativaInput(esc, e)}
+                      placeholder="0"
+                      min="0"
+                      max={puntajeTotal}
+                      class="w-full text-sm font-bold text-primary bg-transparent focus:outline-none"
+                    />
+                    <span class="text-xs text-gray-400">pts</span>
+                  </div>
+                  <span class="text-gray-400">→</span>
                   <input
-                    type="number"
-                    bind:value={esc.puntaje_minimo}
-                    placeholder="0"
-                    min="0"
-                    class="w-full text-sm font-bold text-primary bg-transparent focus:outline-none"
+                    type="text"
+                    bind:value={esc.evaluacion}
+                    placeholder="ej: Aprobado"
+                    class="flex-1 text-sm bg-white border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-primary/40"
                   />
-                  <span class="text-xs text-gray-400">pts</span>
+                  <button
+                    onclick={() => removeEscalaCalif(esc._id)}
+                    class="p-1.5 text-gray-300 hover:text-red-400 transition shrink-0"
+                  >
+                    <Trash2 class="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <span class="text-gray-400">→</span>
-                <input
-                  type="text"
-                  bind:value={esc.evaluacion}
-                  placeholder="ej: Aprobado"
-                  class="flex-1 text-sm bg-white border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-primary/40"
-                />
-                <button
-                  onclick={() => removeEscalaCalif(esc._id)}
-                  class="p-1.5 text-gray-300 hover:text-red-400 transition shrink-0"
-                >
-                  <Trash2 class="w-3.5 h-3.5" />
-                </button>
+                {#if fueraDeRango}
+                  <p class="text-[11px] text-red-600 ml-1">
+                    Supera el puntaje total ({puntajeTotal} pts).
+                  </p>
+                {/if}
               </div>
             {/each}
             <button
