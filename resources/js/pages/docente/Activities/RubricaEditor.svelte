@@ -220,8 +220,23 @@
    * caso que el reparto automático produce.
    */
   const ponderacionTotal = $derived(
-    Math.round(niveles.reduce((sum, n) => sum + (Number(n.ponderacion) || 0), 0) * 100) / 100,
+    Math.round(
+      niveles.reduce((sum, n) => {
+        const val = typeof n.ponderacion === 'number' ? n.ponderacion : parseFloat(String(n.ponderacion));
+        return sum + (isNaN(val) ? 0 : val);
+      }, 0) * 100,
+    ) / 100,
   );
+
+  const todosCriteriosConPonderacion = $derived(
+    niveles.every((n) => {
+      if (n.ponderacion === '' || n.ponderacion === null || n.ponderacion === undefined) return false;
+      const num = typeof n.ponderacion === 'number' ? n.ponderacion : parseFloat(String(n.ponderacion));
+      return !isNaN(num) && num > 0;
+    }),
+  );
+
+  const hayCriteriosSinPonderacion = $derived(!todosCriteriosConPonderacion);
 
   const errorMonotonia = $derived.by(() => {
     if (columnas.length <= 1) return null;
@@ -240,7 +255,46 @@
     return null;
   });
 
-  const ponderacionValida = $derived(ponderacionTotal === 100 && errorMonotonia === null);
+  const ponderacionCompleta = $derived(
+    ponderacionTotal === 100 && todosCriteriosConPonderacion,
+  );
+
+  const ponderacionValida = $derived(
+    ponderacionCompleta && errorMonotonia === null,
+  );
+
+  const restantePonderacion = $derived(
+    Math.round((100 - ponderacionTotal) * 100) / 100,
+  );
+
+  const fijadosCount = $derived(niveles.filter((n) => n.fijado).length);
+
+  const sumaFijados = $derived(
+    Math.round(
+      niveles
+        .filter((n) => n.fijado)
+        .reduce((sum, n) => {
+          const val = typeof n.ponderacion === 'number' ? n.ponderacion : parseFloat(String(n.ponderacion));
+          return sum + (isNaN(val) ? 0 : val);
+        }, 0) * 100,
+    ) / 100,
+  );
+
+  const errorPonderacion = $derived.by(() => {
+    if (fijadosCount > 0 && sumaFijados > 100) {
+      return `Los criterios fijados exceden el 100 %. Reduce su porcentaje para poder continuar.`;
+    }
+    if (fijadosCount > 0 && sumaFijados >= 100 && niveles.some((n) => !n.fijado)) {
+      return `Los criterios fijados consumen el 100 % de la nota, no dejando porcentaje disponible para los demás criterios.`;
+    }
+    if (ponderacionTotal > 100) {
+      return `Las ponderaciones exceden el 100 %. Reduce los porcentajes para poder guardar.`;
+    }
+    if (ponderacionTotal === 100 && hayCriteriosSinPonderacion) {
+      return 'Hay criterios sin porcentaje de ponderación asignado. Todos los criterios deben tener más de 0 %.';
+    }
+    return null;
+  });
 
   function igualarPonderaciones() {
     const reparto = repartirPonderacion(niveles.length);
@@ -269,7 +323,7 @@
     const restante = getRestanteNoFijado(nivel);
     if (restante <= 0) return false;
     if (otrosNoFijados === 1 && ponderacionTotal === 100) return false;
-    if (ponderacionValida) return false;
+    if (ponderacionCompleta) return false;
     return true;
   }
 
@@ -635,9 +689,9 @@
     </div>
   {/if}
 
-  {#if error || errorMonotonia}
+  {#if error}
     <div class="px-6 py-2 bg-red-50 border-b border-red-200 text-sm text-red-700 shrink-0">
-      {error || errorMonotonia}
+      {error}
     </div>
   {/if}
 
@@ -645,56 +699,76 @@
   <div class="flex-1 overflow-auto">
     {#if tab === 'editor'}
       <div class="px-4 sm:px-8 py-6 max-w-[1400px] mx-auto">
-        <!-- Resumen de puntaje -->
-        <div
-          class="mb-6 flex flex-wrap items-center gap-6 bg-primary/5 rounded-2xl px-6 py-4 border border-primary/10"
-        >
-          <div>
-            <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Puntaje Total</p>
-            <p class="text-3xl font-black text-primary">{puntajeTotal} pts</p>
-          </div>
-          <p class="text-xs text-gray-500 max-w-xs">
-            {niveles.length} criterio{niveles.length === 1 ? '' : 's'} × {puntajeMaximoCriterio} pts (nivel máximo). Puntaje por columna.
-          </p>
-
-          <!--
-            Contador vivo de ponderación. Va junto al puntaje total y no dentro
-            de la tabla porque es una propiedad de la rúbrica entera: mirando
-            una fila no se puede saber si el conjunto cuadra.
-          -->
-          <div class="border-l border-primary/10 pl-6">
-            <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Ponderación</p>
-            <p
-              class="text-3xl font-black {ponderacionValida ? 'text-emerald-600' : 'text-amber-600'}"
-            >
-              {ponderacionTotal}%
+        <!-- Resumen de puntaje y ponderación (sticky para que no se pierda al hacer scroll) -->
+        <div class="sticky top-0 z-20 -mx-4 sm:-mx-8 px-4 sm:px-8 py-3 bg-white/95 backdrop-blur-sm border-b border-gray-100 mb-6 shadow-sm">
+          <div class="flex flex-wrap items-center gap-4 sm:gap-6 bg-primary/5 rounded-2xl px-6 py-3 border border-primary/10">
+            <div class="shrink-0">
+              <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Puntaje Total</p>
+              <p class="text-2xl sm:text-3xl font-black text-primary">{puntajeTotal} pts</p>
+            </div>
+            <p class="text-xs text-gray-500 max-w-[180px] hidden sm:block">
+              {niveles.length} criterio{niveles.length === 1 ? '' : 's'} × {puntajeMaximoCriterio} pts
             </p>
-            {#if !ponderacionValida}
-              <button
-                onclick={igualarPonderaciones}
-                class="text-[11px] font-semibold text-primary/70 underline hover:no-underline"
-              >
-                Repartir en partes iguales
-              </button>
-            {/if}
-          </div>
 
-          <!-- Plantillas de niveles -->
-          <div class="ml-auto flex flex-col gap-1.5">
-            <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Niveles</p>
-            <div class="flex flex-wrap items-center gap-1.5">
-              {#each [3, 4, 5] as cantidad}
-                <button
-                  onclick={() => aplicarPlantilla(cantidad)}
-                  title={PLANTILLAS_NIVELES[cantidad].join(' · ')}
-                  class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition {columnas.length ===
-                  cantidad
-                    ? 'border-primary/40 bg-primary/10 text-primary'
-                    : 'border-gray-200 bg-white text-gray-500 hover:border-primary/30 hover:text-primary'}"
+            <div class="border-l border-primary/10 pl-4 sm:pl-6 flex items-center gap-3 shrink-0">
+              <div>
+                <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Ponderación</p>
+                <p
+                  class="text-2xl sm:text-3xl font-black {ponderacionCompleta
+                    ? 'text-emerald-600'
+                    : ponderacionTotal > 100
+                      ? 'text-red-600'
+                      : 'text-amber-600'}"
                 >
-                  {cantidad} niveles
-                </button>
-              {/each}
+                  {ponderacionTotal}%
+                </p>
+              </div>
+              <div class="flex flex-col gap-0.5">
+                {#if yaRepartido}
+                  <span class="text-[11px] font-semibold text-emerald-600">Ya está repartido</span>
+                {:else if ponderacionCompleta}
+                  <span class="text-[11px] font-semibold text-emerald-600">Ponderación completa</span>
+                {:else if ponderacionTotal === 100 && hayCriteriosSinPonderacion}
+                  <span class="text-[11px] font-semibold text-red-600">Hay criterios sin porcentaje</span>
+                {:else if ponderacionTotal > 100}
+                  <span class="text-[11px] font-medium text-red-600">Excede en {Math.round((ponderacionTotal - 100) * 100) / 100}%</span>
+                {:else if ponderacionTotal < 100}
+                  <span class="text-[11px] font-medium text-amber-700">Falta {restantePonderacion}%</span>
+                {/if}
+              </div>
+            </div>
+
+            <!-- Banner de error integrado en el panel (ocupa espacio sin tapar la tabla ni mover la página) -->
+            {#if errorPonderacion || errorMonotonia}
+              <div
+                class="flex-1 min-w-[240px] max-w-xl flex flex-col gap-1 px-4 py-2 bg-red-50/90 border border-red-200 rounded-xl text-xs text-red-700 font-medium self-center shadow-sm"
+              >
+                {#if errorPonderacion}
+                  <span>{errorPonderacion}</span>
+                {/if}
+                {#if errorMonotonia}
+                  <span>{errorMonotonia}</span>
+                {/if}
+              </div>
+            {/if}
+
+            <!-- Plantillas de niveles -->
+            <div class="ml-auto flex flex-col gap-1.5 shrink-0">
+              <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Niveles</p>
+              <div class="flex flex-wrap items-center gap-1.5">
+                {#each [3, 4, 5] as cantidad}
+                  <button
+                    onclick={() => aplicarPlantilla(cantidad)}
+                    title={PLANTILLAS_NIVELES[cantidad].join(' · ')}
+                    class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition {columnas.length ===
+                    cantidad
+                      ? 'border-primary/40 bg-primary/10 text-primary'
+                      : 'border-gray-200 bg-white text-gray-500 hover:border-primary/30 hover:text-primary'}"
+                  >
+                    {cantidad} niveles
+                  </button>
+                {/each}
+              </div>
             </div>
           </div>
         </div>
@@ -775,6 +849,8 @@
 
             <tbody class="divide-y divide-gray-100">
               {#each niveles as nivel (nivel._id)}
+                {@const faltantePonderacion = nivel.ponderacion === '' || Number(nivel.ponderacion) <= 0}
+                {@const esErrorCriterio = (ponderacionTotal === 100 && faltantePonderacion) || ponderacionTotal > 100 || Number(nivel.ponderacion) > 100 || (sumaFijados >= 100 && !nivel.fijado)}
                 <tr class="hover:bg-gray-50/30 transition-colors group">
                   <!-- Criterio column -->
                   <td
@@ -795,9 +871,11 @@
                         class="w-full text-xs text-gray-500 italic bg-white border border-gray-200 rounded-xl px-3 py-2 resize-none focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20"
                       ></textarea>
                       <div
-                        class="flex items-center justify-between gap-1.5 bg-white border rounded-xl px-3 py-2 transition-colors {ponderacionValida
-                          ? 'border-gray-200'
-                          : 'border-amber-300'} {nivel.fijado ? 'bg-gray-50/70 ring-1 ring-primary/20' : ''}"
+                        class="flex items-center justify-between gap-1.5 bg-white border rounded-xl px-3 py-2 transition-colors {esErrorCriterio
+                          ? 'border-red-400 bg-red-50/20'
+                          : ponderacionValida
+                            ? 'border-gray-200'
+                            : 'border-amber-300'} {nivel.fijado ? 'bg-gray-50/70 ring-1 ring-primary/20' : ''}"
                       >
                         <label class="flex items-center gap-1.5 cursor-pointer select-none text-[11px] text-gray-500 hover:text-gray-700">
                           <input
