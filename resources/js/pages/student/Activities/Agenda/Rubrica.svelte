@@ -187,9 +187,10 @@
       al desplazarse no se pierda de vista a qué fila corresponde la celda que
       se está leyendo.
 
-      Los fondos de fila son opacos y las celdas fijas usan `bg-inherit`: con un
-      fondo traslúcido, el contenido que pasa por debajo al desplazar se
-      transparentaría a través de la columna fija.
+      Los fondos de fila son 100% opacos y las celdas fijas usan colores sólidos
+      explícitos (`bg-white` / `bg-gray-50` y `group-hover:bg-gray-100`) para que
+      el contenido que pasa por debajo al desplazarse no se transparente a través
+      de la columna fija, conservando el efecto hover en toda la fila.
     -->
     <div class="overflow-x-auto scroll-smooth rounded-2xl border border-gray-200 shadow-sm">
       <table
@@ -222,8 +223,8 @@
 
         <tbody class="divide-y divide-gray-100">
           {#each rubrica.niveles as nivel, nivelIdx}
-            <tr class="transition-colors hover:bg-gray-50/40 {nivelIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/20'}">
-              <td class="sticky left-0 z-10 bg-inherit align-top py-4 px-4 w-[200px] min-w-[200px] max-w-[200px] shrink-0 border-r border-gray-100 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
+            <tr class="group transition-colors hover:bg-gray-100 {nivelIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+              <td class="sticky left-0 z-10 align-top py-4 px-4 w-[200px] min-w-[200px] max-w-[200px] shrink-0 border-r border-gray-200 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] transition-colors {nivelIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} group-hover:bg-gray-100">
                 <div class="space-y-1.5 overflow-hidden">
                   <h4 class="font-bold text-gray-900 leading-snug text-sm break-words">
                     {nivel.nombre}
