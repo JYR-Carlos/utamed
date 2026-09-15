@@ -2,7 +2,7 @@
   import type { Rubrica } from '@/types/rubrica';
   import { router } from '@inertiajs/svelte';
   import RubricaView from '../../student/Activities/Agenda/Rubrica.svelte';
-  import { X, Plus, Trash2, Eye, Pencil, ChevronLeft, Lock } from 'lucide-svelte';
+  import { X, Plus, Trash2, Eye, Pencil, ChevronLeft, Lock, RotateCcw, SlidersHorizontal } from 'lucide-svelte';
   import { puntajeMinimoAprobacion } from '@/lib/notas';
 
   interface Props {
@@ -296,9 +296,57 @@
     return null;
   });
 
-  function igualarPonderaciones() {
-    const reparto = repartirPonderacion(niveles.length);
-    niveles = niveles.map((n, i) => ({ ...n, ponderacion: reparto[i] }));
+  const hayPorcentajesParaRestablecer = $derived(
+    niveles.some((n) => (n.ponderacion !== '' && n.ponderacion !== null && Number(n.ponderacion) > 0) || n.fijado),
+  );
+
+  const puedeEjecutarReparto = $derived(
+    niveles.length > 1 &&
+    fijadosCount < niveles.length &&
+    sumaFijados < 100 &&
+    !ponderacionCompleta &&
+    !yaRepartido,
+  );
+
+  const labelBotonReparto = $derived.by(() => {
+    if (ponderacionTotal > 100) {
+      return 'Ajustar restantes';
+    }
+    if (fijadosCount === 0) {
+      return 'Repartir en partes iguales';
+    }
+    return fijadosCount === 1 ? 'Repartir restante (1 fijado)' : `Repartir restante (${fijadosCount} fijados)`;
+  });
+
+  const labelBotonRepartoDeshabilitado = $derived.by(() => {
+    if (yaRepartido) {
+      return 'Ya está repartido';
+    }
+    if (ponderacionCompleta) {
+      return 'Ponderación completa (100 %)';
+    }
+    if (fijadosCount === niveles.length) {
+      return 'Todos los criterios están fijados.';
+    }
+    if (fijadosCount === niveles.length - 1 && ponderacionTotal === 100) {
+      return 'Criterios ya ajustados al 100 %';
+    }
+    if (sumaFijados >= 100) {
+      return `Los criterios fijados consumen el 100 % de la nota`;
+    }
+    if (ponderacionTotal > 100) {
+      return 'Ajustar restantes';
+    }
+    return 'Repartir restante';
+  });
+
+  function restablecerPorcentajes() {
+    niveles = niveles.map((n) => ({
+      ...n,
+      ponderacion: '',
+      fijado: false,
+    }));
+    yaRepartido = false;
   }
 
   function getRestanteNoFijado(nivel: NivelDraft): number {
@@ -325,6 +373,35 @@
     if (otrosNoFijados === 1 && ponderacionTotal === 100) return false;
     if (ponderacionCompleta) return false;
     return true;
+  }
+
+  function repartirRestante() {
+    const noFijados = niveles.filter((n) => !n.fijado);
+    if (noFijados.length === 0) return;
+
+    const sumaFijados = Math.round(
+      niveles
+        .filter((n) => n.fijado)
+        .reduce((sum, n) => {
+          const val = typeof n.ponderacion === 'number' ? n.ponderacion : parseFloat(String(n.ponderacion));
+          return sum + (isNaN(val) ? 0 : val);
+        }, 0) * 100,
+    ) / 100;
+
+    const disponible = Math.max(0, Math.round((100 - sumaFijados) * 100) / 100);
+    if (disponible <= 0) return;
+    const n = noFijados.length;
+    const base = Math.floor((disponible / n) * 100) / 100;
+    const resto = Math.round((disponible - base * n) * 100) / 100;
+
+    let noFijadoIndex = 0;
+    niveles = niveles.map((item) => {
+      if (item.fijado) return item;
+      const valor = noFijadoIndex === 0 ? Math.round((base + resto) * 100) / 100 : base;
+      noFijadoIndex++;
+      return { ...item, ponderacion: valor };
+    });
+    yaRepartido = true;
   }
 
   function repartirRestanteCriterio(nivel: NivelDraft) {
@@ -355,182 +432,6 @@
       return { ...item, ponderacion: valor };
     });
     yaRepartido = true;
-  }
-
-  const rubricaPreview = $derived<Rubrica>({
-    columnas: columnas.map((c) => ({
-      id: c._id,
-      nombre: c.nombre.trim() || '(nivel)',
-      puntos: Number(c.puntos) || 0,
-    })),
-    niveles: niveles.map((n) => ({
-      id: n._id,
-      nombre: n.nombre || '(criterio)',
-      descripcion: n.descripcion || '',
-      ponderacion: Number(n.ponderacion) || 0,
-      nro_escalas: columnas.length,
-      puntaje_minimo: 0,
-      puntaje_total: puntajeMaximoCriterio,
-      escalas: n.escalas.map((e, i) => ({
-        id: e._id,
-        // El puntaje se copia desde la columna en vez de leerse de la celda:
-        // así todo lo que ya consumía `escalas[].puntos` —la vista del alumno,
-        // la matriz de evaluación, el puntaje obtenido que se persiste— sigue
-        // funcionando sin enterarse del cambio.
-        puntos: Number(columnas[i]?.puntos) || 0,
-        criterio: e.criterio || '',
-      })),
-    })),
-    detalles_evaluacion: {
-      puntaje_total: puntajeTotal,
-      // En una sumativa la escala cualitativa no se guarda, ni siquiera si la
-      // rúbrica venía con una de antes: si quedara escrita, la vista del alumno
-      // —que la dibuja cuando existe— seguiría mostrando «Aprobado» junto a la
-      // nota, que es la mezcla que se pidió separar.
-      escala_evaluacion: esSumativa
-        ? []
-        : escalaCal.map((e) => ({
-            puntaje_minimo: Number(e.puntaje_minimo) || 0,
-            evaluacion: e.evaluacion || '',
-          })),
-    },
-  });
-
-  // ── Mutations ─────────────────────────────────────────────────────────────
-  function addNivel() {
-    niveles = [...niveles, makeNivel(columnas.length)];
-  }
-
-  function removeNivel(id: string) {
-    if (niveles.length <= 1) return;
-    niveles = niveles.filter((n) => n._id !== id);
-  }
-
-  function addColumna() {
-    columnas = [...columnas, { _id: uid(), nombre: `Nivel ${columnas.length + 1}`, puntos: '' }];
-    niveles = niveles.map((n) => ({
-      ...n,
-      escalas: [...n.escalas, { _id: uid(), criterio: '' }],
-    }));
-  }
-
-  function removeColumna(idx: number) {
-    if (columnas.length <= 1) return;
-    columnas = columnas.filter((_, i) => i !== idx);
-    niveles = niveles.map((n) => ({ ...n, escalas: n.escalas.filter((_, i) => i !== idx) }));
-  }
-
-  /**
-   * Aplica una de las plantillas de nombres.
-   *
-   * Renombra y ajusta la cantidad de columnas, pero conserva lo ya escrito en
-   * las posiciones que sobreviven —el puntaje de la columna y la descripción de
-   * cada celda—: la plantilla nombra los niveles, no reinicia el trabajo. Si la
-   * plantilla tiene menos columnas que la rúbrica actual las sobrantes se
-   * pierden, que es exactamente lo que se pide al elegir «3 niveles».
-   */
-  function aplicarPlantilla(cantidad: number) {
-    const nombres = PLANTILLAS_NIVELES[cantidad];
-    if (!nombres) return;
-
-    columnas = nombres.map((nombre, i) => ({
-      _id: columnas[i]?._id ?? uid(),
-      nombre,
-      puntos: columnas[i]?.puntos ?? '',
-    }));
-
-    niveles = niveles.map((n) => ({
-      ...n,
-      escalas: Array.from(
-        { length: nombres.length },
-        (_, i) => n.escalas[i] ?? { _id: uid(), criterio: '' },
-      ),
-    }));
-  }
-
-  function addEscalaCalif() {
-    escalaCal = [...escalaCal, { _id: uid(), puntaje_minimo: '', evaluacion: '' }];
-  }
-
-  function removeEscalaCalif(id: string) {
-    escalaCal = escalaCal.filter((e) => e._id !== id);
-  }
-
-  // ── Save ──────────────────────────────────────────────────────────────────
-  function validate(): boolean {
-    if (columnas.some((c) => !c.nombre.trim())) {
-      error = 'Todos los niveles de desempeño deben tener un nombre.';
-      return false;
-    }
-    if (niveles.some((n) => !n.nombre.trim())) {
-      error = 'Todos los criterios deben tener un nombre.';
-      return false;
-    }
-    const pts = columnas.map((c) => Number(c.puntos));
-    if (pts.some((p) => isNaN(p) || p < 0)) {
-      error = 'Los puntajes de los niveles deben ser números mayores o iguales a 0.';
-      return false;
-    }
-    if (columnas.length > 1) {
-      const isAsc = pts.every((p, i) => i === 0 || p > pts[i - 1]);
-      const isDesc = pts.every((p, i) => i === 0 || p < pts[i - 1]);
-      if (!isAsc && !isDesc) {
-        error =
-          'Los puntajes de los niveles deben estar ordenados (estrictamente creciente o decreciente) sin valores repetidos.';
-        return false;
-      }
-    }
-    if (!esSumativa) {
-      if (escalaCal.every((e) => !e.evaluacion.trim())) {
-        error =
-          'Una actividad formativa se cierra con su escala cualitativa: define al menos un nivel (por ejemplo «Aprobado»).';
-        return false;
-      }
-      if (escalaCal.some((e) => Number(e.puntaje_minimo) < 0 || isNaN(Number(e.puntaje_minimo)))) {
-        error = 'Los puntajes mínimos de la escala de evaluación deben ser mayores o iguales a 0.';
-        return false;
-      }
-      if (escalaCal.some((e) => Number(e.puntaje_minimo) > puntajeTotal)) {
-        error = `Los puntajes mínimos de la escala de evaluación no pueden superar el puntaje total de la rúbrica (${puntajeTotal} pts).`;
-        return false;
-      }
-    }
-    if (!ponderacionValida) {
-      error = `Las ponderaciones deben sumar exactamente 100 % (ahora suman ${ponderacionTotal} %).`;
-      return false;
-    }
-    if (niveles.some((n) => n.escalas.some((e) => !e.criterio.trim()))) {
-      error = 'Todas las celdas de la rúbrica deben tener una descripción.';
-      return false;
-    }
-    error = null;
-    return true;
-  }
-
-  function guardar() {
-    if (bloqueada || !validate()) return;
-    saving = true;
-    router.post(
-      `/docente/cursos/${idCurso}/rubrica`,
-      { rubrica: rubricaPreview as any, id_actividad: idActividad },
-      {
-        replace: true,
-        preserveState: false,
-        onSuccess: () => {
-          saving = false;
-          saveSuccess = true;
-          onClose();
-        },
-        onError: (errores) => {
-          saving = false;
-          // El servidor revalida la ponderación por su cuenta. Si rechaza, hay
-          // que decir por qué: con un «Error al guardar» genérico, el docente
-          // ve un botón habilitado que no funciona y no tiene cómo saber que el
-          // problema es la suma de los porcentajes.
-          error = Object.values(errores ?? {})[0] ?? 'Error al guardar la rúbrica.';
-        },
-      },
-    );
   }
 
   function handlePuntosKeydown(e: KeyboardEvent) {
@@ -620,6 +521,181 @@
     }
     esc.puntaje_minimo = num;
   }
+
+  const rubricaPreview = $derived<Rubrica>({
+    columnas: columnas.map((c) => ({
+      id: c._id,
+      nombre: c.nombre.trim() || '(nivel)',
+      puntos: Number(c.puntos) || 0,
+    })),
+    niveles: niveles.map((n) => ({
+      id: n._id,
+      nombre: n.nombre || '(criterio)',
+      descripcion: n.descripcion || '',
+      ponderacion: Number(n.ponderacion) || 0,
+      nro_escalas: columnas.length,
+      puntaje_minimo: 0,
+      puntaje_total: puntajeMaximoCriterio,
+      escalas: n.escalas.map((e, i) => ({
+        id: e._id,
+        // El puntaje se copia desde la columna en vez de leerse de la celda:
+        // así todo lo que ya consumía `escalas[].puntos` —la vista del alumno,
+        // la matriz de evaluación, el puntaje obtenido que se persiste— sigue
+        // funcionando sin enterarse del cambio.
+        puntos: Number(columnas[i]?.puntos) || 0,
+        criterio: e.criterio || '',
+      })),
+    })),
+    detalles_evaluacion: {
+      puntaje_total: puntajeTotal,
+      // En una sumativa la escala cualitativa no se guarda, ni siquiera si la
+      // rúbrica venía con una de antes: si quedara escrita, la vista del alumno
+      // —que la dibuja cuando existe— seguiría mostrando «Aprobado» junto a la
+      // nota, que es la mezcla que se pidió separar.
+      escala_evaluacion: esSumativa
+        ? []
+        : escalaCal.map((e) => ({
+            puntaje_minimo: Number(e.puntaje_minimo) || 0,
+            evaluacion: e.evaluacion || '',
+          })),
+    },
+  });
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  function addNivel() {
+    yaRepartido = false;
+    if (niveles.length === 1 && Number(niveles[0].ponderacion) === 100 && !niveles[0].fijado) {
+      niveles[0].ponderacion = '';
+    }
+    niveles = [...niveles, makeNivel(columnas.length)];
+  }
+
+  function removeNivel(id: string) {
+    if (niveles.length <= 1) return;
+    yaRepartido = false;
+    niveles = niveles.filter((n) => n._id !== id);
+  }
+
+  function addColumna() {
+    columnas = [...columnas, { _id: uid(), nombre: `Nivel ${columnas.length + 1}`, puntos: '' }];
+    niveles = niveles.map((n) => ({
+      ...n,
+      escalas: [...n.escalas, { _id: uid(), criterio: '' }],
+    }));
+  }
+
+  function removeColumna(idx: number) {
+    if (columnas.length <= 1) return;
+    columnas = columnas.filter((_, i) => i !== idx);
+    niveles = niveles.map((n) => ({ ...n, escalas: n.escalas.filter((_, i) => i !== idx) }));
+  }
+
+  /**
+   * Aplica una de las plantillas de nombres.
+   *
+   * Renombra y ajusta la cantidad de columnas, pero conserva lo ya escrito en
+   * las posiciones que sobreviven —el puntaje de la columna y la descripción de
+   * cada celda—: la plantilla nombra los niveles, no reinicia el trabajo. Si la
+   * plantilla tiene menos columnas que la rúbrica actual las sobrantes se
+   * pierden, que es exactamente lo que se pide al elegir «3 niveles».
+   */
+  function aplicarPlantilla(cantidad: number) {
+    const nombres = PLANTILLAS_NIVELES[cantidad];
+    if (!nombres) return;
+
+    columnas = nombres.map((nombre, i) => ({
+      _id: columnas[i]?._id ?? uid(),
+      nombre,
+      puntos: columnas[i]?.puntos ?? '',
+    }));
+
+    niveles = niveles.map((n) => ({
+      ...n,
+      escalas: Array.from(
+        { length: nombres.length },
+        (_, i) => n.escalas[i] ?? { _id: uid(), criterio: '' },
+      ),
+    }));
+  }
+
+  function addEscalaCalif() {
+    escalaCal = [...escalaCal, { _id: uid(), puntaje_minimo: '', evaluacion: '' }];
+  }
+
+  function removeEscalaCalif(id: string) {
+    escalaCal = escalaCal.filter((e) => e._id !== id);
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+  function validate(): boolean {
+    if (columnas.some((c) => !c.nombre.trim())) {
+      error = 'Todos los niveles de desempeño deben tener un nombre.';
+      return false;
+    }
+    if (niveles.some((n) => !n.nombre.trim())) {
+      error = 'Todos los criterios deben tener un nombre.';
+      return false;
+    }
+    if (errorMonotonia) {
+      error = errorMonotonia;
+      return false;
+    }
+    if (!esSumativa) {
+      if (escalaCal.every((e) => !e.evaluacion.trim())) {
+        error =
+          'Una actividad formativa se cierra con su escala cualitativa: define al menos un nivel (por ejemplo «Aprobado»).';
+        return false;
+      }
+      if (escalaCal.some((e) => Number(e.puntaje_minimo) < 0 || isNaN(Number(e.puntaje_minimo)))) {
+        error = 'Los puntajes mínimos de la escala de evaluación deben ser mayores o iguales a 0.';
+        return false;
+      }
+      if (escalaCal.some((e) => Number(e.puntaje_minimo) > puntajeTotal)) {
+        error = `Los puntajes mínimos de la escala de evaluación no pueden superar el puntaje total de la rúbrica (${puntajeTotal} pts).`;
+        return false;
+      }
+    }
+    if (hayCriteriosSinPonderacion) {
+      error = 'Todos los criterios deben tener un porcentaje de ponderación asignado (mayor a 0%).';
+      return false;
+    }
+    if (ponderacionTotal !== 100) {
+      error = `Las ponderaciones deben sumar exactamente 100 % (ahora suman ${ponderacionTotal} %).`;
+      return false;
+    }
+    if (niveles.some((n) => n.escalas.some((e) => !e.criterio.trim()))) {
+      error = 'Todas las celdas de la rúbrica deben tener una descripción.';
+      return false;
+    }
+    error = null;
+    return true;
+  }
+
+  function guardar() {
+    if (bloqueada || !validate()) return;
+    saving = true;
+    router.post(
+      `/docente/cursos/${idCurso}/rubrica`,
+      { rubrica: rubricaPreview as any, id_actividad: idActividad },
+      {
+        replace: true,
+        preserveState: false,
+        onSuccess: () => {
+          saving = false;
+          saveSuccess = true;
+          onClose();
+        },
+        onError: (errores) => {
+          saving = false;
+          // El servidor revalida la ponderación por su cuenta. Si rechaza, hay
+          // que decir por qué: con un «Error al guardar» genérico, el docente
+          // ve un botón habilitado que no funciona y no tiene cómo saber que el
+          // problema es la suma de los porcentajes.
+          error = Object.values(errores ?? {})[0] ?? 'Error al guardar la rúbrica.';
+        },
+      },
+    );
+  }
 </script>
 
 <!-- Full-screen overlay -->
@@ -663,7 +739,7 @@
           Vista Previa
         </button>
       </div>
-    </div>
+    </div> 
 
     {#if !bloqueada}
       <button
@@ -698,31 +774,36 @@
   <!-- ── Body ── -->
   <div class="flex-1 overflow-auto">
     {#if tab === 'editor'}
-      <div class="px-4 sm:px-8 py-6 max-w-[1400px] mx-auto">
-        <!-- Resumen de puntaje y ponderación (sticky para que no se pierda al hacer scroll) -->
-        <div class="sticky top-0 z-20 -mx-4 sm:-mx-8 px-4 sm:px-8 py-3 bg-white/95 backdrop-blur-sm border-b border-gray-100 mb-6 shadow-sm">
-          <div class="flex flex-wrap items-center gap-4 sm:gap-6 bg-primary/5 rounded-2xl px-6 py-3 border border-primary/10">
-            <div class="shrink-0">
+      <div class="px-4 sm:px-8 py-6 max-w-[1400px] mx-auto pb-28">
+        <!-- Resumen de puntaje (Sticky) -->
+        <div class="sticky top-0 z-30 bg-white/95 backdrop-blur-md pt-2 pb-4 mb-4">
+          <div
+            class="relative flex flex-wrap items-center gap-6 bg-primary/5 rounded-2xl px-6 py-4 border border-primary/10 shadow-sm"
+          >
+            <div>
               <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Puntaje Total</p>
-              <p class="text-2xl sm:text-3xl font-black text-primary">{puntajeTotal} pts</p>
+              <p class="text-3xl font-black text-primary">{puntajeTotal} pts</p>
             </div>
-            <p class="text-xs text-gray-500 max-w-[180px] hidden sm:block">
-              {niveles.length} criterio{niveles.length === 1 ? '' : 's'} × {puntajeMaximoCriterio} pts
+            <p class="text-xs text-gray-500 max-w-xs">
+              {niveles.length} criterio{niveles.length === 1 ? '' : 's'} × {puntajeMaximoCriterio} pts (nivel máximo).
             </p>
 
-            <div class="border-l border-primary/10 pl-4 sm:pl-6 flex items-center gap-3 shrink-0">
-              <div>
-                <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Ponderación</p>
-                <p
-                  class="text-2xl sm:text-3xl font-black {ponderacionCompleta
-                    ? 'text-emerald-600'
-                    : ponderacionTotal > 100
-                      ? 'text-red-600'
-                      : 'text-amber-600'}"
-                >
-                  {ponderacionTotal}%
-                </p>
-              </div>
+            <!--
+              Contador vivo de ponderación. Va junto al puntaje total y no dentro
+              de la tabla porque es una propiedad de la rúbrica entera: mirando
+              una fila no se puede saber si el conjunto cuadra.
+            -->
+            <div class="border-l border-primary/10 pl-6">
+              <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Ponderación</p>
+              <p
+                class="text-3xl font-black {ponderacionCompleta
+                  ? 'text-emerald-600'
+                  : ponderacionTotal > 100
+                    ? 'text-red-600'
+                    : 'text-amber-600'}"
+              >
+                {ponderacionTotal}%
+              </p>
               <div class="flex flex-col gap-0.5">
                 {#if yaRepartido}
                   <span class="text-[11px] font-semibold text-emerald-600">Ya está repartido</span>
@@ -1064,6 +1145,43 @@
             </button>
           </div>
         </div>
+        {/if}
+
+        <!-- Botones flotantes esquina inferior derecha -->
+        {#if !bloqueada}
+          <div class="fixed bottom-6 right-6 sm:right-8 z-50 flex items-center gap-3 select-none pointer-events-auto">
+            {#if hayPorcentajesParaRestablecer}
+              <button
+                type="button"
+                onclick={restablecerPorcentajes}
+                class="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold bg-white/95 backdrop-blur-md border border-gray-200 text-gray-700 hover:text-red-600 hover:border-red-200 hover:bg-red-50/80 shadow-lg hover:shadow-xl transition-all active:scale-95"
+                title="Restablecer todas las ponderaciones y casillas fijadas"
+              >
+                <RotateCcw class="w-4 h-4" />
+                <span>Restablecer porcentajes</span>
+              </button>
+            {/if}
+
+            {#if puedeEjecutarReparto}
+              <button
+                type="button"
+                onclick={repartirRestante}
+                class="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold bg-primary text-white shadow-lg shadow-primary/25 hover:bg-primary/90 hover:shadow-xl transition-all active:scale-95"
+                title={labelBotonReparto}
+              >
+                <SlidersHorizontal class="w-4 h-4" />
+                <span>{labelBotonReparto}</span>
+              </button>
+            {:else}
+              <div
+                class="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold bg-gray-100/90 backdrop-blur-md text-gray-400 border border-gray-200 shadow-md cursor-not-allowed opacity-60"
+                title={labelBotonRepartoDeshabilitado}
+              >
+                <SlidersHorizontal class="w-4 h-4" />
+                <span>{labelBotonRepartoDeshabilitado}</span>
+              </div>
+            {/if}
+          </div>
         {/if}
       </div>
     {:else}
