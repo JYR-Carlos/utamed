@@ -225,8 +225,8 @@ class ForzarResetPasswordUsuario extends Command
         $porTexto = Usuario::buscar($termino)->limit(25)->get();
         $candidatos = $candidatos->merge($porTexto);
 
-        // Unificar por id_usuario y retornar colección indexada
-        return $candidatos->unique('id_usuario')->values();
+        // Unificar por id_usuario, ordenar de forma determinista y retornar colección
+        return $candidatos->unique('id_usuario')->sortBy('id_usuario')->values();
     }
 
     /**

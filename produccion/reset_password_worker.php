@@ -144,7 +144,7 @@ function buscarUsuarios(string $termino)
     $porTexto = Usuario::buscar($termino)->limit(25)->get();
     $candidatos = $candidatos->merge($porTexto);
 
-    return $candidatos->unique('id_usuario')->values();
+    return $candidatos->unique('id_usuario')->sortBy('id_usuario')->values();
 }
 
 // Bucle interactivo principal
