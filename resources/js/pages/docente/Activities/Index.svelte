@@ -35,7 +35,6 @@
   import { ConfirmDialog } from '@/components/custom/common';
   import { formatFechaHora } from '@/utils/formatters';
   import AgendaDocente from './Agenda/AgendaDocente.svelte';
-  import RubricaView from '../../student/Activities/Agenda/Rubrica.svelte';
   import RubricaEditor from './RubricaEditor.svelte';
   import MatrizEvaluacion from './MatrizEvaluacion.svelte';
   import GrupoCard from './components/GrupoCard.svelte';
@@ -143,7 +142,6 @@
   // ─── Estado del UI ────────────────────────────────────────────────────────
   let grupoSeleccionado = $state<GrupoData | null>(null);
   let showAgendaModal = $state(false);
-  let showRubricaModal = $state(false);
   let isLoadingInteracciones = $state(false);
   let errorInteracciones = $state<string | null>(null);
 
@@ -425,7 +423,6 @@
 
   function abrirAgendaGrupo(grupo: GrupoData) {
     grupoSeleccionado = grupo;
-    showRubricaModal = false;
     showAgendaModal = true;
     cargarInteracciones(grupo);
   }
@@ -435,34 +432,6 @@
     grupoSeleccionado = null;
     // router.reload will clear it later or we can let it be
   }
-
-  function toggleRubricaModal() {
-    showAgendaModal = false;
-    showRubricaModal = !showRubricaModal;
-  }
-
-  $effect(() => {
-    if (!showRubricaModal) return;
-    let isPoppedByBrowser = false;
-
-    if (typeof window !== 'undefined') {
-      window.history.pushState(window.history.state, '', window.location.href);
-    }
-
-    const handlePopState = () => {
-      isPoppedByBrowser = true;
-      showRubricaModal = false;
-    };
-
-    window.addEventListener('popstate', handlePopState);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      if (!isPoppedByBrowser && typeof window !== 'undefined') {
-        window.history.back();
-      }
-    };
-  });
 
   // Usa router.post() de Inertia para que el token CSRF se gestione
   // automáticamente (igual que el resto del proyecto), en vez de fetch() nativo.
@@ -621,7 +590,7 @@
             <div class="flex flex-col gap-1.5 shrink-0 md:w-56 md:self-stretch">
               <button
                 class="flex flex-1 w-full items-center justify-between gap-4 rounded-xl border border-uta-blue bg-white px-4 py-3 text-sm font-semibold text-uta-blue transition-all hover:bg-uta-blue hover:text-white sm:px-6"
-                onclick={() => (actividad.es_titular && puede_editar_rubrica) ? (showRubricaEditor = true) : toggleRubricaModal()}
+                onclick={() => (showRubricaEditor = true)}
               >
                 <p>
                   {#if !rubrica}
@@ -835,37 +804,7 @@
     </div>
   {/if}
 
-  <!-- Modal: Rúbrica de la actividad -->
-  {#if showRubricaModal}
-    <div
-      class="fixed inset-0 z-50 sm:relative sm:inset-auto w-full border-l bg-gray-50 h-full overflow-y-auto p-6 animate-slide-in"
-    >
-      <div class="flex flex-col gap-4 w-full max-w-7xl bg-white rounded-4xl">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-sm font-semibold text-uta-blue">Rúbrica de la Actividad</h2>
-          <button
-            class="p-2 hover:bg-gray-200 rounded-full transition-colors flex items-center gap-2 group"
-            onclick={toggleRubricaModal}
-            aria-label="cerrar"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="1.5"
-              stroke="currentColor"
-              class="size-6"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        {#if rubrica}
-          <RubricaView {rubrica} estadoRubrica={estado_rubrica ?? undefined} modoLectura={true} esSumativa={actividad.es_sumativa} />
-        {/if}
-      </div>
-    </div>
-  {/if}
+
   <!-- ── Modal: Entregas del grupo ── -->
   {#if showEntregasModal && grupoEntregasSeleccionado}
     <EntregasModal
@@ -922,7 +861,6 @@
     if (e.key === 'Escape') {
       if (showMatrizEvaluacion) cerrarMatrizEvaluacion();
       else if (showRubricaEditor) showRubricaEditor = false;
-      else if (showRubricaModal) showRubricaModal = false;
       else if (showEntregasModal) cerrarEntregas();
       else showAgendaModal = false;
     }

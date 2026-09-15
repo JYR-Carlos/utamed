@@ -41,6 +41,22 @@
   const maxEscalas = $derived(Math.max(...(rubrica?.niveles?.map((n) => n.escalas.length) ?? [0])));
 
   /**
+   * Ponderación acumulada de todos los criterios.
+   */
+  const ponderacionTotal = $derived(
+    Math.round(
+      (rubrica?.niveles ?? []).reduce((sum, n) => {
+        const val = typeof n.ponderacion === 'number' ? n.ponderacion : parseFloat(String(n.ponderacion));
+        return sum + (isNaN(val) ? 0 : val);
+      }, 0) * 100,
+    ) / 100,
+  );
+
+  const tienePonderaciones = $derived(
+    (rubrica?.niveles ?? []).some((n) => n.ponderacion != null && Number(n.ponderacion) > 0),
+  );
+
+  /**
    * Rótulos de las columnas.
    *
    * Las rúbricas nuevas traen `columnas` con el nombre que escribió el docente
@@ -89,53 +105,66 @@
 
 {#if !rubrica}
   <div
-    class="rounded-2xl border border-dashed border-base-300 p-8 text-center text-base-content/60"
+    class="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-gray-500"
   >
     No hay rúbrica disponible
   </div>
 {:else}
   <div class="space-y-6">
-    <!-- Resumen -->
+    <!-- Resumen Métrico -->
     <div
-      class="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 rounded-3xl border-2 border-primary/10"
+      class="flex flex-wrap items-center gap-4 sm:gap-6 p-5 sm:p-6 rounded-3xl bg-primary/5 border border-primary/10 shadow-sm"
     >
-      <div class="text-center">
+      <div class="min-w-[100px]">
         <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">
           Criterios
         </p>
-        <p class="text-3xl font-black text-primary">
+        <p class="text-2xl sm:text-3xl font-black text-primary">
           {totalCriterios}
         </p>
       </div>
 
-      <div class="text-center">
+      <div class="border-l border-primary/10 pl-4 sm:pl-6 min-w-[120px]">
         <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">
           Puntaje máximo
         </p>
-        <p class="text-3xl font-black text-primary">
+        <p class="text-2xl sm:text-3xl font-black text-primary">
           {puntajeMaximo} pts
         </p>
       </div>
 
+      {#if tienePonderaciones}
+        <div class="border-l border-primary/10 pl-4 sm:pl-6 min-w-[120px]">
+          <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">
+            Ponderación
+          </p>
+          <p class="text-2xl sm:text-3xl font-black text-emerald-600">
+            {ponderacionTotal}%
+          </p>
+        </div>
+      {/if}
+
       {#if puntaje_obtenido != null}
-        <div class="text-center">
+        <div class="border-l border-primary/10 pl-4 sm:pl-6 min-w-[120px]">
           <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">
             Puntaje obtenido
           </p>
-          <p class="text-3xl font-black text-emerald-600">
+          <p class="text-2xl sm:text-3xl font-black text-emerald-600">
             {puntaje_obtenido} pts
           </p>
         </div>
       {/if}
 
-      <div class="text-center">
-        <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">
-          Estado
-        </p>
-        <p class="text-lg font-semibold">
-          {estadoRubrica ?? '—'}
-        </p>
-      </div>
+      {#if estadoRubrica}
+        <div class="border-l border-primary/10 pl-4 sm:pl-6 min-w-[120px]">
+          <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">
+            Estado
+          </p>
+          <p class="text-sm sm:text-base font-bold text-gray-700 mt-1">
+            {estadoRubrica}
+          </p>
+        </div>
+      {/if}
     </div>
 
     <!-- Retroalimentación del docente -->
@@ -162,61 +191,71 @@
       fondo traslúcido, el contenido que pasa por debajo al desplazar se
       transparentaría a través de la columna fija.
     -->
-    <div class="overflow-x-auto scroll-smooth rounded-2xl border border-base-300">
-      <table class="table w-full">
+    <div class="overflow-x-auto scroll-smooth rounded-2xl border border-gray-200 shadow-sm">
+      <table class="w-full border-collapse text-left">
         <thead>
-          <tr class="bg-base-200">
+          <tr class="bg-gray-50 border-b border-gray-200">
             <th
-              class="sticky left-0 z-20 min-w-72 bg-inherit text-sm font-semibold text-base-content/70 py-3 px-4"
-              >Criterio</th
+              class="sticky left-0 z-20 min-w-64 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-500 py-3.5 px-4 border-r border-gray-200 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]"
             >
+              Criterio de Evaluación
+            </th>
 
             {#each columnas as columna}
-              <th class="text-center text-sm font-semibold text-base-content/70 py-3 px-4 min-w-52">
-                {columna.nombre}
-                {#if puntajePorColumna}
-                  <span class="block text-xs font-bold text-primary mt-0.5">{columna.puntos} pts</span>
-                {/if}
+              <th class="text-center text-xs font-bold text-gray-700 uppercase tracking-wide py-3.5 px-4 min-w-52 border-r border-gray-100 last:border-r-0">
+                <div class="flex flex-col items-center gap-1.5">
+                  <span>{columna.nombre}</span>
+                  {#if puntajePorColumna && columna.puntos != null}
+                    <div class="flex items-center justify-center gap-1 bg-primary/5 border border-primary/20 rounded-xl px-3 py-1">
+                      <span class="text-sm font-black text-primary">{columna.puntos}</span>
+                      <span class="text-[10px] font-bold uppercase text-primary/60">pts</span>
+                    </div>
+                  {/if}
+                </div>
               </th>
             {/each}
           </tr>
         </thead>
 
-        <tbody>
+        <tbody class="divide-y divide-gray-100">
           {#each rubrica.niveles as nivel, nivelIdx}
-            <tr class="border-t border-base-200 {nivelIdx % 2 === 0 ? 'bg-white' : 'bg-base-100'}">
-              <td class="sticky left-0 z-10 bg-inherit align-top py-4 px-4">
+            <tr class="transition-colors hover:bg-gray-50/40 {nivelIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/20'}">
+              <td class="sticky left-0 z-10 bg-inherit align-top py-4 px-4 border-r border-gray-100 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
                 <div class="space-y-1.5">
-                  <h4 class="font-semibold text-base-content leading-snug">
+                  <h4 class="font-bold text-gray-900 leading-snug text-sm">
                     {nivel.nombre}
                   </h4>
 
                   {#if nivel.descripcion}
-                    <p class="text-sm text-base-content/60 leading-relaxed">
+                    <p class="text-xs text-gray-500 leading-relaxed italic">
                       {nivel.descripcion}
                     </p>
                   {/if}
 
-                  <div class="inline-flex items-center gap-1 text-xs font-medium text-base-content/50 bg-base-200 rounded-full px-2 py-0.5 mt-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    Máx. {nivel.puntaje_total} pts
+                  <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                    {#if nivel.ponderacion != null && Number(nivel.ponderacion) > 0}
+                      <span class="inline-flex items-center text-[11px] font-bold text-primary bg-primary/10 border border-primary/20 rounded-lg px-2 py-0.5">
+                        {nivel.ponderacion}% de la nota
+                      </span>
+                    {/if}
+                    <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-500 bg-gray-100 rounded-lg px-2 py-0.5">
+                      Máx. {nivel.puntaje_total} pts
+                    </span>
                   </div>
                 </div>
               </td>
 
               {#each Array(maxEscalas) as _, index}
-                <td class="align-top py-4 px-3">
+                <td class="align-top py-4 px-3 border-r border-gray-100 last:border-r-0">
                   {#if nivel.escalas[index]}
                     {@const seleccionada = esSeleccionada(nivel.id, nivel.escalas[index].id)}
                     <div
-                      class="rounded-xl border-2 p-4 h-full transition-all
+                      class="rounded-2xl border p-4 h-full transition-all flex flex-col justify-between
                         {seleccionada
-                          ? 'border-emerald-400 bg-emerald-50 shadow-sm shadow-emerald-100'
+                          ? 'border-emerald-400 bg-emerald-50/70 shadow-sm shadow-emerald-100 ring-1 ring-emerald-400/40'
                           : tieneResultado
-                            ? 'border-base-200 bg-base-50 opacity-50'
-                            : 'border-base-200 bg-base-50'}"
+                            ? 'border-gray-200 bg-white opacity-50'
+                            : 'border-gray-200 bg-white hover:border-gray-300'}"
                     >
                       <div
                         class="flex items-center justify-between gap-2 {puntajePorColumna &&
@@ -225,12 +264,12 @@
                           : 'mb-2'}"
                       >
                         {#if !puntajePorColumna}
-                          <span class="text-sm font-bold {seleccionada ? 'text-emerald-700' : 'text-base-content/50'}">
+                          <span class="text-xs font-bold {seleccionada ? 'text-emerald-700' : 'text-gray-500'} bg-gray-100 px-2 py-0.5 rounded-md">
                             {nivel.escalas[index].puntos} pts
                           </span>
                         {/if}
                         {#if seleccionada}
-                          <span class="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5">
+                          <span class="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-2.5 py-0.5 ml-auto">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
                               <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                             </svg>
@@ -239,7 +278,7 @@
                         {/if}
                       </div>
 
-                      <p class="text-sm leading-relaxed {seleccionada ? 'text-emerald-900 font-medium' : 'text-base-content/60'}">
+                      <p class="text-xs sm:text-sm leading-relaxed {seleccionada ? 'text-emerald-950 font-medium' : 'text-gray-600'}">
                         {nivel.escalas[index].criterio}
                       </p>
                     </div>
@@ -254,26 +293,27 @@
 
     <!-- Cómo se traduce el puntaje en resultado -->
     {#if esSumativa}
-      <div class="rounded-2xl border border-base-300 p-4">
-        <h3 class="font-semibold mb-2">Cálculo de nota</h3>
-        <p class="text-sm text-base-content/70 leading-relaxed">
-          Escala 1,0 a 7,0 con 60 % de exigencia. Nota <strong class="text-primary">4,0</strong> con
-          <strong class="text-primary">{puntajeParaCuatro}</strong> de {puntajeMaximo} pts.
+      <div class="rounded-2xl border border-gray-200 bg-gray-50/50 p-5">
+        <h3 class="font-bold text-sm text-gray-800 mb-1.5">Cálculo de nota</h3>
+        <p class="text-xs sm:text-sm text-gray-600 leading-relaxed">
+          Escala 1,0 a 7,0 con 60 % de exigencia. Nota <strong class="text-primary font-bold">4,0</strong> con
+          <strong class="text-primary font-bold">{puntajeParaCuatro}</strong> de {puntajeMaximo} pts.
         </p>
       </div>
     {/if}
 
-    <!-- Escala de evaluación -->
+    <!-- Escala de evaluación formativa -->
     {#if mostrarEscalaCualitativa}
-      <div class="rounded-2xl border border-base-300 p-4">
-        <h3 class="font-semibold mb-3">
+      <div class="rounded-2xl border border-gray-200 bg-gray-50/50 p-5">
+        <p class="text-xs font-bold uppercase text-gray-500 tracking-widest mb-3">
           Escala de evaluación
-        </h3>
-
-        <div class="flex flex-wrap gap-3">
+        </p>
+        <div class="flex flex-wrap gap-2.5">
           {#each rubrica.detalles_evaluacion.escala_evaluacion as escala}
-            <div class="badge badge-outline badge-lg">
-              {escala.evaluacion} ({escala.puntaje_minimo}+ pts)
+            <div class="flex items-center gap-2 px-3.5 py-1.5 bg-white rounded-xl border border-gray-200 shadow-sm text-xs">
+              <span class="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+              <span class="font-bold text-gray-800">{escala.evaluacion || '—'}</span>
+              <span class="text-gray-400 font-medium">≥ {escala.puntaje_minimo} pts</span>
             </div>
           {/each}
         </div>

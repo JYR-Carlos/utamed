@@ -1186,48 +1186,8 @@
       </div>
     {:else}
       <!-- Preview -->
-      <div class="px-4 sm:px-8 py-6 max-w-5xl mx-auto">
-        <div
-          class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 bg-primary/5 p-6 rounded-3xl border-2 border-primary/10"
-        >
-          <div class="text-center md:text-left">
-            <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Puntaje Máximo</p>
-            <p class="text-3xl font-black text-primary">{puntajeTotal} pts</p>
-          </div>
-          <div
-            class="text-center border-y md:border-y-0 md:border-x border-primary/10 py-4 md:py-0"
-          >
-            <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">Criterios</p>
-            <p class="text-3xl font-black text-primary">{niveles.length}</p>
-          </div>
-          <div class="text-center md:text-right">
-            <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">
-              Niveles de Desempeño
-            </p>
-            <p class="text-3xl font-black text-primary">{columnas.length}</p>
-          </div>
-        </div>
-
+      <div class="px-4 sm:px-8 py-6 max-w-[1400px] mx-auto">
         <RubricaView rubrica={rubricaPreview} {esSumativa} />
-
-        {#if !esSumativa}
-        <div class="mt-8 bg-gray-50/50 p-6 rounded-3xl border border-gray-100">
-          <p class="text-xs font-bold text-gray-400 uppercase mb-4 tracking-widest">
-            Escala de calificación aplicada:
-          </p>
-          <div class="flex flex-wrap gap-3">
-            {#each rubricaPreview.detalles_evaluacion.escala_evaluacion as esc}
-              <div
-                class="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-200 shadow-sm"
-              >
-                <span class="w-2.5 h-2.5 rounded-full bg-primary shrink-0"></span>
-                <span class="text-xs font-bold text-gray-700">{esc.evaluacion || '—'}</span>
-                <span class="text-xs text-gray-400 ml-1">≥ {esc.puntaje_minimo} pts</span>
-              </div>
-            {/each}
-          </div>
-        </div>
-        {/if}
       </div>
     {/if}
   </div>
