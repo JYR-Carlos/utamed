@@ -92,7 +92,7 @@ it('resetea la contraseña buscando por RUT con puntos y guion', function () {
 });
 
 it('maneja colisiones mostrando lista y permite seleccionar el usuario con su número', function () {
-    $tokenUnico = 'Colision' . preg_replace('/[^a-zA-Z]/', '', base64_encode(random_bytes(6)));
+    $tokenUnico = 'Colision' . preg_replace('/[^a-jA-Jl-zL-Z]/', '', base64_encode(random_bytes(6)));
 
     $suf1 = random_int(10000000, 19999999);
     $suf2 = random_int(20000000, 29999999);
@@ -136,7 +136,7 @@ it('maneja colisiones mostrando lista y permite seleccionar el usuario con su n�
 });
 
 it('permite cancelar la operación ante colisiones ingresando 0', function () {
-    $tokenUnico = 'Cancelacion' . preg_replace('/[^a-zA-Z]/', '', base64_encode(random_bytes(6)));
+    $tokenUnico = 'Cancelacion' . preg_replace('/[^a-jA-Jl-zL-Z]/', '', base64_encode(random_bytes(6)));
 
     $u1 = crearUsuarioPrueba(['nombre1' => $tokenUnico, 'apellido1' => 'Uno']);
     $u2 = crearUsuarioPrueba(['nombre1' => $tokenUnico, 'apellido1' => 'Dos']);
