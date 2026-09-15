@@ -192,19 +192,22 @@
       transparentaría a través de la columna fija.
     -->
     <div class="overflow-x-auto scroll-smooth rounded-2xl border border-gray-200 shadow-sm">
-      <table class="w-full border-collapse text-left">
+      <table
+        class="w-full border-collapse table-fixed text-left"
+        style="min-width: {200 + columnas.length * 240}px"
+      >
         <thead>
           <tr class="bg-gray-50 border-b border-gray-200">
             <th
-              class="sticky left-0 z-20 min-w-64 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-500 py-3.5 px-4 border-r border-gray-200 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]"
+              class="sticky left-0 z-20 w-[200px] min-w-[200px] max-w-[200px] shrink-0 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-500 py-3.5 px-4 border-r border-gray-200 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]"
             >
               Criterio de Evaluación
             </th>
 
             {#each columnas as columna}
-              <th class="text-center text-xs font-bold text-gray-700 uppercase tracking-wide py-3.5 px-4 min-w-52 border-r border-gray-100 last:border-r-0">
+              <th class="text-center text-xs font-bold text-gray-700 uppercase tracking-wide py-3.5 px-4 w-[240px] min-w-[240px] border-r border-gray-100 last:border-r-0">
                 <div class="flex flex-col items-center gap-1.5">
-                  <span>{columna.nombre}</span>
+                  <span class="break-words">{columna.nombre}</span>
                   {#if puntajePorColumna && columna.puntos != null}
                     <div class="flex items-center justify-center gap-1 bg-primary/5 border border-primary/20 rounded-xl px-3 py-1">
                       <span class="text-sm font-black text-primary">{columna.puntos}</span>
@@ -220,14 +223,14 @@
         <tbody class="divide-y divide-gray-100">
           {#each rubrica.niveles as nivel, nivelIdx}
             <tr class="transition-colors hover:bg-gray-50/40 {nivelIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/20'}">
-              <td class="sticky left-0 z-10 bg-inherit align-top py-4 px-4 border-r border-gray-100 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
-                <div class="space-y-1.5">
-                  <h4 class="font-bold text-gray-900 leading-snug text-sm">
+              <td class="sticky left-0 z-10 bg-inherit align-top py-4 px-4 w-[200px] min-w-[200px] max-w-[200px] shrink-0 border-r border-gray-100 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
+                <div class="space-y-1.5 overflow-hidden">
+                  <h4 class="font-bold text-gray-900 leading-snug text-sm break-words">
                     {nivel.nombre}
                   </h4>
 
                   {#if nivel.descripcion}
-                    <p class="text-xs text-gray-500 leading-relaxed italic">
+                    <p class="text-xs text-gray-500 leading-relaxed italic whitespace-pre-wrap break-words">
                       {nivel.descripcion}
                     </p>
                   {/if}
@@ -246,11 +249,11 @@
               </td>
 
               {#each Array(maxEscalas) as _, index}
-                <td class="align-top py-4 px-3 border-r border-gray-100 last:border-r-0">
+                <td class="align-top py-4 px-3 w-[240px] min-w-[240px] border-r border-gray-100 last:border-r-0">
                   {#if nivel.escalas[index]}
                     {@const seleccionada = esSeleccionada(nivel.id, nivel.escalas[index].id)}
                     <div
-                      class="rounded-2xl border p-4 h-full transition-all flex flex-col justify-between
+                      class="rounded-2xl border p-4 h-full transition-all flex flex-col justify-between overflow-hidden
                         {seleccionada
                           ? 'border-emerald-400 bg-emerald-50/70 shadow-sm shadow-emerald-100 ring-1 ring-emerald-400/40'
                           : tieneResultado
@@ -278,7 +281,7 @@
                         {/if}
                       </div>
 
-                      <p class="text-xs sm:text-sm leading-relaxed {seleccionada ? 'text-emerald-950 font-medium' : 'text-gray-600'}">
+                      <p class="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words {seleccionada ? 'text-emerald-950 font-medium' : 'text-gray-600'}">
                         {nivel.escalas[index].criterio}
                       </p>
                     </div>
