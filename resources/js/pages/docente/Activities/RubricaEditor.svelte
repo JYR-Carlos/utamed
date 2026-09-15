@@ -36,6 +36,7 @@
     descripcion: string;
     /** Peso del criterio en porcentaje; entre todos deben sumar 100. */
     ponderacion: number | string;
+    fijado?: boolean;
     escalas: EscalaDraft[];
   };
   type EscalaCalif = { _id: string; puntaje_minimo: number | string; evaluacion: string };
@@ -60,7 +61,7 @@
   }
 
   function makeNivel(cols: number): NivelDraft {
-    return { _id: uid(), nombre: '', descripcion: '', ponderacion: '', escalas: makeEscalas(cols) };
+    return { _id: uid(), nombre: '', descripcion: '', ponderacion: '', fijado: false, escalas: makeEscalas(cols) };
   }
 
   /**
@@ -135,6 +136,7 @@
       nombre: n.nombre,
       descripcion: n.descripcion,
       ponderacion: n.ponderacion ?? reparto[i],
+      fijado: false,
       escalas: n.escalas.map((e) => ({
         _id: (e as any).id ?? (e as any)._id ?? uid(),
         criterio: e.criterio,
@@ -168,6 +170,7 @@
   let saving = $state(false);
   let saveSuccess = $state(false);
   let error = $state<string | null>(null);
+  let yaRepartido = $state(false);
 
   $effect(() => {
     let isPoppedByBrowser = false;
@@ -242,6 +245,62 @@
   function igualarPonderaciones() {
     const reparto = repartirPonderacion(niveles.length);
     niveles = niveles.map((n, i) => ({ ...n, ponderacion: reparto[i] }));
+  }
+
+  function getRestanteNoFijado(nivel: NivelDraft): number {
+    const sumaOtrosFijados = niveles
+      .filter((n) => n._id !== nivel._id && n.fijado)
+      .reduce((sum, n) => sum + (parseFloat(String(n.ponderacion)) || 0), 0);
+    const miValor = parseFloat(String(nivel.ponderacion)) || 0;
+    return Math.max(0, Math.round((100 - (sumaOtrosFijados + miValor)) * 100) / 100);
+  }
+
+  function otrosNoFijadosCount(nivel: NivelDraft): number {
+    return niveles.filter((n) => n._id !== nivel._id && !n.fijado).length;
+  }
+
+  function puedeRepartirCriterio(nivel: NivelDraft): boolean {
+    if (yaRepartido) return false;
+    if (niveles.length <= 1) return false;
+    const otrosNoFijados = otrosNoFijadosCount(nivel);
+    if (otrosNoFijados === 0) return false;
+    const miValor = parseFloat(String(nivel.ponderacion)) || 0;
+    if (!nivel.fijado && miValor <= 0) return false;
+    const restante = getRestanteNoFijado(nivel);
+    if (restante <= 0) return false;
+    if (otrosNoFijados === 1 && ponderacionTotal === 100) return false;
+    if (ponderacionValida) return false;
+    return true;
+  }
+
+  function repartirRestanteCriterio(nivel: NivelDraft) {
+    nivel.fijado = true;
+    const miValor = parseFloat(String(nivel.ponderacion)) || 0;
+    nivel.ponderacion = miValor > 0 ? miValor : '';
+
+    const otrosNoFijados = niveles.filter((n) => n._id !== nivel._id && !n.fijado);
+    if (otrosNoFijados.length === 0) return;
+
+    const sumaTodosFijados = Math.round(
+      niveles
+        .filter((n) => n.fijado)
+        .reduce((sum, n) => sum + (parseFloat(String(n.ponderacion)) || 0), 0) * 100,
+    ) / 100;
+
+    const disponible = Math.max(0, Math.round((100 - sumaTodosFijados) * 100) / 100);
+    if (disponible <= 0) return;
+    const m = otrosNoFijados.length;
+    const base = Math.floor((disponible / m) * 100) / 100;
+    const resto = Math.round((disponible - base * m) * 100) / 100;
+
+    let idx = 0;
+    niveles = niveles.map((item) => {
+      if (item.fijado) return item;
+      const valor = idx === 0 ? Math.round((base + resto) * 100) / 100 : base;
+      idx++;
+      return { ...item, ponderacion: valor };
+    });
+    yaRepartido = true;
   }
 
   const rubricaPreview = $derived<Rubrica>({
@@ -452,6 +511,7 @@
   }
 
   function handlePonderacionInput(nivel: NivelDraft, e: Event) {
+    yaRepartido = false;
     const input = e.currentTarget as HTMLInputElement;
     const raw = input.value.replace(',', '.');
     if (raw === '') {
@@ -641,12 +701,12 @@
 
         <!-- Tabla editor -->
         <div class="overflow-x-auto rounded-3xl border-2 border-gray-100 mb-8">
-          <table class="w-full border-collapse" style="min-width: {200 + columnas.length * 220}px">
+          <table class="w-full border-collapse table-fixed" style="min-width: {260 + columnas.length * 220}px">
             <thead>
               <tr class="bg-gray-50 border-b-2 border-gray-100">
                 <th
-                  class="px-5 py-4 text-left text-xs font-black text-gray-500 uppercase tracking-wider border-r border-gray-100"
-                  style="width:220px; min-width:200px"
+                  class="px-5 py-4 text-left text-xs font-black text-gray-500 uppercase tracking-wider border-r border-gray-100 w-[260px] min-w-[260px] max-w-[260px] shrink-0"
+                  style="width:260px; min-width:260px; max-width:260px"
                 >
                   Criterio de Evaluación
                 </th>
@@ -658,8 +718,8 @@
                 -->
                 {#each columnas as columna, ci (columna._id)}
                   <th
-                    class="px-4 py-3 text-center border-r border-gray-100 last:border-r-0 align-top"
-                    style="min-width:200px"
+                    class="px-4 py-3 text-center border-r border-gray-100 last:border-r-0 align-top w-[220px] min-w-[220px] max-w-[220px]"
+                    style="width:220px; min-width:220px; max-width:220px"
                   >
                     <div class="flex flex-col gap-2">
                       <div class="flex items-center gap-1.5">
@@ -700,7 +760,7 @@
                     </div>
                   </th>
                 {/each}
-                <th class="px-3 py-4 border-l border-gray-100" style="width:56px">
+                <th class="px-3 py-4 border-l border-gray-100 w-[56px] min-w-[56px] max-w-[56px]" style="width:56px; min-width:56px; max-width:56px">
                   <button
                     onclick={addColumna}
                     title="Agregar nivel de desempeño"
@@ -717,8 +777,11 @@
               {#each niveles as nivel (nivel._id)}
                 <tr class="hover:bg-gray-50/30 transition-colors group">
                   <!-- Criterio column -->
-                  <td class="px-5 py-4 border-r border-gray-100 align-top bg-gray-50/50">
-                    <div class="flex flex-col gap-2">
+                  <td
+                    class="px-5 py-4 border-r border-gray-100 align-top bg-gray-50/50 w-[260px] min-w-[260px] max-w-[260px] shrink-0"
+                    style="width:260px; min-width:260px; max-width:260px"
+                  >
+                    <div class="flex flex-col gap-2 relative group/criterio w-full">
                       <input
                         type="text"
                         bind:value={nivel.nombre}
@@ -732,36 +795,71 @@
                         class="w-full text-xs text-gray-500 italic bg-white border border-gray-200 rounded-xl px-3 py-2 resize-none focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20"
                       ></textarea>
                       <div
-                        class="flex items-center gap-1.5 bg-white border rounded-xl px-3 py-2 {ponderacionValida
+                        class="flex items-center justify-between gap-1.5 bg-white border rounded-xl px-3 py-2 transition-colors {ponderacionValida
                           ? 'border-gray-200'
-                          : 'border-amber-300'}"
+                          : 'border-amber-300'} {nivel.fijado ? 'bg-gray-50/70 ring-1 ring-primary/20' : ''}"
                       >
-                        <input
-                          type="number"
-                          bind:value={nivel.ponderacion}
-                          onkeydown={handlePonderacionKeydown}
-                          oninput={(e) => handlePonderacionInput(nivel, e)}
-                          placeholder="0"
-                          min="0"
-                          max="100"
-                          step="1"
-                          aria-label="Ponderación de {nivel.nombre || 'este criterio'} en porcentaje"
-                          class="w-16 text-sm font-bold text-gray-800 bg-transparent focus:outline-none"
-                        />
-                        <span class="text-xs text-gray-400 font-medium">% de la nota</span>
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none text-[11px] text-gray-500 hover:text-gray-700">
+                          <input
+                            type="checkbox"
+                            bind:checked={nivel.fijado}
+                            onchange={() => { yaRepartido = false; }}
+                            class="w-3.5 h-3.5 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
+                          />
+                          <span class="text-[11px] font-normal text-gray-500">fijar</span>
+                        </label>
+                        <div class="flex items-center gap-1">
+                          <input
+                            type="number"
+                            bind:value={nivel.ponderacion}
+                            onkeydown={handlePonderacionKeydown}
+                            oninput={(e) => handlePonderacionInput(nivel, e)}
+                            placeholder="0"
+                            min="0"
+                            max="100"
+                            step="1"
+                            disabled={nivel.fijado}
+                            aria-label="Ponderación de {nivel.nombre || 'este criterio'} en porcentaje"
+                            class="w-14 text-sm font-bold text-gray-800 bg-transparent text-right focus:outline-none disabled:text-gray-500"
+                          />
+                          <span class="text-xs text-gray-400 font-medium">% de la nota</span>
+                        </div>
                       </div>
+
                       {#if Number(nivel.ponderacion) > 100}
                         <p class="text-[10px] text-red-600 font-medium">No puede superar el 100%.</p>
                       {/if}
-                      {#if niveles.length > 1}
-                        <button
-                          onclick={() => removeNivel(nivel._id)}
-                          class="inline-flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 transition self-start opacity-0 group-hover:opacity-100"
-                        >
-                          <Trash2 class="w-3 h-3" />
-                          Eliminar fila
-                        </button>
-                      {/if}
+
+                      <div class="flex items-center justify-between gap-1.5 min-h-[24px]">
+                        {#if niveles.length > 1}
+                          <button
+                            type="button"
+                            onclick={() => removeNivel(nivel._id)}
+                            class="inline-flex items-center gap-1 text-[11px] text-red-400 hover:text-red-600 transition opacity-0 group-hover/criterio:opacity-100 shrink-0"
+                            title="Eliminar fila"
+                          >
+                            <Trash2 class="w-3 h-3" />
+                            <span>Eliminar fila</span>
+                          </button>
+                        {:else}
+                          <span></span>
+                        {/if}
+
+                        {#if yaRepartido}
+                          <span class="text-[11px] font-medium text-emerald-600 truncate max-w-[160px] opacity-0 group-hover/criterio:opacity-100 ml-auto transition">
+                            Ya está repartido
+                          </span>
+                        {:else if puedeRepartirCriterio(nivel)}
+                          <button
+                            type="button"
+                            onclick={() => repartirRestanteCriterio(nivel)}
+                            class="px-2 py-0.5 bg-white border border-primary/30 text-primary shadow-sm hover:bg-primary/5 rounded-lg text-[11px] font-semibold truncate max-w-[160px] transition opacity-0 group-hover/criterio:opacity-100 ml-auto"
+                            title="Fijar este criterio y {ponderacionTotal > 100 ? 'ajustar' : 'repartir'} el {getRestanteNoFijado(nivel)}% restante entre los demás criterios no fijados"
+                          >
+                            {ponderacionTotal > 100 ? 'Ajustar restantes' : 'Repartir restante'} ({getRestanteNoFijado(nivel)}%)
+                          </button>
+                        {/if}
+                      </div>
                     </div>
                   </td>
 
