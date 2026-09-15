@@ -81,6 +81,7 @@ class DashboardController extends Controller
         // carrera (mismo criterio que JefeCarreraController::estadoSyllabusUi).
         $pendientesRevisionJefatura = $carreraJefatura
             ? Curso::whereHas('asignacionPlan.plan', fn($q) => $q->where('id_carrera', $carreraJefatura->id_carrera))
+                ->where('es_plantilla', false)
                 ->whereNull('fecha_eliminacion')
                 ->whereHas('programas', fn($q) => $q->where('es_actual', true)->where('estado', 'COMPLETO'))
                 ->count()
@@ -92,11 +93,13 @@ class DashboardController extends Controller
         $periodo = $this->resolvePeriodoVigente();
 
         $cursosTitularQuery = Curso::where('id_docente_titular', $idDocente)
+            ->where('es_plantilla', false)
             ->whereNull('fecha_eliminacion');
         $cursosComponenteQuery = Curso::whereHas(
             'componentes.docenteComponentes',
             fn($q) => $q->where('id_docente', $idDocente)
         )
+            ->where('es_plantilla', false)
             ->where(function ($q) use ($idDocente) {
                 $q->whereNull('id_docente_titular')->orWhere('id_docente_titular', '!=', $idDocente);
             })
@@ -273,6 +276,7 @@ class DashboardController extends Controller
             $q->where('id_docente_titular', $idDocente)
                 ->orWhereHas('componentes.docenteComponentes', fn($dq) => $dq->where('id_docente', $idDocente));
         })
+            ->where('es_plantilla', false)
             ->whereNull('fecha_eliminacion')
             ->whereNotNull('agno_real')
             ->whereNotNull('semestre_real')
@@ -314,6 +318,7 @@ class DashboardController extends Controller
     private function resolvePeriodoVigente(): ?array
     {
         $row = Curso::whereNull('fecha_eliminacion')
+            ->where('es_plantilla', false)
             ->whereNotNull('agno_real')
             ->whereNotNull('semestre_real')
             ->orderByDesc('agno_real')
@@ -325,6 +330,7 @@ class DashboardController extends Controller
         }
 
         $fechaInicio = Curso::whereNull('fecha_eliminacion')
+            ->where('es_plantilla', false)
             ->where('agno_real', $row->agno_real)
             ->where('semestre_real', $row->semestre_real)
             ->orderBy('fecha_inicio')

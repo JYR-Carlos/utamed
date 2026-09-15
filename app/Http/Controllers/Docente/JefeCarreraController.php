@@ -591,6 +591,7 @@ class JefeCarreraController extends Controller
     private function cursosCarreraQuery(int $carreraId)
     {
         return Curso::whereHas('asignacionPlan.plan', fn($q) => $q->where('id_carrera', $carreraId))
+            ->where('es_plantilla', false)
             ->whereNull('fecha_eliminacion');
     }
 

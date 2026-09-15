@@ -51,6 +51,7 @@ class DashboardController extends Controller
         $periodo = $this->resolvePeriodoVigente();
 
         $cursosQuery = Curso::whereIn('id_contexto', $contextosAsignados)
+            ->where('es_plantilla', false)
             ->whereNull('fecha_eliminacion');
 
         if ($periodo) {
@@ -137,6 +138,7 @@ class DashboardController extends Controller
     private function resolvePeriodoVigente(): ?array
     {
         $row = Curso::whereNull('fecha_eliminacion')
+            ->where('es_plantilla', false)
             ->whereNotNull('agno_real')
             ->whereNotNull('semestre_real')
             ->orderByDesc('agno_real')
@@ -148,6 +150,7 @@ class DashboardController extends Controller
         }
 
         $fechaInicio = Curso::whereNull('fecha_eliminacion')
+            ->where('es_plantilla', false)
             ->where('agno_real', $row->agno_real)
             ->where('semestre_real', $row->semestre_real)
             ->orderBy('fecha_inicio')
