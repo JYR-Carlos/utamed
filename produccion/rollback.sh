@@ -27,12 +27,15 @@ if [ -z "${SERVER_IP:-}" ] || [ -z "${SERVER_USER:-}" ]; then
     exit 1
 fi
 
-read -s -p "Contraseña SUDO para $SERVER_USER@$SERVER_IP: " SERVER_PASSWORD
-echo ""
+SSH_KEY_AUTH=false
+if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 "$SERVER_USER@$SERVER_IP" true 2>/dev/null; then
+    SSH_KEY_AUTH=true
+fi
 
-if [ -z "$SERVER_PASSWORD" ]; then
-    echo "Error: contraseña vacía"
-    exit 1
+SERVER_PASSWORD=""
+if [ "$SSH_KEY_AUTH" = "false" ]; then
+    read -s -p "Contraseña SSH/SUDO para $SERVER_USER@$SERVER_IP: " SERVER_PASSWORD
+    echo ""
 fi
 
 echo "=========================================="
@@ -50,7 +53,13 @@ if [ "$OPTION" = "5" ]; then
     exit 0
 fi
 
-ssh -o StrictHostKeyChecking=accept-new "$SERVER_USER@$SERVER_IP" bash -s <<EOF
+if [ "$SSH_KEY_AUTH" = "true" ]; then
+    SSH_CMD=(ssh -o StrictHostKeyChecking=accept-new "$SERVER_USER@$SERVER_IP")
+else
+    SSH_CMD=(sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=accept-new "$SERVER_USER@$SERVER_IP")
+fi
+
+"${SSH_CMD[@]}" bash -s <<EOF
 set -euo pipefail
 
 REMOTE_REPO_DIR="$REMOTE_REPO_DIR"
@@ -62,7 +71,7 @@ SERVER_PASSWORD="$SERVER_PASSWORD"
 OPTION="$OPTION"
 
 sudo_cmd() {
-    echo "\$SERVER_PASSWORD" | sudo -S "\$@"
+    sudo -n "\$@" 2>/dev/null || echo "\$SERVER_PASSWORD" | sudo -S "\$@"
 }
 
 rollback_db() {
