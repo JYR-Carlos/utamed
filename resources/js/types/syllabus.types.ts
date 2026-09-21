@@ -137,14 +137,26 @@ export interface SeccionVIIContenidoCompleto {
   evaluacion: { titulo: string; tipo_evaluacion: string };
 }
 
-export interface RecursoSyllabus {
-  descripcion: string;
-  tipo: string;
-  ubicacion: string | null;
+export interface BibliografiaSyllabus {
+  uuid_bibliografia?: string;
+  id_bibliografia?: string;
+  titulo: string;
+  autor: string;
+  cita: string;
+  editorial: string;
+  anio: number;
+  es_bibliografia_uta: boolean;
+  url: string | null;
+  uuid_archivo: string | null;
+  id_unidad: number | null;
 }
 
 export interface SeccionVIIIContenido {
-  recursos: RecursoSyllabus[];
+  bibliografias: BibliografiaSyllabus[];
+  /**
+   * @deprecated Sección VIII ahora utiliza `bibliografias`. Mantenido por retrocompatibilidad con esquemas anteriores.
+   */
+  recursos?: Array<{ descripcion: string; tipo: string; ubicacion: string | null }>;
 }
 
 export interface ComponenteEvaluacion {
@@ -260,7 +272,7 @@ export interface DatosSyllabusAlumno {
   competencias_genericas?: TituloItem[];
   componentes?: ComponenteEvaluacion[];
   normativa?: string;
-  recursos?: RecursoSyllabus[];
+  bibliografias?: BibliografiaSyllabus[];
   resultados_aprendizaje?: ResultadoAprendizajeItem[];
   unidades?: UnidadSyllabus[];
 }

@@ -297,6 +297,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('inscripciones_cursos.export.csv');
     Route::post('cursos/{curso}/inscripcion-automatica', [InscripcionCursoController::class, 'inscripcionAutomatica'])
         ->name('cursos.inscripcion-automatica');
+    Route::post('cursos/{curso}/sincronizar-inscripciones', [InscripcionCursoController::class, 'sincronizarInscripciones'])
+        ->name('cursos.sincronizar-inscripciones');
 
     // Componente Management for Courses
     Route::post('cursos/{curso}/componentes', [AdminSeccionController::class, 'store'])
@@ -620,6 +622,12 @@ Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name
 // API Routes for AJAX/Fetch calls
 Route::prefix('api')->middleware(['auth', 'verified'])->group(function () {
     Route::get('docentes', [CursoController::class, 'getDocentes']);
+
+    // Bibliografía (Visualización y Descargas)
+    Route::get('bibliografias/{id_bibliografia}', [\App\Http\Controllers\BibliografiaController::class, 'show'])->name('api.bibliografias.show');
+    Route::post('bibliografias/archivo', [\App\Http\Controllers\BibliografiaController::class, 'uploadArchivo'])->name('api.bibliografias.upload');
+    Route::get('bibliografias/{id_bibliografia}/archivo', [\App\Http\Controllers\BibliografiaController::class, 'showArchivo'])->name('api.bibliografias.archivo');
+    Route::get('bibliografias/{id_bibliografia}/descarga', [\App\Http\Controllers\BibliografiaController::class, 'downloadArchivo'])->name('api.bibliografias.descarga');
 });
 
 require __DIR__ . '/settings.php';

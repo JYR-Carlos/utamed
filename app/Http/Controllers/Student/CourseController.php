@@ -10,6 +10,7 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
 use App\Services\Student\StudentSyllabusPresenter;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -50,9 +51,15 @@ class CourseController extends Controller
 
         // Obtener inscripciones filtradas por Semestre y Año del Curso
         $inscripciones = $estudiante->inscripcionCursos()
-            ->whereHas('curso', function ($query) use ($semestre, $agno) {
-                $query->where('semestre_real', $semestre)
-                    ->whereYear('fecha_inicio', $agno); 
+            ->when($semestre, function ($query) use ($semestre) {
+                $query->whereHas('curso', function ($query) use ($semestre) {
+                    $query->where('semestre_real', $semestre);
+                });
+            })
+            ->when($agno, function ($query) use ($agno) {
+                $query->whereHas('curso', function ($query) use ($agno) {
+                    $query->whereYear('fecha_inicio', $agno);
+                });
             })
             ->with([
                 'curso',
@@ -66,10 +73,17 @@ class CourseController extends Controller
             return $this->formatCurso($curso, 'Estudiante');
         });
 
+        $semestreActual = now()->month <= 6 ? 1 : 2;
+        $agnoActual = now()->year;
+
         return Inertia::render('student/Courses/Index', [
             'cursos'   => $cursosEstudiante,
             'semestre' => $semestre,
             'agno'     => $agno,
+            'periodoActual' => [
+                'semestre' => $semestreActual,
+                'agno' => $agnoActual,
+            ],
         ]);
     }
 

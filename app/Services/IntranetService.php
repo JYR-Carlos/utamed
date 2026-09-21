@@ -8,6 +8,7 @@ use App\DTOs\External\InscripcionData;
 use App\DTOs\External\ResultadoInscripcionAutomatica;
 use App\DTOs\External\ResultadoPreviewComponentes;
 use App\DTOs\External\ResultadoSincronizacionComponentes;
+use App\DTOs\External\ResultadoSincronizacionInscripciones;
 use App\Models\Administrativo\AsignacionPlan;
 use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
@@ -70,7 +71,9 @@ class IntranetService
                 ya_inscritos: 0,
                 errores: [],
                 componentes_procesadas: [],
-                advertencias: ["No fue posible consultar la Intranet para inscribir alumnos: {$e->getMessage()}"]
+                advertencias: ["No fue posible consultar la Intranet para inscribir alumnos: {$e->getMessage()}"],
+                estudiantes_en_intranet: [],
+                lectura_completa: false
             );
         }
 
@@ -82,6 +85,13 @@ class IntranetService
         $advertencias = [];
         $componentesReporte = [];
 
+        // Foto de quién figura en la Intranet, para que la sincronización sepa a
+        // quién retirar sin volver a consultar Oracle. `lecturaCompleta` se apaga
+        // en cuanto una componente no se puede leer o no tiene equivalente en
+        // UTAMED: la foto queda con huecos y ya no sirve para dar de baja.
+        $estudiantesEnIntranet = [];
+        $lecturaCompleta = true;
+
         foreach ($componentesIntranet as $compIntranet) {
             $compUtamed = $this->mapearComponenteIntranetAUtamed($compIntranet, $curso);
             if (!$compUtamed) {
@@ -89,6 +99,7 @@ class IntranetService
                 // visible para el usuario. Ahora queda como advertencia reportada.
                 $advertencias[] = "La componente {$compIntranet->curso_tipo_asig->value} (acta {$compIntranet->cur_codigo}) "
                     . "no tiene equivalente configurado en UTAMED para el curso #{$curso->id_curso}; no se inscribió a sus alumnos.";
+                $lecturaCompleta = false;
                 continue;
             }
 
@@ -105,6 +116,7 @@ class IntranetService
                     'trace'      => $e->getTraceAsString(),
                 ]);
                 $advertencias[] = "No fue posible consultar inscripciones de Intranet para el acta {$compIntranet->cur_codigo}: {$e->getMessage()}";
+                $lecturaCompleta = false;
                 continue;
             }
 
@@ -128,6 +140,10 @@ class IntranetService
                     if (!$estudianteExistente) {
                         $alumnosCreados++;
                     }
+
+                    // Figura en la Intranet, esté ya inscrito o no: es lo que
+                    // distingue «sigue en el ramo» de «lo botó».
+                    $estudiantesEnIntranet[$estudiante->id_estudiante] = $estudiante->id_estudiante;
 
                     // 1. Inscripción a Nivel Curso
                     $yaInscritoCurso = InscripcionCurso::where('id_curso', $curso->id_curso)
@@ -188,6 +204,9 @@ class IntranetService
                         'rut'    => $inscripcionData->alum_rut,
                         'motivo' => $e->getMessage(),
                     ];
+                    // Un alumno que falló es un alumno del que no sabemos si
+                    // sigue o no: la foto ya no está completa.
+                    $lecturaCompleta = false;
                 }
             }
 
@@ -206,8 +225,127 @@ class IntranetService
             ya_inscritos: $yaInscritos,
             errores: $errores,
             componentes_procesadas: $componentesReporte,
+            advertencias: $advertencias,
+            estudiantes_en_intranet: array_values($estudiantesEnIntranet),
+            lectura_completa: $lecturaCompleta
+        );
+    }
+
+    /**
+     * Sincroniza el roster de un curso contra la Intranet en las dos direcciones:
+     * inscribe a quien aparece y retira a quien dejó de aparecer (ramo botado).
+     *
+     * POR QUÉ EN DOS PASOS Y NO UNO: la mitad que inscribe ya existía y se sigue
+     * usando sola desde el botón de inscripción automática. Aquí se reutiliza tal
+     * cual y se le agrega lo que falta, en vez de escribir una segunda versión de
+     * la misma lógica que podría divergir.
+     *
+     * NADIE SE BORRA. Retirar es mover `estado_inscripcion` a RETIRADO: la fila
+     * queda, con su código de inscripción, su intento y su promedio parcial. Es
+     * además reversible —si el alumno vuelve a figurar, la siguiente corrida lo
+     * reactiva— y esa reversibilidad es lo que hace que retirar de más no sea
+     * un daño permanente.
+     *
+     * NO SE RETIRA CON DATOS PARCIALES. Si una componente no se pudo leer o no
+     * tiene equivalente en UTAMED, la foto de la Intranet tiene huecos: los
+     * alumnos de esa componente parecerían haber botado el ramo. En ese caso la
+     * mitad que inscribe corre igual —agregar de menos no hace daño— y la que
+     * retira se salta entera, avisando por qué.
+     */
+    public function sincronizarInscripciones(Curso $curso): ResultadoSincronizacionInscripciones
+    {
+        $resultadoInscripcion = $this->inscribirAutomaticamente($curso);
+
+        $enIntranet = $resultadoInscripcion->estudiantes_en_intranet;
+        $advertencias = [];
+
+        if (!$resultadoInscripcion->lectura_completa) {
+            $advertencias[] = 'No se retiró a nadie: la lectura de la Intranet quedó incompleta '
+                . '(revisa las advertencias de arriba) y dar de baja con datos parciales retiraría '
+                . 'alumnos que sí están inscritos.';
+
+            return new ResultadoSincronizacionInscripciones(
+                inscripcion: $resultadoInscripcion,
+                retiro_aplicado: false,
+                advertencias: $advertencias
+            );
+        }
+
+        // Reactivar primero: si un alumno volvió a figurar, su fila RETIRADA de
+        // una corrida anterior tiene que volver a INSCRITO antes de que el paso
+        // siguiente mire quién está activo.
+        $reactivados = [];
+        if ($enIntranet !== []) {
+            $porReactivar = InscripcionCurso::with('estudiante.usuario')
+                ->where('id_curso', $curso->id_curso)
+                ->whereIn('id_estudiante', $enIntranet)
+                ->whereIn('estado_inscripcion', ['RETIRADO', 'ANULADO'])
+                ->get();
+
+            foreach ($porReactivar as $inscripcion) {
+                $this->inscripcionCursoService->reEnroll($inscripcion);
+                $reactivados[] = $this->identificarAlumno($inscripcion);
+            }
+        }
+
+        // Retirar a los que siguen activos en UTAMED pero ya no figuran en la
+        // Intranet. `whereNotIn` con lista vacía no filtra nada, así que el caso
+        // «la Intranet no devolvió a nadie» retira el curso completo, que es lo
+        // correcto: el acta quedó sin alumnos.
+        $porRetirar = InscripcionCurso::with('estudiante.usuario')
+            ->where('id_curso', $curso->id_curso)
+            ->where('estado_inscripcion', 'INSCRITO')
+            ->when($enIntranet !== [], fn ($q) => $q->whereNotIn('id_estudiante', $enIntranet))
+            ->get();
+
+        $retirados = [];
+        foreach ($porRetirar as $inscripcion) {
+            $this->inscripcionCursoService->marcarRetirada($inscripcion);
+            $retirados[] = $this->identificarAlumno($inscripcion);
+        }
+
+        // Nivel componente: se informa, no se toca. `inscripcion_componente` no
+        // tiene columna de estado, así que la única forma de «retirar» ahí sería
+        // borrar la fila, y con ella el vínculo del alumno con sus evaluaciones
+        // de esa componente. Mientras no exista esa columna, el número sirve para
+        // que quien administra sepa que la discrepancia está ahí.
+        $componentesSinRespaldo = InscripcionComponente::query()
+            ->whereIn('id_componente', $curso->componentes->pluck('id_componente'))
+            ->when($enIntranet !== [], fn ($q) => $q->whereNotIn('id_estudiante', $enIntranet))
+            ->count();
+
+        if ($componentesSinRespaldo > 0) {
+            $advertencias[] = "{$componentesSinRespaldo} inscripción(es) de componente quedaron sin "
+                . 'respaldo en la Intranet. No se modifican: esa tabla todavía no registra estado y '
+                . 'borrarlas perdería el historial de evaluación de la componente.';
+        }
+
+        return new ResultadoSincronizacionInscripciones(
+            inscripcion: $resultadoInscripcion,
+            retirados: $retirados,
+            reactivados: $reactivados,
+            componentes_sin_respaldo: $componentesSinRespaldo,
+            retiro_aplicado: true,
             advertencias: $advertencias
         );
+    }
+
+    /**
+     * Datos mínimos para que el reporte diga a quién se retiró o reactivó. Un
+     * id_estudiante no le sirve a nadie para revisar si la baja fue correcta.
+     *
+     * @return array{rut: string|null, nombre: string|null}
+     */
+    protected function identificarAlumno(InscripcionCurso $inscripcion): array
+    {
+        $usuario = $inscripcion->estudiante?->usuario;
+
+        return [
+            'rut'    => $usuario?->rut,
+            'nombre' => $usuario
+                ? trim("{$usuario->nombre1} {$usuario->apellido1} {$usuario->apellido2}")
+                : null,
+        ];
     }
 
     /**

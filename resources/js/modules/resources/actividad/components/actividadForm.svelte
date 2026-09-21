@@ -14,7 +14,12 @@
 
   interface Componente {
     id_componente: number;
-    tipo_componente?: { tipo: string } | null;
+    /**
+     * `prioridad` la calcula el modelo TipoComponente (Cátedra 1, Taller 2,
+     * Laboratorio 3) y viaja serializada por $appends. Es opcional porque un
+     * componente puede no tener tipo registrado.
+     */
+    tipo_componente?: { tipo: string; prioridad?: number } | null;
   }
 
   interface Unidad {
@@ -49,6 +54,27 @@
     onClose = () => {},
     onSubmit = () => {},
   }: Props = $props();
+
+  /**
+   * Opciones del select, siempre en el orden Cátedra > Taller > Laboratorio.
+   *
+   * El backend ya las manda ordenadas; esto lo vuelve a garantizar aquí porque
+   * el orden es un requisito de esta pantalla, no del emisor: el componente es
+   * reutilizable y basta con que un padre nuevo arme la lista por su cuenta
+   * para que el select quede en el orden de la BD sin que nadie lo note.
+   *
+   * Ordena por la `prioridad` que ya viene del servidor en vez de repetir aquí
+   * la tabla de nombres: si mañana se agrega un tipo de componente, la
+   * jerarquía se toca en un solo lugar (TipoComponente::PRIORIDAD). Los tipos
+   * sin prioridad conocida caen al final, no al principio.
+   */
+  let componentesOrdenados = $derived(
+    [...componentes].sort((a, b) => {
+      const pa = a.tipo_componente?.prioridad ?? 99;
+      const pb = b.tipo_componente?.prioridad ?? 99;
+      return pa === pb ? a.id_componente - b.id_componente : pa - pb;
+    }),
+  );
 
   /** Errores de validación en cliente; los del servidor llegan por props.errors. */
   let clientErrors = $state<Record<string, string>>({});
@@ -287,7 +313,7 @@
         required
       >
         <option value={0}>Seleccione un componente</option>
-        {#each componentes as comp}
+        {#each componentesOrdenados as comp}
           <option value={comp.id_componente}>
             {comp.tipo_componente?.tipo ?? `Componente ${comp.id_componente}`}
           </option>

@@ -217,10 +217,19 @@
 
   let filtroComponente = $state<number | 'todos'>('todos');
 
+  /**
+   * Formativa vs sumativa. `tipo_actividad` ya viaja en cada actividad, así que
+   * el filtro se resuelve sobre la lista ya cargada: cambiarlo no vuelve al
+   * servidor ni recarga la página.
+   */
+  let filtroTipo = $state<Actividad['tipo_actividad'] | 'todas'>('todas');
+
   const actividadesFiltradas = $derived(
-    filtroComponente === 'todos'
-      ? actividadesDelRol
-      : actividadesDelRol.filter((a) => a.id_componente === filtroComponente),
+    actividadesDelRol.filter(
+      (a) =>
+        (filtroComponente === 'todos' || a.id_componente === filtroComponente) &&
+        (filtroTipo === 'todas' || a.tipo_actividad === filtroTipo),
+    ),
   );
 
   const actividadesOcultas = $derived(actividadesDelRol.filter((a) => !a.visible).length);
@@ -631,6 +640,17 @@
                 </span>
               {/if}
               <div class="ml-auto flex flex-wrap items-center gap-2">
+                <label class="inline-flex items-center gap-2 text-[12px] text-[#5A5E6E]">
+                  <span class="sr-only">Filtrar por tipo de evaluación</span>
+                  <select
+                    bind:value={filtroTipo}
+                    class="rounded-lg border border-[#D6D9E0] bg-white px-3 py-2 text-[13px] font-medium text-[#1A1A24] focus:border-[#002F6C] focus:outline-none"
+                  >
+                    <option value="todas">Evaluación: todas</option>
+                    <option value="FORMATIVA">Sólo formativas</option>
+                    <option value="SUMATIVA">Sólo sumativas</option>
+                  </select>
+                </label>
                 {#if componentesDeActividades.length > 1}
                   <label class="inline-flex items-center gap-2 text-[12px] text-[#5A5E6E]">
                     <span class="sr-only">Filtrar por componente</span>
@@ -663,7 +683,7 @@
                 <p class="m-0 text-sm">
                   {actividadesDelRol.length === 0
                     ? 'No hay actividades en este curso.'
-                    : 'Ninguna actividad en el componente elegido.'}
+                    : 'Ninguna actividad cumple los filtros elegidos.'}
                 </p>
               </div>
             {:else}

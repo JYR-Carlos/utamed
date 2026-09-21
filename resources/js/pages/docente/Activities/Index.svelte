@@ -28,14 +28,13 @@
    *   reload only:['interaccionesGrupo'] con grupo_id          mensajes del grupo
    */
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
-  import { router } from '@inertiajs/svelte';
+  import { Link, router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
-  import { ChevronLeft, Plus, Users, Pencil, Copy } from 'lucide-svelte';
+  import { ChevronLeft, Plus, Users, Pencil, Copy, Eye, Lock } from 'lucide-svelte';
   import { ConfirmDialog } from '@/components/custom/common';
   import { formatFechaHora } from '@/utils/formatters';
   import AgendaDocente from './Agenda/AgendaDocente.svelte';
-  import RubricaView from '../../student/Activities/Agenda/Rubrica.svelte';
   import RubricaEditor from './RubricaEditor.svelte';
   import MatrizEvaluacion from './MatrizEvaluacion.svelte';
   import GrupoCard from './components/GrupoCard.svelte';
@@ -108,6 +107,9 @@
     rubrica?: Rubrica | null;
     // rubrica_id se envía al endpoint storeEvaluacion sin una consulta extra desde el frontend.
     rubrica_id?: number | null;
+    estado_rubrica?: string | null;
+    tiene_evaluaciones?: boolean;
+    puede_editar_rubrica?: boolean;
     estudiantesInscritos?: EstudianteInscrito[];
     interaccionesGrupo?: Interaccion[];
     /** Otras actividades grupales del curso con grupos ya formados, para reutilizar. */
@@ -122,6 +124,9 @@
     grupos,
     rubrica = null,
     rubrica_id = null,
+    estado_rubrica = null,
+    tiene_evaluaciones = false,
+    puede_editar_rubrica = false,
     estudiantesInscritos = [],
     interaccionesGrupo = [],
     flash,
@@ -137,7 +142,6 @@
   // ─── Estado del UI ────────────────────────────────────────────────────────
   let grupoSeleccionado = $state<GrupoData | null>(null);
   let showAgendaModal = $state(false);
-  let showRubricaModal = $state(false);
   let isLoadingInteracciones = $state(false);
   let errorInteracciones = $state<string | null>(null);
 
@@ -419,7 +423,6 @@
 
   function abrirAgendaGrupo(grupo: GrupoData) {
     grupoSeleccionado = grupo;
-    showRubricaModal = false;
     showAgendaModal = true;
     cargarInteracciones(grupo);
   }
@@ -430,17 +433,14 @@
     // router.reload will clear it later or we can let it be
   }
 
-  function toggleRubricaModal() {
-    showAgendaModal = false;
-    showRubricaModal = !showRubricaModal;
-  }
-
   // Usa router.post() de Inertia para que el token CSRF se gestione
   // automáticamente (igual que el resto del proyecto), en vez de fetch() nativo.
   function manejarInteraccionDocente(data: {
     tipo: string;
     mensaje: string;
     nota?: number;
+    /** Resultado cualitativo con el que cierra una actividad formativa. */
+    evaluacion_obtenida?: string | null;
     id_agenda_entrega?: number | null;
     resultado_rubrica?: Record<string, string>;
     puntaje_obtenido?: number;
@@ -458,7 +458,10 @@
         {
           id_agenda_entrega: data.id_agenda_entrega ?? null,
           id_rubrica: rubrica_id,
-          nota: data.nota ?? null,
+          // Uno u otro según el tipo de actividad: el servidor rechaza una nota
+          // numérica en una formativa y la exige en una sumativa.
+          nota: actividad.es_sumativa ? (data.nota ?? null) : null,
+          evaluacion_obtenida: actividad.es_sumativa ? null : (data.evaluacion_obtenida ?? null),
           mensaje: data.mensaje,
           resultado_rubrica: data.resultado_rubrica,
           puntaje_obtenido: data.puntaje_obtenido,
@@ -499,13 +502,13 @@
     <div
       class="w-full flex flex-col lg:flex-row items-start lg:items-center gap-4 sm:gap-6 lg:gap-20 mb-6"
     >
-      <button
+      <Link
         class="flex items-center px-4 sm:px-6 py-3 sm:py-4 bg-uta-blue text-white hover:bg-uta-blue-hover transition-colors rounded-2xl shrink-0"
-        onclick={() => window.history.back()}
+        href="/docente/cursos/{curso.id_curso}/actividades"
       >
         <ChevronLeft class="w-4 h-4 mr-2" />
         <p class="text-sm sm:text-base">Volver</p>
-      </button>
+      </Link>
 
       <h2 class="text-base sm:text-xl md:text-2xl font-semibold break-words leading-snug">
         {curso.nombre}: {actividad.nombre}
@@ -524,52 +527,107 @@
       </div>
     {/if}
 
-    <div class="w-full grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 items-start">
-      <!-- ── Columna izquierda: información de la actividad ── -->
+    <!--
+      Resumen arriba y grupos abajo, los dos a ancho completo.
+
+      Antes era un grid de dos columnas iguales (`xl:grid-cols-2`), pero los dos
+      lados no tienen nada que ver en tamaño: a la izquierda van cuatro líneas
+      fijas de datos y un botón, y a la derecha una lista que crece con cada
+      grupo del curso. El resultado era media pantalla casi vacía al lado de una
+      columna larguísima, y encima los grupos —lo que el docente viene a hacer—
+      quedaban confinados a la mitad angosta.
+
+      Puesto uno sobre otro, el resumen ocupa lo que necesita (una banda que se
+      reparte en columnas según quepa) y los grupos usan todo el ancho.
+    -->
+    <div class="flex w-full flex-col gap-6 lg:gap-8">
+      <!-- ── Resumen de la actividad ── -->
       <div
-        class="flex flex-col w-full justify-center gap-6 lg:rounded-2xl lg:border lg:border-gray-200 lg:px-10 lg:py-5 lg:shadow-sm"
+        class="flex flex-col w-full gap-4 lg:rounded-2xl lg:border lg:border-gray-200 lg:px-8 lg:py-5 lg:shadow-sm"
       >
         <p class="text-start text-sm sm:text-base font-semibold text-uta-blue">
           Sobre esta Actividad
         </p>
 
-        <div
-          class="text-sm font-semibold text-slate-700 px-4 sm:px-6 md:px-8 py-4 rounded-2xl bg-uta-blue-light border border-uta-blue/15 break-words"
-        >
+        <div class="flex flex-col gap-4 md:flex-row md:items-stretch">
+          <!--
+            Los datos ya no son cuatro líneas apiladas con <br>: en una banda
+            ancha eso deja una línea de texto corta perdida en mucho blanco.
+            Cada dato es una celda con su rótulo, y la banda las reparte según
+            el ancho disponible.
+          -->
+          <dl
+            class="grid flex-1 grid-cols-2 gap-x-6 gap-y-3 rounded-2xl border border-uta-blue/15 bg-uta-blue-light px-4 py-4 text-sm sm:grid-cols-3 sm:px-6 lg:grid-cols-4"
+          >
+            <div class="min-w-0">
+              <dt class="text-xs font-medium text-slate-500">Fecha límite</dt>
+              <dd class="font-semibold text-slate-700 break-words">
+                {formatFechaHora(actividad.fecha_limite)}
+              </dd>
+            </div>
+            <div class="min-w-0">
+              <dt class="text-xs font-medium text-slate-500">Tipo de actividad</dt>
+              <dd class="font-semibold text-slate-700">
+                {actividad.es_sumativa ? 'Sumativa' : 'Formativa'}
+              </dd>
+            </div>
+            <div class="min-w-0">
+              <dt class="text-xs font-medium text-slate-500">Entrega de archivo</dt>
+              <dd class="font-semibold text-slate-700">{actividad.trae_archivo ? 'Sí' : 'No'}</dd>
+            </div>
+            {#if actividad.nro_dias_adicionales_para_bloqueo > 0}
+              <div class="min-w-0">
+                <dt class="text-xs font-medium text-slate-500">Holgura</dt>
+                <dd class="font-semibold text-slate-700">
+                  {actividad.nro_dias_adicionales_para_bloqueo} día{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 's' : ''} adicional{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 'es' : ''}
+                </dd>
+              </div>
+            {/if}
+          </dl>
 
-          Fecha límite: {formatFechaHora(actividad.fecha_limite)}
-          <br />
-          Tipo Actividad: {actividad.es_sumativa ? 'Sumativa' : 'Formativa'}
-          <br />
-          Entrega de Archivo: {actividad.trae_archivo ? 'Sí' : 'No'}
-          {#if actividad.nro_dias_adicionales_para_bloqueo > 0}
-            <br />
-            Holgura: {actividad.nro_dias_adicionales_para_bloqueo} día{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 's' : ''} adicional{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 'es' : ''}
-          {/if}
-        </div>
-
-        <!-- Botones de acción de la actividad -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+          <!-- Botón de rúbrica: al lado del resumen, no debajo ocupando el ancho. -->
           {#if actividad.es_titular || rubrica}
-            <button
-              class="w-full px-4 sm:px-6 md:px-8 py-3 sm:py-4 rounded-xl border border-uta-blue transition-all bg-white text-uta-blue hover:bg-uta-blue hover:text-white flex items-center justify-between gap-4 text-sm font-semibold sm:col-span-2"
-              onclick={() => actividad.es_titular ? (showRubricaEditor = true) : toggleRubricaModal()}
-            >
-              <p>{rubrica ? 'Ver Rúbrica' : 'Crear Rúbrica'}</p>
-              <Pencil class="size-5 shrink-0" />
-            </button>
+            <div class="flex flex-col gap-1.5 shrink-0 md:w-56 md:self-stretch">
+              <button
+                class="flex flex-1 w-full items-center justify-between gap-4 rounded-xl border border-uta-blue bg-white px-4 py-3 text-sm font-semibold text-uta-blue transition-all hover:bg-uta-blue hover:text-white sm:px-6"
+                onclick={() => (showRubricaEditor = true)}
+              >
+                <p>
+                  {#if !rubrica}
+                    Crear Rúbrica
+                  {:else if puede_editar_rubrica}
+                    Editar Rúbrica
+                  {:else}
+                    Ver Rúbrica
+                  {/if}
+                </p>
+                {#if puede_editar_rubrica || !rubrica}
+                  <Pencil class="size-5 shrink-0" />
+                {:else}
+                  <Eye class="size-5 shrink-0" />
+                {/if}
+              </button>
+              {#if tiene_evaluaciones && rubrica}
+                <div class="flex shrink-0 items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[11px] font-medium leading-tight">
+                  <Lock class="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                  <span>Evaluaciones iniciadas (rúbrica bloqueada)</span>
+                </div>
+              {/if}
+            </div>
           {/if}
         </div>
       </div>
 
-      <!-- ── Columna derecha: grupos asignados ── -->
+      <!-- ── Grupos asignados ── -->
       <div class="flex flex-col w-full gap-4">
         <div class="flex justify-between items-center">
           <p class="text-start text-sm sm:text-base font-semibold text-uta-blue">
-            Grupos Asignados
+            {actividad.es_grupal ? 'Grupos Asignados' : 'Estudiantes Asignados'}
           </p>
           <div class="flex items-center gap-2">
-            <span class="text-xs text-gray-500 font-medium">{grupos.length} grupos</span>
+            <span class="text-xs text-gray-500 font-medium">
+              {grupos.length} {actividad.es_grupal ? (grupos.length === 1 ? 'grupo' : 'grupos') : (grupos.length === 1 ? 'estudiante' : 'estudiantes')}
+            </span>
             {#if actividad.es_grupal && actividad.es_titular}
               {#if actividadesConGrupos.length > 0}
                 <button
@@ -609,38 +667,48 @@
           </div>
         {/if}
 
-        {#each grupos as grupo (grupo.grupo)}
-          <GrupoCard
-            {grupo}
-            esTitular={actividad.es_titular}
-            traeArchivo={actividad.trae_archivo}
-            {savingDecimas}
-            {addingToGrupo}
-            bind:addingEstudianteId
-            {addingLoading}
-            {addingError}
-            estudiantesParaGrupo={estudiantesParaGrupo(grupo.grupo)}
-            {getEstadoColor}
-            {formatDecimas}
-            onEliminarGrupo={eliminarGrupo}
-            onQuitarEstudiante={quitarEstudiante}
-            onAjustarDecimas={ajustarDecimas}
-            onRecalcularNotas={recalcularNotas}
-            onAbrirAddForm={(grupoId) => {
-              addingToGrupo = grupoId;
-              addingEstudianteId = 0;
-              addingError = null;
-            }}
-            onCerrarAddForm={() => {
-              addingToGrupo = null;
-              addingError = null;
-            }}
-            onAgregarAGrupo={agregarAGrupo}
-            onVerEntregas={verEntregas}
-            onVerAgenda={abrirAgendaGrupo}
-            onActualizarHolguraPersonal={actualizarHolguraPersonal}
-          />
-        {/each}
+        <!--
+          Grilla y no lista: con el ancho completo disponible, una tarjeta por
+          fila deja el 70% de la pantalla en blanco y obliga a desplazarse por
+          cursos con muchos grupos. `items-start` a propósito no: las tarjetas
+          de una misma fila se estiran a la misma altura para que los bordes no
+          queden escalonados.
+        -->
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+          {#each grupos as grupo (grupo.grupo)}
+            <GrupoCard
+              {grupo}
+              esTitular={actividad.es_titular}
+              traeArchivo={actividad.trae_archivo}
+              esGrupal={actividad.es_grupal}
+              {savingDecimas}
+              {addingToGrupo}
+              bind:addingEstudianteId
+              {addingLoading}
+              {addingError}
+              estudiantesParaGrupo={estudiantesParaGrupo(grupo.grupo)}
+              {getEstadoColor}
+              {formatDecimas}
+              onEliminarGrupo={eliminarGrupo}
+              onQuitarEstudiante={quitarEstudiante}
+              onAjustarDecimas={ajustarDecimas}
+              onRecalcularNotas={recalcularNotas}
+              onAbrirAddForm={(grupoId) => {
+                addingToGrupo = grupoId;
+                addingEstudianteId = 0;
+                addingError = null;
+              }}
+              onCerrarAddForm={() => {
+                addingToGrupo = null;
+                addingError = null;
+              }}
+              onAgregarAGrupo={agregarAGrupo}
+              onVerEntregas={verEntregas}
+              onVerAgenda={abrirAgendaGrupo}
+              onActualizarHolguraPersonal={actualizarHolguraPersonal}
+            />
+          {/each}
+        </div>
 
         {#if grupos.length === 0 && actividad.es_grupal && actividad.es_titular}
           <div
@@ -723,47 +791,20 @@
           onInteraccionEnviada={manejarInteraccionDocente}
           cod_curso={curso.cod_curso}
           nombre_actividad={actividad.nombre}
-          nombre_grupo="Grupo #{grupoSeleccionado.grupo}"
+          nombre_grupo={actividad.es_grupal
+            ? `Grupo #${grupoSeleccionado.grupo}`
+            : (grupoSeleccionado.integrantes[0]?.nombre_completo ?? `Estudiante #${grupoSeleccionado.grupo}`)}
           listado_interacciones={interaccionesGrupo}
           isLoading={isLoadingInteracciones}
           errorMensaje={errorInteracciones}
           rubricaActividad={rubrica}
+          esSumativa={actividad.es_sumativa}
         />
       </div>
     </div>
   {/if}
 
-  <!-- Modal: Rúbrica de la actividad -->
-  {#if showRubricaModal}
-    <div
-      class="fixed inset-0 z-50 sm:relative sm:inset-auto w-full border-l bg-gray-50 h-full overflow-y-auto p-6 animate-slide-in"
-    >
-      <div class="flex flex-col gap-4 w-full max-w-7xl bg-white rounded-4xl">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-sm font-semibold text-uta-blue">Rúbrica de la Actividad</h2>
-          <button
-            class="p-2 hover:bg-gray-200 rounded-full transition-colors flex items-center gap-2 group"
-            onclick={toggleRubricaModal}
-            aria-label="cerrar"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="1.5"
-              stroke="currentColor"
-              class="size-6"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        {#if rubrica}
-          <RubricaView {rubrica} modoLectura={true} />
-        {/if}
-      </div>
-    </div>
-  {/if}
+
   <!-- ── Modal: Entregas del grupo ── -->
   {#if showEntregasModal && grupoEntregasSeleccionado}
     <EntregasModal
@@ -771,6 +812,7 @@
       idActividad={actividad.id_actividad}
       nombreActividad={actividad.nombre}
       grupo={grupoEntregasSeleccionado}
+      esGrupal={actividad.es_grupal}
       {rubrica}
       rubricaId={rubrica_id}
       onCerrar={cerrarEntregas}
@@ -787,8 +829,11 @@
     <MatrizEvaluacion
       {rubrica}
       rubricaId={rubrica_id}
+      esSumativa={actividad.es_sumativa}
       nombreActividad={actividad.nombre}
-      nombreGrupo="Grupo #{grupoEntregasSeleccionado.grupo}"
+      nombreGrupo={actividad.es_grupal
+        ? `Grupo #${grupoEntregasSeleccionado.grupo}`
+        : (grupoEntregasSeleccionado.integrantes[0]?.nombre_completo ?? `Estudiante #${grupoEntregasSeleccionado.grupo}`)}
       idCurso={curso.id_curso}
       idActividad={actividad.id_actividad}
       idGrupo={grupoEntregasSeleccionado.grupo}
@@ -801,8 +846,10 @@
     {#if showRubricaEditor}
       <RubricaEditor
         {rubrica}
+        bloqueada={!puede_editar_rubrica}
         idCurso={curso.id_curso}
         idActividad={actividad.id_actividad}
+        esSumativa={actividad.es_sumativa}
         onClose={() => (showRubricaEditor = false)}
       />
     {/if}
@@ -813,6 +860,7 @@
   onkeydown={(e) => {
     if (e.key === 'Escape') {
       if (showMatrizEvaluacion) cerrarMatrizEvaluacion();
+      else if (showRubricaEditor) showRubricaEditor = false;
       else if (showEntregasModal) cerrarEntregas();
       else showAgendaModal = false;
     }

@@ -31,6 +31,8 @@
       tipo: string;
       mensaje: string;
       nota?: number;
+      /** Resultado cualitativo con el que cierra una actividad formativa. */
+      evaluacion_obtenida?: string | null;
       id_agenda_entrega?: number | null;
       resultado_rubrica?: Record<string, string>;
       puntaje_obtenido?: number;
@@ -56,6 +58,11 @@
     isLoading?: boolean;
     errorMensaje?: string | null;
     rubricaActividad?: Rubrica | null;
+    /**
+     * Sumativa → la evaluación cierra con nota. Formativa → con la escala
+     * cualitativa de la rúbrica. Lo decide la actividad; llega del padre.
+     */
+    esSumativa?: boolean;
   }
 
   let {
@@ -68,6 +75,7 @@
     isLoading = false,
     errorMensaje = null,
     rubricaActividad = null,
+    esSumativa = true,
   }: Props = $props();
 
   // ── Estado del formulario ────────────────────────────────────────────────────
@@ -120,8 +128,28 @@
   const todosEvaluados = $derived(totalCriterios > 0 && criteriosEvaluados === totalCriterios);
 
   const notaCalculada = $derived(
-    todosEvaluados && puntajeMaximo > 0 ? calcularNotaChilena(puntajeRubrica, puntajeMaximo) : null,
+    esSumativa && todosEvaluados && puntajeMaximo > 0
+      ? calcularNotaChilena(puntajeRubrica, puntajeMaximo)
+      : null,
   );
+
+  /**
+   * Resultado cualitativo con el que cierra una formativa, leído de la escala
+   * de la rúbrica. Es el equivalente de `notaCalculada` para ese caso: sin él,
+   * evaluar una formativa desde la agenda quedaría sin nada que enviar, porque
+   * el servidor rechaza la nota numérica.
+   */
+  const evaluacionCualitativa = $derived(
+    (() => {
+      const escala = rubricaActividad?.detalles_evaluacion?.escala_evaluacion;
+      if (esSumativa || !escala?.length || !todosEvaluados) return null;
+      const ordenada = [...escala].sort((a, b) => b.puntaje_minimo - a.puntaje_minimo);
+      return ordenada.find((e) => puntajeRubrica >= e.puntaje_minimo)?.evaluacion ?? null;
+    })(),
+  );
+
+  /** Qué falta para poder enviar una evaluación, según el tipo de actividad. */
+  const resultadoListo = $derived(esSumativa ? notaEvaluacion !== null : !!evaluacionCualitativa);
 
   // Auto-poblar nota cuando se completa la rúbrica
   $effect(() => {
@@ -152,7 +180,7 @@
 
   function manejarEnvio() {
     if (!esEvaluacion && nuevoMensaje.trim() === '') return;
-    if (esEvaluacion && notaEvaluacion === null) return;
+    if (esEvaluacion && !resultadoListo) return;
 
     const data: Parameters<Props['onInteraccionEnviada']>[0] = {
       tipo: tipoSeleccionado,
@@ -160,7 +188,12 @@
     };
 
     if (esEvaluacion) {
-      if (notaEvaluacion !== null) data.nota = notaEvaluacion;
+      // Uno u otro, nunca los dos: es la misma regla que aplica el servidor.
+      if (esSumativa) {
+        if (notaEvaluacion !== null) data.nota = notaEvaluacion;
+      } else {
+        data.evaluacion_obtenida = evaluacionCualitativa;
+      }
       data.id_agenda_entrega = entregaSeleccionada;
       if (rubricaActividad) {
         data.resultado_rubrica = { ...seleccionRubrica };
@@ -321,26 +354,42 @@
           </div>
         {/if}
 
-        <!-- Nota (1-7) -->
-        <div class="flex items-center gap-2 mb-3 flex-wrap">
-          <label for="nota-eval" class="text-xs font-bold text-gray-700 shrink-0">Nota (1–7):</label>
-          <input
-            id="nota-eval"
-            type="number"
-            min="1" max="7" step="0.1"
-            bind:value={notaEvaluacion}
-            oninput={() => { notaManualOverride = true; }}
-            placeholder="ej. 5.5"
-            class="w-20 text-sm border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-uta-blue focus:ring-1 focus:ring-primary/30"
-          />
-          {#if notaCalculada !== null && notaManualOverride}
-            <button
-              type="button"
-              onclick={() => { notaEvaluacion = notaCalculada; notaManualOverride = false; }}
-              class="text-xs text-uta-blue underline hover:no-underline"
-            >Restaurar ({notaCalculada.toFixed(1)})</button>
-          {/if}
-        </div>
+        <!-- Resultado: nota en las sumativas, apreciación en las formativas -->
+        {#if esSumativa}
+          <div class="flex items-center gap-2 mb-3 flex-wrap">
+            <label for="nota-eval" class="text-xs font-bold text-gray-700 shrink-0">Nota (1–7):</label>
+            <input
+              id="nota-eval"
+              type="number"
+              min="1" max="7" step="0.1"
+              bind:value={notaEvaluacion}
+              oninput={() => { notaManualOverride = true; }}
+              placeholder="ej. 5.5"
+              class="w-20 text-sm border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-uta-blue focus:ring-1 focus:ring-primary/30"
+            />
+            {#if notaCalculada !== null && notaManualOverride}
+              <button
+                type="button"
+                onclick={() => { notaEvaluacion = notaCalculada; notaManualOverride = false; }}
+                class="text-xs text-uta-blue underline hover:no-underline"
+              >Restaurar ({notaCalculada.toFixed(1)})</button>
+            {/if}
+          </div>
+        {:else}
+          <div class="flex items-center gap-2 mb-3 flex-wrap">
+            <span class="text-xs font-bold text-gray-700 shrink-0">Resultado:</span>
+            {#if evaluacionCualitativa}
+              <span class="text-sm font-black text-uta-blue">{evaluacionCualitativa}</span>
+              <span class="text-xs text-gray-400">· actividad formativa, sin nota numérica</span>
+            {:else if todosEvaluados}
+              <span class="text-xs text-amber-600"
+                >La rúbrica no tiene escala de evaluación con la que cerrar una formativa.</span
+              >
+            {:else}
+              <span class="text-xs text-gray-400">Completa la rúbrica para obtenerlo.</span>
+            {/if}
+          </div>
+        {/if}
 
         <!-- Entrega a vincular -->
         {#if entregasSinEvaluar.length > 0}
@@ -371,7 +420,7 @@
         <button
           onclick={manejarEnvio}
           disabled={esEvaluacion
-            ? (notaEvaluacion === null || (!!rubricaActividad && !todosEvaluados) || !rubricaActividad)
+            ? (!resultadoListo || (!!rubricaActividad && !todosEvaluados) || !rubricaActividad)
             : !nuevoMensaje.trim()}
           class="absolute bottom-3 right-3 p-2 bg-uta-blue text-white rounded-lg hover:scale-105 disabled:opacity-40 disabled:scale-100 transition-all"
           aria-label="enviar"
@@ -537,6 +586,7 @@
           puntaje_obtenido={panelDetalle.puntaje_obtenido ?? 0}
           retroalimentacion={panelDetalle.retroalimentacion}
           resultado={panelDetalle.resultado}
+          {esSumativa}
         />
       </div>
     </div>

@@ -38,4 +38,26 @@ export function calcularNotaChilena(puntaje: number, total: number, exigencia = 
     return Math.min(7, Math.max(1, Math.round(nota * 10) / 10));
 }
 
+/**
+ * Puntaje mínimo que hay que sacar para llegar a la nota 4.0.
+ *
+ * Redondea hacia arriba: con 27 puntos totales y 60 % de exigencia el corte
+ * exacto es 16,2 puntos, y como los puntajes de una rúbrica son enteros, 16 no
+ * alcanza. Redondear hacia abajo dejaría aprobado a alguien que está bajo la
+ * exigencia; hacia arriba, el número que se muestra es el que efectivamente hay
+ * que alcanzar.
+ *
+ * @param total     Puntaje máximo posible de la evaluación.
+ * @param exigencia Porcentaje de exigencia para la nota 4.0 (por defecto 60).
+ *
+ * @example
+ * puntajeMinimoAprobacion(100);  // 60
+ * puntajeMinimoAprobacion(27);   // 17  (16,2 → 17)
+ * puntajeMinimoAprobacion(0);    // 0
+ */
+export function puntajeMinimoAprobacion(total: number, exigencia = 60): number {
+    if (total <= 0) return 0;
+    return Math.ceil((total * exigencia) / 100);
+}
+
 // TODO(D-02): verificar que el backend usa la misma fórmula al persistir notas

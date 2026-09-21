@@ -60,7 +60,7 @@ trait ParsesSyllabus
                 'nombre_seccion' => $nombres[$romano] ?? "Sección $romano",
                 'numeral_romano' => $romano,
                 'orden'          => $idx + 1,
-                'contenidos'     => $this->extraeContenidos($contenido),
+                'contenidos'     => $this->extraeContenidos($contenido, $secciones),
             ];
 
             if ($romano === 'IX' && $contenido instanceof SeccionIXContenido) {
@@ -80,11 +80,13 @@ trait ParsesSyllabus
     /**
      * Extrae contenidos de cada sección para mostrar legible.
      */
-    protected function extraeContenidos(?object $contenido): array
+    protected function extraeContenidos(?object $contenido, ?\App\Syllabus\SyllabusSecciones $secciones = null): array
     {
         if (!$contenido) {
             return [['texto_contenido' => '', 'orden_item' => 1]];
         }
+
+        $seccionVI = $secciones?->get('VI');
 
         $text = match (true) {
             $contenido instanceof SeccionIContenido => $this->formatSeccionI($contenido),
@@ -94,7 +96,7 @@ trait ParsesSyllabus
             $contenido instanceof SeccionVIContenido => $this->formatUnidades($contenido),
             $contenido instanceof SeccionVIIBasico => $this->formatActividades($contenido),
             $contenido instanceof SeccionVIICompleto => $this->formatPlanificacion($contenido),
-            $contenido instanceof SeccionVIIIContenido => $this->formatRecursos($contenido),
+            $contenido instanceof SeccionVIIIContenido => $this->formatRecursos($contenido, $seccionVI instanceof SeccionVIContenido ? $seccionVI : null),
             $contenido instanceof SeccionIXContenido => $this->formatAspectosAdministrativos($contenido),
             default => '',
         };
@@ -202,16 +204,97 @@ trait ParsesSyllabus
         );
     }
 
-    private function formatRecursos(SeccionVIIIContenido $c): string
+    /**
+     * Formatea el contenido de la Sección VIII para su lectura en el documento del syllabus.
+     * Prioriza la estructura relacional de bibliografías académicas.
+     */
+    private function formatRecursos(SeccionVIIIContenido $c, ?SeccionVIContenido $seccionVI = null): string
     {
-        $recursos = array_filter($c->recursos, fn ($r) => trim($r->descripcion) !== '');
-        if (empty($recursos)) {
+        if (!empty($c->bibliografias)) {
+            $unidadTitulos = [];
+            if ($seccionVI) {
+                foreach ($seccionVI->unidades as $u) {
+                    $unidadTitulos[$u->numero] = $u->titulo;
+                }
+            }
+            return $this->formatBibliografias($c->bibliografias, $unidadTitulos);
+        }
+
+        return $this->formatRecursosLegacy($c->recursos);
+    }
+
+    /**
+     * Formatea entradas estructuradas de bibliografía académica agrupadas por unidad.
+     *
+     * @param \App\Syllabus\Secciones\BibliografiaSyllabus[] $bibliografias
+     * @param array<int, string> $unidadTitulos
+     */
+    private function formatBibliografias(array $bibliografias, array $unidadTitulos = []): string
+    {
+        $valid = array_filter($bibliografias, fn ($b) => trim($b->titulo) !== '');
+        if (empty($valid)) {
+            return '';
+        }
+
+        // Agrupar por id_unidad (número ordinal de unidad)
+        $grupos = [];
+        foreach ($valid as $b) {
+            $key = !empty($b->id_unidad) ? (int) $b->id_unidad : 0;
+            $grupos[$key][] = $b;
+        }
+
+        ksort($grupos);
+
+        $bloquesTexto = [];
+        foreach ($grupos as $idUnidad => $items) {
+            if ($idUnidad > 0) {
+                $nombre = !empty($unidadTitulos[$idUnidad]) ? ': ' . mb_strtoupper(trim($unidadTitulos[$idUnidad])) : ':';
+                $encabezado = "UNIDAD {$idUnidad}{$nombre}";
+            } else {
+                $encabezado = "BIBLIOGRAFÍA GENERAL:";
+            }
+
+            $lineasItems = array_map(function ($b) {
+                $autor = !empty($b->autor) ? trim($b->autor) : 'Autor desconocido';
+                $editorial = !empty($b->editorial) ? '. ' . trim($b->editorial) : '';
+                $cita = !empty($b->cita) ? "\n  «" . trim($b->cita) . '»' : '';
+                
+                $tipoRecurso = [];
+                if ($b->es_bibliografia_uta) {
+                    $tipoRecurso[] = 'Biblioteca UTA';
+                }
+                if (!empty($b->url)) {
+                    $tipoRecurso[] = 'Enlace web: ' . $b->url;
+                }
+                if (!empty($b->uuid_archivo)) {
+                    $tipoRecurso[] = 'Archivo adjunto: /api/bibliografias/' . $b->uuid_archivo . '/archivo';
+                }
+
+                $etiqueta = !empty($tipoRecurso) ? ' [' . implode(' · ', $tipoRecurso) . ']' : '';
+
+                return "• {$autor} ({$b->anio}). {$b->titulo}{$editorial}.{$etiqueta}{$cita}";
+            }, $items);
+
+            $bloquesTexto[] = $encabezado . "\n" . implode("\n", $lineasItems);
+        }
+
+        return implode("\n\n", $bloquesTexto);
+    }
+
+    /**
+     * @deprecated Formateo de lista plana de recursos genéricos. Se mantiene por retrocompatibilidad con esquemas antiguos.
+     * @param \App\Syllabus\Secciones\RecursoSyllabus[] $recursos
+     */
+    private function formatRecursosLegacy(array $recursos): string
+    {
+        $filtrados = array_filter($recursos, fn ($r) => trim($r->descripcion) !== '');
+        if (empty($filtrados)) {
             return '';
         }
 
         return implode("\n", array_map(
             fn ($r) => '• ' . $r->descripcion . ($r->tipo !== '' ? " ({$r->tipo})" : ''),
-            $recursos
+            $filtrados
         ));
     }
 

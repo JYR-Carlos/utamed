@@ -65,6 +65,7 @@ class UserCoursesService
     public function getDocenteCourses(Docente $docente): array
     {
         $cursos = Curso::where('id_docente_titular', $docente->id_docente)
+            ->where('es_plantilla', false)
             ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto', 'agno_real', 'semestre_real')
             ->with(['asignacionPlan.plan.carrera'])
             ->get();
@@ -159,6 +160,7 @@ class UserCoursesService
             ->pluck('id_contexto');
 
         $cursos = Curso::whereIn('id_contexto', $contextoIds)
+            ->where('es_plantilla', false)
             ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto', 'agno_real', 'semestre_real')
             ->get()
             ->unique('id_curso');

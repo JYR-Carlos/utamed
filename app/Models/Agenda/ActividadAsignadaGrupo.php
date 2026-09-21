@@ -41,8 +41,8 @@ class ActividadAsignadaGrupo extends BaseActividadAsignadaGrupo
                 return [
                     'id_asignado_actividad' => $miembro->id_asignado_actividad,
                     'id_estudiante' => $miembro->id_estudiante,
-                    'nota_individual' => $miembro->nota_individual,
-                    'diferencia_decimas' => $miembro->diferencia_decimas,
+                    'nota_individual' => $miembro->nota_individual !== null ? (float) $miembro->nota_individual : null,
+                    'diferencia_decimas' => $miembro->diferencia_decimas !== null ? (float) $miembro->diferencia_decimas : 0.0,
                     'nombre_completo' => trim(
                         ($miembro->estudiante?->usuario?->nombre1 ?? '') . ' ' .
                         ($miembro->estudiante?->usuario?->nombre2 ?? '') . ' ' .

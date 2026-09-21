@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Docente;
 
 use App\Enums\DB\EstadoActividadAsignada;
+use App\Enums\DB\EstadoRubrica;
 use App\Enums\DB\TipoActividad;
 use App\Enums\DB\TipoMensaje;
 use App\Exceptions\Archive\ArchiveException;
@@ -27,6 +28,7 @@ use App\Services\Agenda\GrupoIndividualService;
 use App\Services\Archive\Handlers\ActivityArchiveHandler;
 use App\Services\Docente\ConversacionDocenteService;
 use App\Services\Docente\NombreUsuario;
+use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -192,10 +194,27 @@ class DocenteActivityController extends Controller
             ->pluck('id_componente')
             ->all();
 
-        // Get componentes for dropdown
+        // Get componentes for dropdown.
+        //
+        // El orden es Cátedra > Taller > Laboratorio y sale de
+        // `TipoComponente::PRIORIDAD`, no de un `orderBy` en SQL: la jerarquía es
+        // del dominio, no del catálogo, y el `id_tipo_componente` refleja el
+        // orden en que se sembraron los tipos. Ordenar por id daría el orden
+        // correcto sólo por casualidad, y dejaría de darlo en cuanto alguien
+        // agregue un tipo nuevo o resiembre el catálogo.
+        //
+        // `sortBy` sobre la colección y no en la consulta porque `prioridad` es
+        // un accessor de PHP: no existe como columna que Postgres pueda ordenar.
         $componentes = Componente::where('id_curso', $curso->id_curso)
             ->with('tipoComponente')
             ->get()
+            ->sortBy(fn (Componente $c) => [
+                $c->tipoComponente?->prioridad ?? 99,
+                // Desempate estable entre componentes del mismo tipo (dos
+                // talleres, por ejemplo); sin él el orden lo decide Postgres.
+                $c->id_componente,
+            ])
+            ->values()
             ->map(fn (Componente $c) => array_merge($c->toArray(), [
                 'es_mio' => in_array($c->id_componente, $misComponentesIds, true),
             ]));
@@ -733,7 +752,7 @@ class DocenteActivityController extends Controller
                         'id_asignado_actividad' => $m->id_asignado_actividad,
                         'id_estudiante' => $m->id_estudiante,
                         'nota_individual' => $m->nota_individual !== null ? (float) $m->nota_individual : null,
-                        'diferencia_decimas' => (int) ($m->diferencia_decimas ?? 0),
+                        'diferencia_decimas' => (float) ($m->diferencia_decimas ?? 0),
                         'nombre_completo' => $m->estudiante?->usuario?->nombre_completo ?? '',
                     ])->values(),
                 ];
@@ -752,15 +771,22 @@ class DocenteActivityController extends Controller
         // Rúbrica: la más reciente asociada directamente a esta actividad
         $rubricaData = null;
         $rubricaId = null;
+        $estadoRubrica = null;
         try {
             $rubricaModel = Rubrica::where('id_actividad', $actividad->id_actividad)
                 ->orderByDesc('id_rubrica')
                 ->first();
             $rubricaData = $rubricaModel?->rubrica;
             $rubricaId = $rubricaModel?->id_rubrica;
+            $estadoRubrica = $rubricaModel?->estado_rubrica instanceof \BackedEnum
+                ? $rubricaModel->estado_rubrica->value
+                : (string) ($rubricaModel?->estado_rubrica ?? '');
         } catch (\Exception $e) {
             Log::warning('No se pudo cargar rúbrica para actividad ' . $actividad->id_actividad . ': ' . $e->getMessage());
         }
+
+        $tieneEvaluaciones = $actividad->hanComenzadoEvaluaciones();
+        $puedeEditarRubrica = $esTitular && !$tieneEvaluaciones;
 
         // Estudiantes inscritos en el curso (para asignación de grupos)
         $estudiantesInscritos = InscripcionCurso::where('id_curso', $curso->id_curso)
@@ -816,6 +842,9 @@ class DocenteActivityController extends Controller
             'grupos' => $grupos,
             'rubrica' => $rubricaData,
             'rubrica_id' => $rubricaId,
+            'estado_rubrica' => $estadoRubrica,
+            'tiene_evaluaciones' => $tieneEvaluaciones,
+            'puede_editar_rubrica' => $puedeEditarRubrica,
             'estudiantesInscritos' => $estudiantesInscritos,
             'actividadesConGrupos' => $actividadesConGrupos,
             'interaccionesGrupo' => Inertia::lazy(function () {
@@ -837,34 +866,60 @@ class DocenteActivityController extends Controller
     {
         $this->authorize('viewPrograma', $curso);
 
-        $request->validate([
-            'rubrica' => 'required|array',
-            'rubrica.niveles' => 'required|array|min:1',
-            'rubrica.detalles_evaluacion' => 'required|array',
-            'id_actividad' => 'required|integer|exists:actividad,id_actividad',
-        ]);
-
-        // `exists:actividad` sólo comprobaba que el ID existiera en el sistema: la
-        // actividad llega por el cuerpo del request y no estaba acotada al curso,
-        // así que se podía escribir la rúbrica de cualquier actividad (B-2).
         $actividad = Actividad::findOrFail($request->integer('id_actividad'));
         $this->assertActividadDeCurso($curso, $actividad);
         $this->assertPuedeEditarEvaluacion($curso, $actividad);
+
+        if ($actividad->hanComenzadoEvaluaciones()) {
+            return redirect()->back()->withErrors([
+                'error' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
+                'rubrica' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
+            ]);
+        }
+
+        $rubricaInput = $request->input('rubrica');
+        $puntajeTotal = isset($rubricaInput['detalles_evaluacion']['puntaje_total'])
+            ? (float) $rubricaInput['detalles_evaluacion']['puntaje_total']
+            : null;
+
+        $rules = [
+            'rubrica' => 'required|array',
+            'rubrica.niveles' => ['required', 'array', 'min:1', $this->reglaPonderacionCompleta()],
+            'rubrica.niveles.*.ponderacion' => 'required|numeric|min:0|max:100',
+            'rubrica.detalles_evaluacion' => 'required|array',
+            'id_actividad' => 'required|integer',
+        ];
+
+        if (!empty($rubricaInput['columnas']) && is_array($rubricaInput['columnas'])) {
+            $rules['rubrica.columnas'] = ['array', $this->reglaPuntajesMonotonos()];
+        }
+
+        if ($actividad->tipo_actividad !== TipoActividad::SUMATIVA && !empty($rubricaInput['detalles_evaluacion']['escala_evaluacion'])) {
+            $rules['rubrica.detalles_evaluacion.escala_evaluacion'] = ['array', $this->reglaEscalaFormativaAlcanzable($puntajeTotal)];
+        }
+
+        $request->validate($rules);
 
         $idActividad = $actividad->id_actividad;
 
         try {
             $existente = Rubrica::where('id_actividad', $idActividad)
-                ->where('estado_rubrica', 'POSTULADA')
                 ->orderByDesc('id_rubrica')
                 ->first();
 
             if ($existente) {
+                if ($existente->estaBloqueadaParaEdicion()) {
+                    return redirect()->back()->withErrors([
+                        'error' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
+                        'rubrica' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
+                    ]);
+                }
+
                 $existente->update(['rubrica' => $request->input('rubrica')]);
             } else {
                 Rubrica::create([
                     'rubrica' => $request->input('rubrica'),
-                    'estado_rubrica' => 'POSTULADA',
+                    'estado_rubrica' => EstadoRubrica::POSTULADA,
                     'id_actividad' => $idActividad,
                 ]);
             }
@@ -875,6 +930,114 @@ class DocenteActivityController extends Controller
         }
 
         return redirect()->back()->with('success', 'Rúbrica guardada correctamente.');
+    }
+
+    /**
+     * Regla: los puntajes de las columnas/niveles deben ser monótonos estrictos (crecientes o decrecientes)
+     * sin valores duplicados y no negativos.
+     */
+    private function reglaPuntajesMonotonos(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (!is_array($value) || count($value) < 2) {
+                return;
+            }
+
+            $puntos = [];
+            foreach ($value as $col) {
+                if (!is_array($col) || !isset($col['puntos']) || !is_numeric($col['puntos'])) {
+                    return;
+                }
+                $p = (float) $col['puntos'];
+                if ($p < 0) {
+                    $fail('Los puntajes de los niveles deben ser números mayores o iguales a 0.');
+                    return;
+                }
+                $puntos[] = $p;
+            }
+
+            $isAsc = true;
+            $isDesc = true;
+            for ($i = 1; $i < count($puntos); $i++) {
+                if ($puntos[$i] <= $puntos[$i - 1]) {
+                    $isAsc = false;
+                }
+                if ($puntos[$i] >= $puntos[$i - 1]) {
+                    $isDesc = false;
+                }
+            }
+
+            if (!$isAsc && !$isDesc) {
+                $fail('Los puntajes de los niveles deben estar ordenados de forma estrictamente creciente o decreciente sin valores repetidos.');
+            }
+        };
+    }
+
+    /**
+     * Regla: en evaluaciones formativas, la escala cualitativa no puede exigir puntajes mínimos
+     * superiores al puntaje total alcanzable de la rúbrica.
+     */
+    private function reglaEscalaFormativaAlcanzable(?float $puntajeTotal): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) use ($puntajeTotal): void {
+            if (!is_array($value)) {
+                return;
+            }
+
+            $maxAlcanzable = $puntajeTotal ?? 0.0;
+            foreach ($value as $escala) {
+                if (!is_array($escala) || !isset($escala['puntaje_minimo'])) {
+                    continue;
+                }
+                $minimo = (float) $escala['puntaje_minimo'];
+                if ($minimo < 0) {
+                    $fail('Los puntajes mínimos de la escala de evaluación deben ser mayores o iguales a 0.');
+                    return;
+                }
+                if ($minimo > $maxAlcanzable) {
+                    $fail("Los puntajes mínimos de la escala de evaluación no pueden superar el puntaje total de la rúbrica ({$maxAlcanzable} pts).");
+                    return;
+                }
+            }
+        };
+    }
+
+    /**
+     * Regla: las ponderaciones de los criterios deben sumar exactamente 100 %.
+     *
+     * Se valida también en el servidor —el editor ya deshabilita el botón—
+     * porque el frontend es una conveniencia para quien usa la pantalla, no una
+     * garantía: la ruta acepta cualquier POST autenticado, y una rúbrica cuyas
+     * ponderaciones no cierran es un dato inválido que quedaría guardado y
+     * saldría a la luz recién al calificar.
+     *
+     * La suma se redondea a dos decimales antes de comparar. No es cosmética:
+     * 33.34 + 33.33 + 33.33 da 100.00000000000001 en coma flotante, y sin
+     * redondear se rechazaría justo el reparto que ofrece el propio editor.
+     */
+    private function reglaPonderacionCompleta(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (!is_array($value)) {
+                return;
+            }
+
+            $suma = 0.0;
+            foreach ($value as $nivel) {
+                // Un criterio sin ponderación numérica ya lo rechaza la regla
+                // por campo; aquí se ignora para no acumular dos mensajes sobre
+                // el mismo problema.
+                if (is_array($nivel) && is_numeric($nivel['ponderacion'] ?? null)) {
+                    $suma += (float) $nivel['ponderacion'];
+                }
+            }
+
+            $suma = round($suma, 2);
+
+            if ($suma !== 100.0) {
+                $fail("Las ponderaciones de los criterios deben sumar exactamente 100 % (suman {$suma} %).");
+            }
+        };
     }
 
     /**
@@ -993,7 +1156,7 @@ class DocenteActivityController extends Controller
         DB::transaction(function () use ($grupoModel) {
             foreach ($grupoModel->miembros as $miembro) {
                 $miembro->update([
-                    'nota_individual' => $this->calcularNotaIndividual($grupoModel->nota, $miembro->diferencia_decimas),
+                    'nota_individual' => $this->calcularNotaIndividual($grupoModel->nota, (float) ($miembro->diferencia_decimas ?? 0)),
                 ]);
             }
         });
@@ -1612,15 +1775,34 @@ class DocenteActivityController extends Controller
             ->where('id_actividad', $actividad->id_actividad)
             ->firstOrFail();
 
+        // El resultado que se espera depende del tipo de actividad, y el tipo lo
+        // sabe el servidor: una sumativa cierra con una nota de 1,0 a 7,0 y una
+        // formativa con una apreciación cualitativa. Antes ambos campos eran
+        // opcionales, así que una sumativa se podía cerrar sin nota —dejando la
+        // del grupo y las individuales en NULL sin que nadie se enterara— y una
+        // formativa podía terminar con un número que su escala no define.
+        $esSumativa = $actividad->tipo_actividad === TipoActividad::SUMATIVA;
+
         $validated = $request->validate([
             'id_agenda_entrega' => 'nullable|integer|exists:agenda,id_agenda',
             'id_rubrica' => 'required|integer|exists:rubrica,id_rubrica',
             'resultado' => 'nullable|array',
             'resultado_rubrica' => 'nullable|array',
             'puntaje_obtenido' => 'nullable|numeric|min:0|max:999',
-            'evaluacion_obtenida' => 'nullable|string|max:500',
+            // `prohibited` acepta el campo ausente o nulo y rechaza sólo un
+            // valor real, que es justo lo que se quiere: el frontend manda
+            // `nota: null` para las formativas.
+            'evaluacion_obtenida' => $esSumativa
+                ? 'nullable|string|max:500'
+                : 'required|string|max:500',
             'mensaje' => 'nullable|string|max:2000',
-            'nota' => 'nullable|numeric|min:1|max:7',
+            'nota' => $esSumativa
+                ? 'required|numeric|min:1|max:7'
+                : 'prohibited',
+        ], [
+            'nota.required' => 'Una actividad sumativa se cierra con una nota de 1,0 a 7,0.',
+            'nota.prohibited' => 'Una actividad formativa no lleva nota numérica; se cierra con su escala cualitativa.',
+            'evaluacion_obtenida.required' => 'Indica el resultado cualitativo (por ejemplo «Aprobado») para cerrar una actividad formativa.',
         ]);
 
         // Verificar que la entrega referenciada pertenece al mismo grupo
@@ -1633,6 +1815,15 @@ class DocenteActivityController extends Controller
             if (!$entregaValida) {
                 return response()->json(['error' => 'La entrega no pertenece a este grupo.'], 422);
             }
+        }
+
+        // Verificar que la rúbrica pertenece a esta actividad
+        $rubricaValida = Rubrica::where('id_rubrica', $validated['id_rubrica'])
+            ->where('id_actividad', $actividad->id_actividad)
+            ->exists();
+
+        if (!$rubricaValida) {
+            return redirect()->back()->withErrors(['id_rubrica' => 'La rúbrica seleccionada no pertenece a esta actividad.']);
         }
 
         try {
@@ -1672,7 +1863,7 @@ class DocenteActivityController extends Controller
                 //     fijadas para cada estudiante (snapshot, tope 1.0–7.0).
                 foreach (IntegranteGrupo::where('id_actividad_asignada_grupo', $grupo)->get() as $miembro) {
                     $miembro->update([
-                        'nota_individual' => $this->calcularNotaIndividual($validated['nota'] ?? null, $miembro->diferencia_decimas),
+                        'nota_individual' => $this->calcularNotaIndividual($validated['nota'] ?? null, (float) ($miembro->diferencia_decimas ?? 0)),
                     ]);
                 }
 

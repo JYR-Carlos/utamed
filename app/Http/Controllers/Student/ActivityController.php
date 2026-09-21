@@ -154,6 +154,17 @@ class ActivityController extends Controller
             $ultimaEvaluacionAgenda = $agendas->reverse()->first(fn (Agenda $a) => $a->evaluacion !== null);
             $rubricaUltimaEvaluacion = $ultimaEvaluacionAgenda?->evaluacion?->rubrica;
 
+            if ($ultimaEvaluacionAgenda?->evaluacion) {
+                $ev = $ultimaEvaluacionAgenda->evaluacion;
+                $ultimaEvaluacion = [
+                    'id_evaluacion'    => $ev->id_evaluacion,
+                    'puntaje_obtenido' => $ev->puntaje_obtenido,
+                    'resultado'        => $ev->resultado,
+                    'retroalimentacion'=> $ultimaEvaluacionAgenda->mensaje,
+                    'rubrica'          => $ev->rubrica?->rubrica,
+                ];
+            }
+
             // Última entrega del estudiante. La comparación usaba el string
             // "Entrega de avance", que no coincide con ningún valor real del
             // enum TipoMensaje ('Entrega de archivo') ni con el que envía el
@@ -202,7 +213,7 @@ class ActivityController extends Controller
             'trae_archivo'          => $actividad->uuid_archivo !== null,
             'entrega_obligatoria'   => strtolower($actividad->tipo_entrega ?? '') !== 'sin entrega',
             'ultima_nota'           => $ultimaNota !== null ? (float) $ultimaNota : null,
-            'ultima_evaluacion'     => null,
+            'ultima_evaluacion'     => $ultimaEvaluacion,
             'ultima_entrega'        => $ultimaEntrega,
             'estado'                => $estado,
             'entradas'              => $entradas,

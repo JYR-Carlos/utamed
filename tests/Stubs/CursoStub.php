@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Models\Curso;
+namespace Tests\Stubs;
 
 /**
  * Stub de Curso para testing
  * Simula un Curso que tiene una AsignacionPlan asociada
  */
-class Curso
+class CursoStub
 {
     private $asignacionPlan;
     private $attributes = [];

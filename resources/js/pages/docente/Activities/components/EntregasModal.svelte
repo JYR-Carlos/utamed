@@ -47,6 +47,7 @@
     grupo: GrupoData;
     rubrica?: Rubrica | null;
     rubricaId?: number | null;
+    esGrupal?: boolean;
     onCerrar: () => void;
     onEvaluar: (idAgenda: number | null) => void;
     onVerAgenda: (grupo: GrupoData) => void;
@@ -59,6 +60,7 @@
     grupo,
     rubrica = null,
     rubricaId = null,
+    esGrupal = true,
     onCerrar,
     onEvaluar,
     onVerAgenda,
@@ -114,7 +116,7 @@
     <div class="flex items-center justify-between px-6 py-4 border-b shrink-0">
       <div>
         <h3 class="text-base font-bold text-gray-900">
-          Entregas — Grupo #{grupo.grupo}
+          Entregas — {esGrupal ? `Grupo #${grupo.grupo}` : (grupo.integrantes[0]?.nombre_completo ?? 'Estudiante')}
         </h3>
         <p class="text-xs text-gray-500 mt-0.5">{nombreActividad}</p>
       </div>
@@ -141,7 +143,9 @@
         <div class="py-12 flex flex-col items-center gap-3 text-center">
           <FileText class="w-10 h-10 text-gray-300" />
           <p class="text-sm font-semibold text-gray-500">Sin archivos entregados</p>
-          <p class="text-xs text-gray-400">El grupo aún no ha subido ningún archivo.</p>
+          <p class="text-xs text-gray-400">
+            {esGrupal ? 'El grupo aún no ha subido ningún archivo.' : 'El estudiante aún no ha subido ningún archivo.'}
+          </p>
         </div>
       {:else}
         <div class="flex flex-col gap-3">

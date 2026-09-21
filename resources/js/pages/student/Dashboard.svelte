@@ -28,13 +28,14 @@
       total_cursos: number;
       nombre_completo: string;
     };
+
     /** Mensajes de curso (curso.mensaje) que el alumno aún no abre. */
     mensajeria?: {
       no_leidos: number;
       cursos: Array<{ id_curso: number; nombre: string; cod_curso: string; no_leidos: number }>;
     };
     isAyudante?: boolean;
-    semestreActual: number;
+    periodoActual: { semestre: number, agno: number}
     /** El servidor ya evaluó si esta persona puede entrar a SGEQ. */
     puedeAbrirSgeq?: boolean;
   }
@@ -44,13 +45,21 @@
     stats,
     mensajeria,
     isAyudante = false,
-    semestreActual,
     puedeAbrirSgeq = false,
+    periodoActual
   }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/estudiante/dashboard' }];
 
   const anoAcademico = new Date().getFullYear();
+
+  const cursosPeriodoActual = $derived(
+    cursos.filter(
+      (c) =>
+        c.semestre_real === periodoActual.semestre &&
+        c.agno_real === periodoActual.agno
+    )
+  );
 
   const authUser = $derived(($page.props.auth as any)?.user);
   const nombreCompleto = $derived(stats?.nombre_completo || authUser?.name || 'Estudiante');
@@ -63,7 +72,7 @@
       <header class="flex items-center justify-between gap-4 flex-wrap mb-8">
         <div class="flex flex-col gap-1">
           <span class="inline-flex items-center gap-1.5 text-xs font-bold text-uta-blue bg-uta-blue-light border border-uta-blue/20 rounded-full px-3 py-0.5 w-fit">
-            Semestre {semestreActual} · {anoAcademico}
+            Semestre {periodoActual.semestre} · {periodoActual.agno}
           </span>
           <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
             Portal Estudiante
@@ -134,11 +143,11 @@
                 <BookOpen class="h-4 w-4 text-slate-500" />
                 <h2 class="text-base font-semibold text-slate-900">Tus cursos</h2>
                 <span class="ml-auto text-xs text-slate-500">
-                  {cursos.length} {cursos.length === 1 ? 'curso' : 'cursos'}
+                  {cursosPeriodoActual.length} {cursosPeriodoActual.length === 1 ? 'curso' : 'cursos'} este periodo
                 </span>
               </div>
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {#each cursos as curso (curso.id_curso)}
+                {#each cursosPeriodoActual as curso (curso.id_curso)}
                   <CourseCard {...curso} />
                 {/each}
               </div>
@@ -159,11 +168,14 @@
                 emptyDescription="Tus cursos todavía no han publicado actividades con fecha."
               />
 
-              <MensajesSinLeerCard
-                total={mensajeria?.no_leidos ?? 0}
-                cursos={mensajeria?.cursos ?? []}
-              />
+              {#if mensajeria && mensajeria?.no_leidos > 0}
+                <MensajesSinLeerCard
+                  total={mensajeria?.no_leidos ?? 0}
+                  cursos={mensajeria?.cursos ?? []}
+                />
 
+              {/if}
+              
               <PropuestaCard
                 icon={Bell}
                 title="Novedades de tus actividades"

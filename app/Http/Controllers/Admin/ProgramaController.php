@@ -332,6 +332,12 @@ class ProgramaController extends Controller
                 $this->createActividadesFromSyllabus($curso, $actividadesByCreate);
             }
 
+            // ── Sincronizar bibliografías desde sección VIII del syllabus ─────────
+            $seccionVIII = $validated['secciones']['VIII']['contenido']['bibliografias'] ?? [];
+            if (!empty($seccionVIII)) {
+                $this->createBibliografiasFromSyllabus($programa, $seccionVIII);
+            }
+
             Log::info('Programa creado', [
                 'id_programa' => $programa->id_programa,
                 'id_curso' => $curso->id_curso,
@@ -414,6 +420,11 @@ class ProgramaController extends Controller
                 $validated['contenido'],
                 $isConversionTrigger  // Flag para conversión automática
             );
+
+            if ($seccionId === 'VIII') {
+                $seccionVIII = $validated['contenido']['bibliografias'] ?? [];
+                $this->createBibliografiasFromSyllabus($programa, $seccionVIII);
+            }
 
             Log::info('Sección actualizada', [
                 'id_programa' => $programa->id_programa,
@@ -1001,6 +1012,109 @@ class ProgramaController extends Controller
             ->whereNotIn('id_unidad', $keptIds)
             ->whereDoesntHave('actividades')
             ->delete();
+    }
+
+    /**
+     * Sincroniza las bibliografías del programa a partir de la sección VIII del syllabus.
+     */
+    private function createBibliografiasFromSyllabus(Programa $programa, array $bibliografiasData): void
+    {
+        if (empty($bibliografiasData)) {
+            $oldBibs = \App\Models\Curso\Bibliografia::where('id_programa', $programa->id_programa)->get();
+            foreach ($oldBibs as $old) {
+                if ($old->uuid_archivo) {
+                    $stillReferenced = \App\Models\Curso\Bibliografia::where('uuid_archivo', $old->uuid_archivo)
+                        ->where('uuid_bibliografia', '!=', $old->uuid_bibliografia)
+                        ->exists();
+                    if (!$stillReferenced) {
+                        \App\Models\Operaciones\Archivo::where('uuid_archivo', $old->uuid_archivo)
+                            ->update(['pendiente_de_borrado' => true]);
+                    }
+                }
+                $old->delete();
+            }
+            return;
+        }
+
+        $keptIds = [];
+
+        foreach ($bibliografiasData as $bibData) {
+            if (empty($bibData['titulo'])) {
+                continue;
+            }
+
+            // Resolver id_unidad a partir del número ordinal de unidad en el syllabus
+            $resolvedIdUnidad = null;
+            if (!empty($bibData['id_unidad'])) {
+                $unidadObj = Unidad::where('id_curso', $programa->id_curso)
+                    ->where('num_unidad', (int) $bibData['id_unidad'])
+                    ->first();
+                $resolvedIdUnidad = $unidadObj?->id_unidad;
+            }
+
+            // Actualizar si ya existe por ID, o crear nueva
+            if (!empty($bibData['uuid_bibliografia'])) {
+                $bibliografia = \App\Models\Curso\Bibliografia::find($bibData['uuid_bibliografia']);
+                if ($bibliografia && $bibliografia->id_programa === $programa->id_programa) {
+                    // Si el archivo cambió, marcar el anterior como pendiente de borrado solo si no está en uso
+                    if ($bibliografia->uuid_archivo && $bibliografia->uuid_archivo !== ($bibData['uuid_archivo'] ?? null)) {
+                        $stillReferenced = \App\Models\Curso\Bibliografia::where('uuid_archivo', $bibliografia->uuid_archivo)
+                            ->where('uuid_bibliografia', '!=', $bibliografia->uuid_bibliografia)
+                            ->exists();
+                        if (!$stillReferenced) {
+                            \App\Models\Operaciones\Archivo::where('uuid_archivo', $bibliografia->uuid_archivo)
+                                ->update(['pendiente_de_borrado' => true]);
+                        }
+                    }
+
+                    $bibliografia->update([
+                        'id_unidad' => $resolvedIdUnidad,
+                        'titulo' => $bibData['titulo'],
+                        'autor' => !empty($bibData['autor']) ? $bibData['autor'] : 'Desconocido',
+                        'cita' => $bibData['cita'] ?? null,
+                        'agno' => $bibData['anio'] ?? date('Y'),
+                        'es_bibliografia_uta' => $bibData['es_bibliografia_uta'] ?? false,
+                        'url' => $bibData['url'] ?? null,
+                        'uuid_archivo' => $bibData['uuid_archivo'] ?? null,
+                    ]);
+                    $keptIds[] = $bibliografia->uuid_bibliografia;
+                    continue;
+                }
+            }
+
+            // Crear nueva bibliografía
+            $nueva = \App\Models\Curso\Bibliografia::create([
+                'id_programa' => $programa->id_programa,
+                'id_unidad' => $resolvedIdUnidad,
+                'titulo' => $bibData['titulo'],
+                'autor' => !empty($bibData['autor']) ? $bibData['autor'] : 'Desconocido',
+                'cita' => $bibData['cita'] ?? null,
+                'agno' => $bibData['anio'] ?? date('Y'),
+                'es_bibliografia_uta' => $bibData['es_bibliografia_uta'] ?? false,
+                'url' => $bibData['url'] ?? null,
+                'uuid_archivo' => $bibData['uuid_archivo'] ?? null,
+                'agregado_por' => \Illuminate\Support\Facades\Auth::id(),
+            ]);
+            $keptIds[] = $nueva->uuid_bibliografia;
+        }
+
+        // Eliminar bibliografías que ya no aparecen y marcar archivos huérfanos
+        $deletedBibs = \App\Models\Curso\Bibliografia::where('id_programa', $programa->id_programa)
+            ->whereNotIn('uuid_bibliografia', $keptIds)
+            ->get();
+
+        foreach ($deletedBibs as $delBib) {
+            if ($delBib->uuid_archivo) {
+                $stillReferenced = \App\Models\Curso\Bibliografia::where('uuid_archivo', $delBib->uuid_archivo)
+                    ->where('uuid_bibliografia', '!=', $delBib->uuid_bibliografia)
+                    ->exists();
+                if (!$stillReferenced) {
+                    \App\Models\Operaciones\Archivo::where('uuid_archivo', $delBib->uuid_archivo)
+                        ->update(['pendiente_de_borrado' => true]);
+                }
+            }
+            $delBib->delete();
+        }
     }
 
     private function createActividadesFromSyllabus(Curso $curso, array $actividadesData)

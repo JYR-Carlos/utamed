@@ -11,9 +11,13 @@
      * - Manejo de errores con focus automático en campos con error
      * - Mensaje de éxito tras actualización
      * - Reset de formulario tras éxito o error
+     *
+     * El cambio obligatorio (primer ingreso o clave vencida) no pasa por aquí:
+     * el controlador lo manda a `auth/CambioPasswordObligatorio`, que no usa el
+     * layout de la aplicación.
      */
     import PasswordController from '@/actions/App/Http/Controllers/Settings/PasswordController';
-import HeadingSmall from '@/components/custom/common/HeadingSmall.svelte';
+    import HeadingSmall from '@/components/custom/common/HeadingSmall.svelte';
     import InputError from '@/components/custom/common/InputError.svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';

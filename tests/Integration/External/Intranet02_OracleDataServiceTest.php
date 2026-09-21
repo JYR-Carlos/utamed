@@ -69,7 +69,6 @@ describe('02. Servicio OracleDataService Real (Sin Mocks)', function () {
         $curCodigos = $oracleService->traer_cur_codigos(
             semestre: (int)$cursoDb->CURSO_SEMESTRE_ASIG,
             agno: (int)$cursoDb->CURSO_ANO,
-            carreraCod: (int)$cursoDb->CARRERA_COD,
             planCod: (int)$cursoDb->PLAN_ANO,
             asigCodigo: trim($cursoDb->ASIG_CODIGO),
             grupoAsig: $cursoDb->CURSO_GRUPO_ASIG

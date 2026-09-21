@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENV_FILE=".env"
+if [ -f ".env.prod" ]; then
+    ENV_FILE=".env.prod"
+else
+    ENV_FILE=".env"
+fi
 
 REMOTE_REPO_DIR="/home/utamed/utamed"
 REMOTE_TARGET_DIR="/var/www/prod_utamed"
@@ -13,7 +17,7 @@ WEB_USER="www-data"
 WEB_GROUP="www-data"
 
 if [ ! -f "$ENV_FILE" ]; then
-    echo "Error: no existe el archivo .env"
+    echo "Error: no existe el archivo de entorno ($ENV_FILE)"
     exit 1
 fi
 
@@ -26,25 +30,35 @@ if [ -z "${SERVER_IP:-}" ] || [ -z "${SERVER_USER:-}" ]; then
     exit 1
 fi
 
-read -s -p "Contraseña SSH/SUDO para $SERVER_USER@$SERVER_IP: " SERVER_PASSWORD
-echo ""
-
-if [ -z "$SERVER_PASSWORD" ]; then
-    echo "Error: contraseña vacía"
-    exit 1
+SSH_KEY_AUTH=false
+if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 "$SERVER_USER@$SERVER_IP" true 2>/dev/null; then
+    SSH_KEY_AUTH=true
 fi
 
-if ! command -v sshpass >/dev/null 2>&1; then
-    echo "Error: necesitas instalar sshpass"
-    echo "Debian/Ubuntu: sudo apt install sshpass"
-    exit 1
+SERVER_PASSWORD=""
+if [ "$SSH_KEY_AUTH" = "false" ]; then
+    read -s -p "Contraseña SSH/SUDO para $SERVER_USER@$SERVER_IP: " SERVER_PASSWORD
+    echo ""
+    if [ -z "$SERVER_PASSWORD" ]; then
+        echo "Error: contraseña vacía"
+        exit 1
+    fi
+    if ! command -v sshpass >/dev/null 2>&1; then
+        echo "Error: necesitas instalar sshpass"
+        echo "Debian/Ubuntu: sudo apt install sshpass"
+        exit 1
+    fi
 fi
 
 echo "[1/9] Conectando al servidor..."
 
-sshpass -p "$SERVER_PASSWORD" ssh \
-    -o StrictHostKeyChecking=accept-new \
-    "$SERVER_USER@$SERVER_IP" bash -s <<EOF
+if [ "$SSH_KEY_AUTH" = "true" ]; then
+    SSH_CMD=(ssh -o StrictHostKeyChecking=accept-new "$SERVER_USER@$SERVER_IP")
+else
+    SSH_CMD=(sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=accept-new "$SERVER_USER@$SERVER_IP")
+fi
+
+"${SSH_CMD[@]}" bash -s <<EOF
 
 set -euo pipefail
 
@@ -57,7 +71,7 @@ WEB_GROUP="$WEB_GROUP"
 SERVER_PASSWORD="$SERVER_PASSWORD"
 
 sudo_cmd() {
-    echo "\$SERVER_PASSWORD" | sudo -S "\$@"
+    sudo -n "\$@" 2>/dev/null || echo "\$SERVER_PASSWORD" | sudo -S "\$@"
 }
 
 echo "[2/9] Entrando al repositorio fuente..."
@@ -142,6 +156,15 @@ sudo_cmd chmod -R ug+rwX "$SHARED_STORAGE_DIR"
 sudo_cmd rm -f public/storage
 sudo_cmd ln -s ../storage/app/public public/storage
 sudo_cmd chown -h "$WEB_USER:$WEB_GROUP" public/storage
+
+echo "Creando snapshot preventivo de la base de datos (PostgreSQL 5432)..."
+mkdir -p /home/utamed/backups
+BACKUP_FILE="/home/utamed/backups/pre_deploy_\$(date +%Y%m%d_%H%M%S).dump"
+PGPASSWORD=utamed pg_dump -h 127.0.0.1 -p 5432 -U utamed -d utamed_1ra_fase -Fc -f "\$BACKUP_FILE"
+echo "Snapshot generado con éxito en \$BACKUP_FILE"
+
+# Mantener solo los últimos 10 respaldos
+ls -tp /home/utamed/backups/*.dump 2>/dev/null | grep -v '/\$' | tail -n +11 | xargs -I {} rm -- {} 2>/dev/null || true
 
 sudo_cmd -u "\$WEB_USER" php artisan migrate --force
 sudo_cmd -u "\$WEB_USER" php artisan optimize

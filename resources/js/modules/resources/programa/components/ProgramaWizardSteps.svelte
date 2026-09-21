@@ -14,9 +14,12 @@
    */
   import {
     AlertCircle,
+    BookOpen,
     ChevronDown,
     ChevronUp,
+    ExternalLink,
     Lock,
+    Paperclip,
     Plus,
     Trash2,
   } from 'lucide-svelte';
@@ -26,6 +29,9 @@
     WizardComponente,
   } from '@/modules/resources/programa/types/programa.types';
   import type { IdPaso, TipoSyllabus } from '../utils/syllabusPasos';
+  import BibliografiaModal from './BibliografiaModal.svelte';
+  import { formatDomainUrl } from '@/utils/formatters';
+  import type { BibliografiaSyllabus } from '@/types/syllabus.types';
 
   interface Props {
     seccion: IdPaso;
@@ -68,8 +74,13 @@
     metodologia: string;
     evaluacion: string;
 
-    // Sección VIII: Recursos
-    recursos: { descripcion: string; tipo: string; ubicacion: string }[];
+    // Sección VIII: Bibliografía y Recursos
+    bibliografias?: BibliografiaSyllabus[];
+
+    /**
+     * @deprecated Sección VIII ahora utiliza `bibliografias`. Mantenido por retrocompatibilidad con esquemas anteriores.
+     */
+    recursos?: { descripcion: string; tipo: string; ubicacion: string }[];
 
     // Sección IX: Aspectos Administrativos
     normativa_curso: string;
@@ -100,11 +111,14 @@
     resultados_aprendizaje,
     metodologia = $bindable(),
     evaluacion = $bindable(),
-    recursos = $bindable(),
+    bibliografias = $bindable([]),
+    recursos = $bindable([]),
     normativa_curso = $bindable(),
     ponderacion_optativa = $bindable(),
     componentes = $bindable(),
   }: Props = $props();
+
+  let showBibliografiaModal = $state(false);
 
   const esBasico = $derived(tipo === 'BASICO');
 
@@ -887,73 +901,142 @@
     -->
   </div>
 
-  <!-- ══ VIII. Recursos ══ -->
+  <!-- ══ VIII. Bibliografía y Recursos ══ -->
 {:else if seccion === 'VIII'}
-  <div class="flex max-w-[900px] flex-col gap-4">
-    {@render encabezado(
-      'VIII',
-      'Recursos',
-      esBasico
-        ? 'Bibliografía y materiales de la asignatura.'
-        : 'Bibliografía y materiales. El syllabus completo pide al menos dos.',
-    )}
-
-    {#each recursos as rec, i}
-      <div class="flex flex-col gap-2.5 rounded-[9px] border border-[#E5E7EB] bg-white p-3.5">
-        <div class="flex items-start gap-2">
-          <div class="flex flex-1 flex-col gap-1.5">
-            <span class={LABEL}>Referencia</span>
-            <input
-              type="text"
-              bind:value={rec.descripcion}
-              placeholder="Murray, J. (2017). Hamlet on the Holodeck. MIT Press."
-              class={INPUT}
-            />
+  <div class="flex max-w-[900px] flex-col gap-5">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="flex flex-col gap-1">
+        {@render encabezado(
+          'VIII',
+          'Bibliografía',
+          esBasico
+            ? 'Bibliografía y material de apoyo de la asignatura.'
+            : 'Bibliografía y recursos académicos. El syllabus completo pide al menos dos referencias.',
+        )}
+        {#if bibliografias && bibliografias.length > 0}
+          <div class="mt-2 flex items-center gap-4 text-[11px] font-medium text-[#5A5E6E]">
+            <span class="text-[10.5px] uppercase tracking-wider text-[#9AA0AE]">Leyenda:</span>
+            <div class="flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full border border-[#D6D9E0] bg-white shadow-xs"></span>
+              <span>Propia (UTAMED)</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full border border-[#C5D5EA] bg-[#E8EDF5] shadow-xs"></span>
+              <span class="font-semibold text-[#002F6C]">Oficial UTA</span>
+            </div>
           </div>
-          <button
-            type="button"
-            class="{BORRAR} mt-7"
-            aria-label="Quitar recurso"
-            onclick={() => (recursos = quitar(recursos, i))}
-          >
-            <Trash2 size={15} aria-hidden="true" />
-          </button>
-        </div>
-        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-          <div class="flex flex-col gap-1.5">
-            <span class={LABEL}>Tipo</span>
-            <select bind:value={rec.tipo} class={INPUT}>
-              {#each RECURSO_TIPOS as t}
-                <option value={t}>{t}</option>
-              {/each}
-            </select>
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <span class={LABEL}>Ubicación o enlace</span>
-            <input
-              type="text"
-              bind:value={rec.ubicacion}
-              placeholder="Biblioteca central · https://…"
-              class={INPUT}
-            />
-          </div>
-        </div>
+        {/if}
       </div>
-    {/each}
 
-    <button
-      type="button"
-      class={ADD_BLOQUE}
-      onclick={() => (recursos = [...recursos, { descripcion: '', tipo: 'Libro', ubicacion: '' }])}
-    >
-      <Plus size={15} aria-hidden="true" />
-      Añadir referencia
-    </button>
+      {#if editable}
+        <button
+          type="button"
+          onclick={() => (showBibliografiaModal = true)}
+          class="flex items-center gap-2 rounded-[8px] border border-[#002F6C] bg-[#002F6C] px-3.5 py-2 text-[13px] font-semibold text-white shadow-xs transition-colors hover:bg-[#1B4789]"
+        >
+          <Plus size={15} aria-hidden="true" />
+          Añadir bibliografía
+        </button>
+      {/if}
+    </div>
 
-    {#if !esBasico && recursos.filter((r) => r.descripcion.trim()).length < 2}
+    <div class="flex flex-col gap-3">
+      {#if bibliografias && bibliografias.length > 0}
+        {@const agrupadas = bibliografias.reduce((acc, bib) => {
+          const unidadAsociada = unidades.find((u) => u.numero === bib.id_unidad);
+          const key = bib.id_unidad
+            ? (unidadAsociada && unidadAsociada.titulo ? `Unidad ${bib.id_unidad}: ${unidadAsociada.titulo}` : `Unidad ${bib.id_unidad}`)
+            : 'General';
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(bib);
+          return acc;
+        }, {} as Record<string, typeof bibliografias>)}
+
+        {#each Object.entries(agrupadas) as [grupo, bibs] (grupo)}
+          <div class="flex flex-col gap-2">
+            <h4 class="ml-1 mt-2 text-[11.5px] font-bold uppercase tracking-wider text-[#9AA0AE]">{grupo}</h4>
+            <div class="flex flex-col gap-2">
+              {#each bibs as bib (bib)}
+                <div
+                  class="group relative flex flex-col gap-1.5 rounded-[9px] border p-3.5 transition-colors {bib.es_bibliografia_uta ? 'border-[#C5D5EA] bg-[#F5F8FC]' : 'border-[#E5E7EB] bg-white'}"
+                >
+                  {#if editable}
+                    <button
+                      type="button"
+                      onclick={() => (bibliografias = bibliografias.filter((b) => b !== bib))}
+                      class="absolute top-3 right-3 text-[#9AA0AE] opacity-0 transition-opacity group-hover:opacity-100 hover:text-[#B91C1C]"
+                      aria-label="Eliminar bibliografía"
+                    >
+                      <Trash2 size={15} aria-hidden="true" />
+                    </button>
+                  {/if}
+
+                  <div class="flex flex-wrap items-center gap-2 pr-7">
+                    <span class="text-[14px] font-semibold text-[#1A1A24]">{bib.titulo}</span>
+                    {#if bib.autor}
+                      <span class="text-[13px] text-[#5A5E6E]">· {bib.autor}</span>
+                    {/if}
+                    <span class="rounded-sm bg-[#EDEFF3] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[#5A5E6E]">{bib.anio}</span>
+                    {#if bib.editorial}
+                      <span class="text-[12px] italic text-[#9AA0AE]">({bib.editorial})</span>
+                    {/if}
+                    {#if bib.es_bibliografia_uta}
+                      <span class="rounded-full bg-[#E8EDF5] px-2 py-0.5 text-[10.5px] font-bold text-[#002F6C]">Oficial UTA</span>
+                    {/if}
+                  </div>
+
+                  {#if bib.cita}
+                    <p class="m-0 text-[12.5px] italic text-[#5A5E6E]">«{bib.cita}»</p>
+                  {/if}
+
+                  <div class="mt-1 flex items-center gap-3 text-[12px]">
+                    {#if bib.url}
+                      <a
+                        href={bib.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-1 font-medium text-[#002F6C] hover:underline"
+                      >
+                        <ExternalLink size={13} aria-hidden="true" />
+                        {formatDomainUrl(bib.url)}
+                      </a>
+                    {:else if bib.uuid_archivo}
+                      <span class="inline-flex items-center gap-1 font-medium text-[#2E7D32]">
+                        <Paperclip size={13} aria-hidden="true" />
+                        Archivo adjunto
+                      </span>
+                    {/if}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/each}
+      {:else}
+        <div class="flex flex-col items-center justify-center rounded-[10px] border border-dashed border-[#D6D9E0] bg-[#FAFAFB] px-6 py-10 text-center">
+          <BookOpen size={28} class="mb-2 text-[#9AA0AE]" aria-hidden="true" />
+          <p class="m-0 text-[14px] font-semibold text-[#1A1A24]">Sin bibliografía</p>
+          <p class="m-0 mt-1 max-w-sm text-[12.5px] text-[#5A5E6E]">
+            Aún no has agregado recursos. Haz clic en el botón superior para añadir libros, enlaces o documentos adjuntos.
+          </p>
+        </div>
+      {/if}
+    </div>
+
+    {#if !esBasico && bibliografias.filter((b) => b.titulo?.trim()).length < 2}
       {@render aviso('El syllabus completo exige al menos dos referencias.')}
     {/if}
   </div>
+
+  <BibliografiaModal
+    isOpen={showBibliografiaModal}
+    {unidades}
+    idCurso={curso?.id_curso}
+    onClose={() => (showBibliografiaModal = false)}
+    onSave={(data) => {
+      bibliografias = [...(bibliografias || []), data];
+    }}
+  />
 
   <!-- ══ IX. Aspectos Administrativos ══ -->
 {:else if seccion === 'IX'}
