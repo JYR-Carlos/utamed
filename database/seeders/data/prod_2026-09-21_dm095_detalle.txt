@@ -1,0 +1,60 @@
+
+=== DETALLE DE 2 CURSO(S) — BD: utamed_1ra_fase ===
+
+################ [2] DM095 Taller Profesional IV — paralelo A — cod_curso=11000 — titular csandovy (id_usuario 3) — id_contexto=17
+
+  UNIDADES (3)
+    id_unidad=4    num=1    Unidad 1 : Fundamentos y Entorno de Trabajo   actividades=1 bibliografias=0
+      descripcion: Instalación de Unity
+Primeros pasos en Unity 6
+Conociendo Objetos de juego
+Gestión de Materiales
+Gestión de Recursos
+Ilu
+    id_unidad=5    num=2    Unidad 2 : Animación de Objetos y Personajes actividades=0 bibliografias=0
+      descripcion: Animaciones Básicas de Objetos
+Sistema de Partículas
+Personajes y Enemigos Animados
+Control de Animaciones
+    id_unidad=6    num=3    Unidad 3 : Interactividad e Interfaz de Usuario actividades=0 bibliografias=0
+      descripcion: Lenguaje de Programación en Unity (C#)
+C# para eventos y conexión con el Panel Inspector
+Mecánicas de Juego
+Interfaz de
+
+  COMPONENTES (2)
+    id_componente=3    Laboratorio  id_contexto=19     genera_acta=sí aprob=60.00% asist=75.00%  docentes=[csandovy*]  inscritos_componente=19
+    id_componente=11   Taller       id_contexto=47     genera_acta=sí aprob=60.00% asist=75.00%  docentes=[csandovy*]  inscritos_componente=19
+
+  ACTIVIDADES (1)
+    id_actividad=7    Tarea 1                                       SUMATIVA  entrega=online     limite=2026-09-15 pond=30 exig=60 grupal=no max=1 visible=sí plantilla=no
+      componente=Laboratorio#3  unidad=Unidad 1 : Fundamentos y Entorno de Trabajo (num 1, id 4)  grupos=19 rubricas=1 enunciado=no
+
+  PROGRAMAS (1)
+    id_programa=2    version=1 estado=APROBADO         es_actual=sí creado_por=1 (superadmin) revisado_por=1 bibliografias_tabla=0
+      tipo_syllabus=COMPLETO  timestamp=2026-08-21T16:45:49-04:00
+      [I   ] 11000 Taller Profesional IV, 6 SCT, horas C/T/L=0/4/0, categoria=Obligatorio  (ultima_modificacion=null)
+      [V   ] items=1  (ultima_modificacion=null)
+      [II  ] texto de 926 caracteres  (ultima_modificacion=null)
+      [IV  ] especificas=1 genericas=1 subcompetencias=1  (ultima_modificacion=null)
+      [IX  ] tabla_componentes=1  (ultima_modificacion=null)
+      [VI  ] unidades=3 → 1:Unidad 1 : Fundamentos y Entor | 2:Unidad 2 : Animación de Objeto | 3:Unidad 3 : Interactividad e In  (ultima_modificacion=null)
+      [III ] texto de 9 caracteres  (ultima_modificacion=null)
+      [VII ] planificacion (COMPLETO): evaluacion,metodologia,resultados_aprendizaje  (ultima_modificacion=null)
+      [VIII] bibliografias=0 recursos=2  (ultima_modificacion=null)
+
+  BIBLIOGRAFIA (0)
+
+################ [5] DM095 Taller Profesional IV — paralelo B — cod_curso=111100 — titular csandovy (id_usuario 3) — id_contexto=34
+
+  UNIDADES (0)
+
+  COMPONENTES (2)
+    id_componente=8    Laboratorio  id_contexto=36     genera_acta=sí aprob=60.00% asist=75.00%  docentes=[csandovy*]  inscritos_componente=19
+    id_componente=12   Taller       id_contexto=49     genera_acta=sí aprob=60.00% asist=75.00%  docentes=[NINGUNO]  inscritos_componente=19
+
+  ACTIVIDADES (0)
+
+  PROGRAMAS (0)
+
+  BIBLIOGRAFIA (0)
