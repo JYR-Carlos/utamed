@@ -59,6 +59,8 @@
     rubrica?: Rubrica;
     puntaje_obtenido?: number;
     resultado?: Record<string, string> | null;
+    archivo?: { nombre_original: string; peso_bytes: number | null; mime_type: string | null; visualizable: boolean } | null;
+    entrega_evaluada?: { id_agenda: number; fecha_envio: string; nombre_original: string | null } | null;
   };
 
   type IntegranteData = {
@@ -817,6 +819,9 @@
           nombre_grupo={actividad.es_grupal
             ? `Grupo #${grupoSeleccionado.grupo}`
             : (grupoSeleccionado.integrantes[0]?.nombre_completo ?? `Estudiante #${grupoSeleccionado.grupo}`)}
+          idCurso={curso.id_curso}
+          idActividad={actividad.id_actividad}
+          idGrupo={grupoSeleccionado.grupo}
           listado_interacciones={interaccionesGrupo}
           isLoading={isLoadingInteracciones}
           errorMensaje={errorInteracciones}

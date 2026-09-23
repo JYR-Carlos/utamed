@@ -120,7 +120,14 @@ class ActivityController extends Controller
                 ->orderBy('fecha_envio', 'asc')
                 ->get();
 
-            $interacciones = $agendas->map(function (Agenda $agenda) use ($user) {
+            // Una evaluación repite el archivo de la entrega que califica
+            // (DocenteActivityController::storeEvaluacion); así se sabe a cuál
+            // se refiere cada una.
+            $entregasPorArchivo = $agendas
+                ->filter(fn (Agenda $a) => $a->tipo_mensaje === TipoMensaje::ENTREGA_DE_ARCHIVO && $a->uuid_archivo_subido)
+                ->keyBy('uuid_archivo_subido');
+
+            $interacciones = $agendas->map(function (Agenda $agenda) use ($user, $entregasPorArchivo) {
                 $evaluacion = $agenda->evaluacion;
                 $rubricaData = $evaluacion?->rubrica?->rubrica;
 
@@ -148,6 +155,7 @@ class ActivityController extends Controller
                     'archivo'            => $agenda->tipo_mensaje === TipoMensaje::ENTREGA_DE_ARCHIVO
                         ? $agenda->getArchivoInfo()
                         : null,
+                    'entrega_evaluada'   => $this->entregaEvaluada($agenda, $entregasPorArchivo),
                 ];
             })->values()->toArray();
 
@@ -342,11 +350,28 @@ class ActivityController extends Controller
             abort(404, 'El archivo no existe en el servidor.');
         }
 
-        return response()->download(
-            $rutaArchivo,
-            $agenda->archivo->nombre_original,
-            ['Content-Type' => $agenda->archivo->mime_type]
-        );
+        return $agenda->archivo->respuestaHttp($rutaArchivo, request()->boolean('ver'));
+    }
+
+    /**
+     * Entrega a la que se refiere una fila «Evaluación», o null si no es una
+     * evaluación o si se registró sin elegir entrega (evaluación general).
+     *
+     * @param  \Illuminate\Support\Collection<string, Agenda>  $entregasPorArchivo
+     */
+    private function entregaEvaluada(Agenda $agenda, $entregasPorArchivo): ?array
+    {
+        if ($agenda->tipo_mensaje !== TipoMensaje::EVALUACIÓN || !$agenda->uuid_archivo_subido) {
+            return null;
+        }
+
+        $entrega = $entregasPorArchivo->get($agenda->uuid_archivo_subido);
+
+        return $entrega ? [
+            'id_agenda'       => $entrega->id_agenda,
+            'fecha_envio'     => (string) $entrega->fecha_envio,
+            'nombre_original' => $entrega->archivo?->nombre_original,
+        ] : null;
     }
 }
 

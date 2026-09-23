@@ -1517,33 +1517,11 @@ class DocenteActivityController extends Controller
         // Verificar que la actividad pertenece a este curso
         $this->assertActividadDeCurso($curso, $actividad);
 
-        $entregas = Agenda::whereHas('actividadAsignadaGrupo', function ($query) use ($actividad) {
-            $query->where('id_actividad', $actividad->id_actividad);
-        })
-            ->with(['usuario', 'archivo', 'evaluacion'])
-            ->orderBy('fecha_envio', 'desc')
-            ->get()
-            ->map(function ($entrega) {
-                return [
-                    'id_agenda' => $entrega->id_agenda,
-                    'fecha_envio' => $entrega->fecha_envio,
-                    'mensaje' => $entrega->mensaje,
-                    'tipo_registro' => $entrega->tipo_mensaje?->value,
-                    'archivo' => $entrega->uuid_archivo_subido ? [
-                        'uuid' => $entrega->archivo?->uuid_archivo,
-                        'nombre_original' => $entrega->archivo?->nombre_original,
-                        'extension' => $entrega->archivo?->extension,
-                        'mime_type' => $entrega->archivo?->mime_type,
-                        'peso_bytes' => $entrega->archivo?->peso_bytes,
-                        'fecha_creacion' => $entrega->archivo?->fecha_creacion,
-                    ] : null,
-                    'usuario_emisor' => [
-                        'nombre' => $entrega->usuario?->nombre_completo ?? '',
-                        'rut' => $entrega->usuario?->rut,
-                    ],
-                    'evaluada' => $entrega->evaluacion !== null,
-                ];
-            });
+        $entregas = $this->listarEntregas(
+            Agenda::whereHas('actividadAsignadaGrupo', function ($query) use ($actividad) {
+                $query->where('id_actividad', $actividad->id_actividad);
+            })
+        );
 
         return response()->json($entregas);
     }
@@ -1567,39 +1545,55 @@ class DocenteActivityController extends Controller
             return response()->json(['error' => 'Grupo no encontrado.'], 404);
         }
 
-        $entregas = Agenda::where('id_actividad_asignada_grupo', $grupo)
-            ->with(['usuario', 'archivo', 'evaluacion'])
-            ->orderBy('fecha_envio', 'desc')
-            ->get()
-            ->map(function ($entrega) {
-                return [
-                    'id_agenda' => $entrega->id_agenda,
-                    'fecha_envio' => $entrega->fecha_envio,
-                    'mensaje' => $entrega->mensaje,
-                    'tipo_registro' => $entrega->tipo_mensaje?->value,
-                    'archivo' => $entrega->uuid_archivo_subido ? [
-                        'uuid' => $entrega->archivo?->uuid_archivo,
-                        'nombre_original' => $entrega->archivo?->nombre_original,
-                        'extension' => $entrega->archivo?->extension,
-                        'mime_type' => $entrega->archivo?->mime_type,
-                        'peso_bytes' => $entrega->archivo?->peso_bytes,
-                        'fecha_creacion' => $entrega->archivo?->fecha_creacion,
-                    ] : null,
-                    'usuario_emisor' => [
-                        'nombre' => $entrega->usuario?->nombre_completo ?? '',
-                        'rut' => $entrega->usuario?->rut,
-                    ],
-                    'evaluada' => $entrega->evaluacion !== null,
-                ];
-            });
+        $entregas = $this->listarEntregas(Agenda::where('id_actividad_asignada_grupo', $grupo));
 
         return response()->json($entregas);
     }
 
     /**
-     * Descarga un archivo enviado
+     * Entregas de archivo de la consulta dada, de la más nueva a la más vieja.
+     *
+     * Se filtra por tipo porque las filas «Evaluación» también llevan
+     * `uuid_archivo_subido` (el de la entrega que evalúan) y, sin el filtro,
+     * aparecerían como entregas repetidas.
      */
-    public function descargarEntrega(Curso $curso, Actividad $actividad, int $grupo, Agenda $agenda)
+    private function listarEntregas($query)
+    {
+        $entregas = $query
+            ->where('tipo_mensaje', TipoMensaje::ENTREGA_DE_ARCHIVO->value)
+            ->with(['usuario', 'archivo'])
+            ->orderBy('fecha_envio', 'desc')
+            ->get();
+
+        $evaluados = Agenda::uuidsEvaluados($entregas->pluck('id_actividad_asignada_grupo')->unique());
+
+        return $entregas->map(fn (Agenda $entrega) => [
+            'id_agenda' => $entrega->id_agenda,
+            'fecha_envio' => $entrega->fecha_envio,
+            'mensaje' => $entrega->mensaje,
+            'tipo_registro' => $entrega->tipo_mensaje?->value,
+            'archivo' => $entrega->uuid_archivo_subido ? [
+                'uuid' => $entrega->archivo?->uuid_archivo,
+                'nombre_original' => $entrega->archivo?->nombre_original,
+                'extension' => $entrega->archivo?->extension,
+                'mime_type' => $entrega->archivo?->mime_type,
+                'peso_bytes' => $entrega->archivo?->peso_bytes,
+                'fecha_creacion' => $entrega->archivo?->fecha_creacion,
+                'visualizable' => (bool) $entrega->archivo?->esVisualizableEnNavegador(),
+            ] : null,
+            'usuario_emisor' => [
+                'nombre' => $entrega->usuario?->nombre_completo ?? '',
+                'rut' => $entrega->usuario?->rut,
+            ],
+            'evaluada' => in_array($entrega->uuid_archivo_subido, $evaluados, true),
+        ])->values();
+    }
+
+    /**
+     * Descarga un archivo enviado. Con `?ver=1` lo muestra en el navegador si
+     * es un PDF o una imagen (Archivo::respuestaHttp).
+     */
+    public function descargarEntrega(Request $request, Curso $curso, Actividad $actividad, int $grupo, Agenda $agenda)
     {
         $this->authorize('viewPrograma', $curso);
         $this->assertActividadDeCurso($curso, $actividad);
@@ -1632,11 +1626,7 @@ class DocenteActivityController extends Controller
             return response()->json(['error' => 'El archivo no existe en el servidor.'], 404);
         }
 
-        return response()->download(
-            $rutaArchivo,
-            $agenda->archivo->nombre_original,
-            ['Content-Type' => $agenda->archivo->mime_type]
-        );
+        return $agenda->archivo->respuestaHttp($rutaArchivo, $request->boolean('ver'));
     }
 
     // =========================================================================
@@ -1805,16 +1795,23 @@ class DocenteActivityController extends Controller
             'evaluacion_obtenida.required' => 'Indica el resultado cualitativo (por ejemplo «Aprobado») para cerrar una actividad formativa.',
         ]);
 
-        // Verificar que la entrega referenciada pertenece al mismo grupo
+        // La entrega evaluada tiene que ser una entrega de archivo de este mismo
+        // grupo. Su archivo se copia en la fila «Evaluación»: agenda.agenda no
+        // tiene columna de referencia, y así la agenda puede decir qué se evaluó
+        // y la entrega deja de figurar como pendiente (Agenda::uuidsEvaluados).
+        $uuidArchivoEvaluado = null;
         if (!empty($validated['id_agenda_entrega'])) {
-            $entregaValida = DB::table('agenda.agenda')
+            $entrega = DB::table('agenda.agenda')
                 ->where('id_agenda', $validated['id_agenda_entrega'])
                 ->where('id_actividad_asignada_grupo', $grupo)
-                ->exists();
+                ->where('tipo_mensaje', TipoMensaje::ENTREGA_DE_ARCHIVO->value)
+                ->first(['uuid_archivo_subido']);
 
-            if (!$entregaValida) {
-                return response()->json(['error' => 'La entrega no pertenece a este grupo.'], 422);
+            if (!$entrega) {
+                return redirect()->back()->withErrors(['id_agenda_entrega' => 'La entrega no pertenece a este grupo.']);
             }
+
+            $uuidArchivoEvaluado = $entrega->uuid_archivo_subido;
         }
 
         // Verificar que la rúbrica pertenece a esta actividad
@@ -1827,7 +1824,7 @@ class DocenteActivityController extends Controller
         }
 
         try {
-            return DB::transaction(function () use ($validated, $grupo, $grupoModel) {
+            return DB::transaction(function () use ($validated, $grupo, $grupoModel, $uuidArchivoEvaluado) {
 
                 // 1. Insertar mensaje de evaluación en agenda
                 // 1. Autor: Juan Y.
@@ -1839,6 +1836,7 @@ class DocenteActivityController extends Controller
                     'id_actividad_asignada_grupo' => $grupo,
                     'tipo_mensaje' => 'Evaluación',
                     'fecha_envio' => now(),
+                    'uuid_archivo_subido' => $uuidArchivoEvaluado,
                 ], 'id_agenda');
 
                 // 2. Crear registro en evaluacion vinculado al mensaje anterior

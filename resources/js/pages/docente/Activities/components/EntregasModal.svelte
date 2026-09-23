@@ -7,7 +7,7 @@
    * D-03: el fetch GET es temporal mientras el controlador no exponga las
    * entregas como prop lazy de Inertia (ver TODO en cargarEntregas).
    */
-  import { X, FileText, CheckCircle2, Clock, User, Download, MessageSquare } from 'lucide-svelte';
+  import { X, FileText, CheckCircle2, Clock, User, Download, Eye, MessageSquare } from 'lucide-svelte';
   import { formatBytes, formatFechaHora } from '@/utils/formatters';
   import type { Rubrica } from '@/types/rubrica';
 
@@ -35,6 +35,8 @@
       mime_type: string | null;
       peso_bytes: number | null;
       fecha_creacion: string | null;
+      /** PDF o imagen: se puede abrir en el navegador con `?ver=1`. */
+      visualizable?: boolean;
     } | null;
     usuario_emisor: { nombre: string; rut: string | null };
     evaluada: boolean;
@@ -229,6 +231,17 @@
                     </div>
                   </div>
                   <div class="flex flex-col gap-1.5 shrink-0">
+                    {#if entrega.archivo.visualizable}
+                      <a
+                        href="{downloadUrl(entrega.id_agenda)}?ver=1"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-uta-blue/30 text-uta-blue text-xs font-semibold rounded-lg hover:bg-uta-blue/5 transition-colors"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Eye class="w-3.5 h-3.5" />
+                        Ver
+                      </a>
+                    {/if}
                     <a
                       href={downloadUrl(entrega.id_agenda)}
                       class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-uta-blue text-white text-xs font-semibold rounded-lg hover:bg-uta-blue-hover transition-colors"
