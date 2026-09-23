@@ -111,6 +111,7 @@ class ActivityController extends Controller
         
         $interacciones = [];
         $ultimaEntrega = null;
+        $ultimaEvaluacion = null;
         $rubricaUltimaEvaluacion = null;
 
         if ($grupo) {
