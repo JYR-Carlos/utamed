@@ -1,0 +1,136 @@
+pgdb-edit@debian13-pgdbedit:/var/www/prod_utamed$ php artisan tinker --execute="include 'consultar_cursos.php'"
+
+=== CURSOS (5) — BD: utamed_1ra_fase ===
+
+[1] cod_curso=10000  DM069 Taller Multimedia II  (Diseño Multimedia)
+     paralelo A (idx 1)  período 2026-2  2026-08-07 → 2027-02-07  estado=ABIERTO
+     titular: Rodrigo Tapia Santis <rtapia@gestion.uta.cl>
+     componentes: Laboratorio#1 (rtapias), Taller#2 (rtapias)
+     unidades=3  actividades=3  programas=1  inscritos=26
+
+[2] cod_curso=11000  DM095 Taller Profesional IV  (Diseño Multimedia)
+     paralelo A (idx 1)  período 2026-2  2026-08-07 → 2027-02-07  estado=ABIERTO
+     titular: Cristian Sandoval Yañez <csandovy@academicos.uta.cl>
+     componentes: Laboratorio#3 (csandovy), Taller#11 (csandovy)
+     unidades=3  actividades=1  programas=1  inscritos=19
+
+[4] cod_curso=11100  DM069 Taller Multimedia II  (Diseño Multimedia)
+     paralelo B (idx 2)  período 2026-2  2026-08-07 → 2027-02-07  estado=ABIERTO
+     titular: Rodrigo Tapia Santis <rtapia@gestion.uta.cl>
+     componentes: Laboratorio#6 (rtapias), Taller#7 (rtapias)
+     unidades=0  actividades=0  programas=0  inscritos=23
+
+[5] cod_curso=111100  DM095 Taller Profesional IV  (Diseño Multimedia)
+     paralelo B (idx 2)  período 2026-2  2026-08-07 → 2027-02-07  estado=ABIERTO
+     titular: Cristian Sandoval Yañez <csandovy@academicos.uta.cl>
+     componentes: Laboratorio#8 (csandovy), Taller#12
+     unidades=0  actividades=0  programas=0  inscritos=19
+
+[7] cod_curso=11111  DM00k Bienvenida UTAmed  (Diseño Multimedia)
+     paralelo A (idx 1)  período 2026-2  2026-08-07 → 2027-02-07  estado=ABIERTO
+     titular: Rodrigo Tapia Santis <rtapia@gestion.uta.cl>
+     componentes: Cátedra#9 (rtapias), Taller#10 (rtapias)
+     unidades=1  actividades=2  programas=3  inscritos=2
+
+=== ALUMNOS POR CURSO ===
+
+[1] DM069 A — 26 inscritos
+    1. 21954284-4   AGUILERA GÓMEZ, CAROLINA CONSTANZA                                  INSCRITO
+    2. 21608627-9   AGUIRRE GALLARDO, VALENTINA ESTEFANÍA                                  INSCRITO
+    3. 21959253-1   ARACENA ADONES, MARTINA ANDREA                                       INSCRITO
+    4. 22052490-6   CABEZAS MARTÍNEZ, ANGELA PAZ                                        INSCRITO
+    5. 22026604-4   CALLE PACO, PAMELA ANDREA                                            INSCRITO
+    6. 21498875-5   CASTILLO URRIOLA, CAMILO SEBASTIÁN                                  INSCRITO
+    7. 20767457-5   CASTRO CORNEJO, EMANUEL                                              INSCRITO
+    8. 22370415-8   CHOQUE BADILLA, MARTINA BELÉN                                       INSCRITO
+    9. 15694679-6   CHOQUECHAMBE MAMANI, JENNY DENNISE                                   INSCRITO
+   10. 22239968-8   CONTRERAS ARIAS, ALEXIA GABRIELL ZAMIRA                                  INSCRITO
+   11. 21791631-3   CRUZ ESTRADA, KRISTEL DANITZA                                        INSCRITO
+   12. 21976441-3   DÍAZ ESPINOZA, LAURA DANIELA                                        INSCRITO
+   13. 21712839-0   ESPINOZA DELGADO, JOSEFINA BELÉN                                    INSCRITO
+   14. 21919286-K   GODOY ROJAS, CAROLAY ALICIA KYARA                                    INSCRITO
+   15. 21198497-K   GUZMÁN ALVARADO, MATÍAS ALEJANDRO                                  INSCRITO
+   16. 22651674-3   HINOJOZA CRUZ, CARLOS LEONEL                                         INSCRITO
+   17. 26306844-0   HUANCA LIMACHI, HELEN SARAI                                          INSCRITO
+   18. 22646081-0   HUANCA PUMA, KAREN VANESSA                                           INSCRITO
+   19. 22166394-2   HUARACHE CHURATA, IGNACIO DAVID                                      INSCRITO
+   20. 21602959-3   IBARRA NÚÑEZ, SIAN                                                 INSCRITO
+   21. 22084924-4   LOPEZ DÍAZ, KARIME LEILANY                                          INSCRITO
+   22. 19148935-7   MAMANI YAMPARA, IVONNE ARACELI                                       INSCRITO
+   23. 21444378-3   MELÉNDEZ PAZ, JUAN PABLO BENJAMIN                                   INSCRITO
+   24. 28189241-K   VARGAS MAMANI, MIRIAN MAYTE                                          INSCRITO
+   25. 21420596-3   VELÁSQUEZ ESCOBAR, MARÍA BELÉN                                    INSCRITO
+   26. 22365977-2   YAMPARA BLANCO, JAVIER IGNACIO                                       INSCRITO
+
+[2] DM095 A — 19 inscritos
+    1. 21371616-6   AEDO CISTERNAS, SOPHIA ELENA                                         INSCRITO
+    2. 21771393-5   ÁGUILA AGUIRRE, KATHERINE GABRIELA                                  INSCRITO
+    3. 21780120-6   ARAYA DÍAZ, CATALINA EMILIA                                         INSCRITO
+    4. 21698891-4   ARIAS LÓPEZ, MILLARAY ALEJANDRA                                     INSCRITO
+    5. 23711262-8   ARPASI QUISPE, MERY GRACCE                                           INSCRITO
+    6. 21484719-1   BAEZ AMPUERO, FRANCISCA ALEJANDRA                                    INSCRITO
+    7. 21605192-0   CALLE MONTECINOS, MONSERRAT TERESA                                   INSCRITO
+    8. 20215647-9   CORTEZ ARAYA, FRANCISCO ANDRÉS                                      INSCRITO
+    9. 21242041-7   DÍAZ RIQUELME, EMILIA ANTONIA                                       INSCRITO
+   10. 21139766-7   GÓMEZ BARREDA, PAULINA ANDREA                                       INSCRITO
+   11. 21732104-2   JIMÉNEZ RIQUELME, MIYARAY ANGÉLICA SCARLETT                                  INSCRITO
+   12. 21752582-9   MARIN SALDIVIA, LUIS EXEQUIEL                                        INSCRITO
+   13. 21711907-3   OLIVARES BARRIOS, MARÍA JOSÉ                                       INSCRITO
+   14. 21302981-9   RAMOS ORTIZ, YOHANN ALEXANDER                                        INSCRITO
+   15. 19494649-K   SALAS SANTE, CHARLOTTE DEL CARMEN                                    INSCRITO
+   16. 20957641-4   SAN MARTIN BARRAZA, JOAQUIN ANDRES                                   INSCRITO
+   17. 21802341-K   TOGNARELLI MORENO, SOFÍA FRANCISCA                                  INSCRITO
+   18. 21347665-3   TORRES GUTIÉRREZ, ANTONELLA                                         INSCRITO
+   19. 20546165-5   ZAMBRANO PINTO, JOHANN FRANCISCO                                     INSCRITO
+
+[4] DM069 B — 23 inscritos
+    1. 22116761-9   ARIAS VERGARA, FLORENCIA ANTONIA                                     INSCRITO
+    2. 21861534-1   BERRÍOS BRICEÑO, MARCELA ANDREA MONSERRAT                                  INSCRITO
+    3. 22085305-5   FERNÁNDEZ CONDORE, ALMENDRA SAMANTA MORGANA                                  INSCRITO
+    4. 22335364-9   LAZO BARRAZA, ANTONELLA MIA PASCALLE                                  INSCRITO
+    5. 22224868-K   LOPEZ AYCA, ANDRES IVAN MATIAS ALFREDO                                  INSCRITO
+    6. 20916507-4   LÓPEZ LLERENA, JOSHUA ANGEL                                         INSCRITO
+    7. 21993172-7   LUQUE ALFARO, GIULIANNA ANELIS                                       INSCRITO
+    8. 19767277-3   MARRIAN VALENZUELA, AMBAR MARIE                                      INSCRITO
+    9. 22345866-1   MENARES CONTRERAS, MATÍAS ERNESTO                                   INSCRITO
+   10. 22265894-2   MIRANDA CACERES, NINOSKA MIKAELA                                     INSCRITO
+   11. 22009476-6   PACHECO VILDOSO, KATRINA MONSERRAT                                   INSCRITO
+   12. 22286491-7   RAMÍREZ VISCARRA, KIARA VALENTINA                                   INSCRITO
+   13. 22261576-3   RIVERA PIZARRO, FERGIE YANAHIRA                                      INSCRITO
+   14. 22453615-1   RODRIGUEZ DEZA, BRANDON DELFOR                                       INSCRITO
+   15. 21993799-7   ROJAS GARGANO, ALESSANDRO BIAGGIO                                    INSCRITO
+   16. 24845582-9   SANTIESTEBAN HERNANDEZ, MELANIE SHARIK                                  INSCRITO
+   17. 22429787-4   SEPÚLVEDA DÍAZ, MAXIMILIANO EDUARDO                                  INSCRITO
+   18. 22432837-0   TAPIA SEGOVIA, ALEXANDRA ANTONIA                                     INSCRITO
+   19. 20546250-3   TARQUI ZAMBRANA, MARIELA IVONNE                                      INSCRITO
+   20. 22245005-5   TRONCOSO ULE, ISIDORA IGNACIA                                        INSCRITO
+   21. 21952575-3   TUPA TUPA, BARBARA CONSTANZA                                         INSCRITO
+   22. 22266092-0   VEGA ROJAS, ISSYS KONSTANZA                                          INSCRITO
+   23. 22134968-7   VICENTE LEAÑO, MOISES IGNACIO                                       INSCRITO
+
+[5] DM095 B — 19 inscritos
+    1. 21420066-K   CASTLLO HEYL, ALEXANDRA ROMINA                                       INSCRITO
+    2. 21246291-8   CONTRERAS FUENTES, OLGA VALERIA                                      INSCRITO
+    3. 21778859-5   DICKINSON FREY, MARISA HARLEEN                                       INSCRITO
+    4. 21268940-8   DUARTE VIDAURRE, BERNARDO JAVIER                                     INSCRITO
+    5. 21202725-1   FLORES QUIROGA, VALENTINA IGNACIA                                    INSCRITO
+    6. 21801960-9   GALLARDO JAIME, CONSTANTINO DAVELO                                   INSCRITO
+    7. 20096478-0   GÁMEZ PRADO, DANIEL ENRIQUE                                         INSCRITO
+    8. 21833131-9   GODOY VÁSQUEZ, JERSON JOSÉ MANUEL                                  INSCRITO
+    9. 21532803-1   ISLA ALZAMORA, CATALINA FERNANDA                                     INSCRITO
+   10. 20215594-4   MÁRQUEZ SALINAS, ALFONSO ALEXIS                                     INSCRITO
+   11. 21565633-0   MENDOZA ARENAS, MELANY NOEMÍ                                        INSCRITO
+   12. 20767417-6   OJANE OCAMPO, TERESA DANIELA                                         INSCRITO
+   13. 20839046-5   PASSACHE HURTADO, NATASHA SABINA                                     INSCRITO
+   14. 21419540-2   QUIJADA VALDOVINO, DHANA KELI                                        INSCRITO
+   15. 21645720-K   SAJAMA VALENCIA, JHORDAN LORENZO                                     INSCRITO
+   16. 21259721-K   SEGOVIA ARAYA, FIONA MILLARRAY                                       INSCRITO
+   17. 21478814-4   URQUIZO CHAMBI, MAGDALENA ESTELA                                     INSCRITO
+   18. 21478862-4   VELÁSQUEZ FERNÁNDEZ, JOAQUÍN IGNACIO                                  INSCRITO
+   19. 21163052-3   ZEBALLOS PACHECO, ANTONIA SOFÍA                                     INSCRITO
+
+[7] DM00k A — 2 inscritos
+    1. 21149756-4   PANTOJA GONZÁLEZ, FRANCISCO        francisco.pantoja.gonzalez@alumnos.uta.cl INSCRITO
+    2. 10000000-0   USUARIO , USUARIO10                 usuario10@gmail.com              INSCRITO
+
+Totales: cursos=5  estudiantes_distintos=89  actividades=6  programas=5  bibliografias=0

@@ -2,6 +2,7 @@
 
 namespace App\Services\Docente;
 
+use App\Models\Operaciones\Archivo;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -90,10 +91,11 @@ class ConversacionDocenteService
      */
     public function hiloCompletoGrupo(int $grupoId): Collection
     {
-        return DB::table('agenda.agenda as a')
+        $hilo = DB::table('agenda.agenda as a')
             ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
             ->leftJoin('agenda.evaluacion as ev', 'ev.id_agenda', '=', 'a.id_agenda')
             ->leftJoin('agenda.rubrica as r', 'r.id_rubrica', '=', 'ev.id_rubrica')
+            ->leftJoin('operaciones.archivo as arc', 'arc.uuid_archivo', '=', 'a.uuid_archivo_subido')
             ->where('a.id_actividad_asignada_grupo', $grupoId)
             ->whereIn('a.tipo_mensaje', self::TIPOS_HILO_COMPLETO)
             ->orderBy('a.fecha_envio', 'asc')
@@ -109,10 +111,42 @@ class ConversacionDocenteService
                 'ev.id_evaluacion',
                 'ev.resultado',
                 'r.rubrica as rubrica_evaluacion',
+                'a.uuid_archivo_subido',
+                'arc.nombre_original as archivo_nombre',
+                'arc.peso_bytes as archivo_peso_bytes',
+                'arc.mime_type as archivo_mime_type',
             )
             ->get()
-            ->map(fn ($m) => $this->decorar($m))
-            ->values();
+            ->map(fn ($m) => $this->decorar($m));
+
+        // La fila «Evaluación» repite el archivo de la entrega que evalúa
+        // (DocenteActivityController::storeEvaluacion). Con eso cada entrega
+        // sabe si ya fue evaluada y cada evaluación sabe qué entrega calificó.
+        $entregasPorArchivo = $hilo
+            ->filter(fn ($m) => $m['es_entrega'] && $m['uuid_archivo_subido'])
+            ->keyBy('uuid_archivo_subido');
+
+        $archivosEvaluados = $hilo
+            ->filter(fn ($m) => $m['tipo_registro'] === 'Evaluación' && $m['uuid_archivo_subido'])
+            ->pluck('uuid_archivo_subido')
+            ->all();
+
+        return $hilo->map(function (array $m) use ($entregasPorArchivo, $archivosEvaluados) {
+            if ($m['es_entrega']) {
+                $m['tiene_evaluacion'] = in_array($m['uuid_archivo_subido'], $archivosEvaluados, true);
+            }
+
+            if ($m['tipo_registro'] === 'Evaluación') {
+                $entrega = $entregasPorArchivo->get($m['uuid_archivo_subido']);
+                $m['entrega_evaluada'] = $entrega ? [
+                    'id_agenda' => $entrega['id_agenda'],
+                    'fecha_envio' => $entrega['fecha_envio'],
+                    'nombre_original' => $entrega['archivo']['nombre_original'] ?? null,
+                ] : null;
+            }
+
+            return $m;
+        })->values();
     }
 
     /**
@@ -136,6 +170,17 @@ class ConversacionDocenteService
             'tiene_evaluacion'     => ($m->id_evaluacion ?? null) !== null,
             'adjunta_rubrica'      => ($m->id_evaluacion ?? null) !== null,
         ]);
+
+        // Sólo las entregas muestran el archivo; en una evaluación el mismo
+        // archivo se presenta como `entrega_evaluada` (ver hiloCompletoGrupo).
+        if (property_exists($m, 'uuid_archivo_subido')) {
+            $datos['archivo'] = $datos['es_entrega'] && $m->uuid_archivo_subido && ($m->archivo_nombre ?? null) !== null ? [
+                'nombre_original' => $m->archivo_nombre,
+                'peso_bytes' => $m->archivo_peso_bytes,
+                'mime_type' => $m->archivo_mime_type,
+                'visualizable' => in_array(strtolower((string) $m->archivo_mime_type), Archivo::MIME_VISUALIZABLES, true),
+            ] : null;
+        }
 
         if (property_exists($m, 'resultado')) {
             $datos['resultado'] = $m->resultado ? (is_string($m->resultado) ? json_decode($m->resultado, true) : $m->resultado) : null;

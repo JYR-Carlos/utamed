@@ -2,6 +2,7 @@
 
 namespace App\Models\Agenda;
 
+use App\Enums\DB\TipoMensaje;
 use App\Models\Base\Agenda\BaseAgenda;
 
 /**
@@ -27,17 +28,50 @@ class Agenda extends BaseAgenda
             'extension' => $this->archivo?->extension,
             'mime_type' => $this->archivo?->mime_type,
             'peso_bytes' => $this->archivo?->peso_bytes,
-            'ruta_fisica' => $this->archivo?->ruta_fisica,
             'fecha_creacion' => $this->archivo?->fecha_creacion,
+            'visualizable' => (bool) $this->archivo?->esVisualizableEnNavegador(),
         ];
     }
 
     /**
-     * Obtiene evaluaciones relacionadas
+     * Si esta entrega ya fue evaluada.
+     *
+     * La evaluación no cuelga de la fila de la entrega sino de su propia fila
+     * «Evaluación» en agenda.agenda; el vínculo con la entrega evaluada es que
+     * esa fila repite el `uuid_archivo_subido` de la entrega (ver
+     * DocenteActivityController::storeEvaluacion). Para una fila «Evaluación»
+     * devuelve si tiene su registro en agenda.evaluacion.
      */
-    public function tieneEvaluacion()
+    public function tieneEvaluacion(): bool
     {
-        return $this->evaluacion !== null;
+        if ($this->tipo_mensaje !== TipoMensaje::ENTREGA_DE_ARCHIVO) {
+            return $this->evaluacion !== null;
+        }
+
+        return $this->uuid_archivo_subido !== null
+            && in_array($this->uuid_archivo_subido, self::uuidsEvaluados([$this->id_actividad_asignada_grupo]), true);
+    }
+
+    /**
+     * UUIDs de los archivos entregados que ya tienen una evaluación en esos grupos.
+     *
+     * @param  iterable<int>  $grupoIds
+     * @return array<int, string>
+     */
+    public static function uuidsEvaluados(iterable $grupoIds): array
+    {
+        $grupoIds = collect($grupoIds)->filter()->values();
+        if ($grupoIds->isEmpty()) {
+            return [];
+        }
+
+        return self::whereIn('id_actividad_asignada_grupo', $grupoIds)
+            ->where('tipo_mensaje', TipoMensaje::EVALUACIÓN->value)
+            ->whereNotNull('uuid_archivo_subido')
+            ->pluck('uuid_archivo_subido')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

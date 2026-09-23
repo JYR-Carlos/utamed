@@ -133,7 +133,7 @@
         >
           <UploadCloud class="h-7 w-7 text-[#002F6C]" />
           <span class="text-sm font-semibold text-[#1A1A24]">Arrastra tu archivo aquí o haz clic para seleccionar</span>
-          <span class="text-xs text-[#5A5E6E]">Hasta 25 MB</span>
+          <span class="text-xs text-[#5A5E6E]">Hasta 100 MB, según el tipo de archivo</span>
           <input type="file" class="hidden" onchange={manejarSeleccionArchivo} bind:this={inputFile} />
         </label>
       {:else}

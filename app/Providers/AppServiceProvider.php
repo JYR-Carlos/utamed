@@ -69,8 +69,16 @@ class AppServiceProvider extends ServiceProvider
         // y se eliminan del proceso hijo. Sin `SystemRoot`, Winsock no puede
         // inicializarse y el servidor falla con «Failed to listen … (reason: ?)»
         // en todos los puertos. Reañadimos las claves tal como las nombra el SO.
+        //
+        // `TMP`, `TEMP` y `USERPROFILE` caen por otro motivo: no están en la lista
+        // en ninguna capitalización. Son las tres que consulta `GetTempPath()` de
+        // Windows, en ese orden, antes de rendirse y devolver `C:\Windows`, que el
+        // usuario no puede escribir. El síntoma es que toda subida de archivos
+        // muere con UPLOAD_ERR_NO_TMP_DIR (código 6) — y con ella cualquier cosa
+        // que use `sys_get_temp_dir()`, como PhpSpreadsheet. Sólo afecta a
+        // `artisan serve`: bajo un servidor web de verdad el entorno llega entero.
         if (PHP_OS_FAMILY === 'Windows') {
-            foreach (['SystemRoot', 'Path'] as $variable) {
+            foreach (['SystemRoot', 'Path', 'TMP', 'TEMP', 'USERPROFILE'] as $variable) {
                 if (! in_array($variable, ServeCommand::$passthroughVariables, true)) {
                     ServeCommand::$passthroughVariables[] = $variable;
                 }

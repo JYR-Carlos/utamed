@@ -30,6 +30,7 @@
     PackageCheck,
     Download,
     ChevronRight,
+    Eye,
   } from 'lucide-svelte';
 
   interface Interaccion {
@@ -44,7 +45,9 @@
     rubrica?: Rubrica | null;
     puntaje_obtenido?: number | null;
     resultado?: Record<string, string> | null;
-    archivo?: { nombre_original: string | null; peso_bytes: number | null } | null;
+    archivo?: { nombre_original: string | null; peso_bytes: number | null; visualizable?: boolean } | null;
+    /** En una evaluación: la entrega que califica (null = evaluación general). */
+    entrega_evaluada?: { id_agenda: number; fecha_envio: string; nombre_original: string | null } | null;
   }
 
   interface Props {
@@ -235,13 +238,26 @@
                   {#if item.mensaje}
                     <p class="w-full text-[12.5px] text-[#4A4E5C]">{item.mensaje}</p>
                   {/if}
-                  <a
-                    href={urlDescargaEntrega(item.id_interaccion)}
-                    class="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#C9D6E6] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#002F6C] no-underline transition-colors hover:bg-[#F8FAFC]"
-                  >
-                    <Download class="h-3.5 w-3.5" />
-                    Descargar
-                  </a>
+                  <div class="flex shrink-0 items-center gap-2">
+                    {#if item.archivo?.visualizable}
+                      <a
+                        href="{urlDescargaEntrega(item.id_interaccion)}?ver=1"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="flex items-center gap-1.5 rounded-lg border border-[#C9D6E6] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#002F6C] no-underline transition-colors hover:bg-[#F8FAFC]"
+                      >
+                        <Eye class="h-3.5 w-3.5" />
+                        Ver
+                      </a>
+                    {/if}
+                    <a
+                      href={urlDescargaEntrega(item.id_interaccion)}
+                      class="flex items-center gap-1.5 rounded-lg border border-[#C9D6E6] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#002F6C] no-underline transition-colors hover:bg-[#F8FAFC]"
+                    >
+                      <Download class="h-3.5 w-3.5" />
+                      Descargar
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -270,6 +286,19 @@
                   <span class="text-[12.5px] font-semibold text-[#1A1A24]">{item.emisor}</span>
                   <span class="ml-auto font-mono text-[11px] text-[#5A5E6E]">{formatFechaHora(item.fecha_emision)}</span>
                 </div>
+                {#if item.tipo_interaccion === 'Evaluación'}
+                  <p class="mt-1.5 flex items-center gap-1.5 text-[12px] text-[#4A4E5C]">
+                    <PackageCheck class="h-3.5 w-3.5 shrink-0 text-[#5A5E6E]" />
+                    {#if item.entrega_evaluada}
+                      <span class="truncate">
+                        Evalúa la entrega <strong class="font-semibold text-[#1A1A24]">{item.entrega_evaluada.nombre_original ?? 'sin nombre'}</strong>
+                        · {formatFechaHora(item.entrega_evaluada.fecha_envio)}
+                      </span>
+                    {:else}
+                      <span>Evaluación general de la actividad</span>
+                    {/if}
+                  </p>
+                {/if}
                 {#if item.tipo_interaccion === 'Evaluación' && item.puntaje_obtenido != null}
                   <div class="mt-2 flex items-center gap-3 border-t border-[#E5E7EB] pt-2.5">
                     <span class="text-2xl font-semibold leading-none tracking-tight text-[#1A1A24]">{item.puntaje_obtenido}</span>
