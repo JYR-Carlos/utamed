@@ -38,6 +38,7 @@
   import RubricaEditor from './RubricaEditor.svelte';
   import MatrizEvaluacion from './MatrizEvaluacion.svelte';
   import GrupoCard from './components/GrupoCard.svelte';
+  import EstudiantesTabla from './components/EstudiantesTabla.svelte';
   import NuevoGrupoModal from './components/NuevoGrupoModal.svelte';
   import ReutilizarGruposModal from './components/ReutilizarGruposModal.svelte';
   import EntregasModal from './components/EntregasModal.svelte';
@@ -668,47 +669,69 @@
         {/if}
 
         <!--
-          Grilla y no lista: con el ancho completo disponible, una tarjeta por
-          fila deja el 70% de la pantalla en blanco y obliga a desplazarse por
-          cursos con muchos grupos. `items-start` a propósito no: las tarjetas
-          de una misma fila se estiran a la misma altura para que los bordes no
-          queden escalonados.
+          Tarjeta para grupos, tabla para estudiantes. La tarjeta existe porque
+          un grupo es una entidad con contenido propio (integrantes que se
+          agregan y quitan, nota grupal, notas individuales); un estudiante de
+          actividad individual no: son cuatro datos y dos acciones, y repetir el
+          marco veinte veces satura la pantalla sin añadir información.
         -->
-        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-          {#each grupos as grupo (grupo.grupo)}
-            <GrupoCard
-              {grupo}
-              esTitular={actividad.es_titular}
-              traeArchivo={actividad.trae_archivo}
-              esGrupal={actividad.es_grupal}
-              {savingDecimas}
-              {addingToGrupo}
-              bind:addingEstudianteId
-              {addingLoading}
-              {addingError}
-              estudiantesParaGrupo={estudiantesParaGrupo(grupo.grupo)}
-              {getEstadoColor}
-              {formatDecimas}
-              onEliminarGrupo={eliminarGrupo}
-              onQuitarEstudiante={quitarEstudiante}
-              onAjustarDecimas={ajustarDecimas}
-              onRecalcularNotas={recalcularNotas}
-              onAbrirAddForm={(grupoId) => {
-                addingToGrupo = grupoId;
-                addingEstudianteId = 0;
-                addingError = null;
-              }}
-              onCerrarAddForm={() => {
-                addingToGrupo = null;
-                addingError = null;
-              }}
-              onAgregarAGrupo={agregarAGrupo}
-              onVerEntregas={verEntregas}
-              onVerAgenda={abrirAgendaGrupo}
-              onActualizarHolguraPersonal={actualizarHolguraPersonal}
-            />
-          {/each}
-        </div>
+        {#if !actividad.es_grupal}
+          <EstudiantesTabla
+            {grupos}
+            esTitular={actividad.es_titular}
+            traeArchivo={actividad.trae_archivo}
+            {savingDecimas}
+            {getEstadoColor}
+            {formatDecimas}
+            onAjustarDecimas={ajustarDecimas}
+            onVerEntregas={verEntregas}
+            onVerAgenda={abrirAgendaGrupo}
+            onActualizarHolguraPersonal={actualizarHolguraPersonal}
+          />
+        {:else}
+          <!--
+            Grilla y no lista: con el ancho completo disponible, una tarjeta por
+            fila deja el 70% de la pantalla en blanco y obliga a desplazarse por
+            cursos con muchos grupos. `items-start` a propósito no: las tarjetas
+            de una misma fila se estiran a la misma altura para que los bordes no
+            queden escalonados.
+          -->
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+            {#each grupos as grupo (grupo.grupo)}
+              <GrupoCard
+                {grupo}
+                esTitular={actividad.es_titular}
+                traeArchivo={actividad.trae_archivo}
+                esGrupal={actividad.es_grupal}
+                {savingDecimas}
+                {addingToGrupo}
+                bind:addingEstudianteId
+                {addingLoading}
+                {addingError}
+                estudiantesParaGrupo={estudiantesParaGrupo(grupo.grupo)}
+                {getEstadoColor}
+                {formatDecimas}
+                onEliminarGrupo={eliminarGrupo}
+                onQuitarEstudiante={quitarEstudiante}
+                onAjustarDecimas={ajustarDecimas}
+                onRecalcularNotas={recalcularNotas}
+                onAbrirAddForm={(grupoId) => {
+                  addingToGrupo = grupoId;
+                  addingEstudianteId = 0;
+                  addingError = null;
+                }}
+                onCerrarAddForm={() => {
+                  addingToGrupo = null;
+                  addingError = null;
+                }}
+                onAgregarAGrupo={agregarAGrupo}
+                onVerEntregas={verEntregas}
+                onVerAgenda={abrirAgendaGrupo}
+                onActualizarHolguraPersonal={actualizarHolguraPersonal}
+              />
+            {/each}
+          </div>
+        {/if}
 
         {#if grupos.length === 0 && actividad.es_grupal && actividad.es_titular}
           <div
