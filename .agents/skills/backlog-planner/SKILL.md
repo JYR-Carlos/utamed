@@ -157,4 +157,4 @@ flowchart TD
      * Total de puntos de historia estimados.
 
 4. Actualizar el archivo de planificación en disco agregando la sección `## 3. Planificación (Releases y Tablero Kanban)`.
-5. Presentar un resumen final conciso en la respuesta del chat apuntando al archivo persistido.
+5. Presentar un resumen final conciso en la respuesta del chat apuntando al archivo persistido y sugerir al usuario la ejecución de la skill `backlog-refiner` para la validación y refinamiento interactivo una a una de las tarjetas generadas.
