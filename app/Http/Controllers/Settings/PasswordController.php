@@ -47,6 +47,13 @@ class PasswordController extends Controller
             ]);
         }
 
+        // Quien sólo es estudiante cambia la clave dentro de su portal (T16):
+        // la página de ajustes genérica trae además pestañas de perfil que el
+        // alumno no debe usar. El formulario envía al mismo update().
+        if ($user->estudiante && !$user->docente && !$user->isSuperAdmin()) {
+            return Inertia::render('student/CambiarPassword');
+        }
+
         return Inertia::render('settings/Password');
     }
 

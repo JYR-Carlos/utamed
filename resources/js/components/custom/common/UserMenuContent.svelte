@@ -5,7 +5,7 @@
     import type { User } from '@/types';
     import { logout } from '@/routes';
     import { router } from '@inertiajs/svelte';
-    import { LogOut } from 'lucide-svelte';
+    import { KeyRound, LogOut } from 'lucide-svelte';
 
     interface Props {
         user: User;
@@ -29,6 +29,11 @@
         <UserInfo {user} showEmail={true} />
     </div>
 </DropdownMenuLabel>
+<DropdownMenuSeparator />
+<DropdownMenuItem onSelect={() => router.visit('/settings/password')} class="cursor-pointer">
+    <KeyRound class="mr-2 h-4 w-4" />
+    <span>Cambiar contraseña</span>
+</DropdownMenuItem>
 <DropdownMenuSeparator />
 <DropdownMenuItem onSelect={handleLogout} class="cursor-pointer">
     <LogOut class="mr-2 h-4 w-4" />

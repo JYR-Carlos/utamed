@@ -2,7 +2,8 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import { useInitials } from '@/hooks';
-  import { IdCard, Mail, AtSign, GraduationCap, CalendarDays, BookOpen } from 'lucide-svelte';
+  import { IdCard, Mail, AtSign, GraduationCap, CalendarDays, BookOpen, KeyRound } from 'lucide-svelte';
+  import { Link } from '@inertiajs/svelte';
 
   interface Props {
     perfil: {
@@ -55,6 +56,13 @@
           <span class="text-lg font-semibold tracking-tight text-slate-900">{perfil.nombre_completo}</span>
           <span class="text-sm text-slate-500">{perfil.carrera_nombre}</span>
         </div>
+        <Link
+          href="/settings/password"
+          class="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-uta-blue/30 hover:bg-uta-blue-light hover:text-uta-blue"
+        >
+          <KeyRound class="h-4 w-4" />
+          Cambiar contraseña
+        </Link>
       </section>
 
       <section class="grid grid-cols-1 gap-3 sm:grid-cols-2">
