@@ -48,7 +48,7 @@
 
   onMount(() => {
     const handleKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+      if (buscadorHabilitado && e.key === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         openSearch = !openSearch;
       }
@@ -58,17 +58,29 @@
     return () => document.removeEventListener('keydown', handleKeydown);
   });
 
-  const searchItems = $derived.by(() => {
-    // Permission and profile-based checks — not role name strings
+  // Permission and profile-based checks — not role name strings
+  const perfiles = $derived.by(() => {
     const isSuperAdmin = ($page.props.auth?.is_super_admin as boolean) || false;
     const authPermissions = ($page.props.auth?.permissions as string[]) || [];
     const hasPerm = (slug: string) =>
       isSuperAdmin ||
       authPermissions.includes('*') ||
       authPermissions.includes(slug);
-    const isAdmin = isSuperAdmin || hasPerm('facultades:ver') || hasPerm('departamentos:ver') || hasPerm('usuarios/permisos/roles:ver');
-    const isDocente = ($page.props.auth?.docente as any) !== null && ($page.props.auth?.docente as any) !== undefined;
-    const isEstudiante = ($page.props.auth?.estudiante as any) !== null && ($page.props.auth?.estudiante as any) !== undefined;
+    return {
+      isAdmin: isSuperAdmin || hasPerm('facultades:ver') || hasPerm('departamentos:ver') || hasPerm('usuarios/permisos/roles:ver'),
+      isDocente: ($page.props.auth?.docente as any) != null,
+      isEstudiante: ($page.props.auth?.estudiante as any) != null,
+    };
+  });
+
+  // El estudiante no usa el buscador global: sólo le ofrecía atajos a su
+  // propio menú. Quien además es docente o administrador lo conserva.
+  const buscadorHabilitado = $derived(
+    !perfiles.isEstudiante || perfiles.isDocente || perfiles.isAdmin
+  );
+
+  const searchItems = $derived.by(() => {
+    const { isAdmin, isDocente, isEstudiante } = perfiles;
 
     const items = [];
 
@@ -152,6 +164,7 @@
     {/if}
   </div>
 
+  {#if buscadorHabilitado}
   <div class="header-center hidden lg:flex lg:justify-center">
     <button class="search-box cursor-text text-left" onclick={() => (openSearch = true)}>
       <Search size={18} class="search-icon" />
@@ -181,15 +194,18 @@
       {/each}
     </Command.List>
   </Command.Dialog>
+  {/if}
 
   <div class="header-right">
-    <button
-      class="lg:hidden mobile-search-trigger flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-full font-bold shadow-sm"
-      onclick={() => (openSearch = true)}
-    >
-      <Search size={18} />
-      <span class="text-xs">Buscar</span>
-    </button>
+    {#if buscadorHabilitado}
+      <button
+        class="lg:hidden mobile-search-trigger flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-full font-bold shadow-sm"
+        onclick={() => (openSearch = true)}
+      >
+        <Search size={18} />
+        <span class="text-xs">Buscar</span>
+      </button>
+    {/if}
 
     <!-- Estos dos botones no decían qué hacían: sólo una flecha, sin
          etiqueta accesible y con un título que no cambiaba al alternar. -->
