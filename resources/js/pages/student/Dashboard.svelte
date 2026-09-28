@@ -2,7 +2,7 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import { page, Link } from '@inertiajs/svelte';
-  import { BookOpen, Award, CalendarClock, Bell, LifeBuoy, ArrowUpRight, ClipboardX } from 'lucide-svelte';
+  import { BookOpen, Award, CalendarClock, LifeBuoy, ArrowUpRight, ClipboardX } from 'lucide-svelte';
   import CourseCard from '@/components/student/CourseCard.svelte';
   import MensajesSinLeerCard from '@/components/student/MensajesSinLeerCard.svelte';
   import PropuestaCard from '@/components/student/PropuestaCard.svelte';
@@ -173,15 +173,7 @@
                   total={mensajeria?.no_leidos ?? 0}
                   cursos={mensajeria?.cursos ?? []}
                 />
-
               {/if}
-              
-              <PropuestaCard
-                icon={Bell}
-                title="Novedades de tus actividades"
-                emptyTitle="Sin novedades todavía"
-                emptyDescription="Aparecerán cuando el equipo docente interactúe en una actividad."
-              />
             </div>
           </div>
         {/if}
