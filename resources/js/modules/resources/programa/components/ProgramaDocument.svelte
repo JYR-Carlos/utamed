@@ -253,7 +253,7 @@
 
   <!-- Lo que el tipo de syllabus exige y todavía no está escrito -->
   {#if pendientes.length > 0}
-    <div class="flex flex-col gap-3 border-t border-[#EDEFF3] pt-[22px]">
+    <div class="flex flex-col gap-3 border-t border-[#EDEFF3] pt-[22px] print:hidden">
       <span class="text-[12px] font-semibold tracking-[0.06em] text-[#5A5E6E] uppercase">
         Pendientes de redactar
       </span>
