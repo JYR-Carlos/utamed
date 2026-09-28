@@ -39,7 +39,7 @@
   const canManageSyllabus = can('CURSOS_PROGRAMA');
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/ayudante/dashboard' },
+    { title: 'Inicio', href: '/ayudante/dashboard' },
     { title: 'Mis Cursos (Ayudante)', href: '/ayudante/cursos' },
   ];
 

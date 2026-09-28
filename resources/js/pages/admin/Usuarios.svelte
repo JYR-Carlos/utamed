@@ -55,7 +55,7 @@
   type UserFormData = EstudianteFormData | DocenteFormData | AdministradorFormData;
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Inicio', href: '/dashboard' },
     { title: 'Usuarios', href: '/admin/usuarios' },
   ];
 

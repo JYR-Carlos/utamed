@@ -50,7 +50,7 @@
     periodoActual
   }: Props = $props();
 
-  const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/estudiante/dashboard' }];
+  const breadcrumbs: BreadcrumbItem[] = [{ title: 'Inicio', href: '/estudiante/dashboard' }];
 
   const anoAcademico = new Date().getFullYear();
 

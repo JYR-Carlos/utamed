@@ -54,7 +54,7 @@
   }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Inicio', href: '/dashboard' },
     { title: 'Facultades', href: '/admin/facultades' },
   ];
 

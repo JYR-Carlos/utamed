@@ -52,7 +52,7 @@
   const id_curso = $derived(curso?.id_curso || 0);
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
-    { title: 'Dashboard', href: '/estudiante/dashboard' },
+    { title: 'Inicio', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
     { title: curso?.asignatura_nombre ?? curso?.nombre ?? 'Curso', href: '' },
   ]);

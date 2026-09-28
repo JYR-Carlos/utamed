@@ -30,7 +30,7 @@
   const isJefe = $derived(routePrefix !== '/admin');
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
-    { title: 'Dashboard', href: isJefe ? '/docente/jefe-carrera/dashboard' : '/dashboard' },
+    { title: 'Inicio', href: isJefe ? '/docente/jefe-carrera/dashboard' : '/dashboard' },
     { title: 'Planes de Estudio', href: `${routePrefix}/planes` },
     { title: plan?.carrera?.nombre ?? 'Detalle Malla', href: '#' },
   ]);

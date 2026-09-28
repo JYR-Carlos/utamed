@@ -31,7 +31,7 @@
   let { cursos, estudiantes, idCursoSeleccionado }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Inicio', href: '/dashboard' },
     { title: 'Inscripciones', href: '/admin/inscripciones_cursos' },
     { title: 'Crear', href: '/admin/inscripciones_cursos/create' },
   ];

@@ -128,7 +128,7 @@
                         href={dashboard()}
                         class="group flex items-center gap-2 rounded-md text-[#5B9BD5] transition-colors hover:text-[#2A66AC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(91,155,213,0.35)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1626]"
                     >
-                        Ir al Dashboard
+                        Ir al inicio
                         <ArrowRight size={16} class="group-hover:translate-x-1 transition-transform" />
                     </Link>
                 {:else}

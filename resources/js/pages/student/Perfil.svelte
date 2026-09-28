@@ -23,7 +23,7 @@
   const anoAcademico = new Date().getFullYear();
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/estudiante/dashboard' },
+    { title: 'Inicio', href: '/estudiante/dashboard' },
     { title: 'Mi Perfil', href: '/estudiante/perfil' },
   ];
 </script>

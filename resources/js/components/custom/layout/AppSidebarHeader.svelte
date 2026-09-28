@@ -89,7 +89,7 @@
       items.push({
         group: 'Administración',
         items: [
-          { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard' },
+          { icon: LayoutGrid, label: 'Inicio', href: '/dashboard' },
           { icon: Users, label: 'Usuarios', href: '/admin/usuarios' },
           { icon: Building2, label: 'Facultades', href: '/admin/facultades' },
           { icon: Folder, label: 'Departamentos', href: '/admin/departamentos' },
@@ -107,7 +107,7 @@
       items.push({
         group: 'Docente',
         items: [
-          { icon: LayoutGrid, label: 'Dashboard', href: '/docente/dashboard' },
+          { icon: LayoutGrid, label: 'Inicio', href: '/docente/dashboard' },
           { icon: BookOpen, label: 'Mis Cursos', href: '/docente/cursos' },
         ],
       });
@@ -118,7 +118,7 @@
       items.push({
         group: 'Estudiante',
         items: [
-          { icon: LayoutGrid, label: 'Dashboard', href: '/estudiante/dashboard' },
+          { icon: LayoutGrid, label: 'Inicio', href: '/estudiante/dashboard' },
           { icon: BookOpen, label: 'Mis Cursos', href: '/estudiante/cursos' },
         ],
       });

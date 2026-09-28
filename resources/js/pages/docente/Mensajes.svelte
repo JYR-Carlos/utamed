@@ -94,7 +94,7 @@
   let { cursos = [], hilo = null }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/docente/dashboard' },
+    { title: 'Inicio', href: '/docente/dashboard' },
     { title: 'Mensajes de actividades', href: '/docente/mensajes' },
   ];
 
