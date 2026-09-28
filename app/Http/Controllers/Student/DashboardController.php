@@ -70,6 +70,7 @@ class DashboardController extends Controller
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
                 'cod_curso' => $curso->cod_curso,
+                'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
                 'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                 'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                 'fecha_inicio' => $curso->fecha_inicio,

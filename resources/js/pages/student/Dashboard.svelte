@@ -16,6 +16,7 @@
       id_curso: number;
       nombre: string;
       cod_curso: string;
+      cod_asignatura?: string | null;
       asignatura_nombre: string;
       carrera_nombre: string;
       fecha_inicio: string;

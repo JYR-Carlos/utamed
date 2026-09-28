@@ -6,16 +6,21 @@
     id_curso: number;
     nombre: string;
     cod_curso: string;
+    /** Código de la asignatura (p. ej. DM095); puede faltar si el curso no tiene asignación. */
+    cod_asignatura?: string | null;
     profesor: string;
     semestre_real: number;
     agno_real: number;
   }
 
-  let { id_curso, nombre, cod_curso, profesor, semestre_real, agno_real }: Props = $props();
+  let { id_curso, nombre, cod_curso, cod_asignatura, profesor, semestre_real, agno_real }: Props = $props();
 
   const { formatName } = useFormatName();
   const { getInitials } = useInitials();
 
+  // El alumno reconoce el curso por el código de la asignatura; el del curso
+  // queda sólo como respaldo cuando no hay asignatura asociada.
+  let codigo = $derived(cod_asignatura || cod_curso || '');
   let sinDocente = $derived(profesor === '(sin docente asignado)');
   let periodoLabel = $derived(
     `${semestre_real === 1 ? 'Primer' : 'Segundo'} semestre ${agno_real}`,
@@ -33,7 +38,9 @@
       {getInitials(nombre)}
     </div>
     <div class="flex min-w-0 flex-col gap-0.5">
-      <span class="font-mono text-[11px] text-slate-500">{cod_curso}</span>
+      {#if codigo}
+        <span class="font-mono text-[11px] text-slate-500">{codigo}</span>
+      {/if}
       <span
         class="line-clamp-2 text-[15px] font-semibold leading-tight text-slate-900 group-hover:text-uta-blue"
       >
