@@ -46,8 +46,10 @@ class CourseController extends Controller
 
         $estudiante = $user->estudiante;
 
-        // Parámetros desde la URL
-        $semestre = (int) $request->input('semestre', 1);
+        // Parámetros desde la URL. Sin ellos se muestra el período vigente:
+        // antes el semestre por defecto era siempre 1 y, en el segundo
+        // semestre, «Mis Cursos» decía que no había cursos (T03).
+        $semestre = (int) $request->input('semestre', now()->month <= 6 ? 1 : 2);
         $agno     = (int) $request->input('agno', now()->year);
 
         // Obtener inscripciones filtradas por Semestre y Año del Curso

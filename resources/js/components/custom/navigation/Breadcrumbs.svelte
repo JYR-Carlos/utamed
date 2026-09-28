@@ -13,6 +13,22 @@
 
     let { breadcrumbs }: Props = $props();
 
+    // La máscara sólo se aplica si la ruta no cabe: antes difuminaba siempre
+    // el final, que por el anclaje a la derecha es la página actual.
+    let contenedor = $state<HTMLElement | null>(null);
+    let desborda = $state(false);
+
+    $effect(() => {
+        const el = contenedor;
+        if (!el) return;
+        const medir = () => (desborda = el.scrollWidth > el.clientWidth + 1);
+        medir();
+        const ro = new ResizeObserver(medir);
+        ro.observe(el);
+        if (el.firstElementChild) ro.observe(el.firstElementChild);
+        return () => ro.disconnect();
+    });
+
     function onWheel(e: WheelEvent) {
         const el = e.currentTarget as HTMLElement;
         if (e.deltaY === 0) return;
@@ -22,9 +38,15 @@
 </script>
 
 <Breadcrumb>
-    <!-- direction:rtl ancla el scroll al lado derecho (muestra el último item primero).
-         La máscara aplica degradado en ambos bordes para indicar scroll. -->
-    <div class="breadcrumb-scroll" style="direction: rtl;" onwheel={onWheel}>
+    <!-- Si no cabe, direction:rtl ancla el scroll a la derecha (se ve la página actual).
+         Si no cabe, un degradado en el borde izquierdo indica que hay más. -->
+    <div
+        class="breadcrumb-scroll"
+        class:desborda
+        style="direction: {desborda ? 'rtl' : 'ltr'};"
+        onwheel={onWheel}
+        bind:this={contenedor}
+    >
         <BreadcrumbList class="flex-nowrap w-max" style="direction: ltr;">
             {#each breadcrumbs as item, index (index)}
                 <Item class="shrink-0">
@@ -55,20 +77,10 @@
         overflow-x: auto;
         scrollbar-width: none;
         -ms-overflow-style: none;
-        -webkit-mask-image: linear-gradient(
-            to right,
-            transparent 0%,
-            black 2rem,
-            black calc(100% - 2rem),
-            transparent 100%
-        );
-        mask-image: linear-gradient(
-            to right,
-            transparent 0%,
-            black 2rem,
-            black calc(100% - 2rem),
-            transparent 100%
-        );
+    }
+    .breadcrumb-scroll.desborda {
+        -webkit-mask-image: linear-gradient(to right, transparent 0%, black 2rem);
+        mask-image: linear-gradient(to right, transparent 0%, black 2rem);
     }
     .breadcrumb-scroll::-webkit-scrollbar {
         display: none;

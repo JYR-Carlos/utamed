@@ -438,19 +438,29 @@
         font-size: 18px;
     }
 
-    h1 {
-        @apply text-5xl;
-    }
-
-    h2 {
-        @apply text-4xl;
-    }
-
-    h3 {
-        @apply text-3xl;
-    }
-
     .sidebar-label {
         @apply text-sm;
+    }
+}
+
+/*
+ * Los tamaños grandes de encabezado van en @layer base: fuera de una capa,
+ * Tailwind v4 los hace ganar sobre las utilidades y en pantallas de 1920 px
+ * o más todo h1/h2/h3 ignoraba su clase (un h3 con text-[15px] salía a
+ * 33,75 px). Dentro de base sólo aplican a los encabezados sin tamaño propio.
+ */
+@layer base {
+    @media (min-width: 1920px) {
+        h1 {
+            @apply text-5xl;
+        }
+
+        h2 {
+            @apply text-4xl;
+        }
+
+        h3 {
+            @apply text-3xl;
+        }
     }
 }
