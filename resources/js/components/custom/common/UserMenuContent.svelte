@@ -4,8 +4,8 @@
     import { edit } from '@/routes/profile/index';
     import type { User } from '@/types';
     import { logout } from '@/routes';
-    import { Link, router } from '@inertiajs/svelte';
-    import { LogOut, Settings } from 'lucide-svelte';
+    import { router } from '@inertiajs/svelte';
+    import { LogOut } from 'lucide-svelte';
 
     interface Props {
         user: User;
@@ -13,8 +13,14 @@
 
     let { user }: Props = $props();
 
+    /*
+     * El POST se despacha desde onSelect del ítem. Antes el ítem envolvía un
+     * <Link as="button">: el primer clic lo consumía el menú (que se cerraba
+     * y desmontaba el Link) y hacía falta un segundo clic para salir.
+     */
     const handleLogout = () => {
         router.flushAll();
+        router.post(logout.url());
     };
 </script>
 
@@ -24,11 +30,7 @@
     </div>
 </DropdownMenuLabel>
 <DropdownMenuSeparator />
-<DropdownMenuItem>
-    <Link class="block w-full" method="post" onclick={handleLogout} href={logout.url()} as="button">
-        <div class="flex items-center">
-            <LogOut class="mr-2 h-4 w-4" />
-            <span>Cerrar Sesión</span>
-        </div>
-    </Link>
+<DropdownMenuItem onSelect={handleLogout} class="cursor-pointer">
+    <LogOut class="mr-2 h-4 w-4" />
+    <span>Cerrar Sesión</span>
 </DropdownMenuItem>

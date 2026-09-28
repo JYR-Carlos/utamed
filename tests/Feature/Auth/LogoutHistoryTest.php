@@ -34,11 +34,11 @@ test('las páginas de Inertia cifran su historial', function () {
 test('el logout marca el historial de Inertia para ser invalidado', function () {
     $user = Usuario::factory()->create();
 
-    $this->actingAs($user)->post('/logout')->assertRedirect('/');
+    $this->actingAs($user)->post('/logout')->assertRedirect('/login');
 
     // La marca se escribe en la sesión nueva (Fortify ya invalidó la anterior)
     // y la recoge la primera respuesta Inertia posterior: la del login.
-    $page = AssertableInertia::fromTestResponse($this->get('/'))->toArray();
+    $page = AssertableInertia::fromTestResponse($this->get('/login'))->toArray();
 
     expect($page['clearHistory'])->toBeTrue();
 });
