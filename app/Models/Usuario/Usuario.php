@@ -435,6 +435,20 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
+     * Tiene perfil de estudiante y ningún otro (ni docente ni superadmin).
+     *
+     * Es el criterio con que las pantallas compartidas (ajustes de perfil y de
+     * contraseña) deciden llevar al usuario a su versión del portal del
+     * estudiante. Quien además es docente o admin conserva las genéricas.
+     */
+    public function esSoloEstudiante(): bool
+    {
+        return $this->estudiante !== null
+            && $this->docente === null
+            && !$this->isSuperAdmin();
+    }
+
+    /**
      * Obtener todos los permisos efectivos del usuario y sus detalles.
      * 
      * Permite filtrar por contexto específico y tipo de permiso (ROL o ESPECIAL).
