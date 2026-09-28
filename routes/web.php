@@ -561,6 +561,9 @@ Route::prefix('estudiante')
         // Programa (Syllabus) View - MUST be before generic {curso} route
         Route::get('cursos/{curso}/programa', [App\Http\Controllers\Student\ProgramaController::class, 'show'])->name('cursos.programa.show');
         Route::get('cursos/{curso}', [CourseController::class, 'show'])->name('cursos.show');
+        // Bitácora del curso (T41): agendas de todas las actividades del alumno.
+        Route::get('cursos/{curso}/bitacora', [App\Http\Controllers\Student\BitacoraController::class, 'show'])
+            ->name('cursos.bitacora');
         // Route::get('cursos/{curso}/actividad', [\App\Http\Controllers\Student\ActivityController::class, 'show'])->name('cursos.actividades.show');
         Route::get('cursos/{curso}/actividad/{actividad}', [ActivityController::class, 'show'])
             ->name('cursos.actividades.show');

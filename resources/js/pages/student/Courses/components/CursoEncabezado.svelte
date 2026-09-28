@@ -10,7 +10,7 @@
    * acento, no como fondo.
    */
   import { Link } from '@inertiajs/svelte';
-  import { ClipboardList, FileText, MessagesSquare } from 'lucide-svelte';
+  import { ClipboardList, FileText, History, MessagesSquare } from 'lucide-svelte';
   import type { Curso } from '@/types';
 
   interface Props {
@@ -138,6 +138,11 @@
       >
         <MessagesSquare class="w-4 h-4" />
         Mensajería
+      </Link>
+      <!-- Bitácora del curso (T41): todas las agendas del alumno juntas. -->
+      <Link href={`/estudiante/cursos/${curso?.id_curso}/bitacora`} class={BOTON_ACCION}>
+        <History class="w-4 h-4" />
+        Bitácora
       </Link>
     </div>
   </div>
