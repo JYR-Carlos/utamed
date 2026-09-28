@@ -580,7 +580,7 @@
             </div>
             {#if actividad.nro_dias_adicionales_para_bloqueo > 0}
               <div class="min-w-0">
-                <dt class="text-xs font-medium text-slate-500">Holgura</dt>
+                <dt class="text-xs font-medium text-slate-500">Plazo adicional</dt>
                 <dd class="font-semibold text-slate-700">
                   {actividad.nro_dias_adicionales_para_bloqueo} día{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 's' : ''} adicional{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 'es' : ''}
                 </dd>

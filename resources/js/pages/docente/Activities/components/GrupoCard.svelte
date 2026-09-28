@@ -18,6 +18,8 @@
     Minus,
     FileText,
     Calendar,
+    CalendarPlus,
+    Pencil,
   } from 'lucide-svelte';
 
   type IntegranteData = {
@@ -115,17 +117,10 @@
     editandoHolgura = false;
   }
   
+  // «Plazo adicional» y no «holgura» (UI-02): es lo que se le dice al alumno.
   function getDiasHolguraText(dias: number): string {
-    if (dias === 0) {
-      return "Sin holgura asignada"
-    }
-    else if (dias === 1) {
-      return dias + " día adicional de holgura"
-    }
-    else {
-      return dias + " días adicionales de holgura"
-    }
-    
+    if (dias === 0) return 'Sin plazo adicional';
+    return dias === 1 ? '+1 día' : `+${dias} días`;
   }
 </script>
 
@@ -185,10 +180,10 @@
     {/if}
   </div>
 
-  <!-- Holgura personal del grupo -->
+  <!-- Plazo adicional (holgura personal) del grupo -->
   {#if esTitular}
     <div class="flex items-center gap-2">
-      <span class="text-xs text-gray-600 font-normal">Holgura personal:</span>
+      <span class="text-xs text-gray-600 font-normal">Plazo adicional:</span>
       {#if editandoHolgura}
         <div class="flex items-center gap-1">
           <input
@@ -214,9 +209,14 @@
       {:else}
         <button
           onclick={iniciarEdicionHolgura}
-          class=" cursor-pointer bordertext-sm font-semibold text-uta-blue/70 hover:text-uta-blue transition-colors"
+          title="Editar el plazo adicional de este grupo"
+          class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors {grupo.nro_dias_adicionales_para_bloqueo_personal > 0
+            ? 'border-uta-blue/30 bg-uta-blue-light text-uta-blue hover:border-uta-blue/50'
+            : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-uta-blue/30 hover:text-uta-blue'}"
         >
-          {getDiasHolguraText(grupo.nro_dias_adicionales_para_bloqueo_personal)} 
+          <CalendarPlus class="h-3.5 w-3.5" />
+          {getDiasHolguraText(grupo.nro_dias_adicionales_para_bloqueo_personal)}
+          <Pencil class="h-3 w-3 opacity-60" />
         </button>
       {/if}
     </div>
