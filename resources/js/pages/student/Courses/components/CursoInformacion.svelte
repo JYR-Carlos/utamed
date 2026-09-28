@@ -11,8 +11,7 @@
    * Estructura visual: tarjetas redondeadas con borde gris y encabezado de
    * icono + título, el mismo patrón que los paneles del dashboard.
    */
-  import { Link } from '@inertiajs/svelte';
-  import { ArrowRight, BookOpen, Info, ListOrdered, Mail, Scale, Users } from 'lucide-svelte';
+  import { BookOpen, Info, ListOrdered, Mail, Scale, Users } from 'lucide-svelte';
   import type { Curso } from '@/types';
   import type { DatosSyllabusAlumno, DocenteAlumno } from '@/types/syllabus.types';
   import { initials } from '@/utils/formatters';
@@ -171,28 +170,9 @@
     </div>
   {/if}
 
-  <!-- Programa completo / aviso si aún no está publicado -->
-  {#if programa}
-    <Link
-      href={`/estudiante/cursos/${curso?.id_curso}/programa`}
-      class="flex items-center gap-4 p-5 rounded-3xl border border-gray-200 bg-white no-underline hover:border-uta-blue/30 hover:bg-uta-blue-light/40 transition-colors group"
-    >
-      <span
-        class="w-10 h-10 shrink-0 rounded-2xl bg-uta-blue-light text-uta-blue flex items-center justify-center"
-      >
-        <BookOpen class="w-[18px] h-[18px]" />
-      </span>
-      <span class="flex-1 min-w-0">
-        <span class="block font-semibold text-gray-900">Programa completo del curso</span>
-        <span class="block text-xs text-gray-500 mt-0.5">
-          Competencias, resultados de aprendizaje y bibliografía · versión {programa.version_programa}
-        </span>
-      </span>
-      <ArrowRight
-        class="w-[18px] h-[18px] shrink-0 text-uta-blue transition-transform group-hover:translate-x-0.5"
-      />
-    </Link>
-  {:else}
+  <!-- Aviso si el programa aún no está publicado. Cuando lo está, el acceso
+       es el botón «Ver programa» del encabezado (T23): aquí sería un duplicado. -->
+  {#if !programa}
     <div class="flex items-start gap-4 p-5 rounded-3xl border border-gray-200 bg-gray-50">
       <span class="shrink-0 text-gray-400 mt-0.5">
         <Info class="w-[18px] h-[18px]" />

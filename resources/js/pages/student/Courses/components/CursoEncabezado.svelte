@@ -91,6 +91,11 @@
   });
 
   const plazoUrgente = $derived(diasRestantes !== null && diasRestantes <= 3);
+
+  // Las tres acciones del curso (programa, actividades, mensajería) pesan lo
+  // mismo, así que comparten un único estilo (T23).
+  const BOTON_ACCION =
+    'inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold no-underline border border-gray-300 bg-white text-gray-700 hover:border-uta-blue/30 hover:bg-uta-blue-light hover:text-uta-blue transition-colors';
 </script>
 
 <header class="mb-8">
@@ -124,14 +129,14 @@
     {/if}
 
     <div
-      class="flex flex-col sm:flex-row sm:items-center gap-3 {ficha.length > 0
+      class="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center {ficha.length > 0
         ? 'mt-6 pt-5 border-t border-gray-100'
         : ''}"
     >
       {#if tienePrograma}
         <Link
           href={`/estudiante/cursos/${curso?.id_curso}/programa`}
-          class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold no-underline bg-uta-blue text-white hover:bg-uta-blue-hover transition-colors"
+          class={BOTON_ACCION}
         >
           <FileText class="w-4 h-4" />
           Ver programa
@@ -139,7 +144,7 @@
       {/if}
       <button
         onclick={onIrAActividades}
-        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+        class={BOTON_ACCION}
       >
         <ClipboardList class="w-4 h-4" />
         Ver actividades
@@ -149,7 +154,7 @@
       </button>
       <Link
         href={`/estudiante/cursos/${curso?.id_curso}/mensajeria`}
-        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold no-underline border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+        class={BOTON_ACCION}
       >
         <MessagesSquare class="w-4 h-4" />
         Mensajería
