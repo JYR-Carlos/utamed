@@ -164,7 +164,11 @@
                   <p class="m-0 text-sm text-gray-700">Archivo: <span class="font-medium">{e.archivo}</span></p>
                 {/if}
                 {#if e.resultado}
-                  <p class="m-0 text-sm text-gray-700">Resultado: <span class="font-semibold">{e.resultado}</span></p>
+                  {@const esNota = /^\d+([.,]\d+)?$/.test(e.resultado)}
+                  <p class="m-0 text-sm text-gray-700">
+                    {esNota ? 'Nota' : 'Resultado'}:
+                    <span class="font-semibold">{esNota ? Number(e.resultado.replace(',', '.')).toFixed(1).replace('.', ',') : e.resultado}</span>
+                  </p>
                 {/if}
                 {#if e.mensaje}
                   <p class="m-0 line-clamp-3 whitespace-pre-line text-sm text-gray-600">{e.mensaje}</p>
