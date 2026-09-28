@@ -333,13 +333,25 @@
               bind:value={query}
               type="search"
               placeholder="Buscar alumno…"
-              class="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400 bg-slate-50"
+              class="w-full pl-8 pr-8 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400 bg-slate-50"
             />
+            <!-- El spinner va dentro del input (absoluto) para que su
+                 aparición no empuje ni encoja el buscador. -->
+            {#if cargando}
+              <Loader2
+                size={14}
+                class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-slate-400"
+              />
+            {/if}
           </div>
-        {/if}
-
-        {#if cargando}
-          <Loader2 size={15} class="animate-spin text-slate-400 shrink-0 ml-auto" />
+        {:else}
+          <!-- Sin buscador el spinner conserva un hueco fijo: aparece y
+               desaparece sin mover el resto de la barra. -->
+          <span class="ml-auto flex h-[15px] w-[15px] shrink-0 items-center justify-center" aria-hidden={!cargando}>
+            {#if cargando}
+              <Loader2 size={15} class="animate-spin text-slate-400" />
+            {/if}
+          </span>
         {/if}
       </div>
 
