@@ -135,9 +135,9 @@
           </div>
         {:else}
           <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
-            <!-- Columna principal: cursos + notas. En mobile va DESPUÉS de la
-                 columna lateral (order-2): entregas y mensajes son más urgentes
-                 que una lista de cursos que el alumno ya conoce. -->
+            <!-- Columna principal: sólo los cursos. En mobile va DESPUÉS de la
+                 columna lateral (order-2): entregas, mensajes y notas son más
+                 urgentes que una lista de cursos que el alumno ya conoce. -->
             <div class="order-2 flex flex-col gap-4 lg:order-1 lg:min-w-0 lg:flex-1">
               <div class="flex items-center gap-2">
                 <BookOpen class="h-4 w-4 text-slate-500" />
@@ -151,13 +151,6 @@
                   <CourseCard {...curso} />
                 {/each}
               </div>
-
-              <PropuestaCard
-                icon={Award}
-                title="Notas recientes"
-                emptyTitle="Aún no hay notas"
-                emptyDescription="Aparecerán aquí cuando se evalúe tu primera actividad sumativa."
-              />
             </div>
 
             <div class="order-1 flex flex-col gap-4 lg:order-2 lg:w-[360px] lg:flex-none">
@@ -174,6 +167,13 @@
                   cursos={mensajeria?.cursos ?? []}
                 />
               {/if}
+
+              <PropuestaCard
+                icon={Award}
+                title="Notas recientes"
+                emptyTitle="Aún no hay notas"
+                emptyDescription="Aparecerán aquí cuando se evalúe tu primera actividad sumativa."
+              />
             </div>
           </div>
         {/if}
