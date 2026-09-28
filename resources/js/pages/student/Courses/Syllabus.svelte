@@ -252,15 +252,8 @@
       {:else}
         <!-- ── Main Document Card ── -->
         <div class="bg-white rounded-2xl border border-gray-200 p-12 space-y-12">
-          <!-- Descripción del Curso -->
-          {#if descripcion}
-            <section>
-              <h2 class="text-2xl font-bold text-gray-900 mb-4">Descripción del Curso</h2>
-              <p class="text-gray-700 leading-relaxed whitespace-pre-line">{descripcion}</p>
-            </section>
-          {/if}
-
-          <!-- Unidades (Sección VI - BÁSICO) -->
+          <!-- Unidades (Sección VI - BÁSICO). Van primero por acuerdo de la reunión
+               del 23-09 (T24), tanto en BÁSICO como en COMPLETO. -->
           {#if unidades.length > 0}
             <section>
               <h2 class="text-2xl font-bold text-gray-900 mb-6">Unidades</h2>
@@ -295,6 +288,14 @@
                   </div>
                 {/each}
               </div>
+            </section>
+          {/if}
+
+          <!-- Descripción del Curso -->
+          {#if descripcion}
+            <section>
+              <h2 class="text-2xl font-bold text-gray-900 mb-4">Descripción del Curso</h2>
+              <p class="text-gray-700 leading-relaxed whitespace-pre-line">{descripcion}</p>
             </section>
           {/if}
 
