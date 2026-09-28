@@ -353,7 +353,7 @@
               {#if curso.tiene_programa}
                 <button
                   onclick={() => router.visit(`/docente/cursos/${curso.id_curso}/programa`)}
-                  class={BTN_GHOST}
+                  class={BTN_PRIMARY}
                 >
                   <FileText size={15} />
                   Programa
