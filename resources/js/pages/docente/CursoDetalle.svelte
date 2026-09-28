@@ -116,6 +116,8 @@
     mis_estudiantes: EstudianteComponente[];
     todos_componentes: ComponenteCurso[];
     actividades?: Actividad[];
+    /** Prop diferida: sólo llega cuando la ficha del alumno la pide. */
+    mensajesEstudiante?: any[];
   }
 
   let {
@@ -124,6 +126,7 @@
     mis_estudiantes,
     todos_componentes = [],
     actividades = [],
+    mensajesEstudiante = [],
   }: Props = $props();
 
   const canVerActividades = $derived(
@@ -888,6 +891,7 @@
       estudiante={estudianteSeleccionado}
       {actividades}
       idCurso={curso.id_curso}
+      {mensajesEstudiante}
       onCerrar={cerrarModalEstudiante}
     />
   {/if}

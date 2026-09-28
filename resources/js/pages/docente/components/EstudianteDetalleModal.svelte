@@ -97,6 +97,21 @@
   let mensajesLoading = $state(false);
   let mensajesError = $state<string | null>(null);
 
+  /*
+   * Alumno cuyos mensajes ya se pidieron (con éxito o no). Antes la carga se
+   * disparaba mientras `mensajesEstudiante` viniera vacío, así que un alumno
+   * sin mensajes provocaba un router.reload() tras otro sin fin (BUG-01).
+   * Ahora se pide una sola vez por alumno, aunque la respuesta venga vacía.
+   */
+  let mensajesCargadosPara = $state<number | null>(null);
+
+  const idEstudianteActual = $derived(estudiante.estudiante.id_estudiante);
+
+  /** La prop de página conserva la respuesta del alumno anterior: sólo vale la del actual. */
+  const mensajesVisibles = $derived(
+    mensajesCargadosPara === idEstudianteActual ? mensajesEstudiante : [],
+  );
+
   // Reply form state: keyed by grupo ID
   let replyingGrupo = $state<number | null>(null);
   let replyText = $state('');
@@ -132,7 +147,13 @@
 
   // Load messages when switching to mensajes tab
   $effect(() => {
-    if (tab === 'mensajes' && abierto && mensajesEstudiante.length === 0 && !mensajesLoading) {
+    if (
+      tab === 'mensajes' &&
+      abierto &&
+      mensajesCargadosPara !== idEstudianteActual &&
+      !mensajesLoading &&
+      !mensajesError
+    ) {
       loadMensajes();
     }
   });
@@ -165,17 +186,20 @@
   import { router } from '@inertiajs/svelte';
 
   function loadMensajes() {
+    const idEstudiante = idEstudianteActual;
     mensajesLoading = true;
     mensajesError = null;
-    
+
     router.reload({
       only: ['mensajesEstudiante'],
-      data: { estudiante_id: estudiante.estudiante.id_estudiante },
+      data: { estudiante_id: idEstudiante },
       onSuccess: () => {
-        mensajesLoading = false;
+        mensajesCargadosPara = idEstudiante;
       },
       onError: () => {
         mensajesError = 'Error al cargar mensajes.';
+      },
+      onFinish: () => {
         mensajesLoading = false;
       },
     });
@@ -403,20 +427,22 @@
         <!-- Mensajes -->
       {:else if tab === 'mensajes'}
         <div class="p-5 flex flex-col gap-4">
-          {#if mensajesLoading}
+          <!-- El spinner sólo tapa la primera carga; al recargar tras responder
+               se conserva la lista para que no parpadee. -->
+          {#if mensajesLoading && mensajesVisibles.length === 0}
             <div class="flex items-center justify-center gap-2 py-12 text-slate-400 text-sm">
               <Loader2 size={18} class="animate-spin" />
               Cargando mensajes…
             </div>
           {:else if mensajesError}
             <div class="text-center py-10 text-red-500 text-sm">{mensajesError}</div>
-          {:else if mensajesEstudiante.length === 0}
+          {:else if mensajesVisibles.length === 0}
             <div class="flex flex-col items-center gap-3 py-14 text-center text-slate-400">
               <MessageSquare size={32} class="opacity-30" />
               <p class="text-sm">Este estudiante no ha enviado mensajes aún.</p>
             </div>
           {:else}
-            {@const hilos = mensajesPorGrupo(mensajesEstudiante)}
+            {@const hilos = mensajesPorGrupo(mensajesVisibles)}
             {#each [...hilos.entries()] as [grupoId, hilo]}
               <div class="border border-slate-200 rounded-xl overflow-hidden">
                 <!-- Cabecera del hilo -->
