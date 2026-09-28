@@ -2,10 +2,10 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import { page, Link } from '@inertiajs/svelte';
-  import { BookOpen, CalendarClock, LifeBuoy, ArrowUpRight, ClipboardX } from 'lucide-svelte';
+  import { BookOpen, LifeBuoy, ArrowUpRight, ClipboardX } from 'lucide-svelte';
   import CourseCard from '@/components/student/CourseCard.svelte';
   import MensajesSinLeerCard from '@/components/student/MensajesSinLeerCard.svelte';
-  import PropuestaCard from '@/components/student/PropuestaCard.svelte';
+  import ProximasAVencerCard, { type ActividadPorVencer } from '@/components/student/ProximasAVencerCard.svelte';
   import NotasRecientesCard, { type NotaReciente } from '@/components/student/NotasRecientesCard.svelte';
   import BotonSgeq from '@/components/custom/common/BotonSgeq.svelte';
 
@@ -36,6 +36,8 @@
       no_leidos: number;
       cursos: Array<{ id_curso: number; nombre: string; cod_curso: string; no_leidos: number }>;
     };
+    /** Actividades cuyo plazo termina pronto (ya con la holgura aplicada). */
+    proximasAVencer?: ActividadPorVencer[];
     /** Últimas notas y retroalimentaciones del equipo docente. */
     notasRecientes?: NotaReciente[];
     isAyudante?: boolean;
@@ -48,6 +50,7 @@
     cursos,
     stats,
     mensajeria,
+    proximasAVencer = [],
     notasRecientes = [],
     isAyudante = false,
     puedeAbrirSgeq = false,
@@ -159,12 +162,7 @@
             </div>
 
             <div class="order-1 flex flex-col gap-4 lg:order-2 lg:w-[360px] lg:flex-none">
-              <PropuestaCard
-                icon={CalendarClock}
-                title="Próximas entregas"
-                emptyTitle="Aún no hay entregas"
-                emptyDescription="Tus cursos todavía no han publicado actividades con fecha."
-              />
+              <ProximasAVencerCard items={proximasAVencer} />
 
               {#if mensajeria && mensajeria?.no_leidos > 0}
                 <MensajesSinLeerCard

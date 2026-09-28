@@ -4,24 +4,91 @@ namespace App\Services\Student;
 
 use App\Enums\DB\TipoActividad;
 use App\Enums\DB\TipoMensaje;
+use App\Models\Agenda\Actividad;
+use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Agenda\Agenda;
 use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Usuario\Estudiante;
+use Carbon\Carbon;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Bloques de actividades del dashboard del estudiante: las notas y
- * retroalimentaciones recientes.
+ * Bloques de actividades del dashboard del estudiante: lo que está por vencer
+ * y las notas/retroalimentaciones recientes.
  *
  * Sólo mira cursos con inscripción `INSCRITO` y actividades visibles, igual
  * que `Student\CourseController::show` y `Student\ActivityController::show`.
  */
 class ResumenActividadesEstudiante
 {
+    /** Ventana de «próximas a vencer». No se muestra en la UI. */
+    public const DIAS_PROXIMAS = 7;
+
     /** Cuántas notas/retroalimentaciones se listan. */
     public const MAX_RECIENTES = 5;
+
+    /**
+     * Actividades cuyo plazo real (fecha límite + holgura de la actividad +
+     * holgura personal del grupo) cae entre ahora y los próximos 7 días.
+     *
+     * `plazo_hasta` sólo viene cuando hay holgura: es la fecha que el alumno
+     * tiene que mirar, ya calculada, en vez de la fecha límite nominal.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function proximasAVencer(Estudiante $estudiante): array
+    {
+        $componentes = $this->componentesDelEstudiante($estudiante);
+
+        if ($componentes->isEmpty()) {
+            return [];
+        }
+
+        $ahora = Carbon::now();
+        $tope = $ahora->copy()->addDays(self::DIAS_PROXIMAS)->endOfDay();
+
+        // El SQL sólo descarta lo que vence después de la ventana; lo que ya
+        // venció se filtra abajo, porque la holgura puede extenderlo.
+        $actividades = Actividad::whereIn('id_componente', $componentes->keys())
+            ->where('visible', true)
+            ->whereNotNull('fecha_limite')
+            ->whereDate('fecha_limite', '<=', $tope->toDateString())
+            ->get();
+
+        if ($actividades->isEmpty()) {
+            return [];
+        }
+
+        $grupos = $this->gruposDelEstudiante($estudiante, $actividades->pluck('id_actividad'));
+
+        return $actividades
+            ->map(function (Actividad $actividad) use ($grupos, $componentes) {
+                $grupo = $grupos->get($actividad->id_actividad);
+                $holgura = (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0)
+                    + (int) ($grupo?->nro_dias_adicionales_para_bloqueo_personal ?? 0);
+                $plazo = Carbon::parse($actividad->fecha_limite)->endOfDay()->addDays($holgura);
+                $curso = $componentes->get($actividad->id_componente);
+
+                return [
+                    'id_actividad' => $actividad->id_actividad,
+                    'id_curso'     => (int) $curso->id_curso,
+                    'curso'        => $curso->cod_asignatura ?: $curso->cod_curso,
+                    'nombre'       => $actividad->nombre,
+                    'es_sumativa'  => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
+                    'fecha_limite' => $actividad->fecha_limite->format('Y-m-d'),
+                    'plazo_hasta'  => $holgura > 0 ? $plazo->format('Y-m-d') : null,
+                    '_plazo'       => $plazo,
+                ];
+            })
+            ->filter(fn (array $item) => $item['_plazo']->between($ahora, $tope))
+            ->sortBy('_plazo')
+            ->map(fn (array $item) => Arr::except($item, '_plazo'))
+            ->values()
+            ->all();
+    }
 
     /**
      * Últimas notas y retroalimentaciones que el equipo docente dejó en las
@@ -140,5 +207,17 @@ class ResumenActividadesEstudiante
             ->filter(fn ($c) => in_array($c->id_componente, $inscritos)
                 || !in_array($c->id_curso, $cursosConInscripcion))
             ->mapWithKeys(fn ($c) => [(int) $c->id_componente => $cursos->get($c->id_curso)]);
+    }
+
+    /**
+     * @param  Collection<int, int>  $idsActividad
+     * @return Collection<int, ActividadAsignadaGrupo> keyed por id_actividad
+     */
+    private function gruposDelEstudiante(Estudiante $estudiante, Collection $idsActividad): Collection
+    {
+        return ActividadAsignadaGrupo::whereIn('id_actividad', $idsActividad)
+            ->whereHas('miembros', fn ($q) => $q->where('id_estudiante', $estudiante->id_estudiante))
+            ->get()
+            ->keyBy('id_actividad');
     }
 }
