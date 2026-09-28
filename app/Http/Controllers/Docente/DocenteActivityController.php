@@ -26,6 +26,7 @@ use App\Models\Curso\Unidad;
 use App\Models\Usuario\Usuario;
 use App\Services\Agenda\GrupoIndividualService;
 use App\Services\Archive\Handlers\ActivityArchiveHandler;
+use App\Services\Agenda\LecturaAgendaService;
 use App\Services\Docente\ConversacionDocenteService;
 use App\Services\Docente\NombreUsuario;
 use Closure;
@@ -853,7 +854,10 @@ class DocenteActivityController extends Controller
                     return [];
                 }
 
-                return (new ConversacionDocenteService)->hiloCompletoGrupo((int) $grupoId);
+                return (new LecturaAgendaService)->leerHilo(
+                    Auth::id(),
+                    (new ConversacionDocenteService)->hiloCompletoGrupo((int) $grupoId),
+                );
             }),
         ]);
     }
@@ -1716,7 +1720,12 @@ class DocenteActivityController extends Controller
                 $service = new ConversacionDocenteService;
                 $gruposIds = $service->gruposDeEstudianteEnCurso($curso->id_curso, (int) $idEstudiante);
 
-                return $service->conversacionEstudiante($gruposIds);
+                $conversacion = $service->conversacionEstudiante($gruposIds);
+                // Mezcla varias actividades: se registra la lectura (T07),
+                // pero el «Visto por» se muestra sólo en el hilo de cada una.
+                (new LecturaAgendaService)->registrar(Auth::id(), $conversacion->pluck('id_agenda'));
+
+                return $conversacion;
             }),
         ]);
     }
@@ -1742,7 +1751,10 @@ class DocenteActivityController extends Controller
         $service = new ConversacionDocenteService;
         $gruposIds = $service->gruposDeEstudianteEnCurso($curso->id_curso, $idEstudiante);
 
-        return response()->json($service->conversacionEstudiante($gruposIds));
+        $conversacion = $service->conversacionEstudiante($gruposIds);
+        (new LecturaAgendaService)->registrar(Auth::id(), $conversacion->pluck('id_agenda'));
+
+        return response()->json($conversacion);
     }
 
     // 1. Autor: Juan Y.
@@ -1958,6 +1970,9 @@ class DocenteActivityController extends Controller
         }
 
         // Hilo completo del grupo (mensajes, feedback, entregas y evaluaciones).
-        return response()->json((new ConversacionDocenteService)->hiloCompletoGrupo($grupo));
+        return response()->json((new LecturaAgendaService)->leerHilo(
+            Auth::id(),
+            (new ConversacionDocenteService)->hiloCompletoGrupo($grupo),
+        ));
     }
 }

@@ -23,6 +23,7 @@
   import { onMount } from 'svelte';
   import { Link, page, router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
+  import VistoPor from '@/components/mensajeria/VistoPor.svelte';
   import {
     MessageSquare,
     MessageSquarePlus,
@@ -65,6 +66,8 @@
     es_docente: boolean;
     emisor: string;
     tipo: string;
+    /** Sólo en el último mensaje del grupo: quiénes lo han visto (T07). */
+    visto_por?: Array<{ nombre: string; fecha_lectura: string }>;
   }
 
   interface Integrante {
@@ -539,6 +542,7 @@
                       <p class="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">
                         {m.mensaje}
                       </p>
+                      <VistoPor lectores={m.visto_por} class="mt-1.5" />
                     </div>
                   {/each}
                 </div>

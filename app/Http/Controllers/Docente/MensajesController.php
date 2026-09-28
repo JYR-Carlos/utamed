@@ -7,6 +7,7 @@ use App\Models\Agenda\Actividad;
 use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Curso\Curso;
 use App\Enums\DB\TipoMensaje;
+use App\Services\Agenda\LecturaAgendaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -228,6 +229,14 @@ class MensajesController extends Controller
                 ])->values(),
             ];
         })->values();
+
+        // Ver los hilos es leerlos (T07); el último mensaje de cada grupo trae
+        // quiénes lo han visto.
+        $leidos = (new LecturaAgendaService)->leerHilos(
+            Auth::id(),
+            $hilos->mapWithKeys(fn ($h) => [$h['grupo'] => $h['mensajes']])->all(),
+        );
+        $hilos = $hilos->map(fn ($h) => array_merge($h, ['mensajes' => $leidos[$h['grupo']]]));
 
         return [
             'id_actividad' => $actividad->id_actividad,

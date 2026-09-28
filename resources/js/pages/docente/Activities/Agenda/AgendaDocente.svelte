@@ -23,6 +23,7 @@
    */
   import type { Rubrica } from '@/types/rubrica';
   import RubricaView from '../../../student/Activities/Agenda/Rubrica.svelte';
+  import VistoPor from '@/components/mensajeria/VistoPor.svelte';
   import { calcularNotaChilena } from '@/lib/notas';
   import { formatBytes, formatFechaHora } from '@/utils/formatters';
   import { X, Send, CheckCircle2, AlertTriangle, ChevronRight, MessageSquareOff, FileText, Download, Eye, PackageCheck } from 'lucide-svelte';
@@ -63,6 +64,8 @@
       archivo?: { nombre_original: string; peso_bytes: number | null; mime_type: string | null; visualizable: boolean } | null;
       /** Sólo en las evaluaciones: la entrega que califica (null = evaluación general). */
       entrega_evaluada?: { id_agenda: number; fecha_envio: string; nombre_original: string | null } | null;
+      /** Sólo en el último mensaje del hilo: quiénes lo han visto (T07). */
+      visto_por?: Array<{ nombre: string; fecha_lectura: string }>;
     }>;
     isLoading?: boolean;
     errorMensaje?: string | null;
@@ -368,6 +371,7 @@
               {/if}
             {/if}
           </div>
+          <VistoPor lectores={item.visto_por} />
         {/each}
       {/if}
     </div>

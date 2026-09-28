@@ -16,6 +16,7 @@
    */
   import type { Rubrica } from '@/types/rubrica';
   import RubricaView from './Rubrica.svelte';
+  import VistoPor from '@/components/mensajeria/VistoPor.svelte';
   import { formatBytes, formatFechaHora, formatFechaTextoLargo, parseFechaSoloDia } from '@/utils/formatters';
   import {
     X,
@@ -48,6 +49,8 @@
     archivo?: { nombre_original: string | null; peso_bytes: number | null; visualizable?: boolean } | null;
     /** En una evaluación: la entrega que califica (null = evaluación general). */
     entrega_evaluada?: { id_agenda: number; fecha_envio: string; nombre_original: string | null } | null;
+    /** Sólo en el último mensaje del hilo: quiénes lo han visto (T07). */
+    visto_por?: Array<{ nombre: string; fecha_lectura: string }>;
   }
 
   interface Props {
@@ -327,6 +330,7 @@
               </div>
             </div>
           {/if}
+          <VistoPor lectores={item.visto_por} alinear={item.es_de_docente && item.tipo_interaccion !== ENTREGA ? 'izquierda' : 'derecha'} />
         {/each}
       {:else}
         <p class="py-10 text-center text-sm italic text-[#5A5E6E]">No hay interacciones registradas.</p>
