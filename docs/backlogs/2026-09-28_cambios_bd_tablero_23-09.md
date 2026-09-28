@@ -27,8 +27,8 @@ existentes (T54).
 | Tarjeta | Estado en Trello | Cambio | Situación |
 |---|---|---|---|
 | T10 | En revisión | 3 columnas en `usuario.estudiante` | Migración 07, aplicada en local |
-| T07 | En progreso | Registro de lectura de la agenda | Migración 08, aplicada en local; falta el código |
-| T48 | Por definir | 2 valores nuevos en `agenda.en_tipo_mensaje` | Migración 09, aplicada en local y enum regenerado; el flujo espera la norma institucional |
+| T07 | En progreso | Registro de lectura de la agenda | Migración 08 aplicada en local; código hecho (`c6ff836`) |
+| T48 | Por definir | 2 valores en `agenda.en_tipo_mensaje` + 2 columnas | Migración 09 aplicada en local; reglas definidas; faltan `permite_apelacion` y `apelacion_acogida` en el modelo |
 | T50 | Por definir | Rediseño de la mensajería y limpieza de tablas | Espera la respuesta del director |
 | T14 | Pendiente | `foto_url` del usuario | Descartada en este tablero |
 | T53 | En revisión | Dato: asistencia DM095 75 → 70 | El seeder ya está corregido |
@@ -86,28 +86,72 @@ CREATE TABLE agenda.lectura_agenda (
 );
 ```
 
-Cómo se usaría:
+Cómo quedó implementado (`c6ff836`, `LecturaAgendaService`):
 
-- Al abrir la agenda, se inserta una fila por cada mensaje recibido que el
-  usuario aún no había leído.
-- Un mensaje se muestra como «Visto» si existe al menos una fila de un lector
-  distinto de quien lo envió.
+- Al abrir un hilo se inserta una fila por cada mensaje recibido que el
+  usuario aún no había leído. Los mensajes propios no cuentan.
+- Se registra en la actividad del estudiante, en la agenda del grupo del
+  docente, en la bandeja de Mensajes y en la conversación por estudiante.
+- Como en Instagram, solo el último mensaje del hilo muestra «Visto por Ana,
+  Juan y N más»; al pasar el cursor aparece la lista completa con la hora. No
+  se incluye a quien está mirando la pantalla.
 
 ### T48: apelación de entregas
 
-Está a la espera de que la universidad formalice el proceso: causales, plazos y
-quién aprueba. Como mínimo, habrá que agregar dos tipos de mensaje:
+La migración 09 ya agregó los dos tipos de mensaje (`'Solicitud de apelación'`
+y `'Resolución de apelación'`) y el enum `TipoMensaje` está regenerado. El
+flujo todavía no está programado.
+
+**Reglas definidas (2026-09-28):**
+
+- Se puede apelar solo cuando la entrega ya se subió **y ya fue evaluada**.
+- La solicitud lleva la razón en texto libre. Se guarda como una fila de
+  `agenda.agenda` de tipo «Solicitud de apelación», con la razón en `mensaje`.
+- Si la entrega es grupal, la apelación es del grupo: la agenda cuelga del
+  grupo (`id_actividad_asignada_grupo`), igual que la entrega.
+- No hay plazo ni límite de veces. Se puede apelar hasta que el docente
+  desactive la apelación **en esa actividad** desde la gestión del curso.
+- Resuelve el docente o el administrador, con una fila de tipo «Resolución de
+  apelación».
+- Si la apelación se acoge, **la entrega se reabre**: el grupo puede subir una
+  nueva versión, aunque haya pasado la fecha límite, y el docente la evalúa
+  como una entrega normal. La nueva evaluación reemplaza la nota.
+
+**Falta en la BD (pedir al equipo del modelo):**
 
 ```sql
-ALTER TYPE agenda.en_tipo_mensaje ADD VALUE 'Solicitud de apelación';
-ALTER TYPE agenda.en_tipo_mensaje ADD VALUE 'Resolución de apelación';
+-- Interruptor por actividad para que el docente desactive la apelación.
+ALTER TABLE agenda.actividad ADD COLUMN permite_apelacion boolean NOT NULL DEFAULT TRUE;
+
+-- Resultado de la resolución: TRUE = acogida (reabre la entrega),
+-- FALSE = rechazada. Solo aplica a las filas de resolución.
+ALTER TABLE agenda.agenda ADD COLUMN apelacion_acogida boolean NULL;
+ALTER TABLE agenda.agenda ADD CONSTRAINT chk_apelacion_acogida_solo_en_resolucion
+  CHECK (apelacion_acogida IS NULL OR tipo_mensaje = 'Resolución de apelación');
 ```
 
-- Después hay que regenerar `app/Enums/DB/TipoMensaje.php`. Ese archivo se
-  genera solo desde la BD; no se edita a mano.
-- Si una resolución favorable debe reabrir la entrega del alumno, seguramente
-  también habrá que guardar el estado de la apelación (aprobada o rechazada) y
-  su plazo. El diseño exacto depende de la regla que se defina.
+Sin `apelacion_acogida` no se puede saber si una resolución reabre la entrega:
+el tipo de mensaje es el mismo si se acoge o si se rechaza.
+
+**Cómo se derivaría el estado (sin más columnas):**
+
+- *Apelación pendiente:* la última «Solicitud de apelación» del grupo no tiene
+  una «Resolución de apelación» posterior. Mientras haya una pendiente, no se
+  ofrece apelar otra vez.
+- *Entrega reabierta:* la última resolución fue acogida y es posterior a la
+  última «Evaluación». Se cierra sola cuando llega la nueva evaluación.
+
+**Código que falta (después de la migración):**
+
+- Estudiante: botón «Apelar» con el campo de razón en la agenda de la
+  actividad. Solo aparece si hay una entrega evaluada, `permite_apelacion` es
+  verdadero y no hay otra apelación pendiente.
+- Docente: interruptor «Permitir apelaciones» en la gestión de la actividad y
+  una forma de resolver (acoger o rechazar, con texto) desde la agenda del grupo.
+- Administrador: una vista para ver y resolver apelaciones. Hoy el panel admin
+  no muestra la agenda.
+- Entrega: `AgendaController::storeEntrega` tiene que aceptar una entrega fuera
+  de plazo cuando la entrega está reabierta.
 
 ### T50: rediseño de la mensajería (épica; absorbe T49 y T51)
 
