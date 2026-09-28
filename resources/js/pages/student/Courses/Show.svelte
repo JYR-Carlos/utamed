@@ -2,14 +2,9 @@
   /**
    * Ficha del curso para el alumno.
    *
-   * Orden de lectura: primero qué curso es (encabezado), después de qué trata y
-   * cómo se evalúa, y al final las actividades. Antes la página abría
-   * directamente con la lista de entregas y el programa quedaba escondido tras
-   * un acordeón cerrado, lo que dejaba al alumno sin contexto.
-   *
-   * El dato urgente —la próxima entrega— y un atajo a la lista viajan en el
-   * encabezado, para que ordenar el contenido no le cueste al alumno el plazo
-   * que necesita ver.
+   * Bajo el encabezado van exactamente cuatro secciones, en este orden (T26,
+   * reunión del 23-09): Sobre el curso → Próximas entregas → Actividades →
+   * Equipo docente. Nada más.
    */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, Curso } from '@/types';
@@ -17,6 +12,8 @@
   import ActividadesView from '../Activities/ActividadesView.svelte';
   import CursoEncabezado from './components/CursoEncabezado.svelte';
   import CursoInformacion from './components/CursoInformacion.svelte';
+  import CursoProximasEntregas from './components/CursoProximasEntregas.svelte';
+  import CursoEquipoDocente from './components/CursoEquipoDocente.svelte';
   import { parseFechaSoloDia } from '@/utils/formatters';
 
   interface Actividad {
@@ -57,21 +54,18 @@
     { title: curso?.asignatura_nombre ?? curso?.nombre ?? 'Curso', href: '' },
   ]);
 
-  // ─── Próxima entrega ────────────────────────────────────────────────────────
-  // La más cercana entre las que aún no vencen; las vencidas ya no son "próxima".
-  const proximaEntrega = $derived.by(() => {
+  // ─── Próximas entregas ──────────────────────────────────────────────────────
+  // Las que aún no vencen, de la más cercana a la más lejana.
+  const proximasEntregas = $derived.by(() => {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
-    return (
-      actividades
-        .filter((a) => a.con_entrega && parseFechaSoloDia(a.fecha_limite) >= hoy)
-        .sort(
-          (a, b) =>
-            parseFechaSoloDia(a.fecha_limite).getTime() -
-            parseFechaSoloDia(b.fecha_limite).getTime(),
-        )[0] ?? null
-    );
+    return actividades
+      .filter((a) => a.con_entrega && a.fecha_limite && parseFechaSoloDia(a.fecha_limite) >= hoy)
+      .sort(
+        (a, b) =>
+          parseFechaSoloDia(a.fecha_limite).getTime() - parseFechaSoloDia(b.fecha_limite).getTime(),
+      );
   });
 
   // ─── Filtros de actividades ─────────────────────────────────────────────────
@@ -116,7 +110,6 @@
     <div class="relative mx-auto px-4">
       <CursoEncabezado
         {curso}
-        {proximaEntrega}
         tienePrograma={!!programa}
         totalActividades={actividades.length}
         onIrAActividades={irAActividades}
@@ -125,14 +118,19 @@
       <section class="mb-10">
         <div class="flex flex-col gap-1 mb-6">
           <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Sobre el curso</h2>
-          <p class="text-sm text-gray-600">
-            Contenidos, equipo docente y ponderaciones de la asignatura.
-          </p>
+          <p class="text-sm text-gray-600">Contenidos y ponderaciones de la asignatura.</p>
         </div>
-        <CursoInformacion {curso} {programa} {docentes} {datos} />
+        <CursoInformacion {curso} {programa} {datos} />
       </section>
 
-      <section id="actividades" class="pb-10 scroll-mt-6">
+      <section class="mb-10">
+        <div class="flex flex-col gap-1 mb-6">
+          <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Próximas entregas</h2>
+        </div>
+        <CursoProximasEntregas idCurso={id_curso} entregas={proximasEntregas} />
+      </section>
+
+      <section id="actividades" class="mb-10 scroll-mt-6">
         <div class="flex flex-col gap-1 mb-6">
           <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Actividades</h2>
           <p class="text-sm text-gray-600">
@@ -154,6 +152,13 @@
           onToggleFilter={toggleFilter}
           onClearFilters={clearFilters}
         />
+      </section>
+
+      <section class="pb-10">
+        <div class="flex flex-col gap-1 mb-6">
+          <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Equipo docente</h2>
+        </div>
+        <CursoEquipoDocente {docentes} />
       </section>
     </div>
   </div>

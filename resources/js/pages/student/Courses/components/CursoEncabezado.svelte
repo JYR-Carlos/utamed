@@ -10,14 +10,11 @@
    * acento, no como fondo.
    */
   import { Link } from '@inertiajs/svelte';
-  import { CalendarClock, ClipboardList, FileText, MessagesSquare } from 'lucide-svelte';
+  import { ClipboardList, FileText, MessagesSquare } from 'lucide-svelte';
   import type { Curso } from '@/types';
-  import { formatFechaCorta, parseFechaSoloDia } from '@/utils/formatters';
 
   interface Props {
     curso?: Curso | null;
-    /** Actividad con la fecha límite más cercana; null si no quedan entregas. */
-    proximaEntrega?: { nombre: string; fecha_limite: string } | null;
     /** Sin programa publicado el botón no lleva a ninguna parte, así que no se muestra. */
     tienePrograma?: boolean;
     totalActividades?: number;
@@ -27,7 +24,6 @@
 
   let {
     curso = null,
-    proximaEntrega = null,
     tienePrograma = false,
     totalActividades = 0,
     onIrAActividades = () => {},
@@ -75,22 +71,6 @@
     return items;
   });
 
-  const diasRestantes = $derived.by((): number | null => {
-    if (!proximaEntrega) return null;
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const limite = parseFechaSoloDia(proximaEntrega.fecha_limite);
-    return Math.round((limite.getTime() - hoy.getTime()) / 86_400_000);
-  });
-
-  const plazoLabel = $derived.by(() => {
-    if (diasRestantes === null) return '';
-    if (diasRestantes === 0) return 'Vence hoy';
-    if (diasRestantes === 1) return 'Vence mañana';
-    return `Vence en ${diasRestantes} días`;
-  });
-
-  const plazoUrgente = $derived(diasRestantes !== null && diasRestantes <= 3);
 
   // Las tres acciones del curso (programa, actividades, mensajería) pesan lo
   // mismo, así que comparten un único estilo (T23).
@@ -161,24 +141,4 @@
       </Link>
     </div>
   </div>
-
-  {#if proximaEntrega}
-    <div
-      class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border p-4 {plazoUrgente
-        ? 'border-uta-red/20 bg-uta-red-light'
-        : 'border-gray-200 bg-gray-50'}"
-    >
-      <CalendarClock
-        class="w-4 h-4 shrink-0 {plazoUrgente ? 'text-uta-red' : 'text-gray-500'}"
-      />
-      <span class="text-sm text-gray-600">Próxima entrega:</span>
-      <span class="text-sm font-semibold text-gray-900">{proximaEntrega.nombre}</span>
-      <span class="text-sm text-gray-500">
-        {formatFechaCorta(proximaEntrega.fecha_limite)}
-      </span>
-      <span class="text-sm font-semibold {plazoUrgente ? 'text-uta-red' : 'text-gray-700'}">
-        {plazoLabel}
-      </span>
-    </div>
-  {/if}
 </header>
