@@ -191,6 +191,9 @@ class DocenteCursoController extends Controller
                         ($ic->estudiante->usuario->apellido2 ?? '')
                     ),
                     'username'      => $ic->estudiante->usuario->username ?? '',
+                    // Contacto personal (T10): sólo lo ve el equipo docente,
+                    // en modo lectura, desde la ficha del estudiante.
+                    'contacto'      => $ic->estudiante->contacto(),
                 ],
             ]);
 

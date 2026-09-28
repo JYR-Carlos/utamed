@@ -47,6 +47,12 @@
       nombre: string;
       username: string;
       email?: string;
+      /** Contacto personal que declara el alumno (T10). Sólo lectura. */
+      contacto?: {
+        correo_personal: string | null;
+        celular: string | null;
+        redes_sociales: Record<'youtube' | 'x' | 'instagram' | 'linkedin', string | null>;
+      };
     };
   }
 
@@ -97,6 +103,19 @@
   let isSendingReply = $state(false);
 
   // ── Derived data ──────────────────────────────────────────────────────────
+
+  const NOMBRE_RED: Record<string, string> = {
+    youtube: 'YouTube',
+    x: 'X',
+    instagram: 'Instagram',
+    linkedin: 'LinkedIn',
+  };
+
+  const contacto = $derived(estudiante.estudiante.contacto);
+  const redes = $derived(
+    Object.entries(contacto?.redes_sociales ?? {}).filter(([, url]) => !!url) as [string, string][],
+  );
+  const tieneContacto = $derived(!!contacto?.correo_personal || !!contacto?.celular || redes.length > 0);
 
   /** Only show published activities (visible === true). */
   const actividadesPublicadas = $derived(actividades.filter((a) => a.visible));
@@ -259,6 +278,38 @@
       <span class="text-sm font-bold {notaColorClass(estudiante.nota_componente)}">
         {formatNota(estudiante.nota_componente)}
       </span>
+    </div>
+
+    <!-- ── Contacto personal (sólo lectura) ──────────────────────────────── -->
+    <div class="flex flex-col gap-1.5 px-5 py-3 border-b border-slate-100 text-xs shrink-0">
+      <span class="font-bold uppercase tracking-widest text-slate-400">Contacto</span>
+      {#if tieneContacto}
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-slate-700">
+          {#if contacto?.correo_personal}
+            <a href="mailto:{contacto.correo_personal}" class="hover:text-indigo-700 hover:underline">
+              {contacto.correo_personal}
+            </a>
+          {/if}
+          {#if contacto?.celular}
+            <a href="tel:{contacto.celular.replace(/\s+/g, '')}" class="hover:text-indigo-700 hover:underline">
+              {contacto.celular}
+            </a>
+          {/if}
+          {#each redes as [red, url] (red)}
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-1 hover:text-indigo-700 hover:underline"
+            >
+              {NOMBRE_RED[red] ?? red}
+              <ExternalLink size={11} />
+            </a>
+          {/each}
+        </div>
+      {:else}
+        <span class="text-slate-400">El estudiante no ha registrado datos de contacto personal.</span>
+      {/if}
     </div>
 
     <!-- ── Tabs ───────────────────────────────────────────────────────────── -->

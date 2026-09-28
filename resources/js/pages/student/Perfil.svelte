@@ -2,8 +2,23 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import { useInitials } from '@/hooks';
-  import { IdCard, Mail, AtSign, GraduationCap, CalendarDays, BookOpen, KeyRound } from 'lucide-svelte';
-  import { Link } from '@inertiajs/svelte';
+  import {
+    IdCard,
+    Mail,
+    AtSign,
+    GraduationCap,
+    CalendarDays,
+    BookOpen,
+    KeyRound,
+    Lock,
+    CheckCircle2,
+  } from 'lucide-svelte';
+  import { Link, useForm } from '@inertiajs/svelte';
+  import InputError from '@/components/custom/common/InputError.svelte';
+  import { Input } from '@/components/ui/input';
+  import { Label } from '@/components/ui/label';
+
+  type Red = 'youtube' | 'x' | 'instagram' | 'linkedin';
 
   interface Props {
     perfil: {
@@ -15,10 +30,48 @@
       agno_ingreso: number;
       total_cursos: number;
     };
+    /** Contacto personal que el alumno mantiene (T10). */
+    contacto: {
+      correo_personal: string | null;
+      celular: string | null;
+      redes_sociales: Record<Red, string | null>;
+    };
     semestreActual: number;
   }
 
-  let { perfil, semestreActual }: Props = $props();
+  let { perfil, contacto, semestreActual }: Props = $props();
+
+  const REDES: { id: Red; label: string; placeholder: string }[] = [
+    { id: 'youtube', label: 'YouTube', placeholder: 'https://www.youtube.com/@tu-canal' },
+    { id: 'x', label: 'X (Twitter)', placeholder: 'https://x.com/tu-usuario' },
+    { id: 'instagram', label: 'Instagram', placeholder: 'https://www.instagram.com/tu-usuario' },
+    { id: 'linkedin', label: 'LinkedIn', placeholder: 'https://www.linkedin.com/in/tu-perfil' },
+  ];
+
+  // svelte-ignore state_referenced_locally
+  const form = useForm({
+    correo_personal: contacto?.correo_personal ?? '',
+    celular: contacto?.celular ?? '',
+    redes_sociales: {
+      youtube: contacto?.redes_sociales?.youtube ?? '',
+      x: contacto?.redes_sociales?.x ?? '',
+      instagram: contacto?.redes_sociales?.instagram ?? '',
+      linkedin: contacto?.redes_sociales?.linkedin ?? '',
+    } as Record<Red, string>,
+  });
+
+  let guardado = $state(false);
+
+  function guardarContacto(e: SubmitEvent) {
+    e.preventDefault();
+    guardado = false;
+    $form.patch('/estudiante/perfil/contacto', {
+      preserveScroll: true,
+      onSuccess: () => (guardado = true),
+    });
+  }
+
+  const errores = $derived($form.errors as Record<string, string | undefined>);
 
   const { getInitials } = useInitials();
   const anoAcademico = new Date().getFullYear();
@@ -125,6 +178,77 @@
             <span class="truncate text-sm font-semibold text-slate-900">{perfil.total_cursos}</span>
           </div>
         </div>
+      </section>
+
+      <p class="mt-3 inline-flex items-center gap-1.5 text-[12.5px] text-slate-500">
+        <Lock class="h-3.5 w-3.5" />
+        Estos datos vienen de la Intranet y no se pueden editar aquí.
+      </p>
+
+      <!-- Contacto personal (T10): lo único que el alumno edita. -->
+      <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="mb-5 flex flex-col gap-1">
+          <h2 class="text-base font-semibold text-slate-900">Datos de contacto</h2>
+          <p class="text-[13px] text-slate-500">
+            Sólo tus docentes pueden ver estos datos; tus compañeros no. Todos son opcionales.
+          </p>
+        </div>
+
+        <form class="flex flex-col gap-5" onsubmit={guardarContacto}>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="grid gap-2">
+              <Label for="correo_personal">Correo personal</Label>
+              <Input
+                id="correo_personal"
+                type="email"
+                autocomplete="email"
+                placeholder="tu.correo@ejemplo.com"
+                bind:value={$form.correo_personal}
+              />
+              <InputError message={errores.correo_personal} />
+            </div>
+
+            <div class="grid gap-2">
+              <Label for="celular">Celular</Label>
+              <Input
+                id="celular"
+                type="tel"
+                autocomplete="tel"
+                placeholder="+56 9 1234 5678"
+                bind:value={$form.celular}
+              />
+              <InputError message={errores.celular} />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {#each REDES as red (red.id)}
+              <div class="grid gap-2">
+                <Label for="red_{red.id}">{red.label}</Label>
+                <Input
+                  id="red_{red.id}"
+                  type="url"
+                  placeholder={red.placeholder}
+                  bind:value={$form.redes_sociales[red.id]}
+                />
+                <InputError message={errores[`redes_sociales.${red.id}`]} />
+              </div>
+            {/each}
+          </div>
+          <InputError message={errores.redes_sociales} />
+
+          <div class="flex flex-wrap items-center gap-4">
+            <button type="submit" class="btn btn-primary" disabled={$form.processing}>
+              Guardar contacto
+            </button>
+            {#if guardado}
+              <p class="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700" role="status">
+                <CheckCircle2 class="h-4 w-4" />
+                Tus datos de contacto se guardaron.
+              </p>
+            {/if}
+          </div>
+        </form>
       </section>
     </div>
   </div>

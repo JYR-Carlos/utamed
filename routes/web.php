@@ -553,6 +553,9 @@ Route::prefix('estudiante')
         // rutas generales
         Route::get('dashboard', [App\Http\Controllers\Student\DashboardController::class, 'index'])->name('dashboard');
         Route::get('perfil', [App\Http\Controllers\Student\PerfilController::class, 'show'])->name('perfil');
+        // Sólo el contacto personal (T10); los datos institucionales no se editan.
+        Route::patch('perfil/contacto', [App\Http\Controllers\Student\PerfilController::class, 'updateContacto'])
+            ->name('perfil.contacto.update');
         Route::get('cursos', [CourseController::class, 'index'])->name('cursos.index');
 
         // Programa (Syllabus) View - MUST be before generic {curso} route
