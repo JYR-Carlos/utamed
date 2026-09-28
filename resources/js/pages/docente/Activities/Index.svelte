@@ -698,7 +698,7 @@
             de una misma fila se estiran a la misma altura para que los bordes no
             queden escalonados.
           -->
-          <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+          <div class="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
             {#each grupos as grupo (grupo.grupo)}
               <GrupoCard
                 {grupo}

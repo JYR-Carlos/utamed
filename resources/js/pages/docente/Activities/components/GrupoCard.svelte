@@ -131,17 +131,17 @@
   misma fila.
 -->
 <div
-  class="flex h-full flex-col w-full text-sm font-semibold text-slate-800 px-4 sm:px-6 py-4 rounded-2xl bg-white border border-gray-200 shadow-sm gap-3"
+  class="flex h-full flex-col w-full text-sm font-semibold text-slate-800 px-3.5 sm:px-4 py-3 rounded-xl bg-white border border-gray-200 shadow-sm gap-2"
 >
   <!-- Número de grupo / nombre estudiante + estado + eliminar -->
   <div class="flex items-center justify-between gap-2">
-    <p class="font-bold text-base">
+    <p class="min-w-0 truncate font-bold text-sm">
       {esGrupal ? `Grupo #${grupo.grupo}` : (grupo.integrantes[0]?.nombre_completo ?? 'Estudiante')}
     </p>
     <div class="flex items-center gap-2">
       {#if grupo.estado_actividad_asignada}
         <span
-          class="text-[11px] font-bold px-3 py-1 rounded-full border {getEstadoColor(
+          class="text-[10px] font-bold px-2 py-0.5 rounded-full border {getEstadoColor(
             grupo.estado_actividad_asignada,
           )}"
         >
@@ -149,7 +149,7 @@
         </span>
       {:else}
         <span
-          class="text-[11px] font-bold px-3 py-1 rounded-full border bg-gray-100 text-gray-800 border-gray-300"
+          class="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-gray-100 text-gray-800 border-gray-300"
         >
           SIN ESTADO
         </span>
@@ -171,7 +171,7 @@
     <span class="text-xs text-gray-600 font-normal">{esGrupal ? 'Nota grupal:' : 'Nota:'}</span>
     {#if grupo.nota !== null}
       <span
-        class="font-bold text-lg {Number(grupo.nota) >= 4 ? 'text-green-700' : 'text-red-700'}"
+        class="font-bold text-base {Number(grupo.nota) >= 4 ? 'text-green-700' : 'text-red-700'}"
       >
         {Number(grupo.nota).toPrecision(2)}
       </span>
@@ -253,7 +253,7 @@
   <!-- Ajuste de décimas en actividad individual -->
   {#if !esGrupal && grupo.nota !== null && grupo.integrantes.length > 0}
     {@const integrante = grupo.integrantes[0]}
-    <div class="border-t border-gray-100 pt-3">
+    <div class="border-t border-gray-100 pt-2">
       <div class="flex items-center justify-between text-xs">
         <span class="text-gray-600 font-normal">Ajuste de décimas:</span>
         {#if esTitular}
@@ -305,7 +305,7 @@
     </div>
   {:else if esGrupal && grupo.nota !== null && grupo.integrantes.length > 0}
     <!-- Notas individuales grupales (nota grupal + décimas por estudiante) -->
-    <div class="border-t border-gray-100 pt-3">
+    <div class="border-t border-gray-100 pt-2">
       <div class="flex items-center justify-between mb-2">
         <p class="text-xs text-gray-600 font-normal">Notas individuales</p>
         {#if esTitular}
@@ -424,26 +424,26 @@
 
   <!-- Botones de acción del grupo -->
   <div
-    class="grid gap-2 mt-1"
+    class="grid gap-1.5 mt-auto pt-1"
     class:grid-cols-2={traeArchivo}
     class:grid-cols-1={!traeArchivo}
   >
     {#if traeArchivo}
       <button
-        class="w-full px-3 py-2 rounded-lg border border-uta-blue/20 transition-all bg-uta-blue text-white hover:bg-uta-blue-hover flex items-center justify-between gap-2 text-xs font-semibold"
+        class="w-full h-8 px-3 rounded-lg border border-uta-blue/20 transition-all bg-uta-blue text-white hover:bg-uta-blue-hover flex items-center justify-between gap-2 text-xs font-semibold"
         onclick={() => onVerEntregas(grupo)}
       >
         <p>Ver Entregas</p>
-        <FileText class="size-4 shrink-0" />
+        <FileText class="size-3.5 shrink-0" />
       </button>
     {/if}
 
     <button
-      class="w-full px-3 py-2 rounded-lg border border-uta-blue/20 transition-all bg-uta-blue text-white hover:bg-uta-blue-hover flex items-center justify-between gap-2 text-xs font-semibold"
+      class="w-full h-8 px-3 rounded-lg border border-uta-blue/20 transition-all bg-uta-blue text-white hover:bg-uta-blue-hover flex items-center justify-between gap-2 text-xs font-semibold"
       onclick={() => onVerAgenda(grupo)}
     >
       <p>Ver Agenda</p>
-      <Calendar class="size-4 shrink-0" />
+      <Calendar class="size-3.5 shrink-0" />
     </button>
   </div>
 </div>
