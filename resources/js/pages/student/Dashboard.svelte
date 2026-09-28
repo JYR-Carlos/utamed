@@ -69,6 +69,11 @@
     )
   );
 
+  /** No leídos de mensajería por curso, para el acceso directo de cada tarjeta. */
+  const noLeidosPorCurso = $derived(
+    new Map((mensajeria?.cursos ?? []).map((c) => [c.id_curso, c.no_leidos])),
+  );
+
   const authUser = $derived(($page.props.auth as any)?.user);
   const nombreCompleto = $derived(stats?.nombre_completo || authUser?.name || 'Estudiante');
   const primerNombre = $derived(nombreCompleto.split(' ')[0] || 'Estudiante');
@@ -156,7 +161,7 @@
               </div>
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {#each cursosPeriodoActual as curso (curso.id_curso)}
-                  <CourseCard {...curso} />
+                  <CourseCard {...curso} no_leidos={noLeidosPorCurso.get(curso.id_curso) ?? 0} />
                 {/each}
               </div>
             </div>
