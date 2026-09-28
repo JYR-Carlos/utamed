@@ -11,6 +11,7 @@
    * Se activa haciendo clic en cualquier fila de la tabla principal.
    * La tabla de fondo queda levemente oscurecida (backdrop) con blur mínimo.
    */
+  import { ordenarComponentesCTL } from '@/lib/componentes';
   import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight, Calendar, Copy, UserPlus } from 'lucide-svelte';
   import { router } from '@inertiajs/svelte';
   import type { Curso, Componente } from '../types/curso.types';
@@ -58,6 +59,11 @@
   let fechasSuccess = $state(false);
   let editingFechaBasico = $state(false);
   let editingFechaSyllabus = $state(false);
+
+  /** Orden CTL (Cátedra, Taller, Laboratorio), no el de inserción en la BD (FEAT-01). */
+  const componentesOrdenados = $derived(
+    ordenarComponentesCTL(curso?.componentes ?? [], (c) => c.tipo_componente?.tipo),
+  );
 
   const hasPrograma = $derived(
     Boolean(curso?.has_programa || curso?.id_programa || curso?.programa_estado),
@@ -311,7 +317,7 @@
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                  {#each curso.componentes as comp (comp.id_componente)}
+                  {#each componentesOrdenados as comp (comp.id_componente)}
                     <tr class="hover:bg-gray-50/80 transition-colors">
                       <td class="px-4 py-3 font-medium text-gray-800">
                         {comp.tipo_componente?.tipo ?? '—'}

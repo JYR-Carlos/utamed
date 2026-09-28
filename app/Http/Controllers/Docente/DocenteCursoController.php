@@ -169,6 +169,7 @@ class DocenteCursoController extends Controller
                 'docenteComponentes.docente.usuario',
             ])
             ->get();
+        $misComponentes = \App\Models\Curso\TipoComponente::ordenarCTL($misComponentes);
 
         // Estudiantes inscritos en esos componentes
         $misEstudiantes = \App\Models\Curso\InscripcionComponente::whereIn(
@@ -257,6 +258,7 @@ class DocenteCursoController extends Controller
                     'inscripcionComponentes',
                 ])
                 ->get();
+            $todosComponentes = \App\Models\Curso\TipoComponente::ordenarCTL($todosComponentes);
 
             $todosComponentesData = $todosComponentes->map(fn ($c) => [
                 'id_componente'     => $c->id_componente,
@@ -443,6 +445,7 @@ class DocenteCursoController extends Controller
                 'inscripcionComponentes',
             ])
             ->get();
+        $todosComponentes = \App\Models\Curso\TipoComponente::ordenarCTL($todosComponentes);
 
         $todosComponentesData = $todosComponentes->map(fn ($c) => [
             'id_componente'     => $c->id_componente,
