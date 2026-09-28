@@ -14,6 +14,8 @@
   import CursoInformacion from './components/CursoInformacion.svelte';
   import CursoProximasEntregas from './components/CursoProximasEntregas.svelte';
   import CursoEquipoDocente from './components/CursoEquipoDocente.svelte';
+  import CursoRendimientoPanel, { type Rendimiento } from './components/CursoRendimientoPanel.svelte';
+  import { router } from '@inertiajs/svelte';
   import { parseFechaSoloDia } from '@/utils/formatters';
 
   interface Actividad {
@@ -42,9 +44,35 @@
     programa?: Programa | null;
     docentes?: DocenteAlumno[];
     datos?: DatosSyllabusAlumno | null;
+    /** Prop diferida: llega al abrir el panel «Rendimiento». */
+    rendimiento?: Rendimiento | null;
   }
 
-  let { curso, actividades = [], programa = null, docentes = [], datos = null }: Props = $props();
+  let {
+    curso,
+    actividades = [],
+    programa = null,
+    docentes = [],
+    datos = null,
+    rendimiento = null,
+  }: Props = $props();
+
+  // ─── Panel «Rendimiento» (T30) ──────────────────────────────────────────────
+  let rendimientoAbierto = $state(false);
+  let rendimientoCargando = $state(false);
+  let rendimientoError = $state<string | null>(null);
+
+  function abrirRendimiento() {
+    rendimientoAbierto = true;
+    rendimientoError = null;
+    // Se recalcula en cada apertura: las notas pueden haber cambiado.
+    rendimientoCargando = true;
+    router.reload({
+      only: ['rendimiento'],
+      onError: () => (rendimientoError = 'No se pudo calcular tu rendimiento. Intenta de nuevo.'),
+      onFinish: () => (rendimientoCargando = false),
+    });
+  }
 
   const id_curso = $derived(curso?.id_curso || 0);
 
@@ -113,6 +141,7 @@
         tienePrograma={!!programa}
         totalActividades={actividades.length}
         onIrAActividades={irAActividades}
+        onAbrirRendimiento={abrirRendimiento}
       />
 
       <section class="mb-10">
@@ -160,6 +189,14 @@
         </div>
         <CursoEquipoDocente {docentes} />
       </section>
+
+      <CursoRendimientoPanel
+        abierto={rendimientoAbierto}
+        cargando={rendimientoCargando}
+        error={rendimientoError}
+        {rendimiento}
+        onCerrar={() => (rendimientoAbierto = false)}
+      />
     </div>
   </div>
 </StudentLayout>

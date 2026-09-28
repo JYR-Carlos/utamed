@@ -9,6 +9,7 @@ use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
+use App\Services\Student\RendimientoCursoEstudiante;
 use App\Services\Student\StudentSyllabusPresenter;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -189,8 +190,14 @@ class CourseController extends Controller
             ];
         })->values();
 
+        $syllabus = StudentSyllabusPresenter::build($curso, $estudiante);
+
         return Inertia::render('student/Courses/Show', array_merge(
             [
+                // Panel «Rendimiento» (T30): se calcula sólo cuando el alumno
+                // lo abre (router.reload con only: ['rendimiento']).
+                'rendimiento' => Inertia::lazy(fn () => app(RendimientoCursoEstudiante::class)
+                    ->calcular($curso, $estudiante, $syllabus['datos']['componentes'] ?? [])),
                 'curso' => [
                     'id_curso'          => $curso->id_curso,
                     'nombre'            => $curso->nombre,
@@ -208,7 +215,7 @@ class CourseController extends Controller
                 ],
                 'actividades' => $actividadesData,
             ],
-            StudentSyllabusPresenter::build($curso, $estudiante)
+            $syllabus
         ));
     }
 }

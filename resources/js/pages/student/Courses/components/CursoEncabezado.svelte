@@ -10,7 +10,7 @@
    * acento, no como fondo.
    */
   import { Link } from '@inertiajs/svelte';
-  import { ClipboardList, FileText, History, MessagesSquare } from 'lucide-svelte';
+  import { BarChart3, ClipboardList, FileText, History, MessagesSquare } from 'lucide-svelte';
   import type { Curso } from '@/types';
 
   interface Props {
@@ -20,6 +20,8 @@
     totalActividades?: number;
     /** Baja a la sección de actividades. */
     onIrAActividades?: () => void;
+    /** Abre el panel lateral «Rendimiento» (T30). */
+    onAbrirRendimiento?: () => void;
   }
 
   let {
@@ -27,6 +29,7 @@
     tienePrograma = false,
     totalActividades = 0,
     onIrAActividades = () => {},
+    onAbrirRendimiento = () => {},
   }: Props = $props();
 
   const codigo = $derived(curso?.cod_asignatura || curso?.cod_curso || '');
@@ -139,6 +142,10 @@
         <MessagesSquare class="w-4 h-4" />
         Mensajería
       </Link>
+      <button type="button" onclick={onAbrirRendimiento} class={BOTON_ACCION}>
+        <BarChart3 class="w-4 h-4" />
+        Rendimiento
+      </button>
       <!-- Bitácora del curso (T41): todas las agendas del alumno juntas. -->
       <Link href={`/estudiante/cursos/${curso?.id_curso}/bitacora`} class={BOTON_ACCION}>
         <History class="w-4 h-4" />
