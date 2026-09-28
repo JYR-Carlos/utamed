@@ -53,7 +53,7 @@ test('email verification status is unchanged when the email address is unchanged
     expect($user->refresh()->fecha_verificacion_email)->not->toBeNull();
 });
 
-test('user can delete their account', function () {
+test('user cannot delete their own account', function () {
     $user = Usuario::factory()->create();
 
     $response = $this
@@ -62,27 +62,8 @@ test('user can delete their account', function () {
             'password' => 'password',
         ]);
 
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/');
+    $response->assertMethodNotAllowed();
 
-    $this->assertGuest();
-    expect($user->fresh())->toBeNull();
-});
-
-test('correct password must be provided to delete account', function () {
-    $user = Usuario::factory()->create();
-
-    $response = $this
-        ->actingAs($user)
-        ->from('/settings/profile')
-        ->delete('/settings/profile', [
-            'password' => 'wrong-password',
-        ]);
-
-    $response
-        ->assertSessionHasErrors('password')
-        ->assertRedirect('/settings/profile');
-
+    $this->assertAuthenticatedAs($user);
     expect($user->fresh())->not->toBeNull();
 });

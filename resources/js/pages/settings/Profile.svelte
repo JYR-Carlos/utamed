@@ -1,6 +1,5 @@
 <script lang="ts">
     import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
-    import DeleteUser from '@/components/custom/auth/DeleteUser.svelte';
     import HeadingSmall from '@/components/custom/common/HeadingSmall.svelte';
     import InputError from '@/components/custom/common/InputError.svelte';
     import { Button } from '@/components/ui/button';
@@ -94,7 +93,5 @@
                 {/snippet}
             </Form>
         </div>
-
-        <DeleteUser />
     </SettingsLayout>
 </AppLayout>
