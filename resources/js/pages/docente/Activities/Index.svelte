@@ -807,8 +807,18 @@
 
   <!-- Modal: Agenda del grupo (perspectiva docente) -->
   {#if showAgendaModal && grupoSeleccionado}
+    <!-- Clic (o Enter/Escape) sobre el fondo cierra la agenda; los clics dentro
+         del panel no llegan aquí como target, así que no la cierran. -->
     <div
       class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50 transition-opacity overflow-y-auto"
+      role="presentation"
+      tabindex="-1"
+      onclick={(e) => {
+        if (e.target === e.currentTarget) cerrarAgenda();
+      }}
+      onkeydown={(e) => {
+        if (e.target === e.currentTarget && (e.key === 'Escape' || e.key === 'Enter')) cerrarAgenda();
+      }}
     >
       <div class="w-full max-w-7xl">
         <AgendaDocente
@@ -891,7 +901,7 @@
       if (showMatrizEvaluacion) cerrarMatrizEvaluacion();
       else if (showRubricaEditor) showRubricaEditor = false;
       else if (showEntregasModal) cerrarEntregas();
-      else showAgendaModal = false;
+      else if (showAgendaModal) cerrarAgenda();
     }
   }}
 />
