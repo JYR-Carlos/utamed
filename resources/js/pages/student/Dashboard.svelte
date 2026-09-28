@@ -2,10 +2,11 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import { page, Link } from '@inertiajs/svelte';
-  import { BookOpen, Award, CalendarClock, LifeBuoy, ArrowUpRight, ClipboardX } from 'lucide-svelte';
+  import { BookOpen, CalendarClock, LifeBuoy, ArrowUpRight, ClipboardX } from 'lucide-svelte';
   import CourseCard from '@/components/student/CourseCard.svelte';
   import MensajesSinLeerCard from '@/components/student/MensajesSinLeerCard.svelte';
   import PropuestaCard from '@/components/student/PropuestaCard.svelte';
+  import NotasRecientesCard, { type NotaReciente } from '@/components/student/NotasRecientesCard.svelte';
   import BotonSgeq from '@/components/custom/common/BotonSgeq.svelte';
 
   /**
@@ -35,6 +36,8 @@
       no_leidos: number;
       cursos: Array<{ id_curso: number; nombre: string; cod_curso: string; no_leidos: number }>;
     };
+    /** Últimas notas y retroalimentaciones del equipo docente. */
+    notasRecientes?: NotaReciente[];
     isAyudante?: boolean;
     periodoActual: { semestre: number, agno: number}
     /** El servidor ya evaluó si esta persona puede entrar a SGEQ. */
@@ -45,6 +48,7 @@
     cursos,
     stats,
     mensajeria,
+    notasRecientes = [],
     isAyudante = false,
     puedeAbrirSgeq = false,
     periodoActual
@@ -169,12 +173,7 @@
                 />
               {/if}
 
-              <PropuestaCard
-                icon={Award}
-                title="Notas recientes"
-                emptyTitle="Aún no hay notas"
-                emptyDescription="Aparecerán aquí cuando se evalúe tu primera actividad sumativa."
-              />
+              <NotasRecientesCard items={notasRecientes} />
             </div>
           </div>
         {/if}
