@@ -38,9 +38,17 @@
     pendientes?: Seccion[];
     /** Snippet para el sello/acciones que el padre inyecta bajo el documento. */
     actions?: Snippet;
+    /**
+     * 'documento' (docente/admin): una sola columna de lectura sin tarjetas.
+     * 'tarjetas' (estudiante, T28): cada sección en su propia tarjeta, mismo
+     * contenido íntegro.
+     */
+    variante?: 'documento' | 'tarjetas';
   }
 
-  let { secciones, pendientes = [], actions }: Props = $props();
+  let { secciones, pendientes = [], actions, variante = 'documento' }: Props = $props();
+
+  const enTarjetas = $derived(variante === 'tarjetas');
 
   const contenidoDe = (s: Seccion) => textoDeSeccion(s.contenidos ?? s.contenidos_programa);
 
@@ -100,20 +108,17 @@
 {/snippet}
 
 <article
-  class="
-  flex w-full max-w-190 flex-col gap-7.5 rounded-[10px]
-  border border-[#E5E7EB] bg-white
-  px-6 py-9
-  text-[15px]
-  leading-[1.65]
-  text-[#1A1A24]
-  sm:px-12 sm:pb-10"
+  class="flex w-full flex-col text-[15px] leading-[1.65] text-[#1A1A24] {enTarjetas
+    ? 'programa-tarjetas gap-4'
+    : 'max-w-190 gap-7.5 rounded-[10px] border border-[#E5E7EB] bg-white px-6 py-9 sm:px-12 sm:pb-10'}"
 >
   {#each conContenido as seccion (seccion.numeral_romano ?? seccion.nombre_seccion)}
     {@const bloques = bloquesDeSeccion(contenidoDe(seccion), seccion.numeral_romano)}
     <section
       id="seccion-{seccion.numeral_romano}"
-      class="flex scroll-mt-6 flex-col gap-3"
+      class="flex scroll-mt-6 flex-col gap-3 {enTarjetas
+        ? 'programa-tarjeta rounded-2xl border border-[#E5E7EB] bg-white p-5 sm:p-7'
+        : ''}"
       aria-labelledby="titulo-{seccion.numeral_romano}"
     >
       <div class="flex items-baseline gap-2.5">
