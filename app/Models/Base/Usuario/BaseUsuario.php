@@ -39,7 +39,8 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
         'apellido2',
         'esta_activo',
         'fecha_verificacion_email',
-        'token_recuerdame_sesion'
+        'token_recuerdame_sesion',
+        'fecha_cambio_passhash'
     ];
 
     protected $hidden = [
@@ -63,6 +64,11 @@ abstract class BaseUsuario extends CustomBaseModel implements HasContext
     public function evaluaciones()
     {
         return $this->hasMany(\App\Models\Agenda\Evaluacion::class, 'id_usuario_evaluador', 'id_usuario');
+    }
+
+    public function lecturaAgendas()
+    {
+        return $this->hasMany(\App\Models\Agenda\LecturaAgenda::class, 'id_usuario_lector', 'id_usuario');
     }
 
     public function accionesAuditoria()
