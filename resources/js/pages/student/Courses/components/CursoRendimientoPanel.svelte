@@ -131,14 +131,14 @@
                   <dt class="text-xs text-gray-500">Evaluadas</dt>
                   <dd class="m-0 text-gray-700">
                     {c.actividades_evaluadas} de {c.actividades_sumativas} sumativas{#if c.ponderacion_evaluada != null}
-                      <span class="text-gray-500"> · {c.ponderacion_evaluada}% del peso</span>{/if}
+                      <span class="text-gray-500">{` · ${c.ponderacion_evaluada}% del peso`}</span>{/if}
                   </dd>
                 </div>
                 <div>
                   <dt class="text-xs text-gray-500">Aprobación</dt>
                   <dd class="m-0 text-gray-700">
                     {c.syllabus.aprobacion_obligatoria ? 'Obligatoria por separado' : 'No obligatoria por separado'}{#if c.exigencia != null}
-                      <span class="text-gray-500"> · exigencia {c.exigencia}%</span>{/if}
+                      <span class="text-gray-500">{` · exigencia ${c.exigencia}%`}</span>{/if}
                   </dd>
                 </div>
               </dl>
