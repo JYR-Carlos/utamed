@@ -12,6 +12,7 @@
   import ActivityRubricaCard from './cards/ActivityRubricaCard.svelte';
   import ActivityAgendaCard from './cards/ActivityAgendaCard.svelte';
   import { router } from '@inertiajs/svelte';
+  import { onMount } from 'svelte';
   import ActivityGradeCard from './cards/ActivityGradeCard.svelte';
   import Entrega from './Agenda/Entrega.svelte';
   import ActivityMembersCard from './cards/ActivityMembersCard.svelte';
@@ -114,6 +115,15 @@
   let showAgendaModal = $state(false);
   let showEntregaModal = $state(false);
   let showEnunciadoModal = $state(false);
+
+  // Desde el dashboard («Notas y retroalimentaciones recientes») se llega con
+  // ?abrir=agenda (o #agenda) para aterrizar directo en la conversación.
+  onMount(() => {
+    const abrir = new URLSearchParams(window.location.search).get('abrir');
+    if (abrir === 'agenda' || window.location.hash === '#agenda') {
+      showAgendaModal = true;
+    }
+  });
 
   // El backend ya calcula 'estado' (ACTIVA/CERRADA) considerando la holgura
   // de la actividad Y la holgura personal del grupo — ver
