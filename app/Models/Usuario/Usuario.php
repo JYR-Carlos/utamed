@@ -8,6 +8,9 @@ use App\Support\Rut;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Access\Authorizable as AuthorizableContract;
 use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
+use Illuminate\Auth\Passwords\CanResetPassword;
+use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Foundation\Auth\Access\Authorizable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -40,9 +43,10 @@ use App\Traits\AssignsPermissions;
  * @method bool hasAnyRole(array $roleNames) Verifica si tiene alguno de los roles
  * @method bool hasPermissionFor(Permissions $slug, HasContext|null $resource = null) Verifica permiso
  */
-class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContract
+class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContract, CanResetPasswordContract
 {
     use AuthenticatableTrait, HasFactory;
+    use CanResetPassword, Notifiable;
     use AssignsPermissions;
     use Authorizable {
         Authorizable::can as authorizableCan;
@@ -85,6 +89,36 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     public function getAuthPassword()
     {
         return $this->passhash;
+    }
+
+    /**
+     * La columna del token "recordarme" no se llama `remember_token`. Sin esto,
+     * completar un restablecimiento de contraseña (Fortify rota el token)
+     * intentaba escribir una columna inexistente.
+     */
+    public function getRememberTokenName()
+    {
+        return 'token_recuerdame_sesion';
+    }
+
+    /**
+     * Correo al que va el enlace de restablecimiento de contraseña: siempre el
+     * institucional (`usuario.email`, el que trae la Intranet), nunca un
+     * correo personal de contacto (T17). Se declara explícito para que nadie
+     * lo cambie de columna sin darse cuenta.
+     */
+    public function getEmailForPasswordReset()
+    {
+        return $this->email;
+    }
+
+    /**
+     * Todo correo que el sistema envía al usuario sale hacia la casilla
+     * institucional, por la misma razón que {@see getEmailForPasswordReset()}.
+     */
+    public function routeNotificationForMail($notification = null): ?string
+    {
+        return $this->email;
     }
 
     /**

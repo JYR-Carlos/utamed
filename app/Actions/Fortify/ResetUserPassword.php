@@ -3,7 +3,6 @@
 namespace App\Actions\Fortify;
 
 use App\Models\Usuario\Usuario;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Fortify\Contracts\ResetsUserPasswords;
 
@@ -22,8 +21,8 @@ class ResetUserPassword implements ResetsUserPasswords
             'password' => $this->passwordRules(),
         ])->validate();
 
-        $user->forceFill([
-            'password' => Hash::make($input['password']),
-        ])->save();
+        // `cambiarPassword()`: la tabla guarda el hash en `passhash` (no hay
+        // columna `password`) y además deja registrada la fecha del cambio.
+        $user->cambiarPassword($input['password']);
     }
 }
