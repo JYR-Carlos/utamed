@@ -79,6 +79,7 @@ A partir de la minuta de reunión y la auditoría empírica sobre el código fue
 * `[FEAT-T36]` [5 pts] [R4] [P0] Actividad — Tarjeta integral de entrega y reemplazo (fusión de plazo/entrega, banner informativo y blindaje de reemplazo)
 * `[UI-T37]` [1 pt] [R4] [P2] Actividad — Apertura interactiva de agenda desde `ActivityAgendaCard`
 * `[UI-T43]` [2 pts] [R4] [P1] Agenda / Archivos — Acción única inteligente de descarga/apertura en nueva pestaña según MIME
+* `[FEAT-04]` [3 pts] [R4] [P1] Backend / Archivos — Formalizar cancelación de entregas y ciclo de vida en `AgendaArchiveHandler`
 
 ### Release 5: Agenda del Estudiante y Auditoría E2E
 *Rama sugerida:* `feature/student-agenda-e2e`
