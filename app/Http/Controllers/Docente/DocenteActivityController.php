@@ -871,7 +871,10 @@ class DocenteActivityController extends Controller
         $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         if ($actividad->hanComenzadoEvaluaciones()) {
-            return redirect()->back()->withErrors([
+            return redirect()->route('docente.cursos.actividades.evaluacion', [
+                'curso' => $curso->id_curso,
+                'actividad' => $actividad->id_actividad,
+            ])->withErrors([
                 'error' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
                 'rubrica' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
             ]);
@@ -909,7 +912,10 @@ class DocenteActivityController extends Controller
 
             if ($existente) {
                 if ($existente->estaBloqueadaParaEdicion()) {
-                    return redirect()->back()->withErrors([
+                    return redirect()->route('docente.cursos.actividades.evaluacion', [
+                        'curso' => $curso->id_curso,
+                        'actividad' => $actividad->id_actividad,
+                    ])->withErrors([
                         'error' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
                         'rubrica' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
                     ]);
@@ -926,10 +932,16 @@ class DocenteActivityController extends Controller
         } catch (\Exception $e) {
             Log::error('Error al guardar rúbrica: ' . $e->getMessage());
 
-            return redirect()->back()->withErrors(['error' => 'Error al guardar la rúbrica.']);
+            return redirect()->route('docente.cursos.actividades.evaluacion', [
+                'curso' => $curso->id_curso,
+                'actividad' => $actividad->id_actividad,
+            ])->withErrors(['error' => 'Error al guardar la rúbrica.']);
         }
 
-        return redirect()->back()->with('success', 'Rúbrica guardada correctamente.');
+        return redirect()->route('docente.cursos.actividades.evaluacion', [
+            'curso' => $curso->id_curso,
+            'actividad' => $actividad->id_actividad,
+        ])->with('success', 'Rúbrica guardada correctamente.');
     }
 
     /**

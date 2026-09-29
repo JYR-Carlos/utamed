@@ -9,6 +9,7 @@
     rubrica?: Rubrica | null;
     idCurso: number;
     idActividad: number;
+    nombreActividad: string
     /**
      * Sumativa → la rúbrica se convierte en una nota de 1,0 a 7,0 con 60 % de
      * exigencia, y no lleva escala cualitativa. Formativa → al revés: la escala
@@ -20,7 +21,7 @@
     onClose: () => void;
   }
 
-  let { rubrica = null, idCurso, idActividad, esSumativa, bloqueada = false, onClose }: Props = $props();
+  let { rubrica = null, idCurso, idActividad, nombreActividad = "NOMBRE DE PRUEBA", esSumativa, bloqueada = false, onClose }: Props = $props();
 
   // ── Draft types ────────────────────────────────────────────────────────────
   /**
@@ -678,8 +679,7 @@
       `/docente/cursos/${idCurso}/rubrica`,
       { rubrica: rubricaPreview as any, id_actividad: idActividad },
       {
-        replace: true,
-        preserveState: false,
+        preserveScroll: true,
         onSuccess: () => {
           saving = false;
           saveSuccess = true;
@@ -702,7 +702,7 @@
 <div class="fixed inset-0 z-[70] flex flex-col bg-white overflow-hidden">
   <!-- ── Header ── -->
   <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b bg-white shrink-0 gap-4">
-    <div class="flex items-center gap-3 min-w-0">
+    <div class="flex flex-col sm:flex-row items-center gap-3 min-w-0">
       <button
         type="button"
         onclick={onClose}
@@ -715,6 +715,8 @@
       <h2 class="text-sm sm:text-base font-bold text-gray-900 truncate">
         {rubrica ? 'Rúbrica de la Actividad' : 'Crear Rúbrica'}
       </h2>
+
+      <h2 class="text-center text-sm sm:text-base sm:px-7 font-mono font-bold text-primary">{nombreActividad}</h2>
 
       <!-- Tabs -->
       <div class="flex gap-1 ml-2 bg-gray-100 rounded-lg p-1 shrink-0">

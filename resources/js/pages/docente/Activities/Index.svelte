@@ -877,6 +877,7 @@
         bloqueada={!puede_editar_rubrica}
         idCurso={curso.id_curso}
         idActividad={actividad.id_actividad}
+        nombreActividad={actividad.nombre}
         esSumativa={actividad.es_sumativa}
         onClose={() => (showRubricaEditor = false)}
       />
