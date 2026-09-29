@@ -289,10 +289,14 @@
           >
             <AppLogoIcon class="size-8" />
           </div>
-          <p class="mt-7 text-[34px] font-semibold tracking-[0.18em] text-[#F5F3FF]">UTAmed</p>
-          <p class="mt-6 max-w-sm text-[15px] leading-relaxed text-[#C4BFE0]">
-            Cursos, actividades, calificaciones y asistencia en un solo lugar: tu portal académico
-            de la Universidad de Tarapacá.
+          <div class="flex gap-1">
+            <p class="text-[64px] font-semibold text-center text-[#F5F3FF]">UTA</p>
+            <p class="py-1 text-[38px] justify-center font-semibold text-center text-[#F5F3FF]">med</p>
+
+          </div>
+          
+          <p class="mt-10 max-w-sm text-[15px] leading-relaxed text-[#C4BFE0]">
+            Cursos, actividades, calificaciones y asistencia en un solo lugar. 
           </p>
         </div>
 
@@ -324,7 +328,7 @@
           </div>
 
           <!-- Título -->
-          <h1 class="text-center text-[28px] font-semibold leading-[1.2] text-[#F5F3FF] sm:text-[40px]">
+          <h1 class="mt-10 text-center text-[28px] font-semibold leading-[1.2] text-[#F5F3FF] sm:text-[40px]">
             Bienvenido de
             <span class="bg-gradient-to-r from-white to-[#BFD9F2] bg-clip-text text-transparent"
               >vuelta</span
