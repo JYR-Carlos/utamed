@@ -9,7 +9,6 @@
   import ActivityDeadlineCard from './cards/ActivityDeadlineCard.svelte';
   import ActivityPendingCard from './cards/ActivityPendingCard.svelte';
   import ActivitySubmittedCard from './cards/ActivitySubmittedCard.svelte';
-  import ActivityRubricaCard from './cards/ActivityRubricaCard.svelte';
   import ActivityAgendaCard from './cards/ActivityAgendaCard.svelte';
   import { router } from '@inertiajs/svelte';
   import { onMount } from 'svelte';
@@ -214,7 +213,8 @@
             {descripcion}
             {es_sumativa}
             {entrega_obligatoria}
-            {estado}
+            {rubrica}
+            onVerRubricaClick={toggleRubricaModal}
           />
 
           {#if fecha_limite}
@@ -236,47 +236,6 @@
             {:else}
               <ActivityPendingCard disponible={puedeSubirArchivo} esGrupal={es_grupal} onSubirClick={toggleEntregaModal} />
             {/if}
-          {/if}
-
-          {#if es_sumativa}
-            <ActivityRubricaCard rubrica={rubrica?.rubrica} onRubricaClick={toggleRubricaModal} />
-          {/if}
-
-          {#if fecha_limite}
-            <section class="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
-              <div class="flex items-center gap-2">
-                <Info class="h-[15px] w-[15px] text-[#5A5E6E]" />
-                <h3 class="text-[13px] font-semibold text-[#1A1A24]">Fecha de entrega</h3>
-              </div>
-              <div class="flex-col sm:flex gap-7 justify-between px-4 py-2">
-                <div class="flex gap-2.5">
-                  <div class="flex flex-none flex-col items-center">
-                    <span class="mt-1 h-[7px] w-[7px] rounded-full bg-[#C9D6E6]"></span>
-                    <span class="w-px flex-1 bg-[#E5E7EB]"></span>
-                  </div>
-                  <div class="flex flex-col pb-3">
-                    <span class="text-sm text-[#5A5E6E]">Fecha definida</span>
-                    <span class="text-[12.5px] font-semibold text-[#1A1A24]">{formatFechaCorta(fecha_limite)}</span>
-                  </div>
-                </div>
-                
-                {#if dias_holgura > 0 || dias_holgura_personal > 0}
-                  <div class="flex flex-col  gap-2.5 bg-green-100 px-6 py-2 rounded-3xl">
-                    <div class="flex gap-4 items-center">
-                      <Info class="h-[15px] w-[15px] text-[#5A5E6E]" />
-                      <span class="text-sm">Se han asignado {dias_holgura + dias_holgura_personal} días extra</span>
-                    </div>
-                    
-                    <div class="flex gap-4">
-                      <span class="text-sm font-semibold">Nueva fecha</span>
-                      <span class="text-sm">{formatFechaCorta(fechaEfectiva.toISOString())}</span>
-                    </div>
-                    
-                  </div>
-                {/if}
-        
-              </div>
-            </section>
           {/if}
 
           {#if id_actividad_asignada_grupo}
