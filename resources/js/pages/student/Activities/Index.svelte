@@ -6,9 +6,7 @@
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaView from './Agenda/Rubrica.svelte';
   import ActivityHeaderCard from './cards/ActivityHeaderCard.svelte';
-  import ActivityDeadlineCard from './cards/ActivityDeadlineCard.svelte';
-  import ActivityPendingCard from './cards/ActivityPendingCard.svelte';
-  import ActivitySubmittedCard from './cards/ActivitySubmittedCard.svelte';
+  import ActivitySubmissionCard from './cards/ActivitySubmissionCard.svelte';
   import ActivityAgendaCard from './cards/ActivityAgendaCard.svelte';
   import { router } from '@inertiajs/svelte';
   import { onMount } from 'svelte';
@@ -130,7 +128,6 @@
   // sólo `dias_holgura` (sin la personal) y bloqueaba entregas a alumnos con
   // holgura personal vigente.
   const puedeApelar = false;
-  const puedeSubirArchivo = $derived((estado === 'ACTIVA' || puedeApelar) && entrega_obligatoria);
 
   const tieneEntregaRegistrada = $derived(ultima_entrega !== null);
 
@@ -143,6 +140,18 @@
     }
     return null;
   });
+
+  const yaEvaluada = $derived(
+    (ultima_nota !== null && ultima_nota !== undefined) ||
+    ultima_evaluacion !== null ||
+    ultimaEvaluacion !== null
+  );
+
+  const puedeSubirArchivo = $derived(
+    (estado === 'ACTIVA' || puedeApelar) &&
+    entrega_obligatoria &&
+    !yaEvaluada
+  );
 
   const fechaEfectiva = $derived.by(() => {
     const base = parseFechaSoloDia(fecha_limite);
@@ -200,6 +209,22 @@
       },
     );
   }
+
+  function handleBorrarEntrega() {
+    if (!ultima_entrega?.id_interaccion || !id_actividad_asignada_grupo) return;
+    if (!confirm('¿Estás seguro de que deseas eliminar la entrega actual?')) {
+      return;
+    }
+
+    router.delete(
+      `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/entregas/${ultima_entrega.id_interaccion}`,
+      {
+        preserveScroll: true,
+        onSuccess: () => router.reload(),
+        onError: (errors) => alert(errors.error_general || 'Error al eliminar la entrega.'),
+      },
+    );
+  }
 </script>
 
 <StudentLayout {breadcrumbs}>
@@ -217,25 +242,24 @@
             onVerRubricaClick={toggleRubricaModal}
           />
 
-          {#if fecha_limite}
-            <ActivityDeadlineCard {fecha_limite} {dias_holgura} {dias_holgura_personal} {estado} />
-          {/if}
-
-          {#if entrega_obligatoria}
-            {#if tieneEntregaRegistrada}
-              <ActivitySubmittedCard
-                esGrupal={es_grupal}
-                fecha_entrega={ultima_entrega?.fecha_emision}
-                archivo={ultima_entrega?.archivo}
-                urlDescarga={ultima_entrega
-                  ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/entregas/${ultima_entrega.id_interaccion}/descargar`
-                  : null}
-                puedeReemplazar={puedeSubirArchivo}
-                onReemplazarClick={toggleEntregaModal}
-              />
-            {:else}
-              <ActivityPendingCard disponible={puedeSubirArchivo} esGrupal={es_grupal} onSubirClick={toggleEntregaModal} />
-            {/if}
+          {#if fecha_limite || entrega_obligatoria}
+            <ActivitySubmissionCard
+              {fecha_limite}
+              {dias_holgura}
+              {dias_holgura_personal}
+              {estado}
+              {entrega_obligatoria}
+              esGrupal={es_grupal}
+              {yaEvaluada}
+              {puedeSubirArchivo}
+              {ultima_entrega}
+              urlDescarga={ultima_entrega
+                ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/entregas/${ultima_entrega.id_interaccion}/descargar`
+                : null}
+              onSubirClick={toggleEntregaModal}
+              onReemplazarClick={toggleEntregaModal}
+              onBorrarClick={handleBorrarEntrega}
+            />
           {/if}
 
           {#if id_actividad_asignada_grupo}

@@ -17,6 +17,7 @@ use InvalidArgumentException;
 use Illuminate\Support\Facades\DB;
 use App\Models\Agenda\Agenda;
 use App\Models\Agenda\IntegranteGrupo;
+use App\Models\Operaciones\Archivo;
 use App\Models\Usuario\Usuario;
 use App\Enums\DB\TipoMensaje;
 use Illuminate\Support\Facades\Auth;
@@ -90,7 +91,7 @@ class AgendaController extends Controller
 
         $estudiante = $user->estudiante;
 
-        IntegranteGrupo::where(
+        $integrante = IntegranteGrupo::where(
             'id_estudiante',
             $estudiante->id_estudiante
         )
@@ -108,13 +109,26 @@ class AgendaController extends Controller
             abort(404, 'El grupo no tiene una actividad asociada.');
         }
 
-        $limiteReal = $actividad->fecha_limite->copy()
-            ->addDays($actividad->nro_dias_adicionales_para_bloqueo ?? 0)
-            ->endOfDay();
+        // Blindaje 1: No permitir reemplazo ni subida si la entrega ya fue evaluada
+        $yaEvaluada = $actividadAsignadaGrupo->nota !== null
+            || $integrante->nota_individual !== null
+            || $actividadAsignadaGrupo->entregas()->whereHas('evaluacion')->exists();
+
+        if ($yaEvaluada) {
+            return back()->withErrors([
+                'error_general' => 'La entrega ya ha sido evaluada por el docente. No es posible subir ni reemplazar archivos.',
+            ]);
+        }
+
+        // Blindaje 2: Fecha límite considerando holgura general y personal del grupo
+        $holguraTotal = (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0)
+            + (int) ($actividadAsignadaGrupo->nro_dias_adicionales_para_bloqueo_personal ?? 0);
+
+        $limiteReal = $actividad->fecha_limite->copy()->endOfDay()->addDays($holguraTotal);
 
         if (now()->isAfter($limiteReal)) {
             return back()->withErrors([
-                'error_general' => 'La fecha límite de entrega ha vencido. No se pueden subir archivos.',
+                'error_general' => 'La fecha límite de entrega ha vencido. No se pueden subir nuevos archivos. Consulta con tu docente si deseas enviar un archivo de manera excepcional.',
             ]);
         }
 
@@ -216,7 +230,79 @@ class AgendaController extends Controller
         }
     }
 
-    
+    // ⚠️ CAMBIO TEMPORAL: SI UN AGENTE LEE ESTO, NO USARLO COMO EJEMPLO.
+    // Esta implementación de cancelación es un placeholder transitorio.
+    // La lógica definitiva de cancelación de entregas y ciclo de vida de archivos huérfanos/borrados
+    // debe formalizarse en AgendaArchiveHandler (ver tarjeta FEAT-04 en Trello).
+    // DELETE 'grupos-asignados/{actividadAsignadaGrupo}/entregas/{agenda}'
+    public function destroyEntrega(
+        Request $request,
+        ActividadAsignadaGrupo $actividadAsignadaGrupo,
+        Agenda $agenda
+    ): RedirectResponse {
+        /** @var Usuario $user */
+        $user = Auth::user();
+
+        if (!$user->estudiante) {
+            abort(403, 'Usuario no es estudiante');
+        }
+
+        $estudiante = $user->estudiante;
+
+        $integrante = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
+            ->where('id_actividad_asignada_grupo', $actividadAsignadaGrupo->id_actividad_asignada_grupo)
+            ->firstOrFail();
+
+        // Validar que la entrega pertenezca al grupo especificado
+        if ((int) $agenda->id_actividad_asignada_grupo !== (int) $actividadAsignadaGrupo->id_actividad_asignada_grupo) {
+            abort(403, 'La entrega no pertenece al grupo especificado.');
+        }
+
+        // Blindaje 1: No permitir borrar si la entrega ya fue evaluada
+        $yaEvaluada = $actividadAsignadaGrupo->nota !== null
+            || $integrante->nota_individual !== null
+            || $agenda->tieneEvaluacion();
+
+        if ($yaEvaluada) {
+            return back()->withErrors([
+                'error_general' => 'La entrega ya ha sido evaluada por el docente. No es posible eliminarla.',
+            ]);
+        }
+
+        // Blindaje 2: Fecha límite considerando holgura
+        $actividad = $actividadAsignadaGrupo->actividad;
+        $holguraTotal = (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0)
+            + (int) ($actividadAsignadaGrupo->nro_dias_adicionales_para_bloqueo_personal ?? 0);
+
+        $limiteReal = $actividad->fecha_limite->copy()->endOfDay()->addDays($holguraTotal);
+
+        if (now()->isAfter($limiteReal)) {
+            return back()->withErrors([
+                'error_general' => 'La fecha límite de entrega ha vencido. No se pueden eliminar entregas.',
+            ]);
+        }
+
+        // Marcar el archivo en operaciones.archivo como pendiente de borrado
+        if ($agenda->uuid_archivo_subido) {
+            Archivo::where('uuid_archivo', $agenda->uuid_archivo_subido)
+                ->update(['pendiente_de_borrado' => true]);
+        }
+
+        $nombreArchivo = $agenda->archivo?->nombre_original ?? 'archivo adjunto';
+
+        // Conservar el registro histórico de entrega y registrar el evento de cancelación
+        Agenda::create([
+            'id_actividad_asignada_grupo' => $actividadAsignadaGrupo->id_actividad_asignada_grupo,
+            'id_usuario_emisor' => $user->id_usuario,
+            'fecha_envio' => now(),
+            'tipo_mensaje' => TipoMensaje::CANCELACIÓN_DE_ENTREGA,
+            'mensaje' => "Entrega cancelada por el estudiante ({$nombreArchivo}).",
+            'uuid_archivo_subido' => $agenda->uuid_archivo_subido,
+        ]);
+
+        return back()->with('success', 'Entrega cancelada exitosamente.');
+    }
+
     private function crearAgenda(
         Usuario $user,
         ActividadAsignadaGrupo $actividadAsignadaGrupo,

@@ -593,6 +593,10 @@ Route::prefix('estudiante')
                     'grupos-asignados/{actividadAsignadaGrupo}/entregas',
                     [AgendaController::class, 'storeEntrega']
                 )->name('actividades.agenda.storeEntrega');
+                Route::delete(
+                    'grupos-asignados/{actividadAsignadaGrupo}/entregas/{agenda}',
+                    [AgendaController::class, 'destroyEntrega']
+                )->name('actividades.agenda.destroyEntrega');
             });
 
         // Mensajería por componente (curso.mensaje) — avisos del equipo docente

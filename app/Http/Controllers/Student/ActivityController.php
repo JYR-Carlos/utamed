@@ -179,12 +179,12 @@ class ActivityController extends Controller
                 ];
             }
 
-            // Última entrega del estudiante. La comparación usaba el string
-            // "Entrega de avance", que no coincide con ningún valor real del
-            // enum TipoMensaje ('Entrega de archivo') ni con el que envía el
-            // modal ('Entrega de Avance' se traduce a ENTREGA_DE_ARCHIVO en
-            // AgendaController::mapearTipoMensaje) — nunca encontraba nada.
+            // Última entrega del estudiante: si el evento más reciente de entrega es una
+            // cancelación, el estudiante se encuentra actualmente sin entrega activa.
             foreach (array_reverse($interacciones) as $item) {
+                if ($item['tipo_interaccion'] === TipoMensaje::CANCELACIÓN_DE_ENTREGA->value) {
+                    break;
+                }
                 if ($item['tipo_interaccion'] === TipoMensaje::ENTREGA_DE_ARCHIVO->value) {
                     $ultimaEntrega = $item;
                     break;
