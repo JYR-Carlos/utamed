@@ -534,9 +534,7 @@
                     estudianteQuery = '';
                   }}
                 />
-                <span class="hidden text-[12px] text-[#5A5E6E] lg:inline">
-                  La nota que ves es la del componente activo, no la del curso.
-                </span>
+                
                 {#if estudiantesActivos.length > 0}
                   <div class="relative ml-auto w-full sm:w-[240px]">
                     <Search

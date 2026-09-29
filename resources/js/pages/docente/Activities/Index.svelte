@@ -507,7 +507,7 @@
     >
       <Link
         class="flex items-center px-4 sm:px-6 py-3 sm:py-4 bg-uta-blue text-white hover:bg-uta-blue-hover transition-colors rounded-2xl shrink-0"
-        href="/docente/cursos/{curso.id_curso}/actividades"
+        href="/docente/cursos/{curso.id_curso}?tab=actividades"
       >
         <ChevronLeft class="w-4 h-4 mr-2" />
         <p class="text-sm sm:text-base">Volver</p>
