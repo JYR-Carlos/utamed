@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Services\FotoIntranetService;
 
 /**
  * Ficha del estudiante autenticado.
@@ -21,6 +22,10 @@ use Inertia\Inertia;
  */
 class PerfilController extends Controller
 {
+    private FotoIntranetService $fotoIntranet;
+    public function __construct() {
+        $this->fotoIntranet = new FotoIntranetService();
+    }
     /** Dominios aceptados por red: sólo enlaces al perfil en esa red. */
     private const DOMINIOS_REDES = [
         'youtube' => ['youtube.com', 'youtu.be'],
@@ -29,6 +34,7 @@ class PerfilController extends Controller
         'linkedin' => ['linkedin.com'],
     ];
 
+   
     public function show()
     {
         /** @var Usuario $user */
@@ -38,6 +44,8 @@ class PerfilController extends Controller
         $totalCursos = InscripcionCurso::where('id_estudiante', $estudiante->id_estudiante)
             ->where('estado_inscripcion', 'INSCRITO')
             ->count();
+
+        $urlImagenPerfil = $this->fotoIntranet->getImagenPerfilURL($user->rut);
 
         return Inertia::render('student/Perfil', [
             'perfil' => [
@@ -49,6 +57,7 @@ class PerfilController extends Controller
                 'agno_ingreso' => $estudiante->agno_ingreso,
                 'total_cursos' => $totalCursos,
             ],
+            'urlImagenPerfil' => $urlImagenPerfil,
             'contacto' => $estudiante->contacto(),
             'semestreActual' => Carbon::now()->month > 6 ? 2 : 1,
         ]);
