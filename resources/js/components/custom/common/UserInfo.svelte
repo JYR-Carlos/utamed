@@ -14,13 +14,29 @@
     const { getInitials } = useInitials();
 
     let displayName = $derived(user.nombre1 && user.apellido1 ? `${user.nombre1} ${user.apellido1}` : (user.nombre1 || user.username || 'Usuario'));
-    let showAvatar = $derived(user.avatar && user.avatar !== '');
+    let showAvatar = $derived(true);
     let isSuperAdmin = $derived(($page.props.auth?.is_super_admin as boolean) || false);
+
+    const urlImagenPerfil = $derived($page.props.auth.urlFotoPerfil);
+    let imagenError = $state(false)
 </script>
 
-<Avatar class="h-8 w-8 overflow-hidden rounded-full">
+<Avatar class="h-8 w-8 overflow-hidden rounded-full justify-center">
     {#if showAvatar}
-        <AvatarImage src={user.avatar} alt={displayName} />
+        {#if urlImagenPerfil && !imagenError }
+              <img
+                src={urlImagenPerfil}
+                alt="Foto de perfil"
+                class="h-full w-full object-cover"
+                onerror={()=> imagenError = true}
+              />
+            {:else}
+              <img
+                src="/img/usuarioutamed.png"
+                alt="Foto de perfil genérica"
+                class="object-cover"
+              />
+            {/if}
     {:else}
         <AvatarFallback class="rounded-full bg-[#22213F]/10 text-[#22213F]">
             {getInitials(displayName)}

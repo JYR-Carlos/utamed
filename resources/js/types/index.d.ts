@@ -55,6 +55,7 @@ export interface SharedAuth {
     docente_courses: SidebarCourse[];
     estudiante_courses: SidebarCourse[];
     ayudante_courses: SidebarCourse[];
+    urlFotoPerfil: string;
 }
 
 export interface BreadcrumbItem {
@@ -90,6 +91,7 @@ export interface User {
     created_at: string;
     updated_at: string;
     docente?: Docente;
+    urlFotoPerfil? :string;
 }
 
 export type BreadcrumbItemType = BreadcrumbItem;
