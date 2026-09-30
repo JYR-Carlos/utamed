@@ -25,6 +25,7 @@ use App\Http\Controllers\Docente\DocenteCursoController;
 use App\Http\Controllers\Docente\JefeCarreraController;
 use App\Http\Controllers\Docente\MensajeriaController;
 use App\Http\Controllers\Docente\MensajesController;
+use App\Http\Controllers\Docente\PerfilController as DocentePerfilController;
 use App\Http\Controllers\Sso\SgeqSsoController;
 use App\Http\Controllers\Student\ActivityController;
 use App\Http\Controllers\Student\AgendaController;
@@ -340,6 +341,7 @@ Route::get('docente/perfil-incompleto', [DashboardController::class, 'perfilInco
 // Docente Routes
 Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('docente.')->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('perfil', [DocentePerfilController::class, 'show'])->name('perfil');
     Route::prefix('jefe-carrera')->name('jefe-carrera.')->group(function () {
         Route::get('dashboard', [JefeCarreraController::class, 'dashboard'])
             ->name('dashboard');
