@@ -17,6 +17,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        // Recorta también las contraseñas (ver App\Http\Middleware\TrimStrings).
+        $middleware->replace(
+            \Illuminate\Foundation\Http\Middleware\TrimStrings::class,
+            \App\Http\Middleware\TrimStrings::class,
+        );
+
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,

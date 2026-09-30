@@ -76,7 +76,7 @@
   let { curso, componentes = [], componente_activo = null, panel = null }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
-    { title: 'Dashboard', href: '/estudiante/dashboard' },
+    { title: 'Inicio', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
     { title: curso?.nombre ?? 'Curso', href: `/estudiante/cursos/${curso?.id_curso}` },
     { title: 'Mensajería', href: '' },

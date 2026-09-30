@@ -11,3 +11,10 @@ declare global {
 declare module '@inertiajs/core' {
     interface PageProps extends InertiaPageProps, AppPageProps { }
 }
+
+declare module 'svelte/elements' {
+    interface HTMLAttributes<T> {
+        /** Marca un contenedor con scroll propio para que Inertia guarde y restaure su posición. */
+        'scroll-region'?: boolean | '' | null;
+    }
+}

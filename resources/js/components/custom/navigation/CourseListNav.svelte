@@ -87,7 +87,37 @@
     historicalGroups.reduce((acc, g) => acc + g.courses.length, 0),
   );
 
-  let historicalOpen = $state(false);
+  // ─── Acordeón (NAV-02) ──────────────────────────────────────────────────
+  // Período actual desplegado y anteriores plegados por defecto; lo que el
+  // usuario elija se recuerda en localStorage (por rol, vía basePath).
+  const storageKey = () => `utamed:course-list-nav:${basePath}`;
+
+  function leerEstado(): { actual: boolean; anteriores: boolean } {
+    try {
+      const guardado = JSON.parse(localStorage.getItem(storageKey()) ?? 'null');
+      if (guardado && typeof guardado === 'object') {
+        return { actual: guardado.actual !== false, anteriores: guardado.anteriores === true };
+      }
+    } catch {
+      // Sin almacenamiento disponible: valores por defecto.
+    }
+    return { actual: true, anteriores: false };
+  }
+
+  const estadoInicial = leerEstado();
+  let currentOpen = $state(estadoInicial.actual);
+  let historicalOpen = $state(estadoInicial.anteriores);
+
+  function guardarEstado() {
+    try {
+      localStorage.setItem(
+        storageKey(),
+        JSON.stringify({ actual: currentOpen, anteriores: historicalOpen }),
+      );
+    } catch {
+      // No se pudo recordar; no afecta a la navegación.
+    }
+  }
 
   let search = $state('');
 
@@ -109,12 +139,11 @@
       .filter((g) => g.courses.length > 0);
   });
 
-  // Si la búsqueda encuentra algo sólo en el histórico, lo despliega solo.
-  $effect(() => {
-    if (search.trim() && filteredHistorical.length > 0) {
-      historicalOpen = true;
-    }
-  });
+  // Mientras se busca, los grupos con coincidencias se muestran desplegados
+  // sin tocar lo que el usuario dejó guardado.
+  let buscando = $derived(search.trim() !== '');
+  let mostrarActual = $derived(currentOpen || buscando);
+  let mostrarAnteriores = $derived(historicalOpen || (buscando && filteredHistorical.length > 0));
 </script>
 
 {#snippet courseRow(curso: SidebarCourse, current: boolean)}
@@ -186,37 +215,64 @@
 {#if courses.length === 0}
   <p class="px-8 py-2 text-sm text-slate-400 italic font-medium">{emptyLabel}</p>
 {:else}
-  <!-- Período actual (plano, sin desplegables) -->
+  <!-- Período actual: desplegado por defecto, plegable -->
   {#if currentPeriod}
     <div class="px-4 mt-2 mb-2">
-      <div class="flex items-center gap-2 px-2 mb-2">
-        <span class="h-1.5 w-1.5 rounded-full bg-[#22213F] shrink-0"></span>
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 px-2 py-1.5 mb-1 rounded-lg text-left hover:bg-slate-50 transition-all"
+        aria-expanded={mostrarActual}
+        onclick={() => {
+          currentOpen = !mostrarActual;
+          guardarEstado();
+        }}
+      >
+        <ChevronRight
+          size={12}
+          class="shrink-0 text-[#22213F] transition-transform {mostrarActual ? 'rotate-90' : ''}"
+        />
         <span class="text-[11px] font-bold uppercase tracking-widest text-[#22213F]">
           Período actual · Año {currentPeriod.year} · Semestre {currentPeriod.sem}
         </span>
-      </div>
+        <span
+          class="ml-auto text-[10px] font-semibold text-[#22213F]/70 bg-[#22213F]/5 rounded-full px-2 py-0.5"
+        >
+          {currentCourses.length}
+        </span>
+      </button>
 
-      <div class="flex flex-col gap-1.5">
-        {#each filteredCurrent as curso (curso.id_curso)}
-          {@render courseRow(curso, true)}
-        {/each}
-        {#if filteredCurrent.length === 0}
-          <p class="px-2 py-1 text-xs text-slate-400 italic">Sin coincidencias</p>
-        {/if}
-      </div>
+      {#if mostrarActual}
+        <div class="flex flex-col gap-1.5">
+          {#each filteredCurrent as curso (curso.id_curso)}
+            {@render courseRow(curso, true)}
+          {/each}
+          {#if filteredCurrent.length === 0}
+            <p class="px-2 py-1 text-xs text-slate-400 italic">Sin coincidencias</p>
+          {/if}
+        </div>
+      {/if}
     </div>
   {/if}
 
   <!-- Períodos anteriores: un solo nivel "Año · Semestre" en un <details> nativo. -->
   {#if historicalYears.length > 0}
     <div class="px-4">
-      <details bind:open={historicalOpen}>
+      <details
+        open={mostrarAnteriores}
+        ontoggle={(e) => {
+          const abierto = (e.currentTarget as HTMLDetailsElement).open;
+          if (abierto !== mostrarAnteriores && !buscando) {
+            historicalOpen = abierto;
+            guardarEstado();
+          }
+        }}
+      >
         <summary
           class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wide text-slate-500 hover:bg-slate-50 transition-all cursor-pointer list-none [&::-webkit-details-marker]:hidden"
         >
           <ChevronRight
             size={12}
-            class="shrink-0 text-slate-400 transition-transform {historicalOpen ? 'rotate-90' : ''}"
+            class="shrink-0 text-slate-400 transition-transform {mostrarAnteriores ? 'rotate-90' : ''}"
           />
           Períodos anteriores
           <span

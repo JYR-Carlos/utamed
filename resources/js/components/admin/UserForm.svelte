@@ -13,12 +13,8 @@
     AdministradorFormData,
     Carrera,
   } from '@/types/admin.types';
-  import {
-    PASSWORD_HINT,
-    PASSWORD_MIN_LENGTH,
-    generatePassword,
-    isPasswordValid,
-  } from '@/constants/admin';
+  import RequisitosPassword from '@/components/custom/common/RequisitosPassword.svelte';
+  import { PASSWORD_MIN_LENGTH, generatePassword } from '@/constants/admin';
 
   type UserFormData = EstudianteFormData | DocenteFormData | AdministradorFormData;
 
@@ -79,7 +75,6 @@
   // ── Credenciales ──
   let showPassword = $state(false);
   const maxUsername = $derived(tipo === 'administrador' ? 30 : 10);
-  const passwordOk = $derived(isPasswordValid(formData.password ?? ''));
 
   function fillGeneratedPassword() {
     formData.password = generatePassword();
@@ -304,11 +299,9 @@
           {/if}
         </button>
       </div>
-      {#if formData.password && !passwordOk}
-        <p class="field-error">{PASSWORD_HINT}</p>
-      {:else}
-        <p class="field-hint">{PASSWORD_HINT}</p>
-      {/if}
+      <div class="mt-2">
+        <RequisitosPassword password={formData.password ?? ''} />
+      </div>
     </div>
   </div>
 

@@ -9,7 +9,8 @@
     rubrica?: Rubrica | null;
     idCurso: number;
     idActividad: number;
-    nombreActividad: string
+    /** Se muestra en la cabecera para que el docente sepa a qué actividad pertenece la rúbrica. */
+    nombreActividad?: string;
     /**
      * Sumativa → la rúbrica se convierte en una nota de 1,0 a 7,0 con 60 % de
      * exigencia, y no lleva escala cualitativa. Formativa → al revés: la escala
@@ -21,7 +22,7 @@
     onClose: () => void;
   }
 
-  let { rubrica = null, idCurso, idActividad, nombreActividad = "NOMBRE DE PRUEBA", esSumativa, bloqueada = false, onClose }: Props = $props();
+  let { rubrica = null, idCurso, idActividad, nombreActividad = '', esSumativa, bloqueada = false, onClose }: Props = $props();
 
   // ── Draft types ────────────────────────────────────────────────────────────
   /**
@@ -712,20 +713,30 @@
         <ChevronLeft class="w-4 h-4" />
         <span>Volver</span>
       </button>
-      <h2 class="text-sm sm:text-base font-bold text-gray-900 truncate">
-        {rubrica ? 'Rúbrica de la Actividad' : 'Crear Rúbrica'}
-      </h2>
-
-      <h2 class="text-center text-sm sm:text-base sm:px-7 font-mono font-bold text-primary">{nombreActividad}</h2>
+      <div class="flex min-w-0 flex-col">
+        <h2 class="text-sm sm:text-base font-bold text-gray-900 truncate">
+          {rubrica ? 'Rúbrica de la Actividad' : 'Crear Rúbrica'}
+        </h2>
+        {#if nombreActividad}
+          <p class="truncate text-xs text-gray-500" title={nombreActividad}>{nombreActividad}</p>
+        {/if}
+      </div>
 
       <!-- Tabs -->
       <div class="flex gap-1 ml-2 bg-gray-100 rounded-lg p-1 shrink-0">
+        <!-- Con evaluaciones registradas la pestaña Editor queda deshabilitada
+             (SEC-01): el backend ya rechaza el guardado, y así tampoco se ofrece. -->
         <button
           onclick={() => (tab = 'editor')}
-          class="flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-md transition {tab ===
+          disabled={bloqueada}
+          title={bloqueada ? 'No se puede editar una rúbrica con evaluaciones ya registradas' : undefined}
+          aria-label={bloqueada
+            ? 'Editor deshabilitado: no se puede editar una rúbrica con evaluaciones ya registradas'
+            : undefined}
+          class="flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-md transition disabled:cursor-not-allowed disabled:opacity-40 {tab ===
           'editor'
             ? 'bg-white shadow text-primary'
-            : 'text-gray-500 hover:text-gray-700'}"
+            : 'text-gray-500 enabled:hover:text-gray-700'}"
         >
           <Pencil class="w-3 h-3" />
           Editor

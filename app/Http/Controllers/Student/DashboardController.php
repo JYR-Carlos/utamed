@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Usuario\Usuario;
 use App\Models\Curso\InscripcionCurso;
 use App\Services\MensajeriaService;
+use App\Services\Student\ResumenActividadesEstudiante;
 use App\Services\Sso\SgeqSsoService;
 use Carbon\Carbon;
 use Inertia\Inertia;
@@ -20,7 +21,7 @@ class DashboardController extends Controller
      *
      * @return \Illuminate\Http\RedirectResponse|\Inertia\Response
      */
-    public function index(MensajeriaService $mensajeria, SgeqSsoService $sgeq)
+    public function index(MensajeriaService $mensajeria, SgeqSsoService $sgeq, ResumenActividadesEstudiante $resumen)
     {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -70,6 +71,7 @@ class DashboardController extends Controller
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
                 'cod_curso' => $curso->cod_curso,
+                'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
                 'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
                 'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
                 'fecha_inicio' => $curso->fecha_inicio,
@@ -94,6 +96,8 @@ class DashboardController extends Controller
         return Inertia::render('student/Dashboard', [
             'mensajeria' => $this->mensajesSinLeer($mensajeria, (int) $user->id_usuario),
             'cursos' => $cursosData,
+            'proximasAVencer' => $resumen->proximasAVencer($estudiante),
+            'notasRecientes' => $resumen->notasYRetroalimentaciones($estudiante),
             'stats' => [
                 'total_cursos' => $cursosData->count(),
                 'nombre_completo' => trim("{$user->nombre1} {$user->apellido1}"),

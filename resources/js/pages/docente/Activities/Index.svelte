@@ -580,7 +580,7 @@
             </div>
             {#if actividad.nro_dias_adicionales_para_bloqueo > 0}
               <div class="min-w-0">
-                <dt class="text-xs font-medium text-slate-500">Holgura</dt>
+                <dt class="text-xs font-medium text-slate-500">Plazo adicional</dt>
                 <dd class="font-semibold text-slate-700">
                   {actividad.nro_dias_adicionales_para_bloqueo} día{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 's' : ''} adicional{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 'es' : ''}
                 </dd>
@@ -698,7 +698,7 @@
             de una misma fila se estiran a la misma altura para que los bordes no
             queden escalonados.
           -->
-          <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+          <div class="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
             {#each grupos as grupo (grupo.grupo)}
               <GrupoCard
                 {grupo}
@@ -807,8 +807,18 @@
 
   <!-- Modal: Agenda del grupo (perspectiva docente) -->
   {#if showAgendaModal && grupoSeleccionado}
+    <!-- Clic (o Enter/Escape) sobre el fondo cierra la agenda; los clics dentro
+         del panel no llegan aquí como target, así que no la cierran. -->
     <div
       class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50 transition-opacity overflow-y-auto"
+      role="presentation"
+      tabindex="-1"
+      onclick={(e) => {
+        if (e.target === e.currentTarget) cerrarAgenda();
+      }}
+      onkeydown={(e) => {
+        if (e.target === e.currentTarget && (e.key === 'Escape' || e.key === 'Enter')) cerrarAgenda();
+      }}
     >
       <div class="w-full max-w-7xl">
         <AgendaDocente
@@ -891,7 +901,7 @@
       if (showMatrizEvaluacion) cerrarMatrizEvaluacion();
       else if (showRubricaEditor) showRubricaEditor = false;
       else if (showEntregasModal) cerrarEntregas();
-      else showAgendaModal = false;
+      else if (showAgendaModal) cerrarAgenda();
     }
   }}
 />

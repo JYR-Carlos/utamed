@@ -43,7 +43,7 @@
           { title: 'Asignaturas', href: `${routePrefix}/asignaturas` },
         ]
       : [
-          { title: 'Dashboard', href: '/dashboard' },
+          { title: 'Inicio', href: '/dashboard' },
           { title: 'Asignaturas', href: '/admin/asignaturas' },
         ],
   );

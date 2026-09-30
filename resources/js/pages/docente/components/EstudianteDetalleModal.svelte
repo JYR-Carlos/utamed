@@ -47,6 +47,12 @@
       nombre: string;
       username: string;
       email?: string;
+      /** Contacto personal que declara el alumno (T10). Sólo lectura. */
+      contacto?: {
+        correo_personal: string | null;
+        celular: string | null;
+        redes_sociales: Record<'youtube' | 'x' | 'instagram' | 'linkedin', string | null>;
+      };
     };
   }
 
@@ -91,12 +97,40 @@
   let mensajesLoading = $state(false);
   let mensajesError = $state<string | null>(null);
 
+  /*
+   * Alumno cuyos mensajes ya se pidieron (con éxito o no). Antes la carga se
+   * disparaba mientras `mensajesEstudiante` viniera vacío, así que un alumno
+   * sin mensajes provocaba un router.reload() tras otro sin fin (BUG-01).
+   * Ahora se pide una sola vez por alumno, aunque la respuesta venga vacía.
+   */
+  let mensajesCargadosPara = $state<number | null>(null);
+
+  const idEstudianteActual = $derived(estudiante.estudiante.id_estudiante);
+
+  /** La prop de página conserva la respuesta del alumno anterior: sólo vale la del actual. */
+  const mensajesVisibles = $derived(
+    mensajesCargadosPara === idEstudianteActual ? mensajesEstudiante : [],
+  );
+
   // Reply form state: keyed by grupo ID
   let replyingGrupo = $state<number | null>(null);
   let replyText = $state('');
   let isSendingReply = $state(false);
 
   // ── Derived data ──────────────────────────────────────────────────────────
+
+  const NOMBRE_RED: Record<string, string> = {
+    youtube: 'YouTube',
+    x: 'X',
+    instagram: 'Instagram',
+    linkedin: 'LinkedIn',
+  };
+
+  const contacto = $derived(estudiante.estudiante.contacto);
+  const redes = $derived(
+    Object.entries(contacto?.redes_sociales ?? {}).filter(([, url]) => !!url) as [string, string][],
+  );
+  const tieneContacto = $derived(!!contacto?.correo_personal || !!contacto?.celular || redes.length > 0);
 
   /** Only show published activities (visible === true). */
   const actividadesPublicadas = $derived(actividades.filter((a) => a.visible));
@@ -113,7 +147,13 @@
 
   // Load messages when switching to mensajes tab
   $effect(() => {
-    if (tab === 'mensajes' && abierto && mensajesEstudiante.length === 0 && !mensajesLoading) {
+    if (
+      tab === 'mensajes' &&
+      abierto &&
+      mensajesCargadosPara !== idEstudianteActual &&
+      !mensajesLoading &&
+      !mensajesError
+    ) {
       loadMensajes();
     }
   });
@@ -146,17 +186,20 @@
   import { router } from '@inertiajs/svelte';
 
   function loadMensajes() {
+    const idEstudiante = idEstudianteActual;
     mensajesLoading = true;
     mensajesError = null;
-    
+
     router.reload({
       only: ['mensajesEstudiante'],
-      data: { estudiante_id: estudiante.estudiante.id_estudiante },
+      data: { estudiante_id: idEstudiante },
       onSuccess: () => {
-        mensajesLoading = false;
+        mensajesCargadosPara = idEstudiante;
       },
       onError: () => {
         mensajesError = 'Error al cargar mensajes.';
+      },
+      onFinish: () => {
         mensajesLoading = false;
       },
     });
@@ -261,6 +304,38 @@
       </span>
     </div>
 
+    <!-- ── Contacto personal (sólo lectura) ──────────────────────────────── -->
+    <div class="flex flex-col gap-1.5 px-5 py-3 border-b border-slate-100 text-xs shrink-0">
+      <span class="font-bold uppercase tracking-widest text-slate-400">Contacto</span>
+      {#if tieneContacto}
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-slate-700">
+          {#if contacto?.correo_personal}
+            <a href="mailto:{contacto.correo_personal}" class="hover:text-indigo-700 hover:underline">
+              {contacto.correo_personal}
+            </a>
+          {/if}
+          {#if contacto?.celular}
+            <a href="tel:{contacto.celular.replace(/\s+/g, '')}" class="hover:text-indigo-700 hover:underline">
+              {contacto.celular}
+            </a>
+          {/if}
+          {#each redes as [red, url] (red)}
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-1 hover:text-indigo-700 hover:underline"
+            >
+              {NOMBRE_RED[red] ?? red}
+              <ExternalLink size={11} />
+            </a>
+          {/each}
+        </div>
+      {:else}
+        <span class="text-slate-400">El estudiante no ha registrado datos de contacto personal.</span>
+      {/if}
+    </div>
+
     <!-- ── Tabs ───────────────────────────────────────────────────────────── -->
     <nav class="flex border-b border-slate-200 bg-white shrink-0" aria-label="Secciones">
       {#each TABS as t (t.id)}
@@ -352,20 +427,22 @@
         <!-- Mensajes -->
       {:else if tab === 'mensajes'}
         <div class="p-5 flex flex-col gap-4">
-          {#if mensajesLoading}
+          <!-- El spinner sólo tapa la primera carga; al recargar tras responder
+               se conserva la lista para que no parpadee. -->
+          {#if mensajesLoading && mensajesVisibles.length === 0}
             <div class="flex items-center justify-center gap-2 py-12 text-slate-400 text-sm">
               <Loader2 size={18} class="animate-spin" />
               Cargando mensajes…
             </div>
           {:else if mensajesError}
             <div class="text-center py-10 text-red-500 text-sm">{mensajesError}</div>
-          {:else if mensajesEstudiante.length === 0}
+          {:else if mensajesVisibles.length === 0}
             <div class="flex flex-col items-center gap-3 py-14 text-center text-slate-400">
               <MessageSquare size={32} class="opacity-30" />
               <p class="text-sm">Este estudiante no ha enviado mensajes aún.</p>
             </div>
           {:else}
-            {@const hilos = mensajesPorGrupo(mensajesEstudiante)}
+            {@const hilos = mensajesPorGrupo(mensajesVisibles)}
             {#each [...hilos.entries()] as [grupoId, hilo]}
               <div class="border border-slate-200 rounded-xl overflow-hidden">
                 <!-- Cabecera del hilo -->

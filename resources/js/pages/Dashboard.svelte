@@ -96,10 +96,10 @@
 </script>
 
 <svelte:head>
-  <title>Dashboard | UTAMED</title>
+  <title>Inicio | UTAMED</title>
 </svelte:head>
 
-<AppLayout breadcrumbs={[{ title: 'Dashboard', href: '/dashboard' }]}>
+<AppLayout breadcrumbs={[{ title: 'Inicio', href: '/dashboard' }]}>
   <div class="px-4 py-6 md:px-8 max-w-[1600px] mx-auto min-h-[calc(100vh-64px)]">
     <!-- Bienvenida -->
     <header class="mb-8 flex flex-wrap items-center justify-between gap-4">

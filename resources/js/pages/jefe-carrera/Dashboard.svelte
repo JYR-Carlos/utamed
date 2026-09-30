@@ -103,7 +103,7 @@
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Jefatura de Carrera', href: '/docente/jefe-carrera/dashboard' },
-    { title: 'Dashboard', href: '/docente/jefe-carrera/dashboard' },
+    { title: 'Inicio', href: '/docente/jefe-carrera/dashboard' },
   ];
 
   // ─── Cabecera ────────────────────────────────────────────────────────────
@@ -241,7 +241,7 @@
     <div class="flex items-center gap-1.5 text-[12px] text-[#5A5E6E]">
       <span>Jefatura de Carrera</span>
       <ChevronRight class="h-3 w-3" aria-hidden="true" />
-      <span class="font-medium text-[#1A1A24]">Dashboard</span>
+      <span class="font-medium text-[#1A1A24]">Inicio</span>
     </div>
     <h1 class="m-0 text-[28px] font-semibold tracking-[-0.01em] text-[#1A1A24]">
       Jefatura de Carrera — {carrera.nombre}

@@ -139,8 +139,9 @@ final class Dm095SyllabusBuilder
     private function seccionIX(): array
     {
         // DM095 sólo declara horas de Taller (c=0, t=4, l=0): un componente al 100 %.
-        // Los porcentajes de aprobación/asistencia son los que Intranet dejó en
-        // curso.componente (60 % / 75 %).
+        // La aprobación (60 %) es la que Intranet dejó en curso.componente. La
+        // asistencia obligatoria del programa es 70 % (acordado en la reunión del
+        // 23-09-2026), aunque Intranet haya cargado 75 % en curso.componente.
         return [
             'descripcion'          => 'Componente único: Taller (4 h/semana). La nota final del curso es la nota del componente Taller. Trabajo autónomo: 104 h semestrales.',
             'ponderacion_optativa' => ['porcentaje' => 0],
@@ -149,7 +150,7 @@ final class Dm095SyllabusBuilder
                 'porcentaje'             => 100,
                 'genera_acta'            => true,
                 'aprobacion_obligatoria' => false,
-                'asistencia_obligatoria' => 75,
+                'asistencia_obligatoria' => 70,
             ]],
         ];
     }

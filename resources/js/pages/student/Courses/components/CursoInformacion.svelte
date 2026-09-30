@@ -3,38 +3,31 @@
    * "Sobre el curso" — resumen académico que abre la ficha del alumno.
    *
    * Toma los mismos props que student/Courses/Syllabus.svelte pero muestra sólo
-   * lo que el alumno necesita para situarse: de qué trata, quién lo dicta, cómo
-   * se evalúa y qué unidades cubre. El documento completo (competencias,
-   * bibliografía, normativa extendida) sigue en /estudiante/cursos/{id}/programa,
-   * a un clic desde aquí.
+   * lo que el alumno necesita para situarse: de qué trata, cómo se evalúa y qué
+   * unidades cubre. El equipo docente es una sección aparte (CursoEquipoDocente).
+   * El documento completo (competencias, bibliografía, normativa extendida)
+   * sigue en /estudiante/cursos/{id}/programa, a un clic desde el encabezado.
    *
    * Estructura visual: tarjetas redondeadas con borde gris y encabezado de
    * icono + título, el mismo patrón que los paneles del dashboard.
    */
-  import { Link } from '@inertiajs/svelte';
-  import { ArrowRight, BookOpen, Info, ListOrdered, Mail, Scale, Users } from 'lucide-svelte';
+  import { BookOpen, Info, ListOrdered, Scale } from 'lucide-svelte';
   import type { Curso } from '@/types';
-  import type { DatosSyllabusAlumno, DocenteAlumno } from '@/types/syllabus.types';
-  import { initials } from '@/utils/formatters';
+  import type { DatosSyllabusAlumno } from '@/types/syllabus.types';
 
   interface Props {
     curso?: Curso | null;
     programa?: { version_programa: string } | null;
-    docentes?: DocenteAlumno[];
     datos?: DatosSyllabusAlumno | null;
   }
 
-  let { curso = null, programa = null, docentes = [], datos = null }: Props = $props();
+  let { curso = null, programa = null, datos = null }: Props = $props();
 
   const descripcion = $derived(datos?.descripcion ?? '');
   const componentes = $derived(datos?.componentes ?? []);
   const normativa = $derived(datos?.normativa ?? '');
   const unidades = $derived(datos?.unidades ?? []);
 
-  // Titular primero: es el interlocutor por defecto del alumno.
-  const equipo = $derived(
-    [...docentes].sort((a, b) => Number(b.es_titular) - Number(a.es_titular)),
-  );
 </script>
 
 {#snippet encabezado(Icono: typeof BookOpen, texto: string)}
@@ -52,46 +45,6 @@
       <p class="text-[15px] leading-relaxed text-gray-700 whitespace-pre-line">{descripcion}</p>
     </div>
   {/if}
-
-  <!-- Equipo docente -->
-  <div class="rounded-3xl border border-gray-200 bg-white p-6">
-    {@render encabezado(Users, equipo.length === 1 ? 'Tu docente' : 'Equipo docente')}
-    {#if equipo.length === 0}
-      <p class="text-sm text-gray-500">
-        Todavía no hay docentes asignados a tus componentes de este curso.
-      </p>
-    {:else}
-      <ul class="grid gap-3 sm:grid-cols-2">
-        {#each equipo as docente (docente.nombre + (docente.componente ?? ''))}
-          <li class="flex items-start gap-3 p-4 rounded-2xl bg-gray-50 border border-gray-100">
-            <span
-              class="w-10 h-10 shrink-0 rounded-full bg-uta-blue text-white flex items-center justify-center text-xs font-bold"
-              aria-hidden="true"
-            >
-              {initials(docente.nombre)}
-            </span>
-            <div class="min-w-0">
-              <p class="font-semibold text-gray-900 leading-tight">{docente.nombre}</p>
-              <p class="text-xs text-gray-500 mt-0.5">
-                {docente.es_titular ? 'Titular' : 'Docente'}{docente.componente
-                  ? ` · ${docente.componente}`
-                  : ''}
-              </p>
-              {#if docente.email}
-                <a
-                  href={`mailto:${docente.email}`}
-                  class="inline-flex items-center gap-1.5 mt-1.5 text-xs font-medium text-uta-blue hover:underline break-all"
-                >
-                  <Mail class="w-3 h-3 shrink-0" />
-                  {docente.email}
-                </a>
-              {/if}
-            </div>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </div>
 
   <!-- Evaluación -->
   {#if componentes.length > 0}
@@ -171,28 +124,9 @@
     </div>
   {/if}
 
-  <!-- Programa completo / aviso si aún no está publicado -->
-  {#if programa}
-    <Link
-      href={`/estudiante/cursos/${curso?.id_curso}/programa`}
-      class="flex items-center gap-4 p-5 rounded-3xl border border-gray-200 bg-white no-underline hover:border-uta-blue/30 hover:bg-uta-blue-light/40 transition-colors group"
-    >
-      <span
-        class="w-10 h-10 shrink-0 rounded-2xl bg-uta-blue-light text-uta-blue flex items-center justify-center"
-      >
-        <BookOpen class="w-[18px] h-[18px]" />
-      </span>
-      <span class="flex-1 min-w-0">
-        <span class="block font-semibold text-gray-900">Programa completo del curso</span>
-        <span class="block text-xs text-gray-500 mt-0.5">
-          Competencias, resultados de aprendizaje y bibliografía · versión {programa.version_programa}
-        </span>
-      </span>
-      <ArrowRight
-        class="w-[18px] h-[18px] shrink-0 text-uta-blue transition-transform group-hover:translate-x-0.5"
-      />
-    </Link>
-  {:else}
+  <!-- Aviso si el programa aún no está publicado. Cuando lo está, el acceso
+       es el botón «Ver programa» del encabezado (T23): aquí sería un duplicado. -->
+  {#if !programa}
     <div class="flex items-start gap-4 p-5 rounded-3xl border border-gray-200 bg-gray-50">
       <span class="shrink-0 text-gray-400 mt-0.5">
         <Info class="w-[18px] h-[18px]" />

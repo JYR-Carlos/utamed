@@ -1,32 +1,20 @@
 <script lang="ts">
+  /**
+   * Programa (syllabus) del curso, visto por el alumno.
+   *
+   * Muestra el documento íntegro —las mismas secciones que ve el docente, sin
+   * resumir— en tarjetas (T28). Las Unidades van primero (T24, reunión del
+   * 23-09); el resto sigue el orden del programa. «Imprimir / Guardar como
+   * PDF» usa la impresión del navegador y la hoja @media print de abajo deja
+   * sólo el documento.
+   */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
+  import ProgramaDocument from '@/modules/resources/programa/components/ProgramaDocument.svelte';
   import type { BreadcrumbItem, Curso } from '@/types';
-  import { BookOpen, User, Award, Clock, ExternalLink } from 'lucide-svelte';
+  import { ArrowLeft, Award, BookOpen, Clock, Printer, User } from 'lucide-svelte';
+  import { Link } from '@inertiajs/svelte';
 
   // ─── Types ──────────────────────────────────────────────────────────────────
-
-  interface Componente {
-    componente: string;
-    porcentaje: number;
-    genera_acta: boolean;
-    aprobacion_obligatoria: boolean;
-    asistencia_obligatoria: number;
-  }
-
-  interface Recurso {
-    descripcion: string;
-    tipo: string;
-    link?: string;
-  }
-
-  interface Competencia {
-    titulo: string;
-    descripcion?: string;
-  }
-
-  interface ResultadoAprendizaje {
-    resultado: string;
-  }
 
   /**
    * Un docente de la sección del alumno. Cada componente (cátedra, laboratorio,
@@ -37,6 +25,21 @@
     email?: string | null;
     es_titular: boolean;
     componente?: string | null;
+  }
+
+  /** Sección tal como la arma App\Traits\ParsesSyllabus (igual que al docente). */
+  interface Seccion {
+    numeral_romano?: string;
+    nombre_seccion: string;
+    contenidos?: Array<{ texto_contenido: string | null }>;
+    componentes?: Array<{
+      componente: string;
+      porcentaje: number | string;
+      genera_acta?: boolean;
+      aprobacion_obligatoria?: boolean;
+      asistencia_obligatoria?: number | string | null;
+    }>;
+    ponderacion_optativa?: { porcentaje?: number } | null;
   }
 
   interface Props {
@@ -50,425 +53,223 @@
       tipo_syllabus?: string;
     } | null;
     docentes?: DocenteSyllabus[];
-    datos?: {
-      categoria?: string;
-      descripcion?: string;
-      competencias_especificas?: Competencia[];
-      competencias_genericas?: Competencia[];
-      componentes?: Componente[];
-      normativa?: string;
-      recursos?: Recurso[];
-      resultados_aprendizaje?: ResultadoAprendizaje[];
-      unidades?: Array<{
-        numero: number;
-        titulo: string;
-        contenidos_items?: Array<{ item: string }>;
-        resultados_aprendizaje?: ResultadoAprendizaje[];
-      }>;
-    } | null;
+    secciones?: Seccion[];
+    datos?: { categoria?: string } | null;
   }
 
   // ─── Props ───────────────────────────────────────────────────────────────────
 
-  let { curso, programa, docentes = [], datos }: Props = $props();
+  let { curso, programa, docentes = [], secciones = [], datos }: Props = $props();
 
   const asignatura = $derived(curso?.asignatura);
   const asignaturaNombre = $derived(asignatura?.nombre ?? curso?.nombre ?? 'Sin nombre');
   const backUrl = $derived(`/estudiante/cursos/${curso?.id_curso}`);
-
-  // Detectar si es versión básica o completa
-  const isBasicoSyllabus = $derived(
-    programa?.tipo_syllabus === 'BASICO' || programa?.tipo_syllabus === 'basico',
-  );
+  const categoria = $derived(datos?.categoria ?? '');
 
   const breadcrumbs = $derived<BreadcrumbItem[]>([
-    { title: 'Dashboard', href: '/estudiante/dashboard' },
+    { title: 'Inicio', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
     { title: asignaturaNombre, href: backUrl },
     { title: 'Programa', href: '#' },
   ]);
 
-  // ─── Derived data ────────────────────────────────────────────────────────────
-
-  const categoria = $derived(datos?.categoria ?? '');
-  const descripcion = $derived(datos?.descripcion ?? '');
-  const normativa = $derived(datos?.normativa ?? '');
-  const componentes = $derived(datos?.componentes ?? []);
-  const recursos = $derived(datos?.recursos ?? []);
-  const resultados = $derived(datos?.resultados_aprendizaje ?? []);
-  const unidades = $derived(datos?.unidades ?? []);
-
-  const todasCompetencias = $derived([
-    ...(datos?.competencias_especificas ?? []),
-    ...(datos?.competencias_genericas ?? []),
+  /** Unidades (VI) primero; el resto conserva el orden del programa. */
+  const seccionesOrdenadas = $derived([
+    ...secciones.filter((s) => s.numeral_romano === 'VI'),
+    ...secciones.filter((s) => s.numeral_romano !== 'VI'),
   ]);
-
-  // ─── Donut chart ─────────────────────────────────────────────────────────────
-
-  // Rampa de un solo tono (azul UTA, oscuro→claro). El color no distingue
-  // componentes —de eso se encarga la etiqueta escrita al lado—, refuerza el
-  // tamaño: los segmentos van ordenados de mayor a menor ponderación.
-  const CHART_COLORS = ['#002855', '#10416F', '#2A66AC', '#5C8CC4', '#93B3D8', '#C7D8EB'];
-  const R = 95;
-  const CIRC = 2 * Math.PI * R;
-
-  interface DonutSegment {
-    color: string;
-    dashArray: string;
-    dashOffset: number;
-    label: string;
-    porcentaje: number;
-  }
-
-  const donutSegments = $derived.by((): DonutSegment[] => {
-    let accumulated = 0;
-    return [...componentes]
-      .sort((a, b) => b.porcentaje - a.porcentaje)
-      .map((c, i) => {
-        const len = (c.porcentaje / 100) * CIRC;
-        const dashOffset = CIRC / 4 - accumulated;
-        accumulated += len;
-        return {
-          color: CHART_COLORS[i % CHART_COLORS.length],
-          dashArray: `${len} ${CIRC}`,
-          dashOffset,
-          label: c.componente,
-          porcentaje: c.porcentaje,
-        };
-      });
-  });
-
-  // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   function formatDate(dateStr?: string) {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleDateString('es-CL', { year: 'numeric', month: 'long' });
   }
+
+  function imprimir() {
+    window.print();
+  }
 </script>
 
-<!--
-  Documento completo del programa. La ficha del curso (student/Courses/Show)
-  muestra el resumen y enlaza aquí; esta página es la versión íntegra.
--->
+<svelte:head>
+  <title>Programa · {asignaturaNombre} | UTAMED</title>
+</svelte:head>
+
 <StudentLayout {breadcrumbs}>
-    <div class="max-w-5xl mx-auto px-8 py-12">
-      <!-- Document Header -->
-      <div class="mb-12">
-        <div class="flex items-center gap-2 mb-4">
-          <BookOpen class="w-5 h-5 text-uta-blue" />
-          <span class="text-sm font-semibold text-uta-blue uppercase tracking-wider">
-            Programa Oficial
-          </span>
-        </div>
-
-        <h1 class="text-5xl font-extrabold text-gray-900 mb-8 leading-tight">
-          {asignaturaNombre}
-        </h1>
-
-        <!-- Metadata Grid -->
-        <div class="grid grid-cols-5 gap-6 p-6 bg-white rounded-2xl border border-gray-200">
-          <!-- Categoría -->
-          <div>
-            <div class="flex items-center gap-2 mb-2">
-              <BookOpen class="w-4 h-4 text-gray-500" />
-              <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                >Categoría</span
-              >
-            </div>
-            <p class="font-semibold text-gray-900">{categoria || '—'}</p>
-          </div>
-
-          <!-- Docentes de la sección del alumno (titular primero) -->
-          <div>
-            <div class="flex items-center gap-2 mb-2">
-              <User class="w-4 h-4 text-gray-500" />
-              <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                >{docentes.length > 1 ? 'Docentes' : 'Docente'}</span
-              >
-            </div>
-            {#if docentes.length}
-              <ul class="space-y-3">
-                {#each docentes as docente}
-                  <li>
-                    <p class="font-semibold text-gray-900">{docente.nombre}</p>
-                    <p class="text-xs text-gray-500">
-                      {docente.es_titular ? 'Titular' : 'Docente'}{docente.componente
-                        ? ` · ${docente.componente}`
-                        : ''}
-                    </p>
-                    {#if docente.email}
-                      <p class="text-sm text-gray-500 truncate">{docente.email}</p>
-                    {/if}
-                  </li>
-                {/each}
-              </ul>
-            {:else}
-              <p class="text-sm text-gray-400 italic">No asignado</p>
-            {/if}
-          </div>
-
-          <!-- Créditos SCT -->
-          <div>
-            <div class="flex items-center gap-2 mb-2">
-              <Award class="w-4 h-4 text-gray-500" />
-              <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                >Créditos SCT</span
-              >
-            </div>
-            <p class="text-2xl font-bold text-gray-900">{asignatura?.creditos_sct ?? '—'}</p>
-          </div>
-
-          <!-- Horas Cátedra -->
-          <div>
-            <div class="flex items-center gap-2 mb-2">
-              <Clock class="w-4 h-4 text-gray-500" />
-              <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                >Horas Cátedra</span
-              >
-            </div>
-            <p class="text-2xl font-bold text-gray-900">{asignatura?.horas_catedra ?? '—'}</p>
-          </div>
-
-          <!-- Horas Taller -->
-          <div>
-            <div class="flex items-center gap-2 mb-2">
-              <Clock class="w-4 h-4 text-gray-500" />
-              <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider"
-                >Horas Taller</span
-              >
-            </div>
-            <p class="text-2xl font-bold text-gray-900">{asignatura?.horas_taller ?? '—'}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── No programa ── -->
-      {#if !programa}
-        <div class="bg-white rounded-2xl border border-gray-200 p-16 text-center">
-          <BookOpen class="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h3 class="text-xl font-bold text-gray-700 mb-2">Programa no disponible</h3>
-          <p class="text-gray-500">El programa de este curso aún no ha sido aprobado.</p>
-        </div>
-      {:else}
-        <!-- ── Main Document Card ── -->
-        <div class="bg-white rounded-2xl border border-gray-200 p-12 space-y-12">
-          <!-- Descripción del Curso -->
-          {#if descripcion}
-            <section>
-              <h2 class="text-2xl font-bold text-gray-900 mb-4">Descripción del Curso</h2>
-              <p class="text-gray-700 leading-relaxed whitespace-pre-line">{descripcion}</p>
-            </section>
-          {/if}
-
-          <!-- Unidades (Sección VI - BÁSICO) -->
-          {#if unidades.length > 0}
-            <section>
-              <h2 class="text-2xl font-bold text-gray-900 mb-6">Unidades</h2>
-              <div class="space-y-6">
-                {#each unidades as unidad}
-                  <div class="border-l-4 border-uta-blue pl-6">
-                    <h3 class="text-lg font-bold text-gray-900 mb-2">
-                      Unidad {unidad.numero}: {unidad.titulo}
-                    </h3>
-                    {#if unidad.contenidos_items && unidad.contenidos_items.length > 0}
-                      <div class="text-gray-700 space-y-2 mb-4">
-                        {#each unidad.contenidos_items as contenido}
-                          <p class="leading-relaxed whitespace-pre-line">{contenido.item}</p>
-                        {/each}
-                      </div>
-                    {/if}
-                    {#if unidad.resultados_aprendizaje && unidad.resultados_aprendizaje.length > 0}
-                      <div class="mt-3 p-3 bg-uta-blue-light rounded-lg border border-uta-blue/20">
-                        <p class="text-xs font-semibold text-uta-blue mb-2">
-                          Resultados de Aprendizaje:
-                        </p>
-                        <ul class="space-y-1">
-                          {#each unidad.resultados_aprendizaje as resultado}
-                            <li class="text-sm text-uta-blue flex gap-2">
-                              <span class="flex-shrink-0">•</span>
-                              <span>{resultado.resultado}</span>
-                            </li>
-                          {/each}
-                        </ul>
-                      </div>
-                    {/if}
-                  </div>
-                {/each}
-              </div>
-            </section>
-          {/if}
-
-          <!-- Objetivos de Aprendizaje (solo en versión COMPLETA) -->
-          {#if !isBasicoSyllabus && resultados.length > 0}
-            <section>
-              <h2 class="text-2xl font-bold text-gray-900 mb-6">Objetivos de Aprendizaje</h2>
-              <div class="space-y-4">
-                {#each resultados as item, i}
-                  <div class="flex gap-4">
-                    <div
-                      class="flex-shrink-0 w-8 h-8 rounded-lg bg-uta-blue-light flex items-center justify-center mt-0.5"
-                    >
-                      <span class="text-sm font-bold text-uta-blue">{i + 1}</span>
-                    </div>
-                    <p class="text-gray-700 leading-relaxed">{item.resultado}</p>
-                  </div>
-                {/each}
-              </div>
-            </section>
-          {/if}
-
-          <!-- Competencias a Desarrollar (solo en versión COMPLETA) -->
-          {#if !isBasicoSyllabus && todasCompetencias.length > 0}
-            <section>
-              <h2 class="text-2xl font-bold text-gray-900 mb-6">Competencias a Desarrollar</h2>
-              <div class="grid grid-cols-2 gap-4">
-                {#each todasCompetencias.slice(0, 8) as comp (comp.titulo)}
-                  <div class="p-4 bg-gray-50 rounded-xl">
-                    <div class="flex items-start gap-3">
-                      <!-- Viñeta, no codificación: todas las competencias pesan igual. -->
-                      <div
-                        class="w-2 h-2 rounded-full mt-2 flex-shrink-0 bg-uta-blue"
-                        aria-hidden="true"
-                      ></div>
-                      <div>
-                        <h4 class="font-semibold text-gray-900 mb-1">{comp.titulo}</h4>
-                        {#if comp.descripcion}
-                          <p class="text-sm text-gray-600">{comp.descripcion}</p>
-                        {/if}
-                      </div>
-                    </div>
-                  </div>
-                {/each}
-              </div>
-            </section>
-          {/if}
-
-          <!-- Metodología de Evaluación -->
-          {#if componentes.length > 0}
-            <section>
-              <h2 class="text-2xl font-bold text-gray-900 mb-6">Metodología de Evaluación</h2>
-
-              <div class="grid grid-cols-2 gap-8 items-center">
-                <!-- SVG Donut Chart -->
-                <div class="flex justify-center">
-                  <div class="relative">
-                    <svg width="260" height="260" viewBox="0 0 260 260">
-                      <g transform="translate(130,130)">
-                        {#each donutSegments as seg}
-                          <circle
-                            r={R}
-                            cx="0"
-                            cy="0"
-                            fill="none"
-                            stroke={seg.color}
-                            stroke-width="30"
-                            stroke-dasharray={seg.dashArray}
-                            stroke-dashoffset={seg.dashOffset}
-                          />
-                        {/each}
-                      </g>
-                      <!-- Center label -->
-                      <text
-                        x="130"
-                        y="124"
-                        text-anchor="middle"
-                        font-size="28"
-                        font-weight="700"
-                        fill="#111827">100%</text
-                      >
-                      <text x="130" y="148" text-anchor="middle" font-size="13" fill="#6B7280"
-                        >Total</text
-                      >
-                    </svg>
-                  </div>
-                </div>
-
-                <!-- Breakdown bars -->
-                <div class="space-y-5">
-                  {#each donutSegments as seg}
-                    <div>
-                      <div class="flex items-center justify-between mb-1.5">
-                        <div class="flex items-center gap-3">
-                          <div class="w-4 h-4 rounded" style="background-color: {seg.color}"></div>
-                          <span class="font-semibold text-gray-900">{seg.label}</span>
-                        </div>
-                        <span class="text-2xl font-bold text-gray-900">{seg.porcentaje}%</span>
-                      </div>
-                      <div class="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          class="h-full rounded-full"
-                          style="width: {seg.porcentaje}%; background-color: {seg.color}"
-                        ></div>
-                      </div>
-                    </div>
-                  {/each}
-                </div>
-              </div>
-
-              <!-- Normativa -->
-              {#if normativa}
-                <div class="mt-8 p-5 bg-amber-50 border border-amber-200 rounded-xl">
-                  <p class="text-sm text-gray-700">
-                    <strong class="text-gray-900">Requisito de Aprobación:</strong>
-                    {normativa}
-                  </p>
-                </div>
-              {/if}
-            </section>
-          {/if}
-
-          <!-- Bibliografía -->
-          {#if recursos.length > 0}
-            <section>
-              <h2 class="text-2xl font-bold text-gray-900 mb-6">Bibliografía</h2>
-              <div class="space-y-3">
-                {#each recursos as recurso}
-                  <div
-                    class="flex items-start gap-4 p-4 border border-gray-200 rounded-xl hover:border-uta-blue/30 hover:bg-uta-blue-light/40 transition-all group"
-                  >
-                    <div
-                      class="w-10 h-10 rounded-lg bg-gray-100 group-hover:bg-uta-blue-light flex items-center justify-center flex-shrink-0 transition-colors"
-                    >
-                      <BookOpen
-                        class="w-5 h-5 text-gray-600 group-hover:text-uta-blue transition-colors"
-                      />
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <h4 class="font-semibold text-gray-900 mb-1">{recurso.descripcion}</h4>
-                      <span
-                        class="inline-block px-2 py-1 bg-gray-100 text-xs font-medium text-gray-700 rounded"
-                        >{recurso.tipo}</span
-                      >
-                    </div>
-                    {#if recurso.link}
-                      <a
-                        href={recurso.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="flex-shrink-0 p-2 rounded-lg hover:bg-uta-blue-light text-gray-600 hover:text-uta-blue transition-colors"
-                      >
-                        <ExternalLink class="w-5 h-5" />
-                      </a>
-                    {/if}
-                  </div>
-                {/each}
-              </div>
-            </section>
-          {/if}
-        </div>
-
-        <!-- Footer -->
-        <div class="mt-8 text-center text-sm text-gray-500">
-          <p>
-            Programa aprobado por el Consejo de Escuela · Versión {programa.version_programa}
-            {#if programa.fecha_creacion}
-              · {formatDate(programa.fecha_creacion)}
-            {/if}
-          </p>
-          {#if programa.creado_por}
-            <p class="mt-1">Elaborado por: {programa.creado_por}</p>
-          {/if}
-        </div>
+  <div class="syllabus-print mx-auto max-w-5xl px-4 py-8 sm:px-8 sm:py-12">
+    <div class="no-print mb-6 flex flex-wrap items-center justify-between gap-3">
+      <Link
+        href={backUrl}
+        class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-uta-blue"
+      >
+        <ArrowLeft class="h-4 w-4" />
+        Volver al curso
+      </Link>
+      {#if programa}
+        <button type="button" class="btn btn-primary" onclick={imprimir}>
+          <Printer class="h-4 w-4" />
+          Imprimir / Guardar como PDF
+        </button>
       {/if}
     </div>
+
+    <!-- Encabezado del documento -->
+    <header class="mb-8">
+      <div class="mb-3 flex items-center gap-2">
+        <BookOpen class="h-5 w-5 text-uta-blue" />
+        <span class="text-sm font-semibold uppercase tracking-wider text-uta-blue">
+          Programa Oficial
+        </span>
+      </div>
+
+      <h1 class="mb-6 text-3xl font-extrabold leading-tight text-gray-900 sm:text-4xl">
+        {asignaturaNombre}
+      </h1>
+
+      <div
+        class="grid grid-cols-2 gap-6 rounded-2xl border border-gray-200 bg-white p-6 sm:grid-cols-3 lg:grid-cols-5"
+      >
+        <div>
+          <div class="mb-2 flex items-center gap-2">
+            <BookOpen class="h-4 w-4 text-gray-500" />
+            <span class="text-xs font-semibold uppercase tracking-wider text-gray-600">Categoría</span>
+          </div>
+          <p class="font-semibold text-gray-900">{categoria || '—'}</p>
+        </div>
+
+        <!-- Docentes de la sección del alumno (titular primero) -->
+        <div class="col-span-2 sm:col-span-1">
+          <div class="mb-2 flex items-center gap-2">
+            <User class="h-4 w-4 text-gray-500" />
+            <span class="text-xs font-semibold uppercase tracking-wider text-gray-600"
+              >{docentes.length > 1 ? 'Docentes' : 'Docente'}</span
+            >
+          </div>
+          {#if docentes.length}
+            <ul class="space-y-3">
+              {#each docentes as docente (docente.nombre + (docente.componente ?? ''))}
+                <li>
+                  <p class="font-semibold text-gray-900">{docente.nombre}</p>
+                  <p class="text-xs text-gray-500">
+                    {docente.es_titular ? 'Titular' : 'Docente'}{docente.componente
+                      ? ` · ${docente.componente}`
+                      : ''}
+                  </p>
+                  {#if docente.email}
+                    <p class="truncate text-sm text-gray-500">{docente.email}</p>
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          {:else}
+            <p class="text-sm italic text-gray-400">No asignado</p>
+          {/if}
+        </div>
+
+        <div>
+          <div class="mb-2 flex items-center gap-2">
+            <Award class="h-4 w-4 text-gray-500" />
+            <span class="text-xs font-semibold uppercase tracking-wider text-gray-600">Créditos SCT</span>
+          </div>
+          <p class="text-2xl font-bold text-gray-900">{asignatura?.creditos_sct ?? '—'}</p>
+        </div>
+
+        <div>
+          <div class="mb-2 flex items-center gap-2">
+            <Clock class="h-4 w-4 text-gray-500" />
+            <span class="text-xs font-semibold uppercase tracking-wider text-gray-600">Horas Cátedra</span>
+          </div>
+          <p class="text-2xl font-bold text-gray-900">{asignatura?.horas_catedra ?? '—'}</p>
+        </div>
+
+        <div>
+          <div class="mb-2 flex items-center gap-2">
+            <Clock class="h-4 w-4 text-gray-500" />
+            <span class="text-xs font-semibold uppercase tracking-wider text-gray-600">Horas Taller</span>
+          </div>
+          <p class="text-2xl font-bold text-gray-900">{asignatura?.horas_taller ?? '—'}</p>
+        </div>
+      </div>
+    </header>
+
+    {#if !programa}
+      <div class="rounded-2xl border border-gray-200 bg-white p-16 text-center">
+        <BookOpen class="mx-auto mb-4 h-12 w-12 text-gray-300" />
+        <h3 class="mb-2 text-xl font-bold text-gray-700">Programa no disponible</h3>
+        <p class="text-gray-500">El programa de este curso aún no ha sido aprobado.</p>
+      </div>
+    {:else}
+      <ProgramaDocument secciones={seccionesOrdenadas} variante="tarjetas" />
+
+      <footer class="mt-8 text-center text-sm text-gray-500">
+        <p>
+          Programa aprobado por el Consejo de Escuela · Versión {programa.version_programa}
+          {#if programa.fecha_creacion}
+            · {formatDate(programa.fecha_creacion)}
+          {/if}
+        </p>
+        {#if programa.creado_por}
+          <p class="mt-1">Elaborado por: {programa.creado_por}</p>
+        {/if}
+      </footer>
+    {/if}
+  </div>
 </StudentLayout>
+
+<style>
+  /*
+   * Impresión / PDF: sólo el documento. Se oculta todo lo demás con
+   * visibility (el layout es compartido y no conviene tocarlo) y se libera la
+   * altura/overflow de los contenedores con scroll propio, que si no recortan
+   * la impresión a una sola pantalla. Márgenes pensados para carta y A4.
+   */
+  @media print {
+    @page {
+      margin: 16mm 14mm;
+    }
+
+    :global(html),
+    :global(body),
+    :global(body *) {
+      overflow: visible !important;
+      height: auto !important;
+      max-height: none !important;
+      box-shadow: none !important;
+    }
+
+    :global(body *) {
+      visibility: hidden;
+    }
+
+    .syllabus-print,
+    .syllabus-print :global(*) {
+      visibility: visible;
+    }
+
+    .syllabus-print {
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 100%;
+      max-width: none;
+      padding: 0;
+      font-size: 11pt;
+    }
+
+    .no-print {
+      display: none !important;
+    }
+
+    .syllabus-print :global(.programa-tarjeta) {
+      break-inside: avoid-page;
+      border-color: #d6d9e0;
+      padding: 12pt 14pt;
+    }
+
+    .syllabus-print :global(table) {
+      break-inside: avoid;
+    }
+
+    .syllabus-print :global(a) {
+      color: inherit;
+      text-decoration: underline;
+    }
+  }
+</style>

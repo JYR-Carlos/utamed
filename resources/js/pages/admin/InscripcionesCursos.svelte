@@ -48,7 +48,7 @@
   let { inscripciones, cursos, filters }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Inicio', href: '/dashboard' },
     { title: 'Inscripciones', href: '/admin/inscripciones_cursos' },
   ];
 

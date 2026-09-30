@@ -499,7 +499,7 @@
 {/snippet}
 
 {#snippet pageContent()}
-  <div class="min-h-screen bg-white pb-4 print:pb-0">
+  <div class="programa-print min-h-screen bg-white pb-4 print:pb-0">
     <div class="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-6 sm:px-8">
       <!-- ── Migas ── -->
       <nav
@@ -620,7 +620,7 @@
         {#if programa}
           <!-- ── Banner de rechazo: primer contenido de la pantalla ── -->
           {#if fueRechazado && !esAdmin}
-            <div class="bg-[#F5F1EA] px-5 pt-5 sm:px-7">
+            <div class="bg-[#F5F1EA] px-5 pt-5 sm:px-7 print:hidden">
               <div
                 class="flex gap-3.5 rounded-[10px] border border-[#E5B4B4] border-l-4 border-l-[#8A1538] bg-[#FDF3F3] px-5 py-4"
                 role="alert"
@@ -707,7 +707,7 @@
               />
             </div>
 
-            <div class="flex w-full min-w-0 flex-col gap-3 lg:w-[760px] lg:flex-none">
+            <div class="flex w-full min-w-0 flex-col gap-3 lg:w-[760px] lg:flex-none print:w-full">
               {#if sellado}
                 <div class="flex justify-end print:justify-start">
                   <span
@@ -1164,3 +1164,96 @@
     {@render pageContent()}
   </DocenteLayout>
 {/if}
+
+<style>
+  /*
+   * Impresión formal del programa (DOC-01). Sólo sale el documento: se
+   * oculta el resto de la aplicación (sidebar, cabecera, índice, historial,
+   * botones) y se libera la altura/overflow de los contenedores con scroll
+   * propio, que si no recortan la impresión a una pantalla. Márgenes y cuerpo
+   * de documento académico, válidos para carta y A4.
+   */
+  @media print {
+    @page {
+      margin: 18mm 16mm 20mm;
+    }
+
+    :global(html),
+    :global(body),
+    :global(body *) {
+      overflow: visible !important;
+      height: auto !important;
+      max-height: none !important;
+      box-shadow: none !important;
+    }
+
+    :global(body *) {
+      visibility: hidden;
+    }
+
+    .programa-print,
+    .programa-print :global(*) {
+      visibility: visible;
+    }
+
+    .programa-print {
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 100%;
+      min-height: 0 !important;
+      background: #fff !important;
+      color: #000;
+      font-size: 11pt;
+      line-height: 1.5;
+    }
+
+    .programa-print :global(article) {
+      max-width: none !important;
+      width: 100% !important;
+      border: 0 !important;
+      padding: 0 !important;
+      gap: 14pt !important;
+    }
+
+    .programa-print :global(h1),
+    .programa-print :global(h2),
+    .programa-print :global(h3) {
+      break-after: avoid-page;
+    }
+
+    .programa-print :global(h2) {
+      font-size: 13pt !important;
+    }
+
+    .programa-print :global(section) {
+      break-inside: auto;
+    }
+
+    .programa-print :global(table) {
+      width: 100%;
+      border-collapse: collapse;
+      break-inside: avoid;
+    }
+
+    .programa-print :global(tr) {
+      break-inside: avoid;
+    }
+
+    .programa-print :global(th),
+    .programa-print :global(td) {
+      border: 1px solid #bbb !important;
+      padding: 4pt 6pt !important;
+    }
+
+    .programa-print :global(p),
+    .programa-print :global(li) {
+      orphans: 3;
+      widows: 3;
+    }
+
+    .programa-print :global(a) {
+      color: inherit !important;
+      text-decoration: underline;
+    }
+  }
+</style>

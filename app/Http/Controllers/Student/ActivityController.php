@@ -11,6 +11,7 @@ use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
+use App\Services\Agenda\LecturaAgendaService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -158,6 +159,10 @@ class ActivityController extends Controller
                     'entrega_evaluada'   => $this->entregaEvaluada($agenda, $entregasPorArchivo),
                 ];
             })->values()->toArray();
+
+            // Abrir la actividad es leer su agenda (T07): se registra la
+            // lectura y el último mensaje trae quiénes lo han visto.
+            $interacciones = (new LecturaAgendaService)->leerHilo($user->id_usuario, $interacciones);
 
             // Rúbrica usada en la evaluación más reciente (no la última rúbrica creada)
             $ultimaEvaluacionAgenda = $agendas->reverse()->first(fn (Agenda $a) => $a->evaluacion !== null);

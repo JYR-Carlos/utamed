@@ -366,7 +366,7 @@ class UsuarioController extends Controller
             ['campo' => 'apellido2', 'etiqueta' => 'Segundo apellido', 'obligatorio' => false, 'ejemplo' => 'Pérez'],
             ['campo' => 'email',     'etiqueta' => 'Email',           'obligatorio' => false, 'ejemplo' => 'juan@ejemplo.cl'],
             ['campo' => 'username',  'etiqueta' => 'Usuario',         'obligatorio' => true,  'ejemplo' => 'jgonzalez'],
-            ['campo' => 'password',  'etiqueta' => 'Contraseña',      'obligatorio' => true,  'ejemplo' => 'Utamed2026'],
+            ['campo' => 'password',  'etiqueta' => 'Contraseña',      'obligatorio' => true,  'ejemplo' => 'Utamed2026!'],
         ];
 
         return match ($tipo) {

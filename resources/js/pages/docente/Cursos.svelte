@@ -132,6 +132,16 @@
     return out;
   });
 
+
+  /**
+   * Código de la asignatura (p. ej. DM095) como en CursoTitularCard (FEAT-02).
+   * El backend manda 'N/A' cuando el curso no tiene asignatura; ahí se cae al
+   * código del curso.
+   */
+  function codigoAsignatura(curso: { cod_asignatura?: string | null; cod_curso?: string | null }): string {
+    const cod = curso.cod_asignatura && curso.cod_asignatura !== 'N/A' ? curso.cod_asignatura : '';
+    return cod || curso.cod_curso || '';
+  }
 </script>
 
 <DocenteLayout>
@@ -284,7 +294,17 @@
                     <span class="relative text-[1.2rem] font-bold text-white tracking-[-0.01em] select-none">{inits}</span>
                   </div>
                   <div class="flex flex-col items-end gap-1.5">
-                    <span class="font-mono text-[0.6875rem] text-[#8B92A6] tracking-[0.02em]">{curso.cod_curso}{curso.letra_grupo ? `-${curso.letra_grupo}` : ''}</span>
+                    <div class="flex items-center gap-2">
+                      <span class="font-mono text-[0.75rem] font-semibold text-[#5A5E6E] tracking-[0.02em]">{codigoAsignatura(curso)}</span>
+                      {#if curso.letra_grupo}
+                        <span
+                          class="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-[#E8EDF5] text-[13px] font-bold text-[#002F6C]"
+                          title="Grupo {curso.letra_grupo}"
+                        >
+                          {curso.letra_grupo}
+                        </span>
+                      {/if}
+                    </div>
                     {#if urgent}<span class="inline-block w-2 h-2 rounded-full bg-[#EF4444] shadow-[0_0_0_3px_rgba(239,68,68,0.18)]" title="Tiene actividades pendientes"></span>{/if}
                   </div>
                 </div>
@@ -364,7 +384,15 @@
                     {#if urgent}<span class="inline-block w-2 h-2 rounded-full bg-[#EF4444] shadow-[0_0_0_3px_rgba(239,68,68,0.18)] shrink-0" title="Tiene actividades pendientes"></span>{/if}
                   </div>
                   <div class="flex gap-[5px] items-center text-xs text-[#5C6478] min-w-0 overflow-hidden whitespace-nowrap">
-                    <span class="font-mono text-[0.6875rem] text-[#8B92A6] tracking-[0.02em]">{curso.cod_curso}{curso.letra_grupo ? `-${curso.letra_grupo}` : ''}</span>
+                    <span class="font-mono text-[0.75rem] font-semibold text-[#5A5E6E] tracking-[0.02em]">{codigoAsignatura(curso)}</span>
+                    {#if curso.letra_grupo}
+                      <span
+                        class="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md bg-[#E8EDF5] text-[12px] font-bold text-[#002F6C]"
+                        title="Grupo {curso.letra_grupo}"
+                      >
+                        {curso.letra_grupo}
+                      </span>
+                    {/if}
                     <span aria-hidden="true">·</span>
                     <span>{curso.carrera_nombre || curso.programa_nombre || 'Sin carrera'}</span>
                   </div>

@@ -19,6 +19,47 @@ use Illuminate\Support\Facades\Hash;
  */
 class Estudiante extends BaseEstudiante
 {
+    /** Redes que el alumno puede declarar en su perfil (T10, iteración 1). */
+    public const REDES_SOCIALES = ['youtube', 'x', 'instagram', 'linkedin'];
+
+    /**
+     * Contacto personal del alumno: sólo lo ven él y sus docentes. Va oculto
+     * al serializar para que ninguna vista que devuelva el modelo entero (un
+     * grupo, un listado de curso, una entrega) se lo muestre a un compañero.
+     * Quien deba verlo lo pide explícito con {@see contacto()}.
+     *
+     * No está en `$fillable`: sólo lo escribe Student\PerfilController::update.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = ['correo_personal', 'celular', 'redes_sociales'];
+
+    protected function casts(): array
+    {
+        return [
+            'redes_sociales' => 'array',
+        ];
+    }
+
+    /**
+     * Datos de contacto en la forma que consumen el perfil del alumno y la
+     * ficha docente.
+     *
+     * @return array{correo_personal: ?string, celular: ?string, redes_sociales: array<string, ?string>}
+     */
+    public function contacto(): array
+    {
+        $redes = is_array($this->redes_sociales) ? $this->redes_sociales : [];
+
+        return [
+            'correo_personal' => $this->correo_personal,
+            'celular' => $this->celular,
+            'redes_sociales' => collect(self::REDES_SOCIALES)
+                ->mapWithKeys(fn (string $red) => [$red => $redes[$red] ?? null])
+                ->all(),
+        ];
+    }
+
     /**
      * Factory Method: Crea (o recupera) un Usuario y Estudiante en UTAMED a partir de datos de la Intranet.
      * 

@@ -60,7 +60,7 @@
   let { cursos, pagination, filters, semestres, agnos }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Inicio', href: '/dashboard' },
     { title: 'Syllabus', href: '/admin/syllabus' },
   ];
 

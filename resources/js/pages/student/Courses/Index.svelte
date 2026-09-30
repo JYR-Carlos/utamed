@@ -13,7 +13,7 @@
   let { cursos, semestre = 1, agno = 2026 }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/estudiante/dashboard' },
+    { title: 'Inicio', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
   ];
 

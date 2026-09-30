@@ -1,7 +1,8 @@
 <script lang="ts">
   /**
    * passwordChangeModal — Modal para que el admin cambie la contraseña de
-   * un usuario (mínimo 8 caracteres con letras y números, con confirmación).
+   * un usuario (mínimo 8 caracteres con letras, números y algún signo, con
+   * confirmación; la lista de requisitos se actualiza mientras se escribe).
    *
    * Cambiar la clave de una cuenta ajena es una toma de control, así que el
    * backend exige además que el administrador reautentique con su propia
@@ -11,6 +12,7 @@
    * POST lo hace el padre vía usuarioApi.changePassword.
    */
   import FormModal from '@/components/custom/admin/FormModal.svelte';
+  import RequisitosPassword from '@/components/custom/common/RequisitosPassword.svelte';
   import { PASSWORD_HINT, PASSWORD_MIN_LENGTH } from '@/constants/admin';
 
   interface Props {
@@ -77,6 +79,13 @@
       placeholder="Repita la contraseña"
       minlength={PASSWORD_MIN_LENGTH}
       required
+    />
+  </div>
+
+  <div class="mb-4">
+    <RequisitosPassword
+      password={passwordFormData.password}
+      confirmacion={passwordFormData.password_confirmation}
     />
   </div>
 
