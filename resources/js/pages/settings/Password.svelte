@@ -7,7 +7,7 @@
      * Características:
      * - Validación de contraseña actual
      * - Confirmación de nueva contraseña
-     * - Validación de seguridad (longitud mínima)
+     * - Requisitos de la contraseña a la vista mientras se escribe (RequisitosPassword)
      * - Manejo de errores con focus automático en campos con error
      * - Mensaje de éxito tras actualización
      * - Reset de formulario tras éxito o error
@@ -19,6 +19,7 @@
     import PasswordController from '@/actions/App/Http/Controllers/Settings/PasswordController';
     import HeadingSmall from '@/components/custom/common/HeadingSmall.svelte';
     import InputError from '@/components/custom/common/InputError.svelte';
+    import RequisitosPassword from '@/components/custom/common/RequisitosPassword.svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Label } from '@/components/ui/label';
@@ -39,6 +40,8 @@
 
     let passwordInput = $state(null as unknown as HTMLInputElement);
     let currentPasswordInput = $state(null as unknown as HTMLInputElement);
+    let nuevaPassword = $state('');
+    let confirmacion = $state('');
 </script>
 
 <svelte:head>
@@ -53,7 +56,13 @@
             <Form
                 {...PasswordController.update.form()}
                 options={{ preserveScroll: true }}
+                onSuccess={() => {
+                    nuevaPassword = '';
+                    confirmacion = '';
+                }}
                 onError={(errors) => {
+                    nuevaPassword = '';
+                    confirmacion = '';
                     if (errors.password) {
                         passwordInput?.focus();
                     }
@@ -90,7 +99,10 @@
                             class="mt-1 block w-full"
                             autocomplete="new-password"
                             placeholder="New password"
+                            bind:value={nuevaPassword}
                         />
+
+                        <RequisitosPassword password={nuevaPassword} confirmacion={confirmacion} />
 
                         <InputError message={errors.password} />
                     </div>
@@ -103,6 +115,7 @@
                             class="mt-1 block w-full"
                             autocomplete="new-password"
                             placeholder="Confirm password"
+                            bind:value={confirmacion}
                         />
 
                         <InputError message={errors.password_confirmation} />

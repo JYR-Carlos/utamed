@@ -17,6 +17,7 @@
     import { Eye, EyeOff, LoaderCircle } from 'lucide-svelte';
     import NewPasswordController from '@/actions/Laravel/Fortify/Http/Controllers/NewPasswordController';
     import InputError from '@/components/custom/common/InputError.svelte';
+    import RequisitosPassword from '@/components/custom/common/RequisitosPassword.svelte';
     import { Button } from '@/components/ui/button';
 
     /**
@@ -31,6 +32,8 @@
 
     let { token, email }: Props = $props();
     let showPassword = $state(false);
+    let nuevaPassword = $state('');
+    let confirmacion = $state('');
 </script>
 
 <svelte:head>
@@ -42,6 +45,10 @@
         {...NewPasswordController.store.form()}
         transform={(data) => ({ ...data, token, email })}
         resetOnSuccess={['password', 'password_confirmation']}
+        onSuccess={() => {
+            nuevaPassword = '';
+            confirmacion = '';
+        }}
         className="flex flex-col gap-8"
     >
         {#snippet children({ errors, processing }: BaseFormSnippetProps)}
@@ -74,6 +81,7 @@
                         autofocus
                         tabindex={1}
                         autocomplete="new-password"
+                        bind:value={nuevaPassword}
                         placeholder=" "
                         class="peer w-full bg-transparent border-0 border-b border-border py-2 pr-10 text-foreground focus:ring-0 focus:border-primary transition-all placeholder-transparent"
                     />
@@ -95,6 +103,7 @@
                         required
                         tabindex={2}
                         autocomplete="new-password"
+                        bind:value={confirmacion}
                         placeholder=" "
                         class="peer w-full bg-transparent border-0 border-b border-border py-2 pr-10 text-foreground focus:ring-0 focus:border-primary transition-all placeholder-transparent"
                     />
@@ -117,6 +126,8 @@
                     </button>
                     <InputError message={errors.password_confirmation} class="mt-2 text-xs" />
                 </div>
+
+                <RequisitosPassword password={nuevaPassword} {confirmacion} />
 
                 <Button 
                     type="submit" 

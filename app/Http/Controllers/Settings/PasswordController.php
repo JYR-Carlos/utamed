@@ -65,7 +65,7 @@ class PasswordController extends Controller
         // Mensajes en español a mano: el proyecto no trae `lang/es`, así que sin
         // esto la pantalla —la primera que ve cualquier usuario nuevo— hablaría
         // en inglés justo al reclamar. Las reglas de Password::defaults()
-        // (largo, letras, números) se cubren con el comodín `password.*`.
+        // (largo, letras, números, signos) se cubren con el comodín `password.*`.
         $validated = $request->validate([
             'current_password' => ['required', 'current_password'],
             'password' => ['required', Password::defaults(), 'confirmed'],
@@ -74,7 +74,7 @@ class PasswordController extends Controller
             'current_password.current_password' => 'La contraseña actual no es correcta.',
             'password.required' => 'Ingresa la nueva contraseña.',
             'password.confirmed' => 'La confirmación no coincide con la nueva contraseña.',
-            'password.*' => 'La nueva contraseña debe tener al menos 8 caracteres, con letras y números.',
+            'password.*' => 'La nueva contraseña debe tener al menos 8 caracteres, con letras, números y algún signo.',
         ]);
 
         /** @var Usuario $user */

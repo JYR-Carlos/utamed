@@ -57,7 +57,9 @@ class AppServiceProvider extends ServiceProvider
         // conocidas (HIBP); el verificador de Laravel no bloquea si la API no
         // responde, así que no rompe en redes sin salida.
         Password::defaults(function () {
-            $rule = Password::min(8)->letters()->numbers();
+            // El frontend muestra estos mismos requisitos mientras se escribe
+            // (resources/js/lib/password.ts); si cambian, cambiar ambos.
+            $rule = Password::min(8)->letters()->numbers()->symbols();
 
             return $this->app->isLocal() ? $rule : $rule->uncompromised();
         });

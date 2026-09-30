@@ -8,6 +8,8 @@
    */
   import PasswordController from '@/actions/App/Http/Controllers/Settings/PasswordController';
   import InputError from '@/components/custom/common/InputError.svelte';
+  import RequisitosPassword from '@/components/custom/common/RequisitosPassword.svelte';
+  import { DESCRIPCION_POLITICA_PASSWORD } from '@/lib/password';
   import { Input } from '@/components/ui/input';
   import { Label } from '@/components/ui/label';
   import StudentLayout from '@/layouts/StudentLayout.svelte';
@@ -25,6 +27,8 @@
 
   let passwordInput = $state(null as unknown as HTMLInputElement);
   let currentPasswordInput = $state(null as unknown as HTMLInputElement);
+  let nuevaPassword = $state('');
+  let confirmacion = $state('');
 </script>
 
 <svelte:head>
@@ -47,7 +51,7 @@
           Cambiar contraseña
         </h1>
         <p class="text-sm text-slate-500">
-          Usa al menos 8 caracteres, con letras y números. Tu sesión sigue abierta después del cambio.
+          {DESCRIPCION_POLITICA_PASSWORD} Tu sesión sigue abierta después del cambio.
         </p>
       </header>
 
@@ -55,7 +59,13 @@
         <Form
           {...PasswordController.update.form()}
           options={{ preserveScroll: true }}
+          onSuccess={() => {
+            nuevaPassword = '';
+            confirmacion = '';
+          }}
           onError={(errors) => {
+            nuevaPassword = '';
+            confirmacion = '';
             if (errors.password) passwordInput?.focus();
             if (errors.current_password) currentPasswordInput?.focus();
           }}
@@ -84,7 +94,9 @@
                 name="password"
                 type="password"
                 autocomplete="new-password"
+                bind:value={nuevaPassword}
               />
+              <RequisitosPassword password={nuevaPassword} confirmacion={confirmacion} />
               <InputError message={errors.password} />
             </div>
 
@@ -95,6 +107,7 @@
                 name="password_confirmation"
                 type="password"
                 autocomplete="new-password"
+                bind:value={confirmacion}
               />
               <InputError message={errors.password_confirmation} />
             </div>
