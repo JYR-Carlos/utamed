@@ -22,11 +22,12 @@
    * - rubricaActividad: rúbrica de la actividad (null si no existe).
    */
   import type { Rubrica } from '@/types/rubrica';
+  import type { InteraccionItem } from '@/types/agenda';
+  import AgendaHilo from '../../../student/Activities/Agenda/AgendaHilo.svelte';
   import RubricaView from '../../../student/Activities/Agenda/Rubrica.svelte';
-  import VistoPor from '@/components/mensajeria/VistoPor.svelte';
   import { calcularNotaChilena } from '@/lib/notas';
-  import { formatBytes, formatFechaHora } from '@/utils/formatters';
-  import { X, Send, CheckCircle2, AlertTriangle, ChevronRight, MessageSquareOff, FileText, Download, Eye, PackageCheck } from 'lucide-svelte';
+  import { formatFechaHora } from '@/utils/formatters';
+  import { X, Send, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-svelte';
 
   interface Props {
     onCerrar: () => void;
@@ -46,27 +47,7 @@
     idCurso: number;
     idActividad: number;
     idGrupo: number;
-    listado_interacciones: Array<{
-      id_interaccion: number;
-      fecha_emision: string;
-      tipo_interaccion: string;
-      emisor: string;
-      mensaje: string;
-      es_de_docente: boolean;
-      es_retroalimentacion: boolean;
-      es_entrega?: boolean;
-      tiene_evaluacion?: boolean;
-      adjunta_rubrica: boolean;
-      rubrica?: Rubrica;
-      puntaje_obtenido?: number;
-      resultado?: Record<string, string> | null;
-      /** Sólo en las entregas: el archivo subido. */
-      archivo?: { nombre_original: string; peso_bytes: number | null; mime_type: string | null; visualizable: boolean } | null;
-      /** Sólo en las evaluaciones: la entrega que califica (null = evaluación general). */
-      entrega_evaluada?: { id_agenda: number; fecha_envio: string; nombre_original: string | null } | null;
-      /** Sólo en el último mensaje del hilo: quiénes lo han visto (T07). */
-      visto_por?: Array<{ nombre: string; fecha_lectura: string }>;
-    }>;
+    listado_interacciones: InteraccionItem[];
     isLoading?: boolean;
     errorMensaje?: string | null;
     rubricaActividad?: Rubrica | null;
@@ -183,7 +164,7 @@
   const mostrarPanelRubrica = $derived(esEvaluacion && !!rubricaActividad && !panelDetalle);
 
   const entregasSinEvaluar = $derived(
-    listado_interacciones.filter((i) => i.es_entrega && !i.tiene_evaluacion),
+    listado_interacciones.filter((i) => i.es_entrega && !i.tiene_evaluacion && !i.fue_cancelada),
   );
 
   function urlEntrega(idAgenda: number, ver = false): string {
@@ -265,115 +246,24 @@
       </button>
     </div>
 
-    <!-- Lista de interacciones -->
-    <div class="flex-1 overflow-y-auto pr-2 mb-4 custom-scrollbar">
-      {#if isLoading}
-        <div class="flex flex-col gap-3 animate-pulse">
-          {#each [1,2,3] as _}
-            <div class="h-16 rounded-xl bg-gray-100 border-l-4 border-gray-200"></div>
-          {/each}
-        </div>
-      {:else if errorMensaje}
-        <div class="flex items-center justify-center h-full text-sm text-red-500 text-center px-4">
-          {errorMensaje}
-        </div>
-      {:else if listado_interacciones.length === 0}
-        <div class="flex flex-col items-center justify-center h-full gap-2 text-center px-4">
-          <MessageSquareOff class="size-9 text-gray-300" stroke-width={1.5} />
-          <p class="text-sm font-semibold text-gray-500">Sin mensajes</p>
-          <p class="text-xs text-gray-400">Selecciona <strong>Evaluación</strong> para calificar al grupo.</p>
-        </div>
-      {:else}
-        {#each listado_interacciones as item}
-          <!-- div y no button: una entrega lleva enlaces para ver/descargar el archivo. -->
-          <div
-            class="mb-3 p-3 w-full text-start border-l-4 transition-all rounded-r-xl
-              {item.es_de_docente ? 'border-uta-blue bg-uta-blue/5' : 'border-gray-200 bg-gray-50/60'}"
-          >
-            <div class="flex justify-between items-start gap-2">
-              <div class="flex gap-1 flex-wrap">
-                <span class="text-[10px] font-bold bg-white px-2 py-0.5 rounded border">{item.tipo_interaccion}</span>
-                {#if item.es_de_docente}
-                  <span class="text-[10px] font-bold bg-uta-blue/10 text-uta-blue px-2 py-0.5 rounded">Docente</span>
-                {/if}
-              </div>
-              <span class="text-[10px] text-gray-400 shrink-0">{item.fecha_emision}</span>
-            </div>
-            <p class="text-[11px] font-bold uppercase text-gray-500 mt-1.5">{item.emisor}</p>
-            {#if item.tipo_interaccion === 'Evaluación'}
-              <p class="flex items-center gap-1 text-[11px] text-gray-600 mt-1">
-                <PackageCheck class="w-3.5 h-3.5 shrink-0 text-uta-blue" />
-                {#if item.entrega_evaluada}
-                  <span class="truncate">
-                    Evalúa la entrega <strong>{item.entrega_evaluada.nombre_original ?? `#${item.entrega_evaluada.id_agenda}`}</strong>
-                    · {formatFechaHora(item.entrega_evaluada.fecha_envio)}
-                  </span>
-                {:else}
-                  <span>Evaluación general (sin entrega asociada)</span>
-                {/if}
-              </p>
-            {/if}
-            {#if item.mensaje}
-              <p class="text-xs mt-0.5 text-gray-700 line-clamp-2">{item.mensaje}</p>
-            {/if}
-            {#if item.es_entrega && item.archivo}
-              <div class="mt-2 flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2">
-                <div class="flex items-center gap-2 min-w-0">
-                  <FileText class="w-4 h-4 shrink-0 text-uta-blue" />
-                  <div class="min-w-0">
-                    <p class="text-xs font-semibold text-gray-800 truncate">{item.archivo.nombre_original}</p>
-                    {#if item.archivo.peso_bytes}
-                      <p class="text-[10px] text-gray-400">{formatBytes(item.archivo.peso_bytes)}</p>
-                    {/if}
-                  </div>
-                </div>
-                <div class="flex items-center gap-1.5 shrink-0">
-                  {#if item.tiene_evaluacion}
-                    <span class="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Evaluada</span>
-                  {:else}
-                    <span class="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Pendiente</span>
-                  {/if}
-                  {#if item.archivo.visualizable}
-                    <a
-                      href={urlEntrega(item.id_interaccion, true)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-uta-blue border border-uta-blue/30 rounded-md hover:bg-uta-blue/5"
-                    >
-                      <Eye class="w-3.5 h-3.5" /> Ver
-                    </a>
-                  {/if}
-                  <a
-                    href={urlEntrega(item.id_interaccion)}
-                    class="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-white bg-uta-blue rounded-md hover:bg-uta-blue-hover"
-                  >
-                    <Download class="w-3.5 h-3.5" /> Descargar
-                  </a>
-                </div>
-              </div>
-            {/if}
-            {#if item.adjunta_rubrica && item.puntaje_obtenido !== undefined}
-              {#if rubricaActividad}
-                <button
-                  type="button"
-                  class="text-[11px] font-bold text-uta-blue mt-1 hover:underline"
-                  onclick={() => {
-                    panelDetalle = {
-                      rubrica: rubricaActividad,
-                      puntaje_obtenido: item.puntaje_obtenido,
-                      retroalimentacion: item.mensaje,
-                      resultado: item.resultado,
-                    };
-                  }}
-                >Puntaje: {item.puntaje_obtenido} pts · Ver rúbrica →</button>
-              {:else}
-                <p class="text-[11px] font-bold text-uta-blue mt-1">Puntaje: {item.puntaje_obtenido} pts</p>
-              {/if}
-            {/if}
-          </div>
-          <VistoPor lectores={item.visto_por} />
-        {/each}
-      {/if}
+    <!-- Hilo conversacional compartido -->
+    <div class="flex-1 min-h-0 mb-4 flex flex-col overflow-hidden rounded-2xl border border-slate-200">
+      <AgendaHilo
+        {listado_interacciones}
+        esDocente={true}
+        urlDescargaEntrega={urlEntrega}
+        onVerRubrica={(detalle) => {
+          const rub = detalle.rubrica ?? rubricaActividad;
+          panelDetalle = rub ? {
+            rubrica: rub,
+            puntaje_obtenido: detalle.puntaje_obtenido ?? undefined,
+            retroalimentacion: detalle.retroalimentacion,
+            resultado: detalle.resultado,
+          } : null;
+        }}
+        {isLoading}
+        {errorMensaje}
+      />
     </div>
 
     <!-- Formulario -->
@@ -646,12 +536,12 @@
 
   {:else if panelDetalle?.rubrica}
     <!-- Panel de detalle de evaluación pasada -->
-    <div class="hidden sm:flex flex-col flex-1 overflow-hidden bg-gray-50">
+    <div class="fixed inset-0 z-[200] sm:static sm:z-auto flex flex-col flex-1 overflow-hidden bg-gray-50">
       <div class="shrink-0 flex justify-between items-center px-6 py-4 border-b bg-white">
         <p class="font-bold text-base text-uta-blue">Detalle de Evaluación</p>
         <button
           onclick={() => (panelDetalle = null)}
-          class="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-uta-blue transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-100"
+          class="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-uta-blue transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-100 cursor-pointer"
         >
           Cerrar detalle
           <ChevronRight class="w-4 h-4" />

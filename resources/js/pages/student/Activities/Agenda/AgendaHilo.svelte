@@ -62,6 +62,17 @@
     return match ? `${match[1].padStart(2, '0')}:${match[2]} hrs` : '';
   }
 
+  function esLadoDerecho(item: InteraccionDecorada): boolean {
+    if (esDocente) {
+      // Para el docente: a la derecha van sus mensajes emitidos (Feedback / Docente) y Evaluaciones.
+      // A la izquierda van las entregas y mensajes de los estudiantes.
+      return Boolean(item.es_de_docente || item.tipo_interaccion === 'Feedback' || item.tipo_interaccion === 'Evaluación' || item.es_propio);
+    }
+    // Para el estudiante: a la derecha van sus entregas y mensajes de alumnos (propios o compañeros).
+    // A la izquierda van los mensajes del docente y evaluaciones.
+    return !item.es_de_docente && item.tipo_interaccion !== 'Evaluación';
+  }
+
   const interaccionesProcesadas = $derived.by((): InteraccionDecorada[] => {
     const lista: InteraccionDecorada[] = listado_interacciones.map((item) => ({ ...item }));
 
@@ -196,9 +207,9 @@
             </div>
           </div>
 
-        <!-- CASO B: Entrega Cancelada (Derecha - Beige) -->
+        <!-- CASO B: Entrega Cancelada (Beige) -->
         {:else if item.tipo_interaccion === ENTREGA && item.fue_cancelada}
-          <div class="flex justify-end">
+          <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
             <div class="w-fit max-w-[66.6%] rounded-2xl border-2 border-[#D2CCC0] bg-[#F4F1EA] shadow-xs overflow-hidden">
               <div class="flex items-center justify-between border-b border-[#D2CCC0] bg-[#E4DFD5]/80 px-3.5 py-1.5 text-xs gap-2.5">
                 <div class="flex items-center gap-1.5 min-w-0">
@@ -273,9 +284,9 @@
             </div>
           </div>
 
-        <!-- CASO C: Entrega Activa (Derecha - Amarillo cálido) -->
+        <!-- CASO C: Entrega Activa (Amarillo cálido) -->
         {:else if item.tipo_interaccion === ENTREGA}
-          <div class="flex justify-end">
+          <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
             <div class="w-fit max-w-[66.6%] rounded-2xl border-2 border-amber-300 bg-[#FEFCE8] shadow-xs overflow-hidden">
               <div class="flex items-center justify-between border-b border-amber-200 bg-amber-100/80 px-3.5 py-1.5 text-xs gap-2.5">
                 <div class="flex items-center gap-1.5 min-w-0">
@@ -283,6 +294,17 @@
                   <span class="truncate font-bold text-amber-900 text-[11.5px]" title="Entrega · {item.emisor}">
                     Entrega · {item.emisor}
                   </span>
+                  {#if esDocente}
+                    {#if item.tiene_evaluacion}
+                      <span class="rounded-full border border-emerald-300 bg-emerald-100 px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider text-emerald-800 shrink-0">
+                        Evaluada
+                      </span>
+                    {:else}
+                      <span class="rounded-full border border-amber-300 bg-amber-200/80 px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider text-amber-900 shrink-0">
+                        Pendiente
+                      </span>
+                    {/if}
+                  {/if}
                 </div>
               </div>
 
@@ -341,10 +363,10 @@
             </div>
           </div>
 
-        <!-- CASO D: Evaluación (Izquierda - Verde si aprobada / Roja si reprobada) -->
+        <!-- CASO D: Evaluación (Verde si aprobada / Roja si reprobada) -->
         {:else if item.tipo_interaccion === 'Evaluación'}
           {@const esAprobada = item.puntaje_obtenido != null ? item.puntaje_obtenido >= 4.0 : true}
-          <div class="flex justify-start">
+          <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
             <div
               class="w-fit max-w-[66.6%] rounded-2xl border-2 shadow-xs overflow-hidden {esAprobada
                 ? 'border-emerald-400/70 bg-[#F0FDF4]'
@@ -358,7 +380,7 @@
                 <div class="flex items-center gap-1.5 min-w-0">
                   <Award class="h-3.5 w-3.5 shrink-0 {esAprobada ? 'text-emerald-800' : 'text-red-700'}" />
                   <span class="truncate font-bold text-[11.5px] {esAprobada ? 'text-emerald-950' : 'text-red-950'}" title="Evaluación · {item.emisor}">
-                    Evaluación · {item.emisor}
+                    Evaluación · {item.es_propio && esDocente ? 'Tú' : item.emisor}
                   </span>
                   <span
                     class="rounded-full border px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider shrink-0 {esAprobada
@@ -390,7 +412,7 @@
                     </span>
                   </div>
 
-                  {#if item.adjunta_rubrica && item.rubrica && onVerRubrica}
+                  {#if (item.adjunta_rubrica || item.rubrica) && onVerRubrica}
                     <button
                       onclick={() => {
                         onVerRubrica?.({
@@ -421,14 +443,14 @@
             </div>
           </div>
 
-        <!-- CASO E: Docente / Feedback (Izquierda - Blanco con acento azul, sin icono, corta header al ser consecutivo) -->
+        <!-- CASO E: Docente / Feedback (Blanco con acento azul, sin icono, corta header al ser consecutivo) -->
         {:else if item.tipo_interaccion === 'Feedback' || item.es_de_docente}
-          <div class="flex justify-start">
+          <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
             <div class="w-fit max-w-[66.6%] rounded-2xl border border-[#C9D6E6] border-l-4 border-l-[#002F6C] bg-white shadow-xs overflow-hidden">
               {#if !item.esConsecutivo}
                 <div class="flex items-center gap-1.5 border-b border-[#C9D6E6] bg-[#E8EDF5]/70 px-3.5 py-1 text-xs">
                   <span class="truncate font-semibold text-[#002F6C] text-[11.5px]" title={item.emisor}>
-                    {item.emisor}
+                    {item.es_propio && esDocente ? 'Tú' : item.emisor}
                   </span>
                   <span class="rounded border border-[#C9D6E6] bg-white/90 px-1 py-0.1 text-[9.5px] font-medium text-[#002F6C] shrink-0">
                     Docente
@@ -441,7 +463,7 @@
                   {item.mensaje}<span class="inline-block w-14 h-[13px] align-baseline pointer-events-none select-none" aria-hidden="true"></span>
                 </p>
 
-                {#if item.adjunta_rubrica && item.rubrica && onVerRubrica}
+                {#if (item.adjunta_rubrica || item.rubrica) && onVerRubrica}
                   <div class="mt-2.5 mb-1">
                     <button
                       onclick={() => {
@@ -469,13 +491,13 @@
             </div>
           </div>
 
-        <!-- CASO F: Mensaje Propio / Uno Mismo (Derecha - LAVANDA - SIN ÍCONO) -->
+        <!-- CASO F: Mensaje Propio Estudiante (LAVANDA - SIN ÍCONO) -->
         {:else if item.es_propio}
-          <div class="flex justify-end">
+          <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
             <div class="w-fit max-w-[66.6%] rounded-2xl border border-[#DDD6FE] bg-[#F5EEFD] shadow-xs overflow-hidden">
               {#if !item.esConsecutivo}
                 <div class="border-b border-[#DDD6FE] bg-[#E9DDFB]/70 px-3.5 py-1 text-xs">
-                  <span class="font-bold text-purple-950 text-[11.5px]">Tú</span>
+                  <span class="font-bold text-purple-950 text-[11.5px]">{esDocente ? item.emisor : 'Tú'}</span>
                 </div>
               {/if}
 
@@ -490,9 +512,9 @@
             </div>
           </div>
 
-        <!-- CASO G: Mensaje de Compañero / Estudiante (Derecha - LAVANDA GRISÁCEO - SIN ÍCONO) -->
+        <!-- CASO G: Mensaje de Compañero / Estudiante (LAVANDA GRISÁCEO - SIN ÍCONO) -->
         {:else}
-          <div class="flex justify-end">
+          <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
             <div class="w-fit max-w-[66.6%] rounded-2xl border border-[#D5D3DE] bg-[#F2F1F6] shadow-xs overflow-hidden">
               {#if !item.esConsecutivo}
                 <div class="flex items-center gap-1.5 border-b border-[#D5D3DE] bg-[#E4E2ED]/70 px-3.5 py-1 text-xs">
@@ -518,7 +540,7 @@
         {/if}
 
         {#if item.visto_por && item.visto_por.length > 0}
-          <VistoPor lectores={item.visto_por} alinear={item.es_de_docente && item.tipo_interaccion !== ENTREGA ? 'izquierda' : 'derecha'} />
+          <VistoPor lectores={item.visto_por} alinear={esLadoDerecho(item) ? 'derecha' : 'izquierda'} />
         {/if}
       {/each}
     {:else}
