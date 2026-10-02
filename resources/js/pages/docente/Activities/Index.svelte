@@ -31,6 +31,7 @@
   import { Link, router } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
+  import type { InteraccionItem } from '@/types/agenda';
   import { ChevronLeft, Plus, Users, Pencil, Copy, Eye, Lock } from 'lucide-svelte';
   import { ConfirmDialog } from '@/components/custom/common';
   import { formatFechaHora } from '@/utils/formatters';
@@ -44,24 +45,7 @@
   import EntregasModal from './components/EntregasModal.svelte';
 
   // ─── Tipos ────────────────────────────────────────────────────────────────
-  type Interaccion = {
-    id_interaccion: number;
-    fecha_emision: string;
-    tipo_interaccion: string;
-    emisor: string;
-    mensaje: string;
-    es_de_docente: boolean;
-    es_retroalimentacion: boolean;
-    // Campos es_entrega y tiene_evaluacion retornados por el endpoint mensajesGrupo.
-    es_entrega?: boolean;
-    tiene_evaluacion?: boolean;
-    adjunta_rubrica: boolean;
-    rubrica?: Rubrica;
-    puntaje_obtenido?: number;
-    resultado?: Record<string, string> | null;
-    archivo?: { nombre_original: string; peso_bytes: number | null; mime_type: string | null; visualizable: boolean } | null;
-    entrega_evaluada?: { id_agenda: number; fecha_envio: string; nombre_original: string | null } | null;
-  };
+  type Interaccion = InteraccionItem;
 
   type IntegranteData = {
     id_estudiante: number;

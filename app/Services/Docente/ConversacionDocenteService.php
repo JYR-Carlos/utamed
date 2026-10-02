@@ -2,6 +2,7 @@
 
 namespace App\Services\Docente;
 
+use App\Enums\DB\TipoMensaje;
 use App\Models\Operaciones\Archivo;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -15,20 +16,24 @@ use Illuminate\Support\Facades\DB;
  * interaccionesGrupo de showEvaluacion): resolver los grupos de un estudiante
  * dentro de un curso, traer los mensajes de un conjunto de grupos y decorar cada
  * registro con flags derivadas del tipo de mensaje.
- *
- * Tipos de mensaje (agenda.agenda.tipo_mensaje, ENUM):
- *   - 'Mensaje al profesor' : mensaje enviado por el estudiante.
- *   - 'Feedback'            : retroalimentación del docente.
- *   - 'Entrega de archivo'  : entrega del estudiante.
- *   - 'Evaluación'          : evaluación formal del docente.
  */
 class ConversacionDocenteService
 {
     /** Tipos de la conversación "ligera" (sólo mensajes y feedback). */
-    public const TIPOS_CONVERSACION = ['Mensaje al profesor', 'Feedback'];
+    public const TIPOS_CONVERSACION = [
+        TipoMensaje::MENSAJE_AL_PROFESOR->value,
+        TipoMensaje::FEEDBACK->value,
+    ];
 
     /** Tipos del hilo completo de un grupo (incluye entregas y evaluaciones). */
-    public const TIPOS_HILO_COMPLETO = ['Mensaje al profesor', 'Feedback', 'Entrega de archivo', 'Evaluación'];
+    public const TIPOS_HILO_COMPLETO = [
+        TipoMensaje::MENSAJE_AL_PROFESOR->value,
+        TipoMensaje::FEEDBACK->value,
+        TipoMensaje::ENTREGA_DE_ARCHIVO->value,
+        TipoMensaje::CANCELACIÓN_DE_ENTREGA->value,
+        TipoMensaje::EVALUACIÓN->value,
+        TipoMensaje::CIERRE_DE_ACTIVIDAD->value,
+    ];
 
     /**
      * IDs de los grupos (actividad_asignada_grupo) en los que participa un
@@ -131,12 +136,21 @@ class ConversacionDocenteService
             ->pluck('uuid_archivo_subido')
             ->all();
 
-        return $hilo->map(function (array $m) use ($entregasPorArchivo, $archivosEvaluados) {
+        $cancelacionesPorArchivo = $hilo
+            ->filter(fn ($m) => $m['tipo_registro'] === TipoMensaje::CANCELACIÓN_DE_ENTREGA->value && $m['uuid_archivo_subido'])
+            ->keyBy('uuid_archivo_subido');
+
+        return $hilo->map(function (array $m) use ($entregasPorArchivo, $archivosEvaluados, $cancelacionesPorArchivo) {
             if ($m['es_entrega']) {
                 $m['tiene_evaluacion'] = in_array($m['uuid_archivo_subido'], $archivosEvaluados, true);
+                if ($cancelacion = $cancelacionesPorArchivo->get($m['uuid_archivo_subido'])) {
+                    $m['fue_cancelada'] = true;
+                    $m['fecha_cancelacion'] = $cancelacion['fecha_emision'];
+                    $m['cancelado_por'] = $cancelacion['emisor'];
+                }
             }
 
-            if ($m['tipo_registro'] === 'Evaluación') {
+            if ($m['tipo_registro'] === TipoMensaje::EVALUACIÓN->value) {
                 $entrega = $entregasPorArchivo->get($m['uuid_archivo_subido']);
                 $m['entrega_evaluada'] = $entrega ? [
                     'id_agenda' => $entrega['id_agenda'],
@@ -159,12 +173,15 @@ class ConversacionDocenteService
      */
     public function decorar($m): array
     {
+        $userId = auth()->id();
         $datos = array_merge((array) $m, [
             'id_interaccion'       => $m->id_agenda,
             'fecha_emision'        => $m->fecha_envio,
             'tipo_interaccion'     => $m->tipo_registro,
             'emisor'               => $m->emisor_nombre,
             'es_de_docente'        => in_array($m->tipo_registro, ['Feedback', 'Evaluación']),
+            'es_propio'            => $userId ? ((int) $m->emisor_id_usuario === (int) $userId) : false,
+            'uuid_archivo'         => $m->uuid_archivo_subido ?? null,
             'es_retroalimentacion' => $m->tipo_registro === 'Feedback',
             'es_entrega'           => $m->tipo_registro === 'Entrega de archivo',
             'tiene_evaluacion'     => ($m->id_evaluacion ?? null) !== null,

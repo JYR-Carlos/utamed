@@ -2,6 +2,7 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica, RubricaResponse } from '@/types/rubrica';
+  import type { InteraccionItem } from '@/types/agenda';
   import { FileText, Info, X } from 'lucide-svelte';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaView from './Agenda/Rubrica.svelte';
@@ -39,19 +40,7 @@
       } | null;
     } | null;
     estado?: string | null;
-    listado_interacciones?: Array<{
-      id_interaccion: number;
-      fecha_emision: string;
-      tipo_interaccion: string;
-      emisor: string;
-      mensaje: string;
-      es_de_docente: boolean;
-      es_retroalimentacion: boolean;
-      adjunta_rubrica: boolean;
-      rubrica?: Rubrica | null;
-      puntaje_obtenido?: number | null;
-      resultado?: Record<string, string> | null;
-    }>;
+    listado_interacciones?: InteraccionItem[];
     rubrica?: RubricaResponse | null;
     ultima_evaluacion?: {
       id_evaluacion: number;

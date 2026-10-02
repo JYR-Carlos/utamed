@@ -1858,7 +1858,7 @@ class DocenteActivityController extends Controller
                     'mensaje' => $validated['mensaje'] ?? '',
                     'id_usuario_emisor' => Auth::id(),
                     'id_actividad_asignada_grupo' => $grupo,
-                    'tipo_mensaje' => 'Evaluación',
+                    'tipo_mensaje' => TipoMensaje::EVALUACIÓN->value,
                     'fecha_envio' => now(),
                     'uuid_archivo_subido' => $uuidArchivoEvaluado,
                 ], 'id_agenda');
@@ -1941,7 +1941,7 @@ class DocenteActivityController extends Controller
             'mensaje' => $validated['mensaje'],
             'id_usuario_emisor' => Auth::id(),
             'id_actividad_asignada_grupo' => $grupo,
-            'tipo_mensaje' => 'Feedback',
+            'tipo_mensaje' => TipoMensaje::FEEDBACK->value,
             'fecha_envio' => now(),
         ]);
 

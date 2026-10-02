@@ -148,6 +148,8 @@ class ActivityController extends Controller
                     'emisor'             => $nombreEmisor,
                     'mensaje'            => $agenda->mensaje ?? '',
                     'es_de_docente'      => $agenda->usuario?->docente !== null,
+                    'es_propio'          => (int) $agenda->id_usuario_emisor === (int) $user->id_usuario,
+                    'uuid_archivo'       => $agenda->uuid_archivo_subido,
                     'es_retroalimentacion' => in_array($agenda->tipo_mensaje, [TipoMensaje::FEEDBACK, TipoMensaje::EVALUACIÓN]),
                     'adjunta_rubrica'    => $rubricaData !== null,
                     'rubrica'            => $rubricaData,
