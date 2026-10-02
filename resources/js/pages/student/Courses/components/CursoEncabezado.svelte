@@ -10,27 +10,26 @@
    * acento, no como fondo.
    */
   import { Link } from '@inertiajs/svelte';
-  import { CalendarClock, ClipboardList, FileText, MessagesSquare } from 'lucide-svelte';
+  import { BarChart3, ClipboardList, FileText, History, MessagesSquare } from 'lucide-svelte';
   import type { Curso } from '@/types';
-  import { formatFechaCorta, parseFechaSoloDia } from '@/utils/formatters';
 
   interface Props {
     curso?: Curso | null;
-    /** Actividad con la fecha límite más cercana; null si no quedan entregas. */
-    proximaEntrega?: { nombre: string; fecha_limite: string } | null;
     /** Sin programa publicado el botón no lleva a ninguna parte, así que no se muestra. */
     tienePrograma?: boolean;
     totalActividades?: number;
     /** Baja a la sección de actividades. */
     onIrAActividades?: () => void;
+    /** Abre el panel lateral «Rendimiento» (T30). */
+    onAbrirRendimiento?: () => void;
   }
 
   let {
     curso = null,
-    proximaEntrega = null,
     tienePrograma = false,
     totalActividades = 0,
     onIrAActividades = () => {},
+    onAbrirRendimiento = () => {},
   }: Props = $props();
 
   const codigo = $derived(curso?.cod_asignatura || curso?.cod_curso || '');
@@ -75,22 +74,11 @@
     return items;
   });
 
-  const diasRestantes = $derived.by((): number | null => {
-    if (!proximaEntrega) return null;
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const limite = parseFechaSoloDia(proximaEntrega.fecha_limite);
-    return Math.round((limite.getTime() - hoy.getTime()) / 86_400_000);
-  });
 
-  const plazoLabel = $derived.by(() => {
-    if (diasRestantes === null) return '';
-    if (diasRestantes === 0) return 'Vence hoy';
-    if (diasRestantes === 1) return 'Vence mañana';
-    return `Vence en ${diasRestantes} días`;
-  });
-
-  const plazoUrgente = $derived(diasRestantes !== null && diasRestantes <= 3);
+  // Las tres acciones del curso (programa, actividades, mensajería) pesan lo
+  // mismo, así que comparten un único estilo (T23).
+  const BOTON_ACCION =
+    'inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold no-underline border border-gray-300 bg-white text-gray-700 hover:border-uta-blue/30 hover:bg-uta-blue-light hover:text-uta-blue transition-colors';
 </script>
 
 <header class="mb-8">
@@ -124,14 +112,14 @@
     {/if}
 
     <div
-      class="flex flex-col sm:flex-row sm:items-center gap-3 {ficha.length > 0
+      class="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center {ficha.length > 0
         ? 'mt-6 pt-5 border-t border-gray-100'
         : ''}"
     >
       {#if tienePrograma}
         <Link
           href={`/estudiante/cursos/${curso?.id_curso}/programa`}
-          class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold no-underline bg-uta-blue text-white hover:bg-uta-blue-hover transition-colors"
+          class={BOTON_ACCION}
         >
           <FileText class="w-4 h-4" />
           Ver programa
@@ -139,7 +127,7 @@
       {/if}
       <button
         onclick={onIrAActividades}
-        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+        class={BOTON_ACCION}
       >
         <ClipboardList class="w-4 h-4" />
         Ver actividades
@@ -149,31 +137,20 @@
       </button>
       <Link
         href={`/estudiante/cursos/${curso?.id_curso}/mensajeria`}
-        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold no-underline border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+        class={BOTON_ACCION}
       >
         <MessagesSquare class="w-4 h-4" />
         Mensajería
       </Link>
+      <button type="button" onclick={onAbrirRendimiento} class={BOTON_ACCION}>
+        <BarChart3 class="w-4 h-4" />
+        Rendimiento
+      </button>
+      <!-- Bitácora del curso (T41): todas las agendas del alumno juntas. -->
+      <Link href={`/estudiante/cursos/${curso?.id_curso}/bitacora`} class={BOTON_ACCION}>
+        <History class="w-4 h-4" />
+        Bitácora
+      </Link>
     </div>
   </div>
-
-  {#if proximaEntrega}
-    <div
-      class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border p-4 {plazoUrgente
-        ? 'border-uta-red/20 bg-uta-red-light'
-        : 'border-gray-200 bg-gray-50'}"
-    >
-      <CalendarClock
-        class="w-4 h-4 shrink-0 {plazoUrgente ? 'text-uta-red' : 'text-gray-500'}"
-      />
-      <span class="text-sm text-gray-600">Próxima entrega:</span>
-      <span class="text-sm font-semibold text-gray-900">{proximaEntrega.nombre}</span>
-      <span class="text-sm text-gray-500">
-        {formatFechaCorta(proximaEntrega.fecha_limite)}
-      </span>
-      <span class="text-sm font-semibold {plazoUrgente ? 'text-uta-red' : 'text-gray-700'}">
-        {plazoLabel}
-      </span>
-    </div>
-  {/if}
 </header>

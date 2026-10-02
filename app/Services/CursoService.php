@@ -75,13 +75,12 @@ class CursoService
             $cursoData['fecha_fin'] = $this->calculateFechaFin($cursoData['fecha_inicio']);
 
             $curso = Curso::create($cursoData);
+            $curso->refresh();
 
             // Asignar rol 'Docente Titular' al docente en el contexto del curso SIEMPRE,
             // independientemente de si imparte clases directamente en el componente.
-            // Usamos $contexto->id_contexto (ya creado) en lugar de $curso->id_contexto
-            // para garantizar que el valor esté disponible.
             if (!empty($data['id_docente_sugerido'])) {
-                $this->assignDocenteRolCurso($data['id_docente_sugerido'], $contexto->id_contexto, true);
+                $this->assignDocenteRolCurso($data['id_docente_sugerido'], $curso->id_contexto, true);
             }
 
             // Find the chosen component type

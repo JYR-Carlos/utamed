@@ -120,7 +120,7 @@
                 <button
                   onclick={() => onDetalle?.(item)}
                   title="Ver evaluaciones, mensajes y asistencia"
-                  class="rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-[#002F6C] transition-colors hover:bg-[#E6ECF5]"
+                  class="rounded-lg border border-[#D6D9E0] bg-white px-2.5 py-1 text-[13px] font-medium text-[#002F6C] shadow-[0_1px_2px_rgba(0,0,0,.04)] transition-colors hover:border-[#C9D6E6] hover:bg-[#E6ECF5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#002F6C]/30"
                 >
                   Ficha
                 </button>

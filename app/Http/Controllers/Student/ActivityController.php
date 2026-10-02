@@ -11,6 +11,7 @@ use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Agenda\Rubrica;
 use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
+use App\Services\Agenda\LecturaAgendaService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -147,6 +148,8 @@ class ActivityController extends Controller
                     'emisor'             => $nombreEmisor,
                     'mensaje'            => $agenda->mensaje ?? '',
                     'es_de_docente'      => $agenda->usuario?->docente !== null,
+                    'es_propio'          => (int) $agenda->id_usuario_emisor === (int) $user->id_usuario,
+                    'uuid_archivo'       => $agenda->uuid_archivo_subido,
                     'es_retroalimentacion' => in_array($agenda->tipo_mensaje, [TipoMensaje::FEEDBACK, TipoMensaje::EVALUACIÓN]),
                     'adjunta_rubrica'    => $rubricaData !== null,
                     'rubrica'            => $rubricaData,
@@ -158,6 +161,10 @@ class ActivityController extends Controller
                     'entrega_evaluada'   => $this->entregaEvaluada($agenda, $entregasPorArchivo),
                 ];
             })->values()->toArray();
+
+            // Abrir la actividad es leer su agenda (T07): se registra la
+            // lectura y el último mensaje trae quiénes lo han visto.
+            $interacciones = (new LecturaAgendaService)->leerHilo($user->id_usuario, $interacciones);
 
             // Rúbrica usada en la evaluación más reciente (no la última rúbrica creada)
             $ultimaEvaluacionAgenda = $agendas->reverse()->first(fn (Agenda $a) => $a->evaluacion !== null);
@@ -174,12 +181,12 @@ class ActivityController extends Controller
                 ];
             }
 
-            // Última entrega del estudiante. La comparación usaba el string
-            // "Entrega de avance", que no coincide con ningún valor real del
-            // enum TipoMensaje ('Entrega de archivo') ni con el que envía el
-            // modal ('Entrega de Avance' se traduce a ENTREGA_DE_ARCHIVO en
-            // AgendaController::mapearTipoMensaje) — nunca encontraba nada.
+            // Última entrega del estudiante: si el evento más reciente de entrega es una
+            // cancelación, el estudiante se encuentra actualmente sin entrega activa.
             foreach (array_reverse($interacciones) as $item) {
+                if ($item['tipo_interaccion'] === TipoMensaje::CANCELACIÓN_DE_ENTREGA->value) {
+                    break;
+                }
                 if ($item['tipo_interaccion'] === TipoMensaje::ENTREGA_DE_ARCHIVO->value) {
                     $ultimaEntrega = $item;
                     break;

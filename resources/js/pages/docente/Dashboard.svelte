@@ -81,7 +81,7 @@
     entreSemestres = null,
   }: Props = $props();
 
-  const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/docente/dashboard' }];
+  const breadcrumbs: BreadcrumbItem[] = [{ title: 'Inicio', href: '/docente/dashboard' }];
 
   const primerNombre = $derived(stats.nombre_completo.split(' ')[0] || stats.nombre_completo);
 

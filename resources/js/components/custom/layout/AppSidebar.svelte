@@ -29,7 +29,7 @@
   // Define all possible nav items using permissions instead of role names
   let allNavItems = $derived([
     {
-      title: 'Dashboard',
+      title: 'Inicio',
       href: '/dashboard',
       icon: LayoutGrid,
       show: true,
@@ -96,7 +96,7 @@
     },
     // Ayudante Items — data-driven: visible only if user has assigned ayudante courses
     {
-      title: 'Dashboard Ayudante',
+      title: 'Inicio Ayudante',
       href: '/ayudante/dashboard',
       icon: LayoutGrid,
       show: ayudanteCourses.length > 0,

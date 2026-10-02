@@ -2,16 +2,15 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica, RubricaResponse } from '@/types/rubrica';
+  import type { InteraccionItem } from '@/types/agenda';
   import { FileText, Info, X } from 'lucide-svelte';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaView from './Agenda/Rubrica.svelte';
   import ActivityHeaderCard from './cards/ActivityHeaderCard.svelte';
-  import ActivityDeadlineCard from './cards/ActivityDeadlineCard.svelte';
-  import ActivityPendingCard from './cards/ActivityPendingCard.svelte';
-  import ActivitySubmittedCard from './cards/ActivitySubmittedCard.svelte';
-  import ActivityRubricaCard from './cards/ActivityRubricaCard.svelte';
+  import ActivitySubmissionCard from './cards/ActivitySubmissionCard.svelte';
   import ActivityAgendaCard from './cards/ActivityAgendaCard.svelte';
   import { router } from '@inertiajs/svelte';
+  import { onMount } from 'svelte';
   import ActivityGradeCard from './cards/ActivityGradeCard.svelte';
   import Entrega from './Agenda/Entrega.svelte';
   import ActivityMembersCard from './cards/ActivityMembersCard.svelte';
@@ -41,19 +40,7 @@
       } | null;
     } | null;
     estado?: string | null;
-    listado_interacciones?: Array<{
-      id_interaccion: number;
-      fecha_emision: string;
-      tipo_interaccion: string;
-      emisor: string;
-      mensaje: string;
-      es_de_docente: boolean;
-      es_retroalimentacion: boolean;
-      adjunta_rubrica: boolean;
-      rubrica?: Rubrica | null;
-      puntaje_obtenido?: number | null;
-      resultado?: Record<string, string> | null;
-    }>;
+    listado_interacciones?: InteraccionItem[];
     rubrica?: RubricaResponse | null;
     ultima_evaluacion?: {
       id_evaluacion: number;
@@ -104,7 +91,7 @@
   }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
-    { title: 'Dashboard', href: '/estudiante/dashboard' },
+    { title: 'Inicio', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
     { title: nombre_curso, href: '/estudiante/cursos' },
     { title: nombre_actividad, href: '' },
@@ -115,13 +102,21 @@
   let showEntregaModal = $state(false);
   let showEnunciadoModal = $state(false);
 
+  // Desde el dashboard («Notas y retroalimentaciones recientes») se llega con
+  // ?abrir=agenda (o #agenda) para aterrizar directo en la conversación.
+  onMount(() => {
+    const abrir = new URLSearchParams(window.location.search).get('abrir');
+    if (abrir === 'agenda' || window.location.hash === '#agenda') {
+      showAgendaModal = true;
+    }
+  });
+
   // El backend ya calcula 'estado' (ACTIVA/CERRADA) considerando la holgura
   // de la actividad Y la holgura personal del grupo — ver
   // ActividadAsignadaGrupo::calcularEstadoGrupo. Antes se recalculaba acá con
   // sólo `dias_holgura` (sin la personal) y bloqueaba entregas a alumnos con
   // holgura personal vigente.
   const puedeApelar = false;
-  const puedeSubirArchivo = $derived((estado === 'ACTIVA' || puedeApelar) && entrega_obligatoria);
 
   const tieneEntregaRegistrada = $derived(ultima_entrega !== null);
 
@@ -134,6 +129,18 @@
     }
     return null;
   });
+
+  const yaEvaluada = $derived(
+    (ultima_nota !== null && ultima_nota !== undefined) ||
+    ultima_evaluacion !== null ||
+    ultimaEvaluacion !== null
+  );
+
+  const puedeSubirArchivo = $derived(
+    (estado === 'ACTIVA' || puedeApelar) &&
+    entrega_obligatoria &&
+    !yaEvaluada
+  );
 
   const fechaEfectiva = $derived.by(() => {
     const base = parseFechaSoloDia(fecha_limite);
@@ -191,6 +198,22 @@
       },
     );
   }
+
+  function handleBorrarEntrega() {
+    if (!ultima_entrega?.id_interaccion || !id_actividad_asignada_grupo) return;
+    if (!confirm('¿Estás seguro de que deseas eliminar la entrega actual?')) {
+      return;
+    }
+
+    router.delete(
+      `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/entregas/${ultima_entrega.id_interaccion}`,
+      {
+        preserveScroll: true,
+        onSuccess: () => router.reload(),
+        onError: (errors) => alert(errors.error_general || 'Error al eliminar la entrega.'),
+      },
+    );
+  }
 </script>
 
 <StudentLayout {breadcrumbs}>
@@ -204,69 +227,28 @@
             {descripcion}
             {es_sumativa}
             {entrega_obligatoria}
-            {estado}
+            {rubrica}
+            onVerRubricaClick={toggleRubricaModal}
           />
 
-          {#if fecha_limite}
-            <ActivityDeadlineCard {fecha_limite} {dias_holgura} {dias_holgura_personal} {estado} />
-          {/if}
-
-          {#if entrega_obligatoria}
-            {#if tieneEntregaRegistrada}
-              <ActivitySubmittedCard
-                esGrupal={es_grupal}
-                fecha_entrega={ultima_entrega?.fecha_emision}
-                archivo={ultima_entrega?.archivo}
-                urlDescarga={ultima_entrega
-                  ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/entregas/${ultima_entrega.id_interaccion}/descargar`
-                  : null}
-                puedeReemplazar={puedeSubirArchivo}
-                onReemplazarClick={toggleEntregaModal}
-              />
-            {:else}
-              <ActivityPendingCard disponible={puedeSubirArchivo} esGrupal={es_grupal} onSubirClick={toggleEntregaModal} />
-            {/if}
-          {/if}
-
-          {#if es_sumativa}
-            <ActivityRubricaCard rubrica={rubrica?.rubrica} onRubricaClick={toggleRubricaModal} />
-          {/if}
-
-          {#if fecha_limite}
-            <section class="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
-              <div class="flex items-center gap-2">
-                <Info class="h-[15px] w-[15px] text-[#5A5E6E]" />
-                <h3 class="text-[13px] font-semibold text-[#1A1A24]">Fecha de entrega</h3>
-              </div>
-              <div class="flex-col sm:flex gap-7 justify-between px-4 py-2">
-                <div class="flex gap-2.5">
-                  <div class="flex flex-none flex-col items-center">
-                    <span class="mt-1 h-[7px] w-[7px] rounded-full bg-[#C9D6E6]"></span>
-                    <span class="w-px flex-1 bg-[#E5E7EB]"></span>
-                  </div>
-                  <div class="flex flex-col pb-3">
-                    <span class="text-sm text-[#5A5E6E]">Fecha definida</span>
-                    <span class="text-[12.5px] font-semibold text-[#1A1A24]">{formatFechaCorta(fecha_limite)}</span>
-                  </div>
-                </div>
-                
-                {#if dias_holgura > 0 || dias_holgura_personal > 0}
-                  <div class="flex flex-col  gap-2.5 bg-green-100 px-6 py-2 rounded-3xl">
-                    <div class="flex gap-4 items-center">
-                      <Info class="h-[15px] w-[15px] text-[#5A5E6E]" />
-                      <span class="text-sm">Se han asignado {dias_holgura + dias_holgura_personal} días extra</span>
-                    </div>
-                    
-                    <div class="flex gap-4">
-                      <span class="text-sm font-semibold">Nueva fecha</span>
-                      <span class="text-sm">{formatFechaCorta(fechaEfectiva.toISOString())}</span>
-                    </div>
-                    
-                  </div>
-                {/if}
-        
-              </div>
-            </section>
+          {#if fecha_limite || entrega_obligatoria}
+            <ActivitySubmissionCard
+              {fecha_limite}
+              {dias_holgura}
+              {dias_holgura_personal}
+              {estado}
+              {entrega_obligatoria}
+              esGrupal={es_grupal}
+              {yaEvaluada}
+              {puedeSubirArchivo}
+              {ultima_entrega}
+              urlDescarga={ultima_entrega
+                ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/entregas/${ultima_entrega.id_interaccion}/descargar`
+                : null}
+              onSubirClick={toggleEntregaModal}
+              onReemplazarClick={toggleEntregaModal}
+              onBorrarClick={handleBorrarEntrega}
+            />
           {/if}
 
           {#if id_actividad_asignada_grupo}

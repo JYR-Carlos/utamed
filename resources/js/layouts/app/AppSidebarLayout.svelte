@@ -80,7 +80,11 @@
         </button>
       {/if}
 
-      <div class="flex-1 overflow-y-auto w-full gap-4">
+      <!-- El scroll de la página vive en este div, no en window. `scroll-region`
+           hace que Inertia guarde y restaure su posición al volver atrás (por
+           ejemplo al cerrar «Evaluar con Rúbrica», UI-06); sin él la vista
+           saltaba al inicio. -->
+      <div class="flex-1 overflow-y-auto w-full gap-4" scroll-region>
         <PageContentWrapper>
           {@render children?.()}
         </PageContentWrapper>

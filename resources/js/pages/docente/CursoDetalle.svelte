@@ -116,6 +116,8 @@
     mis_estudiantes: EstudianteComponente[];
     todos_componentes: ComponenteCurso[];
     actividades?: Actividad[];
+    /** Prop diferida: sólo llega cuando la ficha del alumno la pide. */
+    mensajesEstudiante?: any[];
   }
 
   let {
@@ -124,6 +126,7 @@
     mis_estudiantes,
     todos_componentes = [],
     actividades = [],
+    mensajesEstudiante = [],
   }: Props = $props();
 
   const canVerActividades = $derived(
@@ -249,6 +252,8 @@
   const totalTitularesComponente = $derived(
     new Set(docentesDelCurso.filter((d) => d.es_titular).map((d) => d.id_docente)).size,
   );
+  // Con un solo docente la tarjeta sólo repetiría «1»: no aporta nada.
+  const mostrarKpiDocentes = $derived(totalDocentesCurso > 1);
 
   function abrirModalEstudiante(est: EstudianteComponente) {
     estudianteSeleccionado = est;
@@ -348,7 +353,7 @@
               {#if curso.tiene_programa}
                 <button
                   onclick={() => router.visit(`/docente/cursos/${curso.id_curso}/programa`)}
-                  class={BTN_GHOST}
+                  class={BTN_PRIMARY}
                 >
                   <FileText size={15} />
                   Programa
@@ -404,7 +409,11 @@
 
         <!-- KPIs: sólo el titular responde por el curso completo -->
         {#if curso.es_titular_curso}
-          <div class="grid grid-cols-1 gap-3 border-t border-[#E5E7EB] pt-4 sm:grid-cols-3">
+          <div
+            class="grid grid-cols-1 gap-3 border-t border-[#E5E7EB] pt-4 {mostrarKpiDocentes
+              ? 'sm:grid-cols-3'
+              : 'sm:grid-cols-2'}"
+          >
             <div class="flex flex-col gap-0.5 rounded-xl border border-[#E5E7EB] px-4 py-3.5">
               <span class="text-[12px] text-[#5A5E6E]">Componentes</span>
               <span class="text-[26px] font-semibold leading-[1.2] tracking-[-0.01em] tabular-nums"
@@ -414,6 +423,7 @@
                 {todos_componentes.map((c) => c.tipo_componente).join(' · ') || 'Sin componentes'}
               </span>
             </div>
+            {#if mostrarKpiDocentes}
             <div class="flex flex-col gap-0.5 rounded-xl border border-[#E5E7EB] px-4 py-3.5">
               <span class="text-[12px] text-[#5A5E6E]">Docentes</span>
               <span class="text-[26px] font-semibold leading-[1.2] tracking-[-0.01em] tabular-nums"
@@ -426,6 +436,7 @@
                 )} de componente
               </span>
             </div>
+            {/if}
             <div class="flex flex-col gap-0.5 rounded-xl border border-[#E5E7EB] px-4 py-3.5">
               <span class="text-[12px] text-[#5A5E6E]">Estudiantes</span>
               <span class="text-[26px] font-semibold leading-[1.2] tracking-[-0.01em] tabular-nums"
@@ -534,9 +545,7 @@
                     estudianteQuery = '';
                   }}
                 />
-                <span class="hidden text-[12px] text-[#5A5E6E] lg:inline">
-                  La nota que ves es la del componente activo, no la del curso.
-                </span>
+                
                 {#if estudiantesActivos.length > 0}
                   <div class="relative ml-auto w-full sm:w-[240px]">
                     <Search
@@ -727,9 +736,6 @@
         <section class="{CARD} flex flex-col gap-3.5 p-5">
           <div class="flex flex-wrap items-baseline gap-3">
             <h2 class="m-0 text-base font-semibold text-[#1A1A24]">Todos los componentes</h2>
-            <span class="text-[12px] text-[#5A5E6E]">
-              Sólo el titular ve el curso completo y quién responde por cada componente.
-            </span>
             <div class="ml-auto flex items-center gap-1">
               <button onclick={() => (showSyllabusPermisos = true)} class={BTN_GHOST}>
                 <Shield size={14} />
@@ -885,6 +891,7 @@
       estudiante={estudianteSeleccionado}
       {actividades}
       idCurso={curso.id_curso}
+      {mensajesEstudiante}
       onCerrar={cerrarModalEstudiante}
     />
   {/if}

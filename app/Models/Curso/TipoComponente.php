@@ -47,6 +47,26 @@ class TipoComponente extends BaseTipoComponente
      * Determina si este tipo es el componente principal de un curso,
      * comparándolo con los demás componentes del mismo curso.
      */
+    /**
+     * Ordena componentes en el orden CTL (Cátedra, Taller, Laboratorio) y,
+     * dentro del mismo tipo, por id. Es el orden en que se muestran en todas
+     * las vistas (FEAT-01); sin esto salían en el orden de inserción de la BD.
+     * Cada componente debe traer `tipoComponente` cargado.
+     *
+     * @template T of \Illuminate\Support\Collection
+     * @param  T  $componentes
+     * @return T
+     */
+    public static function ordenarCTL(\Illuminate\Support\Collection $componentes): \Illuminate\Support\Collection
+    {
+        return $componentes
+            ->sortBy([
+                fn ($a, $b) => ($a->tipoComponente?->prioridad ?? 99) <=> ($b->tipoComponente?->prioridad ?? 99),
+                fn ($a, $b) => $a->id_componente <=> $b->id_componente,
+            ])
+            ->values();
+    }
+
     public static function getComponentePrincipal(int $idCurso): ?\App\Models\Curso\Componente
     {
         $componentes = \App\Models\Curso\Componente::where('id_curso', $idCurso)

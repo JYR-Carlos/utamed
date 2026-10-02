@@ -16,4 +16,6 @@ enum TipoMensaje: string
   case CANCELACIÓN_DE_ENTREGA = 'Cancelación de entrega';
   case EVALUACIÓN = 'Evaluación';
   case CIERRE_DE_ACTIVIDAD = 'Cierre de actividad';
+  case SOLICITUD_DE_APELACIÓN = 'Solicitud de apelación';
+  case RESOLUCIÓN_DE_APELACIÓN = 'Resolución de apelación';
 }

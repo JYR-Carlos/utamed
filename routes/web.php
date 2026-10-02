@@ -25,6 +25,7 @@ use App\Http\Controllers\Docente\DocenteCursoController;
 use App\Http\Controllers\Docente\JefeCarreraController;
 use App\Http\Controllers\Docente\MensajeriaController;
 use App\Http\Controllers\Docente\MensajesController;
+use App\Http\Controllers\Docente\PerfilController as DocentePerfilController;
 use App\Http\Controllers\Sso\SgeqSsoController;
 use App\Http\Controllers\Student\ActivityController;
 use App\Http\Controllers\Student\AgendaController;
@@ -340,6 +341,7 @@ Route::get('docente/perfil-incompleto', [DashboardController::class, 'perfilInco
 // Docente Routes
 Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('docente.')->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('perfil', [DocentePerfilController::class, 'show'])->name('perfil');
     Route::prefix('jefe-carrera')->name('jefe-carrera.')->group(function () {
         Route::get('dashboard', [JefeCarreraController::class, 'dashboard'])
             ->name('dashboard');
@@ -553,11 +555,17 @@ Route::prefix('estudiante')
         // rutas generales
         Route::get('dashboard', [App\Http\Controllers\Student\DashboardController::class, 'index'])->name('dashboard');
         Route::get('perfil', [App\Http\Controllers\Student\PerfilController::class, 'show'])->name('perfil');
+        // Sólo el contacto personal (T10); los datos institucionales no se editan.
+        Route::patch('perfil/contacto', [App\Http\Controllers\Student\PerfilController::class, 'updateContacto'])
+            ->name('perfil.contacto.update');
         Route::get('cursos', [CourseController::class, 'index'])->name('cursos.index');
 
         // Programa (Syllabus) View - MUST be before generic {curso} route
         Route::get('cursos/{curso}/programa', [App\Http\Controllers\Student\ProgramaController::class, 'show'])->name('cursos.programa.show');
         Route::get('cursos/{curso}', [CourseController::class, 'show'])->name('cursos.show');
+        // Bitácora del curso (T41): agendas de todas las actividades del alumno.
+        Route::get('cursos/{curso}/bitacora', [App\Http\Controllers\Student\BitacoraController::class, 'show'])
+            ->name('cursos.bitacora');
         // Route::get('cursos/{curso}/actividad', [\App\Http\Controllers\Student\ActivityController::class, 'show'])->name('cursos.actividades.show');
         Route::get('cursos/{curso}/actividad/{actividad}', [ActivityController::class, 'show'])
             ->name('cursos.actividades.show');
@@ -585,6 +593,10 @@ Route::prefix('estudiante')
                     'grupos-asignados/{actividadAsignadaGrupo}/entregas',
                     [AgendaController::class, 'storeEntrega']
                 )->name('actividades.agenda.storeEntrega');
+                Route::delete(
+                    'grupos-asignados/{actividadAsignadaGrupo}/entregas/{agenda}',
+                    [AgendaController::class, 'destroyEntrega']
+                )->name('actividades.agenda.destroyEntrega');
             });
 
         // Mensajería por componente (curso.mensaje) — avisos del equipo docente

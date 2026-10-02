@@ -13,6 +13,7 @@
      */
     import RegisteredUserController from '@/actions/Laravel/Fortify/Http/Controllers/RegisteredUserController';
     import InputError from '@/components/custom/common/InputError.svelte';
+    import RequisitosPassword from '@/components/custom/common/RequisitosPassword.svelte';
     import TextLink from '@/components/custom/common/TextLink.svelte';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
@@ -25,6 +26,8 @@
     import { Eye, EyeOff } from 'lucide-svelte';
 
     let showPassword = $state(false);
+    let nuevaPassword = $state('');
+    let confirmacion = $state('');
 </script>
 
 <svelte:head>
@@ -87,6 +90,7 @@
                         required
                         tabindex={3}
                         autocomplete="new-password"
+                        bind:value={nuevaPassword}
                         placeholder=" "
                         class="peer w-full bg-transparent border-0 border-b border-border py-2 pr-10 text-foreground focus:ring-0 focus:border-primary transition-all placeholder-transparent"
                     />
@@ -108,6 +112,7 @@
                         required
                         tabindex={4}
                         autocomplete="new-password"
+                        bind:value={confirmacion}
                         placeholder=" "
                         class="peer w-full bg-transparent border-0 border-b border-border py-2 pr-10 text-foreground focus:ring-0 focus:border-primary transition-all placeholder-transparent"
                     />
@@ -130,6 +135,8 @@
                     </button>
                     <InputError message={errors.password_confirmation} class="mt-2 text-xs" />
                 </div>
+
+                <RequisitosPassword password={nuevaPassword} {confirmacion} />
 
                 <Button 
                     type="submit" 

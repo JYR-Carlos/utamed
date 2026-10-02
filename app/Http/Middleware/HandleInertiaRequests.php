@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\FotoIntranetService;
 use App\Services\UserCoursesService;
 use Closure;
 use Illuminate\Foundation\Inspiring;
@@ -93,7 +94,7 @@ class HandleInertiaRequests extends Middleware
     /**
      * Inyectamos servicio para cargar cursos del usuario
      */
-    public function __construct(private UserCoursesService $userCourses) {}
+    public function __construct(private UserCoursesService $userCourses, private FotoIntranetService $fotoIntranet) {}
 
     /**
      * Impide que el navegador sirva páginas desde su caché al pulsar "atrás".
@@ -225,7 +226,9 @@ class HandleInertiaRequests extends Middleware
                 'is_super_admin' => $user?->isSuperAdmin() ?? false,  // Boolean
                 'docente'       => $docente,  // Objeto Docente si aplica, null si no
                 'estudiante'    => $estudiante,  // Objeto Estudiante si aplica
-
+                'urlFotoPerfil' => $user?->rut
+                                    ? $this->fotoIntranet->getImagenPerfilURL($user->rut)
+                                    : "",
                 // PERMISOS: Slugs únicos de permisos del usuario vía sus roles activos
                 // Solo en GET requests (navegación). Vacío en POST/PUT/DELETE.
                 // Ej: ['cursos:ver', 'cursos:editar', 'facultades:ver']

@@ -431,19 +431,6 @@ Visualización de códigos de recuperación 2FA.
 
 ---
 
-### DeleteUser
-
-Componente para eliminar cuenta de usuario.
-
-**Ubicación**: `components/DeleteUser.svelte`
-
-**Características**:
-- ✅ Confirmación con contraseña
-- ✅ Advertencias claras
-- ✅ Prevención de eliminación accidental
-
----
-
 ## Componentes UI
 
 Los componentes UI están basados en [shadcn-svelte](https://www.shadcn-svelte.com/) y se encuentran en `components/ui/`.

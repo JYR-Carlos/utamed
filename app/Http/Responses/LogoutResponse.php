@@ -10,7 +10,7 @@ use Laravel\Fortify\Fortify;
 /**
  * Respuesta de cierre de sesión.
  *
- * Replica el comportamiento de Fortify (redirigir a `/`) y además invalida el
+ * Redirige a `fortify.redirects.logout` (el login) y además invalida el
  * historial de Inertia.
  *
  * ¿POR QUÉ?

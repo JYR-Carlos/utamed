@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
+use App\Models\Curso\Programa;
 use App\Services\Student\StudentSyllabusPresenter;
+use App\Traits\ParsesSyllabus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -19,6 +21,8 @@ use Inertia\Response;
  */
 class ProgramaController extends Controller
 {
+    use ParsesSyllabus;
+
     /**
      * Muestra el programa visible del curso (o un aviso si no existe).
      *
@@ -58,9 +62,20 @@ class ProgramaController extends Controller
             'carrera'    => $curso->asignacionPlan?->plan?->carrera,
         ];
 
+        $syllabus = StudentSyllabusPresenter::build($curso, $user->estudiante);
+
+        // El documento íntegro, con las mismas secciones que ve el docente
+        // (T28): el alumno no recibe un resumen, sino el programa completo.
+        $secciones = [];
+        if ($syllabus['programa']) {
+            $data = Programa::find($syllabus['programa']['id_programa'])?->data_syllabus;
+            $data = is_array($data) ? $data : json_decode($data ?? '[]', true);
+            $secciones = $this->parseSecciones($data ?? []);
+        }
+
         return Inertia::render('student/Courses/Syllabus', array_merge(
-            ['curso' => $cursoData],
-            StudentSyllabusPresenter::build($curso, $user->estudiante)
+            ['curso' => $cursoData, 'secciones' => $secciones],
+            $syllabus
         ));
     }
 

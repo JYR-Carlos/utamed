@@ -67,6 +67,11 @@ abstract class BaseAgenda extends CustomBaseModel implements HasOwnedContext
         return $this->hasOne(\App\Models\Agenda\Evaluacion::class, 'id_agenda', 'id_agenda');
     }
 
+    public function lecturaAgendas()
+    {
+        return $this->hasMany(\App\Models\Agenda\LecturaAgenda::class, 'id_agenda', 'id_agenda');
+    }
+
     /**
      * Scope para filtrar por contexto jerárquico.
      * 

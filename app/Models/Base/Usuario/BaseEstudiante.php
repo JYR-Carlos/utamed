@@ -27,7 +27,14 @@ abstract class BaseEstudiante extends CustomBaseModel implements HasContext
     protected $fillable = [
         'agno_ingreso',
         'id_carrera',
-        'id_usuario'
+        'id_usuario',
+        'correo_personal',
+        'celular',
+        'redes_sociales'
+    ];
+
+    protected $casts = [
+        'redes_sociales' => 'array'
     ];
 
     // Relaciones

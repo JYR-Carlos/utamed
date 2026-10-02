@@ -1,0 +1,157 @@
+<script lang="ts">
+  import DocenteLayout from '@/layouts/DocenteLayout.svelte';
+  import type { BreadcrumbItem } from '@/types';
+  import { useInitials } from '@/hooks';
+  import {
+    IdCard,
+    Mail,
+    AtSign,
+    GraduationCap,
+    Award,
+    Briefcase,
+    BookOpen,
+    KeyRound,
+    Lock,
+  } from 'lucide-svelte';
+  import { Link } from '@inertiajs/svelte';
+
+  interface Props {
+    perfil: {
+      nombre_completo: string;
+      rut: string;
+      email: string;
+      username: string;
+      grado: string | null;
+      titulo: string | null;
+      cargo: string | null;
+      total_cursos: number;
+    };
+    semestreActual: number;
+  }
+
+  let { perfil, semestreActual }: Props = $props();
+
+  const { getInitials } = useInitials();
+  const anoAcademico = new Date().getFullYear();
+
+  const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Inicio', href: '/docente/dashboard' },
+    { title: 'Mi Perfil', href: '/docente/perfil' },
+  ];
+</script>
+
+<DocenteLayout {breadcrumbs}>
+  <div class="h-full px-5 md:px-10 lg:px-20 bg-white relative">
+    <div class="relative mx-auto max-w-4xl px-4 py-6">
+      <header class="flex flex-col gap-1 mb-8">
+        <span
+          class="inline-flex items-center gap-1.5 text-xs font-bold text-uta-blue bg-uta-blue-light border border-uta-blue/20 rounded-full px-3 py-0.5 w-fit"
+        >
+          Semestre {semestreActual} · {anoAcademico}
+        </span>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+          Mi Perfil
+        </h1>
+        <p class="text-sm text-slate-500">Tus datos como docente en UTAmed.</p>
+      </header>
+
+      <section
+        class="flex flex-wrap items-center gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm mb-6"
+      >
+        <div
+          class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-uta-blue-light text-lg font-bold text-uta-blue"
+        >
+          {getInitials(perfil.nombre_completo)}
+        </div>
+        <div class="flex flex-col gap-0.5">
+          <span class="text-lg font-semibold tracking-tight text-slate-900">{perfil.nombre_completo}</span>
+          <span class="text-sm text-slate-500">{perfil.cargo || 'Docente'}</span>
+        </div>
+        <Link
+          href="/settings/password"
+          class="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-uta-blue/30 hover:bg-uta-blue-light hover:text-uta-blue"
+        >
+          <KeyRound class="h-4 w-4" />
+          Cambiar contraseña
+        </Link>
+      </section>
+
+      <section class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
+            <IdCard class="h-[18px] w-[18px] text-uta-blue" />
+          </div>
+          <div class="flex min-w-0 flex-col gap-0.5">
+            <span class="text-[12.5px] text-slate-500">RUT</span>
+            <span class="truncate text-sm font-semibold text-slate-900">{perfil.rut}</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
+            <Mail class="h-[18px] w-[18px] text-uta-blue" />
+          </div>
+          <div class="flex min-w-0 flex-col gap-0.5">
+            <span class="text-[12.5px] text-slate-500">Correo institucional</span>
+            <span class="truncate text-sm font-semibold text-slate-900">{perfil.email}</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
+            <AtSign class="h-[18px] w-[18px] text-uta-blue" />
+          </div>
+          <div class="flex min-w-0 flex-col gap-0.5">
+            <span class="text-[12.5px] text-slate-500">Usuario</span>
+            <span class="truncate text-sm font-semibold text-slate-900">{perfil.username}</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
+            <Briefcase class="h-[18px] w-[18px] text-uta-blue" />
+          </div>
+          <div class="flex min-w-0 flex-col gap-0.5">
+            <span class="text-[12.5px] text-slate-500">Cargo</span>
+            <span class="truncate text-sm font-semibold text-slate-900">{perfil.cargo || '—'}</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
+            <GraduationCap class="h-[18px] w-[18px] text-uta-blue" />
+          </div>
+          <div class="flex min-w-0 flex-col gap-0.5">
+            <span class="text-[12.5px] text-slate-500">Grado académico</span>
+            <span class="truncate text-sm font-semibold text-slate-900">{perfil.grado || '—'}</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
+            <Award class="h-[18px] w-[18px] text-uta-blue" />
+          </div>
+          <div class="flex min-w-0 flex-col gap-0.5">
+            <span class="text-[12.5px] text-slate-500">Título profesional</span>
+            <span class="truncate text-sm font-semibold text-slate-900">{perfil.titulo || '—'}</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-2">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
+            <BookOpen class="h-[18px] w-[18px] text-uta-blue" />
+          </div>
+          <div class="flex min-w-0 flex-col gap-0.5">
+            <span class="text-[12.5px] text-slate-500">Cursos asignados</span>
+            <span class="truncate text-sm font-semibold text-slate-900">{perfil.total_cursos}</span>
+          </div>
+        </div>
+      </section>
+
+      <p class="mt-4 inline-flex items-center gap-1.5 text-[12.5px] text-slate-500">
+        <Lock class="h-3.5 w-3.5" />
+        Estos datos vienen de la Intranet y son de sólo lectura.
+      </p>
+    </div>
+  </div>
+</DocenteLayout>

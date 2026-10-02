@@ -217,7 +217,7 @@
 
     <!-- ══ DOCENTE ══════════════════════════════════════════ -->
     {#if isDocente && openSection === 'docente'}
-      {@render navLink('/docente/dashboard', 'Dashboard', LayoutGrid)}
+      {@render navLink('/docente/dashboard', 'Inicio', LayoutGrid)}
       {@render navLink('/docente/calendario', 'Calendario', Calendar)}
       <!-- La mensajería no está en el menú: los dos niveles se entran por su
            contexto. La del curso, desde el curso; la de agenda, desde la
@@ -237,7 +237,7 @@
 
     <!-- ══ JEFE DE CARRERA ══════════════════════════════════ -->
     {#if isJefeCarrera && openSection === 'jefe'}
-      {@render navLink('/docente/jefe-carrera/dashboard', 'Dashboard Carrera', LayoutGrid)}
+      {@render navLink('/docente/jefe-carrera/dashboard', 'Inicio Carrera', LayoutGrid)}
       {@render navLink('/docente/jefe-carrera/seguimiento', 'Seguimiento', ClipboardList)}
       {@render navLink('/docente/jefe-carrera/metricas', 'Métricas', BarChart2)}
 
@@ -251,7 +251,7 @@
 
     <!-- ══ ESTUDIANTE ═══════════════════════════════════════ -->
     {#if isEstudiante && !isDocente && openSection === 'estudiante'}
-      {@render navLink('/estudiante/dashboard', 'Dashboard', LayoutGrid)}
+      {@render navLink('/estudiante/dashboard', 'Inicio', LayoutGrid)}
 
       <!-- La mensajería se entra desde la ficha del curso, no desde el menú:
            el hilo pertenece a un curso y elegirlo dos veces sobra. -->
@@ -268,7 +268,7 @@
 
     <!-- ══ AYUDANTE ══════════════════════════════════════════ -->
     {#if isAyudante && !isDocente && openSection === 'ayudante'}
-      {@render navLink('/ayudante/dashboard', 'Dashboard', LayoutGrid)}
+      {@render navLink('/ayudante/dashboard', 'Inicio', LayoutGrid)}
 
       <!-- Igual que el docente: la mensajería se entra desde el curso. -->
 
@@ -285,7 +285,7 @@
 
     <!-- ══ ADMIN ═════════════════════════════════════════════ -->
     {#if isAdmin && openSection === 'admin'}
-      {@render navLink('/dashboard', 'Dashboard', LayoutGrid, true, true)}
+      {@render navLink('/dashboard', 'Inicio', LayoutGrid, true, true)}
       <div class="px-6 mb-2 mt-3">
         <p class="text-[10px] font-bold tracking-widest uppercase text-slate-300">Administración</p>
       </div>

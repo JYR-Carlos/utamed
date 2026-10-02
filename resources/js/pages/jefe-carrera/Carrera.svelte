@@ -75,7 +75,7 @@
           class="mb-2 inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
         >
           <ArrowLeft size={14} />
-          Volver al Dashboard
+          Volver al inicio
         </Link>
         <p class="text-[11px] font-semibold uppercase tracking-widest text-indigo-600 mb-1">
           Jefe de Carrera

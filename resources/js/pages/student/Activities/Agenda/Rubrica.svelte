@@ -113,7 +113,7 @@
   <div class="space-y-6">
     <!-- Resumen Métrico -->
     <div
-      class="flex flex-wrap items-center gap-4 sm:gap-6 p-5 sm:p-6 rounded-3xl bg-primary/5 border border-primary/10 shadow-sm"
+      class="flex flex-wrap items-center justify-center text-center gap-4 sm:gap-6 p-5 sm:p-6 rounded-3xl bg-primary/5 border border-primary/10 shadow-sm"
     >
       <div class="min-w-[100px]">
         <p class="text-xs font-bold uppercase text-gray-500 tracking-widest">

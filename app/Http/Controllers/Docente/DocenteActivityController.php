@@ -26,6 +26,7 @@ use App\Models\Curso\Unidad;
 use App\Models\Usuario\Usuario;
 use App\Services\Agenda\GrupoIndividualService;
 use App\Services\Archive\Handlers\ActivityArchiveHandler;
+use App\Services\Agenda\LecturaAgendaService;
 use App\Services\Docente\ConversacionDocenteService;
 use App\Services\Docente\NombreUsuario;
 use Closure;
@@ -853,7 +854,10 @@ class DocenteActivityController extends Controller
                     return [];
                 }
 
-                return (new ConversacionDocenteService)->hiloCompletoGrupo((int) $grupoId);
+                return (new LecturaAgendaService)->leerHilo(
+                    Auth::id(),
+                    (new ConversacionDocenteService)->hiloCompletoGrupo((int) $grupoId),
+                );
             }),
         ]);
     }
@@ -871,7 +875,10 @@ class DocenteActivityController extends Controller
         $this->assertPuedeEditarEvaluacion($curso, $actividad);
 
         if ($actividad->hanComenzadoEvaluaciones()) {
-            return redirect()->back()->withErrors([
+            return redirect()->route('docente.cursos.actividades.evaluacion', [
+                'curso' => $curso->id_curso,
+                'actividad' => $actividad->id_actividad,
+            ])->withErrors([
                 'error' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
                 'rubrica' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
             ]);
@@ -909,7 +916,10 @@ class DocenteActivityController extends Controller
 
             if ($existente) {
                 if ($existente->estaBloqueadaParaEdicion()) {
-                    return redirect()->back()->withErrors([
+                    return redirect()->route('docente.cursos.actividades.evaluacion', [
+                        'curso' => $curso->id_curso,
+                        'actividad' => $actividad->id_actividad,
+                    ])->withErrors([
                         'error' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
                         'rubrica' => 'No se puede editar la rúbrica porque ya han comenzado las evaluaciones de esta actividad.',
                     ]);
@@ -926,10 +936,16 @@ class DocenteActivityController extends Controller
         } catch (\Exception $e) {
             Log::error('Error al guardar rúbrica: ' . $e->getMessage());
 
-            return redirect()->back()->withErrors(['error' => 'Error al guardar la rúbrica.']);
+            return redirect()->route('docente.cursos.actividades.evaluacion', [
+                'curso' => $curso->id_curso,
+                'actividad' => $actividad->id_actividad,
+            ])->withErrors(['error' => 'Error al guardar la rúbrica.']);
         }
 
-        return redirect()->back()->with('success', 'Rúbrica guardada correctamente.');
+        return redirect()->route('docente.cursos.actividades.evaluacion', [
+            'curso' => $curso->id_curso,
+            'actividad' => $actividad->id_actividad,
+        ])->with('success', 'Rúbrica guardada correctamente.');
     }
 
     /**
@@ -1704,7 +1720,12 @@ class DocenteActivityController extends Controller
                 $service = new ConversacionDocenteService;
                 $gruposIds = $service->gruposDeEstudianteEnCurso($curso->id_curso, (int) $idEstudiante);
 
-                return $service->conversacionEstudiante($gruposIds);
+                $conversacion = $service->conversacionEstudiante($gruposIds);
+                // Mezcla varias actividades: se registra la lectura (T07),
+                // pero el «Visto por» se muestra sólo en el hilo de cada una.
+                (new LecturaAgendaService)->registrar(Auth::id(), $conversacion->pluck('id_agenda'));
+
+                return $conversacion;
             }),
         ]);
     }
@@ -1730,7 +1751,10 @@ class DocenteActivityController extends Controller
         $service = new ConversacionDocenteService;
         $gruposIds = $service->gruposDeEstudianteEnCurso($curso->id_curso, $idEstudiante);
 
-        return response()->json($service->conversacionEstudiante($gruposIds));
+        $conversacion = $service->conversacionEstudiante($gruposIds);
+        (new LecturaAgendaService)->registrar(Auth::id(), $conversacion->pluck('id_agenda'));
+
+        return response()->json($conversacion);
     }
 
     // 1. Autor: Juan Y.
@@ -1834,7 +1858,7 @@ class DocenteActivityController extends Controller
                     'mensaje' => $validated['mensaje'] ?? '',
                     'id_usuario_emisor' => Auth::id(),
                     'id_actividad_asignada_grupo' => $grupo,
-                    'tipo_mensaje' => 'Evaluación',
+                    'tipo_mensaje' => TipoMensaje::EVALUACIÓN->value,
                     'fecha_envio' => now(),
                     'uuid_archivo_subido' => $uuidArchivoEvaluado,
                 ], 'id_agenda');
@@ -1917,7 +1941,7 @@ class DocenteActivityController extends Controller
             'mensaje' => $validated['mensaje'],
             'id_usuario_emisor' => Auth::id(),
             'id_actividad_asignada_grupo' => $grupo,
-            'tipo_mensaje' => 'Feedback',
+            'tipo_mensaje' => TipoMensaje::FEEDBACK->value,
             'fecha_envio' => now(),
         ]);
 
@@ -1946,6 +1970,9 @@ class DocenteActivityController extends Controller
         }
 
         // Hilo completo del grupo (mensajes, feedback, entregas y evaluaciones).
-        return response()->json((new ConversacionDocenteService)->hiloCompletoGrupo($grupo));
+        return response()->json((new LecturaAgendaService)->leerHilo(
+            Auth::id(),
+            (new ConversacionDocenteService)->hiloCompletoGrupo($grupo),
+        ));
     }
 }

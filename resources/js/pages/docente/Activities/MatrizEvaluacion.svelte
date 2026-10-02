@@ -191,6 +191,14 @@
         puntaje_obtenido: puntajeObtenido,
       },
       {
+        // preserveState: la página no se vuelve a montar al volver del POST.
+        // Antes se montaba de nuevo antes de llegar a onSuccess, esta matriz se
+        // desmontaba con saveSuccess aún en false y su limpieza hacía
+        // history.back(): eso restauraba el estado previo de la página y la
+        // tarjeta mostraba la nota vieja hasta un F5 (BUG-03). Las props
+        // (grupos con la nota nueva) se refrescan igual.
+        preserveState: true,
+        preserveScroll: true,
         onSuccess: () => {
           saving = false;
           saveSuccess = true;

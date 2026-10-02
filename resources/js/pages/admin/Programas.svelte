@@ -40,7 +40,7 @@
   let { programas, stats, pagination, estado_filtro }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/admin/dashboard' },
+    { title: 'Inicio', href: '/admin/dashboard' },
     { title: 'Programas', href: '/admin/programas' },
   ];
 

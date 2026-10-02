@@ -11,8 +11,10 @@
    * Se activa haciendo clic en cualquier fila de la tabla principal.
    * La tabla de fondo queda levemente oscurecida (backdrop) con blur mínimo.
    */
+  import { ordenarComponentesCTL } from '@/lib/componentes';
   import { X, Plus, Edit2, Trash2, Users, BookOpen, ChevronRight, Calendar, Copy, UserPlus } from 'lucide-svelte';
   import { router } from '@inertiajs/svelte';
+  import { untrack } from 'svelte';
   import type { Curso, Componente } from '../types/curso.types';
 
 
@@ -58,6 +60,11 @@
   let fechasSuccess = $state(false);
   let editingFechaBasico = $state(false);
   let editingFechaSyllabus = $state(false);
+
+  /** Orden CTL (Cátedra, Taller, Laboratorio), no el de inserción en la BD (FEAT-01). */
+  const componentesOrdenados = $derived(
+    ordenarComponentesCTL(curso?.componentes ?? [], (c) => c.tipo_componente?.tipo),
+  );
 
   const hasPrograma = $derived(
     Boolean(curso?.has_programa || curso?.id_programa || curso?.programa_estado),
@@ -144,6 +151,64 @@
         },
       },
     );
+  }
+
+  // ─── Historial del navegador (NAV-01) ───────────────────────────────────
+  /*
+   * Al abrirse, el panel agrega una entrada al historial con la pestaña en el
+   * hash (#secciones, #equipo, #configuracion), así «Atrás» cierra el panel en
+   * vez de abandonar /admin/cursos. Cambiar de pestaña sólo reemplaza el hash.
+   *
+   * Los popstate de esa entrada se atienden aquí, en fase de captura y con
+   * stopImmediatePropagation: si llegaran a Inertia, volvería a montar la
+   * página (preserveState: false) y se perderían los filtros del listado.
+   */
+  const TAB_IDS = ['secciones', 'equipo', 'configuracion'];
+  let entradaPropia = false;
+
+  /** Saca del historial la entrada del panel sin que Inertia reaccione. */
+  function quitarEntradaPropia() {
+    if (!entradaPropia) return;
+    entradaPropia = false;
+    const tragar = (e: PopStateEvent) => {
+      e.stopImmediatePropagation();
+      window.removeEventListener('popstate', tragar, true);
+    };
+    window.addEventListener('popstate', tragar, true);
+    history.back();
+  }
+
+  $effect(() => {
+    if (!isOpen || !curso) return;
+
+    untrack(() => {
+      // Si el efecto vuelve a correr con el panel ya abierto (cambió `curso`),
+      // no se apila una segunda entrada.
+      if (entradaPropia) return;
+      history.pushState(history.state, '', `#${activeTab}`);
+      entradaPropia = true;
+    });
+
+    const alRetroceder = (e: PopStateEvent) => {
+      if (!entradaPropia || TAB_IDS.includes(window.location.hash.slice(1))) return;
+      entradaPropia = false;
+      e.stopImmediatePropagation();
+      isOpen = false;
+      onClose();
+    };
+
+    window.addEventListener('popstate', alRetroceder, true);
+    return () => window.removeEventListener('popstate', alRetroceder, true);
+  });
+
+  // Cerrado desde la interfaz o por el padre: se retira la entrada propia.
+  $effect(() => {
+    if (!isOpen) untrack(quitarEntradaPropia);
+  });
+
+  function cambiarTab(tab: Tab) {
+    activeTab = tab;
+    if (entradaPropia) history.replaceState(history.state, '', `#${tab}`);
   }
 
   function handleClose() {
@@ -235,7 +300,7 @@
         <button
           role="tab"
           aria-selected={activeTab === tab.id}
-          onclick={() => (activeTab = tab.id)}
+          onclick={() => cambiarTab(tab.id)}
           class="relative py-3 px-1 mr-7 text-sm font-medium transition-colors outline-none
             {activeTab === tab.id ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}"
         >
@@ -311,7 +376,7 @@
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                  {#each curso.componentes as comp (comp.id_componente)}
+                  {#each componentesOrdenados as comp (comp.id_componente)}
                     <tr class="hover:bg-gray-50/80 transition-colors">
                       <td class="px-4 py-3 font-medium text-gray-800">
                         {comp.tipo_componente?.tipo ?? '—'}

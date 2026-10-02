@@ -1,6 +1,7 @@
 /**
  * Constantes compartidas para módulos de administración.
  */
+import { LARGO_MINIMO_PASSWORD, passwordCumplePolitica } from '@/lib/password';
 
 // ────── Opciones de paginación ──────
 export const PAGINATION_OPTIONS = [10, 15, 25, 50] as const;
@@ -30,23 +31,17 @@ export const USER_TYPE_LABELS: Record<string, string> = {
 
 // ────── Política de contraseñas ──────
 /**
- * Espejo en cliente de `Password::defaults()` (AppServiceProvider):
- * min(8) + letras + números. Es la única redacción de la política en toda
- * la interfaz: antes el alta de usuario prometía «Mín. 6 caracteres» y el
- * cambio de contraseña exigía 8 con letras y números, de modo que el
- * formulario de alta aceptaba claves que el sistema rechazaba después.
- *
- * Si cambia la regla del servidor, cambia aquí.
+ * Espejo en cliente de `Password::defaults()` (AppServiceProvider). Las
+ * reglas viven en `@/lib/password` (que también alimenta la lista reactiva
+ * RequisitosPassword); aquí sólo se reexportan con los nombres que ya usa el
+ * panel admin. Antes el alta de usuario prometía «Mín. 6 caracteres» y
+ * aceptaba claves que el sistema rechazaba después.
  */
-export const PASSWORD_MIN_LENGTH = 8;
-export const PASSWORD_HINT = 'Mín. 8 caracteres, con letras y números';
+export const PASSWORD_MIN_LENGTH = LARGO_MINIMO_PASSWORD;
+export const PASSWORD_HINT = 'Mín. 8 caracteres, con letras, números y algún signo';
 
 /** Valida en cliente lo mismo que el servidor, para avisar antes de enviar. */
-export function isPasswordValid(password: string): boolean {
-    return (
-        password.length >= PASSWORD_MIN_LENGTH && /[a-zA-Z]/.test(password) && /\d/.test(password)
-    );
-}
+export const isPasswordValid = passwordCumplePolitica;
 
 /**
  * Genera una contraseña que cumple la política. El administrador teclea la
@@ -57,14 +52,16 @@ export function isPasswordValid(password: string): boolean {
 export function generatePassword(length = 12): string {
     const letras = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ';
     const numeros = '23456789';
-    const todos = letras + numeros;
+    // Signos fáciles de dictar y de tipear en cualquier teclado.
+    const signos = '!#$%&*?-_.';
+    const todos = letras + numeros + signos;
     const random = (set: string) => set[Math.floor(Math.random() * set.length)];
 
-    // Garantiza al menos una letra y un número; el resto es libre.
-    const chars = [random(letras), random(numeros)];
+    // Garantiza al menos una letra, un número y un signo; el resto es libre.
+    const chars = [random(letras), random(numeros), random(signos)];
     for (let i = chars.length; i < length; i++) chars.push(random(todos));
 
-    // Baraja para que la letra y el número no queden siempre al principio.
+    // Baraja para que los obligatorios no queden siempre al principio.
     for (let i = chars.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [chars[i], chars[j]] = [chars[j], chars[i]];

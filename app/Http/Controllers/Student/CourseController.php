@@ -9,6 +9,7 @@ use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
+use App\Services\Student\RendimientoCursoEstudiante;
 use App\Services\Student\StudentSyllabusPresenter;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -45,8 +46,10 @@ class CourseController extends Controller
 
         $estudiante = $user->estudiante;
 
-        // Parámetros desde la URL
-        $semestre = (int) $request->input('semestre', 1);
+        // Parámetros desde la URL. Sin ellos se muestra el período vigente:
+        // antes el semestre por defecto era siempre 1 y, en el segundo
+        // semestre, «Mis Cursos» decía que no había cursos (T03).
+        $semestre = (int) $request->input('semestre', now()->month <= 6 ? 1 : 2);
         $agno     = (int) $request->input('agno', now()->year);
 
         // Obtener inscripciones filtradas por Semestre y Año del Curso
@@ -189,8 +192,14 @@ class CourseController extends Controller
             ];
         })->values();
 
+        $syllabus = StudentSyllabusPresenter::build($curso, $estudiante);
+
         return Inertia::render('student/Courses/Show', array_merge(
             [
+                // Panel «Rendimiento» (T30): se calcula sólo cuando el alumno
+                // lo abre (router.reload con only: ['rendimiento']).
+                'rendimiento' => Inertia::lazy(fn () => app(RendimientoCursoEstudiante::class)
+                    ->calcular($curso, $estudiante, $syllabus['datos']['componentes'] ?? [])),
                 'curso' => [
                     'id_curso'          => $curso->id_curso,
                     'nombre'            => $curso->nombre,
@@ -208,7 +217,7 @@ class CourseController extends Controller
                 ],
                 'actividades' => $actividadesData,
             ],
-            StudentSyllabusPresenter::build($curso, $estudiante)
+            $syllabus
         ));
     }
 }

@@ -2,10 +2,11 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import { page, Link } from '@inertiajs/svelte';
-  import { BookOpen, Award, CalendarClock, Bell, LifeBuoy, ArrowUpRight, ClipboardX } from 'lucide-svelte';
+  import { BookOpen, LifeBuoy, ArrowUpRight, ClipboardX } from 'lucide-svelte';
   import CourseCard from '@/components/student/CourseCard.svelte';
   import MensajesSinLeerCard from '@/components/student/MensajesSinLeerCard.svelte';
-  import PropuestaCard from '@/components/student/PropuestaCard.svelte';
+  import ProximasAVencerCard, { type ActividadPorVencer } from '@/components/student/ProximasAVencerCard.svelte';
+  import NotasRecientesCard, { type NotaReciente } from '@/components/student/NotasRecientesCard.svelte';
   import BotonSgeq from '@/components/custom/common/BotonSgeq.svelte';
 
   /**
@@ -16,6 +17,7 @@
       id_curso: number;
       nombre: string;
       cod_curso: string;
+      cod_asignatura?: string | null;
       asignatura_nombre: string;
       carrera_nombre: string;
       fecha_inicio: string;
@@ -34,6 +36,10 @@
       no_leidos: number;
       cursos: Array<{ id_curso: number; nombre: string; cod_curso: string; no_leidos: number }>;
     };
+    /** Actividades cuyo plazo termina pronto (ya con la holgura aplicada). */
+    proximasAVencer?: ActividadPorVencer[];
+    /** Últimas notas y retroalimentaciones del equipo docente. */
+    notasRecientes?: NotaReciente[];
     isAyudante?: boolean;
     periodoActual: { semestre: number, agno: number}
     /** El servidor ya evaluó si esta persona puede entrar a SGEQ. */
@@ -44,12 +50,14 @@
     cursos,
     stats,
     mensajeria,
+    proximasAVencer = [],
+    notasRecientes = [],
     isAyudante = false,
     puedeAbrirSgeq = false,
     periodoActual
   }: Props = $props();
 
-  const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/estudiante/dashboard' }];
+  const breadcrumbs: BreadcrumbItem[] = [{ title: 'Inicio', href: '/estudiante/dashboard' }];
 
   const anoAcademico = new Date().getFullYear();
 
@@ -59,6 +67,11 @@
         c.semestre_real === periodoActual.semestre &&
         c.agno_real === periodoActual.agno
     )
+  );
+
+  /** No leídos de mensajería por curso, para el acceso directo de cada tarjeta. */
+  const noLeidosPorCurso = $derived(
+    new Map((mensajeria?.cursos ?? []).map((c) => [c.id_curso, c.no_leidos])),
   );
 
   const authUser = $derived(($page.props.auth as any)?.user);
@@ -135,9 +148,9 @@
           </div>
         {:else}
           <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
-            <!-- Columna principal: cursos + notas. En mobile va DESPUÉS de la
-                 columna lateral (order-2): entregas y mensajes son más urgentes
-                 que una lista de cursos que el alumno ya conoce. -->
+            <!-- Columna principal: sólo los cursos. En mobile va DESPUÉS de la
+                 columna lateral (order-2): entregas, mensajes y notas son más
+                 urgentes que una lista de cursos que el alumno ya conoce. -->
             <div class="order-2 flex flex-col gap-4 lg:order-1 lg:min-w-0 lg:flex-1">
               <div class="flex items-center gap-2">
                 <BookOpen class="h-4 w-4 text-slate-500" />
@@ -148,40 +161,22 @@
               </div>
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {#each cursosPeriodoActual as curso (curso.id_curso)}
-                  <CourseCard {...curso} />
+                  <CourseCard {...curso} no_leidos={noLeidosPorCurso.get(curso.id_curso) ?? 0} />
                 {/each}
               </div>
-
-              <PropuestaCard
-                icon={Award}
-                title="Notas recientes"
-                emptyTitle="Aún no hay notas"
-                emptyDescription="Aparecerán aquí cuando se evalúe tu primera actividad sumativa."
-              />
             </div>
 
             <div class="order-1 flex flex-col gap-4 lg:order-2 lg:w-[360px] lg:flex-none">
-              <PropuestaCard
-                icon={CalendarClock}
-                title="Próximas entregas"
-                emptyTitle="Aún no hay entregas"
-                emptyDescription="Tus cursos todavía no han publicado actividades con fecha."
-              />
+              <ProximasAVencerCard items={proximasAVencer} />
 
               {#if mensajeria && mensajeria?.no_leidos > 0}
                 <MensajesSinLeerCard
                   total={mensajeria?.no_leidos ?? 0}
                   cursos={mensajeria?.cursos ?? []}
                 />
-
               {/if}
-              
-              <PropuestaCard
-                icon={Bell}
-                title="Novedades de tus actividades"
-                emptyTitle="Sin novedades todavía"
-                emptyDescription="Aparecerán cuando el equipo docente interactúe en una actividad."
-              />
+
+              <NotasRecientesCard items={notasRecientes} />
             </div>
           </div>
         {/if}

@@ -567,7 +567,7 @@
                   class={vista === 'kanban' ? 'text-[#002F6C]' : ''}
                   aria-hidden="true"
                 />
-                Kanban
+                Tablero
               </button>
             </div>
 

@@ -66,7 +66,7 @@
 
   const fechaNombramiento = $derived(nombramiento ? formatFechaCorta(nombramiento) : '');
 
-  const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/ayudante/dashboard' }];
+  const breadcrumbs: BreadcrumbItem[] = [{ title: 'Inicio', href: '/ayudante/dashboard' }];
 
   const primerNombre = $derived(stats.nombre_completo.split(' ')[0] || stats.nombre_completo);
 
@@ -80,7 +80,7 @@
 </script>
 
 <svelte:head>
-  <title>Dashboard | UTAMED</title>
+  <title>Inicio | UTAMED</title>
 </svelte:head>
 
 <AyudanteLayout {breadcrumbs}>

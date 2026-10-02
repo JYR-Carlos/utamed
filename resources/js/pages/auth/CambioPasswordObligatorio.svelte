@@ -15,6 +15,7 @@
    */
   import PasswordController from '@/actions/App/Http/Controllers/Settings/PasswordController';
   import AppLogoIcon from '@/components/custom/layout/AppLogoIcon.svelte';
+  import RequisitosPassword from '@/components/custom/common/RequisitosPassword.svelte';
   import { Button } from '@/components/ui/button';
   import { Spinner } from '@/components/ui/spinner';
   import { logout } from '@/routes';
@@ -44,6 +45,13 @@
     current_password: false,
     password: false,
     password_confirmation: false,
+  });
+
+  /** Lo escrito en cada campo, para la lista reactiva de requisitos. */
+  let valores = $state<Record<Campo, string>>({
+    current_password: '',
+    password: '',
+    password_confirmation: '',
   });
 
   let usuario = $derived($page.props.auth.user);
@@ -87,6 +95,7 @@
         required
         {autocomplete}
         {disabled}
+        bind:value={valores[nombre]}
         placeholder="••••••••"
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${nombre}-error` : ayuda ? `${nombre}-ayuda` : undefined}
@@ -166,6 +175,7 @@
         {...PasswordController.update.form()}
         options={{ preserveScroll: true }}
         onError={(errors) => {
+          valores = { current_password: '', password: '', password_confirmation: '' };
           if (errors.current_password) {
             enfocar('current_password');
           } else if (errors.password) {
@@ -191,8 +201,12 @@
             'new-password',
             errors.password,
             processing,
-            'Mínimo 8 caracteres, con letras y números.',
           )}
+          <RequisitosPassword
+            password={valores.password}
+            confirmacion={valores.password_confirmation}
+            tono="oscuro"
+          />
 
           {@render campo(
             'password_confirmation',
