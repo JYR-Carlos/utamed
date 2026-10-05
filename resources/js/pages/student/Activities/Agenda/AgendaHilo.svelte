@@ -5,6 +5,7 @@
    * Componente compartido de visualización del hilo conversacional de la Agenda.
    * Usado tanto por la vista de Estudiante (Agenda.svelte) como de Docente (AgendaDocente.svelte).
    */
+  import { tick } from 'svelte';
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem, RubricaDetalleEvent } from '@/types/agenda';
   import VistoPor from '@/components/mensajeria/VistoPor.svelte';
@@ -18,6 +19,7 @@
     Lock,
     MessageSquareOff,
     PackageCheck,
+    RotateCcw,
   } from 'lucide-svelte';
 
   export type { InteraccionItem, RubricaDetalleEvent };
@@ -62,6 +64,12 @@
     return match ? `${match[1].padStart(2, '0')}:${match[2]} hrs` : '';
   }
 
+  function formatNota(val: number | string | null | undefined): string {
+    if (val == null || val === '') return '-';
+    const num = Number(val);
+    return Number.isFinite(num) ? num.toFixed(1) : String(val);
+  }
+
   function esLadoDerecho(item: InteraccionDecorada): boolean {
     if (esDocente) {
       // Para el docente: a la derecha van sus mensajes emitidos (Feedback / Docente) y Evaluaciones.
@@ -100,6 +108,34 @@
       }
     }
 
+    // Paso 1b: Marcar entregas reemplazadas y evaluaciones reevaluadas (no válidas)
+    let ultimaEntregaNoCanceladaIndex = -1;
+    let ultimaEvaluacionIndex = -1;
+
+    for (let i = lista.length - 1; i >= 0; i--) {
+      const item = lista[i];
+
+      // Entregas: la más reciente no cancelada es la vigente; las anteriores quedan reemplazadas
+      if (item.tipo_interaccion === ENTREGA && !item.fue_cancelada) {
+        if (ultimaEntregaNoCanceladaIndex === -1) {
+          ultimaEntregaNoCanceladaIndex = i;
+        } else {
+          item.fue_reemplazada = true;
+          item.es_no_valido = true;
+        }
+      }
+
+      // Evaluaciones: la más reciente es la vigente; las anteriores quedan reevaluadas
+      if (item.tipo_interaccion === 'Evaluación') {
+        if (ultimaEvaluacionIndex === -1) {
+          ultimaEvaluacionIndex = i;
+        } else {
+          item.fue_reevaluada = true;
+          item.es_no_valido = true;
+        }
+      }
+    }
+
     const visibles = lista.filter((item) => item.tipo_interaccion !== CANCELACION);
 
     // Paso 2: Consecutividad y marcas de tiempo
@@ -122,14 +158,17 @@
             : `${formatFechaTextoLargo(diaActual)} · ${formatHora(actual.fecha_emision)}`;
         }
 
+        const tiposTexto = ['Mensaje al profesor', 'Feedback', 'Consulta'];
         const esMensajeTexto =
-          (actual.tipo_interaccion === 'Mensaje al profesor' || actual.tipo_interaccion === 'Feedback') &&
-          (anterior.tipo_interaccion === 'Mensaje al profesor' || anterior.tipo_interaccion === 'Feedback');
+          tiposTexto.includes(actual.tipo_interaccion) &&
+          tiposTexto.includes(anterior.tipo_interaccion);
+        const mismoEmisor =
+          (Boolean(actual.es_propio) && Boolean(anterior.es_propio)) ||
+          actual.emisor === anterior.emisor;
         if (
           !actual.marcaTiempoSeparador &&
           mismoDia &&
-          actual.emisor === anterior.emisor &&
-          Boolean(actual.es_propio) === Boolean(anterior.es_propio) &&
+          mismoEmisor &&
           actual.es_de_docente === anterior.es_de_docente &&
           esMensajeTexto
         ) {
@@ -161,21 +200,37 @@
     return grupos;
   });
 
+  let totalPrevio = 0;
+
   $effect(() => {
-    interaccionesProcesadas;
-    if (listaRef) {
-      listaRef.scrollTop = listaRef.scrollHeight;
+    const total = interaccionesProcesadas.length;
+    if (!listaRef || total === 0) return;
+    const esInicial = totalPrevio === 0;
+    const esNuevoMensaje = totalPrevio > 0 && total > totalPrevio;
+    const estaCercaDelFondo =
+      listaRef.scrollHeight - listaRef.scrollTop - listaRef.clientHeight < 80;
+    totalPrevio = total;
+
+    if (esInicial || esNuevoMensaje || estaCercaDelFondo) {
+      tick().then(() => {
+        requestAnimationFrame(() => {
+          listaRef?.scrollTo({
+            top: listaRef.scrollHeight,
+            behavior: esNuevoMensaje ? 'smooth' : 'auto',
+          });
+        });
+      });
     }
   });
 </script>
 
 <div bind:this={listaRef} class="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-2 bg-slate-50/50">
-  {#if isLoading}
+  {#if isLoading && interaccionesProcesadas.length === 0}
     <div class="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
       <div class="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[#002F6C]"></div>
       <span class="text-xs">Cargando interacciones…</span>
     </div>
-  {:else if errorMensaje}
+  {:else if errorMensaje && interaccionesProcesadas.length === 0}
     <div class="flex items-center justify-center py-16 text-xs text-red-500 text-center px-4">
       {errorMensaje}
     </div>
@@ -207,18 +262,22 @@
             </div>
           </div>
 
-        <!-- CASO B: Entrega Cancelada (Beige) -->
-        {:else if item.tipo_interaccion === ENTREGA && item.fue_cancelada}
+        <!-- CASO B: Entrega Cancelada o Reemplazada (Beige / Histórico) -->
+        {:else if item.tipo_interaccion === ENTREGA && (item.fue_cancelada || item.fue_reemplazada)}
           <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
-            <div class="w-fit max-w-[66.6%] rounded-2xl border-2 border-[#D2CCC0] bg-[#F4F1EA] shadow-xs overflow-hidden">
+            <div class="w-fit max-w-[66.6%] rounded-2xl border-2 border-[#D2CCC0] bg-[#F4F1EA] shadow-xs overflow-hidden opacity-90">
               <div class="flex items-center justify-between border-b border-[#D2CCC0] bg-[#E4DFD5]/80 px-3.5 py-1.5 text-xs gap-2.5">
                 <div class="flex items-center gap-1.5 min-w-0">
-                  <FileX2 class="h-3.5 w-3.5 text-slate-600 shrink-0" />
+                  {#if item.fue_cancelada}
+                    <FileX2 class="h-3.5 w-3.5 text-slate-600 shrink-0" />
+                  {:else}
+                    <RotateCcw class="h-3.5 w-3.5 text-slate-600 shrink-0" />
+                  {/if}
                   <span class="truncate font-bold text-slate-800 text-[11.5px]" title="Entrega · {item.emisor}">
                     Entrega · {item.emisor}
                   </span>
                   <span class="rounded-full border border-[#CBC4B7] bg-[#DCD6CA] px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider text-slate-700 shrink-0">
-                    Cancelada
+                    {item.fue_cancelada ? 'Cancelada' : 'Reemplazada'}
                   </span>
                 </div>
               </div>
@@ -230,7 +289,7 @@
                   </p>
                 {/if}
 
-                <!-- Ficha de archivo cancelado histórico -->
+                <!-- Ficha de archivo cancelado o reemplazado histórico -->
                 <div class="flex items-center justify-between gap-2.5 rounded-xl border border-[#D6CFC3] bg-white/75 p-2">
                   <div class="flex min-w-0 items-center gap-2">
                     <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-slate-100 font-mono text-[9px] font-bold text-slate-400 line-through">
@@ -241,10 +300,14 @@
                         {item.archivo?.nombre_original ?? 'Archivo entregado'}
                       </p>
                       <p class="text-[9.5px] text-slate-500 font-medium">
-                        {#if item.fecha_cancelacion}
-                          Cancelada a las {formatHora(item.fecha_cancelacion)}
+                        {#if item.fue_cancelada}
+                          {#if item.fecha_cancelacion}
+                            Cancelada a las {formatHora(item.fecha_cancelacion)}
+                          {:else}
+                            Cancelada · Retirado
+                          {/if}
                         {:else}
-                          Cancelada · Retirado
+                          Reemplazada por entrega posterior
                         {/if}
                       </p>
                     </div>
@@ -257,7 +320,7 @@
                         target="_blank"
                         rel="noopener noreferrer"
                         class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold text-slate-700 bg-white/90 border border-[#D2CCC0] transition-colors hover:bg-white no-underline shadow-2xs"
-                        title="Ver archivo cancelado"
+                        title={item.fue_cancelada ? 'Ver archivo cancelado' : 'Ver archivo reemplazado'}
                       >
                         <Eye class="h-3 w-3 text-slate-600" />
                         Ver
@@ -266,7 +329,7 @@
                       <a
                         href={urlDescargaEntrega(item.id_interaccion)}
                         class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold text-slate-700 bg-white/90 border border-[#D2CCC0] transition-colors hover:bg-white no-underline shadow-2xs"
-                        title="Descargar archivo cancelado"
+                        title={item.fue_cancelada ? 'Descargar archivo cancelado' : 'Descargar archivo reemplazado'}
                       >
                         <Download class="h-3 w-3 text-slate-600" />
                         Descargar
@@ -363,32 +426,44 @@
             </div>
           </div>
 
-        <!-- CASO D: Evaluación (Verde si aprobada / Roja si reprobada) -->
+        <!-- CASO D: Evaluación (Verde si aprobada / Roja si reprobada / Gris si reevaluada) -->
         {:else if item.tipo_interaccion === 'Evaluación'}
-          {@const esAprobada = item.puntaje_obtenido != null ? item.puntaje_obtenido >= 4.0 : true}
+          {@const notaValor = item.evaluacion_obtenida ?? item.puntaje_obtenido}
+          {@const notaNum = notaValor != null ? Number(notaValor) : null}
+          {@const esAprobada = notaNum != null && !isNaN(notaNum) ? notaNum >= 4.0 : true}
           <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
             <div
-              class="w-fit max-w-[66.6%] rounded-2xl border-2 shadow-xs overflow-hidden {esAprobada
-                ? 'border-emerald-400/70 bg-[#F0FDF4]'
-                : 'border-red-300/80 bg-[#FEF2F2]'}"
+              class="w-fit max-w-[66.6%] rounded-2xl border-2 shadow-xs overflow-hidden {item.fue_reevaluada
+                ? 'border-slate-300 bg-slate-100/90 opacity-80'
+                : esAprobada
+                  ? 'border-emerald-400/70 bg-[#F0FDF4]'
+                  : 'border-red-300/80 bg-[#FEF2F2]'}"
             >
               <div
-                class="flex items-center justify-between border-b px-3.5 py-1.5 text-xs gap-2.5 {esAprobada
-                  ? 'border-emerald-200 bg-emerald-100/80'
-                  : 'border-red-200 bg-red-100/80'}"
+                class="flex items-center justify-between border-b px-3.5 py-1.5 text-xs gap-2.5 {item.fue_reevaluada
+                  ? 'border-slate-200 bg-slate-200/80'
+                  : esAprobada
+                    ? 'border-emerald-200 bg-emerald-100/80'
+                    : 'border-red-200 bg-red-100/80'}"
               >
                 <div class="flex items-center gap-1.5 min-w-0">
-                  <Award class="h-3.5 w-3.5 shrink-0 {esAprobada ? 'text-emerald-800' : 'text-red-700'}" />
-                  <span class="truncate font-bold text-[11.5px] {esAprobada ? 'text-emerald-950' : 'text-red-950'}" title="Evaluación · {item.emisor}">
+                  <Award class="h-3.5 w-3.5 shrink-0 {item.fue_reevaluada ? 'text-slate-500' : esAprobada ? 'text-emerald-800' : 'text-red-700'}" />
+                  <span class="truncate font-bold text-[11.5px] {item.fue_reevaluada ? 'text-slate-700' : esAprobada ? 'text-emerald-950' : 'text-red-950'}" title="Evaluación · {item.emisor}">
                     Evaluación · {item.es_propio && esDocente ? 'Tú' : item.emisor}
                   </span>
-                  <span
-                    class="rounded-full border px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider shrink-0 {esAprobada
-                      ? 'border-emerald-300 bg-emerald-200/60 text-emerald-800'
-                      : 'border-red-300 bg-red-200/60 text-red-700'}"
-                  >
-                    {esAprobada ? 'Aprobada' : 'Reprobada'}
-                  </span>
+                  {#if item.fue_reevaluada}
+                    <span class="rounded-full border border-slate-300 bg-slate-200 px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider text-slate-600 shrink-0">
+                      Reevaluada
+                    </span>
+                  {:else}
+                    <span
+                      class="rounded-full border px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider shrink-0 {esAprobada
+                        ? 'border-emerald-300 bg-emerald-200/60 text-emerald-800'
+                        : 'border-red-300 bg-red-200/60 text-red-700'}"
+                    >
+                      {esAprobada ? 'Aprobada' : 'Reprobada'}
+                    </span>
+                  {/if}
                 </div>
               </div>
 
@@ -404,12 +479,18 @@
                 {/if}
 
                 <!-- Chip de Calificación y Acceso a Rúbrica -->
-                <div class="flex items-center justify-between gap-3 rounded-xl border bg-white/90 p-2.5 {esAprobada ? 'border-emerald-200' : 'border-red-200'}">
-                  <div class="flex items-baseline gap-1.5">
-                    <span class="text-[11px] uppercase font-bold tracking-wider {esAprobada ? 'text-emerald-800' : 'text-red-800'}">Nota:</span>
-                    <span class="text-xl font-black leading-none {esAprobada ? 'text-emerald-700' : 'text-red-700'}">
-                      {item.puntaje_obtenido ?? '-'}
+                <div class="flex items-center justify-between gap-3 rounded-xl border bg-white/90 p-2.5 {item.fue_reevaluada ? 'border-slate-200' : esAprobada ? 'border-emerald-200' : 'border-red-200'}">
+                  <div class="flex items-baseline gap-1.5 flex-wrap">
+                    <span class="text-[11px] uppercase font-bold tracking-wider {item.fue_reevaluada ? 'text-slate-500' : esAprobada ? 'text-emerald-800' : 'text-red-800'}">Nota:</span>
+                    <span class="text-xl font-black leading-none {item.fue_reevaluada ? 'text-slate-400 line-through' : esAprobada ? 'text-emerald-700' : 'text-red-700'}">
+                      {formatNota(notaValor)}
                     </span>
+                    {#if item.puntaje_obtenido != null && String(item.puntaje_obtenido) !== String(notaValor)}
+                      <span class="text-[11px] font-medium text-slate-500">({item.puntaje_obtenido} pts)</span>
+                    {/if}
+                    {#if item.fue_reevaluada}
+                      <span class="text-[10px] text-slate-400 font-medium">(Anterior)</span>
+                    {/if}
                   </div>
 
                   {#if (item.adjunta_rubrica || item.rubrica) && onVerRubrica}
@@ -424,9 +505,11 @@
                           fecha: item.fecha_emision,
                         });
                       }}
-                      class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold text-white shadow-2xs transition-colors cursor-pointer {esAprobada
-                        ? 'bg-emerald-700 hover:bg-emerald-800'
-                        : 'bg-red-700 hover:bg-red-800'}"
+                      class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold text-white shadow-2xs transition-colors cursor-pointer {item.fue_reevaluada
+                        ? 'bg-slate-600 hover:bg-slate-700'
+                        : esAprobada
+                          ? 'bg-emerald-700 hover:bg-emerald-800'
+                          : 'bg-red-700 hover:bg-red-800'}"
                     >
                       <span>Ver Rúbrica</span>
                       <ChevronRight class="h-3 w-3" />
@@ -435,7 +518,7 @@
                 </div>
 
                 <div class="flex justify-end pt-0.5">
-                  <span class="font-mono text-[10px] {esAprobada ? 'text-emerald-800/80' : 'text-red-700/80'} select-none">
+                  <span class="font-mono text-[10px] {item.fue_reevaluada ? 'text-slate-400' : esAprobada ? 'text-emerald-800/80' : 'text-red-700/80'} select-none">
                     {formatHora(item.fecha_emision)}
                   </span>
                 </div>
@@ -540,7 +623,7 @@
         {/if}
 
         {#if item.visto_por && item.visto_por.length > 0}
-          <VistoPor lectores={item.visto_por} alinear={esLadoDerecho(item) ? 'derecha' : 'izquierda'} />
+          <VistoPor lectores={item.visto_por} alinear={esLadoDerecho(item) ? 'derecha' : 'izquierda'} class="mt-1.5 pb-2 px-1" />
         {/if}
       {/each}
     {:else}

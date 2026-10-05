@@ -84,14 +84,32 @@ class LecturaAgendaService
 
         $this->registrar($idUsuario, collect($hilos)->flatten(1)->map($idDe));
 
-        $ultimos = collect($hilos)->filter()->map(fn (array $hilo) => $idDe(end($hilo)));
+        $indiceUltimoVisible = function (array $hilo): ?int {
+            for ($i = count($hilo) - 1; $i >= 0; $i--) {
+                $tipo = data_get($hilo[$i], 'tipo_mensaje', data_get($hilo[$i], 'tipo_interaccion', data_get($hilo[$i], 'tipo_registro')));
+                $tipoStr = is_object($tipo) && property_exists($tipo, 'value') ? (string) $tipo->value : (string) $tipo;
+                if ($tipoStr !== 'Cancelación de entrega') {
+                    return $i;
+                }
+            }
+            return array_key_last($hilo);
+        };
+
+        $ultimos = collect($hilos)->filter()->map(function (array $hilo) use ($idDe, $indiceUltimoVisible) {
+            $idx = $indiceUltimoVisible($hilo);
+            return $idx !== null ? $idDe($hilo[$idx]) : null;
+        })->filter();
+
         $vistos = $this->vistoPor($ultimos, $idUsuario);
 
         foreach ($hilos as $clave => $hilo) {
             if ($hilo === []) {
                 continue;
             }
-            $ultimo = array_key_last($hilo);
+            $ultimo = $indiceUltimoVisible($hilo);
+            if ($ultimo === null) {
+                continue;
+            }
             $vistoPor = $vistos[$idDe($hilo[$ultimo])] ?? [];
             if (is_array($hilo[$ultimo])) {
                 $hilos[$clave][$ultimo]['visto_por'] = $vistoPor;
