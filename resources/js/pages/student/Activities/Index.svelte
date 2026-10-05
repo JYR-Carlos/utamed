@@ -3,7 +3,7 @@
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica, RubricaResponse } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
-  import { FileText, Info, X } from 'lucide-svelte';
+  import { FileText, X } from 'lucide-svelte';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaView from './Agenda/Rubrica.svelte';
   import ActivityHeaderCard from './cards/ActivityHeaderCard.svelte';
@@ -15,7 +15,6 @@
   import Entrega from './Agenda/Entrega.svelte';
   import ActivityMembersCard from './cards/ActivityMembersCard.svelte';
   import Enunciado from './Agenda/Enunciado.svelte';
-  import { formatFechaCorta, parseFechaSoloDia } from '@/utils/formatters';
 
   interface Props {
     id_curso: number;
@@ -156,13 +155,6 @@
     entrega_obligatoria &&
     !yaEvaluada
   );
-
-  const fechaEfectiva = $derived.by(() => {
-    const base = parseFechaSoloDia(fecha_limite);
-    const d = new Date(base);
-    d.setDate(d.getDate() + (dias_holgura || 0) + (dias_holgura_personal || 0));
-    return d;
-  });
 
   // Enunciado.svelte sólo distingue 'pdf' (previsualizable en iframe) del
   // resto (prompt de descarga); no tiene una rama específica para imágenes.
