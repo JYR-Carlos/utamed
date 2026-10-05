@@ -75,6 +75,71 @@ class Agenda extends BaseAgenda
     }
 
     /**
+     * Si esta entrega fue cancelada por el estudiante.
+     *
+     * La cancelación es una fila «Cancelación de entrega» del mismo grupo que
+     * repite el `uuid_archivo_subido` de la entrega (ver
+     * Student\AgendaController::destroyEntrega).
+     */
+    public function fueCancelada(): bool
+    {
+        return $this->tipo_mensaje === TipoMensaje::ENTREGA_DE_ARCHIVO
+            && $this->uuid_archivo_subido !== null
+            && in_array($this->uuid_archivo_subido, self::uuidsCancelados([$this->id_actividad_asignada_grupo]), true);
+    }
+
+    /**
+     * UUIDs de los archivos entregados que fueron cancelados en esos grupos.
+     *
+     * @param  iterable<int>  $grupoIds
+     * @return array<int, string>
+     */
+    public static function uuidsCancelados(iterable $grupoIds): array
+    {
+        $grupoIds = collect($grupoIds)->filter()->values();
+        if ($grupoIds->isEmpty()) {
+            return [];
+        }
+
+        return self::whereIn('id_actividad_asignada_grupo', $grupoIds)
+            ->where('tipo_mensaje', TipoMensaje::CANCELACIÓN_DE_ENTREGA->value)
+            ->whereNotNull('uuid_archivo_subido')
+            ->pluck('uuid_archivo_subido')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Entregas de archivo que no fueron canceladas.
+     *
+     * `$tabla` es el nombre o alias con el que la consulta referencia
+     * agenda.agenda, para poder usarlo también desde el query builder
+     * (por ejemplo `DB::table('agenda.agenda as a')` → `'a'`).
+     */
+    public static function soloEntregasVigentes($query, string $tabla = 'agenda'): void
+    {
+        $query->where("{$tabla}.tipo_mensaje", TipoMensaje::ENTREGA_DE_ARCHIVO->value)
+            ->whereNotExists(function ($sub) use ($tabla) {
+                $sub->selectRaw('1')
+                    ->from('agenda.agenda as cancelacion')
+                    ->whereColumn('cancelacion.id_actividad_asignada_grupo', "{$tabla}.id_actividad_asignada_grupo")
+                    ->whereColumn('cancelacion.uuid_archivo_subido', "{$tabla}.uuid_archivo_subido")
+                    ->where('cancelacion.tipo_mensaje', TipoMensaje::CANCELACIÓN_DE_ENTREGA->value);
+            });
+    }
+
+    /**
+     * Scope Eloquent de {@see soloEntregasVigentes()}.
+     */
+    public function scopeEntregasVigentes($query)
+    {
+        self::soloEntregasVigentes($query, $this->getTable());
+
+        return $query;
+    }
+
+    /**
      * Obtiene detalles completos de la entrega para el docente
      */
     public function getDetallesEntrega()

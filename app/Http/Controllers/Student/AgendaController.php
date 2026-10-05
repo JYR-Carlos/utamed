@@ -91,7 +91,7 @@ class AgendaController extends Controller
 
         $estudiante = $user->estudiante;
 
-        $integrante = IntegranteGrupo::where(
+        IntegranteGrupo::where(
             'id_estudiante',
             $estudiante->id_estudiante
         )
@@ -110,11 +110,7 @@ class AgendaController extends Controller
         }
 
         // Blindaje 1: No permitir reemplazo ni subida si la entrega ya fue evaluada
-        $yaEvaluada = $actividadAsignadaGrupo->nota !== null
-            || $integrante->nota_individual !== null
-            || $actividadAsignadaGrupo->entregas()->whereHas('evaluacion')->exists();
-
-        if ($yaEvaluada) {
+        if ($actividadAsignadaGrupo->yaFueEvaluado()) {
             return back()->withErrors([
                 'error_general' => 'La entrega ya ha sido evaluada por el docente. No es posible subir ni reemplazar archivos.',
             ]);
@@ -249,7 +245,7 @@ class AgendaController extends Controller
 
         $estudiante = $user->estudiante;
 
-        $integrante = IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
+        IntegranteGrupo::where('id_estudiante', $estudiante->id_estudiante)
             ->where('id_actividad_asignada_grupo', $actividadAsignadaGrupo->id_actividad_asignada_grupo)
             ->firstOrFail();
 
@@ -258,12 +254,41 @@ class AgendaController extends Controller
             abort(403, 'La entrega no pertenece al grupo especificado.');
         }
 
-        // Blindaje 1: No permitir borrar si la entrega ya fue evaluada
-        $yaEvaluada = $actividadAsignadaGrupo->nota !== null
-            || $integrante->nota_individual !== null
-            || $agenda->tieneEvaluacion();
+        // Sólo se cancela una entrega de archivo hecha por un integrante del
+        // grupo: no un feedback del docente ni otro mensaje con adjunto.
+        $esEntregaDelGrupo = $agenda->tipo_mensaje === TipoMensaje::ENTREGA_DE_ARCHIVO
+            && $agenda->uuid_archivo_subido !== null
+            && IntegranteGrupo::where('id_actividad_asignada_grupo', $actividadAsignadaGrupo->id_actividad_asignada_grupo)
+                ->whereHas('estudiante', fn ($q) => $q->where('id_usuario', $agenda->id_usuario_emisor))
+                ->exists();
 
-        if ($yaEvaluada) {
+        if (!$esEntregaDelGrupo) {
+            abort(403, 'Solo se puede cancelar una entrega de archivo del grupo.');
+        }
+
+        if ($agenda->fueCancelada()) {
+            return back()->withErrors([
+                'error_general' => 'Esta entrega ya fue cancelada.',
+            ]);
+        }
+
+        // Sólo la última entrega del grupo: las anteriores ya fueron reemplazadas,
+        // y cancelar una de ellas dejaría al grupo sin ver su entrega vigente.
+        $ultimaEntrega = Agenda::where('id_actividad_asignada_grupo', $actividadAsignadaGrupo->id_actividad_asignada_grupo)
+            ->where('tipo_mensaje', TipoMensaje::ENTREGA_DE_ARCHIVO->value)
+            ->orderByDesc('fecha_envio')
+            ->orderByDesc('id_agenda')
+            ->first();
+
+        if (!$ultimaEntrega || (int) $ultimaEntrega->id_agenda !== (int) $agenda->id_agenda) {
+            return back()->withErrors([
+                'error_general' => 'Solo se puede cancelar la entrega más reciente. Recarga la página para ver el estado actual.',
+            ]);
+        }
+
+        // Blindaje 1: No permitir borrar si el grupo ya fue evaluado (incluye
+        // evaluaciones formativas sin nota y no vinculadas a esta entrega)
+        if ($actividadAsignadaGrupo->yaFueEvaluado()) {
             return back()->withErrors([
                 'error_general' => 'La entrega ya ha sido evaluada por el docente. No es posible eliminarla.',
             ]);
@@ -282,23 +307,25 @@ class AgendaController extends Controller
             ]);
         }
 
-        // Marcar el archivo en operaciones.archivo como pendiente de borrado
-        if ($agenda->uuid_archivo_subido) {
-            Archivo::where('uuid_archivo', $agenda->uuid_archivo_subido)
-                ->update(['pendiente_de_borrado' => true]);
-        }
-
         $nombreArchivo = $agenda->archivo?->nombre_original ?? 'archivo adjunto';
 
-        // Conservar el registro histórico de entrega y registrar el evento de cancelación
-        Agenda::create([
-            'id_actividad_asignada_grupo' => $actividadAsignadaGrupo->id_actividad_asignada_grupo,
-            'id_usuario_emisor' => $user->id_usuario,
-            'fecha_envio' => now(),
-            'tipo_mensaje' => TipoMensaje::CANCELACIÓN_DE_ENTREGA,
-            'mensaje' => "Entrega cancelada por el estudiante ({$nombreArchivo}).",
-            'uuid_archivo_subido' => $agenda->uuid_archivo_subido,
-        ]);
+        // Las dos escrituras van juntas: si falla el registro de la cancelación,
+        // el archivo no puede quedar marcado para borrarse.
+        DB::transaction(function () use ($agenda, $actividadAsignadaGrupo, $user, $nombreArchivo) {
+            // Marcar el archivo en operaciones.archivo como pendiente de borrado
+            Archivo::where('uuid_archivo', $agenda->uuid_archivo_subido)
+                ->update(['pendiente_de_borrado' => true]);
+
+            // Conservar el registro histórico de entrega y registrar el evento de cancelación
+            Agenda::create([
+                'id_actividad_asignada_grupo' => $actividadAsignadaGrupo->id_actividad_asignada_grupo,
+                'id_usuario_emisor' => $user->id_usuario,
+                'fecha_envio' => now(),
+                'tipo_mensaje' => TipoMensaje::CANCELACIÓN_DE_ENTREGA,
+                'mensaje' => "Entrega cancelada por el estudiante ({$nombreArchivo}).",
+                'uuid_archivo_subido' => $agenda->uuid_archivo_subido,
+            ]);
+        });
 
         return back()->with('success', 'Entrega cancelada exitosamente.');
     }
