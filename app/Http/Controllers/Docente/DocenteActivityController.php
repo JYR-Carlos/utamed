@@ -255,7 +255,7 @@ class DocenteActivityController extends Controller
                 ->keyBy('id_actividad');
 
         // Entregas realmente recibidas: filas de agenda.agenda del tipo
-        // «Entrega de archivo» colgadas de los grupos de la actividad. Es lo que
+        // «Entrega de archivo» no canceladas, colgadas de los grupos de la actividad. Es lo que
         // la confirmación de borrado enumera como pérdida irreversible.
         $entregasPorActividad = $idsActividad->isEmpty()
             ? collect()
@@ -267,7 +267,7 @@ class DocenteActivityController extends Controller
                     'a.id_actividad_asignada_grupo'
                 )
                 ->whereIn('aag.id_actividad', $idsActividad)
-                ->where('a.tipo_mensaje', TipoMensaje::ENTREGA_DE_ARCHIVO->value)
+                ->where(fn ($q) => Agenda::soloEntregasVigentes($q, 'a'))
                 ->groupBy('aag.id_actividad')
                 ->selectRaw('aag.id_actividad, COUNT(*) AS total_entregas')
                 ->pluck('total_entregas', 'id_actividad');
@@ -1571,12 +1571,13 @@ class DocenteActivityController extends Controller
      *
      * Se filtra por tipo porque las filas «Evaluación» también llevan
      * `uuid_archivo_subido` (el de la entrega que evalúan) y, sin el filtro,
-     * aparecerían como entregas repetidas.
+     * aparecerían como entregas repetidas. Las entregas que el estudiante
+     * canceló no se listan: ya no se pueden evaluar.
      */
     private function listarEntregas($query)
     {
         $entregas = $query
-            ->where('tipo_mensaje', TipoMensaje::ENTREGA_DE_ARCHIVO->value)
+            ->entregasVigentes()
             ->with(['usuario', 'archivo'])
             ->orderBy('fecha_envio', 'desc')
             ->get();
@@ -1819,8 +1820,8 @@ class DocenteActivityController extends Controller
             'evaluacion_obtenida.required' => 'Indica el resultado cualitativo (por ejemplo «Aprobado») para cerrar una actividad formativa.',
         ]);
 
-        // La entrega evaluada tiene que ser una entrega de archivo de este mismo
-        // grupo. Su archivo se copia en la fila «Evaluación»: agenda.agenda no
+        // La entrega evaluada tiene que ser una entrega de archivo vigente (no
+        // cancelada por el estudiante) de este mismo grupo. Su archivo se copia en la fila «Evaluación»: agenda.agenda no
         // tiene columna de referencia, y así la agenda puede decir qué se evaluó
         // y la entrega deja de figurar como pendiente (Agenda::uuidsEvaluados).
         $uuidArchivoEvaluado = null;
@@ -1828,11 +1829,11 @@ class DocenteActivityController extends Controller
             $entrega = DB::table('agenda.agenda')
                 ->where('id_agenda', $validated['id_agenda_entrega'])
                 ->where('id_actividad_asignada_grupo', $grupo)
-                ->where('tipo_mensaje', TipoMensaje::ENTREGA_DE_ARCHIVO->value)
+                ->where(fn ($q) => Agenda::soloEntregasVigentes($q, 'agenda.agenda'))
                 ->first(['uuid_archivo_subido']);
 
             if (!$entrega) {
-                return redirect()->back()->withErrors(['id_agenda_entrega' => 'La entrega no pertenece a este grupo.']);
+                return redirect()->back()->withErrors(['id_agenda_entrega' => 'La entrega no pertenece a este grupo o fue cancelada por el estudiante.']);
             }
 
             $uuidArchivoEvaluado = $entrega->uuid_archivo_subido;
