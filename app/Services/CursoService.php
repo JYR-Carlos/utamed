@@ -194,11 +194,15 @@ class CursoService
                 'id_curso_padre'      => $cursoPadre->id_curso,
             ]);
 
+            // El trigger tr_curso_pre_insert reemplaza id_contexto por el contexto que
+            // él mismo crea; sin refresh() el rol quedaría en el contexto descartado.
+            $nuevoCurso->refresh();
+
             // Assign titular role in the new course context
             if ($cursoPadre->id_docente_titular) {
                 $this->assignDocenteRolCurso(
                     $cursoPadre->id_docente_titular,
-                    $contexto->id_contexto,
+                    $nuevoCurso->id_contexto,
                     true
                 );
             }
