@@ -96,6 +96,20 @@ class FortifyServiceProvider extends ServiceProvider
                 // Validar contraseña
                 $passwordOk = \Illuminate\Support\Facades\Hash::check($request->password, $user->passhash);
 
+                // Claves guardadas antes de T54 (o desde una planilla) con espacios en
+                // los extremos: se comparan tal como se escribieron y, si coinciden, se
+                // vuelven a guardar recortadas. No es un cambio voluntario de clave,
+                // así que fecha_cambio_passhash no se toca.
+                $passwordSinRecortar = $request->attributes->get(\App\Http\Middleware\TrimStrings::PASSWORD_SIN_RECORTAR);
+                if (!$passwordOk
+                    && is_string($passwordSinRecortar)
+                    && $passwordSinRecortar !== $request->password
+                    && \Illuminate\Support\Facades\Hash::check($passwordSinRecortar, $user->passhash)) {
+                    $passwordOk = true;
+                    $user->forceFill(['passhash' => \Illuminate\Support\Facades\Hash::make($request->password)])->save();
+                    Log::channel('single')->info('[LOGIN] Clave con espacios en los extremos normalizada', ['id' => $user->id_usuario]);
+                }
+
                 if (!$passwordOk) {
                     Log::channel('single')->warning('[LOGIN] Contraseña incorrecta', [
                         'id'       => $user->id_usuario,
