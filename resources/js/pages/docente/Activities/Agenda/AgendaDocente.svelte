@@ -13,7 +13,7 @@
    * Props:
    * - onCerrar: cierra el modal.
    * - onInteraccionEnviada: callback con los datos de la interacción a enviar
-   *   ({ tipo, mensaje, nota?, id_agenda_entrega?, resultado_rubrica?,
+   *   ({ tipo, mensaje, nota?, resultado_rubrica?,
    *   puntaje_obtenido? }); el componente padre se encarga de persistirla.
    * - cod_curso, nombre_actividad, nombre_grupo: textos del encabezado.
    * - idCurso, idActividad, idGrupo: arman la URL para ver/descargar entregas.
@@ -27,6 +27,7 @@
   import RubricaView from '../../../student/Activities/Agenda/Rubrica.svelte';
   import { calcularNotaChilena } from '@/lib/notas';
   import { formatFechaHora } from '@/utils/formatters';
+  import { router } from '@inertiajs/svelte';
   import { X, Send, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-svelte';
 
   interface Props {
@@ -37,7 +38,6 @@
       nota?: number;
       /** Resultado cualitativo con el que cierra una actividad formativa. */
       evaluacion_obtenida?: string | null;
-      id_agenda_entrega?: number | null;
       resultado_rubrica?: Record<string, string>;
       puntaje_obtenido?: number;
     }) => void;
@@ -78,8 +78,22 @@
   let nuevoMensaje = $state('');
   let tipoSeleccionado = $state('Feedback');
   let notaEvaluacion = $state<number | null>(null);
-  let entregaSeleccionada = $state<number | null>(null);
   let notaManualOverride = $state(false);
+
+  $effect(() => {
+    if (!idGrupo) return;
+    // Polling cada 3 segundos para refrescar nuevos mensajes y confirmaciones de lectura («Visto por»)
+    const poll = router.poll(3000, {
+      only: ['interaccionesGrupo'],
+      data: { grupo_id: idGrupo },
+      preserveUrl: true,
+      replace: true,
+      showProgress: false,
+    });
+    return () => {
+      poll.stop();
+    };
+  });
 
   // Panel derecho: null = oculto; { tipo: 'detalle', ... } = evaluación pasada
   type PanelDetalle = {
@@ -163,10 +177,6 @@
   // y no hay un detalle de evaluación pasada abierto
   const mostrarPanelRubrica = $derived(esEvaluacion && !!rubricaActividad && !panelDetalle);
 
-  const entregasSinEvaluar = $derived(
-    listado_interacciones.filter((i) => i.es_entrega && !i.tiene_evaluacion && !i.fue_cancelada),
-  );
-
   function urlEntrega(idAgenda: number, ver = false): string {
     const url = `/docente/cursos/${idCurso}/actividades/${idActividad}/grupos/${idGrupo}/entregas/${idAgenda}/descargar`;
     return ver ? `${url}?ver=1` : url;
@@ -195,7 +205,6 @@
       } else {
         data.evaluacion_obtenida = evaluacionCualitativa;
       }
-      data.id_agenda_entrega = entregaSeleccionada;
       if (rubricaActividad) {
         data.resultado_rubrica = { ...seleccionRubrica };
         data.puntaje_obtenido = puntajeRubrica;
@@ -206,7 +215,6 @@
 
     nuevoMensaje = '';
     notaEvaluacion = null;
-    entregaSeleccionada = null;
     seleccionRubrica = {};
     notaManualOverride = false;
     tipoSeleccionado = tiposInteraccion[0];
@@ -225,59 +233,57 @@
 <!-- ─────────────────────────────────────────────────────────────────────────── -->
 <!-- Modal principal                                                            -->
 <!-- ─────────────────────────────────────────────────────────────────────────── -->
-<div class="w-full sm:w-[95%] h-[90vh] flex rounded-3xl bg-white shadow-2xl overflow-hidden">
+<div class="w-full sm:w-[95%] h-[90vh] flex rounded-2xl bg-white shadow-2xl overflow-hidden">
 
   <!-- ── Panel izquierdo: historial + formulario ───────────────────────────── -->
-  <div class="flex flex-col w-full {mostrarPanelRubrica || panelDetalle ? 'sm:w-2/5' : ''} px-6 md:px-10 py-8 overflow-hidden shrink-0 border-r border-gray-100">
+  <div class="flex min-w-0 flex-col w-full {mostrarPanelRubrica || panelDetalle ? 'sm:w-2/5' : 'flex-1'} h-full relative overflow-hidden shrink-0 border-r border-[#E5E7EB]">
 
-    <!-- Cabecera -->
-    <div class="flex justify-between items-start mb-5 shrink-0 pb-4 border-b">
-      <div>
-        <p class="text-xl font-bold text-uta-blue">Agenda del Grupo</p>
-        <p class="text-xs text-gray-500 mt-0.5">{cod_curso} — {nombre_actividad}</p>
-        <p class="text-xs font-bold text-uta-blue/70 mt-0.5">{nombre_grupo}</p>
+    <!-- Cabecera idéntica a estudiante -->
+    <div class="flex shrink-0 items-center justify-between border-b border-[#E5E7EB] px-5 py-3.5 bg-white z-10">
+      <div class="flex min-w-0 flex-col">
+        <span class="text-[15px] font-semibold text-[#1A1A24]">Agenda del Grupo</span>
+        <span class="truncate text-xs text-[#5A5E6E]">{cod_curso} · {nombre_actividad} · {nombre_grupo}</span>
       </div>
       <button
-        class="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0"
+        class="rounded-full p-1.5 text-[#5A5E6E] transition-colors hover:bg-[#F8FAFC] cursor-pointer"
         onclick={onCerrar}
-        aria-label="cerrar"
+        aria-label="Cerrar agenda"
       >
-        <X class="w-5 h-5" />
+        <X class="h-5 w-5" />
       </button>
     </div>
 
-    <!-- Hilo conversacional compartido -->
-    <div class="flex-1 min-h-0 mb-4 flex flex-col overflow-hidden rounded-2xl border border-slate-200">
-      <AgendaHilo
-        {listado_interacciones}
-        esDocente={true}
-        urlDescargaEntrega={urlEntrega}
-        onVerRubrica={(detalle) => {
-          const rub = detalle.rubrica ?? rubricaActividad;
-          panelDetalle = rub ? {
-            rubrica: rub,
-            puntaje_obtenido: detalle.puntaje_obtenido ?? undefined,
-            retroalimentacion: detalle.retroalimentacion,
-            resultado: detalle.resultado,
-          } : null;
-        }}
-        {isLoading}
-        {errorMensaje}
-      />
-    </div>
+    <!-- Hilo conversacional compartido (edge-to-edge) -->
+    <AgendaHilo
+      {listado_interacciones}
+      esDocente={true}
+      urlDescargaEntrega={urlEntrega}
+      onVerRubrica={(detalle) => {
+        const rub = detalle.rubrica ?? rubricaActividad;
+        panelDetalle = rub ? {
+          rubrica: rub,
+          puntaje_obtenido: detalle.puntaje_obtenido ?? undefined,
+          retroalimentacion: detalle.retroalimentacion,
+          resultado: detalle.resultado,
+        } : null;
+      }}
+      {isLoading}
+      {errorMensaje}
+    />
 
-    <!-- Formulario -->
-    <div class="shrink-0 bg-gray-50 rounded-2xl p-4">
+    <!-- Compositor inferior integrado y pegado al borde -->
+    <div class="shrink-0 border-t border-[#E5E7EB] bg-white px-5 py-3.5 z-10">
 
       <!-- Selector de tipo -->
-      <div class="flex items-center gap-2 mb-3">
+      <div class="flex items-center gap-1.5 mb-2.5">
         {#each tiposInteraccion as tipo}
           <button
+            type="button"
             onclick={() => cambiarTipo(tipo)}
-            class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors
+            class="px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors cursor-pointer
               {tipoSeleccionado === tipo
-                ? 'bg-uta-blue text-white border-uta-blue'
-                : 'bg-white text-gray-600 border-gray-300 hover:border-uta-blue/50'}"
+                ? 'bg-uta-blue text-white border-uta-blue shadow-2xs'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-uta-blue/50 hover:bg-slate-50'}"
           >
             {tipo}
           </button>
@@ -357,44 +363,31 @@
             {/if}
           </div>
         {/if}
-
-        <!-- Entrega a vincular -->
-        {#if entregasSinEvaluar.length > 0}
-          <div class="mb-3">
-            <label for="entrega-sel" class="text-xs font-bold text-gray-700 block mb-1">Entrega a evaluar:</label>
-            <select
-              id="entrega-sel"
-              bind:value={entregaSeleccionada}
-              class="w-full text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-uta-blue"
-            >
-              <option value={null}>— Evaluación general —</option>
-              {#each entregasSinEvaluar as e}
-                <option value={e.id_interaccion}>{e.archivo?.nombre_original ?? `Entrega #${e.id_interaccion}`} · {formatFechaHora(e.fecha_emision)}</option>
-              {/each}
-            </select>
-          </div>
-        {/if}
       {/if}
 
       <!-- Textarea + enviar -->
-      <div class="relative">
+      <div class="flex items-end gap-2.5">
         <textarea
           bind:value={nuevoMensaje}
-          placeholder={esEvaluacion ? 'Retroalimentación para el grupo (opcional)…' : 'Escribe un mensaje…'}
-          rows="3"
-          class="w-full p-3 pr-12 text-sm border border-gray-300 rounded-xl resize-none focus:outline-none focus:border-uta-blue focus:ring-1 focus:ring-primary/30 bg-white"
+          placeholder={esEvaluacion ? 'Retroalimentación para el grupo (opcional)…' : 'Escribe tu retroalimentación al grupo…'}
+          rows="2"
+          maxlength="2000"
+          class="flex-1 resize-none rounded-lg border border-[#D6D9E0] px-3.5 py-2.5 text-[13px] text-[#1A1A24] outline-none transition-colors focus:border-[#002F6C]"
         ></textarea>
         <button
           onclick={manejarEnvio}
           disabled={esEvaluacion
             ? (!resultadoListo || (!!rubricaActividad && !todosEvaluados) || !rubricaActividad)
             : !nuevoMensaje.trim()}
-          class="absolute bottom-3 right-3 p-2 bg-uta-blue text-white rounded-lg hover:scale-105 disabled:opacity-40 disabled:scale-100 transition-all"
-          aria-label="enviar"
+          class="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#002F6C] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#002F6C] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
-          <Send class="w-4 h-4" stroke-width={2.5} />
+          <Send class="h-3.5 w-3.5" />
+          Enviar
         </button>
       </div>
+      <span class="mt-1 block text-right font-mono text-[10.5px] text-[#5A5E6E]">
+        {nuevoMensaje.length} / 2.000
+      </span>
     </div>
   </div>
 

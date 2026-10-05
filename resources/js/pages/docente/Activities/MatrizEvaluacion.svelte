@@ -55,31 +55,7 @@
   let notaOverride = $state<number | null>(null);
   let notaManualOverride = $state(false);
   let saving = $state(false);
-  let saveSuccess = $state(false);
   let error = $state<string | null>(null);
-
-  $effect(() => {
-    let isPoppedByBrowser = false;
-
-    // Preservar el state de Inertia para que isValidState(state) no falle ni desmonte la página
-    if (typeof window !== 'undefined') {
-      window.history.pushState(window.history.state, '', window.location.href);
-    }
-
-    const handlePopState = () => {
-      isPoppedByBrowser = true;
-      onClose();
-    };
-
-    window.addEventListener('popstate', handlePopState);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      if (!isPoppedByBrowser && !saveSuccess && typeof window !== 'undefined') {
-        window.history.back();
-      }
-    };
-  });
 
   // ── Derivados ──────────────────────────────────────────────────────────────
 
@@ -191,17 +167,11 @@
         puntaje_obtenido: puntajeObtenido,
       },
       {
-        // preserveState: la página no se vuelve a montar al volver del POST.
-        // Antes se montaba de nuevo antes de llegar a onSuccess, esta matriz se
-        // desmontaba con saveSuccess aún en false y su limpieza hacía
-        // history.back(): eso restauraba el estado previo de la página y la
-        // tarjeta mostraba la nota vieja hasta un F5 (BUG-03). Las props
-        // (grupos con la nota nueva) se refrescan igual.
         preserveState: true,
         preserveScroll: true,
+        replace: true,
         onSuccess: () => {
           saving = false;
-          saveSuccess = true;
           onSuccess?.();
           onClose();
         },
@@ -214,6 +184,14 @@
     );
   }
 </script>
+
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key === 'Escape' && !saving) {
+      onClose();
+    }
+  }}
+/>
 
 <!-- Pantalla completa sobre todo lo demás -->
 <div class="fixed inset-0 z-[70] flex flex-col bg-white overflow-hidden">

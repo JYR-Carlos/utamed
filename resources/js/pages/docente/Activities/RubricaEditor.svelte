@@ -170,32 +170,8 @@
   let escalaCal = $state<EscalaCalif[]>(initEscalaCalif());
   let tab = $state<'editor' | 'preview'>(bloqueada ? 'preview' : 'editor');
   let saving = $state(false);
-  let saveSuccess = $state(false);
   let error = $state<string | null>(null);
   let yaRepartido = $state(false);
-
-  $effect(() => {
-    let isPoppedByBrowser = false;
-
-    // Preservar el state de Inertia para que isValidState(state) no falle ni desmonte la página
-    if (typeof window !== 'undefined') {
-      window.history.pushState(window.history.state, '', window.location.href);
-    }
-
-    const handlePopState = () => {
-      isPoppedByBrowser = true;
-      onClose();
-    };
-
-    window.addEventListener('popstate', handlePopState);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      if (!isPoppedByBrowser && !saveSuccess && typeof window !== 'undefined') {
-        window.history.back();
-      }
-    };
-  });
 
   // ── Computed ──────────────────────────────────────────────────────────────
 
@@ -681,9 +657,9 @@
       { rubrica: rubricaPreview as any, id_actividad: idActividad },
       {
         preserveScroll: true,
+        replace: true,
         onSuccess: () => {
           saving = false;
-          saveSuccess = true;
           onClose();
         },
         onError: (errores) => {
@@ -698,6 +674,14 @@
     );
   }
 </script>
+
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key === 'Escape' && !saving) {
+      onClose();
+    }
+  }}
+/>
 
 <!-- Full-screen overlay -->
 <div class="fixed inset-0 z-[70] flex flex-col bg-white overflow-hidden">
