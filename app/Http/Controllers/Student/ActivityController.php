@@ -150,7 +150,7 @@ class ActivityController extends Controller
                     'es_de_docente'      => $agenda->usuario?->docente !== null,
                     'es_propio'          => (int) $agenda->id_usuario_emisor === (int) $user->id_usuario,
                     'uuid_archivo'       => $agenda->uuid_archivo_subido,
-                    'es_retroalimentacion' => in_array($agenda->tipo_mensaje, [TipoMensaje::FEEDBACK, TipoMensaje::EVALUACIÓN]),
+                    'es_retroalimentacion' => $agenda->tipo_mensaje === TipoMensaje::FEEDBACK,
                     'adjunta_rubrica'    => $rubricaData !== null,
                     'rubrica'            => $rubricaData,
                     'puntaje_obtenido'   => $evaluacion?->puntaje_obtenido,
@@ -173,8 +173,19 @@ class ActivityController extends Controller
 
             if ($ultimaEvaluacionAgenda?->evaluacion) {
                 $ev = $ultimaEvaluacionAgenda->evaluacion;
+                $nombreEmisorEv = trim(
+                    ($ultimaEvaluacionAgenda->usuario?->nombre1 ?? '') . ' ' .
+                    ($ultimaEvaluacionAgenda->usuario?->apellido1 ?? '') . ' ' .
+                    ($ultimaEvaluacionAgenda->usuario?->apellido2 ?? '')
+                );
+                if (empty($nombreEmisorEv)) {
+                    $nombreEmisorEv = 'Docente';
+                }
+
                 $ultimaEvaluacion = [
                     'id_evaluacion'       => $ev->id_evaluacion,
+                    'fecha_emision'       => (string) $ultimaEvaluacionAgenda->fecha_envio,
+                    'emisor'              => $nombreEmisorEv,
                     'puntaje_obtenido'    => $ev->puntaje_obtenido,
                     'evaluacion_obtenida' => $ev->evaluacion_obtenida,
                     'resultado'           => $ev->resultado,
