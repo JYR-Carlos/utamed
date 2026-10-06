@@ -22,7 +22,7 @@
     class?: string;
   }
 
-  let { lectores = [], alinear = 'derecha', class: clase = '-mt-2.5 pb-4' }: Props = $props();
+  let { lectores = [], alinear = 'derecha', class: clase = 'mt-1.5 pb-2 px-1' }: Props = $props();
 
   const MAX_NOMBRADOS = 2;
 

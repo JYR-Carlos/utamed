@@ -28,7 +28,7 @@
    *   reload only:['interaccionesGrupo'] con grupo_id          mensajes del grupo
    */
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
-  import { Link, router } from '@inertiajs/svelte';
+  import { Link, router, page } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
@@ -115,7 +115,7 @@
     tiene_evaluaciones = false,
     puede_editar_rubrica = false,
     estudiantesInscritos = [],
-    interaccionesGrupo = [],
+    interaccionesGrupo,
     flash,
     actividadesConGrupos = [],
   }: Props = $props();
@@ -131,6 +131,28 @@
   let showAgendaModal = $state(false);
   let isLoadingInteracciones = $state(false);
   let errorInteracciones = $state<string | null>(null);
+  let interaccionesCargadas = $state<Interaccion[]>([]);
+  let mensajesOptimistasDocente = $state<Interaccion[]>([]);
+
+  // Sincroniza cuando el servidor devuelve interacciones (por reload, polling o POST)
+  $effect(() => {
+    if (interaccionesGrupo !== undefined && Array.isArray(interaccionesGrupo)) {
+      interaccionesCargadas = [...interaccionesGrupo];
+    }
+  });
+
+  const interaccionesDocenteVisibles = $derived.by(() => {
+    if (mensajesOptimistasDocente.length === 0) return interaccionesCargadas;
+    const pendientes = mensajesOptimistasDocente.filter((opt) => {
+      const optTime = new Date(opt.fecha_emision).getTime();
+      return !interaccionesCargadas.some((s) => {
+        if ((!s.es_propio && !s.es_de_docente) || s.mensaje !== opt.mensaje) return false;
+        const sTime = new Date(s.fecha_emision).getTime();
+        return Math.abs(sTime - optTime) < 60000;
+      });
+    });
+    return [...interaccionesCargadas, ...pendientes];
+  });
 
   // Estado del diálogo de confirmación (reemplaza window.confirm) — D-09.
   type ConfirmState = {
@@ -223,6 +245,8 @@
       `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos-create`,
       { estudiantes: [...seleccion] },
       {
+        preserveScroll: true,
+        replace: true,
         onSuccess: () => {
           showNuevoGrupo = false;
           seleccion = new Set();
@@ -244,6 +268,8 @@
       `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos-copy`,
       { id_actividad_origen: actividadOrigenSeleccionada, grupos: grupoIds },
       {
+        preserveScroll: true,
+        replace: true,
         onSuccess: () => {
           showReutilizarGrupos = false;
           actividadOrigenSeleccionada = null;
@@ -267,6 +293,7 @@
         cerrarConfirmacion();
         router.delete(
           `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos-delete/${grupoId}`,
+          { preserveScroll: true, replace: true },
         );
       },
     });
@@ -281,6 +308,7 @@
         cerrarConfirmacion();
         router.delete(
           `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/estudiantes/${estudianteId}`,
+          { preserveScroll: true, replace: true },
         );
       },
     });
@@ -294,6 +322,8 @@
       `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/estudiante`,
       { id_estudiante: addingEstudianteId },
       {
+        preserveScroll: true,
+        replace: true,
         onSuccess: () => {
           addingToGrupo = null;
           addingEstudianteId = 0;
@@ -331,6 +361,7 @@
         // El controlador responde redirect()->back(): Inertia ya re-renderiza con
         // props frescos. Recargar aquí volvía a ejecutar showEvaluacion() entero.
         preserveScroll: true,
+        replace: true,
         onFinish: () => (savingDecimas = null),
       },
     );
@@ -340,7 +371,7 @@
     router.post(
       `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}/recalcular-notas`,
       {},
-      { preserveScroll: true },
+      { preserveScroll: true, replace: true },
     );
   }
 
@@ -348,7 +379,7 @@
     router.patch(
       `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoId}`,
       { nro_dias_adicionales_para_bloqueo_personal: dias },
-      { preserveScroll: true },
+      { preserveScroll: true, replace: true },
     );
   }
 
@@ -392,14 +423,23 @@
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   function cargarInteracciones(grupo: GrupoData) {
-    isLoadingInteracciones = true;
+    if (interaccionesCargadas.length === 0) {
+      isLoadingInteracciones = true;
+    }
     errorInteracciones = null;
 
     router.reload({
       only: ['interaccionesGrupo'],
       data: { grupo_id: grupo.grupo },
-      onSuccess: () => {
+      preserveUrl: true,
+      replace: true,
+      showProgress: false,
+      onSuccess: (pageResult) => {
         isLoadingInteracciones = false;
+        if (pageResult?.props?.interaccionesGrupo) {
+          interaccionesCargadas = [...(pageResult.props.interaccionesGrupo as Interaccion[])];
+          mensajesOptimistasDocente = [];
+        }
       },
       onError: () => {
         errorInteracciones = 'No se pudieron cargar los mensajes del grupo.';
@@ -409,6 +449,10 @@
   }
 
   function abrirAgendaGrupo(grupo: GrupoData) {
+    if (grupoSeleccionado?.grupo !== grupo.grupo) {
+      interaccionesCargadas = [];
+      mensajesOptimistasDocente = [];
+    }
     grupoSeleccionado = grupo;
     showAgendaModal = true;
     cargarInteracciones(grupo);
@@ -417,7 +461,8 @@
   function cerrarAgenda() {
     showAgendaModal = false;
     grupoSeleccionado = null;
-    // router.reload will clear it later or we can let it be
+    interaccionesCargadas = [];
+    mensajesOptimistasDocente = [];
   }
 
   // Usa router.post() de Inertia para que el token CSRF se gestione
@@ -455,20 +500,50 @@
         },
         {
           preserveScroll: true,
-          // `grupos` llega ya actualizado en el redirect()->back(); sólo hace
-          // falta refrescar las interacciones, que son un prop lazy aparte.
-          onSuccess: () => cargarInteracciones(grupoSnap),
+          preserveState: true,
+          showProgress: false,
+          replace: true,
+          only: ['interaccionesGrupo', 'grupos', 'flash'],
           onError: (errors) => console.error('Error al registrar evaluación:', errors),
         },
       );
     } else {
+      const authUser = $page.props.auth?.user;
+      const nombreEmisor = authUser
+        ? [authUser.nombre1, authUser.apellido1, authUser.apellido2].filter(Boolean).join(' ')
+        : 'Docente';
+      const optimisticItem: Interaccion = {
+        id_interaccion: -Date.now(),
+        fecha_emision: new Date().toISOString(),
+        tipo_interaccion: 'Feedback',
+        emisor: nombreEmisor,
+        mensaje: data.mensaje,
+        es_de_docente: true,
+        es_propio: true,
+        es_retroalimentacion: true,
+      };
+      mensajesOptimistasDocente = [...mensajesOptimistasDocente, optimisticItem];
+
       router.post(
         `/docente/cursos/${curso.id_curso}/grupos/${grupoSnap.grupo}/feedback`,
         { mensaje: data.mensaje },
         {
           preserveScroll: true,
-          onSuccess: () => cargarInteracciones(grupoSnap),
-          onError: (errors) => console.error('Error al enviar feedback:', errors),
+          preserveState: true,
+          showProgress: false,
+          replace: true,
+          only: ['interaccionesGrupo', 'grupos', 'flash'],
+          onSuccess: () => {
+            mensajesOptimistasDocente = mensajesOptimistasDocente.filter(
+              (i) => i.id_interaccion !== optimisticItem.id_interaccion,
+            );
+          },
+          onError: (errors) => {
+            mensajesOptimistasDocente = mensajesOptimistasDocente.filter(
+              (i) => i.id_interaccion !== optimisticItem.id_interaccion,
+            );
+            console.error('Error al enviar feedback:', errors);
+          },
         },
       );
     }
@@ -816,7 +891,7 @@
           idCurso={curso.id_curso}
           idActividad={actividad.id_actividad}
           idGrupo={grupoSeleccionado.grupo}
-          listado_interacciones={interaccionesGrupo}
+          listado_interacciones={interaccionesDocenteVisibles}
           isLoading={isLoadingInteracciones}
           errorMensaje={errorInteracciones}
           rubricaActividad={rubrica}

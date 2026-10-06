@@ -15,6 +15,7 @@ export interface InteraccionItem {
   adjunta_rubrica?: boolean;
   rubrica?: Rubrica | null;
   puntaje_obtenido?: number | null;
+  evaluacion_obtenida?: string | number | null;
   resultado?: Record<string, string> | null;
   archivo?: {
     nombre_original: string | null;
@@ -30,6 +31,9 @@ export interface InteraccionItem {
   fue_cancelada?: boolean;
   fecha_cancelacion?: string | null;
   cancelado_por?: string | null;
+  fue_reemplazada?: boolean;
+  fue_reevaluada?: boolean;
+  es_no_valido?: boolean;
   /** Sólo en el último mensaje del hilo: quiénes lo han visto (T07). */
   visto_por?: Array<{ nombre: string; fecha_lectura: string }>;
 }

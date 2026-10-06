@@ -154,6 +154,7 @@ class ActivityController extends Controller
                     'adjunta_rubrica'    => $rubricaData !== null,
                     'rubrica'            => $rubricaData,
                     'puntaje_obtenido'   => $evaluacion?->puntaje_obtenido,
+                    'evaluacion_obtenida' => $evaluacion?->evaluacion_obtenida,
                     'resultado'          => $evaluacion?->resultado,
                     'archivo'            => $agenda->tipo_mensaje === TipoMensaje::ENTREGA_DE_ARCHIVO
                         ? $agenda->getArchivoInfo()
@@ -173,11 +174,12 @@ class ActivityController extends Controller
             if ($ultimaEvaluacionAgenda?->evaluacion) {
                 $ev = $ultimaEvaluacionAgenda->evaluacion;
                 $ultimaEvaluacion = [
-                    'id_evaluacion'    => $ev->id_evaluacion,
-                    'puntaje_obtenido' => $ev->puntaje_obtenido,
-                    'resultado'        => $ev->resultado,
-                    'retroalimentacion'=> $ultimaEvaluacionAgenda->mensaje,
-                    'rubrica'          => $ev->rubrica?->rubrica,
+                    'id_evaluacion'       => $ev->id_evaluacion,
+                    'puntaje_obtenido'    => $ev->puntaje_obtenido,
+                    'evaluacion_obtenida' => $ev->evaluacion_obtenida,
+                    'resultado'           => $ev->resultado,
+                    'retroalimentacion'   => $ultimaEvaluacionAgenda->mensaje,
+                    'rubrica'             => $ev->rubrica?->rubrica,
                 ];
             }
 

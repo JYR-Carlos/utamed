@@ -1,20 +1,9 @@
 <script lang="ts">
   import { MessageSquare, ArrowUpRight } from 'lucide-svelte';
-  import type { Rubrica } from '@/types/rubrica';
+  import type { InteraccionItem } from '@/types/agenda';
 
   interface Props {
-    listado_interacciones: Array<{
-      id_interaccion: number;
-      fecha_emision: string;
-      tipo_interaccion: string;
-      emisor: string;
-      mensaje: string;
-      es_de_docente: boolean;
-      es_retroalimentacion: boolean;
-      adjunta_rubrica: boolean;
-      rubrica?: Rubrica | null;
-      puntaje_obtenido?: number | null;
-    }>;
+    listado_interacciones: InteraccionItem[];
     onAgendaClick: () => void;
   }
 

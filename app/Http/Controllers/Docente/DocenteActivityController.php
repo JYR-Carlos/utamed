@@ -849,7 +849,7 @@ class DocenteActivityController extends Controller
             'estudiantesInscritos' => $estudiantesInscritos,
             'actividadesConGrupos' => $actividadesConGrupos,
             'interaccionesGrupo' => Inertia::lazy(function () {
-                $grupoId = request('grupo_id');
+                $grupoId = request('grupo_id') ?? session('agenda_grupo_id');
                 if (!$grupoId) {
                     return [];
                 }
@@ -1898,7 +1898,9 @@ class DocenteActivityController extends Controller
                 // 1. Autor: GitHub Copilot
                 // 2. Fecha: 02/06/2026
                 // 3. Devuelve redirect()->back() para compatibilidad con Inertia.js.
-                return redirect()->back()->with('success', 'Evaluación registrada correctamente.');
+                return redirect()->back()
+                    ->with('success', 'Evaluación registrada correctamente.')
+                    ->with('agenda_grupo_id', $grupo);
             });
         } catch (\Exception $e) {
             Log::error('[storeEvaluacion] Error al registrar evaluación: ' . $e->getMessage(), [
@@ -1945,7 +1947,9 @@ class DocenteActivityController extends Controller
             'fecha_envio' => now(),
         ]);
 
-        return redirect()->back()->with('success', 'Feedback enviado correctamente.');
+        return redirect()->back()
+            ->with('success', 'Feedback enviado correctamente.')
+            ->with('agenda_grupo_id', $grupo);
     }
 
     /**

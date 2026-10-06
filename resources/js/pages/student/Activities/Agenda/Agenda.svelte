@@ -9,6 +9,7 @@
   import RubricaView from './Rubrica.svelte';
   import AgendaHilo from './AgendaHilo.svelte';
   import type { InteraccionItem, RubricaDetalleEvent } from '@/types/agenda';
+  import { router } from '@inertiajs/svelte';
   import { X, Send } from 'lucide-svelte';
 
   interface Props {
@@ -60,6 +61,17 @@
 
   let nuevoMensaje = $state('');
   let interaccionSeleccionada = $state<RubricaDetalleEvent | null>(null);
+
+  $effect(() => {
+    // Polling cada 3 segundos para refrescar nuevos mensajes y confirmaciones de lectura («Visto por»)
+    const poll = router.poll(3000, {
+      only: ['listado_interacciones'],
+      showProgress: false,
+    });
+    return () => {
+      poll.stop();
+    };
+  });
 
   function manejarEnvio() {
     if (nuevoMensaje.trim() === '') return;
@@ -137,7 +149,7 @@
     <div class="shrink-0 border-t border-[#E5E7EB] bg-white px-5 py-3.5 z-10">
       {#if entrega_obligatoria}
         <div class="mb-2.5 flex items-start gap-2 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] px-2.5 py-1.5 text-[11.5px] text-[#B45309]">
-          Un mensaje no entrega la actividad. Usa el botón <strong class="font-semibold">Entregar</strong>, arriba.
+          Un mensaje no entrega la actividad. Debes realizar la entrega en la página de la actividad usando el botón <strong class="font-semibold">Entregar</strong>.
         </div>
       {/if}
 

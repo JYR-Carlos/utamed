@@ -9,7 +9,7 @@
   import ActivityHeaderCard from './cards/ActivityHeaderCard.svelte';
   import ActivitySubmissionCard from './cards/ActivitySubmissionCard.svelte';
   import ActivityAgendaCard from './cards/ActivityAgendaCard.svelte';
-  import { router } from '@inertiajs/svelte';
+  import { router, page } from '@inertiajs/svelte';
   import { onMount } from 'svelte';
   import ActivityGradeCard from './cards/ActivityGradeCard.svelte';
   import Entrega from './Agenda/Entrega.svelte';
@@ -101,6 +101,21 @@
   let showAgendaModal = $state(false);
   let showEntregaModal = $state(false);
   let showEnunciadoModal = $state(false);
+  let mensajesOptimistas = $state<InteraccionItem[]>([]);
+
+  const interaccionesCombinadas = $derived.by(() => {
+    if (mensajesOptimistas.length === 0) return listado_interacciones ?? [];
+    const delServidor = listado_interacciones ?? [];
+    const pendientes = mensajesOptimistas.filter((opt) => {
+      const optTime = new Date(opt.fecha_emision).getTime();
+      return !delServidor.some((s) => {
+        if (!s.es_propio || s.mensaje !== opt.mensaje) return false;
+        const sTime = new Date(s.fecha_emision).getTime();
+        return Math.abs(sTime - optTime) < 60000;
+      });
+    });
+    return [...delServidor, ...pendientes];
+  });
 
   // Desde el dashboard («Notas y retroalimentaciones recientes») se llega con
   // ?abrir=agenda (o #agenda) para aterrizar directo en la conversación.
@@ -189,12 +204,39 @@
       return;
     }
 
+    const authUser = $page.props.auth?.user;
+    const nombreEmisor = authUser
+      ? [authUser.nombre1, authUser.apellido1, authUser.apellido2].filter(Boolean).join(' ')
+      : 'Estudiante';
+    const optimisticItem: InteraccionItem = {
+      id_interaccion: -Date.now(),
+      fecha_emision: new Date().toISOString(),
+      tipo_interaccion: 'Mensaje al profesor',
+      emisor: nombreEmisor,
+      mensaje: data.mensaje,
+      es_de_docente: false,
+      es_propio: true,
+    };
+    mensajesOptimistas = [...mensajesOptimistas, optimisticItem];
+
     router.post(
       `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/agenda`,
       { tipo: data.tipo, mensaje: data.mensaje },
       {
-        onSuccess: () => router.reload(),
-        onError: (errors) => alert(errors.error || 'Error al enviar mensaje'),
+        preserveScroll: true,
+        preserveState: true,
+        showProgress: false,
+        onSuccess: () => {
+          mensajesOptimistas = mensajesOptimistas.filter(
+            (i) => i.id_interaccion !== optimisticItem.id_interaccion,
+          );
+        },
+        onError: (errors) => {
+          mensajesOptimistas = mensajesOptimistas.filter(
+            (i) => i.id_interaccion !== optimisticItem.id_interaccion,
+          );
+          alert(errors.error || 'Error al enviar mensaje');
+        },
       },
     );
   }
@@ -252,7 +294,7 @@
           {/if}
 
           {#if id_actividad_asignada_grupo}
-            <ActivityAgendaCard {listado_interacciones} onAgendaClick={toggleAgendaModal} />
+            <ActivityAgendaCard listado_interacciones={interaccionesCombinadas} onAgendaClick={toggleAgendaModal} />
           {/if}
         </main>
 
@@ -305,7 +347,7 @@
       {cod_actividad}
       {nombre_actividad}
       {entrega_obligatoria}
-      {listado_interacciones}
+      listado_interacciones={interaccionesCombinadas}
       {id_actividad_asignada_grupo}
       equipoDocente={equipo_docente}
       esSumativa={es_sumativa}
