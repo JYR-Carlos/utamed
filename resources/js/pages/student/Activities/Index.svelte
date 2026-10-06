@@ -44,6 +44,8 @@
     rubrica?: RubricaResponse | null;
     ultima_evaluacion?: {
       id_evaluacion: number;
+      fecha_emision?: string | null;
+      emisor?: string | null;
       puntaje_obtenido: number | null;
       resultado: Record<string, string> | null;
       retroalimentacion?: string | null;
@@ -135,20 +137,21 @@
 
   const tieneEntregaRegistrada = $derived(ultima_entrega !== null);
 
-  // Última interacción de tipo evaluación/feedback: alimenta el pie de la
+  // Última interacción de tipo evaluación: alimenta el pie de la
   // card de nota ("Publicada {fecha} · {evaluador}") con datos reales, sin
   // inventar una ponderación o fecha que el backend no envía.
   const ultimaEvaluacion = $derived.by(() => {
-    for (let i = listado_interacciones.length - 1; i >= 0; i--) {
-      if (listado_interacciones[i].es_retroalimentacion) return listado_interacciones[i];
+    const interacciones = listado_interacciones ?? [];
+    for (let i = interacciones.length - 1; i >= 0; i--) {
+      if (interacciones[i].tipo_interaccion === 'Evaluación') return interacciones[i];
     }
     return null;
   });
 
   const yaEvaluada = $derived(
     (ultima_nota !== null && ultima_nota !== undefined) ||
-    ultima_evaluacion !== null ||
-    ultimaEvaluacion !== null
+    Boolean(ultima_evaluacion) ||
+    Boolean(ultimaEvaluacion)
   );
 
   const puedeSubirArchivo = $derived(
@@ -304,8 +307,8 @@
             <ActivityGradeCard
               {ultima_nota}
               {es_sumativa}
-              fecha_evaluacion={ultimaEvaluacion?.fecha_emision}
-              evaluador={ultimaEvaluacion?.emisor}
+              fecha_evaluacion={ultima_evaluacion?.fecha_emision ?? ultimaEvaluacion?.fecha_emision}
+              evaluador={ultima_evaluacion?.emisor ?? ultimaEvaluacion?.emisor}
               onVerRubricaClick={rubrica ? toggleRubricaModal : undefined}
             />
           {/if}
