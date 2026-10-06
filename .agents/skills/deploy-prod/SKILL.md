@@ -121,6 +121,60 @@ git checkout "$ORIGIN_BRANCH"
 
 ---
 
+## 📜 Inspección de Logs en Producción
+
+Los logs se almacenan en el storage compartido persistente del servidor y en los registros del servidor web:
+
+### 1. Logs de la Aplicación Laravel
+- **Ubicación en el servidor**:
+  `/var/www/shared_utamed/storage/logs/laravel.log`  
+  *(También accesible por el symlink en `/var/www/prod_utamed/storage/logs/laravel.log`)*
+- **Monitoreo en tiempo real (vía SSH desde WSL / Git Bash)**:
+  ```bash
+  ssh utamed@146.83.111.155 "tail -n 100 -f /var/www/shared_utamed/storage/logs/laravel.log"
+  ```
+- **Buscar errores específicos recientes**:
+  ```bash
+  ssh utamed@146.83.111.155 "grep -E 'ERROR|CRITICAL|Exception' /var/www/shared_utamed/storage/logs/laravel.log | tail -n 50"
+  ```
+
+### 2. Logs del Servidor Web (Apache)
+- **Ubicación de errores**: `/var/log/apache2/error.log`
+- **Ubicación de accesos**: `/var/log/apache2/access.log`
+- **Monitoreo en tiempo real**:
+  ```bash
+  ssh utamed@146.83.111.155 "sudo tail -n 100 -f /var/log/apache2/error.log"
+  ```
+- **Monitoreo del servicio con systemd**:
+  ```bash
+  ssh utamed@146.83.111.155 "sudo journalctl -u apache2 -f -n 50"
+  ```
+
+---
+
+## 🧪 Pruebas de Cuentas en Producción (`php artisan dev:pair`)
+
+El comando `php artisan dev:pair` **sí funciona en el entorno de producción** (no tiene restricciones de entorno local), permitiendo obtener credenciales de prueba de un docente y un estudiante del mismo curso.
+
+### Uso en Servidor
+```bash
+# Ejecución vía SSH en el directorio de producción:
+ssh utamed@146.83.111.155 "cd /var/www/prod_utamed && php artisan dev:pair --todos"
+
+# Para un curso específico o con actividades:
+ssh utamed@146.83.111.155 "cd /var/www/prod_utamed && php artisan dev:pair --todos --actividades"
+ssh utamed@146.83.111.155 "cd /var/www/prod_utamed && php artisan dev:pair --curso=2"
+```
+
+> [!NOTE]
+> **Uso del flag `--todos`**: Por defecto, `dev:pair` filtra estrictamente cursos activos del año y semestre en curso actual. Si los cursos de producción están en períodos anteriores o históricos, se debe incluir el flag `--todos` para encontrarlos.
+
+> [!WARNING]
+> **Precaución crítica con `--unlock` en producción**:  
+> El flag `--unlock` resetea la contraseña de los usuarios consultados a `"password"` y actualiza `fecha_cambio_passhash` para permitir login directo. **No utilices `--unlock` con cuentas de docentes o alumnos reales en producción**, ya que sobreescribirá su contraseña activa. Úsalo únicamente si consultas cursos de prueba específicos.
+
+---
+
 ## 🚨 Plan de Contingencia y Rollback
 
 Si durante o después del despliegue se detecta algún error crítico en producción (error 500, inconsistencia de datos o caída de servicios), se debe invocar inmediatamente el script interactivo de contingencia:

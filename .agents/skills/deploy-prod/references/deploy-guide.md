@@ -52,6 +52,32 @@ Este documento detalla la arquitectura, etapas y mecanismos de seguridad del pip
 
 ---
 
+## 📜 Monitoreo e Inspección de Logs en Producción
+
+- **Logs de Laravel**: `/var/www/shared_utamed/storage/logs/laravel.log` (persistente en el storage compartido).
+  ```bash
+  ssh utamed@146.83.111.155 "tail -n 100 -f /var/www/shared_utamed/storage/logs/laravel.log"
+  ```
+- **Logs del Servidor Web (Apache)**:
+  - Error: `/var/log/apache2/error.log`
+  - Access: `/var/log/apache2/access.log`
+  ```bash
+  ssh utamed@146.83.111.155 "sudo tail -n 100 -f /var/log/apache2/error.log"
+  ```
+
+---
+
+## 🧪 Pruebas de Cuentas en Producción (`php artisan dev:pair`)
+
+El comando `dev:pair` funciona en producción para extraer un par (docente + estudiante) del mismo curso:
+```bash
+ssh utamed@146.83.111.155 "cd /var/www/prod_utamed && php artisan dev:pair --todos"
+```
+- Usar `--todos` para permitir cursos de semestres/años anteriores (en producción suelen ser históricos).
+- **Precaución**: No usar `--unlock` sobre usuarios reales en producción, ya que resetea su contraseña a `"password"`.
+
+---
+
 ## 🆘 Protocolo de Contingencia (`produccion/rollback.sh`)
 
 En caso de cualquier anomalía tras el despliegue:
