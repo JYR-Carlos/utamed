@@ -29,6 +29,7 @@
     ClipboardList,
   } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
+  import { PUNTO_ESTADO } from '@/utils/actividadEstado';
   import { formatFechaCorta, formatNota } from '@/utils/formatters';
 
   // ── Props ─────────────────────────────────────────────────────────────────
@@ -103,9 +104,9 @@
   }
 
   const COLUMNAS = $derived([
-    { id: 'planificada' as const, label: 'Planificada', items: planificadas, dot: 'bg-[#64748B]' },
-    { id: 'activa' as const, label: 'Activa', items: activas, dot: 'bg-[#059669]' },
-    { id: 'cerrada' as const, label: 'Cerrada', items: cerradas, dot: 'bg-[#475569]' },
+    { id: 'planificada' as const, label: 'Planificada', items: planificadas, dot: PUNTO_ESTADO.planificada },
+    { id: 'activa' as const, label: 'Activa', items: activas, dot: PUNTO_ESTADO.activa },
+    { id: 'cerrada' as const, label: 'Cerrada', items: cerradas, dot: PUNTO_ESTADO.cerrada },
   ]);
 
   const TAG =

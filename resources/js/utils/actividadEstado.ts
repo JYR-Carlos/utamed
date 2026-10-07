@@ -57,6 +57,30 @@ export const PILL_ESTADO: Record<EstadoActividad, string> = {
         'inline-flex items-center gap-1.5 rounded-full border border-[#CBD5E1] bg-[#F1F5F9] px-2.5 py-[3px] text-[11.5px] font-medium text-[#475569]',
 };
 
+/**
+ * Sólo el color (borde, fondo y texto) de cada estado, para pastillas que ya
+ * traen su propio tamaño y forma. Es la misma paleta de PILL_ESTADO: verde
+ * para lo abierto y pizarra para lo cerrado, en todas las pantallas.
+ */
+export const COLOR_ESTADO: Record<EstadoActividad, string> = {
+    planificada: 'border-[#E5E7EB] bg-[#F5F1EA] text-[#5A5E6E]',
+    activa: 'border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]',
+    cerrada: 'border-[#CBD5E1] bg-[#F1F5F9] text-[#475569]',
+};
+
+/**
+ * Color de la pastilla del estado guardado de un grupo
+ * (`agenda.estado_actividad_asignada`: 'PLANIFICADA' | 'ACTIVA' | 'CERRADA').
+ *
+ * El estado del grupo cuenta la holgura general y la personal, así que un grupo
+ * puede seguir «Activa» cuando la actividad ya cerró: es lo que el docente
+ * necesita ver, y por eso no tiene un color propio.
+ */
+export function colorEstadoGrupo(estado: string | null | undefined): string {
+    const clave = (estado ?? '').toLowerCase() as EstadoActividad;
+    return COLOR_ESTADO[clave] ?? 'border-[#E5E7EB] bg-white text-[#5A5E6E]';
+}
+
 /** Color del punto que precede al rótulo dentro de la pastilla. */
 export const PUNTO_ESTADO: Record<EstadoActividad, string> = {
     planificada: 'bg-[#A8A093]',

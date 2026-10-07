@@ -31,6 +31,7 @@
    * `?grupo={id}` abre al cargar la agenda de ese grupo: es el destino de la
    * bandeja de mensajes (docente/Mensajes), que no muestra las conversaciones.
    */
+  import { colorEstadoGrupo } from '@/utils/actividadEstado';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import { onMount } from 'svelte';
   import { Link, router, page } from '@inertiajs/svelte';
@@ -610,13 +611,9 @@
     }
   }
 
-  function getEstadoColor(estado: string) {
-    const e = estado.toUpperCase();
-    if (e === 'ACTIVA') return 'bg-uta-blue/10 text-uta-blue border-uta-blue/30';
-    if (e === 'CERRADA') return 'bg-green-100 text-green-800 border-green-300';
-    if (e === 'PLANIFICADA') return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    return 'bg-gray-100 text-gray-800 border-gray-300';
-  }
+  // Misma paleta que la lista y el tablero de actividades (actividadEstado.ts):
+  // antes «CERRADA» salía en verde, el color de «Activa» en el resto.
+  const getEstadoColor = colorEstadoGrupo;
 </script>
 
 <DocenteLayout {breadcrumbs}>

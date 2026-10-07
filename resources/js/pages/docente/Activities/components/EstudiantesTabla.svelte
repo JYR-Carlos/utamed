@@ -144,7 +144,7 @@
             <span
               class="inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold {grupo.estado_actividad_asignada
                 ? getEstadoColor(grupo.estado_actividad_asignada)
-                : 'border-gray-300 bg-gray-100 text-gray-800'}"
+                : 'border-[#E5E7EB] bg-white text-[#5A5E6E]'}"
             >
               {grupo.estado_actividad_asignada?.toUpperCase() ?? 'SIN ESTADO'}
             </span>
