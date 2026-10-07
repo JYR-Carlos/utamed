@@ -46,7 +46,7 @@
     actividades,
     idCurso,
     canEdit = false,
-    onCopiar = () => {},
+    onCopiar,
   }: Props = $props();
 
   // ── Clasificación ─────────────────────────────────────────────────────────
@@ -205,12 +205,12 @@
                 </span>
               {/if}
 
-              {#if canEdit}
+              {#if onCopiar}
                 <button
                   type="button"
                   class="inline-flex items-center justify-center rounded-[5px] p-1 text-[#5A5E6E] transition-colors hover:bg-[#E5E7EB] hover:text-[#002F6C]"
-                  title="Copiar a curso hermano"
-                  aria-label={`Copiar ${act.nombre} a curso hermano`}
+                  title="Copiar a otro curso"
+                  aria-label="Copiar {act.nombre} a otro curso"
                   onclick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
