@@ -14,7 +14,7 @@
  * actividad de columna.
  */
 import type { Actividad } from '@/types/actividad';
-import { parseFechaSoloDia } from '@/utils/formatters';
+import { cierreEnChile } from '@/utils/plazo';
 
 export type EstadoActividad = 'planificada' | 'activa' | 'cerrada';
 
@@ -34,10 +34,9 @@ export function estadoActividad(a: Actividad, ahora: Date = new Date()): EstadoA
     if (!a.visible) return 'planificada';
     // Sin fecha límite la actividad sigue abierta: nunca vence sola.
     if (!a.fecha_limite) return 'activa';
-    // fecha_limite es fecha-solo-día: el cierre es al final de ese día.
-    const limite = parseFechaSoloDia(a.fecha_limite);
-    limite.setHours(23, 59, 59, 999);
-    return limite >= ahora ? 'activa' : 'cerrada';
+    // fecha_limite es fecha-solo-día: cierra a las 23:59 de ese día en Chile,
+    // igual que el backend, aunque el navegador esté en otra zona.
+    return cierreEnChile(a.fecha_limite) >= ahora ? 'activa' : 'cerrada';
 }
 
 /** Rótulo humano del estado. */

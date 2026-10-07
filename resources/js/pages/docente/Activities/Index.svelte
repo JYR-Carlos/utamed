@@ -40,7 +40,7 @@
   import type { InteraccionItem } from '@/types/agenda';
   import { ChevronLeft, Plus, Users, Pencil, Copy, Eye, Lock, Send, Loader2, X } from 'lucide-svelte';
   import { ConfirmDialog } from '@/components/custom/common';
-  import { formatFechaHora } from '@/utils/formatters';
+  import { textoCierre } from '@/utils/plazo';
   import AgendaDocente from './Agenda/AgendaDocente.svelte';
   import RubricaEditor from './RubricaEditor.svelte';
   import MatrizEvaluacion from './MatrizEvaluacion.svelte';
@@ -614,6 +614,8 @@
   // Misma paleta que la lista y el tablero de actividades (actividadEstado.ts):
   // antes «CERRADA» salía en verde, el color de «Activa» en el resto.
   const getEstadoColor = colorEstadoGrupo;
+
+  const cierre = $derived(actividad.fecha_limite ? textoCierre(actividad.fecha_limite) : null);
 </script>
 
 <DocenteLayout {breadcrumbs}>
@@ -681,9 +683,18 @@
           >
             <div class="min-w-0">
               <dt class="text-xs font-medium text-slate-500">Fecha límite</dt>
-              <dd class="font-semibold text-slate-700 break-words">
-                {formatFechaHora(actividad.fecha_limite)}
-              </dd>
+              <!-- Fecha sin hora: cierra a las 23:59 de Chile, no a la medianoche UTC
+                   que daba new Date() (se veía «23 sept, 09:00 p. m.»). -->
+              {#if cierre}
+                <dd class="font-semibold text-slate-700 break-words">
+                  {cierre.chile} <span class="font-normal text-slate-500">(hora de Chile)</span>
+                </dd>
+                {#if cierre.local}
+                  <dd class="text-xs text-slate-500">Tu hora: {cierre.local}</dd>
+                {/if}
+              {:else}
+                <dd class="font-semibold text-slate-700">Sin fecha límite</dd>
+              {/if}
             </div>
             <div class="min-w-0">
               <dt class="text-xs font-medium text-slate-500">Tipo de actividad</dt>

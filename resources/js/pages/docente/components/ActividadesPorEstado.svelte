@@ -29,7 +29,7 @@
     ClipboardList,
   } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
-  import { PUNTO_ESTADO } from '@/utils/actividadEstado';
+  import { PUNTO_ESTADO, estadoActividad } from '@/utils/actividadEstado';
   import { formatFechaCorta, formatNota } from '@/utils/formatters';
 
   // ── Props ─────────────────────────────────────────────────────────────────
@@ -54,11 +54,11 @@
 
   const now = new Date();
 
+  // La regla vive en actividadEstado.ts. Aquí se comparaba con
+  // new Date(fecha_limite) (medianoche UTC = 21:00 del día anterior en Chile)
+  // y la actividad pasaba a «Cerrada» ~27 horas antes del cierre real.
   function estadoDe(a: Actividad): EstadoId {
-    if (!a.visible) return 'planificada';
-    // Sin fecha límite la actividad sigue abierta: nunca vence sola.
-    if (!a.fecha_limite) return 'activa';
-    return new Date(a.fecha_limite) > now ? 'activa' : 'cerrada';
+    return estadoActividad(a, now);
   }
 
   const planificadas = $derived(actividades.filter((a) => estadoDe(a) === 'planificada'));
