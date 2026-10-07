@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Docente;
 
+use App\Services\Agenda\AvanceEvaluacionService;
 use App\Http\Controllers\Controller;
 use App\Models\Curso\Curso;
 use App\Models\Curso\DocenteComponente;
@@ -297,20 +298,9 @@ class DocenteCursoController extends Controller
             ->with(['componente.tipoComponente'])
             ->get();
 
-        // Avance de evaluación por actividad: cada grupo asignado es una entrega
-        // evaluable; `nota` no nula = calificada. Sirve para la barra de progreso
-        // y el promedio que muestran las tarjetas del kanban.
-        $avancePorActividad = $actividadesModelo->isEmpty()
-            ? collect()
-            : DB::table('agenda.actividad_asignada_grupo')
-                ->whereIn('id_actividad', $actividadesModelo->pluck('id_actividad'))
-                ->groupBy('id_actividad')
-                ->selectRaw('id_actividad,
-                             COUNT(*) AS total_grupos,
-                             COUNT(nota) AS calificados,
-                             AVG(nota) AS promedio')
-                ->get()
-                ->keyBy('id_actividad');
+        // Avance de evaluación de cada actividad para las tarjetas del tablero.
+        $avancePorActividad = app(AvanceEvaluacionService::class)
+            ->porActividad($actividadesModelo->pluck('id_actividad'));
 
         $actividades = $actividadesModelo->map(function ($a) use ($avancePorActividad) {
             $avance = $avancePorActividad->get($a->id_actividad);
@@ -326,9 +316,7 @@ class DocenteCursoController extends Controller
                 'visible'        => $a->visible,
                 'ponderacion'    => $a->ponderacion !== null ? (float) $a->ponderacion : null,
                 'id_componente'  => $a->id_componente,
-                'total_grupos'   => (int) ($avance->total_grupos ?? 0),
-                'calificados'    => (int) ($avance->calificados ?? 0),
-                'promedio_nota'  => $avance?->promedio !== null ? round((float) $avance->promedio, 1) : null,
+                ...DocenteActivityController::datosAvance($avance),
                 'componente'     => $a->componente ? [
                     'id_componente'  => $a->componente->id_componente,
                     // Clave `tipo`: es la que lee el tipo compartido `Actividad`

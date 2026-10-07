@@ -25,6 +25,7 @@ use App\Models\Curso\InscripcionCurso;
 use App\Models\Curso\Unidad;
 use App\Models\Usuario\Usuario;
 use App\Services\ActividadService;
+use App\Services\Agenda\AvanceEvaluacionService;
 use App\Services\Agenda\GrupoIndividualService;
 use App\Services\Agenda\LecturaAgendaService;
 use App\Services\Archive\Handlers\ActivityArchiveHandler;
@@ -240,20 +241,9 @@ class DocenteActivityController extends Controller
 
         $idsActividad = $actividades->pluck('id_actividad');
 
-        // Avance de evaluación por actividad. Mismo criterio que el kanban de
-        // DocenteCursoController: cada grupo asignado es una unidad evaluable y
-        // `nota` no nula = calificada. NO es un contador de entregas.
-        $avancePorActividad = $idsActividad->isEmpty()
-            ? collect()
-            : DB::table('agenda.actividad_asignada_grupo')
-                ->whereIn('id_actividad', $idsActividad)
-                ->groupBy('id_actividad')
-                ->selectRaw('id_actividad,
-                             COUNT(*) AS total_grupos,
-                             COUNT(nota) AS calificados,
-                             AVG(nota) AS promedio')
-                ->get()
-                ->keyBy('id_actividad');
+        // Avance de evaluación de cada actividad para las tarjetas del tablero
+        // (mismo servicio que la pestaña Actividades de DocenteCursoController).
+        $avancePorActividad = app(AvanceEvaluacionService::class)->porActividad($idsActividad);
 
         // Entregas realmente recibidas: filas de agenda.agenda del tipo
         // «Entrega de archivo» no canceladas, colgadas de los grupos de la actividad. Es lo que
@@ -282,12 +272,7 @@ class DocenteActivityController extends Controller
                 'peso_bytes' => $actividad->archivo->peso_bytes,
             ] : null;
 
-            $avance = $avancePorActividad->get($actividad->id_actividad);
-            $datos['total_grupos'] = (int) ($avance->total_grupos ?? 0);
-            $datos['calificados'] = (int) ($avance->calificados ?? 0);
-            $datos['promedio_nota'] = $avance?->promedio !== null
-                ? round((float) $avance->promedio, 1)
-                : null;
+            $datos = array_merge($datos, self::datosAvance($avancePorActividad->get($actividad->id_actividad)));
             $datos['total_entregas'] = (int) ($entregasPorActividad[$actividad->id_actividad] ?? 0);
 
             return $datos;
@@ -311,6 +296,23 @@ class DocenteActivityController extends Controller
             'estados' => $estados,
             'reglas_enunciado' => $this->reglasEnunciado(),
         ]);
+    }
+
+    /**
+     * Métricas de AvanceEvaluacionService con las claves que lee el tablero
+     * (tipo `Actividad` del frontend). Público para DocenteCursoController.
+     */
+    public static function datosAvance(?array $avance): array
+    {
+        return [
+            'total_grupos'       => $avance['total_grupos'] ?? 0,
+            'grupos_con_entrega' => $avance['grupos_con_entrega'] ?? 0,
+            'calificados'        => $avance['calificados'] ?? 0,
+            'por_calificar'      => $avance['por_calificar'] ?? 0,
+            'con_feedback'       => $avance['con_feedback'] ?? 0,
+            'por_revisar'        => $avance['por_revisar'] ?? 0,
+            'promedio_nota'      => $avance['promedio'] ?? null,
+        ];
     }
 
     /**

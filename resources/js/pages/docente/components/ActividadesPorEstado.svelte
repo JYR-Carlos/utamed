@@ -30,6 +30,7 @@
   } from 'lucide-svelte';
   import type { Actividad } from '@/types/actividad';
   import { PUNTO_ESTADO, estadoActividad } from '@/utils/actividadEstado';
+  import { cierreEnChile } from '@/utils/plazo';
   import { formatFechaCorta, formatNota } from '@/utils/formatters';
 
   // ── Props ─────────────────────────────────────────────────────────────────
@@ -67,9 +68,9 @@
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  /** Días que faltan (positivo) o que pasaron (negativo) respecto de hoy. */
+  /** Días que faltan (positivo) o que pasaron (negativo) hasta el cierre en Chile. */
   function diasRestantes(d: string): number {
-    return Math.ceil((new Date(d).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.ceil((cierreEnChile(d).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   }
 
   function cierreLabel(a: Actividad): string {
@@ -94,13 +95,34 @@
     return a.ponderacion != null ? `${a.ponderacion}%` : '';
   }
 
-  function sinCalificar(a: Actividad): number {
-    return Math.max(0, (a.total_grupos ?? 0) - (a.calificados ?? 0));
-  }
-
-  function pctCalificado(a: Actividad): number {
+  /**
+   * Avance de evaluación de la tarjeta. Antes era una barra con
+   * «calificadas / grupos»: una formativa no lleva nota y se quedaba en 0 %
+   * para siempre. Ahora:
+   *  - sumativa:  calificadas (con nota) y por calificar (entregaron, sin nota);
+   *  - formativa: con retroalimentación (feedback del docente) y por revisar.
+   * Sin entrega de archivo, lo pendiente es todo grupo aún no revisado.
+   */
+  function avance(a: Actividad) {
+    const sumativa = a.tipo_actividad === 'SUMATIVA';
+    const conEntrega = a.tipo_entrega !== 'SIN_ENTREGA';
     const total = a.total_grupos ?? 0;
-    return total === 0 ? 0 : Math.round(((a.calificados ?? 0) / total) * 100);
+    const revisadas = sumativa ? (a.calificados ?? 0) : (a.con_feedback ?? 0);
+    const pendientes = conEntrega
+      ? sumativa
+        ? (a.por_calificar ?? 0)
+        : (a.por_revisar ?? 0)
+      : Math.max(0, total - revisadas);
+    return {
+      total,
+      conEntrega,
+      entregaron: a.grupos_con_entrega ?? 0,
+      revisadas,
+      pendientes,
+      rotuloRevisadas: sumativa ? 'calificadas' : 'con retroalimentación',
+      rotuloPendientes: sumativa ? 'por calificar' : 'por revisar',
+      promedio: sumativa ? (a.promedio_nota ?? null) : null,
+    };
   }
 
   const COLUMNAS = $derived([
@@ -137,7 +159,7 @@
         </div>
       {:else}
         {#each col.items as act (act.id_actividad)}
-          {@const pendientes = sinCalificar(act)}
+          {@const av = avance(act)}
           <Link
             href="/docente/cursos/{idCurso}/actividades/{act.id_actividad}/evaluacion"
             class="flex flex-col gap-2 rounded-[10px] p-3 no-underline transition-colors duration-150 {col.id ===
@@ -167,12 +189,12 @@
                 <span class="ml-auto text-[11px] font-semibold text-[#047857]"
                   >{cierreLabel(act)}</span
                 >
-              {:else if pendientes > 0}
+              {:else if av.pendientes > 0}
                 <span
                   class="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-[#B45309]"
                 >
                   <AlertTriangle size={12} />
-                  {pendientes} sin calificar
+                  {av.pendientes} {av.rotuloPendientes}
                 </span>
               {:else}
                 <span
@@ -235,23 +257,42 @@
                 {/if}
               </div>
 
-              {#if (act.total_grupos ?? 0) > 0}
-                <div class="flex items-center gap-2">
-                  <div class="flex-1 h-1.5 rounded-full bg-[#EEF1F5] overflow-hidden">
-                    <div
-                      class="h-1.5 rounded-full bg-[#002F6C]"
-                      style="width:{pctCalificado(act)}%"
-                    ></div>
-                  </div>
-                  <span class="font-mono text-[11px] tabular-nums text-[#5A5E6E] shrink-0">
-                    {act.calificados ?? 0}/{act.total_grupos} calificadas
-                  </span>
-                  {#if act.promedio_nota != null}
-                    <span class="font-mono text-[11px] tabular-nums text-[#5A5E6E] shrink-0">
-                      · prom. {formatNota(act.promedio_nota)}
-                    </span>
+              {#if av.total > 0 && col.id !== 'planificada'}
+                <div class="grid grid-cols-3 gap-1.5">
+                  {#if av.conEntrega}
+                    <div class="flex flex-col rounded-md bg-[#F8FAFC] px-2 py-1.5">
+                      <span class="m-0 text-[15px] font-bold tabular-nums text-[#1A1A24]">
+                        {av.entregaron}<span class="text-[11px] font-medium text-[#5A5E6E]">/{av.total}</span>
+                      </span>
+                      <span class="text-[10.5px] text-[#5A5E6E]">entregaron</span>
+                    </div>
                   {/if}
+                  <div class="flex flex-col rounded-md bg-[#F8FAFC] px-2 py-1.5">
+                    <span class="m-0 text-[15px] font-bold tabular-nums text-[#1A1A24]">{av.revisadas}</span>
+                    <span class="text-[10.5px] leading-tight text-[#5A5E6E]">{av.rotuloRevisadas}</span>
+                  </div>
+                  <div
+                    class="flex flex-col rounded-md px-2 py-1.5 {av.pendientes > 0
+                      ? 'border border-[#FDE68A] bg-[#FFFBEB]'
+                      : 'bg-[#F8FAFC]'}"
+                  >
+                    <span
+                      class="m-0 text-[15px] font-bold tabular-nums {av.pendientes > 0
+                        ? 'text-[#92400E]'
+                        : 'text-[#1A1A24]'}"
+                    >
+                      {av.pendientes}
+                    </span>
+                    <span class="text-[10.5px] {av.pendientes > 0 ? 'text-[#92400E]' : 'text-[#5A5E6E]'}">
+                      {av.rotuloPendientes}
+                    </span>
+                  </div>
                 </div>
+                {#if av.promedio != null}
+                  <span class="font-mono text-[11px] tabular-nums text-[#5A5E6E]">
+                    Promedio {formatNota(av.promedio)}
+                  </span>
+                {/if}
               {/if}
             </div>
           </Link>
