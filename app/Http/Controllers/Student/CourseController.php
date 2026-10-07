@@ -184,6 +184,8 @@ class CourseController extends Controller
                 'id_actividad'    => $actividad->id_actividad,
                 'nombre'          => $actividad->nombre,
                 'es_sumativa'     => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
+                // «Cómo se evalúa» cuenta las actividades de cada componente.
+                'componente_tipo' => $actividad->componente?->tipoComponente?->tipo,
                 'con_entrega'     => $actividad->tipo_entrega !== 'SIN_ENTREGA',
                 'es_grupal'       => (bool) $actividad->es_grupal,
                 'max_integrantes' => $actividad->max_integrantes ?? 1,
