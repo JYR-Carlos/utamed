@@ -218,3 +218,34 @@ git checkout -b feature/r3-actividades-multi-curso
   * **Release 2 (Ergonomía de Actividades y Visualización de Evaluación)**: 5 pts (2 tarjetas: 2 UI).
   * **Release 3 (Creación y Replicación Multi-Curso)**: 5 pts (1 tarjeta: 1 FEAT).
 * **Total de Puntos de Historia Estimados**: 18 pts.
+
+---
+
+## 5. Correcciones y estado (2026-10-07)
+
+Revisión del backlog contra el código y la app corriendo (análisis en `docs/sesiones/2026-10-06-contexto-observaciones-actividades.md`; propuestas visuales en el canvas «Módulo de actividades — propuestas de arreglo»). Implementado en la rama `arreglos-actividades-06-10`.
+
+### Correcciones al diagnóstico
+
+* **UI-03 apuntaba a otra pantalla.** «El cómo se evalúa» es la sección titulada así en la ficha del curso del **estudiante** (`student/Courses/components/CursoInformacion.svelte`), confirmado por el equipo. El tablero docente tenía un problema distinto, que se resolvió aparte: las formativas no llevan nota y su barra quedaba siempre en «0/26 calificadas».
+* **BUG-01:** en la BD de desarrollo `curso.nombre` es igual al nombre de la asignatura (en la de tests sí trae «(Sección 1)»). Usar `curso.nombre` no distinguía a los grupos. El formato acordado es «{asignatura} Grupo {letra}» (`Curso::etiqueta()`). Además, el docente veía el **código** (`10000`) en el breadcrumb del curso y de Actividades, y el enlace del curso en la vista de actividad del estudiante llevaba a «Mis Cursos».
+* **UI-01:** `getEstadoColor` pinta el estado del **grupo** (cuenta las holguras), no el de la actividad. No se agrega una etiqueta para la holgura (decisión del equipo): el grupo sigue «Activa» mientras puede entregar.
+* **UI-03 (tablero):** «8/10 entregas» no se podía armar con `total_entregas`, que cuenta filas de entrega y no grupos. Se agregó la métrica de grupos con entrega vigente.
+* **FEAT-01:** producción usa **Apache**, así que corresponde `X-Sendfile` (`mod_xsendfile`), no `X-Accel-Redirect`.
+* **FEAT-02:** la copia comparte el enunciado: reemplazarlo en un curso no afecta al otro, porque `subirEnunciado` nunca borra el archivo anterior. «Crear también en…» queda para después de probar la copia (decisión del equipo).
+* **Nuevo bug, no listado:** las fechas límite sin hora se mostraban y comparaban como medianoche UTC. La evaluación docente decía «23 sept, 09:00 p. m.» para el 24, y el tablero cerraba la actividad ~27 h antes.
+* **IDs repetidos:** `BUG-01`, `UI-01`, `UI-02`, `UI-03`, `FEAT-01` y `FEAT-02` ya existen en el mismo tablero de Trello para tarjetas «Hecho» del 23/09. Conviene renombrar estas (no se tocó Trello).
+
+### Estado
+
+| Tarjeta | Commit | Estado |
+|---|---|---|
+| BUG-01 breadcrumbs | `a7488ee` | Hecho (incluye menú lateral del docente) |
+| UI-01 colores | `a8f2af7` | Hecho |
+| (nuevo) fechas en hora de Chile | `c945d3f` | Hecho |
+| UI-02 enunciado en el header | `bf6173f` | Hecho (estudiante y docente) |
+| UI-03 «Cómo se evalúa» del estudiante | `9f75027` | Hecho |
+| UI-03 tarjeta del tablero docente | `68d2f90` | Hecho (formativa revisada = feedback individual) |
+| FEAT-02 copiar a otro curso | `de4c77d` | Hecho (sólo titular; «crear también en…» pendiente) |
+| FEAT-01 carga | `fc19f18` | Código hecho; **falta la prueba de carga** y activar X-Sendfile en Apache (`docs/DESCARGAS_X_SENDFILE_APACHE.md`) |
+
