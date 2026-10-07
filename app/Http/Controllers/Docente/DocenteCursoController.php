@@ -344,6 +344,7 @@ class DocenteCursoController extends Controller
             'curso' => [
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
+                'etiqueta' => $curso->etiqueta(),
                 'cod_curso' => $curso->cod_curso,
                 'letra_grupo' => $curso->letra_grupo,
                 'fecha_inicio' => $curso->fecha_inicio,
@@ -513,6 +514,7 @@ class DocenteCursoController extends Controller
                 'nombre'      => $curso->nombre,
                 'cod_curso'   => $curso->cod_curso,
                 'asignatura'  => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+                'etiqueta'    => $curso->etiqueta(),
             ],
             'todos_componentes' => $todosComponentesData->values(),
             'colegiados'        => $colegiadosData->values(),

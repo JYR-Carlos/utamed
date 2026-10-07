@@ -41,6 +41,7 @@ class BitacoraController extends Controller
                 'curso' => [
                     'id_curso' => $curso->id_curso,
                     'nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? $curso->nombre,
+                    'etiqueta' => $curso->etiqueta(),
                     'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
                 ],
             ],

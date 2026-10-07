@@ -27,6 +27,22 @@ class Curso extends BaseCurso
         'es_colegiado' => 'boolean',
     ];
 
+    /**
+     * Rótulo del curso para breadcrumbs, menús y encabezados:
+     * «Taller de Multimedia II Grupo A».
+     *
+     * El nombre es el de la asignatura, no `curso.nombre` (que suele repetirlo)
+     * ni `cod_curso`, y la letra del grupo es lo que distingue a dos cursos
+     * hermanos del mismo docente. Lee `asignacionPlan.asignatura`: en listados,
+     * cargarla antes con `with()` para no hacer una consulta por curso.
+     */
+    public function etiqueta(): string
+    {
+        $base = $this->asignacionPlan?->asignatura?->nombre ?: ($this->nombre ?: 'Curso');
+
+        return $this->letra_grupo ? "{$base} Grupo {$this->letra_grupo}" : $base;
+    }
+
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

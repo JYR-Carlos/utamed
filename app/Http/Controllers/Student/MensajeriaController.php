@@ -60,6 +60,7 @@ class MensajeriaController extends Controller
                 'agno_real'     => (int) $curso->agno_real,
                 'semestre_real' => (int) $curso->semestre_real,
                 'letra_grupo'   => $curso->letra_grupo,
+                'etiqueta'      => $curso->etiqueta(),
             ],
             'componentes'       => $componentes->map(fn($c) => [
                 'id_componente' => (int) $c->id_componente,

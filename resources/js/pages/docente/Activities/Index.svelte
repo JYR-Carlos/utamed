@@ -84,7 +84,7 @@
 
   // ─── Props desde Inertia ──────────────────────────────────────────────────
   interface Props {
-    curso: { id_curso: number; nombre: string; cod_curso: string };
+    curso: { id_curso: number; nombre: string; etiqueta?: string; cod_curso: string };
     actividad: {
       id_actividad: number;
       nombre: string;
@@ -129,7 +129,7 @@
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Mis Cursos', href: '/docente/cursos' },
-    { title: curso.nombre, href: `/docente/cursos/${curso.id_curso}/actividades` },
+    { title: curso.etiqueta ?? curso.nombre, href: `/docente/cursos/${curso.id_curso}/actividades` },
     { title: actividad.nombre, href: '#' },
   ]);
 

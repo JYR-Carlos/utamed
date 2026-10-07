@@ -54,6 +54,8 @@ class UserCoursesService
      *   id_curso: int,
      *   nombre: string,
      *   cod_curso: string,
+     *   letra_grupo: ?string,
+     *   etiqueta: string,
      *   carrera_nombre: string,
      *   agno_real: int,
      *   semestre_real: int,
@@ -66,8 +68,8 @@ class UserCoursesService
     {
         $cursos = Curso::where('id_docente_titular', $docente->id_docente)
             ->where('es_plantilla', false)
-            ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto', 'agno_real', 'semestre_real')
-            ->with(['asignacionPlan.plan.carrera'])
+            ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto', 'agno_real', 'semestre_real', 'letra_grupo', 'id_asignacion_plan')
+            ->with(['asignacionPlan.plan.carrera', 'asignacionPlan.asignatura'])
             ->get();
 
         $conPrograma = $this->cursosConPrograma($cursos);
@@ -78,6 +80,8 @@ class UserCoursesService
                 'id_curso'       => $curso->id_curso,
                 'nombre'         => $curso->nombre,
                 'cod_curso'      => $curso->cod_curso,
+                'letra_grupo'    => $curso->letra_grupo,
+                'etiqueta'       => $curso->etiqueta(),
                 'agno_real'      => $curso->agno_real,
                 'semestre_real'  => $curso->semestre_real,
                 'carrera_nombre' => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
@@ -97,6 +101,8 @@ class UserCoursesService
      *   id_curso: int,
      *   nombre: string,
      *   cod_curso: string,
+     *   letra_grupo: ?string,
+     *   etiqueta: string,
      *   agno_real: int,
      *   semestre_real: int,
      *   tiene_programa: bool,
@@ -113,7 +119,8 @@ class UserCoursesService
             'componentes.inscripcionComponentes',
             fn($q) => $q->where('id_estudiante', $estudiante->id_estudiante)
         )
-            ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto', 'agno_real', 'semestre_real')
+            ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto', 'agno_real', 'semestre_real', 'letra_grupo', 'id_asignacion_plan')
+            ->with('asignacionPlan.asignatura')
             ->get();
 
         $conPrograma = $this->cursosConPrograma($cursos);
@@ -124,6 +131,8 @@ class UserCoursesService
                 'id_curso'       => $curso->id_curso,
                 'nombre'         => $curso->nombre,
                 'cod_curso'      => $curso->cod_curso,
+                'letra_grupo'    => $curso->letra_grupo,
+                'etiqueta'       => $curso->etiqueta(),
                 'agno_real'      => $curso->agno_real,
                 'semestre_real'  => $curso->semestre_real,
                 'tiene_programa' => $conPrograma->contains($curso->id_curso),
@@ -144,6 +153,8 @@ class UserCoursesService
      *   id_curso: int,
      *   nombre: string,
      *   cod_curso: string,
+     *   letra_grupo: ?string,
+     *   etiqueta: string,
      *   agno_real: int,
      *   semestre_real: int,
      *   tiene_programa: bool,
@@ -161,7 +172,8 @@ class UserCoursesService
 
         $cursos = Curso::whereIn('id_contexto', $contextoIds)
             ->where('es_plantilla', false)
-            ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto', 'agno_real', 'semestre_real')
+            ->select('id_curso', 'nombre', 'cod_curso', 'id_contexto', 'agno_real', 'semestre_real', 'letra_grupo', 'id_asignacion_plan')
+            ->with('asignacionPlan.asignatura')
             ->get()
             ->unique('id_curso');
 
@@ -173,6 +185,8 @@ class UserCoursesService
                 'id_curso'       => $curso->id_curso,
                 'nombre'         => $curso->nombre,
                 'cod_curso'      => $curso->cod_curso,
+                'letra_grupo'    => $curso->letra_grupo,
+                'etiqueta'       => $curso->etiqueta(),
                 'agno_real'      => $curso->agno_real,
                 'semestre_real'  => $curso->semestre_real,
                 'tiene_programa' => $conPrograma->contains($curso->id_curso),

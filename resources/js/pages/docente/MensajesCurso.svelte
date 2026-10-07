@@ -27,6 +27,7 @@
   // ── Types ─────────────────────────────────────────────────────────────────
 
   interface Curso {
+    etiqueta?: string;
     id_curso: number;
     cod_curso: string;
     nombre: string;
@@ -201,7 +202,7 @@
         <Link href="/docente/cursos" class="hover:text-indigo-600">Mis Cursos</Link>
         <span class="text-slate-300">/</span>
         <Link href="/docente/cursos/{curso.id_curso}" class="hover:text-indigo-600">
-          {curso.cod_curso}
+          {curso.etiqueta ?? curso.cod_curso}
         </Link>
         <span class="text-slate-300">/</span>
         <span class="text-slate-700 font-medium">Mensajes de actividades</span>

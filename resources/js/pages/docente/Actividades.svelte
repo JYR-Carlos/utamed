@@ -82,6 +82,7 @@
 
   interface Props {
     curso: {
+      etiqueta?: string;
       id_curso: number;
       cod_curso?: string;
       cod_asignatura?: string | null;
@@ -516,7 +517,7 @@
           href="/docente/cursos/{curso.id_curso}"
           class="rounded-lg px-2 py-1.5 font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F5F1EA] hover:text-[#002F6C]"
         >
-          {curso.cod_curso ?? 'Curso'}
+          {curso.etiqueta ?? curso.cod_curso ?? 'Curso'}
         </Link>
         <ChevronRight size={13} class="text-[#98A0AE]" aria-hidden="true" />
         <span class="px-1 font-medium text-[#1A1A24]" aria-current="page">Actividades</span>

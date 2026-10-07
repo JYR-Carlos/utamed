@@ -82,6 +82,7 @@
   }
 
   interface Curso {
+    etiqueta?: string;
     id_curso: number;
     nombre: string;
     cod_curso: string;
@@ -315,10 +316,7 @@
           Mis Cursos
         </Link>
         <ChevronRight size={13} class="text-[#98A0AE]" aria-hidden="true" />
-        <span
-          class="rounded-md border border-[#E5E7EB] bg-[#F5F1EA] px-2 py-[3px] font-mono text-[12px] tracking-[0.02em] text-[#5A5E6E]"
-          aria-current="page">{curso.cod_curso}</span
-        >
+        <span class="px-1 font-medium text-[#1A1A24]" aria-current="page">{curso.etiqueta}</span>
       </nav>
 
       <!-- ── Cabecera del curso ── -->

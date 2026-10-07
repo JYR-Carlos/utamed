@@ -301,6 +301,7 @@ class DocenteActivityController extends Controller
                 // ambas claves llegaban vacías: no son columnas de curso.
                 'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
                 'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre,
+                'etiqueta' => $curso->etiqueta(),
                 'mis_componentes_ids' => $misComponentesIds,
                 'total_estudiantes' => $curso->inscripcionCursos()->count(),
             ]),
@@ -956,6 +957,7 @@ class DocenteActivityController extends Controller
             'curso' => [
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
+                'etiqueta' => $curso->etiqueta(),
                 'cod_curso' => $curso->cod_curso,
                 'es_titular_curso' => $esTitular,
                 'userPermissions' => $this->userPermissionsParaCurso($curso, $esTitular),
@@ -1843,7 +1845,7 @@ class DocenteActivityController extends Controller
         ]));
 
         return Inertia::render('docente/MensajesCurso', [
-            'curso' => $curso,
+            'curso' => array_merge($curso->toArray(), ['etiqueta' => $curso->etiqueta()]),
             'estudiantes' => $estudiantesConMeta->values(),
             'mensajesEstudiante' => Inertia::lazy(function () use ($curso) {
                 $idEstudiante = request('estudiante_id');
