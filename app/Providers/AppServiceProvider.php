@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Foundation\Console\ServeCommand;
 use Illuminate\Support\ServiceProvider;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Password;
 use App\Services\Authorization\GlobalContextService;
@@ -45,6 +46,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Descargas por X-Sendfile (config/files.php → x_sendfile): Symfony sólo
+        // delega el envío al servidor web si se confía en la cabecera
+        // X-Sendfile-Type, que en producción fija Apache.
+        if (config('files.x_sendfile')) {
+            BinaryFileResponse::trustXSendfileTypeHeader();
+        }
+
         // El `search_path` lo aplica el propio conector pgsql a partir de
         // `config/database.php` ('search_path' => …). Hacerlo aquí con
         // `DB::connection()->getPdo()` abría la conexión en **cada** request

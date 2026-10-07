@@ -284,4 +284,21 @@ return [
         */
         'log_uploads' => (bool) env('ARCHIVE_LOG_UPLOADS', true),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Descargas servidas por el servidor web (X-Sendfile)
+    |--------------------------------------------------------------------------
+    |
+    | Con true, las descargas que Laravel responde con response()->file() o
+    | response()->download() (enunciados y entregas) dejan que Apache envíe el
+    | archivo: PHP sólo autoriza y responde la cabecera X-Sendfile, y el worker
+    | de PHP-FPM queda libre en vez de ocuparse durante toda la transferencia.
+    |
+    | Sólo activar si Apache tiene mod_xsendfile y fija la cabecera de la
+    | petición (ver docs/DESCARGAS_X_SENDFILE_APACHE.md); sin eso, las
+    | descargas llegarían vacías.
+    |
+    */
+    'x_sendfile' => (bool) env('FILES_X_SENDFILE', false),
 ];
