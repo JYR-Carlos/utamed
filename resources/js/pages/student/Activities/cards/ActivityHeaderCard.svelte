@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { ClipboardList } from 'lucide-svelte';
+  import { ClipboardList, Download, FileText } from 'lucide-svelte';
   import type { RubricaResponse } from '@/types/rubrica';
+  import { formatBytes } from '@/utils/formatters';
 
   interface Props {
     nombre_actividad: string;
@@ -10,6 +11,10 @@
     entrega_obligatoria: boolean;
     rubrica?: RubricaResponse | null;
     onVerRubricaClick?: () => void;
+    /** Enunciado adjunto por el docente; null si aún no hay. */
+    archivo_enunciado?: { nombre_original: string; mime_type: string | null; peso_bytes: number | null } | null;
+    onVerEnunciadoClick?: () => void;
+    urlDescargaEnunciado?: string | null;
   }
 
   let {
@@ -20,7 +25,19 @@
     entrega_obligatoria,
     rubrica = null,
     onVerRubricaClick,
+    archivo_enunciado = null,
+    onVerEnunciadoClick,
+    urlDescargaEnunciado = null,
   }: Props = $props();
+
+  // «PDF · 2,4 MB»: el tipo sale de la extensión del nombre original, que es
+  // lo que el estudiante reconoce (el mime puede venir genérico).
+  const detalleEnunciado = $derived.by(() => {
+    if (!archivo_enunciado) return '';
+    const ext = archivo_enunciado.nombre_original.split('.').pop()?.toUpperCase() ?? '';
+    const peso = archivo_enunciado.peso_bytes ? formatBytes(archivo_enunciado.peso_bytes) : '';
+    return [ext, peso].filter(Boolean).join(' · ');
+  });
 
   const rubricaObj = $derived(rubrica?.rubrica);
   const tieneRubrica = $derived(!!rubricaObj && (rubricaObj.niveles?.length ?? 0) > 0);
@@ -29,9 +46,9 @@
 </script>
 
 <section class="overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-sm">
-  <div class="grid grid-cols-1 {es_sumativa ? 'md:grid-cols-10' : ''} md:items-stretch">
-    <!-- Columna izquierda: Información (7 de 10 columnas en sumativa, ancho completo en formativa) -->
-    <div class="flex min-w-0 flex-col justify-between gap-3.5 p-5 {es_sumativa ? 'md:col-span-7' : 'w-full'} md:p-6">
+  <div class="grid grid-cols-1 md:grid-cols-10 md:items-stretch">
+    <!-- Columna izquierda: Información (7 de 10 columnas) -->
+    <div class="flex min-w-0 flex-col justify-between gap-3.5 p-5 md:col-span-7 md:p-6">
       <div class="flex flex-col gap-1">
         <span class="text-[11.5px] font-medium text-[#5A5E6E]">{nombre_curso}</span>
         <h1 class="text-xl font-semibold leading-tight text-[#1A1A24] md:text-2xl">{nombre_actividad}</h1>
@@ -61,39 +78,71 @@
       {/if}
     </div>
 
-    <!-- Columna derecha: Cápsula de Rúbrica (Solo actividades sumativas) -->
-    {#if es_sumativa}
-      <div class="flex md:col-span-3">
+    <!--
+      Columna derecha: los dos recursos de la actividad, enunciado y rúbrica (solo sumativas),
+      juntos en la cabecera. Antes el enunciado vivía en el panel lateral,
+      debajo del plazo, y en el móvil quedaba al final de la página.
+    -->
+    <div class="flex flex-col border-t border-[#E5E7EB] md:col-span-3 md:border-l md:border-t-0">
+      {#if archivo_enunciado}
+        <div class="flex flex-1 items-stretch {es_sumativa ? 'border-b border-[#E5E7EB]' : ''}">
+          <button
+            type="button"
+            onclick={onVerEnunciadoClick}
+            class="group flex min-h-[64px] flex-1 items-center gap-3 bg-[#E6EDF5] px-4 py-4 text-left text-[#002855] transition-colors hover:bg-[#002855] hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#002855]"
+          >
+            <FileText class="h-5 w-5 shrink-0" />
+            <span class="flex min-w-0 flex-col">
+              <span class="whitespace-nowrap text-sm font-semibold tracking-tight">Ver enunciado</span>
+              {#if detalleEnunciado}
+                <span class="text-[11.5px] font-medium opacity-80">{detalleEnunciado}</span>
+              {/if}
+            </span>
+          </button>
+          {#if urlDescargaEnunciado}
+            <a
+              href={urlDescargaEnunciado}
+              aria-label="Descargar enunciado"
+              title="Descargar enunciado"
+              class="flex w-12 shrink-0 items-center justify-center border-l border-[#C9D6E6] bg-[#E6EDF5] text-[#002855] transition-colors hover:bg-[#002855] hover:text-white"
+            >
+              <Download class="h-4 w-4" />
+            </a>
+          {/if}
+        </div>
+      {:else}
+        <div
+          class="flex min-h-[64px] flex-1 items-center gap-3 {es_sumativa ? 'border-b border-dashed border-gray-200' : ''} bg-gray-50/90 px-4 py-4 select-none"
+        >
+          <FileText class="h-5 w-5 shrink-0 text-gray-400" />
+          <span class="text-xs font-medium leading-tight text-gray-500">El docente aún no adjunta el enunciado</span>
+        </div>
+      {/if}
+
+      {#if es_sumativa}
         {#if tieneRubrica}
           <button
             type="button"
             onclick={onVerRubricaClick}
-            class="group flex h-full w-full min-h-[68px] md:min-h-0 flex-col items-center justify-center gap-1.5 rounded-b-xl md:rounded-l-none md:rounded-r-xl border-t md:border-t-0 md:border-l border-[#EDE4FA] bg-[#E0D1FF] px-4 py-5 text-[#5812c2] shadow-none transition-all duration-200 hover:bg-[#5812c2] hover:text-white active:bg-[#470ea1] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#5812c2]"
+            class="group flex min-h-[64px] flex-1 items-center gap-3 bg-[#E0D1FF] px-4 py-4 text-left text-[#5812c2] transition-colors hover:bg-[#5812c2] hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#5812c2] md:rounded-br-xl"
           >
-            <div class="flex items-center gap-2">
-              <ClipboardList class="h-5 w-5 text-[#5812c2] transition-all group-hover:scale-110 group-hover:text-purple-100" />
-              <span class="text-sm font-semibold tracking-tight transition-colors">Ver Rúbrica</span>
-            </div>
-            {#if cantidadCriterios > 0}
-              <span class="text-[11.5px] font-medium text-[#7C5CAE] transition-colors group-hover:text-purple-100/90">
-                {cantidadCriterios} {cantidadCriterios === 1 ? 'criterio' : 'criterios'}
-                {#if totalPuntos !== null}
-                  · {totalPuntos} pts
-                {/if}
-              </span>
-            {/if}
+            <ClipboardList class="h-5 w-5 shrink-0" />
+            <span class="flex min-w-0 flex-col">
+              <span class="whitespace-nowrap text-sm font-semibold tracking-tight">Ver rúbrica</span>
+              {#if cantidadCriterios > 0}
+                <span class="text-[11.5px] font-medium opacity-80">
+                  {cantidadCriterios} {cantidadCriterios === 1 ? 'criterio' : 'criterios'}{#if totalPuntos !== null}{' '}· {totalPuntos} pts{/if}
+                </span>
+              {/if}
+            </span>
           </button>
         {:else}
-          <div
-            class="flex h-full w-full min-h-[68px] md:min-h-0 flex-col items-center justify-center gap-1.5 rounded-b-xl md:rounded-l-none md:rounded-r-xl border-t md:border-t-0 md:border-l border-dashed border-gray-200 bg-gray-50/90 px-4 py-5 text-center select-none"
-          >
-            <ClipboardList class="h-5 w-5 text-gray-400" />
-            <span class="text-xs font-medium text-gray-500 leading-tight">
-              No hay rúbrica para esta actividad
-            </span>
+          <div class="flex min-h-[64px] flex-1 items-center gap-3 bg-gray-50/90 px-4 py-4 select-none">
+            <ClipboardList class="h-5 w-5 shrink-0 text-gray-400" />
+            <span class="text-xs font-medium leading-tight text-gray-500">No hay rúbrica para esta actividad</span>
           </div>
         {/if}
-      </div>
-    {/if}
+      {/if}
+    </div>
   </div>
 </section>

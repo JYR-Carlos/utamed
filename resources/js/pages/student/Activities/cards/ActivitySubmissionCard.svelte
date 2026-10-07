@@ -191,8 +191,9 @@
           <span class="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#1A1A24] leading-none">
             {fechaCortaDDMM}
           </span>
-          <span class="text-xs font-semibold text-[#5A5E6E]">23:59 hrs · hora de Chile</span>
+          <span class="whitespace-nowrap text-xs font-semibold text-[#5A5E6E]">23:59 hrs</span>
         </div>
+        <span class="mt-1 text-[11px] text-[#5A5E6E]">Hora de Chile</span>
         {#if cierreEfectivo?.local}
           <span class="mt-1 text-[11px] text-[#5A5E6E]">Tu hora: {cierreEfectivo.local}</span>
         {/if}

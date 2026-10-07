@@ -38,7 +38,24 @@
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
-  import { ChevronLeft, Plus, Users, Pencil, Copy, Eye, Lock, Send, Loader2, X } from 'lucide-svelte';
+  import {
+    ChevronLeft,
+    Plus,
+    Users,
+    Pencil,
+    Copy,
+    Eye,
+    Lock,
+    Send,
+    Loader2,
+    X,
+    FileText,
+    Download,
+    Upload,
+  } from 'lucide-svelte';
+  import EnunciadoModal from '@/components/docente/EnunciadoModal.svelte';
+  import type { Actividad } from '@/types/actividad';
+  import { formatBytes } from '@/utils/formatters';
   import { ConfirmDialog } from '@/components/custom/common';
   import { textoCierre } from '@/utils/plazo';
   import AgendaDocente from './Agenda/AgendaDocente.svelte';
@@ -97,6 +114,13 @@
       max_integrantes?: number;
       es_titular: boolean;
       nro_dias_adicionales_para_bloqueo: number;
+      archivo_enunciado?: { nombre_original: string; mime_type: string | null; peso_bytes: number | null } | null;
+    };
+    reglas_enunciado: {
+      extensiones_pdf: string[];
+      extensiones_img: string[];
+      max_mb_pdf: number;
+      max_mb_imagen: number;
     };
     grupos: GrupoData[];
     rubrica?: Rubrica | null;
@@ -116,6 +140,7 @@
   let {
     curso,
     actividad,
+    reglas_enunciado,
     grupos,
     rubrica = null,
     rubrica_id = null,
@@ -616,6 +641,20 @@
   const getEstadoColor = colorEstadoGrupo;
 
   const cierre = $derived(actividad.fecha_limite ? textoCierre(actividad.fecha_limite) : null);
+
+  // ─── Enunciado ────────────────────────────────────────────────────────────
+  // Vive junto a la rúbrica en «Sobre esta actividad». Sólo el titular puede
+  // adjuntarlo o reemplazarlo (CursoPolicy::manageTeam en subirEnunciado).
+  let showEnunciado = $state(false);
+  const urlEnunciado = $derived(
+    `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/enunciado/descargar`,
+  );
+  const detalleEnunciado = $derived.by(() => {
+    const a = actividad.archivo_enunciado;
+    if (!a) return '';
+    const ext = a.nombre_original.split('.').pop()?.toUpperCase() ?? '';
+    return [ext, a.peso_bytes ? formatBytes(a.peso_bytes) : ''].filter(Boolean).join(' · ');
+  });
 </script>
 
 <DocenteLayout {breadcrumbs}>
@@ -716,9 +755,49 @@
             {/if}
           </dl>
 
-          <!-- Botón de rúbrica: solo para actividades sumativas -->
-          {#if actividad.es_sumativa && (actividad.es_titular || rubrica)}
-            <div class="flex flex-col gap-1.5 shrink-0 md:w-56 md:self-stretch">
+          <!-- Enunciado y rúbrica (solo sumativas): al lado del resumen, no debajo ocupando el ancho. -->
+          <div class="flex flex-col gap-1.5 shrink-0 md:w-56 md:self-stretch">
+            {#if actividad.archivo_enunciado}
+              <div class="flex flex-1 items-stretch gap-1.5">
+                <a
+                  href={urlEnunciado}
+                  class="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-uta-blue bg-uta-blue-light px-4 py-3 text-uta-blue no-underline transition-all hover:bg-uta-blue hover:text-white"
+                  title={actividad.archivo_enunciado.nombre_original}
+                >
+                  <Download class="size-5 shrink-0" />
+                  <span class="flex min-w-0 flex-col">
+                    <span class="text-sm font-semibold">Enunciado</span>
+                    {#if detalleEnunciado}<span class="text-[11px] opacity-80">{detalleEnunciado}</span>{/if}
+                  </span>
+                </a>
+                {#if actividad.es_titular}
+                  <button
+                    type="button"
+                    class="flex w-11 shrink-0 items-center justify-center rounded-xl border border-uta-blue bg-white text-uta-blue transition-all hover:bg-uta-blue hover:text-white"
+                    title="Reemplazar enunciado"
+                    aria-label="Reemplazar enunciado"
+                    onclick={() => (showEnunciado = true)}
+                  >
+                    <Upload class="size-4" />
+                  </button>
+                {/if}
+              </div>
+            {:else if actividad.es_titular}
+              <button
+                type="button"
+                class="flex flex-1 w-full items-center justify-between gap-4 rounded-xl border border-dashed border-uta-blue bg-white px-4 py-3 text-sm font-semibold text-uta-blue transition-all hover:bg-uta-blue-light sm:px-6"
+                onclick={() => (showEnunciado = true)}
+              >
+                <p>Adjuntar enunciado</p>
+                <FileText class="size-5 shrink-0" />
+              </button>
+            {:else}
+              <div class="flex flex-1 items-center gap-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-xs font-medium text-gray-500">
+                <FileText class="size-5 shrink-0 text-gray-400" />
+                Sin enunciado adjunto
+              </div>
+            {/if}
+            {#if actividad.es_sumativa && (actividad.es_titular || rubrica)}
               <button
                 class="flex flex-1 w-full items-center justify-between gap-4 rounded-xl border border-uta-blue bg-white px-4 py-3 text-sm font-semibold text-uta-blue transition-all hover:bg-uta-blue hover:text-white sm:px-6"
                 onclick={() => (showRubricaEditor = true)}
@@ -744,8 +823,8 @@
                   <span>Evaluaciones iniciadas (rúbrica bloqueada)</span>
                 </div>
               {/if}
-            </div>
-          {/if}
+            {/if}
+          </div>
         </div>
       </div>
 
@@ -1106,6 +1185,18 @@
       />
     {/if}
   {/key}
+
+  <EnunciadoModal
+    bind:isOpen={showEnunciado}
+    idCurso={curso.id_curso}
+    actividad={{
+      id_actividad: actividad.id_actividad,
+      nombre: actividad.nombre,
+      archivo_enunciado: actividad.archivo_enunciado ?? null,
+    } as unknown as Actividad}
+    reglas={reglas_enunciado}
+    onClose={() => (showEnunciado = false)}
+  />
 </DocenteLayout>
 
 <svelte:window

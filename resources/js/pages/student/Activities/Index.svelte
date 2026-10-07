@@ -3,7 +3,7 @@
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica, RubricaResponse } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
-  import { FileText, X } from 'lucide-svelte';
+  import { X } from 'lucide-svelte';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaView from './Agenda/Rubrica.svelte';
   import ActivityHeaderCard from './cards/ActivityHeaderCard.svelte';
@@ -267,6 +267,11 @@
             {entrega_obligatoria}
             {rubrica}
             onVerRubricaClick={toggleRubricaModal}
+            {archivo_enunciado}
+            onVerEnunciadoClick={toggleEnunciadoModal}
+            urlDescargaEnunciado={archivo_enunciado
+              ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/enunciado/descargar`
+              : null}
           />
 
           {#if fecha_limite || entrega_obligatoria}
@@ -307,16 +312,6 @@
             />
           {/if}
           
-          {#if archivo_enunciado}
-            <button
-              class="group flex w-full items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white p-3.5 text-left shadow-sm transition-colors hover:bg-[#F8FAFC]"
-              onclick={toggleEnunciadoModal}
-            >
-              <FileText class="h-4 w-4 shrink-0 text-[#5A5E6E]" />
-              <span class="flex-1 truncate text-sm font-semibold text-[#1A1A24]">Ver enunciado</span>
-            </button>
-          {/if}
-
           <ActivityMembersCard usuarios={es_grupal ? resto_integrantes : []} />
         </aside>
       </div>

@@ -309,13 +309,22 @@ class DocenteActivityController extends Controller
             'componentes' => $componentes,
             'unidades' => $unidades,
             'estados' => $estados,
-            'reglas_enunciado' => [
-                'extensiones_pdf' => config('filetypes.pdf.extensions'),
-                'extensiones_img' => config('filetypes.image.extensions'),
-                'max_mb_pdf' => (int) (config('filetypes.pdf.max_size') / 1048576),
-                'max_mb_imagen' => (int) (config('filetypes.image.max_size') / 1048576),
-            ],
+            'reglas_enunciado' => $this->reglasEnunciado(),
         ]);
+    }
+
+    /**
+     * Extensiones y tamaños que acepta el enunciado (config/filetypes.php), para
+     * que EnunciadoModal valide en el cliente con las mismas reglas del servidor.
+     */
+    private function reglasEnunciado(): array
+    {
+        return [
+            'extensiones_pdf' => config('filetypes.pdf.extensions'),
+            'extensiones_img' => config('filetypes.image.extensions'),
+            'max_mb_pdf' => (int) (config('filetypes.pdf.max_size') / 1048576),
+            'max_mb_imagen' => (int) (config('filetypes.image.max_size') / 1048576),
+        ];
     }
 
     /**
@@ -973,7 +982,14 @@ class DocenteActivityController extends Controller
                 'max_integrantes' => $actividad->max_integrantes,
                 'es_titular' => $esTitular,
                 'nro_dias_adicionales_para_bloqueo' => (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0),
+                // El enunciado se muestra junto a la rúbrica en «Sobre esta actividad».
+                'archivo_enunciado' => $actividad->archivo ? [
+                    'nombre_original' => $actividad->archivo->nombre_original,
+                    'mime_type' => $actividad->archivo->mime_type,
+                    'peso_bytes' => $actividad->archivo->peso_bytes,
+                ] : null,
             ],
+            'reglas_enunciado' => $this->reglasEnunciado(),
             'grupos' => $grupos,
             'rubrica' => $rubricaData,
             'rubrica_id' => $rubricaId,
