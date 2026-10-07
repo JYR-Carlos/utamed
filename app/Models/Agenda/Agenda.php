@@ -119,10 +119,14 @@ class Agenda extends BaseAgenda
      */
     public static function soloEntregasVigentes($query, string $tabla = 'agenda'): void
     {
+        // El nombre de la tabla sale del modelo (lo fija el generador en BaseAgenda)
+        // para que la subconsulta siga al esquema si la tabla cambia de nombre.
+        $tablaAgenda = (new self)->getTable();
+
         $query->where("{$tabla}.tipo_mensaje", TipoMensaje::ENTREGA_DE_ARCHIVO->value)
-            ->whereNotExists(function ($sub) use ($tabla) {
+            ->whereNotExists(function ($sub) use ($tabla, $tablaAgenda) {
                 $sub->selectRaw('1')
-                    ->from('agenda.agenda as cancelacion')
+                    ->from("{$tablaAgenda} as cancelacion")
                     ->whereColumn('cancelacion.id_actividad_asignada_grupo', "{$tabla}.id_actividad_asignada_grupo")
                     ->whereColumn('cancelacion.uuid_archivo_subido', "{$tabla}.uuid_archivo_subido")
                     ->where('cancelacion.tipo_mensaje', TipoMensaje::CANCELACIÓN_DE_ENTREGA->value);
