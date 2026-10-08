@@ -1025,7 +1025,7 @@
         if (e.target === e.currentTarget && (e.key === 'Escape' || e.key === 'Enter')) cerrarAgenda();
       }}
     >
-      <div class="w-full max-w-7xl">
+      <div class="w-full flex items-center justify-center">
         <AgendaDocente
           onCerrar={cerrarAgenda}
           onInteraccionEnviada={manejarInteraccionDocente}

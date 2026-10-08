@@ -111,7 +111,7 @@
 <div
   class="overflow-hidden relative {inline
     ? 'w-full rounded-b-xl bg-white min-h-[560px] flex'
-    : 'flex w-[96%] sm:w-[85%] lg:w-[70%] h-[90vh] max-w-5xl rounded-2xl bg-white shadow-2xl'}"
+    : 'flex w-[96%] sm:w-[94%] lg:w-[92%] 2xl:w-[90%] h-[90vh] max-w-[1440px] rounded-2xl bg-white shadow-2xl'}"
 >
   <div class="flex min-w-0 flex-1 flex-col h-full relative">
     <!-- 1. CABECERA: TÍTULO PRESERVADO SIN FILTROS REDUNDANTES -->
@@ -186,7 +186,7 @@
     ></div>
 
     <div
-      class="absolute inset-y-0 right-0 z-50 flex w-full sm:w-[560px] md:w-[680px] max-w-full flex-col border-l border-slate-200 bg-white shadow-2xl animate-in slide-in-from-right duration-200"
+      class="absolute inset-y-0 right-0 z-50 flex w-full sm:w-[680px] md:w-[820px] lg:w-[920px] max-w-full flex-col border-l border-slate-200 bg-white shadow-2xl animate-in slide-in-from-right duration-200"
       role="dialog"
       aria-modal="true"
     >
