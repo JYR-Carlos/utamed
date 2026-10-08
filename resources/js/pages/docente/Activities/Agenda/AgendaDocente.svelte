@@ -406,7 +406,7 @@
     ></div>
 
     <div
-      class="absolute inset-y-0 right-0 z-50 flex w-full sm:w-[680px] md:w-[820px] lg:w-[920px] max-w-full flex-col border-l border-slate-200 bg-white shadow-2xl animate-in slide-in-from-right duration-200"
+      class="absolute inset-y-0 right-0 z-50 flex w-[95%] max-w-full flex-col border-l border-slate-200 bg-white shadow-2xl animate-in slide-in-from-right duration-200"
       role="dialog"
       aria-modal="true"
     >
@@ -469,7 +469,7 @@
     ></div>
 
     <div
-      class="absolute inset-y-0 right-0 z-50 flex w-full sm:w-[680px] md:w-[820px] lg:w-[920px] max-w-full flex-col border-l border-slate-200 bg-white shadow-2xl animate-in slide-in-from-right duration-200"
+      class="absolute inset-y-0 right-0 z-50 flex w-[95%] max-w-full flex-col border-l border-slate-200 bg-white shadow-2xl animate-in slide-in-from-right duration-200"
       role="dialog"
       aria-modal="true"
     >
