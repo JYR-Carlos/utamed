@@ -84,6 +84,14 @@
     return `+${dias} día${dias === 1 ? '' : 's'}`;
   }
 
+  const gruposOrdenados = $derived(
+    [...grupos].sort((a, b) => {
+      const nomA = a.integrantes[0]?.nombre_completo ?? '';
+      const nomB = b.integrantes[0]?.nombre_completo ?? '';
+      return nomA.localeCompare(nomB, 'es', { sensitivity: 'base' });
+    }),
+  );
+
   const TH =
     'px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500';
   const BTN_FILA =
@@ -110,7 +118,7 @@
       </tr>
     </thead>
     <tbody>
-      {#if grupos.length === 0}
+      {#if gruposOrdenados.length === 0}
         <tr class="border-t border-gray-100">
           <td colspan={esTitular ? 8 : 7} class="px-4 py-10 text-center">
             <p class="text-sm font-medium text-gray-500">
@@ -119,7 +127,7 @@
           </td>
         </tr>
       {/if}
-      {#each grupos as grupo, i (grupo.grupo)}
+      {#each gruposOrdenados as grupo, i (grupo.grupo)}
         {@const integrante = grupo.integrantes[0]}
         {@const decimas = integrante?.diferencia_decimas ?? 0}
         {@const calificado = grupo.nota !== null && integrante != null}

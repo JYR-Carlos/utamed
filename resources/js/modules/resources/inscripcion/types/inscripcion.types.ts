@@ -92,7 +92,9 @@ export const ESTADO_CFG: Record<
 
 export function studentName(item: RosterItem): string {
     const u = item.estudiante?.usuario;
-    return u ? `${u.nombre1} ${u.apellido1}` : `Estudiante #${item.id_estudiante}`;
+    if (!u) return `Estudiante #${item.id_estudiante}`;
+    const partes = [u.apellido1, (u as any).apellido2, u.nombre1, (u as any).nombre2].filter(Boolean);
+    return partes.join(' ') || `Estudiante #${item.id_estudiante}`;
 }
 
 export function studentUsername(item: RosterItem): string {
@@ -101,12 +103,14 @@ export function studentUsername(item: RosterItem): string {
 
 export function initials(item: RosterItem): string {
     const u = item.estudiante?.usuario;
-    return ((u?.nombre1?.[0] ?? '') + (u?.apellido1?.[0] ?? '')).toUpperCase() || '?';
+    return ((u?.apellido1?.[0] ?? '') + (u?.nombre1?.[0] ?? '')).toUpperCase() || '?';
 }
 
 export function disponibleName(e: EstudianteDisponible): string {
     const u = e.usuario;
-    return u ? `${u.nombre1} ${u.apellido1}` : `#${e.id_estudiante}`;
+    if (!u) return `#${e.id_estudiante}`;
+    const partes = [u.apellido1, (u as any).apellido2, u.nombre1, (u as any).nombre2].filter(Boolean);
+    return partes.join(' ') || `#${e.id_estudiante}`;
 }
 
 export function cursoDisplayName(c: CursoItem): string {

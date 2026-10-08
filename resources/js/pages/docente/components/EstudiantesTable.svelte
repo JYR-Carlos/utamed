@@ -48,6 +48,16 @@
     pie,
   }: Props = $props();
 
+  const estudiantesOrdenados = $derived(
+    [...estudiantes].sort((a, b) =>
+      (a.estudiante?.nombre ?? '').localeCompare(
+        b.estudiante?.nombre ?? '',
+        'es',
+        { sensitivity: 'base' }
+      )
+    ),
+  );
+
   const TH =
     'px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-[#5A5E6E]';
 </script>
@@ -69,7 +79,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each estudiantes as item, i (item.id_inscripcion_componente)}
+        {#each estudiantesOrdenados as item, i (item.id_inscripcion_componente)}
           {@const nota = item.nota_componente}
           {@const reprobada = nota !== null && nota < 4}
           <tr

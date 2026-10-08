@@ -206,7 +206,7 @@
                       </span>
                     </div>
                     <p class="text-xs text-gray-500 mt-1 leading-relaxed">
-                      {#each g.integrantes as m, i}<span
+                      {#each [...g.integrantes].sort((a, b) => (a.nombre_completo ?? '').localeCompare(b.nombre_completo ?? '', 'es', { sensitivity: 'base' })) as m, i}<span
                           class={m.inscrito ? '' : 'line-through text-gray-400'}
                           >{m.nombre_completo}</span
                         >{i < g.integrantes.length - 1 ? ', ' : ''}{/each}

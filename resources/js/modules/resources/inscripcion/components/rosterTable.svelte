@@ -57,6 +57,12 @@
   );
   const totalCount = $derived(roster.filter((r) => r.estado_inscripcion !== 'ANULADO').length);
 
+  const rosterOrdenado = $derived(
+    [...roster].sort((a, b) =>
+      studentName(a).localeCompare(studentName(b), 'es', { sensitivity: 'base' }),
+    ),
+  );
+
   const AVATAR_PALETTE = [
     'bg-blue-100 text-blue-700',
     'bg-violet-100 text-violet-700',
@@ -309,7 +315,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
-          {#each roster as item (item.id_inscripcion_curso)}
+          {#each rosterOrdenado as item (item.id_inscripcion_curso)}
             {@const cfg = ESTADO_CFG[item.estado_inscripcion] ?? ESTADO_CFG['INSCRITO']}
             {@const transitions = TRANSITIONS[item.estado_inscripcion] ?? []}
             {@const isVoided = cfg.rowCls === 'voided'}

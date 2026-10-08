@@ -37,14 +37,14 @@
   let bulkContextError = $state('');
 
   const filteredDisponibles = $derived(
-    studentSearch.trim().length === 0
+    [...(studentSearch.trim().length === 0
       ? disponibles
       : disponibles.filter((e) => {
           const term = studentSearch.toLowerCase();
-          return `${e.usuario?.nombre1 ?? ''} ${e.usuario?.apellido1 ?? ''} ${e.usuario?.username ?? ''}`
+          return `${e.usuario?.apellido1 ?? ''} ${e.usuario?.nombre1 ?? ''} ${e.usuario?.username ?? ''}`
             .toLowerCase()
             .includes(term);
-        }),
+        }))].sort((a, b) => disponibleName(a).localeCompare(disponibleName(b), 'es', { sensitivity: 'base' })),
   );
 
   // Resetea la selección y recarga los disponibles en cada apertura

@@ -218,23 +218,27 @@
 
   // Estudiantes que aún no pertenecen a ningún grupo de esta actividad
   const estudiantesLibres = $derived(
-    estudiantesInscritos.filter(
-      (e) => !grupos.some((g) => g.integrantes.some((i) => i.id_estudiante === e.id_estudiante)),
-    ),
+    estudiantesInscritos
+      .filter(
+        (e) => !grupos.some((g) => g.integrantes.some((i) => i.id_estudiante === e.id_estudiante)),
+      )
+      .sort((a, b) => (a.nombre_completo ?? '').localeCompare(b.nombre_completo ?? '', 'es', { sensitivity: 'base' })),
   );
 
   // Estudiantes libres disponibles para agregar a un grupo existente
   function estudiantesParaGrupo(grupoId: number): EstudianteInscrito[] {
-    return estudiantesInscritos.filter(
-      (e) =>
-        !grupos.some((g) => {
-          if (g.grupo === grupoId) return false; // no contar el grupo destino
-          return g.integrantes.some((i) => i.id_estudiante === e.id_estudiante);
-        }) &&
-        !grupos
-          .find((g) => g.grupo === grupoId)
-          ?.integrantes.some((i) => i.id_estudiante === e.id_estudiante),
-    );
+    return estudiantesInscritos
+      .filter(
+        (e) =>
+          !grupos.some((g) => {
+            if (g.grupo === grupoId) return false; // no contar el grupo destino
+            return g.integrantes.some((i) => i.id_estudiante === e.id_estudiante);
+          }) &&
+          !grupos
+            .find((g) => g.grupo === grupoId)
+            ?.integrantes.some((i) => i.id_estudiante === e.id_estudiante),
+      )
+      .sort((a, b) => (a.nombre_completo ?? '').localeCompare(b.nombre_completo ?? '', 'es', { sensitivity: 'base' }));
   }
 
   function toggleSeleccion(id: number) {
@@ -825,7 +829,7 @@
             queden escalonados.
           -->
           <div class="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-            {#each grupos as grupo (grupo.grupo)}
+            {#each [...grupos].sort((a, b) => a.grupo - b.grupo) as grupo (grupo.grupo)}
               <GrupoCard
                 {grupo}
                 esTitular={actividad.es_titular}

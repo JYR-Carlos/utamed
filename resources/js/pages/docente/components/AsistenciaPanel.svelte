@@ -111,7 +111,10 @@
       );
       if (!res.ok) throw new Error();
       const data = await res.json();
-      estudiantes = data.estudiantes ?? [];
+      estudiantes = (data.estudiantes ?? []).sort(
+        (a: EstudianteAsistencia, b: EstudianteAsistencia) =>
+          (a.nombre ?? '').localeCompare(b.nombre ?? '', 'es', { sensitivity: 'base' }),
+      );
       sesiones = data.sesiones ?? [];
       porcentajeObligatorio = data.porcentaje_asistencia_obligatoria ?? null;
       // La sesión más reciente queda abierta: es la que el docente acaba de tomar.

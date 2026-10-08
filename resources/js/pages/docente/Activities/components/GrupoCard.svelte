@@ -230,7 +230,7 @@
     <div>
       <p class="text-xs text-gray-600 font-normal mb-1">Integrantes:</p>
       <div class="flex flex-wrap gap-2">
-        {#each grupo.integrantes as integrante}
+        {#each [...grupo.integrantes].sort((a, b) => (a.nombre_completo ?? '').localeCompare(b.nombre_completo ?? '', 'es', { sensitivity: 'base' })) as integrante}
           <span
             class="inline-flex items-center gap-1 text-xs bg-gray-50 border border-uta-blue/20 px-2 py-1 rounded-full text-slate-700"
           >
@@ -331,7 +331,7 @@
       </div>
 
       <div class="flex flex-col gap-1.5">
-        {#each grupo.integrantes as integrante}
+        {#each [...grupo.integrantes].sort((a, b) => (a.nombre_completo ?? '').localeCompare(b.nombre_completo ?? '', 'es', { sensitivity: 'base' })) as integrante}
           <div class="flex items-center gap-2 text-xs">
             <span class="flex-1 text-slate-700 truncate">{integrante.nombre_completo}</span>
 
@@ -393,7 +393,7 @@
           class="flex-1 text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-uta-blue focus:ring-2 focus:ring-uta-blue/20 transition-shadow"
         >
           <option value={0}>Seleccionar estudiante…</option>
-          {#each estudiantesParaGrupo as e}
+          {#each [...estudiantesParaGrupo].sort((a, b) => (a.nombre_completo ?? '').localeCompare(b.nombre_completo ?? '', 'es', { sensitivity: 'base' })) as e}
             <option value={e.id_estudiante}>{e.nombre_completo}</option>
           {/each}
         </select>
