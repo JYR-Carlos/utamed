@@ -863,23 +863,34 @@ class DocenteActivityController extends Controller
             ->map(function ($g) use ($actividad, $noLeidos) {
                 $g->sincronizarEstado($actividad);
 
+                $integrantes = $g->integranteGrupos
+                    ->sortBy(fn($m) => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '')
+                    ->values()
+                    ->map(fn($m) => [
+                        'id_asignado_actividad' => $m->id_asignado_actividad,
+                        'id_estudiante' => $m->id_estudiante,
+                        'nota_individual' => $m->nota_individual !== null ? (float) $m->nota_individual : null,
+                        'diferencia_decimas' => (float) ($m->diferencia_decimas ?? 0),
+                        'nombre_completo' => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '',
+                    ])->values();
+
                 return [
                     'grupo' => $g->id_actividad_asignada_grupo,
                     'nota' => $g->nota,
                     'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
                     'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
-                    'estado_calculado' => $g->calcularEstadoGrupo($actividad),
                     'no_leidos' => (int) ($noLeidos[$g->id_actividad_asignada_grupo] ?? 0),
-                    'integrantes' => $g->integranteGrupos->map(fn($m) => [
-                        'id_asignado_actividad' => $m->id_asignado_actividad,
-                        'id_estudiante' => $m->id_estudiante,
-                        'nota_individual' => $m->nota_individual !== null ? (float) $m->nota_individual : null,
-                        'diferencia_decimas' => (float) ($m->diferencia_decimas ?? 0),
-                        'nombre_completo' => $m->estudiante?->usuario?->nombre_completo ?? '',
-                    ])->values(),
+                    'integrantes' => $integrantes,
                 ];
-            })
-            ->values();
+            });
+
+        // Ordenar grupos: individual por apellido del estudiante, grupal por ID de grupo
+        if (!$actividad->es_grupal) {
+            $grupos = $grupos->sortBy(fn($g) => $g['integrantes'][0]['nombre_completo'] ?? '');
+        } else {
+            $grupos = $grupos->sortBy('grupo');
+        }
+        $grupos = $grupos->values();
 
         // Campos calculados de la actividad
         $esSumativa = $actividad->tipo_actividad === TipoActividad::SUMATIVA;
@@ -916,7 +927,7 @@ class DocenteActivityController extends Controller
             ->get()
             ->map(fn($i) => [
                 'id_estudiante' => $i->id_estudiante,
-                'nombre_completo' => $i->estudiante?->usuario?->nombre_completo ?? '',
+                'nombre_completo' => $i->estudiante?->usuario?->nombre_apellidos_primero ?? '',
             ])
             ->sortBy('nombre_completo')
             ->values();
@@ -1519,16 +1530,14 @@ class DocenteActivityController extends Controller
             ->with('miembros.estudiante.usuario')
             ->get()
             ->map(function ($g) use ($idsInscritos) {
-                $integrantes = $g->miembros->map(fn ($m) => [
-                    'id_estudiante' => $m->id_estudiante,
-                    'nombre_completo' => trim(
-                        ($m->estudiante?->usuario?->nombre1 ?? '') . ' ' .
-                        ($m->estudiante?->usuario?->nombre2 ?? '') . ' ' .
-                        ($m->estudiante?->usuario?->apellido1 ?? '') . ' ' .
-                        ($m->estudiante?->usuario?->apellido2 ?? '')
-                    ),
-                    'inscrito' => $idsInscritos->contains($m->id_estudiante),
-                ])->values();
+                $integrantes = $g->miembros
+                    ->sortBy(fn ($m) => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '')
+                    ->values()
+                    ->map(fn ($m) => [
+                        'id_estudiante' => $m->id_estudiante,
+                        'nombre_completo' => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '',
+                        'inscrito' => $idsInscritos->contains($m->id_estudiante),
+                    ])->values();
 
                 return [
                     'grupo' => $g->id_actividad_asignada_grupo,

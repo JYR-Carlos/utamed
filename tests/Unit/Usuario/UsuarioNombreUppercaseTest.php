@@ -16,6 +16,7 @@ describe('Usuario: Estándar de Almacenamiento de Nombres en Mayúsculas', funct
         expect($usuario->apellido1)->toBe('LÓPEZ');
         expect($usuario->apellido2)->toBe('CARMONA');
         expect($usuario->nombre_completo)->toBe('SUI-LAN DANAE ALEXANDRA LÓPEZ CARMONA');
+        expect($usuario->nombre_apellidos_primero)->toBe('LÓPEZ CARMONA SUI-LAN DANAE ALEXANDRA');
     });
 
     test('los mutadores manejan valores nulos o vacíos en nombre2 y apellido2', function () {
@@ -30,6 +31,7 @@ describe('Usuario: Estándar de Almacenamiento de Nombres en Mayúsculas', funct
         expect($usuario->apellido1)->toBe('PÉREZ');
         expect($usuario->apellido2)->toBeNull();
         expect($usuario->nombre_completo)->toBe('JUAN PÉREZ');
+        expect($usuario->nombre_apellidos_primero)->toBe('PÉREZ JUAN');
     });
 
     test('los mutadores respetan caracteres especiales como apóstrofes, guiones y tildes', function () {

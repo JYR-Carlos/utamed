@@ -58,15 +58,12 @@ class ActividadAsignadaGrupo extends BaseActividadAsignadaGrupo
                     'id_estudiante' => $miembro->id_estudiante,
                     'nota_individual' => $miembro->nota_individual !== null ? (float) $miembro->nota_individual : null,
                     'diferencia_decimas' => $miembro->diferencia_decimas !== null ? (float) $miembro->diferencia_decimas : 0.0,
-                    'nombre_completo' => trim(
-                        ($miembro->estudiante?->usuario?->nombre1 ?? '') . ' ' .
-                        ($miembro->estudiante?->usuario?->nombre2 ?? '') . ' ' .
-                        ($miembro->estudiante?->usuario?->apellido1 ?? '') . ' ' .
-                        ($miembro->estudiante?->usuario?->apellido2 ?? '')
-                    ),
+                    'nombre_completo' => $miembro->estudiante?->usuario?->nombre_apellidos_primero ?? '',
                     'rut' => $miembro->estudiante?->usuario?->rut,
                 ];
-            });
+            })
+            ->sortBy('nombre_completo')
+            ->values();
     }
 
     /**
