@@ -789,7 +789,9 @@ class UsuarioController extends Controller
             'apellido2' => $fila[4] ?? null,
             'email'     => $fila[5] ?? null,
             'username'  => $fila[6] ?? null,
-            'password'  => $fila[7] ?? null,
+            // Misma regla que el login (TrimStrings, T54): la clave se guarda sin
+            // espacios en los extremos; si no, quien la escriba no podrá entrar.
+            'password'  => is_string($fila[7] ?? null) ? trim($fila[7]) : ($fila[7] ?? null),
         ];
 
         if ($tipo === 'estudiante') {

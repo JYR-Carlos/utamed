@@ -194,14 +194,15 @@ class ActivityController extends Controller
                 ];
             }
 
-            // Última entrega del estudiante: si el evento más reciente de entrega es una
-            // cancelación, el estudiante se encuentra actualmente sin entrega activa.
+            // Última entrega del estudiante: las anteriores quedaron reemplazadas.
+            // Si esa última entrega fue cancelada, el grupo está sin entrega activa.
+            // La cancelación se cruza por el archivo, no por su posición en el hilo.
+            $uuidsCancelados = $this->uuidsCancelados($interacciones);
             foreach (array_reverse($interacciones) as $item) {
-                if ($item['tipo_interaccion'] === TipoMensaje::CANCELACIÓN_DE_ENTREGA->value) {
-                    break;
-                }
                 if ($item['tipo_interaccion'] === TipoMensaje::ENTREGA_DE_ARCHIVO->value) {
-                    $ultimaEntrega = $item;
+                    if (!in_array($item['uuid_archivo'], $uuidsCancelados, true)) {
+                        $ultimaEntrega = $item;
+                    }
                     break;
                 }
             }
@@ -217,8 +218,10 @@ class ActivityController extends Controller
         $estado = $grupo ? $grupo->calcularEstadoGrupo($actividad) : $actividad->calcularEstadoBase();
 
         // Entregas del estudiante (archivos enviados)
+        $uuidsCancelados = $this->uuidsCancelados($interacciones);
         $entradas = collect($interacciones)
-            ->filter(fn($i) => $i['tipo_interaccion'] === TipoMensaje::ENTREGA_DE_ARCHIVO->value)
+            ->filter(fn($i) => $i['tipo_interaccion'] === TipoMensaje::ENTREGA_DE_ARCHIVO->value
+                && !in_array($i['uuid_archivo'], $uuidsCancelados, true))
             ->map(fn($i) => ['id' => $i['id_interaccion']])
             ->values()
             ->toArray();
@@ -371,6 +374,23 @@ class ActivityController extends Controller
         }
 
         return $agenda->archivo->respuestaHttp($rutaArchivo, request()->boolean('ver'));
+    }
+
+    /**
+     * Archivos de entregas canceladas en el hilo: cada «Cancelación de entrega»
+     * repite el `uuid_archivo_subido` de la entrega que cancela.
+     *
+     * @param  array<int, array<string, mixed>>  $interacciones
+     * @return array<int, string>
+     */
+    private function uuidsCancelados(array $interacciones): array
+    {
+        return collect($interacciones)
+            ->filter(fn ($i) => $i['tipo_interaccion'] === TipoMensaje::CANCELACIÓN_DE_ENTREGA->value && $i['uuid_archivo'])
+            ->pluck('uuid_archivo')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

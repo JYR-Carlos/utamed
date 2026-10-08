@@ -165,6 +165,7 @@ class CursoService
     {
         return DB::transaction(function () use ($cursoPadre, $data) {
             $cursoPadre->load([
+                'unidades',
                 'componentes.tipoComponente',
                 'componentes.docenteComponentes',
                 'componentes.actividades',
@@ -194,11 +195,28 @@ class CursoService
                 'id_curso_padre'      => $cursoPadre->id_curso,
             ]);
 
+            // El trigger tr_curso_pre_insert reemplaza id_contexto por el contexto que
+            // él mismo crea; sin refresh() el rol quedaría en el contexto descartado.
+            $nuevoCurso->refresh();
+
+            // Las unidades pertenecen al curso y toda actividad exige una
+            // (id_unidad NOT NULL): se copian y cada actividad se reasigna a
+            // la copia de su unidad.
+            $unidadNueva = [];
+            foreach ($cursoPadre->unidades as $unidad) {
+                $unidadNueva[$unidad->id_unidad] = \App\Models\Curso\Unidad::create([
+                    'num_unidad'  => $unidad->num_unidad,
+                    'nombre'      => $unidad->nombre,
+                    'descripcion' => $unidad->descripcion,
+                    'id_curso'    => $nuevoCurso->id_curso,
+                ])->id_unidad;
+            }
+
             // Assign titular role in the new course context
             if ($cursoPadre->id_docente_titular) {
                 $this->assignDocenteRolCurso(
                     $cursoPadre->id_docente_titular,
-                    $contexto->id_contexto,
+                    $nuevoCurso->id_contexto,
                     true
                 );
             }
@@ -241,6 +259,7 @@ class CursoService
                         'max_integrantes' => $act->max_integrantes,
                         'es_plantilla'    => false,
                         'id_componente'   => $nuevoComp->id_componente,
+                        'id_unidad'       => $unidadNueva[$act->id_unidad] ?? null,
                     ]);
                 }
             }
