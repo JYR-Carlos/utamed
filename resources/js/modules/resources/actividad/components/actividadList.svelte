@@ -4,10 +4,9 @@
    *
    * Presentacional: el padre maneja los modales de crear/editar/eliminar vía
    * callbacks. Cada tarjeta enlaza a la evaluación de la actividad
-   * (/docente/cursos/{id}/actividades/{id}/evaluacion) y a sus mensajes de
-   * agenda (/docente/mensajes?actividad_id={id}) — esa mensajería es de nivel
-   * actividad, así que sólo se entra desde aquí; la del curso vive en
-   * /docente/cursos/{id}/mensajeria. Los flags can* vienen de los permisos del
+   * (/docente/cursos/{id}/actividades/{id}/evaluacion); el botón de mensajes
+   * lleva a esa misma página, donde cada grupo abre su agenda (la mensajería
+   * del curso vive en /docente/cursos/{id}/mensajeria). Los flags can* vienen de los permisos del
    * docente sobre el curso.
    *
    * El acento de color de cada tarjeta (rail, chip de tipo, botón "Evaluar")
@@ -383,7 +382,7 @@
             Evaluar
           </Link>
           <Link
-            href={`/docente/mensajes?actividad_id=${actividad.id_actividad}`}
+            href={`/docente/cursos/${idCurso}/actividades/${actividad.id_actividad}/evaluacion`}
             class="relative inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-[10px] font-semibold text-sm no-underline border border-[#E8EAF0] bg-white text-[#5C6478] hover:bg-[#FAFBFC] hover:text-[#0E1220] transition-all"
             title="Mensajes de esta actividad"
           >

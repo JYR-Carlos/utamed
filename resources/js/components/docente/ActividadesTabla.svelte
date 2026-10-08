@@ -148,7 +148,7 @@
                 {/if}
                 {#if (act.mensajes_pendientes ?? 0) > 0}
                   <Link
-                    href="/docente/mensajes?actividad_id={act.id_actividad}"
+                    href="/docente/cursos/{idCurso}/actividades/{act.id_actividad}/evaluacion"
                     class="inline-flex items-center gap-1 font-semibold text-[#B45309] no-underline hover:underline"
                   >
                     <MessageSquare size={12} aria-hidden="true" />

@@ -68,6 +68,8 @@
     onAgregarAGrupo: (grupoId: number) => void;
     onVerEntregas: (grupo: GrupoData) => void;
     onVerAgenda: (grupo: GrupoData) => void;
+    /** Mensajes del grupo que el docente aún no ha visto (marcan «Ver Agenda»). */
+    noLeidos?: number;
     onActualizarHolguraPersonal: (grupoId: number, dias: number) => void;
   }
 
@@ -93,6 +95,7 @@
     onAgregarAGrupo,
     onVerEntregas,
     onVerAgenda,
+    noLeidos = 0,
     onActualizarHolguraPersonal,
   }: Props = $props();
 
@@ -443,7 +446,17 @@
       onclick={() => onVerAgenda(grupo)}
     >
       <p>Ver Agenda</p>
-      <Calendar class="size-3.5 shrink-0" />
+      <span class="flex items-center gap-1.5">
+        {#if noLeidos > 0}
+          <span
+            class="rounded-full bg-white px-1.5 text-[10px] font-bold leading-4 text-uta-blue"
+            title="{noLeidos} {noLeidos === 1 ? 'mensaje nuevo' : 'mensajes nuevos'}"
+          >
+            {noLeidos}
+          </span>
+        {/if}
+        <Calendar class="size-3.5 shrink-0" />
+      </span>
     </button>
   </div>
 </div>

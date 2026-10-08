@@ -121,6 +121,44 @@ class LecturaAgendaService
         return $hilos;
     }
 
+    /**
+     * Mensajes que el usuario recibió y todavía no ha visto, por grupo.
+     * Los que él mismo envió no cuentan. `$acotar` recibe la consulta (con
+     * los alias a = agenda, aag = grupo, act = actividad, c = componente)
+     * para limitarla a ciertos cursos o a una actividad.
+     *
+     * @param  array<int, string>  $tipos  Tipos de agenda que cuentan como mensaje.
+     * @return \Illuminate\Support\Collection<int, object{id_actividad: int, grupo: int, no_leidos: int, ultima_fecha: string}>
+     */
+    public function noLeidosPorGrupo(int $idUsuario, array $tipos, callable $acotar): \Illuminate\Support\Collection
+    {
+        $consulta = DB::table('agenda.agenda as a')
+            ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'a.id_actividad_asignada_grupo')
+            ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
+            ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
+            ->whereIn('a.tipo_mensaje', $tipos)
+            ->where('a.id_usuario_emisor', '<>', $idUsuario)
+            ->whereNotExists(fn ($q) => $q->from('agenda.lectura_agenda as l')
+                ->whereColumn('l.id_agenda', 'a.id_agenda')
+                ->where('l.id_usuario_lector', $idUsuario))
+            ->groupBy('aag.id_actividad', 'a.id_actividad_asignada_grupo')
+            ->select(
+                'aag.id_actividad',
+                'a.id_actividad_asignada_grupo as grupo',
+                DB::raw('COUNT(*) as no_leidos'),
+                DB::raw('MAX(a.fecha_envio) as ultima_fecha'),
+            );
+
+        $acotar($consulta);
+
+        return $consulta->get()->map(function ($fila) {
+            $fila->id_actividad = (int) $fila->id_actividad;
+            $fila->grupo = (int) $fila->grupo;
+            $fila->no_leidos = (int) $fila->no_leidos;
+            return $fila;
+        });
+    }
+
     /** Igual que leerHilos() para un solo hilo. */
     public function leerHilo(int $idUsuario, iterable $hilo): array
     {

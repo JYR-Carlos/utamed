@@ -736,11 +736,19 @@ class DocenteActivityController extends Controller
         // (evento en InscripcionCurso). Para los datos anteriores está el comando
         // `agenda:backfill-grupos-individuales`.
 
+        // Mensajes que el docente aún no ha visto, por grupo: marcan el botón
+        // de la agenda de cada uno (se borran al abrirla).
+        $noLeidos = (new LecturaAgendaService)->noLeidosPorGrupo(
+            Auth::id(),
+            [TipoMensaje::MENSAJE_AL_PROFESOR->value, TipoMensaje::FEEDBACK->value],
+            fn ($q) => $q->where('aag.id_actividad', $actividad->id_actividad),
+        )->pluck('no_leidos', 'grupo');
+
         // Grupos con sus integrantes (modelo nuevo: actividad_asignada_grupo)
         $grupos = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
             ->with(['integranteGrupos.estudiante.usuario'])
             ->get()
-            ->map(function ($g) use ($actividad) {
+            ->map(function ($g) use ($actividad, $noLeidos) {
                 $g->sincronizarEstado($actividad);
 
                 return [
@@ -749,6 +757,7 @@ class DocenteActivityController extends Controller
                     'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
                     'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
                     'estado_calculado' => $g->calcularEstadoGrupo($actividad),
+                    'no_leidos' => (int) ($noLeidos[$g->id_actividad_asignada_grupo] ?? 0),
                     'integrantes' => $g->integranteGrupos->map(fn($m) => [
                         'id_asignado_actividad' => $m->id_asignado_actividad,
                         'id_estudiante' => $m->id_estudiante,

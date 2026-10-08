@@ -46,6 +46,8 @@
     onAjustarDecimas: (grupoId: number, integrante: IntegranteData, delta: number) => void;
     onVerEntregas: (grupo: GrupoData) => void;
     onVerAgenda: (grupo: GrupoData) => void;
+    /** Mensajes de cada grupo que el docente aún no ha visto (marcan «Agenda»). */
+    noLeidosDe?: (grupoId: number) => number;
     onActualizarHolguraPersonal: (grupoId: number, dias: number) => void;
   }
 
@@ -59,6 +61,7 @@
     onAjustarDecimas,
     onVerEntregas,
     onVerAgenda,
+    noLeidosDe = () => 0,
     onActualizarHolguraPersonal,
   }: Props = $props();
 
@@ -259,6 +262,14 @@
             <button class="{BTN_FILA} ml-1.5" onclick={() => onVerAgenda(grupo)}>
               <Calendar class="w-3.5 h-3.5 shrink-0" />
               Agenda
+              {#if noLeidosDe(grupo.grupo) > 0}
+                <span
+                  class="rounded-full bg-uta-blue px-1.5 text-[10px] font-bold leading-4 text-white"
+                  title="Mensajes nuevos"
+                >
+                  {noLeidosDe(grupo.grupo)}
+                </span>
+              {/if}
             </button>
           </td>
         </tr>
