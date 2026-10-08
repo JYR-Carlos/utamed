@@ -22,10 +22,8 @@ use App\Services\FotoIntranetService;
  */
 class PerfilController extends Controller
 {
-    private FotoIntranetService $fotoIntranet;
-    public function __construct() {
-        $this->fotoIntranet = new FotoIntranetService();
-    }
+    public function __construct(private FotoIntranetService $fotoIntranet) {}
+
     /** Dominios aceptados por red: sólo enlaces al perfil en esa red. */
     private const DOMINIOS_REDES = [
         'youtube' => ['youtube.com', 'youtu.be'],

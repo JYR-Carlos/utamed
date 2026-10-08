@@ -60,13 +60,18 @@
     return d;
   }
 
-  const fechaBase = $derived.by(() => parseFechaSoloDia(fecha_limite));
+  // Una actividad puede exigir entrega sin tener fecha límite: el backend
+  // manda '' y parsearla daría una fecha inválida («NaN/NaN»).
+  const tieneFecha = $derived(Boolean(fecha_limite));
+
+  const fechaBase = $derived.by(() => (tieneFecha ? parseFechaSoloDia(fecha_limite) : null));
   const fechaEfectiva = $derived.by(() =>
-    addDays(fechaBase, (dias_holgura || 0) + (dias_holgura_personal || 0)),
+    fechaBase ? addDays(fechaBase, (dias_holgura || 0) + (dias_holgura_personal || 0)) : null,
   );
 
   const vencioBase = $derived(
-    new Date() > new Date(fechaBase.getFullYear(), fechaBase.getMonth(), fechaBase.getDate(), 23, 59, 59),
+    fechaBase !== null &&
+      new Date() > new Date(fechaBase.getFullYear(), fechaBase.getMonth(), fechaBase.getDate(), 23, 59, 59),
   );
 
   const estadoVisual = $derived.by((): 'en_plazo' | 'fuera_de_plazo' | 'cerrada' => {
@@ -75,6 +80,7 @@
   });
 
   const diasRestantes = $derived.by(() => {
+    if (!fechaEfectiva) return 0;
     const ms = fechaEfectiva.getTime() - new Date().getTime();
     return Math.max(0, Math.ceil(ms / 86_400_000));
   });
@@ -85,6 +91,7 @@
   // Formato DD/MM sin año
   const fechaCortaDDMM = $derived.by(() => {
     const d = fechaEfectiva;
+    if (!d) return '';
     const dia = String(d.getDate()).padStart(2, '0');
     const mes = String(d.getMonth() + 1).padStart(2, '0');
     return `${dia}/${mes}`;
@@ -151,6 +158,11 @@
         <h2 class="text-lg md:text-xl font-bold tracking-tight text-amber-900">
           {diasRestantes === 0 ? 'Vence hoy (con holgura)' : `${diasRestantes} ${diasRestantes === 1 ? 'día restante' : 'días restantes'} con holgura`}
         </h2>
+      {:else if !tieneFecha}
+        <CalendarClock class="h-5 w-5 {s.icon}" />
+        <h2 class="text-lg md:text-xl font-bold tracking-tight text-[#1A1A24]">
+          Sin fecha límite
+        </h2>
       {:else}
         <CalendarClock class="h-5 w-5 {s.icon}" />
         <h2 class="text-lg md:text-xl font-bold tracking-tight text-[#1A1A24]">
@@ -172,12 +184,18 @@
       <span class="text-[11px] font-bold uppercase tracking-wider text-[#5A5E6E]">
         Fecha de entrega
       </span>
-      <div class="flex items-baseline gap-2.5 mt-1">
-        <span class="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#1A1A24] leading-none">
-          {fechaCortaDDMM}
+      {#if tieneFecha}
+        <div class="flex items-baseline gap-2.5 mt-1">
+          <span class="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#1A1A24] leading-none">
+            {fechaCortaDDMM}
+          </span>
+          <span class="text-xs font-semibold text-[#5A5E6E]">23:59 hrs</span>
+        </div>
+      {:else}
+        <span class="mt-1 text-sm font-semibold text-[#5A5E6E]">
+          La actividad no tiene fecha límite.
         </span>
-        <span class="text-xs font-semibold text-[#5A5E6E]">23:59 hrs</span>
-      </div>
+      {/if}
       {#if hayHolguraPersonal && estadoVisual !== 'cerrada'}
         <span class="mt-1.5 inline-flex items-center text-[11px] font-medium text-emerald-800">
           +{dias_holgura_personal} {dias_holgura_personal === 1 ? 'día' : 'días'} de holgura personal

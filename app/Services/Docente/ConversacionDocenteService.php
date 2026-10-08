@@ -33,6 +33,9 @@ class ConversacionDocenteService
         TipoMensaje::CANCELACIÓN_DE_ENTREGA->value,
         TipoMensaje::EVALUACIÓN->value,
         TipoMensaje::CIERRE_DE_ACTIVIDAD->value,
+        // Apelación de la nota (T48): el docente tiene que verla en el hilo.
+        TipoMensaje::SOLICITUD_DE_APELACIÓN->value,
+        TipoMensaje::RESOLUCIÓN_DE_APELACIÓN->value,
     ];
 
     /**

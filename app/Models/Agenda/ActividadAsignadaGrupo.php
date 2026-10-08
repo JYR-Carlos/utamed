@@ -30,6 +30,21 @@ class ActividadAsignadaGrupo extends BaseActividadAsignadaGrupo
     }
 
     /**
+     * Si el docente ya evaluó al grupo.
+     *
+     * Las evaluaciones no quedan amarradas a una entrega: `id_agenda_entrega`
+     * es opcional y en una actividad formativa no hay nota. Por eso no basta
+     * con mirar la nota ni el archivo evaluado; cualquier fila del grupo con
+     * registro en agenda.evaluacion cuenta como evaluación.
+     */
+    public function yaFueEvaluado(): bool
+    {
+        return $this->nota !== null
+            || $this->miembros()->whereNotNull('nota_individual')->exists()
+            || $this->entregas()->whereHas('evaluacion')->exists();
+    }
+
+    /**
      * Obtiene los miembros con sus datos de estudiante cargados
      */
     public function getMiembrosConDetalles()
