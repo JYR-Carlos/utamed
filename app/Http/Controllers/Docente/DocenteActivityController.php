@@ -24,9 +24,10 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
 use App\Models\Curso\Unidad;
 use App\Models\Usuario\Usuario;
+use App\Services\ActividadService;
 use App\Services\Agenda\GrupoIndividualService;
-use App\Services\Archive\Handlers\ActivityArchiveHandler;
 use App\Services\Agenda\LecturaAgendaService;
+use App\Services\Archive\Handlers\ActivityArchiveHandler;
 use App\Services\Docente\ConversacionDocenteService;
 use App\Services\Docente\NombreUsuario;
 use Closure;
@@ -378,6 +379,117 @@ class DocenteActivityController extends Controller
 
             return redirect()->back()
                 ->with('error', 'No se pudo crear la actividad. Por favor, inténtalo nuevamente.');
+        }
+    }
+
+    /**
+     * Cursos hermanos donde el docente puede crear actividades.
+     *
+     * Hermano = mismo id_asignacion_plan (misma asignatura+plan), distinto id_curso.
+     * Devuelve JSON para el modal de copiar actividades.
+     */
+    public function cursosHermanos(Curso $curso): JsonResponse
+    {
+        $this->authorize('viewPrograma', $curso);
+
+        $user = Auth::user();
+        $idDocente = $user->docente?->id_docente;
+
+        // Cursos con la misma asignación de plan donde el docente es titular
+        // o dicta al menos un componente.
+        $hermanos = Curso::where('id_asignacion_plan', $curso->id_asignacion_plan)
+            ->where('id_curso', '!=', $curso->id_curso)
+            ->when($idDocente, function ($q) use ($idDocente) {
+                $q->where(function ($sub) use ($idDocente) {
+                    $sub->where('id_docente_titular', $idDocente)
+                        ->orWhereHas('componentes.docenteComponentes', fn ($dc) => $dc->where('id_docente', $idDocente)
+                        );
+                });
+            })
+            ->with(['componentes.tipoComponente', 'unidades' => fn ($q) => $q->orderBy('num_unidad')])
+            ->get()
+            ->map(fn (Curso $c) => [
+                'id_curso' => $c->id_curso,
+                'cod_curso' => $c->cod_curso,
+                'letra_grupo' => $c->letra_grupo,
+                'agno_real' => $c->agno_real,
+                'semestre_real' => $c->semestre_real,
+                'componentes' => $c->componentes->map(fn ($comp) => [
+                    'id_componente' => $comp->id_componente,
+                    'id_tipo_componente' => $comp->id_tipo_componente,
+                    'tipo' => $comp->tipoComponente?->tipo,
+                ]),
+                'unidades' => $c->unidades->map(fn ($u) => [
+                    'id_unidad' => $u->id_unidad,
+                    'num_unidad' => $u->num_unidad,
+                    'nombre' => $u->nombre,
+                ]),
+            ]);
+
+        return response()->json($hermanos);
+    }
+
+    /**
+     * Copia una actividad a un curso hermano.
+     */
+    public function copiarActividad(Request $request, Curso $curso, Actividad $actividad)
+    {
+        $this->authorize('manageTeam', $curso);
+        $this->assertActividadDeCurso($curso, $actividad);
+
+        $validated = $request->validate([
+            'id_curso_destino' => 'required|integer',
+            'id_componente_destino' => 'required|integer',
+            'id_unidad_destino' => 'required|integer',
+        ]);
+
+        try {
+            $cursoDestino = Curso::findOrFail($validated['id_curso_destino']);
+
+            // Verificar que sea hermano (misma asignación de plan).
+            if ($cursoDestino->id_asignacion_plan !== $curso->id_asignacion_plan) {
+                return redirect()->back()->with('error', 'El curso destino no es de la misma asignatura.');
+            }
+
+            // Verificar que el docente tenga acceso al curso destino (titular o docente de componente si no es admin).
+            $user = Auth::user();
+            $idDocente = $user->docente?->id_docente;
+            if ($idDocente) {
+                $esElegible = Curso::where('id_curso', $cursoDestino->id_curso)
+                    ->where(function ($q) use ($idDocente) {
+                        $q->where('id_docente_titular', $idDocente)
+                            ->orWhereHas('componentes.docenteComponentes', fn ($dc) => $dc->where('id_docente', $idDocente)
+                            );
+                    })->exists();
+
+                if (!$esElegible) {
+                    return redirect()->back()->with('error', 'No tienes permisos en el curso destino.');
+                }
+            }
+
+            $this->authorize('viewPrograma', $cursoDestino);
+
+            $componente = Componente::where('id_componente', $validated['id_componente_destino'])
+                ->where('id_curso', $cursoDestino->id_curso)
+                ->firstOrFail();
+
+            $unidad = Unidad::where('id_unidad', $validated['id_unidad_destino'])
+                ->where('id_curso', $cursoDestino->id_curso)
+                ->firstOrFail();
+
+            $nueva = (new ActividadService)->copiarA($actividad, $componente, $unidad, $cursoDestino);
+
+            return redirect()->back()->with('success',
+                "Actividad '{$actividad->nombre}' copiada a {$cursoDestino->cod_curso}."
+            );
+        } catch (\Exception $e) {
+            Log::error('[DocenteActivity::copiarActividad] Error', [
+                'message' => $e->getMessage(),
+                'id_actividad' => $actividad->id_actividad,
+                'id_curso_destino' => $validated['id_curso_destino'] ?? null,
+            ]);
+
+            return redirect()->back()->with('error', 'No se pudo copiar la actividad.');
         }
     }
 
@@ -736,29 +848,49 @@ class DocenteActivityController extends Controller
         // (evento en InscripcionCurso). Para los datos anteriores está el comando
         // `agenda:backfill-grupos-individuales`.
 
+        // Mensajes que el docente aún no ha visto, por grupo: marcan el botón
+        // de la agenda de cada uno (se borran al abrirla).
+        $noLeidos = (new LecturaAgendaService)->noLeidosPorGrupo(
+            Auth::id(),
+            [TipoMensaje::MENSAJE_AL_PROFESOR->value, TipoMensaje::FEEDBACK->value],
+            fn ($q) => $q->where('aag.id_actividad', $actividad->id_actividad),
+        )->pluck('no_leidos', 'grupo');
+
         // Grupos con sus integrantes (modelo nuevo: actividad_asignada_grupo)
         $grupos = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
             ->with(['integranteGrupos.estudiante.usuario'])
             ->get()
-            ->map(function ($g) use ($actividad) {
+            ->map(function ($g) use ($actividad, $noLeidos) {
                 $g->sincronizarEstado($actividad);
+
+                $integrantes = $g->integranteGrupos
+                    ->sortBy(fn($m) => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '')
+                    ->values()
+                    ->map(fn($m) => [
+                        'id_asignado_actividad' => $m->id_asignado_actividad,
+                        'id_estudiante' => $m->id_estudiante,
+                        'nota_individual' => $m->nota_individual !== null ? (float) $m->nota_individual : null,
+                        'diferencia_decimas' => (float) ($m->diferencia_decimas ?? 0),
+                        'nombre_completo' => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '',
+                    ])->values();
 
                 return [
                     'grupo' => $g->id_actividad_asignada_grupo,
                     'nota' => $g->nota,
                     'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
                     'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
-                    'estado_calculado' => $g->calcularEstadoGrupo($actividad),
-                    'integrantes' => $g->integranteGrupos->map(fn($m) => [
-                        'id_asignado_actividad' => $m->id_asignado_actividad,
-                        'id_estudiante' => $m->id_estudiante,
-                        'nota_individual' => $m->nota_individual !== null ? (float) $m->nota_individual : null,
-                        'diferencia_decimas' => (float) ($m->diferencia_decimas ?? 0),
-                        'nombre_completo' => $m->estudiante?->usuario?->nombre_completo ?? '',
-                    ])->values(),
+                    'no_leidos' => (int) ($noLeidos[$g->id_actividad_asignada_grupo] ?? 0),
+                    'integrantes' => $integrantes,
                 ];
-            })
-            ->values();
+            });
+
+        // Ordenar grupos: individual por apellido del estudiante, grupal por ID de grupo
+        if (!$actividad->es_grupal) {
+            $grupos = $grupos->sortBy(fn($g) => $g['integrantes'][0]['nombre_completo'] ?? '');
+        } else {
+            $grupos = $grupos->sortBy('grupo');
+        }
+        $grupos = $grupos->values();
 
         // Campos calculados de la actividad
         $esSumativa = $actividad->tipo_actividad === TipoActividad::SUMATIVA;
@@ -795,7 +927,7 @@ class DocenteActivityController extends Controller
             ->get()
             ->map(fn($i) => [
                 'id_estudiante' => $i->id_estudiante,
-                'nombre_completo' => $i->estudiante?->usuario?->nombre_completo ?? '',
+                'nombre_completo' => $i->estudiante?->usuario?->nombre_apellidos_primero ?? '',
             ])
             ->sortBy('nombre_completo')
             ->values();
@@ -967,6 +1099,7 @@ class DocenteActivityController extends Controller
                 $p = (float) $col['puntos'];
                 if ($p < 0) {
                     $fail('Los puntajes de los niveles deben ser números mayores o iguales a 0.');
+
                     return;
                 }
                 $puntos[] = $p;
@@ -1008,10 +1141,12 @@ class DocenteActivityController extends Controller
                 $minimo = (float) $escala['puntaje_minimo'];
                 if ($minimo < 0) {
                     $fail('Los puntajes mínimos de la escala de evaluación deben ser mayores o iguales a 0.');
+
                     return;
                 }
                 if ($minimo > $maxAlcanzable) {
                     $fail("Los puntajes mínimos de la escala de evaluación no pueden superar el puntaje total de la rúbrica ({$maxAlcanzable} pts).");
+
                     return;
                 }
             }
@@ -1395,16 +1530,14 @@ class DocenteActivityController extends Controller
             ->with('miembros.estudiante.usuario')
             ->get()
             ->map(function ($g) use ($idsInscritos) {
-                $integrantes = $g->miembros->map(fn ($m) => [
-                    'id_estudiante' => $m->id_estudiante,
-                    'nombre_completo' => trim(
-                        ($m->estudiante?->usuario?->nombre1 ?? '') . ' ' .
-                        ($m->estudiante?->usuario?->nombre2 ?? '') . ' ' .
-                        ($m->estudiante?->usuario?->apellido1 ?? '') . ' ' .
-                        ($m->estudiante?->usuario?->apellido2 ?? '')
-                    ),
-                    'inscrito' => $idsInscritos->contains($m->id_estudiante),
-                ])->values();
+                $integrantes = $g->miembros
+                    ->sortBy(fn ($m) => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '')
+                    ->values()
+                    ->map(fn ($m) => [
+                        'id_estudiante' => $m->id_estudiante,
+                        'nombre_completo' => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '',
+                        'inscrito' => $idsInscritos->contains($m->id_estudiante),
+                    ])->values();
 
                 return [
                     'grupo' => $g->id_actividad_asignada_grupo,

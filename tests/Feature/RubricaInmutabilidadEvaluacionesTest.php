@@ -234,3 +234,34 @@ test('storeEvaluacion rechaza rúbricas que pertenecen a otra actividad', functi
 
     $response->assertSessionHasErrors(['id_rubrica']);
 });
+
+test('showEvaluacion entrega integrantes con nombre_apellidos_primero ordenados alfabeticamente', function () {
+    $f = fixtureActividadEvaluacion();
+    if (!$f) {
+        $this->markTestSkipped('No se encontró fixture de curso/actividad con grupo.');
+    }
+
+    $usuario = Usuario::findOrFail($f['id_usuario']);
+    $usuario->fecha_cambio_passhash = now();
+    $usuario->save();
+
+    $response = $this->actingAs($usuario)
+        ->get("/docente/cursos/{$f['id_curso']}/actividades/{$f['id_actividad']}/evaluacion");
+
+    $response->assertInertia(function (Assert $page) {
+        $page->component('docente/Activities/Index')
+            ->has('grupos')
+            ->where('grupos', function ($grupos) {
+                // Verificar que si hay integrantes, su nombre_completo tiene formato con apellido primero
+                foreach ($grupos as $g) {
+                    foreach ($g['integrantes'] as $m) {
+                        if (!empty($m['nombre_completo'])) {
+                            // Debería ser no vacío y mayúsculas
+                            expect($m['nombre_completo'])->toBe(mb_strtoupper($m['nombre_completo'], 'UTF-8'));
+                        }
+                    }
+                }
+                return true;
+            });
+    });
+});

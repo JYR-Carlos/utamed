@@ -185,18 +185,15 @@ class DocenteCursoController extends Controller
                 'nota_componente'           => $ic->nota_componente,
                 'estudiante' => [
                     'id_estudiante' => $ic->estudiante->id_estudiante,
-                    'nombre'        => trim(
-                        ($ic->estudiante->usuario->nombre1  ?? '') . ' ' .
-                        ($ic->estudiante->usuario->nombre2  ?? '') . ' ' .
-                        ($ic->estudiante->usuario->apellido1 ?? '') . ' ' .
-                        ($ic->estudiante->usuario->apellido2 ?? '')
-                    ),
+                    'nombre'        => $ic->estudiante->usuario?->nombre_apellidos_primero ?? '',
                     'username'      => $ic->estudiante->usuario->username ?? '',
                     // Contacto personal (T10): sólo lo ve el equipo docente,
                     // en modo lectura, desde la ficha del estudiante.
                     'contacto'      => $ic->estudiante->contacto(),
                 ],
-            ]);
+            ])
+            ->sortBy('estudiante.nombre')
+            ->values();
 
         // Asistencia agregada por inscripción-componente. Una fila de
         // `curso.asistencia` = un estudiante en una sesión implícita

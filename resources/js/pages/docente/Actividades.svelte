@@ -31,9 +31,11 @@
     ChevronRight,
     ClipboardList,
     Columns3,
+    Copy,
     EyeOff,
     FilterX,
     List,
+    Loader2,
     Lock,
     Plus,
     Search,
@@ -45,10 +47,12 @@
     updateActividad,
     deleteActividad,
     toggleVisibilidadActividad,
+    copiarActividad,
   } from '@/modules/resources/actividad';
   import ActividadesPorEstado from './components/ActividadesPorEstado.svelte';
   import ActividadesTabla from '@/components/docente/ActividadesTabla.svelte';
   import ActividadEliminarDialog from '@/components/docente/ActividadEliminarDialog.svelte';
+  import ActividadCopiarModal from '@/components/docente/ActividadCopiarModal.svelte';
   import EnunciadoModal from '@/components/docente/EnunciadoModal.svelte';
   import { hasPermission } from '@/services/permissionValidator';
   import type { Permission } from '@/types/permissions/permissions';
@@ -287,15 +291,16 @@
    */
   const ocultasAlAlumno = $derived(actividadesDelRol.filter((a) => !a.visible).length);
 
-  // ── Modales ───────────────────────────────────────────────────────────────
-
   let showForm = $state(false);
   let showDelete = $state(false);
   let showEnunciado = $state(false);
+  let showCopy = $state(false);
   let isLoading = $state(false);
+  let copiando = $state(false);
   let editando = $state<Actividad | null>(null);
   let eliminando = $state<Actividad | null>(null);
   let conEnunciado = $state<Actividad | null>(null);
+  let copiandoActividad = $state<Actividad | null>(null);
   let formErrors = $state<Record<string, string>>({});
 
   // ── Guardado optimista del interruptor de visibilidad (lámina e) ──────────
@@ -447,6 +452,30 @@
   function abrirEnunciado(act: Actividad) {
     conEnunciado = act;
     showEnunciado = true;
+  }
+
+  function abrirCopiar(act: Actividad) {
+    copiandoActividad = act;
+    showCopy = true;
+  }
+
+  function handleCopiarSubmit(data: {
+    id_curso_destino: number;
+    id_componente_destino: number;
+    id_unidad_destino: number;
+  }) {
+    if (!copiandoActividad) return;
+    copiando = true;
+    copiarActividad(curso.id_curso, copiandoActividad.id_actividad, data, {
+      onSuccess: () => {
+        showCopy = false;
+        copiandoActividad = null;
+        copiando = false;
+      },
+      onError: () => {
+        copiando = false;
+      },
+    });
   }
 
   // ── Lenguaje visual compartido (mismo vocabulario que CursoDetalle) ───────
@@ -777,6 +806,7 @@
             {toggles}
             onToggleVisible={handleToggleVisible}
             onEdit={abrirEditar}
+            onCopiar={abrirCopiar}
             onDelete={abrirEliminar}
             onEnunciado={abrirEnunciado}
           />
@@ -798,7 +828,12 @@
             </span>
           </div>
         {:else}
-          <ActividadesPorEstado actividades={actividadesFiltradas} idCurso={curso.id_curso} />
+          <ActividadesPorEstado
+            actividades={actividadesFiltradas}
+            idCurso={curso.id_curso}
+            {canEdit}
+            onCopiar={abrirCopiar}
+          />
         {/if}
       </section>
     </div>
@@ -817,6 +852,18 @@
       formErrors = {};
     }}
     onSubmit={handleSubmit}
+  />
+
+  <ActividadCopiarModal
+    bind:isOpen={showCopy}
+    idCurso={curso.id_curso}
+    actividad={copiandoActividad}
+    isLoading={copiando}
+    onClose={() => {
+      showCopy = false;
+      copiandoActividad = null;
+    }}
+    onSubmit={handleCopiarSubmit}
   />
 
   <ActividadEliminarDialog

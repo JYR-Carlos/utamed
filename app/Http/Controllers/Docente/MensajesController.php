@@ -41,8 +41,14 @@ class MensajesController extends Controller
     private const TIPOS_CONVERSACION = ['Mensaje al profesor', 'Feedback'];
 
     /**
-     * Bandeja de mensajes: árbol Curso → Actividad con conteos, y (lazy) el hilo
-     * de la actividad seleccionada (sus grupos con los mensajes de cada uno).
+     * Bandeja de mensajes: las actividades de los cursos del docente, cada una
+     * con los mensajes que aún no ha visto. Las conversaciones no se leen aquí:
+     * cada fila lleva a la página de la actividad y abre la agenda del grupo
+     * (ahí se marcan como vistas). Así hay una sola forma de ver la agenda.
+     *
+     * El estado de cada actividad (Actividad::calcularEstadoBase) deja separar
+     * las activas de las que ya no admiten conversación (cerradas, no visibles
+     * o planificadas), que la pantalla esconde salvo que se pidan.
      */
     public function index()
     {
@@ -56,194 +62,56 @@ class MensajesController extends Controller
         $cursos = Curso::where('id_docente_titular', $docente->id_docente)
             ->whereNull('fecha_eliminacion')
             ->select('id_curso', 'nombre', 'cod_curso', 'agno_real', 'semestre_real')
-            ->orderByDesc('agno_real')
-            ->orderByDesc('semestre_real')
+            ->get()
+            ->keyBy('id_curso');
+
+        $cursoIds = $cursos->keys()->all();
+
+        // Actividades con al menos un grupo: sin grupos no hay con quién hablar.
+        $actividades = empty($cursoIds) ? collect() : Actividad::query()
+            ->whereHas('componente', fn ($q) => $q->whereIn('id_curso', $cursoIds))
+            ->whereHas('actividadAsignadaGrupos')
+            ->with('componente:id_componente,id_curso')
             ->get();
 
-        $cursoIds = $cursos->pluck('id_curso')->all();
+        // No vistos por grupo; por actividad se suman y se recuerda el grupo
+        // más reciente, que es la agenda que abre el clic.
+        $noLeidos = empty($cursoIds) ? collect() : (new LecturaAgendaService)->noLeidosPorGrupo(
+            Auth::id(),
+            self::TIPOS_CONVERSACION,
+            fn ($q) => $q->whereIn('c.id_curso', $cursoIds),
+        )->groupBy('id_actividad');
 
-        // Por (curso, actividad): totales, mensajes de estudiantes y última fecha.
-        $totales = empty($cursoIds) ? collect() : DB::table('agenda.agenda as a')
-            ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad_asignada_grupo', '=', 'a.id_actividad_asignada_grupo')
-            ->join('agenda.actividad as act', 'act.id_actividad', '=', 'aag.id_actividad')
-            ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
-            ->whereIn('c.id_curso', $cursoIds)
-            ->whereIn('a.tipo_mensaje', self::TIPOS_CONVERSACION)
-            ->groupBy('c.id_curso', 'act.id_actividad', 'act.nombre')
-            ->select(
-                'c.id_curso',
-                'act.id_actividad',
-                'act.nombre as actividad_nombre',
-                DB::raw('COUNT(*) as total'),
-                DB::raw("COUNT(*) FILTER (WHERE a.tipo_mensaje = 'Mensaje al profesor') as total_estudiante"),
-                DB::raw('MAX(a.fecha_envio) as ultima_fecha'),
-            )
-            ->get();
-
-        // "Pendientes" por actividad = grupos cuyo último mensaje es del estudiante
-        // (es decir, esperan respuesta del docente).
         $pendientes = $this->pendientesPorActividad($cursoIds);
 
-        // Todas las actividades de los cursos que tengan al menos un grupo (aunque
-        // no tengan mensajes aún), para poder iniciar una conversación nueva.
-        $actividadesBase = empty($cursoIds) ? collect() : DB::table('agenda.actividad as act')
-            ->join('curso.componente as c', 'c.id_componente', '=', 'act.id_componente')
-            ->join('agenda.actividad_asignada_grupo as aag', 'aag.id_actividad', '=', 'act.id_actividad')
-            ->whereIn('c.id_curso', $cursoIds)
-            ->groupBy('c.id_curso', 'act.id_actividad', 'act.nombre')
-            ->select(
-                'c.id_curso',
-                'act.id_actividad',
-                'act.nombre as actividad_nombre',
-                DB::raw('COUNT(DISTINCT aag.id_actividad_asignada_grupo) as total_grupos'),
-            )
-            ->get();
+        $filas = $actividades->map(function (Actividad $act) use ($cursos, $noLeidos, $pendientes) {
+            $curso = $cursos[$act->componente->id_curso];
+            $grupos = $noLeidos[$act->id_actividad] ?? collect();
+            $masReciente = $grupos->sortByDesc('ultima_fecha')->first();
 
-        // Ensambla el árbol curso → actividades (incluye actividades sin mensajes).
-        $totalesMap = $totales->keyBy('id_actividad');
-        $basePorCurso = $actividadesBase->groupBy('id_curso');
-
-        $cursosTree = $cursos
-            ->map(function ($curso) use ($basePorCurso, $totalesMap, $pendientes) {
-                $acts = ($basePorCurso[$curso->id_curso] ?? collect())
-                    ->map(function ($r) use ($totalesMap, $pendientes) {
-                        $t = $totalesMap[$r->id_actividad] ?? null;
-                        return [
-                            'id_actividad'    => $r->id_actividad,
-                            'nombre'          => $r->actividad_nombre,
-                            'total'           => (int) ($t->total ?? 0),
-                            'total_estudiante' => (int) ($t->total_estudiante ?? 0),
-                            'pendientes'      => (int) ($pendientes[$r->id_actividad] ?? 0),
-                            'total_grupos'    => (int) $r->total_grupos,
-                            'ultima_fecha'    => $t->ultima_fecha ?? null,
-                        ];
-                    })
-                    // Con mensajes primero (por última fecha desc); luego sin mensajes (alfabético).
-                    ->sort(function ($a, $b) {
-                        if (($a['ultima_fecha'] === null) !== ($b['ultima_fecha'] === null)) {
-                            return $a['ultima_fecha'] === null ? 1 : -1;
-                        }
-                        if ($a['ultima_fecha'] && $b['ultima_fecha']) {
-                            return strcmp($b['ultima_fecha'], $a['ultima_fecha']);
-                        }
-                        return strcmp($a['nombre'], $b['nombre']);
-                    })
-                    ->values();
-
-                return [
+            return [
+                'id_actividad'  => $act->id_actividad,
+                'nombre'        => $act->nombre,
+                'estado'        => $act->calcularEstadoBase(),
+                'fecha_limite'  => $act->fecha_limite?->format('Y-m-d'),
+                'no_leidos'     => (int) $grupos->sum('no_leidos'),
+                'grupos_con_no_leidos' => $grupos->count(),
+                'grupo_a_abrir' => $masReciente?->grupo,
+                'ultima_fecha'  => $masReciente?->ultima_fecha,
+                'pendientes'    => (int) ($pendientes[$act->id_actividad] ?? 0),
+                'curso' => [
                     'id_curso'      => $curso->id_curso,
                     'nombre'        => $curso->nombre,
                     'cod_curso'     => $curso->cod_curso,
                     'agno_real'     => $curso->agno_real,
                     'semestre_real' => $curso->semestre_real,
-                    'pendientes'    => $acts->sum('pendientes'),
-                    'actividades'   => $acts,
-                ];
-            })
-            ->filter(fn($c) => count($c['actividades']) > 0)
-            ->values();
-
-        return Inertia::render('docente/Mensajes', [
-            'cursos' => $cursosTree,
-            // Hilo de la actividad seleccionada — sólo se resuelve cuando llega ?actividad_id
-            'hilo'   => Inertia::lazy(fn() => $this->resolverHilo($cursoIds)),
-        ]);
-    }
-
-    /**
-     * Resuelve el hilo de una actividad: sus grupos (con integrantes) y los
-     * mensajes de cada grupo. Valida que la actividad pertenezca a un curso del
-     * docente (titular).
-     */
-    private function resolverHilo(array $cursoIds): ?array
-    {
-        $actividadId = request('actividad_id');
-        if (!$actividadId) {
-            return null;
-        }
-
-        $actividad = Actividad::with('componente')->find($actividadId);
-        if (!$actividad || !in_array($actividad->componente?->id_curso, $cursoIds, true)) {
-            return null;
-        }
-
-        // Grupos de la actividad (incluye los que aún no tienen mensajes).
-        $grupos = DB::table('agenda.actividad_asignada_grupo as aag')
-            ->where('aag.id_actividad', $actividadId)
-            ->orderBy('aag.id_actividad_asignada_grupo')
-            ->select('aag.id_actividad_asignada_grupo as grupo')
-            ->get();
-
-        $grupoIds = $grupos->pluck('grupo')->all();
-
-        // Integrantes por grupo (para etiquetar individual vs. grupal).
-        $integrantes = empty($grupoIds) ? collect() : DB::table('agenda.integrante_grupo as ig')
-            ->join('usuario.estudiante as e', 'e.id_estudiante', '=', 'ig.id_estudiante')
-            ->join('usuario.usuario as u', 'u.id_usuario', '=', 'e.id_usuario')
-            ->whereIn('ig.id_actividad_asignada_grupo', $grupoIds)
-            ->select(
-                'ig.id_actividad_asignada_grupo as grupo',
-                DB::raw("TRIM(CONCAT(u.nombre1,' ',COALESCE(u.apellido1,''))) as nombre"),
-                'u.rut'
-            )
-            ->get()
-            ->groupBy('grupo');
-
-        // Mensajes de todos los grupos de la actividad.
-        $mensajes = empty($grupoIds) ? collect() : DB::table('agenda.agenda as a')
-            ->join('usuario.usuario as u', 'u.id_usuario', '=', 'a.id_usuario_emisor')
-            ->whereIn('a.id_actividad_asignada_grupo', $grupoIds)
-            ->whereIn('a.tipo_mensaje', self::TIPOS_CONVERSACION)
-            ->orderBy('a.fecha_envio', 'asc')
-            ->select(
-                'a.id_agenda',
-                'a.fecha_envio',
-                'a.mensaje',
-                'a.tipo_mensaje as tipo_registro',
-                'a.id_actividad_asignada_grupo as grupo',
-                'u.id_usuario as emisor_id_usuario',
-                DB::raw("TRIM(CONCAT(u.nombre1,' ',COALESCE(u.nombre2,''),' ',u.apellido1,' ',COALESCE(u.apellido2,''))) as emisor_nombre"),
-            )
-            ->get()
-            ->groupBy('grupo');
-
-        $hilos = $grupos->map(function ($g) use ($integrantes, $mensajes) {
-            $miembros = ($integrantes[$g->grupo] ?? collect())->map(function ($i) {
-                return [
-                    'rut' => $i->rut,       // o $i['rut'] si es un array
-                    'nombre' => $i->nombre  // o $i['nombre'] si es un array
-                ];
-            })->values();
-
-            return [
-                'grupo'        => $g->grupo,
-                'integrantes'  => $miembros,
-                'es_individual' => $miembros->count() === 1,
-                'mensajes'     => ($mensajes[$g->grupo] ?? collect())->map(fn($m) => [
-                    'id_agenda'    => $m->id_agenda,
-                    'fecha_envio'  => $m->fecha_envio,
-                    'mensaje'      => $m->mensaje,
-                    'es_docente'   => $m->tipo_registro === 'Feedback',
-                    'emisor'       => $m->emisor_nombre,
-                    'tipo'         => $m->tipo_registro,
-                ])->values(),
+                ],
             ];
         })->values();
 
-        // Ver los hilos es leerlos (T07); el último mensaje de cada grupo trae
-        // quiénes lo han visto.
-        $leidos = (new LecturaAgendaService)->leerHilos(
-            Auth::id(),
-            $hilos->mapWithKeys(fn ($h) => [$h['grupo'] => $h['mensajes']])->all(),
-        );
-        $hilos = $hilos->map(fn ($h) => array_merge($h, ['mensajes' => $leidos[$h['grupo']]]));
-
-        return [
-            'id_actividad' => $actividad->id_actividad,
-            'nombre'       => $actividad->nombre,
-            'id_curso'     => $actividad->componente?->id_curso,
-            'hilos'        => $hilos,
-        ];
+        return Inertia::render('docente/Mensajes', [
+            'actividades' => $filas,
+        ]);
     }
 
     // El cálculo de "pendientes por actividad" vive en el trait ContaPendientesMensajes

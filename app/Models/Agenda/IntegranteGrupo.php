@@ -19,12 +19,7 @@ class IntegranteGrupo extends BaseIntegranteGrupo
     {
         return [
             'id_estudiante' => $this->id_estudiante,
-            'nombre_completo' => trim(
-                ($this->estudiante?->usuario?->nombre1 ?? '') . ' ' .
-                ($this->estudiante?->usuario?->nombre2 ?? '') . ' ' .
-                ($this->estudiante?->usuario?->apellido1 ?? '') . ' ' .
-                ($this->estudiante?->usuario?->apellido2 ?? '')
-            ),
+            'nombre_completo' => $this->estudiante?->usuario?->nombre_apellidos_primero ?? '',
             'rut' => $this->estudiante?->usuario?->rut,
             'email' => $this->estudiante?->usuario?->email,
         ];

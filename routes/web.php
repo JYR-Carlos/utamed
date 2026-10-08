@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\PlanController;
 use App\Http\Controllers\Admin\ProgramaController as AdminProgramaController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Administrativo\ProgramaController;
+use App\Http\Controllers\BibliografiaController;
 use App\Http\Controllers\Docente\AsistenciaController;
 use App\Http\Controllers\Docente\CalendarioController;
 use App\Http\Controllers\Docente\CursoPermisosController;
@@ -29,12 +30,15 @@ use App\Http\Controllers\Docente\PerfilController as DocentePerfilController;
 use App\Http\Controllers\Sso\SgeqSsoController;
 use App\Http\Controllers\Student\ActivityController;
 use App\Http\Controllers\Student\AgendaController;
+use App\Http\Controllers\Student\BitacoraController;
 use App\Http\Controllers\Student\CourseController;
+use App\Http\Controllers\Student\PerfilController;
 use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Facultad;
 use App\Models\Curso\Curso;
 use App\Models\Curso\TipoComponente;
 use App\Models\Usuario\Usuario;
+use App\Services\Sso\SgeqSsoService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -96,7 +100,7 @@ Route::get('dashboard', function () {
                     ->doesntHave('jefesDeCarreraActivos')
                     ->count(),
             ],
-            'puedeAbrirSgeq' => app(\App\Services\Sso\SgeqSsoService::class)->resolverRol($user) !== null,
+            'puedeAbrirSgeq' => app(SgeqSsoService::class)->resolverRol($user) !== null,
         ]);
     }
 
@@ -458,8 +462,12 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
 
     // Activity management for courses
     Route::get('cursos/{curso}/actividades', [DocenteActivityController::class, 'show'])->name('cursos.actividades.index');
+    Route::get('cursos/{curso}/actividades/cursos-hermanos', [DocenteActivityController::class, 'cursosHermanos'])
+        ->name('cursos.actividades.cursos-hermanos');
     Route::get('cursos/{curso}/actividades/json', [DocenteActivityController::class, 'actividadesJson'])->name('cursos.actividades.json');
     Route::post('cursos/{curso}/actividades', [DocenteActivityController::class, 'store'])->name('cursos.actividades.store');
+    Route::post('cursos/{curso}/actividades/{actividad}/copiar', [DocenteActivityController::class, 'copiarActividad'])
+        ->name('cursos.actividades.copiar');
     Route::put('cursos/{curso}/actividades/{actividad}', [DocenteActivityController::class, 'update'])->name('cursos.actividades.update');
     Route::patch('cursos/{curso}/actividades/{actividad}/visibilidad', [DocenteActivityController::class, 'toggleVisibilidad'])->name('cursos.actividades.visibilidad.toggle');
     Route::delete('cursos/{curso}/actividades/{actividad}', [DocenteActivityController::class, 'destroy'])->name('cursos.actividades.destroy');
@@ -554,9 +562,9 @@ Route::prefix('estudiante')
     ->group(function () {
         // rutas generales
         Route::get('dashboard', [App\Http\Controllers\Student\DashboardController::class, 'index'])->name('dashboard');
-        Route::get('perfil', [App\Http\Controllers\Student\PerfilController::class, 'show'])->name('perfil');
+        Route::get('perfil', [PerfilController::class, 'show'])->name('perfil');
         // Sólo el contacto personal (T10); los datos institucionales no se editan.
-        Route::patch('perfil/contacto', [App\Http\Controllers\Student\PerfilController::class, 'updateContacto'])
+        Route::patch('perfil/contacto', [PerfilController::class, 'updateContacto'])
             ->name('perfil.contacto.update');
         Route::get('cursos', [CourseController::class, 'index'])->name('cursos.index');
 
@@ -564,7 +572,7 @@ Route::prefix('estudiante')
         Route::get('cursos/{curso}/programa', [App\Http\Controllers\Student\ProgramaController::class, 'show'])->name('cursos.programa.show');
         Route::get('cursos/{curso}', [CourseController::class, 'show'])->name('cursos.show');
         // Bitácora del curso (T41): agendas de todas las actividades del alumno.
-        Route::get('cursos/{curso}/bitacora', [App\Http\Controllers\Student\BitacoraController::class, 'show'])
+        Route::get('cursos/{curso}/bitacora', [BitacoraController::class, 'show'])
             ->name('cursos.bitacora');
         // Route::get('cursos/{curso}/actividad', [\App\Http\Controllers\Student\ActivityController::class, 'show'])->name('cursos.actividades.show');
         Route::get('cursos/{curso}/actividad/{actividad}', [ActivityController::class, 'show'])
@@ -636,10 +644,10 @@ Route::prefix('api')->middleware(['auth', 'verified'])->group(function () {
     Route::get('docentes', [CursoController::class, 'getDocentes']);
 
     // Bibliografía (Visualización y Descargas)
-    Route::get('bibliografias/{id_bibliografia}', [\App\Http\Controllers\BibliografiaController::class, 'show'])->name('api.bibliografias.show');
-    Route::post('bibliografias/archivo', [\App\Http\Controllers\BibliografiaController::class, 'uploadArchivo'])->name('api.bibliografias.upload');
-    Route::get('bibliografias/{id_bibliografia}/archivo', [\App\Http\Controllers\BibliografiaController::class, 'showArchivo'])->name('api.bibliografias.archivo');
-    Route::get('bibliografias/{id_bibliografia}/descarga', [\App\Http\Controllers\BibliografiaController::class, 'downloadArchivo'])->name('api.bibliografias.descarga');
+    Route::get('bibliografias/{id_bibliografia}', [BibliografiaController::class, 'show'])->name('api.bibliografias.show');
+    Route::post('bibliografias/archivo', [BibliografiaController::class, 'uploadArchivo'])->name('api.bibliografias.upload');
+    Route::get('bibliografias/{id_bibliografia}/archivo', [BibliografiaController::class, 'showArchivo'])->name('api.bibliografias.archivo');
+    Route::get('bibliografias/{id_bibliografia}/descarga', [BibliografiaController::class, 'downloadArchivo'])->name('api.bibliografias.descarga');
 });
 
 require __DIR__ . '/settings.php';

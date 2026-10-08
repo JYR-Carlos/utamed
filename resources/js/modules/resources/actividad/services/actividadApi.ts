@@ -108,3 +108,35 @@ export function subirEnunciadoActividad(
         },
     );
 }
+
+// ── Copiar actividad a curso hermano ────────────────────────────────────────
+
+export interface CursoHermano {
+    id_curso: number;
+    cod_curso: string;
+    letra_grupo?: string | null;
+    agno_real?: number;
+    semestre_real?: number;
+    componentes: Array<{ id_componente: number; id_tipo_componente: number; tipo: string | null }>;
+    unidades: Array<{ id_unidad: number; num_unidad?: number; nombre: string }>;
+}
+
+/** GET /docente/cursos/{id}/actividades/cursos-hermanos — cursos de la misma asignatura. */
+export async function fetchCursosHermanos(idCurso: number): Promise<CursoHermano[]> {
+    const res = await fetch(`/docente/cursos/${idCurso}/actividades/cursos-hermanos`);
+    if (!res.ok) throw new Error('No se pudieron obtener los cursos hermanos.');
+    return res.json();
+}
+
+/** POST /docente/cursos/{id}/actividades/{id}/copiar — copia la actividad al curso destino. */
+export function copiarActividad(
+    idCurso: number,
+    idActividad: number,
+    data: { id_curso_destino: number; id_componente_destino: number; id_unidad_destino: number },
+    options: ApiOptions = {},
+) {
+    router.post(`/docente/cursos/${idCurso}/actividades/${idActividad}/copiar`, data, {
+        onSuccess: options.onSuccess,
+        onError: options.onError,
+    });
+}

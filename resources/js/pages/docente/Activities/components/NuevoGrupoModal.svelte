@@ -67,7 +67,7 @@
           Selecciona los estudiantes que conformarán este grupo:
         </p>
         <div class="flex flex-col gap-2">
-          {#each estudiantesLibres as e}
+          {#each [...estudiantesLibres].sort((a, b) => (a.nombre_completo ?? '').localeCompare(b.nombre_completo ?? '', 'es', { sensitivity: 'base' })) as e}
             <label
               class="flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer hover:bg-gray-50 transition {seleccion.has(
                 e.id_estudiante,

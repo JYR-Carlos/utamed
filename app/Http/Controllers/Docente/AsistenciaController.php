@@ -268,11 +268,7 @@ class AsistenciaController extends Controller
             ->map(fn ($ic) => [
                 'id_inscripcion_componente' => $ic->id_inscripcion_componente,
                 'id_estudiante'             => $ic->id_estudiante,
-                'nombre'                    => trim(
-                    ($ic->estudiante->usuario->nombre1   ?? '') . ' ' .
-                    ($ic->estudiante->usuario->apellido1 ?? '') . ' ' .
-                    ($ic->estudiante->usuario->apellido2 ?? '')
-                ),
+                'nombre'                    => $ic->estudiante->usuario?->nombre_apellidos_primero ?? '',
                 'username'                  => $ic->estudiante->usuario->username ?? '',
             ])
             ->sortBy('nombre')

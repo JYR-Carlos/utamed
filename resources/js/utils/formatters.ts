@@ -45,6 +45,37 @@ export function formatUserName(name: string | { nombre?: string; nombre_completo
 }
 
 /**
+ * Formatea un objeto usuario/estudiante con los apellidos primero en mayúsculas.
+ * @example "PANTOJA GONZALEZ FRANCISCO RAUL"
+ */
+export function formatNombreApellidosPrimero(
+    user: {
+        apellido1?: string | null;
+        apellido2?: string | null;
+        nombre1?: string | null;
+        nombre2?: string | null;
+        nombre?: string | null;
+        nombre_completo?: string | null;
+    } | null | undefined
+): string {
+    if (!user) return '';
+    if (user.apellido1 || user.nombre1) {
+        const partes = [user.apellido1, user.apellido2, user.nombre1, user.nombre2].filter(
+            (p): p is string => Boolean(p && String(p).trim().length > 0)
+        );
+        if (partes.length > 0) return partes.join(' ').trim();
+    }
+    return user.nombre_completo || user.nombre || '';
+}
+
+/**
+ * Comparador alfabético canónico en español para ordenamiento de nombres de personas.
+ */
+export function compareNombres(a: string | null | undefined, b: string | null | undefined): number {
+    return (a ?? '').localeCompare(b ?? '', 'es', { sensitivity: 'base' });
+}
+
+/**
  * Truncate text to specified length
  * @param text - Text to truncate
  * @param length - Maximum length

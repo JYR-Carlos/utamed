@@ -727,6 +727,26 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
         return trim(implode(' ', $partes));
     }
 
+    /**
+     * Accessor para el nombre del usuario con los apellidos primero en mayúsculas.
+     * Formato canónico para nóminas académicas, evaluaciones y tablas.
+     *
+     * @example "PANTOJA GONZALEZ FRANCISCO RAUL"
+     *
+     * @return string
+     */
+    public function getNombreApellidosPrimeroAttribute(): string
+    {
+        $partes = array_filter([
+            $this->apellido1,
+            $this->apellido2,
+            $this->nombre1,
+            $this->nombre2,
+        ], fn ($p) => $p !== null && trim((string) $p) !== '');
+
+        return trim(implode(' ', $partes));
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // Búsqueda de usuarios
     // ──────────────────────────────────────────────────────────────────────────

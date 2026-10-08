@@ -46,6 +46,8 @@
     onAjustarDecimas: (grupoId: number, integrante: IntegranteData, delta: number) => void;
     onVerEntregas: (grupo: GrupoData) => void;
     onVerAgenda: (grupo: GrupoData) => void;
+    /** Mensajes de cada grupo que el docente aún no ha visto (marcan «Agenda»). */
+    noLeidosDe?: (grupoId: number) => number;
     onActualizarHolguraPersonal: (grupoId: number, dias: number) => void;
   }
 
@@ -59,6 +61,7 @@
     onAjustarDecimas,
     onVerEntregas,
     onVerAgenda,
+    noLeidosDe = () => 0,
     onActualizarHolguraPersonal,
   }: Props = $props();
 
@@ -80,6 +83,14 @@
     if (dias === 0) return 'Sin holgura';
     return `+${dias} día${dias === 1 ? '' : 's'}`;
   }
+
+  const gruposOrdenados = $derived(
+    [...grupos].sort((a, b) => {
+      const nomA = a.integrantes[0]?.nombre_completo ?? '';
+      const nomB = b.integrantes[0]?.nombre_completo ?? '';
+      return nomA.localeCompare(nomB, 'es', { sensitivity: 'base' });
+    }),
+  );
 
   const TH =
     'px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500';
@@ -107,7 +118,7 @@
       </tr>
     </thead>
     <tbody>
-      {#if grupos.length === 0}
+      {#if gruposOrdenados.length === 0}
         <tr class="border-t border-gray-100">
           <td colspan={esTitular ? 8 : 7} class="px-4 py-10 text-center">
             <p class="text-sm font-medium text-gray-500">
@@ -116,7 +127,7 @@
           </td>
         </tr>
       {/if}
-      {#each grupos as grupo, i (grupo.grupo)}
+      {#each gruposOrdenados as grupo, i (grupo.grupo)}
         {@const integrante = grupo.integrantes[0]}
         {@const decimas = integrante?.diferencia_decimas ?? 0}
         {@const calificado = grupo.nota !== null && integrante != null}
@@ -259,6 +270,14 @@
             <button class="{BTN_FILA} ml-1.5" onclick={() => onVerAgenda(grupo)}>
               <Calendar class="w-3.5 h-3.5 shrink-0" />
               Agenda
+              {#if noLeidosDe(grupo.grupo) > 0}
+                <span
+                  class="rounded-full bg-uta-blue px-1.5 text-[10px] font-bold leading-4 text-white"
+                  title="Mensajes nuevos"
+                >
+                  {noLeidosDe(grupo.grupo)}
+                </span>
+              {/if}
             </button>
           </td>
         </tr>

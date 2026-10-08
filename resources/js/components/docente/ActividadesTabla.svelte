@@ -24,6 +24,7 @@
   import {
     AlertCircle,
     Check,
+    Copy,
     Eye,
     EyeOff,
     FileText,
@@ -56,6 +57,7 @@
     onEdit?: (a: Actividad) => void;
     onDelete?: (a: Actividad) => void;
     onEnunciado?: (a: Actividad) => void;
+    onCopiar?: (a: Actividad) => void;
   }
 
   let {
@@ -68,6 +70,7 @@
     onEdit = () => {},
     onDelete = () => {},
     onEnunciado = () => {},
+    onCopiar = () => {},
   }: Props = $props();
 
   /** Sin ninguna acción delegada la columna entera no se dibuja (lámina f, caso 3). */
@@ -148,7 +151,7 @@
                 {/if}
                 {#if (act.mensajes_pendientes ?? 0) > 0}
                   <Link
-                    href="/docente/mensajes?actividad_id={act.id_actividad}"
+                    href="/docente/cursos/{idCurso}/actividades/{act.id_actividad}/evaluacion"
                     class="inline-flex items-center gap-1 font-semibold text-[#B45309] no-underline hover:underline"
                   >
                     <MessageSquare size={12} aria-hidden="true" />
@@ -312,6 +315,17 @@
                       : `Adjuntar un enunciado a ${act.nombre}`}
                   >
                     <Upload size={15} aria-hidden="true" />
+                  </button>
+                {/if}
+                {#if canEdit}
+                  <button
+                    type="button"
+                    class={BTN_FILA_ICONO}
+                    onclick={() => onCopiar(act)}
+                    title="Copiar a curso hermano"
+                    aria-label={`Copiar ${act.nombre} a otro curso de la misma asignatura`}
+                  >
+                    <Copy size={15} aria-hidden="true" />
                   </button>
                 {/if}
                 {#if canDelete}

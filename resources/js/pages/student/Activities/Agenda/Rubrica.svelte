@@ -19,6 +19,11 @@
      * rúbrica traiga guardado, sin afirmar nada sobre su tipo.
      */
     esSumativa?: boolean;
+    /**
+     * Callback para seleccionar escala por criterio cuando la rúbrica se usa
+     * en modo evaluación interactiva (por ejemplo, desde la agenda docente).
+     */
+    onSeleccionarEscala?: (nivelId: string, escalaId: string) => void;
   }
 
   let {
@@ -29,6 +34,7 @@
     retroalimentacion,
     modoLectura = false,
     esSumativa = undefined,
+    onSeleccionarEscala = undefined,
   }: Props = $props();
 
   const totalCriterios = $derived(rubrica?.niveles?.length ?? 0);
@@ -253,39 +259,75 @@
                 <td class="align-top py-4 px-3 w-[240px] min-w-[240px] border-r border-gray-100 last:border-r-0">
                   {#if nivel.escalas[index]}
                     {@const seleccionada = esSeleccionada(nivel.id, nivel.escalas[index].id)}
-                    <div
-                      class="rounded-2xl border p-4 h-full transition-all flex flex-col justify-between overflow-hidden
-                        {seleccionada
-                          ? 'border-emerald-400 bg-emerald-50/70 shadow-sm shadow-emerald-100 ring-1 ring-emerald-400/40'
-                          : tieneResultado
-                            ? 'border-gray-200 bg-white opacity-50'
-                            : 'border-gray-200 bg-white hover:border-gray-300'}"
-                    >
-                      <div
-                        class="flex items-center justify-between gap-2 {puntajePorColumna &&
-                        !seleccionada
-                          ? ''
-                          : 'mb-2'}"
+                    {#if !modoLectura && onSeleccionarEscala}
+                      <button
+                        type="button"
+                        onclick={() => onSeleccionarEscala?.(nivel.id, nivel.escalas[index].id)}
+                        class="text-left w-full rounded-2xl border p-4 h-full transition-all flex flex-col justify-between overflow-hidden cursor-pointer
+                          {seleccionada
+                            ? 'border-emerald-500 bg-emerald-50/80 shadow-sm shadow-emerald-100 ring-2 ring-emerald-500/40'
+                            : 'border-gray-200 bg-white hover:border-uta-blue/60 hover:bg-slate-50/70'}"
                       >
-                        {#if !puntajePorColumna}
-                          <span class="text-xs font-bold {seleccionada ? 'text-emerald-700' : 'text-gray-500'} bg-gray-100 px-2 py-0.5 rounded-md">
-                            {nivel.escalas[index].puntos} pts
-                          </span>
-                        {/if}
-                        {#if seleccionada}
-                          <span class="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-2.5 py-0.5 ml-auto">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                            </svg>
-                            Elegido
-                          </span>
-                        {/if}
-                      </div>
+                        <div
+                          class="flex items-center justify-between gap-2 {puntajePorColumna &&
+                          !seleccionada
+                            ? ''
+                            : 'mb-2'}"
+                        >
+                          {#if !puntajePorColumna}
+                            <span class="text-xs font-bold {seleccionada ? 'text-emerald-700 bg-emerald-100' : 'text-gray-500 bg-gray-100'} px-2 py-0.5 rounded-md">
+                              {nivel.escalas[index].puntos} pts
+                            </span>
+                          {/if}
+                          {#if seleccionada}
+                            <span class="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-2.5 py-0.5 ml-auto">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                              </svg>
+                              Elegido
+                            </span>
+                          {/if}
+                        </div>
 
-                      <p class="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words {seleccionada ? 'text-emerald-950 font-medium' : 'text-gray-600'}">
-                        {nivel.escalas[index].criterio}
-                      </p>
-                    </div>
+                        <p class="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words {seleccionada ? 'text-emerald-950 font-medium' : 'text-gray-600'}">
+                          {nivel.escalas[index].criterio}
+                        </p>
+                      </button>
+                    {:else}
+                      <div
+                        class="rounded-2xl border p-4 h-full transition-all flex flex-col justify-between overflow-hidden
+                          {seleccionada
+                            ? 'border-emerald-400 bg-emerald-50/70 shadow-sm shadow-emerald-100 ring-1 ring-emerald-400/40'
+                            : tieneResultado
+                              ? 'border-gray-200 bg-white opacity-50'
+                              : 'border-gray-200 bg-white hover:border-gray-300'}"
+                      >
+                        <div
+                          class="flex items-center justify-between gap-2 {puntajePorColumna &&
+                          !seleccionada
+                            ? ''
+                            : 'mb-2'}"
+                        >
+                          {#if !puntajePorColumna}
+                            <span class="text-xs font-bold {seleccionada ? 'text-emerald-700' : 'text-gray-500'} bg-gray-100 px-2 py-0.5 rounded-md">
+                              {nivel.escalas[index].puntos} pts
+                            </span>
+                          {/if}
+                          {#if seleccionada}
+                            <span class="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-2.5 py-0.5 ml-auto">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                              </svg>
+                              Elegido
+                            </span>
+                          {/if}
+                        </div>
+
+                        <p class="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words {seleccionada ? 'text-emerald-950 font-medium' : 'text-gray-600'}">
+                          {nivel.escalas[index].criterio}
+                        </p>
+                      </div>
+                    {/if}
                   {/if}
                 </td>
               {/each}

@@ -16,4 +16,8 @@ export {
   deleteActividad,
   toggleVisibilidadActividad,
   updateGrupo,
+  copiarActividad,
+  fetchCursosHermanos,
 } from './services/actividadApi';
+
+export type { CursoHermano } from './services/actividadApi';

@@ -20,6 +20,7 @@
   import {
     Calendar,
     Clock,
+    Copy,
     EyeOff,
     Lock,
     AlertTriangle,
@@ -35,9 +36,16 @@
   interface Props {
     actividades: Actividad[];
     idCurso: number;
+    canEdit?: boolean;
+    onCopiar?: (actividad: Actividad) => void;
   }
 
-  let { actividades, idCurso }: Props = $props();
+  let {
+    actividades,
+    idCurso,
+    canEdit = false,
+    onCopiar = () => {},
+  }: Props = $props();
 
   // ── Clasificación ─────────────────────────────────────────────────────────
 
@@ -172,6 +180,22 @@
                   <Lock size={12} />
                   Cerrada
                 </span>
+              {/if}
+
+              {#if canEdit}
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center rounded-[5px] p-1 text-[#5A5E6E] transition-colors hover:bg-[#E5E7EB] hover:text-[#002F6C]"
+                  title="Copiar a curso hermano"
+                  aria-label={`Copiar ${act.nombre} a curso hermano`}
+                  onclick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onCopiar(act);
+                  }}
+                >
+                  <Copy size={13} aria-hidden="true" />
+                </button>
               {/if}
             </div>
 

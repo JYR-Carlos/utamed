@@ -26,13 +26,18 @@
    *   POST   …/grupos/{grupo}/evaluacion                       registrar evaluación
    *   POST   /docente/cursos/{curso}/grupos/{grupo}/feedback   feedback de agenda
    *   reload only:['interaccionesGrupo'] con grupo_id          mensajes del grupo
+   *   POST   /docente/mensajes/cursos/{curso}/actividades/{actividad}/enviar  mensaje a todos los grupos
+   *
+   * `?grupo={id}` abre al cargar la agenda de ese grupo: es el destino de la
+   * bandeja de mensajes (docente/Mensajes), que no muestra las conversaciones.
    */
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
+  import { onMount } from 'svelte';
   import { Link, router, page } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
-  import { ChevronLeft, Plus, Users, Pencil, Copy, Eye, Lock } from 'lucide-svelte';
+  import { ChevronLeft, Plus, Users, Pencil, Copy, Eye, Lock, Send, Loader2, X } from 'lucide-svelte';
   import { ConfirmDialog } from '@/components/custom/common';
   import { formatFechaHora } from '@/utils/formatters';
   import AgendaDocente from './Agenda/AgendaDocente.svelte';
@@ -61,6 +66,8 @@
     estado_actividad_asignada: string | null;
     nro_dias_adicionales_para_bloqueo_personal: number;
     integrantes: IntegranteData[];
+    /** Mensajes del grupo que el docente aún no ha visto. */
+    no_leidos?: number;
   };
 
   type EstudianteInscrito = {
@@ -211,23 +218,27 @@
 
   // Estudiantes que aún no pertenecen a ningún grupo de esta actividad
   const estudiantesLibres = $derived(
-    estudiantesInscritos.filter(
-      (e) => !grupos.some((g) => g.integrantes.some((i) => i.id_estudiante === e.id_estudiante)),
-    ),
+    estudiantesInscritos
+      .filter(
+        (e) => !grupos.some((g) => g.integrantes.some((i) => i.id_estudiante === e.id_estudiante)),
+      )
+      .sort((a, b) => (a.nombre_completo ?? '').localeCompare(b.nombre_completo ?? '', 'es', { sensitivity: 'base' })),
   );
 
   // Estudiantes libres disponibles para agregar a un grupo existente
   function estudiantesParaGrupo(grupoId: number): EstudianteInscrito[] {
-    return estudiantesInscritos.filter(
-      (e) =>
-        !grupos.some((g) => {
-          if (g.grupo === grupoId) return false; // no contar el grupo destino
-          return g.integrantes.some((i) => i.id_estudiante === e.id_estudiante);
-        }) &&
-        !grupos
-          .find((g) => g.grupo === grupoId)
-          ?.integrantes.some((i) => i.id_estudiante === e.id_estudiante),
-    );
+    return estudiantesInscritos
+      .filter(
+        (e) =>
+          !grupos.some((g) => {
+            if (g.grupo === grupoId) return false; // no contar el grupo destino
+            return g.integrantes.some((i) => i.id_estudiante === e.id_estudiante);
+          }) &&
+          !grupos
+            .find((g) => g.grupo === grupoId)
+            ?.integrantes.some((i) => i.id_estudiante === e.id_estudiante),
+      )
+      .sort((a, b) => (a.nombre_completo ?? '').localeCompare(b.nombre_completo ?? '', 'es', { sensitivity: 'base' }));
   }
 
   function toggleSeleccion(id: number) {
@@ -448,7 +459,24 @@
     });
   }
 
+  // Grupos cuya agenda ya se abrió en esta visita: abrirla marca los mensajes
+  // como vistos, así que su indicador se apaga sin esperar a recargar `grupos`.
+  let agendasAbiertas = $state<Set<number>>(new Set());
+
+  function noLeidosDe(grupoId: number): number {
+    if (agendasAbiertas.has(grupoId)) return 0;
+    return grupos.find((g) => g.grupo === grupoId)?.no_leidos ?? 0;
+  }
+
+  // Desde la bandeja de mensajes se llega con ?grupo=… para abrir esa agenda.
+  onMount(() => {
+    const id = Number(new URLSearchParams($page.url.split('?')[1] ?? '').get('grupo'));
+    const grupo = id ? grupos.find((g) => g.grupo === id) : undefined;
+    if (grupo) abrirAgendaGrupo(grupo);
+  });
+
   function abrirAgendaGrupo(grupo: GrupoData) {
+    agendasAbiertas = new Set([...agendasAbiertas, grupo.grupo]);
     if (grupoSeleccionado?.grupo !== grupo.grupo) {
       interaccionesCargadas = [];
       mensajesOptimistasDocente = [];
@@ -456,6 +484,39 @@
     grupoSeleccionado = grupo;
     showAgendaModal = true;
     cargarInteracciones(grupo);
+  }
+
+  // ─── Mensaje a todos los grupos ──────────────────────────────────────────
+  let showMensajeTodos = $state(false);
+  let mensajeTodos = $state('');
+  let enviandoTodos = $state(false);
+  let errorTodos = $state<string | null>(null);
+
+  function abrirMensajeTodos() {
+    mensajeTodos = '';
+    errorTodos = null;
+    showMensajeTodos = true;
+  }
+
+  function enviarMensajeTodos() {
+    if (!mensajeTodos.trim() || enviandoTodos) return;
+    enviandoTodos = true;
+    errorTodos = null;
+    router.post(
+      `/docente/mensajes/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/enviar`,
+      { destino: 'todos', mensaje: mensajeTodos.trim() },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          showMensajeTodos = false;
+          mensajeTodos = '';
+        },
+        onError: (errors) => {
+          errorTodos = (errors as Record<string, string>)?.mensaje ?? 'No se pudo enviar el mensaje.';
+        },
+        onFinish: () => (enviandoTodos = false),
+      },
+    );
   }
 
   function cerrarAgenda() {
@@ -690,6 +751,15 @@
             <span class="text-xs text-gray-500 font-medium">
               {grupos.length} {actividad.es_grupal ? (grupos.length === 1 ? 'grupo' : 'grupos') : (grupos.length === 1 ? 'estudiante' : 'estudiantes')}
             </span>
+            {#if actividad.es_titular && grupos.length > 0}
+              <button
+                onclick={abrirMensajeTodos}
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-uta-blue text-uta-blue text-xs font-semibold rounded-xl hover:bg-uta-blue/5 transition-colors"
+              >
+                <Send class="w-3.5 h-3.5" />
+                {actividad.es_grupal ? 'Mensaje a todos los grupos' : 'Mensaje a todos'}
+              </button>
+            {/if}
             {#if actividad.es_grupal && actividad.es_titular}
               {#if actividadesConGrupos.length > 0}
                 <button
@@ -747,6 +817,7 @@
             onAjustarDecimas={ajustarDecimas}
             onVerEntregas={verEntregas}
             onVerAgenda={abrirAgendaGrupo}
+            {noLeidosDe}
             onActualizarHolguraPersonal={actualizarHolguraPersonal}
           />
         {:else}
@@ -758,7 +829,7 @@
             queden escalonados.
           -->
           <div class="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-            {#each grupos as grupo (grupo.grupo)}
+            {#each [...grupos].sort((a, b) => a.grupo - b.grupo) as grupo (grupo.grupo)}
               <GrupoCard
                 {grupo}
                 esTitular={actividad.es_titular}
@@ -788,6 +859,7 @@
                 onAgregarAGrupo={agregarAGrupo}
                 onVerEntregas={verEntregas}
                 onVerAgenda={abrirAgendaGrupo}
+                noLeidos={noLeidosDe(grupo.grupo)}
                 onActualizarHolguraPersonal={actualizarHolguraPersonal}
               />
             {/each}
@@ -864,6 +936,80 @@
     />
   {/if}
 
+  <!-- ── Modal: Mensaje a todos los grupos ── -->
+  {#if showMensajeTodos}
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      role="presentation"
+      tabindex="-1"
+      onclick={(e) => {
+        if (e.target === e.currentTarget && !enviandoTodos) showMensajeTodos = false;
+      }}
+      onkeydown={(e) => {
+        if (e.key === 'Escape' && !enviandoTodos) showMensajeTodos = false;
+      }}
+    >
+      <div
+        class="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titulo-mensaje-todos"
+      >
+        <div class="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <h3 id="titulo-mensaje-todos" class="text-base font-semibold text-uta-blue">
+              {actividad.es_grupal ? 'Mensaje a todos los grupos' : 'Mensaje a todos los estudiantes'}
+            </h3>
+            <p class="text-xs text-gray-500">
+              Llega a la agenda de {grupos.length}
+              {actividad.es_grupal
+                ? grupos.length === 1 ? 'grupo' : 'grupos'
+                : grupos.length === 1 ? 'estudiante' : 'estudiantes'}
+              de «{actividad.nombre}».
+            </p>
+          </div>
+          <button
+            class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            aria-label="Cerrar"
+            disabled={enviandoTodos}
+            onclick={() => (showMensajeTodos = false)}
+          >
+            <X class="size-4" />
+          </button>
+        </div>
+        <!-- svelte-ignore a11y_autofocus -->
+        <textarea
+          bind:value={mensajeTodos}
+          rows={4}
+          maxlength={2000}
+          autofocus
+          placeholder="Escribe el mensaje…"
+          class="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-uta-blue focus:outline-none"
+        ></textarea>
+        {#if errorTodos}
+          <p class="mt-1 text-xs text-red-600">{errorTodos}</p>
+        {/if}
+        <div class="mt-3 flex justify-end gap-2">
+          <button
+            class="px-3 py-1.5 text-sm font-semibold text-gray-600 rounded-xl hover:bg-gray-100"
+            disabled={enviandoTodos}
+            onclick={() => (showMensajeTodos = false)}
+          >
+            Cancelar
+          </button>
+          <button
+            class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-uta-blue text-white text-sm font-semibold rounded-xl hover:bg-uta-blue-hover disabled:opacity-50"
+            disabled={!mensajeTodos.trim() || enviandoTodos}
+            onclick={enviarMensajeTodos}
+          >
+            {#if enviandoTodos}<Loader2 class="size-4 animate-spin" />{:else}<Send class="size-4" />{/if}
+            Enviar
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
   <!-- Modal: Agenda del grupo (perspectiva docente) -->
   {#if showAgendaModal && grupoSeleccionado}
     <!-- Clic (o Enter/Escape) sobre el fondo cierra la agenda; los clics dentro
@@ -879,7 +1025,7 @@
         if (e.target === e.currentTarget && (e.key === 'Escape' || e.key === 'Enter')) cerrarAgenda();
       }}
     >
-      <div class="w-full max-w-7xl">
+      <div class="w-full flex items-center justify-center">
         <AgendaDocente
           onCerrar={cerrarAgenda}
           onInteraccionEnviada={manejarInteraccionDocente}
