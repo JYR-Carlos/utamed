@@ -102,11 +102,11 @@ La insistencia en solicitar rúbricas y notas numéricas en actividades formativ
     * `resources/js/components/student/ProximasAVencerCard.svelte`
   * **Problema & Causa**: `proximasAVencer` listaba actividades cuyo plazo ya había expirado o cuya holgura residual las reubicaba artificialmente en la ventana semanal, y no verificaba si el grupo ya completó la entrega o si la actividad ya fue evaluada. No utilizaba métodos centralizados del modelo.
   * **Criterios de Aceptación (DoD)**:
-    * [ ] Se implementan los métodos `estaCerrada()` y `estaPendienteEntrega()` en `ActividadAsignadaGrupo` y `Actividad`.
-    * [ ] Las actividades con estado calculado `CERRADA` no aparecen en el listado de próximas a vencer.
-    * [ ] Las actividades que ya poseen entrega vigente confirmada (`tipo_mensaje === ENTREGA_DE_ARCHIVO`) o ya están evaluadas se excluyen de la bandeja.
-    * [ ] Las actividades pertenecientes a cursos de períodos académicos cerrados o anteriores quedan excluidas.
-    * [ ] Si no quedan actividades pendientes activas, se visualiza el estado vacío («Nada por vencer»).
+    * [x] Se implementan los métodos `estaCerrada()` y `estaPendienteEntrega()` en `ActividadAsignadaGrupo` y `Actividad`.
+    * [x] Las actividades con estado calculado `CERRADA` no aparecen en el listado de próximas a vencer.
+    * [x] Las actividades que ya poseen entrega vigente confirmada (`tipo_mensaje === ENTREGA_DE_ARCHIVO`) o ya están evaluadas se excluyen de la bandeja.
+    * [x] Las actividades pertenecientes a cursos de períodos académicos cerrados o anteriores quedan excluidas.
+    * [x] Si no quedan actividades pendientes activas, se visualiza el estado vacío («Nada por vencer»).
 
 * ### `[BUG-T02]` [2 pts] [R1] [P0] Detalle de Curso — Excluir actividades cerradas o entregadas en sección «Próximas entregas»
   * **Ruta**: `/estudiante/cursos/{id}`
@@ -115,9 +115,9 @@ La insistencia en solicitar rúbricas y notas numéricas en actividades formativ
     * `resources/js/pages/student/Courses/components/CursoProximasEntregas.svelte`
   * **Problema & Causa**: En `Show.svelte`, el cálculo de `proximasEntregas` sólo evalúa la fecha límite sin considerar si la actividad ya está en estado `CERRADA` o si el estudiante/grupo ya realizó la entrega correspondiente.
   * **Criterios de Aceptación (DoD)**:
-    * [ ] `proximasEntregas` filtra y descarta actividades con estado `CERRADA` basándose en el estado derivado del modelo.
-    * [ ] Las actividades con entrega confirmada se retiran del bloque de próximas entregas.
-    * [ ] Si no hay actividades pendientes, se muestra el estado «No tienes entregas pendientes en este curso».
+    * [x] `proximasEntregas` filtra y descarta actividades con estado `CERRADA` basándose en el estado derivado del modelo.
+    * [x] Las actividades con entrega confirmada se retiran del bloque de próximas entregas.
+    * [x] Si no hay actividades pendientes, se muestra el estado «No tienes entregas pendientes en este curso».
 
 ### Release 2: Desacople de Rúbricas y Flujo de Evaluación Formativa Docente
 *Rama sugerida:* `feature/formativas-evaluacion-docente`
@@ -130,8 +130,8 @@ La insistencia en solicitar rúbricas y notas numéricas en actividades formativ
     * `resources/js/pages/student/Activities/cards/ActivityHeaderCard.svelte`
   * **Problema & Causa**: En actividades formativas se mantenía visible el botón para crear rúbrica en docente y el contenedor de rúbrica en la cabecera del estudiante (con aviso de "No hay rúbrica").
   * **Criterios de Aceptación (DoD)**:
-    * [ ] En `ActivityHeaderCard.svelte`, cuando `!es_sumativa`, no se muestra la columna derecha de rúbrica ni el aviso de ausencia de rúbrica; la tarjeta ocupa el ancho completo.
-    * [ ] En `docente/Activities/Index.svelte`, el botón de «Crear Rúbrica» / «Editar Rúbrica» se oculta si `actividad.es_sumativa === false`.
+    * [x] En `ActivityHeaderCard.svelte`, cuando `!es_sumativa`, no se muestra la columna derecha de rúbrica ni el aviso de ausencia de rúbrica; la tarjeta ocupa el ancho completo.
+    * [x] En `docente/Activities/Index.svelte`, el botón de «Crear Rúbrica» / «Editar Rúbrica» se oculta si `actividad.es_sumativa === false`.
 
 * ### `[FEAT-T04]` [5 pts] [R2] [P0] Agenda Docente — Desplegable cualitativo (Bueno/Regular/Malo), mensaje extenso y migración partial check
   * **Ruta**: `/docente/cursos/{id}/actividades/{act}` (Modal de Agenda)
@@ -142,12 +142,12 @@ La insistencia en solicitar rúbricas y notas numéricas en actividades formativ
     * `database/migrations/11_alter_agenda_evaluacion_nullable_rubrica_check.php`
   * **Problema & Causa**: Al seleccionar «Evaluación» en actividades formativas se exigía rúbrica y nota numérica. El requerimiento exige reconvertir este botón para que expanda un selector cualitativo con tres opciones de color y un mensaje amplio de evaluación.
   * **Criterios de Aceptación (DoD)**:
-    * [ ] Se crea la migración que remueve `NOT NULL` de `id_rubrica`, `puntaje_obtenido` y `resultado` en `agenda.evaluacion` y añade `CHECK ((id_rubrica IS NOT NULL AND puntaje_obtenido IS NOT NULL) OR (id_rubrica IS NULL))`.
-    * [ ] Al presionar «Evaluación» en actividad formativa en la agenda docente, no se abre ningún slideover de rúbrica ni se solicita nota numérica 1–7.
-    * [ ] Se despliega la consulta «¿Qué opina del trabajo?» con 3 opciones seleccionables: Bueno (verde / emerald), Regular (naranja claro / amber) y Malo (rojo / rose).
-    * [ ] El campo de texto de mensaje permite redacción extensa («puede ser largo») como evaluación final.
-    * [ ] El botón «Enviar» se habilita cuando se selecciona una opinión y se redacta el mensaje.
-    * [ ] En backend, `storeEvaluacion` valida `evaluacion_obtenida` ('Bueno', 'Regular', 'Malo'), flexibiliza `id_rubrica` (nullable para formativas) y persiste el registro en `agenda.agenda` y `agenda.evaluacion`.
+    * [x] Se crea la migración que remueve `NOT NULL` de `id_rubrica`, `puntaje_obtenido` y `resultado` en `agenda.evaluacion` y añade `CHECK ((id_rubrica IS NOT NULL AND puntaje_obtenido IS NOT NULL) OR (id_rubrica IS NULL))`.
+    * [x] Al presionar «Evaluación» en actividad formativa en la agenda docente, no se abre ningún slideover de rúbrica ni se solicita nota numérica 1–7.
+    * [x] Se despliega la consulta «¿Qué opina del trabajo?» con 3 opciones seleccionables: Bueno (verde / emerald), Regular (naranja claro / amber) y Malo (rojo / rose).
+    * [x] El campo de texto de mensaje permite redacción extensa («puede ser largo») como evaluación final.
+    * [x] El botón «Enviar» se habilita cuando se selecciona una opinión y se redacta el mensaje.
+    * [x] En backend, `storeEvaluacion` valida `evaluacion_obtenida` ('Bueno', 'Regular', 'Malo'), flexibiliza `id_rubrica` (nullable para formativas) y persiste el registro en `agenda.agenda` y `agenda.evaluacion`.
 
 ### Release 3: Visualización de Evaluación Formativa y Repurpose de Tarjeta de Nota en Estudiante
 *Rama sugerida:* `feature/formativas-vista-estudiante`
@@ -159,10 +159,10 @@ La insistencia en solicitar rúbricas y notas numéricas en actividades formativ
     * `resources/js/pages/student/Activities/Agenda/AgendaHilo.svelte`
   * **Problema & Causa**: Los mensajes de evaluación en `AgendaHilo.svelte` asumían que toda evaluación adjunta rúbrica o nota numérica, mostrando llamadas rotas a modales de rúbrica.
   * **Criterios de Aceptación (DoD)**:
-    * [ ] En actividades formativas, las interacciones de tipo `Evaluación` se destacan visualmente como «Evaluación final / Información importante».
-    * [ ] Se muestra el badge cualitativo con su color semántico: Bueno (verde), Regular (naranja claro), Malo (rojo).
-    * [ ] Se renderiza el cuerpo completo del mensaje del docente sin requerir apertura de modal de rúbrica.
-    * [ ] Se suprime todo botón o enlace a rúbrica para este tipo de interacción formativa.
+    * [x] En actividades formativas, las interacciones de tipo `Evaluación` se destacan visualmente como «Evaluación final / Información importante».
+    * [x] Se muestra el badge cualitativo con su color semántico: Bueno (verde), Regular (naranja claro), Malo (rojo).
+    * [x] Se renderiza el cuerpo completo del mensaje del docente sin requerir apertura de modal de rúbrica.
+    * [x] Se suprime todo botón o enlace a rúbrica para este tipo de interacción formativa.
 
 * ### `[FEAT-T06]` [3 pts] [R3] [P0] Vista Principal Actividad — Repurposear tarjeta de nota para mostrar mensaje de evaluación formativa (Sistema A)
   * **Ruta**: `/estudiante/cursos/{id}/actividades/{act}`
@@ -172,12 +172,12 @@ La insistencia en solicitar rúbricas y notas numéricas en actividades formativ
     * `app/Http/Controllers/Student/ActivityController.php`
   * **Problema & Causa**: `ActivityGradeCard.svelte` sólo soportaba notas numéricas y se ocultaba cuando `ultima_nota` era nula (`Index.svelte:298`). En formativas debe mostrar el mensaje de evaluación y la apreciación emitida bajo la regla de Sistema A (último mensaje cronológico emitido).
   * **Criterios de Aceptación (DoD)**:
-    * [ ] En actividades formativas que cuentan con evaluación emitida, la tarjeta de la columna lateral se renderiza activamente.
-    * [ ] Muestra el badge de apreciación (Bueno / Regular / Malo) con sus estilos semánticos correspondientes.
-    * [ ] Renderiza el mensaje de evaluación provisto por el docente bajo el Sistema A (la última evaluación emitida cronológicamente en el grupo).
-    * [ ] Muestra fecha de emisión y nombre del docente evaluador.
-    * [ ] Oculta la nota numérica (1,0 - 7,0), leyendas de aprobación y botón de rúbrica.
-    * [ ] La estructura de datos desacopla el render del origen de selección, dejando la tarjeta lista para Sistema B sin cambios visuales si se implementa en el futuro.
+    * [x] En actividades formativas que cuentan con evaluación emitida, la tarjeta de la columna lateral se renderiza activamente.
+    * [x] Muestra el badge de apreciación (Bueno / Regular / Malo) con sus estilos semánticos correspondientes.
+    * [x] Renderiza el mensaje de evaluación provisto por el docente bajo el Sistema A (la última evaluación emitida cronológicamente en el grupo).
+    * [x] Muestra fecha de emisión y nombre del docente evaluador.
+    * [x] Oculta la nota numérica (1,0 - 7,0), leyendas de aprobación y botón de rúbrica.
+    * [x] La estructura de datos desacopla el render del origen de selección, dejando la tarjeta lista para Sistema B sin cambios visuales si se implementa en el futuro.
 
 ---
 
