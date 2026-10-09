@@ -39,9 +39,9 @@ class ResumenActividadesEstudiante
      *
      * @return array<int, array<string, mixed>>
      */
-    public function proximasAVencer(Estudiante $estudiante): array
+    public function proximasAVencer(Estudiante $estudiante, ?int $semestre = null, ?int $agno = null): array
     {
-        $componentes = $this->componentesDelEstudiante($estudiante);
+        $componentes = $this->componentesDelEstudiante($estudiante, $semestre, $agno);
 
         if ($componentes->isEmpty()) {
             return [];
@@ -65,12 +65,29 @@ class ResumenActividadesEstudiante
         $grupos = $this->gruposDelEstudiante($estudiante, $actividades->pluck('id_actividad'));
 
         return $actividades
+            ->filter(function (Actividad $actividad) use ($grupos) {
+                $grupo = $grupos->get($actividad->id_actividad);
+
+                // 1. Descartar actividades sin entrega obligatoria
+                if (strtolower($actividad->tipo_entrega ?? '') === 'sin entrega') {
+                    return false;
+                }
+
+                // 2. Descartar si el grupo ya completó una entrega vigente o ya fue evaluado
+                if ($grupo && ($grupo->tieneEntregaVigente() || $grupo->yaFueEvaluado())) {
+                    return false;
+                }
+
+                return true;
+            })
             ->map(function (Actividad $actividad) use ($grupos, $componentes) {
                 $grupo = $grupos->get($actividad->id_actividad);
                 $holgura = (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0)
                     + (int) ($grupo?->nro_dias_adicionales_para_bloqueo_personal ?? 0);
                 $plazo = Carbon::parse($actividad->fecha_limite)->endOfDay()->addDays($holgura);
                 $curso = $componentes->get($actividad->id_componente);
+
+                $esVencida = $plazo->isPast();
 
                 return [
                     'id_actividad' => $actividad->id_actividad,
@@ -80,11 +97,18 @@ class ResumenActividadesEstudiante
                     'es_sumativa'  => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
                     'fecha_limite' => $actividad->fecha_limite->format('Y-m-d'),
                     'plazo_hasta'  => $holgura > 0 ? $plazo->format('Y-m-d') : null,
+                    'es_vencida'   => $esVencida,
                     '_plazo'       => $plazo,
                 ];
             })
-            ->filter(fn (array $item) => $item['_plazo']->between($ahora, $tope))
-            ->sortBy('_plazo')
+            ->filter(function (array $item) use ($ahora, $tope) {
+                // Incluye próximas a vencer o vencidas no entregadas recientes (hasta 14 días atrás)
+                return $item['_plazo']->between($ahora, $tope)
+                    || ($item['es_vencida'] && $item['_plazo']->greaterThanOrEqualTo($ahora->copy()->subDays(14)));
+            })
+            ->sortBy(function (array $item) {
+                return ($item['es_vencida'] ? '0' : '1') . '_' . $item['_plazo']->timestamp;
+            })
             ->map(fn (array $item) => Arr::except($item, '_plazo'))
             ->values()
             ->all();
@@ -172,15 +196,23 @@ class ResumenActividadesEstudiante
      *
      * @return Collection<int, object> id_componente => {id_curso, cod_curso, cod_asignatura}
      */
-    private function componentesDelEstudiante(Estudiante $estudiante): Collection
+    private function componentesDelEstudiante(Estudiante $estudiante, ?int $semestre = null, ?int $agno = null): Collection
     {
-        $cursos = DB::table('curso.inscripcion_curso as ic')
+        $queryCursos = DB::table('curso.inscripcion_curso as ic')
             ->join('curso.curso as c', 'c.id_curso', '=', 'ic.id_curso')
             ->leftJoin('administrativo.asignacion_plan as ap', 'ap.id_asignacion_plan', '=', 'c.id_asignacion_plan')
             ->leftJoin('administrativo.asignatura as a', 'a.id_asignatura', '=', 'ap.id_asignatura')
             ->where('ic.id_estudiante', $estudiante->id_estudiante)
-            ->where('ic.estado_inscripcion', 'INSCRITO')
-            ->get(['c.id_curso', 'c.cod_curso', 'a.cod_asignatura'])
+            ->where('ic.estado_inscripcion', 'INSCRITO');
+
+        if ($semestre !== null) {
+            $queryCursos->where('c.semestre_real', $semestre);
+        }
+        if ($agno !== null) {
+            $queryCursos->where('c.agno_real', $agno);
+        }
+
+        $cursos = $queryCursos->get(['c.id_curso', 'c.cod_curso', 'a.cod_asignatura'])
             ->keyBy('id_curso');
 
         if ($cursos->isEmpty()) {

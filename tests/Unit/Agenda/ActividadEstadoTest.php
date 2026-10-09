@@ -80,4 +80,75 @@ class ActividadEstadoTest extends TestCase
         ]);
         $this->assertEquals('PLANIFICADA', $grupo->calcularEstadoGrupo($actividadNoVis));
     }
+
+    public function test_actividad_esta_cerrada_retorna_boolean_segun_estado_base()
+    {
+        // 1. Actividad vencida visible -> estaCerrada() debe ser true
+        $actVencida = new Actividad([
+            'visible' => true,
+            'fecha_limite' => Carbon::now()->subDays(10),
+            'nro_dias_adicionales_para_bloqueo' => 0,
+        ]);
+        $this->assertTrue($actVencida->estaCerrada());
+
+        // 2. Actividad vigente visible -> estaCerrada() debe ser false
+        $actVigente = new Actividad([
+            'visible' => true,
+            'fecha_limite' => Carbon::now()->addDays(5),
+            'nro_dias_adicionales_para_bloqueo' => 0,
+        ]);
+        $this->assertFalse($actVigente->estaCerrada());
+
+        // 3. Actividad no visible aunque vencida -> 'NO VISIBLE', estaCerrada() es false
+        $actNoVisible = new Actividad([
+            'visible' => false,
+            'fecha_limite' => Carbon::now()->subDays(10),
+            'nro_dias_adicionales_para_bloqueo' => 0,
+        ]);
+        $this->assertFalse($actNoVisible->estaCerrada());
+    }
+
+    public function test_actividad_asignada_grupo_esta_cerrada_delega_en_calcular_estado_grupo()
+    {
+        // Actividad con fecha vencida hace 2 días y holgura base 0 (cerrada base)
+        $actividad = new Actividad([
+            'visible' => true,
+            'fecha_limite' => Carbon::now()->subDays(2),
+            'nro_dias_adicionales_para_bloqueo' => 0,
+        ]);
+
+        // Grupo sin holgura personal -> estaCerrada() debe ser true
+        $grupoSinHolgura = new ActividadAsignadaGrupo([
+            'nro_dias_adicionales_para_bloqueo_personal' => 0,
+        ]);
+        $this->assertTrue($grupoSinHolgura->estaCerrada($actividad));
+
+        // Grupo con holgura personal suficiente -> estaCerrada() debe ser false
+        $grupoConHolgura = new ActividadAsignadaGrupo([
+            'nro_dias_adicionales_para_bloqueo_personal' => 5,
+        ]);
+        $this->assertFalse($grupoConHolgura->estaCerrada($actividad));
+    }
+
+    public function test_actividad_asignada_grupo_esta_pendiente_entrega_descarta_cerradas_y_sin_entrega()
+    {
+        // 1. Actividad cerrada -> no debe estar pendiente de entrega
+        $actCerrada = new Actividad([
+            'visible' => true,
+            'fecha_limite' => Carbon::now()->subDays(5),
+            'nro_dias_adicionales_para_bloqueo' => 0,
+            'tipo_entrega' => 'Con entrega',
+        ]);
+        $grupo = new ActividadAsignadaGrupo();
+        $this->assertFalse($grupo->estaPendienteEntrega($actCerrada));
+
+        // 2. Actividad sin entrega obligatoria -> no está pendiente de entrega
+        $actSinEntrega = new Actividad([
+            'visible' => true,
+            'fecha_limite' => Carbon::now()->addDays(5),
+            'nro_dias_adicionales_para_bloqueo' => 0,
+            'tipo_entrega' => 'Sin entrega',
+        ]);
+        $this->assertFalse($grupo->estaPendienteEntrega($actSinEntrega));
+    }
 }

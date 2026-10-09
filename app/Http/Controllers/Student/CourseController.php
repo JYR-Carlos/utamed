@@ -189,6 +189,8 @@ class CourseController extends Controller
                 'fecha_limite'    => $actividad->fecha_limite?->format('Y-m-d'),
                 'visible'         => (bool) $actividad->visible,
                 'estado'          => $estado,
+                'ya_entregada'    => (bool) ($grupo?->tieneEntregaVigente()),
+                'ya_evaluada'     => (bool) ($grupo?->yaFueEvaluado()),
             ];
         })->values();
 

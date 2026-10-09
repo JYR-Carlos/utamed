@@ -45,6 +45,45 @@ class ActividadAsignadaGrupo extends BaseActividadAsignadaGrupo
     }
 
     /**
+     * Verifica si el grupo registra al menos una entrega de archivo vigente
+     * (no cancelada por el estudiante).
+     */
+    public function tieneEntregaVigente(): bool
+    {
+        return $this->entregas()->entregasVigentes()->exists();
+    }
+
+    /**
+     * Determina si la actividad está pendiente de entrega para este grupo:
+     * - La actividad requiere entrega (no es 'Sin entrega').
+     * - No se encuentra en estado CERRADA.
+     * - El grupo no registra entrega vigente confirmada.
+     * - El grupo aún no ha sido evaluado.
+     */
+    public function estaPendienteEntrega(?Actividad $actividad = null): bool
+    {
+        $act = $actividad ?? $this->actividad;
+
+        if ($act && strtolower($act->tipo_entrega ?? '') === 'sin entrega') {
+            return false;
+        }
+
+        if ($this->estaCerrada($act)) {
+            return false;
+        }
+
+        if ($this->exists && $this->tieneEntregaVigente()) {
+            return false;
+        }
+
+        if ($this->exists && $this->yaFueEvaluado()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Obtiene los miembros con sus datos de estudiante cargados
      */
     public function getMiembrosConDetalles()
@@ -98,6 +137,14 @@ class ActividadAsignadaGrupo extends BaseActividadAsignadaGrupo
         }
 
         return $esPostFin ? 'CERRADA' : 'ACTIVA';
+    }
+
+    /**
+     * Determina si la actividad para este grupo se encuentra en estado CERRADA.
+     */
+    public function estaCerrada(?Actividad $actividad = null): bool
+    {
+        return $this->calcularEstadoGrupo($actividad) === EstadoActividadAsignada::CERRADA->value;
     }
 
     /**
