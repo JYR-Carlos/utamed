@@ -170,12 +170,9 @@
   function quitarEntradaPropia() {
     if (!entradaPropia) return;
     entradaPropia = false;
-    const tragar = (e: PopStateEvent) => {
-      e.stopImmediatePropagation();
-      window.removeEventListener('popstate', tragar, true);
-    };
-    window.addEventListener('popstate', tragar, true);
-    history.back();
+    if (window.location.hash && TAB_IDS.includes(window.location.hash.slice(1))) {
+      history.replaceState(history.state, '', window.location.pathname + window.location.search);
+    }
   }
 
   $effect(() => {

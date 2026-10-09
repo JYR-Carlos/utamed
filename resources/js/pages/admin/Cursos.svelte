@@ -429,9 +429,9 @@
 
 
   function openCopyModal(curso: Curso) {
+    closeSlideOver();
     copyingCurso = curso;
     showCopyModal = true;
-    closeSlideOver();
   }
 
   function openSyncModal(curso: Curso) {
@@ -807,21 +807,19 @@
   />
 
   <!-- Modal de pre-visualización y confirmación de copia de curso -->
-  {#if copyingCurso}
-    <CursoCopyPreviewModal
-      bind:isOpen={showCopyModal}
-      curso={copyingCurso}
-      onClose={() => {
-        showCopyModal = false;
-        copyingCurso = null;
-      }}
-      onSuccess={() => {
-        showCopyModal = false;
-        copyingCurso = null;
-        showToast('Curso copiado exitosamente', 'success');
-      }}
-    />
-  {/if}
+  <CursoCopyPreviewModal
+    bind:isOpen={showCopyModal}
+    curso={copyingCurso}
+    onClose={() => {
+      showCopyModal = false;
+      copyingCurso = null;
+    }}
+    onSuccess={() => {
+      showCopyModal = false;
+      copyingCurso = null;
+      showToast('Curso copiado exitosamente', 'success');
+    }}
+  />
 
   <!-- Sincronización con Intranet: revisar antes de confirmar (un curso) -->
   <CursoSincronizarIntranetModal

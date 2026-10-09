@@ -23,6 +23,7 @@
    */
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
+  import { router } from '@inertiajs/svelte';
   import AgendaHilo from '../../../student/Activities/Agenda/AgendaHilo.svelte';
   import RubricaView from '../../../student/Activities/Agenda/Rubrica.svelte';
   import { calcularNotaChilena } from '@/lib/notas';
