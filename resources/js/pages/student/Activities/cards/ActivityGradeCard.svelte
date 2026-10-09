@@ -55,28 +55,24 @@
           label: 'Bueno',
           badge: 'bg-emerald-50 text-emerald-800 border-emerald-300',
           dot: 'bg-emerald-600',
-          textColor: 'text-emerald-700',
         };
       case 'Regular':
         return {
           label: 'Regular',
           badge: 'bg-amber-50 text-amber-800 border-amber-300',
           dot: 'bg-amber-500',
-          textColor: 'text-amber-700',
         };
       case 'Malo':
         return {
           label: 'Malo',
           badge: 'bg-rose-50 text-rose-800 border-rose-300',
           dot: 'bg-rose-600',
-          textColor: 'text-rose-700',
         };
       default:
         return {
           label: opinionFormativa ?? 'Evaluado',
           badge: 'bg-slate-100 text-slate-800 border-slate-300',
           dot: 'bg-slate-500',
-          textColor: 'text-slate-700',
         };
     }
   });
@@ -85,7 +81,7 @@
 <!--
   Card "Nota / Evaluación Formativa"
   - Sumativa: nota numérica, estado Aprobada/Reprobada y acceso a rúbrica evaluada.
-  - Formativa: apreciación cualitativa (Bueno/Regular/Malo) y mensaje extenso de evaluación del docente.
+  - Formativa: apreciación cualitativa (Bueno/Regular/Malo) en badge de cabecera y mensaje extenso de evaluación del docente.
 -->
 <div class="flex w-full flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
   <div class="flex items-center gap-2">
@@ -122,19 +118,17 @@
       </div>
     </div>
   {:else}
-    <div class="flex flex-col gap-2.5 text-left">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Apreciación docente</span>
-        <span class="text-sm font-bold {opinionBadge.textColor}">
-          {opinionBadge.label}
-        </span>
-      </div>
+    <div class="flex flex-col gap-2 text-left">
       {#if mensajeEvaluacion}
         <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5">
           <p class="text-[11px] font-semibold text-slate-500 mb-1.5">Mensaje de evaluación:</p>
           <p class="text-[13px] leading-relaxed text-slate-800 whitespace-pre-line break-words">
             {mensajeEvaluacion}
           </p>
+        </div>
+      {:else}
+        <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-3 text-center">
+          <p class="text-xs text-slate-500">Sin observaciones registradas por el docente.</p>
         </div>
       {/if}
     </div>
