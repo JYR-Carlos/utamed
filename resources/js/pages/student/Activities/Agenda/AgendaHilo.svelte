@@ -426,34 +426,65 @@
             </div>
           </div>
 
-        <!-- CASO D: Evaluación (Verde si aprobada / Roja si reprobada / Gris si reevaluada) -->
+        <!-- CASO D: Evaluación -->
         {:else if item.tipo_interaccion === 'Evaluación'}
+          {@const esFormativa = ['Bueno', 'Regular', 'Malo'].includes(item.evaluacion_obtenida ?? '')}
+          {@const opinion = item.evaluacion_obtenida}
           {@const notaValor = item.evaluacion_obtenida ?? item.puntaje_obtenido}
-          {@const notaNum = notaValor != null ? Number(notaValor) : null}
-          {@const esAprobada = notaNum != null && !isNaN(notaNum) ? notaNum >= 4.0 : true}
+          {@const notaNum = (!esFormativa && notaValor != null) ? Number(notaValor) : null}
+          {@const esAprobada = esFormativa ? opinion !== 'Malo' : (notaNum != null && !isNaN(notaNum) ? notaNum >= 4.0 : true)}
+          {@const colorClase = esFormativa
+            ? (opinion === 'Bueno' ? 'emerald' : opinion === 'Regular' ? 'amber' : 'rose')
+            : (esAprobada ? 'emerald' : 'red')}
           <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
             <div
               class="w-fit max-w-[66.6%] rounded-2xl border-2 shadow-xs overflow-hidden {item.fue_reevaluada
                 ? 'border-slate-300 bg-slate-100/90 opacity-80'
-                : esAprobada
+                : colorClase === 'emerald'
                   ? 'border-emerald-400/70 bg-[#F0FDF4]'
-                  : 'border-red-300/80 bg-[#FEF2F2]'}"
+                  : colorClase === 'amber'
+                    ? 'border-amber-300 bg-[#FEFCE8]'
+                    : 'border-rose-300/80 bg-[#FFF1F2]'}"
             >
               <div
                 class="flex items-center justify-between border-b px-3.5 py-1.5 text-xs gap-2.5 {item.fue_reevaluada
                   ? 'border-slate-200 bg-slate-200/80'
-                  : esAprobada
+                  : colorClase === 'emerald'
                     ? 'border-emerald-200 bg-emerald-100/80'
-                    : 'border-red-200 bg-red-100/80'}"
+                    : colorClase === 'amber'
+                      ? 'border-amber-200 bg-amber-100/80'
+                      : 'border-rose-200 bg-rose-100/80'}"
               >
                 <div class="flex items-center gap-1.5 min-w-0">
-                  <Award class="h-3.5 w-3.5 shrink-0 {item.fue_reevaluada ? 'text-slate-500' : esAprobada ? 'text-emerald-800' : 'text-red-700'}" />
-                  <span class="truncate font-bold text-[11.5px] {item.fue_reevaluada ? 'text-slate-700' : esAprobada ? 'text-emerald-950' : 'text-red-950'}" title="Evaluación · {item.emisor}">
-                    Evaluación · {item.es_propio && esDocente ? 'Tú' : item.emisor}
+                  <Award class="h-3.5 w-3.5 shrink-0 {item.fue_reevaluada
+                    ? 'text-slate-500'
+                    : colorClase === 'emerald'
+                      ? 'text-emerald-800'
+                      : colorClase === 'amber'
+                        ? 'text-amber-800'
+                        : 'text-rose-700'}" />
+                  <span class="truncate font-bold text-[11.5px] {item.fue_reevaluada
+                    ? 'text-slate-700'
+                    : colorClase === 'emerald'
+                      ? 'text-emerald-950'
+                      : colorClase === 'amber'
+                        ? 'text-amber-950'
+                        : 'text-rose-950'}" title="{esFormativa ? 'Evaluación Formativa' : 'Evaluación'} · {item.emisor}">
+                    {esFormativa ? 'Evaluación Formativa' : 'Evaluación'} · {item.es_propio && esDocente ? 'Tú' : item.emisor}
                   </span>
                   {#if item.fue_reevaluada}
                     <span class="rounded-full border border-slate-300 bg-slate-200 px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider text-slate-600 shrink-0">
                       Reevaluada
+                    </span>
+                  {:else if esFormativa}
+                    <span
+                      class="rounded-full border px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider shrink-0 {colorClase === 'emerald'
+                        ? 'border-emerald-300 bg-emerald-200/60 text-emerald-800'
+                        : colorClase === 'amber'
+                          ? 'border-amber-300 bg-amber-200/60 text-amber-800'
+                          : 'border-rose-300 bg-rose-200/60 text-rose-700'}"
+                    >
+                      {opinion}
                     </span>
                   {:else}
                     <span
@@ -475,50 +506,75 @@
                 {/if}
 
                 {#if item.mensaje}
-                  <p class="text-[12.5px] text-slate-800 leading-snug break-words">{item.mensaje}</p>
+                  <p class="text-[12.5px] text-slate-800 leading-snug whitespace-pre-line break-words">{item.mensaje}</p>
                 {/if}
 
                 <!-- Chip de Calificación y Acceso a Rúbrica -->
-                <div class="flex items-center justify-between gap-3 rounded-xl border bg-white/90 p-2.5 {item.fue_reevaluada ? 'border-slate-200' : esAprobada ? 'border-emerald-200' : 'border-red-200'}">
-                  <div class="flex items-baseline gap-1.5 flex-wrap">
-                    <span class="text-[11px] uppercase font-bold tracking-wider {item.fue_reevaluada ? 'text-slate-500' : esAprobada ? 'text-emerald-800' : 'text-red-800'}">Nota:</span>
-                    <span class="text-xl font-black leading-none {item.fue_reevaluada ? 'text-slate-400 line-through' : esAprobada ? 'text-emerald-700' : 'text-red-700'}">
-                      {formatNota(notaValor)}
-                    </span>
-                    {#if item.puntaje_obtenido != null && String(item.puntaje_obtenido) !== String(notaValor)}
-                      <span class="text-[11px] font-medium text-slate-500">({item.puntaje_obtenido} pts)</span>
-                    {/if}
-                    {#if item.fue_reevaluada}
-                      <span class="text-[10px] text-slate-400 font-medium">(Anterior)</span>
-                    {/if}
-                  </div>
+                <div class="flex items-center justify-between gap-3 rounded-xl border bg-white/90 p-2.5 {item.fue_reevaluada
+                  ? 'border-slate-200'
+                  : colorClase === 'emerald'
+                    ? 'border-emerald-200'
+                    : colorClase === 'amber'
+                      ? 'border-amber-200'
+                      : 'border-rose-200'}">
+                  {#if esFormativa}
+                    <div class="flex items-center gap-2">
+                      <span class="text-[11px] uppercase font-bold tracking-wider text-slate-500">Resultado:</span>
+                      <span class="text-sm font-bold {colorClase === 'emerald'
+                        ? 'text-emerald-700'
+                        : colorClase === 'amber'
+                          ? 'text-amber-700'
+                          : 'text-rose-700'}">
+                        {opinion}
+                      </span>
+                    </div>
+                  {:else}
+                    <div class="flex items-baseline gap-1.5 flex-wrap">
+                      <span class="text-[11px] uppercase font-bold tracking-wider {item.fue_reevaluada ? 'text-slate-500' : esAprobada ? 'text-emerald-800' : 'text-red-800'}">Nota:</span>
+                      <span class="text-xl font-black leading-none {item.fue_reevaluada ? 'text-slate-400 line-through' : esAprobada ? 'text-emerald-700' : 'text-red-700'}">
+                        {formatNota(notaValor)}
+                      </span>
+                      {#if item.puntaje_obtenido != null && String(item.puntaje_obtenido) !== String(notaValor)}
+                        <span class="text-[11px] font-medium text-slate-500">({item.puntaje_obtenido} pts)</span>
+                      {/if}
+                      {#if item.fue_reevaluada}
+                        <span class="text-[10px] text-slate-400 font-medium">(Anterior)</span>
+                      {/if}
+                    </div>
 
-                  {#if (item.adjunta_rubrica || item.rubrica) && onVerRubrica}
-                    <button
-                      onclick={() => {
-                        onVerRubrica?.({
-                          rubrica: item.rubrica,
-                          puntaje_obtenido: item.puntaje_obtenido,
-                          retroalimentacion: item.mensaje,
-                          resultado: item.resultado,
-                          evaluador: item.emisor,
-                          fecha: item.fecha_emision,
-                        });
-                      }}
-                      class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold text-white shadow-2xs transition-colors cursor-pointer {item.fue_reevaluada
-                        ? 'bg-slate-600 hover:bg-slate-700'
-                        : esAprobada
-                          ? 'bg-emerald-700 hover:bg-emerald-800'
-                          : 'bg-red-700 hover:bg-red-800'}"
-                    >
-                      <span>Ver Rúbrica</span>
-                      <ChevronRight class="h-3 w-3" />
-                    </button>
+                    {#if (item.adjunta_rubrica || item.rubrica) && onVerRubrica}
+                      <button
+                        onclick={() => {
+                          onVerRubrica?.({
+                            rubrica: item.rubrica,
+                            puntaje_obtenido: item.puntaje_obtenido,
+                            retroalimentacion: item.mensaje,
+                            resultado: item.resultado,
+                            evaluador: item.emisor,
+                            fecha: item.fecha_emision,
+                          });
+                        }}
+                        class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold text-white shadow-2xs transition-colors cursor-pointer {item.fue_reevaluada
+                          ? 'bg-slate-600 hover:bg-slate-700'
+                          : esAprobada
+                            ? 'bg-emerald-700 hover:bg-emerald-800'
+                            : 'bg-red-700 hover:bg-red-800'}"
+                      >
+                        <span>Ver Rúbrica</span>
+                        <ChevronRight class="h-3 w-3" />
+                      </button>
+                    {/if}
                   {/if}
                 </div>
 
                 <div class="flex justify-end pt-0.5">
-                  <span class="font-mono text-[10px] {item.fue_reevaluada ? 'text-slate-400' : esAprobada ? 'text-emerald-800/80' : 'text-red-700/80'} select-none">
+                  <span class="font-mono text-[10px] {item.fue_reevaluada
+                    ? 'text-slate-400'
+                    : colorClase === 'emerald'
+                      ? 'text-emerald-800/80'
+                      : colorClase === 'amber'
+                        ? 'text-amber-800/80'
+                        : 'text-rose-700/80'} select-none">
                     {formatHora(item.fecha_emision)}
                   </span>
                 </div>

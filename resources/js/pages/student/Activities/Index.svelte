@@ -47,6 +47,7 @@
       emisor?: string | null;
       puntaje_obtenido: number | null;
       resultado: Record<string, string> | null;
+      evaluacion_obtenida?: string | null;
       retroalimentacion?: string | null;
       rubrica?: Rubrica | null;
     } | null;
@@ -295,12 +296,13 @@
 
         <aside class="flex flex-col gap-5" aria-label="Contexto de la actividad">
           
-          {#if ultima_nota !== null && ultima_nota !== undefined}
+          {#if es_sumativa ? (ultima_nota !== null && ultima_nota !== undefined) : ultima_evaluacion !== null}
             <ActivityGradeCard
               {ultima_nota}
               {es_sumativa}
-              fecha_evaluacion={ultima_evaluacion?.fecha_emision ?? ultimaEvaluacion?.fecha_emision}
-              evaluador={ultima_evaluacion?.emisor ?? ultimaEvaluacion?.emisor}
+              {ultima_evaluacion}
+              fecha_evaluacion={ultima_evaluacion?.fecha_emision}
+              evaluador={ultima_evaluacion?.emisor}
               onVerRubricaClick={rubrica ? toggleRubricaModal : undefined}
             />
           {/if}
