@@ -27,6 +27,9 @@
     max_integrantes: number;
     fecha_limite: string;
     visible: boolean;
+    estado?: string;
+    ya_entregada?: boolean;
+    ya_evaluada?: boolean;
   }
 
   interface Programa {
@@ -89,11 +92,22 @@
     hoy.setHours(0, 0, 0, 0);
 
     return actividades
-      .filter((a) => a.con_entrega && a.fecha_limite && parseFechaSoloDia(a.fecha_limite) >= hoy)
-      .sort(
-        (a, b) =>
-          parseFechaSoloDia(a.fecha_limite).getTime() - parseFechaSoloDia(b.fecha_limite).getTime(),
-      );
+      .filter(
+        (a) =>
+          a.con_entrega &&
+          a.fecha_limite &&
+          !a.ya_entregada &&
+          !a.ya_evaluada,
+      )
+      .sort((a, b) => {
+        const da = parseFechaSoloDia(a.fecha_limite).getTime();
+        const db = parseFechaSoloDia(b.fecha_limite).getTime();
+        const aVencida = da < hoy.getTime();
+        const bVencida = db < hoy.getTime();
+        if (aVencida && !bVencida) return -1;
+        if (!aVencida && bVencida) return 1;
+        return da - db;
+      });
   });
 
   // ─── Filtros de actividades ─────────────────────────────────────────────────

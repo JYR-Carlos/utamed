@@ -29,6 +29,7 @@
   }
 
   function plazoLabel(dias: number): string {
+    if (dias < 0) return dias === -1 ? 'Venció ayer' : `Venció hace ${Math.abs(dias)} días`;
     if (dias === 0) return 'Vence hoy';
     if (dias === 1) return 'Vence mañana';
     return `Vence en ${dias} días`;
@@ -39,21 +40,24 @@
   <ul class="flex flex-col gap-3">
     {#each entregas as entrega (entrega.id_actividad)}
       {@const dias = diasRestantes(entrega.fecha_limite)}
-      {@const urgente = dias <= 3}
+      {@const vencida = dias < 0}
+      {@const urgente = dias >= 0 && dias <= 3}
       <li>
         <Link
           href={`/estudiante/cursos/${idCurso}/actividad/${entrega.id_actividad}`}
-          class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border p-4 no-underline transition-colors {urgente
-            ? 'border-uta-red/20 bg-uta-red-light hover:border-uta-red/40'
-            : 'border-gray-200 bg-white hover:border-uta-blue/30 hover:bg-uta-blue-light/40'}"
+          class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border p-4 no-underline transition-colors {vencida
+            ? 'border-uta-red/30 bg-uta-red-light hover:border-uta-red/50 hover:bg-uta-red-light/80'
+            : urgente
+              ? 'border-amber-200 bg-amber-50 hover:border-amber-300'
+              : 'border-gray-200 bg-white hover:border-uta-blue/30 hover:bg-uta-blue-light/40'}"
         >
-          <CalendarClock class="w-4 h-4 shrink-0 {urgente ? 'text-uta-red' : 'text-gray-500'}" />
-          <span class="min-w-0 flex-1 text-sm font-semibold text-gray-900">{entrega.nombre}</span>
-          <span class="text-sm text-gray-500">{formatFechaCorta(entrega.fecha_limite)}</span>
-          <span class="text-sm font-semibold {urgente ? 'text-uta-red' : 'text-gray-700'}">
+          <CalendarClock class="w-4 h-4 shrink-0 {vencida ? 'text-uta-red' : urgente ? 'text-amber-600' : 'text-gray-500'}" />
+          <span class="min-w-0 flex-1 text-sm font-semibold {vencida ? 'text-uta-red' : 'text-gray-900'}">{entrega.nombre}</span>
+          <span class="text-sm {vencida ? 'text-uta-red/80' : 'text-gray-500'}">{formatFechaCorta(entrega.fecha_limite)}</span>
+          <span class="text-sm font-semibold {vencida ? 'text-uta-red' : urgente ? 'text-amber-700' : 'text-gray-700'}">
             {plazoLabel(dias)}
           </span>
-          <ChevronRight class="w-4 h-4 shrink-0 text-gray-400" />
+          <ChevronRight class="w-4 h-4 shrink-0 {vencida ? 'text-uta-red/60' : 'text-gray-400'}" />
         </Link>
       </li>
     {/each}

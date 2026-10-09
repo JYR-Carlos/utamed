@@ -7,15 +7,14 @@
     es_sumativa: boolean;
     fecha_limite: string;
     plazo_hasta: string | null;
+    es_vencida?: boolean;
   }
 </script>
 
 <script lang="ts">
   /**
-   * Actividades cuyo plazo termina pronto. La ventana la decide el servidor
-   * y no se menciona aquí. Cuando la actividad tiene plazo adicional, el
-   * servidor manda la fecha ya calculada en `plazo_hasta` y es la que se
-   * muestra.
+   * Actividades cuyo plazo termina pronto o que vencieron recientemente sin
+   * entrega. Las vencidas se destacan con tono burdeo claro institucional.
    */
   import { Link } from '@inertiajs/svelte';
   import { CalendarClock, ChevronRight } from 'lucide-svelte';
@@ -46,22 +45,38 @@
       {#each items as item (item.id_actividad)}
         <Link
           href={`/estudiante/cursos/${item.id_curso}/actividad/${item.id_actividad}`}
-          class="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2.5 transition-colors hover:border-slate-300 hover:bg-slate-50"
+          class="flex items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-colors {item.es_vencida
+            ? 'border-uta-red/30 bg-uta-red-light hover:border-uta-red/50 hover:bg-uta-red-light/80'
+            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}"
         >
           <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span class="font-mono text-[10.5px] text-slate-500">
+            <span
+              class="font-mono text-[10.5px] {item.es_vencida
+                ? 'text-uta-red/80 font-medium'
+                : 'text-slate-500'}"
+            >
               {item.curso} · {item.es_sumativa ? 'Sumativa' : 'Formativa'}
             </span>
-            <span class="truncate text-[13px] font-semibold text-slate-900">{item.nombre}</span>
-            <span class="text-[12px] text-slate-600">
-              {#if item.plazo_hasta}
+            <span
+              class="truncate text-[13px] font-semibold {item.es_vencida
+                ? 'text-uta-red'
+                : 'text-slate-900'}"
+            >
+              {item.nombre}
+            </span>
+            <span class="text-[12px] {item.es_vencida ? 'font-medium text-uta-red' : 'text-slate-600'}">
+              {#if item.es_vencida}
+                Venció el {formatDate(item.plazo_hasta || item.fecha_limite)}
+              {:else if item.plazo_hasta}
                 Plazo hasta {formatDate(item.plazo_hasta)}
               {:else}
                 Vence el {formatDate(item.fecha_limite)}
               {/if}
             </span>
           </div>
-          <ChevronRight class="h-4 w-4 shrink-0 text-slate-400" />
+          <ChevronRight
+            class="h-4 w-4 shrink-0 {item.es_vencida ? 'text-uta-red/60' : 'text-slate-400'}"
+          />
         </Link>
       {/each}
     </div>
