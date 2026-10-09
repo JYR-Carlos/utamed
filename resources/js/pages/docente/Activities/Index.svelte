@@ -542,7 +542,7 @@
     const grupoSnap = grupoSeleccionado;
 
     if (data.tipo === 'Evaluación') {
-      if (!rubrica_id) {
+      if (actividad.es_sumativa && !rubrica_id) {
         errorInteracciones = 'Esta actividad no tiene rúbrica. Crea una rúbrica antes de evaluar.';
         return;
       }
@@ -550,14 +550,14 @@
         `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoSnap.grupo}/evaluacion`,
         {
           id_agenda_entrega: data.id_agenda_entrega ?? null,
-          id_rubrica: rubrica_id,
+          id_rubrica: actividad.es_sumativa ? rubrica_id : null,
           // Uno u otro según el tipo de actividad: el servidor rechaza una nota
           // numérica en una formativa y la exige en una sumativa.
           nota: actividad.es_sumativa ? (data.nota ?? null) : null,
           evaluacion_obtenida: actividad.es_sumativa ? null : (data.evaluacion_obtenida ?? null),
           mensaje: data.mensaje,
-          resultado_rubrica: data.resultado_rubrica,
-          puntaje_obtenido: data.puntaje_obtenido,
+          resultado_rubrica: actividad.es_sumativa ? data.resultado_rubrica : null,
+          puntaje_obtenido: actividad.es_sumativa ? data.puntaje_obtenido : null,
         },
         {
           preserveScroll: true,
@@ -708,8 +708,8 @@
             {/if}
           </dl>
 
-          <!-- Botón de rúbrica: al lado del resumen, no debajo ocupando el ancho. -->
-          {#if actividad.es_titular || rubrica}
+          <!-- Botón de rúbrica: solo para actividades sumativas -->
+          {#if actividad.es_sumativa && (actividad.es_titular || rubrica)}
             <div class="flex flex-col gap-1.5 shrink-0 md:w-56 md:self-stretch">
               <button
                 class="flex flex-1 w-full items-center justify-between gap-4 rounded-xl border border-uta-blue bg-white px-4 py-3 text-sm font-semibold text-uta-blue transition-all hover:bg-uta-blue hover:text-white sm:px-6"

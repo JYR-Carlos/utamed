@@ -1933,7 +1933,9 @@ class DocenteActivityController extends Controller
 
         $validated = $request->validate([
             'id_agenda_entrega' => 'nullable|integer|exists:agenda,id_agenda',
-            'id_rubrica' => 'required|integer|exists:rubrica,id_rubrica',
+            'id_rubrica' => $esSumativa
+                ? 'required|integer|exists:rubrica,id_rubrica'
+                : 'nullable|integer|exists:rubrica,id_rubrica',
             'resultado' => 'nullable|array',
             'resultado_rubrica' => 'nullable|array',
             'puntaje_obtenido' => 'nullable|numeric|min:0|max:999',
@@ -1942,15 +1944,19 @@ class DocenteActivityController extends Controller
             // `nota: null` para las formativas.
             'evaluacion_obtenida' => $esSumativa
                 ? 'nullable|string|max:500'
-                : 'required|string|max:500',
-            'mensaje' => 'nullable|string|max:2000',
+                : 'required|string|in:Bueno,Regular,Malo',
+            'mensaje' => $esSumativa
+                ? 'nullable|string|max:4000'
+                : 'required|string|max:4000',
             'nota' => $esSumativa
                 ? 'required|numeric|min:1|max:7'
                 : 'prohibited',
         ], [
             'nota.required' => 'Una actividad sumativa se cierra con una nota de 1,0 a 7,0.',
             'nota.prohibited' => 'Una actividad formativa no lleva nota numérica; se cierra con su escala cualitativa.',
-            'evaluacion_obtenida.required' => 'Indica el resultado cualitativo (por ejemplo «Aprobado») para cerrar una actividad formativa.',
+            'evaluacion_obtenida.required' => 'Indica qué opina del trabajo (Bueno, Regular o Malo).',
+            'evaluacion_obtenida.in' => 'La evaluación cualitativa debe ser Bueno, Regular o Malo.',
+            'mensaje.required' => 'El mensaje de evaluación formativa es obligatorio.',
         ]);
 
         // La entrega evaluada tiene que ser una entrega de archivo vigente (no
@@ -1972,17 +1978,19 @@ class DocenteActivityController extends Controller
             $uuidArchivoEvaluado = $entrega->uuid_archivo_subido;
         }
 
-        // Verificar que la rúbrica pertenece a esta actividad
-        $rubricaValida = Rubrica::where('id_rubrica', $validated['id_rubrica'])
-            ->where('id_actividad', $actividad->id_actividad)
-            ->exists();
+        // Verificar que la rúbrica pertenece a esta actividad si fue enviada
+        if (!empty($validated['id_rubrica'])) {
+            $rubricaValida = Rubrica::where('id_rubrica', $validated['id_rubrica'])
+                ->where('id_actividad', $actividad->id_actividad)
+                ->exists();
 
-        if (!$rubricaValida) {
-            return redirect()->back()->withErrors(['id_rubrica' => 'La rúbrica seleccionada no pertenece a esta actividad.']);
+            if (!$rubricaValida) {
+                return redirect()->back()->withErrors(['id_rubrica' => 'La rúbrica seleccionada no pertenece a esta actividad.']);
+            }
         }
 
         try {
-            return DB::transaction(function () use ($validated, $grupo, $grupoModel, $uuidArchivoEvaluado) {
+            return DB::transaction(function () use ($validated, $grupo, $grupoModel, $uuidArchivoEvaluado, $esSumativa) {
 
                 // 1. Insertar mensaje de evaluación en agenda
                 // 1. Autor: Juan Y.
@@ -2003,7 +2011,7 @@ class DocenteActivityController extends Controller
                     'resultado' => $validated['resultado_rubrica'] ?? $validated['resultado'] ?? null,
                     'evaluacion_obtenida' => isset($validated['nota']) ? (string) $validated['nota'] : ($validated['evaluacion_obtenida'] ?? null),
                     'fecha_evaluacion' => now(),
-                    'id_rubrica' => $validated['id_rubrica'],
+                    'id_rubrica' => $validated['id_rubrica'] ?? null,
                     'id_usuario_evaluador' => Auth::id(),
                     'id_agenda' => $idAgendaEvaluacion,
                 ]);
@@ -2015,19 +2023,22 @@ class DocenteActivityController extends Controller
                 ]);
 
                 // 3b. Sembrar/refrescar la nota individual de cada integrante a partir
-                //     de la nota grupal recién registrada, respetando las décimas ya
-                //     fijadas para cada estudiante (snapshot, tope 1.0–7.0).
-                foreach (IntegranteGrupo::where('id_actividad_asignada_grupo', $grupo)->get() as $miembro) {
-                    $miembro->update([
-                        'nota_individual' => $this->calcularNotaIndividual($validated['nota'] ?? null, (float) ($miembro->diferencia_decimas ?? 0)),
-                    ]);
+                //     de la nota grupal recién registrada si es sumativa.
+                if ($esSumativa && isset($validated['nota'])) {
+                    foreach (IntegranteGrupo::where('id_actividad_asignada_grupo', $grupo)->get() as $miembro) {
+                        $miembro->update([
+                            'nota_individual' => $this->calcularNotaIndividual($validated['nota'], (float) ($miembro->diferencia_decimas ?? 0)),
+                        ]);
+                    }
                 }
 
                 // 4. Cerrar la rúbrica si estaba POSTULADA (primera evaluación que la usa)
-                DB::table('agenda.rubrica')
-                    ->where('id_rubrica', $validated['id_rubrica'])
-                    ->where('estado_rubrica', 'POSTULADA')
-                    ->update(['estado_rubrica' => 'CERRADA']);
+                if (!empty($validated['id_rubrica'])) {
+                    DB::table('agenda.rubrica')
+                        ->where('id_rubrica', $validated['id_rubrica'])
+                        ->where('estado_rubrica', 'POSTULADA')
+                        ->update(['estado_rubrica' => 'CERRADA']);
+                }
 
                 // 1. Autor: GitHub Copilot
                 // 2. Fecha: 02/06/2026
