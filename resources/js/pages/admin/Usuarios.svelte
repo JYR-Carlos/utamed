@@ -16,11 +16,12 @@
    * - Modal para asignar roles y permisos especiales (RBAC)
    * - Confirmación antes de eliminación
    */
-  import { router } from '@inertiajs/svelte';
+  import { router, page } from '@inertiajs/svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import PageHeader from '@/components/admin/PageHeader.svelte';
   import ConfirmationModal from '@/components/admin/ConfirmationModal.svelte';
   import PermissionsModal from '@/components/custom/admin/permissions-modal/PermissionsModal.svelte';
+  import Toast from '@/components/admin/Toast.svelte';
   import {
     UsuarioList,
     UsuarioForm,
@@ -32,6 +33,7 @@
     updateUsuario,
     deleteUsuario,
     changePassword,
+    setDefaultPassword,
     toggleActive,
   } from '@/modules/resources/usuario';
   import type {
@@ -138,9 +140,46 @@
     return baseData as AdministradorFormData;
   }
 
+  // ====== NOTIFICACIONES / TOAST ======
+  let toast = $state<{ msg: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
+
+  function showToast(msg: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') {
+    toast = { msg, type };
+  }
+
+  const flashSuccess = $derived(($page.props as any)?.flash?.success as string | undefined);
+  const flashError = $derived(($page.props as any)?.flash?.error as string | undefined);
+  let lastHandledFlash = $state<string | null>(null);
+
+  $effect(() => {
+    const succ = flashSuccess;
+    const err = flashError;
+    const key = succ ? `s:${succ}` : err ? `e:${err}` : null;
+
+    if (key && key !== lastHandledFlash) {
+      lastHandledFlash = key;
+      if (succ) {
+        showToast(succ, 'success');
+      } else if (err) {
+        showToast(err, 'error');
+      }
+    } else if (!key) {
+      lastHandledFlash = null;
+    }
+  });
+
   function handleError(context: string, errors: any) {
     console.error(`Error ${context}:`, errors);
-    alert(`Error al ${context}: ` + JSON.stringify(errors));
+    let errorMsg = `Error al ${context}.`;
+    if (errors && typeof errors === 'object') {
+      const messages = Object.values(errors).flat();
+      if (messages.length > 0 && typeof messages[0] === 'string') {
+        errorMsg = messages[0];
+      }
+    } else if (typeof errors === 'string') {
+      errorMsg = errors;
+    }
+    showToast(errorMsg, 'error');
   }
 
   /**
@@ -171,6 +210,7 @@
   let showDeleteDialog = $state(false);
   let showToggleDialog = $state(false);
   let showPasswordModal = $state(false);
+  let showResetDialog = $state(false);
   let showPermissionsModal = $state(false);
   let isLoading = $state(false);
   let fileToImport =$state<File | null>(null)
@@ -360,6 +400,7 @@
 
   function closePasswordModal() {
     showPasswordModal = false;
+    showResetDialog = false;
     changingPasswordUsuario = null;
     passwordFormData = { current_password: '', password: '', password_confirmation: '' };
   }
@@ -382,6 +423,45 @@
     });
   }
 
+  function openResetDialog() {
+    if (!passwordFormData.current_password.trim()) {
+      showToast('Debes ingresar tu propia contraseña en el campo "Tu contraseña" para autorizar esta acción.', 'warning');
+      return;
+    }
+    showResetDialog = true;
+  }
+
+  function closeResetDialog() {
+    showResetDialog = false;
+  }
+
+  function handleResetDefault() {
+    if (!changingPasswordUsuario) return;
+    if (!passwordFormData.current_password.trim()) {
+      showToast('Debes ingresar tu propia contraseña en el campo "Tu contraseña" para autorizar esta acción.', 'warning');
+      return;
+    }
+
+    isLoading = true;
+    const id = changingPasswordUsuario.usuario.id_usuario;
+
+    setDefaultPassword(
+      id,
+      { current_password: passwordFormData.current_password },
+      {
+        onSuccess: () => {
+          closeResetDialog();
+          closePasswordModal();
+          isLoading = false;
+        },
+        onError: (errors) => {
+          handleError('reiniciar contraseña', errors);
+          isLoading = false;
+        },
+      },
+    );
+  }
+
   /**
    * Desactivar deja a la persona fuera del sistema, así que pasa por
    * confirmación igual que eliminar. Reactivar no destruye nada y se
@@ -393,7 +473,9 @@
       showToggleDialog = true;
       return;
     }
-    toggleActive(usuario.usuario.id_usuario);
+    toggleActive(usuario.usuario.id_usuario, {
+      onError: (errors) => handleError('activar usuario', errors),
+    });
   }
 
   function closeToggleDialog() {
@@ -403,7 +485,9 @@
 
   function confirmToggleActive() {
     if (!togglingUsuario) return;
-    toggleActive(togglingUsuario.usuario.id_usuario);
+    toggleActive(togglingUsuario.usuario.id_usuario, {
+      onError: (errors) => handleError('desactivar usuario', errors),
+    });
     closeToggleDialog();
   }
 
@@ -542,5 +626,29 @@
     {isLoading}
     onClose={closePasswordModal}
     onSubmit={handlePasswordChange}
+    onResetDefault={openResetDialog}
   />
+
+  <ConfirmationModal
+    isOpen={showResetDialog}
+    tone="warning"
+    title="Reiniciar contraseña por defecto"
+    recordName={changingPasswordUsuario
+      ? `${changingPasswordUsuario.usuario.nombre1 ?? ''} ${changingPasswordUsuario.usuario.apellido1 ?? ''}`.trim()
+      : null}
+    recordMeta={changingPasswordUsuario?.usuario.rut ? [changingPasswordUsuario.usuario.rut] : []}
+    message="La contraseña pasará a ser el RUT de la persona y deberá cambiarla al iniciar sesión. Se cerrarán sus sesiones activas."
+    confirmLabel="Reiniciar contraseña"
+    {isLoading}
+    onConfirm={handleResetDefault}
+    onCancel={closeResetDialog}
+  />
+
+  {#if toast}
+    <Toast
+      type={toast.type}
+      message={toast.msg}
+      onClose={() => (toast = null)}
+    />
+  {/if}
 </AdminLayout>

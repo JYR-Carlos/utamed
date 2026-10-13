@@ -18,11 +18,11 @@ use App\Http\Controllers\Administrativo\ProgramaController;
 use App\Http\Controllers\BibliografiaController;
 use App\Http\Controllers\Docente\AsistenciaController;
 use App\Http\Controllers\Docente\CalendarioController;
+use App\Http\Controllers\Docente\CopiaActividadesController;
 use App\Http\Controllers\Docente\CursoPermisosController;
 use App\Http\Controllers\Docente\DashboardController;
 use App\Http\Controllers\Docente\DelegacionPermisosController;
 use App\Http\Controllers\Docente\DocenteActivityController;
-use App\Http\Controllers\Docente\CopiaActividadesController;
 use App\Http\Controllers\Docente\DocenteCursoController;
 use App\Http\Controllers\Docente\JefeCarreraController;
 use App\Http\Controllers\Docente\MensajeriaController;
@@ -219,6 +219,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     // Additional usuario routes
     Route::post('usuarios/{usuario}/change-password', [UsuarioController::class, 'changePassword'])
         ->name('usuarios.change-password');
+    Route::post('usuarios/{usuario}/set-default-password', [UsuarioController::class, 'setDefaultPassword'])
+        ->name('usuarios.set-default-password');
     Route::post('usuarios/{usuario}/toggle-active', [UsuarioController::class, 'toggleActive'])
         ->name('usuarios.toggle-active');
 

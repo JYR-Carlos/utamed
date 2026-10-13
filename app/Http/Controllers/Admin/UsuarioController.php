@@ -4,39 +4,41 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Concerns\LimitsPageSize;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UsuarioResource;
+use App\Imports\UsuariosImport;
+use App\Models\Administrativo\Carrera;
+use App\Models\Usuario\Docente;
+use App\Models\Usuario\Estudiante;
+use App\Models\Usuario\Permiso;
+use App\Models\Usuario\Rol;
+use App\Models\Usuario\Usuario;
+use App\Models\Usuario\UsuarioPermisoEspecial;
+use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Rules\RutValido;
 use App\Services\Authorization\DelegationAuthorizer;
 use App\Services\Authorization\GlobalContextService;
 use App\Services\Authorization\PermissionCache;
 use App\Support\Permissions;
 use App\Support\Rut;
-use Illuminate\Support\Facades\Auth;
-use App\Models\Usuario\Usuario;
-use App\Models\Usuario\Estudiante;
-use App\Models\Usuario\Docente;
-use App\Models\Administrativo\Carrera;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
-use App\Models\Usuario\Rol;
-use App\Models\Usuario\Permiso;
-use App\Models\Usuario\UsuarioRolAsignacion;
-use App\Models\Usuario\UsuarioPermisoEspecial;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
-use App\Http\Resources\UsuarioResource;
-use App\Imports\UsuariosImport;
+use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Controlador para la gestión integral de usuarios del sistema.
- * 
+ *
  * Tablas implicadas:
  * - usuario.usuario: Base de todos los usuarios del sistema
  * - usuario.estudiante: Perfil específico de estudiantes con carrera asignada
@@ -46,17 +48,17 @@ use Maatwebsite\Excel\Facades\Excel;
  * - usuario.usuario_rol_asignación: Asignaciones de roles a usuarios en contextos específicos
  * - usuario.usuario_permiso_especial: Asignaciones de permisos especiales a usuarios
  * - usuario.contexto: Contextos (cursos) en los que roles y permisos se aplican
- * 
+ *
  * SEGURIDAD CRÍTICA: Este controlador maneja Control de Acceso Basado en Roles (RBAC).
  * Históricamente se encontraron vulnerabilidades IDOR en esta gestión.
  * Siempre validar que el usuario autenticado tenga permisos de administración para las operaciones.
- * 
+ *
  * Gestiona:
  * - Creación/actualización/eliminación de usuarios (Estudiantes, Docentes, Administradores)
  * - Asignación de roles y permisos a usuarios
  * - Sincronización de datos de usuario y sus roles en contextos
  * - Búsqueda filtrada por tipo de usuario
- * 
+ *
  * Arquitectura:
  * - index(): Lista usuarios filtrados por tipo con paginación y búsqueda
  * - store(): Dispatcher que delega a métodos específicos por tipo
@@ -78,16 +80,16 @@ class UsuarioController extends Controller
 
     /**
      * Obtiene listado paginado y filtrable de usuarios por tipo.
-     * 
+     *
      * Los usuarios pueden tener datos asociados en las tablas de estudiante o docente, o ninguno (no es funcionario).
-     * 
+     *
      * La búsqueda la resuelve {@see Usuario::scopeBuscar()}: palabra a palabra
      * sobre nombres, apellidos, username, email y RUT, sin distinguir mayúsculas,
      * acentos ni formato de RUT.
      * Retorna HTML Inertia con usuarios, roles, permisos disponibles, y datos de carreras.
-     * 
+     *
      * @param  Request  $request  Parámetros: tipo (estudiante|docente|administrador), search, per_page
-     * @return \Inertia\Response|\Illuminate\Http\JsonResponse  Vista HTML o JSON según Accept header
+     * @return Response|JsonResponse Vista HTML o JSON según Accept header
      */
     public function index(Request $request)
     {
@@ -140,9 +142,9 @@ class UsuarioController extends Controller
                 $q->orderBy($sqlColumn, $sortDir);
             } else {
                 $q->orderBy('usuario.apellido1')
-                  ->orderBy('usuario.apellido2')
-                  ->orderBy('usuario.nombre1')
-                  ->orderBy('usuario.nombre2');
+                    ->orderBy('usuario.apellido2')
+                    ->orderBy('usuario.nombre1')
+                    ->orderBy('usuario.nombre2');
             }
             $usuarios = $q->paginate($this->perPage($request))->withQueryString();
         }
@@ -244,14 +246,14 @@ class UsuarioController extends Controller
 
     /**
      * Dispatcher para crear nuevo usuario según tipo especificado.
-     * 
+     *
      * Valida que el request incluya 'tipo' y delega a método específico:
      * - 'estudiante' → storeEstudiante()
      * - 'docente' → storeDocente()
      * - otro → storeAdministrador()
-     * 
+     *
      * @param  Request  $request  Datos del usuario: tipo, rut, nombres, etc.
-     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
+     * @return RedirectResponse Redirección con mensaje de resultado
      */
     public function store(Request $request)
     {
@@ -285,16 +287,16 @@ class UsuarioController extends Controller
      * trabajo. Para volúmenes mayores hay que pasar a cola, lo que exige además
      * una pantalla de estado que hoy no existe.
      *
-     * @param  \Illuminate\Http\Request  $request  Datos: file, tipo
-     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
+     * @param  Request  $request  Datos: file, tipo
+     * @return RedirectResponse Redirección con mensaje de resultado
      */
-    public function import(Request $request): \Illuminate\Http\RedirectResponse
+    public function import(Request $request): RedirectResponse
     {
         $this->authorize('create', Usuario::class);
 
         $request->validate([
             'file' => 'required|mimes:xlsx,csv,xls|max:5120',
-            'tipo' => 'required|in:estudiante,docente,administrador'
+            'tipo' => 'required|in:estudiante,docente,administrador',
         ]);
 
         $tipo = $request->input('tipo');
@@ -305,8 +307,8 @@ class UsuarioController extends Controller
                 $this->validarFila($datos, $tipo, $numeroFilaExcel);
 
                 match ($tipo) {
-                    'estudiante'    => $this->insertarEstudianteBd($datos),
-                    'docente'       => $this->insertarDocenteBd($datos),
+                    'estudiante' => $this->insertarEstudianteBd($datos),
+                    'docente' => $this->insertarDocenteBd($datos),
                     'administrador' => $this->insertarAdministradorBd($datos),
                 };
             },
@@ -326,16 +328,17 @@ class UsuarioController extends Controller
             return redirect()->route('admin.usuarios.index', ['tipo' => $tipo])
                 ->with('success', "Se han importado {$contador} usuarios correctamente.");
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             DB::rollBack();
             // Retorna a la vista anterior con el primer error de validación encontrado
             $primerError = collect($e->errors())->flatten()->first();
+
             return back()->withErrors(['error' => $primerError])->withInput();
 
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Error en importación masiva', [
-                'tipo'  => $tipo,
+                'tipo' => $tipo,
                 'error' => $e->getMessage(),
             ]);
 
@@ -392,7 +395,7 @@ class UsuarioController extends Controller
      * esto, el administrador tenía que adivinar el orden de las columnas y
      * sólo descubría el error cuando la importación fallaba entera.
      */
-    public function plantillaImportacion(Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    public function plantillaImportacion(Request $request): StreamedResponse
     {
         $this->authorize('create', Usuario::class);
 
@@ -418,8 +421,6 @@ class UsuarioController extends Controller
      * nada, y devuelve TODOS los errores encontrados en vez de detenerse en
      * el primero. Es lo que permite que el administrador vea qué filas están
      * mal —y en qué— antes de confirmar.
-     *
-     * @return JsonResponse
      */
     public function previsualizarImportacion(Request $request): JsonResponse
     {
@@ -433,10 +434,10 @@ class UsuarioController extends Controller
         $tipo = $request->input('tipo');
 
         $filasValidas = 0;
-        $errores      = [];
+        $errores = [];
         // Los RUT y usuarios repetidos DENTRO del archivo no los detecta
         // `Rule::unique`, que sólo mira la base de datos.
-        $rutsVistos      = [];
+        $rutsVistos = [];
         $usernamesVistos = [];
 
         $importacion = new UsuariosImport(
@@ -465,13 +466,14 @@ class UsuarioController extends Controller
 
                 if ($mensajes === []) {
                     $filasValidas++;
+
                     return;
                 }
 
                 $errores[] = [
-                    'fila'      => $numeroFilaExcel,
-                    'rut'       => $datos['rut'],
-                    'nombre'    => trim(($datos['nombre1'] ?? '') . ' ' . ($datos['apellido1'] ?? '')),
+                    'fila' => $numeroFilaExcel,
+                    'rut' => $datos['rut'],
+                    'nombre' => trim(($datos['nombre1'] ?? '') . ' ' . ($datos['apellido1'] ?? '')),
                     'problemas' => $mensajes,
                 ];
             },
@@ -480,27 +482,27 @@ class UsuarioController extends Controller
 
         try {
             Excel::import($importacion, $request->file('file'));
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
-                'ok'      => false,
+                'ok' => false,
                 'mensaje' => collect($e->errors())->flatten()->first(),
             ], 422);
         } catch (\Throwable $e) {
             Log::error('Error al previsualizar importación', ['tipo' => $tipo, 'error' => $e->getMessage()]);
 
             return response()->json([
-                'ok'      => false,
+                'ok' => false,
                 'mensaje' => 'No se pudo leer el archivo. Revisa que sea .xlsx o .csv y que tenga la fila de encabezados.',
             ], 422);
         }
 
         return response()->json([
-            'ok'            => true,
-            'total'         => $importacion->totalProcesadas(),
-            'validas'       => $filasValidas,
+            'ok' => true,
+            'total' => $importacion->totalProcesadas(),
+            'validas' => $filasValidas,
             'con_problemas' => count($errores),
             // Se acotan para no devolver miles de errores a la pantalla.
-            'errores'       => array_slice($errores, 0, 50),
+            'errores' => array_slice($errores, 0, 50),
             'errores_omitidos' => max(0, count($errores) - 50),
         ]);
     }
@@ -554,33 +556,34 @@ class UsuarioController extends Controller
             Rule::unique(Usuario::class, 'rut')->ignore($usuario->id_usuario, 'id_usuario'),
         ];
     }
+
     /**
      * Crea nuevo usuario Estudiante de forma transaccional.
-     * 
+     *
      * Crea registro base Usuario y vincula perfil Estudiante con carrera.
      * Valida RUT único, username único (máx 10 caracteres).
      * Rollback completo si alguna operación falla.
-     * 
+     *
      * @param  Request  $request  Datos: rut, nombre1, apellido1, email, agno_ingreso, id_carrera, username, password
-     * @return \Illuminate\Http\RedirectResponse  Redirección a lista estudiantes con mensaje
+     * @return RedirectResponse Redirección a lista estudiantes con mensaje
      */
     private function storeEstudiante(Request $request)
     {
         $validated = $request->validate([
-            'rut'          => ['required', 'string', 'max:20', new RutValido],
-            'nombre1'      => 'required|string|max:100',
-            'nombre2'      => 'nullable|string|max:100',
-            'apellido1'    => 'required|string|max:100',
-            'apellido2'    => 'nullable|string|max:100',
-            'email'        => 'nullable|email|max:255',
+            'rut' => ['required', 'string', 'max:20', new RutValido],
+            'nombre1' => 'required|string|max:100',
+            'nombre2' => 'nullable|string|max:100',
+            'apellido1' => 'required|string|max:100',
+            'apellido2' => 'nullable|string|max:100',
+            'email' => 'nullable|email|max:255',
             'agno_ingreso' => 'nullable|integer|min:1900|max:2100',
-            'id_carrera'   => ['nullable', Rule::exists(Carrera::class, 'id_carrera')],
-            'username'     => ['required', 'string', 'max:10', Rule::unique(Usuario::class, 'username')],
+            'id_carrera' => ['nullable', Rule::exists(Carrera::class, 'id_carrera')],
+            'username' => ['required', 'string', 'max:10', Rule::unique(Usuario::class, 'username')],
             // Password::defaults() es la política del sistema (AppServiceProvider).
             // Antes aquí había min:6 y en cambio-de-contraseña min:8+letras+números,
             // de modo que el alta aceptaba claves que luego el propio sistema
             // rechazaba al primer cambio.
-            'password'     => ['required', 'string', Password::defaults()],
+            'password' => ['required', 'string', Password::defaults()],
         ]);
 
         DB::beginTransaction();
@@ -598,34 +601,35 @@ class UsuarioController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error creating estudiante: ' . $e->getMessage(), ['data' => $validated]);
+
             return back()->withErrors(['error' => 'Error al crear estudiante: ' . $e->getMessage()])->withInput();
         }
     }
 
     /**
      * Crea nuevo usuario Docente de forma transaccional.
-     * 
+     *
      * Crea registro base Usuario y vincula perfil Docente con grado, título, cargo.
      * Valida RUT único, username único (máx 10 caracteres).
      * Rollback completo si alguna operación falla.
-     * 
+     *
      * @param  Request  $request  Datos: rut, nombre1, apellido1, email, grado, titulo, cargo, username, password
-     * @return \Illuminate\Http\RedirectResponse  Redirección a lista docentes con mensaje
+     * @return RedirectResponse Redirección a lista docentes con mensaje
      */
     private function storeDocente(Request $request)
     {
         $validated = $request->validate([
-            'rut'       => ['required', 'string', 'max:20', new RutValido],
-            'nombre1'   => 'required|string|max:100',
-            'nombre2'   => 'nullable|string|max:100',
+            'rut' => ['required', 'string', 'max:20', new RutValido],
+            'nombre1' => 'required|string|max:100',
+            'nombre2' => 'nullable|string|max:100',
             'apellido1' => 'required|string|max:100',
             'apellido2' => 'nullable|string|max:100',
-            'email'     => 'nullable|email|max:255',
-            'grado'     => 'nullable|string|max:100',
-            'titulo'    => 'nullable|string|max:255',
-            'cargo'     => 'nullable|string|max:100',
-            'username'  => ['required', 'string', 'max:10', Rule::unique(Usuario::class, 'username')],
-            'password'  => ['required', 'string', Password::defaults()],
+            'email' => 'nullable|email|max:255',
+            'grado' => 'nullable|string|max:100',
+            'titulo' => 'nullable|string|max:255',
+            'cargo' => 'nullable|string|max:100',
+            'username' => ['required', 'string', 'max:10', Rule::unique(Usuario::class, 'username')],
+            'password' => ['required', 'string', Password::defaults()],
         ]);
 
         DB::beginTransaction();
@@ -641,30 +645,31 @@ class UsuarioController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error creating docente: ' . $e->getMessage(), ['data' => $validated]);
+
             return back()->withErrors(['error' => 'Error al crear docente: ' . $e->getMessage()])->withInput();
         }
     }
 
     /**
      * Crea nuevo usuario Administrador.
-     * 
+     *
      * Crea registro base Usuario sin perfil específico (diferenciador de Estudiante/Docente).
      * Valida RUT único, username único (máx 30 caracteres para mayor flexibilidad).
-     * 
+     *
      * @param  Request  $request  Datos: rut, nombre1, apellido1, email, username, password
-     * @return \Illuminate\Http\RedirectResponse  Redirección a lista administradores con mensaje
+     * @return RedirectResponse Redirección a lista administradores con mensaje
      */
     private function storeAdministrador(Request $request)
     {
         $validated = $request->validate([
-            'rut'       => ['required', 'string', 'max:20', new RutValido, Rule::unique(Usuario::class, 'rut')],
-            'nombre1'   => 'required|string|max:255',
-            'nombre2'   => 'nullable|string|max:255',
+            'rut' => ['required', 'string', 'max:20', new RutValido, Rule::unique(Usuario::class, 'rut')],
+            'nombre1' => 'required|string|max:255',
+            'nombre2' => 'nullable|string|max:255',
             'apellido1' => 'required|string|max:255',
             'apellido2' => 'nullable|string|max:255',
-            'email'     => 'nullable|email|max:255',
-            'username'  => ['required', 'string', 'max:30', Rule::unique(Usuario::class, 'username')],
-            'password'  => ['required', 'string', Password::defaults()],
+            'email' => 'nullable|email|max:255',
+            'username' => ['required', 'string', 'max:30', Rule::unique(Usuario::class, 'username')],
+            'password' => ['required', 'string', Password::defaults()],
         ]);
 
         DB::beginTransaction();
@@ -677,40 +682,35 @@ class UsuarioController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error creating administrador: ' . $e->getMessage());
+
             return back()->withErrors(['error' => 'Error al crear administrador: ' . $e->getMessage()])->withInput();
         }
     }
 
-    
     /**
      * BLOQUE DE INSERSIONES EN DB,
      * USADO EN -storeEstudiante()
      *          -storeDocente()
      *          -storeAdministrador()
-     * 
-     * 
-     * 
      */
-
-    
     private function insertarUsuarioBaseBd(array $datos): Usuario
-    {   
-        $usuario = Usuario::
-            where('rut', $datos['rut'])->first();
+    {
+        $usuario = Usuario::where('rut', $datos['rut'])->first();
 
         if (!$usuario) {
             $usuario = Usuario::create([
-                'username'    => $datos['username'],
-                'passhash'    => Hash::make($datos['password']),
-                'rut'         => $datos['rut'],
-                'nombre1'     => $datos['nombre1'],
-                'nombre2'     => $datos['nombre2'] ?? null,
-                'apellido1'   => $datos['apellido1'],
-                'apellido2'   => $datos['apellido2'] ?? null,
-                'email'       => $datos['email'] ?? null,
-                'esta_activo' => true
+                'username' => $datos['username'],
+                'passhash' => Hash::make($datos['password']),
+                'rut' => $datos['rut'],
+                'nombre1' => $datos['nombre1'],
+                'nombre2' => $datos['nombre2'] ?? null,
+                'apellido1' => $datos['apellido1'],
+                'apellido2' => $datos['apellido2'] ?? null,
+                'email' => $datos['email'] ?? null,
+                'esta_activo' => true,
             ]);
         }
+
         return $usuario;
     }
 
@@ -728,12 +728,13 @@ class UsuarioController extends Controller
         );
 
         Estudiante::create([
-            'id_usuario'   => $usuario->id_usuario,
+            'id_usuario' => $usuario->id_usuario,
             'agno_ingreso' => $datos['agno_ingreso'] ?? null,
-            'id_carrera'   => $datos['id_carrera'] ?? null,
+            'id_carrera' => $datos['id_carrera'] ?? null,
         ]);
 
         $this->assignRole($usuario, 'estudiante');
+
         return $usuario;
     }
 
@@ -748,12 +749,13 @@ class UsuarioController extends Controller
 
         Docente::create([
             'id_usuario' => $usuario->id_usuario,
-            'grado'      => $datos['grado'] ?? null,
-            'titulo'     => $datos['titulo'] ?? null,
-            'cargo'      => $datos['cargo'] ?? null,
+            'grado' => $datos['grado'] ?? null,
+            'titulo' => $datos['titulo'] ?? null,
+            'cargo' => $datos['cargo'] ?? null,
         ]);
 
         $this->assignRole($usuario, 'docente');
+
         return $usuario;
     }
 
@@ -761,6 +763,7 @@ class UsuarioController extends Controller
     {
         $usuario = $this->insertarUsuarioBaseBd($datos);
         $this->assignRole($usuario, 'SuperAdmin');
+
         return $usuario;
     }
 
@@ -776,31 +779,30 @@ class UsuarioController extends Controller
         }
     }
 
-
     private function mapearFila(array $fila, string $tipo): array
     {
         $datos = [
             // Las planillas vienen escritas a mano: con puntos, sin ellos, con la
             // K en minúscula. Se unifica aquí, antes de validar y de insertar.
-            'rut'       => Rut::normalizar($fila[0] ?? null),
-            'nombre1'   => $fila[1] ?? null,
-            'nombre2'   => $fila[2] ?? null,
+            'rut' => Rut::normalizar($fila[0] ?? null),
+            'nombre1' => $fila[1] ?? null,
+            'nombre2' => $fila[2] ?? null,
             'apellido1' => $fila[3] ?? null,
             'apellido2' => $fila[4] ?? null,
-            'email'     => $fila[5] ?? null,
-            'username'  => $fila[6] ?? null,
+            'email' => $fila[5] ?? null,
+            'username' => $fila[6] ?? null,
             // Misma regla que el login (TrimStrings, T54): la clave se guarda sin
             // espacios en los extremos; si no, quien la escriba no podrá entrar.
-            'password'  => is_string($fila[7] ?? null) ? trim($fila[7]) : ($fila[7] ?? null),
+            'password' => is_string($fila[7] ?? null) ? trim($fila[7]) : ($fila[7] ?? null),
         ];
 
         if ($tipo === 'estudiante') {
             $datos['agno_ingreso'] = $fila[8] ?? null;
-            $datos['id_carrera']   = $fila[9] ?? null;
+            $datos['id_carrera'] = $fila[9] ?? null;
         } elseif ($tipo === 'docente') {
-            $datos['grado']  = $fila[8] ?? null;
+            $datos['grado'] = $fila[8] ?? null;
             $datos['titulo'] = $fila[9] ?? null;
-            $datos['cargo']  = $fila[10] ?? null;
+            $datos['cargo'] = $fila[10] ?? null;
         }
 
         return $datos;
@@ -818,12 +820,12 @@ class UsuarioController extends Controller
     private function reglasDeFila(string $tipo): array
     {
         $reglas = [
-            'rut'       => ['required', 'string', 'max:20', new RutValido],
-            'nombre1'   => 'required|string|max:100',
+            'rut' => ['required', 'string', 'max:20', new RutValido],
+            'nombre1' => 'required|string|max:100',
             'apellido1' => 'required|string|max:100',
-            'username'  => ['required', 'string', 'max:30', Rule::unique(Usuario::class, 'username')],
-            'password'  => ['required', 'string', Password::defaults()],
-            'email'     => 'nullable|email|max:255',
+            'username' => ['required', 'string', 'max:30', Rule::unique(Usuario::class, 'username')],
+            'password' => ['required', 'string', Password::defaults()],
+            'email' => 'nullable|email|max:255',
         ];
 
         if ($tipo === 'estudiante') {
@@ -843,8 +845,8 @@ class UsuarioController extends Controller
     {
         $mensajes = [
             'required' => "Fila {$numeroFila}: El campo :attribute es obligatorio.",
-            'unique'   => "Fila {$numeroFila}: El :attribute ya existe en el sistema.",
-            'exists'   => "Fila {$numeroFila}: El ID de carrera no existe.",
+            'unique' => "Fila {$numeroFila}: El :attribute ya existe en el sistema.",
+            'exists' => "Fila {$numeroFila}: El ID de carrera no existe.",
         ];
 
         Validator::make($datos, $this->reglasDeFila($tipo), $mensajes)->validate();
@@ -854,7 +856,7 @@ class UsuarioController extends Controller
 
     /**
      * Obtiene detalles de un usuario específico según su tipo.
-     * 
+     *
      * Resuelve el usuario con relaciones asociadas (carrera para estudiantes, etc.).
      * Retorna JSON.
      *
@@ -862,7 +864,7 @@ class UsuarioController extends Controller
      * por eso no se usa route-model binding aquí.
      *
      * @param  Request  $request  Parámetro: tipo (estudiante|docente|administrador)
-     * @param  int      $id       ID del estudiante/docente/usuario
+     * @param  int  $id  ID del estudiante/docente/usuario
      */
     public function show(Request $request, $id): JsonResponse
     {
@@ -886,17 +888,17 @@ class UsuarioController extends Controller
 
     /**
      * Dispatcher para actualizar usuario según tipo especificado.
-     * 
+     *
      * Valida 'tipo' y delega a método específico:
      * - 'estudiante' → updateEstudiante()
      * - 'docente' → updateDocente()
      * - otro → updateAdministrador()
-     * 
+     *
      * Nota: $id es polimórfico según 'tipo' (id_estudiante / id_docente / id_usuario),
      * por eso no se usa route-model binding aquí.
      *
      * @param  Request  $request  Parámetro: tipo, y datos a actualizar
-     * @param  int      $id       ID del usuario a actualizar
+     * @param  int  $id  ID del usuario a actualizar
      */
     public function update(Request $request, $id): RedirectResponse
     {
@@ -918,14 +920,14 @@ class UsuarioController extends Controller
 
     /**
      * Actualiza datos de usuario Estudiante de forma transaccional.
-     * 
+     *
      * Modifica registros Usuario y Estudiante conjuntamente.
      * Permite actualizar información personal, carrera y año de ingreso.
      * Rollback completo si alguna operación falla.
-     * 
+     *
      * @param  Request  $request  Datos actualizados: rut, nombres, carrera, agno_ingreso, email
-     * @param  int      $id       ID del estudiante a actualizar
-     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
+     * @param  int  $id  ID del estudiante a actualizar
+     * @return RedirectResponse Redirección con mensaje de resultado
      */
     private function updateEstudiante(Request $request, $id)
     {
@@ -969,20 +971,21 @@ class UsuarioController extends Controller
                 ->with('success', 'Estudiante actualizado exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
+
             return back()->with('error', 'Error al actualizar estudiante: ' . $e->getMessage());
         }
     }
 
     /**
      * Actualiza datos de usuario Docente de forma transaccional.
-     * 
+     *
      * Modifica registros Usuario y Docente conjuntamente.
      * Permite actualizar información personal, grado académico, cargo y título.
      * Rollback completo si alguna operación falla.
-     * 
+     *
      * @param  Request  $request  Datos actualizados: rut, nombres, email, grado, cargo, titulo
-     * @param  int      $id       ID del docente a actualizar
-     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
+     * @param  int  $id  ID del docente a actualizar
+     * @return RedirectResponse Redirección con mensaje de resultado
      */
     private function updateDocente(Request $request, $id)
     {
@@ -1028,18 +1031,19 @@ class UsuarioController extends Controller
                 ->with('success', 'Docente actualizado exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
+
             return back()->with('error', 'Error al actualizar docente: ' . $e->getMessage());
         }
     }
 
     /**
      * Actualiza datos de usuario Administrador.
-     * 
+     *
      * Modifica registro Usuario base con información personal y contacto.
-     * 
+     *
      * @param  Request  $request  Datos actualizados: rut, nombres, email
-     * @param  int      $id       ID del administrador a actualizar
-     * @return \Illuminate\Http\RedirectResponse  Redirección con mensaje de resultado
+     * @param  int  $id  ID del administrador a actualizar
+     * @return RedirectResponse Redirección con mensaje de resultado
      */
     private function updateAdministrador(Request $request, $id)
     {
@@ -1065,15 +1069,15 @@ class UsuarioController extends Controller
 
     /**
      * Elimina un usuario y su perfil asociado de forma transaccional.
-     * 
+     *
      * Elimina perfil específico (Estudiante/Docente) primero, luego registro Usuario base.
      * Rollback completo si hay registros asociados que lo impidan (foreign keys).
-     * 
+     *
      * Nota: $id es polimórfico según 'tipo' (id_estudiante / id_docente / id_usuario),
      * por eso no se usa route-model binding aquí.
      *
      * @param  Request  $request  Parámetro: tipo (estudiante|docente|administrador)
-     * @param  int      $id       ID del estudiante/docente/usuario a eliminar
+     * @param  int  $id  ID del estudiante/docente/usuario a eliminar
      */
     public function destroy(Request $request, $id): RedirectResponse
     {
@@ -1109,6 +1113,7 @@ class UsuarioController extends Controller
         } catch (\Exception $e) {
             // Manejar error (registros asociados impiden eliminación)
             DB::rollBack();
+
             return redirect()->route('admin.usuarios.index', ['tipo' => $tipo])
                 ->with('error', 'No se puede eliminar el ' . $tipo . ' porque tiene registros asociados.');
         }
@@ -1146,7 +1151,7 @@ class UsuarioController extends Controller
             // 'current_password' valida contra la clave del usuario autenticado,
             // no contra la del objetivo: es la reautenticación del administrador.
             'current_password' => ['required', 'string', 'current_password'],
-            'password'         => ['required', 'string', 'confirmed', Password::defaults()],
+            'password' => ['required', 'string', 'confirmed', Password::defaults()],
         ], [
             'current_password.current_password' => 'La contraseña de tu propia cuenta no es correcta.',
         ]);
@@ -1156,6 +1161,7 @@ class UsuarioController extends Controller
                 'passhash' => Hash::make($validated['password']),
                 // Invalida las cookies "recuérdame" emitidas antes del cambio.
                 'token_recuerdame_sesion' => null,
+                'fecha_cambio_passhash' => now(),
             ]);
 
             // Cierra las sesiones abiertas del afectado. Sólo aplicable con el
@@ -1168,18 +1174,109 @@ class UsuarioController extends Controller
         });
 
         Log::channel('seguridad')->info('Contraseña cambiada por un administrador', [
-            'evento'            => 'CAMBIO_PASSWORD_ADMINISTRATIVO',
-            'id_usuario_actor'  => $actor->id_usuario,
+            'evento' => 'CAMBIO_PASSWORD_ADMINISTRATIVO',
+            'id_usuario_actor' => $actor->id_usuario,
             'id_usuario_target' => $usuario->id_usuario,
-            'ip'                => $request->ip(),
+            'ip' => $request->ip(),
         ]);
 
         return back()->with('success', 'Contraseña actualizada. Se cerraron las sesiones activas del usuario.');
     }
 
     /**
+     * Reinicia la contraseña por defecto de un usuario (cuerpo del RUT).
+     *
+     * Requiere permiso para actualizar al usuario y reautenticación del
+     * administrador. Obliga al usuario a cambiar la clave en su próximo inicio de sesión.
+     */
+    public function setDefaultPassword(Request $request, Usuario $usuario): RedirectResponse
+    {
+        /** @var Usuario|null $actor */
+        $actor = Auth::user();
+
+        if (!$actor) {
+            abort(401, 'Debes iniciar sesión.');
+        }
+
+        $this->authorize('update', $usuario);
+
+        // Sin esto, cualquiera que superara IsAdmin se apropiaba de un SuperAdmin.
+        if (!$actor->isSuperAdmin() && $usuario->isSuperAdmin()) {
+            $this->logIntentoEscalada($actor, $usuario, 'CAMBIO_PASSWORD_SUPERADMIN');
+            abort(403, 'Solo un SuperAdmin puede cambiar la contraseña de otro SuperAdmin.');
+        }
+
+        $request->validate([
+            // 'current_password' valida contra la clave del usuario autenticado,
+            // no contra la del objetivo: es la reautenticación del administrador.
+            'current_password' => ['required', 'string', 'current_password'],
+        ], [
+            'current_password.current_password' => 'La contraseña de tu propia cuenta no es correcta.',
+        ]);
+
+        if (empty($usuario->rut)) {
+            abort(422, 'El usuario no tiene un RUT registrado para generar la contraseña por defecto.');
+        }
+
+        $newPassword = $this->extraerPasswordDesdeRut($usuario->rut);
+
+        if ($newPassword === '') {
+            abort(422, 'No se pudo generar la contraseña: el RUT no es válido.');
+        }
+
+        DB::transaction(function () use ($usuario, $newPassword) {
+            $usuario->update([
+                'passhash' => Hash::make($newPassword),
+                // Invalida las cookies "recuérdame" emitidas antes del cambio.
+                'token_recuerdame_sesion' => null,
+                // Fuerza el cambio obligatorio en el próximo login.
+                'fecha_cambio_passhash' => null,
+            ]);
+
+            // Cierra las sesiones abiertas del afectado. Sólo aplicable con el
+            // driver de sesión en base de datos, que es el configurado.
+            if (config('session.driver') === 'database') {
+                DB::table(config('session.table', 'sessions'))
+                    ->where('user_id', $usuario->id_usuario)
+                    ->delete();
+            }
+        });
+
+        Log::channel('seguridad')->info('Contraseña reiniciada por un administrador', [
+            'evento' => 'RESETEO_PASSWORD_DEFECTO',
+            'id_usuario_actor' => $actor->id_usuario,
+            'id_usuario_target' => $usuario->id_usuario,
+            'ip' => $request->ip(),
+        ]);
+
+        return back()->with('success', 'Contraseña reiniciada a la por defecto. Se cerraron las sesiones activas del usuario.');
+    }
+
+    /**
+     * Extrae el cuerpo del RUT (sin puntos, sin guion y sin DV) para usarlo como contraseña provisoria.
+     */
+    protected function extraerPasswordDesdeRut(string $rut): string
+    {
+        $normalizado = Rut::normalizar($rut);
+
+        if ($normalizado && str_contains($normalizado, '-')) {
+            $partes = explode('-', $normalizado);
+
+            return preg_replace('/\D/', '', $partes[0]);
+        }
+
+        // Si no tiene guion pero es texto plano (ej: 123456789), quitar el último carácter (DV)
+        $limpio = Rut::soloDigitos($rut);
+        if (strlen($limpio) >= 2) {
+            return substr($limpio, 0, -1);
+        }
+
+        return $limpio;
+    }
+
+    /**
      * Alterna el estado activo/inactivo de un usuario.
-     * 
+     *
      * Cambia 'esta_activo' entre true y false. Usuario inactivo no puede autenticarse.
      *
      * @param  Usuario  $usuario  Usuario a activar/desactivar (route-model binding)
@@ -1194,12 +1291,12 @@ class UsuarioController extends Controller
 
         // Retornar mensaje con el nuevo estado
         $status = $usuario->esta_activo ? 'activado' : 'desactivado';
+
         return back()->with('success', "Usuario {$status} exitosamente.");
     }
 
     /**
      * BLOQUE DE FUNCIONES AUXILIARES
-     * 
      */
     public function buscarPorRut(Request $request)
     {
@@ -1219,12 +1316,12 @@ class UsuarioController extends Controller
 
     /**
      * Obtiene las asignaciones actuales de roles y permisos especiales de un usuario.
-     * 
+     *
      * Retorna SOLO las asignaciones activas del usuario en todos los contextos.
      * Los roles y permisos disponibles para asignar se obtienen desde otros endpoints.
-     * 
+     *
      * @param  Usuario  $usuario  El usuario cuyas asignaciones obtener
-     * @return \Illuminate\Http\JsonResponse  JSON con roles y permisos asignados actualmente
+     * @return JsonResponse JSON con roles y permisos asignados actualmente
      */
     public function getUserPermissions(Usuario $usuario)
     {
@@ -1243,15 +1340,15 @@ class UsuarioController extends Controller
             ->get()
             // @formatter:off
             ->map(fn($ura) => [
-                'id_ura'                   => $ura->id_ura,
-                'id_rol'                   => $ura->id_rol,
-                'nombre'                   => $ura->rol?->nombre,
-                'id_contexto'              => $ura->id_contexto,
-                'contexto_display'         => $ura->contexto?->contexto_display,
-                'curso_nombre'             => $ura->contexto?->curso?->nombre,
+                'id_ura' => $ura->id_ura,
+                'id_rol' => $ura->id_rol,
+                'nombre' => $ura->rol?->nombre,
+                'id_contexto' => $ura->id_contexto,
+                'contexto_display' => $ura->contexto?->contexto_display,
+                'curso_nombre' => $ura->contexto?->curso?->nombre,
                 'fecha_inicio_planificada' => $ura->fecha_inicio_planificada,
-                'fecha_fin_planificada'    => $ura->fecha_fin_planificada,
-                'creado_por_nombre'        => trim(($ura->asignador?->nombre1 ?? '') . ' ' . ($ura->asignador?->apellido1 ?? '')),
+                'fecha_fin_planificada' => $ura->fecha_fin_planificada,
+                'creado_por_nombre' => trim(($ura->asignador?->nombre1 ?? '') . ' ' . ($ura->asignador?->apellido1 ?? '')),
             ])
             ->values()
             ->toArray();
@@ -1266,15 +1363,15 @@ class UsuarioController extends Controller
             ->get()
             // @formatter:off
             ->map(fn($upe) => [
-                'id_upe'           => $upe->id_upe,
-                'id_permiso'       => $upe->id_permiso,
-                'slug'             => $upe->permiso?->slug,
-                'nombre'           => $upe->permiso?->nombre,
-                'id_contexto'      => $upe->id_contexto,
+                'id_upe' => $upe->id_upe,
+                'id_permiso' => $upe->id_permiso,
+                'slug' => $upe->permiso?->slug,
+                'nombre' => $upe->permiso?->nombre,
+                'id_contexto' => $upe->id_contexto,
                 'contexto_display' => $upe->contexto?->contexto_display,
-                'curso_nombre'     => $upe->contexto?->curso?->nombre,
-                'esta_permitido'   => (bool) $upe->esta_permitido,
-                'puede_delegar'    => (bool) $upe->puede_delegar,
+                'curso_nombre' => $upe->contexto?->curso?->nombre,
+                'esta_permitido' => (bool) $upe->esta_permitido,
+                'puede_delegar' => (bool) $upe->puede_delegar,
             ])
             ->values()
             ->toArray();
@@ -1288,20 +1385,20 @@ class UsuarioController extends Controller
 
     /**
      * Sincroniza (actualiza) todos los roles y permisos especiales de un usuario.
-     * 
+     *
      * Reemplaza asignaciones actuales con las nuevas. Implementa RBAC validado.
      * Registra cambios para auditoría. Transaccional.
-     * 
+     *
      * @param  Request  $request  Datos: roles (array de ids), special_permissions (array de id_permiso => bool)
      * @param  Usuario  $usuario  El usuario cuyo permisos sincronizar
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse  JSON o redirección
+     * @return RedirectResponse|JsonResponse JSON o redirección
      */
     public function syncPermissions(Request $request, Usuario $usuario, DelegationAuthorizer $delegationAuthorizer)
     {
         // Validar roles e permisos especiales desde el request
         $validated = $request->validate([
             'roles' => 'array',
-            'special_permissions' => 'array' // { id_permiso: true/false/null }
+            'special_permissions' => 'array', // { id_permiso: true/false/null }
         ]);
 
         // Ambas claves son opcionales: normalizarlas aquí evita el 500 que provocaba
@@ -1335,7 +1432,7 @@ class UsuarioController extends Controller
                 ->update([
                     'esta_activo' => false,
                     'fue_eliminado' => true,
-                    'fecha_fin_real' => now()
+                    'fecha_fin_real' => now(),
                 ]);
 
             // Crear nuevas asignaciones de roles
@@ -1372,7 +1469,7 @@ class UsuarioController extends Controller
                 ->update([
                     'esta_activo' => false,
                     'fue_borrado' => true,
-                    'fecha_fin_real' => now()
+                    'fecha_fin_real' => now(),
                 ]);
 
             // Crear nuevas asignaciones de permisos especiales
@@ -1388,7 +1485,7 @@ class UsuarioController extends Controller
                     'allowed' => $allowed,
                     'can_delegate' => $canDelegate,
                     'duration_days' => $duracionDias,
-                    'will_save' => ($allowed !== null || $canDelegate)
+                    'will_save' => ($allowed !== null || $canDelegate),
                 ]);
 
                 if ($allowed !== null || $canDelegate) {
@@ -1407,7 +1504,7 @@ class UsuarioController extends Controller
                             'fue_borrado' => false,
                             'fecha_fin_real' => null,
                             'fecha_fin_planificada' => now()->addDays($duracionDias),
-                            'fecha_creacion' => now()
+                            'fecha_creacion' => now(),
                         ]
                     );
 
@@ -1415,7 +1512,7 @@ class UsuarioController extends Controller
                         'id_upe' => $upe->id_upe,
                         'perm_id' => $permId,
                         'puede_delegar_saved' => $upe->puede_delegar,
-                        'duration_days' => $duracionDias
+                        'duration_days' => $duracionDias,
                     ]);
                 }
             }
@@ -1431,7 +1528,7 @@ class UsuarioController extends Controller
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Permisos actualizados correctamente.'
+                    'message' => 'Permisos actualizados correctamente.',
                 ]);
             }
 
@@ -1440,15 +1537,15 @@ class UsuarioController extends Controller
         } catch (\Exception $e) {
             // Deshacer cambios si hay error
             DB::rollBack();
-            Log::error("SyncPermissions Error: " . $e->getMessage(), [
+            Log::error('SyncPermissions Error: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
-                'payload' => $validated
+                'payload' => $validated,
             ]);
 
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Error al actualizar permisos: ' . $e->getMessage()
+                    'message' => 'Error al actualizar permisos: ' . $e->getMessage(),
                 ], 500);
             }
 
@@ -1464,10 +1561,10 @@ class UsuarioController extends Controller
      * validateActorAuthorization(). Sin este guard era la vía abierta para
      * concederse a uno mismo el rol SuperAdmin.
      *
-     * @param  Usuario               $objetivo             Usuario cuyos permisos se sincronizan
-     * @param  array                 $rolesSolicitados     IDs de rol que el request pretende asignar
-     * @param  int                   $idContexto           Contexto de destino de la sincronización
-     * @param  DelegationAuthorizer  $delegationAuthorizer Regla compartida "¿puede delegar esto, aquí?"
+     * @param  Usuario  $objetivo  Usuario cuyos permisos se sincronizan
+     * @param  array  $rolesSolicitados  IDs de rol que el request pretende asignar
+     * @param  int  $idContexto  Contexto de destino de la sincronización
+     * @param  DelegationAuthorizer  $delegationAuthorizer  Regla compartida "¿puede delegar esto, aquí?"
      */
     private function assertPuedeSincronizarPermisos(
         Usuario $objetivo,
@@ -1539,10 +1636,10 @@ class UsuarioController extends Controller
     private function logIntentoEscalada(Usuario $actor, Usuario $objetivo, string $evento, array $extra = []): void
     {
         Log::channel('seguridad')->warning('Intento de escalada de privilegios en syncPermissions', [
-            'evento'            => $evento,
-            'id_usuario_actor'  => $actor->id_usuario,
+            'evento' => $evento,
+            'id_usuario_actor' => $actor->id_usuario,
             'id_usuario_target' => $objetivo->id_usuario,
-            'ip'                => request()->ip(),
+            'ip' => request()->ip(),
             ...$extra,
         ]);
     }
@@ -1563,10 +1660,10 @@ class UsuarioController extends Controller
     private function resolveUsuarioPorTipo(string $tipo, $id): Usuario
     {
         return match ($tipo) {
-            'estudiante'    => Estudiante::findOrFail($id)->usuario,
-            'docente'       => Docente::findOrFail($id)->usuario,
+            'estudiante' => Estudiante::findOrFail($id)->usuario,
+            'docente' => Docente::findOrFail($id)->usuario,
             'administrador' => Usuario::findOrFail($id),
-            default         => abort(422, "Tipo de usuario inválido: {$tipo}"),
+            default => abort(422, "Tipo de usuario inválido: {$tipo}"),
         };
     }
 
@@ -1579,6 +1676,7 @@ class UsuarioController extends Controller
         $rol = Rol::where('nombre', $roleName)->first();
         if (!$rol) {
             Log::warning("Role '$roleName' not found for automatic assignment.");
+
             return;
         }
 
