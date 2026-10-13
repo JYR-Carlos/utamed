@@ -87,8 +87,28 @@ abstract class BaseArchiveRequest extends FormRequest
         }
 
         return [
-            $this->fileField => $this->getBuilder()->buildLaravelRules(),
+            $this->fileField => [
+                $this->rechazarArchivoVacio(),
+                ...$this->getBuilder()->buildLaravelRules(),
+            ],
         ];
+    }
+
+    /**
+     * Rechaza el archivo de 0 bytes con un mensaje que lo dice.
+     *
+     * Va antes que las reglas del builder: sin contenido no hay MIME que
+     * detectar, así que `mimetypes` fallaba con «debe ser de tipo válido para…»
+     * y el estudiante buscaba un problema de formato donde el archivo estaba
+     * vacío. El primer mensaje de cada campo es el que llega a la pantalla.
+     */
+    private function rechazarArchivoVacio(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            if ($value instanceof UploadedFile && $value->isValid() && $value->getSize() === 0) {
+                $fail('El archivo está vacío (pesa 0 bytes). Elige otro archivo.');
+            }
+        };
     }
 
     /**
