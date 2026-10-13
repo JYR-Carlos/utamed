@@ -82,6 +82,8 @@
     grupo: number;
     /** Cómo se rotula el grupo: nombre del estudiante (individual) o nombre propio / «Grupo N». */
     etiqueta: string;
+    /** Resumen de la entrega vigente del grupo; null si aún no entregó. */
+    entrega?: { fecha: string; fuera_de_plazo: boolean; cantidad: number } | null;
     nota: number | null;
     estado_actividad_asignada: string | null;
     nro_dias_adicionales_para_bloqueo_personal: number;

@@ -873,11 +873,25 @@ class DocenteActivityController extends Controller
             fn ($q) => $q->where('aag.id_actividad', $actividad->id_actividad),
         )->pluck('no_leidos', 'grupo');
 
+        // Entregas vigentes (no canceladas) por grupo, para saber de un vistazo
+        // quién entregó, cuándo y si llegó tarde. «Tarde» se mide contra la
+        // fecha límite original: la holgura la ve sólo el docente.
+        $entregasPorGrupo = Agenda::entregasVigentes()
+            ->whereIn(
+                'id_actividad_asignada_grupo',
+                ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
+                    ->select('id_actividad_asignada_grupo')
+            )
+            ->orderBy('id_agenda')
+            ->get(['id_agenda', 'id_actividad_asignada_grupo', 'fecha_envio'])
+            ->groupBy('id_actividad_asignada_grupo');
+        $limiteOriginal = $actividad->fecha_limite?->copy()->endOfDay();
+
         // Grupos con sus integrantes (modelo nuevo: actividad_asignada_grupo)
         $grupos = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
             ->with(['integranteGrupos.estudiante.usuario'])
             ->get()
-            ->map(function ($g) use ($actividad, $noLeidos) {
+            ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal) {
                 $g->sincronizarEstado($actividad);
 
                 $integrantes = $g->integranteGrupos
@@ -898,6 +912,17 @@ class DocenteActivityController extends Controller
                     'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
                     'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
                     'no_leidos' => (int) ($noLeidos[$g->id_actividad_asignada_grupo] ?? 0),
+                    'entrega' => (function () use ($g, $entregasPorGrupo, $limiteOriginal) {
+                        $filas = $entregasPorGrupo->get($g->id_actividad_asignada_grupo);
+                        $ultima = $filas?->last();
+
+                        return $ultima ? [
+                            'fecha' => $ultima->fecha_envio,
+                            'fuera_de_plazo' => $limiteOriginal !== null
+                                && \Carbon\Carbon::parse($ultima->fecha_envio)->gt($limiteOriginal),
+                            'cantidad' => $filas->count(),
+                        ] : null;
+                    })(),
                     'integrantes' => $integrantes,
                 ];
             });
@@ -1719,7 +1744,8 @@ class DocenteActivityController extends Controller
         $entregas = $this->listarEntregas(
             Agenda::whereHas('actividadAsignadaGrupo', function ($query) use ($actividad) {
                 $query->where('id_actividad', $actividad->id_actividad);
-            })
+            }),
+            $actividad
         );
 
         return response()->json($entregas);
@@ -1744,7 +1770,7 @@ class DocenteActivityController extends Controller
             return response()->json(['error' => 'Grupo no encontrado.'], 404);
         }
 
-        $entregas = $this->listarEntregas(Agenda::where('id_actividad_asignada_grupo', $grupo));
+        $entregas = $this->listarEntregas(Agenda::where('id_actividad_asignada_grupo', $grupo), $actividad);
 
         return response()->json($entregas);
     }
@@ -1757,7 +1783,7 @@ class DocenteActivityController extends Controller
      * aparecerían como entregas repetidas. Las entregas que el estudiante
      * canceló no se listan: ya no se pueden evaluar.
      */
-    private function listarEntregas($query)
+    private function listarEntregas($query, Actividad $actividad)
     {
         $entregas = $query
             ->entregasVigentes()
@@ -1767,8 +1793,15 @@ class DocenteActivityController extends Controller
 
         $evaluados = Agenda::uuidsEvaluados($entregas->pluck('id_actividad_asignada_grupo')->unique());
 
+        // La vigente es la última de cada grupo; las anteriores quedaron
+        // reemplazadas. «Fuera de plazo» se mide contra la fecha límite original.
+        $vigentePorGrupo = $entregas->groupBy('id_actividad_asignada_grupo')->map(fn ($g) => $g->max('id_agenda'));
+        $limiteOriginal = $actividad->fecha_limite?->copy()->endOfDay();
+
         return $entregas->map(fn (Agenda $entrega) => [
             'id_agenda' => $entrega->id_agenda,
+            'vigente' => $vigentePorGrupo[$entrega->id_actividad_asignada_grupo] === $entrega->id_agenda,
+            'fuera_de_plazo' => $limiteOriginal !== null && \Carbon\Carbon::parse($entrega->fecha_envio)->gt($limiteOriginal),
             'fecha_envio' => $entrega->fecha_envio,
             'mensaje' => $entrega->mensaje,
             'tipo_registro' => $entrega->tipo_mensaje?->value,

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { formatNota } from '@/utils/formatters';
+  import { formatFechaHora, formatNota } from '@/utils/formatters';
   /**
    * EstudiantesTabla — estudiantes asignados a una actividad INDIVIDUAL.
    *
@@ -31,6 +31,8 @@
   type GrupoData = {
     grupo: number;
     etiqueta: string;
+    /** Resumen de la entrega vigente del grupo; null si aún no entregó. */
+    entrega?: { fecha: string; fuera_de_plazo: boolean; cantidad: number } | null;
     nota: number | null;
     estado_actividad_asignada: string | null;
     nro_dias_adicionales_para_bloqueo_personal: number;
@@ -110,6 +112,9 @@
         <th class="{TH} w-10 pl-4">#</th>
         <th class={TH}>Estudiante</th>
         <th class="{TH} w-[116px]">Estado</th>
+        {#if traeArchivo}
+          <th class="{TH} w-[176px]">Entrega</th>
+        {/if}
         <th class="{TH} w-[76px] text-center">Nota</th>
         <th class="{TH} w-[108px] text-center">Décimas</th>
         <th class="{TH} w-[76px] text-center">Final</th>
@@ -122,7 +127,7 @@
     <tbody>
       {#if gruposOrdenados.length === 0}
         <tr class="border-t border-gray-100">
-          <td colspan={esTitular ? 8 : 7} class="px-4 py-10 text-center">
+          <td colspan={(esTitular ? 8 : 7) + (traeArchivo ? 1 : 0)} class="px-4 py-10 text-center">
             <p class="text-sm font-medium text-gray-500">
               No hay estudiantes asignados a esta actividad
             </p>
@@ -152,6 +157,30 @@
             </span>
           </td>
 
+          <!-- Quién entregó, cuándo y si llegó tarde (contra la fecha límite original). -->
+          {#if traeArchivo}
+            <td class="px-3 py-2.5">
+              {#if grupo.entrega}
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-xs font-semibold text-emerald-700">Entregó</span>
+                  <span class="text-[11px] text-gray-500">{formatFechaHora(grupo.entrega.fecha)}</span>
+                  <span class="flex flex-wrap items-center gap-1">
+                    {#if grupo.entrega.fuera_de_plazo}
+                      <span class="rounded-full border border-amber-300 bg-amber-100 px-1.5 text-[10px] font-bold text-amber-800">
+                        Fuera de plazo
+                      </span>
+                    {/if}
+                    {#if grupo.entrega.cantidad > 1}
+                      <span class="text-[10px] text-gray-400">{grupo.entrega.cantidad} envíos</span>
+                    {/if}
+                  </span>
+                </div>
+              {:else}
+                <span class="text-xs italic text-gray-400">Sin entrega</span>
+              {/if}
+            </td>
+          {/if}
+
           <!-- Nota base: la que registra la evaluación, antes de décimas. -->
           <td class="px-3 py-2.5 text-center">
             {#if grupo.nota !== null}
@@ -160,7 +189,7 @@
                   ? 'text-green-700'
                   : 'text-red-700'}"
               >
-                {Number(grupo.nota).toPrecision(2)}
+                {formatNota(grupo.nota)}
               </span>
             {:else}
               <span class="text-xs text-gray-400 italic">Sin calificar</span>

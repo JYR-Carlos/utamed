@@ -252,3 +252,32 @@ test('sumar décimas sobre un 7,0 avisa que la escala lo topa; un ajuste normal 
     expect((float) DB::table('agenda.integrante_grupo')
         ->where('id_asignado_actividad', $integrante->id_asignado_actividad)->value('nota_individual'))->toBe(6.5);
 });
+
+test('el docente ve cuál entrega es la vigente, cuáles llegaron fuera de plazo y quién entregó', function () {
+    $f = fixtureModalidadActividad() ?? $this->markTestSkipped('Sin curso con titular, inscritos y actividades.');
+    $docente = docenteModalidadActividad($f);
+    $actividad = crearActividadModalidad($docente, $f, false);
+    // La fecha límite original ya pasó: toda entrega queda «fuera de plazo»
+    // aunque la holgura la mantenga abierta.
+    $actividad->update(['fecha_limite' => now()->subDays(3)->toDateString(), 'nro_dias_adicionales_para_bloqueo' => 10]);
+
+    $primera = entregarEnPrimerGrupo($actividad)['agenda'];
+    $segunda = entregarEnPrimerGrupo($actividad)['agenda'];
+    $idGrupo = (int) $primera->id_actividad_asignada_grupo;
+    $base = "/docente/cursos/{$f['id_curso']}/actividades/{$actividad->id_actividad}";
+
+    $entregas = collect($this->actingAs($docente)->getJson("{$base}/grupos/{$idGrupo}/entregas")
+        ->assertOk()->json())->keyBy('id_agenda');
+
+    expect($entregas)->toHaveCount(2)
+        ->and($entregas[$segunda->id_agenda]['vigente'])->toBeTrue()
+        ->and($entregas[$primera->id_agenda]['vigente'])->toBeFalse()
+        ->and($entregas[$segunda->id_agenda]['fuera_de_plazo'])->toBeTrue();
+
+    $props = $this->actingAs($docente)->get("{$base}/evaluacion")->assertOk()->viewData('page')['props'];
+    $grupos = collect($props['grupos'])->keyBy('grupo');
+    $otro = $grupos->first(fn ($g) => $g['grupo'] !== $idGrupo);
+
+    expect($grupos[$idGrupo]['entrega'])->toMatchArray(['fuera_de_plazo' => true, 'cantidad' => 2])
+        ->and($otro['entrega'])->toBeNull();
+});
