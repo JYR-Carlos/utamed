@@ -265,6 +265,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>{nombre_actividad} | UTAmed</title>
+</svelte:head>
+
 <StudentLayout {breadcrumbs}>
   <div class="min-h-screen bg-[#FAFBFC]">
     <div class="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8 md:px-6 lg:px-8">
@@ -460,6 +464,7 @@
       {nombre_actividad}
       {entrega_obligatoria}
       esReemplazo={tieneEntregaRegistrada}
+      esGrupal={es_grupal}
     />
   </div>
 {/if}

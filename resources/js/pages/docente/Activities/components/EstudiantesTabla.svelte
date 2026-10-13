@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatNota } from '@/utils/formatters';
   /**
    * EstudiantesTabla — estudiantes asignados a una actividad INDIVIDUAL.
    *
@@ -213,7 +214,7 @@
                   ? 'text-green-700'
                   : 'text-red-700'}"
               >
-                {integrante.nota_individual.toFixed(1)}
+                {formatNota(integrante.nota_individual)}
               </span>
             {:else}
               <span class="text-gray-300">—</span>

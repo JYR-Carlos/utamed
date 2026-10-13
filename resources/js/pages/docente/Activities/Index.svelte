@@ -424,7 +424,7 @@
 
   function formatDecimas(d: number | undefined): string {
     const v = d ?? 0;
-    return `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`;
+    return `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1).replace('.', ',')}`;
   }
 
   // ─── Entregas del grupo ───────────────────────────────────────────────────
@@ -658,6 +658,10 @@
     return [ext, a.peso_bytes ? formatBytes(a.peso_bytes) : ''].filter(Boolean).join(' · ');
   });
 </script>
+
+<svelte:head>
+  <title>{actividad.nombre} | UTAmed</title>
+</svelte:head>
 
 <DocenteLayout {breadcrumbs}>
   <div class="px-4 sm:px-6 md:px-10 lg:px-20 bg-white relative">
@@ -1121,6 +1125,7 @@
           cod_curso={curso.cod_curso}
           nombre_actividad={actividad.nombre}
           nombre_grupo={grupoSeleccionado.etiqueta}
+          esGrupal={actividad.es_grupal}
           idCurso={curso.id_curso}
           idActividad={actividad.id_actividad}
           idGrupo={grupoSeleccionado.grupo}

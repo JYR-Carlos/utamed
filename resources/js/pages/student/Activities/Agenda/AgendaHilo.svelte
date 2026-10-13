@@ -67,7 +67,7 @@
   function formatNota(val: number | string | null | undefined): string {
     if (val == null || val === '') return '-';
     const num = Number(val);
-    return Number.isFinite(num) ? num.toFixed(1) : String(val);
+    return Number.isFinite(num) ? num.toFixed(1).replace('.', ',') : String(val);
   }
 
   function esLadoDerecho(item: InteraccionDecorada): boolean {

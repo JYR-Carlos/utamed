@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatNota } from '@/utils/formatters';
   /**
    * GrupoCard — Tarjeta de un grupo dentro de la gestión de una actividad.
    *
@@ -303,7 +304,7 @@
               ? 'text-green-700'
               : 'text-red-700'}"
           >
-            {integrante.nota_individual != null ? integrante.nota_individual.toFixed(1) : '—'}
+            {integrante.nota_individual != null ? formatNota(integrante.nota_individual) : '—'}
           </span>
         </div>
       {/if}
@@ -378,7 +379,7 @@
                 ? 'text-green-700'
                 : 'text-red-700'}"
             >
-              {integrante.nota_individual != null ? integrante.nota_individual.toFixed(1) : '—'}
+              {integrante.nota_individual != null ? formatNota(integrante.nota_individual) : '—'}
             </span>
           </div>
         {/each}

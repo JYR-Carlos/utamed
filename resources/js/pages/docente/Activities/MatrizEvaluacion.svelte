@@ -12,6 +12,7 @@
   `onClose` / `onSuccess`.
 -->
 <script lang="ts">
+  import { formatNota } from '@/utils/formatters';
   import type { Rubrica } from '@/types/rubrica';
   import { router } from '@inertiajs/svelte';
   import { X, CheckCircle2, ChevronLeft } from 'lucide-svelte';
@@ -100,6 +101,9 @@
    * mientras se evalúa, no para explicar el resultado después.
    */
   const puntajeParaCuatro = $derived(puntajeMinimoAprobacion(puntajeMaximo));
+
+  /** Puntos con coma y un decimal sólo si hace falta: 1,8 · 2 · 12. */
+  const formatPuntos = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace('.', ','));
 
   /**
    * Resultado cualitativo, que es con lo que cierra una formativa. En una
@@ -235,7 +239,7 @@
       {#if esSumativa && notaCalculada !== null}
         <div>
           <p class="text-[10px] uppercase tracking-wider text-white/60">Nota</p>
-          <p class="font-black text-2xl leading-none text-yellow-300">{notaCalculada.toFixed(1)}</p>
+          <p class="font-black text-2xl leading-none text-yellow-300">{formatNota(notaCalculada)}</p>
         </div>
       {:else if !esSumativa && evaluacionLabel}
         <div>
@@ -400,7 +404,7 @@
                 {:else if notaCalculada !== null && notaManualOverride}
                   <span class="text-xs">
                     Calculada automáticamente:
-                    <strong class="text-uta-blue">{notaCalculada.toFixed(1)}</strong>
+                    <strong class="text-uta-blue">{formatNota(notaCalculada)}</strong>
                   </span>
                   <br />
                   <button
@@ -424,8 +428,8 @@
               </div>
             </div>
             <p class="mt-4 text-xs text-gray-500 border-t border-gray-200 pt-3">
-              Nota <strong class="text-uta-blue">4.0</strong> con
-              <strong class="text-uta-blue">{puntajeParaCuatro}</strong> de {puntajeMaximo} pts (60 % de exigencia).
+              Nota <strong class="text-uta-blue">4,0</strong> con
+              <strong class="text-uta-blue">{formatPuntos(puntajeMaximo * 0.6)}</strong> de {puntajeMaximo} pts (60 % de exigencia).
             </p>
           </div>
         {:else}
@@ -479,7 +483,7 @@
         <CheckCircle2 class="w-4 h-4 shrink-0" />
         Todos los criterios evaluados — {puntajeObtenido}/{puntajeMaximo} pts ({porcentaje}%).
         {#if esSumativa}
-          Nota calculada: {notaCalculada?.toFixed(1) ?? '—'}. Puedes ajustar la nota manualmente
+          Nota calculada: {formatNota(notaCalculada) || '—'}. Puedes ajustar la nota manualmente
           arriba.
         {:else}
           Resultado: {evaluacionLabel ?? '—'}.

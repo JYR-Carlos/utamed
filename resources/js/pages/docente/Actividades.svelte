@@ -486,6 +486,10 @@
     'inline-flex items-center gap-1.5 rounded-[7px] border border-transparent px-3 py-1.5 text-[13px] font-medium text-[#5A5E6E] transition-colors hover:text-[#1A1A24]';
 </script>
 
+<svelte:head>
+  <title>Actividades | UTAmed</title>
+</svelte:head>
+
 <DocenteLayout>
   <div class="min-h-screen bg-white pb-16">
     <div class="mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6 sm:px-10">

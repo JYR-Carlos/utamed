@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatFechaHora } from '@/utils/formatters';
   /**
    * Entrega formal de la actividad: subir el archivo ES la entrega, en un
    * solo paso atómico (AgendaController::storeEntrega ya lo envuelve en una
@@ -18,6 +19,8 @@
     nombre_actividad: string;
     entrega_obligatoria: boolean;
     esReemplazo: boolean;
+    /** En una actividad grupal la entrega es del grupo, no sólo de quien la sube. */
+    esGrupal?: boolean;
   }
 
   let {
@@ -29,6 +32,7 @@
     nombre_actividad,
     entrega_obligatoria,
     esReemplazo,
+    esGrupal = false,
   }: Props = $props();
 
   type Paso = 'seleccion' | 'confirmando' | 'subiendo' | 'exito' | 'error';
@@ -41,6 +45,8 @@
   let mensajeError = $state('');
   let dragOver = $state(false);
   let inputFile: HTMLInputElement | undefined = $state();
+  let horaRegistro = $state('');
+  let temporizadorCierre: ReturnType<typeof setTimeout> | undefined;
 
   function formatearTamano(bytes: number): string {
     if (bytes === 0) return '0 B';
@@ -100,7 +106,10 @@
         onSuccess: () => {
           progreso = 100;
           paso = 'exito';
-          setTimeout(onEntregaCompletada, 900);
+          // Se deja el tiempo de leer la hora sellada (antes 0,9 s y sin hora);
+          // «Listo» cierra al instante.
+          horaRegistro = formatFechaHora(new Date().toISOString());
+          temporizadorCierre = setTimeout(onEntregaCompletada, 3000);
         },
         onError: (errors) => {
           mensajeError = errors.archivo || errors.error_general || 'No se pudo registrar la entrega.';
@@ -119,6 +128,19 @@
         },
       },
     );
+  }
+
+  function cerrarTrasExito() {
+    clearTimeout(temporizadorCierre);
+    onEntregaCompletada();
+  }
+
+  /** Tras un error de validación «Reintentar» reenvía el mismo archivo: esto permite elegir otro. */
+  function cambiarArchivo() {
+    archivo = undefined;
+    confirmado = false;
+    mensajeError = '';
+    paso = 'seleccion';
   }
 
   function reintentar() {
@@ -239,7 +261,11 @@
       </div>
       <label class="flex cursor-pointer items-start gap-2 text-[12.5px] text-[#1A1A24]">
         <input type="checkbox" bind:checked={confirmado} class="mt-0.5 h-[15px] w-[15px] accent-[#002F6C]" />
-        <span>Confirmo que este archivo es mi entrega de la actividad.</span>
+        <span>
+          {esGrupal
+            ? 'Confirmo que este archivo es la entrega de mi grupo en la actividad.'
+            : 'Confirmo que este archivo es mi entrega de la actividad.'}
+        </span>
       </label>
     </div>
     <div class="flex items-center gap-2 border-t border-[#E5E7EB] px-5 py-3.5">
@@ -282,7 +308,18 @@
           <span class="w-14 shrink-0 text-[11.5px] text-[#5A5E6E]">Peso</span>
           <span class="font-mono text-xs">{formatearTamano(archivo.size)}</span>
         </div>
+        <div class="flex items-baseline gap-2">
+          <span class="w-14 shrink-0 text-[11.5px] text-[#5A5E6E]">Hora</span>
+          <span class="text-xs font-medium text-[#1A1A24]">{horaRegistro} hrs</span>
+        </div>
       </div>
+      <button
+        type="button"
+        class="self-start rounded-lg bg-[#002F6C] px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#00214d]"
+        onclick={cerrarTrasExito}
+      >
+        Listo
+      </button>
     </div>
   {:else if paso === 'error'}
     <div class="flex flex-col gap-3 p-6">
@@ -299,6 +336,12 @@
         >
           <RotateCcw class="h-3.5 w-3.5" />
           Reintentar
+        </button>
+        <button
+          class="rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2 text-[13px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F8FAFC]"
+          onclick={cambiarArchivo}
+        >
+          Cambiar archivo
         </button>
         {#if onAvisarDocente}
           <button

@@ -25,8 +25,9 @@
   import type { InteraccionItem } from '@/types/agenda';
   import AgendaHilo from '../../../student/Activities/Agenda/AgendaHilo.svelte';
   import RubricaView from '../../../student/Activities/Agenda/Rubrica.svelte';
+  import { router } from '@inertiajs/svelte';
   import { calcularNotaChilena } from '@/lib/notas';
-  import { formatFechaHora } from '@/utils/formatters';
+  import { formatFechaHora, formatNota } from '@/utils/formatters';
   import { X, Send } from 'lucide-svelte';
 
   interface Props {
@@ -55,6 +56,8 @@
      * cualitativa de la rúbrica. Lo decide la actividad; llega del padre.
      */
     esSumativa?: boolean;
+    /** En una individual el «grupo» es el registro de un estudiante: se titula con él, no como grupo. */
+    esGrupal?: boolean;
   }
 
   let {
@@ -68,6 +71,7 @@
     idGrupo,
     listado_interacciones,
     isLoading = false,
+    esGrupal = true,
     errorMensaje = null,
     rubricaActividad = null,
     esSumativa = true,
@@ -256,7 +260,7 @@
     <!-- Cabecera idéntica a estudiante -->
     <div class="flex shrink-0 items-center justify-between border-b border-[#E5E7EB] px-5 py-3.5 bg-white z-10">
       <div class="flex min-w-0 flex-col">
-        <span class="text-[15px] font-semibold text-[#1A1A24]">Agenda del Grupo</span>
+        <span class="text-[15px] font-semibold text-[#1A1A24]">{esGrupal ? 'Agenda del grupo' : 'Agenda del estudiante'}</span>
         <span class="truncate text-xs text-[#5A5E6E]">{cod_curso} · {nombre_actividad} · {nombre_grupo}</span>
       </div>
       <button
@@ -318,7 +322,7 @@
                 </span>
               </div>
               {#if notaCalculada !== null}
-                <span class="text-sm font-black text-emerald-700">Nota: {notaCalculada.toFixed(1)}</span>
+                <span class="text-sm font-black text-emerald-700">Nota: {formatNota(notaCalculada)}</span>
               {:else}
                 <span class="text-xs text-gray-400 italic">Completa la rúbrica →</span>
               {/if}
@@ -355,7 +359,7 @@
                 type="button"
                 onclick={() => { notaEvaluacion = notaCalculada; notaManualOverride = false; }}
                 class="text-xs text-uta-blue underline hover:no-underline"
-              >Restaurar ({notaCalculada.toFixed(1)})</button>
+              >Restaurar ({formatNota(notaCalculada)})</button>
             {/if}
           </div>
         {:else}
@@ -491,7 +495,7 @@
         <div class="text-xs text-slate-600">
           <span class="font-bold">{criteriosEvaluados}/{totalCriterios}</span> criterios evaluados
           {#if notaCalculada !== null}
-            · Nota calculada: <strong class="text-emerald-700 font-bold">{notaCalculada.toFixed(1)}</strong>
+            · Nota calculada: <strong class="text-emerald-700 font-bold">{formatNota(notaCalculada)}</strong>
           {/if}
         </div>
         <button
