@@ -26,9 +26,17 @@
     isLoading: boolean;
     onClose: () => void;
     onSubmit: () => void;
+    onResetDefault?: () => void;
   }
 
-  let { isOpen, passwordFormData = $bindable(), isLoading, onClose, onSubmit }: Props = $props();
+  let {
+    isOpen,
+    passwordFormData = $bindable(),
+    isLoading,
+    onClose,
+    onSubmit,
+    onResetDefault,
+  }: Props = $props();
 </script>
 
 <FormModal {isOpen} title="Cambiar Contraseña" {onClose} {onSubmit} {isLoading}>
@@ -45,11 +53,23 @@
       placeholder="Confirma tu identidad"
       required
     />
-    <p class="mt-1 text-xs text-gray-500">
-      Se pide para confirmar que eres tú quien realiza el cambio.
-    </p>
   </div>
 
+  {#if onResetDefault}
+    
+    <div class="space-y-1.5 my-4">
+      <button
+        type="button"
+        onclick={onResetDefault}
+        disabled={isLoading}
+        class="cursor-pointer w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg text-amber-800 bg-amber-50 border border-amber-300 hover:bg-amber-100 hover:border-amber-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        Reiniciar a Contraseña por Defecto 
+      </button>
+    </div>
+  {/if}
+
+  <hr class="my-4">
   <div class="mb-4">
     <label for="new_password" class="block text-sm font-medium text-gray-700 mb-2"
       >Nueva Contraseña *</label
@@ -90,6 +110,8 @@
   </div>
 
   <p class="text-xs text-gray-500">
-    Al cambiarla se cerrarán todas las sesiones activas de ese usuario.
+    Al cambiar la contraseña, se cerrarán todas las sesiones activas de ese usuario.
   </p>
+
+  
 </FormModal>

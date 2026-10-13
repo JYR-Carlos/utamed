@@ -32,6 +32,7 @@
     updateUsuario,
     deleteUsuario,
     changePassword,
+    setDefaultPassword,
     toggleActive,
   } from '@/modules/resources/usuario';
   import type {
@@ -171,6 +172,7 @@
   let showDeleteDialog = $state(false);
   let showToggleDialog = $state(false);
   let showPasswordModal = $state(false);
+  let showResetDialog = $state(false);
   let showPermissionsModal = $state(false);
   let isLoading = $state(false);
   let fileToImport =$state<File | null>(null)
@@ -360,6 +362,7 @@
 
   function closePasswordModal() {
     showPasswordModal = false;
+    showResetDialog = false;
     changingPasswordUsuario = null;
     passwordFormData = { current_password: '', password: '', password_confirmation: '' };
   }
@@ -380,6 +383,45 @@
         isLoading = false;
       },
     });
+  }
+
+  function openResetDialog() {
+    if (!passwordFormData.current_password.trim()) {
+      alert('Debes ingresar tu propia contraseña en el campo "Tu contraseña" para autorizar esta acción.');
+      return;
+    }
+    showResetDialog = true;
+  }
+
+  function closeResetDialog() {
+    showResetDialog = false;
+  }
+
+  function handleResetDefault() {
+    if (!changingPasswordUsuario) return;
+    if (!passwordFormData.current_password.trim()) {
+      alert('Debes ingresar tu propia contraseña en el campo "Tu contraseña" para autorizar esta acción.');
+      return;
+    }
+
+    isLoading = true;
+    const id = changingPasswordUsuario.usuario.id_usuario;
+
+    setDefaultPassword(
+      id,
+      { current_password: passwordFormData.current_password },
+      {
+        onSuccess: () => {
+          closeResetDialog();
+          closePasswordModal();
+          isLoading = false;
+        },
+        onError: (errors) => {
+          handleError('reiniciar contraseña', errors);
+          isLoading = false;
+        },
+      },
+    );
   }
 
   /**
@@ -542,5 +584,21 @@
     {isLoading}
     onClose={closePasswordModal}
     onSubmit={handlePasswordChange}
+    onResetDefault={openResetDialog}
+  />
+
+  <ConfirmationModal
+    isOpen={showResetDialog}
+    tone="warning"
+    title="Reiniciar contraseña por defecto"
+    recordName={changingPasswordUsuario
+      ? `${changingPasswordUsuario.usuario.nombre1 ?? ''} ${changingPasswordUsuario.usuario.apellido1 ?? ''}`.trim()
+      : null}
+    recordMeta={changingPasswordUsuario?.usuario.rut ? [changingPasswordUsuario.usuario.rut] : []}
+    message="La contraseña pasará a ser el RUT de la persona y deberá cambiarla al iniciar sesión. Se cerrarán sus sesiones activas."
+    confirmLabel="Reiniciar contraseña"
+    {isLoading}
+    onConfirm={handleResetDefault}
+    onCancel={closeResetDialog}
   />
 </AdminLayout>

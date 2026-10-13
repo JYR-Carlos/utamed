@@ -62,6 +62,18 @@ export function changePassword(
     });
 }
 
+/** POST /admin/usuarios/{id}/set-default-password — reinicia a contraseña por defecto (RUT). */
+export function setDefaultPassword(
+    id: number,
+    data: { current_password: string },
+    options: ApiOptions = {},
+) {
+    router.post(`/admin/usuarios/${id}/set-default-password`, data, {
+        onSuccess: options.onSuccess,
+        onError: options.onError,
+    });
+}
+
 /** POST /admin/usuarios/{id}/toggle-active — activa/desactiva el acceso. */
 export function toggleActive(id: number) {
     router.post(`/admin/usuarios/${id}/toggle-active`, {}, { preserveScroll: true });
