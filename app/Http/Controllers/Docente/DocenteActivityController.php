@@ -23,6 +23,7 @@ use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
 use App\Models\Curso\Unidad;
+use App\Models\Operaciones\Archivo;
 use App\Models\Usuario\Usuario;
 use App\Services\Agenda\AvanceEvaluacionService;
 use App\Services\Agenda\GrupoIndividualService;
@@ -485,15 +486,74 @@ class DocenteActivityController extends Controller
 
         try {
             $nombreActividad = $actividad->nombre;
-            $actividad->delete();
+            $this->eliminarConDependencias($actividad);
 
             return redirect()->back()->with('success', "Actividad '{$nombreActividad}' eliminada correctamente.");
         } catch (\Exception $e) {
             Log::error('Error deleting activity: ' . $e->getMessage());
 
             return redirect()->back()
-                ->withErrors(['error' => 'Error al eliminar la actividad.']);
+                ->withErrors(['error' => 'No se pudo eliminar la actividad. No se borró nada; inténtalo nuevamente.']);
         }
+    }
+
+    /**
+     * Borra la actividad con todo lo que cuelga de ella, en una sola transacción.
+     *
+     * Toda actividad individual nace con un grupo por inscrito, y todas las FK
+     * hacia agenda.actividad son RESTRICT: un `$actividad->delete()` a secas
+     * fallaba siempre. El orden va de las hojas hacia la raíz. lectura_agenda
+     * cae sola (ON DELETE CASCADE desde agenda.agenda).
+     *
+     * Los archivos entregados y el enunciado no se borran del disco aquí: se
+     * marcan `pendiente_de_borrado` para la limpieza asíncrona, igual que una
+     * cancelación de entrega. Si algo falla, la transacción deshace todo y los
+     * archivos siguen intactos.
+     */
+    private function eliminarConDependencias(Actividad $actividad): void
+    {
+        $idActividad = $actividad->id_actividad;
+        $idContexto = $actividad->id_contexto;
+        $uuidEnunciado = $actividad->uuid_archivo_enunciado;
+
+        DB::transaction(function () use ($actividad, $idActividad, $idContexto, $uuidEnunciado) {
+            $idsGrupos = DB::table('agenda.actividad_asignada_grupo')
+                ->where('id_actividad', $idActividad)
+                ->pluck('id_actividad_asignada_grupo');
+
+            $agendas = DB::table('agenda.agenda')->whereIn('id_actividad_asignada_grupo', $idsGrupos);
+            $idsAgenda = (clone $agendas)->pluck('id_agenda');
+            $uuidsEntregados = (clone $agendas)->whereNotNull('uuid_archivo_subido')->pluck('uuid_archivo_subido');
+
+            $idsRubrica = DB::table('agenda.rubrica')->where('id_actividad', $idActividad)->pluck('id_rubrica');
+
+            DB::table('agenda.evaluacion')
+                ->where(fn ($q) => $q->whereIn('id_agenda', $idsAgenda)->orWhereIn('id_rubrica', $idsRubrica))
+                ->delete();
+            DB::table('agenda.agenda')->whereIn('id_agenda', $idsAgenda)->delete();
+            DB::table('agenda.integrante_grupo')->whereIn('id_actividad_asignada_grupo', $idsGrupos)->delete();
+            DB::table('agenda.actividad_asignada_grupo')->whereIn('id_actividad_asignada_grupo', $idsGrupos)->delete();
+            DB::table('agenda.rubrica')->where('id_actividad', $idActividad)->delete();
+
+            $actividad->delete();
+
+            // El contexto lo crea un trigger al insertar la actividad. Se borra
+            // sólo si nadie más lo usa (roles, permisos especiales o hijos).
+            if ($idContexto) {
+                DB::delete(
+                    'DELETE FROM usuario.contexto c WHERE c.id_contexto = ?
+                       AND NOT EXISTS (SELECT 1 FROM usuario.usuario_rol_asignacion WHERE id_contexto = c.id_contexto)
+                       AND NOT EXISTS (SELECT 1 FROM usuario.usuario_permiso_especial WHERE id_contexto = c.id_contexto)
+                       AND NOT EXISTS (SELECT 1 FROM usuario.contexto h WHERE h.id_contexto_padre = c.id_contexto)',
+                    [$idContexto]
+                );
+            }
+
+            $uuidsArchivos = $uuidsEntregados->push($uuidEnunciado)->filter()->unique()->values();
+            if ($uuidsArchivos->isNotEmpty()) {
+                Archivo::whereIn('uuid_archivo', $uuidsArchivos)->update(['pendiente_de_borrado' => true]);
+            }
+        });
     }
 
     // =========================================================================
