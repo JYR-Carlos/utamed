@@ -27,6 +27,11 @@
     max_integrantes: number;
     fecha_limite: string;
     visible: boolean;
+    estado?: string;
+    ya_entregada?: boolean;
+    ya_evaluada?: boolean;
+    /** Tipo del componente («Taller», «Laboratorio»); lo usa «Cómo se evalúa». */
+    componente_tipo?: string | null;
   }
 
   interface Programa {
@@ -79,7 +84,7 @@
   const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Inicio', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
-    { title: curso?.asignatura_nombre ?? curso?.nombre ?? 'Curso', href: '' },
+    { title: curso?.etiqueta ?? curso?.asignatura_nombre ?? 'Curso', href: '' },
   ]);
 
   // ─── Próximas entregas ──────────────────────────────────────────────────────
@@ -89,11 +94,22 @@
     hoy.setHours(0, 0, 0, 0);
 
     return actividades
-      .filter((a) => a.con_entrega && a.fecha_limite && parseFechaSoloDia(a.fecha_limite) >= hoy)
-      .sort(
-        (a, b) =>
-          parseFechaSoloDia(a.fecha_limite).getTime() - parseFechaSoloDia(b.fecha_limite).getTime(),
-      );
+      .filter(
+        (a) =>
+          a.con_entrega &&
+          a.fecha_limite &&
+          !a.ya_entregada &&
+          !a.ya_evaluada,
+      )
+      .sort((a, b) => {
+        const da = parseFechaSoloDia(a.fecha_limite).getTime();
+        const db = parseFechaSoloDia(b.fecha_limite).getTime();
+        const aVencida = da < hoy.getTime();
+        const bVencida = db < hoy.getTime();
+        if (aVencida && !bVencida) return -1;
+        if (!aVencida && bVencida) return 1;
+        return da - db;
+      });
   });
 
   // ─── Filtros de actividades ─────────────────────────────────────────────────
@@ -149,7 +165,7 @@
           <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Sobre el curso</h2>
           <p class="text-sm text-gray-600">Contenidos y ponderaciones de la asignatura.</p>
         </div>
-        <CursoInformacion {curso} {programa} {datos} />
+        <CursoInformacion {curso} {programa} {datos} {actividades} />
       </section>
 
       <section class="mb-10">

@@ -25,8 +25,9 @@
   import type { InteraccionItem } from '@/types/agenda';
   import AgendaHilo from '../../../student/Activities/Agenda/AgendaHilo.svelte';
   import RubricaView from '../../../student/Activities/Agenda/Rubrica.svelte';
+  import { router } from '@inertiajs/svelte';
   import { calcularNotaChilena } from '@/lib/notas';
-  import { formatFechaHora } from '@/utils/formatters';
+  import { formatFechaHora, formatNota } from '@/utils/formatters';
   import { X, Send } from 'lucide-svelte';
 
   interface Props {
@@ -55,6 +56,8 @@
      * cualitativa de la rúbrica. Lo decide la actividad; llega del padre.
      */
     esSumativa?: boolean;
+    /** En una individual el «grupo» es el registro de un estudiante: se titula con él, no como grupo. */
+    esGrupal?: boolean;
   }
 
   let {
@@ -68,6 +71,7 @@
     idGrupo,
     listado_interacciones,
     isLoading = false,
+    esGrupal = true,
     errorMensaje = null,
     rubricaActividad = null,
     esSumativa = true,
@@ -78,6 +82,7 @@
   let tipoSeleccionado = $state('Feedback');
   let notaEvaluacion = $state<number | null>(null);
   let notaManualOverride = $state(false);
+  let opinionFormativa = $state<'Bueno' | 'Regular' | 'Malo' | null>(null);
 
   $effect(() => {
     if (!idGrupo) return;
@@ -156,7 +161,9 @@
   );
 
   /** Qué falta para poder enviar una evaluación, según el tipo de actividad. */
-  const resultadoListo = $derived(esSumativa ? notaEvaluacion !== null : !!evaluacionCualitativa);
+  const resultadoListo = $derived(
+    esSumativa ? notaEvaluacion !== null : opinionFormativa !== null && nuevoMensaje.trim() !== '',
+  );
 
   // Auto-poblar nota cuando se completa la rúbrica
   $effect(() => {
@@ -195,12 +202,12 @@
       // Uno u otro, nunca los dos: es la misma regla que aplica el servidor.
       if (esSumativa) {
         if (notaEvaluacion !== null) data.nota = notaEvaluacion;
+        if (rubricaActividad) {
+          data.resultado_rubrica = { ...seleccionRubrica };
+          data.puntaje_obtenido = puntajeRubrica;
+        }
       } else {
-        data.evaluacion_obtenida = evaluacionCualitativa;
-      }
-      if (rubricaActividad) {
-        data.resultado_rubrica = { ...seleccionRubrica };
-        data.puntaje_obtenido = puntajeRubrica;
+        data.evaluacion_obtenida = opinionFormativa;
       }
     }
 
@@ -208,6 +215,7 @@
 
     nuevoMensaje = '';
     notaEvaluacion = null;
+    opinionFormativa = null;
     seleccionRubrica = {};
     notaManualOverride = false;
     tipoSeleccionado = tiposInteraccion[0];
@@ -217,7 +225,7 @@
   function cambiarTipo(tipo: string) {
     tipoSeleccionado = tipo;
     if (tipo === 'Evaluación') {
-      if (rubricaActividad) {
+      if (esSumativa && rubricaActividad) {
         mostrarSlideoverEvaluacion = true;
       }
     } else {
@@ -252,7 +260,7 @@
     <!-- Cabecera idéntica a estudiante -->
     <div class="flex shrink-0 items-center justify-between border-b border-[#E5E7EB] px-5 py-3.5 bg-white z-10">
       <div class="flex min-w-0 flex-col">
-        <span class="text-[15px] font-semibold text-[#1A1A24]">Agenda del Grupo</span>
+        <span class="text-[15px] font-semibold text-[#1A1A24]">{esGrupal ? 'Agenda del grupo' : 'Agenda del estudiante'}</span>
         <span class="truncate text-xs text-[#5A5E6E]">{cod_curso} · {nombre_actividad} · {nombre_grupo}</span>
       </div>
       <button
@@ -302,39 +310,39 @@
       </div>
 
       {#if esEvaluacion}
-        <!-- Resumen compacto de la rúbrica -->
-        {#if rubricaActividad}
-          <div class="mb-3 px-3 py-2 rounded-xl bg-white border border-gray-200 flex items-center justify-between gap-2 flex-wrap">
-            <div class="flex items-center gap-3 text-xs">
-              <span class="text-gray-500">Puntaje:</span>
-              <span class="font-black text-uta-blue">{puntajeRubrica}<span class="font-normal text-gray-400">/{puntajeMaximo}</span></span>
-              <span class="{criteriosEvaluados < totalCriterios ? 'text-amber-600' : 'text-emerald-600'} font-semibold">
-                {criteriosEvaluados}/{totalCriterios} criterios
-              </span>
-            </div>
-            {#if notaCalculada !== null}
-              <span class="text-sm font-black text-emerald-700">Nota: {notaCalculada.toFixed(1)}</span>
-            {:else}
-              <span class="text-xs text-gray-400 italic">Completa la rúbrica →</span>
-            {/if}
-            <button
-              type="button"
-              onclick={() => (mostrarSlideoverEvaluacion = !mostrarSlideoverEvaluacion)}
-              class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-uta-blue text-white hover:bg-uta-blue-hover transition cursor-pointer flex items-center gap-1 shadow-2xs"
-            >
-              <span>{mostrarSlideoverEvaluacion ? 'Ocultar Rúbrica' : 'Abrir Rúbrica'}</span>
-              <span class="text-[10px] opacity-80">({criteriosEvaluados}/{totalCriterios})</span>
-            </button>
-          </div>
-        {:else}
-          <!-- Sin rúbrica: advertencia -->
-          <div class="mb-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 font-medium">
-            ⚠ No hay rúbrica creada para esta actividad. Crea una rúbrica antes de poder evaluar.
-          </div>
-        {/if}
-
-        <!-- Resultado: nota en las sumativas, apreciación en las formativas -->
         {#if esSumativa}
+          <!-- Resumen compacto de la rúbrica -->
+          {#if rubricaActividad}
+            <div class="mb-3 px-3 py-2 rounded-xl bg-white border border-gray-200 flex items-center justify-between gap-2 flex-wrap">
+              <div class="flex items-center gap-3 text-xs">
+                <span class="text-gray-500">Puntaje:</span>
+                <span class="font-black text-uta-blue">{puntajeRubrica}<span class="font-normal text-gray-400">/{puntajeMaximo}</span></span>
+                <span class="{criteriosEvaluados < totalCriterios ? 'text-amber-600' : 'text-emerald-600'} font-semibold">
+                  {criteriosEvaluados}/{totalCriterios} criterios
+                </span>
+              </div>
+              {#if notaCalculada !== null}
+                <span class="text-sm font-black text-emerald-700">Nota: {formatNota(notaCalculada)}</span>
+              {:else}
+                <span class="text-xs text-gray-400 italic">Completa la rúbrica →</span>
+              {/if}
+              <button
+                type="button"
+                onclick={() => (mostrarSlideoverEvaluacion = !mostrarSlideoverEvaluacion)}
+                class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-uta-blue text-white hover:bg-uta-blue-hover transition cursor-pointer flex items-center gap-1 shadow-2xs"
+              >
+                <span>{mostrarSlideoverEvaluacion ? 'Ocultar Rúbrica' : 'Abrir Rúbrica'}</span>
+                <span class="text-[10px] opacity-80">({criteriosEvaluados}/{totalCriterios})</span>
+              </button>
+            </div>
+          {:else}
+            <!-- Sin rúbrica: advertencia -->
+            <div class="mb-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 font-medium">
+              ⚠ No hay rúbrica creada para esta actividad. Crea una rúbrica antes de poder evaluar.
+            </div>
+          {/if}
+
+          <!-- Resultado: nota en las sumativas -->
           <div class="flex items-center gap-2 mb-3 flex-wrap">
             <label for="nota-eval" class="text-xs font-bold text-gray-700 shrink-0">Nota (1–7):</label>
             <input
@@ -351,22 +359,61 @@
                 type="button"
                 onclick={() => { notaEvaluacion = notaCalculada; notaManualOverride = false; }}
                 class="text-xs text-uta-blue underline hover:no-underline"
-              >Restaurar ({notaCalculada.toFixed(1)})</button>
+              >Restaurar ({formatNota(notaCalculada)})</button>
             {/if}
           </div>
         {:else}
-          <div class="flex items-center gap-2 mb-3 flex-wrap">
-            <span class="text-xs font-bold text-gray-700 shrink-0">Resultado:</span>
-            {#if evaluacionCualitativa}
-              <span class="text-sm font-black text-uta-blue">{evaluacionCualitativa}</span>
-              <span class="text-xs text-gray-400">· actividad formativa, sin nota numérica</span>
-            {:else if todosEvaluados}
-              <span class="text-xs text-amber-600"
-                >La rúbrica no tiene escala de evaluación con la que cerrar una formativa.</span
-              >
-            {:else}
-              <span class="text-xs text-gray-400">Completa la rúbrica para obtenerlo.</span>
-            {/if}
+          <!-- Formativa: ¿Qué opina del trabajo? -->
+          <div class="mb-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="flex flex-col gap-2.5">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-700">¿Qué opina del trabajo?</span>
+                {#if opinionFormativa}
+                  <span class="text-xs font-semibold px-2 py-0.5 rounded-md
+                    {opinionFormativa === 'Bueno' ? 'bg-emerald-100 text-emerald-800' : ''}
+                    {opinionFormativa === 'Regular' ? 'bg-amber-100 text-amber-800' : ''}
+                    {opinionFormativa === 'Malo' ? 'bg-rose-100 text-rose-800' : ''}"
+                  >
+                    Seleccionado: {opinionFormativa}
+                  </span>
+                {/if}
+              </div>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onclick={() => (opinionFormativa = 'Bueno')}
+                  class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-semibold transition-all cursor-pointer
+                    {opinionFormativa === 'Bueno'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300'}"
+                >
+                  <span class="w-2 h-2 rounded-full {opinionFormativa === 'Bueno' ? 'bg-white' : 'bg-emerald-500'}"></span>
+                  Bueno
+                </button>
+                <button
+                  type="button"
+                  onclick={() => (opinionFormativa = 'Regular')}
+                  class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-semibold transition-all cursor-pointer
+                    {opinionFormativa === 'Regular'
+                      ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                      : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50 hover:border-amber-300'}"
+                >
+                  <span class="w-2 h-2 rounded-full {opinionFormativa === 'Regular' ? 'bg-white' : 'bg-amber-500'}"></span>
+                  Regular
+                </button>
+                <button
+                  type="button"
+                  onclick={() => (opinionFormativa = 'Malo')}
+                  class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-semibold transition-all cursor-pointer
+                    {opinionFormativa === 'Malo'
+                      ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                      : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50 hover:border-rose-300'}"
+                >
+                  <span class="w-2 h-2 rounded-full {opinionFormativa === 'Malo' ? 'bg-white' : 'bg-rose-500'}"></span>
+                  Malo
+                </button>
+              </div>
+            </div>
           </div>
         {/if}
       {/if}
@@ -375,15 +422,19 @@
       <div class="flex items-end gap-2.5">
         <textarea
           bind:value={nuevoMensaje}
-          placeholder={esEvaluacion ? 'Retroalimentación para el grupo (opcional)…' : 'Escribe tu retroalimentación al grupo…'}
-          rows="2"
-          maxlength="2000"
-          class="flex-1 resize-none rounded-lg border border-[#D6D9E0] px-3.5 py-2.5 text-[13px] text-[#1A1A24] outline-none transition-colors focus:border-[#002F6C]"
+          placeholder={esEvaluacion
+            ? (esSumativa ? 'Retroalimentación para el grupo (opcional)…' : 'Escribe la evaluación formativa para el estudiante o grupo…')
+            : 'Escribe tu retroalimentación al grupo…'}
+          rows={esEvaluacion && !esSumativa ? 4 : 2}
+          maxlength="4000"
+          class="flex-1 resize-y rounded-lg border border-[#D6D9E0] px-3.5 py-2.5 text-[13px] text-[#1A1A24] outline-none transition-colors focus:border-[#002F6C]"
         ></textarea>
         <button
           onclick={manejarEnvio}
           disabled={esEvaluacion
-            ? (!resultadoListo || (!!rubricaActividad && !todosEvaluados) || !rubricaActividad)
+            ? (esSumativa
+                ? (!resultadoListo || (!!rubricaActividad && !todosEvaluados) || !rubricaActividad)
+                : (!opinionFormativa || !nuevoMensaje.trim()))
             : !nuevoMensaje.trim()}
           class="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#002F6C] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#002F6C] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
@@ -392,7 +443,7 @@
         </button>
       </div>
       <span class="mt-1 block text-right font-mono text-[10.5px] text-[#5A5E6E]">
-        {nuevoMensaje.length} / 2.000
+        {nuevoMensaje.length} / 4.000
       </span>
     </div>
   </div>
@@ -444,7 +495,7 @@
         <div class="text-xs text-slate-600">
           <span class="font-bold">{criteriosEvaluados}/{totalCriterios}</span> criterios evaluados
           {#if notaCalculada !== null}
-            · Nota calculada: <strong class="text-emerald-700 font-bold">{notaCalculada.toFixed(1)}</strong>
+            · Nota calculada: <strong class="text-emerald-700 font-bold">{formatNota(notaCalculada)}</strong>
           {/if}
         </div>
         <button

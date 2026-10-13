@@ -28,7 +28,7 @@
 <!-- La tarjeta ya no es un único <Link>: lleva dos destinos (curso y
      mensajería) y un enlace no puede ir dentro de otro. -->
 <article
-  class="group flex h-full flex-col gap-2.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+  class="group flex h-full flex-col gap-2.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all  hover:border-slate-300 hover:shadow-md"
 >
   <Link href={`/estudiante/cursos/${id_curso}`} class="flex items-start gap-2.5">
     <div

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatNota } from '@/utils/formatters';
   /**
    * GrupoCard — Tarjeta de un grupo dentro de la gestión de una actividad.
    *
@@ -32,6 +33,8 @@
 
   type GrupoData = {
     grupo: number;
+    /** Cómo se rotula el grupo: nombre del estudiante (individual) o nombre propio / «Grupo N». */
+    etiqueta: string;
     nota: number | null;
     estado_actividad_asignada: string | null;
     nro_dias_adicionales_para_bloqueo_personal: number;
@@ -139,7 +142,7 @@
   <!-- Número de grupo / nombre estudiante + estado + eliminar -->
   <div class="flex items-center justify-between gap-2">
     <p class="min-w-0 truncate font-bold text-sm">
-      {esGrupal ? `Grupo #${grupo.grupo}` : (grupo.integrantes[0]?.nombre_completo ?? 'Estudiante')}
+      {grupo.etiqueta}
     </p>
     <div class="flex items-center gap-2">
       {#if grupo.estado_actividad_asignada}
@@ -176,7 +179,7 @@
       <span
         class="font-bold text-base {Number(grupo.nota) >= 4 ? 'text-green-700' : 'text-red-700'}"
       >
-        {Number(grupo.nota).toPrecision(2)}
+        {formatNota(grupo.nota)}
       </span>
     {:else}
       <span class="font-normal text-gray-400 italic text-xs">Sin calificar</span>
@@ -301,7 +304,7 @@
               ? 'text-green-700'
               : 'text-red-700'}"
           >
-            {integrante.nota_individual != null ? integrante.nota_individual.toFixed(1) : '—'}
+            {integrante.nota_individual != null ? formatNota(integrante.nota_individual) : '—'}
           </span>
         </div>
       {/if}
@@ -376,7 +379,7 @@
                 ? 'text-green-700'
                 : 'text-red-700'}"
             >
-              {integrante.nota_individual != null ? integrante.nota_individual.toFixed(1) : '—'}
+              {integrante.nota_individual != null ? formatNota(integrante.nota_individual) : '—'}
             </span>
           </div>
         {/each}

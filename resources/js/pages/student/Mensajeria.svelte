@@ -24,6 +24,7 @@
 
   // ── Types ──────────────────────────────────────────────────────────────────
   interface CursoInfo {
+    etiqueta?: string;
     id_curso: number;
     nombre: string;
     cod_curso: string;
@@ -78,7 +79,7 @@
   const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Inicio', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
-    { title: curso?.nombre ?? 'Curso', href: `/estudiante/cursos/${curso?.id_curso}` },
+    { title: curso?.etiqueta ?? curso?.nombre ?? 'Curso', href: `/estudiante/cursos/${curso?.id_curso}` },
     { title: 'Mensajería', href: '' },
   ]);
 

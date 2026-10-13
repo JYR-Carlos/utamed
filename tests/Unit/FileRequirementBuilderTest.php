@@ -76,3 +76,20 @@ test('los interruptores de validación no se honran fuera de local', function ()
     expect($config['global']['enable_mime_validation'])->toBeTrue();
     expect($config['global']['enable_extension_validation'])->toBeTrue();
 });
+
+test('un archivo vacío se rechaza con un mensaje que lo dice, no con el de tipo inválido', function () {
+    // BaseArchiveRequest pone esta regla antes que las del builder: sin
+    // contenido no hay MIME que detectar y `mimetypes` mentía sobre la causa.
+    $request = new \App\Http\Requests\Archive\AgendaFileRequest();
+
+    $vacio = UploadedFile::fake()->create('vacio.pdf', 0, 'application/pdf');
+    $validator = Validator::make(['archivo' => $vacio], $request->rules());
+
+    expect($validator->fails())->toBeTrue()
+        ->and($validator->errors()->first('archivo'))->toContain('está vacío');
+
+    // Un archivo con contenido no recibe ese mensaje.
+    $conContenido = UploadedFile::fake()->create('apunte.pdf', 10, 'application/pdf');
+    $otro = Validator::make(['archivo' => $conContenido], $request->rules());
+    expect($otro->errors()->first('archivo'))->not->toContain('está vacío');
+});

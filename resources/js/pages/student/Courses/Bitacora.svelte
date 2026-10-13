@@ -36,7 +36,7 @@
   }
 
   interface Props {
-    curso: { id_curso: number; nombre: string; cod_asignatura?: string | null };
+    curso: { id_curso: number; nombre: string; etiqueta?: string; cod_asignatura?: string | null };
     entradas?: Entrada[];
     actividades?: Array<{ id: number; nombre: string }>;
     componentes?: Array<{ id: number; tipo: string }>;
@@ -47,7 +47,7 @@
   const breadcrumbs = $derived<BreadcrumbItem[]>([
     { title: 'Inicio', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
-    { title: curso.nombre, href: `/estudiante/cursos/${curso.id_curso}` },
+    { title: curso.etiqueta ?? curso.nombre, href: `/estudiante/cursos/${curso.id_curso}` },
     { title: 'Bitácora', href: '' },
   ]);
 

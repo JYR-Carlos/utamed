@@ -47,13 +47,12 @@
     updateActividad,
     deleteActividad,
     toggleVisibilidadActividad,
-    copiarActividad,
   } from '@/modules/resources/actividad';
   import ActividadesPorEstado from './components/ActividadesPorEstado.svelte';
   import ActividadesTabla from '@/components/docente/ActividadesTabla.svelte';
   import ActividadEliminarDialog from '@/components/docente/ActividadEliminarDialog.svelte';
-  import ActividadCopiarModal from '@/components/docente/ActividadCopiarModal.svelte';
   import EnunciadoModal from '@/components/docente/EnunciadoModal.svelte';
+  import CopiarActividadesModal from '@/components/docente/CopiarActividadesModal.svelte';
   import { hasPermission } from '@/services/permissionValidator';
   import type { Permission } from '@/types/permissions/permissions';
   import type { Actividad } from '@/types/actividad';
@@ -82,6 +81,7 @@
 
   interface Props {
     curso: {
+      etiqueta?: string;
       id_curso: number;
       cod_curso?: string;
       cod_asignatura?: string | null;
@@ -294,13 +294,10 @@
   let showForm = $state(false);
   let showDelete = $state(false);
   let showEnunciado = $state(false);
-  let showCopy = $state(false);
   let isLoading = $state(false);
-  let copiando = $state(false);
   let editando = $state<Actividad | null>(null);
   let eliminando = $state<Actividad | null>(null);
   let conEnunciado = $state<Actividad | null>(null);
-  let copiandoActividad = $state<Actividad | null>(null);
   let formErrors = $state<Record<string, string>>({});
 
   // ── Guardado optimista del interruptor de visibilidad (lámina e) ──────────
@@ -449,33 +446,23 @@
     handleToggleVisible(act);
   }
 
+  // ── Copiar a otro curso (sólo el titular, a sus otros grupos) ─────────────
+  let showCopiar = $state(false);
+  let copiarPreseleccion = $state<number[]>([]);
+
+  function abrirCopiar(act?: Actividad) {
+    copiarPreseleccion = act ? [act.id_actividad] : [];
+    showCopiar = true;
+  }
+
+  /** Lo que la última copia no pudo llevar y por qué (flash del servidor). */
+  const copiaOmitidas = $derived(
+    ((($page.props as any).flash?.data?.copia_omitidas ?? []) as Array<{ nombre: string; curso: string; motivo: string }>),
+  );
+
   function abrirEnunciado(act: Actividad) {
     conEnunciado = act;
     showEnunciado = true;
-  }
-
-  function abrirCopiar(act: Actividad) {
-    copiandoActividad = act;
-    showCopy = true;
-  }
-
-  function handleCopiarSubmit(data: {
-    id_curso_destino: number;
-    id_componente_destino: number;
-    id_unidad_destino: number;
-  }) {
-    if (!copiandoActividad) return;
-    copiando = true;
-    copiarActividad(curso.id_curso, copiandoActividad.id_actividad, data, {
-      onSuccess: () => {
-        showCopy = false;
-        copiandoActividad = null;
-        copiando = false;
-      },
-      onError: () => {
-        copiando = false;
-      },
-    });
   }
 
   // ── Lenguaje visual compartido (mismo vocabulario que CursoDetalle) ───────
@@ -492,12 +479,16 @@
   const PILL_NEUTRA =
     'inline-flex items-center gap-1.5 rounded-full border border-[#E5E7EB] bg-[#F5F1EA] px-2.5 py-0.5 text-[12px] font-medium text-[#5A5E6E]';
   const SELECT_FILTRO =
-    'h-[38px] rounded-lg border border-[#D6D9E0] bg-white px-2.5 text-[13px] font-medium text-[#1A1A24] outline-none transition-colors hover:bg-[#FCFBF9] focus:border-[#002F6C]';
+    'h-[38px] max-w-full rounded-lg border border-[#D6D9E0] bg-white px-2.5 text-[13px] font-medium text-[#1A1A24] outline-none transition-colors hover:bg-[#FCFBF9] focus:border-[#002F6C]';
   const SEG_ACTIVO =
     'inline-flex items-center gap-1.5 rounded-[7px] border border-[#D6D9E0] bg-white px-3 py-1.5 text-[13px] font-semibold text-[#1A1A24] shadow-[0_1px_2px_rgba(0,0,0,.05)]';
   const SEG_INACTIVO =
     'inline-flex items-center gap-1.5 rounded-[7px] border border-transparent px-3 py-1.5 text-[13px] font-medium text-[#5A5E6E] transition-colors hover:text-[#1A1A24]';
 </script>
+
+<svelte:head>
+  <title>Actividades | UTAmed</title>
+</svelte:head>
 
 <DocenteLayout>
   <div class="min-h-screen bg-white pb-16">
@@ -516,7 +507,7 @@
           href="/docente/cursos/{curso.id_curso}"
           class="rounded-lg px-2 py-1.5 font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F5F1EA] hover:text-[#002F6C]"
         >
-          {curso.cod_curso ?? 'Curso'}
+          {curso.etiqueta ?? curso.cod_curso ?? 'Curso'}
         </Link>
         <ChevronRight size={13} class="text-[#98A0AE]" aria-hidden="true" />
         <span class="px-1 font-medium text-[#1A1A24]" aria-current="page">Actividades</span>
@@ -529,6 +520,19 @@
         >
           {flashError}
         </p>
+      {/if}
+      {#if copiaOmitidas.length > 0}
+        <div
+          class="m-0 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-[13px] text-[#92400E]"
+          role="status"
+        >
+          <p class="m-0 font-semibold">No se copiaron:</p>
+          <ul class="m-0 mt-1 list-disc pl-5">
+            {#each copiaOmitidas as o, i (i)}
+              <li>{o.nombre} → {o.curso}: {o.motivo}</li>
+            {/each}
+          </ul>
+        </div>
       {/if}
       {#if flashSuccess}
         <p
@@ -569,7 +573,7 @@
             </p>
           </div>
 
-          <div class="ml-auto flex flex-none flex-wrap items-center gap-2.5">
+          <div class="ml-auto flex flex-wrap items-center gap-2.5">
             <!-- Conmutador de vista -->
             <div
               class="flex items-center gap-0.5 rounded-[9px] border border-[#E5E7EB] bg-[#F5F1EA] p-[3px]"
@@ -600,6 +604,12 @@
               </button>
             </div>
 
+            {#if esTitular && actividades.length > 0}
+              <button type="button" class={BTN_OUTLINE} onclick={() => abrirCopiar()}>
+                <Copy size={15} aria-hidden="true" />
+                Copiar a otro curso
+              </button>
+            {/if}
             {#if canCreate}
               <button type="button" class={BTN_PRIMARY} onclick={abrirCrear}>
                 <Plus size={16} aria-hidden="true" />
@@ -639,7 +649,7 @@
                 <Lock size={13} aria-hidden="true" />
               </span>
             {:else if componentesDelRol.length > 1}
-              <label class="inline-flex items-center">
+              <label class="inline-flex max-w-full items-center">
                 <span class="sr-only">Filtrar por componente</span>
                 <select bind:value={filtroComponente} class={SELECT_FILTRO}>
                   <option value="todos">Componente: todos</option>
@@ -651,7 +661,7 @@
             {/if}
 
             {#if unidadesOrdenadas.length > 0}
-              <label class="inline-flex items-center">
+              <label class="inline-flex max-w-full items-center">
                 <span class="sr-only">Filtrar por unidad</span>
                 <select bind:value={filtroUnidad} class={SELECT_FILTRO}>
                   <option value="todas">Unidad: todas</option>
@@ -664,7 +674,7 @@
               </label>
             {/if}
 
-            <label class="inline-flex items-center">
+            <label class="inline-flex max-w-full items-center">
               <span class="sr-only">Filtrar por tipo de evaluación</span>
               <select bind:value={filtroTipo} class={SELECT_FILTRO}>
                 <option value="todas">Evaluación: todas</option>
@@ -674,7 +684,7 @@
             </label>
 
             {#if vista === 'lista'}
-              <label class="inline-flex items-center">
+              <label class="inline-flex max-w-full items-center">
                 <span class="sr-only">Filtrar por estado</span>
                 <select bind:value={filtroEstado} class={SELECT_FILTRO}>
                   <option value="todos">Estado: todos</option>
@@ -693,7 +703,7 @@
               </span>
             {/if}
 
-            <label class="inline-flex items-center">
+            <label class="inline-flex max-w-full items-center">
               <span class="sr-only">Filtrar por visibilidad</span>
               <select bind:value={filtroVisibilidad} class={SELECT_FILTRO}>
                 <option value="todas">Visibilidad: todas</option>
@@ -806,9 +816,9 @@
             {toggles}
             onToggleVisible={handleToggleVisible}
             onEdit={abrirEditar}
-            onCopiar={abrirCopiar}
             onDelete={abrirEliminar}
             onEnunciado={abrirEnunciado}
+            onCopiar={esTitular ? abrirCopiar : undefined}
           />
 
           <!-- Pie: qué se está viendo y cómo se reparte. Sin paginación: el
@@ -832,7 +842,7 @@
             actividades={actividadesFiltradas}
             idCurso={curso.id_curso}
             {canEdit}
-            onCopiar={abrirCopiar}
+            onCopiar={esTitular ? abrirCopiar : undefined}
           />
         {/if}
       </section>
@@ -854,18 +864,6 @@
     onSubmit={handleSubmit}
   />
 
-  <ActividadCopiarModal
-    bind:isOpen={showCopy}
-    idCurso={curso.id_curso}
-    actividad={copiandoActividad}
-    isLoading={copiando}
-    onClose={() => {
-      showCopy = false;
-      copiandoActividad = null;
-    }}
-    onSubmit={handleCopiarSubmit}
-  />
-
   <ActividadEliminarDialog
     bind:isOpen={showDelete}
     actividad={eliminando}
@@ -877,6 +875,14 @@
       showDelete = false;
       eliminando = null;
     }}
+  />
+
+  <CopiarActividadesModal
+    bind:isOpen={showCopiar}
+    idCurso={curso.id_curso}
+    {actividades}
+    preseleccion={copiarPreseleccion}
+    onClose={() => (showCopiar = false)}
   />
 
   <EnunciadoModal

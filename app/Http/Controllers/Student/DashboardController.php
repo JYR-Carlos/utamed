@@ -96,7 +96,7 @@ class DashboardController extends Controller
         return Inertia::render('student/Dashboard', [
             'mensajeria' => $this->mensajesSinLeer($mensajeria, (int) $user->id_usuario),
             'cursos' => $cursosData,
-            'proximasAVencer' => $resumen->proximasAVencer($estudiante),
+            'proximasAVencer' => $resumen->proximasAVencer($estudiante, $semestreActual, $agnoActual),
             'notasRecientes' => $resumen->notasYRetroalimentaciones($estudiante),
             'stats' => [
                 'total_cursos' => $cursosData->count(),

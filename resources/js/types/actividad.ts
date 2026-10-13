@@ -25,6 +25,14 @@ export interface Actividad {
     total_grupos?: number;
     /** Grupos con nota puesta. */
     calificados?: number;
+    /** Grupos con al menos una entrega vigente (grupos, no filas de entrega). */
+    grupos_con_entrega?: number;
+    /** Grupos que entregaron y aún no tienen nota (sumativas). */
+    por_calificar?: number;
+    /** Grupos con feedback dirigido a ellos (formativas: así se dan por revisadas). */
+    con_feedback?: number;
+    /** Grupos que entregaron y aún no reciben feedback (formativas). */
+    por_revisar?: number;
     /** Promedio de las notas puestas, o null si todavía no hay ninguna. */
     promedio_nota?: number | null;
     /**
@@ -111,4 +119,6 @@ export interface MensajeEstudiante {
     emisor_id_usuario: number;
     actividad_nombre: string;
     id_actividad: number;
+    /** Nombre del grupo (propio o «Grupo N»); null si la actividad es individual. */
+    grupo_etiqueta?: string | null;
 }

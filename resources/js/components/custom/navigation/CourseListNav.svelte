@@ -122,7 +122,10 @@
   let search = $state('');
 
   function matches(curso: SidebarCourse, q: string) {
-    return curso.nombre.toLowerCase().includes(q) || curso.cod_curso.toLowerCase().includes(q);
+    return (
+      (curso.etiqueta ?? curso.nombre).toLowerCase().includes(q) ||
+      curso.cod_curso.toLowerCase().includes(q)
+    );
   }
 
   let filteredCurrent = $derived.by(() => {
@@ -159,9 +162,11 @@
       />
       <div class="flex-1 min-w-0 flex flex-col">
         <span class="font-mono text-[10.5px] text-slate-400 truncate">{curso.cod_curso}</span>
+        <!-- La etiqueta lleva el grupo al final («… Grupo A»): con truncate se
+             cortaba justo lo que distingue a dos cursos hermanos. -->
         <span
-          class="truncate text-[13.5px] font-semibold text-slate-700 group-hover:text-[#22213F] transition-colors"
-          title={curso.nombre}>{curso.nombre}</span
+          class="line-clamp-2 text-[13.5px] font-semibold text-slate-700 group-hover:text-[#22213F] transition-colors"
+          title={curso.etiqueta ?? curso.nombre}>{curso.etiqueta ?? curso.nombre}</span
         >
       </div>
     </Link>

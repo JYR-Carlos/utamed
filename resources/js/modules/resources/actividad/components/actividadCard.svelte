@@ -24,6 +24,9 @@
       max_integrantes: number;
       fecha_limite: string;
       visible: boolean;
+      estado?: string;
+      ya_entregada?: boolean;
+      ya_evaluada?: boolean;
     };
   }
 
@@ -35,10 +38,10 @@
     const limite = parseFechaSoloDia(actividad.fecha_limite);
     const dias = Math.round((limite.getTime() - hoy.getTime()) / 86_400_000);
 
-    if (dias < 0) return { etiqueta: 'Cerró el', urgente: false };
-    if (dias === 0) return { etiqueta: 'Vence hoy', urgente: true };
-    if (dias <= 3) return { etiqueta: 'Cierra pronto', urgente: true };
-    return { etiqueta: 'Fecha límite', urgente: false };
+    if (dias < 0) return { etiqueta: 'Venció el', vencida: true, urgente: false };
+    if (dias === 0) return { etiqueta: 'Vence hoy', vencida: false, urgente: true };
+    if (dias <= 3) return { etiqueta: 'Cierra pronto', vencida: false, urgente: true };
+    return { etiqueta: 'Fecha límite', vencida: false, urgente: false };
   });
 </script>
 
@@ -69,8 +72,8 @@
       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-600 bg-gray-50 border border-gray-100"
     >
       {#if actividad.con_entrega}
-        <FileCheck2 class="w-3.5 h-3.5" />
-        Con entrega
+        <FileCheck2 class="w-3.5 h-3.5 {actividad.ya_entregada ? 'text-emerald-600' : ''}" />
+        {actividad.ya_entregada ? 'Entregada' : 'Con entrega'}
       {:else}
         <FileMinus2 class="w-3.5 h-3.5" />
         Sin entrega
@@ -84,9 +87,11 @@
       {actividad.es_sumativa ? 'Sumativa' : 'Formativa'}
     </span>
     <span
-      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium sm:ml-auto {plazo.urgente
-        ? 'bg-uta-red-light text-uta-red border border-uta-red/20'
-        : 'bg-gray-50 text-gray-600 border border-gray-100'}"
+      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium sm:ml-auto {plazo.vencida && !actividad.ya_entregada
+        ? 'bg-uta-red-light text-uta-red border border-uta-red/30'
+        : plazo.urgente
+          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+          : 'bg-gray-50 text-gray-600 border border-gray-100'}"
     >
       <CalendarDays class="w-3.5 h-3.5" />
       {plazo.etiqueta}

@@ -31,6 +31,7 @@
 
   type GrupoOrigen = {
     grupo: number;
+    etiqueta: string;
     integrantes: IntegranteOrigen[];
     cantidad_integrantes: number;
     cantidad_vigentes: number;
@@ -190,7 +191,7 @@
                     <div class="flex items-center gap-2 flex-wrap">
                       <span class="text-sm font-medium text-gray-800 flex items-center gap-1">
                         <Users class="w-3.5 h-3.5 text-gray-400" />
-                        Grupo #{g.grupo}
+                        {g.etiqueta}
                       </span>
                       <span
                         class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full {completo

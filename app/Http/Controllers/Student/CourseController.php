@@ -27,7 +27,7 @@ use Inertia\Response;
  */
 class CourseController extends Controller
 {
-    private const DEFAULT_COURSE_IMAGE = '/images/default-course.png';
+    private const DEFAULT_COURSE_IMAGE = '/img/utamed.webp';
 
 
     /**
@@ -102,6 +102,7 @@ class CourseController extends Controller
             'nombre'           => $curso->nombre,
             'cod_curso'        => $curso->cod_curso,
             'asignatura_nombre'=> $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+            'etiqueta'         => $curso->etiqueta(),
             'carrera_nombre'   => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
             'fecha_inicio'     => $curso->fecha_inicio,
             'fecha_fin'        => $curso->fecha_fin,
@@ -183,12 +184,16 @@ class CourseController extends Controller
                 'id_actividad'    => $actividad->id_actividad,
                 'nombre'          => $actividad->nombre,
                 'es_sumativa'     => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
+                // «Cómo se evalúa» cuenta las actividades de cada componente.
+                'componente_tipo' => $actividad->componente?->tipoComponente?->tipo,
                 'con_entrega'     => $actividad->tipo_entrega !== 'SIN_ENTREGA',
                 'es_grupal'       => (bool) $actividad->es_grupal,
                 'max_integrantes' => $actividad->max_integrantes ?? 1,
                 'fecha_limite'    => $actividad->fecha_limite?->format('Y-m-d'),
                 'visible'         => (bool) $actividad->visible,
                 'estado'          => $estado,
+                'ya_entregada'    => (bool) ($grupo?->tieneEntregaVigente()),
+                'ya_evaluada'     => (bool) ($grupo?->yaFueEvaluado()),
             ];
         })->values();
 
@@ -206,6 +211,7 @@ class CourseController extends Controller
                     'cod_curso'         => $curso->cod_curso,
                     'cod_asignatura'    => $curso->asignacionPlan?->asignatura?->cod_asignatura ?? '',
                     'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre ?? 'N/A',
+                    'etiqueta'          => $curso->etiqueta(),
                     'carrera_nombre'    => $curso->asignacionPlan?->plan?->carrera?->nombre ?? '',
                     'letra_grupo'       => $curso->letra_grupo,
                     'semestre_real'     => $curso->semestre_real,

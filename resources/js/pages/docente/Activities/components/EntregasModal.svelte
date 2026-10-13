@@ -17,6 +17,8 @@
   // encajar donde entró.
   type GrupoData = {
     grupo: number;
+    /** Cómo se rotula el grupo: nombre del estudiante (individual) o nombre propio / «Grupo N». */
+    etiqueta: string;
     nota: number | null;
     estado_actividad_asignada: string | null;
     nro_dias_adicionales_para_bloqueo_personal: number;
@@ -25,6 +27,10 @@
 
   type EntregaGrupo = {
     id_agenda: number;
+    /** La última entrega del grupo; las anteriores quedaron reemplazadas. */
+    vigente: boolean;
+    /** Llegó después de la fecha límite original (puede estar dentro de la holgura). */
+    fuera_de_plazo: boolean;
     fecha_envio: string;
     mensaje: string | null;
     tipo_registro: string | null;
@@ -118,7 +124,7 @@
     <div class="flex items-center justify-between px-6 py-4 border-b shrink-0">
       <div>
         <h3 class="text-base font-bold text-gray-900">
-          Entregas — {esGrupal ? `Grupo #${grupo.grupo}` : (grupo.integrantes[0]?.nombre_completo ?? 'Estudiante')}
+          Entregas — {grupo.etiqueta}
         </h3>
         <p class="text-xs text-gray-500 mt-0.5">{nombreActividad}</p>
       </div>
@@ -170,6 +176,21 @@
                     <FileText class="w-3 h-3" />
                     {entrega.tipo_registro ?? 'Entrega'}
                   </span>
+                  <!-- Cuál es la entrega que cuenta y cuáles quedaron atrás -->
+                  {#if entrega.vigente}
+                    <span class="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-white px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                      Vigente
+                    </span>
+                  {:else}
+                    <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">
+                      Reemplazada
+                    </span>
+                  {/if}
+                  {#if entrega.fuera_de_plazo}
+                    <span class="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                      Fuera de plazo
+                    </span>
+                  {/if}
                   <!-- Badge estado evaluación -->
                   {#if entrega.evaluada}
                     <span
@@ -183,7 +204,7 @@
                       class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700"
                     >
                       <Clock class="w-3 h-3" />
-                      Pendiente
+                      Sin evaluar
                     </span>
                   {/if}
                 </div>

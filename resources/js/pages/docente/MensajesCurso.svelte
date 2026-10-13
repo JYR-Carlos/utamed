@@ -27,6 +27,7 @@
   // ── Types ─────────────────────────────────────────────────────────────────
 
   interface Curso {
+    etiqueta?: string;
     id_curso: number;
     cod_curso: string;
     nombre: string;
@@ -81,13 +82,19 @@
   function hilosPorGrupo(msgs: MensajeEstudiante[]) {
     const map = new Map<
       number,
-      { actividad_nombre: string; id_actividad: number; items: MensajeEstudiante[] }
+      {
+        actividad_nombre: string;
+        id_actividad: number;
+        grupo_etiqueta: string | null;
+        items: MensajeEstudiante[];
+      }
     >();
     for (const m of msgs) {
       if (!map.has(m.grupo)) {
         map.set(m.grupo, {
           actividad_nombre: m.actividad_nombre,
           id_actividad: m.id_actividad,
+          grupo_etiqueta: m.grupo_etiqueta ?? null,
           items: [],
         });
       }
@@ -193,6 +200,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Mensajes del curso | UTAmed</title>
+</svelte:head>
+
 <DocenteLayout>
   <div class="flex flex-col h-full">
     <!-- ── Header ─────────────────────────────────────────────────────────── -->
@@ -201,7 +212,7 @@
         <Link href="/docente/cursos" class="hover:text-indigo-600">Mis Cursos</Link>
         <span class="text-slate-300">/</span>
         <Link href="/docente/cursos/{curso.id_curso}" class="hover:text-indigo-600">
-          {curso.cod_curso}
+          {curso.etiqueta ?? curso.cod_curso}
         </Link>
         <span class="text-slate-300">/</span>
         <span class="text-slate-700 font-medium">Mensajes de actividades</span>
@@ -381,7 +392,9 @@
                 >
                   <div class="min-w-0">
                     <p class="text-xs font-bold text-slate-700 truncate">{hilo.actividad_nombre}</p>
-                    <p class="text-[10px] text-slate-400">Grupo #{grupoId}</p>
+                    {#if hilo.grupo_etiqueta}
+                      <p class="text-[10px] text-slate-400">{hilo.grupo_etiqueta}</p>
+                    {/if}
                   </div>
                   <Link
                     href="/docente/cursos/{curso.id_curso}/actividades/{hilo.id_actividad}/evaluacion"

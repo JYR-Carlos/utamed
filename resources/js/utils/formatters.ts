@@ -244,7 +244,9 @@ export function formatFechaHora(val: string | null | undefined): string {
         month: 'short',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        // 24 h como el alumno (la agenda dice «16:43 hrs»); antes el docente veía «04:43 p. m.».
+        hourCycle: 'h23'
     });
 }
 

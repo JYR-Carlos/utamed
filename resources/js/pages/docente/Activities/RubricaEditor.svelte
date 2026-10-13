@@ -223,7 +223,7 @@
       return isNaN(v) ? null : v;
     });
     if (pts.some((p) => p === null || p < 0)) {
-      return 'Todos los niveles deben tener un puntaje mayor o igual a 0.';
+      return 'Cada nivel necesita un puntaje numérico, igual o mayor que 0; no puede quedar vacío.';
     }
     const isAsc = pts.every((p, i) => i === 0 || (p !== null && pts[i - 1] !== null && p > pts[i - 1]!));
     const isDesc = pts.every((p, i) => i === 0 || (p !== null && pts[i - 1] !== null && p < pts[i - 1]!));

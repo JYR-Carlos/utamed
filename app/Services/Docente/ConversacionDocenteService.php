@@ -3,6 +3,7 @@
 namespace App\Services\Docente;
 
 use App\Enums\DB\TipoMensaje;
+use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Operaciones\Archivo;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -86,9 +87,24 @@ class ConversacionDocenteService
                 'u.id_usuario as emisor_id_usuario',
                 'act.nombre as actividad_nombre',
                 'act.id_actividad',
+                'act.es_grupal',
+                'aag.nombre_grupo',
                 'aag.id_actividad_asignada_grupo as grupo',
+                // Posición del grupo dentro de su actividad, para «Grupo N».
+                DB::raw('(SELECT COUNT(*) FROM agenda.actividad_asignada_grupo x
+                          WHERE x.id_actividad = aag.id_actividad
+                            AND x.id_actividad_asignada_grupo <= aag.id_actividad_asignada_grupo) AS posicion_grupo'),
             )
-            ->get();
+            ->get()
+            // Cómo se llama el grupo ante el docente (nunca el id interno). En una
+            // actividad individual no hay grupo que nombrar: el hilo es del estudiante.
+            ->map(function ($m) {
+                $m->grupo_etiqueta = $m->es_grupal
+                    ? ActividadAsignadaGrupo::etiqueta(true, $m->nombre_grupo, null, (int) $m->posicion_grupo)
+                    : null;
+
+                return $m;
+            });
     }
 
     /**

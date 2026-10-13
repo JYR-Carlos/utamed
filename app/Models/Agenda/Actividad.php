@@ -82,6 +82,14 @@ class Actividad extends BaseActividad
     }
 
     /**
+     * Determina si la actividad se encuentra en estado CERRADA.
+     */
+    public function estaCerrada(): bool
+    {
+        return $this->calcularEstadoBase() === 'CERRADA';
+    }
+
+    /**
      * Determina si la actividad ya tiene evaluaciones iniciadas o registradas,
      * lo cual congela la rúbrica impidiendo cualquier edición posterior.
      */

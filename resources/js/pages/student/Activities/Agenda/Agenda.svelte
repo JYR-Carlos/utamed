@@ -121,7 +121,7 @@
           {esDocente ? 'Agenda del Grupo' : 'Agenda de la actividad'}
         </span>
         <span class="truncate text-xs text-[#5A5E6E]">
-          {cod_curso} · {nombre_actividad}{nombre_grupo ? ` · ${nombre_grupo}` : ''}
+          {nombre_curso || cod_curso} · {nombre_actividad}{nombre_grupo ? ` · ${nombre_grupo}` : ''}
         </span>
       </div>
       {#if !inline}

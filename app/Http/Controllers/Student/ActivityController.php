@@ -109,6 +109,12 @@ class ActivityController extends Controller
 
         
         $ultimaNota = $integranteGrupo?->nota_individual ?? $grupo?->nota;
+
+        // El docente puede ajustar la nota de cada integrante en décimas sobre
+        // la del grupo: sin esto el alumno veía 6,5 al lado de una rúbrica que
+        // da 7,0 y no había cómo entender la diferencia.
+        $ajusteDecimas = (float) ($integranteGrupo?->diferencia_decimas ?? 0);
+        $notaGrupo = $grupo?->nota !== null ? (float) $grupo->nota : null;
         
         $interacciones = [];
         $ultimaEntrega = null;
@@ -163,9 +169,10 @@ class ActivityController extends Controller
                 ];
             })->values()->toArray();
 
-            // Abrir la actividad es leer su agenda (T07): se registra la
-            // lectura y el último mensaje trae quiénes lo han visto.
-            $interacciones = (new LecturaAgendaService)->leerHilo($user->id_usuario, $interacciones);
+            // El «Visto» (T07) se registra al ABRIR la agenda, no al cargar la
+            // actividad (AgendaController::marcarLeida). Aquí sólo se trae quiénes
+            // vieron el último mensaje.
+            $interacciones = (new LecturaAgendaService)->leerHilo($user->id_usuario, $interacciones, registrar: false);
 
             // Rúbrica usada en la evaluación más reciente (no la última rúbrica creada)
             $ultimaEvaluacionAgenda = $agendas->reverse()->first(fn (Agenda $a) => $a->evaluacion !== null);
@@ -233,18 +240,18 @@ class ActivityController extends Controller
         return Inertia::render('student/Activities/Index', [
             'id_curso'              => $curso->id_curso,
             'cod_curso'             => $curso->cod_curso,
-            'nombre_curso'          => $curso->asignacionPlan?->asignatura?->nombre ?? $curso->nombre,
+            'nombre_curso'          => $curso->etiqueta(),
             'cod_actividad'         => (string) $actividad->id_actividad,
             'nombre_actividad'      => $actividad->nombre ?? '',
             'descripcion'           => '', 
-            'dias_holgura'          => (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0),
-            'dias_holgura_personal' => (int) ($grupo?->nro_dias_adicionales_para_bloqueo_personal ?? 0),
             'fecha_limite'          => $actividad->fecha_limite?->format('Y-m-d') ?? '',
             'es_sumativa'           => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
             'es_grupal'             => (bool) $actividad->es_grupal,
             'trae_archivo'          => $actividad->uuid_archivo !== null,
             'entrega_obligatoria'   => strtolower($actividad->tipo_entrega ?? '') !== 'sin entrega',
             'ultima_nota'           => $ultimaNota !== null ? (float) $ultimaNota : null,
+            'ajuste_decimas'        => $ajusteDecimas,
+            'nota_grupo'            => $notaGrupo,
             'ultima_evaluacion'     => $ultimaEvaluacion,
             'ultima_entrega'        => $ultimaEntrega,
             'estado'                => $estado,

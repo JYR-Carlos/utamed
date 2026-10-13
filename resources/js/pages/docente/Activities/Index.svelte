@@ -31,15 +31,33 @@
    * `?grupo={id}` abre al cargar la agenda de ese grupo: es el destino de la
    * bandeja de mensajes (docente/Mensajes), que no muestra las conversaciones.
    */
+  import { colorEstadoGrupo } from '@/utils/actividadEstado';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import { onMount } from 'svelte';
   import { Link, router, page } from '@inertiajs/svelte';
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
-  import { ChevronLeft, Plus, Users, Pencil, Copy, Eye, Lock, Send, Loader2, X } from 'lucide-svelte';
+  import {
+    ChevronLeft,
+    Plus,
+    Users,
+    Pencil,
+    Copy,
+    Eye,
+    Lock,
+    Send,
+    Loader2,
+    X,
+    FileText,
+    Download,
+    Upload,
+  } from 'lucide-svelte';
+  import EnunciadoModal from '@/components/docente/EnunciadoModal.svelte';
+  import type { Actividad } from '@/types/actividad';
+  import { formatBytes } from '@/utils/formatters';
   import { ConfirmDialog } from '@/components/custom/common';
-  import { formatFechaHora } from '@/utils/formatters';
+  import { textoCierre } from '@/utils/plazo';
   import AgendaDocente from './Agenda/AgendaDocente.svelte';
   import RubricaEditor from './RubricaEditor.svelte';
   import MatrizEvaluacion from './MatrizEvaluacion.svelte';
@@ -62,6 +80,10 @@
 
   type GrupoData = {
     grupo: number;
+    /** Cómo se rotula el grupo: nombre del estudiante (individual) o nombre propio / «Grupo N». */
+    etiqueta: string;
+    /** Resumen de la entrega vigente del grupo; null si aún no entregó. */
+    entrega?: { fecha: string; fuera_de_plazo: boolean; cantidad: number } | null;
     nota: number | null;
     estado_actividad_asignada: string | null;
     nro_dias_adicionales_para_bloqueo_personal: number;
@@ -84,7 +106,7 @@
 
   // ─── Props desde Inertia ──────────────────────────────────────────────────
   interface Props {
-    curso: { id_curso: number; nombre: string; cod_curso: string };
+    curso: { id_curso: number; nombre: string; etiqueta?: string; cod_curso: string };
     actividad: {
       id_actividad: number;
       nombre: string;
@@ -96,6 +118,13 @@
       max_integrantes?: number;
       es_titular: boolean;
       nro_dias_adicionales_para_bloqueo: number;
+      archivo_enunciado?: { nombre_original: string; mime_type: string | null; peso_bytes: number | null } | null;
+    };
+    reglas_enunciado: {
+      extensiones_pdf: string[];
+      extensiones_img: string[];
+      max_mb_pdf: number;
+      max_mb_imagen: number;
     };
     grupos: GrupoData[];
     rubrica?: Rubrica | null;
@@ -115,6 +144,7 @@
   let {
     curso,
     actividad,
+    reglas_enunciado,
     grupos,
     rubrica = null,
     rubrica_id = null,
@@ -129,7 +159,7 @@
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Mis Cursos', href: '/docente/cursos' },
-    { title: curso.nombre, href: `/docente/cursos/${curso.id_curso}/actividades` },
+    { title: curso.etiqueta ?? curso.nombre, href: `/docente/cursos/${curso.id_curso}/actividades` },
     { title: actividad.nombre, href: '#' },
   ]);
 
@@ -396,7 +426,7 @@
 
   function formatDecimas(d: number | undefined): string {
     const v = d ?? 0;
-    return `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`;
+    return `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1).replace('.', ',')}`;
   }
 
   // ─── Entregas del grupo ───────────────────────────────────────────────────
@@ -542,7 +572,7 @@
     const grupoSnap = grupoSeleccionado;
 
     if (data.tipo === 'Evaluación') {
-      if (!rubrica_id) {
+      if (actividad.es_sumativa && !rubrica_id) {
         errorInteracciones = 'Esta actividad no tiene rúbrica. Crea una rúbrica antes de evaluar.';
         return;
       }
@@ -550,14 +580,14 @@
         `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/grupos/${grupoSnap.grupo}/evaluacion`,
         {
           id_agenda_entrega: data.id_agenda_entrega ?? null,
-          id_rubrica: rubrica_id,
+          id_rubrica: actividad.es_sumativa ? rubrica_id : null,
           // Uno u otro según el tipo de actividad: el servidor rechaza una nota
           // numérica en una formativa y la exige en una sumativa.
           nota: actividad.es_sumativa ? (data.nota ?? null) : null,
           evaluacion_obtenida: actividad.es_sumativa ? null : (data.evaluacion_obtenida ?? null),
           mensaje: data.mensaje,
-          resultado_rubrica: data.resultado_rubrica,
-          puntaje_obtenido: data.puntaje_obtenido,
+          resultado_rubrica: actividad.es_sumativa ? data.resultado_rubrica : null,
+          puntaje_obtenido: actividad.es_sumativa ? data.puntaje_obtenido : null,
         },
         {
           preserveScroll: true,
@@ -610,14 +640,30 @@
     }
   }
 
-  function getEstadoColor(estado: string) {
-    const e = estado.toUpperCase();
-    if (e === 'ACTIVA') return 'bg-uta-blue/10 text-uta-blue border-uta-blue/30';
-    if (e === 'CERRADA') return 'bg-green-100 text-green-800 border-green-300';
-    if (e === 'PLANIFICADA') return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    return 'bg-gray-100 text-gray-800 border-gray-300';
-  }
+  // Misma paleta que la lista y el tablero de actividades (actividadEstado.ts):
+  // antes «CERRADA» salía en verde, el color de «Activa» en el resto.
+  const getEstadoColor = colorEstadoGrupo;
+
+  const cierre = $derived(actividad.fecha_limite ? textoCierre(actividad.fecha_limite) : null);
+
+  // ─── Enunciado ────────────────────────────────────────────────────────────
+  // Vive junto a la rúbrica en «Sobre esta actividad». Sólo el titular puede
+  // adjuntarlo o reemplazarlo (CursoPolicy::manageTeam en subirEnunciado).
+  let showEnunciado = $state(false);
+  const urlEnunciado = $derived(
+    `/docente/cursos/${curso.id_curso}/actividades/${actividad.id_actividad}/enunciado/descargar`,
+  );
+  const detalleEnunciado = $derived.by(() => {
+    const a = actividad.archivo_enunciado;
+    if (!a) return '';
+    const ext = a.nombre_original.split('.').pop()?.toUpperCase() ?? '';
+    return [ext, a.peso_bytes ? formatBytes(a.peso_bytes) : ''].filter(Boolean).join(' · ');
+  });
 </script>
+
+<svelte:head>
+  <title>{actividad.nombre} | UTAmed</title>
+</svelte:head>
 
 <DocenteLayout {breadcrumbs}>
   <div class="px-4 sm:px-6 md:px-10 lg:px-20 bg-white relative">
@@ -684,9 +730,18 @@
           >
             <div class="min-w-0">
               <dt class="text-xs font-medium text-slate-500">Fecha límite</dt>
-              <dd class="font-semibold text-slate-700 break-words">
-                {formatFechaHora(actividad.fecha_limite)}
-              </dd>
+              <!-- Fecha sin hora: cierra a las 23:59 de Chile, no a la medianoche UTC
+                   que daba new Date() (se veía «23 sept, 09:00 p. m.»). -->
+              {#if cierre}
+                <dd class="font-semibold text-slate-700 break-words">
+                  {cierre.chile} <span class="font-normal text-slate-500">(hora de Chile)</span>
+                </dd>
+                {#if cierre.local}
+                  <dd class="text-xs text-slate-500">Tu hora: {cierre.local}</dd>
+                {/if}
+              {:else}
+                <dd class="font-semibold text-slate-700">Sin fecha límite</dd>
+              {/if}
             </div>
             <div class="min-w-0">
               <dt class="text-xs font-medium text-slate-500">Tipo de actividad</dt>
@@ -708,9 +763,49 @@
             {/if}
           </dl>
 
-          <!-- Botón de rúbrica: al lado del resumen, no debajo ocupando el ancho. -->
-          {#if actividad.es_titular || rubrica}
-            <div class="flex flex-col gap-1.5 shrink-0 md:w-56 md:self-stretch">
+          <!-- Enunciado y rúbrica (solo sumativas): al lado del resumen, no debajo ocupando el ancho. -->
+          <div class="flex flex-col gap-1.5 shrink-0 md:w-56 md:self-stretch">
+            {#if actividad.archivo_enunciado}
+              <div class="flex flex-1 items-stretch gap-1.5">
+                <a
+                  href={urlEnunciado}
+                  class="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-uta-blue bg-uta-blue-light px-4 py-3 text-uta-blue no-underline transition-all hover:bg-uta-blue hover:text-white"
+                  title={actividad.archivo_enunciado.nombre_original}
+                >
+                  <Download class="size-5 shrink-0" />
+                  <span class="flex min-w-0 flex-col">
+                    <span class="text-sm font-semibold">Enunciado</span>
+                    {#if detalleEnunciado}<span class="text-[11px] opacity-80">{detalleEnunciado}</span>{/if}
+                  </span>
+                </a>
+                {#if actividad.es_titular}
+                  <button
+                    type="button"
+                    class="flex w-11 shrink-0 items-center justify-center rounded-xl border border-uta-blue bg-white text-uta-blue transition-all hover:bg-uta-blue hover:text-white"
+                    title="Reemplazar enunciado"
+                    aria-label="Reemplazar enunciado"
+                    onclick={() => (showEnunciado = true)}
+                  >
+                    <Upload class="size-4" />
+                  </button>
+                {/if}
+              </div>
+            {:else if actividad.es_titular}
+              <button
+                type="button"
+                class="flex flex-1 w-full items-center justify-between gap-4 rounded-xl border border-dashed border-uta-blue bg-white px-4 py-3 text-sm font-semibold text-uta-blue transition-all hover:bg-uta-blue-light sm:px-6"
+                onclick={() => (showEnunciado = true)}
+              >
+                <p>Adjuntar enunciado</p>
+                <FileText class="size-5 shrink-0" />
+              </button>
+            {:else}
+              <div class="flex flex-1 items-center gap-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-xs font-medium text-gray-500">
+                <FileText class="size-5 shrink-0 text-gray-400" />
+                Sin enunciado adjunto
+              </div>
+            {/if}
+            {#if actividad.es_sumativa && (actividad.es_titular || rubrica)}
               <button
                 class="flex flex-1 w-full items-center justify-between gap-4 rounded-xl border border-uta-blue bg-white px-4 py-3 text-sm font-semibold text-uta-blue transition-all hover:bg-uta-blue hover:text-white sm:px-6"
                 onclick={() => (showRubricaEditor = true)}
@@ -736,8 +831,8 @@
                   <span>Evaluaciones iniciadas (rúbrica bloqueada)</span>
                 </div>
               {/if}
-            </div>
-          {/if}
+            {/if}
+          </div>
         </div>
       </div>
 
@@ -1029,11 +1124,10 @@
         <AgendaDocente
           onCerrar={cerrarAgenda}
           onInteraccionEnviada={manejarInteraccionDocente}
-          cod_curso={curso.cod_curso}
+          cod_curso={curso.etiqueta ?? curso.cod_curso}
           nombre_actividad={actividad.nombre}
-          nombre_grupo={actividad.es_grupal
-            ? `Grupo #${grupoSeleccionado.grupo}`
-            : (grupoSeleccionado.integrantes[0]?.nombre_completo ?? `Estudiante #${grupoSeleccionado.grupo}`)}
+          nombre_grupo={grupoSeleccionado.etiqueta}
+          esGrupal={actividad.es_grupal}
           idCurso={curso.id_curso}
           idActividad={actividad.id_actividad}
           idGrupo={grupoSeleccionado.grupo}
@@ -1074,9 +1168,7 @@
       rubricaId={rubrica_id}
       esSumativa={actividad.es_sumativa}
       nombreActividad={actividad.nombre}
-      nombreGrupo={actividad.es_grupal
-        ? `Grupo #${grupoEntregasSeleccionado.grupo}`
-        : (grupoEntregasSeleccionado.integrantes[0]?.nombre_completo ?? `Estudiante #${grupoEntregasSeleccionado.grupo}`)}
+      nombreGrupo={grupoEntregasSeleccionado.etiqueta}
       idCurso={curso.id_curso}
       idActividad={actividad.id_actividad}
       idGrupo={grupoEntregasSeleccionado.grupo}
@@ -1098,6 +1190,29 @@
       />
     {/if}
   {/key}
+
+  <EnunciadoModal
+    bind:isOpen={showEnunciado}
+    idCurso={curso.id_curso}
+    actividad={{
+      id_actividad: actividad.id_actividad,
+      nombre: actividad.nombre,
+      archivo_enunciado: actividad.archivo_enunciado ?? null,
+    } as unknown as Actividad}
+    reglas={reglas_enunciado}
+    onClose={() => (showEnunciado = false)}
+  />
+
+  <!-- Confirmación de «Quitar del grupo» / «Eliminar grupo». Sin este montaje
+       pedirConfirmacion() cambiaba el estado y nada aparecía en pantalla. -->
+  <ConfirmDialog
+    open={confirmState.open}
+    title={confirmState.title}
+    body={confirmState.body}
+    confirmLabel={confirmState.confirmLabel}
+    onConfirm={confirmState.onConfirm}
+    onCancel={cerrarConfirmacion}
+  />
 </DocenteLayout>
 
 <svelte:window

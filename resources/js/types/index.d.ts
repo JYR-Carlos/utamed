@@ -20,6 +20,8 @@ export interface Carrera {
 export interface Curso {
     id_curso: number;
     nombre: string;
+    /** «Taller de Multimedia II Grupo A» (Curso::etiqueta()). */
+    etiqueta?: string;
     cod_curso: string;
     cod_asignatura?: string;
     asignatura_nombre?: string;
@@ -38,6 +40,9 @@ export interface Curso {
 export interface SidebarCourse {
     id_curso: number;
     nombre: string;
+    /** «Taller de Multimedia II Grupo A»: asignatura + grupo (Curso::etiqueta()). */
+    etiqueta?: string;
+    letra_grupo?: string | null;
     cod_curso: string;
     agno_real: number;
     semestre_real: number;

@@ -14,6 +14,31 @@ use App\Models\Base\Agenda\BaseActividadAsignadaGrupo;
 class ActividadAsignadaGrupo extends BaseActividadAsignadaGrupo
 {
     /**
+     * Cómo se nombra un grupo ante el docente.
+     *
+     * En una actividad individual el «grupo» de 1 persona sólo emula su registro
+     * individual: se muestra el nombre del estudiante, nunca el id del grupo. En
+     * una grupal vale el nombre propio del grupo (`nombre_grupo`, que ponen sus
+     * integrantes) y, si todavía no lo tiene, «Grupo N», con N la posición dentro
+     * de la actividad —no el id interno, que es global a toda la tabla—.
+     *
+     * @param  string|null  $nombreEstudiante  Nombre del único integrante (individual).
+     * @param  int  $posicion  Posición del grupo dentro de la actividad, desde 1.
+     */
+    public static function etiqueta(bool $esGrupal, ?string $nombreGrupo, ?string $nombreEstudiante, int $posicion): string
+    {
+        if (!$esGrupal) {
+            $nombre = trim((string) $nombreEstudiante);
+
+            return $nombre !== '' ? $nombre : 'Estudiante';
+        }
+
+        $nombre = trim((string) $nombreGrupo);
+
+        return $nombre !== '' ? $nombre : "Grupo {$posicion}";
+    }
+
+    /**
      * Obtiene todos los integrantes del grupo con sus detalles de estudiante
      */
     public function miembros()
@@ -42,6 +67,45 @@ class ActividadAsignadaGrupo extends BaseActividadAsignadaGrupo
         return $this->nota !== null
             || $this->miembros()->whereNotNull('nota_individual')->exists()
             || $this->entregas()->whereHas('evaluacion')->exists();
+    }
+
+    /**
+     * Verifica si el grupo registra al menos una entrega de archivo vigente
+     * (no cancelada por el estudiante).
+     */
+    public function tieneEntregaVigente(): bool
+    {
+        return $this->entregas()->entregasVigentes()->exists();
+    }
+
+    /**
+     * Determina si la actividad está pendiente de entrega para este grupo:
+     * - La actividad requiere entrega (no es 'Sin entrega').
+     * - No se encuentra en estado CERRADA.
+     * - El grupo no registra entrega vigente confirmada.
+     * - El grupo aún no ha sido evaluado.
+     */
+    public function estaPendienteEntrega(?Actividad $actividad = null): bool
+    {
+        $act = $actividad ?? $this->actividad;
+
+        if ($act && strtolower($act->tipo_entrega ?? '') === 'sin entrega') {
+            return false;
+        }
+
+        if ($this->estaCerrada($act)) {
+            return false;
+        }
+
+        if ($this->exists && $this->tieneEntregaVigente()) {
+            return false;
+        }
+
+        if ($this->exists && $this->yaFueEvaluado()) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -98,6 +162,14 @@ class ActividadAsignadaGrupo extends BaseActividadAsignadaGrupo
         }
 
         return $esPostFin ? 'CERRADA' : 'ACTIVA';
+    }
+
+    /**
+     * Determina si la actividad para este grupo se encuentra en estado CERRADA.
+     */
+    public function estaCerrada(?Actividad $actividad = null): bool
+    {
+        return $this->calcularEstadoGrupo($actividad) === EstadoActividadAsignada::CERRADA->value;
     }
 
     /**

@@ -24,7 +24,7 @@
   const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Inicio', href: '/docente/dashboard' },
     { title: 'Mis Cursos', href: '/docente/cursos' },
-    { title: curso?.nombre ?? 'Curso', href: `/docente/cursos/${curso?.id_curso}` },
+    { title: curso?.etiqueta ?? curso?.nombre ?? 'Curso', href: `/docente/cursos/${curso?.id_curso}` },
     { title: 'Mensajería', href: '' },
   ]);
 </script>

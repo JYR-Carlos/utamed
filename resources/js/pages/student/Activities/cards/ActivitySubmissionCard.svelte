@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { cierreEnChile, textoCierre } from '@/utils/plazo';
   import {
     CalendarClock,
     AlertTriangle,
@@ -15,8 +16,6 @@
 
   interface Props {
     fecha_limite: string;
-    dias_holgura: number;
-    dias_holgura_personal?: number;
     estado?: string | null;
     entrega_obligatoria: boolean;
     esGrupal: boolean;
@@ -40,8 +39,6 @@
 
   let {
     fecha_limite,
-    dias_holgura,
-    dias_holgura_personal = 0,
     estado,
     entrega_obligatoria,
     esGrupal,
@@ -54,25 +51,20 @@
     onBorrarClick,
   }: Props = $props();
 
-  function addDays(date: Date, days: number): Date {
-    const d = new Date(date);
-    d.setDate(d.getDate() + days);
-    return d;
-  }
-
   // Una actividad puede exigir entrega sin tener fecha límite: el backend
   // manda '' y parsearla daría una fecha inválida («NaN/NaN»).
   const tieneFecha = $derived(Boolean(fecha_limite));
 
+  // El estudiante ve siempre la fecha límite original. La holgura (general o
+  // personal) es del docente: ni se nombra ni se suma aquí (decisión 07-10).
+  // Con holgura vigente el backend sigue diciendo ACTIVA y la tarjeta muestra
+  // «Fuera de plazo», que es lo único que el alumno necesita saber.
   const fechaBase = $derived.by(() => (tieneFecha ? parseFechaSoloDia(fecha_limite) : null));
-  const fechaEfectiva = $derived.by(() =>
-    fechaBase ? addDays(fechaBase, (dias_holgura || 0) + (dias_holgura_personal || 0)) : null,
-  );
 
-  const vencioBase = $derived(
-    fechaBase !== null &&
-      new Date() > new Date(fechaBase.getFullYear(), fechaBase.getMonth(), fechaBase.getDate(), 23, 59, 59),
-  );
+  // El plazo cierra a las 23:59 de Chile (como el backend), no a las 23:59 de
+  // la zona del navegador: un estudiante fuera de Chile veía otro cierre.
+  const vencioBase = $derived(tieneFecha && new Date() > cierreEnChile(fecha_limite));
+  const cierre = $derived(tieneFecha ? textoCierre(fecha_limite) : null);
 
   const estadoVisual = $derived.by((): 'en_plazo' | 'fuera_de_plazo' | 'cerrada' => {
     if (estado === 'CERRADA') return 'cerrada';
@@ -80,17 +72,16 @@
   });
 
   const diasRestantes = $derived.by(() => {
-    if (!fechaEfectiva) return 0;
-    const ms = fechaEfectiva.getTime() - new Date().getTime();
+    if (!tieneFecha) return 0;
+    const ms = cierreEnChile(fecha_limite).getTime() - new Date().getTime();
     return Math.max(0, Math.ceil(ms / 86_400_000));
   });
 
-  const hayHolguraPersonal = $derived((dias_holgura_personal || 0) > 0);
   const tieneEntrega = $derived(ultima_entrega !== null);
 
   // Formato DD/MM sin año
   const fechaCortaDDMM = $derived.by(() => {
-    const d = fechaEfectiva;
+    const d = fechaBase;
     if (!d) return '';
     const dia = String(d.getDate()).padStart(2, '0');
     const mes = String(d.getMonth() + 1).padStart(2, '0');
@@ -133,7 +124,10 @@
     },
   } as const;
 
-  const s = $derived(estilos[estadoVisual]);
+  // Una entrega ya calificada no tiene plazo que mostrar: «8 días restantes ·
+  // En plazo» sobre una nota publicada confundía.
+  const s = $derived(estilos[yaEvaluada ? 'cerrada' : estadoVisual]);
+  const etiquetaBadge = $derived(yaEvaluada ? 'Calificada' : s.label);
 
   const esVisualizable = $derived.by(() => {
     if (ultima_entrega?.archivo?.visualizable !== undefined) {
@@ -148,7 +142,12 @@
   <!-- Cabecera: Tiempo restante + Badge de estado -->
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-2.5">
-      {#if estadoVisual === 'cerrada'}
+      {#if yaEvaluada}
+        <CheckCircle2 class="h-5 w-5 {s.icon}" />
+        <h2 class="text-lg md:text-xl font-bold tracking-tight text-[#1A1A24]">
+          Entrega calificada
+        </h2>
+      {:else if estadoVisual === 'cerrada'}
         <Lock class="h-5 w-5 {s.icon}" />
         <h2 class="text-lg md:text-xl font-bold tracking-tight text-[#1A1A24]">
           Actividad cerrada
@@ -156,7 +155,7 @@
       {:else if estadoVisual === 'fuera_de_plazo'}
         <AlertTriangle class="h-5 w-5 {s.icon}" />
         <h2 class="text-lg md:text-xl font-bold tracking-tight text-amber-900">
-          {diasRestantes === 0 ? 'Vence hoy (con holgura)' : `${diasRestantes} ${diasRestantes === 1 ? 'día restante' : 'días restantes'} con holgura`}
+          Fuera de plazo
         </h2>
       {:else if !tieneFecha}
         <CalendarClock class="h-5 w-5 {s.icon}" />
@@ -173,7 +172,7 @@
 
     <span class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold {s.badge}">
       <span class="h-1.5 w-1.5 rounded-full {s.dot}"></span>
-      {s.label}
+      {etiquetaBadge}
     </span>
   </div>
 
@@ -189,16 +188,15 @@
           <span class="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#1A1A24] leading-none">
             {fechaCortaDDMM}
           </span>
-          <span class="text-xs font-semibold text-[#5A5E6E]">23:59 hrs</span>
+          <span class="whitespace-nowrap text-xs font-semibold text-[#5A5E6E]">23:59 hrs</span>
         </div>
+        <span class="mt-1 text-[11px] text-[#5A5E6E]">Hora de Chile</span>
+        {#if cierre?.local}
+          <span class="mt-1 text-[11px] text-[#5A5E6E]">Tu hora: {cierre.local}</span>
+        {/if}
       {:else}
         <span class="mt-1 text-sm font-semibold text-[#5A5E6E]">
           La actividad no tiene fecha límite.
-        </span>
-      {/if}
-      {#if hayHolguraPersonal && estadoVisual !== 'cerrada'}
-        <span class="mt-1.5 inline-flex items-center text-[11px] font-medium text-emerald-800">
-          +{dias_holgura_personal} {dias_holgura_personal === 1 ? 'día' : 'días'} de holgura personal
         </span>
       {/if}
     </div>
@@ -286,7 +284,7 @@
             {:else if tieneEntrega && puedeSubirArchivo}
               <Info class="h-3.5 w-3.5 shrink-0 text-emerald-700" />
               <span class="truncate text-[11.5px] font-medium text-emerald-900">
-                Reemplazable hasta el {fechaCortaDDMM}
+                {estadoVisual === 'fuera_de_plazo' ? 'Reemplazable mientras siga abierta' : `Reemplazable hasta el ${fechaCortaDDMM}`}
               </span>
             {:else if !tieneEntrega && puedeSubirArchivo}
               <Info class="h-3.5 w-3.5 shrink-0 text-slate-500" />

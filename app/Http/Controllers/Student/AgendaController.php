@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Agenda\Agenda;
 use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Operaciones\Archivo;
+use App\Services\Archive\ArchiveStorageResult;
+use Illuminate\Support\Facades\Log;
 use App\Models\Usuario\Usuario;
 use App\Enums\DB\TipoMensaje;
 use Illuminate\Support\Facades\Auth;
@@ -128,71 +130,39 @@ class AgendaController extends Controller
             ]);
         }
 
-        DB::beginTransaction();
+        // 1. El archivo primero, FUERA de toda transacción. Validar, buscar
+        //    virus, comprimir y escribir puede tardar segundos; con la
+        //    transacción abierta, cada subida retenía una conexión de
+        //    PostgreSQL todo ese tiempo y, al cierre de un plazo, el pool se
+        //    agotaba antes que el disco. El handler limpia lo que deja a
+        //    medias si falla.
+        $inicio = microtime(true);
 
         try {
-
-            $agenda = $this->crearAgenda(
-                user: $user,
-                actividadAsignadaGrupo: $actividadAsignadaGrupo,
-                tipo: 'Entrega de Avance',
-                mensaje: $request->input('mensaje')
-            );
-
             $storedFile = AgendaArchiveHandler::store(
                 grupo: $actividadAsignadaGrupo,
                 file: $request->getFile(),
                 fileName: $request->getFileName()
             );
-
-            $agenda->uuid_archivo_subido = $storedFile->uuidArchivo;
-            $agenda->save();
-
-            DB::commit();
-
-            return back()->with(
-                'success',
-                'Entrega enviada exitosamente'
-            );
-
         } catch (FileValidationException $e) {
-
-            DB::rollBack();
-
             return back()->withErrors([
-                'archivo' => 'El archivo no es válido: ' .
-                    $e->getMessage()
+                'archivo' => 'El archivo no es válido: ' . $e->getMessage()
             ]);
-
         } catch (VirusDetectedException $e) {
-
-            DB::rollBack();
-
             return back()->withErrors([
                 'archivo' => 'Alerta de seguridad: Se detectó un virus en el archivo.'
             ]);
-
         } catch (CompressionException $e) {
-
-            DB::rollBack();
-
             return back()->withErrors([
                 'archivo' => 'Hubo un problema al comprimir el archivo.'
             ]);
-
         } catch (StorageException $e) {
-
-            DB::rollBack();
             report($e);
 
             return back()->withErrors([
                 'error_general' => 'No se pudo guardar el archivo. ' . $e->getMessage()
             ]);
-
         } catch (ArchiveException $e) {
-
-            DB::rollBack();
-
             // Aquí caen también los errores de configuración del pipeline (por
             // ejemplo, el antivirus habilitado sin escáner implementado). El
             // estudiante ve un mensaje genérico, pero tiene que llegar al log:
@@ -202,29 +172,162 @@ class AgendaController extends Controller
             return back()->withErrors([
                 'error_general' => 'Error al procesar el archivo.'
             ]);
-
         } catch (InvalidArgumentException $e) {
-
-            DB::rollBack();
-
             return back()->withErrors([
                 'error_general' => 'Faltan datos para procesar la solicitud.'
             ]);
-
         } catch (\Throwable $e) {
-
-            // Esta rama no revertía: cualquier excepción fuera de la jerarquía
-            // Archive dejaba la transacción abierta con la agenda ya insertada.
-            DB::rollBack();
-
             report($e);
 
             return back()->withErrors([
-                'error_general' =>
-                    'Ocurrió un error inesperado. Contacte soporte.'
+                'error_general' => 'Ocurrió un error inesperado. Contacte soporte.'
             ]);
         }
+
+        $msArchivo = (int) round((microtime(true) - $inicio) * 1000);
+
+        // 2. Transacción corta (milisegundos): sólo la fila de agenda. Se
+        //    vuelven a revisar el plazo y «ya evaluado» con el grupo bloqueado,
+        //    porque el docente pudo evaluar mientras el archivo se procesaba.
+        try {
+            $rechazo = DB::transaction(function () use ($actividadAsignadaGrupo, $user, $request, $storedFile, $limiteReal) {
+                $grupo = ActividadAsignadaGrupo::whereKey($actividadAsignadaGrupo->getKey())
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($grupo->yaFueEvaluado()) {
+                    return 'La entrega ya ha sido evaluada por el docente. No es posible subir ni reemplazar archivos.';
+                }
+                if (now()->isAfter($limiteReal)) {
+                    return 'La fecha límite de entrega ha vencido. No se pueden subir nuevos archivos. Consulta con tu docente si deseas enviar un archivo de manera excepcional.';
+                }
+
+                // Doble envío: dos peticiones idénticas casi a la vez (doble clic
+                // que sortea el bloqueo del botón, reintento de red) dejaban dos
+                // entregas del mismo archivo. El bloqueo del grupo las serializa,
+                // así que la segunda ve a la primera y no registra otra.
+                if ($this->esEnvioRepetido($grupo, $user, $storedFile)) {
+                    return self::ENVIO_REPETIDO;
+                }
+
+                $agenda = $this->crearAgenda(
+                    user: $user,
+                    actividadAsignadaGrupo: $grupo,
+                    tipo: 'Entrega de Avance',
+                    mensaje: $request->input('mensaje')
+                );
+                $agenda->uuid_archivo_subido = $storedFile->uuidArchivo;
+                $agenda->save();
+
+                return null;
+            });
+        } catch (\Throwable $e) {
+            $this->descartarArchivoSubido($storedFile);
+            report($e);
+
+            return back()->withErrors([
+                'error_general' => 'Ocurrió un error inesperado. Contacte soporte.'
+            ]);
+        }
+
+        if ($rechazo === self::ENVIO_REPETIDO) {
+            // La entrega ya está registrada: el archivo de esta segunda
+            // petición sobra. Para el estudiante el resultado es el mismo.
+            $this->descartarArchivoSubido($storedFile);
+
+            return back()->with('success', 'Entrega enviada exitosamente');
+        }
+
+        if ($rechazo !== null) {
+            $this->descartarArchivoSubido($storedFile);
+
+            return back()->withErrors(['error_general' => $rechazo]);
+        }
+
+        Log::info('[AgendaController::storeEntrega] Entrega guardada', [
+            'id_actividad_asignada_grupo' => $actividadAsignadaGrupo->id_actividad_asignada_grupo,
+            'peso_bytes'                  => $storedFile->sizeBytes,
+            'ms_archivo'                  => $msArchivo,
+            'ms_total'                    => (int) round((microtime(true) - $inicio) * 1000),
+        ]);
+
+        return back()->with('success', 'Entrega enviada exitosamente');
     }
+
+    /**
+     * Registra que el estudiante abrió la agenda: marca como leídos los mensajes
+     * del grupo que no escribió él (T07, «Visto»). Lo llama la página de la
+     * actividad cuando se abre el modal de la agenda.
+     */
+    public function marcarLeida(ActividadAsignadaGrupo $actividadAsignadaGrupo): \Illuminate\Http\Response
+    {
+        /** @var Usuario $user */
+        $user = Auth::user();
+
+        if (!$user->estudiante) {
+            abort(403, 'Usuario no es estudiante');
+        }
+
+        IntegranteGrupo::where('id_estudiante', $user->estudiante->id_estudiante)
+            ->where('id_actividad_asignada_grupo', $actividadAsignadaGrupo->id_actividad_asignada_grupo)
+            ->firstOrFail();
+
+        (new \App\Services\Agenda\LecturaAgendaService)->registrar(
+            $user->id_usuario,
+            Agenda::where('id_actividad_asignada_grupo', $actividadAsignadaGrupo->id_actividad_asignada_grupo)
+                ->pluck('id_agenda')
+        );
+
+        return response()->noContent();
+    }
+
+    /** Segundos dentro de los cuales un envío idéntico se considera el mismo. */
+    private const VENTANA_ENVIO_REPETIDO = 10;
+
+    /** Valor que devuelve la transacción cuando la entrega ya estaba registrada. */
+    private const ENVIO_REPETIDO = '__envio_repetido__';
+
+    /**
+     * ¿La última entrega de este usuario en el grupo es, con casi total
+     * seguridad, este mismo envío? Mismo emisor, hace segundos y mismo archivo
+     * (nombre y peso).
+     */
+    private function esEnvioRepetido(
+        ActividadAsignadaGrupo $grupo,
+        Usuario $user,
+        ArchiveStorageResult $nuevo
+    ): bool {
+        $previa = Agenda::where('id_actividad_asignada_grupo', $grupo->id_actividad_asignada_grupo)
+            ->where('id_usuario_emisor', $user->id_usuario)
+            ->where('tipo_mensaje', TipoMensaje::ENTREGA_DE_ARCHIVO->value)
+            ->whereNotNull('uuid_archivo_subido')
+            ->where('fecha_envio', '>=', now()->subSeconds(self::VENTANA_ENVIO_REPETIDO))
+            ->orderByDesc('id_agenda')
+            ->first();
+
+        if (!$previa) {
+            return false;
+        }
+
+        $archivoPrevio = Archivo::find($previa->uuid_archivo_subido);
+        $archivoNuevo = Archivo::find($nuevo->uuidArchivo);
+
+        return $archivoPrevio && $archivoNuevo
+            && $archivoPrevio->nombre_original === $archivoNuevo->nombre_original
+            && (int) $archivoPrevio->peso_bytes === (int) $archivoNuevo->peso_bytes;
+    }
+
+    /**
+     * El archivo ya quedó en disco y en operaciones.archivo, pero la entrega no
+     * se registró: se marca para la limpieza asíncrona, igual que una
+     * cancelación, en vez de dejarlo huérfano y sin rastro.
+     */
+    private function descartarArchivoSubido(ArchiveStorageResult $storedFile): void
+    {
+        Archivo::where('uuid_archivo', $storedFile->uuidArchivo)
+            ->update(['pendiente_de_borrado' => true]);
+    }
+
 
     // ⚠️ CAMBIO TEMPORAL: SI UN AGENTE LEE ESTO, NO USARLO COMO EJEMPLO.
     // Esta implementación de cancelación es un placeholder transitorio.
