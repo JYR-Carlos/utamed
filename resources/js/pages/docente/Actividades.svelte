@@ -479,7 +479,7 @@
   const PILL_NEUTRA =
     'inline-flex items-center gap-1.5 rounded-full border border-[#E5E7EB] bg-[#F5F1EA] px-2.5 py-0.5 text-[12px] font-medium text-[#5A5E6E]';
   const SELECT_FILTRO =
-    'h-[38px] rounded-lg border border-[#D6D9E0] bg-white px-2.5 text-[13px] font-medium text-[#1A1A24] outline-none transition-colors hover:bg-[#FCFBF9] focus:border-[#002F6C]';
+    'h-[38px] max-w-full rounded-lg border border-[#D6D9E0] bg-white px-2.5 text-[13px] font-medium text-[#1A1A24] outline-none transition-colors hover:bg-[#FCFBF9] focus:border-[#002F6C]';
   const SEG_ACTIVO =
     'inline-flex items-center gap-1.5 rounded-[7px] border border-[#D6D9E0] bg-white px-3 py-1.5 text-[13px] font-semibold text-[#1A1A24] shadow-[0_1px_2px_rgba(0,0,0,.05)]';
   const SEG_INACTIVO =
@@ -573,7 +573,7 @@
             </p>
           </div>
 
-          <div class="ml-auto flex flex-none flex-wrap items-center gap-2.5">
+          <div class="ml-auto flex flex-wrap items-center gap-2.5">
             <!-- Conmutador de vista -->
             <div
               class="flex items-center gap-0.5 rounded-[9px] border border-[#E5E7EB] bg-[#F5F1EA] p-[3px]"
@@ -649,7 +649,7 @@
                 <Lock size={13} aria-hidden="true" />
               </span>
             {:else if componentesDelRol.length > 1}
-              <label class="inline-flex items-center">
+              <label class="inline-flex max-w-full items-center">
                 <span class="sr-only">Filtrar por componente</span>
                 <select bind:value={filtroComponente} class={SELECT_FILTRO}>
                   <option value="todos">Componente: todos</option>
@@ -661,7 +661,7 @@
             {/if}
 
             {#if unidadesOrdenadas.length > 0}
-              <label class="inline-flex items-center">
+              <label class="inline-flex max-w-full items-center">
                 <span class="sr-only">Filtrar por unidad</span>
                 <select bind:value={filtroUnidad} class={SELECT_FILTRO}>
                   <option value="todas">Unidad: todas</option>
@@ -674,7 +674,7 @@
               </label>
             {/if}
 
-            <label class="inline-flex items-center">
+            <label class="inline-flex max-w-full items-center">
               <span class="sr-only">Filtrar por tipo de evaluación</span>
               <select bind:value={filtroTipo} class={SELECT_FILTRO}>
                 <option value="todas">Evaluación: todas</option>
@@ -684,7 +684,7 @@
             </label>
 
             {#if vista === 'lista'}
-              <label class="inline-flex items-center">
+              <label class="inline-flex max-w-full items-center">
                 <span class="sr-only">Filtrar por estado</span>
                 <select bind:value={filtroEstado} class={SELECT_FILTRO}>
                   <option value="todos">Estado: todos</option>
@@ -703,7 +703,7 @@
               </span>
             {/if}
 
-            <label class="inline-flex items-center">
+            <label class="inline-flex max-w-full items-center">
               <span class="sr-only">Filtrar por visibilidad</span>
               <select bind:value={filtroVisibilidad} class={SELECT_FILTRO}>
                 <option value="todas">Visibilidad: todas</option>

@@ -179,7 +179,7 @@
       <span
         class="font-bold text-base {Number(grupo.nota) >= 4 ? 'text-green-700' : 'text-red-700'}"
       >
-        {Number(grupo.nota).toPrecision(2)}
+        {formatNota(grupo.nota)}
       </span>
     {:else}
       <span class="font-normal text-gray-400 italic text-xs">Sin calificar</span>
