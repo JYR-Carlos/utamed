@@ -79,6 +79,16 @@
     progreso = 0;
     mensajeError = '';
 
+    // Un 5xx o un 413 (p. ej. memoria agotada con un archivo enorme) no llega
+    // como error de validación: Inertia lo pinta en una ventana HTML a pantalla
+    // completa sobre el modal y la subida quedaba pegada en «100 %». Se
+    // intercepta sólo durante esta subida para mostrar el error en el modal.
+    let estadoHttp = null as number | null;
+    const soltarInvalid = router.on('invalid', (event) => {
+      estadoHttp = event.detail.response.status;
+      event.preventDefault();
+    });
+
     router.post(
       `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/entregas`,
       { mensaje: descripcion.trim(), archivo },
@@ -94,6 +104,17 @@
         },
         onError: (errors) => {
           mensajeError = errors.archivo || errors.error_general || 'No se pudo registrar la entrega.';
+          paso = 'error';
+        },
+        onFinish: () => {
+          soltarInvalid();
+          // Sigue en «subiendo» sólo si la respuesta no fue ni éxito ni error
+          // de validación: fallo del servidor o corte de red.
+          if (paso !== 'subiendo') return;
+          mensajeError =
+            estadoHttp === 413
+              ? 'El archivo es más grande de lo que acepta el servidor. Elige uno más liviano.'
+              : 'El servidor no pudo procesar la entrega. Intenta de nuevo o avisa a tu docente.';
           paso = 'error';
         },
       },
