@@ -119,4 +119,6 @@ export interface MensajeEstudiante {
     emisor_id_usuario: number;
     actividad_nombre: string;
     id_actividad: number;
+    /** Nombre del grupo (propio o «Grupo N»); null si la actividad es individual. */
+    grupo_etiqueta?: string | null;
 }

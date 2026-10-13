@@ -82,13 +82,19 @@
   function hilosPorGrupo(msgs: MensajeEstudiante[]) {
     const map = new Map<
       number,
-      { actividad_nombre: string; id_actividad: number; items: MensajeEstudiante[] }
+      {
+        actividad_nombre: string;
+        id_actividad: number;
+        grupo_etiqueta: string | null;
+        items: MensajeEstudiante[];
+      }
     >();
     for (const m of msgs) {
       if (!map.has(m.grupo)) {
         map.set(m.grupo, {
           actividad_nombre: m.actividad_nombre,
           id_actividad: m.id_actividad,
+          grupo_etiqueta: m.grupo_etiqueta ?? null,
           items: [],
         });
       }
@@ -382,7 +388,9 @@
                 >
                   <div class="min-w-0">
                     <p class="text-xs font-bold text-slate-700 truncate">{hilo.actividad_nombre}</p>
-                    <p class="text-[10px] text-slate-400">Grupo #{grupoId}</p>
+                    {#if hilo.grupo_etiqueta}
+                      <p class="text-[10px] text-slate-400">{hilo.grupo_etiqueta}</p>
+                    {/if}
                   </div>
                   <Link
                     href="/docente/cursos/{curso.id_curso}/actividades/{hilo.id_actividad}/evaluacion"

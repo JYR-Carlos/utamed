@@ -303,3 +303,39 @@ test('al crear un grupo grupal se guarda el nombre que se le puso y se rotula co
         ->and($props['grupos'][0]['nombre_grupo'])->toBe('Los Tigres')
         ->and($props['grupos'][0]['etiqueta'])->toBe('Los Tigres');
 });
+
+test('los mensajes del curso rotulan el hilo con el nombre del grupo y no con su id', function () {
+    $f = fixtureModalidadActividad() ?? $this->markTestSkipped('Sin curso con titular, inscritos y actividades.');
+    $docente = docenteModalidadActividad($f);
+    $grupal = crearActividadModalidad($docente, $f, true);
+    $inscritos = DB::table('curso.inscripcion_curso')
+        ->where('id_curso', $f['id_curso'])->where('estado_inscripcion', 'INSCRITO')->limit(2)->pluck('id_estudiante')->all();
+    $this->actingAs($docente)->post("/docente/cursos/{$f['id_curso']}/actividades/{$grupal->id_actividad}/grupos-create", [
+        'nombre_grupo' => 'Los Tigres',
+        'estudiantes' => $inscritos,
+    ])->assertSessionHasNoErrors();
+    $individual = crearActividadModalidad($docente, $f, false);
+
+    $enGrupo = fn (Actividad $a, int $estudiante) => (int) DB::table('agenda.integrante_grupo as ig')
+        ->join('agenda.actividad_asignada_grupo as g', 'g.id_actividad_asignada_grupo', '=', 'ig.id_actividad_asignada_grupo')
+        ->where('g.id_actividad', $a->id_actividad)->where('ig.id_estudiante', $estudiante)
+        ->value('g.id_actividad_asignada_grupo');
+    $idEst = $inscritos[0];
+    $emisor = (int) DB::table('usuario.estudiante')->where('id_estudiante', $idEst)->value('id_usuario');
+    foreach ([$grupal, $individual] as $a) {
+        Agenda::create([
+            'fecha_envio' => now()->toDateTimeString(),
+            'tipo_mensaje' => \App\Enums\DB\TipoMensaje::MENSAJE_AL_PROFESOR,
+            'mensaje' => 'consulta (test)',
+            'id_usuario_emisor' => $emisor,
+            'id_actividad_asignada_grupo' => $enGrupo($a, $idEst),
+        ]);
+    }
+
+    $mensajes = collect($this->actingAs($docente)
+        ->getJson("/docente/cursos/{$f['id_curso']}/estudiantes/{$idEst}/mensajes")->assertOk()->json())
+        ->keyBy('id_actividad');
+
+    expect($mensajes[$grupal->id_actividad]['grupo_etiqueta'])->toBe('Los Tigres')
+        ->and($mensajes[$individual->id_actividad]['grupo_etiqueta'])->toBeNull();
+});
