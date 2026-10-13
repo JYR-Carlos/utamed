@@ -548,7 +548,7 @@
           syllabus_type: esBasico ? 'simplified' : 'complete',
           actividades_to_create: nuevas.map((a) => ({
             nombre: a.nombre.trim(),
-            tipo_actividad: 1,
+            tipo_actividad: a.tipo === 'evaluación' ? 'SUMATIVA' : 'FORMATIVA',
             tipo_entrega: 'online',
             es_grupal: false,
             max_integrantes: 1,
