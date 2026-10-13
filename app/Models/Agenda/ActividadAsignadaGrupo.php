@@ -14,6 +14,31 @@ use App\Models\Base\Agenda\BaseActividadAsignadaGrupo;
 class ActividadAsignadaGrupo extends BaseActividadAsignadaGrupo
 {
     /**
+     * Cómo se nombra un grupo ante el docente.
+     *
+     * En una actividad individual el «grupo» de 1 persona sólo emula su registro
+     * individual: se muestra el nombre del estudiante, nunca el id del grupo. En
+     * una grupal vale el nombre propio del grupo (`nombre_grupo`, que ponen sus
+     * integrantes) y, si todavía no lo tiene, «Grupo N», con N la posición dentro
+     * de la actividad —no el id interno, que es global a toda la tabla—.
+     *
+     * @param  string|null  $nombreEstudiante  Nombre del único integrante (individual).
+     * @param  int  $posicion  Posición del grupo dentro de la actividad, desde 1.
+     */
+    public static function etiqueta(bool $esGrupal, ?string $nombreGrupo, ?string $nombreEstudiante, int $posicion): string
+    {
+        if (!$esGrupal) {
+            $nombre = trim((string) $nombreEstudiante);
+
+            return $nombre !== '' ? $nombre : 'Estudiante';
+        }
+
+        $nombre = trim((string) $nombreGrupo);
+
+        return $nombre !== '' ? $nombre : "Grupo {$posicion}";
+    }
+
+    /**
      * Obtiene todos los integrantes del grupo con sus detalles de estudiante
      */
     public function miembros()

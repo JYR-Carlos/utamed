@@ -39,6 +39,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -423,8 +424,34 @@ class DocenteActivityController extends Controller
             'id_unidad' => 'required|integer|min:1',
         ]);
 
+        // Pasar de individual a grupal (o al revés) cambia la forma de los grupos:
+        // una individual tiene un «grupo» de 1 por inscrito, que sólo emula su
+        // registro individual. Se valida antes del try: un ValidationException
+        // dentro lo atraparía el catch y llegaría como un aviso genérico.
+        $cambiaModalidad = array_key_exists('es_grupal', $validated)
+            && (bool) $validated['es_grupal'] !== (bool) $actividad->es_grupal;
+
+        if ($cambiaModalidad && $this->gruposTienenTrabajo($actividad)) {
+            throw ValidationException::withMessages([
+                'es_grupal' => 'No se puede cambiar entre individual y grupal: la actividad ya tiene mensajes, entregas o notas de los estudiantes.',
+            ]);
+        }
+
         try {
-            $actividad->update($validated);
+            DB::transaction(function () use ($actividad, $validated, $curso, $cambiaModalidad) {
+                if ($cambiaModalidad) {
+                    $this->descartarGrupos($actividad);
+                }
+
+                $actividad->update($validated);
+
+                // Hacia individual hay que rehacer el grupo de 1 de cada inscrito;
+                // hacia grupal los estudiantes quedan «sin asignar» para que el
+                // docente arme los grupos.
+                if ($cambiaModalidad && !$actividad->es_grupal) {
+                    (new GrupoIndividualService)->asegurarGruposDelCurso($curso, $actividad);
+                }
+            });
             $this->sincronizarEstadosDeGrupos($actividad);
 
             return redirect()->back()->with('success', 'Actividad actualizada correctamente.');
@@ -434,6 +461,36 @@ class DocenteActivityController extends Controller
             return redirect()->back()
                 ->with('error', 'No se pudo actualizar la actividad. Por favor, inténtalo nuevamente.');
         }
+    }
+
+    /**
+     * Si algún grupo de la actividad ya tiene algo que perder: una nota o
+     * cualquier fila de agenda (mensajes, entregas, evaluaciones).
+     */
+    private function gruposTienenTrabajo(Actividad $actividad): bool
+    {
+        return DB::table('agenda.actividad_asignada_grupo as aag')
+            ->where('aag.id_actividad', $actividad->id_actividad)
+            ->where(fn ($q) => $q
+                ->whereNotNull('aag.nota')
+                ->orWhereExists(fn ($s) => $s->selectRaw('1')
+                    ->from('agenda.agenda as a')
+                    ->whereColumn('a.id_actividad_asignada_grupo', 'aag.id_actividad_asignada_grupo')))
+            ->exists();
+    }
+
+    /**
+     * Borra los grupos de la actividad y sus integrantes. Sólo se llama cuando
+     * {@see gruposTienenTrabajo()} dio falso: no hay agenda ni evaluaciones colgando.
+     */
+    private function descartarGrupos(Actividad $actividad): void
+    {
+        $idsGrupos = DB::table('agenda.actividad_asignada_grupo')
+            ->where('id_actividad', $actividad->id_actividad)
+            ->pluck('id_actividad_asignada_grupo');
+
+        DB::table('agenda.integrante_grupo')->whereIn('id_actividad_asignada_grupo', $idsGrupos)->delete();
+        DB::table('agenda.actividad_asignada_grupo')->whereIn('id_actividad_asignada_grupo', $idsGrupos)->delete();
     }
 
     /**
@@ -836,6 +893,7 @@ class DocenteActivityController extends Controller
 
                 return [
                     'grupo' => $g->id_actividad_asignada_grupo,
+                    'nombre_grupo' => $g->nombre_grupo,
                     'nota' => $g->nota,
                     'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
                     'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
@@ -850,7 +908,18 @@ class DocenteActivityController extends Controller
         } else {
             $grupos = $grupos->sortBy('grupo');
         }
-        $grupos = $grupos->values();
+
+        // Cómo se rotula cada grupo en pantalla (nombre del estudiante en las
+        // individuales; nombre propio o «Grupo N» en las grupales). `grupo` sigue
+        // siendo el id para las rutas, pero no se muestra.
+        $grupos = $grupos->values()->map(fn ($g, $i) => $g + [
+            'etiqueta' => ActividadAsignadaGrupo::etiqueta(
+                (bool) $actividad->es_grupal,
+                $g['nombre_grupo'],
+                $g['integrantes'][0]['nombre_completo'] ?? null,
+                $i + 1,
+            ),
+        ]);
 
         // Campos calculados de la actividad
         $esSumativa = $actividad->tipo_actividad === TipoActividad::SUMATIVA;
@@ -1496,8 +1565,9 @@ class DocenteActivityController extends Controller
 
         $grupos = ActividadAsignadaGrupo::where('id_actividad', $origen->id_actividad)
             ->with('miembros.estudiante.usuario')
+            ->orderBy('id_actividad_asignada_grupo')
             ->get()
-            ->map(function ($g) use ($idsInscritos) {
+            ->map(function ($g, $i) use ($idsInscritos) {
                 $integrantes = $g->miembros
                     ->sortBy(fn ($m) => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '')
                     ->values()
@@ -1509,6 +1579,7 @@ class DocenteActivityController extends Controller
 
                 return [
                     'grupo' => $g->id_actividad_asignada_grupo,
+                    'etiqueta' => ActividadAsignadaGrupo::etiqueta(true, $g->nombre_grupo, null, $i + 1),
                     'integrantes' => $integrantes,
                     'cantidad_integrantes' => $integrantes->count(),
                     'cantidad_vigentes' => $integrantes->where('inscrito', true)->count(),

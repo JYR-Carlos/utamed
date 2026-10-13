@@ -80,6 +80,8 @@
 
   type GrupoData = {
     grupo: number;
+    /** Cómo se rotula el grupo: nombre del estudiante (individual) o nombre propio / «Grupo N». */
+    etiqueta: string;
     nota: number | null;
     estado_actividad_asignada: string | null;
     nro_dias_adicionales_para_bloqueo_personal: number;
@@ -1118,9 +1120,7 @@
           onInteraccionEnviada={manejarInteraccionDocente}
           cod_curso={curso.cod_curso}
           nombre_actividad={actividad.nombre}
-          nombre_grupo={actividad.es_grupal
-            ? `Grupo #${grupoSeleccionado.grupo}`
-            : (grupoSeleccionado.integrantes[0]?.nombre_completo ?? `Estudiante #${grupoSeleccionado.grupo}`)}
+          nombre_grupo={grupoSeleccionado.etiqueta}
           idCurso={curso.id_curso}
           idActividad={actividad.id_actividad}
           idGrupo={grupoSeleccionado.grupo}
@@ -1161,9 +1161,7 @@
       rubricaId={rubrica_id}
       esSumativa={actividad.es_sumativa}
       nombreActividad={actividad.nombre}
-      nombreGrupo={actividad.es_grupal
-        ? `Grupo #${grupoEntregasSeleccionado.grupo}`
-        : (grupoEntregasSeleccionado.integrantes[0]?.nombre_completo ?? `Estudiante #${grupoEntregasSeleccionado.grupo}`)}
+      nombreGrupo={grupoEntregasSeleccionado.etiqueta}
       idCurso={curso.id_curso}
       idActividad={actividad.id_actividad}
       idGrupo={grupoEntregasSeleccionado.grupo}

@@ -29,6 +29,7 @@
 
   type GrupoData = {
     grupo: number;
+    etiqueta: string;
     nota: number | null;
     estado_actividad_asignada: string | null;
     nro_dias_adicionales_para_bloqueo_personal: number;

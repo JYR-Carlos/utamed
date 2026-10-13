@@ -32,6 +32,8 @@
 
   type GrupoData = {
     grupo: number;
+    /** Cómo se rotula el grupo: nombre del estudiante (individual) o nombre propio / «Grupo N». */
+    etiqueta: string;
     nota: number | null;
     estado_actividad_asignada: string | null;
     nro_dias_adicionales_para_bloqueo_personal: number;
@@ -139,7 +141,7 @@
   <!-- Número de grupo / nombre estudiante + estado + eliminar -->
   <div class="flex items-center justify-between gap-2">
     <p class="min-w-0 truncate font-bold text-sm">
-      {esGrupal ? `Grupo #${grupo.grupo}` : (grupo.integrantes[0]?.nombre_completo ?? 'Estudiante')}
+      {grupo.etiqueta}
     </p>
     <div class="flex items-center gap-2">
       {#if grupo.estado_actividad_asignada}

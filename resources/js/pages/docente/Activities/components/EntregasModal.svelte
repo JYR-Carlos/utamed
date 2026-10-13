@@ -17,6 +17,8 @@
   // encajar donde entró.
   type GrupoData = {
     grupo: number;
+    /** Cómo se rotula el grupo: nombre del estudiante (individual) o nombre propio / «Grupo N». */
+    etiqueta: string;
     nota: number | null;
     estado_actividad_asignada: string | null;
     nro_dias_adicionales_para_bloqueo_personal: number;
@@ -118,7 +120,7 @@
     <div class="flex items-center justify-between px-6 py-4 border-b shrink-0">
       <div>
         <h3 class="text-base font-bold text-gray-900">
-          Entregas — {esGrupal ? `Grupo #${grupo.grupo}` : (grupo.integrantes[0]?.nombre_completo ?? 'Estudiante')}
+          Entregas — {grupo.etiqueta}
         </h3>
         <p class="text-xs text-gray-500 mt-0.5">{nombreActividad}</p>
       </div>
