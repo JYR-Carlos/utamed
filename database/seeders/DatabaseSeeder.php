@@ -47,5 +47,8 @@ class DatabaseSeeder extends Seeder
         // 3. Cursos y Actividades
         $this->call(BaseCursosSeeder::class);
         $this->call(ActividadesSeeder::class);
+
+        // 4. Usuarios de prueba multirol
+        $this->call(UsuariosMultirolSeeder::class);
     }
 }
