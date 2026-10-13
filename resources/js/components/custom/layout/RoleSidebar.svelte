@@ -1,8 +1,16 @@
 <script lang="ts">
-  import { page, Link } from '@inertiajs/svelte';
+  import { page, Link, router } from '@inertiajs/svelte';
   import NavUser from '@/components/custom/navigation/NavUser.svelte';
   import CourseListNav from '@/components/custom/navigation/CourseListNav.svelte';
   import AppLogo from '@/components/custom/layout/AppLogo.svelte';
+  import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+  } from '@/components/ui/dropdown-menu';
   import {
     BookOpen,
     Calendar,
@@ -16,6 +24,8 @@
     CalendarRange,
     ScrollText,
     BarChart2,
+    ChevronsUpDown,
+    Check,
   } from 'lucide-svelte';
   import type { SidebarCourse } from '@/types';
   import { usePermissions } from '@/lib/composables/usePermissions';
@@ -76,17 +86,17 @@
     { href: '/admin/syllabus', icon: ScrollText, label: 'Syllabus' },
   ];
 
-  // ── Pestañas de rol ────────────────────────────────────────
+  // ── Selector de ambiente ──────────────────────────────────
   // Un usuario puede tener varios roles; sólo uno se muestra a la vez,
-  // elegido con una pestaña en vez de un acordeón que mueve el resto del menú.
+  // elegido con un selector tipo combobox que se despliega hacia abajo.
   type SectionId = 'docente' | 'jefe' | 'estudiante' | 'ayudante' | 'admin';
 
-  const sectionMeta: Record<SectionId, { label: string; icon: any }> = {
-    docente: { label: 'Docente', icon: GraduationCap },
-    jefe: { label: 'Jefe de Carrera', icon: ClipboardList },
-    estudiante: { label: 'Estudiante', icon: GraduationCap },
-    ayudante: { label: 'Ayudantía', icon: BookOpen },
-    admin: { label: 'Administración', icon: Building2 },
+  const sectionMeta: Record<SectionId, { label: string; icon: any; href: string }> = {
+    docente: { label: 'Docente', icon: GraduationCap, href: '/docente/dashboard' },
+    jefe: { label: 'Jefe de Carrera', icon: ClipboardList, href: '/docente/jefe-carrera/dashboard' },
+    estudiante: { label: 'Estudiante', icon: GraduationCap, href: '/estudiante/dashboard' },
+    ayudante: { label: 'Ayudantía', icon: BookOpen, href: '/ayudante/dashboard' },
+    admin: { label: 'Administración', icon: Building2, href: '/admin/dashboard' },
   };
 
   // Secciones disponibles según los roles del usuario, en orden de prioridad.
@@ -95,8 +105,8 @@
       [
         isDocente && 'docente',
         isJefeCarrera && 'jefe',
-        isEstudiante && !isDocente && 'estudiante',
-        isAyudante && !isDocente && 'ayudante',
+        isEstudiante && 'estudiante',
+        isAyudante && 'ayudante',
         isAdmin && 'admin',
       ] as Array<SectionId | false>
     ).filter((s): s is SectionId => s !== false),
@@ -125,6 +135,24 @@
       openSection = availableSections[0];
     }
   });
+
+  let activeSection = $derived<SectionId>(
+    openSection ?? urlSection ?? (availableSections[0] as SectionId) ?? 'docente',
+  );
+  let activeMeta = $derived(sectionMeta[activeSection] ?? sectionMeta.docente);
+  let ActiveIcon = $derived(activeMeta.icon);
+
+  function switchSection(id: SectionId) {
+    const meta = sectionMeta[id];
+    if (activeSection !== id) {
+      openSection = id;
+      if (meta?.href) {
+        router.visit(meta.href);
+      }
+    } else if (meta?.href && !currentPath.startsWith(meta.href.replace('/dashboard', ''))) {
+      router.visit(meta.href);
+    }
+  }
 </script>
 
 <div class="h-full flex flex-col bg-white text-slate-700">
@@ -144,27 +172,71 @@
 
   <!-- ── Content ──────────────────────────────────────────── -->
   <div class="flex-1 overflow-y-scroll py-6">
-    <!-- Selector de rol: sólo si el usuario tiene más de uno. Antes cada
-         rol era un acordeón que empujaba el resto del menú hacia abajo al
-         abrirse; con pestañas, cambiar de rol no mueve nada más. -->
+    <!-- Selector de ambiente: desplegable tipo combobox hacia abajo sólo si el usuario tiene más de un rol. -->
     {#if availableSections.length > 1}
       <div class="px-4 mb-4">
-        <div class="flex items-center gap-0.5 p-1 bg-slate-100 rounded-xl">
-          {#each availableSections as id (id)}
-            {@const meta = sectionMeta[id]}
-            {@const Icon = meta.icon}
-            <button
-              onclick={() => (openSection = id)}
-              class="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-[11px] font-bold tracking-wide transition-all {openSection ===
-              id
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'}"
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 transition-all cursor-pointer text-left group outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          >
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div
+                class="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 shrink-0 group-hover:bg-indigo-100 transition-colors"
+              >
+                <ActiveIcon size={16} />
+              </div>
+              <div class="flex flex-col min-w-0">
+                <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 leading-tight"
+                  >Ambiente</span
+                >
+                <span class="text-xs font-bold text-slate-800 truncate leading-tight mt-0.5"
+                  >{activeMeta.label}</span
+                >
+              </div>
+            </div>
+            <ChevronsUpDown size={14} class="text-slate-400 group-hover:text-slate-600 shrink-0 ml-2" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            class="w-[var(--bits-dropdown-menu-anchor-width,224px)] min-w-[200px] rounded-xl shadow-lg border-slate-200/80 p-1.5 bg-white"
+            side="bottom"
+            align="start"
+            sideOffset={4}
+          >
+            <DropdownMenuLabel
+              class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400"
             >
-              <Icon size={14} class="shrink-0" />
-              {meta.label}
-            </button>
-          {/each}
-        </div>
+              Cambiar de ambiente
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator class="my-1 bg-slate-100" />
+            <div class="flex flex-col gap-0.5">
+              {#each availableSections as id (id)}
+                {@const meta = sectionMeta[id]}
+                {@const Icon = meta.icon}
+                {@const isCurrent = activeSection === id}
+                <DropdownMenuItem
+                  onSelect={() => switchSection(id)}
+                  class="flex items-center justify-between px-2.5 py-2 cursor-pointer rounded-lg text-xs font-semibold transition-colors {isCurrent
+                    ? 'bg-indigo-50 text-indigo-700 font-bold'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+                >
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <div
+                      class="p-1 rounded-md {isCurrent
+                        ? 'bg-indigo-100/70 text-indigo-700'
+                        : 'bg-slate-100 text-slate-500'}"
+                    >
+                      <Icon size={14} class="shrink-0" />
+                    </div>
+                    <span class="truncate">{meta.label}</span>
+                  </div>
+                  {#if isCurrent}
+                    <Check size={14} class="text-indigo-600 shrink-0 ml-2" />
+                  {/if}
+                </DropdownMenuItem>
+              {/each}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     {/if}
 
@@ -250,7 +322,7 @@
     {/if}
 
     <!-- ══ ESTUDIANTE ═══════════════════════════════════════ -->
-    {#if isEstudiante && !isDocente && openSection === 'estudiante'}
+    {#if isEstudiante && openSection === 'estudiante'}
       {@render navLink('/estudiante/dashboard', 'Inicio', LayoutGrid)}
 
       <!-- La mensajería se entra desde la ficha del curso, no desde el menú:
@@ -267,7 +339,7 @@
     {/if}
 
     <!-- ══ AYUDANTE ══════════════════════════════════════════ -->
-    {#if isAyudante && !isDocente && openSection === 'ayudante'}
+    {#if isAyudante && openSection === 'ayudante'}
       {@render navLink('/ayudante/dashboard', 'Inicio', LayoutGrid)}
 
       <!-- Igual que el docente: la mensajería se entra desde el curso. -->
@@ -285,7 +357,7 @@
 
     <!-- ══ ADMIN ═════════════════════════════════════════════ -->
     {#if isAdmin && openSection === 'admin'}
-      {@render navLink('/dashboard', 'Inicio', LayoutGrid, true, true)}
+      {@render navLink('/admin/dashboard', 'Inicio', LayoutGrid, true, true)}
       <div class="px-6 mb-2 mt-3">
         <p class="text-[10px] font-bold tracking-widest uppercase text-slate-300">Administración</p>
       </div>
