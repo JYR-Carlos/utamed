@@ -89,7 +89,7 @@
       items.push({
         group: 'Administración',
         items: [
-          { icon: LayoutGrid, label: 'Inicio', href: '/dashboard' },
+          { icon: LayoutGrid, label: 'Inicio', href: '/admin/dashboard' },
           { icon: Users, label: 'Usuarios', href: '/admin/usuarios' },
           { icon: Building2, label: 'Facultades', href: '/admin/facultades' },
           { icon: Folder, label: 'Departamentos', href: '/admin/departamentos' },

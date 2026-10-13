@@ -59,12 +59,17 @@ Route::get('dashboard', function () {
     /** @var Usuario $user */
     $user = Auth::user();
 
+    // Redirigir administradores a su dashboard dedicado
+    if ($user->esAdministradorGlobal()) {
+        return redirect()->route('admin.dashboard');
+    }
+
     // Redirigir docentes a su dashboard
     if ($user->hasAnyRole(['Docente Titular', 'Docente Titular Restringido', 'Docente Componente'])) {
         return redirect()->route('docente.dashboard');
     }
 
-    // Redirigir estudiantes a su dashboard (Prioridad Estudiante)
+    // Redirigir estudiantes a su dashboard
     if ($user->hasRole('Estudiante')) {
         return redirect()->route('estudiante.dashboard');
     }
@@ -72,37 +77,6 @@ Route::get('dashboard', function () {
     // Redirigir ayudantes a su dashboard
     if ($user->hasRole('Ayudante')) {
         return redirect()->route('ayudante.dashboard');
-    }
-
-    // Solo admins y superadmins llegan aquí
-    if ($user->hasRole('Administrador') || $user->hasRole('SuperAdmin')) {
-        $cursosAbiertos = Curso::where('estado_interno', 'ABIERTO');
-
-        return Inertia::render('Dashboard', [
-            'stats' => [
-                'usuarios' => Usuario::count(),
-                'cursos_total' => Curso::count(),
-                'cursos_pendientes' => (clone $cursosAbiertos)
-                    ->where(function ($query) {
-                        $query->where('estado_acta', '!=', 'ENVIADO')
-                            ->orWhereNull('estado_acta');
-                    })
-                    ->count(),
-                'facultades' => Facultad::count(),
-                'carreras' => Carrera::count(),
-            ],
-            // Lo que requiere acción, que es la pregunta que el administrador
-            // trae al abrir el panel. Antes el dashboard sólo mostraba totales
-            // acompañados de líneas de tendencia decorativas.
-            'pendientes' => [
-                'cursos_sin_syllabus' => (clone $cursosAbiertos)->doesntHave('programas')->count(),
-                'cursos_sin_componentes' => (clone $cursosAbiertos)->doesntHave('componentes')->count(),
-                'carreras_sin_director' => Carrera::whereNull('fecha_eliminacion')
-                    ->doesntHave('jefesDeCarreraActivos')
-                    ->count(),
-            ],
-            'puedeAbrirSgeq' => app(SgeqSsoService::class)->resolverRol($user) !== null,
-        ]);
     }
 
     // Usuario autenticado sin ningún rol asignado
@@ -121,6 +95,34 @@ Route::get('sso/sgeq', [SgeqSsoController::class, 'redirigir'])
 
 // Admin Routes
 Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admin.')->group(function () {
+    Route::get('dashboard', function () {
+        /** @var Usuario $user */
+        $user = Auth::user();
+        $cursosAbiertos = Curso::where('estado_interno', 'ABIERTO');
+
+        return Inertia::render('Dashboard', [
+            'stats' => [
+                'usuarios' => Usuario::count(),
+                'cursos_total' => Curso::count(),
+                'cursos_pendientes' => (clone $cursosAbiertos)
+                    ->where(function ($query) {
+                        $query->where('estado_acta', '!=', 'ENVIADO')
+                            ->orWhereNull('estado_acta');
+                    })
+                    ->count(),
+                'facultades' => Facultad::count(),
+                'carreras' => Carrera::count(),
+            ],
+            'pendientes' => [
+                'cursos_sin_syllabus' => (clone $cursosAbiertos)->doesntHave('programas')->count(),
+                'cursos_sin_componentes' => (clone $cursosAbiertos)->doesntHave('componentes')->count(),
+                'carreras_sin_director' => Carrera::whereNull('fecha_eliminacion')
+                    ->doesntHave('jefesDeCarreraActivos')
+                    ->count(),
+            ],
+            'puedeAbrirSgeq' => app(SgeqSsoService::class)->resolverRol($user) !== null,
+        ]);
+    })->name('dashboard');
     // Programa (Syllabus) routes MUST come before cursos resource to avoid route collision
     Route::get('programas', [AdminProgramaController::class, 'index'])
         ->name('programas.index');

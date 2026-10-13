@@ -25,19 +25,25 @@ class LoginResponse implements LoginResponseContract
         ]);
 
         try {
-            // Redirect based on role
+            // Si es administrador global
+            if ($user->esAdministradorGlobal()) {
+                Log::channel('single')->info('[LOGIN REDIRECT] → admin.dashboard');
+                return redirect()->route('admin.dashboard');
+            }
+
+            // Si es docente
             if ($user->docente) {
                 Log::channel('single')->info('[LOGIN REDIRECT] → docente.dashboard');
                 return redirect()->route('docente.dashboard');
             }
 
-            // Logic for Admin (not docente, not estudiante)
-            if (!$user->estudiante) {
-                Log::channel('single')->info('[LOGIN REDIRECT] → admin.usuarios.index');
-                return redirect()->route('admin.usuarios.index');
+            // Si es estudiante
+            if ($user->estudiante) {
+                Log::channel('single')->info('[LOGIN REDIRECT] → estudiante.dashboard');
+                return redirect()->route('estudiante.dashboard');
             }
 
-            // Fallback to default dashboard
+            // Fallback al despachador /dashboard
             Log::channel('single')->info('[LOGIN REDIRECT] → fortify.home fallback');
             return redirect()->intended(config('fortify.home'));
         } catch (\Throwable $e) {
