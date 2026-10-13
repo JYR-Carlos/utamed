@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { cierreEnChile, textoCierre } from '@/utils/plazo';
   import {
     CalendarClock,
     AlertTriangle,
@@ -69,10 +70,11 @@
     fechaBase ? addDays(fechaBase, (dias_holgura || 0) + (dias_holgura_personal || 0)) : null,
   );
 
-  const vencioBase = $derived(
-    fechaBase !== null &&
-      new Date() > new Date(fechaBase.getFullYear(), fechaBase.getMonth(), fechaBase.getDate(), 23, 59, 59),
-  );
+  // El plazo cierra a las 23:59 de Chile (como el backend), no a las 23:59 de
+  // la zona del navegador: un estudiante fuera de Chile veía otro cierre.
+  const holguraTotal = $derived((dias_holgura || 0) + (dias_holgura_personal || 0));
+  const vencioBase = $derived(tieneFecha && new Date() > cierreEnChile(fecha_limite));
+  const cierreEfectivo = $derived(tieneFecha ? textoCierre(fecha_limite, holguraTotal) : null);
 
   const estadoVisual = $derived.by((): 'en_plazo' | 'fuera_de_plazo' | 'cerrada' => {
     if (estado === 'CERRADA') return 'cerrada';
@@ -80,8 +82,8 @@
   });
 
   const diasRestantes = $derived.by(() => {
-    if (!fechaEfectiva) return 0;
-    const ms = fechaEfectiva.getTime() - new Date().getTime();
+    if (!tieneFecha) return 0;
+    const ms = cierreEnChile(fecha_limite, holguraTotal).getTime() - new Date().getTime();
     return Math.max(0, Math.ceil(ms / 86_400_000));
   });
 
@@ -189,8 +191,12 @@
           <span class="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#1A1A24] leading-none">
             {fechaCortaDDMM}
           </span>
-          <span class="text-xs font-semibold text-[#5A5E6E]">23:59 hrs</span>
+          <span class="whitespace-nowrap text-xs font-semibold text-[#5A5E6E]">23:59 hrs</span>
         </div>
+        <span class="mt-1 text-[11px] text-[#5A5E6E]">Hora de Chile</span>
+        {#if cierreEfectivo?.local}
+          <span class="mt-1 text-[11px] text-[#5A5E6E]">Tu hora: {cierreEfectivo.local}</span>
+        {/if}
       {:else}
         <span class="mt-1 text-sm font-semibold text-[#5A5E6E]">
           La actividad no tiene fecha límite.

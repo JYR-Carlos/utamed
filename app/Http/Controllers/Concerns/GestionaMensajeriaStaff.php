@@ -248,6 +248,7 @@ trait GestionaMensajeriaStaff
             'agno_real'     => (int) $curso->agno_real,
             'semestre_real' => (int) $curso->semestre_real,
             'letra_grupo'   => $curso->letra_grupo,
+            'etiqueta'      => $curso->etiqueta(),
         ];
     }
 

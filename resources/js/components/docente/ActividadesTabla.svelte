@@ -57,6 +57,7 @@
     onEdit?: (a: Actividad) => void;
     onDelete?: (a: Actividad) => void;
     onEnunciado?: (a: Actividad) => void;
+    /** «Copiar a otro curso»; sólo lo pasa la página cuando el docente es titular. */
     onCopiar?: (a: Actividad) => void;
   }
 
@@ -70,7 +71,7 @@
     onEdit = () => {},
     onDelete = () => {},
     onEnunciado = () => {},
-    onCopiar = () => {},
+    onCopiar,
   }: Props = $props();
 
   /** Sin ninguna acción delegada la columna entera no se dibuja (lámina f, caso 3). */
@@ -317,13 +318,13 @@
                     <Upload size={15} aria-hidden="true" />
                   </button>
                 {/if}
-                {#if canEdit}
+                {#if onCopiar}
                   <button
                     type="button"
                     class={BTN_FILA_ICONO}
                     onclick={() => onCopiar(act)}
-                    title="Copiar a curso hermano"
-                    aria-label={`Copiar ${act.nombre} a otro curso de la misma asignatura`}
+                    title="Copiar a otro curso"
+                    aria-label="Copiar {act.nombre} a otro curso"
                   >
                     <Copy size={15} aria-hidden="true" />
                   </button>

@@ -30,6 +30,8 @@
     estado?: string;
     ya_entregada?: boolean;
     ya_evaluada?: boolean;
+    /** Tipo del componente («Taller», «Laboratorio»); lo usa «Cómo se evalúa». */
+    componente_tipo?: string | null;
   }
 
   interface Programa {
@@ -82,7 +84,7 @@
   const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Inicio', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
-    { title: curso?.asignatura_nombre ?? curso?.nombre ?? 'Curso', href: '' },
+    { title: curso?.etiqueta ?? curso?.asignatura_nombre ?? 'Curso', href: '' },
   ]);
 
   // ─── Próximas entregas ──────────────────────────────────────────────────────
@@ -163,7 +165,7 @@
           <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Sobre el curso</h2>
           <p class="text-sm text-gray-600">Contenidos y ponderaciones de la asignatura.</p>
         </div>
-        <CursoInformacion {curso} {programa} {datos} />
+        <CursoInformacion {curso} {programa} {datos} {actividades} />
       </section>
 
       <section class="mb-10">

@@ -42,6 +42,7 @@
   }
 
   interface Curso {
+    etiqueta?: string;
     id_curso: number;
     cod_curso: string;
     nombre: string;
@@ -136,7 +137,7 @@
 
   const breadcrumbs: BreadcrumbItem[] = $derived([
     { title: 'Mis cursos', href: '/docente/cursos' },
-    { title: curso.nombre, href: `/docente/cursos/${curso.id_curso}` },
+    { title: curso.etiqueta ?? curso.nombre, href: `/docente/cursos/${curso.id_curso}` },
     { title: 'Delegación de permisos', href: '' },
   ]);
 

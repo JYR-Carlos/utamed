@@ -233,7 +233,7 @@ class ActivityController extends Controller
         return Inertia::render('student/Activities/Index', [
             'id_curso'              => $curso->id_curso,
             'cod_curso'             => $curso->cod_curso,
-            'nombre_curso'          => $curso->asignacionPlan?->asignatura?->nombre ?? $curso->nombre,
+            'nombre_curso'          => $curso->etiqueta(),
             'cod_actividad'         => (string) $actividad->id_actividad,
             'nombre_actividad'      => $actividad->nombre ?? '',
             'descripcion'           => '', 

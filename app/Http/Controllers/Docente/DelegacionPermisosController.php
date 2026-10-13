@@ -139,7 +139,8 @@ class DelegacionPermisosController extends Controller
         $grupos = $this->buildGruposDefinicion($permisosDb);
 
         return Inertia::render('docente/DelegacionPermisosCurso', [
-            'curso'       => $curso->only(['id_curso', 'cod_curso', 'nombre', 'letra_grupo', 'semestre_real', 'agno_real']),
+            'curso'       => $curso->only(['id_curso', 'cod_curso', 'nombre', 'letra_grupo', 'semestre_real', 'agno_real'])
+                + ['etiqueta' => $curso->etiqueta()],
             'miembros'    => $miembrosConPermisos,
             'grupos'      => $grupos,
             'id_contexto' => $curso->id_contexto,

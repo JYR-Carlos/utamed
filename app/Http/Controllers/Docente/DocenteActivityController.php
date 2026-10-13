@@ -24,7 +24,7 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionCurso;
 use App\Models\Curso\Unidad;
 use App\Models\Usuario\Usuario;
-use App\Services\ActividadService;
+use App\Services\Agenda\AvanceEvaluacionService;
 use App\Services\Agenda\GrupoIndividualService;
 use App\Services\Agenda\LecturaAgendaService;
 use App\Services\Archive\Handlers\ActivityArchiveHandler;
@@ -240,20 +240,9 @@ class DocenteActivityController extends Controller
 
         $idsActividad = $actividades->pluck('id_actividad');
 
-        // Avance de evaluación por actividad. Mismo criterio que el kanban de
-        // DocenteCursoController: cada grupo asignado es una unidad evaluable y
-        // `nota` no nula = calificada. NO es un contador de entregas.
-        $avancePorActividad = $idsActividad->isEmpty()
-            ? collect()
-            : DB::table('agenda.actividad_asignada_grupo')
-                ->whereIn('id_actividad', $idsActividad)
-                ->groupBy('id_actividad')
-                ->selectRaw('id_actividad,
-                             COUNT(*) AS total_grupos,
-                             COUNT(nota) AS calificados,
-                             AVG(nota) AS promedio')
-                ->get()
-                ->keyBy('id_actividad');
+        // Avance de evaluación de cada actividad para las tarjetas del tablero
+        // (mismo servicio que la pestaña Actividades de DocenteCursoController).
+        $avancePorActividad = app(AvanceEvaluacionService::class)->porActividad($idsActividad);
 
         // Entregas realmente recibidas: filas de agenda.agenda del tipo
         // «Entrega de archivo» no canceladas, colgadas de los grupos de la actividad. Es lo que
@@ -282,12 +271,7 @@ class DocenteActivityController extends Controller
                 'peso_bytes' => $actividad->archivo->peso_bytes,
             ] : null;
 
-            $avance = $avancePorActividad->get($actividad->id_actividad);
-            $datos['total_grupos'] = (int) ($avance->total_grupos ?? 0);
-            $datos['calificados'] = (int) ($avance->calificados ?? 0);
-            $datos['promedio_nota'] = $avance?->promedio !== null
-                ? round((float) $avance->promedio, 1)
-                : null;
+            $datos = array_merge($datos, self::datosAvance($avancePorActividad->get($actividad->id_actividad)));
             $datos['total_entregas'] = (int) ($entregasPorActividad[$actividad->id_actividad] ?? 0);
 
             return $datos;
@@ -301,6 +285,7 @@ class DocenteActivityController extends Controller
                 // ambas claves llegaban vacías: no son columnas de curso.
                 'cod_asignatura' => $curso->asignacionPlan?->asignatura?->cod_asignatura,
                 'asignatura_nombre' => $curso->asignacionPlan?->asignatura?->nombre,
+                'etiqueta' => $curso->etiqueta(),
                 'mis_componentes_ids' => $misComponentesIds,
                 'total_estudiantes' => $curso->inscripcionCursos()->count(),
             ]),
@@ -308,13 +293,39 @@ class DocenteActivityController extends Controller
             'componentes' => $componentes,
             'unidades' => $unidades,
             'estados' => $estados,
-            'reglas_enunciado' => [
-                'extensiones_pdf' => config('filetypes.pdf.extensions'),
-                'extensiones_img' => config('filetypes.image.extensions'),
-                'max_mb_pdf' => (int) (config('filetypes.pdf.max_size') / 1048576),
-                'max_mb_imagen' => (int) (config('filetypes.image.max_size') / 1048576),
-            ],
+            'reglas_enunciado' => $this->reglasEnunciado(),
         ]);
+    }
+
+    /**
+     * Métricas de AvanceEvaluacionService con las claves que lee el tablero
+     * (tipo `Actividad` del frontend). Público para DocenteCursoController.
+     */
+    public static function datosAvance(?array $avance): array
+    {
+        return [
+            'total_grupos'       => $avance['total_grupos'] ?? 0,
+            'grupos_con_entrega' => $avance['grupos_con_entrega'] ?? 0,
+            'calificados'        => $avance['calificados'] ?? 0,
+            'por_calificar'      => $avance['por_calificar'] ?? 0,
+            'con_feedback'       => $avance['con_feedback'] ?? 0,
+            'por_revisar'        => $avance['por_revisar'] ?? 0,
+            'promedio_nota'      => $avance['promedio'] ?? null,
+        ];
+    }
+
+    /**
+     * Extensiones y tamaños que acepta el enunciado (config/filetypes.php), para
+     * que EnunciadoModal valide en el cliente con las mismas reglas del servidor.
+     */
+    private function reglasEnunciado(): array
+    {
+        return [
+            'extensiones_pdf' => config('filetypes.pdf.extensions'),
+            'extensiones_img' => config('filetypes.image.extensions'),
+            'max_mb_pdf' => (int) (config('filetypes.pdf.max_size') / 1048576),
+            'max_mb_imagen' => (int) (config('filetypes.image.max_size') / 1048576),
+        ];
     }
 
     /**
@@ -379,117 +390,6 @@ class DocenteActivityController extends Controller
 
             return redirect()->back()
                 ->with('error', 'No se pudo crear la actividad. Por favor, inténtalo nuevamente.');
-        }
-    }
-
-    /**
-     * Cursos hermanos donde el docente puede crear actividades.
-     *
-     * Hermano = mismo id_asignacion_plan (misma asignatura+plan), distinto id_curso.
-     * Devuelve JSON para el modal de copiar actividades.
-     */
-    public function cursosHermanos(Curso $curso): JsonResponse
-    {
-        $this->authorize('viewPrograma', $curso);
-
-        $user = Auth::user();
-        $idDocente = $user->docente?->id_docente;
-
-        // Cursos con la misma asignación de plan donde el docente es titular
-        // o dicta al menos un componente.
-        $hermanos = Curso::where('id_asignacion_plan', $curso->id_asignacion_plan)
-            ->where('id_curso', '!=', $curso->id_curso)
-            ->when($idDocente, function ($q) use ($idDocente) {
-                $q->where(function ($sub) use ($idDocente) {
-                    $sub->where('id_docente_titular', $idDocente)
-                        ->orWhereHas('componentes.docenteComponentes', fn ($dc) => $dc->where('id_docente', $idDocente)
-                        );
-                });
-            })
-            ->with(['componentes.tipoComponente', 'unidades' => fn ($q) => $q->orderBy('num_unidad')])
-            ->get()
-            ->map(fn (Curso $c) => [
-                'id_curso' => $c->id_curso,
-                'cod_curso' => $c->cod_curso,
-                'letra_grupo' => $c->letra_grupo,
-                'agno_real' => $c->agno_real,
-                'semestre_real' => $c->semestre_real,
-                'componentes' => $c->componentes->map(fn ($comp) => [
-                    'id_componente' => $comp->id_componente,
-                    'id_tipo_componente' => $comp->id_tipo_componente,
-                    'tipo' => $comp->tipoComponente?->tipo,
-                ]),
-                'unidades' => $c->unidades->map(fn ($u) => [
-                    'id_unidad' => $u->id_unidad,
-                    'num_unidad' => $u->num_unidad,
-                    'nombre' => $u->nombre,
-                ]),
-            ]);
-
-        return response()->json($hermanos);
-    }
-
-    /**
-     * Copia una actividad a un curso hermano.
-     */
-    public function copiarActividad(Request $request, Curso $curso, Actividad $actividad)
-    {
-        $this->authorize('manageTeam', $curso);
-        $this->assertActividadDeCurso($curso, $actividad);
-
-        $validated = $request->validate([
-            'id_curso_destino' => 'required|integer',
-            'id_componente_destino' => 'required|integer',
-            'id_unidad_destino' => 'required|integer',
-        ]);
-
-        try {
-            $cursoDestino = Curso::findOrFail($validated['id_curso_destino']);
-
-            // Verificar que sea hermano (misma asignación de plan).
-            if ($cursoDestino->id_asignacion_plan !== $curso->id_asignacion_plan) {
-                return redirect()->back()->with('error', 'El curso destino no es de la misma asignatura.');
-            }
-
-            // Verificar que el docente tenga acceso al curso destino (titular o docente de componente si no es admin).
-            $user = Auth::user();
-            $idDocente = $user->docente?->id_docente;
-            if ($idDocente) {
-                $esElegible = Curso::where('id_curso', $cursoDestino->id_curso)
-                    ->where(function ($q) use ($idDocente) {
-                        $q->where('id_docente_titular', $idDocente)
-                            ->orWhereHas('componentes.docenteComponentes', fn ($dc) => $dc->where('id_docente', $idDocente)
-                            );
-                    })->exists();
-
-                if (!$esElegible) {
-                    return redirect()->back()->with('error', 'No tienes permisos en el curso destino.');
-                }
-            }
-
-            $this->authorize('viewPrograma', $cursoDestino);
-
-            $componente = Componente::where('id_componente', $validated['id_componente_destino'])
-                ->where('id_curso', $cursoDestino->id_curso)
-                ->firstOrFail();
-
-            $unidad = Unidad::where('id_unidad', $validated['id_unidad_destino'])
-                ->where('id_curso', $cursoDestino->id_curso)
-                ->firstOrFail();
-
-            $nueva = (new ActividadService)->copiarA($actividad, $componente, $unidad, $cursoDestino);
-
-            return redirect()->back()->with('success',
-                "Actividad '{$actividad->nombre}' copiada a {$cursoDestino->cod_curso}."
-            );
-        } catch (\Exception $e) {
-            Log::error('[DocenteActivity::copiarActividad] Error', [
-                'message' => $e->getMessage(),
-                'id_actividad' => $actividad->id_actividad,
-                'id_curso_destino' => $validated['id_curso_destino'] ?? null,
-            ]);
-
-            return redirect()->back()->with('error', 'No se pudo copiar la actividad.');
         }
     }
 
@@ -956,6 +856,7 @@ class DocenteActivityController extends Controller
             'curso' => [
                 'id_curso' => $curso->id_curso,
                 'nombre' => $curso->nombre,
+                'etiqueta' => $curso->etiqueta(),
                 'cod_curso' => $curso->cod_curso,
                 'es_titular_curso' => $esTitular,
                 'userPermissions' => $this->userPermissionsParaCurso($curso, $esTitular),
@@ -971,7 +872,14 @@ class DocenteActivityController extends Controller
                 'max_integrantes' => $actividad->max_integrantes,
                 'es_titular' => $esTitular,
                 'nro_dias_adicionales_para_bloqueo' => (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0),
+                // El enunciado se muestra junto a la rúbrica en «Sobre esta actividad».
+                'archivo_enunciado' => $actividad->archivo ? [
+                    'nombre_original' => $actividad->archivo->nombre_original,
+                    'mime_type' => $actividad->archivo->mime_type,
+                    'peso_bytes' => $actividad->archivo->peso_bytes,
+                ] : null,
             ],
+            'reglas_enunciado' => $this->reglasEnunciado(),
             'grupos' => $grupos,
             'rubrica' => $rubricaData,
             'rubrica_id' => $rubricaId,
@@ -1843,7 +1751,7 @@ class DocenteActivityController extends Controller
         ]));
 
         return Inertia::render('docente/MensajesCurso', [
-            'curso' => $curso,
+            'curso' => array_merge($curso->toArray(), ['etiqueta' => $curso->etiqueta()]),
             'estudiantes' => $estudiantesConMeta->values(),
             'mensajesEstudiante' => Inertia::lazy(function () use ($curso) {
                 $idEstudiante = request('estudiante_id');

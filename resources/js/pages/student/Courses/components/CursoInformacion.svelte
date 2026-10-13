@@ -19,14 +19,46 @@
     curso?: Curso | null;
     programa?: { version_programa: string } | null;
     datos?: DatosSyllabusAlumno | null;
+    /** Actividades visibles del curso, para contar cuántas tiene cada componente. */
+    actividades?: Array<{ es_sumativa: boolean; componente_tipo?: string | null }>;
   }
 
-  let { curso = null, programa = null, datos = null }: Props = $props();
+  let { curso = null, programa = null, datos = null, actividades = [] }: Props = $props();
 
   const descripcion = $derived(datos?.descripcion ?? '');
   const componentes = $derived(datos?.componentes ?? []);
   const normativa = $derived(datos?.normativa ?? '');
   const unidades = $derived(datos?.unidades ?? []);
+
+  // ─── «Cómo se evalúa» ──────────────────────────────────────────────────────
+  // Antes cada componente era una barra de progreso, que se lee como «avance»
+  // y no como «peso», con la cifra al otro lado de la pantalla. Ahora: una
+  // barra que reparte el 100 % entre componentes y una tarjeta por cada uno.
+  // Tonos del azul institucional con distinta luminosidad, para que los
+  // segmentos se distingan también sin percibir el color.
+  const TONOS = ['#002855', '#7A9CC6', '#3D5F8F', '#B9CBE3'];
+
+  /** Conteo por componente; el programa y el curso nombran igual al componente. */
+  const conteo = $derived.by(() => {
+    const mapa = new Map<string, { total: number; sumativas: number }>();
+    for (const a of actividades) {
+      const clave = (a.componente_tipo ?? '').trim().toLowerCase();
+      if (!clave) continue;
+      const c = mapa.get(clave) ?? { total: 0, sumativas: 0 };
+      c.total += 1;
+      if (a.es_sumativa) c.sumativas += 1;
+      mapa.set(clave, c);
+    }
+    return mapa;
+  });
+
+  function textoConteo(nombre: string): string {
+    const c = conteo.get(nombre.trim().toLowerCase());
+    if (!c || c.total === 0) return 'Aún sin actividades';
+    const act = `${c.total} ${c.total === 1 ? 'actividad' : 'actividades'}`;
+    if (c.sumativas === 0) return act;
+    return `${act} · ${c.sumativas} ${c.sumativas === 1 ? 'sumativa' : 'sumativas'}`;
+  }
 
 </script>
 
@@ -50,27 +82,51 @@
   {#if componentes.length > 0}
     <div class="rounded-3xl border border-gray-200 bg-white p-6">
       {@render encabezado(Scale, 'Cómo se evalúa')}
-      <ul class="space-y-5">
-        {#each componentes as componente (componente.componente)}
+
+      <!-- Reparto de la nota final entre componentes -->
+      <div class="mb-5">
+        <div class="flex h-3.5 gap-[3px] overflow-hidden rounded-full" aria-hidden="true">
+          {#each componentes as componente, i (componente.componente)}
+            <div style="flex: {componente.porcentaje}; background: {TONOS[i % TONOS.length]}"></div>
+          {/each}
+        </div>
+        <p class="mt-2 text-xs text-gray-500">
+          Nota final: {componentes.map((c) => `${c.componente} ${c.porcentaje} %`).join(' · ')}
+        </p>
+      </div>
+
+      <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {#each componentes as componente, i (componente.componente)}
           {@const asistencia = componente.asistencia_obligatoria ?? 0}
-          <li>
-            <div class="flex items-baseline justify-between gap-4 mb-2">
+          {@const sinActividades = textoConteo(componente.componente) === 'Aún sin actividades'}
+          <li class="flex flex-col gap-3 rounded-2xl border border-gray-200 p-5">
+            <div class="flex items-center gap-2.5">
+              <span class="h-3 w-3 shrink-0 rounded-[3px]" style="background: {TONOS[i % TONOS.length]}"></span>
               <span class="font-semibold text-gray-900">{componente.componente}</span>
-              <span class="text-lg font-bold text-uta-blue">{componente.porcentaje}%</span>
             </div>
-            <div class="h-2.5 rounded-full bg-gray-100 overflow-hidden">
-              <div
-                class="h-full rounded-full bg-uta-blue"
-                style="width: {Math.min(componente.porcentaje, 100)}%"
-              ></div>
+            <div class="flex items-baseline gap-2">
+              <span class="text-4xl font-bold leading-none tracking-tight text-uta-blue">{componente.porcentaje} %</span>
+              <span class="text-sm text-gray-500">de la nota final</span>
             </div>
-            {#if componente.aprobacion_obligatoria || asistencia > 0}
-              <p class="mt-2 text-xs text-gray-500">
-                {#if componente.aprobacion_obligatoria}Debes aprobarlo por separado{/if}
-                {#if componente.aprobacion_obligatoria && asistencia > 0}{' · '}{/if}
-                {#if asistencia > 0}Asistencia mínima {asistencia}%{/if}
-              </p>
-            {/if}
+            <div class="flex flex-wrap gap-1.5">
+              {#if asistencia > 0}
+                <span class="rounded-full border border-gray-200 bg-[#F5F1EA] px-2.5 py-1 text-xs text-gray-700">
+                  Asistencia mínima {asistencia} %
+                </span>
+              {/if}
+              {#if componente.aprobacion_obligatoria}
+                <span class="rounded-full border border-gray-200 bg-[#F5F1EA] px-2.5 py-1 text-xs text-gray-700">
+                  Se aprueba por separado
+                </span>
+              {/if}
+              <span
+                class="rounded-full border px-2.5 py-1 text-xs {sinActividades
+                  ? 'border-amber-200 bg-amber-50 text-amber-800'
+                  : 'border-gray-200 bg-[#F5F1EA] text-gray-700'}"
+              >
+                {textoConteo(componente.componente)}
+              </span>
+            </div>
           </li>
         {/each}
       </ul>

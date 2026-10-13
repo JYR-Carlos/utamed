@@ -58,6 +58,7 @@ class ProgramaController extends Controller
             'id_curso'   => $curso->id_curso,
             'nombre'     => $curso->nombre,
             'cod_curso'  => $curso->cod_curso,
+            'etiqueta'   => $curso->etiqueta(),
             'asignatura' => $curso->asignacionPlan?->asignatura,
             'carrera'    => $curso->asignacionPlan?->plan?->carrera,
         ];

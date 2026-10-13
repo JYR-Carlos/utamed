@@ -22,6 +22,7 @@ use App\Http\Controllers\Docente\CursoPermisosController;
 use App\Http\Controllers\Docente\DashboardController;
 use App\Http\Controllers\Docente\DelegacionPermisosController;
 use App\Http\Controllers\Docente\DocenteActivityController;
+use App\Http\Controllers\Docente\CopiaActividadesController;
 use App\Http\Controllers\Docente\DocenteCursoController;
 use App\Http\Controllers\Docente\JefeCarreraController;
 use App\Http\Controllers\Docente\MensajeriaController;
@@ -462,12 +463,11 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
 
     // Activity management for courses
     Route::get('cursos/{curso}/actividades', [DocenteActivityController::class, 'show'])->name('cursos.actividades.index');
-    Route::get('cursos/{curso}/actividades/cursos-hermanos', [DocenteActivityController::class, 'cursosHermanos'])
-        ->name('cursos.actividades.cursos-hermanos');
     Route::get('cursos/{curso}/actividades/json', [DocenteActivityController::class, 'actividadesJson'])->name('cursos.actividades.json');
     Route::post('cursos/{curso}/actividades', [DocenteActivityController::class, 'store'])->name('cursos.actividades.store');
-    Route::post('cursos/{curso}/actividades/{actividad}/copiar', [DocenteActivityController::class, 'copiarActividad'])
-        ->name('cursos.actividades.copiar');
+    // Copiar actividades a los otros grupos de la misma asignatura y período (mismo titular)
+    Route::get('cursos/{curso}/actividades/copiar/opciones', [CopiaActividadesController::class, 'opciones'])->name('cursos.actividades.copiar.opciones');
+    Route::post('cursos/{curso}/actividades/copiar', [CopiaActividadesController::class, 'copiar'])->name('cursos.actividades.copiar');
     Route::put('cursos/{curso}/actividades/{actividad}', [DocenteActivityController::class, 'update'])->name('cursos.actividades.update');
     Route::patch('cursos/{curso}/actividades/{actividad}/visibilidad', [DocenteActivityController::class, 'toggleVisibilidad'])->name('cursos.actividades.visibilidad.toggle');
     Route::delete('cursos/{curso}/actividades/{actividad}', [DocenteActivityController::class, 'destroy'])->name('cursos.actividades.destroy');

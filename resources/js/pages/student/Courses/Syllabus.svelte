@@ -69,7 +69,7 @@
   const breadcrumbs = $derived<BreadcrumbItem[]>([
     { title: 'Inicio', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
-    { title: asignaturaNombre, href: backUrl },
+    { title: curso?.etiqueta ?? asignaturaNombre, href: backUrl },
     { title: 'Programa', href: '#' },
   ]);
 

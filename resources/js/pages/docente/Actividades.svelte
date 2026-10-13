@@ -47,13 +47,12 @@
     updateActividad,
     deleteActividad,
     toggleVisibilidadActividad,
-    copiarActividad,
   } from '@/modules/resources/actividad';
   import ActividadesPorEstado from './components/ActividadesPorEstado.svelte';
   import ActividadesTabla from '@/components/docente/ActividadesTabla.svelte';
   import ActividadEliminarDialog from '@/components/docente/ActividadEliminarDialog.svelte';
-  import ActividadCopiarModal from '@/components/docente/ActividadCopiarModal.svelte';
   import EnunciadoModal from '@/components/docente/EnunciadoModal.svelte';
+  import CopiarActividadesModal from '@/components/docente/CopiarActividadesModal.svelte';
   import { hasPermission } from '@/services/permissionValidator';
   import type { Permission } from '@/types/permissions/permissions';
   import type { Actividad } from '@/types/actividad';
@@ -82,6 +81,7 @@
 
   interface Props {
     curso: {
+      etiqueta?: string;
       id_curso: number;
       cod_curso?: string;
       cod_asignatura?: string | null;
@@ -294,13 +294,10 @@
   let showForm = $state(false);
   let showDelete = $state(false);
   let showEnunciado = $state(false);
-  let showCopy = $state(false);
   let isLoading = $state(false);
-  let copiando = $state(false);
   let editando = $state<Actividad | null>(null);
   let eliminando = $state<Actividad | null>(null);
   let conEnunciado = $state<Actividad | null>(null);
-  let copiandoActividad = $state<Actividad | null>(null);
   let formErrors = $state<Record<string, string>>({});
 
   // ── Guardado optimista del interruptor de visibilidad (lámina e) ──────────
@@ -449,33 +446,23 @@
     handleToggleVisible(act);
   }
 
+  // ── Copiar a otro curso (sólo el titular, a sus otros grupos) ─────────────
+  let showCopiar = $state(false);
+  let copiarPreseleccion = $state<number[]>([]);
+
+  function abrirCopiar(act?: Actividad) {
+    copiarPreseleccion = act ? [act.id_actividad] : [];
+    showCopiar = true;
+  }
+
+  /** Lo que la última copia no pudo llevar y por qué (flash del servidor). */
+  const copiaOmitidas = $derived(
+    ((($page.props as any).flash?.data?.copia_omitidas ?? []) as Array<{ nombre: string; curso: string; motivo: string }>),
+  );
+
   function abrirEnunciado(act: Actividad) {
     conEnunciado = act;
     showEnunciado = true;
-  }
-
-  function abrirCopiar(act: Actividad) {
-    copiandoActividad = act;
-    showCopy = true;
-  }
-
-  function handleCopiarSubmit(data: {
-    id_curso_destino: number;
-    id_componente_destino: number;
-    id_unidad_destino: number;
-  }) {
-    if (!copiandoActividad) return;
-    copiando = true;
-    copiarActividad(curso.id_curso, copiandoActividad.id_actividad, data, {
-      onSuccess: () => {
-        showCopy = false;
-        copiandoActividad = null;
-        copiando = false;
-      },
-      onError: () => {
-        copiando = false;
-      },
-    });
   }
 
   // ── Lenguaje visual compartido (mismo vocabulario que CursoDetalle) ───────
@@ -516,7 +503,7 @@
           href="/docente/cursos/{curso.id_curso}"
           class="rounded-lg px-2 py-1.5 font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F5F1EA] hover:text-[#002F6C]"
         >
-          {curso.cod_curso ?? 'Curso'}
+          {curso.etiqueta ?? curso.cod_curso ?? 'Curso'}
         </Link>
         <ChevronRight size={13} class="text-[#98A0AE]" aria-hidden="true" />
         <span class="px-1 font-medium text-[#1A1A24]" aria-current="page">Actividades</span>
@@ -529,6 +516,19 @@
         >
           {flashError}
         </p>
+      {/if}
+      {#if copiaOmitidas.length > 0}
+        <div
+          class="m-0 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-[13px] text-[#92400E]"
+          role="status"
+        >
+          <p class="m-0 font-semibold">No se copiaron:</p>
+          <ul class="m-0 mt-1 list-disc pl-5">
+            {#each copiaOmitidas as o, i (i)}
+              <li>{o.nombre} → {o.curso}: {o.motivo}</li>
+            {/each}
+          </ul>
+        </div>
       {/if}
       {#if flashSuccess}
         <p
@@ -600,6 +600,12 @@
               </button>
             </div>
 
+            {#if esTitular && actividades.length > 0}
+              <button type="button" class={BTN_OUTLINE} onclick={() => abrirCopiar()}>
+                <Copy size={15} aria-hidden="true" />
+                Copiar a otro curso
+              </button>
+            {/if}
             {#if canCreate}
               <button type="button" class={BTN_PRIMARY} onclick={abrirCrear}>
                 <Plus size={16} aria-hidden="true" />
@@ -806,9 +812,9 @@
             {toggles}
             onToggleVisible={handleToggleVisible}
             onEdit={abrirEditar}
-            onCopiar={abrirCopiar}
             onDelete={abrirEliminar}
             onEnunciado={abrirEnunciado}
+            onCopiar={esTitular ? abrirCopiar : undefined}
           />
 
           <!-- Pie: qué se está viendo y cómo se reparte. Sin paginación: el
@@ -832,7 +838,7 @@
             actividades={actividadesFiltradas}
             idCurso={curso.id_curso}
             {canEdit}
-            onCopiar={abrirCopiar}
+            onCopiar={esTitular ? abrirCopiar : undefined}
           />
         {/if}
       </section>
@@ -854,18 +860,6 @@
     onSubmit={handleSubmit}
   />
 
-  <ActividadCopiarModal
-    bind:isOpen={showCopy}
-    idCurso={curso.id_curso}
-    actividad={copiandoActividad}
-    isLoading={copiando}
-    onClose={() => {
-      showCopy = false;
-      copiandoActividad = null;
-    }}
-    onSubmit={handleCopiarSubmit}
-  />
-
   <ActividadEliminarDialog
     bind:isOpen={showDelete}
     actividad={eliminando}
@@ -877,6 +871,14 @@
       showDelete = false;
       eliminando = null;
     }}
+  />
+
+  <CopiarActividadesModal
+    bind:isOpen={showCopiar}
+    idCurso={curso.id_curso}
+    {actividades}
+    preseleccion={copiarPreseleccion}
+    onClose={() => (showCopiar = false)}
   />
 
   <EnunciadoModal
