@@ -107,6 +107,11 @@ fi
 echo "[6/9] Compilando frontend..."
 npm run build
 
+if [ -d "\$REMOTE_TARGET_DIR" ] && [ -f "\$REMOTE_TARGET_DIR/artisan" ]; then
+    echo "Poniendo la aplicación en modo mantenimiento (php artisan down)..."
+    (cd "\$REMOTE_TARGET_DIR" && sudo_cmd -u "\$WEB_USER" php artisan down || true)
+fi
+
 echo "[7/9] Sincronizando archivos a producción..."
 sudo_cmd mkdir -p "\$REMOTE_TARGET_DIR"
 
@@ -168,6 +173,9 @@ ls -tp /home/utamed/backups/*.dump 2>/dev/null | grep -v '/\$' | tail -n +11 | x
 
 sudo_cmd -u "\$WEB_USER" php artisan migrate --force
 sudo_cmd -u "\$WEB_USER" php artisan optimize
+
+echo "Restaurando la aplicación (php artisan up)..."
+sudo_cmd -u "\$WEB_USER" php artisan up
 
 echo "Verificando estado final:"
 php artisan about
