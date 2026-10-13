@@ -16,11 +16,12 @@
    * - Modal para asignar roles y permisos especiales (RBAC)
    * - Confirmación antes de eliminación
    */
-  import { router } from '@inertiajs/svelte';
+  import { router, page } from '@inertiajs/svelte';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import PageHeader from '@/components/admin/PageHeader.svelte';
   import ConfirmationModal from '@/components/admin/ConfirmationModal.svelte';
   import PermissionsModal from '@/components/custom/admin/permissions-modal/PermissionsModal.svelte';
+  import Toast from '@/components/admin/Toast.svelte';
   import {
     UsuarioList,
     UsuarioForm,
@@ -139,9 +140,46 @@
     return baseData as AdministradorFormData;
   }
 
+  // ====== NOTIFICACIONES / TOAST ======
+  let toast = $state<{ msg: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
+
+  function showToast(msg: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') {
+    toast = { msg, type };
+  }
+
+  const flashSuccess = $derived(($page.props as any)?.flash?.success as string | undefined);
+  const flashError = $derived(($page.props as any)?.flash?.error as string | undefined);
+  let lastHandledFlash = $state<string | null>(null);
+
+  $effect(() => {
+    const succ = flashSuccess;
+    const err = flashError;
+    const key = succ ? `s:${succ}` : err ? `e:${err}` : null;
+
+    if (key && key !== lastHandledFlash) {
+      lastHandledFlash = key;
+      if (succ) {
+        showToast(succ, 'success');
+      } else if (err) {
+        showToast(err, 'error');
+      }
+    } else if (!key) {
+      lastHandledFlash = null;
+    }
+  });
+
   function handleError(context: string, errors: any) {
     console.error(`Error ${context}:`, errors);
-    alert(`Error al ${context}: ` + JSON.stringify(errors));
+    let errorMsg = `Error al ${context}.`;
+    if (errors && typeof errors === 'object') {
+      const messages = Object.values(errors).flat();
+      if (messages.length > 0 && typeof messages[0] === 'string') {
+        errorMsg = messages[0];
+      }
+    } else if (typeof errors === 'string') {
+      errorMsg = errors;
+    }
+    showToast(errorMsg, 'error');
   }
 
   /**
@@ -387,7 +425,7 @@
 
   function openResetDialog() {
     if (!passwordFormData.current_password.trim()) {
-      alert('Debes ingresar tu propia contraseña en el campo "Tu contraseña" para autorizar esta acción.');
+      showToast('Debes ingresar tu propia contraseña en el campo "Tu contraseña" para autorizar esta acción.', 'warning');
       return;
     }
     showResetDialog = true;
@@ -400,7 +438,7 @@
   function handleResetDefault() {
     if (!changingPasswordUsuario) return;
     if (!passwordFormData.current_password.trim()) {
-      alert('Debes ingresar tu propia contraseña en el campo "Tu contraseña" para autorizar esta acción.');
+      showToast('Debes ingresar tu propia contraseña en el campo "Tu contraseña" para autorizar esta acción.', 'warning');
       return;
     }
 
@@ -435,7 +473,9 @@
       showToggleDialog = true;
       return;
     }
-    toggleActive(usuario.usuario.id_usuario);
+    toggleActive(usuario.usuario.id_usuario, {
+      onError: (errors) => handleError('activar usuario', errors),
+    });
   }
 
   function closeToggleDialog() {
@@ -445,7 +485,9 @@
 
   function confirmToggleActive() {
     if (!togglingUsuario) return;
-    toggleActive(togglingUsuario.usuario.id_usuario);
+    toggleActive(togglingUsuario.usuario.id_usuario, {
+      onError: (errors) => handleError('desactivar usuario', errors),
+    });
     closeToggleDialog();
   }
 
@@ -601,4 +643,12 @@
     onConfirm={handleResetDefault}
     onCancel={closeResetDialog}
   />
+
+  {#if toast}
+    <Toast
+      type={toast.type}
+      message={toast.msg}
+      onClose={() => (toast = null)}
+    />
+  {/if}
 </AdminLayout>

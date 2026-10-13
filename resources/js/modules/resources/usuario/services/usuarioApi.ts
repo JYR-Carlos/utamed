@@ -75,6 +75,10 @@ export function setDefaultPassword(
 }
 
 /** POST /admin/usuarios/{id}/toggle-active — activa/desactiva el acceso. */
-export function toggleActive(id: number) {
-    router.post(`/admin/usuarios/${id}/toggle-active`, {}, { preserveScroll: true });
+export function toggleActive(id: number, options: ApiOptions = {}) {
+    router.post(`/admin/usuarios/${id}/toggle-active`, {}, {
+        preserveScroll: true,
+        onSuccess: options.onSuccess,
+        onError: options.onError,
+    });
 }
