@@ -23,7 +23,11 @@
         router.post(logout.url());
     };
 
-    const profileUrl = $derived(user.docente ? '/docente/perfil' : '/estudiante/perfil');
+    const profileUrl = $derived(
+        user.docente
+            ? '/docente/perfil'
+            : (user.estudiante ? '/estudiante/perfil' : '/settings/profile')
+    );
 </script>
 
 <DropdownMenuLabel class="p-0 font-normal">
