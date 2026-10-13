@@ -1124,7 +1124,7 @@
         <AgendaDocente
           onCerrar={cerrarAgenda}
           onInteraccionEnviada={manejarInteraccionDocente}
-          cod_curso={curso.cod_curso}
+          cod_curso={curso.etiqueta ?? curso.cod_curso}
           nombre_actividad={actividad.nombre}
           nombre_grupo={grupoSeleccionado.etiqueta}
           esGrupal={actividad.es_grupal}

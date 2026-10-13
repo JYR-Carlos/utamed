@@ -200,6 +200,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Mensajes del curso | UTAmed</title>
+</svelte:head>
+
 <DocenteLayout>
   <div class="flex flex-col h-full">
     <!-- ── Header ─────────────────────────────────────────────────────────── -->
