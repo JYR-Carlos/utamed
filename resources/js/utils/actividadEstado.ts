@@ -6,7 +6,8 @@
  *
  *  • Planificada — no visible todavía para los alumnos.
  *  • Activa      — visible y aún abierta (sin fecha límite, o con fecha futura).
- *  • Cerrada     — visible y con la fecha límite ya pasada.
+ *  • Cerrada     — visible y con la fecha límite ya pasada, contando los días
+ *                  de holgura general de la actividad.
  *
  * Importante: el **estado lo pone el sistema** (se deriva); la **visibilidad la
  * pone el docente**. Por eso no hay una columna `estado` en `agenda.actividad`
@@ -35,8 +36,11 @@ export function estadoActividad(a: Actividad, ahora: Date = new Date()): EstadoA
     // Sin fecha límite la actividad sigue abierta: nunca vence sola.
     if (!a.fecha_limite) return 'activa';
     // fecha_limite es fecha-solo-día: cierra a las 23:59 de ese día en Chile,
-    // igual que el backend, aunque el navegador esté en otra zona.
-    return cierreEnChile(a.fecha_limite) >= ahora ? 'activa' : 'cerrada';
+    // igual que el backend, aunque el navegador esté en otra zona. La holgura
+    // general mantiene abierta la actividad esos días más (Actividad::
+    // calcularEstadoBase); la personal es por grupo y no entra aquí.
+    const holgura = a.nro_dias_adicionales_para_bloqueo ?? 0;
+    return cierreEnChile(a.fecha_limite, holgura) >= ahora ? 'activa' : 'cerrada';
 }
 
 /** Rótulo humano del estado. */
