@@ -4,6 +4,8 @@
 
   interface Props {
     ultima_nota?: number | null;
+    ajuste_decimas?: number;
+    nota_grupo?: number | null;
     es_sumativa: boolean;
     ultima_evaluacion?: {
       id_evaluacion?: number;
@@ -21,6 +23,8 @@
 
   let {
     ultima_nota,
+    ajuste_decimas = 0,
+    nota_grupo = null,
     es_sumativa,
     ultima_evaluacion = null,
     fecha_evaluacion,
@@ -33,6 +37,15 @@
   const gradeLabel = $derived.by(() => {
     if (ultima_nota === null || ultima_nota === undefined) return '-,-';
     return ultima_nota.toFixed(1).replace('.', ',');
+  });
+
+  // «Nota del grupo 7,0 · ajuste del docente −0,5»: explica por qué la nota
+  // propia no coincide con la que da la rúbrica.
+  const detalleAjuste = $derived.by(() => {
+    if (!ajuste_decimas || nota_grupo === null || nota_grupo === undefined) return null;
+    const signo = ajuste_decimas > 0 ? '+' : '−';
+    const ajuste = Math.abs(ajuste_decimas).toFixed(1).replace('.', ',');
+    return `Nota del grupo ${nota_grupo.toFixed(1).replace('.', ',')} · ajuste del docente ${signo}${ajuste}`;
   });
 
   const badgeClass = $derived(
@@ -115,6 +128,9 @@
       <span class="text-[80px] font-semibold leading-none tracking-tight text-[#1A1A24]">{gradeLabel}</span>
       <div class="flex flex-col pb-1">
         <span class="text-xs text-[#5A5E6E]">Nota sumativa</span>
+        {#if detalleAjuste}
+          <span class="mt-1 text-[11.5px] font-medium text-[#3F4352]">{detalleAjuste}</span>
+        {/if}
       </div>
     </div>
   {:else}

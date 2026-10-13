@@ -1316,12 +1316,23 @@ class DocenteActivityController extends Controller
             ->where('id_actividad', $actividad->id_actividad)
             ->firstOrFail();
 
+        $notaIndividual = $this->calcularNotaIndividual($grupoModel->nota, (float) $validated['diferencia_decimas']);
+
         $asignado->update([
             'diferencia_decimas' => $validated['diferencia_decimas'],
-            'nota_individual' => $this->calcularNotaIndividual($grupoModel->nota, (float) $validated['diferencia_decimas']),
+            'nota_individual' => $notaIndividual,
         ]);
 
-        return redirect()->back()->with('success', 'Nota individual actualizada.');
+        // La escala va de 1,0 a 7,0: un +0,1 sobre un 7,0 no cambia nada y antes
+        // no se avisaba, así que parecía que el botón no había funcionado.
+        $mensaje = 'Nota individual actualizada.';
+        if ($grupoModel->nota !== null && $notaIndividual !== null
+            && abs(((float) $grupoModel->nota + (float) $validated['diferencia_decimas']) - $notaIndividual) > 0.04) {
+            $mensaje = 'Nota individual actualizada: queda en '.number_format($notaIndividual, 1, ',', '')
+                .' porque la escala va de 1,0 a 7,0.';
+        }
+
+        return redirect()->back()->with('success', $mensaje);
     }
 
     /**

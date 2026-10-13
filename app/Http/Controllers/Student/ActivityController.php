@@ -109,6 +109,12 @@ class ActivityController extends Controller
 
         
         $ultimaNota = $integranteGrupo?->nota_individual ?? $grupo?->nota;
+
+        // El docente puede ajustar la nota de cada integrante en décimas sobre
+        // la del grupo: sin esto el alumno veía 6,5 al lado de una rúbrica que
+        // da 7,0 y no había cómo entender la diferencia.
+        $ajusteDecimas = (float) ($integranteGrupo?->diferencia_decimas ?? 0);
+        $notaGrupo = $grupo?->nota !== null ? (float) $grupo->nota : null;
         
         $interacciones = [];
         $ultimaEntrega = null;
@@ -243,6 +249,8 @@ class ActivityController extends Controller
             'trae_archivo'          => $actividad->uuid_archivo !== null,
             'entrega_obligatoria'   => strtolower($actividad->tipo_entrega ?? '') !== 'sin entrega',
             'ultima_nota'           => $ultimaNota !== null ? (float) $ultimaNota : null,
+            'ajuste_decimas'        => $ajusteDecimas,
+            'nota_grupo'            => $notaGrupo,
             'ultima_evaluacion'     => $ultimaEvaluacion,
             'ultima_entrega'        => $ultimaEntrega,
             'estado'                => $estado,

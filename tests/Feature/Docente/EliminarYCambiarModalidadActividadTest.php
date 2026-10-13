@@ -230,3 +230,25 @@ test('el rótulo del grupo es el nombre de la persona o el nombre propio, nunca 
         ->and(ActividadAsignadaGrupo::etiqueta(true, '   ', null, 2))->toBe('Grupo 2')
         ->and(ActividadAsignadaGrupo::etiqueta(true, null, null, 1))->toBe('Grupo 1');
 });
+
+test('sumar décimas sobre un 7,0 avisa que la escala lo topa; un ajuste normal no', function () {
+    $f = fixtureModalidadActividad() ?? $this->markTestSkipped('Sin curso con titular, inscritos y actividades.');
+    $docente = docenteModalidadActividad($f);
+    $actividad = crearActividadModalidad($docente, $f, false);
+
+    $grupo = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
+        ->orderBy('id_actividad_asignada_grupo')->firstOrFail();
+    $grupo->update(['nota' => 7.0]);
+    $integrante = DB::table('agenda.integrante_grupo')
+        ->where('id_actividad_asignada_grupo', $grupo->id_actividad_asignada_grupo)->first();
+    $ruta = "/docente/cursos/{$f['id_curso']}/actividades/{$actividad->id_actividad}"
+        . "/grupos/{$grupo->id_actividad_asignada_grupo}/integrantes/{$integrante->id_asignado_actividad}";
+
+    $this->actingAs($docente)->put($ruta, ['diferencia_decimas' => 0.1])
+        ->assertSessionHas('success', 'Nota individual actualizada: queda en 7,0 porque la escala va de 1,0 a 7,0.');
+
+    $this->actingAs($docente)->put($ruta, ['diferencia_decimas' => -0.5])
+        ->assertSessionHas('success', 'Nota individual actualizada.');
+    expect((float) DB::table('agenda.integrante_grupo')
+        ->where('id_asignado_actividad', $integrante->id_asignado_actividad)->value('nota_individual'))->toBe(6.5);
+});

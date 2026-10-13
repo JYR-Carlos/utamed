@@ -29,6 +29,9 @@
     es_grupal: boolean;
     entrega_obligatoria: boolean;
     ultima_nota?: number | null;
+    /** Décimas que el docente sumó o restó a la nota del grupo para este alumno. */
+    ajuste_decimas?: number;
+    nota_grupo?: number | null;
     ultima_entrega?: {
       id_interaccion: number;
       fecha_emision: string;
@@ -78,6 +81,8 @@
     es_grupal,
     entrega_obligatoria,
     ultima_nota,
+    ajuste_decimas = 0,
+    nota_grupo = null,
     ultima_evaluacion = null,
     ultima_entrega = null,
     estado,
@@ -349,6 +354,8 @@
           {#if es_sumativa ? (ultima_nota !== null && ultima_nota !== undefined) : ultima_evaluacion !== null}
             <ActivityGradeCard
               {ultima_nota}
+              {ajuste_decimas}
+              {nota_grupo}
               {es_sumativa}
               {ultima_evaluacion}
               fecha_evaluacion={ultima_evaluacion?.fecha_emision}
