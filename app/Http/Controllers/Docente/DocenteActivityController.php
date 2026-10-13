@@ -1462,6 +1462,8 @@ class DocenteActivityController extends Controller
             // Crear grupo
             $grupo = ActividadAsignadaGrupo::create([
                 'id_actividad' => $actividad->id_actividad,
+                // Se validaba pero no se guardaba: el nombre propio del grupo se perdía al crearlo.
+                'nombre_grupo' => filled($validated['nombre_grupo'] ?? null) ? trim($validated['nombre_grupo']) : null,
                 'estado_actividad_asignada' => 'PLANIFICADA',
             ]);
 

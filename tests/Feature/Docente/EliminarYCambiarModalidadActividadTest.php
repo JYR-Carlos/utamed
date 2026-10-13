@@ -281,3 +281,25 @@ test('el docente ve cuál entrega es la vigente, cuáles llegaron fuera de plazo
     expect($grupos[$idGrupo]['entrega'])->toMatchArray(['fuera_de_plazo' => true, 'cantidad' => 2])
         ->and($otro['entrega'])->toBeNull();
 });
+
+test('al crear un grupo grupal se guarda el nombre que se le puso y se rotula con él', function () {
+    $f = fixtureModalidadActividad() ?? $this->markTestSkipped('Sin curso con titular, inscritos y actividades.');
+    $docente = docenteModalidadActividad($f);
+    $actividad = crearActividadModalidad($docente, $f, true);
+    $inscritos = DB::table('curso.inscripcion_curso')
+        ->where('id_curso', $f['id_curso'])->where('estado_inscripcion', 'INSCRITO')->limit(2)->pluck('id_estudiante')->all();
+
+    $this->actingAs($docente)
+        ->post("/docente/cursos/{$f['id_curso']}/actividades/{$actividad->id_actividad}/grupos-create", [
+            'nombre_grupo' => '  Los Tigres  ',
+            'estudiantes' => $inscritos,
+        ])->assertSessionHasNoErrors();
+
+    $props = $this->actingAs($docente)
+        ->get("/docente/cursos/{$f['id_curso']}/actividades/{$actividad->id_actividad}/evaluacion")
+        ->assertOk()->viewData('page')['props'];
+
+    expect($props['grupos'])->toHaveCount(1)
+        ->and($props['grupos'][0]['nombre_grupo'])->toBe('Los Tigres')
+        ->and($props['grupos'][0]['etiqueta'])->toBe('Los Tigres');
+});
