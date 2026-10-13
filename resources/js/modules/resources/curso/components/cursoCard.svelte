@@ -65,7 +65,7 @@
   <div class="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto shrink-0">
     <button
       onclick={() => onCourseClick(curso)}
-      class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-xl transition-colors border border-indigo-100"
+      class="cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-xl transition-colors border border-indigo-100"
     >
       Entrar
       <ArrowRight class="w-4 h-4" />
@@ -74,7 +74,7 @@
     {#if showSyllabusButton}
       <button
         onclick={() => onSyllabusClick(curso)}
-        class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 text-sm text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors border border-slate-200"
+        class="cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 text-sm text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors border border-slate-200"
       >
         <BookOpenCheck class="w-4 h-4" />
         Programa

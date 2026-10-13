@@ -30,7 +30,7 @@
 <section class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
   <div class="flex items-center gap-2">
     <CalendarClock class="h-4 w-4 text-slate-500" />
-    <h3 class="text-[15px] font-semibold text-slate-900">Próximas a vencer</h3>
+    <h3 class="text-[15px] font-semibold text-slate-900">Entregas Cercanas</h3>
     {#if items.length > 0}
       <span
         class="ml-auto shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"

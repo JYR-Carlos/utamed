@@ -82,21 +82,25 @@
 </script>
 
 <header class="mb-8">
-  <div class="flex flex-col gap-1 mb-6">
+  <div class="flex sm:flex-row flex-col gap-4 mb-6 sm:justify-between">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+        {titulo}
+      </h1>
+      <p class="text-sm text-slate-500">
+        {#if curso?.carrera_nombre}{curso.carrera_nombre}{/if}
+        {#if subtitulo}{curso?.carrera_nombre ? ' · ' : ''}{subtitulo}{/if}
+      </p>
+    </div>
+    
+
     {#if periodo}
       <span
-        class="inline-flex items-center gap-1.5 text-xs font-bold text-uta-blue bg-uta-blue-light border border-uta-blue/20 rounded-full px-3 py-0.5 w-fit"
+        class="inline-flex items-center gap-1.5 text-xs font-bold text-uta-blue bg-uta-blue-light border border-uta-blue/20 rounded-full px-3 py-2 w-fit h-fit"
       >
         {periodo}
       </span>
     {/if}
-    <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
-      {titulo}
-    </h1>
-    <p class="text-sm text-slate-500">
-      {#if curso?.carrera_nombre}{curso.carrera_nombre}{/if}
-      {#if subtitulo}{curso?.carrera_nombre ? ' · ' : ''}{subtitulo}{/if}
-    </p>
   </div>
 
   <div class="rounded-3xl border border-gray-200 bg-white p-6">

@@ -83,19 +83,10 @@
     <div class="rounded-3xl border border-gray-200 bg-white p-6">
       {@render encabezado(Scale, 'Cómo se evalúa')}
 
-      <!-- Reparto de la nota final entre componentes -->
-      <div class="mb-5">
-        <div class="flex h-3.5 gap-[3px] overflow-hidden rounded-full" aria-hidden="true">
-          {#each componentes as componente, i (componente.componente)}
-            <div style="flex: {componente.porcentaje}; background: {TONOS[i % TONOS.length]}"></div>
-          {/each}
-        </div>
-        <p class="mt-2 text-xs text-gray-500">
-          Nota final: {componentes.map((c) => `${c.componente} ${c.porcentaje} %`).join(' · ')}
-        </p>
-      </div>
+      <div class="grid sm:grid-cols-2 grid-cols-1 justify-between items-start gap-6">
 
-      <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      
+      <ul class="grid grid-cols-1 gap-3">
         {#each componentes as componente, i (componente.componente)}
           {@const asistencia = componente.asistencia_obligatoria ?? 0}
           {@const sinActividades = textoConteo(componente.componente) === 'Aún sin actividades'}
@@ -132,11 +123,12 @@
       </ul>
 
       {#if normativa}
-        <div class="mt-6 p-4 rounded-2xl bg-uta-red-light border border-uta-red/20">
-          <p class="text-sm font-semibold text-uta-red mb-1">Requisito de aprobación</p>
+        <div class="p-4 size-full rounded-2xl border ">
+          <p class="text-sm font-semibold text-gray-700 mb-1">Requisito de aprobación</p>
           <p class="text-sm text-gray-700 leading-relaxed">{normativa}</p>
         </div>
       {/if}
+      </div>
     </div>
   {/if}
 

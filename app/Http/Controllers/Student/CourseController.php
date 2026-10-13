@@ -27,7 +27,7 @@ use Inertia\Response;
  */
 class CourseController extends Controller
 {
-    private const DEFAULT_COURSE_IMAGE = '/images/default-course.png';
+    private const DEFAULT_COURSE_IMAGE = '/img/utamed.webp';
 
 
     /**
