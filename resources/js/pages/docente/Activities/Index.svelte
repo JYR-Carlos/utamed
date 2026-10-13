@@ -1197,6 +1197,17 @@
     reglas={reglas_enunciado}
     onClose={() => (showEnunciado = false)}
   />
+
+  <!-- Confirmación de «Quitar del grupo» / «Eliminar grupo». Sin este montaje
+       pedirConfirmacion() cambiaba el estado y nada aparecía en pantalla. -->
+  <ConfirmDialog
+    open={confirmState.open}
+    title={confirmState.title}
+    body={confirmState.body}
+    confirmLabel={confirmState.confirmLabel}
+    onConfirm={confirmState.onConfirm}
+    onCancel={cerrarConfirmacion}
+  />
 </DocenteLayout>
 
 <svelte:window
