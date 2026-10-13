@@ -73,16 +73,22 @@ class LecturaAgendaService
      * mensaje de cada uno. Los mensajes pueden ser arrays u objetos; basta con
      * que traigan `id_agenda` (o `id_interaccion`, que vale lo mismo).
      *
+     * Con `$registrar = false` sólo se agrega `visto_por`: quien carga la página
+     * ve quién vio su mensaje, pero no cuenta como lectura suya. El alumno lee
+     * al abrir la agenda, no al cargar la actividad.
+     *
      * @param  array<array-key, iterable>  $hilos  Cada hilo en orden cronológico.
      * @return array<array-key, array>  Los mismos hilos, con las mismas claves.
      */
-    public function leerHilos(int $idUsuario, array $hilos): array
+    public function leerHilos(int $idUsuario, array $hilos, bool $registrar = true): array
     {
         $idDe = fn ($m) => (int) data_get($m, 'id_agenda', data_get($m, 'id_interaccion'));
 
         $hilos = array_map(fn ($hilo) => collect($hilo)->values()->all(), $hilos);
 
-        $this->registrar($idUsuario, collect($hilos)->flatten(1)->map($idDe));
+        if ($registrar) {
+            $this->registrar($idUsuario, collect($hilos)->flatten(1)->map($idDe));
+        }
 
         $indiceUltimoVisible = function (array $hilo): ?int {
             for ($i = count($hilo) - 1; $i >= 0; $i--) {
@@ -160,8 +166,8 @@ class LecturaAgendaService
     }
 
     /** Igual que leerHilos() para un solo hilo. */
-    public function leerHilo(int $idUsuario, iterable $hilo): array
+    public function leerHilo(int $idUsuario, iterable $hilo, bool $registrar = true): array
     {
-        return $this->leerHilos($idUsuario, [$hilo])[0];
+        return $this->leerHilos($idUsuario, [$hilo], $registrar)[0];
     }
 }

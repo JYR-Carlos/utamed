@@ -254,6 +254,33 @@ class AgendaController extends Controller
         return back()->with('success', 'Entrega enviada exitosamente');
     }
 
+    /**
+     * Registra que el estudiante abrió la agenda: marca como leídos los mensajes
+     * del grupo que no escribió él (T07, «Visto»). Lo llama la página de la
+     * actividad cuando se abre el modal de la agenda.
+     */
+    public function marcarLeida(ActividadAsignadaGrupo $actividadAsignadaGrupo): \Illuminate\Http\Response
+    {
+        /** @var Usuario $user */
+        $user = Auth::user();
+
+        if (!$user->estudiante) {
+            abort(403, 'Usuario no es estudiante');
+        }
+
+        IntegranteGrupo::where('id_estudiante', $user->estudiante->id_estudiante)
+            ->where('id_actividad_asignada_grupo', $actividadAsignadaGrupo->id_actividad_asignada_grupo)
+            ->firstOrFail();
+
+        (new \App\Services\Agenda\LecturaAgendaService)->registrar(
+            $user->id_usuario,
+            Agenda::where('id_actividad_asignada_grupo', $actividadAsignadaGrupo->id_actividad_asignada_grupo)
+                ->pluck('id_agenda')
+        );
+
+        return response()->noContent();
+    }
+
     /** Segundos dentro de los cuales un envío idéntico se considera el mismo. */
     private const VENTANA_ENVIO_REPETIDO = 10;
 

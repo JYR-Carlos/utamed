@@ -136,6 +136,21 @@
     return [...delServidor, ...pendientes];
   });
 
+  // «Visto» (T07): leer la agenda es abrirla, no cargar la actividad. Se avisa al
+  // servidor cada vez que el modal pasa a abierto; el docente lo ve en su hilo.
+  $effect(() => {
+    if (!showAgendaModal || !id_actividad_asignada_grupo) return;
+    fetch(`/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/agenda/leida`, {
+      method: 'POST',
+      headers: {
+        'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    }).catch(() => {
+      // Sin red no pasa nada grave: se reintenta la próxima vez que abra la agenda.
+    });
+  });
+
   // Desde el dashboard («Notas y retroalimentaciones recientes») se llega con
   // ?abrir=agenda (o #agenda) para aterrizar directo en la conversación.
   onMount(() => {

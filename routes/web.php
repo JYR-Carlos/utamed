@@ -593,6 +593,11 @@ Route::prefix('estudiante')
                 )->name('actividades.agenda.store');
 
                 Route::post(
+                    'grupos-asignados/{actividadAsignadaGrupo}/agenda/leida',
+                    'marcarLeida'
+                )->name('actividades.agenda.marcarLeida');
+
+                Route::post(
                     // estudiante/agendas/{registroAgenda}/archivos
                     'agendas/{registroAgenda}/archivos',
                     'storeFile'

@@ -169,9 +169,10 @@ class ActivityController extends Controller
                 ];
             })->values()->toArray();
 
-            // Abrir la actividad es leer su agenda (T07): se registra la
-            // lectura y el último mensaje trae quiénes lo han visto.
-            $interacciones = (new LecturaAgendaService)->leerHilo($user->id_usuario, $interacciones);
+            // El «Visto» (T07) se registra al ABRIR la agenda, no al cargar la
+            // actividad (AgendaController::marcarLeida). Aquí sólo se trae quiénes
+            // vieron el último mensaje.
+            $interacciones = (new LecturaAgendaService)->leerHilo($user->id_usuario, $interacciones, registrar: false);
 
             // Rúbrica usada en la evaluación más reciente (no la última rúbrica creada)
             $ultimaEvaluacionAgenda = $agendas->reverse()->first(fn (Agenda $a) => $a->evaluacion !== null);
