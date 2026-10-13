@@ -237,8 +237,6 @@ class ActivityController extends Controller
             'cod_actividad'         => (string) $actividad->id_actividad,
             'nombre_actividad'      => $actividad->nombre ?? '',
             'descripcion'           => '', 
-            'dias_holgura'          => (int) ($actividad->nro_dias_adicionales_para_bloqueo ?? 0),
-            'dias_holgura_personal' => (int) ($grupo?->nro_dias_adicionales_para_bloqueo_personal ?? 0),
             'fecha_limite'          => $actividad->fecha_limite?->format('Y-m-d') ?? '',
             'es_sumativa'           => $actividad->tipo_actividad === TipoActividad::SUMATIVA,
             'es_grupal'             => (bool) $actividad->es_grupal,

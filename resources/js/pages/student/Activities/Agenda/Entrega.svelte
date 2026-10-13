@@ -14,7 +14,7 @@
     onEntregaCompletada: () => void;
     onAvisarDocente?: () => void;
     id_actividad_asignada_grupo: number;
-    cod_curso: string;
+    nombre_curso: string;
     nombre_actividad: string;
     entrega_obligatoria: boolean;
     esReemplazo: boolean;
@@ -25,7 +25,7 @@
     onEntregaCompletada,
     onAvisarDocente,
     id_actividad_asignada_grupo,
-    cod_curso,
+    nombre_curso,
     nombre_actividad,
     entrega_obligatoria,
     esReemplazo,
@@ -132,7 +132,7 @@
     <div class="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
       <div class="flex flex-col">
         <span class="text-[15px] font-semibold text-[#1A1A24]">{esReemplazo ? 'Reemplazar entrega' : 'Entregar la actividad'}</span>
-        <span class="text-xs text-[#5A5E6E]">{cod_curso} · {nombre_actividad}</span>
+        <span class="text-xs text-[#5A5E6E]">{nombre_curso} · {nombre_actividad}</span>
       </div>
       <button class="rounded-full p-1.5 text-[#5A5E6E] transition-colors hover:bg-[#F8FAFC]" onclick={onCerrar} aria-label="cerrar">
         <X class="h-5 w-5" />

@@ -3,7 +3,8 @@
   import type { BreadcrumbItem } from '@/types';
   import type { Rubrica, RubricaResponse } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
-  import { X } from 'lucide-svelte';
+  import { AlertCircle, Users, X } from 'lucide-svelte';
+  import { ConfirmDialog } from '@/components/custom/common';
   import Agenda from './Agenda/Agenda.svelte';
   import RubricaView from './Agenda/Rubrica.svelte';
   import ActivityHeaderCard from './cards/ActivityHeaderCard.svelte';
@@ -26,8 +27,6 @@
     fecha_limite: string;
     es_sumativa: boolean;
     es_grupal: boolean;
-    dias_holgura: number;
-    dias_holgura_personal?: number;
     entrega_obligatoria: boolean;
     ultima_nota?: number | null;
     ultima_entrega?: {
@@ -77,8 +76,6 @@
     fecha_limite,
     es_sumativa,
     es_grupal,
-    dias_holgura,
-    dias_holgura_personal = 0,
     entrega_obligatoria,
     ultima_nota,
     ultima_evaluacion = null,
@@ -104,6 +101,21 @@
   let showEntregaModal = $state(false);
   let showEnunciadoModal = $state(false);
   let mensajesOptimistas = $state<InteraccionItem[]>([]);
+
+  // Avisos en línea y confirmación propia: antes eran alert() y confirm() del
+  // navegador, que bloquean la página y no siguen el diseño del producto.
+  let avisoError = $state<string | null>(null);
+  let temporizadorAviso: ReturnType<typeof setTimeout> | undefined;
+  function mostrarError(mensaje: string) {
+    avisoError = mensaje;
+    clearTimeout(temporizadorAviso);
+    temporizadorAviso = setTimeout(() => (avisoError = null), 8000);
+  }
+  let confirmandoBorrado = $state(false);
+
+  // En una actividad grupal el docente aún puede no haber asignado al alumno a
+  // un grupo: sin grupo no hay dónde colgar entregas ni mensajes.
+  const sinGrupo = $derived(!id_actividad_asignada_grupo);
 
   const interaccionesCombinadas = $derived.by(() => {
     if (mensajesOptimistas.length === 0) return listado_interacciones ?? [];
@@ -192,11 +204,7 @@
         cod_curso,
         data_tipo: data.tipo,
       });
-      alert(
-        'Error: No se encontró el grupo asignado para esta actividad.\n' +
-          `(cod_actividad=${cod_actividad}, id_actividad_asignada_grupo=${id_actividad_asignada_grupo})\n` +
-          'Revisa la consola del navegador para más detalles.',
-      );
+      mostrarError('Todavía no formas parte de un grupo en esta actividad, así que no puedes enviar mensajes.');
       return;
     }
 
@@ -231,7 +239,7 @@
           mensajesOptimistas = mensajesOptimistas.filter(
             (i) => i.id_interaccion !== optimisticItem.id_interaccion,
           );
-          alert(errors.error || 'Error al enviar mensaje');
+          mostrarError(errors.error || 'No se pudo enviar el mensaje. Inténtalo nuevamente.');
         },
       },
     );
@@ -239,16 +247,19 @@
 
   function handleBorrarEntrega() {
     if (!ultima_entrega?.id_interaccion || !id_actividad_asignada_grupo) return;
-    if (!confirm('¿Estás seguro de que deseas eliminar la entrega actual?')) {
-      return;
-    }
+    confirmandoBorrado = true;
+  }
+
+  function borrarEntregaConfirmado() {
+    confirmandoBorrado = false;
+    if (!ultima_entrega?.id_interaccion || !id_actividad_asignada_grupo) return;
 
     router.delete(
       `/estudiante/grupos-asignados/${id_actividad_asignada_grupo}/entregas/${ultima_entrega.id_interaccion}`,
       {
         preserveScroll: true,
         onSuccess: () => router.reload(),
-        onError: (errors) => alert(errors.error_general || 'Error al eliminar la entrega.'),
+        onError: (errors) => mostrarError(errors.error_general || 'No se pudo eliminar la entrega.'),
       },
     );
   }
@@ -259,6 +270,24 @@
     <div class="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8 md:px-6 lg:px-8">
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px] lg:items-start">
         <main class="flex flex-col gap-5">
+          {#if avisoError}
+            <div
+              role="alert"
+              class="flex items-start gap-2.5 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-[13px] text-[#7F1D1D]"
+            >
+              <AlertCircle class="mt-0.5 h-4 w-4 shrink-0 text-[#B91C1C]" aria-hidden="true" />
+              <p class="flex-1">{avisoError}</p>
+              <button
+                type="button"
+                class="shrink-0 text-[#B91C1C] hover:text-[#7F1D1D]"
+                aria-label="Cerrar aviso"
+                onclick={() => (avisoError = null)}
+              >
+                <X class="h-4 w-4" />
+              </button>
+            </div>
+          {/if}
+
           <ActivityHeaderCard
             {nombre_actividad}
             {nombre_curso}
@@ -274,11 +303,23 @@
               : null}
           />
 
-          {#if fecha_limite || entrega_obligatoria}
+          {#if sinGrupo}
+            <section class="flex items-start gap-3 rounded-xl border border-slate-300 bg-slate-100/70 p-5 md:p-6">
+              <Users class="mt-0.5 h-5 w-5 shrink-0 text-slate-600" aria-hidden="true" />
+              <div class="flex flex-col gap-1">
+                <h2 class="text-base font-bold text-[#1A1A24]">
+                  {es_grupal ? 'Aún no tienes grupo en esta actividad' : 'Tu registro en esta actividad aún no está listo'}
+                </h2>
+                <p class="text-[13px] text-[#5A5E6E]">
+                  {es_grupal
+                    ? 'Cuando tu docente te asigne a un grupo podrás entregar y escribir en la agenda. Si crees que es un error, avísale.'
+                    : 'Avisa a tu docente para que lo revise: sin él no puedes entregar ni escribir en la agenda.'}
+                </p>
+              </div>
+            </section>
+          {:else if fecha_limite || entrega_obligatoria}
             <ActivitySubmissionCard
               {fecha_limite}
-              {dias_holgura}
-              {dias_holgura_personal}
               {estado}
               {entrega_obligatoria}
               esGrupal={es_grupal}
@@ -415,7 +456,7 @@
         showAgendaModal = true;
       }}
       {id_actividad_asignada_grupo}
-      {cod_curso}
+      {nombre_curso}
       {nombre_actividad}
       {entrega_obligatoria}
       esReemplazo={tieneEntregaRegistrada}
@@ -440,6 +481,15 @@
     />
   </div>
 {/if}
+
+<ConfirmDialog
+  open={confirmandoBorrado}
+  title="Eliminar entrega"
+  body="¿Seguro que quieres eliminar la entrega actual? Podrás subir otra mientras la actividad siga abierta."
+  confirmLabel="Eliminar"
+  onConfirm={borrarEntregaConfirmado}
+  onCancel={() => (confirmandoBorrado = false)}
+/>
 
 <svelte:window
   onkeydown={(e) => {
