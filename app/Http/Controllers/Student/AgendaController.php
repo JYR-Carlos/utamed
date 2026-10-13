@@ -202,6 +202,14 @@ class AgendaController extends Controller
                     return 'La fecha límite de entrega ha vencido. No se pueden subir nuevos archivos. Consulta con tu docente si deseas enviar un archivo de manera excepcional.';
                 }
 
+                // Doble envío: dos peticiones idénticas casi a la vez (doble clic
+                // que sortea el bloqueo del botón, reintento de red) dejaban dos
+                // entregas del mismo archivo. El bloqueo del grupo las serializa,
+                // así que la segunda ve a la primera y no registra otra.
+                if ($this->esEnvioRepetido($grupo, $user, $storedFile)) {
+                    return self::ENVIO_REPETIDO;
+                }
+
                 $agenda = $this->crearAgenda(
                     user: $user,
                     actividadAsignadaGrupo: $grupo,
@@ -222,6 +230,14 @@ class AgendaController extends Controller
             ]);
         }
 
+        if ($rechazo === self::ENVIO_REPETIDO) {
+            // La entrega ya está registrada: el archivo de esta segunda
+            // petición sobra. Para el estudiante el resultado es el mismo.
+            $this->descartarArchivoSubido($storedFile);
+
+            return back()->with('success', 'Entrega enviada exitosamente');
+        }
+
         if ($rechazo !== null) {
             $this->descartarArchivoSubido($storedFile);
 
@@ -236,6 +252,42 @@ class AgendaController extends Controller
         ]);
 
         return back()->with('success', 'Entrega enviada exitosamente');
+    }
+
+    /** Segundos dentro de los cuales un envío idéntico se considera el mismo. */
+    private const VENTANA_ENVIO_REPETIDO = 10;
+
+    /** Valor que devuelve la transacción cuando la entrega ya estaba registrada. */
+    private const ENVIO_REPETIDO = '__envio_repetido__';
+
+    /**
+     * ¿La última entrega de este usuario en el grupo es, con casi total
+     * seguridad, este mismo envío? Mismo emisor, hace segundos y mismo archivo
+     * (nombre y peso).
+     */
+    private function esEnvioRepetido(
+        ActividadAsignadaGrupo $grupo,
+        Usuario $user,
+        ArchiveStorageResult $nuevo
+    ): bool {
+        $previa = Agenda::where('id_actividad_asignada_grupo', $grupo->id_actividad_asignada_grupo)
+            ->where('id_usuario_emisor', $user->id_usuario)
+            ->where('tipo_mensaje', TipoMensaje::ENTREGA_DE_ARCHIVO->value)
+            ->whereNotNull('uuid_archivo_subido')
+            ->where('fecha_envio', '>=', now()->subSeconds(self::VENTANA_ENVIO_REPETIDO))
+            ->orderByDesc('id_agenda')
+            ->first();
+
+        if (!$previa) {
+            return false;
+        }
+
+        $archivoPrevio = Archivo::find($previa->uuid_archivo_subido);
+        $archivoNuevo = Archivo::find($nuevo->uuidArchivo);
+
+        return $archivoPrevio && $archivoNuevo
+            && $archivoPrevio->nombre_original === $archivoNuevo->nombre_original
+            && (int) $archivoPrevio->peso_bytes === (int) $archivoNuevo->peso_bytes;
     }
 
     /**

@@ -112,3 +112,47 @@ test('si el docente evalúa mientras se procesa el archivo, la entrega se rechaz
         ->and($this->uuidSubido ?? null)->not->toBeNull()
         ->and(Archivo::findOrFail($this->uuidSubido)->pendiente_de_borrado)->toBeTrue();
 });
+
+test('dos envíos idénticos seguidos dejan una sola entrega y el archivo sobrante queda para borrar', function () {
+    Storage::fake('local');
+    Storage::fake(config('filesystems.default'));
+    $f = grupoParaSubirEntrega($this);
+    $envio = fn () => $this->actingAs($f['usuario'])
+        ->from('/estudiante/dashboard')
+        ->post("/estudiante/grupos-asignados/{$f['grupo']}/entregas", ['archivo' => pdfDePrueba(), 'mensaje' => 'Mi entrega']);
+
+    $envio()->assertSessionHasNoErrors()->assertSessionHas('success');
+    $envio()->assertSessionHasNoErrors()->assertSessionHas('success');
+
+    expect(filasEntrega($f['grupo']))->toBe(1);
+    $vigente = Agenda::where('id_actividad_asignada_grupo', $f['grupo'])
+        ->where('tipo_mensaje', TipoMensaje::ENTREGA_DE_ARCHIVO->value)->firstOrFail();
+    // El archivo de la segunda petición quedó guardado pero sin entrega: a borrar.
+    $sobrantes = Archivo::where('pendiente_de_borrado', true)
+        ->where('uuid_archivo', '!=', $vigente->uuid_archivo_subido)
+        ->where('nombre_original', 'entrega.pdf')
+        ->count();
+    expect($sobrantes)->toBeGreaterThanOrEqual(1)
+        ->and(Archivo::findOrFail($vigente->uuid_archivo_subido)->pendiente_de_borrado)->toBeFalse();
+});
+
+test('un archivo distinto enviado enseguida sí es un reemplazo, no un duplicado', function () {
+    Storage::fake('local');
+    Storage::fake(config('filesystems.default'));
+    $f = grupoParaSubirEntrega($this);
+
+    $this->actingAs($f['usuario'])->from('/estudiante/dashboard')
+        ->post("/estudiante/grupos-asignados/{$f['grupo']}/entregas", ['archivo' => pdfDePrueba(), 'mensaje' => 'v1'])
+        ->assertSessionHasNoErrors();
+
+    $otro = UploadedFile::fake()->createWithContent(
+        'entrega-v2.pdf',
+        "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+        . "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 300]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n"
+    );
+    $this->actingAs($f['usuario'])->from('/estudiante/dashboard')
+        ->post("/estudiante/grupos-asignados/{$f['grupo']}/entregas", ['archivo' => $otro, 'mensaje' => 'v2'])
+        ->assertSessionHasNoErrors();
+
+    expect(filasEntrega($f['grupo']))->toBe(2);
+});
