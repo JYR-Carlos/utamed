@@ -534,7 +534,8 @@ export interface AsignacionPlanFormData {
 export interface CursoFormData {
     id_asignatura: number;
     id_plan: number;
-    cod_curso: number;
+    /** Código interno; al crear lo asigna el backend si se omite. */
+    cod_curso?: number;
     nombre?: string;
     fecha_inicio?: string;
     numero_semestre?: number;
@@ -547,7 +548,8 @@ export interface CursoFormData {
     id_tipo_componente_principal?: number;
     tipos_componente_ids?: number[];
     /** Docente asignado a cada componente (clave: id_tipo_componente, valor: id_docente) */
-    docentes_por_componente?: Record<number, number>;
+    /** id_tipo_componente → docentes que lo dictan (2+ = colegiado). */
+    docentes_por_componente?: Record<number, number[]>;
     /** Si cada componente genera acta (clave: id_tipo_componente, valor: boolean) */
     genera_acta_por_componente?: Record<number, boolean>;
     aprobacion_obligatoria?: boolean;

@@ -35,20 +35,21 @@ class CursoService
                 $data['id_plan']
             );
 
+            // El código del curso es interno de UTAMED: si no viene, se asigna el
+            // siguiente correlativo (el de la Intranet es por componente, no por curso).
+            $codCurso = !empty($data['cod_curso']) ? (int) $data['cod_curso'] : $this->siguienteCodCurso();
+
             // Create context for the course
-            $contexto = $this->createOrUpdateContext($data['cod_curso']);
+            $contexto = $this->createOrUpdateContext((string) $codCurso);
 
             $agnoReal = $data['agno_real'] ?? null;
             $semestreReal = $data['semestre_real'] ?? 2;
 
-            // Docente asignado a cada componente (clave: id_tipo_componente, valor: id_docente).
-            $docentesPorComponente = $data['docentes_por_componente'] ?? [];
-
-            // El curso es colegiado si hay más de un docente distinto entre los
-            // componentes asignados. No es una opción manual: se deriva de la
-            // asignación real de docentes por componente.
-            $docentesUnicos = collect($docentesPorComponente)->filter()->unique()->count();
-            $esColegiado = $docentesUnicos > 1;
+            // Docentes de cada componente (clave: id_tipo_componente, valor: lista de
+            // id_docente; se acepta también un id suelto). Colegiado se calcula al
+            // final con Curso::recalcularColegiado(): dos o más docentes en un mismo
+            // componente, no un docente distinto por componente.
+            $docentesPorComponente = $this->normalizarDocentesPorComponente($data['docentes_por_componente'] ?? []);
 
             // Letra de grupo (indice_grupo): si viene explícita desde el wizard
             // (selección manual), se respeta y valida (ver StoreCursoRequest);
@@ -59,7 +60,7 @@ class CursoService
 
             // Prepare curso data
             $cursoData = [
-                'cod_curso'            => $data['cod_curso'],
+                'cod_curso'            => $codCurso,
                 'nombre'               => $data['nombre'] ?? '',
                 'fecha_inicio'         => $data['fecha_inicio'] ?? now()->format('Y-m-d'),
                 'agno_real'            => $agnoReal,
@@ -68,7 +69,7 @@ class CursoService
                 'id_contexto'          => $contexto->id_contexto,
                 'indice_grupo'         => $indiceGrupo,
                 'id_docente_titular'   => $data['id_docente_sugerido'],
-                'es_colegiado'         => $esColegiado,
+                'es_colegiado'         => false,
             ];
 
             // Set fecha_fin to 6 months after fecha_inicio
@@ -89,7 +90,7 @@ class CursoService
             $generaActaPorComponente = $data['genera_acta_por_componente'] ?? [];
 
             if ($tipoComponente) {
-                $contextoComponente = $this->createOrUpdateContext($data['cod_curso'] . '-C');
+                $contextoComponente = $this->createOrUpdateContext($codCurso . '-C');
 
                 $componente = Componente::create([
                     'id_curso'                          => $curso->id_curso,
@@ -103,14 +104,11 @@ class CursoService
 
                 // El jefe SIEMPRE tiene acceso administrativo (via id_docente_titular),
                 // independientemente de si dicta clases en algún componente.
-                $idDocenteComponente = $docentesPorComponente[$tipoComponente->id_tipo_componente] ?? null;
-                if ($idDocenteComponente) {
-                    DocenteComponente::create([
-                        'id_componente' => $componente->id_componente,
-                        'id_docente'    => $idDocenteComponente,
-                        'es_titular'    => true,
-                    ]);
-                }
+                $this->asignarDocentesComponente(
+                    $curso,
+                    $componente,
+                    $docentesPorComponente[$tipoComponente->id_tipo_componente] ?? []
+                );
 
                 // Crear componentes adicionales (distintos al principal)
                 $tiposAdicionales = array_filter(
@@ -125,7 +123,7 @@ class CursoService
                     }
 
                     $ctxAdicional = $this->createOrUpdateContext(
-                        $data['cod_curso'] . '-' . $tipoAdicional->id_tipo_componente
+                        $codCurso . '-' . $tipoAdicional->id_tipo_componente
                     );
 
                     $componenteAdicional = Componente::create([
@@ -138,16 +136,15 @@ class CursoService
                         'porcentaje_asistencia_obligatoria' => $data['porcentaje_asistencia_obligatoria'] ?? 75.00,
                     ]);
 
-                    $idDocenteAdicional = $docentesPorComponente[$tipoAdicional->id_tipo_componente] ?? null;
-                    if ($idDocenteAdicional) {
-                        DocenteComponente::create([
-                            'id_componente' => $componenteAdicional->id_componente,
-                            'id_docente'    => $idDocenteAdicional,
-                            'es_titular'    => true,
-                        ]);
-                    }
+                    $this->asignarDocentesComponente(
+                        $curso,
+                        $componenteAdicional,
+                        $docentesPorComponente[$tipoAdicional->id_tipo_componente] ?? []
+                    );
                 }
             }
+
+            $curso->recalcularColegiado();
 
             return $curso;
         });
@@ -158,7 +155,7 @@ class CursoService
      * Activity dates are reset to null. Students and responses are NOT copied.
      *
      * @param Curso $cursoPadre The source course
-     * @param array $data Must contain 'cod_curso' (int) and 'fecha_inicio' (Y-m-d string)
+     * @param array $data 'fecha_inicio' (Y-m-d string) y, opcional, 'cod_curso' (si no viene se asigna el siguiente)
      * @return Curso
      */
     public function copiar(Curso $cursoPadre, array $data): Curso
@@ -171,7 +168,8 @@ class CursoService
                 'componentes.actividades',
             ]);
 
-            $contexto = $this->createOrUpdateContext((string) $data['cod_curso']);
+            $codCurso = !empty($data['cod_curso']) ? (int) $data['cod_curso'] : $this->siguienteCodCurso();
+            $contexto = $this->createOrUpdateContext((string) $codCurso);
             $fechaInicio = $data['fecha_inicio'];
 
             // No reutilizamos el indice_grupo del padre: el trigger de BD ya no
@@ -183,7 +181,7 @@ class CursoService
             $indiceGrupo = $this->nextIndiceGrupo($cursoPadre->id_asignacion_plan, null, null);
 
             $nuevoCurso = Curso::create([
-                'cod_curso'           => $data['cod_curso'],
+                'cod_curso'           => $codCurso,
                 'nombre'              => $cursoPadre->nombre,
                 'fecha_inicio'        => $fechaInicio,
                 'fecha_fin'           => $this->calculateFechaFin($fechaInicio),
@@ -223,7 +221,7 @@ class CursoService
 
             foreach ($cursoPadre->componentes as $comp) {
                 $ctxComp = $this->createOrUpdateContext(
-                    $data['cod_curso'] . '-' . $comp->id_tipo_componente
+                    $codCurso . '-' . $comp->id_tipo_componente
                 );
 
                 $nuevoComp = Componente::create([
@@ -267,7 +265,7 @@ class CursoService
             Log::info('[CursoService@copiar] Curso copiado', [
                 'id_curso_padre' => $cursoPadre->id_curso,
                 'id_curso_nuevo' => $nuevoCurso->id_curso,
-                'cod_curso'      => $data['cod_curso'],
+                'cod_curso'      => $codCurso,
             ]);
 
             return $nuevoCurso;
@@ -360,6 +358,187 @@ class CursoService
         }
 
         return $asignacionPlan;
+    }
+
+    /**
+     * Asigna el rol de docente en el contexto del curso según su lugar en el componente:
+     *   - id_docente === curso.id_docente_titular        → 'Docente Titular'
+     *   - titular del componente (es_titular) sin ser DT → 'Docente Componente'
+     *   - docente adicional del componente (colegiado)   → 'Docente Componente Colegiado'
+     *
+     * Al ascender se revocan los roles inferiores previos; nunca se degrada un rol
+     * superior. Vive aquí (y no sólo en ComponenteController) para que el wizard
+     * de creación asigne los mismos roles que «Editar componente».
+     */
+    public function asignarRolDocenteComponente(
+        int $idDocente,
+        int $idContextoCurso,
+        bool $esTitularComponente,
+        ?int $idDocenteTitularCurso = null,
+    ): void {
+        try {
+            $docente = Docente::find($idDocente);
+            if (!$docente || !$docente->id_usuario) {
+                Log::warning('No se pudo asignar rol Docente: docente no encontrado.', [
+                    'id_docente' => $idDocente,
+                ]);
+                return;
+            }
+
+            $actorId = Auth::id() ?? $docente->id_usuario;
+
+            // ── Determinar el rol objetivo ─────────────────────────────────
+            $esDtCurso = $idDocenteTitularCurso !== null && $idDocente === $idDocenteTitularCurso;
+
+            $rolNombre = match (true) {
+                $esDtCurso             => 'Docente Titular',
+                $esTitularComponente   => 'Docente Componente',
+                default                => 'Docente Componente Colegiado',
+            };
+
+            // ── Jerarquía: no degradar si ya tiene un rol superior ─────────
+            // Orden descendente: Docente Titular > Docente Componente > Docente Componente Colegiado
+            $jerarquia = ['Docente Titular', 'Docente Componente', 'Docente Componente Colegiado'];
+            $nivelObjetivo = array_search($rolNombre, $jerarquia);
+
+            $rolesActuales = Rol::whereIn('nombre', $jerarquia)->pluck('id_rol', 'nombre');
+
+            foreach ($jerarquia as $idx => $nombreSuperior) {
+                if ($idx >= $nivelObjetivo) {
+                    break;
+                }
+                $idRolSuperior = $rolesActuales[$nombreSuperior] ?? null;
+                if ($idRolSuperior) {
+                    $tieneSuperior = UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
+                        ->where('id_contexto', $idContextoCurso)
+                        ->where('id_rol', $idRolSuperior)
+                        ->where('esta_activo', true)
+                        ->where('fue_eliminado', false)
+                        ->exists();
+                    if ($tieneSuperior) {
+                        return; // Ya tiene un rol superior; no degradar
+                    }
+                }
+            }
+
+            // ── Revocar roles inferiores antes de asignar el objetivo ──────
+            foreach ($jerarquia as $idx => $nombreInferior) {
+                if ($idx <= $nivelObjetivo) {
+                    continue;
+                }
+                $idRolInferior = $rolesActuales[$nombreInferior] ?? null;
+                if ($idRolInferior) {
+                    UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
+                        ->where('id_contexto', $idContextoCurso)
+                        ->where('id_rol', $idRolInferior)
+                        ->where('esta_activo', true)
+                        ->where('fue_eliminado', false)
+                        ->update([
+                            'esta_activo'    => false,
+                            'fue_eliminado'  => true,
+                            'fecha_fin_real' => Carbon::now(),
+                            'eliminado_por'  => $actorId,
+                        ]);
+                }
+            }
+
+            // ── Asignar rol objetivo si no lo tiene aún ────────────────────
+            $rol = Rol::where('nombre', $rolNombre)->first();
+            if (!$rol) {
+                Log::error("Rol '{$rolNombre}' no existe en la base de datos.");
+                return;
+            }
+
+            $already = UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
+                ->where('id_contexto', $idContextoCurso)
+                ->where('id_rol', $rol->id_rol)
+                ->where('esta_activo', true)
+                ->where('fue_eliminado', false)
+                ->exists();
+
+            if (!$already) {
+                $now = Carbon::now();
+                UsuarioRolAsignacion::create([
+                    'id_usuario'                => $docente->id_usuario,
+                    'id_rol'                    => $rol->id_rol,
+                    'id_contexto'               => $idContextoCurso,
+                    'asignado_por'              => $actorId,
+                    'fecha_inicio_planificada'  => $now,
+                    'fecha_fin_planificada'     => $now->copy()->addYears(100),
+                    'fecha_fin_real'            => null,
+                    'fue_eliminado'             => false,
+                    'esta_activo'               => true,
+                    'creado_por'                => $actorId,
+                ]);
+                Log::info("Rol '{$rolNombre}' asignado en contexto de curso", [
+                    'id_usuario'        => $docente->id_usuario,
+                    'id_contexto_curso' => $idContextoCurso,
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error asignando rol Docente en curso: ' . $e->getMessage(), [
+                'id_docente'        => $idDocente,
+                'id_contexto_curso' => $idContextoCurso,
+            ]);
+        }
+    }
+
+    /**
+     * @param array<int|string, int|string|array<int, int|string>|null> $porComponente
+     * @return array<int, list<int>> id_tipo_componente => ids de docente, sin repetir
+     */
+    private function normalizarDocentesPorComponente(array $porComponente): array
+    {
+        $normalizado = [];
+        foreach ($porComponente as $idTipo => $docentes) {
+            $ids = collect(is_array($docentes) ? $docentes : [$docentes])
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+            if ($ids !== []) {
+                $normalizado[(int) $idTipo] = $ids;
+            }
+        }
+
+        return $normalizado;
+    }
+
+    /**
+     * Mismo criterio que ComponenteController::addDocente(): el primero de la
+     * lista queda como titular del componente y los siguientes lo acompañan
+     * (colegiado). Cada uno recibe su rol en el contexto del curso: sin él, un
+     * docente de componente distinto del titular no podía entrar al curso.
+     *
+     * @param list<int> $idsDocente
+     */
+    private function asignarDocentesComponente(Curso $curso, Componente $componente, array $idsDocente): void
+    {
+        foreach ($idsDocente as $i => $idDocente) {
+            DocenteComponente::create([
+                'id_componente' => $componente->id_componente,
+                'id_docente'    => $idDocente,
+                'es_titular'    => $i === 0,
+            ]);
+
+            $this->asignarRolDocenteComponente($idDocente, $curso->id_contexto, $i === 0, $curso->id_docente_titular);
+        }
+    }
+
+    /**
+     * Siguiente código interno de curso: el mayor existente + 1, contando también
+     * los cursos eliminados, porque uq_cod_curso no mira fecha_eliminacion.
+     *
+     * Debe llamarse dentro de la transacción que inserta el curso: el candado
+     * consultivo serializa las creaciones simultáneas hasta el COMMIT, para que
+     * dos de ellas no lean el mismo máximo.
+     */
+    public function siguienteCodCurso(): int
+    {
+        DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['curso.cod_curso']);
+
+        return (int) (DB::table('curso.curso')->max('cod_curso') ?? 0) + 1;
     }
 
     /**

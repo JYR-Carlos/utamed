@@ -569,6 +569,67 @@ class IntranetService
     }
 
     /**
+     * Grupos que la Intranet oferta para una asignatura en un periodo, cada uno
+     * con sus componentes y su CUR_CODIGO. Es lo que el wizard ofrece para
+     * autocompletar letra y componentes. No escribe nada.
+     *
+     * Si la Intranet no responde se devuelve `disponible = false` con el motivo,
+     * para que el wizard lo diga en vez de mostrar «no hay oferta».
+     *
+     * @return array{disponible: bool, grupos: list<array{letra: string, indice_grupo: int|null, componentes: list<array{id_tipo_componente: int|null, tipo: string, cur_codigo: int}>}>, advertencias: list<string>}
+     */
+    public function ofertaIntranet(int $idAsignatura, int $idPlan, int $agno, int $semestre): array
+    {
+        try {
+            $componentes = $this->resolverComponentesDesdeParametros($idAsignatura, $idPlan, $agno, $semestre, '');
+        } catch (\Throwable $e) {
+            Log::warning('[IntranetService@ofertaIntranet] Intranet no disponible: ' . $e->getMessage(), [
+                'id_asignatura' => $idAsignatura,
+                'id_plan'       => $idPlan,
+                'agno'          => $agno,
+                'semestre'      => $semestre,
+                'exception'     => get_class($e),
+            ]);
+
+            return [
+                'disponible'   => false,
+                'grupos'       => [],
+                'advertencias' => ['No fue posible consultar la Intranet: ' . $e->getMessage()],
+            ];
+        }
+
+        $grupos = $componentes
+            ->groupBy(fn (ComponenteCursoData $c) => $c->curso_grupo_asig)
+            ->map(function (Collection $comps, string $letra) {
+                return [
+                    'letra'        => $letra,
+                    'indice_grupo' => LetraGrupo::toIndice($letra),
+                    'componentes'  => $comps
+                        ->map(function (ComponenteCursoData $c) {
+                            $tipo = $this->resolverTipoComponentePorCodigoIntranet($c->curso_tipo_asig->value);
+                            return [
+                                'id_tipo_componente' => $tipo?->id_tipo_componente,
+                                'tipo'               => $tipo?->tipo ?? $c->curso_tipo_asig->value,
+                                'cur_codigo'         => $c->cur_codigo,
+                            ];
+                        })
+                        ->sortBy(fn ($c) => TipoComponente::PRIORIDAD[$this->normalizarNombreTipo($c['tipo'])] ?? 99)
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->sortBy(fn ($g) => $g['indice_grupo'] ?? PHP_INT_MAX)
+            ->values()
+            ->all();
+
+        return [
+            'disponible'   => true,
+            'grupos'       => $grupos,
+            'advertencias' => [],
+        ];
+    }
+
+    /**
      * EJECUTA (crea en BD) sólo las componentes que la persona aceptó tras
      * revisar el preview. Es idempotente: si la componente ya existe para el
      * curso, no la duplica y la reporta en `componentes_existentes`.

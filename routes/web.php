@@ -192,6 +192,11 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     Route::get('cursos/preview-componentes', [CursoController::class, 'previewComponentes'])
         ->name('cursos.preview-componentes');
 
+    // Grupos que la Intranet oferta para una asignatura en un periodo, con sus
+    // componentes y CUR_CODIGO: el wizard los ofrece para autocompletarse.
+    Route::get('cursos/oferta-intranet', [CursoController::class, 'ofertaIntranet'])
+        ->name('cursos.oferta-intranet');
+
     // Sincronización masiva (varios cursos sin componentes a la vez): mismo
     // patrón de "revisar antes de confirmar" que la de un curso. (BEFORE
     // resource to avoid conflict with {curso} binding)
