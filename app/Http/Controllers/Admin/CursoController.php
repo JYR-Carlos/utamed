@@ -120,9 +120,21 @@ class CursoController extends Controller
                         'id_curso' => $curso->id_curso,
                         'resultado' => $resultado->toArray()
                     ]);
-                    return redirect()
+                    $redirect = redirect()
                         ->route('admin.cursos.index')
-                        ->with('success', "Curso creado exitosamente. Se inscribieron {$resultado->inscritos_exitosamente} alumnos automáticamente desde la Intranet.");
+                        ->with('success', 'Curso creado exitosamente. ' . ($resultado->inscritos_exitosamente === 1
+                            ? 'Se inscribió 1 alumno'
+                            : "Se inscribieron {$resultado->inscritos_exitosamente} alumnos")
+                            . ' automáticamente desde la Intranet.');
+
+                    // Sin esto, «0 alumnos inscritos» no decía si la Intranet no
+                    // respondió, no tenía el grupo o falló algún alumno.
+                    $avisos = array_merge(
+                        $resultado->advertencias,
+                        array_map(fn ($e) => "RUT {$e['rut']}: {$e['motivo']}", $resultado->errores)
+                    );
+
+                    return $avisos === [] ? $redirect : $redirect->with('error', implode(' ', $avisos));
                 } catch (\Throwable $e) {
                     Log::error('[CursoController@store] Error en inscripción automática tras creación: ' . $e->getMessage());
                     return redirect()

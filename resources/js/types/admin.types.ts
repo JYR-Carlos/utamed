@@ -578,6 +578,13 @@ export interface ResultadoSincronizacionComponentes {
     componentes_creadas: string[];
     componentes_existentes: string[];
     advertencias: string[];
+    /** Sólo cuando se pidió inscribir alumnos desde la Intranet. */
+    inscripcion?: {
+        inscritos: number;
+        ya_inscritos: number;
+        alumnos_creados: number;
+        errores: number;
+    } | null;
 }
 
 export interface EstudianteFormData {

@@ -115,6 +115,8 @@
     let msg = `Sincronización completada: ${creadas} componente${creadas === 1 ? '' : 's'} creada${creadas === 1 ? '' : 's'}`;
     if (existentes > 0) msg += `, ${existentes} ya existían`;
     msg += '.';
+    const insc = resultado?.inscripcion;
+    if (insc) msg += ` Alumnos inscritos: ${insc.inscritos}${insc.errores ? ` (${insc.errores} con error)` : ''}.`;
     if ((resultado?.advertencias.length ?? 0) > 0) {
       msg += ` Advertencias: ${resultado!.advertencias.join(' | ')}`;
     }
@@ -284,6 +286,16 @@
               {#if resultado.componentes_existentes.length > 0}
                 <p class="text-xs text-emerald-800">
                   ℹ️ {resultado.componentes_existentes.length} componente(s) ya existían previamente y se conservaron intactas.
+                </p>
+              {/if}
+              {#if resultado.inscripcion}
+                <p class="text-sm text-emerald-900">
+                  Alumnos: <strong>{resultado.inscripcion.inscritos}</strong>
+                  {resultado.inscripcion.inscritos === 1 ? 'inscrito' : 'inscritos'} ahora
+                  {#if resultado.inscripcion.alumnos_creados > 0}
+                    ({resultado.inscripcion.alumnos_creados}
+                    {resultado.inscripcion.alumnos_creados === 1 ? 'nuevo' : 'nuevos'} en UTAMED)
+                  {/if}{#if resultado.inscripcion.errores > 0}, <strong>{resultado.inscripcion.errores}</strong> con error{/if}.
                 </p>
               {/if}
             </div>

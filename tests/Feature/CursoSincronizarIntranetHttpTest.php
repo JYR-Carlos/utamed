@@ -113,6 +113,9 @@ beforeEach(function () {
         ]
     );
 
+    // Sin fecha de cambio de clave, ForcePasswordChange responde 423 a todo.
+    $this->admin->forceFill(['fecha_cambio_passhash' => now()])->save();
+
     $this->actingAs($this->admin);
 });
 
@@ -331,6 +334,7 @@ describe('autorizacion', function () {
                 'esta_activo' => true,
             ]
         );
+        $usuarioSinRol->forceFill(['fecha_cambio_passhash' => now()])->save();
         $this->actingAs($usuarioSinRol);
 
         $response = $this->postJson("/admin/cursos/{$curso->id_curso}/sincronizar-intranet", [

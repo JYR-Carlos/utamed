@@ -92,6 +92,11 @@ class IntranetService
         $estudiantesEnIntranet = [];
         $lecturaCompleta = true;
 
+        // Alumnos inscritos al curso en esta corrida, y alumnos ya contados como
+        // inscritos (uno que figura en Cátedra y Taller es un alumno, no dos).
+        $nuevosEnCurso = [];
+        $contados = [];
+
         foreach ($componentesIntranet as $compIntranet) {
             $compUtamed = $this->mapearComponenteIntranetAUtamed($compIntranet, $curso);
             if (!$compUtamed) {
@@ -151,14 +156,29 @@ class IntranetService
                         ->exists();
 
                     if (!$yaInscritoCurso) {
+                        // El INS_ID de la Intranet es el folio de inscripción del alumno en
+                        // el periodo y se repite en todas sus asignaturas, pero
+                        // cod_inscripcion_uta es UNIQUE: guardarlo siempre hacía fallar la
+                        // inscripción del alumno en su segundo curso del semestre. Se guarda
+                        // sólo si está libre; el INS_ID queda siempre en la componente
+                        // (cod_inscripcion_curso_uta), que es donde corresponde.
+                        $codInscripcion = (string) $inscripcionData->ins_id;
+                        $codLibre = !InscripcionCurso::where('cod_inscripcion_uta', $codInscripcion)->exists();
+
                         $this->inscripcionCursoService->create([
                             'id_curso'            => $curso->id_curso,
                             'id_estudiante'       => $estudiante->id_estudiante,
-                            'cod_inscripcion_uta' => (string)$inscripcionData->ins_id,
+                            'cod_inscripcion_uta' => $codLibre ? $codInscripcion : null,
                             'fecha_inscripcion'   => now()->toDateString(),
                             'estado_inscripcion'  => 'INSCRITO',
                             'num_intento'         => 1,
                         ]);
+
+                        // tr_inscribir_componente_curso_automaticamente ya lo inscribió en
+                        // todas las componentes del curso: por eso abajo la fila de
+                        // componente «ya existe» aunque sea nueva, y el reporte decía
+                        // «0 alumnos inscritos» después de inscribirlos.
+                        $nuevosEnCurso[$estudiante->id_estudiante] = true;
                     }
 
                     // Asegurar asignación del rol Estudiante en el contexto del Curso
@@ -171,11 +191,20 @@ class IntranetService
                         ->first();
 
                     if ($inscripcionCompExistente) {
-                        $yaInscritos++;
                         if (!$inscripcionCompExistente->cod_inscripcion_curso_uta) {
                             $inscripcionCompExistente->update([
                                 'cod_inscripcion_curso_uta' => $inscripcionData->ins_id,
                             ]);
+                        }
+
+                        if (isset($nuevosEnCurso[$estudiante->id_estudiante])) {
+                            $inscritosComponenteCount++;
+                            if (!isset($contados[$estudiante->id_estudiante])) {
+                                $contados[$estudiante->id_estudiante] = true;
+                                $inscritosExitosamente++;
+                            }
+                        } else {
+                            $yaInscritos++;
                         }
                     } else {
                         InscripcionComponente::create([
@@ -184,8 +213,11 @@ class IntranetService
                             'cod_inscripcion_curso_uta' => $inscripcionData->ins_id,
                         ]);
 
-                        $inscritosExitosamente++;
                         $inscritosComponenteCount++;
+                        if (!isset($contados[$estudiante->id_estudiante])) {
+                            $contados[$estudiante->id_estudiante] = true;
+                            $inscritosExitosamente++;
+                        }
                     }
 
                     // Asignar el rol Estudiante en el contexto de la componente
@@ -604,6 +636,7 @@ class IntranetService
             $creadas[] = $tipoComponente->tipo;
         }
 
+        $resultadoInscripcion = null;
         if ($inscribirAlumnos) {
             $curso->load(['componentes.tipoComponente']);
             try {
@@ -624,7 +657,8 @@ class IntranetService
             origen: $origen,
             componentes_creadas: $creadas,
             componentes_existentes: $existentes,
-            advertencias: $advertencias
+            advertencias: $advertencias,
+            inscripcion: $resultadoInscripcion
         );
     }
 
