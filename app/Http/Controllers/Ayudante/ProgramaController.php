@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Programa\SyllabusRules;
 use App\Models\Curso\Programa;
 use App\Models\Agenda\Actividad;
+use App\Enums\DB\TipoActividad;
+use App\Services\Agenda\GrupoIndividualService;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Componente;
 use App\Models\Curso\Unidad;
@@ -244,7 +246,7 @@ class ProgramaController extends Controller
                 ],
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Error al generar programa (ayudante)', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -284,42 +286,69 @@ class ProgramaController extends Controller
             return;
         }
 
-        foreach ($actividadesData as $actData) {
-            if (empty($actData['nombre']) || empty($actData['nombre_unidad'])) {
-                continue;
-            }
+        try {
+            foreach ($actividadesData as $actData) {
+                if (empty($actData['nombre']) || empty($actData['nombre_unidad'])) {
+                    continue;
+                }
 
-            $unidad = Unidad::where('id_curso', $curso->id_curso)
-                ->where('nombre', $actData['nombre_unidad'])
-                ->first();
+                $unidad = Unidad::where('id_curso', $curso->id_curso)
+                    ->where('nombre', $actData['nombre_unidad'])
+                    ->first();
 
-            if (!$unidad) {
-                Log::warning('Unidad no encontrada para actividad', [
-                    'nombre_unidad' => $actData['nombre_unidad'],
-                    'id_curso'      => $curso->id_curso,
+                if (!$unidad) {
+                    Log::warning('Unidad no encontrada para actividad', [
+                        'nombre_unidad' => $actData['nombre_unidad'],
+                        'id_curso'      => $curso->id_curso,
+                    ]);
+                    continue;
+                }
+
+                $componente = Componente::where('id_curso', $curso->id_curso)->first();
+
+                if (!$componente) {
+                    Log::warning('No hay componentes para crear actividad', ['id_curso' => $curso->id_curso]);
+                    continue;
+                }
+
+                // Resolver tipo_actividad al enum TipoActividad de forma segura
+                $tipoRaw = strtoupper(trim((string) ($actData['tipo_actividad'] ?? 'FORMATIVA')));
+                $tipoActividad = match ($tipoRaw) {
+                    'SUMATIVA', '2' => TipoActividad::SUMATIVA,
+                    default => TipoActividad::FORMATIVA,
+                };
+
+                $esGrupal = (bool) ($actData['es_grupal'] ?? false);
+
+                $actividad = Actividad::create([
+                    'nombre'          => $actData['nombre'],
+                    'tipo_actividad'  => $tipoActividad,
+                    'tipo_entrega'    => $actData['tipo_entrega'] ?? 'online',
+                    'es_grupal'       => $esGrupal,
+                    'max_integrantes' => (int) ($actData['max_integrantes'] ?? 1),
+                    'ponderacion'     => (int) ($actData['ponderacion'] ?? 0),
+                    'exigencia'       => (int) ($actData['exigencia'] ?? 60),
+                    'es_plantilla'    => false,
+                    'id_componente'   => $componente->id_componente,
+                    'id_unidad'       => $unidad->id_unidad,
+                    'id_contexto'     => $curso->id_contexto,
+                    'fecha_limite'    => $actData['fecha_limite'] ?? now()->addDays(7),
+                    'visible'         => true,
                 ]);
-                continue;
+
+                if (!$esGrupal) {
+                    app(GrupoIndividualService::class)->asegurarGruposDelCurso($curso, $actividad);
+                }
+
+                Log::info('Actividad creada por ayudante desde syllabus', [
+                    'nombre'    => $actData['nombre'],
+                    'id_unidad' => $unidad->id_unidad,
+                    'id_curso'  => $curso->id_curso,
+                ]);
             }
-
-            $componente = Componente::where('id_curso', $curso->id_curso)->first();
-
-            if (!$componente) {
-                Log::warning('No hay componentes para crear actividad', ['id_curso' => $curso->id_curso]);
-                continue;
-            }
-
-            Actividad::create([
-                'nombre'         => $actData['nombre'],
-                'tipo_actividad' => $actData['tipo_actividad'] ?? 1,
-                'tipo_entrega'   => $actData['tipo_entrega'] ?? 'online',
-                'es_grupal'      => $actData['es_grupal'] ?? false,
-                'max_integrantes' => $actData['max_integrantes'] ?? 1,
-                'es_plantilla'   => false,
-                'id_componente'  => $componente->id_componente,
-                'id_unidad'      => $unidad->id_unidad,
-                'id_contexto'    => $curso->id_contexto,
-                'fecha_limite'   => $actData['fecha_limite'] ?? now()->addDays(7),
-                'visible'        => true,
+        } catch (\Throwable $e) {
+            Log::error("Error creando actividades (ayudante): {$e->getMessage()}", [
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }

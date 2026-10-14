@@ -4,6 +4,9 @@ use App\Models\Curso\Bibliografia;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Curso\Unidad;
+use App\Models\Curso\Componente;
+use App\Models\Agenda\Actividad;
+use App\Enums\DB\TipoActividad;
 use App\Models\Operaciones\Archivo;
 use App\Models\Usuario\Docente;
 use App\Models\Usuario\Usuario;
@@ -442,6 +445,76 @@ describe('Syllabus - Generación y Sincronización de Bibliografías', function 
         expect($texto)->toContain("UNIDAD 1: INTRODUCCIÓN\n• Pérez, Juan (2025). Libro 1. [Enlace web: https://ejemplo.com/libro1]\n  «Páginas 45-60»");
         expect($texto)->toContain("UNIDAD 2: FARMACOLOGÍA\n• Gómez, Ana (2026). Libro 2. [Biblioteca UTA · Archivo adjunto: /api/bibliografias/{$uuidArchivo}/archivo]");
         expect($texto)->not->toContain(' — ');
+    });
+
+    test('crea actividades desde syllabus asignando TipoActividad correctamente y tolerando valores legacy', function () {
+        $curso = $this->curso;
+
+        // Asegurar que exista una unidad y un componente para el curso
+        $unidad = Unidad::firstOrCreate([
+            'id_curso' => $curso->id_curso,
+            'nombre' => 'Unidad Actividades Test',
+        ], [
+            'num_unidad' => 1,
+        ]);
+
+        $componente = Componente::firstOrCreate([
+            'id_curso' => $curso->id_curso,
+        ], [
+            'id_tipo_componente' => 1,
+            'genera_acta' => false,
+            'porcentaje_aprobacion' => 0,
+            'aprobacion_obligatoria' => false,
+            'porcentaje_asistencia_obligatoria' => 0,
+        ]);
+
+        $actividadesData = [
+            [
+                'nombre' => 'Taller Formativo',
+                'nombre_unidad' => 'Unidad Actividades Test',
+                'tipo_actividad' => 'FORMATIVA',
+                'es_grupal' => false,
+            ],
+            [
+                'nombre' => 'Examen Parcial',
+                'nombre_unidad' => 'Unidad Actividades Test',
+                'tipo_actividad' => 'SUMATIVA',
+                'es_grupal' => false,
+            ],
+            [
+                'nombre' => 'Actividad Legacy Numérica',
+                'nombre_unidad' => 'Unidad Actividades Test',
+                'tipo_actividad' => 1, // Legacy valor que antes causaba ValueError 500
+                'es_grupal' => false,
+            ],
+        ];
+
+        $controller = new \App\Http\Controllers\Admin\ProgramaController();
+        $reflector = new ReflectionMethod($controller, 'createActividadesFromSyllabus');
+        $reflector->setAccessible(true);
+
+        // No debe lanzar ninguna excepción ni ValueError
+        $reflector->invoke($controller, $curso, $actividadesData);
+
+        $actFormativa = Actividad::where('id_unidad', $unidad->id_unidad)
+            ->where('nombre', 'Taller Formativo')
+            ->first();
+        expect($actFormativa)->not->toBeNull();
+        expect($actFormativa->tipo_actividad)->toBe(TipoActividad::FORMATIVA);
+        expect((int) $actFormativa->ponderacion)->toBe(0);
+        expect((int) $actFormativa->exigencia)->toBe(60);
+
+        $actSumativa = Actividad::where('id_unidad', $unidad->id_unidad)
+            ->where('nombre', 'Examen Parcial')
+            ->first();
+        expect($actSumativa)->not->toBeNull();
+        expect($actSumativa->tipo_actividad)->toBe(TipoActividad::SUMATIVA);
+
+        $actLegacy = Actividad::where('id_unidad', $unidad->id_unidad)
+            ->where('nombre', 'Actividad Legacy Numérica')
+            ->first();
+        expect($actLegacy)->not->toBeNull();
+        expect($actLegacy->tipo_actividad)->toBe(TipoActividad::FORMATIVA);
     });
 });
 

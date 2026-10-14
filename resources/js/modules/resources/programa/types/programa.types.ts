@@ -73,7 +73,7 @@ export interface GenerarProgramaPayload {
     syllabus_type: SyllabusType;
     actividades_to_create?: {
         nombre: string;
-        tipo_actividad: number;
+        tipo_actividad?: string | number;
         tipo_entrega: string;
         es_grupal: boolean;
         max_integrantes: number;

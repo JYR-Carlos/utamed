@@ -27,6 +27,7 @@
   import { Button } from '@/components/ui/button';
   import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
   import { getInitials } from '@/hooks/useInitials';
+  import IssueReport from '../IssueReport.svelte';
 
   const sidebar = useSidebar();
 
@@ -247,6 +248,8 @@
       />
     </div>
     -->
+    <IssueReport />
+
     <DropdownMenu>
       <DropdownMenuTrigger>
         <Button

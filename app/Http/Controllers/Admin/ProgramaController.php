@@ -9,6 +9,8 @@ use App\Models\Curso\Curso;
 use App\Models\Curso\Componente;
 use App\Models\Curso\Unidad;
 use App\Models\Agenda\Actividad;
+use App\Enums\DB\TipoActividad;
+use App\Services\Agenda\GrupoIndividualService;
 use App\Services\ProgramaService;
 use App\Services\SyllabusViewerPresenter;
 use App\Services\SyllabusWizardPresenter;
@@ -361,7 +363,7 @@ class ProgramaController extends Controller
                 ],
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Error al generar programa', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -1152,13 +1154,24 @@ class ProgramaController extends Controller
                     continue;
                 }
 
+                // Resolver tipo_actividad al enum TipoActividad de forma segura
+                $tipoRaw = strtoupper(trim((string) ($actData['tipo_actividad'] ?? 'FORMATIVA')));
+                $tipoActividad = match ($tipoRaw) {
+                    'SUMATIVA', '2' => TipoActividad::SUMATIVA,
+                    default => TipoActividad::FORMATIVA,
+                };
+
+                $esGrupal = (bool) ($actData['es_grupal'] ?? false);
+
                 // Crear la actividad
-                Actividad::create([
+                $actividad = Actividad::create([
                     'nombre' => $actData['nombre'],
-                    'tipo_actividad' => $actData['tipo_actividad'] ?? 1,
+                    'tipo_actividad' => $tipoActividad,
                     'tipo_entrega' => $actData['tipo_entrega'] ?? 'online',
-                    'es_grupal' => $actData['es_grupal'] ?? false,
-                    'max_integrantes' => $actData['max_integrantes'] ?? 1,
+                    'es_grupal' => $esGrupal,
+                    'max_integrantes' => (int) ($actData['max_integrantes'] ?? 1),
+                    'ponderacion' => (int) ($actData['ponderacion'] ?? 0),
+                    'exigencia' => (int) ($actData['exigencia'] ?? 60),
                     'es_plantilla' => false,
                     'id_componente' => $componente->id_componente,
                     'id_unidad' => $unidad->id_unidad,
@@ -1167,13 +1180,18 @@ class ProgramaController extends Controller
                     'visible' => true,
                 ]);
 
+                // Si es individual, asegurar grupos individuales para los estudiantes inscritos
+                if (!$esGrupal) {
+                    app(GrupoIndividualService::class)->asegurarGruposDelCurso($curso, $actividad);
+                }
+
                 Log::info("Actividad creada", [
                     'nombre' => $actData['nombre'],
                     'id_unidad' => $unidad->id_unidad,
                     'id_curso' => $curso->id_curso,
                 ]);
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error("Error creando actividades: {$e->getMessage()}", [
                 'trace' => $e->getTraceAsString(),
             ]);

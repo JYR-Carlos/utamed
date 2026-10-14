@@ -176,8 +176,8 @@
                             class="relative size-10 w-auto rounded-full p-1 focus-within:ring-2 focus-within:ring-primary"
                         >
                             <Avatar class="size-8 overflow-hidden rounded-full">
-                                {#if user.avatar}
-                                    <AvatarImage src={user.avatar} alt={user.nombre1} />
+                                {#if user.urlFotoPerfil}
+                                    <AvatarImage src={user.urlFotoPerfil} alt={user.nombre1} />
                                 {:else}
                                     <AvatarFallback class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white">
                                         {getInitials(user.nombre1 || '')}
