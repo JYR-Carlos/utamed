@@ -28,6 +28,7 @@ use App\Http\Controllers\Docente\JefeCarreraController;
 use App\Http\Controllers\Docente\MensajeriaController;
 use App\Http\Controllers\Docente\MensajesController;
 use App\Http\Controllers\Docente\PerfilController as DocentePerfilController;
+use App\Http\Controllers\IssuesReportController;
 use App\Http\Controllers\Sso\SgeqSsoController;
 use App\Http\Controllers\Student\ActivityController;
 use App\Http\Controllers\Student\AgendaController;
@@ -54,6 +55,8 @@ Route::get('/', function () {
         'canRegister' => Features::enabled(Features::registration()),
     ]);
 })->name('home');
+
+Route::post('reports', [IssuesReportController::class, 'store']);
 
 Route::get('dashboard', function () {
     /** @var Usuario $user */
@@ -123,6 +126,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
             'puedeAbrirSgeq' => app(SgeqSsoService::class)->resolverRol($user) !== null,
         ]);
     })->name('dashboard');
+    // SÓLO el admin puede ver reportes
+    Route::get('reports/{id}/{filename}', [IssuesReportController::class, 'downloadPdf']);
     // Programa (Syllabus) routes MUST come before cursos resource to avoid route collision
     Route::get('programas', [AdminProgramaController::class, 'index'])
         ->name('programas.index');
