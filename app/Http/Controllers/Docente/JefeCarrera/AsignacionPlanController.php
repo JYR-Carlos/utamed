@@ -86,7 +86,7 @@ class AsignacionPlanController extends Controller
         $validated['id_plan'] = $plan->id_plan;
 
         try {
-            AsignacionPlan::create($validated);
+            AsignacionPlan::asignarOReactivar($validated);
 
             return back()->with('success', 'Asignatura asignada al plan exitosamente.');
         } catch (\Exception $e) {

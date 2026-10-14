@@ -125,7 +125,7 @@ class AsignacionPlanController extends Controller
         try {
             Log::info('Creating AsignacionPlan with data:', $validated);
             
-            $asignacion = AsignacionPlan::create($validated);
+            $asignacion = AsignacionPlan::asignarOReactivar($validated);
             
             Log::info('AsignacionPlan created successfully:', $asignacion->toArray());
             return back()->with('success', 'Asignatura asignada al plan exitosamente.');
