@@ -33,6 +33,8 @@ class UpdateCursoRequest extends FormRequest
             'cod_curso' => ['required', 'integer', Rule::unique('curso', 'cod_curso')->ignore($cursoId, 'id_curso')],
             'nombre' => 'nullable|string|max:255',
             'fecha_inicio' => 'nullable|date',
+            'agno_real' => 'nullable|integer|min:2000|max:2100',
+            'semestre_real' => 'nullable|integer|in:1,2',
             'indice_grupo' => 'nullable|integer|min:1',
             'id_docente_sugerido' => [
                 'nullable',

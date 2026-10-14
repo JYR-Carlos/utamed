@@ -197,6 +197,9 @@ export interface Curso {
     id_curso: number;
     cod_curso: number;
     nombre?: string;
+    /** Periodo en que se dicta (no el año/semestre de la malla). */
+    agno_real?: number | null;
+    semestre_real?: number | null;
     asignatura_nombre?: string;
     cod_asignatura?: string;
     creditos_sct?: number;

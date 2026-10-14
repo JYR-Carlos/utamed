@@ -63,8 +63,10 @@
         nombre: editingCurso.nombre || '',
         fecha_inicio: fechaFormato,
         numero_semestre: editingCurso.numero_semestre,
-        agno_real: editingCurso.asignacionPlan?.agno_planificado || new Date().getFullYear(),
-        semestre_real: editingCurso.asignacionPlan?.semestre_planificado || 1,
+        // El periodo en que se dicta (agno_real/semestre_real), no el año y
+        // semestre de la malla: antes mostraba «Año 2» para un curso de 2026.
+        agno_real: editingCurso.agno_real ?? new Date().getFullYear(),
+        semestre_real: editingCurso.semestre_real ?? 1,
         id_docente_sugerido: editingCurso.id_docente_titular,
       };
     } else {

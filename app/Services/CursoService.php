@@ -307,6 +307,8 @@ class CursoService
                 'id_asignacion_plan' => $asignacionPlan->id_asignacion_plan,
                 'id_contexto'        => $contexto->id_contexto,
                 'indice_grupo'       => $data['indice_grupo'] ?? $curso->indice_grupo,
+                'agno_real'          => $data['agno_real'] ?? $curso->agno_real,
+                'semestre_real'      => $data['semestre_real'] ?? $curso->semestre_real,
             ];
 
             $newDocenteTitularId = null;
