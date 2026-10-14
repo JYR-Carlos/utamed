@@ -159,23 +159,24 @@
    * hash (#secciones, #equipo, #configuracion), así «Atrás» cierra el panel en
    * vez de abandonar /admin/cursos. Cambiar de pestaña sólo reemplaza el hash.
    *
-   * Los popstate de esa entrada se atienden aquí, en fase de captura y con
-   * stopImmediatePropagation: si llegaran a Inertia, volvería a montar la
-   * página (preserveState: false) y se perderían los filtros del listado.
+   * Al cerrarlo desde la interfaz NO se retrocede en el historial: Inertia
+   * atiende todo popstate aunque se le haga stopImmediatePropagation en
+   * captura, y vuelve a montar la página (preserveState: false). Como casi
+   * todas las acciones del panel lo cierran y enseguida abren un modal
+   * (equipo, componente, editar, copiar, sincronizar), ese remontaje se
+   * llevaba el modal recién abierto. Se limpia el hash en el sitio y la
+   * entrada queda en el historial como una más de /admin/cursos.
    */
   const TAB_IDS = ['secciones', 'equipo', 'configuracion'];
   let entradaPropia = false;
 
-  /** Saca del historial la entrada del panel sin que Inertia reaccione. */
+  /** Quita el hash del panel sin disparar popstate. */
   function quitarEntradaPropia() {
     if (!entradaPropia) return;
     entradaPropia = false;
-    const tragar = (e: PopStateEvent) => {
-      e.stopImmediatePropagation();
-      window.removeEventListener('popstate', tragar, true);
-    };
-    window.addEventListener('popstate', tragar, true);
-    history.back();
+    if (TAB_IDS.includes(window.location.hash.slice(1))) {
+      history.replaceState(history.state, '', window.location.pathname + window.location.search);
+    }
   }
 
   $effect(() => {
