@@ -261,8 +261,12 @@
       hasPermission(userPermissions, 'cursos/programas:*'),
   );
 
-  /** Docente y ayudante: sólo se edita mientras el documento no esté sellado. */
-  const puedeEditar = $derived(canEditPrograma && (esAdmin || !sellado));
+  /**
+   * Docente y ayudante: se edita mientras el documento no esté sellado. Uno
+   * sellado (aprobado) lo puede reabrir quien el servidor marca con `canEdit`
+   * (el titular): guardar crea una versión nueva que vuelve a revisión.
+   */
+  const puedeEditar = $derived(canEditPrograma && (esAdmin || !sellado || canEdit));
   const puedeCrear = $derived(canCreate || (canEditPrograma && layoutType !== 'estudiante'));
 
   // ── Índice: sección visible ───────────────────────────────────────────────
@@ -750,9 +754,11 @@
             {#if sellado && !esAdmin}
               <p class="m-0 flex items-center gap-2 text-[13px] text-[#5A5E6E]">
                 <Lock size={15} class="text-[#5A5E6E]" aria-hidden="true" />
-                Sellado{programa.fecha_aprobacion
+                Aprobado{programa.fecha_aprobacion
                   ? ` el ${formatDate(programa.fecha_aprobacion)}`
-                  : ''}. Para modificarlo, solicita reapertura a tu jefatura.
+                  : ''}.{puedeEditar
+                  ? ' Si lo editas, la nueva versión vuelve a revisión y debe aprobarse otra vez.'
+                  : ' Para modificarlo, solicita reapertura a tu jefatura.'}
               </p>
             {:else if enRevision && !esAdmin}
               <p class="m-0 flex items-center gap-2 text-[13px] text-[#5A5E6E]">
@@ -800,6 +806,11 @@
                     </button>
                   {/if}
                 {/if}
+              {:else if sellado && puedeEditar}
+                <button type="button" onclick={abrirEdicion} class={BTN_OUTLINE}>
+                  <Pencil size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+                  Editar (vuelve a revisión)
+                </button>
               {:else if !sellado && !enRevision}
                 {#if canDelete}
                   {#if confirmandoEliminar}
