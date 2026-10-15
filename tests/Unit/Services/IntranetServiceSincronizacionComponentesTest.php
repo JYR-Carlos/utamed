@@ -97,7 +97,7 @@ beforeEach(function () {
     ], 'id_asignacion_plan');
 
     $usuarioDocente = Usuario::firstOrCreate(
-        ['rut' => '99999999-9'],
+        ['rut' => '80000002-2'],
         [
             'username' => 'docente_isc_test',
             'passhash' => bcrypt('password'),

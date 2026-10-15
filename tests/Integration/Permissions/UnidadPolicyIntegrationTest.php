@@ -50,7 +50,7 @@ beforeEach(function () {
     $adminSistema = Usuario::firstOrCreate(
         ['username' => 'admin_sistema'],
         [
-            'rut'         => '99999999-9',
+            'rut'         => '80000000-0',
             'nombre1'     => 'Admin',
             'apellido1'   => 'Sistema',
             'email'       => 'admin@sistema.local',
@@ -60,49 +60,46 @@ beforeEach(function () {
     );
     $this->adminSistemaId = $adminSistema->id_usuario;
 
-    // ── Limpiar datos de tests anteriores ────────────────────────────────────
-    $usernames = [
-        "{$this->prefix}_titular",
-        "{$this->prefix}_colegiado",
-        "{$this->prefix}_externo",
-        "{$this->prefix}_superadmin",
-    ];
-    $userIds = Usuario::withTrashed()->whereIn('username', $usernames)->pluck('id_usuario');
+    // ── Limpiar datos de tests anteriores (cursos primero para liberar FK fk_docente) ──
+    DB::table('curso.unidad')->where('nombre', 'like', 'up_%')->delete();
+    DB::table('curso.docente_componente')
+        ->whereIn('id_componente', fn($q) => $q->select('id_componente')
+            ->from('curso.componente')
+            ->whereIn('id_curso', fn($q2) => $q2->select('id_curso')
+                ->from('curso.curso')
+                ->where('nombre', 'like', 'up_%')))
+        ->delete();
+    DB::table('curso.componente')
+        ->whereIn('id_curso', fn($q) => $q->select('id_curso')
+            ->from('curso.curso')
+            ->where('nombre', 'like', 'up_%'))
+        ->delete();
+    Curso::withTrashed()->where('nombre', 'like', 'up_%')->forceDelete();
+    DB::table('asignacion_plan')
+        ->whereIn('id_asignatura', fn($q) => $q->select('id_asignatura')
+            ->from('asignatura')
+            ->where('cod_asignatura', 'like', 'up_%'))
+        ->delete();
+    DB::table('asignatura')->where('cod_asignatura', 'like', 'up_%')->delete();
+    DB::table('plan')
+        ->whereIn('id_carrera', fn($q) => $q->select('id_carrera')
+            ->from('carrera')
+            ->where('nombre', 'like', 'up_%'))
+        ->delete();
+    DB::table('carrera')->where('nombre', 'like', 'up_%')->delete();
+    DB::table('departamento')->where('nombre', 'like', 'up_%')->delete();
+    DB::table('facultad')->where('nombre', 'like', 'up_%')->delete();
+
+    $userIds = Usuario::withTrashed()
+        ->where('username', 'like', 'up_%')
+        ->orWhereIn('rut', ['81111111-1', '82222222-2', '83333333-3', '84444444-4'])
+        ->pluck('id_usuario');
     if ($userIds->isNotEmpty()) {
         UsuarioPermisoEspecial::whereIn('id_usuario', $userIds)->delete();
         DB::table('usuario.usuario_rol_asignacion')->whereIn('id_usuario', $userIds)->delete();
         DB::table('usuario.docente')->whereIn('id_usuario', $userIds)->delete();
         Usuario::withTrashed()->whereIn('id_usuario', $userIds)->forceDelete();
     }
-
-    DB::table('curso.unidad')->where('nombre', 'like', "{$this->prefix}%")->delete();
-    DB::table('curso.docente_componente')
-        ->whereIn('id_componente', fn($q) => $q->select('id_componente')
-            ->from('curso.componente')
-            ->whereIn('id_curso', fn($q2) => $q2->select('id_curso')
-                ->from('curso.curso')
-                ->where('nombre', 'like', "{$this->prefix}%")))
-        ->delete();
-    DB::table('curso.componente')
-        ->whereIn('id_curso', fn($q) => $q->select('id_curso')
-            ->from('curso.curso')
-            ->where('nombre', 'like', "{$this->prefix}%"))
-        ->delete();
-    Curso::withTrashed()->where('nombre', 'like', "{$this->prefix}%")->forceDelete();
-    DB::table('asignacion_plan')
-        ->whereIn('id_asignatura', fn($q) => $q->select('id_asignatura')
-            ->from('asignatura')
-            ->where('cod_asignatura', 'like', "{$this->prefix}%"))
-        ->delete();
-    DB::table('asignatura')->where('cod_asignatura', 'like', "{$this->prefix}%")->delete();
-    DB::table('plan')
-        ->whereIn('id_carrera', fn($q) => $q->select('id_carrera')
-            ->from('carrera')
-            ->where('nombre', 'like', "{$this->prefix}%"))
-        ->delete();
-    DB::table('carrera')->where('nombre', 'like', "{$this->prefix}%")->delete();
-    DB::table('departamento')->where('nombre', 'like', "{$this->prefix}%")->delete();
-    DB::table('facultad')->where('nombre', 'like', "{$this->prefix}%")->delete();
 
     // ── Crear docentes ────────────────────────────────────────────────────────
     $crearDocente = function (string $username, string $rut, string $email): array {
@@ -192,7 +189,7 @@ beforeEach(function () {
     ]);
 
     $asignaturaId = DB::table('asignatura')->insertGetId([
-        'cod_asignatura'      => substr($this->prefix, 0, 10) . '-A',
+        'cod_asignatura'      => substr($this->prefix, 0, 8) . '-A',
         'nombre'              => "{$this->prefix} Asignatura",
         'creditos_sct'        => 4,
         'horas_catedra'       => 3,
@@ -233,9 +230,13 @@ beforeEach(function () {
     );
 
     $this->idComponente = DB::table('curso.componente')->insertGetId([
-        'id_curso'           => $this->curso->id_curso,
-        'id_tipo_componente' => $idTipoComp,
-        'id_contexto'        => $this->curso->id_contexto,
+        'id_curso'                          => $this->curso->id_curso,
+        'id_tipo_componente'                => $idTipoComp,
+        'id_contexto'                       => $this->curso->id_contexto,
+        'genera_acta'                       => false,
+        'porcentaje_aprobacion'             => 100,
+        'aprobacion_obligatoria'            => false,
+        'porcentaje_asistencia_obligatoria' => 0,
     ], 'id_componente');
 
     // ── Asignar titular y colegiado al componente ─────────────────────────────
@@ -255,7 +256,6 @@ beforeEach(function () {
         'nombre'       => "{$this->prefix} Unidad",
         'num_unidad'   => 1,
         'id_curso'     => $this->curso->id_curso,
-        'es_plantilla' => true,
     ], 'id_unidad');
 
     $this->unidad = Unidad::find($this->idUnidad);

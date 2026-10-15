@@ -58,7 +58,7 @@ function setupContextoCursoParaSincronizacion(): array
     );
 
     $usuarioAdmin = Usuario::firstOrCreate(
-        ['rut' => '99999999-9'],
+        ['rut' => '80000003-3'],
         [
             'username'              => 'admin_sync_test_' . uniqid(),
             'passhash'              => bcrypt('password123'),
