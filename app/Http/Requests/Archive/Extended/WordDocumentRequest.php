@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Archive\Extended;
 
 use App\Http\Requests\Archive\BaseArchiveRequest;
+use App\Services\Archive\FiletypeValidation\FileRequirementType;
 
 /**
  * WordDocumentRequest
@@ -26,7 +27,7 @@ use App\Http\Requests\Archive\BaseArchiveRequest;
  */
 class WordDocumentRequest extends BaseArchiveRequest
 {
-    protected string $fileType = 'word_document';
+    protected array $fileCategories = [FileRequirementType::WORD_DOCUMENT];
 
     /**
      * Reglas adicionales específicas para documentos de texto.

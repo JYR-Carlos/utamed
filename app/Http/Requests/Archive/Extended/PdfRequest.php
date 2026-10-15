@@ -3,15 +3,16 @@
 namespace App\Http\Requests\Archive\Extended;
 
 use App\Http\Requests\Archive\BaseArchiveRequest;
+use App\Services\Archive\FiletypeValidation\FileRequirementType;
 
 /**
  * PdfRequest
- * 
+ *
  * Validación para uploads de archivos PDF.
- * 
+ *
  * Tipos permitidos: PDF
  * Tamaño máximo: 100MB (configurable via FILES_PDF_MAX_SIZE)
- * 
+ *
  * Uso:
  * ```php
  * class StoreActivityPdfController {
@@ -24,7 +25,7 @@ use App\Http\Requests\Archive\BaseArchiveRequest;
  */
 class PdfRequest extends BaseArchiveRequest
 {
-    protected string $fileType = 'pdf';
+    protected array $fileCategories = [FileRequirementType::PDF];
 
     /**
      * Reglas adicionales específicas para PDFs.

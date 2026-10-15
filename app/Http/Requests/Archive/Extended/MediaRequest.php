@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Archive\Extended;
 
 use App\Http\Requests\Archive\BaseArchiveRequest;
+use App\Services\Archive\FiletypeValidation\FileRequirementType;
 
 use Illuminate\Validation\Rule;
 
@@ -31,7 +32,7 @@ use Illuminate\Validation\Rule;
  */
 class MediaRequest extends BaseArchiveRequest
 {
-    protected string $fileType = 'media';
+    protected array $fileCategories = [FileRequirementType::MEDIA];
 
     /**
      * Reglas adicionales específicas para multimedia.

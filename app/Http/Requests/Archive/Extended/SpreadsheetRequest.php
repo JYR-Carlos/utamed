@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Archive\Extended;
 
 use App\Http\Requests\Archive\BaseArchiveRequest;
+use App\Services\Archive\FiletypeValidation\FileRequirementType;
 
 /**
  * SpreadsheetRequest
@@ -26,7 +27,7 @@ use App\Http\Requests\Archive\BaseArchiveRequest;
  */
 class SpreadsheetRequest extends BaseArchiveRequest
 {
-    protected string $fileType = 'spreadsheet';
+    protected array $fileCategories = [FileRequirementType::SPREADSHEET];
 
     /**
      * Reglas adicionales específicas para hojas de cálculo.

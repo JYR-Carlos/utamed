@@ -3,17 +3,18 @@
 namespace App\Http\Requests\Archive\Extended;
 
 use App\Http\Requests\Archive\BaseArchiveRequest;
+use App\Services\Archive\FiletypeValidation\FileRequirementType;
 
 /**
  * ImageRequest
- * 
+ *
  * Validación para uploads de imágenes (raster y vectoriales).
- * 
+ *
  * Tipos permitidos: PNG, JPG, JPEG, WebP, GIF, BMP, SVG, TIFF
  * Tamaño máximo: 50MB (configurable via FILES_IMAGE_MAX_SIZE)
- * 
+ *
  * Las imágenes se optimizarán automáticamente a WebP durante el almacenamiento.
- * 
+ *
  * Uso:
  * ```php
  * class StoreActivityImageController {
@@ -26,7 +27,7 @@ use App\Http\Requests\Archive\BaseArchiveRequest;
  */
 class ImageRequest extends BaseArchiveRequest
 {
-    protected string $fileType = 'image';
+    protected array $fileCategories = [FileRequirementType::IMAGE];
 
     /**
      * Reglas adicionales específicas para imágenes.
