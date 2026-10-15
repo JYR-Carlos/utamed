@@ -13,6 +13,7 @@
   } from '@/components/ui/dropdown-menu';
   import {
     BookOpen,
+    Bug,
     Calendar,
     GraduationCap,
     ClipboardList,
@@ -84,6 +85,7 @@
     { href: '/admin/cursos', icon: CalendarRange, label: 'Cursos Ofertados' },
     { href: '/admin/inscripciones_cursos', icon: UserCheck, label: 'Inscripciones' },
     { href: '/admin/syllabus', icon: ScrollText, label: 'Syllabus' },
+    { href: '/admin/reportes', icon: Bug, label: 'Reportes de Bugs' },
   ];
 
   // ── Selector de ambiente ──────────────────────────────────

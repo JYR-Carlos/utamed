@@ -76,7 +76,7 @@
   function handleConfirmSubmit() {
     if (isUploading) return;
 
-    router.post('/reports', {
+    router.post('/reportes', {
       title: formData.title.trim(),
       description: formData.description.trim(),
       expected: formData.expected.trim(),
@@ -84,6 +84,8 @@
       image: file, 
     }, {
       forceFormData: true,
+      preserveScroll: true,
+      preserveState: true,
       onStart: () => {
         isUploading = true;
       },
@@ -91,7 +93,7 @@
         resetForm();
         showConfirmModal = false;
         isOpen = false;
-        toast = { type: 'success', message: '¡Reporte enviado correctamente!' };
+        toast = { type: 'success', message: 'Reporte enviado correctamente.' };
       },
       onError: (errors) => {
         showConfirmModal = false;
@@ -121,7 +123,7 @@
 >
   <Bug
     size={16}
-    class="shrink-0transition-transform duration-200 group-hover:rotate-[-8deg] group-hover:scale-110"
+    class="shrink-0 transition-transform duration-200 group-hover:rotate-[-8deg] group-hover:scale-110"
   />
 
   <span
@@ -157,7 +159,7 @@
             <Bug size={18} />
           </div>
           <div>
-            <h2 id="bug-modal-title" class="text-base font-semibold text-white-900">Reportar un problema</h2>
+            <h2 id="bug-modal-title" class="text-base font-semibold text-slate-900">Reportar un problema</h2>
             <p class="text-xs text-slate-500">Notifica un error o fallo en la plataforma</p>
           </div>
         </div>
