@@ -24,8 +24,8 @@ class CursoFactory extends Factory
             'estado_interno' => 'ABIERTO',
             'estado_acta' => 'NO_ENVIADO',
             'es_plantilla' => false,
-            'id_asignatura' => null,
-            'id_plan' => null,
+            'id_asignacion_plan' => \App\Models\Administrativo\AsignacionPlan::inRandomOrder()->first()?->id_asignacion_plan ?? 1,
+            'id_docente_titular' => \App\Models\Usuario\Docente::inRandomOrder()->first()?->id_docente ?? 1,
         ];
     }
 

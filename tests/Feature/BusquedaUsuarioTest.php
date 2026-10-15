@@ -111,6 +111,11 @@ it('filtra el listado del administrador por nombre completo', function () {
         $this->markTestSkipped('La base sembrada no tiene ningún usuario administrativo.');
     }
 
+    $admin->forceFill([
+        'fecha_cambio_passhash' => now(),
+        'fecha_verificacion_email' => now(),
+    ])->saveQuietly();
+
     // El listado de administradores excluye a docentes y estudiantes, así que el
     // usuario de prueba (sin perfil) cae justo en esa pestaña.
     $u = usuarioBuscable(['nombre1' => 'Ignacia', 'apellido1' => 'Zúñiga']);

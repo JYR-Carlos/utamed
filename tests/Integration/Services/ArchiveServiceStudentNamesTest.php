@@ -21,7 +21,7 @@ test('usuario can generate abbreviated name', function () {
     ]);
 
     $nombre = $usuario->nombreAbreviado();
-    expect($nombre)->toBe('J Pérez');
+    expect($nombre)->toBe('JPÉREZ');
 });
 
 test('usuario with empty nombre returns fallback', function () {

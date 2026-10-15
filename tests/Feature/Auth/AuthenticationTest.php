@@ -20,6 +20,7 @@ test('users can authenticate using the login screen', function () {
 });
 
 test('users with rut ending in lowercase k can authenticate', function () {
+    Usuario::where('rut', '99887766-K')->forceDelete();
     $user = Usuario::factory()->create([
         'rut' => '99887766-K',
         'passhash' => \Illuminate\Support\Facades\Hash::make('password'),

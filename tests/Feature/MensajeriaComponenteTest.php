@@ -102,6 +102,9 @@ beforeEach(function () {
     }
 
     $this->f = $f;
+
+    Usuario::whereIn('id_usuario', [$f['titular'], $f['alumno'], $f['colegiado']])
+        ->update(['fecha_cambio_passhash' => now()]);
 });
 
 it('la bandeja del curso sólo trae los componentes de ese curso', function () {
@@ -254,6 +257,8 @@ it('un docente ajeno al componente no puede escribir', function () {
 
     // Ni siquiera puede abrir la bandeja del curso: el acceso se decide contra
     // los componentes que tiene EN ESE CURSO, y no tiene ninguno.
+    Usuario::where('id_usuario', $ajeno->id_usuario)->update(['fecha_cambio_passhash' => now()]);
+
     $this->actingAs(Usuario::find($ajeno->id_usuario))
         ->get("/docente/cursos/{$this->f['curso']}/mensajeria")
         ->assertForbidden();

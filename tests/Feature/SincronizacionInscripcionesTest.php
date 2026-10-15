@@ -68,6 +68,7 @@ function setupContextoCursoParaSincronizacion(): array
         ]
     );
     $usuarioAdmin->fecha_cambio_passhash = now();
+    $usuarioAdmin->fecha_verificacion_email = now();
     $usuarioAdmin->save();
     $docente = Docente::firstOrCreate(['id_usuario' => $usuarioAdmin->id_usuario]);
 
@@ -426,6 +427,7 @@ test('endpoint HTTP POST /admin/cursos/{id}/sincronizar-inscripciones valida aut
         'apellido1'             => 'Permiso',
         'esta_activo'           => true,
         'fecha_cambio_passhash' => now(),
+        'fecha_verificacion_email' => now(),
     ]);
 
     $respSinPermiso = $this->actingAs($usuarioSinPermiso)

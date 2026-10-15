@@ -8,6 +8,7 @@ use App\Models\Base\Usuario\BaseEstudiante;
 use App\Models\External\VwAlumno;
 use App\Models\Usuario\Usuario;
 use App\Support\Rut;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -19,6 +20,8 @@ use Illuminate\Support\Facades\Hash;
  */
 class Estudiante extends BaseEstudiante
 {
+    use HasFactory;
+
     /** Redes que el alumno puede declarar en su perfil (T10, iteración 1). */
     public const REDES_SOCIALES = ['youtube', 'x', 'instagram', 'linkedin'];
 

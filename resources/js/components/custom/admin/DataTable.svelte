@@ -447,7 +447,7 @@
         {/if}
       </div>
     </div>
-<    {#if filterSnippet}
+    {#if filterSnippet}
       {@render filterSnippet()}
     {/if}
   </div>

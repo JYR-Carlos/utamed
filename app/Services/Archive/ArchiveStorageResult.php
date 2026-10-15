@@ -2,6 +2,9 @@
 
 namespace App\Services\Archive;
 
+use ArrayAccess;
+use Illuminate\Support\Str;
+
 /**
  * Typed return value for archive storage operations.
  *
@@ -10,7 +13,7 @@ namespace App\Services\Archive;
  *
  * @immutable
  */
-final class ArchiveStorageResult
+final class ArchiveStorageResult implements ArrayAccess
 {
   /**
    * Unique UUID v7 identifier for the stored file record in database.
@@ -152,5 +155,45 @@ final class ArchiveStorageResult
     $bytes /= (1 << (10 * $pow));
 
     return round($bytes, 2) . ' ' . $units[$pow];
+  }
+
+  // ---------------------------------------------------------------------------
+  // ArrayAccess implementation for backward compatibility
+  // ---------------------------------------------------------------------------
+
+  public function offsetExists(mixed $offset): bool
+  {
+    $key = (string) $offset;
+    $snake = Str::snake($key);
+    $array = $this->toArray();
+    return array_key_exists($key, $array) || array_key_exists($snake, $array);
+  }
+
+  public function offsetGet(mixed $offset): mixed
+  {
+    $key = (string) $offset;
+    $snake = Str::snake($key);
+    $array = $this->toArray();
+    if (array_key_exists($snake, $array)) {
+      return $array[$snake];
+    }
+    if (array_key_exists($key, $array)) {
+      return $array[$key];
+    }
+    $camel = Str::camel($key);
+    if (property_exists($this, $camel)) {
+      return $this->{$camel};
+    }
+    return null;
+  }
+
+  public function offsetSet(mixed $offset, mixed $value): void
+  {
+    throw new \LogicException('ArchiveStorageResult is immutable.');
+  }
+
+  public function offsetUnset(mixed $offset): void
+  {
+    throw new \LogicException('ArchiveStorageResult is immutable.');
   }
 }

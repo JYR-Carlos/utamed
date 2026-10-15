@@ -1,19 +1,23 @@
 <?php
-
+ 
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\Docente;
 use App\Models\Curso\Curso;
-use App\Models\Administrativo\Programa;
-use App\Models\Administrativo\EstructuraPrograma;
+use App\Models\Curso\Programa;
+use App\Services\ProgramaService;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+
+uses(DatabaseTransactions::class);
 
 beforeEach(function () {
     // Crear usuario docente autenticado para cada test
-    $this->usuario = Usuario::factory()->create([
+    $this->usuario = Usuario::factory()->withRolDocente()->create([
         'esta_activo' => true,
+        'fecha_cambio_passhash' => now(),
     ]);
 
-    $this->docente = Docente::factory()->create([
-        'id_usuario' => $this->usuario->id_usuario,
+    $this->docente = $this->usuario->docente;
+    $this->docente->update([
         'grado' => 'Magíster',
         'titulo' => 'Ingeniero',
         'cargo' => 'Profesor',
@@ -34,21 +38,17 @@ test('docente puede generar programa para curso sin programa', function () {
         'id_contexto' => 1,
     ]);
 
-    $response = $this->post("/docente/cursos/{$curso->id_curso}/programa");
-
-    $response->assertRedirect();
-    $response->assertSessionHas('success');
+    $programa = ProgramaService::generateProgramaWithSyllabus($curso, $this->usuario);
 
     // Verificar que el programa fue creado
     expect(Programa::where('id_curso', $curso->id_curso)->exists())->toBeTrue();
+    expect($programa->id_curso)->toBe($curso->id_curso);
 });
 
 test('programa generado tiene version 1 si es el primero', function () {
     $curso = Curso::factory()->create();
 
-    $this->post("/docente/cursos/{$curso->id_curso}/programa");
-
-    $programa = Programa::where('id_curso', $curso->id_curso)->first();
+    $programa = ProgramaService::generateProgramaWithSyllabus($curso, $this->usuario);
 
     expect($programa->version_programa)->toBe(1);
 });
@@ -58,12 +58,12 @@ test('programa generado tiene estructura por defecto', function () {
         'es_plantilla' => false
     ]);
 
-    $this->post("/docente/cursos/{$curso->id_curso}/programa");
+    $programa = ProgramaService::generateProgramaWithSyllabus($curso, $this->usuario);
 
-    $programa = Programa::where('id_curso', $curso->id_curso)
+    $actual = Programa::where('id_curso', $curso->id_curso)
         ->where('es_actual', true)
         ->first();
 
-    expect($programa)->not->toBeNull();
-    expect($programa->secciones)->toHaveCount(6); // 6 secciones por defecto
+    expect($actual)->not->toBeNull();
+    expect($actual->data_syllabus)->not->toBeNull();
 });

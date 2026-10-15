@@ -66,6 +66,8 @@ test('inscribe automaticamente alumnos desde la intranet creando usuario con con
             'esta_activo' => true,
         ]
     );
+    $usuarioDocente->fecha_cambio_passhash = now();
+    $usuarioDocente->save();
     $docente = Docente::firstOrCreate(['id_usuario' => $usuarioDocente->id_usuario]);
     // Sin fecha de cambio de clave, ForcePasswordChange responde 423 a todo.
     $usuarioDocente->forceFill(['fecha_cambio_passhash' => now()])->save();
@@ -255,6 +257,8 @@ test('cuando el alumno ya existe en la bd no consulta la intranet para crearlo y
             'esta_activo' => true,
         ]
     );
+    $usuarioDocente->fecha_cambio_passhash = now();
+    $usuarioDocente->save();
     $docente = Docente::firstOrCreate(['id_usuario' => $usuarioDocente->id_usuario]);
     // Sin fecha de cambio de clave, ForcePasswordChange responde 423 a todo.
     $usuarioDocente->forceFill(['fecha_cambio_passhash' => now()])->save();
@@ -414,6 +418,8 @@ test('inscribe automaticamente 10 alumnos simultaneamente (5 preexistentes y 5 n
             'esta_activo' => true,
         ]
     );
+    $usuarioDocente->fecha_cambio_passhash = now();
+    $usuarioDocente->save();
     $docente = Docente::firstOrCreate(['id_usuario' => $usuarioDocente->id_usuario]);
     // Sin fecha de cambio de clave, ForcePasswordChange responde 423 a todo.
     $usuarioDocente->forceFill(['fecha_cambio_passhash' => now()])->save();

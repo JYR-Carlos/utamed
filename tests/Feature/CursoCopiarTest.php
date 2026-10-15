@@ -71,6 +71,7 @@ function adminParaCopiarCurso(): Usuario
     );
     // Con fecha_cambio_passhash en NULL el middleware redirige a cambiar la clave.
     $admin->fecha_cambio_passhash = now();
+    $admin->fecha_verificacion_email = now();
     $admin->save();
 
     $rolSuperAdmin = Rol::firstOrCreate(['nombre' => 'SuperAdmin'], ['creado_por' => $admin->id_usuario]);
