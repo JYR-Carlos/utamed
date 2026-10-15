@@ -173,7 +173,7 @@
   </div>
 
   <!-- ── Content ──────────────────────────────────────────── -->
-  <div class="flex-1 overflow-y-scroll py-6">
+  <div class="flex-1 overflow-y-auto py-6">
     <!-- Selector de ambiente: desplegable tipo combobox hacia abajo sólo si el usuario tiene más de un rol. -->
     {#if availableSections.length > 1}
       <div class="px-4 mb-4">
@@ -250,7 +250,7 @@
     {#snippet navLink(href: string, label: string, Icon: any, admin: boolean = false, big: boolean = false)}
       <Link
         {href}
-        class="flex items-center gap-3 rounded-xl transition-all group {big
+        class="nav-link flex items-center gap-3 rounded-xl transition-all group {big
           ? 'px-4 py-2.5 text-[15px] font-bold'
           : 'px-4 py-2.5 text-[14px] font-semibold'} {isActive(href)
           ? admin

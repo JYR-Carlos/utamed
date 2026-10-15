@@ -590,3 +590,63 @@
         font-size: 16px;
     }
 }
+
+/*
+ * Cajón de navegación móvil (MobileSidebar). El sidebar se diseñó para
+ * escritorio —enlaces de 14 px, etiquetas de 10 px en gris casi invisible— y
+ * en el teléfono quedaba chico y por debajo del objetivo táctil recomendado
+ * (≈44–48 px). Sólo aplica dentro de `.mobile-nav`: el de escritorio no cambia.
+ */
+.mobile-nav .nav-link {
+    min-height: 3rem;
+    font-size: 1rem;
+    padding-inline: 1rem;
+}
+
+.mobile-nav .nav-link svg {
+    width: 1.375rem;
+    height: 1.375rem;
+}
+
+/* Etiquetas de sección y subtítulos en mayúsculas: de 10 px y slate-300 a
+   12 px con contraste suficiente. */
+.mobile-nav .uppercase {
+    font-size: 0.75rem;
+    line-height: 1.25;
+}
+
+.mobile-nav p.uppercase {
+    color: #64748b;
+}
+
+/* Nombre de usuario del pie. */
+.mobile-nav .truncate.font-bold.text-slate-900 {
+    font-size: 1rem;
+}
+
+/* Cursos del docente/estudiante/ayudante dentro del menú. */
+.mobile-nav [class*='line-clamp-2'] {
+    font-size: 0.9375rem;
+}
+
+.mobile-nav .font-mono {
+    font-size: 0.75rem;
+}
+
+/* Botón de cerrar del Sheet: más grande y con área táctil propia. */
+.mobile-nav > button {
+    top: 0.75rem;
+    right: 0.75rem;
+    padding: 0.5rem;
+}
+
+.mobile-nav > button svg {
+    width: 1.375rem;
+    height: 1.375rem;
+}
+
+/* El pie (usuario) usa p-6 pensado para escritorio; en móvil le quita alto
+   a la lista de enlaces. */
+.mobile-nav .border-t.p-6 {
+    padding: 0.5rem 1rem;
+}

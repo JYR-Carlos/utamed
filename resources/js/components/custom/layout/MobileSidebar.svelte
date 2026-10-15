@@ -23,7 +23,14 @@
 </script>
 
 <Sheet.Root bind:open={() => sidebar.openMobile, (abierto) => sidebar.setOpenMobile(abierto)}>
-  <Sheet.Content side="left" class="w-72 max-w-[85vw] gap-0 p-0 sm:max-w-72 lg:hidden">
+  <!-- `mobile-nav` (app.css) agranda texto y filas para el dedo; el sidebar de
+       escritorio no cambia. El foco inicial no se mueve al primer enlace: dejaba
+       «Inicio» con un anillo de foco permanente nada más abrir. -->
+  <Sheet.Content
+    side="left"
+    class="mobile-nav w-80 max-w-[88vw] gap-0 p-0 sm:max-w-80 lg:hidden"
+    onOpenAutoFocus={(e) => e.preventDefault()}
+  >
     <Sheet.Header class="sr-only">
       <Sheet.Title>Menú de navegación</Sheet.Title>
       <Sheet.Description>Accesos a las secciones del sistema.</Sheet.Description>

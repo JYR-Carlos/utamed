@@ -45,7 +45,7 @@
 </Avatar>
 
 <div class="grid flex-1 text-left text-sm leading-tight min-w-0">
-    <span class="flex items-center gap-1.5 min-w-0">
+    <span class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
         <span class="truncate font-bold text-slate-900">{displayName}</span>
         {#if isSuperAdmin}
             <span
