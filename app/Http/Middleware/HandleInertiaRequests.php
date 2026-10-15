@@ -189,13 +189,15 @@ class HandleInertiaRequests extends Middleware
                 ->values()
                 ->toArray();
 
-            // Recopilar slugs de permisos únicos de todos los roles activos del usuario
-            // FIX: esto esta mal debe ser contextual
-            $permissions = $user->rolesAsignados
+            // Recopilar y expandir slugs de permisos a nivel servidor (evita duplicar motor de wildcards en frontend)
+            $rawPermissions = $user->rolesAsignados
                 ->flatMap(fn($r) => $r->permisos->pluck('slug'))
                 ->unique()
                 ->values()
                 ->toArray();
+
+            $permissions = app(\App\Services\Authorization\PermissionValidator::class)
+                ->expandToConcreteSlugs($rawPermissions);
 
             // Guardar referencias al perfil actual del usuario
             $docente = $user->docente;
