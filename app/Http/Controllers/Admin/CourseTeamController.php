@@ -32,18 +32,6 @@ use App\Support\Permissions;
  */
 class CourseTeamController extends Controller
 {
-    private function ensureContext(Curso $curso)
-    {
-        if (!$curso->id_contexto || $curso->id_contexto == 1) {
-            $nombreContexto = "Curso: " . $curso->cod_curso;
-            $contexto = \App\Models\Usuario\Contexto::firstOrCreate(
-                ['contexto_display' => $nombreContexto],
-                ['descripcion' => 'Contexto para el curso ' . $curso->cod_curso]
-            );
-            $curso->update(['id_contexto' => $contexto->id_contexto]);
-        }
-    }
-
 
 
     /**
@@ -59,9 +47,6 @@ class CourseTeamController extends Controller
     public function index(Curso $curso)
     {
         $this->authorize('manageTeam', $curso);
-
-        // Ensure context exists (Lazy Creation)
-        $this->ensureContext($curso);
 
         // Get assignments in this context
         $assignments = UsuarioRolAsignacion::where('id_contexto', $curso->id_contexto)
@@ -137,8 +122,6 @@ class CourseTeamController extends Controller
             'id_usuario' => ['required', Rule::exists(Usuario::class, 'id_usuario')],
             'role_name' => ['required', 'string'],
         ]);
-
-        $this->ensureContext($curso);
 
         // Restricción por tipo de usuario que asigna:
         // - Docente: solo puede asignar rol 'ayudante'

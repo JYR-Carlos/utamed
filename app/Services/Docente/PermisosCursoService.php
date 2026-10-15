@@ -2,9 +2,7 @@
 
 namespace App\Services\Docente;
 
-use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
-use App\Models\Usuario\Contexto;
 use App\Models\Usuario\Permiso;
 use App\Models\Usuario\UsuarioPermisoEspecial;
 use Illuminate\Support\Collection;
@@ -34,43 +32,8 @@ use Illuminate\Support\Facades\Log;
  */
 class PermisosCursoService
 {
-    // ────────────────────────────────────────────────────────────────────────
-    // CONTEXTO
-    // ────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Garantiza que el Curso tenga un contexto asignado (distinto de 1/null).
-     * Si no existe, crea uno en la tabla usuario.contexto y lo vincula al curso.
-     *
-     * NOTA (B-14): el caller ideal sería un job/observer al crear el curso;
-     * mientras tanto este método sigue siendo llamado desde puntos de escritura.
-     */
-    public function ensureContextCurso(Curso $curso): void
-    {
-        if (empty($curso->id_contexto) || $curso->id_contexto === 1) {
-            $contexto = Contexto::firstOrCreate(
-                ['contexto_display' => 'Curso: ' . $curso->cod_curso],
-                ['descripcion'      => 'Contexto para el curso ' . $curso->cod_curso]
-            );
-            $curso->update(['id_contexto' => $contexto->id_contexto]);
-        }
-    }
-
-    /**
-     * Garantiza que el Componente tenga un contexto asignado (distinto de 1/null).
-     */
-    public function ensureContextComponente(Componente $componente): void
-    {
-        if (empty($componente->id_contexto) || $componente->id_contexto === 1) {
-            $tipo   = $componente->tipoComponente?->tipo ?? 'Componente';
-            $nombre = "{$tipo} del curso #{$componente->id_curso}";
-            $contexto = Contexto::firstOrCreate(
-                ['contexto_display' => $nombre],
-                ['descripcion'      => $nombre]
-            );
-            $componente->update(['id_contexto' => $contexto->id_contexto]);
-        }
-    }
+    // El contexto de cursos y componentes lo crean los triggers de la BD al
+    // insertarlos (con tipo y padre); este servicio no crea contextos.
 
     // ────────────────────────────────────────────────────────────────────────
     // SYNC DE PERMISO

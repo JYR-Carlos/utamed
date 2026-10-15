@@ -24,7 +24,7 @@ use Inertia\Response;
  *  - assertIsMiembroCurso() evita IDOR: el target user DEBE pertenecer al equipo del curso.
  *  - Solo permisos del DELEGABLE_MATRIX pueden delegarse (whitelist estricta).
  *
- * Refactorizado (B-04): syncPermiso, ensureContext y buildPermisosMap
+ * Refactorizado (B-04): syncPermiso y buildPermisosMap
  * delegados a PermisosCursoService.
  *
  * B-11: regla exists unificada a 'usuario.usuario,id_usuario' (ya era correcta aquí;
@@ -116,7 +116,6 @@ class DelegacionPermisosController extends Controller
     public function index(Curso $curso): Response
     {
         $this->authorize('manageTeam', $curso);
-        $this->permisosService->ensureContextCurso($curso);
 
         $allSlugs   = $this->allDelegableSlugs();
         $permisosDb = Permiso::whereIn('slug', $allSlugs)
@@ -161,7 +160,6 @@ class DelegacionPermisosController extends Controller
     public function toggle(Request $request, Curso $curso): \Illuminate\Http\RedirectResponse
     {
         $this->authorize('manageTeam', $curso);
-        $this->permisosService->ensureContextCurso($curso);
 
         $allSlugs = $this->allDelegableSlugs();
 

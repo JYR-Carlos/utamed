@@ -7,7 +7,6 @@ use App\Models\Curso\Componente;
 use App\Models\Curso\DocenteComponente;
 use App\Models\Curso\TipoComponente;
 use App\Models\Administrativo\AsignacionPlan;
-use App\Models\Usuario\Contexto;
 use App\Models\Usuario\Docente;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
@@ -39,9 +38,6 @@ class CursoService
             // siguiente correlativo (el de la Intranet es por componente, no por curso).
             $codCurso = !empty($data['cod_curso']) ? (int) $data['cod_curso'] : $this->siguienteCodCurso();
 
-            // Create context for the course
-            $contexto = $this->createOrUpdateContext((string) $codCurso);
-
             $agnoReal = $data['agno_real'] ?? null;
             $semestreReal = $data['semestre_real'] ?? 2;
 
@@ -66,7 +62,6 @@ class CursoService
                 'agno_real'            => $agnoReal,
                 'semestre_real'        => $semestreReal,
                 'id_asignacion_plan'   => $asignacionPlan->id_asignacion_plan,
-                'id_contexto'          => $contexto->id_contexto,
                 'indice_grupo'         => $indiceGrupo,
                 'id_docente_titular'   => $data['id_docente_sugerido'],
                 'es_colegiado'         => false,
@@ -75,6 +70,8 @@ class CursoService
             // Set fecha_fin to 6 months after fecha_inicio
             $cursoData['fecha_fin'] = $this->calculateFechaFin($cursoData['fecha_inicio']);
 
+            // id_contexto lo asigna el trigger tr_curso_pre_insert (con tipo y padre en el
+            // árbol de contextos); refresh() trae ese valor al modelo.
             $curso = Curso::create($cursoData);
             $curso->refresh();
 
@@ -90,17 +87,15 @@ class CursoService
             $generaActaPorComponente = $data['genera_acta_por_componente'] ?? [];
 
             if ($tipoComponente) {
-                $contextoComponente = $this->createOrUpdateContext($codCurso . '-C');
-
+                // id_contexto lo asigna el trigger tr_componente_pre_insert.
                 $componente = Componente::create([
                     'id_curso'                          => $curso->id_curso,
                     'id_tipo_componente'                => $tipoComponente->id_tipo_componente,
-                    'id_contexto'                       => $contextoComponente->id_contexto,
                     'genera_acta'                       => $generaActaPorComponente[$tipoComponente->id_tipo_componente] ?? true,
                     'aprobacion_obligatoria'            => $data['aprobacion_obligatoria'] ?? false,
                     'porcentaje_aprobacion'             => $data['porcentaje_aprobacion'] ?? 60.00,
                     'porcentaje_asistencia_obligatoria' => $data['porcentaje_asistencia_obligatoria'] ?? 75.00,
-                ]);
+                ])->refresh();
 
                 // El jefe SIEMPRE tiene acceso administrativo (via id_docente_titular),
                 // independientemente de si dicta clases en algún componente.
@@ -122,19 +117,14 @@ class CursoService
                         continue;
                     }
 
-                    $ctxAdicional = $this->createOrUpdateContext(
-                        $codCurso . '-' . $tipoAdicional->id_tipo_componente
-                    );
-
                     $componenteAdicional = Componente::create([
                         'id_curso'                          => $curso->id_curso,
                         'id_tipo_componente'                => $tipoAdicional->id_tipo_componente,
-                        'id_contexto'                       => $ctxAdicional->id_contexto,
                         'genera_acta'                       => $generaActaPorComponente[$tipoAdicional->id_tipo_componente] ?? true,
                         'aprobacion_obligatoria'            => $data['aprobacion_obligatoria'] ?? false,
                         'porcentaje_aprobacion'             => $data['porcentaje_aprobacion'] ?? 60.00,
                         'porcentaje_asistencia_obligatoria' => $data['porcentaje_asistencia_obligatoria'] ?? 75.00,
-                    ]);
+                    ])->refresh();
 
                     $this->asignarDocentesComponente(
                         $curso,
@@ -169,7 +159,6 @@ class CursoService
             ]);
 
             $codCurso = !empty($data['cod_curso']) ? (int) $data['cod_curso'] : $this->siguienteCodCurso();
-            $contexto = $this->createOrUpdateContext((string) $codCurso);
             $fechaInicio = $data['fecha_inicio'];
 
             // No reutilizamos el indice_grupo del padre: el trigger de BD ya no
@@ -186,15 +175,13 @@ class CursoService
                 'fecha_inicio'        => $fechaInicio,
                 'fecha_fin'           => $this->calculateFechaFin($fechaInicio),
                 'id_asignacion_plan'  => $cursoPadre->id_asignacion_plan,
-                'id_contexto'         => $contexto->id_contexto,
                 'id_docente_titular'  => $cursoPadre->id_docente_titular,
                 'es_colegiado'        => $cursoPadre->es_colegiado,
                 'indice_grupo'        => $indiceGrupo,
                 'id_curso_padre'      => $cursoPadre->id_curso,
             ]);
 
-            // El trigger tr_curso_pre_insert reemplaza id_contexto por el contexto que
-            // él mismo crea; sin refresh() el rol quedaría en el contexto descartado.
+            // id_contexto lo asigna el trigger tr_curso_pre_insert; refresh() lo trae.
             $nuevoCurso->refresh();
 
             // Las unidades pertenecen al curso y toda actividad exige una
@@ -220,19 +207,15 @@ class CursoService
             }
 
             foreach ($cursoPadre->componentes as $comp) {
-                $ctxComp = $this->createOrUpdateContext(
-                    $codCurso . '-' . $comp->id_tipo_componente
-                );
-
+                // id_contexto lo asigna el trigger tr_componente_pre_insert.
                 $nuevoComp = Componente::create([
                     'id_curso'                          => $nuevoCurso->id_curso,
                     'id_tipo_componente'                => $comp->id_tipo_componente,
-                    'id_contexto'                       => $ctxComp->id_contexto,
                     'genera_acta'                       => $comp->genera_acta,
                     'aprobacion_obligatoria'            => $comp->aprobacion_obligatoria,
                     'porcentaje_aprobacion'             => $comp->porcentaje_aprobacion,
                     'porcentaje_asistencia_obligatoria' => $comp->porcentaje_asistencia_obligatoria,
-                ]);
+                ])->refresh();
 
                 foreach ($comp->docenteComponentes as $dc) {
                     DocenteComponente::create([
@@ -291,9 +274,6 @@ class CursoService
                 $data['id_plan']
             );
 
-            // Update or create context
-            $contexto = $this->createOrUpdateContext($data['cod_curso'], $curso->id_contexto);
-
             // Store old docente_titular to sync with components
             $oldDocenteTitularId = $curso->id_docente_titular;
 
@@ -303,7 +283,6 @@ class CursoService
                 'nombre'             => $data['nombre'] ?? '',
                 'fecha_inicio'       => $data['fecha_inicio'] ?? $curso->fecha_inicio,
                 'id_asignacion_plan' => $asignacionPlan->id_asignacion_plan,
-                'id_contexto'        => $contexto->id_contexto,
                 'indice_grupo'       => $data['indice_grupo'] ?? $curso->indice_grupo,
                 'agno_real'          => $data['agno_real'] ?? $curso->agno_real,
                 'semestre_real'      => $data['semestre_real'] ?? $curso->semestre_real,
@@ -562,38 +541,6 @@ class CursoService
         $ultimoIndice = (int) ($query->max('indice_grupo') ?? 0);
 
         return $ultimoIndice + 1;
-    }
-
-    /**
-     * Create or update a course context.
-     *
-     * @param string $codigoCurso
-     * @param int|null $contextoExistente
-     * @return Contexto
-     */
-    /**
-     * Público a propósito: IntranetService lo reutiliza para crear el contexto
-     * de las componentes que sincroniza sobre un curso ya existente, en vez de
-     * duplicar esta lógica.
-     */
-    public function createOrUpdateContext(string $codigoCurso, ?int $contextoExistente = null): Contexto
-    {
-        $nombreContexto = "Curso: " . $codigoCurso;
-
-        // If context already exists and is not the default global context
-        if ($contextoExistente && $contextoExistente != 1) {
-            $contexto = Contexto::find($contextoExistente);
-            if ($contexto && $contexto->contexto_display !== $nombreContexto) {
-                $contexto->update(['contexto_display' => $nombreContexto]);
-            }
-            return $contexto;
-        }
-
-        // Create or get context
-        return Contexto::firstOrCreate(
-            ['contexto_display' => $nombreContexto],
-            ['descripcion' => 'Contexto para el curso ' . $codigoCurso]
-        );
     }
 
     /**

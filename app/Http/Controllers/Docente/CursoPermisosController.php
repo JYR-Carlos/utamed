@@ -21,7 +21,7 @@ use Inertia\Inertia;
  *   2. DT de un componente colegiado: configurar permisos de notas/asistencia
  *      para los demás docentes del componente.
  *
- * Refactorizado (B-04): la lógica de syncPermiso, ensureContext y mapaPermisos
+ * Refactorizado (B-04): la lógica de syncPermiso y mapaPermisos
  * se delega a PermisosCursoService para eliminar la triplicación.
  *
  * B-11: regla exists unificada a 'usuario.usuario,id_usuario' (esquema.tabla)
@@ -74,8 +74,6 @@ class CursoPermisosController extends Controller
     {
         $this->authorize('manageTeam', $curso);
 
-        $this->permisosService->ensureContextCurso($curso);
-
         $slugsDisponibles = $this->resolvePermisos(self::SYLLABUS_SLUGS);
 
         // Docentes del curso: titular de componentes + docenteComponentes
@@ -110,7 +108,6 @@ class CursoPermisosController extends Controller
     public function syllabusSync(Request $request, Curso $curso)
     {
         $this->authorize('manageTeam', $curso);
-        $this->permisosService->ensureContextCurso($curso);
 
         // B-11: corregido de 'exists:usuario,id_usuario' → 'exists:usuario.usuario,id_usuario'
         $validated = $request->validate([
@@ -149,8 +146,6 @@ class CursoPermisosController extends Controller
     {
         $this->authorizeEsTitularComponente($componente);
 
-        $this->permisosService->ensureContextComponente($componente);
-
         $slugsDisponibles = $this->resolvePermisos(self::COMPONENTE_SLUGS);
 
         $docentes = $this->getDocentesComponente($componente);
@@ -184,7 +179,6 @@ class CursoPermisosController extends Controller
     public function componenteSync(Request $request, Curso $curso, Componente $componente)
     {
         $this->authorizeEsTitularComponente($componente);
-        $this->permisosService->ensureContextComponente($componente);
 
         // B-11: corregido de 'exists:usuario,id_usuario' → 'exists:usuario.usuario,id_usuario'
         $validated = $request->validate([

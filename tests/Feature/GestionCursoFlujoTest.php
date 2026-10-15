@@ -358,3 +358,76 @@ describe('inscripción automática con un INS_ID ya usado', function () {
         expect((int) $enComponente->cod_inscripcion_curso_uta)->toBe($insId);
     });
 });
+
+describe('contextos: los crea la BD, no la aplicación', function () {
+
+    /** Contextos sin tipo ni padre: la marca de los que creaba la aplicación. */
+    function gcfContextosSinTipo(): int
+    {
+        return Contexto::whereNull('id_tipo_contexto')->whereNull('id_contexto_padre')->count();
+    }
+
+    function gcfAssertContextosDelCurso(Curso $curso): void
+    {
+        $ctxCurso = Contexto::findOrFail($curso->id_contexto);
+        expect($ctxCurso->id_tipo_contexto)->not->toBeNull();
+        expect($ctxCurso->id_contexto_padre)->not->toBeNull();
+
+        foreach (Componente::where('id_curso', $curso->id_curso)->get() as $componente) {
+            $ctxComponente = Contexto::findOrFail($componente->id_contexto);
+            expect($ctxComponente->id_tipo_contexto)->not->toBeNull();
+            expect($ctxComponente->id_contexto_padre)->toBe($curso->id_contexto);
+        }
+    }
+
+    test('crear un curso con dos componentes no deja contextos huérfanos', function () {
+        $antes = gcfContextosSinTipo();
+
+        $this->post('/admin/cursos', gcfPayloadCurso($this, [
+            $this->catedra->id_tipo_componente => [$this->docenteA->id_docente],
+            $this->taller->id_tipo_componente  => [$this->docenteB->id_docente],
+        ], [$this->catedra->id_tipo_componente, $this->taller->id_tipo_componente]))->assertSessionHasNoErrors();
+
+        expect(gcfContextosSinTipo())->toBe($antes);
+        gcfAssertContextosDelCurso(gcfUltimoCurso($this));
+    });
+
+    test('copiar un curso no deja contextos huérfanos', function () {
+        $this->post('/admin/cursos', gcfPayloadCurso($this, [
+            $this->catedra->id_tipo_componente => [$this->docenteA->id_docente],
+        ], [$this->catedra->id_tipo_componente]))->assertSessionHasNoErrors();
+        $original = gcfUltimoCurso($this);
+        $antes = gcfContextosSinTipo();
+
+        $copia = app(\App\Services\CursoService::class)->copiar($original, ['fecha_inicio' => '2031-08-03']);
+
+        expect(gcfContextosSinTipo())->toBe($antes);
+        expect($copia->id_contexto)->not->toBe($original->id_contexto);
+        gcfAssertContextosDelCurso($copia);
+    });
+
+    test('la migración 17 borra los huérfanos sin uso y conserva los que tienen historial', function () {
+        $sinUso = Contexto::create(['contexto_display' => 'Curso: GCF-huerfano-sin-uso']);
+        $conHistorial = Contexto::create(['contexto_display' => 'Curso: GCF-huerfano-con-historial']);
+        UsuarioRolAsignacion::create([
+            'id_usuario' => $this->docenteA->id_usuario,
+            'id_rol' => Rol::where('nombre', 'SuperAdmin')->value('id_rol'),
+            'id_contexto' => $conHistorial->id_contexto,
+            'asignado_por' => $this->admin->id_usuario,
+            'fecha_inicio_planificada' => now()->subMinute(),
+            'fecha_fin_planificada' => now()->addYear(),
+            'esta_activo' => false,
+            'fue_eliminado' => true,
+            'creado_por' => $this->admin->id_usuario,
+        ]);
+        $contextoReal = Contexto::findOrFail($this->carrera->fresh()->id_contexto);
+
+        (require database_path('migrations/17_eliminar_contextos_huerfanos.php'))->up();
+
+        expect(Contexto::find($sinUso->id_contexto))->toBeNull();
+        expect(Contexto::find($conHistorial->id_contexto))->not->toBeNull();
+        expect(Contexto::find($contextoReal->id_contexto))->not->toBeNull();
+        expect(Contexto::find(1))->not->toBeNull();
+    });
+});
+

@@ -34,8 +34,7 @@ class IntranetService
 
     public function __construct(
         protected EstudianteService $estudianteService,
-        protected InscripcionCursoService $inscripcionCursoService,
-        protected CursoService $cursoService
+        protected InscripcionCursoService $inscripcionCursoService
     ) {}
 
     /**
@@ -682,12 +681,10 @@ class IntranetService
                 continue;
             }
 
-            $contexto = $this->cursoService->createOrUpdateContext($curso->cod_curso . '-' . $tipoComponente->id_tipo_componente);
-
+            // id_contexto lo asigna el trigger tr_componente_pre_insert.
             Componente::create([
                 'id_curso'                          => $curso->id_curso,
                 'id_tipo_componente'                => $tipoComponente->id_tipo_componente,
-                'id_contexto'                        => $contexto->id_contexto,
                 'genera_acta'                        => true,
                 'aprobacion_obligatoria'             => false,
                 'porcentaje_aprobacion'              => 60.00,
