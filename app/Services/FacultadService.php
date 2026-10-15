@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Administrativo\Facultad;
-use App\Models\Usuario\Contexto;
 use App\Models\Usuario\Usuario;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -12,13 +11,13 @@ use Illuminate\Support\Facades\Log;
  * FacultadService
  *
  * Encapsula la lógica de negocio para crear, actualizar y eliminar
- * facultades, incluyendo la gestión del Contexto asociado y el
- * registro de auditoría.
+ * facultades y el registro de auditoría. El Contexto de permisos lo crea
+ * el trigger de la BD al insertar.
  */
 class FacultadService
 {
     /**
-     * Crea una nueva facultad junto con su Contexto de permisos.
+     * Crea una nueva facultad (el trigger le crea su Contexto de permisos).
      *
      * @param  array{nombre: string}  $data
      * @param  Usuario                $actor  Usuario que realiza la acción.
@@ -27,15 +26,12 @@ class FacultadService
     public function create(array $data, Usuario $actor): Facultad
     {
         return DB::transaction(function () use ($data, $actor) {
-            $contexto = Contexto::firstOrCreate(
-                ['contexto_display' => 'Facultad: ' . $data['nombre']],
-                ['descripcion' => 'Contexto para la facultad ' . $data['nombre']]
-            );
-
+            // id_contexto lo asigna el trigger tr_facultad_pre_insert (con tipo y
+            // padre); refresh() trae ese valor al modelo.
             $facultad = new Facultad();
             $facultad->nombre = $data['nombre'];
-            $facultad->id_contexto = $contexto->id_contexto;
             $facultad->save();
+            $facultad->refresh();
 
             Log::info('Facultad creada', [
                 'id_facultad' => $facultad->id_facultad,

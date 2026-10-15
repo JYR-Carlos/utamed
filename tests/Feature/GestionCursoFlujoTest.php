@@ -431,3 +431,38 @@ describe('contextos: los crea la BD, no la aplicación', function () {
     });
 });
 
+describe('contextos de facultad y carrera', function () {
+
+    test('crear una facultad y una carrera desde el admin no deja contextos huérfanos', function () {
+        $antes = gcfContextosSinTipo();
+
+        $this->post('/admin/facultades', ['nombre' => 'GCF Facultad Contexto'])->assertSessionHasNoErrors();
+        $facultad = Facultad::where('nombre', 'GCF Facultad Contexto')->firstOrFail();
+
+        $departamento = Departamento::create(['nombre' => 'GCF Depto Contexto', 'id_facultad' => $facultad->id_facultad])->refresh();
+
+        $this->post('/admin/carreras', [
+            'nombre'          => 'GCF Carrera Contexto',
+            'id_departamento' => $departamento->id_departamento,
+            'id_facultad'     => $facultad->id_facultad,
+        ])->assertSessionHasNoErrors();
+        $carrera = Carrera::where('nombre', 'GCF Carrera Contexto')->firstOrFail();
+
+        expect(gcfContextosSinTipo())->toBe($antes);
+        expect(Contexto::findOrFail($facultad->id_contexto)->id_tipo_contexto)->not->toBeNull();
+        expect(Contexto::findOrFail($carrera->id_contexto)->id_contexto_padre)->toBe($departamento->id_contexto);
+    });
+
+    test('editar una facultad la modifica en vez de crear otra', function () {
+        $this->post('/admin/facultades', ['nombre' => 'GCF Facultad Original'])->assertSessionHasNoErrors();
+        $facultad = Facultad::where('nombre', 'GCF Facultad Original')->firstOrFail();
+        $total = Facultad::count();
+
+        $this->put("/admin/facultades/{$facultad->id_facultad}", ['nombre' => 'GCF Facultad Renombrada'])
+            ->assertSessionHas('success');
+
+        expect(Facultad::count())->toBe($total);
+        expect($facultad->fresh()->nombre)->toBe('GCF Facultad Renombrada');
+    });
+});
+

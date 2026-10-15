@@ -170,7 +170,10 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('cursos.actividades.json');
 
     // Resource routes (more general routes go after specific ones)
-    Route::resource('facultades', FacultadController::class);
+    // Sin parameters(), Laravel singulariza 'facultades' como {facultade} y el
+    // binding de Facultad $facultad no ocurre: llegaba un modelo vacío y editar
+    // creaba una facultad nueva.
+    Route::resource('facultades', FacultadController::class)->parameters(['facultades' => 'facultad']);
     Route::resource('departamentos', DepartamentoController::class);
     Route::resource('carreras', CarreraController::class);
     Route::resource('planes', PlanController::class)->parameters(['planes' => 'plan']);
