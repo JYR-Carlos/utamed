@@ -35,11 +35,13 @@ uses(TestCase::class);
 
 beforeEach(function () {
 
-  // Obtener TipoContexto global
+  // Obtener TipoContexto global. Sin ->first() encadenado: eso hace una consulta
+  // nueva que devuelve el primer tipo de la tabla (componente), y el bloque de
+  // abajo terminaba reescribiendo el contexto global con ese tipo.
   $tipoSystem = TipoContexto::firstOrCreate(
     ['categoria' => 'global'],
     ['nombre' => 'Global']
-  )->first();
+  );
 
   // Obtener o crear Contexto global (reutilizar si ya existe)
   $contextoGlobal = Contexto::firstOrCreate(
