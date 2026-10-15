@@ -53,6 +53,30 @@ class ComponenteController extends Controller
     }
 
     /**
+     * Devuelve por qué un componente no se puede borrar sin perder historia, o null
+     * si se puede: actividades, mensajes o asistencia ya registrada de sus alumnos.
+     */
+    private function motivoParaNoEliminar(Componente $componente): ?string
+    {
+        $actividades = $componente->actividades()->count();
+        if ($actividades > 0) {
+            return "tiene {$actividades} " . ($actividades === 1 ? 'actividad' : 'actividades');
+        }
+
+        // withTrashed: un mensaje borrado (soft delete) sigue bloqueando la FK.
+        if ($componente->mensajes()->withTrashed()->exists()) {
+            return 'tiene mensajes del curso';
+        }
+
+        $conAsistencia = $componente->inscripcionComponentes()->whereHas('asistencias')->exists();
+        if ($conAsistencia) {
+            return 'tiene asistencia registrada';
+        }
+
+        return null;
+    }
+
+    /**
      * Obtiene todos los componentes de un curso.
      * 
      * Retorna JSON con los datos de porcentaje de aprobación, asistencia obligatoria, etc.
@@ -244,6 +268,17 @@ class ComponenteController extends Controller
         $this->authorize('delete', $componente);
         $this->assertComponenteDeCurso($curso, $componente);
 
+        // Las FK hacia componente son RESTRICT. Lo que es trabajo de alumnos o del
+        // docente (actividades, mensajes, asistencia) no se borra en cascada: se avisa.
+        $motivo = $this->motivoParaNoEliminar($componente);
+        if ($motivo !== null) {
+            $mensaje = "No se puede eliminar el componente: {$motivo}.";
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $mensaje], 422);
+            }
+            return back()->with('error', $mensaje);
+        }
+
         try {
             // Capturar los docentes ANTES de borrar: si este era su único componente
             // en el curso, hay que revocarles el rol de curso (igual que removeDocente()).
@@ -251,20 +286,26 @@ class ComponenteController extends Controller
             $componente->load('curso');
             $idContexto = $componente->curso?->id_contexto;
 
-            $componente->delete();
-            $curso->recalcularColegiado();
+            DB::transaction(function () use ($componente, $curso, $idsDocentes, $idContexto) {
+                // Sin historia, lo que queda colgando son asignaciones: los docentes del
+                // componente y las inscripciones que el trigger creó al inscribir al curso.
+                $componente->docenteComponentes()->delete();
+                $componente->inscripcionComponentes()->delete();
+                $componente->delete();
+                $curso->recalcularColegiado();
 
-            if ($idContexto) {
-                foreach ($idsDocentes as $idDocente) {
-                    $tieneOtrosComponentes = DocenteComponente::where('id_docente', $idDocente)
-                        ->whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso))
-                        ->exists();
+                if ($idContexto) {
+                    foreach ($idsDocentes as $idDocente) {
+                        $tieneOtrosComponentes = DocenteComponente::where('id_docente', $idDocente)
+                            ->whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso))
+                            ->exists();
 
-                    if (!$tieneOtrosComponentes) {
-                        $this->revokeDocenteRolCurso($idDocente, $idContexto);
+                        if (!$tieneOtrosComponentes) {
+                            $this->revokeDocenteRolCurso($idDocente, $idContexto);
+                        }
                     }
                 }
-            }
+            });
 
             if ($request->wantsJson()) {
                 return response()->json(['message' => 'Componente eliminado exitosamente.']);

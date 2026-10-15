@@ -310,9 +310,10 @@
       return;
     isLoading = true;
     deleteComponente(curso.id_curso, componente.id_componente, {
+      // El resultado (eliminado o el motivo por el que no se puede) llega como
+      // flash y lo muestra handleFlashMessages.
       onSuccess: () => {
         isLoading = false;
-        showToast('Componente eliminado', 'success');
       },
       onError: () => {
         isLoading = false;

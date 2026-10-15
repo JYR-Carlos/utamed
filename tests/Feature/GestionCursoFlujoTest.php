@@ -466,3 +466,61 @@ describe('contextos de facultad y carrera', function () {
     });
 });
 
+describe('gestionar curso: eliminar componente', function () {
+
+    /** Curso con Cátedra (dos docentes) y Taller, y un alumno inscrito en ambos. */
+    function gcfCursoConAlumno($test): array
+    {
+        $test->post('/admin/cursos', gcfPayloadCurso($test, [
+            $test->catedra->id_tipo_componente => [$test->docenteA->id_docente, $test->docenteB->id_docente],
+            $test->taller->id_tipo_componente  => [$test->docenteA->id_docente],
+        ], [$test->catedra->id_tipo_componente, $test->taller->id_tipo_componente]))->assertSessionHasNoErrors();
+        $curso = gcfUltimoCurso($test);
+
+        $usuario = Usuario::create([
+            'rut' => '24681357-4', 'username' => 'gcfalu2', 'passhash' => bcrypt('x'),
+            'nombre1' => 'GCF', 'apellido1' => 'Alumna', 'esta_activo' => true,
+        ]);
+        $estudiante = Estudiante::create(['id_usuario' => $usuario->id_usuario, 'id_carrera' => $test->carrera->id_carrera]);
+        InscripcionCurso::create([
+            'id_curso' => $curso->id_curso,
+            'id_estudiante' => $estudiante->id_estudiante,
+            'estado_inscripcion' => 'INSCRITO',
+        ]);
+
+        $catedra = Componente::where('id_curso', $curso->id_curso)
+            ->where('id_tipo_componente', $test->catedra->id_tipo_componente)->firstOrFail();
+
+        return [$curso, $catedra];
+    }
+
+    test('borra un componente con docentes y alumnos inscritos, y recalcula el colegiado', function () {
+        [$curso, $catedra] = gcfCursoConAlumno($this);
+        expect($curso->es_colegiado)->toBeTrue();
+        expect($catedra->inscripcionComponentes()->count())->toBe(1);
+
+        $this->deleteJson("/admin/cursos/{$curso->id_curso}/componentes/{$catedra->id_componente}")
+            ->assertOk();
+
+        expect(Componente::find($catedra->id_componente))->toBeNull();
+        expect(DB::table('curso.docente_componente')->where('id_componente', $catedra->id_componente)->exists())->toBeFalse();
+        expect($curso->fresh()->es_colegiado)->toBeFalse();
+    });
+
+    test('no borra un componente con actividades y explica por qué', function () {
+        [$curso, $catedra] = gcfCursoConAlumno($this);
+        $unidad = \App\Models\Curso\Unidad::create(['id_curso' => $curso->id_curso, 'num_unidad' => 1, 'nombre' => 'U1']);
+        DB::table('agenda.actividad')->insert([
+            'id_componente' => $catedra->id_componente, 'id_unidad' => $unidad->id_unidad,
+            'nombre' => 'GCF actividad', 'ponderacion' => 20, 'tipo_actividad' => 'SUMATIVA',
+            'tipo_entrega' => 'DIGITAL', 'visible' => true, 'es_grupal' => false, 'max_integrantes' => 1,
+        ]);
+
+        $this->deleteJson("/admin/cursos/{$curso->id_curso}/componentes/{$catedra->id_componente}")
+            ->assertStatus(422)
+            ->assertJsonPath('error', 'No se puede eliminar el componente: tiene 1 actividad.');
+
+        expect(Componente::find($catedra->id_componente))->not->toBeNull();
+        expect($catedra->docenteComponentes()->count())->toBe(2);
+    });
+});
