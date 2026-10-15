@@ -55,6 +55,11 @@
   // ─── Estado del editor de fechas límite ────────────────────────────────
   let fechaBasico = $state('');
   let fechaSyllabus = $state('');
+  // Lo guardado en el servidor. La vista «Vence el…» depende de esto y no de lo
+  // que se está escribiendo: si no, al elegir una fecha el campo se cerraba y
+  // desaparecía «Guardar fechas» sin haber guardado nada.
+  let guardadaBasico = $state('');
+  let guardadaSyllabus = $state('');
   let savingFechas = $state(false);
   let fechasError = $state('');
   let fechasSuccess = $state(false);
@@ -117,8 +122,8 @@
   $effect(() => {
     if (isOpen && curso) {
       activeTab = 'secciones';
-      fechaBasico = isoToInput(curso.fecha_limite_entrega_basico);
-      fechaSyllabus = isoToInput(curso.fecha_limite_entrega_syllabus);
+      guardadaBasico = fechaBasico = isoToInput(curso.fecha_limite_entrega_basico);
+      guardadaSyllabus = fechaSyllabus = isoToInput(curso.fecha_limite_entrega_syllabus);
       fechasError = '';
       fechasSuccess = false;
       editingFechaBasico = false;
@@ -142,6 +147,8 @@
         onSuccess: () => {
           savingFechas = false;
           fechasSuccess = true;
+          guardadaBasico = fechaBasico;
+          guardadaSyllabus = fechaSyllabus;
           editingFechaBasico = false;
           editingFechaSyllabus = false;
         },
@@ -533,20 +540,20 @@
                       <span class="text-xs font-medium text-gray-700"
                         >Básico (programa sin contenidos)</span
                       >
-                      {#if fechaBasico && !editingFechaBasico}
+                      {#if guardadaBasico && !editingFechaBasico}
                         <button
                           onclick={() => (editingFechaBasico = true)}
                           class="text-xs text-blue-600 hover:underline">Cambiar</button
                         >
                       {/if}
                     </div>
-                    {#if fechaBasico && !editingFechaBasico}
-                      {@const dias = diasRestantes(fechaBasico)}
+                    {#if guardadaBasico && !editingFechaBasico}
+                      {@const dias = diasRestantes(guardadaBasico)}
                       <div
                         class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200"
                       >
                         <p class="flex-1 text-xs text-gray-500">
-                          Vence el {formatFechaLarga(fechaBasico)}
+                          Vence el {formatFechaLarga(guardadaBasico)}
                         </p>
                         <span
                           class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold
@@ -578,20 +585,20 @@
                 <div class="space-y-1.5">
                   <div class="flex items-center justify-between">
                     <span class="text-xs font-medium text-gray-700">Syllabus completo</span>
-                    {#if fechaSyllabus && !editingFechaSyllabus}
+                    {#if guardadaSyllabus && !editingFechaSyllabus}
                       <button
                         onclick={() => (editingFechaSyllabus = true)}
                         class="text-xs text-blue-600 hover:underline">Cambiar</button
                       >
                     {/if}
                   </div>
-                  {#if fechaSyllabus && !editingFechaSyllabus}
-                    {@const dias = diasRestantes(fechaSyllabus)}
+                  {#if guardadaSyllabus && !editingFechaSyllabus}
+                    {@const dias = diasRestantes(guardadaSyllabus)}
                     <div
                       class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200"
                     >
                       <p class="flex-1 text-xs text-gray-500">
-                        Vence el {formatFechaLarga(fechaSyllabus)}
+                        Vence el {formatFechaLarga(guardadaSyllabus)}
                       </p>
                       <span
                         class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold
@@ -624,7 +631,7 @@
                 {#if fechasSuccess}
                   <p class="text-xs text-green-600">Fechas guardadas correctamente.</p>
                 {/if}
-                {#if (!basicoYaCreado && (!fechaBasico || editingFechaBasico)) || !fechaSyllabus || editingFechaSyllabus}
+                {#if (!basicoYaCreado && (!guardadaBasico || editingFechaBasico)) || !guardadaSyllabus || editingFechaSyllabus}
                   <button
                     onclick={guardarFechas}
                     disabled={savingFechas}
