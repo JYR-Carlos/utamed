@@ -122,7 +122,7 @@
   </div>
 {/snippet}
 
-<div class="flex flex-col overflow-hidden h-full">
+<div class="flex flex-col overflow-hidden lg:h-full">
   <!-- Header -->
   <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 shrink-0">
     <h2 class="text-sm font-semibold text-gray-700">Malla del Plan</h2>
@@ -130,7 +130,7 @@
   </div>
 
   <!-- Malla content -->
-  <div class="flex-1 overflow-y-auto p-5">
+  <div class="flex-1 overflow-y-auto p-3 sm:p-5">
     {#if sortedYears.length === 0}
       <div class="flex flex-col items-center justify-center h-full text-gray-400">
         <svg
@@ -165,7 +165,7 @@
             </div>
 
             <!-- Semesters grid -->
-            <div class="grid grid-cols-2 divide-x divide-gray-200">
+            <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
               {@render columnaSemestre('Semestre 1', semesters.semestre1, estilosSemestre1)}
               {@render columnaSemestre('Semestre 2', semesters.semestre2, estilosSemestre2)}
             </div>

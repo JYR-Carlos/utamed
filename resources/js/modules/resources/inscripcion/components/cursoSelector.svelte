@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { stackTable } from '@/lib/actions/stackTable';
   /**
    * cursoSelector — Paso 1 del flujo de inscripciones: elegir el curso cuya
    * nómina se va a gestionar.
@@ -93,7 +94,7 @@
 
   <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="w-full text-sm">
+      <table use:stackTable class="table-stack w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"

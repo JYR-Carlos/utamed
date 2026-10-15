@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { stackTable } from '@/lib/actions/stackTable';
   /**
    * carreraList — Tabla de carreras con toolbar de búsqueda, filtro de
    * estado (activas/todas) y paginación.
@@ -130,7 +131,7 @@
 
   <!-- Table -->
   <div class="overflow-x-auto">
-    <table class="w-full border-collapse text-sm">
+    <table use:stackTable class="table-stack w-full border-collapse text-sm">
       <thead>
         <tr class="bg-gray-50 border-b border-gray-200">
           <th

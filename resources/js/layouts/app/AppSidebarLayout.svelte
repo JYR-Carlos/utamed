@@ -3,6 +3,7 @@
   import AppShell from '@/components/custom/layout/AppShell.svelte';
   import RoleSidebar from '@/components/custom/layout/RoleSidebar.svelte';
   import AppSidebarHeader from '@/components/custom/layout/AppSidebarHeader.svelte';
+  import MobileSidebar from '@/components/custom/layout/MobileSidebar.svelte';
   import PageContentWrapper from '@/components/custom/layout/PageContentWrapper.svelte';
   import { Sidebar } from '@/components/ui/sidebar';
 
@@ -52,6 +53,9 @@
         </svg>
       </button>
     {/if}
+
+    <!-- Menú de navegación para móvil / tableta vertical (< lg) -->
+    <MobileSidebar />
 
     <!-- Main Content -->
     <AppContent class="flex flex-col h-screen min-w-0 bg-white relative overflow-hidden">

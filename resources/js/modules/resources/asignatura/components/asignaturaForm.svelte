@@ -189,7 +189,7 @@
     </div>
   {/if}
 
-  <div class="grid grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div class="mb-4">
       <label for="cod_asignatura" class="block text-sm font-medium text-gray-700 mb-2">Código</label
       >
@@ -253,7 +253,7 @@
     ></textarea>
   </div>
 
-  <div class="grid grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div class="mb-4">
       <label for="horas_catedra" class="block text-sm font-medium text-gray-700 mb-2"
         >Horas Cátedra</label
@@ -281,7 +281,7 @@
     </div>
   </div>
 
-  <div class="grid grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div class="mb-4">
       <label for="horas_laboratorio" class="block text-sm font-medium text-gray-700 mb-2"
         >Horas Laboratorio</label

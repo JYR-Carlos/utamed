@@ -167,7 +167,7 @@
         {/if}
       </div>
 
-      <div class="px-5 pb-5 flex justify-end gap-2">
+      <div class="px-5 pb-5 flex flex-wrap justify-end gap-2">
         <button type="button" onclick={onCancel} disabled={isLoading} class="btn btn-neutral">
           {cancelLabel}
         </button>

@@ -584,7 +584,7 @@
               </div>
             </div>
 
-            <div class="ml-auto flex flex-none flex-wrap items-center gap-2.5">
+            <div class="flex max-w-full flex-wrap items-center gap-2.5 sm:ml-auto sm:flex-none">
               <button
                 type="button"
                 onclick={() => window.print()}

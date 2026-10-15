@@ -400,7 +400,7 @@
             <div class="p-4 rounded-xl border border-blue-200 bg-blue-50/40 space-y-4">
               <p class="text-sm font-semibold text-gray-800">Datos del nuevo curso</p>
 
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div class="flex flex-col gap-1.5">
                   <label class="text-xs font-semibold text-gray-600" for="new-cod-curso">
                     Código del Curso *

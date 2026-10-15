@@ -39,7 +39,9 @@
   </div>
 
   {#if secondaryActions || primaryAction}
-    <div class="flex items-center gap-2 shrink-0">
+    <!-- En móvil las acciones pasan a su propia fila y se reparten el ancho;
+         con `shrink-0` y sin `flex-wrap` el botón primario se salía de la pantalla. -->
+    <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
       {@render secondaryActions?.()}
       {@render primaryAction?.()}
     </div>

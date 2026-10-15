@@ -91,7 +91,7 @@
 
 <AdminLayout {breadcrumbs}>
   <!-- ── Page header ─────────────────────────────────────────────────────── -->
-  <div class="mb-6 flex items-start justify-between gap-4">
+  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
     <div>
       <a
         href={`${routePrefix}/planes`}
@@ -117,7 +117,7 @@
         {plan.carrera?.nombre ?? ''} · Año {plan.agno_plan} · v{plan.version_plan}
       </p>
     </div>
-    <div class="flex items-center gap-3 shrink-0">
+    <div class="flex items-center gap-3 sm:shrink-0">
       <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-center">
         <p class="text-xs text-blue-600 font-medium uppercase tracking-wide">Créditos SCT</p>
         <p class="text-2xl font-bold text-blue-700">{totalCredits}</p>
@@ -178,8 +178,7 @@
 
   <!-- ── Two-column layout ──────────────────────────────────────────────── -->
   <div
-    class="grid grid-cols-[5fr_7fr] gap-0 border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm"
-    style="height: calc(100vh - 14rem);"
+    class="malla-split grid grid-cols-1 lg:grid-cols-[5fr_7fr] gap-0 border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm"
   >
     <AsignaturasCatalogo
       planId={plan.id_plan}
@@ -210,3 +209,13 @@
     isLoading={deleteLoading}
   />
 </AdminLayout>
+
+<style>
+  /* En escritorio los dos paneles ocupan el alto restante y cada uno se
+     desplaza por dentro; en móvil se apilan y la página se desplaza. */
+  @media (min-width: 1024px) {
+    .malla-split {
+      height: calc(100vh - 14rem);
+    }
+  }
+</style>

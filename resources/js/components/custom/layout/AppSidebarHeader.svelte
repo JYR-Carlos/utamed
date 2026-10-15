@@ -152,8 +152,8 @@
     <!-- Mobile trigger -->
     <button
       class="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-md transition-colors"
-      onclick={() => sidebar.toggle()}
-      aria-label="Toggle Sidebar"
+      onclick={() => sidebar.setOpenMobile(true)}
+      aria-label="Abrir el menú de navegación"
     >
       <LayoutGrid size={20} />
     </button>
@@ -200,11 +200,12 @@
   <div class="header-right">
     {#if buscadorHabilitado}
       <button
-        class="lg:hidden mobile-search-trigger flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-full font-bold shadow-sm"
+        class="lg:hidden mobile-search-trigger flex items-center justify-center gap-2 p-2 sm:px-3 sm:py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-full font-bold shadow-sm"
         onclick={() => (openSearch = true)}
+        aria-label="Buscar en el sistema"
       >
         <Search size={18} />
-        <span class="text-xs">Buscar</span>
+        <span class="hidden sm:inline text-xs">Buscar</span>
       </button>
     {/if}
 
@@ -292,8 +293,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1.5rem;
-    padding: 0 1.5rem;
+    gap: 0.5rem;
+    padding: 0 0.75rem;
     background: #ffffff;
     border-bottom: 1px solid #f1f5f9;
     position: sticky;
@@ -327,10 +328,27 @@
   .header-right {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    flex: 1;
+    gap: 0.5rem;
+    flex: 0 0 auto;
     justify-content: flex-end;
     min-width: 0;
+  }
+
+  @media (min-width: 640px) {
+    .global-header {
+      gap: 1.5rem;
+      padding: 0 1.5rem;
+    }
+
+    .header-right {
+      gap: 0.75rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .header-right {
+      flex: 1;
+    }
   }
 
   @media (min-width: 768px) {

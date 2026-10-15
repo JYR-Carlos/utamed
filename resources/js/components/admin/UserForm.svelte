@@ -108,7 +108,7 @@
   {/if}
 </div>
 
-<div class="grid grid-cols-2 gap-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
   <div class="mb-4">
     <label for="nombre1" class="block text-sm font-medium text-gray-700 mb-2">Primer Nombre *</label
     >
@@ -134,7 +134,7 @@
   </div>
 </div>
 
-<div class="grid grid-cols-2 gap-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
   <div class="mb-4">
     <label for="apellido1" class="block text-sm font-medium text-gray-700 mb-2"
       >Primer Apellido *</label
@@ -176,7 +176,7 @@
 
 <!-- Campos Específicos por Tipo -->
 {#if tipo === 'estudiante'}
-  <div class="grid grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div class="mb-4">
       <label for="agno_ingreso" class="block text-sm font-medium text-gray-700 mb-2"
         >Año de Ingreso</label
@@ -218,7 +218,7 @@
     />
   </div>
 
-  <div class="grid grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div class="mb-4">
       <label for="grado" class="block text-sm font-medium text-gray-700 mb-2">Grado Académico</label
       >
@@ -249,7 +249,7 @@
   <div class="h-px bg-gray-200 my-4 mb-4"></div>
   <p class="text-sm font-semibold text-gray-700 mb-3">Credenciales de acceso</p>
 
-  <div class="grid grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div class="mb-4">
       <label for="username" class="field-label req">Usuario</label>
       <input

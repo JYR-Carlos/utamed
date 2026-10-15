@@ -1630,6 +1630,31 @@
     background: #3b82f6;
   }
 
+  /* Cuatro etiquetas no caben en 390 px: sólo el paso activo la muestra y
+     los círculos numerados indican el resto. */
+  @media (max-width: 560px) {
+    .step-bar {
+      padding: 0.625rem 1rem;
+    }
+
+    .step-label {
+      display: none;
+    }
+
+    .step-item.active .step-label {
+      display: inline;
+    }
+
+    .step-connector {
+      min-width: 0.5rem;
+      margin: 0 0.375rem;
+    }
+
+    .wiz-header {
+      padding: 1rem 1rem 0.75rem;
+    }
+  }
+
   /* ── Form layout wrapper ── */
   .wiz-form-layout {
     flex: 1 1 0;

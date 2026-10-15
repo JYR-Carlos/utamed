@@ -338,15 +338,127 @@
        inventaba el suyo (max-w-7xl aquí, max-w-5xl allá, ninguno
        más allá) y el título saltaba de sitio al navegar. */
     .page-shell {
-        @apply mx-auto w-full max-w-[1400px] px-6 py-8;
+        @apply mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-6 sm:py-8;
     }
 
     .page-header {
-        @apply flex flex-wrap items-start justify-between gap-4 mb-6;
+        @apply flex flex-wrap items-start justify-between gap-3 mb-5 sm:gap-4 sm:mb-6;
     }
 
     .page-title {
-        @apply text-3xl font-bold text-gray-900 mb-1;
+        @apply text-2xl font-bold text-gray-900 mb-1 sm:text-3xl;
+    }
+
+    /* Pestañas / segmentos: en pantallas estrechas se desplazan en vez de
+       ensanchar la página. */
+    .tab-strip {
+        @apply flex max-w-full gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 sm:gap-2;
+        scrollbar-width: none;
+    }
+
+    .tab-strip::-webkit-scrollbar {
+        display: none;
+    }
+
+    .tab-strip > * {
+        @apply shrink-0;
+    }
+
+    /* ── Tablas como tarjetas en móvil ───────────────────────────
+       Una tabla de 6 columnas no cabe en 390 px y obliga a desplazarse
+       en horizontal dentro de la tabla. Con `use:stackTable` cada celda
+       recibe `data-label` (el texto de su columna) y, por debajo de
+       `md`, cada fila se dibuja como una tarjeta: etiqueta arriba, valor
+       debajo. Se usa un bloque y no una rejilla para que celdas con
+       varios elementos (nombre + facultad, insignias) no se partan. */
+    @media (max-width: 767px) {
+        .table-stack,
+        .table-stack tbody,
+        .table-stack tr,
+        .table-stack td {
+            display: block;
+            width: 100%;
+        }
+
+        .table-stack {
+            min-width: 0 !important;
+        }
+
+        /* `!important`: DataTable pone `sticky` en su thead y las utilidades
+           de Tailwind ganan a esta capa. */
+        .table-stack thead {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            overflow: hidden !important;
+            clip-path: inset(50%);
+            box-shadow: none !important;
+        }
+
+        .table-stack tbody {
+            padding: 0.75rem;
+            background: #f9fafb;
+        }
+
+        /* `!important`: varias tablas ponen `border-b`, `last:border-0` o
+           colores de hover en el tr, y las utilidades ganan a esta capa. */
+        .table-stack tbody tr {
+            margin: 0 0 0.75rem;
+            padding: 0.25rem 0.875rem;
+            background: #fff;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+        }
+
+        .table-stack tbody tr:last-child {
+            margin-bottom: 0;
+        }
+
+        .table-stack td {
+            width: 100% !important;
+            padding: 0.4rem 0 !important;
+            border: 0 !important;
+            border-bottom: 1px solid #f3f4f6 !important;
+            text-align: left !important;
+            white-space: normal !important;
+            overflow-wrap: anywhere;
+        }
+
+        .table-stack td:last-child {
+            border-bottom: 0 !important;
+        }
+
+        .table-stack td[data-label]:not([data-label=''])::before {
+            content: attr(data-label);
+            display: block;
+            margin-bottom: 0.125rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #9ca3af;
+        }
+
+        .table-stack td[data-actions] {
+            display: flex !important;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        /* Fila de «sin resultados»: un solo bloque centrado. */
+        .table-stack td[colspan] {
+            text-align: center !important;
+        }
+
+        /* Fuera de la tabla-tarjeta el contenedor no necesita altura propia
+           ni desplazamiento: la página ya se desplaza. */
+        .table-stack-wrap {
+            max-height: none !important;
+            overflow: visible !important;
+        }
     }
 
     .page-subtitle {
@@ -462,5 +574,19 @@
         h3 {
             @apply text-3xl;
         }
+    }
+}
+/*
+ * Campos a 16 px en móvil. iOS Safari acerca la página al enfocar un campo
+ * de menos de 16 px y no la devuelve a su tamaño, así que en teléfono todo
+ * formulario con `text-sm` (14 px) saltaba al tocarlo. Va fuera de cualquier
+ * @layer a propósito: las utilidades `text-sm`/`text-xs` están en una capa y
+ * este bloque, sin capa, les gana sin necesitar `!important`.
+ */
+@media (max-width: 767px) {
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+    select,
+    textarea {
+        font-size: 16px;
     }
 }
