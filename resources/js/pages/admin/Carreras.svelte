@@ -29,8 +29,6 @@
     discontinueCarrera,
     loadDepartamentos,
   } from '@/modules/resources/carrera/services/carreraApi';
-  import { useFilteredList } from '@/lib/composables/useFilteredList';
-  import { PAGINATION_OPTIONS, DEFAULT_PER_PAGE, STATUS_OPTIONS } from '@/constants/admin';
   import type { Carrera, Facultad, Departamento, PaginatedResponse } from '@/types/admin.types';
   import type { BreadcrumbItem } from '@/types';
 
@@ -51,13 +49,6 @@
     { title: 'Inicio', href: '/dashboard' },
     { title: 'Carreras', href: '/admin/carreras' },
   ];
-
-  // ────── Filtros y búsqueda ──────
-  const { searchTerm, status, perPage, currentPage, setSearch, setStatus, setPerPage, goToPage } =
-    useFilteredList({
-      pathname: '/admin/carreras',
-      defaultPerPage: DEFAULT_PER_PAGE,
-    });
 
   // ────── Estado de UI ──────
   let uiState = $state({
@@ -199,16 +190,6 @@
     <!-- Componente: Lista de Carreras (tabla con toolbar) -->
     <CarreraList
       {carreras}
-      searchTerm={$searchTerm}
-      status={$status}
-      perPage={$perPage}
-      paginationOptions={PAGINATION_OPTIONS}
-      statusOptions={STATUS_OPTIONS}
-      onSearchChange={setSearch}
-      onSearch={() => setSearch($searchTerm)}
-      onStatusChange={setStatus}
-      onPerPageChange={setPerPage}
-      onPageChange={goToPage}
       onEdit={openEditModal}
       onDiscontinue={openDiscontinueDialog}
     />
