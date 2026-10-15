@@ -67,7 +67,13 @@ class AppServiceProvider extends ServiceProvider
         Password::defaults(function () {
             // El frontend muestra estos mismos requisitos mientras se escribe
             // (resources/js/lib/password.ts); si cambian, cambiar ambos.
-            $rule = Password::min(8)->letters()->numbers()->symbols();
+            // `regex` con \p{Lu}: una mayúscula (cualquier alfabeto) sin exigir además
+            // minúscula, que es lo que sumaría `mixedCase()`.
+            $rule = Password::min(8)
+                ->letters()
+                ->numbers()
+                ->symbols()
+                ->rules(['regex:/\p{Lu}/u']);
 
             return $this->app->isLocal() ? $rule : $rule->uncompromised();
         });

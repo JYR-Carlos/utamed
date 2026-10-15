@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * passwordChangeModal — Modal para que el admin cambie la contraseña de
-   * un usuario (mínimo 8 caracteres con letras, números y algún signo, con
+   * un usuario (mínimo 8 caracteres con una mayúscula, números y algún signo, con
    * confirmación; la lista de requisitos se actualiza mientras se escribe).
    *
    * Cambiar la clave de una cuenta ajena es una toma de control, así que el

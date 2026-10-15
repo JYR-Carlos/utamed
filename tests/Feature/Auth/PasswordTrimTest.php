@@ -53,15 +53,15 @@ test('el cambio de contraseña guarda la clave recortada', function () {
         ->from('/settings/password')
         ->put('/settings/password', [
             'current_password' => '  password',
-            'password' => '  nueva-clave-2026',
-            'password_confirmation' => '  nueva-clave-2026',
+            'password' => '  Nueva-clave-2026',
+            'password_confirmation' => '  Nueva-clave-2026',
         ])
         ->assertSessionHasNoErrors();
 
     $passhash = $user->refresh()->passhash;
 
-    expect(Hash::check('nueva-clave-2026', $passhash))->toBeTrue()
-        ->and(Hash::check('  nueva-clave-2026', $passhash))->toBeFalse();
+    expect(Hash::check('Nueva-clave-2026', $passhash))->toBeTrue()
+        ->and(Hash::check('  Nueva-clave-2026', $passhash))->toBeFalse();
 });
 
 test('tras cambiarla con espacios se puede entrar con o sin ellos', function () {
@@ -72,8 +72,8 @@ test('tras cambiarla con espacios se puede entrar con o sin ellos', function () 
         ->from('/settings/password')
         ->put('/settings/password', [
             'current_password' => 'password',
-            'password' => ' nueva-clave-2026',
-            'password_confirmation' => ' nueva-clave-2026',
+            'password' => ' Nueva-clave-2026',
+            'password_confirmation' => ' Nueva-clave-2026',
         ])
         ->assertSessionHasNoErrors();
 
@@ -82,7 +82,7 @@ test('tras cambiarla con espacios se puede entrar con o sin ellos', function () 
 
     $this->post('/login', [
         'email' => $user->rut,
-        'password' => 'nueva-clave-2026',
+        'password' => 'Nueva-clave-2026',
     ]);
     $this->assertAuthenticatedAs($user);
 
@@ -90,7 +90,7 @@ test('tras cambiarla con espacios se puede entrar con o sin ellos', function () 
 
     $this->post('/login', [
         'email' => $user->rut,
-        'password' => '   nueva-clave-2026',
+        'password' => '   Nueva-clave-2026',
     ]);
     $this->assertAuthenticatedAs($user);
 });
