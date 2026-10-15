@@ -56,7 +56,7 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
-Route::post('reports', [IssuesReportController::class, 'store']);
+Route::post('reportes', [IssuesReportController::class, 'store']);
 
 Route::get('dashboard', function () {
     /** @var Usuario $user */
@@ -127,7 +127,11 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ]);
     })->name('dashboard');
     // SÓLO el admin puede ver reportes
-    Route::get('reports/{id}/{filename}', [IssuesReportController::class, 'downloadPdf']);
+    Route::get('reportes', [IssuesReportController::class, 'index'])->name('reports.index');
+    Route::get('reportes/{id}/download', [IssuesReportController::class, 'downloadPdf'])->name('reports.download');
+    Route::get('reportes/{id}/evidence', [IssuesReportController::class, 'downloadEvidence'])->name('reports.evidence');
+    Route::delete('reportes/{id}', [IssuesReportController::class, 'destroy'])->name('reports.destroy');
+    Route::get('reportes/{id}/{filename}', [IssuesReportController::class, 'downloadPdf']);
     // Programa (Syllabus) routes MUST come before cursos resource to avoid route collision
     Route::get('programas', [AdminProgramaController::class, 'index'])
         ->name('programas.index');
