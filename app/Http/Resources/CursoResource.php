@@ -41,16 +41,8 @@ class CursoResource extends JsonResource
             'letra_grupo' => $this->letra_grupo,
             'agno_real' => $this->agno_real,
             'semestre_real' => $this->semestre_real,
-            'estado_interno' => $this->estado_interno,
-            'estado_acta' => $this->estado_acta,
-            'es_plantilla' => $this->es_plantilla,
             'id_asignacion_plan' => $this->id_asignacion_plan,
-            'id_contexto' => $this->id_contexto,
             'id_docente_titular' => $this->id_docente_titular,
-            'id_curso_padre' => $this->id_curso_padre,
-            'version_plantilla' => $this->version_plantilla,
-            'fecha_creacion' => $this->fecha_creacion,
-            'fecha_modificacion' => $this->fecha_modificacion,
             
             // Computed properties for table display
             'asignatura_nombre'    => $this->asignacionPlan?->asignatura?->nombre,

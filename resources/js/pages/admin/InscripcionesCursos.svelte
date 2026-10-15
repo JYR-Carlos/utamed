@@ -41,11 +41,12 @@
 
   interface Props {
     inscripciones: PaginatedResponse<RosterItem>;
-    cursos: CursoItem[];
-    filters: { search?: string; id_curso?: number | string; estado_inscripcion?: string };
+    cursos: PaginatedResponse<CursoItem> | CursoItem[];
+    carreras?: string[];
+    filters: { search?: string; id_curso?: number | string; estado_inscripcion?: string; carrera?: string };
   }
 
-  let { inscripciones, cursos, filters }: Props = $props();
+  let { inscripciones, cursos, carreras = [], filters }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Inicio', href: '/dashboard' },
@@ -55,9 +56,11 @@
   // ── Mode detection ──────────────────────────────────────────────────────────
   const activeCursoId = $derived(filters.id_curso ? Number(filters.id_curso) : null);
   const isRosterMode = $derived(activeCursoId !== null);
-  const selectedCurso = $derived(
-    activeCursoId ? (cursos.find((c) => c.id_curso === activeCursoId) ?? null) : null,
-  );
+  const selectedCurso = $derived.by(() => {
+    if (!activeCursoId) return null;
+    const items = Array.isArray(cursos) ? cursos : (cursos?.data ?? []);
+    return items.find((c) => c.id_curso === activeCursoId) ?? null;
+  });
 
   // ── Roster state ────────────────────────────────────────────────────────────
   let roster = $state<RosterItem[]>([]);
@@ -318,7 +321,7 @@
       onToast={showToast}
     />
   {:else}
-    <CursoSelector {cursos} onSelect={selectCurso} />
+    <CursoSelector {cursos} {carreras} onSelect={selectCurso} />
   {/if}
 
   <InscripcionDeleteConfirm

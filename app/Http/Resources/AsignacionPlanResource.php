@@ -21,8 +21,6 @@ class AsignacionPlanResource extends JsonResource
             'agno_planificado' => $this->agno_planificado,
             'semestre_planificado' => $this->semestre_planificado,
             'tipo_ramo' => $this->tipo_ramo,
-            'asignatura' => new AsignaturaResource($this->whenLoaded('asignatura')),
-            'plan' => new PlanResource($this->whenLoaded('plan')),
         ];
     }
 }
