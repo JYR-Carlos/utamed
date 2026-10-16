@@ -77,7 +77,7 @@
     });
   }
 
-  const NUM = 'w-[34px] shrink-0 font-mono text-[12.5px] text-[#9AA0AE]';
+  const NUM = 'w-[34px] shrink-0 font-mono text-[13px] text-slate-600';
   const TITULO = 'm-0 text-[19px] font-semibold tracking-[-0.01em] text-[#1A1A24]';
 </script>
 

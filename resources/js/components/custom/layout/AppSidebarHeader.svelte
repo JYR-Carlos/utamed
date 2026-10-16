@@ -151,7 +151,7 @@
   <div class="header-left">
     <!-- Mobile trigger -->
     <button
-      class="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-md transition-colors"
+      class="lg:hidden size-11 -ml-2 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-md transition-colors"
       onclick={() => sidebar.setOpenMobile(true)}
       aria-label="Abrir el menú de navegación"
     >
@@ -252,11 +252,16 @@
     <IssueReport />
 
     <DropdownMenu>
+      <!-- Un solo botón: antes el disparador envolvía a un Button y quedaban dos
+           botones anidados, ambos llamados «C». -->
       <DropdownMenuTrigger>
+        {#snippet child({ props })}
         <Button
+          {...props}
           variant="ghost"
           size="icon"
-          class="relative size-10 w-auto rounded-full p-1 focus-within:ring-2 focus-within:ring-primary"
+          aria-label="Menú de usuario"
+          class="relative size-11 rounded-full p-1.5 focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2"
         >
           <Avatar class="size-8 overflow-hidden rounded-full">
             {#if user.avatar}
@@ -270,6 +275,7 @@
             {/if}
           </Avatar>
         </Button>
+        {/snippet}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" class="w-56">
         <UserMenuContent {user} />

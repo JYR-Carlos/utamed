@@ -192,6 +192,13 @@
         @apply border-border outline-ring/50;
     }
 
+    /* Anillo de foco por teclado visible en toda la plataforma (auditoría #2):
+       2 px opacos en el azul institucional, separados 2 px del borde. */
+    :focus-visible {
+        outline: 2px solid var(--color-uta-blue);
+        outline-offset: 2px;
+    }
+
     body {
         @apply bg-background text-foreground text-sm md:text-base lg:text-lg;
     }

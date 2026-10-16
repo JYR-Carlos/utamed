@@ -57,7 +57,7 @@
                     {:else}
                         <BreadcrumbLink>
                             {#snippet child({ props })}
-                                <Link {...props} href={item.href ?? '#'}>
+                                <Link {...props} href={item.href ?? '#'} class="{props.class} inline-block py-2">
                                     {item.title}
                                 </Link>
                             {/snippet}

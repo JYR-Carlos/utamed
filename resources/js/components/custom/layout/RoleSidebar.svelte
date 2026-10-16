@@ -276,14 +276,14 @@
 
     <!-- Título de sección + acceso opcional a la lista completa. -->
     {#snippet sectionTitle(label: string, viewAllHref?: string)}
-      <div class="px-6 mb-1 flex items-center justify-between gap-2">
-        <span class="text-[14px] font-extrabold text-slate-800">{label}</span>
+      <div class="px-6 mb-1 flex flex-wrap items-center justify-between gap-x-2">
+        <span class="text-[14px] font-extrabold text-slate-800 whitespace-nowrap">{label}</span>
         {#if viewAllHref}
           <Link
             href={viewAllHref}
-            class="text-[11px] font-bold text-slate-400 hover:text-[#22213F] transition-colors shrink-0"
+            class="text-[13px] font-bold text-slate-600 hover:text-[#22213F] transition-colors shrink-0 ml-auto"
           >
-            Ver todos →
+            Ver todos los cursos →
           </Link>
         {/if}
       </div>

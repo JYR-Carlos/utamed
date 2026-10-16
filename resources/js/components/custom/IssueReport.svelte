@@ -117,22 +117,17 @@
 <button
   type="button"
   onclick={() => (isOpen = true)}
-  class="group flex h-10   text-white cursor-pointer items-center justify-center gap-0 rounded-xl border border-purple-200/80 bg-purple-500 px-3 text-xs font-semibold hover:text-slate-700 transition-all duration-200 ease-out hover:border-slate-300 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 group-hover:gap-2"
-  title="Reportar un problema"
-  aria-label="Reportar un problema"
+  class="group flex h-10   text-white cursor-pointer items-center justify-center gap-0 sm:gap-2 rounded-xl border border-purple-200/80 bg-purple-700 px-3 text-xs font-semibold hover:text-slate-700 transition-all duration-200 ease-out hover:border-slate-300 hover:bg-slate-100"
+  title="Reportar error"
+  aria-label="Reportar error"
 >
   <Bug
     size={16}
     class="shrink-0 transition-transform duration-200 group-hover:rotate-[-8deg] group-hover:scale-110"
   />
 
-  <span
-    class="grid grid-cols-[0fr] opacity-0 transition-all duration-200 ease-out group-hover:grid-cols-[1fr] group-hover:opacity-100"
-  >
-    <span class="overflow-hidden whitespace-nowrap mx-2">
-      Reportar Bug
-    </span>
-  </span>
+  <!-- En móvil sólo el ícono: con el rótulo la ruta de navegación casi desaparece. -->
+  <span class="hidden whitespace-nowrap sm:inline">Reportar error</span>
 </button>
 
 

@@ -161,7 +161,9 @@
         class="{current ? 'text-[#678FCA]' : 'text-slate-400'} shrink-0"
       />
       <div class="flex-1 min-w-0 flex flex-col">
-        <span class="font-mono text-[10.5px] text-slate-400 truncate">{curso.cod_curso}</span>
+        <span class="font-mono text-xs text-slate-600 truncate"
+          >{curso.cod_curso}{curso.letra_grupo ? ' · Grupo ' + curso.letra_grupo : ''}</span
+        >
         <!-- La etiqueta lleva el grupo al final («… Grupo A»): con truncate se
              cortaba justo lo que distingue a dos cursos hermanos. -->
         <span
