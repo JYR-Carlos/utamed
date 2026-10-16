@@ -41,6 +41,8 @@
     visible: boolean;
     estado?: string;
     ya_entregada?: boolean;
+    /** Día del último envío vigente (YYYY-MM-DD); sólo si ya_entregada. */
+    fecha_entrega?: string | null;
     ya_evaluada?: boolean;
     componente_tipo?: string | null;
   }

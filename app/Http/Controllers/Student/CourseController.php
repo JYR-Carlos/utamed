@@ -182,6 +182,8 @@ class CourseController extends Controller
             /** @var mixed $grupo ActividadAsignadaGrupo|null */
             $grupo = $gruposDelEstudiante->get($actividad->id_actividad);
             $estado = $grupo ? $grupo->calcularEstadoGrupo($actividad) : $actividad->calcularEstadoBase();
+            $entregada = (bool) ($grupo?->tieneEntregaVigente());
+            $fechaEnvio = $entregada ? $grupo->entregas()->entregasVigentes()->max('fecha_envio') : null;
 
             return [
                 'id_actividad'    => $actividad->id_actividad,
@@ -195,7 +197,9 @@ class CourseController extends Controller
                 'fecha_limite'    => $actividad->fecha_limite?->format('Y-m-d'),
                 'visible'         => (bool) $actividad->visible,
                 'estado'          => $estado,
-                'ya_entregada'    => (bool) ($grupo?->tieneEntregaVigente()),
+                'ya_entregada'    => $entregada,
+                // Día del último envío vigente; la tarjeta dice «Entregada el …».
+                'fecha_entrega'   => $fechaEnvio ? Carbon::parse($fechaEnvio)->format('Y-m-d') : null,
                 'ya_evaluada'     => (bool) ($grupo?->yaFueEvaluado()),
             ];
         })->values();

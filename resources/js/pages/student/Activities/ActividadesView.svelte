@@ -53,6 +53,8 @@
     max_integrantes: number;
     fecha_limite: string;
     visible: boolean;
+    ya_entregada?: boolean;
+    fecha_entrega?: string | null;
   }
 
   interface Props {

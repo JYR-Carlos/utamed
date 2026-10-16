@@ -27,6 +27,7 @@
       visible: boolean;
       estado?: string;
       ya_entregada?: boolean;
+      fecha_entrega?: string | null;
       ya_evaluada?: boolean;
     };
   }
@@ -89,7 +90,11 @@
         >{formatFechaCorta(actividad.fecha_limite)}</span
       >
     </span>
-    {#if plazo.texto}
+    {#if actividad.ya_entregada && actividad.fecha_entrega}
+      <span class="text-sm font-semibold text-emerald-800">
+        Entregada el {formatFechaCorta(actividad.fecha_entrega)}
+      </span>
+    {:else if plazo.texto}
       <span
         class="text-sm font-bold {plazo.sinEntrega
           ? 'text-red-800'
