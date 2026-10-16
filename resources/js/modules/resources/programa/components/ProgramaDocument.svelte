@@ -12,7 +12,7 @@
    * verdad es la IX, que trae su tabla de componentes de evaluación.
    */
   import type { Snippet } from 'svelte';
-  import { Link } from 'lucide-svelte';
+  import { BookOpen, ExternalLink, Link } from 'lucide-svelte';
   import { bloquesDeSeccion, textoDeSeccion } from '../utils/syllabusTexto';
 
   interface ComponenteEvaluacion {
@@ -77,8 +77,14 @@
     });
   }
 
-  const NUM = 'w-[34px] shrink-0 font-mono text-[13px] text-slate-600';
-  const TITULO = 'm-0 text-[19px] font-semibold tracking-[-0.01em] text-[#1A1A24]';
+  /** Primer enlace del texto (URL o archivo), para el ícono de «abrir» del recurso. */
+  const enlaceDe = (texto: string) => segmentarTexto(texto).find((s) => s.href)?.href;
+
+  /** La cita llega entre «guillemets»; como línea propia se lee sin ellos. */
+  const sinGuillemets = (cita: string) => cita.replace(/^«\s*/, '').replace(/\s*»$/, '');
+
+  const NUM = 'min-w-[34px] shrink-0 whitespace-nowrap font-mono text-[13px] text-slate-600';
+  const TITULO = 'm-0 min-w-0 break-words text-[19px] font-semibold tracking-[-0.01em] text-[#1A1A24]';
 </script>
 
 {#snippet renderizarTexto(texto: string | null | undefined)}
@@ -126,7 +132,7 @@
         <h2 id="titulo-{seccion.numeral_romano}" class={TITULO}>{seccion.nombre_seccion}</h2>
         <a
           href="#seccion-{seccion.numeral_romano}"
-          class="text-[#C3C8D2] transition-colors hover:text-[#002F6C]"
+          class="shrink-0 text-[#C3C8D2] transition-colors hover:text-[#002F6C]"
           aria-label="Enlace a la sección {seccion.nombre_seccion}"
         >
           <Link size={13} aria-hidden="true" />
@@ -162,13 +168,51 @@
           {:else if bloque.tipo === 'campo'}
             <p class="m-0 flex flex-wrap gap-x-2.5">
               <span class="font-mono text-[12px] text-[#5A5E6E]">{bloque.etiqueta}</span>
-              <span class="min-w-0 flex-1 text-pretty">{@render renderizarTexto(bloque.valor)}</span
+              <span class="min-w-0 flex-[1_1_12rem] text-pretty">{@render renderizarTexto(bloque.valor)}</span
               >
             </p>
           {:else if bloque.tipo === 'lista'}
             {@const esListaBiblio =
               seccion.numeral_romano === 'VIII' ||
               bloque.items.some((i) => i.texto.includes('Biblioteca UTA'))}
+            {#if esListaBiblio && enTarjetas}
+              <!-- Vista del alumno: una fila por recurso, con ícono de libro, la
+                   referencia y, debajo, la cita en tamaño de apoyo (antes era
+                   una segunda línea itálica de 11–12 px casi idéntica). -->
+              <ul class="m-0 flex list-none flex-col p-0">
+                {#each bloque.items as item (item.texto)}
+                  {@const url = enlaceDe(item.texto)}
+                  <li
+                    class="flex items-start gap-3 border-b border-slate-200 py-4 last:border-b-0 {item.texto.includes('Biblioteca UTA')
+                      ? 'bg-[#EBF3FA]'
+                      : ''}"
+                  >
+                    <BookOpen class="mt-0.5 h-5 w-5 shrink-0 text-uta-blue" aria-hidden="true" />
+                    <div class="flex min-w-0 flex-1 flex-col gap-1">
+                      <span class="text-pretty text-[15px] font-semibold leading-snug text-slate-900">
+                        {@render renderizarTexto(item.texto)}
+                      </span>
+                      {#if item.cita}
+                        <span class="text-pretty text-[13px] leading-snug text-slate-600">
+                          {@render renderizarTexto(sinGuillemets(item.cita))}
+                        </span>
+                      {/if}
+                    </div>
+                    {#if url}
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="mt-1 shrink-0 text-uta-blue"
+                        aria-label="Abrir el recurso (se abre en otra pestaña)"
+                      >
+                        <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
+                      </a>
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+            {:else}
             <ul class="m-0 flex list-disc flex-col gap-1.5 marker:text-[#9AA0AE]">
               {#each bloque.items as item (item.texto)}
                 {@const esUta = item.texto.includes('Biblioteca UTA')}
@@ -188,6 +232,7 @@
                 </li>
               {/each}
             </ul>
+            {/if}
           {:else}
             <p class="m-0 text-pretty">{@render renderizarTexto(bloque.texto)}</p>
           {/if}
@@ -196,7 +241,27 @@
 
       <!-- Sección IX: tabla de componentes de evaluación (dato estructurado real) -->
       {#if seccion.componentes && seccion.componentes.length > 0}
-        <div class="overflow-x-auto rounded-lg border border-[#EDEFF3]">
+        <!-- En móvil la tabla no cabe (quedaba una columna oculta tras un scroll
+             lateral): una tarjeta por componente, con una fila por dato. -->
+        <div class="flex flex-col gap-3 sm:hidden">
+          {#each seccion.componentes as comp, index (comp.componente + index)}
+            <div class="flex flex-col rounded-xl border border-slate-200 bg-white px-4 pt-4 pb-1">
+              <p class="m-0 pb-2 text-[15px] font-bold text-slate-900">{comp.componente}</p>
+              {#each [
+                { etiqueta: 'Ponderación', valor: `${comp.porcentaje}%` },
+                { etiqueta: 'Genera acta', valor: comp.genera_acta ? 'Sí' : 'No' },
+                { etiqueta: 'Aprobación oblig.', valor: comp.aprobacion_obligatoria ? 'Sí' : 'No' },
+                { etiqueta: 'Asistencia oblig.', valor: comp.asistencia_obligatoria != null ? `${comp.asistencia_obligatoria}%` : '—' },
+              ] as fila (fila.etiqueta)}
+                <div class="flex items-center justify-between border-t border-slate-200 py-2.5 text-[14px]">
+                  <span class="font-medium text-slate-600">{fila.etiqueta}</span>
+                  <span class="font-semibold tabular-nums text-slate-900">{fila.valor}</span>
+                </div>
+              {/each}
+            </div>
+          {/each}
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-[#EDEFF3] max-sm:hidden">
           <table class="w-full border-collapse text-[14px]">
             <thead>
               <tr class="bg-[#FCFBF9]">
