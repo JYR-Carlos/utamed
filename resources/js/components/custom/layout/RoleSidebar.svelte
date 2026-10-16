@@ -17,7 +17,7 @@
     Calendar,
     GraduationCap,
     ClipboardList,
-    LayoutGrid,
+    House,
     Users,
     UserCheck,
     Building2,
@@ -27,6 +27,7 @@
     BarChart2,
     ChevronsUpDown,
     Check,
+    ArrowRight,
   } from 'lucide-svelte';
   import type { SidebarCourse } from '@/types';
   import { usePermissions } from '@/lib/composables/usePermissions';
@@ -274,24 +275,27 @@
       </Link>
     {/snippet}
 
-    <!-- Título de sección + acceso opcional a la lista completa. -->
-    {#snippet sectionTitle(label: string, viewAllHref?: string)}
-      <div class="px-6 mb-1 flex flex-wrap items-center justify-between gap-x-2">
+    <!-- Título de sección. -->
+    {#snippet sectionTitle(label: string)}
+      <div class="px-6 mb-1">
         <span class="text-[14px] font-extrabold text-slate-800 whitespace-nowrap">{label}</span>
-        {#if viewAllHref}
-          <Link
-            href={viewAllHref}
-            class="text-[13px] font-bold text-slate-600 hover:text-[#22213F] transition-colors shrink-0 ml-auto"
-          >
-            Ver todos los cursos →
-          </Link>
-        {/if}
       </div>
+    {/snippet}
+
+    <!-- Acceso a la lista completa, al pie de la lista de cursos. -->
+    {#snippet verTodos(href: string)}
+      <Link
+        {href}
+        class="mx-4 mt-1 flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold text-slate-600 underline underline-offset-2 transition-colors hover:text-[#22213F]"
+      >
+        Ver todos los cursos
+        <ArrowRight size={16} class="shrink-0" aria-hidden="true" />
+      </Link>
     {/snippet}
 
     <!-- ══ DOCENTE ══════════════════════════════════════════ -->
     {#if isDocente && openSection === 'docente'}
-      {@render navLink('/docente/dashboard', 'Inicio', LayoutGrid)}
+      {@render navLink('/docente/dashboard', 'Inicio', House)}
       {@render navLink('/docente/calendario', 'Calendario', Calendar)}
       <!-- La mensajería no está en el menú: los dos niveles se entran por su
            contexto. La del curso, desde el curso; la de agenda, desde la
@@ -299,7 +303,7 @@
 
       <div class="h-px bg-slate-100 my-4 mx-4"></div>
 
-      {@render sectionTitle('Mis Cursos', '/docente/cursos')}
+      {@render sectionTitle('Mis Cursos')}
       <CourseListNav
         courses={filteredDocente}
         basePath="/docente/cursos"
@@ -307,11 +311,12 @@
         showActividades
         emptyLabel="Sin cursos asignados"
       />
+      {@render verTodos('/docente/cursos')}
     {/if}
 
     <!-- ══ JEFE DE CARRERA ══════════════════════════════════ -->
     {#if isJefeCarrera && openSection === 'jefe'}
-      {@render navLink('/docente/jefe-carrera/dashboard', 'Inicio Carrera', LayoutGrid)}
+      {@render navLink('/docente/jefe-carrera/dashboard', 'Inicio Carrera', House)}
       {@render navLink('/docente/jefe-carrera/seguimiento', 'Seguimiento', ClipboardList)}
       {@render navLink('/docente/jefe-carrera/metricas', 'Métricas', BarChart2)}
 
@@ -325,41 +330,43 @@
 
     <!-- ══ ESTUDIANTE ═══════════════════════════════════════ -->
     {#if isEstudiante && openSection === 'estudiante'}
-      {@render navLink('/estudiante/dashboard', 'Inicio', LayoutGrid)}
+      {@render navLink('/estudiante/dashboard', 'Inicio', House)}
 
       <!-- La mensajería se entra desde la ficha del curso, no desde el menú:
            el hilo pertenece a un curso y elegirlo dos veces sobra. -->
 
       <div class="h-px bg-slate-100 my-4 mx-4"></div>
 
-      {@render sectionTitle('Mis Cursos', '/estudiante/cursos')}
+      {@render sectionTitle('Mis Cursos')}
       <CourseListNav
         courses={filteredEstudiante}
         basePath="/estudiante/cursos"
         emptyLabel="Sin cursos inscritos"
       />
+      {@render verTodos('/estudiante/cursos')}
     {/if}
 
     <!-- ══ AYUDANTE ══════════════════════════════════════════ -->
     {#if isAyudante && openSection === 'ayudante'}
-      {@render navLink('/ayudante/dashboard', 'Inicio', LayoutGrid)}
+      {@render navLink('/ayudante/dashboard', 'Inicio', House)}
 
       <!-- Igual que el docente: la mensajería se entra desde el curso. -->
 
       <div class="h-px bg-slate-100 my-4 mx-4"></div>
 
-      {@render sectionTitle('Cursos Asignados', '/ayudante/cursos')}
+      {@render sectionTitle('Cursos Asignados')}
       <CourseListNav
         courses={filteredAyudante}
         basePath="/ayudante/cursos"
         showPrograma
         emptyLabel="Sin ayudantías asignadas"
       />
+      {@render verTodos('/ayudante/cursos')}
     {/if}
 
     <!-- ══ ADMIN ═════════════════════════════════════════════ -->
     {#if isAdmin && openSection === 'admin'}
-      {@render navLink('/admin/dashboard', 'Inicio', LayoutGrid, true, true)}
+      {@render navLink('/admin/dashboard', 'Inicio', House, true, true)}
       <div class="px-6 mb-2 mt-3">
         <p class="text-[10px] font-bold tracking-widest uppercase text-slate-300">Administración</p>
       </div>

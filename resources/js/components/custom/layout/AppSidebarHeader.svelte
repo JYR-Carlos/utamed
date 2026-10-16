@@ -6,6 +6,7 @@
     Bell,
     ChevronDown,
     LayoutGrid,
+    Menu,
     Users,
     Building2,
     BookOpen,
@@ -155,11 +156,17 @@
       onclick={() => sidebar.setOpenMobile(true)}
       aria-label="Abrir el menú de navegación"
     >
-      <LayoutGrid size={20} />
+      <Menu size={22} />
     </button>
 
+    <!-- Móvil con ruta de varios niveles: marca aquí y «‹ Nivel anterior» en la
+         fila de abajo; la ruta completa queda para desde `sm`. -->
+    {#if breadcrumbs.length > 1}
+      <span class="sm:hidden text-lg font-extrabold leading-none tracking-tight text-uta-blue">UTAMED</span>
+    {/if}
+
     {#if breadcrumbs.length > 0}
-      <div class="breadcrumb-wrapper">
+      <div class="breadcrumb-wrapper {breadcrumbs.length > 1 ? 'max-sm:hidden' : ''}">
         <Breadcrumbs {breadcrumbs} />
       </div>
     {/if}
@@ -268,7 +275,7 @@
               <AvatarImage src={user.avatar} alt={user.nombre1} />
             {:else}
               <AvatarFallback
-                class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white"
+                class="rounded-full bg-uta-blue font-bold text-white"
               >
                 {getInitials(user.nombre1 || '')}
               </AvatarFallback>
@@ -283,6 +290,12 @@
     </DropdownMenu>
   </div>
 </header>
+
+{#if breadcrumbs.length > 1}
+  <div class="shrink-0 border-b border-slate-100 bg-white px-2 sm:hidden">
+    <Breadcrumbs {breadcrumbs} variante="volver" />
+  </div>
+{/if}
 
 <style>
   /*
