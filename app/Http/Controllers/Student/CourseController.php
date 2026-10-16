@@ -11,6 +11,7 @@ use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
 use App\Services\Student\RendimientoCursoEstudiante;
 use App\Services\Student\StudentSyllabusPresenter;
+use App\Traits\ParsesSyllabus;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,8 @@ use Inertia\Response;
  */
 class CourseController extends Controller
 {
+    use ParsesSyllabus;
+
     private const DEFAULT_COURSE_IMAGE = '/img/utamed.webp';
 
 
@@ -199,8 +202,18 @@ class CourseController extends Controller
 
         $syllabus = StudentSyllabusPresenter::build($curso, $estudiante);
 
+        // Las pestañas «Programa» y «Biblioteca» muestran el documento íntegro,
+        // igual que la página dedicada; la ficha ya no lo resume.
+        $secciones = [];
+        if ($syllabus['programa']) {
+            $data = Programa::find($syllabus['programa']['id_programa'])?->data_syllabus;
+            $data = is_array($data) ? $data : json_decode($data ?? '[]', true);
+            $secciones = $this->parseSecciones($data ?? []);
+        }
+
         return Inertia::render('student/Courses/Show', array_merge(
             [
+                'secciones' => $secciones,
                 // Panel «Rendimiento» (T30): se calcula sólo cuando el alumno
                 // lo abre (router.reload con only: ['rendimiento']).
                 'rendimiento' => Inertia::lazy(fn () => app(RendimientoCursoEstudiante::class)

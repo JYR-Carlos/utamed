@@ -2,20 +2,32 @@
   /**
    * Ficha del curso para el alumno.
    *
-   * Bajo el encabezado van exactamente cuatro secciones, en este orden (T26,
-   * reunión del 23-09): Sobre el curso → Próximas entregas → Actividades →
-   * Equipo docente. Nada más.
+   * Navegación por pestañas, como la UTAMED anterior a la que los alumnos
+   * están habituados: Programa · Actividades · Resumen de notas · Biblioteca.
+   * Antes la ficha resumía el syllabus («Sobre el curso»: descripción,
+   * ponderaciones, unidades, equipo docente) y luego enlazaba al syllabus
+   * completo, así que todo se veía dos veces; ahora el programa se lee una
+   * sola vez, en su pestaña.
+   *
+   * La pestaña activa viaja en ?seccion= para que «Volver al curso» y el
+   * botón Atrás del navegador caigan donde el alumno estaba. Sin parámetro se
+   * abre Actividades, que es lo que el alumno viene a hacer.
    */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, Curso } from '@/types';
-  import type { DatosSyllabusAlumno, DocenteAlumno } from '@/types/syllabus.types';
   import ActividadesView from '../Activities/ActividadesView.svelte';
-  import CursoEncabezado from './components/CursoEncabezado.svelte';
-  import CursoInformacion from './components/CursoInformacion.svelte';
+  import CursoEncabezado, { SECCIONES_CURSO, type SeccionCurso } from './components/CursoEncabezado.svelte';
   import CursoProximasEntregas from './components/CursoProximasEntregas.svelte';
-  import CursoEquipoDocente from './components/CursoEquipoDocente.svelte';
-  import CursoRendimientoPanel, { type Rendimiento } from './components/CursoRendimientoPanel.svelte';
-  import { router } from '@inertiajs/svelte';
+  import CursoResumenNotas, { type Rendimiento } from './components/CursoResumenNotas.svelte';
+  import ProgramaAlumno, {
+    type DocenteSyllabus,
+    type ProgramaPublicado,
+    type SeccionPrograma,
+  } from './components/ProgramaAlumno.svelte';
+  import ProgramaDocument from '@/modules/resources/programa/components/ProgramaDocument.svelte';
+  import { textoDeSeccion } from '@/modules/resources/programa/utils/syllabusTexto';
+  import { Link, page, router } from '@inertiajs/svelte';
+  import { BookMarked, Printer } from 'lucide-svelte';
   import { parseFechaSoloDia } from '@/utils/formatters';
 
   interface Actividad {
@@ -30,26 +42,18 @@
     estado?: string;
     ya_entregada?: boolean;
     ya_evaluada?: boolean;
-    /** Tipo del componente («Taller», «Laboratorio»); lo usa «Cómo se evalúa». */
     componente_tipo?: string | null;
-  }
-
-  interface Programa {
-    id_programa: number;
-    version_programa: string;
-    estado: string;
-    creado_por?: string;
-    fecha_creacion?: string;
-    tipo_syllabus?: string;
   }
 
   interface Props {
     curso?: Curso;
     actividades?: Actividad[];
-    programa?: Programa | null;
-    docentes?: DocenteAlumno[];
-    datos?: DatosSyllabusAlumno | null;
-    /** Prop diferida: llega al abrir el panel «Rendimiento». */
+    programa?: ProgramaPublicado | null;
+    docentes?: DocenteSyllabus[];
+    datos?: { categoria?: string } | null;
+    /** Programa íntegro; alimenta las pestañas Programa y Biblioteca. */
+    secciones?: SeccionPrograma[];
+    /** Prop diferida: llega al abrir «Resumen de notas». */
     rendimiento?: Rendimiento | null;
   }
 
@@ -59,25 +63,9 @@
     programa = null,
     docentes = [],
     datos = null,
+    secciones = [],
     rendimiento = null,
   }: Props = $props();
-
-  // ─── Panel «Rendimiento» (T30) ──────────────────────────────────────────────
-  let rendimientoAbierto = $state(false);
-  let rendimientoCargando = $state(false);
-  let rendimientoError = $state<string | null>(null);
-
-  function abrirRendimiento() {
-    rendimientoAbierto = true;
-    rendimientoError = null;
-    // Se recalcula en cada apertura: las notas pueden haber cambiado.
-    rendimientoCargando = true;
-    router.reload({
-      only: ['rendimiento'],
-      onError: () => (rendimientoError = 'No se pudo calcular tu rendimiento. Intenta de nuevo.'),
-      onFinish: () => (rendimientoCargando = false),
-    });
-  }
 
   const id_curso = $derived(curso?.id_curso || 0);
 
@@ -86,6 +74,47 @@
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
     { title: curso?.etiqueta ?? curso?.asignatura_nombre ?? 'Curso', href: '' },
   ]);
+
+  // ─── Pestañas ───────────────────────────────────────────────────────────────
+  function seccionDeUrl(url: string): SeccionCurso {
+    const pedida = new URL(url, 'http://x').searchParams.get('seccion');
+    return SECCIONES_CURSO.includes(pedida as SeccionCurso) ? (pedida as SeccionCurso) : 'actividades';
+  }
+
+  const seccion = $derived(seccionDeUrl($page.url));
+
+  function cambiarSeccion(nueva: SeccionCurso) {
+    if (nueva === seccion) return;
+    // Visita sólo de cliente: cambia la URL sin pedir nada al servidor.
+    router.push({
+      url: `/estudiante/cursos/${id_curso}?seccion=${nueva}`,
+      preserveState: true,
+      preserveScroll: true,
+    });
+  }
+
+  // ─── Resumen de notas (T30) ─────────────────────────────────────────────────
+  // Se recalcula cada vez que se entra a la pestaña: las notas pueden haber
+  // cambiado desde la última vez.
+  let notasCargando = $state(false);
+  let notasError = $state<string | null>(null);
+
+  $effect(() => {
+    if (seccion !== 'notas') return;
+    notasError = null;
+    notasCargando = true;
+    router.reload({
+      only: ['rendimiento'],
+      onError: () => (notasError = 'No se pudo calcular tu rendimiento. Intenta de nuevo.'),
+      onFinish: () => (notasCargando = false),
+    });
+  });
+
+  // ─── Biblioteca ─────────────────────────────────────────────────────────────
+  // Es la sección VIII del programa; se muestra igual que en el documento.
+  const bibliografia = $derived(
+    secciones.filter((s) => s.numeral_romano === 'VIII' && textoDeSeccion(s.contenidos).trim() !== ''),
+  );
 
   // ─── Próximas entregas ──────────────────────────────────────────────────────
   // Las que aún no vencen, de la más cercana a la más lejana.
@@ -139,80 +168,82 @@
     else if (type === 'entrega') filterEntrega = !filterEntrega;
     else if (type === 'grupal') filterGrupal = !filterGrupal;
   }
-
-  function irAActividades() {
-    const destino = document.getElementById('actividades');
-    if (!destino) return;
-
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    destino.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
-  }
 </script>
+
+{#snippet titulo(texto: string, detalle?: string)}
+  <div class="mb-6 flex flex-col gap-1">
+    <h2 class="text-xl font-semibold text-gray-900 sm:text-2xl">{texto}</h2>
+    {#if detalle}
+      <p class="text-sm text-gray-600">{detalle}</p>
+    {/if}
+  </div>
+{/snippet}
 
 <StudentLayout {breadcrumbs}>
   <div class="h-full px-5 md:px-10 lg:px-20 bg-white relative">
-    <div class="relative mx-auto px-4">
+    <div class="relative mx-auto px-4 pb-10">
       <CursoEncabezado
         {curso}
-        tienePrograma={!!programa}
+        {seccion}
         totalActividades={actividades.length}
-        onIrAActividades={irAActividades}
-        onAbrirRendimiento={abrirRendimiento}
+        onCambiarSeccion={cambiarSeccion}
       />
 
-      <section class="mb-10">
-        <div class="flex flex-col gap-1 mb-6">
-          <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Sobre el curso</h2>
-          <p class="text-sm text-gray-600">Contenidos y ponderaciones de la asignatura.</p>
-        </div>
-        <CursoInformacion {curso} {programa} {datos} {actividades} />
-      </section>
+      {#if seccion === 'programa'}
+        {#if programa}
+          <div class="mb-4 flex justify-end">
+            <Link
+              href={`/estudiante/cursos/${id_curso}/programa`}
+              class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-uta-blue"
+            >
+              <Printer class="h-4 w-4" />
+              Versión para imprimir o guardar en PDF
+            </Link>
+          </div>
+        {/if}
+        <ProgramaAlumno {curso} {programa} {docentes} {secciones} categoria={datos?.categoria ?? ''} />
+      {:else if seccion === 'actividades'}
+        <section class="mb-10">
+          {@render titulo('Próximas entregas')}
+          <CursoProximasEntregas idCurso={id_curso} entregas={proximasEntregas} />
+        </section>
 
-      <section class="mb-10">
-        <div class="flex flex-col gap-1 mb-6">
-          <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Próximas entregas</h2>
-        </div>
-        <CursoProximasEntregas idCurso={id_curso} entregas={proximasEntregas} />
-      </section>
-
-      <section id="actividades" class="mb-10 scroll-mt-6">
-        <div class="flex flex-col gap-1 mb-6">
-          <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Actividades</h2>
-          <p class="text-sm text-gray-600">
-            {#if hayFiltros}
-              {actividadesFiltradas.length} de {actividades.length} actividades
-            {:else}
-              {actividades.length}
-              {actividades.length === 1 ? 'actividad publicada' : 'actividades publicadas'}
-            {/if}
-          </p>
-        </div>
-        <ActividadesView
-          {id_curso}
-          {filterSumativa}
-          {filterEntrega}
-          {filterGrupal}
-          {hayFiltros}
-          filtered={actividadesFiltradas}
-          onToggleFilter={toggleFilter}
-          onClearFilters={clearFilters}
-        />
-      </section>
-
-      <section class="pb-10">
-        <div class="flex flex-col gap-1 mb-6">
-          <h2 class="text-2xl sm:text-3xl font-semibold text-gray-900">Equipo docente</h2>
-        </div>
-        <CursoEquipoDocente {docentes} />
-      </section>
-
-      <CursoRendimientoPanel
-        abierto={rendimientoAbierto}
-        cargando={rendimientoCargando}
-        error={rendimientoError}
-        {rendimiento}
-        onCerrar={() => (rendimientoAbierto = false)}
-      />
+        <section>
+          {@render titulo(
+            'Todas las actividades',
+            hayFiltros
+              ? `${actividadesFiltradas.length} de ${actividades.length} actividades`
+              : `${actividades.length} ${actividades.length === 1 ? 'actividad publicada' : 'actividades publicadas'}`,
+          )}
+          <ActividadesView
+            {id_curso}
+            {filterSumativa}
+            {filterEntrega}
+            {filterGrupal}
+            {hayFiltros}
+            filtered={actividadesFiltradas}
+            onToggleFilter={toggleFilter}
+            onClearFilters={clearFilters}
+          />
+        </section>
+      {:else if seccion === 'notas'}
+        {@render titulo('Resumen de notas', 'Tu promedio y tu asistencia en cada componente del curso.')}
+        <CursoResumenNotas cargando={notasCargando} error={notasError} {rendimiento} />
+      {:else if seccion === 'biblioteca'}
+        {@render titulo('Biblioteca', 'Bibliografía y recursos de aprendizaje indicados en el programa.')}
+        {#if bibliografia.length > 0}
+          <ProgramaDocument secciones={bibliografia} variante="tarjetas" />
+        {:else}
+          <div class="rounded-2xl border border-dashed border-gray-200 p-10 text-center">
+            <BookMarked class="mx-auto mb-3 h-10 w-10 text-gray-300" />
+            <p class="text-sm text-gray-600">
+              {programa
+                ? 'El programa de este curso no registra bibliografía.'
+                : 'La bibliografía se publica con el programa del curso, que aún no ha sido aprobado.'}
+            </p>
+          </div>
+        {/if}
+      {/if}
     </div>
   </div>
 </StudentLayout>
