@@ -251,12 +251,12 @@
     {#snippet navLink(href: string, label: string, Icon: any, admin: boolean = false, big: boolean = false)}
       <Link
         {href}
-        class="nav-link flex items-center gap-3 rounded-xl transition-all group {big
+        class="nav-link flex min-h-11 items-center gap-3 rounded-xl transition-all group {big
           ? 'px-4 py-2.5 text-[15px] font-bold'
           : 'px-4 py-2.5 text-[14px] font-semibold'} {isActive(href)
           ? admin
             ? 'bg-indigo-50 text-indigo-700'
-            : 'bg-[#22213F]/8 text-[#22213F]'
+            : 'bg-gray-100 text-uta-blue'
           : admin
             ? 'text-slate-800 hover:bg-slate-50 hover:text-indigo-600'
             : 'text-slate-600 hover:bg-slate-50 hover:text-[#22213F]'}"
@@ -278,7 +278,9 @@
     <!-- Título de sección. -->
     {#snippet sectionTitle(label: string)}
       <div class="px-6 mb-1">
-        <span class="text-[14px] font-extrabold text-slate-800 whitespace-nowrap">{label}</span>
+        <span class="text-xs font-bold uppercase tracking-[0.06em] text-slate-600 whitespace-nowrap"
+          >{label}</span
+        >
       </div>
     {/snippet}
 

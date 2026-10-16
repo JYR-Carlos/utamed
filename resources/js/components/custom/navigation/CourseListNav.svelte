@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { Link } from '@inertiajs/svelte';
-  import { Search, Folder, ChevronRight, BookOpenCheck, Calendar } from 'lucide-svelte';
+  import { Link, page } from '@inertiajs/svelte';
+  import { Search, ChevronRight, BookOpenCheck, Calendar } from 'lucide-svelte';
   import type { SidebarCourse } from '@/types';
   import { hasPermission } from '@/services/permissionValidator';
 
@@ -121,6 +121,19 @@
 
   let search = $state('');
 
+  // El curso abierto (su ficha o cualquiera de sus páginas) queda resaltado.
+  function esActivo(curso: SidebarCourse): boolean {
+    const ruta = `${basePath}/${curso.id_curso}`;
+    const url = $page.url;
+    return url === ruta || ['/', '?', '#'].some((c) => url.startsWith(ruta + c));
+  }
+
+  /** La etiqueta termina en «Grupo A»; el grupo va en la línea de abajo, junto al código. */
+  function nombreSinGrupo(curso: SidebarCourse): string {
+    const base = curso.etiqueta ?? curso.nombre;
+    return curso.letra_grupo ? base.replace(new RegExp(`\\s+Grupo\\s+${curso.letra_grupo}$`), '') : base;
+  }
+
   function matches(curso: SidebarCourse, q: string) {
     return (
       (curso.etiqueta ?? curso.nombre).toLowerCase().includes(q) ||
@@ -150,30 +163,29 @@
 </script>
 
 {#snippet courseRow(curso: SidebarCourse, current: boolean)}
-  <div
-    class="rounded-xl border px-3 py-2.5 transition-all {current
-      ? 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm'
-      : 'bg-slate-50 border-transparent'}"
-  >
-    <Link href="{basePath}/{curso.id_curso}" class="flex items-center gap-2 group">
-      <Folder
-        size={current ? 18 : 16}
-        class="{current ? 'text-[#678FCA]' : 'text-slate-400'} shrink-0"
-      />
-      <div class="flex-1 min-w-0 flex flex-col">
-        <span class="font-mono text-xs text-slate-600 truncate"
-          >{curso.cod_curso}{curso.letra_grupo ? ' · Grupo ' + curso.letra_grupo : ''}</span
-        >
-        <!-- La etiqueta lleva el grupo al final («… Grupo A»): con truncate se
-             cortaba justo lo que distingue a dos cursos hermanos. -->
-        <span
-          class="line-clamp-2 text-[13.5px] font-semibold text-slate-700 group-hover:text-[#22213F] transition-colors"
-          title={curso.etiqueta ?? curso.nombre}>{curso.etiqueta ?? curso.nombre}</span
-        >
-      </div>
+  {@const activo = esActivo(curso)}
+  <div class="rounded-lg transition-colors {activo ? 'bg-indigo-50' : 'hover:bg-gray-50'}">
+    <Link
+      href="{basePath}/{curso.id_curso}"
+      class="flex min-h-11 flex-col justify-center gap-0.5 rounded-lg px-3 py-2 no-underline"
+      aria-current={activo ? 'page' : undefined}
+    >
+      <!-- El nombre puede ocupar dos líneas: con truncate se cortaba justo lo
+           que distingue a dos cursos hermanos; el grupo va debajo, con el código. -->
+      <span
+        class="line-clamp-2 text-sm leading-snug {activo
+          ? 'font-semibold text-uta-blue'
+          : current
+            ? 'font-medium text-slate-700'
+            : 'font-medium text-slate-600'}"
+        title={curso.etiqueta ?? curso.nombre}>{nombreSinGrupo(curso)}</span
+      >
+      <span class="truncate text-xs font-medium text-slate-600"
+        >{curso.cod_curso}{curso.letra_grupo ? ' · Grupo ' + curso.letra_grupo : ''}</span
+      >
     </Link>
     {#if showPrograma || showActividades}
-      <div class="flex items-center gap-1.5 flex-wrap mt-2">
+      <div class="flex flex-wrap items-center gap-1.5 px-3 pb-2">
         {#if showPrograma}
           {#if curso.tiene_programa}
             <Link
