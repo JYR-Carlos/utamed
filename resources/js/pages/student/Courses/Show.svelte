@@ -166,11 +166,14 @@
 
 <!-- `enLinea`: el detalle va a la derecha del título («Todas las actividades · 6 en total»)
      en vez de debajo. -->
-{#snippet titulo(texto: string, detalle?: string, enLinea = false)}
+{#snippet titulo(texto: string, detalle?: string, enLinea = false, detalleMovil?: string)}
   <div class="mb-4 flex gap-x-3 gap-y-1 {enLinea ? 'flex-wrap items-baseline justify-between sm:justify-start' : 'flex-col'}">
     <h2 class="text-xl font-bold text-slate-900 sm:text-2xl sm:font-semibold">{texto}</h2>
     {#if detalle}
-      <p class="text-[13px] font-medium text-slate-600 sm:text-sm">{detalle}</p>
+      <p class="text-[13px] font-medium text-slate-600 sm:text-sm {detalleMovil ? 'max-sm:hidden' : ''}">{detalle}</p>
+    {/if}
+    {#if detalleMovil}
+      <p class="text-[13px] font-medium text-slate-600 sm:hidden">{detalleMovil}</p>
     {/if}
   </div>
 {/snippet}
@@ -212,6 +215,7 @@
               ? `${actividadesFiltradas.length} de ${actividades.length} actividades`
               : `${actividades.length} ${actividades.length === 1 ? 'actividad' : 'actividades'}`,
             true,
+            hayFiltros ? undefined : `${actividades.length} en total`,
           )}
           <ActividadesView
             {id_curso}
