@@ -10,15 +10,15 @@
    * Encabezado de la ficha del curso (vista del alumno): título y barra de
    * pestañas.
    *
-   * La barra copia la navegación de la UTAMED anterior, a la que los alumnos
-   * están habituados: botones del mismo ancho en una fila —Programa,
-   * Actividades, Resumen de notas, Biblioteca— con el activo relleno. Los
-   * datos de la asignatura (créditos, horas) ya no se repiten aquí: están en
-   * la pestaña Programa. Mensajería y Bitácora son páginas propias, así que
-   * van como enlaces al final de la misma fila.
+   * La barra es una bandeja de una sola fila —Programa, Actividades, Resumen
+   * de notas, Biblioteca— con la pestaña activa rellena. En pantallas
+   * angostas la fila se desliza hacia los lados y un degradado en el borde
+   * derecho avisa de que hay más pestañas; en escritorio caben todas. Los
+   * datos de la asignatura (créditos, horas) no se repiten aquí: están en la
+   * pestaña Programa. Mensajería y Bitácora son páginas propias, así que van
+   * como enlaces al final de la misma fila.
    */
   import { Link } from '@inertiajs/svelte';
-  import { BarChart3, BookMarked, ClipboardList, FileText, History, MessagesSquare } from 'lucide-svelte';
   import type { Curso } from '@/types';
 
   interface Props {
@@ -41,70 +41,99 @@
       : '',
   );
 
+  // Una sola línea sobre el título: código, grupo, carrera y período.
   const contexto = $derived(
-    [codigo, curso?.letra_grupo ? `Grupo ${curso.letra_grupo}` : '', curso?.carrera_nombre]
+    [codigo, curso?.letra_grupo ? `Grupo ${curso.letra_grupo}` : '', curso?.carrera_nombre, periodo]
       .filter(Boolean)
       .join(' · '),
   );
 
-  const PESTANAS: Array<{ id: SeccionCurso; etiqueta: string; icono: typeof FileText }> = [
-    { id: 'programa', etiqueta: 'Programa', icono: FileText },
-    { id: 'actividades', etiqueta: 'Actividades', icono: ClipboardList },
-    { id: 'notas', etiqueta: 'Resumen de notas', icono: BarChart3 },
-    { id: 'biblioteca', etiqueta: 'Biblioteca', icono: BookMarked },
+  const PESTANAS: Array<{ id: SeccionCurso; etiqueta: string }> = [
+    { id: 'programa', etiqueta: 'Programa' },
+    { id: 'actividades', etiqueta: 'Actividades' },
+    { id: 'notas', etiqueta: 'Resumen de notas' },
+    { id: 'biblioteca', etiqueta: 'Biblioteca' },
   ];
 
   const BASE =
-    'inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-center text-sm font-semibold leading-tight no-underline transition-colors';
-  const INACTIVA = 'bg-gray-100 text-gray-700 hover:bg-uta-blue-light hover:text-uta-blue';
-  const ACTIVA = 'bg-uta-blue text-white shadow-sm';
+    'inline-flex min-h-12 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-4 text-sm no-underline transition-colors';
+  const INACTIVA = 'font-medium text-slate-700 hover:bg-white hover:text-uta-blue';
+  const ACTIVA = 'bg-uta-blue font-semibold text-white';
+
+  // ─── Bandeja deslizable ─────────────────────────────────────────────────────
+  let bandeja = $state<HTMLElement | null>(null);
+  let hayMas = $state(false);
+
+  function medir() {
+    const el = bandeja;
+    if (!el) return;
+    hayMas = el.scrollWidth - el.clientWidth - el.scrollLeft > 1;
+  }
+
+  $effect(() => {
+    const el = bandeja;
+    if (!el) return;
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
+
+  // La pestaña activa queda a la vista cuando la fila se desliza.
+  $effect(() => {
+    seccion;
+    bandeja
+      ?.querySelector<HTMLElement>('[aria-current="page"]')
+      ?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  });
 </script>
 
 <header class="mb-8">
-  <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:justify-between">
-    <div>
-      <h1 class="text-2xl font-extrabold leading-tight tracking-tight text-slate-900 md:text-3xl">
-        {titulo}
-      </h1>
-      {#if contexto}
-        <p class="text-sm text-slate-500">{contexto}</p>
-      {/if}
-    </div>
-
-    {#if periodo}
-      <span
-        class="inline-flex h-fit w-fit items-center gap-1.5 rounded-full border border-uta-blue/20 bg-uta-blue-light px-3 py-2 text-xs font-bold text-uta-blue"
-      >
-        {periodo}
-      </span>
+  <div class="mb-6 flex flex-col gap-1">
+    {#if contexto}
+      <p class="text-xs font-medium text-slate-600">{contexto}</p>
     {/if}
+    <h1 class="text-2xl font-extrabold leading-tight tracking-tight text-slate-900 md:text-3xl">
+      {titulo}
+    </h1>
   </div>
 
-  <nav id="secciones-curso" aria-label="Secciones del curso" class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-    {#each PESTANAS as pestana (pestana.id)}
-      {@const Icono = pestana.icono}
-      {@const activa = seccion === pestana.id}
-      <button
-        type="button"
-        class="{BASE} {activa ? ACTIVA : INACTIVA}"
-        aria-current={activa ? 'page' : undefined}
-        onclick={() => onCambiarSeccion(pestana.id)}
-      >
-        <Icono class="h-4 w-4 shrink-0" />
-        {pestana.etiqueta}
-        {#if pestana.id === 'actividades' && totalActividades > 0}
-          <span class="font-medium {activa ? 'text-white/70' : 'text-gray-600'}">({totalActividades})</span>
-        {/if}
-      </button>
-    {/each}
-    <Link href={`/estudiante/cursos/${curso?.id_curso}/mensajeria`} class="{BASE} {INACTIVA}">
-      <MessagesSquare class="h-4 w-4 shrink-0" />
-      Mensajería
-    </Link>
-    <!-- Bitácora del curso (T41): todas las agendas del alumno juntas. -->
-    <Link href={`/estudiante/cursos/${curso?.id_curso}/bitacora`} class="{BASE} {INACTIVA}">
-      <History class="h-4 w-4 shrink-0" />
-      Bitácora
-    </Link>
-  </nav>
+  <div class="relative md:w-fit">
+    <nav
+      id="secciones-curso"
+      aria-label="Secciones del curso"
+      bind:this={bandeja}
+      onscroll={medir}
+      class="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
+      {#each PESTANAS as pestana (pestana.id)}
+        {@const activa = seccion === pestana.id}
+        <button
+          type="button"
+          class="{BASE} {activa ? ACTIVA : INACTIVA}"
+          aria-current={activa ? 'page' : undefined}
+          onclick={() => onCambiarSeccion(pestana.id)}
+        >
+          {pestana.etiqueta}
+          {#if pestana.id === 'actividades' && totalActividades > 0}
+            <span class="font-medium {activa ? '' : 'text-gray-600'}">({totalActividades})</span>
+          {/if}
+        </button>
+      {/each}
+      <Link href={`/estudiante/cursos/${curso?.id_curso}/mensajeria`} class="{BASE} {INACTIVA}">
+        Mensajería
+      </Link>
+      <!-- Bitácora del curso (T41): todas las agendas del alumno juntas. -->
+      <Link href={`/estudiante/cursos/${curso?.id_curso}/bitacora`} class="{BASE} {INACTIVA}">
+        Bitácora
+      </Link>
+    </nav>
+
+    {#if hayMas}
+      <div
+        class="pointer-events-none absolute inset-y-0 right-0 w-12 rounded-r-xl bg-gradient-to-r from-transparent to-gray-100"
+        aria-hidden="true"
+      ></div>
+    {/if}
+  </div>
 </header>
