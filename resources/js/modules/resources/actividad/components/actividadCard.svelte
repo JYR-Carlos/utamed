@@ -7,12 +7,13 @@
    * estudiante difiere del tipo Actividad del docente (usa flags booleanos
    * es_sumativa/con_entrega en vez de los enums tipo_actividad/tipo_entrega).
    *
-   * Mantiene la forma de las tarjetas del portal (redondeadas, borde gris,
-   * elevación al pasar el mouse). El granate UTA sólo aparece donde significa
-   * algo: actividades sumativas y plazos que están por vencer.
+   * Orden de lectura: etiquetas de estado, nombre y, abajo, el plazo. Una
+   * actividad vencida sin entrega lleva borde rojo, la etiqueta «Vencida» y
+   * el plazo en rojo, para verla sin abrirla.
    */
-  import { CalendarDays, FileCheck2, FileMinus2, User, Users } from 'lucide-svelte';
-  import { formatFechaCorta, parseFechaSoloDia } from '@/utils/formatters';
+  import { CalendarDays } from 'lucide-svelte';
+  import ChipActividad from '@/components/student/ChipActividad.svelte';
+  import { diasHasta, etiquetaPlazo, formatFechaCorta } from '@/utils/formatters';
 
   interface Props {
     actividad: {
@@ -33,69 +34,71 @@
   let { actividad }: Props = $props();
 
   const plazo = $derived.by(() => {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const limite = parseFechaSoloDia(actividad.fecha_limite);
-    const dias = Math.round((limite.getTime() - hoy.getTime()) / 86_400_000);
+    const dias = diasHasta(actividad.fecha_limite);
+    const vencida = dias < 0;
+    const urgente = !vencida && dias <= 3;
+    // Vencida sin entregar: el único caso en que el plazo se vuelve alerta.
+    const sinEntrega = vencida && actividad.con_entrega && !actividad.ya_entregada;
 
-    if (dias < 0) return { etiqueta: 'Venció el', vencida: true, urgente: false };
-    if (dias === 0) return { etiqueta: 'Vence hoy', vencida: false, urgente: true };
-    if (dias <= 3) return { etiqueta: 'Cierra pronto', vencida: false, urgente: true };
-    return { etiqueta: 'Fecha límite', vencida: false, urgente: false };
+    // Con la actividad entregada el plazo ya no corre: lo dice la etiqueta
+    // «Entregada», no «Vence en N días».
+    const texto = actividad.ya_entregada
+      ? null
+      : sinEntrega
+        ? `${etiquetaPlazo(dias)} · sin entrega`
+        : etiquetaPlazo(dias);
+
+    return { urgente, sinEntrega, texto };
   });
 </script>
 
 <article
-  class="rounded-3xl border border-gray-200 bg-white p-6 transition-all duration-300 hover:border-uta-blue/30 hover:shadow-lg hover:-translate-y-0.5"
+  class="flex flex-col gap-3 rounded-xl border bg-white p-5 transition-colors hover:shadow-sm {plazo.sinEntrega
+    ? 'border-red-300 hover:border-red-400'
+    : 'border-slate-200 hover:border-uta-blue/30'}"
 >
-  <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 mb-4">
-    <h3 class="text-lg font-bold text-gray-900 leading-tight flex-1 min-w-0">
-      {actividad.nombre}
-    </h3>
-    
+  <div class="flex flex-wrap items-center gap-2">
+    <ChipActividad tipo={actividad.es_sumativa ? 'sumativa' : 'formativa'} />
+    <ChipActividad
+      tipo="metadato"
+      texto={actividad.es_grupal ? `Grupal · hasta ${actividad.max_integrantes}` : 'Individual'}
+    />
+    <ChipActividad tipo="metadato" texto={actividad.con_entrega ? 'Con entrega' : 'Sin entrega'} />
+    {#if actividad.ya_entregada}
+      <ChipActividad tipo="entregada" />
+    {:else if plazo.sinEntrega}
+      <ChipActividad tipo="vencida" />
+    {/if}
   </div>
 
-  <div class="flex flex-wrap items-center gap-2">
+  <h3 class="text-base font-semibold leading-snug text-slate-900">
+    {actividad.nombre}
+  </h3>
+
+  <div class="flex flex-wrap items-center gap-x-2.5 gap-y-2">
     <span
-      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-600 bg-gray-50 border border-gray-100"
-    >
-      {#if actividad.es_grupal}
-        <Users class="w-3.5 h-3.5" />
-        Grupal · hasta {actividad.max_integrantes}
-      {:else}
-        <User class="w-3.5 h-3.5" />
-        Individual
-      {/if}
-    </span>
-    
-    <span
-      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-gray-600 bg-gray-50 border border-gray-100"
-    >
-      {#if actividad.con_entrega}
-        <FileCheck2 class="w-3.5 h-3.5 {actividad.ya_entregada ? 'text-emerald-600' : ''}" />
-        {actividad.ya_entregada ? 'Entregada' : 'Con entrega'}
-      {:else}
-        <FileMinus2 class="w-3.5 h-3.5" />
-        Sin entrega
-      {/if}
-    </span>
-    <span
-      class="shrink-0 text-xs font-bold px-2.5 py-1 rounded-lg {actividad.es_sumativa
-        ? 'bg-uta-red-light text-uta-primary'
-        : 'bg-uta-blue-light text-uta-blue'}"
-    >
-      {actividad.es_sumativa ? 'Sumativa' : 'Formativa'}
-    </span>
-    <span
-      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium sm:ml-auto {plazo.vencida && !actividad.ya_entregada
-        ? 'bg-uta-red-light text-uta-red border border-uta-red/30'
+      class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm {plazo.sinEntrega
+        ? 'bg-red-50 text-red-800'
         : plazo.urgente
-          ? 'bg-amber-50 text-amber-700 border border-amber-200'
-          : 'bg-gray-50 text-gray-600 border border-gray-100'}"
+          ? 'bg-amber-50 text-amber-800 border border-amber-200'
+          : 'bg-gray-100 text-slate-600'}"
     >
-      <CalendarDays class="w-3.5 h-3.5" />
-      {plazo.etiqueta}
-      <span class="font-semibold">{formatFechaCorta(actividad.fecha_limite)}</span>
+      <CalendarDays class="h-4 w-4" aria-hidden="true" />
+      <span class="font-medium">Fecha límite</span>
+      <span class="font-semibold {plazo.sinEntrega ? 'text-red-800' : 'text-slate-900'}"
+        >{formatFechaCorta(actividad.fecha_limite)}</span
+      >
     </span>
+    {#if plazo.texto}
+      <span
+        class="text-sm font-bold {plazo.sinEntrega
+          ? 'text-red-800'
+          : plazo.urgente
+            ? 'text-amber-800'
+            : 'text-uta-blue'}"
+      >
+        {plazo.texto}
+      </span>
+    {/if}
   </div>
 </article>

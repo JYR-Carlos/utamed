@@ -15,7 +15,7 @@
    */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, Curso } from '@/types';
-  import ActividadesView from '../Activities/ActividadesView.svelte';
+  import ActividadesView, { coincideConFiltro, type FiltroActividad } from '../Activities/ActividadesView.svelte';
   import CursoEncabezado, { SECCIONES_CURSO, type SeccionCurso } from './components/CursoEncabezado.svelte';
   import CursoProximasEntregas from './components/CursoProximasEntregas.svelte';
   import CursoResumenNotas, { type Rendimiento } from './components/CursoResumenNotas.svelte';
@@ -142,39 +142,20 @@
   });
 
   // ─── Filtros de actividades ─────────────────────────────────────────────────
-  let filterSumativa = $state(false);
-  let filterEntrega = $state(false);
-  let filterGrupal = $state(false);
+  let filtro = $state<FiltroActividad>('todas');
 
-  const hayFiltros = $derived(filterSumativa || filterEntrega || filterGrupal);
+  const hayFiltros = $derived(filtro !== 'todas');
 
-  const actividadesFiltradas = $derived(
-    actividades.filter(
-      (actividad) =>
-        (!filterSumativa || actividad.es_sumativa) &&
-        (!filterEntrega || actividad.con_entrega) &&
-        (!filterGrupal || actividad.es_grupal),
-    ),
-  );
-
-  function clearFilters() {
-    filterSumativa = false;
-    filterEntrega = false;
-    filterGrupal = false;
-  }
-
-  function toggleFilter(type: string) {
-    if (type === 'sumativa') filterSumativa = !filterSumativa;
-    else if (type === 'entrega') filterEntrega = !filterEntrega;
-    else if (type === 'grupal') filterGrupal = !filterGrupal;
-  }
+  const actividadesFiltradas = $derived(actividades.filter((a) => coincideConFiltro(a, filtro)));
 </script>
 
-{#snippet titulo(texto: string, detalle?: string)}
-  <div class="mb-6 flex flex-col gap-1">
-    <h2 class="text-xl font-semibold text-gray-900 sm:text-2xl">{texto}</h2>
+<!-- `enLinea`: el detalle va a la derecha del título («Todas las actividades · 6 en total»)
+     en vez de debajo. -->
+{#snippet titulo(texto: string, detalle?: string, enLinea = false)}
+  <div class="mb-4 flex gap-x-3 gap-y-1 {enLinea ? 'flex-wrap items-baseline justify-between sm:justify-start' : 'flex-col'}">
+    <h2 class="text-xl font-bold text-slate-900 sm:text-2xl sm:font-semibold">{texto}</h2>
     {#if detalle}
-      <p class="text-sm text-gray-600">{detalle}</p>
+      <p class="text-[13px] font-medium text-slate-600 sm:text-sm">{detalle}</p>
     {/if}
   </div>
 {/snippet}
@@ -213,17 +194,14 @@
             'Todas las actividades',
             hayFiltros
               ? `${actividadesFiltradas.length} de ${actividades.length} actividades`
-              : `${actividades.length} ${actividades.length === 1 ? 'actividad publicada' : 'actividades publicadas'}`,
+              : `${actividades.length} ${actividades.length === 1 ? 'actividad' : 'actividades'}`,
+            true,
           )}
           <ActividadesView
             {id_curso}
-            {filterSumativa}
-            {filterEntrega}
-            {filterGrupal}
-            {hayFiltros}
+            {filtro}
             filtered={actividadesFiltradas}
-            onToggleFilter={toggleFilter}
-            onClearFilters={clearFilters}
+            onSelectFiltro={(f) => (filtro = f)}
           />
         </section>
       {:else if seccion === 'notas'}
