@@ -9,8 +9,8 @@
 		open = $bindable(false),
 		ref = $bindable(null),
 		value = $bindable(""),
-		title = "Command Palette",
-		description = "Search for a command to run",
+		title = "Buscar en el sistema",
+		description = "Escribe un comando para ejecutarlo",
 		portalProps,
 		children,
 		...restProps

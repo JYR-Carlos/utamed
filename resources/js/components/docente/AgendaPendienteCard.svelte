@@ -5,7 +5,8 @@
    * mensajería de curso — ver Docente\DashboardController::agendaPendiente().
    */
   import { Link } from '@inertiajs/svelte';
-  import { MessageCircleQuestion, ArrowUpRight } from 'lucide-svelte';
+  import { MessageCircle, ArrowUpRight } from 'lucide-svelte';
+  import BloqueVacio from '@/components/docente/BloqueVacio.svelte';
 
   interface Item {
     quien: string;
@@ -32,14 +33,12 @@
   }
 </script>
 
-<section class="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+<section class="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-5">
   <div class="flex items-center gap-2">
-    <MessageCircleQuestion class="h-4 w-4 text-[#5A5E6E]" />
-    <h3 class="text-base font-semibold text-[#1A1A24]">Agenda pendiente</h3>
+    <MessageCircle class="h-5 w-5 text-[#002855]" />
+    <h3 class="text-base font-semibold text-[#171A26]">Agenda pendiente</h3>
   </div>
-  <p class="text-[12.5px] text-[#5A5E6E]">
-    Interacciones dentro de actividades que esperan tu respuesta. Canal distinto de la mensajería de curso.
-  </p>
+  <p class="text-[13px] leading-[18px] text-[#5A5E6E]">Interacciones dentro de actividades que esperan tu respuesta</p>
 
   {#if items.length > 0}
     <div class="flex flex-col">
@@ -66,9 +65,6 @@
       </Link>
     </div>
   {:else}
-    <div class="flex flex-col items-center gap-1 rounded-lg border border-dashed border-slate-200 p-4 text-center">
-      <span class="text-[13px] font-semibold text-[#1A1A24]">Sin consultas pendientes</span>
-      <p class="text-[12px] text-[#5A5E6E]">Aparecerán cuando un estudiante escriba en una de tus actividades.</p>
-    </div>
+    <BloqueVacio title="Sin consultas pendientes" description="Aparecerán cuando un estudiante escriba en una de tus actividades." />
   {/if}
 </section>

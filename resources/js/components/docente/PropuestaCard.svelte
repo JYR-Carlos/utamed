@@ -5,6 +5,8 @@
    * delegado incluido) todavía no tiene una consulta que lo arme. Se muestra
    * siempre en su estado vacío honesto en vez de inventar contenido.
    */
+  import BloqueVacio from '@/components/docente/BloqueVacio.svelte';
+
   interface Props {
     icon: any;
     title: string;
@@ -15,14 +17,11 @@
   let { icon: Icon, title, emptyTitle, emptyDescription }: Props = $props();
 </script>
 
-<section class="flex flex-row-reverse justify-between gap-3 rounded-xl border border-dashed border-[#C9D6E6] bg-white p-4 shadow-sm">
+<section class="flex flex-col gap-4 rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-5">
   <div class="flex items-center gap-2">
-    <Icon class="h-4 w-4 text-[#5A5E6E]" />
-    <p class="text-xl font-semibold text-[#1A1A24]">{title}</p>
+    <Icon class="h-5 w-5 text-[#002855]" />
+    <h3 class="text-base font-semibold text-[#171A26]">{title}</h3>
   </div>
 
-  <div class="flex flex-col items-center gap-1 rounded-lg border border-dashed border-slate-200 p-4 text-center">
-    <span class="text-[13px] font-semibold text-[#1A1A24]">{emptyTitle}</span>
-    <p class="text-[12px] text-[#5A5E6E]">{emptyDescription}</p>
-  </div>
+  <BloqueVacio title={emptyTitle} description={emptyDescription} />
 </section>

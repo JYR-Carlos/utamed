@@ -1,7 +1,7 @@
 <script lang="ts">
   import Toast from '@/components/admin/Toast.svelte';
   import { router } from '@inertiajs/svelte'
-  import { Bug, Loader2, MessageCircleWarning, Trash2, Upload, X } from 'lucide-svelte';
+  import { Bug, Flag, Loader2, MessageCircleWarning, Trash2, Upload, X } from 'lucide-svelte';
 
   let isOpen = $state(false);
   let showConfirmModal = $state(false);
@@ -117,13 +117,13 @@
 <button
   type="button"
   onclick={() => (isOpen = true)}
-  class="group flex min-h-11 text-white cursor-pointer items-center justify-center gap-0 sm:gap-2 rounded-lg border border-purple-200/80 bg-purple-700 px-3.5 text-sm font-semibold max-sm:size-11 max-sm:px-0 hover:text-slate-700 transition-all duration-200 ease-out hover:border-slate-300 hover:bg-slate-100"
+  class="group flex min-h-11 cursor-pointer items-center justify-center gap-0 sm:gap-2 rounded-[10px] border border-[#D5D9E0] bg-white px-4 text-sm font-semibold text-[#002855] max-sm:size-11 max-sm:px-0 transition-colors duration-200 ease-out hover:bg-slate-50"
   title="Reportar error"
   aria-label="Reportar error"
 >
-  <Bug
+  <Flag
     size={16}
-    class="shrink-0 transition-transform duration-200 group-hover:rotate-[-8deg] group-hover:scale-110"
+    class="shrink-0"
   />
 
   <!-- En móvil sólo el ícono: con el rótulo la ruta de navegación casi desaparece. -->

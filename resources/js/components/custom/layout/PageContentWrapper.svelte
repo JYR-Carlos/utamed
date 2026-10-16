@@ -9,7 +9,7 @@
   let { class: className = '', children }: Props = $props();
 </script>
 
-<div class="w-full py-6 md:p-8">
+<div id="contenido" tabindex="-1" class="w-full py-6 outline-none md:p-8">
   <div class={className}>
     {@render children?.()}
   </div>

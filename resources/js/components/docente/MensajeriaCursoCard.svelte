@@ -5,7 +5,7 @@
    * suyo. Canal distinto de la agenda de actividad (ver AgendaPendienteCard).
    */
   import { Link } from '@inertiajs/svelte';
-  import { Mail, ArrowUpRight } from 'lucide-svelte';
+  import { MessageSquare, Inbox } from 'lucide-svelte';
 
   interface CursoConMensajes {
     id_curso: number;
@@ -22,10 +22,10 @@
   let { total = 0, cursos = [] }: Props = $props();
 </script>
 
-<section class="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+<section class="flex flex-col gap-4 rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-5">
   <div class="flex items-center gap-2">
-    <Mail class="h-4 w-4 text-[#5A5E6E]" />
-    <h3 class="text-base font-semibold text-[#1A1A24]">Mensajería de curso</h3>
+    <MessageSquare class="h-5 w-5 text-[#002855]" />
+    <h3 class="text-base font-semibold text-[#171A26]">Mensajería de curso</h3>
   </div>
   <div class="flex items-baseline gap-2">
     <span class="text-[28px] font-semibold leading-none tracking-tight text-[#1A1A24]">{total}</span>
@@ -49,9 +49,9 @@
 
   <Link
     href="/docente/cursos"
-    class="flex w-fit items-center gap-1.5 rounded-lg border border-[#D6D9E0] bg-white px-3 py-[7px] text-[13px] font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F8FAFC]"
+    class="flex min-h-11 w-fit items-center gap-2 rounded-[10px] border border-[#D5D9E0] bg-white px-4 text-sm font-medium text-[#171A26] no-underline transition-colors hover:bg-[#F8FAFC]"
   >
+    <Inbox class="h-4 w-4 text-[#5A5E6E]" />
     Abrir bandeja
-    <ArrowUpRight class="h-3.5 w-3.5 text-[#5A5E6E]" />
   </Link>
 </section>

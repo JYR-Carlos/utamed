@@ -134,7 +134,18 @@ class DashboardController extends Controller
             $cursosTitular->flatMap(fn($curso) => $curso->programas)->pluck('id_programa')
         );
 
-        $cursosTitularData = $cursosTitular->map(function (Curso $curso) use ($historialPorPrograma) {
+        $todosLosCursoIds = $cursosTitular->pluck('id_curso')
+            ->merge($cursosComponente->pluck('id_curso'))
+            ->unique()
+            ->values()
+            ->all();
+
+        $actividadesProximas = $this->actividadesProximas($todosLosCursoIds);
+        $proximaEntregaPorCurso = $actividadesProximas
+            ->groupBy(fn(Actividad $a) => $a->componente?->id_curso)
+            ->map(fn(Collection $porCurso) => $porCurso->first()->fecha_limite?->format('Y-m-d'));
+
+        $cursosTitularData = $cursosTitular->map(function (Curso $curso) use ($historialPorPrograma, $proximaEntregaPorCurso) {
             $programa = $curso->programas->first();
             $syllabus = $this->resolverEstadoSyllabus($programa, $historialPorPrograma);
 
@@ -147,6 +158,7 @@ class DashboardController extends Controller
                 'agno_real' => $curso->agno_real,
                 'estado_syllabus' => $syllabus['estado'],
                 'rechazo' => $syllabus['rechazo'],
+                'proxima_entrega' => $proximaEntregaPorCurso->get($curso->id_curso),
             ];
         })->values();
 
@@ -179,14 +191,8 @@ class DashboardController extends Controller
 
         $mensajeriaCursos = $this->mensajeriaPorCurso($mensajeria, $idDocente, (int) $user->id_usuario);
 
-        $todosLosCursoIds = $cursosTitular->pluck('id_curso')
-            ->merge($cursosComponente->pluck('id_curso'))
-            ->unique()
-            ->values()
-            ->all();
-
         $agendaPendiente = $this->agendaPendiente($todosLosCursoIds);
-        $proximasFechasLimite = $this->proximasFechasLimite($todosLosCursoIds);
+        $proximasFechasLimite = $this->proximasFechasLimite($actividadesProximas);
 
         $totalCursos = $cursosTitularData->count() + $componentesData->pluck('id_curso')->unique()->count();
 
@@ -536,17 +542,18 @@ class DashboardController extends Controller
     }
 
     /**
-     * Próximas fechas límite de actividades en todos los cursos donde el
-     * docente participa (titular o componente), reutilizando el mismo
-     * criterio que CalendarioController.
+     * Actividades con fecha límite de hoy en adelante en los cursos donde el
+     * docente participa (titular o componente), por fecha. Mismo criterio que
+     * CalendarioController. De aquí salen tanto la «próxima entrega» de cada
+     * tarjeta de curso como la lista de «Próximas fechas límite».
      *
      * @param  int[]  $cursoIds
-     * @return array<int,array{id_actividad:int,nombre:string,id_curso:?int,cod_curso:?string,fecha_limite:?string}>
+     * @return Collection<int,Actividad>
      */
-    private function proximasFechasLimite(array $cursoIds, int $limit = 4): array
+    private function actividadesProximas(array $cursoIds): Collection
     {
         if (empty($cursoIds)) {
-            return [];
+            return collect();
         }
 
         return Actividad::whereHas('componente', fn($q) => $q->whereIn('id_curso', $cursoIds))
@@ -554,16 +561,46 @@ class DashboardController extends Controller
             ->whereDate('fecha_limite', '>=', now()->toDateString())
             ->with('componente.curso')
             ->orderBy('fecha_limite')
-            ->limit($limit)
-            ->get()
-            ->map(fn(Actividad $a) => [
-                'id_actividad' => $a->id_actividad,
-                'nombre' => $a->nombre,
-                'id_curso' => $a->componente?->curso?->id_curso,
-                'cod_curso' => $a->componente?->curso?->cod_curso,
-                'nombre_curso' => $a->componente?->curso?->nombre,
-                'fecha_limite' => $a->fecha_limite?->format('d-m-Y'),
-            ])
+            ->get();
+    }
+
+    /**
+     * Próximas fechas límite: una fila por actividad y, dentro de ella, un
+     * enlace por grupo con su fecha. La misma actividad existe una vez por
+     * curso (grupo A, grupo B…), así que se agrupa por nombre y curso en vez
+     * de repetirla sin decir de qué grupo es cada fecha.
+     *
+     * @param  Collection<int,Actividad>  $actividades  ordenadas por fecha_limite
+     * @return array<int,array{id_actividad:int,nombre:string,nombre_curso:?string,grupos:array<int,array{id_curso:int,letra_grupo:?string,fecha_limite:string}>}>
+     */
+    private function proximasFechasLimite(Collection $actividades, int $limit = 4): array
+    {
+        return $actividades
+            ->filter(fn(Actividad $a) => $a->componente?->curso !== null)
+            ->groupBy(fn(Actividad $a) => $a->nombre . '|' . $a->componente->curso->nombre)
+            ->map(function (Collection $filas) {
+                /** @var Actividad $primera */
+                $primera = $filas->first();
+
+                $grupos = $filas
+                    ->unique(fn(Actividad $a) => $a->componente->id_curso)
+                    ->map(fn(Actividad $a) => [
+                        'id_curso' => $a->componente->curso->id_curso,
+                        'letra_grupo' => $a->componente->curso->letra_grupo,
+                        'fecha_limite' => $a->fecha_limite->format('Y-m-d'),
+                    ])
+                    ->values()
+                    ->all();
+
+                return [
+                    'id_actividad' => $primera->id_actividad,
+                    'nombre' => $primera->nombre,
+                    'nombre_curso' => $primera->componente->curso->nombre,
+                    'grupos' => $grupos,
+                ];
+            })
+            ->sortBy(fn(array $fila) => $fila['grupos'][0]['fecha_limite'])
+            ->take($limit)
             ->values()
             ->all();
     }

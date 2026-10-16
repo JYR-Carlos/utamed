@@ -87,3 +87,39 @@ export function textoCierre(fechaSoloDia: string, diasExtra = 0): { chile: strin
     const local = formatEnHoraLocal(instante);
     return { chile, local: local === chile ? null : local };
 }
+
+
+/** Fecha de hoy en Chile como 'YYYY-MM-DD'. */
+export function hoyEnChile(): string {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_CHILE }).format(new Date());
+}
+
+/** «26 oct» a partir de una fecha sin hora ('2026-10-26'). */
+export function fechaCorta(fechaSoloDia: string): string {
+    const [y, m, d] = fechaSoloDia.slice(0, 10).split('-').map(Number);
+    const texto = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('es-CL', {
+        day: 'numeric',
+        month: 'short',
+        timeZone: 'UTC',
+    });
+    return texto.replace(/\./g, '');
+}
+
+export type TonoPlazo = 'neutro' | 'manana' | 'hoy';
+
+/**
+ * Cuánto falta para un plazo, contando días de calendario en hora de Chile:
+ * «hoy», «mañana» o «en N días». El tono permite dar énfasis a lo urgente;
+ * el color siempre va acompañado del texto.
+ */
+export function plazoRelativo(fechaSoloDia: string): { texto: string; tono: TonoPlazo } {
+    const aDias = (iso: string) => {
+        const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+        return Date.UTC(y, m - 1, d) / 86_400_000;
+    };
+    const dias = Math.round(aDias(fechaSoloDia) - aDias(hoyEnChile()));
+
+    if (dias <= 0) return { texto: 'hoy', tono: 'hoy' };
+    if (dias === 1) return { texto: 'mañana', tono: 'manana' };
+    return { texto: `en ${dias} días`, tono: 'neutro' };
+}

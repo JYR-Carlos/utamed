@@ -176,11 +176,11 @@
   <div class="header-center hidden lg:flex lg:justify-center">
     <button class="search-box cursor-text text-left" onclick={() => (openSearch = true)}>
       <Search size={18} class="search-icon" />
-      <span class="search-input text-slate-400">Buscar en el sistema...</span>
+      <span class="search-input text-[#5A5E6E]">Buscar en el sistema...</span>
       <span
-        class="ml-auto hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-400"
+        class="ml-auto hidden xl:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-[#E5E7EB] bg-[#F1F3F6] text-xs font-semibold text-[#5A5E6E]"
       >
-      <span class="text-[12px] leading-none">⌘</span> K
+      <span class="leading-none">⌘</span> K
       </span>
     </button>
   </div>
@@ -207,7 +207,7 @@
   <div class="header-right">
     {#if buscadorHabilitado}
       <button
-        class="lg:hidden mobile-search-trigger flex items-center justify-center gap-2 p-2 sm:px-3 sm:py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-full font-bold shadow-sm"
+        class="lg:hidden mobile-search-trigger flex min-h-11 min-w-11 items-center justify-center gap-2 p-2 sm:px-3 sm:py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-full font-bold shadow-sm"
         onclick={() => (openSearch = true)}
         aria-label="Buscar en el sistema"
       >
@@ -411,9 +411,10 @@
     }
   }
 
+  /* 44 px en pantallas táctiles; 40 px con puntero de escritorio (≥ lg). */
   .icon-btn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 10px;
     color: #64748b;
     background: #f8fafc;
@@ -426,5 +427,12 @@
   .icon-btn:hover {
     background: #f1f5f9;
     color: #1e293b;
+  }
+
+  @media (min-width: 1024px) {
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+    }
   }
 </style>

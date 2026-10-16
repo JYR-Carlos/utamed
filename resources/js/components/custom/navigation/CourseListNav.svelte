@@ -3,6 +3,7 @@
   import { Search, ChevronRight, BookOpenCheck, Calendar } from 'lucide-svelte';
   import type { SidebarCourse } from '@/types';
   import { hasPermission } from '@/services/permissionValidator';
+  import { tonoGrupo } from '@/utils/grupoColor';
 
   /**
    * Lista de cursos con buscador, período vigente e histórico colapsable.
@@ -164,7 +165,8 @@
 
 {#snippet courseRow(curso: SidebarCourse, current: boolean)}
   {@const activo = esActivo(curso)}
-  <div class="rounded-lg transition-colors {activo ? 'bg-indigo-50' : 'hover:bg-gray-50'}">
+  {@const grupo = tonoGrupo(curso.letra_grupo)}
+  <div class="rounded-lg border-l-4 transition-colors {grupo.barra} {activo ? 'bg-indigo-50' : 'hover:bg-gray-50'}">
     <Link
       href="{basePath}/{curso.id_curso}"
       class="flex min-h-11 flex-col justify-center gap-0.5 rounded-lg px-3 py-2 no-underline"
@@ -180,9 +182,12 @@
             : 'font-medium text-slate-600'}"
         title={curso.etiqueta ?? curso.nombre}>{nombreSinGrupo(curso)}</span
       >
-      <span class="truncate text-xs font-medium text-slate-600"
-        >{curso.cod_curso}{curso.letra_grupo ? ' · Grupo ' + curso.letra_grupo : ''}</span
-      >
+      <span class="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+        <span class="truncate">{curso.cod_curso}</span>
+        {#if curso.letra_grupo}
+          <span class="shrink-0 rounded-full px-2 py-px text-[11px] font-bold {grupo.chip}">Grupo {curso.letra_grupo}</span>
+        {/if}
+      </span>
     </Link>
     {#if showPrograma || showActividades}
       <div class="flex flex-wrap items-center gap-1.5 px-3 pb-2">

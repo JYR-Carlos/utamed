@@ -18,7 +18,26 @@
   let { breadcrumbs = [], children }: Props = $props();
   let showHeader = $state(true);
   let showSidebar = $state(true);
+
+  // Lleva el foco a #contenido: sin esto el ancla mueve la vista pero el
+  // siguiente Tab seguiría desde el menú lateral.
+  function saltarAlContenido(event: MouseEvent) {
+    event.preventDefault();
+    const destino = document.getElementById('contenido');
+    destino?.focus({ preventScroll: true });
+    destino?.scrollIntoView({ block: 'start' });
+  }
 </script>
+
+<!-- Primer elemento enfocable: oculto hasta recibir foco; se salta el menú
+     lateral y la barra superior. -->
+<a
+  href="#contenido"
+  onclick={saltarAlContenido}
+  class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:flex focus:min-h-11 focus:items-center focus:rounded-[10px] focus:bg-uta-blue focus:px-4 focus:text-sm focus:font-semibold focus:text-white focus:no-underline"
+>
+  Saltar al contenido
+</a>
 
 <AppShell>
   <div class="flex h-svh flex-1 overflow-hidden">

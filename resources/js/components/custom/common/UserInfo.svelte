@@ -1,6 +1,7 @@
 <script lang="ts">
     import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
     import { useInitials } from '@/hooks/useInitials';
+    import { titleCase } from '@/lib/utils';
     import { page } from '@inertiajs/svelte';
     import type { User } from '@/types';
 
@@ -13,7 +14,10 @@
 
     const { getInitials } = useInitials();
 
-    let displayName = $derived(user.nombre1 && user.apellido1 ? `${user.nombre1} ${user.apellido1}` : (user.nombre1 || user.username || 'Usuario'));
+    // Los nombres llegan como están en la base, a veces todo en mayúsculas.
+    let displayName = $derived(
+        titleCase(user.nombre1 && user.apellido1 ? `${user.nombre1} ${user.apellido1}` : (user.nombre1 || user.username || 'Usuario')),
+    );
     let showAvatar = $derived(true);
     let isSuperAdmin = $derived(($page.props.auth?.is_super_admin as boolean) || false);
 
