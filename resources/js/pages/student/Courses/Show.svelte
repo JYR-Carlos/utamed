@@ -17,6 +17,7 @@
   import type { BreadcrumbItem, Curso } from '@/types';
   import ActividadesView, { coincideConFiltro, type FiltroActividad } from '../Activities/ActividadesView.svelte';
   import CursoEncabezado, { SECCIONES_CURSO, type SeccionCurso } from './components/CursoEncabezado.svelte';
+  import CursoCalendario from './components/CursoCalendario.svelte';
   import CursoProximasEntregas from './components/CursoProximasEntregas.svelte';
   import CursoResumenNotas, { type Rendimiento } from './components/CursoResumenNotas.svelte';
   import ProgramaAlumno, {
@@ -131,6 +132,9 @@
     ),
   );
 
+  // Fechas límite que el calendario puede dibujar.
+  const totalFechas = $derived(actividades.filter((a) => a.visible && a.fecha_limite).length);
+
   // ─── Próximas entregas ──────────────────────────────────────────────────────
   // Las que aún no vencen, de la más cercana a la más lejana.
   const proximasEntregas = $derived.by(() => {
@@ -223,6 +227,15 @@
             filtered={actividadesFiltradas}
             onSelectFiltro={(f) => (filtro = f)}
           />
+        </section>
+      {:else if seccion === 'calendario'}
+        <section>
+          {@render titulo(
+            'Calendario',
+            `${totalFechas} ${totalFechas === 1 ? 'fecha límite' : 'fechas límite'}`,
+            true,
+          )}
+          <CursoCalendario idCurso={id_curso} {actividades} />
         </section>
       {:else if seccion === 'notas'}
         {@render titulo('Resumen de notas')}

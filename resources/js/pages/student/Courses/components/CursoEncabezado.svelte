@@ -1,8 +1,8 @@
 <script lang="ts" module>
   /** Pestañas que se resuelven dentro de la ficha, sin cambiar de página. */
-  export type SeccionCurso = 'programa' | 'actividades' | 'notas' | 'biblioteca';
+  export type SeccionCurso = 'programa' | 'actividades' | 'notas' | 'biblioteca' | 'calendario';
 
-  export const SECCIONES_CURSO: readonly SeccionCurso[] = ['programa', 'actividades', 'notas', 'biblioteca'];
+  export const SECCIONES_CURSO: readonly SeccionCurso[] = ['programa', 'actividades', 'notas', 'biblioteca', 'calendario'];
 </script>
 
 <script lang="ts">
@@ -55,6 +55,7 @@
     { id: 'programa', etiqueta: 'Programa' },
     { id: 'notas', etiqueta: 'Resumen de notas' },
     { id: 'biblioteca', etiqueta: 'Biblioteca' },
+    { id: 'calendario', etiqueta: 'Calendario' },
   ];
 
   const BASE =
