@@ -25,10 +25,12 @@
     curso?: Curso | null;
     seccion: SeccionCurso;
     totalActividades?: number;
+    /** Recursos de la Biblioteca; si es 0 la pestaña no lleva contador. */
+    totalRecursos?: number;
     onCambiarSeccion: (seccion: SeccionCurso) => void;
   }
 
-  let { curso = null, seccion, totalActividades = 0, onCambiarSeccion }: Props = $props();
+  let { curso = null, seccion, totalActividades = 0, totalRecursos = 0, onCambiarSeccion }: Props = $props();
 
   const codigo = $derived(curso?.cod_asignatura || curso?.cod_curso || '');
   const titulo = $derived(curso?.asignatura_nombre || curso?.nombre || 'Curso');
@@ -49,8 +51,8 @@
   );
 
   const PESTANAS: Array<{ id: SeccionCurso; etiqueta: string }> = [
-    { id: 'programa', etiqueta: 'Programa' },
     { id: 'actividades', etiqueta: 'Actividades' },
+    { id: 'programa', etiqueta: 'Programa' },
     { id: 'notas', etiqueta: 'Resumen de notas' },
     { id: 'biblioteca', etiqueta: 'Biblioteca' },
   ];
@@ -117,6 +119,8 @@
           {pestana.etiqueta}
           {#if pestana.id === 'actividades' && totalActividades > 0}
             <span class="font-medium {activa ? '' : 'text-gray-600'}">({totalActividades})</span>
+          {:else if pestana.id === 'biblioteca' && totalRecursos > 0}
+            <span class="font-medium {activa ? '' : 'text-gray-600'}">({totalRecursos})</span>
           {/if}
         </button>
       {/each}

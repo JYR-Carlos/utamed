@@ -25,7 +25,7 @@
     type SeccionPrograma,
   } from './components/ProgramaAlumno.svelte';
   import ProgramaDocument from '@/modules/resources/programa/components/ProgramaDocument.svelte';
-  import { textoDeSeccion } from '@/modules/resources/programa/utils/syllabusTexto';
+  import { bloquesDeSeccion, textoDeSeccion } from '@/modules/resources/programa/utils/syllabusTexto';
   import { Link, page, router } from '@inertiajs/svelte';
   import { BookMarked, Printer } from 'lucide-svelte';
   import { parseFechaSoloDia } from '@/utils/formatters';
@@ -116,6 +116,19 @@
     secciones.filter((s) => s.numeral_romano === 'VIII' && textoDeSeccion(s.contenidos).trim() !== ''),
   );
 
+  // Recursos = ítems de las listas de la bibliografía.
+  const totalRecursos = $derived(
+    bibliografia.reduce(
+      (total, s) =>
+        total +
+        bloquesDeSeccion(textoDeSeccion(s.contenidos), s.numeral_romano).reduce(
+          (n, b) => n + (b.tipo === 'lista' ? b.items.length : 0),
+          0,
+        ),
+      0,
+    ),
+  );
+
   // ─── Próximas entregas ──────────────────────────────────────────────────────
   // Las que aún no vencen, de la más cercana a la más lejana.
   const proximasEntregas = $derived.by(() => {
@@ -167,6 +180,7 @@
         {curso}
         {seccion}
         totalActividades={actividades.length}
+        {totalRecursos}
         onCambiarSeccion={cambiarSeccion}
       />
 
@@ -205,10 +219,16 @@
           />
         </section>
       {:else if seccion === 'notas'}
-        {@render titulo('Resumen de notas', 'Tu promedio y tu asistencia en cada componente del curso.')}
+        {@render titulo('Resumen de notas')}
         <CursoResumenNotas cargando={notasCargando} error={notasError} {rendimiento} />
       {:else if seccion === 'biblioteca'}
-        {@render titulo('Biblioteca', 'Bibliografía y recursos de aprendizaje indicados en el programa.')}
+        {@render titulo(
+          'Biblioteca',
+          totalRecursos > 0
+            ? `${totalRecursos} ${totalRecursos === 1 ? 'recurso' : 'recursos'}`
+            : 'Bibliografía y recursos de aprendizaje indicados en el programa.',
+          totalRecursos > 0,
+        )}
         {#if bibliografia.length > 0}
           <ProgramaDocument secciones={bibliografia} variante="tarjetas" />
         {:else}
