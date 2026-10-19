@@ -316,7 +316,7 @@
             <div class="mb-3 px-3 py-2 rounded-xl bg-white border border-gray-200 flex items-center justify-between gap-2 flex-wrap">
               <div class="flex items-center gap-3 text-xs">
                 <span class="text-gray-500">Puntaje:</span>
-                <span class="font-black text-uta-blue">{puntajeRubrica}<span class="font-normal text-gray-400">/{puntajeMaximo}</span></span>
+                <span class="font-black text-uta-blue">{puntajeRubrica}<span class="font-normal text-muted-foreground">/{puntajeMaximo}</span></span>
                 <span class="{criteriosEvaluados < totalCriterios ? 'text-amber-600' : 'text-emerald-600'} font-semibold">
                   {criteriosEvaluados}/{totalCriterios} criterios
                 </span>
@@ -324,7 +324,7 @@
               {#if notaCalculada !== null}
                 <span class="text-sm font-black text-emerald-700">Nota: {formatNota(notaCalculada)}</span>
               {:else}
-                <span class="text-xs text-gray-400 italic">Completa la rúbrica →</span>
+                <span class="text-xs text-muted-foreground italic">Completa la rúbrica →</span>
               {/if}
               <button
                 type="button"
@@ -424,7 +424,7 @@
           bind:value={nuevoMensaje}
           placeholder={esEvaluacion
             ? (esSumativa ? 'Retroalimentación para el grupo (opcional)…' : 'Escribe la evaluación formativa para el estudiante o grupo…')
-            : 'Escribe tu retroalimentación al grupo…'}
+            : esGrupal ? 'Escribe tu retroalimentación al grupo…' : `Escribe tu retroalimentación a ${nombre_grupo}…`}
           rows={esEvaluacion && !esSumativa ? 4 : 2}
           maxlength="4000"
           class="flex-1 resize-y rounded-lg border border-[#D6D9E0] px-3.5 py-2.5 text-[13px] text-[#1A1A24] outline-none transition-colors focus:border-[#002F6C]"
@@ -468,7 +468,7 @@
           <p class="text-xs text-slate-500">{nombre_actividad} — {nombre_grupo}</p>
         </div>
         <button
-          class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 cursor-pointer"
+          class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-200 hover:text-slate-700 cursor-pointer"
           onclick={() => (mostrarSlideoverEvaluacion = false)}
           aria-label="Cerrar rúbrica"
         >
@@ -531,7 +531,7 @@
         </div>
         <button
           onclick={() => (panelDetalle = null)}
-          class="rounded-lg p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+          class="rounded-lg p-1.5 text-muted-foreground hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
           aria-label="Cerrar detalle"
         >
           <X class="h-5 w-5" />

@@ -152,7 +152,7 @@
 
       {#if col.items.length === 0}
         <div
-          class="flex flex-col items-center gap-2 rounded-[10px] border border-dashed border-[#D6D9E0] bg-white/60 py-8 text-center text-[#98A0AE]"
+          class="flex flex-col items-center gap-2 rounded-[10px] border border-dashed border-[#D6D9E0] bg-white/60 py-8 text-center text-muted-foreground"
         >
           <ClipboardList size={24} class="opacity-40" />
           <p class="text-[12px] m-0">Sin actividades en este estado</p>

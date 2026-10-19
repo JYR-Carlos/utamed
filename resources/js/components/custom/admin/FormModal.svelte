@@ -196,13 +196,14 @@
 		background: #f9fafb;
 	}
 
+	/* Mismo primario que `.btn-primary` (app.css): blanco sobre #3b82f6 daba 3.68:1. */
 	.btn-submit {
-		background: #3b82f6;
-		color: white;
+		background: var(--action-primary);
+		color: var(--action-primary-fg);
 	}
 
 	.btn-submit:hover:not(:disabled) {
-		background: #2563eb;
+		background: var(--action-primary-hover);
 	}
 
 	.btn-cancel:disabled,

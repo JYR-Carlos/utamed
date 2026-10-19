@@ -141,7 +141,7 @@
   }
 
   function notaColorClass(nota: number | null): string {
-    if (nota === null) return 'text-slate-400';
+    if (nota === null) return 'text-muted-foreground';
     if (nota >= 4.0) return 'text-emerald-700';
     if (nota >= 3.0) return 'text-amber-600';
     return 'text-red-600';
@@ -251,18 +251,18 @@
       <div class="relative flex-1 min-w-[220px] max-w-sm">
         <Search
           size={13}
-          class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+          class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
         />
         <input
           type="text"
           bind:value={query}
           placeholder="Buscar por nombre o username…"
-          class="w-full pl-8 pr-8 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-slate-400"
+          class="w-full pl-8 pr-8 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-muted-foreground"
         />
         {#if query}
           <button
             onclick={() => (query = '')}
-            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-700"
             aria-label="Limpiar búsqueda"
           >
             <X size={13} />
@@ -284,12 +284,12 @@
           </select>
           <ChevronDown
             size={13}
-            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
           />
         </div>
       {/if}
 
-      <span class="text-xs text-slate-400 ml-auto shrink-0">
+      <span class="text-xs text-muted-foreground ml-auto shrink-0">
         {estudiantesFiltrados.length} de {estudiantes.length} estudiante{estudiantes.length !== 1
           ? 's'
           : ''}
@@ -299,7 +299,7 @@
     <!-- ── Student table ──────────────────────────────────────────────────── -->
     <div class="px-6 py-5">
       {#if estudiantesFiltrados.length === 0}
-        <div class="flex flex-col items-center gap-3 py-16 text-center text-slate-400">
+        <div class="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
           <GraduationCap size={40} class="opacity-40" />
           <p class="text-sm">
             {query
@@ -363,7 +363,7 @@
                         <p class="font-semibold text-slate-800 leading-tight truncate">
                           {est.nombre}
                         </p>
-                        <p class="text-xs text-slate-400">{est.username}</p>
+                        <p class="text-xs text-muted-foreground">{est.username}</p>
                       </div>
                     </div>
                   </td>

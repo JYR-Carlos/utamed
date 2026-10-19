@@ -209,9 +209,9 @@
     <!-- ── Header ─────────────────────────────────────────────────────────── -->
     <div class="bg-white border-b border-slate-200 px-6 py-4 flex-shrink-0">
       <nav class="flex items-center gap-1.5 text-xs text-slate-500 mb-2">
-        <Link href="/docente/cursos" class="hover:text-indigo-600">Mis Cursos</Link>
+        <Link href="/docente/cursos" class="hover:text-brand">Mis Cursos</Link>
         <span class="text-slate-300">/</span>
-        <Link href="/docente/cursos/{curso.id_curso}" class="hover:text-indigo-600">
+        <Link href="/docente/cursos/{curso.id_curso}" class="hover:text-brand">
           {curso.etiqueta ?? curso.cod_curso}
         </Link>
         <span class="text-slate-300">/</span>
@@ -220,7 +220,7 @@
       <div class="flex items-center gap-3">
         <Link
           href="/docente/cursos/{curso.id_curso}"
-          class="text-slate-400 hover:text-slate-600 transition-colors"
+          class="text-muted-foreground hover:text-slate-600 transition-colors"
         >
           <ArrowLeft size={20} />
         </Link>
@@ -234,7 +234,7 @@
         </div>
         {#if totalConMensajes > 0}
           <span
-            class="ml-auto text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700"
+            class="ml-auto text-xs font-bold px-2.5 py-1 rounded-full bg-brand-light text-brand"
           >
             {totalConMensajes} con mensajes
           </span>
@@ -260,7 +260,7 @@
               bind:value={query}
               type="search"
               placeholder="Buscar estudiante…"
-              class="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400 bg-slate-50"
+              class="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand bg-slate-50"
             />
           </div>
         </div>
@@ -273,13 +273,13 @@
                 onclick={() => selectEstudiante(e)}
                 class="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors
                   {selectedEstudiante?.id_estudiante === e.id_estudiante
-                  ? 'bg-indigo-50 border-r-2 border-indigo-500'
+                  ? 'bg-brand-light border-r-2 border-brand'
                   : ''}"
               >
                 <div
                   class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0
                     {selectedEstudiante?.id_estudiante === e.id_estudiante
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-brand text-white'
                     : 'bg-slate-200 text-slate-600'}"
                 >
                   {initials(e.nombre)}
@@ -288,20 +288,20 @@
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-sm font-semibold text-slate-800 truncate">{e.nombre}</span>
                     {#if e.ultima_fecha}
-                      <span class="text-[10px] text-slate-400 shrink-0"
+                      <span class="text-[10px] text-muted-foreground shrink-0"
                         >{fmtDate(e.ultima_fecha)}</span
                       >
                     {/if}
                   </div>
                   {#if e.total_mensajes > 0}
                     <span
-                      class="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600"
+                      class="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-light text-brand"
                     >
                       <MessageSquare size={9} />
                       {e.total_mensajes} mensaje{e.total_mensajes !== 1 ? 's' : ''}
                     </span>
                   {:else}
-                    <span class="text-[11px] text-slate-400 truncate">{e.email}</span>
+                    <span class="text-[11px] text-muted-foreground truncate">{e.email}</span>
                   {/if}
                 </div>
               </button>
@@ -309,7 +309,7 @@
           {/each}
 
           {#if estudiantesFiltrados.length === 0}
-            <li class="px-4 py-8 text-center text-sm text-slate-400">
+            <li class="px-4 py-8 text-center text-sm text-muted-foreground">
               {query ? 'Sin resultados.' : 'No hay estudiantes inscritos.'}
             </li>
           {/if}
@@ -326,7 +326,7 @@
           <!-- Volver a la lista (solo móvil) -->
           <button
             onclick={() => (selectedEstudiante = null)}
-            class="md:hidden flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-indigo-600 bg-white border-b border-slate-200 sticky top-0 z-20 w-full"
+            class="md:hidden flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-brand bg-white border-b border-slate-200 sticky top-0 z-20 w-full"
           >
             <ArrowLeft size={16} /> Estudiantes
           </button>
@@ -334,19 +334,19 @@
         {#if !selectedEstudiante}
           <div class="flex flex-col items-center justify-center gap-4 h-full text-center px-8">
             <div
-              class="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center"
+              class="w-16 h-16 rounded-2xl bg-brand-light border border-brand/20 flex items-center justify-center"
             >
-              <Inbox size={28} class="text-indigo-400" />
+              <Inbox size={28} class="text-brand" />
             </div>
             <div>
               <p class="font-semibold text-slate-700">Selecciona un estudiante</p>
-              <p class="text-sm text-slate-400 mt-1">
+              <p class="text-sm text-muted-foreground mt-1">
                 Verás aquí los mensajes que ha enviado en sus actividades del curso.
               </p>
             </div>
           </div>
         {:else if loadingHilo}
-          <div class="flex items-center justify-center gap-2 h-full text-slate-400 text-sm">
+          <div class="flex items-center justify-center gap-2 h-full text-muted-foreground text-sm">
             <Loader2 size={18} class="animate-spin" />
             Cargando mensajes…
           </div>
@@ -359,7 +359,7 @@
             <MessageSquare size={32} class="text-slate-300" />
             <div>
               <p class="font-semibold text-slate-600">{selectedEstudiante.nombre}</p>
-              <p class="text-sm text-slate-400 mt-1">
+              <p class="text-sm text-muted-foreground mt-1">
                 Aún no ha enviado mensajes en ninguna actividad.
               </p>
             </div>
@@ -370,13 +370,13 @@
             class="bg-white border-b border-slate-200 px-5 py-3 flex items-center gap-3 sticky top-0 z-10"
           >
             <div
-              class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold shrink-0"
+              class="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center text-xs font-bold shrink-0"
             >
               {initials(selectedEstudiante.nombre)}
             </div>
             <div>
               <p class="text-sm font-bold text-slate-900">{selectedEstudiante.nombre}</p>
-              <p class="text-xs text-slate-400">
+              <p class="text-xs text-muted-foreground">
                 {hilos.size} actividad{hilos.size !== 1 ? 'es' : ''} con mensajes
               </p>
             </div>
@@ -393,12 +393,12 @@
                   <div class="min-w-0">
                     <p class="text-xs font-bold text-slate-700 truncate">{hilo.actividad_nombre}</p>
                     {#if hilo.grupo_etiqueta}
-                      <p class="text-[10px] text-slate-400">{hilo.grupo_etiqueta}</p>
+                      <p class="text-[10px] text-muted-foreground">{hilo.grupo_etiqueta}</p>
                     {/if}
                   </div>
                   <Link
                     href="/docente/cursos/{curso.id_curso}/actividades/{hilo.id_actividad}/evaluacion"
-                    class="text-[10px] text-indigo-500 hover:underline font-medium shrink-0 no-underline"
+                    class="text-[10px] text-brand hover:underline font-medium shrink-0 no-underline"
                   >
                     Ver evaluación →
                   </Link>
@@ -410,19 +410,19 @@
                     {@const esFeedback = msg.tipo_registro === 'Feedback'}
                     <div
                       class="px-4 py-3 border-b border-slate-100 last:border-b-0 {esFeedback
-                        ? 'bg-indigo-50'
+                        ? 'bg-brand-light'
                         : 'bg-white'}"
                     >
                       <div class="flex items-center gap-2 mb-1">
                         <span
                           class="text-[10px] font-bold px-2 py-0.5 rounded-full
                           {esFeedback
-                            ? 'bg-indigo-100 text-indigo-700'
+                            ? 'bg-brand-light text-brand'
                             : 'bg-slate-100 text-slate-600'}"
                         >
                           {esFeedback ? 'Docente' : 'Estudiante'}
                         </span>
-                        <span class="text-[10px] text-slate-400">{fmtFull(msg.fecha_envio)}</span>
+                        <span class="text-[10px] text-muted-foreground">{fmtFull(msg.fecha_envio)}</span>
                       </div>
                       <p class="text-sm text-slate-800 leading-relaxed">{msg.mensaje}</p>
                     </div>
@@ -444,12 +444,12 @@
                       }}
                       rows={2}
                       placeholder="Escribe feedback para este grupo…"
-                      class="flex-1 resize-none px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:border-indigo-400"
+                      class="flex-1 resize-none px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:border-brand"
                     ></textarea>
                     <button
                       onclick={() => enviarFeedback(grupoId)}
                       disabled={!replyByGrupo.get(grupoId)?.trim() || sendingByGrupo.has(grupoId)}
-                      class="p-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors shrink-0"
+                      class="p-2.5 rounded-lg bg-brand text-white hover:bg-brand-hover disabled:opacity-50 transition-colors shrink-0"
                       title="Enviar feedback"
                     >
                       {#if sendingByGrupo.has(grupoId)}

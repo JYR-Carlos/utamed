@@ -249,7 +249,7 @@
     <div class="mb-4">
       <label for="ponderacion" class="block font-medium text-gray-700 mb-2 text-sm">
         Ponderación (%) *
-        <span class="text-gray-400 font-normal text-xs ml-1">Debe sumar 100 en el componente</span>
+        <span class="text-muted-foreground font-normal text-xs ml-1">Debe sumar 100 en el componente</span>
       </label>
       <input
         id="ponderacion"
@@ -267,7 +267,7 @@
     <div class="mb-4">
       <label for="exigencia" class="block font-medium text-gray-700 mb-2 text-sm">
         Exigencia (%) *
-        <span class="text-gray-400 font-normal text-xs ml-1">Umbral de aprobación</span>
+        <span class="text-muted-foreground font-normal text-xs ml-1">Umbral de aprobación</span>
       </label>
       <input
         id="exigencia"
@@ -286,7 +286,7 @@
   <div class="mb-4">
     <label for="nro_dias_adicionales_para_bloqueo" class="block font-medium text-gray-700 mb-2 text-sm">
       Días de holgura
-      <span class="text-gray-400 font-normal text-xs ml-1">Días adicionales después de la fecha límite para bloquear entregas</span>
+      <span class="text-muted-foreground font-normal text-xs ml-1">Días adicionales después de la fecha límite para bloquear entregas</span>
     </label>
     <input
       id="nro_dias_adicionales_para_bloqueo"

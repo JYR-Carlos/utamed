@@ -179,7 +179,7 @@
   }
 
   function notaColorClass(nota: number | null): string {
-    if (nota === null) return 'text-slate-400';
+    if (nota === null) return 'text-muted-foreground';
     return nota >= 4.0 ? 'text-emerald-700' : 'text-red-600';
   }
 
@@ -277,12 +277,12 @@
           <p class="font-bold text-slate-900 leading-tight truncate">
             {estudiante.estudiante.nombre}
           </p>
-          <p class="text-xs text-slate-400">{estudiante.estudiante.username}</p>
+          <p class="text-xs text-muted-foreground">{estudiante.estudiante.username}</p>
         </div>
       </div>
       <button
         onclick={onCerrar}
-        class="mt-0.5 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
+        class="mt-0.5 p-1.5 rounded-lg text-muted-foreground hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
         aria-label="Cerrar panel"
       >
         <X size={18} />
@@ -298,7 +298,7 @@
       >
         {estudiante.tipo_componente}
       </span>
-      <span class="text-slate-400 text-xs">Nota final:</span>
+      <span class="text-muted-foreground text-xs">Nota final:</span>
       <span class="text-sm font-bold {notaColorClass(estudiante.nota_componente)}">
         {formatNota(estudiante.nota_componente)}
       </span>
@@ -306,7 +306,7 @@
 
     <!-- ── Contacto personal (sólo lectura) ──────────────────────────────── -->
     <div class="flex flex-col gap-1.5 px-5 py-3 border-b border-slate-100 text-xs shrink-0">
-      <span class="font-bold uppercase tracking-widest text-slate-400">Contacto</span>
+      <span class="font-bold uppercase tracking-widest text-muted-foreground">Contacto</span>
       {#if tieneContacto}
         <div class="flex flex-wrap gap-x-4 gap-y-1 text-slate-700">
           {#if contacto?.correo_personal}
@@ -332,7 +332,7 @@
           {/each}
         </div>
       {:else}
-        <span class="text-slate-400">El estudiante no ha registrado datos de contacto personal.</span>
+        <span class="text-muted-foreground">El estudiante no ha registrado datos de contacto personal.</span>
       {/if}
     </div>
 
@@ -371,12 +371,12 @@
       <!-- Evaluaciones -->
       {#if tab === 'evaluaciones'}
         <div class="p-5 flex flex-col gap-3">
-          <p class="text-xs text-slate-400 uppercase font-bold tracking-widest">
+          <p class="text-xs text-muted-foreground uppercase font-bold tracking-widest">
             Actividades publicadas ({actividadesPublicadas.length})
           </p>
 
           {#if actividadesPublicadas.length === 0}
-            <div class="flex flex-col items-center gap-3 py-14 text-center text-slate-400">
+            <div class="flex flex-col items-center gap-3 py-14 text-center text-muted-foreground">
               <GraduationCap size={36} class="opacity-40" />
               <p class="text-sm">No hay actividades publicadas en este curso.</p>
             </div>
@@ -430,14 +430,14 @@
           <!-- El spinner sólo tapa la primera carga; al recargar tras responder
                se conserva la lista para que no parpadee. -->
           {#if mensajesLoading && mensajesVisibles.length === 0}
-            <div class="flex items-center justify-center gap-2 py-12 text-slate-400 text-sm">
+            <div class="flex items-center justify-center gap-2 py-12 text-muted-foreground text-sm">
               <Loader2 size={18} class="animate-spin" />
               Cargando mensajes…
             </div>
           {:else if mensajesError}
             <div class="text-center py-10 text-red-500 text-sm">{mensajesError}</div>
           {:else if mensajesVisibles.length === 0}
-            <div class="flex flex-col items-center gap-3 py-14 text-center text-slate-400">
+            <div class="flex flex-col items-center gap-3 py-14 text-center text-muted-foreground">
               <MessageSquare size={32} class="opacity-30" />
               <p class="text-sm">Este estudiante no ha enviado mensajes aún.</p>
             </div>
@@ -452,7 +452,7 @@
                   <span class="text-xs font-semibold text-slate-600 truncate"
                     >{hilo.actividad_nombre}</span
                   >
-                  <span class="text-[10px] text-slate-400 ml-2 shrink-0">#{grupoId}</span>
+                  <span class="text-[10px] text-muted-foreground ml-2 shrink-0">#{grupoId}</span>
                 </div>
 
                 <!-- Mensajes del hilo -->
@@ -472,7 +472,7 @@
                         >
                           {esDocente ? 'Docente' : 'Estudiante'}
                         </span>
-                        <span class="text-[10px] text-slate-400">
+                        <span class="text-[10px] text-muted-foreground">
                           {new Date(msg.fecha_envio).toLocaleString('es-CL', {
                             day: '2-digit',
                             month: 'short',
@@ -548,7 +548,7 @@
           </div>
           <div>
             <p class="font-bold text-slate-700">Registro de Asistencia</p>
-            <p class="text-sm text-slate-400 mt-1.5 leading-relaxed max-w-xs">
+            <p class="text-sm text-muted-foreground mt-1.5 leading-relaxed max-w-xs">
               El módulo de consulta y registro de asistencia estará disponible próximamente.
             </p>
           </div>

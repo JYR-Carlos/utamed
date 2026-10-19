@@ -181,7 +181,7 @@
     <div class="bg-white border-b border-slate-200 px-4 sm:px-6 pt-3 sm:pt-4 shrink-0">
       <div class="flex items-center gap-2.5 sm:gap-3">
         <div
-          class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0"
+          class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-brand text-white flex items-center justify-center shrink-0"
         >
           <MessageSquare size={20} />
         </div>
@@ -215,7 +215,7 @@
             onclick={() => selectComponente(c.id_componente)}
             class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap {componente_activo ===
             c.id_componente
-              ? 'border-indigo-600 text-indigo-700'
+              ? 'border-brand text-brand'
               : 'border-transparent text-slate-500 hover:text-slate-700'}"
           >
             {c.tipo}
@@ -245,7 +245,7 @@
             <button
               onclick={() => (vista = 'generales')}
               class="px-3 py-1 text-xs font-bold rounded-md transition-colors {vista === 'generales'
-                ? 'bg-white text-indigo-700 shadow-sm'
+                ? 'bg-white text-brand shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'}"
             >
               Generales
@@ -257,7 +257,7 @@
               onclick={() => (vista = 'individuales')}
               class="px-3 py-1 text-xs font-bold rounded-md transition-colors {vista ===
               'individuales'
-                ? 'bg-white text-indigo-700 shadow-sm'
+                ? 'bg-white text-brand shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'}"
             >
               Individuales
@@ -288,7 +288,7 @@
                 {#each panel.difusiones as d (d.id_mensaje)}
                   <article class="bg-white rounded-xl border border-slate-200 p-3 sm:p-4">
                     <div class="flex items-start gap-2">
-                      <Megaphone size={16} class="text-indigo-500 mt-0.5 shrink-0" />
+                      <Megaphone size={16} class="text-brand mt-0.5 shrink-0" />
                       <div class="min-w-0 flex-1">
                         <h3 class="text-sm font-bold text-slate-900 break-words">{d.tema}</h3>
                         <p class="text-sm text-slate-700 mt-1 whitespace-pre-wrap break-words">
@@ -316,11 +316,11 @@
                   <div class="flex {m.es_mio ? 'justify-end' : 'justify-start'}">
                     <div
                       class="max-w-[85%] sm:max-w-[75%] rounded-2xl px-3.5 py-2 {m.es_mio
-                        ? 'bg-indigo-600 text-white'
+                        ? 'bg-brand text-white'
                         : 'bg-white border border-slate-200 text-slate-800'}"
                     >
                       <p class="text-sm whitespace-pre-wrap break-words">{m.mensaje}</p>
-                      <p class="text-[10px] mt-1 {m.es_mio ? 'text-indigo-200' : 'text-slate-400'}">
+                      <p class="text-[10px] mt-1 {m.es_mio ? 'text-white/90' : 'text-slate-400'}">
                         {m.es_mio ? 'Tú' : m.emisor} · {fmt(m.fecha_creacion)}
                       </p>
                     </div>
@@ -337,7 +337,7 @@
               <div class="flex flex-col sm:flex-row gap-2">
                 <select
                   bind:value={receptor}
-                  class="text-xs border border-slate-200 rounded-lg px-2 py-2 sm:py-1.5 bg-slate-50 focus:outline-none focus:border-indigo-400 w-full sm:w-auto sm:max-w-[55%]"
+                  class="text-xs border border-slate-200 rounded-lg px-2 py-2 sm:py-1.5 bg-slate-50 focus:outline-none focus:border-brand w-full sm:w-auto sm:max-w-[55%]"
                 >
                   <option value={null}>Dirigir al titular</option>
                   {#each panel.docentes as d (d.id_usuario)}
@@ -352,7 +352,7 @@
                     type="text"
                     maxlength="150"
                     placeholder="Asunto"
-                    class="flex-1 min-w-0 px-3 py-2 sm:py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400"
+                    class="flex-1 min-w-0 px-3 py-2 sm:py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand"
                   />
                 {/if}
               </div>
@@ -362,13 +362,13 @@
                   rows="2"
                   maxlength="2000"
                   placeholder="Escribe tu consulta…"
-                  class="flex-1 min-w-0 px-3 py-2 text-sm border border-slate-200 rounded-lg resize-none focus:outline-none focus:border-indigo-400"
+                  class="flex-1 min-w-0 px-3 py-2 text-sm border border-slate-200 rounded-lg resize-none focus:outline-none focus:border-brand"
                 ></textarea>
                 <button
                   onclick={enviar}
                   disabled={sending || !cuerpo.trim()}
                   aria-label="Enviar consulta"
-                  class="px-3 sm:px-4 rounded-lg bg-indigo-600 text-white font-bold text-sm disabled:opacity-40 hover:bg-indigo-700 transition-colors flex items-center gap-1.5 shrink-0"
+                  class="px-3 sm:px-4 rounded-lg bg-brand text-white font-bold text-sm disabled:opacity-40 hover:bg-brand-hover transition-colors flex items-center gap-1.5 shrink-0"
                 >
                   {#if sending}<Loader2 size={15} class="animate-spin" />{:else}<Send
                       size={15}

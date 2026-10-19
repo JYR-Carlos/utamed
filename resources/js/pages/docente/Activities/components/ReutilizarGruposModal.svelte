@@ -142,7 +142,7 @@
                 class="accent-[#002855] w-4 h-4 shrink-0"
               />
               <span class="flex-1 text-sm text-gray-800">{a.nombre}</span>
-              <span class="text-xs text-gray-400 shrink-0">
+              <span class="text-xs text-muted-foreground shrink-0">
                 {a.cantidad_grupos} grupo{a.cantidad_grupos !== 1 ? 's' : ''}
               </span>
             </label>
@@ -190,7 +190,7 @@
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
                       <span class="text-sm font-medium text-gray-800 flex items-center gap-1">
-                        <Users class="w-3.5 h-3.5 text-gray-400" />
+                        <Users class="w-3.5 h-3.5 text-muted-foreground" />
                         {g.etiqueta}
                       </span>
                       <span
@@ -208,7 +208,7 @@
                     </div>
                     <p class="text-xs text-gray-500 mt-1 leading-relaxed">
                       {#each [...g.integrantes].sort((a, b) => (a.nombre_completo ?? '').localeCompare(b.nombre_completo ?? '', 'es', { sensitivity: 'base' })) as m, i}<span
-                          class={m.inscrito ? '' : 'line-through text-gray-400'}
+                          class={m.inscrito ? '' : 'line-through text-muted-foreground'}
                           >{m.nombre_completo}</span
                         >{i < g.integrantes.length - 1 ? ', ' : ''}{/each}
                     </p>

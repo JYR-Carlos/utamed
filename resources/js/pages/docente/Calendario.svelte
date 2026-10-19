@@ -567,7 +567,7 @@
                 consulta en el detalle de la actividad. Las sesiones de clase que aparecen son las
                 que ya tienen asistencia registrada.
                 {#if ancla !== hoyIso}
-                  <span class="text-[#8A8E9C]">Hoy es el {hoyIso.split('-').reverse().join('-')}.</span>
+                  <span class="text-muted-foreground">Hoy es el {hoyIso.split('-').reverse().join('-')}.</span>
                 {/if}
               </p>
             </div>

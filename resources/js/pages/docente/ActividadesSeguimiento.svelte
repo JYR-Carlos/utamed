@@ -280,18 +280,18 @@
       <div class="relative flex-1 min-w-[200px] max-w-xs">
         <Search
           size={13}
-          class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+          class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
         />
         <input
           type="text"
           bind:value={query}
           placeholder="Buscar actividad…"
-          class="w-full pl-8 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-slate-400 bg-white"
+          class="w-full pl-8 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-muted-foreground bg-white"
         />
         {#if query}
           <button
             onclick={() => (query = '')}
-            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-700"
             aria-label="Limpiar búsqueda"
           >
             <X size={13} />
@@ -314,7 +314,7 @@
         {/each}
       </div>
 
-      <span class="text-xs text-slate-400 ml-auto shrink-0">
+      <span class="text-xs text-muted-foreground ml-auto shrink-0">
         {actividadesFiltradas.length} actividad{actividadesFiltradas.length !== 1 ? 'es' : ''}
       </span>
     </div>
@@ -323,7 +323,7 @@
     <div class="px-6 py-5">
       {#if actividades.length === 0}
         <div
-          class="flex flex-col items-center gap-3 py-20 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-100"
+          class="flex flex-col items-center gap-3 py-20 text-center text-muted-foreground bg-slate-50 rounded-xl border border-slate-100"
         >
           <ClipboardList size={40} class="opacity-30" />
           <p class="text-sm font-medium">No hay actividades creadas para este curso.</p>
