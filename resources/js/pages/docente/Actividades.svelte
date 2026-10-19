@@ -27,11 +27,9 @@
   import { Link, page } from '@inertiajs/svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import {
-    ArrowLeft,
-    ChevronRight,
+    ChevronDown,
     ClipboardList,
     Columns3,
-    Copy,
     EyeOff,
     FilterX,
     List,
@@ -56,7 +54,7 @@
   import { hasPermission } from '@/services/permissionValidator';
   import type { Permission } from '@/types/permissions/permissions';
   import type { Actividad } from '@/types/actividad';
-  import { formatDate } from '@/utils/formatters';
+  import { formatDate, formatFechaCorta } from '@/utils/formatters';
   import { estadoActividad, type EstadoActividad, type ToggleVisibilidad } from '@/utils/actividadEstado';
 
   interface ComponenteCurso {
@@ -467,51 +465,44 @@
 
   // ── Lenguaje visual compartido (mismo vocabulario que CursoDetalle) ───────
 
-  const CARD = 'bg-white border border-[#E5E7EB] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,.08)]';
+  // Botones del mockup: 40 px en escritorio, 44 px en móvil; navy institucional.
   const BTN_PRIMARY =
-    'inline-flex items-center gap-[7px] rounded-lg border border-[#002F6C] bg-[#002F6C] px-4 py-2.5 text-[13.5px] font-semibold text-white transition-colors hover:bg-[#1B4789]';
+    'inline-flex h-11 items-center gap-2 rounded-lg bg-uta-blue px-4 text-sm font-semibold text-white transition-colors hover:bg-uta-blue-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2 sm:h-10';
   const BTN_OUTLINE =
-    'inline-flex items-center gap-[7px] rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2 text-[13px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA]';
+    'inline-flex h-11 items-center gap-2 rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue sm:h-10';
   const BTN_GHOST =
-    'inline-flex items-center gap-[7px] rounded-lg border border-transparent px-3 py-2 text-[13px] font-medium text-[#002F6C] transition-colors hover:bg-[#F5F1EA]';
+    'inline-flex h-11 items-center gap-2 rounded-lg border border-transparent px-3 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light sm:h-10';
   const PILL_AZUL =
-    'inline-flex items-center gap-1.5 rounded-full border border-[#C9D6E6] bg-[#E8EDF5] px-2.5 py-0.5 text-[12px] font-semibold text-[#002F6C]';
+    'inline-flex items-center gap-1.5 rounded-full bg-uta-blue-light px-2.5 py-0.5 text-xs font-semibold text-uta-blue';
   const PILL_NEUTRA =
-    'inline-flex items-center gap-1.5 rounded-full border border-[#E5E7EB] bg-[#F5F1EA] px-2.5 py-0.5 text-[12px] font-medium text-[#5A5E6E]';
-  const SELECT_FILTRO =
-    'h-[38px] max-w-full rounded-lg border border-[#D6D9E0] bg-white px-2.5 text-[13px] font-medium text-[#1A1A24] outline-none transition-colors hover:bg-[#FCFBF9] focus:border-[#002F6C]';
+    'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600';
+  // Filtro «Rótulo: valor» del mockup: el rótulo gris va fuera del <select> y el
+  // valor en negrita; la flecha nativa se reemplaza por un chevron propio.
+  const FILTRO_CAJA =
+    'relative inline-flex h-11 min-w-0 shrink-0 items-center rounded-lg border border-[#7B8AA0] bg-white pl-3 text-sm transition-colors hover:bg-slate-50 focus-within:border-uta-blue focus-within:ring-2 focus-within:ring-uta-blue/30 md:h-10';
+  const FILTRO_ROTULO = 'shrink-0 font-medium text-slate-600';
+  const FILTRO_SELECT =
+    'h-full min-w-0 flex-1 cursor-pointer appearance-none truncate border-0 md:flex-none md:[field-sizing:content] bg-transparent bg-none py-0 pl-1.5 pr-8 text-sm font-semibold text-[#1A1A24] outline-none focus:ring-0';
+  const FILTRO_FLECHA = 'pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#1A1A24]';
   const SEG_ACTIVO =
-    'inline-flex items-center gap-1.5 rounded-[7px] border border-[#D6D9E0] bg-white px-3 py-1.5 text-[13px] font-semibold text-[#1A1A24] shadow-[0_1px_2px_rgba(0,0,0,.05)]';
+    'inline-flex h-11 items-center gap-2 rounded-md border border-[#7B8AA0] bg-white px-4 text-[15px] font-semibold text-uta-blue md:h-9';
   const SEG_INACTIVO =
-    'inline-flex items-center gap-1.5 rounded-[7px] border border-transparent px-3 py-1.5 text-[13px] font-medium text-[#5A5E6E] transition-colors hover:text-[#1A1A24]';
+    'inline-flex h-11 items-center gap-2 rounded-md border border-transparent px-4 text-[15px] font-medium text-slate-600 transition-colors hover:text-[#1A1A24] md:h-9';
 </script>
 
 <svelte:head>
   <title>Actividades | UTAmed</title>
 </svelte:head>
 
-<DocenteLayout>
-  <div class="min-h-screen bg-white pb-16">
-    <div class="mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6 sm:px-10">
-      <!-- ── Ruta ── -->
-      <nav class="flex flex-wrap items-center gap-1.5 text-[13px] text-[#5A5E6E]" aria-label="Ruta de navegación">
-        <Link
-          href="/docente/cursos"
-          class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F5F1EA] hover:text-[#002F6C]"
-        >
-          <ArrowLeft size={15} aria-hidden="true" />
-          Mis Cursos
-        </Link>
-        <ChevronRight size={13} class="text-[#98A0AE]" aria-hidden="true" />
-        <Link
-          href="/docente/cursos/{curso.id_curso}"
-          class="rounded-lg px-2 py-1.5 font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F5F1EA] hover:text-[#002F6C]"
-        >
-          {curso.etiqueta ?? curso.cod_curso ?? 'Curso'}
-        </Link>
-        <ChevronRight size={13} class="text-[#98A0AE]" aria-hidden="true" />
-        <span class="px-1 font-medium text-[#1A1A24]" aria-current="page">Actividades</span>
-      </nav>
+<DocenteLayout
+  breadcrumbs={[
+    { title: 'Mis Cursos', href: '/docente/cursos' },
+    { title: curso.etiqueta ?? curso.cod_curso ?? 'Curso', href: `/docente/cursos/${curso.id_curso}` },
+    { title: 'Actividades', href: `/docente/cursos/${curso.id_curso}/actividades` },
+  ]}
+>
+  <div class="pb-16">
+    <div class="mx-auto flex max-w-[1120px] flex-col gap-5 px-4 md:px-0">
 
       {#if flashError}
         <p
@@ -543,15 +534,28 @@
         </p>
       {/if}
 
-      <section class="{CARD} flex flex-col gap-4 p-5">
-        <!-- ── Cabecera del curso ── -->
-        <div class="flex flex-wrap items-end gap-6">
-          <div class="flex min-w-0 flex-col gap-1.5">
+      <section class="flex flex-col gap-4">
+        <!-- ── Cabecera del curso (mockup «Actividades · Lista»): las acciones van a
+             la altura del título, no debajo de la línea de datos. ── -->
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+          <!-- Móvil (lámina 390): el curso ya está en «‹ volver»; el título es la
+               sección y la línea de datos resume la lista. -->
+          <div class="flex flex-col gap-1 md:hidden">
+            <h1 class="m-0 text-2xl font-semibold leading-[30px] text-[#1A1A24]">Actividades</h1>
+            <p class="m-0 text-sm font-medium text-slate-600">
+              {curso.total_estudiantes ?? 0}
+              {curso.total_estudiantes === 1 ? 'estudiante' : 'estudiantes'} ·
+              {actividadesDelRol.length}
+              {actividadesDelRol.length === 1 ? 'actividad' : 'actividades'} ·
+              {conteoPorEstado.activa} activas · {conteoPorEstado.cerrada} cerradas
+            </p>
+          </div>
+          <div class="flex min-w-0 flex-1 flex-col gap-1.5 max-md:hidden">
             {#if curso.cod_asignatura}
-              <span class="font-mono text-[12px] text-[#5A5E6E]">{curso.cod_asignatura}</span>
+              <span class="font-mono text-xs font-medium text-slate-600">{curso.cod_asignatura}</span>
             {/if}
             <div class="flex flex-wrap items-center gap-2.5">
-              <h1 class="m-0 text-[22px] font-semibold tracking-[-0.01em] text-[#1A1A24]">
+              <h1 class="m-0 text-2xl font-semibold leading-[30px] text-[#1A1A24] sm:text-[28px] sm:leading-[34px]">
                 {curso.asignatura_nombre ?? curso.cod_curso ?? 'Actividades del curso'}
               </h1>
               {#if curso.letra_grupo}
@@ -561,22 +565,20 @@
                 <span class={PILL_NEUTRA}>{curso.agno_real}-{curso.semestre_real}</span>
               {/if}
             </div>
-            <p class="m-0 text-[12.5px] text-[#5A5E6E]">
+            <p class="m-0 text-sm font-medium text-slate-600">
               {#if curso.fecha_inicio && curso.fecha_fin}
-                {formatDate(curso.fecha_inicio)} a {formatDate(curso.fecha_fin)} ·
+                {formatFechaCorta(curso.fecha_inicio)} a {formatFechaCorta(curso.fecha_fin)} ·
               {/if}
               {curso.total_estudiantes ?? 0}
               {curso.total_estudiantes === 1 ? 'estudiante' : 'estudiantes'} · actúas como
-              <strong class="font-semibold text-[#1A1A24]"
-                >{esTitular ? 'docente titular' : 'docente de componente'}</strong
-              >
+              {esTitular ? 'docente titular' : 'docente de componente'}
             </p>
           </div>
 
-          <div class="ml-auto flex flex-wrap items-center gap-2.5">
-            <!-- Conmutador de vista -->
+          <div class="flex flex-wrap items-center gap-2.5 lg:pt-[22px]">
+            <!-- Conmutador de vista (a todo el ancho en móvil) -->
             <div
-              class="flex items-center gap-0.5 rounded-[9px] border border-[#E5E7EB] bg-[#F5F1EA] p-[3px]"
+              class="flex items-center gap-0.5 rounded-lg bg-slate-100 p-1 max-md:w-full max-md:[&>button]:flex-1 max-md:[&>button]:justify-center"
               role="group"
               aria-label="Vista de las actividades"
             >
@@ -586,7 +588,7 @@
                 aria-pressed={vista === 'lista'}
                 onclick={() => (vista = 'lista')}
               >
-                <List size={15} class={vista === 'lista' ? 'text-[#002F6C]' : ''} aria-hidden="true" />
+                <List size={16} aria-hidden="true" />
                 Lista
               </button>
               <button
@@ -595,155 +597,149 @@
                 aria-pressed={vista === 'kanban'}
                 onclick={() => (vista = 'kanban')}
               >
-                <Columns3
-                  size={15}
-                  class={vista === 'kanban' ? 'text-[#002F6C]' : ''}
-                  aria-hidden="true"
-                />
+                <Columns3 size={16} aria-hidden="true" />
                 Tablero
               </button>
             </div>
 
             {#if esTitular && actividades.length > 0}
-              <button type="button" class={BTN_OUTLINE} onclick={() => abrirCopiar()}>
-                <Copy size={15} aria-hidden="true" />
+              <!-- En móvil se copia por actividad desde «⋯». -->
+              <button type="button" class="{BTN_OUTLINE} max-md:hidden" onclick={() => abrirCopiar()}>
                 Copiar a otro curso
               </button>
             {/if}
             {#if canCreate}
-              <button type="button" class={BTN_PRIMARY} onclick={abrirCrear}>
-                <Plus size={16} aria-hidden="true" />
-                Nueva actividad
+              <button type="button" class="{BTN_PRIMARY} max-md:w-full max-md:justify-center" onclick={abrirCrear}>
+                + Nueva actividad
               </button>
             {/if}
           </div>
         </div>
 
-        <!-- ── Barra de filtros, común a las dos vistas ── -->
+        <!-- ── Barra de filtros, común a las dos vistas: una fila, «Rótulo: valor» ── -->
         {#if actividadesDelRol.length > 0}
-          <div class="flex flex-wrap items-center gap-2 border-t border-[#E5E7EB] pt-3.5">
+          <div class="grid grid-cols-2 items-center gap-2 md:flex md:flex-nowrap md:gap-2">
             <label
-              class="inline-flex h-[38px] w-[280px] items-center gap-2 rounded-lg border border-[#D6D9E0] bg-white px-3 focus-within:border-[#002F6C]"
+              class="col-span-2 inline-flex h-11 min-w-0 items-center gap-2 rounded-lg border border-[#7B8AA0] bg-white px-3 focus-within:border-uta-blue focus-within:ring-2 focus-within:ring-uta-blue/30 md:h-10 md:min-w-[170px] md:flex-1"
             >
-              <Search size={15} class="shrink-0 text-[#98A0AE]" aria-hidden="true" />
+              <Search size={16} class="shrink-0 text-slate-600" aria-hidden="true" />
               <span class="sr-only">Buscar actividades por nombre</span>
               <input
                 type="search"
                 bind:value={busqueda}
-                placeholder="Buscar por nombre"
-                class="min-w-0 flex-1 bg-transparent text-[13.5px] text-[#1A1A24] outline-none placeholder:text-[#98A0AE]"
+                placeholder="Buscar actividad"
+                class="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm text-[#1A1A24] outline-none focus:ring-0 placeholder:text-muted-foreground"
               />
             </label>
 
-            {#if componenteBloqueado}
-              <!-- El filtro viene puesto: sin `actividades:ver` en el resto de
-                   componentes, no hay nada más que abrir. -->
-              <span
-                class="inline-flex h-[38px] items-center gap-2 rounded-lg border border-[#C9D6E6] bg-[#E8EDF5] px-3 text-[13px] text-[#002F6C]"
-                title="Sólo dictas este componente"
-              >
-                <span>Componente</span>
-                <strong class="font-semibold"
-                  >{componentesDelRol[0]?.tipo_componente?.tipo ?? '—'}</strong
-                >
-                <Lock size={13} aria-hidden="true" />
-              </span>
-            {:else if componentesDelRol.length > 1}
-              <label class="inline-flex max-w-full items-center">
-                <span class="sr-only">Filtrar por componente</span>
-                <select bind:value={filtroComponente} class={SELECT_FILTRO}>
-                  <option value="todos">Componente: todos</option>
-                  {#each componentesDelRol as c (c.id_componente)}
-                    <option value={c.id_componente}>{c.tipo_componente?.tipo ?? 'Componente'}</option>
-                  {/each}
+            {#if vista === 'lista'}
+              <label class={FILTRO_CAJA}>
+                <span class={FILTRO_ROTULO}>Estado:</span>
+                <select bind:value={filtroEstado} class={FILTRO_SELECT} aria-label="Filtrar por estado">
+                  <option value="todos">Todos</option>
+                  <option value="planificada">Planificada</option>
+                  <option value="activa">Activa</option>
+                  <option value="cerrada">Cerrada</option>
                 </select>
+                <ChevronDown size={16} class={FILTRO_FLECHA} aria-hidden="true" />
               </label>
+            {:else}
+              <span
+                class="inline-flex h-11 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 text-sm md:h-10"
+                title="En el tablero el estado es la columna, así que su filtro queda sin uso"
+              >
+                <span class="font-medium text-slate-600">Estado:</span>
+                <strong class="font-semibold text-[#1A1A24]">Todos</strong>
+                <Lock size={13} class="text-slate-600" aria-hidden="true" />
+              </span>
             {/if}
 
+            <label class={FILTRO_CAJA}>
+              <span class={FILTRO_ROTULO}>Tipo:</span>
+              <select bind:value={filtroTipo} class={FILTRO_SELECT} aria-label="Filtrar por tipo de evaluación">
+                <option value="todas">Todas</option>
+                <option value="FORMATIVA">Formativas</option>
+                <option value="SUMATIVA">Sumativas</option>
+              </select>
+              <ChevronDown size={16} class={FILTRO_FLECHA} aria-hidden="true" />
+            </label>
+
             {#if unidadesOrdenadas.length > 0}
-              <label class="inline-flex max-w-full items-center">
-                <span class="sr-only">Filtrar por unidad</span>
-                <select bind:value={filtroUnidad} class={SELECT_FILTRO}>
-                  <option value="todas">Unidad: todas</option>
+              <!-- Móvil: sólo Estado y Tipo (lámina 390); el resto desde md. -->
+              <label class="{FILTRO_CAJA} max-md:hidden">
+                <span class={FILTRO_ROTULO}>Unidad:</span>
+                <select bind:value={filtroUnidad} class="{FILTRO_SELECT} md:max-w-[10rem]" aria-label="Filtrar por unidad">
+                  <option value="todas">Todas</option>
                   {#each unidadesOrdenadas as u (u.id_unidad)}
                     <option value={u.id_unidad}
                       >{u.num_unidad != null ? `${u.num_unidad} · ` : ''}{u.nombre}</option
                     >
                   {/each}
                 </select>
+                <ChevronDown size={16} class={FILTRO_FLECHA} aria-hidden="true" />
               </label>
             {/if}
 
-            <label class="inline-flex max-w-full items-center">
-              <span class="sr-only">Filtrar por tipo de evaluación</span>
-              <select bind:value={filtroTipo} class={SELECT_FILTRO}>
-                <option value="todas">Evaluación: todas</option>
-                <option value="FORMATIVA">Sólo formativas</option>
-                <option value="SUMATIVA">Sólo sumativas</option>
-              </select>
-            </label>
-
-            {#if vista === 'lista'}
-              <label class="inline-flex max-w-full items-center">
-                <span class="sr-only">Filtrar por estado</span>
-                <select bind:value={filtroEstado} class={SELECT_FILTRO}>
-                  <option value="todos">Estado: todos</option>
-                  <option value="planificada">Planificada</option>
-                  <option value="activa">Activa</option>
-                  <option value="cerrada">Cerrada</option>
-                </select>
-              </label>
-            {:else}
+            {#if componenteBloqueado}
+              <!-- El filtro viene puesto: sin `actividades:ver` en el resto de
+                   componentes, no hay nada más que abrir. -->
               <span
-                class="inline-flex h-[38px] items-center gap-2 rounded-lg border border-[#D6D9E0] bg-[#F5F1EA] px-3 text-[13px] text-[#98A0AE]"
+                class="inline-flex h-11 items-center gap-1.5 rounded-lg bg-uta-blue-light px-3 text-sm text-uta-blue max-md:hidden md:h-10"
+                title="Sólo dictas este componente"
               >
-                <span>Estado</span>
-                <strong class="font-semibold">Todos</strong>
+                <span class="font-medium">Componente:</span>
+                <strong class="font-semibold">{componentesDelRol[0]?.tipo_componente?.tipo ?? '—'}</strong>
                 <Lock size={13} aria-hidden="true" />
               </span>
+            {:else if componentesDelRol.length > 1}
+              <label class="{FILTRO_CAJA} max-md:hidden">
+                <span class={FILTRO_ROTULO}>Componente:</span>
+                <select bind:value={filtroComponente} class={FILTRO_SELECT} aria-label="Filtrar por componente">
+                  <option value="todos">Todos</option>
+                  {#each componentesDelRol as c (c.id_componente)}
+                    <option value={c.id_componente}>{c.tipo_componente?.tipo ?? 'Componente'}</option>
+                  {/each}
+                </select>
+                <ChevronDown size={16} class={FILTRO_FLECHA} aria-hidden="true" />
+              </label>
             {/if}
 
-            <label class="inline-flex max-w-full items-center">
-              <span class="sr-only">Filtrar por visibilidad</span>
-              <select bind:value={filtroVisibilidad} class={SELECT_FILTRO}>
-                <option value="todas">Visibilidad: todas</option>
-                <option value="visibles">Visible</option>
-                <option value="ocultas">Oculta</option>
+            <label class="{FILTRO_CAJA} max-md:hidden">
+              <span class={FILTRO_ROTULO}>Visibilidad:</span>
+              <select bind:value={filtroVisibilidad} class={FILTRO_SELECT} aria-label="Filtrar por visibilidad">
+                <option value="todas">Todas</option>
+                <option value="visibles">Visibles</option>
+                <option value="ocultas">Ocultas</option>
               </select>
+              <ChevronDown size={16} class={FILTRO_FLECHA} aria-hidden="true" />
             </label>
-
-            {#if vista === 'kanban'}
-              <span class="text-[11.5px] text-pretty text-[#5A5E6E]">
-                En Kanban el estado es la columna, así que su filtro queda sin uso.
-              </span>
-            {/if}
-
-            {#if ocultasAlAlumno > 0}
-              <span
-                class="ml-auto inline-flex items-center gap-[7px] rounded-full border border-[#FDE68A] bg-[#FFFBEB] px-3 py-1.5 text-[12px] font-semibold text-[#B45309]"
-              >
-                <EyeOff size={14} aria-hidden="true" />
-                {ocultasAlAlumno}
-                {ocultasAlAlumno === 1 ? 'oculta' : 'ocultas'} al alumno
-              </span>
-            {/if}
           </div>
+
+          {#if ocultasAlAlumno > 0}
+            <span
+              class="-mt-1 inline-flex items-center gap-[7px] self-start rounded-full bg-[#FEF3C6] px-3 py-1.5 text-xs font-semibold text-[#92400E]"
+            >
+              <EyeOff size={14} aria-hidden="true" />
+              {ocultasAlAlumno}
+              {ocultasAlAlumno === 1 ? 'actividad oculta' : 'actividades ocultas'} al alumno
+            </span>
+          {/if}
         {/if}
 
         <!-- ── Cuerpo ── -->
         {#if actividadesDelRol.length === 0}
           <!-- Vacío «curso por construir»: ofrece la acción. -->
           <div
-            class="flex flex-col items-center gap-3.5 rounded-xl border border-dashed border-[#D6D9E0] bg-[#FCFBF9] px-6 py-9 text-center"
+            class="flex flex-col items-center gap-3.5 rounded-xl border border-dashed border-[#7B8AA0] bg-white px-6 py-9 text-center"
           >
-            <ClipboardList size={30} class="text-[#98A0AE]" aria-hidden="true" />
+            <ClipboardList size={30} class="text-slate-500" aria-hidden="true" />
             <div class="flex max-w-[440px] flex-col gap-1.5">
               <p class="m-0 text-[15px] font-semibold text-[#1A1A24]">
                 {esTitular
                   ? 'El curso todavía no tiene actividades'
                   : 'No hay actividades en los componentes que dictas'}
               </p>
-              <p class="m-0 text-[13px] text-pretty text-[#5A5E6E]">
+              <p class="m-0 text-sm text-pretty text-slate-600">
                 {#if esTitular}
                   Cada actividad se ancla a una unidad del syllabus y a un componente. Al crearla
                   queda planificada y oculta: el alumno la verá cuando tú la hagas visible.
@@ -768,7 +764,7 @@
                 {#each chipsActivos as chip (chip.clave)}
                   <button
                     type="button"
-                    class="inline-flex h-9 items-center gap-[7px] rounded-lg border border-[#002F6C] bg-[#E8EDF5] px-2.5 text-[12.5px] font-semibold text-[#002F6C] transition-colors hover:bg-[#DCE6F1]"
+                    class="inline-flex h-9 items-center gap-[7px] rounded-lg border border-uta-blue bg-uta-blue-light px-2.5 text-[13px] font-semibold text-uta-blue transition-colors hover:bg-white"
                     onclick={chip.quitar}
                   >
                     {chip.etiqueta}
@@ -780,7 +776,7 @@
             <div
               class="flex flex-col items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-6 py-9 text-center"
             >
-              <FilterX size={26} class="text-[#98A0AE]" aria-hidden="true" />
+              <FilterX size={26} class="text-slate-500" aria-hidden="true" />
               <div class="flex max-w-[420px] flex-col gap-1.5">
                 <p class="m-0 text-[14.5px] font-semibold text-[#1A1A24]">
                   Ninguna de las {actividadesDelRol.length}
@@ -788,7 +784,7 @@
                   {chipsActivos.length === 1 ? 'el filtro' : `los ${chipsActivos.length} filtros`}
                 </p>
                 {#if sugerencia}
-                  <p class="m-0 text-[13px] text-pretty text-[#5A5E6E]">
+                  <p class="m-0 text-sm text-pretty text-slate-600">
                     Quita <strong class="font-semibold text-[#1A1A24]">{sugerencia.etiqueta}</strong>
                     para ver {sugerencia.total}
                     {sugerencia.total === 1 ? 'resultado' : 'resultados'}.
@@ -819,24 +815,22 @@
             onDelete={abrirEliminar}
             onEnunciado={abrirEnunciado}
             onCopiar={esTitular ? abrirCopiar : undefined}
-          />
-
-          <!-- Pie: qué se está viendo y cómo se reparte. Sin paginación: el
-               controlador entrega el curso completo en una sola carga. -->
-          <div
-            class="flex flex-wrap items-center gap-4 rounded-lg border border-[#E5E7EB] bg-[#FCFBF9] px-4 py-2.5 text-[12px] text-[#5A5E6E]"
           >
-            <span class="mr-auto">
-              {actividadesFiltradas.length === actividadesDelRol.length
-                ? `${actividadesDelRol.length} ${actividadesDelRol.length === 1 ? 'actividad' : 'actividades'}`
-                : `${actividadesFiltradas.length} de ${actividadesDelRol.length} actividades`}
-              · orden por fecha límite ascendente
-            </span>
-            <span class="font-mono tabular-nums">
-              {conteoPorEstado.planificada} planificadas · {conteoPorEstado.activa} activas · {conteoPorEstado.cerrada}
-              cerradas
-            </span>
-          </div>
+            <!-- Pie dentro de la tabla: qué se está viendo, cómo se reparte y qué
+                 significan los colores del avance. Sin paginación: el controlador
+                 entrega el curso completo en una sola carga. -->
+            {#snippet pie()}
+              <span class="mr-auto">
+                {actividadesFiltradas.length === actividadesDelRol.length
+                  ? `${actividadesDelRol.length} ${actividadesDelRol.length === 1 ? 'actividad' : 'actividades'}`
+                  : `${actividadesFiltradas.length} de ${actividadesDelRol.length} actividades`}
+                · orden por fecha límite
+                {#if conteoPorEstado.planificada > 0}· {conteoPorEstado.planificada} planificadas{/if}
+                · {conteoPorEstado.activa} activas · {conteoPorEstado.cerrada} cerradas
+              </span>
+              <span>Avance: verde = calificadas o con feedback · ámbar = pendientes de calificar o revisar</span>
+            {/snippet}
+          </ActividadesTabla>
         {:else}
           <ActividadesPorEstado
             actividades={actividadesFiltradas}
