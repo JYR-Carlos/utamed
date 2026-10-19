@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Link, page } from '@inertiajs/svelte';
-  import { Search, ChevronRight, BookOpenCheck, Calendar } from 'lucide-svelte';
+  import { Search, ChevronRight } from 'lucide-svelte';
   import type { SidebarCourse } from '@/types';
   import { hasPermission } from '@/services/permissionValidator';
   import { tonoGrupo } from '@/utils/grupoColor';
@@ -166,54 +166,50 @@
 {#snippet courseRow(curso: SidebarCourse, current: boolean)}
   {@const activo = esActivo(curso)}
   {@const grupo = tonoGrupo(curso.letra_grupo)}
-  <div class="rounded-lg border-l-4 transition-colors {grupo.barra} {activo ? 'bg-indigo-50' : 'hover:bg-gray-50'}">
+  <div class="rounded-[10px] transition-colors {activo ? 'bg-uta-blue-light' : 'hover:bg-slate-50'}">
     <Link
       href="{basePath}/{curso.id_curso}"
-      class="flex min-h-11 flex-col justify-center gap-0.5 rounded-lg px-3 py-2 no-underline"
+      class="flex min-h-11 flex-col justify-center gap-1 rounded-[10px] px-2.5 pt-2.5 pb-1.5 no-underline"
       aria-current={activo ? 'page' : undefined}
     >
       <!-- El nombre puede ocupar dos líneas: con truncate se cortaba justo lo
            que distingue a dos cursos hermanos; el grupo va debajo, con el código. -->
       <span
-        class="line-clamp-2 text-sm leading-snug {activo
-          ? 'font-semibold text-uta-blue'
-          : current
-            ? 'font-medium text-slate-700'
-            : 'font-medium text-slate-600'}"
+        class="line-clamp-2 text-sm leading-snug font-semibold {current ? 'text-[#1A1A24]' : 'text-slate-600'}"
         title={curso.etiqueta ?? curso.nombre}>{nombreSinGrupo(curso)}</span
       >
-      <span class="flex items-center gap-1.5 text-xs font-medium text-slate-600">
-        <span class="truncate">{curso.cod_curso}</span>
+      <span class="flex items-center gap-2 text-xs text-slate-600">
+        <span class="truncate font-mono">{curso.cod_curso}</span>
         {#if curso.letra_grupo}
-          <span class="shrink-0 rounded-full px-2 py-px text-[11px] font-bold {grupo.chip}">Grupo {curso.letra_grupo}</span>
+          <span class="shrink-0 rounded-full px-2 py-px text-[11px] font-semibold {grupo.chip}">Grupo {curso.letra_grupo}</span>
         {/if}
       </span>
     </Link>
     {#if showPrograma || showActividades}
-      <div class="flex flex-wrap items-center gap-1.5 px-3 pb-2">
+      <div class="flex flex-wrap items-center gap-2 px-2.5 pb-2.5">
         {#if showPrograma}
           {#if curso.tiene_programa}
             <Link
               href="{basePath}/{curso.id_curso}/programa"
-              class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-all"
+              class="flex min-h-11 lg:min-h-8 items-center rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition-colors hover:border-uta-blue hover:text-uta-blue"
             >
-              <BookOpenCheck size={14} class="shrink-0" /> Programa
+              Programa
             </Link>
           {:else if hasPermission(curso.permisos, 'cursos/programas:crear')}
             <Link
               href="{basePath}/{curso.id_curso}/programa/create"
-              class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all"
+              class="flex min-h-11 lg:min-h-8 items-center rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition-colors hover:border-uta-blue hover:text-uta-blue"
             >
-              <BookOpenCheck size={14} class="shrink-0" /> Crear programa
+              Crear programa
             </Link>
           {/if}
         {/if}
         {#if showActividades}
           <Link
             href="{basePath}/{curso.id_curso}/actividades"
-            class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 bg-slate-50 hover:bg-[#22213F]/8 hover:text-[#22213F] transition-all"
+            class="flex min-h-11 lg:min-h-8 items-center rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition-colors hover:border-uta-blue hover:text-uta-blue"
           >
-            <Calendar size={14} class="shrink-0" /> Actividades
+            Actividades
           </Link>
         {/if}
       </div>
@@ -224,20 +220,20 @@
 <!-- Buscador -->
 <div class="px-4 mb-3">
   <div
-    class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg transition-all focus-within:border-[#22213F]/40 focus-within:ring-2 focus-within:ring-[#22213F]/10"
+    class="flex h-10 items-center gap-2 px-3 bg-white border border-[#7B8AA0] rounded-lg transition-all focus-within:border-uta-blue focus-within:ring-2 focus-within:ring-uta-blue"
   >
-    <Search size={14} class="text-slate-400 shrink-0" />
+    <Search size={16} class="text-[#5B6A82] shrink-0" />
     <input
       type="text"
       bind:value={search}
       placeholder="Buscar curso o período…"
-      class="flex-1 bg-transparent border-0 outline-none text-[13px] text-slate-700 placeholder:text-slate-400"
+      class="flex-1 bg-transparent border-0 outline-none text-sm text-slate-700 placeholder:text-muted-foreground"
     />
   </div>
 </div>
 
 {#if courses.length === 0}
-  <p class="px-8 py-2 text-sm text-slate-400 italic font-medium">{emptyLabel}</p>
+  <p class="px-8 py-2 text-sm text-muted-foreground italic font-medium">{emptyLabel}</p>
 {:else}
   <!-- Período actual: desplegado por defecto, plegable -->
   {#if currentPeriod}
@@ -253,13 +249,13 @@
       >
         <ChevronRight
           size={12}
-          class="shrink-0 text-[#22213F] transition-transform {mostrarActual ? 'rotate-90' : ''}"
+          class="shrink-0 text-slate-600 transition-transform {mostrarActual ? 'rotate-90' : ''}"
         />
-        <span class="text-[11px] font-bold uppercase tracking-widest text-[#22213F]">
+        <span class="text-[11px] font-bold uppercase tracking-wide text-slate-600">
           Período actual · Año {currentPeriod.year} · Semestre {currentPeriod.sem}
         </span>
         <span
-          class="ml-auto text-[10px] font-semibold text-[#22213F]/70 bg-[#22213F]/5 rounded-full px-2 py-0.5"
+          class="ml-auto shrink-0 rounded-full border border-slate-200 bg-slate-100 px-[7px] py-px text-[11px] font-semibold text-slate-600"
         >
           {currentCourses.length}
         </span>
@@ -271,7 +267,7 @@
             {@render courseRow(curso, true)}
           {/each}
           {#if filteredCurrent.length === 0}
-            <p class="px-2 py-1 text-xs text-slate-400 italic">Sin coincidencias</p>
+            <p class="px-2 py-1 text-xs text-muted-foreground italic">Sin coincidencias</p>
           {/if}
         </div>
       {/if}
@@ -292,15 +288,15 @@
         }}
       >
         <summary
-          class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wide text-slate-500 hover:bg-slate-50 transition-all cursor-pointer list-none [&::-webkit-details-marker]:hidden"
+          class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-50 transition-all cursor-pointer list-none [&::-webkit-details-marker]:hidden"
         >
           <ChevronRight
             size={12}
-            class="shrink-0 text-slate-400 transition-transform {mostrarAnteriores ? 'rotate-90' : ''}"
+            class="shrink-0 text-slate-600 transition-transform {mostrarAnteriores ? 'rotate-90' : ''}"
           />
           Períodos anteriores
           <span
-            class="ml-auto text-[10px] font-semibold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5"
+            class="ml-auto shrink-0 rounded-full border border-slate-200 bg-slate-100 px-[7px] py-px text-[11px] font-semibold text-slate-600"
           >
             {historicalCount}
           </span>
@@ -309,7 +305,7 @@
         <div class="flex flex-col gap-3 mt-2 mb-1">
           {#each filteredHistorical as group (group.key)}
             <div>
-              <p class="px-2 mb-1.5 text-[10.5px] font-bold uppercase tracking-wide text-slate-400">
+              <p class="px-2 mb-1.5 text-[10.5px] font-bold uppercase tracking-wide text-muted-foreground">
                 {group.label}
               </p>
               <div class="flex flex-col gap-1.5">
@@ -320,7 +316,7 @@
             </div>
           {/each}
           {#if search.trim() && filteredHistorical.length === 0}
-            <p class="px-2 py-1 text-xs text-slate-400 italic">
+            <p class="px-2 py-1 text-xs text-muted-foreground italic">
               Sin coincidencias en períodos anteriores
             </p>
           {/if}

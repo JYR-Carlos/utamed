@@ -103,6 +103,59 @@
 }
 
 @layer base {
+    /* Portal docente: el contenido va sobre gris claro y las tarjetas en blanco,
+       como en el mockup de la auditoría UI (2026-10-19). Sólo el área de contenido;
+       menú lateral y barra superior siguen blancos. */
+    .docente-shell #contenido {
+        background-color: #F8FAFC;
+        min-height: 100%;
+    }
+}
+
+/* Barra superior del mockup: buscador y botones blancos con borde de
+   control (#7B8AA0, 3:1) en vez de gris sobre gris. Los estilos base viven
+   en AppSidebarHeader.svelte (scoped, fuera de capa): por eso estas reglas
+   también van fuera de @layer, si no pierden siempre. Sólo pisan el docente. */
+@media all {
+    .docente-shell .global-header {
+        border-bottom-color: #E2E8F0;
+    }
+    .docente-shell .global-header .search-box {
+        background: #fff;
+        border-color: #7B8AA0;
+        border-radius: 8px;
+    }
+    .docente-shell .global-header .search-box:hover {
+        background: #F8FAFC;
+    }
+    .docente-shell .global-header .icon-btn {
+        background: #fff;
+        border-color: #7B8AA0;
+        border-radius: 8px;
+        color: #1A1A24;
+    }
+    .docente-shell .global-header .icon-btn:hover {
+        background: #F8FAFC;
+    }
+    .docente-shell .global-header .mobile-search-trigger {
+        background: #fff;
+        border-color: #7B8AA0;
+        border-radius: 8px;
+        color: #1A1A24;
+        box-shadow: none;
+    }
+}
+
+@layer base {
+    /* Placeholder legible: Tailwind v4 lo deja al 50 % de currentColor (≈3.4:1);
+       con --muted-foreground llega a ≈5:1 (auditoría UI docente 2026-10-19, #10). */
+    ::placeholder {
+        color: var(--muted-foreground);
+        opacity: 1;
+    }
+}
+
+@layer base {
     :root {
         --background: hsl(210 33% 97%);
         /* Pale blue-gray background */

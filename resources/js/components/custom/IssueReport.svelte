@@ -117,7 +117,7 @@
 <button
   type="button"
   onclick={() => (isOpen = true)}
-  class="group flex min-h-11 cursor-pointer items-center justify-center gap-0 sm:gap-2 rounded-[10px] border border-[#D5D9E0] bg-white px-4 text-sm font-semibold text-[#002855] max-sm:size-11 max-sm:px-0 transition-colors duration-200 ease-out hover:bg-slate-50"
+  class="group flex min-h-11 cursor-pointer items-center justify-center gap-0 sm:gap-2 rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-[#002855] max-sm:size-11 max-sm:px-0 transition-colors duration-200 ease-out hover:bg-slate-50"
   title="Reportar error"
   aria-label="Reportar error"
 >

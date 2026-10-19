@@ -164,9 +164,9 @@
     <div class="flex items-center gap-3">
       <AppLogo />
       <div class="flex flex-col">
-        <span class="font-extrabold text-[#22213F] text-lg leading-none tracking-tight">UTAMED</span
+        <span class="font-extrabold text-uta-blue text-lg leading-none tracking-tight">UTAMED</span
         >
-        <span class="text-[10px] text-slate-500 font-bold tracking-widest uppercase mt-1"
+        <span class="text-[10px] text-muted-foreground font-semibold tracking-widest uppercase mt-1"
           >Sistema de Gestión</span
         >
       </div>
@@ -189,7 +189,7 @@
                 <ActiveIcon size={16} />
               </div>
               <div class="flex flex-col min-w-0">
-                <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 leading-tight"
+                <span class="text-[9px] font-bold uppercase tracking-wider text-muted-foreground leading-tight"
                   >Ambiente</span
                 >
                 <span class="text-xs font-bold text-slate-800 truncate leading-tight mt-0.5"
@@ -206,7 +206,7 @@
             sideOffset={4}
           >
             <DropdownMenuLabel
-              class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400"
+              class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
             >
               Cambiar de ambiente
             </DropdownMenuLabel>
@@ -251,25 +251,27 @@
     {#snippet navLink(href: string, label: string, Icon: any, admin: boolean = false, big: boolean = false)}
       <Link
         {href}
-        class="nav-link flex min-h-11 items-center gap-3 rounded-xl transition-all group {big
-          ? 'px-4 py-2.5 text-[15px] font-bold'
-          : 'px-4 py-2.5 text-[14px] font-semibold'} {isActive(href)
+        class="nav-link mx-3 flex min-h-11 items-center gap-3 rounded-lg transition-all group {big
+          ? 'px-3 py-2.5 text-[15px] font-bold'
+          : admin
+            ? 'px-3 py-2.5 text-[14px] font-semibold'
+            : 'px-3 py-2.5 text-[15px] font-medium'} {isActive(href)
           ? admin
             ? 'bg-indigo-50 text-indigo-700'
-            : 'bg-gray-100 text-uta-blue'
+            : 'bg-uta-blue-light text-uta-blue'
           : admin
             ? 'text-slate-800 hover:bg-slate-50 hover:text-indigo-600'
-            : 'text-slate-600 hover:bg-slate-50 hover:text-[#22213F]'}"
+            : 'text-[#1A1A24] hover:bg-slate-50 hover:text-uta-blue'}"
       >
         <Icon
           size={big ? 20 : 18}
           class="{isActive(href)
             ? admin
               ? 'text-indigo-500'
-              : 'text-[#22213F]'
+              : 'text-uta-blue'
             : admin
-              ? 'text-slate-400 group-hover:text-indigo-500'
-              : 'text-slate-400 group-hover:text-[#22213F]'} shrink-0 transition-colors"
+              ? 'text-muted-foreground group-hover:text-indigo-500'
+              : 'text-slate-600 group-hover:text-uta-blue'} shrink-0 transition-colors"
         />
         {label}
       </Link>
@@ -277,8 +279,8 @@
 
     <!-- Título de sección. -->
     {#snippet sectionTitle(label: string)}
-      <div class="px-6 mb-1">
-        <span class="text-xs font-bold uppercase tracking-[0.06em] text-slate-600 whitespace-nowrap"
+      <div class="px-4 mb-2.5">
+        <span class="text-[11px] font-bold uppercase tracking-[0.06em] text-slate-600 whitespace-nowrap"
           >{label}</span
         >
       </div>
