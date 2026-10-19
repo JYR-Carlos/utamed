@@ -39,7 +39,6 @@
   import type { Rubrica } from '@/types/rubrica';
   import type { InteraccionItem } from '@/types/agenda';
   import {
-    ChevronLeft,
     Plus,
     Users,
     Pencil,
@@ -83,13 +82,15 @@
     /** Cómo se rotula el grupo: nombre del estudiante (individual) o nombre propio / «Grupo N». */
     etiqueta: string;
     /** Resumen de la entrega vigente del grupo; null si aún no entregó. */
-    entrega?: { fecha: string; fuera_de_plazo: boolean; cantidad: number } | null;
+    entrega?: { id_agenda?: number; fecha: string; fuera_de_plazo: boolean; cantidad: number } | null;
     nota: number | null;
     estado_actividad_asignada: string | null;
     nro_dias_adicionales_para_bloqueo_personal: number;
     integrantes: IntegranteData[];
     /** Mensajes del grupo que el docente aún no ha visto. */
     no_leidos?: number;
+    /** Formativas: ya tiene feedback del docente (entrega revisada). */
+    con_feedback?: boolean;
   };
 
   type EstudianteInscrito = {
@@ -455,6 +456,12 @@
     showMatrizEvaluacion = true;
   }
 
+  /** «Calificar» de la fila: abre la rúbrica sobre la entrega vigente, sin pasar por «Entregas». */
+  function calificarDesdeFila(grupo: GrupoData, idAgenda: number | null) {
+    grupoEntregasSeleccionado = grupo;
+    abrirMatrizEvaluacion(idAgenda);
+  }
+
   function cerrarMatrizEvaluacion() {
     showMatrizEvaluacion = false;
     entregaParaEvaluar = null;
@@ -646,6 +653,10 @@
 
   const cierre = $derived(actividad.fecha_limite ? textoCierre(actividad.fecha_limite) : null);
 
+  /** Botón secundario del mockup: 40 px (44 en móvil), borde de control y texto navy. */
+  const BTN_SEC =
+    'inline-flex h-11 items-center gap-2 rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue sm:h-10';
+
   // ─── Enunciado ────────────────────────────────────────────────────────────
   // Vive junto a la rúbrica en «Sobre esta actividad». Sólo el titular puede
   // adjuntarlo o reemplazarlo (CursoPolicy::manageTeam en subirEnunciado).
@@ -666,223 +677,147 @@
 </svelte:head>
 
 <DocenteLayout {breadcrumbs}>
-  <div class="px-4 sm:px-6 md:px-10 lg:px-20 bg-white relative">
-    <!-- Cabecera -->
-    <div
-      class="w-full flex flex-col lg:flex-row items-start lg:items-center gap-4 sm:gap-6 lg:gap-20 mb-6"
-    >
-      <Link
-        class="flex items-center px-4 sm:px-6 py-3 sm:py-4 bg-uta-blue text-white hover:bg-uta-blue-hover transition-colors rounded-2xl shrink-0"
-        href="/docente/cursos/{curso.id_curso}?tab=actividades"
-      >
-        <ChevronLeft class="w-4 h-4 mr-2" />
-        <p class="text-sm sm:text-base">Volver</p>
-      </Link>
+  <div class="relative mx-auto flex max-w-[1120px] flex-col gap-5 px-4 pb-12 md:px-0">
+    <!-- ── Encabezado (mockup «Hoja de evaluación»): el título es el <h1> de la página ── -->
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+      <div class="flex min-w-0 flex-1 flex-col gap-2">
+        <h1 class="m-0 break-words text-xl font-semibold leading-[26px] text-[#1A1A24] sm:text-2xl sm:leading-[30px]">
+          {actividad.nombre}
+        </h1>
+        <p class="m-0 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm font-medium text-slate-600">
+          <span class="font-semibold text-[#1A1A24]">{actividad.es_sumativa ? 'Sumativa' : 'Formativa'}</span>
+          <span aria-hidden="true">·</span>
+          <!-- Fecha sin hora: cierra a las 23:59 de Chile, no a la medianoche UTC. -->
+          <span>{cierre ? `Cierra el ${cierre.chile} (hora de Chile)` : 'Sin fecha límite'}</span>
+          {#if cierre?.local}
+            <span class="text-xs text-slate-600">· tu hora: {cierre.local}</span>
+          {/if}
+          {#if actividad.nro_dias_adicionales_para_bloqueo > 0}
+            <span aria-hidden="true">·</span>
+            <span>
+              Plazo adicional de {actividad.nro_dias_adicionales_para_bloqueo} día{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 's' : ''}
+            </span>
+          {/if}
+          {#if !actividad.trae_archivo}
+            <span aria-hidden="true">·</span>
+            <span>Presencial, sin archivo</span>
+          {/if}
+          <span aria-hidden="true">·</span>
+          <span>{curso.etiqueta ?? curso.nombre}</span>
+        </p>
+      </div>
 
-      <h2 class="text-base sm:text-xl md:text-2xl font-semibold break-words leading-snug">
-        {curso.nombre}: {actividad.nombre}
-      </h2>
+      <div class="flex flex-wrap items-center gap-2">
+        {#if actividad.archivo_enunciado}
+          <a
+            href={urlEnunciado}
+            class="{BTN_SEC} no-underline"
+            title={actividad.archivo_enunciado.nombre_original}
+          >
+            <Download class="size-4 shrink-0" />
+            Enunciado
+            {#if detalleEnunciado}<span class="text-xs font-medium text-slate-600">{detalleEnunciado}</span>{/if}
+          </a>
+          {#if actividad.es_titular}
+            <button
+              type="button"
+              class="{BTN_SEC} w-11 justify-center px-0 sm:w-10"
+              title="Reemplazar enunciado"
+              aria-label="Reemplazar enunciado"
+              onclick={() => (showEnunciado = true)}
+            >
+              <Upload class="size-4" />
+            </button>
+          {/if}
+        {:else if actividad.es_titular}
+          <button type="button" class="{BTN_SEC} border-dashed" onclick={() => (showEnunciado = true)}>
+            <FileText class="size-4 shrink-0" />
+            Adjuntar enunciado
+          </button>
+        {/if}
+        {#if actividad.es_sumativa && (actividad.es_titular || rubrica)}
+          <button class={BTN_SEC} onclick={() => (showRubricaEditor = true)}>
+            {#if puede_editar_rubrica || !rubrica}
+              <Pencil class="size-4 shrink-0" />
+            {:else}
+              <Eye class="size-4 shrink-0" />
+            {/if}
+            {#if !rubrica}
+              Crear rúbrica
+            {:else if puede_editar_rubrica}
+              Editar rúbrica
+            {:else}
+              Ver rúbrica
+            {/if}
+          </button>
+        {/if}
+        {#if actividad.es_titular && grupos.length > 0}
+          <button onclick={abrirMensajeTodos} class={BTN_SEC}>
+            <Send class="size-4 shrink-0" />
+            {actividad.es_grupal ? 'Mensaje a todos los grupos' : 'Mensaje a todos'}
+          </button>
+        {/if}
+      </div>
     </div>
+
+    {#if actividad.es_sumativa && tiene_evaluaciones && rubrica}
+      <p class="-mt-2 m-0 inline-flex items-center gap-1.5 text-xs font-medium text-[#92400E]">
+        <Lock class="size-3.5 shrink-0" />
+        Evaluaciones iniciadas: la rúbrica quedó bloqueada.
+      </p>
+    {/if}
 
     <!-- ── Flash messages (resultado de la última acción) ── -->
     {#if flash?.success}
-      <div class="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+      <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
         {flash.success}
       </div>
     {/if}
     {#if flash?.error}
-      <div class="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+      <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
         {flash.error}
       </div>
     {/if}
 
-    <!--
-      Resumen arriba y grupos abajo, los dos a ancho completo.
-
-      Antes era un grid de dos columnas iguales (`xl:grid-cols-2`), pero los dos
-      lados no tienen nada que ver en tamaño: a la izquierda van cuatro líneas
-      fijas de datos y un botón, y a la derecha una lista que crece con cada
-      grupo del curso. El resultado era media pantalla casi vacía al lado de una
-      columna larguísima, y encima los grupos —lo que el docente viene a hacer—
-      quedaban confinados a la mitad angosta.
-
-      Puesto uno sobre otro, el resumen ocupa lo que necesita (una banda que se
-      reparte en columnas según quepa) y los grupos usan todo el ancho.
-    -->
     <div class="flex w-full flex-col gap-6 lg:gap-8">
-      <!-- ── Resumen de la actividad ── -->
-      <div
-        class="flex flex-col w-full gap-4 lg:rounded-2xl lg:border lg:border-gray-200 lg:px-8 lg:py-5 lg:shadow-sm"
-      >
-        <p class="text-start text-sm sm:text-base font-semibold text-uta-blue">
-          Sobre esta Actividad
-        </p>
-
-        <div class="flex flex-col gap-4 md:flex-row md:items-stretch">
-          <!--
-            Los datos ya no son cuatro líneas apiladas con <br>: en una banda
-            ancha eso deja una línea de texto corta perdida en mucho blanco.
-            Cada dato es una celda con su rótulo, y la banda las reparte según
-            el ancho disponible.
-          -->
-          <dl
-            class="grid flex-1 grid-cols-2 gap-x-6 gap-y-3 rounded-2xl border border-uta-blue/15 bg-uta-blue-light px-4 py-4 text-sm sm:grid-cols-3 sm:px-6 lg:grid-cols-4"
-          >
-            <div class="min-w-0">
-              <dt class="text-xs font-medium text-slate-500">Fecha límite</dt>
-              <!-- Fecha sin hora: cierra a las 23:59 de Chile, no a la medianoche UTC
-                   que daba new Date() (se veía «23 sept, 09:00 p. m.»). -->
-              {#if cierre}
-                <dd class="font-semibold text-slate-700 break-words">
-                  {cierre.chile} <span class="font-normal text-slate-500">(hora de Chile)</span>
-                </dd>
-                {#if cierre.local}
-                  <dd class="text-xs text-slate-500">Tu hora: {cierre.local}</dd>
-                {/if}
-              {:else}
-                <dd class="font-semibold text-slate-700">Sin fecha límite</dd>
-              {/if}
-            </div>
-            <div class="min-w-0">
-              <dt class="text-xs font-medium text-slate-500">Tipo de actividad</dt>
-              <dd class="font-semibold text-slate-700">
-                {actividad.es_sumativa ? 'Sumativa' : 'Formativa'}
-              </dd>
-            </div>
-            <div class="min-w-0">
-              <dt class="text-xs font-medium text-slate-500">Entrega de archivo</dt>
-              <dd class="font-semibold text-slate-700">{actividad.trae_archivo ? 'Sí' : 'No'}</dd>
-            </div>
-            {#if actividad.nro_dias_adicionales_para_bloqueo > 0}
-              <div class="min-w-0">
-                <dt class="text-xs font-medium text-slate-500">Plazo adicional</dt>
-                <dd class="font-semibold text-slate-700">
-                  {actividad.nro_dias_adicionales_para_bloqueo} día{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 's' : ''} adicional{actividad.nro_dias_adicionales_para_bloqueo !== 1 ? 'es' : ''}
-                </dd>
-              </div>
-            {/if}
-          </dl>
-
-          <!-- Enunciado y rúbrica (solo sumativas): al lado del resumen, no debajo ocupando el ancho. -->
-          <div class="flex flex-col gap-1.5 shrink-0 md:w-56 md:self-stretch">
-            {#if actividad.archivo_enunciado}
-              <div class="flex flex-1 items-stretch gap-1.5">
-                <a
-                  href={urlEnunciado}
-                  class="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-uta-blue bg-uta-blue-light px-4 py-3 text-uta-blue no-underline transition-all hover:bg-uta-blue hover:text-white"
-                  title={actividad.archivo_enunciado.nombre_original}
-                >
-                  <Download class="size-5 shrink-0" />
-                  <span class="flex min-w-0 flex-col">
-                    <span class="text-sm font-semibold">Enunciado</span>
-                    {#if detalleEnunciado}<span class="text-[11px] opacity-80">{detalleEnunciado}</span>{/if}
-                  </span>
-                </a>
-                {#if actividad.es_titular}
-                  <button
-                    type="button"
-                    class="flex w-11 shrink-0 items-center justify-center rounded-xl border border-uta-blue bg-white text-uta-blue transition-all hover:bg-uta-blue hover:text-white"
-                    title="Reemplazar enunciado"
-                    aria-label="Reemplazar enunciado"
-                    onclick={() => (showEnunciado = true)}
-                  >
-                    <Upload class="size-4" />
-                  </button>
-                {/if}
-              </div>
-            {:else if actividad.es_titular}
-              <button
-                type="button"
-                class="flex flex-1 w-full items-center justify-between gap-4 rounded-xl border border-dashed border-uta-blue bg-white px-4 py-3 text-sm font-semibold text-uta-blue transition-all hover:bg-uta-blue-light sm:px-6"
-                onclick={() => (showEnunciado = true)}
-              >
-                <p>Adjuntar enunciado</p>
-                <FileText class="size-5 shrink-0" />
-              </button>
-            {:else}
-              <div class="flex flex-1 items-center gap-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-xs font-medium text-gray-500">
-                <FileText class="size-5 shrink-0 text-gray-400" />
-                Sin enunciado adjunto
-              </div>
-            {/if}
-            {#if actividad.es_sumativa && (actividad.es_titular || rubrica)}
-              <button
-                class="flex flex-1 w-full items-center justify-between gap-4 rounded-xl border border-uta-blue bg-white px-4 py-3 text-sm font-semibold text-uta-blue transition-all hover:bg-uta-blue hover:text-white sm:px-6"
-                onclick={() => (showRubricaEditor = true)}
-              >
-                <p>
-                  {#if !rubrica}
-                    Crear Rúbrica
-                  {:else if puede_editar_rubrica}
-                    Editar Rúbrica
-                  {:else}
-                    Ver Rúbrica
-                  {/if}
-                </p>
-                {#if puede_editar_rubrica || !rubrica}
-                  <Pencil class="size-5 shrink-0" />
-                {:else}
-                  <Eye class="size-5 shrink-0" />
-                {/if}
-              </button>
-              {#if tiene_evaluaciones && rubrica}
-                <div class="flex shrink-0 items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[11px] font-medium leading-tight">
-                  <Lock class="w-3.5 h-3.5 shrink-0 text-amber-600" />
-                  <span>Evaluaciones iniciadas (rúbrica bloqueada)</span>
-                </div>
-              {/if}
-            {/if}
-          </div>
-        </div>
-      </div>
-
       <!-- ── Grupos asignados ── -->
       <div class="flex flex-col w-full gap-4">
-        <div class="flex justify-between items-center">
-          <p class="text-start text-sm sm:text-base font-semibold text-uta-blue">
-            {actividad.es_grupal ? 'Grupos Asignados' : 'Estudiantes Asignados'}
-          </p>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-gray-500 font-medium">
-              {grupos.length} {actividad.es_grupal ? (grupos.length === 1 ? 'grupo' : 'grupos') : (grupos.length === 1 ? 'estudiante' : 'estudiantes')}
-            </span>
-            {#if actividad.es_titular && grupos.length > 0}
-              <button
-                onclick={abrirMensajeTodos}
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-uta-blue text-uta-blue text-xs font-semibold rounded-xl hover:bg-uta-blue/5 transition-colors"
-              >
-                <Send class="w-3.5 h-3.5" />
-                {actividad.es_grupal ? 'Mensaje a todos los grupos' : 'Mensaje a todos'}
-              </button>
-            {/if}
-            {#if actividad.es_grupal && actividad.es_titular}
-              {#if actividadesConGrupos.length > 0}
+        {#if actividad.es_grupal}
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <p class="text-start text-sm font-semibold text-uta-blue sm:text-base">Grupos asignados</p>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs font-medium text-slate-600">
+                {grupos.length} {grupos.length === 1 ? 'grupo' : 'grupos'}
+              </span>
+              {#if actividad.es_titular}
+                {#if actividadesConGrupos.length > 0}
+                  <button
+                    onclick={() => {
+                      showReutilizarGrupos = true;
+                      actividadOrigenSeleccionada = null;
+                      reutilizarGruposError = null;
+                    }}
+                    class={BTN_SEC}
+                  >
+                    <Copy class="size-4" />
+                    Reutilizar grupos
+                  </button>
+                {/if}
                 <button
                   onclick={() => {
-                    showReutilizarGrupos = true;
-                    actividadOrigenSeleccionada = null;
-                    reutilizarGruposError = null;
+                    showNuevoGrupo = true;
+                    seleccion = new Set();
+                    nuevoGrupoError = null;
                   }}
-                  class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-uta-blue text-uta-blue text-xs font-semibold rounded-xl hover:bg-uta-blue/5 transition-colors"
+                  class="inline-flex h-11 items-center gap-2 rounded-lg bg-uta-blue px-4 text-sm font-semibold text-white transition-colors hover:bg-uta-blue-hover sm:h-10"
                 >
-                  <Copy class="w-3.5 h-3.5" />
-                  Reutilizar Grupos
+                  <Plus class="size-4" />
+                  Nuevo grupo
                 </button>
               {/if}
-              <button
-                onclick={() => {
-                  showNuevoGrupo = true;
-                  seleccion = new Set();
-                  nuevoGrupoError = null;
-                }}
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-uta-blue text-white text-xs font-semibold rounded-xl hover:bg-uta-blue-hover transition-colors"
-              >
-                <Plus class="w-3.5 h-3.5" />
-                Nuevo Grupo
-              </button>
-            {/if}
+            </div>
           </div>
-        </div>
+        {/if}
 
         {#if actividad.es_grupal && estudiantesInscritos.length > 0}
           <div class="text-xs text-gray-500 px-1 flex items-center gap-1.5">
@@ -906,6 +841,9 @@
             {grupos}
             esTitular={actividad.es_titular}
             traeArchivo={actividad.trae_archivo}
+            esSumativa={actividad.es_sumativa}
+            puedeCalificar={!!(rubrica && rubrica_id)}
+            onCalificar={calificarDesdeFila}
             {savingDecimas}
             {getEstadoColor}
             {formatDecimas}
@@ -965,9 +903,9 @@
           <div
             class="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-gray-200 rounded-3xl"
           >
-            <Users class="w-10 h-10 text-gray-300 mb-3" />
+            <Users class="w-10 h-10 text-slate-500 mb-3" />
             <p class="text-sm text-gray-500 font-medium">No hay grupos creados aún</p>
-            <p class="text-xs text-gray-400 mt-1">
+            <p class="text-xs text-muted-foreground mt-1">
               Crea el primer grupo con los estudiantes inscritos
             </p>
             <div class="mt-4 flex items-center gap-2">
@@ -1064,7 +1002,7 @@
             </p>
           </div>
           <button
-            class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            class="rounded-lg p-1 text-muted-foreground hover:bg-gray-100 hover:text-gray-600"
             aria-label="Cerrar"
             disabled={enviandoTodos}
             onclick={() => (showMensajeTodos = false)}

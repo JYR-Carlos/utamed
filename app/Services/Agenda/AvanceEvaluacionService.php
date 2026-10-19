@@ -79,9 +79,14 @@ class AvanceEvaluacionService
 
     /**
      * Grupos con feedback dirigido a ellos (no un mensaje masivo), como mapa
-     * id_grupo => índice para usar con has().
+     * id_grupo => índice para usar con has(). Público porque la hoja de
+     * evaluación marca con el mismo criterio cada entrega formativa como
+     * «Revisada» (decisión del 2026-10-19: se completa sólo con feedback).
+     *
+     * @param  Collection<int, int>  $idsGrupo
+     * @param  Collection<int, int>  $actividadDeGrupo  id_grupo => id_actividad
      */
-    private function gruposConFeedback(Collection $idsGrupo, Collection $actividadDeGrupo): Collection
+    public function gruposConFeedback(Collection $idsGrupo, Collection $actividadDeGrupo): Collection
     {
         if ($idsGrupo->isEmpty()) {
             return collect();

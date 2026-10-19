@@ -888,10 +888,20 @@ class DocenteActivityController extends Controller
         $limiteOriginal = $actividad->fecha_limite?->copy()->endOfDay();
 
         // Grupos con sus integrantes (modelo nuevo: actividad_asignada_grupo)
-        $grupos = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
+        $gruposActividad = ActividadAsignadaGrupo::where('id_actividad', $actividad->id_actividad)
             ->with(['integranteGrupos.estudiante.usuario'])
-            ->get()
-            ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal) {
+            ->get();
+
+        // Feedback dirigido por grupo: en las formativas es lo que marca la
+        // entrega como «Revisada» (mismo criterio que el tablero).
+        $idsGrupo = $gruposActividad->pluck('id_actividad_asignada_grupo');
+        $conFeedback = (new AvanceEvaluacionService)->gruposConFeedback(
+            $idsGrupo,
+            $idsGrupo->mapWithKeys(fn ($id) => [$id => $actividad->id_actividad]),
+        );
+
+        $grupos = $gruposActividad
+            ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal, $conFeedback) {
                 $g->sincronizarEstado($actividad);
 
                 $integrantes = $g->integranteGrupos
@@ -912,11 +922,14 @@ class DocenteActivityController extends Controller
                     'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
                     'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
                     'no_leidos' => (int) ($noLeidos[$g->id_actividad_asignada_grupo] ?? 0),
+                    'con_feedback' => $conFeedback->has($g->id_actividad_asignada_grupo),
                     'entrega' => (function () use ($g, $entregasPorGrupo, $limiteOriginal) {
                         $filas = $entregasPorGrupo->get($g->id_actividad_asignada_grupo);
                         $ultima = $filas?->last();
 
                         return $ultima ? [
+                            // La entrega vigente: «Calificar» la evalúa directo.
+                            'id_agenda' => $ultima->id_agenda,
                             'fecha' => $ultima->fecha_envio,
                             'fuera_de_plazo' => $limiteOriginal !== null
                                 && \Carbon\Carbon::parse($ultima->fecha_envio)->gt($limiteOriginal),
