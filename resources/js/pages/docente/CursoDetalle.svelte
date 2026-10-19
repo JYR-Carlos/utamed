@@ -12,13 +12,7 @@
   import { router, Link, page } from '@inertiajs/svelte';
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import {
-    ArrowLeft,
-    ChevronRight,
-    FileText,
-    Users,
     UsersRound,
-    KeyRound,
-    MessageSquare,
     Shield,
     Crown,
     GraduationCap,
@@ -51,6 +45,8 @@
     total_estudiantes: number;
     /** Sesiones de asistencia registradas en el componente. */
     total_sesiones: number;
+    /** Mínimo de asistencia del componente (0–100). */
+    porcentaje_asistencia_obligatoria?: number | null;
   }
 
   interface EstudianteComponente {
@@ -108,6 +104,8 @@
     };
     secciones: any[];
     total_estudiantes: number;
+    /** Mensajes de nivel curso sin leer en los componentes que dicta. */
+    mensajes_sin_leer?: number;
     userPermissions?: Permission[];
   }
 
@@ -169,7 +167,10 @@
 
   $effect.pre(() => {
     if (componenteActivo === null && mis_componentes.length > 0) {
-      componenteActivo = mis_componentes[0].id_componente;
+      // Se abre en el primer componente con inscritos: abrir en uno vacío
+      // (p. ej. Cátedra sin alumnos) escondía a los estudiantes (hallazgo #8).
+      const conEstudiantes = mis_componentes.find((c) => c.total_estudiantes > 0);
+      componenteActivo = (conEstudiantes ?? mis_componentes[0]).id_componente;
     }
   });
 
@@ -199,6 +200,16 @@
     estudiantesActivos.filter((e) => e.nota_componente !== null).map((e) => e.nota_componente!),
   );
   const sinNota = $derived(estudiantesActivos.length - notasPuestas.length);
+
+  // ─── Asistencia del componente activo bajo su mínimo (KPI y tabla) ───
+  const minAsistencia = $derived(componenteActual?.porcentaje_asistencia_obligatoria ?? null);
+  const bajoMinimo = $derived(
+    minAsistencia && minAsistencia > 0
+      ? estudiantesActivos.filter(
+          (e) => e.asistencia && e.asistencia.total > 0 && (e.asistencia.presentes / e.asistencia.total) * 100 < minAsistencia,
+        ).length
+      : 0,
+  );
   /** Promedio calculado SÓLO sobre las notas puestas: una celda vacía no lo arrastra. */
   const promedioComponente = $derived(
     notasPuestas.length === 0
@@ -283,49 +294,44 @@
   }
 
   // ─── Lenguaje visual compartido ───
-  const CARD =
-    'bg-white border border-[#E5E7EB] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,.08)]';
+  const CARD = 'bg-white border border-[#E2E8F0] rounded-xl';
+  const KPI = 'flex flex-col gap-1 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5';
+  const KPI_LABEL = 'text-[11px] font-bold uppercase tracking-[0.06em] text-slate-600';
+  const KPI_NUM = 'text-[28px] font-bold leading-[34px] tabular-nums text-[#1A1A24]';
   const BTN_GHOST =
     'inline-flex items-center gap-[7px] rounded-lg px-3 py-2 text-[13.5px] font-medium text-[#002F6C] transition-colors hover:bg-[#F5F1EA]';
   const BTN_OUTLINE =
-    'inline-flex items-center gap-[7px] rounded-lg border border-[#D6D9E0] bg-white px-3 py-2 text-[13.5px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA]';
+    'inline-flex h-11 items-center gap-2 rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light sm:h-10';
   const BTN_PRIMARY =
-    'inline-flex items-center gap-[7px] rounded-lg border border-[#002F6C] bg-[#002F6C] px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#1B4789]';
+    'inline-flex h-11 items-center gap-2 rounded-lg bg-uta-blue px-4 text-sm font-semibold text-white transition-colors hover:bg-uta-blue-hover sm:h-10';
   const PILL_AZUL =
-    'inline-flex items-center gap-1.5 rounded-full border border-[#C9D6E6] bg-[#E8EDF5] px-2.5 py-0.5 text-[12px] font-semibold text-[#002F6C]';
+    'inline-flex items-center gap-1.5 rounded-full bg-uta-blue-light px-2.5 py-0.5 text-xs font-semibold text-uta-blue';
   const PILL_NEUTRA =
-    'inline-flex items-center gap-1.5 rounded-full border border-[#E5E7EB] bg-[#F5F1EA] px-2.5 py-0.5 text-[12px] font-medium text-[#5A5E6E]';
+    'inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600';
+  // Pestañas del mockup: 15 px, subrayado navy de 3 px y contador gris en ambas.
   const TAB_BASE =
-    'inline-flex items-center gap-2 -mb-px border-b-2 px-3.5 pt-3.5 pb-3 text-sm transition-colors duration-150';
+    'inline-flex shrink-0 items-center gap-2 -mb-px border-b-[3px] px-1 pt-4 pb-3 text-[15px] transition-colors duration-150';
   const CONTADOR_ACTIVO =
-    'rounded-full border border-[#C9D6E6] bg-[#E8EDF5] px-2 py-px font-mono text-[11px] font-semibold tabular-nums text-[#002F6C]';
-  const CONTADOR_INACTIVO =
-    'rounded-full border border-[#E5E7EB] bg-[#F5F1EA] px-2 py-px font-mono text-[11px] font-semibold tabular-nums text-[#5A5E6E]';
+    'rounded-full bg-slate-100 px-2 py-px text-xs font-semibold tabular-nums text-slate-600';
+  const CONTADOR_INACTIVO = CONTADOR_ACTIVO;
 </script>
 
-<DocenteLayout>
-  <div class="min-h-screen bg-white pb-16">
-    <div class="mx-auto flex max-w-[1440px] flex-col gap-5 px-6 py-6 sm:px-10">
-      <!-- ── Ruta ── -->
-      <nav class="flex items-center gap-2 text-[13px] text-[#5A5E6E]" aria-label="Ruta de navegación">
-        <Link
-          href="/docente/cursos"
-          class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F5F1EA] hover:text-[#002F6C]"
-        >
-          <ArrowLeft size={15} />
-          Mis Cursos
-        </Link>
-        <ChevronRight size={13} class="text-[#98A0AE]" aria-hidden="true" />
-        <span class="px-1 font-medium text-[#1A1A24]" aria-current="page">{curso.etiqueta}</span>
-      </nav>
+<DocenteLayout
+  breadcrumbs={[
+    { title: 'Mis Cursos', href: '/docente/cursos' },
+    { title: curso.etiqueta ?? curso.nombre, href: `/docente/cursos/${curso.id_curso}` },
+  ]}
+>
+  <div class="pb-16">
+    <div class="mx-auto flex max-w-[1120px] flex-col gap-5 px-4 md:px-0">
 
       <!-- ── Cabecera del curso ── -->
-      <section class="{CARD} flex flex-col gap-4 p-5">
-        <div class="flex flex-wrap items-start gap-6">
+      <section class="{CARD} flex flex-col gap-4 px-4 py-4 sm:px-6 sm:py-[22px]">
+        <div class="flex flex-col gap-3.5">
           <div class="flex min-w-0 flex-col gap-1.5">
-            <span class="font-mono text-[12px] text-[#5A5E6E]">{curso.asignatura.cod_asignatura}</span>
+            <span class="font-mono text-xs font-medium text-slate-600">{curso.asignatura.cod_asignatura}</span>
             <div class="flex flex-wrap items-center gap-2.5">
-              <h1 class="m-0 text-[22px] font-semibold tracking-[-0.01em] text-[#1A1A24]">
+              <h1 class="m-0 text-2xl font-semibold leading-[30px] text-[#1A1A24] sm:text-[28px] sm:leading-[34px]">
                 {curso.nombre || curso.asignatura.nombre}
               </h1>
               {#if curso.letra_grupo}
@@ -336,24 +342,23 @@
                 <span class={PILL_NEUTRA}>Plantilla</span>
               {/if}
             </div>
-            <span class="text-[12.5px] text-[#5A5E6E]">
-              Actúas como
-              <strong class="font-semibold text-[#1A1A24]">
-                {curso.es_titular_curso ? 'docente titular' : 'docente de componente'}
-              </strong>
-              · {curso.asignatura.nombre} · {curso.plan.carrera} · {formatDate(curso.fecha_inicio)} a
-              {formatDate(curso.fecha_fin)}
+            <!-- El nombre de la asignatura sólo se repite si difiere del título. -->
+            <span class="text-sm font-medium text-slate-600">
+              Actúas como {curso.es_titular_curso ? 'docente titular' : 'docente de componente'}
+              {#if curso.asignatura.nombre !== (curso.nombre || curso.asignatura.nombre)}
+                · {curso.asignatura.nombre}
+              {/if}
+              · {curso.plan.carrera} · {formatDate(curso.fecha_inicio)} a {formatDate(curso.fecha_fin)}
             </span>
           </div>
 
-          <div class="ml-auto flex flex-none flex-col items-end gap-2.5">
-            <div class="flex flex-wrap items-center justify-end gap-2">
+          <div class="flex flex-col items-start gap-2.5">
+            <div class="flex flex-wrap items-center gap-2">
               {#if curso.tiene_programa}
                 <button
                   onclick={() => router.visit(`/docente/cursos/${curso.id_curso}/programa`)}
-                  class={BTN_PRIMARY}
+                  class="{BTN_PRIMARY} max-sm:w-full max-sm:justify-center"
                 >
-                  <FileText size={15} />
                   Programa
                 </button>
               {/if}
@@ -364,12 +369,12 @@
                 onclick={() => router.visit(`/docente/cursos/${curso.id_curso}/mensajeria`)}
                 class={BTN_OUTLINE}
               >
-                <MessageSquare size={15} class="text-[#5A5E6E]" />
-                Mensajería
+                Mensajería{#if (curso.mensajes_sin_leer ?? 0) > 0}<span class="font-semibold"
+                    >&nbsp;·&nbsp;{curso.mensajes_sin_leer} sin leer</span
+                  >{/if}
               </button>
               {#if curso.es_titular_curso}
                 <button onclick={() => (showEquipoSlideOver = true)} class={BTN_OUTLINE}>
-                  <Users size={15} class="text-[#5A5E6E]" />
                   Equipo docente
                 </button>
                 <button
@@ -377,14 +382,13 @@
                     router.visit(`/docente/cursos/${curso.id_curso}/delegacion-permisos`)}
                   class={BTN_OUTLINE}
                 >
-                  <KeyRound size={15} class="text-[#5A5E6E]" />
                   Delegación de permisos
                 </button>
               {/if}
             </div>
 
             {#if !curso.es_titular_curso && componenteActual}
-              <div class="flex flex-col items-end gap-0.5">
+              <div class="flex flex-col items-start gap-0.5">
                 <span
                   class="inline-flex items-center gap-[7px] rounded-full border border-[#E5E7EB] bg-[#F5F1EA] px-2.5 py-1 text-[12px] font-semibold text-[#1A1A24]"
                 >
@@ -405,61 +409,77 @@
           </div>
         </div>
 
-        <!-- KPIs: sólo el titular responde por el curso completo -->
-        {#if curso.es_titular_curso}
-          <div
-            class="grid grid-cols-1 gap-3 border-t border-[#E5E7EB] pt-4 {mostrarKpiDocentes
-              ? 'sm:grid-cols-3'
-              : 'sm:grid-cols-2'}"
-          >
-            <div class="flex flex-col gap-0.5 rounded-xl border border-[#E5E7EB] px-4 py-3.5">
-              <span class="text-[12px] text-[#5A5E6E]">Componentes</span>
-              <span class="text-[26px] font-semibold leading-[1.2] tracking-[-0.01em] tabular-nums"
-                >{todos_componentes.length}</span
-              >
-              <span class="truncate text-[12px] text-[#5A5E6E]">
-                {todos_componentes.map((c) => c.tipo_componente).join(' · ') || 'Sin componentes'}
-              </span>
-            </div>
-            {#if mostrarKpiDocentes}
-            <div class="flex flex-col gap-0.5 rounded-xl border border-[#E5E7EB] px-4 py-3.5">
-              <span class="text-[12px] text-[#5A5E6E]">Docentes</span>
-              <span class="text-[26px] font-semibold leading-[1.2] tracking-[-0.01em] tabular-nums"
-                >{totalDocentesCurso}</span
-              >
-              <span class="text-[12px] text-[#5A5E6E]">
+      </section>
+
+      <!-- KPIs: sólo el titular responde por el curso completo. Tarjetas aparte,
+           como en el mockup; la de asistencia se resalta si alguien queda bajo el mínimo. -->
+      {#if curso.es_titular_curso}
+        <div class="grid grid-cols-2 gap-3 sm:gap-4 {mostrarKpiDocentes ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}">
+          <div class={KPI}>
+            <span class={KPI_LABEL}>Componentes</span>
+            <span class={KPI_NUM}>{todos_componentes.length}</span>
+            <span class="text-[13px] text-slate-600">
+              {todos_componentes.map((c) => c.tipo_componente).join(' · ') || 'Sin componentes'}
+            </span>
+          </div>
+          {#if mostrarKpiDocentes}
+            <div class={KPI}>
+              <span class={KPI_LABEL}>Docentes</span>
+              <span class={KPI_NUM}>{totalDocentesCurso}</span>
+              <span class="text-[13px] text-slate-600">
                 {totalTitularesComponente} con componente a cargo · {Math.max(
                   0,
                   totalDocentesCurso - totalTitularesComponente,
                 )} de componente
               </span>
             </div>
+          {/if}
+          <div class={KPI}>
+            <span class={KPI_LABEL}>Estudiantes</span>
+            <span class={KPI_NUM}>{curso.total_estudiantes}</span>
+            {#if componenteActual && estudiantesActivos.length === 0}
+              <span class="text-[13px] text-slate-600">Sin estudiantes en {tipoComponenteActivo}</span>
+            {:else if componenteActual && sinNota > 0}
+              <span class="text-[13px] text-slate-600">{sinNota} sin nota final en {tipoComponenteActivo}</span>
+            {:else if componenteActual}
+              <span class="text-[13px] text-slate-600">Todas las notas puestas en {tipoComponenteActivo}</span>
+            {:else}
+              <span class="text-[13px] text-slate-600">Organizados por componente</span>
             {/if}
-            <div class="flex flex-col gap-0.5 rounded-xl border border-[#E5E7EB] px-4 py-3.5">
-              <span class="text-[12px] text-[#5A5E6E]">Estudiantes</span>
-              <span class="text-[26px] font-semibold leading-[1.2] tracking-[-0.01em] tabular-nums"
-                >{curso.total_estudiantes}</span
-              >
-              {#if componenteActual && sinNota > 0}
-                <span class="text-[12px] text-[#B45309]"
-                  >{sinNota} sin nota en {tipoComponenteActivo}</span
-                >
-              {:else if componenteActual}
-                <span class="text-[12px] text-[#5A5E6E]"
-                  >Todas las notas puestas en {tipoComponenteActivo}</span
-                >
+          </div>
+          {#if componenteActual}
+            {@const alerta = bajoMinimo > 0}
+            <div
+              class="col-span-2 flex flex-col gap-1 rounded-xl border px-4 py-3.5 lg:col-span-1 {alerta
+                ? 'border-[#F2C94C] bg-[#FEF3C6]'
+                : 'border-[#E2E8F0] bg-white'}"
+            >
+              <span class="{KPI_LABEL} {alerta ? '!text-[#92400E]' : ''}">Asistencia</span>
+              {#if componenteActual.total_sesiones === 0}
+                <span class={KPI_NUM}>—</span>
+                <span class="text-[13px] text-slate-600">Sin sesiones registradas en {tipoComponenteActivo}</span>
               {:else}
-                <span class="text-[12px] text-[#5A5E6E]">Organizados por componente</span>
+                <span class="{KPI_NUM} {alerta ? '!text-[#92400E]' : ''}">{bajoMinimo}</span>
+                <span class="text-[13px] {alerta ? 'text-[#92400E]' : 'text-slate-600'}">
+                  {bajoMinimo === 1 ? 'estudiante' : 'estudiantes'} bajo el mínimo{minAsistencia
+                    ? ` de ${Math.round(minAsistencia)} %`
+                    : ''} en {tipoComponenteActivo}
+                </span>
               {/if}
             </div>
-          </div>
-        {/if}
-      </section>
+          {/if}
+        </div>
+      {/if}
 
-      <!-- ── Panel de pestañas ── -->
-      <section class="{CARD} flex flex-col">
+      <!-- ── Panel de pestañas ── (overflow-hidden: el pie gris respeta las esquinas) -->
+      <!-- En móvil el panel pierde la tarjeta: las filas ya son tarjetas (mockup 390). -->
+      <section
+        class="{CARD} flex flex-col overflow-hidden {mainTab === 'grupo'
+          ? 'max-md:rounded-none max-md:border-0 max-md:bg-transparent'
+          : ''}"
+      >
         <div
-          class="flex items-stretch gap-1 overflow-x-auto border-b border-[#E5E7EB] px-5"
+          class="flex items-stretch gap-5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-6 border-b border-[#E2E8F0] {mainTab === 'grupo' ? 'md:px-6' : 'px-4 sm:px-6'}"
           role="tablist"
           aria-label="Secciones del curso"
         >
@@ -468,8 +488,8 @@
             aria-selected={mainTab === 'grupo'}
             onclick={() => (mainTab = 'grupo')}
             class="{TAB_BASE} {mainTab === 'grupo'
-              ? 'border-[#002F6C] font-semibold text-[#002F6C]'
-              : 'border-transparent font-medium text-[#5A5E6E] hover:text-[#1A1A24]'}"
+              ? 'border-uta-blue font-semibold text-uta-blue'
+              : 'border-transparent font-medium text-slate-600 hover:text-[#1A1A24]'}"
           >
             Mi Grupo
             <span class={mainTab === 'grupo' ? CONTADOR_ACTIVO : CONTADOR_INACTIVO}
@@ -482,8 +502,8 @@
               aria-selected={mainTab === 'actividades'}
               onclick={() => (mainTab = 'actividades')}
               class="{TAB_BASE} {mainTab === 'actividades'
-                ? 'border-[#002F6C] font-semibold text-[#002F6C]'
-                : 'border-transparent font-medium text-[#5A5E6E] hover:text-[#1A1A24]'}"
+                ? 'border-uta-blue font-semibold text-uta-blue'
+                : 'border-transparent font-medium text-slate-600 hover:text-[#1A1A24]'}"
             >
               Actividades
               <span class={mainTab === 'actividades' ? CONTADOR_ACTIVO : CONTADOR_INACTIVO}
@@ -497,8 +517,8 @@
               aria-selected={mainTab === 'asistencia'}
               onclick={() => (mainTab = 'asistencia')}
               class="{TAB_BASE} {mainTab === 'asistencia'
-                ? 'border-[#002F6C] font-semibold text-[#002F6C]'
-                : 'border-transparent font-medium text-[#5A5E6E] hover:text-[#1A1A24]'}"
+                ? 'border-uta-blue font-semibold text-uta-blue'
+                : 'border-transparent font-medium text-slate-600 hover:text-[#1A1A24]'}"
             >
               Asistencia
               <span class={mainTab === 'asistencia' ? CONTADOR_ACTIVO : CONTADOR_INACTIVO}
@@ -510,10 +530,12 @@
 
         <!-- ── TAB: Mi Grupo ── -->
         {#if mainTab === 'grupo'}
-          <div class="flex flex-col gap-3.5 px-5 pb-5 pt-[18px]">
+          <!-- Mockup: barra de componentes con su padding y la tabla a sangre,
+               pegada a los bordes de la tarjeta (sin doble marco). -->
+          <div class="flex flex-col">
             {#if mis_componentes.length === 0}
               <div
-                class="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#D0CBC1] bg-[#F5F1EA] py-14 text-center"
+                class="m-5 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#D0CBC1] bg-[#F5F1EA] py-14 text-center"
               >
                 <div class="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#E8E4DC]">
                   <Crown size={26} class="text-[#8A5F00]" />
@@ -528,9 +550,9 @@
               </div>
             {:else}
               <!-- Conmutador de componente + búsqueda -->
-              <div class="flex flex-wrap items-center gap-2.5">
+              <div class="flex flex-wrap items-center gap-2.5 py-4 md:px-6">
                 <span
-                  class="mr-0.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-[#5A5E6E]"
+                  class="mr-0.5 text-[11px] font-bold uppercase tracking-[0.06em] text-slate-600"
                 >
                   {mis_componentes.length > 1 ? 'Tus componentes' : 'Tu componente'}
                 </span>
@@ -545,21 +567,21 @@
                 />
                 
                 {#if estudiantesActivos.length > 0}
-                  <div class="relative ml-auto w-full sm:w-[240px]">
+                  <div class="relative ml-auto w-full sm:w-[280px]">
                     <Search
-                      size={13}
-                      class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#98A0AE]"
+                      size={16}
+                      class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#5B6A82]"
                     />
                     <input
                       type="text"
                       bind:value={estudianteQuery}
                       placeholder="Buscar estudiante…"
-                      class="w-full rounded-lg border border-[#D6D9E0] bg-white py-2 pl-8 pr-8 text-[13px] placeholder:text-[#98A0AE] focus:border-[#002F6C] focus:outline-none"
+                      class="h-11 w-full rounded-lg border border-[#7B8AA0] bg-white pl-9 pr-8 text-sm placeholder:text-muted-foreground focus:border-uta-blue focus:outline-none focus:ring-2 focus:ring-uta-blue sm:h-10"
                     />
                     {#if estudianteQuery}
                       <button
                         onclick={() => (estudianteQuery = '')}
-                        class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#98A0AE] hover:text-[#1A1A24]"
+                        class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-[#1A1A24]"
                         aria-label="Limpiar búsqueda"
                       >
                         <X size={13} />
@@ -572,7 +594,7 @@
               <!-- Tabla del componente activo -->
               {#if estudiantesActivos.length === 0}
                 <div
-                  class="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#D0CBC1] bg-[#F5F1EA] py-16 text-center"
+                  class="mx-4 mb-5 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#7B8AA0] bg-[#F8FAFC] py-16 text-center sm:mx-6"
                 >
                   <div
                     class="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#E8E4DC]"
@@ -580,12 +602,12 @@
                     <GraduationCap size={26} class="text-[#8A8E9C]" />
                   </div>
                   <p class="text-sm font-medium text-[#5A5E6E]">Sin estudiantes inscritos</p>
-                  <p class="mt-1 text-xs text-[#98A0AE]">
+                  <p class="mt-1 text-xs text-muted-foreground">
                     Los estudiantes aparecerán aquí cuando se inscriban.
                   </p>
                 </div>
               {:else if estudiantesActivosFiltrados.length === 0}
-                <div class="flex flex-col items-center gap-2 py-10 text-center text-[#98A0AE]">
+                <div class="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
                   <Search size={28} class="opacity-30" />
                   <p class="text-sm">Sin resultados para «{estudianteQuery}»</p>
                   <button
@@ -597,13 +619,16 @@
                 <EstudiantesTable
                   estudiantes={estudiantesActivosFiltrados}
                   tipoComponente={tipoComponenteActivo}
+                  {minAsistencia}
                   mostrarDetalle
+                  plano
+                  inicial={estudianteQuery ? null : 8}
                   onDetalle={(item) => abrirModalEstudiante(item as EstudianteComponente)}
                 >
-                  {#snippet pie()}
-                    <div class="flex flex-wrap items-center gap-3.5 text-[12px] text-[#5A5E6E]">
-                      <span class="mr-auto">
-                        Mostrando {estudiantesActivosFiltrados.length} de {estudiantesActivos.length}
+                  {#snippet pie(mostrados)}
+                    <div class="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[13px] font-medium text-slate-600">
+                      <span>
+                        Mostrando {mostrados} de {estudiantesActivos.length}
                         {estudiantesActivos.length === 1 ? 'estudiante' : 'estudiantes'} de {tipoComponenteActivo}
                       </span>
                       {#if sinNota > 0}
@@ -684,7 +709,7 @@
 
             {#if actividadesFiltradas.length === 0}
               <div
-                class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-[#D0CBC1] bg-[#F5F1EA] py-16 text-center text-[#8A8E9C]"
+                class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-[#D0CBC1] bg-[#F5F1EA] py-16 text-center text-muted-foreground"
               >
                 <ClipboardList size={34} class="opacity-30" />
                 <p class="m-0 text-sm">
@@ -704,7 +729,7 @@
             {#if mis_componentes.length > 1}
               <div class="flex flex-wrap items-center gap-2.5">
                 <span
-                  class="mr-0.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-[#5A5E6E]"
+                  class="mr-0.5 text-[11px] font-bold uppercase tracking-[0.06em] text-slate-600"
                   >Tus componentes</span
                 >
                 <ComponentePills
@@ -750,7 +775,7 @@
           </div>
 
           {#if todos_componentes.length === 0}
-            <p class="py-6 text-center text-xs text-[#98A0AE]">
+            <p class="py-6 text-center text-xs text-muted-foreground">
               Este curso todavía no tiene componentes.
             </p>
           {:else}
@@ -780,7 +805,7 @@
                             cambiarTitularComponente = comp;
                             showCambiarTitular = true;
                           }}
-                          class="rounded-lg p-1.5 text-[#98A0AE] transition-colors hover:bg-[#FFF3D1] hover:text-[#8A5F00]"
+                          class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-[#FFF3D1] hover:text-[#8A5F00]"
                           aria-label="Cambiar titular de {comp.tipo_componente}"
                         >
                           <Crown size={13} aria-hidden="true" />
@@ -791,7 +816,7 @@
                             componentePermisoTipo = comp.tipo_componente;
                             showComponentePermisos = true;
                           }}
-                          class="rounded-lg p-1.5 text-[#98A0AE] transition-colors hover:bg-[#E6ECF5] hover:text-[#002F6C]"
+                          class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-[#E6ECF5] hover:text-[#002F6C]"
                           aria-label="Gestionar permisos de {comp.tipo_componente}"
                         >
                           <Shield size={13} aria-hidden="true" />
@@ -801,7 +826,7 @@
                   </div>
 
                   {#if comp.docentes.length === 0}
-                    <p class="m-0 border-t border-[#E5E7EB] pt-2.5 text-[12px] text-[#98A0AE]">
+                    <p class="m-0 border-t border-[#E5E7EB] pt-2.5 text-[12px] text-muted-foreground">
                       Sin docente asignado.
                     </p>
                   {:else}

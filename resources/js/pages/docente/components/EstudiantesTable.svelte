@@ -4,18 +4,20 @@
    * Hallazgo D-06: extraída de las ramas TITULAR y COLEGIADO de CursoDetalle.svelte,
    * donde estaba duplicada casi idéntica.
    *
-   * Reglas del lenguaje visual (lámina «Detalle de curso»):
+   * Reglas del lenguaje visual (mockup «Detalle del curso · Mi Grupo», auditoría 2026-10-19):
    * - La nota es la del COMPONENTE activo, no la del curso: por eso la cabecera
    *   de la columna lleva el nombre del componente.
-   * - Escala 1,0–7,0 con coma; el 0 no existe. «Sin nota» se dibuja como pastilla
-   *   punteada sin dígitos — vacío no es cero.
+   * - Escala 1,0–7,0 con coma; el 0 no existe. Sin nota se dibuja «—» — vacío no es cero.
+   * - La asistencia bajo el mínimo del componente se marca con color, texto y la
+   *   pastilla «Bajo mínimo» (hallazgo #12): no basta el color.
+   * - Bajo 768 px la tabla pasa a tarjetas con «Ver ficha» de 44 px (hallazgo #18).
    * - La columna/botón "Ficha" sólo se renderiza si `mostrarDetalle` es true.
    *
    * El pie de la tabla (totales, promedio) lo aporta quien la usa mediante el
    * snippet `pie`, para que quede dentro del mismo marco redondeado.
    */
   import type { Snippet } from 'svelte';
-  import { Minus } from 'lucide-svelte';
+  import { TriangleAlert } from 'lucide-svelte';
   import { formatNota } from '@/utils/formatters';
 
   interface EstudianteItem {
@@ -33,20 +35,31 @@
     estudiantes: EstudianteItem[];
     /** Tipo de componente: encabeza la columna de nota y el <caption>. */
     tipoComponente?: string;
+    /** Mínimo de asistencia del componente (0–100); sin él no se marca el riesgo. */
+    minAsistencia?: number | null;
     /** Renderiza la columna "Ficha" con botón por fila. */
     mostrarDetalle?: boolean;
     onDetalle?: (item: EstudianteItem) => void;
-    /** Pie de tabla opcional (totales, promedio del componente). */
-    pie?: Snippet;
+    /** Pie de tabla opcional (totales, promedio); recibe cuántas filas se muestran. */
+    pie?: Snippet<[number]>;
+    /** Sin marco propio: la tabla va a sangre dentro de otra tarjeta. */
+    plano?: boolean;
+    /** Filas visibles antes de «Ver los N»; null = todas. */
+    inicial?: number | null;
   }
 
   let {
     estudiantes,
     tipoComponente = 'Componente',
+    minAsistencia = null,
     mostrarDetalle = false,
     onDetalle,
     pie,
+    plano = false,
+    inicial = null,
   }: Props = $props();
+
+  let verTodos = $state(false);
 
   const estudiantesOrdenados = $derived(
     [...estudiantes].sort((a, b) =>
@@ -58,81 +71,103 @@
     ),
   );
 
+  const recortada = $derived(!verTodos && inicial !== null && estudiantesOrdenados.length > inicial);
+  const visibles = $derived(recortada ? estudiantesOrdenados.slice(0, inicial!) : estudiantesOrdenados);
+
+  /** Porcentaje entero de asistencia, o null si aún no hay sesiones. */
+  function porcentaje(item: EstudianteItem): number | null {
+    const a = item.asistencia;
+    if (!a || a.total === 0) return null;
+    return Math.round((a.presentes / a.total) * 100);
+  }
+
+  function bajoMinimo(item: EstudianteItem): boolean {
+    const p = porcentaje(item);
+    return p !== null && minAsistencia !== null && minAsistencia > 0 && p < minAsistencia;
+  }
+
+  const etiquetaMinimo = $derived(
+    minAsistencia !== null && minAsistencia > 0 ? `${Math.round(minAsistencia)} %` : null,
+  );
+
   const TH =
-    'px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-[#5A5E6E]';
+    'px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.06em] text-slate-600';
+  const BTN_FICHA =
+    'inline-flex items-center justify-center rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2';
 </script>
 
-<div class="border border-[#E5E7EB] rounded-xl overflow-hidden">
-  <div class="overflow-x-auto">
-    <table class="w-full text-sm border-collapse">
+{#snippet asistencia(item: EstudianteItem)}
+  {@const p = porcentaje(item)}
+  {@const riesgo = bajoMinimo(item)}
+  {#if p === null}
+    <span class="text-[13px] text-muted-foreground">Sin sesiones</span>
+  {:else}
+    <span class="flex flex-wrap items-center gap-2.5">
+      <span class="text-[13px] font-medium tabular-nums {riesgo ? 'text-[#B91C1C]' : 'text-[#1A1A24]'}">
+        {item.asistencia?.presentes}/{item.asistencia?.total} sesiones · {p} %
+      </span>
+      {#if riesgo}
+        <span
+          class="inline-flex items-center gap-1 rounded-full bg-[#FEE2E2] py-0.5 pl-2 pr-2.5 text-xs font-semibold text-[#B91C1C]"
+        >
+          <TriangleAlert size={12} strokeWidth={2.5} aria-hidden="true" />
+          Bajo mínimo{etiquetaMinimo ? ` ${etiquetaMinimo}` : ''}
+        </span>
+      {/if}
+    </span>
+  {/if}
+{/snippet}
+
+{#snippet nota(item: EstudianteItem)}
+  {@const n = item.nota_componente}
+  {#if n === null}
+    <span class="text-base font-bold text-slate-500" aria-hidden="true">—</span>
+    <span class="sr-only">Sin nota</span>
+  {:else}
+    {@const reprobada = n < 4}
+    <span class="text-base font-bold tabular-nums {reprobada ? 'text-[#B91C1C]' : 'text-[#1A1A24]'}">
+      {formatNota(n)}
+    </span>
+    <span class="sr-only">{reprobada ? '— Reprobado' : '— Aprobado'}</span>
+  {/if}
+{/snippet}
+
+<div class="overflow-hidden {plano ? 'md:bg-white' : 'rounded-xl border border-[#E2E8F0] bg-white'}">
+  <!-- Desktop y tablet: tabla -->
+  <div class="hidden md:block">
+    <table class="w-full border-collapse text-sm">
       <caption class="sr-only">Estudiantes inscritos — {tipoComponente}</caption>
-      <thead class="bg-[#F5F1EA]">
+      <thead class="bg-[#F8FAFC]">
         <tr>
-          <th class="{TH} w-11">#</th>
+          <th class="{TH} w-14 !pr-2 {plano ? 'sm:!pl-6' : ''}">#</th>
           <th class={TH}>Estudiante</th>
-          <th class="{TH} hidden sm:table-cell">Usuario</th>
-          <th class="{TH} hidden md:table-cell">Asistencia</th>
-          <th class={TH}>Nota {tipoComponente}</th>
+          <th class={TH}>Asistencia{etiquetaMinimo ? ` (mín. ${etiquetaMinimo})` : ''}</th>
+          <th class="{TH} w-36">Nota {tipoComponente}</th>
           {#if mostrarDetalle}
-            <th class="px-4 py-2.5"><span class="sr-only">Acciones</span></th>
+            <th class="w-40 px-4 py-2.5"><span class="sr-only">Acciones</span></th>
           {/if}
         </tr>
       </thead>
       <tbody>
-        {#each estudiantesOrdenados as item, i (item.id_inscripcion_componente)}
-          {@const nota = item.nota_componente}
-          {@const reprobada = nota !== null && nota < 4}
-          <tr
-            class="border-t border-[#E5E7EB] transition-colors duration-150 hover:bg-[#F5F1EA] {i %
-              2 ===
-            1
-              ? 'bg-[#FCFBF9]'
-              : ''}"
-          >
-            <td class="px-4 py-2.5 font-mono text-[12.5px] tabular-nums text-[#5A5E6E]">
+        {#each visibles as item, i (item.id_inscripcion_componente)}
+          <tr class="border-t border-[#E2E8F0] transition-colors duration-150 hover:bg-slate-50">
+            <td class="py-3 pl-4 pr-2 font-mono text-xs tabular-nums text-muted-foreground {plano ? 'sm:pl-6' : ''}">
               {String(i + 1).padStart(2, '0')}
             </td>
-            <td class="px-4 py-2.5 font-medium text-[#1A1A24]">{item.estudiante.nombre}</td>
-            <td class="px-4 py-2.5 hidden sm:table-cell">
-              <span class="font-mono text-[13px] text-[#5A5E6E]">{item.estudiante.username}</span>
+            <td class="px-4 py-3">
+              <!-- El RUT/matrícula queda en la ficha y en el title: el mockup deja la fila al nombre. -->
+              <span class="block font-semibold text-[#1A1A24]" title={item.estudiante.username}>{item.estudiante.nombre}</span>
             </td>
-            <td class="px-4 py-2.5 hidden md:table-cell text-[#5A5E6E] tabular-nums">
-              {#if item.asistencia && item.asistencia.total > 0}
-                {item.asistencia.presentes} de {item.asistencia.total}
-              {:else}
-                <span class="text-[#98A0AE]">Sin sesiones</span>
-              {/if}
-            </td>
-            <td class="px-4 py-2.5">
-              {#if nota === null}
-                <span
-                  class="inline-flex items-center gap-1.5 border border-dashed border-[#D6D9E0] bg-white rounded-full py-[3px] pl-[9px] pr-2.5"
-                >
-                  <Minus size={13} class="text-[#98A0AE]" />
-                  <span class="text-[11.5px] text-[#98A0AE]">sin nota</span>
-                </span>
-              {:else}
-                <span
-                  class="font-mono text-[15px] font-semibold tabular-nums {reprobada
-                    ? 'text-[#B91C1C]'
-                    : 'text-[#1A1A24]'}"
-                >
-                  {formatNota(nota)}
-                </span>
-                <span class="sr-only">{reprobada ? '— Reprobado' : '— Aprobado'}</span>
-                {#if nota <= 1}
-                  <span class="text-[11.5px] text-[#5A5E6E] ml-2">nota mínima</span>
-                {/if}
-              {/if}
-            </td>
+            <td class="px-4 py-3">{@render asistencia(item)}</td>
+            <td class="px-4 py-3">{@render nota(item)}</td>
             {#if mostrarDetalle}
-              <td class="px-4 py-2.5 text-right">
+              <td class="py-3 pl-4 text-right {plano ? 'pr-4 sm:pr-6' : 'pr-4'}">
                 <button
                   onclick={() => onDetalle?.(item)}
                   title="Ver evaluaciones, mensajes y asistencia"
-                  class="rounded-lg border border-[#D6D9E0] bg-white px-2.5 py-1 text-[13px] font-medium text-[#002F6C] shadow-[0_1px_2px_rgba(0,0,0,.04)] transition-colors hover:border-[#C9D6E6] hover:bg-[#E6ECF5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#002F6C]/30"
+                  class="{BTN_FICHA} h-10 whitespace-nowrap"
                 >
-                  Ficha
+                  Ver ficha
                 </button>
               </td>
             {/if}
@@ -141,9 +176,49 @@
       </tbody>
     </table>
   </div>
-  {#if pie}
-    <div class="border-t border-[#E5E7EB] px-4 py-2.5">
-      {@render pie()}
+
+  <!-- Móvil: tarjetas -->
+  <ul
+    class="flex flex-col gap-3 md:hidden {plano ? 'bg-transparent' : 'bg-[#F8FAFC] p-3'}"
+    aria-label="Estudiantes inscritos — {tipoComponente}"
+  >
+    {#each visibles as item (item.id_inscripcion_componente)}
+      {@const riesgo = bajoMinimo(item)}
+      <li
+        class="flex flex-col gap-2.5 rounded-xl border bg-white px-4 py-3.5 {riesgo
+          ? 'border-[#B91C1C]'
+          : 'border-[#E2E8F0]'}"
+      >
+        <div class="flex items-start gap-2">
+          <span class="flex-1 text-[15px] font-semibold leading-5 text-[#1A1A24]">{item.estudiante.nombre}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-muted-foreground">Asistencia</span>
+          {@render asistencia(item)}
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-muted-foreground">Nota {tipoComponente}</span>
+          {@render nota(item)}
+        </div>
+        {#if mostrarDetalle}
+          <button onclick={() => onDetalle?.(item)} class="{BTN_FICHA} h-11 w-full">Ver ficha</button>
+        {/if}
+      </li>
+    {/each}
+  </ul>
+
+  {#if pie || recortada}
+    <div
+      class="flex flex-wrap items-center gap-3 {plano
+        ? 'pt-3 md:border-t md:border-[#E2E8F0] md:bg-[#F8FAFC] md:px-6 md:py-3'
+        : 'border-t border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3'}"
+    >
+      <div class="min-w-0 flex-1 max-md:basis-full">{@render pie?.(visibles.length)}</div>
+      {#if recortada}
+        <button type="button" class="{BTN_FICHA} h-11 max-md:w-full md:h-10" onclick={() => (verTodos = true)}>
+          Ver los {estudiantesOrdenados.length}<span class="md:hidden">&nbsp;estudiantes</span>
+        </button>
+      {/if}
     </div>
   {/if}
 </div>
