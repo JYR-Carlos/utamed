@@ -135,10 +135,15 @@
     return curso.letra_grupo ? base.replace(new RegExp(`\\s+Grupo\\s+${curso.letra_grupo}$`), '') : base;
   }
 
+  /** Código de asignatura (DM054); el cod_curso es interno y sólo queda de respaldo. */
+  function codigo(curso: SidebarCourse): string {
+    return curso.cod_asignatura || String(curso.cod_curso ?? '');
+  }
+
   function matches(curso: SidebarCourse, q: string) {
     return (
       (curso.etiqueta ?? curso.nombre).toLowerCase().includes(q) ||
-      curso.cod_curso.toLowerCase().includes(q)
+      codigo(curso).toLowerCase().includes(q)
     );
   }
 
@@ -179,7 +184,7 @@
         title={curso.etiqueta ?? curso.nombre}>{nombreSinGrupo(curso)}</span
       >
       <span class="flex items-center gap-2 text-xs text-slate-600">
-        <span class="truncate font-mono">{curso.cod_curso}</span>
+        <span class="truncate font-mono">{codigo(curso)}</span>
         {#if curso.letra_grupo}
           <span class="shrink-0 rounded-full px-2 py-px text-[11px] font-semibold {grupo.chip}">Grupo {curso.letra_grupo}</span>
         {/if}
