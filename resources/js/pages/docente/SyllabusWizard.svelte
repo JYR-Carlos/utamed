@@ -639,6 +639,17 @@
         class="flex flex-col overflow-hidden rounded-[10px] border border-[#E5E7EB] bg-white"
       >
         <!-- ── Aviso de auditoría ── -->
+        {#if programa?.estado === 'APROBADO' || programa?.estado === 'PUBLICADO'}
+          <p
+            class="m-0 flex items-center gap-2.5 border-b border-[#FDE68A] bg-[#FFFBEB] px-5 py-2.5 text-[12.5px] text-[#92400E] sm:px-7"
+          >
+            <ShieldAlert size={15} class="shrink-0" aria-hidden="true" />
+            Este syllabus está aprobado. Al guardar se crea una versión nueva que
+            <strong class="font-semibold">vuelve a revisión</strong> y debe aprobarse otra vez; la
+            versión aprobada queda en el historial.
+          </p>
+        {/if}
+
         {#if editandoDeOtro && docenteTitular}
           <p
             class="m-0 flex items-center gap-2.5 border-b border-[#E3D9C6] bg-[#F5F1EA] px-5 py-2.5 text-[12.5px] text-[#6B5B3E] sm:px-7"

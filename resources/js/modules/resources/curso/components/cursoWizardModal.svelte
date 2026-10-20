@@ -8,6 +8,7 @@
    *  3. Seleccionar Asignatura (del plan, agrupada por año/semestre)
    *  4. Seleccionar Docente sugerido + ingresar datos del curso
    */
+  import { untrack } from 'svelte';
   import type {
     Carrera,
     CursoFormData,
@@ -85,13 +86,12 @@
   let loadingCursosAnteriores = $state(false);
 
   // ── Remaining form fields ────────────────────────────────────────────────
-  let codCurso = $state<number | ''>('');
   let fechaInicio = $state('');
   let agnoReal = $state(new Date().getFullYear());
   let semestreReal = $state<1 | 2>(1);
-  // ¿El docente titular dicta clases en todos los componentes, o uno distinto por componente?
-  let mismoDocenteTodos = $state(true);
-  let docentesPorComponente = $state<Record<number, number | null>>({});
+  // Docentes que dictan cada componente (id_tipo_componente → id_docente[]).
+  // El primero de la lista queda como titular del componente.
+  let docentesPorComponente = $state<Record<number, number[]>>({});
   let asigSearch = $state('');
   let docenteSearch = $state('');
   let perteneceFilter = $state<'all' | 'in' | 'out'>('all');
@@ -109,6 +109,19 @@
   let indiceGrupoSugerido = $state<number | null>(null);
   let indicesGrupoTomados = $state<number[]>([]);
   let loadingLetra = $state(false);
+
+  // ── Oferta de la Intranet para el periodo (autocompletado) ─────────────────
+  interface OfertaIntranet {
+    disponible: boolean;
+    grupos: {
+      letra: string;
+      indice_grupo: number | null;
+      componentes: { id_tipo_componente: number | null; tipo: string; cur_codigo: number }[];
+    }[];
+    advertencias: string[];
+  }
+  let ofertaIntranet = $state<OfertaIntranet | null>(null);
+  let loadingOferta = $state(false);
 
   // ── Preview de componentes (Intranet → fallback Plan de Estudios) ─────────
   // Cero selección manual: el usuario ya no elige qué componentes tendrá el
@@ -193,16 +206,52 @@
 
   const principalTipo = $derived.by(() => selectedTiposOrdered[0] ?? null);
 
-  // Colegiado no es una opción manual: se activa solo si terminas asignando
-  // más de un docente distinto entre los componentes del curso.
-  const esColegiadoAuto = $derived.by(() => {
-    if (mismoDocenteTodos) return false;
-    const idsUnicos = new Set(
-      selectedTiposOrdered
-        .map((tc) => docentesPorComponente[tc.id_tipo_componente])
-        .filter((id): id is number => !!id),
-    );
-    return idsUnicos.size > 1;
+  // Colegiado no es una opción manual: un curso es colegiado cuando algún
+  // componente lo dictan dos o más docentes. Un docente distinto en cada
+  // componente NO lo hace colegiado.
+  const componentesColegiados = $derived(
+    selectedTiposOrdered.filter((tc) => (docentesPorComponente[tc.id_tipo_componente]?.length ?? 0) > 1),
+  );
+  const esColegiadoAuto = $derived(componentesColegiados.length > 0);
+
+  const todosLosDocentes = $derived([...historicDocentes, ...otrosDocentes]);
+
+  function nombreDocente(id: number): string {
+    return todosLosDocentes.find((d) => d.id_docente === id)?.nombre_completo ?? `Docente #${id}`;
+  }
+
+  function agregarDocenteComponente(idTipo: number, idDocente: number) {
+    const actuales = docentesPorComponente[idTipo] ?? [];
+    if (actuales.includes(idDocente)) return;
+    docentesPorComponente = { ...docentesPorComponente, [idTipo]: [...actuales, idDocente] };
+  }
+
+  function quitarDocenteComponente(idTipo: number, idDocente: number) {
+    docentesPorComponente = {
+      ...docentesPorComponente,
+      [idTipo]: (docentesPorComponente[idTipo] ?? []).filter((id) => id !== idDocente),
+    };
+  }
+
+  // Al elegir (o cambiar) el titular del curso, pasa a dictar los componentes
+  // que aún no tienen docente y reemplaza al titular anterior donde estaba.
+  let titularPrevio: number | null = null;
+  $effect(() => {
+    const titular = selectedDocente?.id_docente ?? null;
+    const tipos = selectedTiposOrdered.map((tc) => tc.id_tipo_componente);
+    untrack(() => {
+      const siguiente: Record<number, number[]> = {};
+      for (const idTipo of tipos) {
+        let lista = (docentesPorComponente[idTipo] ?? []).filter((id) => id !== titularPrevio);
+        if (titular && lista.length === 0) lista = [titular];
+        else if (titular && titularPrevio && (docentesPorComponente[idTipo] ?? []).includes(titularPrevio)) {
+          lista = [titular, ...lista.filter((id) => id !== titular)];
+        }
+        siguiente[idTipo] = lista;
+      }
+      docentesPorComponente = siguiente;
+      titularPrevio = titular;
+    });
   });
 
   const filteredOtrosDocentes = $derived.by(() => {
@@ -264,7 +313,6 @@
     historicDocentes = [];
     otrosDocentes = [];
     cursosAnteriores = [];
-    mismoDocenteTodos = true;
     docentesPorComponente = {};
     previewComponentes = [];
     previewOrigen = null;
@@ -311,10 +359,15 @@
 
   let letraRequestId = 0;
 
+  // Autocompletado desde la Intranet: con asignatura, año y semestre se piden
+  // los grupos que la Intranet oferta. Si hay alguno que aún no existe en
+  // UTAMED, la letra se completa con ese grupo (y el preview trae sus
+  // componentes y CUR_CODIGO); si no, se sugiere la próxima letra libre.
   async function fetchLetraSugerida() {
     if (!selectedPlan || !selectedAsig) return;
     const requestId = ++letraRequestId;
     loadingLetra = true;
+    loadingOferta = true;
     try {
       const params = new URLSearchParams({
         id_asignatura: String(selectedAsig.id_asignatura),
@@ -322,19 +375,36 @@
         agno_real: String(agnoReal),
         semestre_real: String(semestreReal),
       });
-      const res = await fetch(`/admin/cursos/proxima-letra?${params}`, {
-        headers: { Accept: 'application/json' },
-      });
+      const [resLetra, resOferta] = await Promise.all([
+        fetch(`/admin/cursos/proxima-letra?${params}`, { headers: { Accept: 'application/json' } }),
+        fetch(`/admin/cursos/oferta-intranet?${params}`, { headers: { Accept: 'application/json' } }).catch(
+          () => null,
+        ),
+      ]);
       if (requestId !== letraRequestId) return;
-      if (res.ok) {
-        const json = await res.json();
+
+      const oferta: OfertaIntranet | null = resOferta?.ok ? await resOferta.json() : null;
+      ofertaIntranet = oferta ?? {
+        disponible: false,
+        grupos: [],
+        advertencias: ['No fue posible consultar la Intranet.'],
+      };
+
+      if (resLetra.ok) {
+        const json = await resLetra.json();
         if (requestId !== letraRequestId) return;
         indiceGrupoSugerido = json.proximo_indice ?? 1;
         indicesGrupoTomados = json.indices_tomados ?? [];
-        indiceGrupo = indiceGrupoSugerido;
+        const grupoIntranetLibre = ofertaIntranet.grupos.find(
+          (g) => g.indice_grupo && !indicesGrupoTomados.includes(g.indice_grupo),
+        );
+        indiceGrupo = grupoIntranetLibre?.indice_grupo ?? indiceGrupoSugerido;
       }
     } finally {
-      if (requestId === letraRequestId) loadingLetra = false;
+      if (requestId === letraRequestId) {
+        loadingLetra = false;
+        loadingOferta = false;
+      }
     }
   }
 
@@ -403,7 +473,8 @@
 
   const letraOptions = $derived.by(() => {
     const maxTomado = indicesGrupoTomados.length ? Math.max(...indicesGrupoTomados) : 0;
-    const maxOpcion = Math.max(maxTomado, indiceGrupoSugerido ?? 1) + 3;
+    const maxOferta = Math.max(0, ...(ofertaIntranet?.grupos ?? []).map((g) => g.indice_grupo ?? 0));
+    const maxOpcion = Math.max(maxTomado, indiceGrupoSugerido ?? 1, maxOferta) + 3;
     const opciones: { indice: number; letra: string; tomada: boolean }[] = [];
     for (let i = 1; i <= maxOpcion; i++) {
       opciones.push({
@@ -428,12 +499,9 @@
       historicDocentes = [];
       otrosDocentes = [];
       cursosAnteriores = [];
-      codCurso = '';
-      nombre = '';
       fechaInicio = '';
       agnoReal = new Date().getFullYear();
       semestreReal = 1;
-      mismoDocenteTodos = true;
       docentesPorComponente = {};
       asigSearch = '';
       docenteSearch = '';
@@ -450,42 +518,21 @@
       previewOrigen = null;
       previewAdvertencias = [];
       loadingPreview = false;
+      ofertaIntranet = null;
+      loadingOferta = false;
     }
   });
 
-  // ── Date helpers (dd/mm/aaaa ↔ yyyy-mm-dd) ────────────────────────────────
-  function handleDateInput(e: Event) {
-    const input = e.currentTarget as HTMLInputElement;
-    let v = input.value.replace(/\D/g, '').slice(0, 8);
-    if (v.length >= 3) v = v.slice(0, 2) + '/' + v.slice(2);
-    if (v.length >= 6) v = v.slice(0, 5) + '/' + v.slice(5);
-    fechaInicio = v;
-  }
-
-  function toIsoDate(dmy: string): string | undefined {
-    if (!dmy || dmy.length !== 10) return undefined;
-    const [d, m, y] = dmy.split('/');
-    if (!d || !m || !y) return undefined;
-    return `${y}-${m}-${d}`;
-  }
-
   // ── Submit ───────────────────────────────────────────────────────────────
   const docentesPorComponenteIncompleto = $derived(
-    !mismoDocenteTodos &&
-      selectedTiposOrdered.some((tc) => !docentesPorComponente[tc.id_tipo_componente]),
+    selectedTiposOrdered.some((tc) => (docentesPorComponente[tc.id_tipo_componente]?.length ?? 0) === 0),
   );
-
-  // TOMÁS SILVA CONTINUAR DESDE ACA!!!!!!!!!
-  function handleIntranetImportCURCODIGO() {
-
-  }
 
   function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
     if (
       !selectedAsig ||
       !selectedPlan ||
-      codCurso === '' ||
       !selectedDocente ||
       selectedTipos.size === 0 ||
       !principalTipo ||
@@ -494,7 +541,6 @@
       console.warn('[CursoWizardModal] Submit bloqueado por el formulario, motivo(s):', {
         sinAsignatura: !selectedAsig,
         sinPlan: !selectedPlan,
-        sinCodCurso: codCurso === '',
         sinDocente: !selectedDocente,
         sinComponentesDetectadas: selectedTipos.size === 0,
         sinComponentePrincipal: !principalTipo,
@@ -506,22 +552,18 @@
       return;
     }
 
-    const docentesPorComponenteFinal: Record<number, number> = {};
+    const docentesPorComponenteFinal: Record<number, number[]> = {};
     const generaActaFinal: Record<number, boolean> = {};
     for (const tc of selectedTiposOrdered) {
-      const idDocente = mismoDocenteTodos
-        ? selectedDocente.id_docente
-        : docentesPorComponente[tc.id_tipo_componente];
-      if (idDocente) docentesPorComponenteFinal[tc.id_tipo_componente] = idDocente;
+      docentesPorComponenteFinal[tc.id_tipo_componente] = docentesPorComponente[tc.id_tipo_componente] ?? [];
       generaActaFinal[tc.id_tipo_componente] = generaActaPorComponente[tc.id_tipo_componente] ?? true;
     }
 
     onSubmit({
       id_asignatura: selectedAsig.id_asignatura,
       id_plan: selectedPlan.id_plan,
-      cod_curso: Number(codCurso),
       nombre: nombre || undefined,
-      fecha_inicio: toIsoDate(fechaInicio),
+      fecha_inicio: fechaInicio || undefined,
       numero_semestre: selectedAsig.agno_planificado,
       agno_real: agnoReal,
       semestre_real: semestreReal,
@@ -627,7 +669,6 @@
                   selectedDocente = null;
                   planes = [];
                   asignaturas = [];
-                  mismoDocenteTodos = true;
                   docentesPorComponente = {};
                 }}
               >
@@ -678,7 +719,6 @@
                   selectedAsig = null;
                   selectedDocente = null;
                   asignaturas = [];
-                  mismoDocenteTodos = true;
                   docentesPorComponente = {};
                 }}
               >
@@ -743,7 +783,6 @@
                   selectedDocente = null;
                   historicDocentes = [];
                   otrosDocentes = [];
-                  mismoDocenteTodos = true;
                   docentesPorComponente = {};
                 }}
               >
@@ -923,11 +962,50 @@
                       <p class="field-hint">
                         {#if loadingLetra}
                           Calculando letra disponible…
+                        {:else if ofertaIntranet?.grupos.some((g) => g.indice_grupo === indiceGrupo)}
+                          Completada con un grupo de la Intranet; puedes elegir otra.
                         {:else}
                           Sugerida automáticamente; puedes elegir otra disponible.
                         {/if}
                       </p>
                     </div>
+                  </div>
+
+                  <!-- Grupos ofertados en la Intranet para este periodo: elegir
+                       uno completa la letra y, con ella, las componentes. -->
+                  <div class="oferta-intranet">
+                    {#if loadingOferta}
+                      <p class="oferta-intranet-titulo">Consultando la Intranet…</p>
+                    {:else if ofertaIntranet && !ofertaIntranet.disponible}
+                      <p class="oferta-intranet-titulo">
+                        No se pudo consultar la Intranet: completa los datos a mano.
+                      </p>
+                    {:else if ofertaIntranet && ofertaIntranet.grupos.length === 0}
+                      <p class="oferta-intranet-titulo">
+                        La Intranet no tiene oferta de {selectedAsig?.cod_asignatura} en {agnoReal}-{semestreReal}.
+                      </p>
+                    {:else if ofertaIntranet}
+                      <p class="oferta-intranet-titulo">En la Intranet ({agnoReal}-{semestreReal}):</p>
+                      <div class="oferta-intranet-grupos">
+                        {#each ofertaIntranet.grupos as g (g.letra)}
+                          {@const yaCreado = g.indice_grupo !== null && indicesGrupoTomados.includes(g.indice_grupo)}
+                          <button
+                            type="button"
+                            class="oferta-grupo"
+                            class:activo={g.indice_grupo === indiceGrupo}
+                            disabled={yaCreado || g.indice_grupo === null}
+                            title={yaCreado ? 'Ya existe un curso con este grupo en UTAMED' : 'Usar este grupo'}
+                            onclick={() => (indiceGrupo = g.indice_grupo)}
+                          >
+                            <span class="oferta-grupo-letra">Grupo {g.letra}</span>
+                            <span class="oferta-grupo-comps">
+                              {g.componentes.map((c) => `${c.tipo} ${c.cur_codigo}`).join(' · ')}
+                            </span>
+                            {#if yaCreado}<span class="oferta-grupo-creado">ya creado</span>{/if}
+                          </button>
+                        {/each}
+                      </div>
+                    {/if}
                   </div>
                 </div>
 
@@ -945,8 +1023,8 @@
                       Detectadas en la Intranet. El componente principal se determina
                       automáticamente (Cátedra &rsaquo; Taller &rsaquo; Laboratorio).
                     {:else if previewOrigen === 'PLAN'}
-                      Derivadas de las horas del Plan de Estudios (la Intranet no tiene oferta
-                      para este periodo).
+                      Derivadas de las horas del Plan de Estudios: la Intranet no informó este
+                      grupo (el motivo está en las advertencias).
                     {:else}
                       Se detectarán automáticamente al completar año, semestre y letra de grupo.
                     {/if}
@@ -972,6 +1050,11 @@
                           >
                             {pc.origen === 'INTRANET' ? '🟢 Intranet' : '🔵 Plan de Estudios'}
                           </span>
+                          {#if pc.cur_codigo}
+                            <span class="tipo-comp-acta" title="CUR_CODIGO de la Intranet">
+                              Acta {pc.cur_codigo}
+                            </span>
+                          {/if}
                           {#if isPrincipal}
                             <span class="tipo-comp-principal-badge">Principal</span>
                           {/if}
@@ -1181,77 +1264,73 @@
                 <!-- Divider -->
                 <div class="fields-divider"></div>
 
-                <!-- Asignación de docentes por componente -->
+                <!-- Docentes por componente. El titular elegido arriba entra en
+                     todos; se pueden quitar o sumar otros. Dos o más docentes en
+                     un mismo componente = curso colegiado. -->
                 {#if selectedDocente}
                   <div class="asignacion-docentes-section">
-                    
-                    <p class="jefe-imparte-label">
-                      ¿{selectedDocente.nombre_completo} dictará clases en todos los componentes
-                      del curso?
-                    </p>
+                    <p class="jefe-imparte-label">¿Quién dicta cada componente?</p>
                     <p class="jefe-imparte-hint">
-                      El jefe de curso siempre queda con acceso administrativo. Si eliges la
-                      segunda opción, podrás asignar un docente distinto a cada componente.
+                      {selectedDocente.nombre_completo} queda como jefe del curso, con acceso
+                      administrativo aunque no dicte clases. Si un componente lo dictan dos o más
+                      docentes, el curso es colegiado.
                     </p>
-                    <div class="jefe-imparte-toggle">
-                      <label class="toggle-label">
-                        <input
-                          type="radio"
-                          name="modo-docente-componente"
-                          value={true}
-                          bind:group={mismoDocenteTodos}
-                          class="toggle-radio"
-                        />
-                        <span>Sí, en todos los componentes</span>
-                      </label>
-                      <label class="toggle-label">
-                        <input
-                          type="radio"
-                          name="modo-docente-componente"
-                          value={false}
-                          bind:group={mismoDocenteTodos}
-                          class="toggle-radio"
-                        />
-                        <span>No, un docente distinto por componente</span>
-                      </label>
-                    </div>
 
-                    {#if !mismoDocenteTodos}
-                      <div class="por-componente-list">
-                        {#each selectedTiposOrdered as tc (tc.id_tipo_componente)}
-                          <div class="por-componente-row">
-                            <span class="por-componente-tipo">{tc.tipo}</span>
+                    <div class="por-componente-list">
+                      {#each selectedTiposOrdered as tc (tc.id_tipo_componente)}
+                        {@const asignados = docentesPorComponente[tc.id_tipo_componente] ?? []}
+                        <div class="por-componente-row por-componente-row--multi">
+                          <span class="por-componente-tipo">{tc.tipo}</span>
+                          <div class="por-componente-docentes">
+                            {#if asignados.length === 0}
+                              <span class="docente-chip docente-chip--vacio">Sin docente</span>
+                            {/if}
+                            {#each asignados as idDocente, i (idDocente)}
+                              <span class="docente-chip" class:docente-chip--titular={i === 0}>
+                                {nombreDocente(idDocente)}
+                                {#if i === 0 && asignados.length > 1}
+                                  <small>titular</small>
+                                {/if}
+                                <button
+                                  type="button"
+                                  class="docente-chip-quitar"
+                                  aria-label="Quitar a {nombreDocente(idDocente)} de {tc.tipo}"
+                                  onclick={() => quitarDocenteComponente(tc.id_tipo_componente, idDocente)}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            {/each}
                             <select
-                              class="field-input"
-                              value={docentesPorComponente[tc.id_tipo_componente] ?? ''}
+                              class="field-input docente-agregar"
+                              aria-label="Agregar docente a {tc.tipo}"
+                              value=""
                               onchange={(e) => {
-                                const raw = (e.currentTarget as HTMLSelectElement).value;
-                                docentesPorComponente = {
-                                  ...docentesPorComponente,
-                                  [tc.id_tipo_componente]: raw ? Number(raw) : null,
-                                };
+                                const sel = e.currentTarget as HTMLSelectElement;
+                                if (sel.value) agregarDocenteComponente(tc.id_tipo_componente, Number(sel.value));
+                                sel.value = '';
                               }}
                             >
-                              <option value="">Selecciona un docente…</option>
-                              {#if historicDocentes.length > 0}
+                              <option value="">+ Agregar docente…</option>
+                              {#if historicDocentes.some((d) => !asignados.includes(d.id_docente))}
                                 <optgroup label="Historial">
-                                  {#each historicDocentes as d}
+                                  {#each historicDocentes.filter((d) => !asignados.includes(d.id_docente)) as d (d.id_docente)}
                                     <option value={d.id_docente}>{d.nombre_completo}</option>
                                   {/each}
                                 </optgroup>
                               {/if}
-                              {#if otrosDocentes.length > 0}
+                              {#if otrosDocentes.some((d) => !asignados.includes(d.id_docente))}
                                 <optgroup label="Otros docentes">
-                                  {#each otrosDocentes as d}
+                                  {#each otrosDocentes.filter((d) => !asignados.includes(d.id_docente)) as d (d.id_docente)}
                                     <option value={d.id_docente}>{d.nombre_completo}</option>
                                   {/each}
                                 </optgroup>
                               {/if}
                             </select>
                           </div>
-                        {/each}
-                      </div>
-                    {/if}
+                        </div>
+                      {/each}
+                    </div>
                   </div>
 
                   <!-- Divider -->
@@ -1270,58 +1349,16 @@
                     </p>
                   </div>
 
-                  <div class="field">
-                    <label class="field-label" for="wiz-cod-curso">Código del Curso *</label>
-                    <div class="cod-curso-row">
-                      <input
-                        id="wiz-cod-curso"
-                        type="text"
-                        bind:value={codCurso}
-                        class="field-input"
-                        placeholder="Ej: 12345"
-                        maxlength="9"
-                        required
-                        />
-                      <button
-                        type="button"
-                        class="btn-import"
-                        onclick={handleIntranetImportCURCODIGO}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        >
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                          <polyline points="7 10 12 15 17 10" />
-                          <line x1="12" x2="12" y1="15" y2="3" />
-                        </svg>
-                        Importar desde Intranet
-                      </button>
-
-                    </div>
-                    
-                  </div>
-
-                  
-
+                  <!-- Sin «Código del Curso»: es el código interno de UTAMED y lo
+                       asigna el sistema al crear. El de la Intranet (CUR_CODIGO)
+                       es por componente y se muestra junto a cada una arriba. -->
                   <div class="field">
                     <label class="field-label" for="wiz-fecha">Fecha de Inicio</label>
                     <input
                       id="wiz-fecha"
-                      type="text"
-                      value={fechaInicio}
-                      oninput={handleDateInput}
+                      type="date"
+                      bind:value={fechaInicio}
                       class="field-input"
-                      placeholder="dd/mm/aaaa"
-                      maxlength="10"
-                      autocomplete="off"
                     />
                   </div>
                 </div>
@@ -1402,8 +1439,8 @@
                     <span class="field-label">Curso Colegiado</span>
                     <p class="colegiado-auto-badge" class:active={esColegiadoAuto}>
                       {esColegiadoAuto
-                        ? 'Sí — hay más de un docente asignado entre los componentes'
-                        : 'No — un solo docente asignado'}
+                        ? `Sí — ${componentesColegiados.map((tc) => tc.tipo).join(', ')} con dos o más docentes`
+                        : 'No — cada componente con un solo docente'}
                     </p>
                   </div>
                 </div>
@@ -1455,7 +1492,6 @@
               disabled={isLoading ||
                 !selectedAsig ||
                 !selectedPlan ||
-                codCurso === '' ||
                 !selectedDocente ||
                 selectedTipos.size === 0 ||
                 docentesPorComponenteIncompleto}
@@ -1628,6 +1664,31 @@
   }
   .step-connector.done {
     background: #3b82f6;
+  }
+
+  /* Cuatro etiquetas no caben en 390 px: sólo el paso activo la muestra y
+     los círculos numerados indican el resto. */
+  @media (max-width: 560px) {
+    .step-bar {
+      padding: 0.625rem 1rem;
+    }
+
+    .step-label {
+      display: none;
+    }
+
+    .step-item.active .step-label {
+      display: inline;
+    }
+
+    .step-connector {
+      min-width: 0.5rem;
+      margin: 0 0.375rem;
+    }
+
+    .wiz-header {
+      padding: 1rem 1rem 0.75rem;
+    }
   }
 
   /* ── Form layout wrapper ── */
@@ -2222,6 +2283,85 @@
     flex: 1;
   }
 
+  .por-componente-row--multi {
+    align-items: flex-start;
+    padding: 0.625rem 0;
+    border-top: 1px solid #f3f4f6;
+  }
+  .por-componente-row--multi .por-componente-tipo {
+    padding-top: 0.375rem;
+  }
+
+  .por-componente-docentes {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .docente-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.25rem 0.25rem 0.625rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    background: #f9fafb;
+    font-size: 0.8125rem;
+    color: #374151;
+  }
+  .docente-chip small {
+    font-size: 0.6875rem;
+    color: #2563eb;
+  }
+  .docente-chip--titular {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+  }
+  .docente-chip--vacio {
+    padding-right: 0.625rem;
+    border-style: dashed;
+    color: #b45309;
+    background: #fffbeb;
+  }
+
+  .docente-chip-quitar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    font-size: 1rem;
+    line-height: 1;
+    color: #6b7280;
+    cursor: pointer;
+  }
+  .docente-chip-quitar:hover {
+    background: #e5e7eb;
+    color: #111827;
+  }
+
+  .docente-agregar {
+    flex: 1 1 12rem !important;
+    min-width: 10rem;
+  }
+
+  @media (max-width: 500px) {
+    .por-componente-row--multi {
+      flex-direction: column;
+      gap: 0.375rem;
+    }
+    .por-componente-row--multi .por-componente-tipo {
+      flex-basis: auto;
+      padding-top: 0;
+    }
+  }
+
   .jefe-imparte-label {
     font-size: 0.875rem;
     font-weight: 600;
@@ -2234,33 +2374,6 @@
     color: #6b7280;
     margin-bottom: 0.75rem;
     margin-top: 0;
-  }
-
-  .jefe-imparte-toggle {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-  }
-
-  .toggle-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    font-size: 0.8875rem;
-    font-weight: 500;
-    color: #374151;
-    user-select: none;
-  }
-
-  .toggle-radio {
-    cursor: pointer;
-    width: 16px;
-    height: 16px;
-  }
-
-  .toggle-label:hover {
-    color: #1f2937;
   }
 
   /* ── Tipo Componente selector ── */
@@ -2344,6 +2457,12 @@
   }
 
   /* ── Origen de componente (Intranet vs Plan de Estudios) ── */
+  .tipo-comp-acta {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+  }
+
   .origen-badge {
     font-size: 0.6875rem;
     font-weight: 600;
@@ -2487,62 +2606,56 @@
     color: #9ca3af;
   }
 
-  /*
-   * Código del curso + acción de importarlo desde la Intranet.
-   *
-   * El botón iba en ámbar y con esquinas de píldora: competía visualmente con
-   * «Crear Curso» y no se parecía a ningún otro control del asistente. Es una
-   * acción secundaria que rellena un campo, así que toma el azul de acento y
-   * el mismo radio y altura que el input al que acompaña.
-   */
-  .cod-curso-row {
+
+  .oferta-intranet {
+    margin-top: 0.75rem;
+  }
+  .oferta-intranet-titulo {
+    font-size: 0.8125rem;
+    color: #6b7280;
+    margin: 0 0 0.375rem;
+  }
+  .oferta-intranet-grupos {
     display: flex;
-    align-items: stretch;
+    flex-wrap: wrap;
     gap: 0.5rem;
   }
-
-  .cod-curso-row .field-input {
-    flex: 1;
-    min-width: 0;
+  .oferta-grupo {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
   }
-
-  .btn-import {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    flex-shrink: 0;
-    padding: 0.5rem 0.875rem;
-    border: 1px solid #bfdbfe;
-    border-radius: 6px;
+  .oferta-grupo:hover:not(:disabled) {
+    border-color: #93c5fd;
+  }
+  .oferta-grupo.activo {
+    border-color: #2563eb;
     background: #eff6ff;
+  }
+  .oferta-grupo:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  .oferta-grupo-letra {
     font-size: 0.8125rem;
     font-weight: 600;
-    color: #1d4ed8;
-    white-space: nowrap;
-    cursor: pointer;
-    transition:
-      background 0.15s,
-      border-color 0.15s,
-      color 0.15s;
+    color: #111827;
   }
-  .btn-import:hover {
-    background: #dbeafe;
-    border-color: #93c5fd;
-    color: #1e40af;
+  .oferta-grupo-comps {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
   }
-  .btn-import:focus-visible {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
-  }
-
-  @media (max-width: 500px) {
-    .cod-curso-row {
-      flex-direction: column;
-      align-items: stretch;
-    }
-    .btn-import {
-      justify-content: center;
-    }
+  .oferta-grupo-creado {
+    font-size: 0.6875rem;
+    color: #b45309;
   }
 
   .genera-acta-section {

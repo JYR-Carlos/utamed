@@ -3,6 +3,7 @@
   import type { Snippet } from 'svelte';
   import type { PaginatedResponse } from '@/types/admin.types';
   import { scale } from 'svelte/transition';
+  import { stackTable } from '@/lib/actions/stackTable';
 
   interface Props {
     data: PaginatedResponse<any>;
@@ -130,6 +131,23 @@
     router.get(currentPath, params, { preserveState: true, preserveScroll: true });
   }
 
+  /**
+   * Orden desde el selector móvil. En móvil las cabeceras no se ven (la tabla
+   * se apila en tarjetas), así que el orden se elige aquí; `desc` al repetir
+   * la misma columna igual que el ciclo de las cabeceras.
+   */
+  function setSortFromSelect(key: string) {
+    if (!key) {
+      const params = currentParamsExcept('sort_key', 'sort_dir', 'page');
+      router.get(currentPath, params, { preserveState: true, preserveScroll: true });
+      return;
+    }
+    const params = currentParamsExcept('sort_key', 'sort_dir', 'page');
+    params.sort_key = key;
+    params.sort_dir = activeSortKey === key && activeSortDir === 'asc' ? 'desc' : 'asc';
+    router.get(currentPath, params, { preserveState: true, preserveScroll: true });
+  }
+
   function getValue(item: any, key: string): any {
     return key.split('.').reduce((v: any, k: string) => v?.[k], item) ?? null;
   }
@@ -247,17 +265,17 @@
 
 <svelte:window onclick={closeDropdown} onscrollcapture={closeDropdown} />
 
-<div class="bg-white rounded-lg shadow overflow-hidden onscroll={closeDropdown}">
+<div class="bg-white rounded-lg shadow overflow-hidden">
   <!-- Search Bar -->
-  <div class="p-4 border-b border-gray-200 flex gap-2">
-    <div class="relative flex-1">
+  <div class="p-3 sm:p-4 border-b border-gray-200 flex gap-2">
+    <div class="relative flex-1 min-w-0">
       <input
         type="text"
         bind:value={searchTerm}
         placeholder={searchPlaceholder}
         oninput={handleSearchInput}
         onkeydown={handleSearchKeydown}
-        class="w-full px-4 py-2 pr-28 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-shadow"
+        class="w-full px-3 sm:px-4 py-2 pr-24 sm:pr-28 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-shadow"
       />
       <div
         class="absolute inset-y-0 right-2 flex items-center gap-2 text-xs text-gray-400 pointer-events-none"
@@ -293,9 +311,9 @@
          Inscripciones. Tenerlo sugería que había que pulsarlo. -->
   </div>
   <!-- Pagination -->
-  <div class="px-4 py-3 flex items-center justify-between border-t border-gray-200 flex-wrap gap-3">
+  <div class="px-3 sm:px-4 py-3 flex items-center justify-between border-t border-gray-200 flex-wrap gap-3">
     <!-- Left: record count info -->
-    <span class="text-sm text-gray-500 shrink-0">
+    <span class="text-sm text-gray-500 sm:shrink-0">
       {#if data.total === 0}
         Sin resultados
       {:else if data.to - data.from + 1 === data.total}
@@ -307,7 +325,22 @@
 
     <!-- Right: per-page + prev/page buttons/next -->
     {#if data.last_page > 1 || data.total > 0}
-      <div class="flex items-center gap-2 ml-auto">
+      <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:ml-auto">
+        <!-- Orden: sólo móvil, donde las cabeceras de la tabla no se ven -->
+        <select
+          value={activeSortKey ?? ''}
+          onchange={(e) => setSortFromSelect((e.target as HTMLSelectElement).value)}
+          aria-label="Ordenar por"
+          class="md:hidden px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white cursor-pointer focus:outline-none focus:border-blue-400 transition-colors"
+        >
+          <option value="">Orden por defecto</option>
+          {#each columns as column (column.key)}
+            <option value={column.key}>
+              {column.label}{activeSortKey === column.key ? (activeSortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+            </option>
+          {/each}
+        </select>
+
         <!-- Per-page selector -->
         <select
           value={currentPerPage}
@@ -329,8 +362,13 @@
             Anterior
           </button>
 
+          <!-- Móvil: «Página X de Y» en lugar de la ventana de números -->
+          <span class="sm:hidden text-sm text-gray-500 tabular-nums">
+            {data.current_page} / {data.last_page}
+          </span>
+
           <!-- Sliding page buttons -->
-          <div class="flex items-center gap-1">
+          <div class="hidden sm:flex items-center gap-1">
             {#each pageButtons as btn, rowIndex (rowIndex)}
               {#if btn.type === 'ellipsis'}
                 <span class="px-1 text-sm text-gray-400 select-none">…</span>
@@ -363,8 +401,8 @@
   </div>
 
   <!-- Table -->
-  <div class="overflow-auto max-h-[72vh]" onscroll={closeDropdown}>
-    <table class="w-full border-collapse relative">
+  <div class="table-stack-wrap overflow-auto max-h-[72vh]" onscroll={closeDropdown}>
+    <table class="table-stack w-full border-collapse relative" use:stackTable>
       <thead class="bg-gray-50 border-b border-gray-200 sticky top-0 z-20 shadow-xs">
         <tr>
           {#each columns as column (column.key)}
@@ -486,7 +524,7 @@
                 >
                   <button
                     onclick={(e) => toggleDropdown(item, rowIndex, e)}
-                    class="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
+                    class="p-2.5 md:p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
                     title="Opciones"
                   >
                     <svg

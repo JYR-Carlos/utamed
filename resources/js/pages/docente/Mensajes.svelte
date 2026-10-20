@@ -143,7 +143,7 @@
     {:else}
       <MessageSquare
         size={16}
-        class="shrink-0 {a.no_leidos > 0 ? 'text-indigo-500' : 'text-slate-300'}"
+        class="shrink-0 {a.no_leidos > 0 ? 'text-brand' : 'text-slate-300'}"
       />
     {/if}
     <span class="min-w-0 flex-1">
@@ -152,22 +152,22 @@
           ? a.no_leidos > 0
             ? 'font-bold text-slate-900'
             : 'font-medium text-slate-700'
-          : 'font-medium text-slate-400'}"
+          : 'font-medium text-muted-foreground'}"
       >
         {a.nombre}
       </span>
-      <span class="block truncate text-xs {activa ? 'text-slate-500' : 'text-slate-400'}">
+      <span class="block truncate text-xs {activa ? 'text-slate-500' : 'text-muted-foreground'}">
         {a.curso.cod_curso} · {a.curso.nombre} · {a.curso.agno_real}-{a.curso.semestre_real}
         {#if !activa}· {etiquetaEstado(a.estado)}{/if}
       </span>
     </span>
     {#if a.no_leidos > 0}
       <span class="flex shrink-0 flex-col items-end gap-0.5">
-        <span class="rounded-full bg-indigo-600 px-2 py-0.5 text-[11px] font-bold text-white">
+        <span class="rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">
           {a.no_leidos} {a.no_leidos === 1 ? 'msg nuevo' : 'msgs nuevos'}
         </span>
         {#if a.ultima_fecha}
-          <span class="text-[10px] text-slate-400">{fmtFecha(a.ultima_fecha)}</span>
+          <span class="text-[10px] text-muted-foreground">{fmtFecha(a.ultima_fecha)}</span>
         {/if}
       </span>
     {/if}
@@ -180,7 +180,7 @@
     <!-- ── Encabezado ── -->
     <div class="flex items-center gap-3">
       <div
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white"
       >
         <MessageSquare size={20} />
       </div>
@@ -192,7 +192,7 @@
       </div>
       {#if totalNoLeidos > 0}
         <span
-          class="ml-auto shrink-0 rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-700"
+          class="ml-auto shrink-0 rounded-full bg-brand-light px-2.5 py-1 text-xs font-bold text-brand"
         >
           {totalNoLeidos} sin ver
         </span>
@@ -207,7 +207,7 @@
           bind:value={query}
           type="search"
           placeholder="Buscar curso o actividad…"
-          class="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 text-sm focus:border-indigo-400 focus:outline-none"
+          class="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 text-sm focus:border-brand focus:outline-none"
         />
       </div>
       <label class="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-slate-600">
@@ -218,7 +218,7 @@
           aria-label="Ver todas las actividades"
           onclick={() => (verTodas = !verTodas)}
           class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors {verTodas
-            ? 'bg-indigo-600'
+            ? 'bg-brand'
             : 'bg-slate-300'}"
         >
           <span
@@ -234,15 +234,15 @@
     <!-- ── Cajón: nuevos ── -->
     <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <h2
-        class="flex items-center gap-2 border-b border-slate-100 bg-indigo-50/60 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-indigo-700"
+        class="flex items-center gap-2 border-b border-slate-100 bg-brand-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-brand"
       >
         <Inbox size={14} /> Nuevos (sin ver)
-        <span class="ml-auto font-semibold normal-case tracking-normal text-indigo-500">
+        <span class="ml-auto font-semibold normal-case tracking-normal text-brand">
           {nuevas.length}
         </span>
       </h2>
       {#if nuevas.length === 0}
-        <p class="flex items-center gap-2 px-4 py-6 text-sm text-slate-400">
+        <p class="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
           <CheckCheck size={16} /> Estás al día: no hay mensajes sin ver.
         </p>
       {:else}
@@ -260,12 +260,12 @@
         class="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500"
       >
         <CheckCheck size={14} /> Vistos
-        <span class="ml-auto font-semibold normal-case tracking-normal text-slate-400">
+        <span class="ml-auto font-semibold normal-case tracking-normal text-muted-foreground">
           {vistas.length}
         </span>
       </h2>
       {#if vistas.length === 0}
-        <p class="px-4 py-6 text-sm text-slate-400">
+        <p class="px-4 py-6 text-sm text-muted-foreground">
           {query ? 'Sin resultados.' : 'No hay actividades activas sin mensajes nuevos.'}
         </p>
       {:else}
@@ -279,11 +279,12 @@
         <button
           type="button"
           onclick={() => (verTodas = true)}
-          class="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-left text-xs text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+          class="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-left text-xs text-muted-foreground hover:bg-slate-50 hover:text-slate-600"
         >
           <EyeOff size={13} />
           {ocultas}
-          {ocultas === 1 ? 'actividad no activa oculta' : 'actividades no activas ocultas'} · Mostrar
+          {ocultas === 1 ? 'actividad no activa oculta' : 'actividades no activas ocultas'} ·
+          <span class="font-semibold text-uta-blue underline underline-offset-2">Mostrar</span>
         </button>
       {/if}
     </section>

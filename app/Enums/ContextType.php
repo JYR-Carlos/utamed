@@ -119,7 +119,8 @@ enum ContextType: string
      *   DEPARTAMENTO  →  FACULTAD
      *   FACULTAD      →  GLOBAL
      *   CURSO         →  CARRERA
-     *   ACTIVIDAD     →  CURSO
+     *   COMPONENTE    →  CURSO
+     *   ACTIVIDAD     →  COMPONENTE
      *   GLOBAL        →  null
      *
      * COMPLEJIDAD: O(1) — lookup directo en parentMap()

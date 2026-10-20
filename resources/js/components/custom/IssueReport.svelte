@@ -1,7 +1,7 @@
 <script lang="ts">
   import Toast from '@/components/admin/Toast.svelte';
   import { router } from '@inertiajs/svelte'
-  import { Bug, Loader2, MessageCircleWarning, Trash2, Upload, X } from 'lucide-svelte';
+  import { Bug, Flag, Loader2, MessageCircleWarning, Trash2, Upload, X } from 'lucide-svelte';
 
   let isOpen = $state(false);
   let showConfirmModal = $state(false);
@@ -117,22 +117,17 @@
 <button
   type="button"
   onclick={() => (isOpen = true)}
-  class="group flex h-10   text-white cursor-pointer items-center justify-center gap-0 rounded-xl border border-purple-200/80 bg-purple-500 px-3 text-xs font-semibold hover:text-slate-700 transition-all duration-200 ease-out hover:border-slate-300 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 group-hover:gap-2"
-  title="Reportar un problema"
-  aria-label="Reportar un problema"
+  class="group flex min-h-11 cursor-pointer items-center justify-center gap-0 sm:gap-2 rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-[#002855] max-sm:size-11 max-sm:px-0 transition-colors duration-200 ease-out hover:bg-slate-50"
+  title="Reportar error"
+  aria-label="Reportar error"
 >
-  <Bug
+  <Flag
     size={16}
-    class="shrink-0 transition-transform duration-200 group-hover:rotate-[-8deg] group-hover:scale-110"
+    class="shrink-0"
   />
 
-  <span
-    class="grid grid-cols-[0fr] opacity-0 transition-all duration-200 ease-out group-hover:grid-cols-[1fr] group-hover:opacity-100"
-  >
-    <span class="overflow-hidden whitespace-nowrap mx-2">
-      Reportar Bug
-    </span>
-  </span>
+  <!-- En móvil sólo el ícono: con el rótulo la ruta de navegación casi desaparece. -->
+  <span class="hidden whitespace-nowrap sm:inline">Reportar error</span>
 </button>
 
 

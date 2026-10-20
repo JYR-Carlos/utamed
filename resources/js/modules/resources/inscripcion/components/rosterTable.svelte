@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { stackTable } from '@/lib/actions/stackTable';
   /**
    * rosterTable — Paso 2 del flujo de inscripciones: nómina del curso con
    * cambio de estado por fila (menú contextual limitado a TRANSITIONS) y
@@ -155,7 +156,7 @@
     </div>
 
     <!-- Stats + actions row -->
-    <div class="flex items-center gap-3 shrink-0 flex-wrap">
+    <div class="flex w-full items-center gap-2 sm:gap-3 flex-wrap sm:w-auto sm:shrink-0">
       <!-- Inscritos counter -->
       <div
         class="flex items-center gap-2.5 bg-white border border-gray-200 rounded-xl px-3.5 py-2 shadow-xs"
@@ -284,7 +285,7 @@
     </div>
   {:else}
     <div class="border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-      <table class="w-full border-collapse text-sm">
+      <table use:stackTable class="table-stack w-full border-collapse text-sm">
         <thead>
           <tr class="bg-gray-50/80 border-b border-gray-200">
             <th

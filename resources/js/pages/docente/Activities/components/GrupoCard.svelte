@@ -182,7 +182,7 @@
         {formatNota(grupo.nota)}
       </span>
     {:else}
-      <span class="font-normal text-gray-400 italic text-xs">Sin calificar</span>
+      <span class="font-normal text-muted-foreground italic text-xs">Sin calificar</span>
     {/if}
   </div>
 
@@ -198,7 +198,7 @@
             bind:value={holguraTemp}
             class="w-16 text-xs border border-gray-300 rounded-lg px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-uta-blue focus:ring-2 focus:ring-uta-blue/20 transition-shadow"
           />
-          <span class="text-[10px] text-gray-400">días</span>
+          <span class="text-[10px] text-muted-foreground">días</span>
           <button
             onclick={guardarHolgura}
             class="px-2 py-1 text-[11px] font-semibold bg-uta-blue text-white rounded-lg hover:bg-uta-blue-hover transition-colors"
@@ -207,7 +207,7 @@
           </button>
           <button
             onclick={cancelarEdicionHolgura}
-            class="p-1 text-gray-400 hover:text-gray-600 transition"
+            class="p-1 text-muted-foreground hover:text-gray-600 transition"
           >
             <X class="w-3 h-3" />
           </button>
@@ -241,7 +241,7 @@
             {#if esTitular}
               <button
                 onclick={() => onQuitarEstudiante(grupo.grupo, integrante.id_estudiante)}
-                class="ml-0.5 text-gray-400 hover:text-red-500 transition"
+                class="ml-0.5 text-muted-foreground hover:text-red-500 transition"
                 title="Quitar del grupo"
               >
                 <X class="w-3 h-3" />
@@ -250,7 +250,7 @@
           </span>
         {/each}
         {#if grupo.integrantes.length === 0}
-          <span class="text-xs text-gray-400 italic">Sin integrantes</span>
+          <span class="text-xs text-muted-foreground italic">Sin integrantes</span>
         {/if}
       </div>
     </div>
@@ -274,7 +274,7 @@
             </button>
             <span
               class="w-9 text-center font-mono font-semibold {(integrante.diferencia_decimas ?? 0) === 0
-                ? 'text-gray-400'
+                ? 'text-muted-foreground'
                 : (integrante.diferencia_decimas ?? 0) > 0
                   ? 'text-emerald-600'
                   : 'text-red-600'}"
@@ -327,7 +327,7 @@
       </div>
 
       <!-- Cabecera de columnas -->
-      <div class="flex items-center gap-2 px-1 mb-1 text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+      <div class="flex items-center gap-2 px-1 mb-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
         <span class="flex-1">Estudiante</span>
         <span class="w-[88px] text-center">Décimas</span>
         <span class="w-10 text-right">Nota</span>
@@ -351,7 +351,7 @@
                 </button>
                 <span
                   class="w-9 text-center font-mono font-semibold {(integrante.diferencia_decimas ?? 0) === 0
-                    ? 'text-gray-400'
+                    ? 'text-muted-foreground'
                     : (integrante.diferencia_decimas ?? 0) > 0
                       ? 'text-emerald-600'
                       : 'text-red-600'}"
@@ -409,7 +409,7 @@
         </button>
         <button
           onclick={onCerrarAddForm}
-          class="p-1.5 text-gray-400 hover:text-gray-600 transition"
+          class="p-1.5 text-muted-foreground hover:text-gray-600 transition"
         >
           <X class="w-3.5 h-3.5" />
         </button>

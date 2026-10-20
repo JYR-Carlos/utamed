@@ -3,10 +3,15 @@
    * «Próximas entregas» del curso: las actividades con entrega que todavía no
    * vencen, de la más cercana a la más lejana. Antes era una franja dentro del
    * encabezado con sólo la primera; ahora es una sección propia (T26).
+   *
+   * Cada entrega es una tarjeta: etiqueta de tipo, nombre y, debajo, la fecha
+   * con el plazo. En móvil las tarjetas se apilan y el nombre ocupa todo el
+   * ancho; en escritorio se reparten en tres columnas.
    */
   import { Link } from '@inertiajs/svelte';
-  import { CalendarClock, ChevronRight } from 'lucide-svelte';
-  import { formatFechaCorta, parseFechaSoloDia } from '@/utils/formatters';
+  import { CalendarClock } from 'lucide-svelte';
+  import ChipActividad from '@/components/student/ChipActividad.svelte';
+  import { diasHasta, etiquetaPlazo, formatFechaCorta } from '@/utils/formatters';
 
   interface Entrega {
     id_actividad: number;
@@ -21,49 +26,36 @@
   }
 
   let { idCurso, entregas = [] }: Props = $props();
-
-  function diasRestantes(fecha: string): number {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    return Math.round((parseFechaSoloDia(fecha).getTime() - hoy.getTime()) / 86_400_000);
-  }
-
-  function plazoLabel(dias: number): string {
-    if (dias < 0) return dias === -1 ? 'Venció ayer' : `Venció hace ${Math.abs(dias)} días`;
-    if (dias === 0) return 'Vence hoy';
-    if (dias === 1) return 'Vence mañana';
-    return `Vence en ${dias} días`;
-  }
 </script>
 
 {#if entregas.length > 0}
-  <ul class="flex flex-col gap-3">
-    {#each entregas.filter((e) => diasRestantes(e.fecha_limite) >= 0) as entrega (entrega.id_actividad)}
-      {@const dias = diasRestantes(entrega.fecha_limite)}
+  <ul class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+    {#each entregas.filter((e) => diasHasta(e.fecha_limite) >= 0) as entrega (entrega.id_actividad)}
+      {@const dias = diasHasta(entrega.fecha_limite)}
       {@const urgente = dias <= 3}
 
-      <li>
+      <li class="flex">
         <Link
           href={`/estudiante/cursos/${idCurso}/actividad/${entrega.id_actividad}`}
-          class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border p-4 no-underline transition-colors {urgente
-            ? 'border-amber-200 bg-amber-50 hover:border-amber-300'
-            : 'border-gray-200 bg-white hover:border-uta-blue/30 hover:bg-uta-blue-light/40'}"
+          class="flex w-full flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white p-4 no-underline transition-colors hover:border-uta-blue/30 hover:bg-uta-blue-light/40"
         >
-          <CalendarClock class="w-4 h-4 shrink-0 {urgente ? 'text-amber-600' : 'text-gray-500'}" />
+          <ChipActividad tipo={entrega.es_sumativa ? 'sumativa' : 'formativa'} />
 
-          <span class="min-w-0 flex-1 text-sm font-semibold text-gray-900">
+          <span class="min-w-0 text-[15px] font-semibold leading-snug text-slate-900">
             {entrega.nombre}
           </span>
 
-          <span class="text-sm text-gray-500">
-            {formatFechaCorta(entrega.fecha_limite)}
+          <span class="mt-auto flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
+            <CalendarClock
+              class="h-4 w-4 shrink-0 {urgente ? 'text-amber-700' : 'text-slate-600'}"
+              aria-hidden="true"
+            />
+            <span class="font-semibold text-slate-900">{formatFechaCorta(entrega.fecha_limite)}</span>
+            <span class="text-slate-600" aria-hidden="true">·</span>
+            <span class="font-bold {urgente ? 'text-amber-800' : 'text-uta-blue'}">
+              {etiquetaPlazo(dias)}
+            </span>
           </span>
-
-          <span class="text-sm font-semibold {urgente ? 'text-amber-700' : 'text-gray-700'}">
-            {plazoLabel(dias)}
-          </span>
-
-          <ChevronRight class="w-4 h-4 shrink-0 text-gray-400" />
         </Link>
       </li>
     {/each}

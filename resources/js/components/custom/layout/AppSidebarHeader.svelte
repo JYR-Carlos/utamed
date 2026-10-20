@@ -6,6 +6,7 @@
     Bell,
     ChevronDown,
     LayoutGrid,
+    Menu,
     Users,
     Building2,
     BookOpen,
@@ -151,15 +152,21 @@
   <div class="header-left">
     <!-- Mobile trigger -->
     <button
-      class="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-md transition-colors"
-      onclick={() => sidebar.toggle()}
-      aria-label="Toggle Sidebar"
+      class="lg:hidden size-11 -ml-2 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-md transition-colors"
+      onclick={() => sidebar.setOpenMobile(true)}
+      aria-label="Abrir el menú de navegación"
     >
-      <LayoutGrid size={20} />
+      <Menu size={22} />
     </button>
 
+    <!-- Móvil con ruta de varios niveles: marca aquí y «‹ Nivel anterior» en la
+         fila de abajo; la ruta completa queda para desde `sm`. -->
+    {#if breadcrumbs.length > 1}
+      <span class="sm:hidden text-lg font-extrabold leading-none tracking-tight text-uta-blue">UTAMED</span>
+    {/if}
+
     {#if breadcrumbs.length > 0}
-      <div class="breadcrumb-wrapper">
+      <div class="breadcrumb-wrapper {breadcrumbs.length > 1 ? 'max-sm:hidden' : ''}">
         <Breadcrumbs {breadcrumbs} />
       </div>
     {/if}
@@ -169,11 +176,11 @@
   <div class="header-center hidden lg:flex lg:justify-center">
     <button class="search-box cursor-text text-left" onclick={() => (openSearch = true)}>
       <Search size={18} class="search-icon" />
-      <span class="search-input text-slate-400">Buscar en el sistema...</span>
+      <span class="search-input text-[#5A5E6E]">Buscar en el sistema...</span>
       <span
-        class="ml-auto hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-400"
+        class="ml-auto hidden xl:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-[#E5E7EB] bg-[#F1F3F6] text-xs font-semibold text-[#5A5E6E]"
       >
-      <span class="text-[12px] leading-none">⌘</span> K
+      <span class="leading-none">⌘</span> K
       </span>
     </button>
   </div>
@@ -200,11 +207,12 @@
   <div class="header-right">
     {#if buscadorHabilitado}
       <button
-        class="lg:hidden mobile-search-trigger flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-full font-bold shadow-sm"
+        class="lg:hidden mobile-search-trigger flex min-h-11 min-w-11 items-center justify-center gap-2 p-2 sm:px-3 sm:py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-full font-bold shadow-sm"
         onclick={() => (openSearch = true)}
+        aria-label="Buscar en el sistema"
       >
         <Search size={18} />
-        <span class="text-xs">Buscar</span>
+        <span class="hidden sm:inline text-xs">Buscar</span>
       </button>
     {/if}
 
@@ -251,24 +259,30 @@
     <IssueReport />
 
     <DropdownMenu>
+      <!-- Un solo botón: antes el disparador envolvía a un Button y quedaban dos
+           botones anidados, ambos llamados «C». -->
       <DropdownMenuTrigger>
+        {#snippet child({ props })}
         <Button
+          {...props}
           variant="ghost"
           size="icon"
-          class="relative size-10 w-auto rounded-full p-1 focus-within:ring-2 focus-within:ring-primary"
+          aria-label="Menú de usuario"
+          class="relative size-11 rounded-full p-1.5 focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2"
         >
           <Avatar class="size-8 overflow-hidden rounded-full">
             {#if user.avatar}
               <AvatarImage src={user.avatar} alt={user.nombre1} />
             {:else}
               <AvatarFallback
-                class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white"
+                class="rounded-full bg-uta-blue font-bold text-white"
               >
                 {getInitials(user.nombre1 || '')}
               </AvatarFallback>
             {/if}
           </Avatar>
         </Button>
+        {/snippet}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" class="w-56">
         <UserMenuContent {user} />
@@ -276,6 +290,12 @@
     </DropdownMenu>
   </div>
 </header>
+
+{#if breadcrumbs.length > 1}
+  <div class="shrink-0 border-b border-slate-100 bg-white px-2 sm:hidden">
+    <Breadcrumbs {breadcrumbs} variante="volver" />
+  </div>
+{/if}
 
 <style>
   /*
@@ -292,8 +312,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1.5rem;
-    padding: 0 1.5rem;
+    gap: 0.5rem;
+    padding: 0 0.75rem;
     background: #ffffff;
     border-bottom: 1px solid #f1f5f9;
     position: sticky;
@@ -327,10 +347,27 @@
   .header-right {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    flex: 1;
+    gap: 0.5rem;
+    flex: 0 0 auto;
     justify-content: flex-end;
     min-width: 0;
+  }
+
+  @media (min-width: 640px) {
+    .global-header {
+      gap: 1.5rem;
+      padding: 0 1.5rem;
+    }
+
+    .header-right {
+      gap: 0.75rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .header-right {
+      flex: 1;
+    }
   }
 
   @media (min-width: 768px) {
@@ -374,9 +411,10 @@
     }
   }
 
+  /* 44 px en pantallas táctiles; 40 px con puntero de escritorio (≥ lg). */
   .icon-btn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 10px;
     color: #64748b;
     background: #f8fafc;
@@ -389,5 +427,12 @@
   .icon-btn:hover {
     background: #f1f5f9;
     color: #1e293b;
+  }
+
+  @media (min-width: 1024px) {
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+    }
   }
 </style>

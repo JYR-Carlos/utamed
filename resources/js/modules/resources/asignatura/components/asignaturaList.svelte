@@ -40,7 +40,7 @@
 <div>
   <PageHeader title="Asignaturas" subtitle="Gestión del catálogo de asignaturas">
     {#snippet note()}
-      <p class="badge badge-info">
+      <p class="badge badge-info whitespace-normal rounded-lg text-left leading-snug">
         Al editar una asignatura eliges el tipo: corrección en el mismo registro, o nueva versión
         que conserva el historial de cambios.
       </p>

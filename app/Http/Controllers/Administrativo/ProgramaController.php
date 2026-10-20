@@ -118,7 +118,8 @@ class ProgramaController extends Controller
         $canApprove = false;
 
         // Calcular canEdit: - Admin siempre puede editar
-        // - Docente asignado al curso puede editar si el programa no está APROBADO
+        // - Docente titular del curso también puede editar uno APROBADO: guardar crea
+        //   una versión nueva que vuelve a revisión (decisión del equipo, 2026-10-14).
         /** @var \App\Models\Usuario\Usuario $user */
         $user = Auth::user();
         
@@ -127,9 +128,7 @@ class ProgramaController extends Controller
             ? Curso::where('id_curso', $curso->id_curso)->where('id_docente_titular', $user->docente->id_docente)->exists()
             : false;
 
-        $editableState = !$programa || !in_array($programa->estado, ['APROBADO']);
-
-        $canEdit = $editableState && ($isAdmin || $isAssignedDocente);
+        $canEdit = $isAdmin || $isAssignedDocente;
 
         if ($programa) {
             /** @var \App\Models\Usuario\Usuario $user */
@@ -231,10 +230,9 @@ class ProgramaController extends Controller
         if ($programa) {
             $this->authorize('view', $programa);
 
-            if ($programa->estado === 'APROBADO') {
-                return Redirect::route('docente.cursos.programa.show', $curso->id_curso)
-                    ->with('error', 'El syllabus está aprobado: solicita la reapertura a tu jefatura antes de editarlo.');
-            }
+            // Un programa APROBADO ya no se bloquea: al guardar se crea una versión
+            // nueva en revisión (COMPLETO) y la aprobada queda en el historial. El
+            // asistente lo avisa antes de guardar.
         } else {
             $this->authorize('create', [Programa::class, $curso]);
         }

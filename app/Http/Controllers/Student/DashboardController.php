@@ -124,7 +124,7 @@ class DashboardController extends Controller
      * agenda (consultas y feedback de una entrega) no entran aquí — esos cuelgan
      * de una actividad y se ven en la actividad.
      *
-     * @return array{no_leidos:int, cursos:array<int,array{id_curso:int, nombre:string, no_leidos:int}>}
+     * @return array{no_leidos:int, cursos:array<int,array{id_curso:int, nombre:string, cod_curso:string, cod_asignatura:?string, no_leidos:int}>}
      */
     private function mensajesSinLeer(MensajeriaService $mensajeria, int $idUsuario): array
     {
@@ -141,6 +141,7 @@ class DashboardController extends Controller
                 'id_curso'  => (int) $componente->id_curso,
                 'nombre'    => $componente->curso_nombre,
                 'cod_curso' => $componente->cod_curso,
+                'cod_asignatura' => $componente->cod_asignatura,
                 'no_leidos' => $noLeidos[(int) $componente->id_componente] ?? 0,
             ])
             ->filter(fn(array $fila) => $fila['no_leidos'] > 0)
@@ -149,6 +150,7 @@ class DashboardController extends Controller
                 'id_curso'  => $delCurso->first()['id_curso'],
                 'nombre'    => $delCurso->first()['nombre'],
                 'cod_curso' => $delCurso->first()['cod_curso'],
+                'cod_asignatura' => $delCurso->first()['cod_asignatura'],
                 'no_leidos' => $delCurso->sum('no_leidos'),
             ])
             ->sortByDesc('no_leidos')

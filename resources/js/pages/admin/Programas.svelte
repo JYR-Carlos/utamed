@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { stackTable } from '@/lib/actions/stackTable';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import PageHeader from '@/components/admin/PageHeader.svelte';
   import { Link } from '@inertiajs/svelte';
@@ -114,7 +115,7 @@
       <Card.Content class="p-6">
         {#if programas.length > 0}
           <div class="overflow-x-auto">
-            <table class="w-full">
+            <table use:stackTable class="table-stack w-full">
               <thead>
                 <tr class="border-b border-slate-200">
                   <th class="text-left py-3 px-4 text-sm font-semibold text-slate-700"

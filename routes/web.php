@@ -170,7 +170,10 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
         ->name('cursos.actividades.json');
 
     // Resource routes (more general routes go after specific ones)
-    Route::resource('facultades', FacultadController::class);
+    // Sin parameters(), Laravel singulariza 'facultades' como {facultade} y el
+    // binding de Facultad $facultad no ocurre: llegaba un modelo vacío y editar
+    // creaba una facultad nueva.
+    Route::resource('facultades', FacultadController::class)->parameters(['facultades' => 'facultad']);
     Route::resource('departamentos', DepartamentoController::class);
     Route::resource('carreras', CarreraController::class);
     Route::resource('planes', PlanController::class)->parameters(['planes' => 'plan']);
@@ -191,6 +194,11 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
     // resource to avoid conflict with {curso} binding)
     Route::get('cursos/preview-componentes', [CursoController::class, 'previewComponentes'])
         ->name('cursos.preview-componentes');
+
+    // Grupos que la Intranet oferta para una asignatura en un periodo, con sus
+    // componentes y CUR_CODIGO: el wizard los ofrece para autocompletarse.
+    Route::get('cursos/oferta-intranet', [CursoController::class, 'ofertaIntranet'])
+        ->name('cursos.oferta-intranet');
 
     // Sincronización masiva (varios cursos sin componentes a la vez): mismo
     // patrón de "revisar antes de confirmar" que la de un curso. (BEFORE

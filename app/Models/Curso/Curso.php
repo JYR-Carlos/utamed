@@ -43,6 +43,30 @@ class Curso extends BaseCurso
         return $this->letra_grupo ? "{$base} Grupo {$this->letra_grupo}" : $base;
     }
 
+    /**
+     * Un curso es colegiado cuando algún componente lo dictan dos o más docentes.
+     * Tener un docente distinto en cada componente NO lo hace colegiado.
+     *
+     * No es una opción manual: se deriva de docente_componente, así que debe
+     * recalcularse cada vez que cambian los docentes de un componente.
+     */
+    public function recalcularColegiado(): bool
+    {
+        $esColegiado = DocenteComponente::query()
+            ->whereHas('componente', fn ($q) => $q->where('id_curso', $this->id_curso))
+            ->groupBy('id_componente')
+            ->havingRaw('COUNT(DISTINCT id_docente) > 1')
+            ->select('id_componente')
+            ->exists();
+
+        if ($this->es_colegiado !== $esColegiado) {
+            $this->es_colegiado = $esColegiado;
+            $this->save();
+        }
+
+        return $esColegiado;
+    }
+
     // Agrega aquí tus métodos personalizados
     // Scopes personalizados
     // Relaciones adicionales

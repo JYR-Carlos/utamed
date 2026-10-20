@@ -146,7 +146,7 @@
                             <span
                               class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100"
                             >
-                              <X class="h-3.5 w-3.5 text-slate-400" />
+                              <X class="h-3.5 w-3.5 text-muted-foreground" />
                             </span>
                           {/if}
                         </td>
@@ -171,7 +171,7 @@
           </div>
           <div class="flex items-center gap-1.5">
             <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-100">
-              <X class="h-3 w-3 text-slate-400" />
+              <X class="h-3 w-3 text-muted-foreground" />
             </span>
             Sin permiso
           </div>

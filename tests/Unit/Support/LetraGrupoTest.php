@@ -31,4 +31,19 @@ class LetraGrupoTest extends TestCase
         $this->assertSame('', LetraGrupo::fromIndice(null));
         $this->assertSame('', LetraGrupo::fromIndice(0));
     }
+
+    public function test_to_indice_es_el_inverso_de_from_indice(): void
+    {
+        foreach ([1, 2, 26, 27, 52, 53, 702] as $indice) {
+            $this->assertSame($indice, LetraGrupo::toIndice(LetraGrupo::fromIndice($indice)));
+        }
+        $this->assertSame(2, LetraGrupo::toIndice(' b '));
+    }
+
+    public function test_to_indice_rechaza_lo_que_no_es_una_letra(): void
+    {
+        $this->assertNull(LetraGrupo::toIndice(''));
+        $this->assertNull(LetraGrupo::toIndice(null));
+        $this->assertNull(LetraGrupo::toIndice('1'));
+    }
 }

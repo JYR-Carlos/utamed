@@ -9,51 +9,20 @@
    * sólo el documento.
    */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
-  import ProgramaDocument from '@/modules/resources/programa/components/ProgramaDocument.svelte';
+  import ProgramaAlumno, {
+    type DocenteSyllabus,
+    type ProgramaPublicado,
+    type SeccionPrograma,
+  } from './components/ProgramaAlumno.svelte';
   import type { BreadcrumbItem, Curso } from '@/types';
-  import { ArrowLeft, Award, BookOpen, Clock, Printer, User } from 'lucide-svelte';
+  import { ArrowLeft, BookOpen, Printer } from 'lucide-svelte';
   import { Link } from '@inertiajs/svelte';
-
-  // ─── Types ──────────────────────────────────────────────────────────────────
-
-  /**
-   * Un docente de la sección del alumno. Cada componente (cátedra, laboratorio,
-   * taller) tiene un titular y puede tener un docente extra propio.
-   */
-  interface DocenteSyllabus {
-    nombre: string;
-    email?: string | null;
-    es_titular: boolean;
-    componente?: string | null;
-  }
-
-  /** Sección tal como la arma App\Traits\ParsesSyllabus (igual que al docente). */
-  interface Seccion {
-    numeral_romano?: string;
-    nombre_seccion: string;
-    contenidos?: Array<{ texto_contenido: string | null }>;
-    componentes?: Array<{
-      componente: string;
-      porcentaje: number | string;
-      genera_acta?: boolean;
-      aprobacion_obligatoria?: boolean;
-      asistencia_obligatoria?: number | string | null;
-    }>;
-    ponderacion_optativa?: { porcentaje?: number } | null;
-  }
 
   interface Props {
     curso?: Curso | null;
-    programa?: {
-      id_programa: number;
-      version_programa: string;
-      estado: string;
-      creado_por?: string;
-      fecha_creacion?: string;
-      tipo_syllabus?: string;
-    } | null;
+    programa?: ProgramaPublicado | null;
     docentes?: DocenteSyllabus[];
-    secciones?: Seccion[];
+    secciones?: SeccionPrograma[];
     datos?: { categoria?: string } | null;
   }
 
@@ -63,26 +32,15 @@
 
   const asignatura = $derived(curso?.asignatura);
   const asignaturaNombre = $derived(asignatura?.nombre ?? curso?.nombre ?? 'Sin nombre');
-  const backUrl = $derived(`/estudiante/cursos/${curso?.id_curso}`);
+  const backUrl = $derived(`/estudiante/cursos/${curso?.id_curso}?seccion=programa`);
   const categoria = $derived(datos?.categoria ?? '');
 
   const breadcrumbs = $derived<BreadcrumbItem[]>([
     { title: 'Inicio', href: '/estudiante/dashboard' },
     { title: 'Mis Cursos', href: '/estudiante/cursos' },
-    { title: curso?.etiqueta ?? asignaturaNombre, href: backUrl },
+    { title: curso?.etiqueta ?? asignaturaNombre, href: `/estudiante/cursos/${curso?.id_curso}` },
     { title: 'Programa', href: '#' },
   ]);
-
-  /** Unidades (VI) primero; el resto conserva el orden del programa. */
-  const seccionesOrdenadas = $derived([
-    ...secciones.filter((s) => s.numeral_romano === 'VI'),
-    ...secciones.filter((s) => s.numeral_romano !== 'VI'),
-  ]);
-
-  function formatDate(dateStr?: string) {
-    if (!dateStr) return '';
-    return new Date(dateStr).toLocaleDateString('es-CL', { year: 'numeric', month: 'long' });
-  }
 
   function imprimir() {
     window.print();
@@ -112,7 +70,7 @@
     </div>
 
     <!-- Encabezado del documento -->
-    <header class="mb-8">
+    <header class="mb-6">
       <div class="mb-3 flex items-center gap-2">
         <BookOpen class="h-5 w-5 text-uta-blue" />
         <span class="text-sm font-semibold uppercase tracking-wider text-uta-blue">
@@ -120,97 +78,12 @@
         </span>
       </div>
 
-      <h1 class="mb-6 text-3xl font-extrabold leading-tight text-gray-900 sm:text-4xl">
+      <h1 class="text-3xl font-extrabold leading-tight text-gray-900 sm:text-4xl">
         {asignaturaNombre}
       </h1>
-
-      <div
-        class="grid grid-cols-2 gap-6 rounded-2xl border border-gray-200 bg-white p-6 sm:grid-cols-3 lg:grid-cols-5"
-      >
-        <div>
-          <div class="mb-2 flex items-center gap-2">
-            <BookOpen class="h-4 w-4 text-gray-500" />
-            <span class="text-xs font-semibold uppercase tracking-wider text-gray-600">Categoría</span>
-          </div>
-          <p class="font-semibold text-gray-900">{categoria || '—'}</p>
-        </div>
-
-        <!-- Docentes de la sección del alumno (titular primero) -->
-        <div class="col-span-2 sm:col-span-1">
-          <div class="mb-2 flex items-center gap-2">
-            <User class="h-4 w-4 text-gray-500" />
-            <span class="text-xs font-semibold uppercase tracking-wider text-gray-600"
-              >{docentes.length > 1 ? 'Docentes' : 'Docente'}</span
-            >
-          </div>
-          {#if docentes.length}
-            <ul class="space-y-3">
-              {#each docentes as docente (docente.nombre + (docente.componente ?? ''))}
-                <li>
-                  <p class="font-semibold text-gray-900">{docente.nombre}</p>
-                  <p class="text-xs text-gray-500">
-                    {docente.es_titular ? 'Titular' : 'Docente'}{docente.componente
-                      ? ` · ${docente.componente}`
-                      : ''}
-                  </p>
-                  {#if docente.email}
-                    <p class="truncate text-sm text-gray-500">{docente.email}</p>
-                  {/if}
-                </li>
-              {/each}
-            </ul>
-          {:else}
-            <p class="text-sm italic text-gray-400">No asignado</p>
-          {/if}
-        </div>
-
-        <div>
-          <div class="mb-2 flex items-center gap-2">
-            <Award class="h-4 w-4 text-gray-500" />
-            <span class="text-xs font-semibold uppercase tracking-wider text-gray-600">Créditos SCT</span>
-          </div>
-          <p class="text-2xl font-bold text-gray-900">{asignatura?.creditos_sct ?? '—'}</p>
-        </div>
-
-        <div>
-          <div class="mb-2 flex items-center gap-2">
-            <Clock class="h-4 w-4 text-gray-500" />
-            <span class="text-xs font-semibold uppercase tracking-wider text-gray-600">Horas Cátedra</span>
-          </div>
-          <p class="text-2xl font-bold text-gray-900">{asignatura?.horas_catedra ?? '—'}</p>
-        </div>
-
-        <div>
-          <div class="mb-2 flex items-center gap-2">
-            <Clock class="h-4 w-4 text-gray-500" />
-            <span class="text-xs font-semibold uppercase tracking-wider text-gray-600">Horas Taller</span>
-          </div>
-          <p class="text-2xl font-bold text-gray-900">{asignatura?.horas_taller ?? '—'}</p>
-        </div>
-      </div>
     </header>
 
-    {#if !programa}
-      <div class="rounded-2xl border border-gray-200 bg-white p-16 text-center">
-        <BookOpen class="mx-auto mb-4 h-12 w-12 text-gray-300" />
-        <h3 class="mb-2 text-xl font-bold text-gray-700">Programa no disponible</h3>
-        <p class="text-gray-500">El programa de este curso aún no ha sido aprobado.</p>
-      </div>
-    {:else}
-      <ProgramaDocument secciones={seccionesOrdenadas} variante="tarjetas" />
-
-      <footer class="mt-8 text-center text-sm text-gray-500">
-        <p>
-          Programa aprobado por el Consejo de Escuela · Versión {programa.version_programa}
-          {#if programa.fecha_creacion}
-            · {formatDate(programa.fecha_creacion)}
-          {/if}
-        </p>
-        {#if programa.creado_por}
-          <p class="mt-1">Elaborado por: {programa.creado_por}</p>
-        {/if}
-      </footer>
-    {/if}
+    <ProgramaAlumno {curso} {programa} {docentes} {secciones} {categoria} />
   </div>
 </StudentLayout>
 

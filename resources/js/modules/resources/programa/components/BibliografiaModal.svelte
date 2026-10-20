@@ -167,7 +167,7 @@
         <input id="bib-autor" type="text" bind:value={formData.autor} class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="Deja vacío para S/A">
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label for="bib-anio" class="block text-sm font-semibold text-slate-700 mb-1">Año *</label>
           <input id="bib-anio" type="number" bind:value={formData.anio} class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" min="1900" max="2100">

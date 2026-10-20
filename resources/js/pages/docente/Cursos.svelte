@@ -183,7 +183,7 @@
             aria-expanded={sortOpen}
           >
             <SlidersHorizontal size={15} aria-hidden="true" />
-            <span class="text-[#8B92A6]">Ordenar:</span>
+            <span class="text-muted-foreground">Ordenar:</span>
             <span class="text-[#0E1220] font-medium">{SORT_LABELS[sortKey]}</span>
             <ChevronDown size={13} aria-hidden="true" />
           </button>
@@ -315,21 +315,21 @@
                 </div>
 
                 <div class="flex flex-wrap gap-1.5">
-                  <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {curso.total_estudiantes > 0 ? 'bg-[#FAFBFC] text-[#2B3142] border border-transparent' : 'bg-transparent text-[#8B92A6] border border-[#E8EAF0]'}">
+                  <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {curso.total_estudiantes > 0 ? 'bg-[#FAFBFC] text-[#2B3142] border border-transparent' : 'bg-transparent text-muted-foreground border border-[#E8EAF0]'}">
                     <Users size={13} aria-hidden="true" />
                     <span class="font-semibold">{curso.total_estudiantes ?? 0}</span>
-                    <span class="opacity-80">estudiantes</span>
+                    <span>estudiantes</span>
                   </div>
-                  <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {urgent ? 'bg-[#FEF3CC] text-[#92580B] border border-transparent' : 'bg-transparent text-[#8B92A6] border border-[#E8EAF0]'}">
+                  <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {urgent ? 'bg-[#FEF3CC] text-[#92580B] border border-transparent' : 'bg-transparent text-muted-foreground border border-[#E8EAF0]'}">
                     <BookOpenCheck size={13} aria-hidden="true" />
                     <span class="font-semibold">{curso.pendientes_calificar ?? 0}</span>
-                    <span class="opacity-80">por revisar</span>
+                    <span>por revisar</span>
                   </div>
                   {#if curso.anuncios != null}
-                    <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {(curso.anuncios ?? 0) > 0 ? 'bg-[#EAF1FF] text-[#2563EB] border border-transparent' : 'bg-transparent text-[#8B92A6] border border-[#E8EAF0]'}">
+                    <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {(curso.anuncios ?? 0) > 0 ? 'bg-[#EAF1FF] text-[#2563EB] border border-transparent' : 'bg-transparent text-muted-foreground border border-[#E8EAF0]'}">
                       <Bell size={13} aria-hidden="true" />
                       <span class="font-semibold">{curso.anuncios}</span>
-                      <span class="opacity-80">anuncios</span>
+                      <span>anuncios</span>
                     </div>
                   {/if}
                 </div>
@@ -399,11 +399,11 @@
                 </div>
 
                 <div class="flex gap-1 items-center max-md:col-span-2">
-                  <div class="inline-flex items-center gap-1 px-[7px] py-[3px] rounded-[7px] text-xs {curso.total_estudiantes > 0 ? 'bg-[#FAFBFC] text-[#2B3142] border border-transparent' : 'bg-transparent text-[#8B92A6] border border-[#E8EAF0]'}">
+                  <div class="inline-flex items-center gap-1 px-[7px] py-[3px] rounded-[7px] text-xs {curso.total_estudiantes > 0 ? 'bg-[#FAFBFC] text-[#2B3142] border border-transparent' : 'bg-transparent text-muted-foreground border border-[#E8EAF0]'}">
                     <Users size={13} aria-hidden="true" />
                     <span class="font-semibold">{curso.total_estudiantes ?? 0}</span>
                   </div>
-                  <div class="inline-flex items-center gap-1 px-[7px] py-[3px] rounded-[7px] text-xs {urgent ? 'bg-[#FEF3CC] text-[#92580B] border border-transparent' : 'bg-transparent text-[#8B92A6] border border-[#E8EAF0]'}">
+                  <div class="inline-flex items-center gap-1 px-[7px] py-[3px] rounded-[7px] text-xs {urgent ? 'bg-[#FEF3CC] text-[#92580B] border border-transparent' : 'bg-transparent text-muted-foreground border border-[#E8EAF0]'}">
                     <BookOpenCheck size={13} aria-hidden="true" />
                     <span class="font-semibold">{curso.pendientes_calificar ?? 0}</span>
                   </div>

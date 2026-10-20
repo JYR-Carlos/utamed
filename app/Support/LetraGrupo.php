@@ -22,4 +22,22 @@ class LetraGrupo
         }
         return $result;
     }
+
+    /**
+     * Inverso de fromIndice(): A=1, B=2, ..., Z=26, AA=27. Devuelve null si la
+     * letra no tiene esa forma (la Intranet a veces trae grupos vacíos).
+     */
+    public static function toIndice(?string $letra): ?int
+    {
+        $letra = strtoupper(trim((string) $letra));
+        if ($letra === '' || preg_match('/^[A-Z]+$/', $letra) !== 1) {
+            return null;
+        }
+
+        $n = 0;
+        foreach (str_split($letra) as $c) {
+            $n = $n * 26 + (ord($c) - 64);
+        }
+        return $n;
+    }
 }

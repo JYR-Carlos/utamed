@@ -80,7 +80,7 @@
 
   <!-- Jornada + Sede — dominios cerrados, no texto libre: escritos a mano
        entraban como «Diurna», «diurna» y «Jornada Diurna», o no entraban. -->
-  <div class="grid grid-cols-2 gap-3 mb-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
     <div>
       <label for="jornada" class="block text-sm font-medium text-gray-700 mb-1.5">Jornada</label>
       <select id="jornada" bind:value={formData.jornada} class={selectClass}>

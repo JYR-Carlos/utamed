@@ -13,6 +13,7 @@ use App\Models\Curso\TipoComponente;
 use App\Models\Usuario\UsuarioRolAsignacion;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Docente;
+use App\Services\CursoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -49,6 +50,30 @@ class ComponenteController extends Controller
         }
 
         abort(404, 'Componente no encontrado en este curso.');
+    }
+
+    /**
+     * Devuelve por qué un componente no se puede borrar sin perder historia, o null
+     * si se puede: actividades, mensajes o asistencia ya registrada de sus alumnos.
+     */
+    private function motivoParaNoEliminar(Componente $componente): ?string
+    {
+        $actividades = $componente->actividades()->count();
+        if ($actividades > 0) {
+            return "tiene {$actividades} " . ($actividades === 1 ? 'actividad' : 'actividades');
+        }
+
+        // withTrashed: un mensaje borrado (soft delete) sigue bloqueando la FK.
+        if ($componente->mensajes()->withTrashed()->exists()) {
+            return 'tiene mensajes del curso';
+        }
+
+        $conAsistencia = $componente->inscripcionComponentes()->whereHas('asistencias')->exists();
+        if ($conAsistencia) {
+            return 'tiene asistencia registrada';
+        }
+
+        return null;
     }
 
     /**
@@ -148,6 +173,8 @@ class ComponenteController extends Controller
                 return $componente;
             });
 
+            $curso->recalcularColegiado();
+
             if ($request->wantsJson()) {
                 return response()->json([
                     'message'    => 'Componente creado exitosamente.',
@@ -210,6 +237,8 @@ class ComponenteController extends Controller
                 }
             }
 
+            $curso->recalcularColegiado();
+
             if ($request->wantsJson()) {
                 return response()->json([
                     'message'    => 'Componente actualizado exitosamente.',
@@ -239,6 +268,17 @@ class ComponenteController extends Controller
         $this->authorize('delete', $componente);
         $this->assertComponenteDeCurso($curso, $componente);
 
+        // Las FK hacia componente son RESTRICT. Lo que es trabajo de alumnos o del
+        // docente (actividades, mensajes, asistencia) no se borra en cascada: se avisa.
+        $motivo = $this->motivoParaNoEliminar($componente);
+        if ($motivo !== null) {
+            $mensaje = "No se puede eliminar el componente: {$motivo}.";
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $mensaje], 422);
+            }
+            return back()->with('error', $mensaje);
+        }
+
         try {
             // Capturar los docentes ANTES de borrar: si este era su único componente
             // en el curso, hay que revocarles el rol de curso (igual que removeDocente()).
@@ -246,19 +286,26 @@ class ComponenteController extends Controller
             $componente->load('curso');
             $idContexto = $componente->curso?->id_contexto;
 
-            $componente->delete();
+            DB::transaction(function () use ($componente, $curso, $idsDocentes, $idContexto) {
+                // Sin historia, lo que queda colgando son asignaciones: los docentes del
+                // componente y las inscripciones que el trigger creó al inscribir al curso.
+                $componente->docenteComponentes()->delete();
+                $componente->inscripcionComponentes()->delete();
+                $componente->delete();
+                $curso->recalcularColegiado();
 
-            if ($idContexto) {
-                foreach ($idsDocentes as $idDocente) {
-                    $tieneOtrosComponentes = DocenteComponente::where('id_docente', $idDocente)
-                        ->whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso))
-                        ->exists();
+                if ($idContexto) {
+                    foreach ($idsDocentes as $idDocente) {
+                        $tieneOtrosComponentes = DocenteComponente::where('id_docente', $idDocente)
+                            ->whereHas('componente', fn ($q) => $q->where('id_curso', $curso->id_curso))
+                            ->exists();
 
-                    if (!$tieneOtrosComponentes) {
-                        $this->revokeDocenteRolCurso($idDocente, $idContexto);
+                        if (!$tieneOtrosComponentes) {
+                            $this->revokeDocenteRolCurso($idDocente, $idContexto);
+                        }
                     }
                 }
-            }
+            });
 
             if ($request->wantsJson()) {
                 return response()->json(['message' => 'Componente eliminado exitosamente.']);
@@ -307,6 +354,8 @@ class ComponenteController extends Controller
                 $componente->curso->id_docente_titular,
             );
         }
+
+        $curso->recalcularColegiado();
 
         $docente = Docente::with('usuario')->find($validated['id_docente']);
 
@@ -360,6 +409,7 @@ class ComponenteController extends Controller
         }
 
         $docenteComponente->delete();
+        $curso->recalcularColegiado();
 
         // Revocar rol del docente eliminado si ya no tiene ningún componente en el curso
         $componente->load('curso');
@@ -524,111 +574,12 @@ class ComponenteController extends Controller
         bool $esTitularComponente,
         ?int $idDocenteTitularCurso = null,
     ): void {
-        try {
-            $docente = Docente::find($idDocente);
-            if (!$docente || !$docente->id_usuario) {
-                Log::warning('No se pudo asignar rol Docente: docente no encontrado.', [
-                    'id_docente' => $idDocente,
-                ]);
-                return;
-            }
-
-            $actorId = Auth::id() ?? $docente->id_usuario;
-
-            // ── Determinar el rol objetivo ─────────────────────────────────
-            $esDtCurso = $idDocenteTitularCurso !== null && $idDocente === $idDocenteTitularCurso;
-
-            $rolNombre = match (true) {
-                $esDtCurso             => 'Docente Titular',
-                $esTitularComponente   => 'Docente Componente',
-                default                => 'Docente Componente Colegiado',
-            };
-
-            // ── Jerarquía: no degradar si ya tiene un rol superior ─────────
-            // Orden descendente: Docente Titular > Docente Componente > Docente Componente Colegiado
-            $jerarquia = ['Docente Titular', 'Docente Componente', 'Docente Componente Colegiado'];
-            $nivelObjetivo = array_search($rolNombre, $jerarquia);
-
-            $rolesActuales = Rol::whereIn('nombre', $jerarquia)->pluck('id_rol', 'nombre');
-
-            foreach ($jerarquia as $idx => $nombreSuperior) {
-                if ($idx >= $nivelObjetivo) {
-                    break;
-                }
-                $idRolSuperior = $rolesActuales[$nombreSuperior] ?? null;
-                if ($idRolSuperior) {
-                    $tieneSuperior = UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
-                        ->where('id_contexto', $idContextoCurso)
-                        ->where('id_rol', $idRolSuperior)
-                        ->where('esta_activo', true)
-                        ->where('fue_eliminado', false)
-                        ->exists();
-                    if ($tieneSuperior) {
-                        return; // Ya tiene un rol superior; no degradar
-                    }
-                }
-            }
-
-            // ── Revocar roles inferiores antes de asignar el objetivo ──────
-            foreach ($jerarquia as $idx => $nombreInferior) {
-                if ($idx <= $nivelObjetivo) {
-                    continue;
-                }
-                $idRolInferior = $rolesActuales[$nombreInferior] ?? null;
-                if ($idRolInferior) {
-                    UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
-                        ->where('id_contexto', $idContextoCurso)
-                        ->where('id_rol', $idRolInferior)
-                        ->where('esta_activo', true)
-                        ->where('fue_eliminado', false)
-                        ->update([
-                            'esta_activo'    => false,
-                            'fue_eliminado'  => true,
-                            'fecha_fin_real' => Carbon::now(),
-                            'eliminado_por'  => $actorId,
-                        ]);
-                }
-            }
-
-            // ── Asignar rol objetivo si no lo tiene aún ────────────────────
-            $rol = Rol::where('nombre', $rolNombre)->first();
-            if (!$rol) {
-                Log::error("Rol '{$rolNombre}' no existe en la base de datos.");
-                return;
-            }
-
-            $already = UsuarioRolAsignacion::where('id_usuario', $docente->id_usuario)
-                ->where('id_contexto', $idContextoCurso)
-                ->where('id_rol', $rol->id_rol)
-                ->where('esta_activo', true)
-                ->where('fue_eliminado', false)
-                ->exists();
-
-            if (!$already) {
-                $now = Carbon::now();
-                UsuarioRolAsignacion::create([
-                    'id_usuario'                => $docente->id_usuario,
-                    'id_rol'                    => $rol->id_rol,
-                    'id_contexto'               => $idContextoCurso,
-                    'asignado_por'              => $actorId,
-                    'fecha_inicio_planificada'  => $now,
-                    'fecha_fin_planificada'     => $now->copy()->addYears(100),
-                    'fecha_fin_real'            => null,
-                    'fue_eliminado'             => false,
-                    'esta_activo'               => true,
-                    'creado_por'                => $actorId,
-                ]);
-                Log::info("Rol '{$rolNombre}' asignado en contexto de curso", [
-                    'id_usuario'        => $docente->id_usuario,
-                    'id_contexto_curso' => $idContextoCurso,
-                ]);
-            }
-        } catch (\Exception $e) {
-            Log::error('Error asignando rol Docente en curso: ' . $e->getMessage(), [
-                'id_docente'        => $idDocente,
-                'id_contexto_curso' => $idContextoCurso,
-            ]);
-        }
+        app(CursoService::class)->asignarRolDocenteComponente(
+            $idDocente,
+            $idContextoCurso,
+            $esTitularComponente,
+            $idDocenteTitularCurso,
+        );
     }
 
     /**

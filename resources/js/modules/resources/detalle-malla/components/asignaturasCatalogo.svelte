@@ -90,7 +90,7 @@
   }
 </script>
 
-<div class="flex flex-col border-r border-gray-200 overflow-hidden h-full">
+<div class="flex flex-col border-b lg:border-b-0 lg:border-r border-gray-200 overflow-hidden h-[70dvh] lg:h-full">
   <!-- Header -->
   <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 shrink-0">
     <h2 class="text-sm font-semibold text-gray-700 mb-2">

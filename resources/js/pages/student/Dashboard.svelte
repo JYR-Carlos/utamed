@@ -34,7 +34,7 @@
     /** Mensajes de curso (curso.mensaje) que el alumno aún no abre. */
     mensajeria?: {
       no_leidos: number;
-      cursos: Array<{ id_curso: number; nombre: string; cod_curso: string; no_leidos: number }>;
+      cursos: Array<{ id_curso: number; nombre: string; cod_curso: string; cod_asignatura?: string | null; no_leidos: number }>;
     };
     /** Actividades cuyo plazo termina pronto (ya con la holgura aplicada). */
     proximasAVencer?: ActividadPorVencer[];

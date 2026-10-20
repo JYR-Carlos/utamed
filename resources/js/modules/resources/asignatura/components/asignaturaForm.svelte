@@ -189,7 +189,7 @@
     </div>
   {/if}
 
-  <div class="grid grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div class="mb-4">
       <label for="cod_asignatura" class="block text-sm font-medium text-gray-700 mb-2">Código</label
       >
@@ -253,72 +253,70 @@
     ></textarea>
   </div>
 
-  <div class="grid grid-cols-2 gap-4">
-    <div class="mb-4">
-      <label for="horas_catedra" class="block text-sm font-medium text-gray-700 mb-2"
-        >Horas Cátedra</label
-      >
-      <input
-        id="horas_catedra"
-        type="number"
-        bind:value={$formData.horas_catedra}
-        class={inputClass}
-        min="0"
-      />
+  <!-- Horas semanales. Eran cinco campos sueltos en una grilla de dos
+       columnas, uno tras otro y sin título: se agrupan por lo que miden
+       (horas con docente / trabajo del estudiante) con su propio espacio. -->
+  <fieldset class="mt-2 rounded-lg border border-gray-200 p-4">
+    <legend class="px-1 text-sm font-semibold text-gray-800">Horas semanales</legend>
+
+    <p class="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">Presenciales</p>
+    <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-3">
+      <div>
+        <label for="horas_catedra" class="block text-sm font-medium text-gray-700 mb-1.5">Cátedra</label>
+        <input
+          id="horas_catedra"
+          type="number"
+          bind:value={$formData.horas_catedra}
+          class={inputClass}
+          min="0"
+        />
+      </div>
+      <div>
+        <label for="horas_taller" class="block text-sm font-medium text-gray-700 mb-1.5">Taller</label>
+        <input
+          id="horas_taller"
+          type="number"
+          bind:value={$formData.horas_taller}
+          class={inputClass}
+          min="0"
+        />
+      </div>
+      <div>
+        <label for="horas_laboratorio" class="block text-sm font-medium text-gray-700 mb-1.5">Laboratorio</label>
+        <input
+          id="horas_laboratorio"
+          type="number"
+          bind:value={$formData.horas_laboratorio}
+          class={inputClass}
+          min="0"
+        />
+      </div>
     </div>
 
-    <div class="mb-4">
-      <label for="horas_taller" class="block text-sm font-medium text-gray-700 mb-2"
-        >Horas Taller</label
-      >
-      <input
-        id="horas_taller"
-        type="number"
-        bind:value={$formData.horas_taller}
-        class={inputClass}
-        min="0"
-      />
+    <p class="mb-2 mt-5 text-xs font-medium uppercase tracking-wide text-gray-500">
+      Trabajo del estudiante
+    </p>
+    <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+      <div>
+        <label for="horas_dirigidas" class="block text-sm font-medium text-gray-700 mb-1.5">Dirigidas</label>
+        <input
+          id="horas_dirigidas"
+          type="number"
+          bind:value={$formData.horas_dirigidas}
+          class={inputClass}
+          min="0"
+        />
+      </div>
+      <div>
+        <label for="horas_autonomas" class="block text-sm font-medium text-gray-700 mb-1.5">Autónomas</label>
+        <input
+          id="horas_autonomas"
+          type="number"
+          bind:value={$formData.horas_autonomas}
+          class={inputClass}
+          min="0"
+        />
+      </div>
     </div>
-  </div>
-
-  <div class="grid grid-cols-2 gap-4">
-    <div class="mb-4">
-      <label for="horas_laboratorio" class="block text-sm font-medium text-gray-700 mb-2"
-        >Horas Laboratorio</label
-      >
-      <input
-        id="horas_laboratorio"
-        type="number"
-        bind:value={$formData.horas_laboratorio}
-        class={inputClass}
-        min="0"
-      />
-    </div>
-
-    <div class="mb-4">
-      <label for="horas_dirigidas" class="block text-sm font-medium text-gray-700 mb-2"
-        >Horas Dirigidas</label
-      >
-      <input
-        id="horas_dirigidas"
-        type="number"
-        bind:value={$formData.horas_dirigidas}
-        class={inputClass}
-        min="0"
-      />
-    </div>
-  </div>
-
-  <div class="mb-4">
-    <label for="horas_autonomas" class="block text-sm font-medium text-gray-700 mb-2"
-      >Horas Autónomas</label
-    >
-    <input
-      id="horas_autonomas"
-      type="number"
-      bind:value={$formData.horas_autonomas}
-      class={inputClass}
-      min="0"
-    />
-  </div>
+  </fieldset>
 </FormModal>

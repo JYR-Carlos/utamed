@@ -19,10 +19,18 @@ use App\Models\Usuario\TipoContexto;
 use App\Models\Usuario\Usuario;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Los triggers BEFORE INSERT crean el contexto de cada entidad. No basta con que
+ * exista: tiene que tener su tipo y colgar del contexto de su contenedor directo,
+ * porque fn_obtener_ids_contexto_ancestros recorre esa cadena para autorizar.
+ */
 class ContextsTriggerIntegrationTest extends TestCase
 {
+  use DatabaseTransactions;
+
   protected Usuario $docenteUsuario;
   protected Docente $docente;
   protected Asignatura $asignatura;
@@ -116,6 +124,26 @@ class ContextsTriggerIntegrationTest extends TestCase
     );
   }
 
+  /**
+   * Verifica el contexto que creó el trigger: existe, es del tipo esperado y su
+   * padre es el contexto del contenedor directo.
+   */
+  private function assertContexto(?int $idContexto, TipoContexto $tipo, ?int $idPadreEsperado): void
+  {
+    $this->assertNotNull($idContexto, 'la entidad no recibió id_contexto');
+    $contexto = Contexto::find($idContexto);
+    $this->assertNotNull($contexto, "no existe el contexto {$idContexto}");
+    $this->assertSame((int) $tipo->id_tipo_contexto, (int) $contexto->id_tipo_contexto, 'tipo de contexto');
+    $this->assertNotNull($contexto->id_contexto_padre, 'contexto sin padre');
+    $this->assertSame($idPadreEsperado, (int) $contexto->id_contexto_padre, 'contexto padre');
+  }
+
+  private function idContextoGlobal(): int
+  {
+    return (int) Contexto::where('id_tipo_contexto', $this->tipoContextoGlobal->id_tipo_contexto)
+      ->value('id_contexto');
+  }
+
   #[Test]
   public function testFacultadCreatesAssociatedContexto(): void
   {
@@ -126,10 +154,7 @@ class ContextsTriggerIntegrationTest extends TestCase
     ], 'id_facultad');
     $facultad = Facultad::find($facultadId);
 
-    $this->assertNotNull($facultad->id_contexto);
-    $contexto = Contexto::find($facultad->id_contexto);
-    $this->assertNotNull($contexto);
-    $this->assertEquals($this->tipoContextoFacultad->id, $contexto->id_TipoContexto);
+    $this->assertContexto($facultad->id_contexto, $this->tipoContextoFacultad, $this->idContextoGlobal());
   }
 
   #[Test]
@@ -149,10 +174,11 @@ class ContextsTriggerIntegrationTest extends TestCase
     ], 'id_departamento');
     $departamento = Departamento::find($departamentoId);
 
-    $this->assertNotNull($departamento->id_contexto);
-    $contexto = Contexto::find($departamento->id_contexto);
-    $this->assertNotNull($contexto);
-    $this->assertEquals($this->tipoContextoDepartamento->id, $contexto->id_TipoContexto);
+    $this->assertContexto(
+      $departamento->id_contexto,
+      $this->tipoContextoDepartamento,
+      Facultad::find($facultadId)->id_contexto
+    );
   }
 
   #[Test]
@@ -177,10 +203,11 @@ class ContextsTriggerIntegrationTest extends TestCase
     ]);
     $carrera->refresh();
 
-    $this->assertNotNull($carrera->id_contexto);
-    $contexto = Contexto::find($carrera->id_contexto);
-    $this->assertNotNull($contexto);
-    $this->assertEquals($this->tipoContextoCarrera->id, $contexto->id_TipoContexto);
+    $this->assertContexto(
+      $carrera->id_contexto,
+      $this->tipoContextoCarrera,
+      Departamento::find($departamentoId)->id_contexto
+    );
   }
 
   #[Test]
@@ -303,10 +330,7 @@ class ContextsTriggerIntegrationTest extends TestCase
     ], 'id_curso');
     $curso = Curso::find($cursoId);
 
-    $this->assertNotNull($curso->id_contexto);
-    $contexto = Contexto::find($curso->id_contexto);
-    $this->assertNotNull($contexto);
-    $this->assertEquals($this->tipoContextoCurso->id, $contexto->id_TipoContexto);
+    $this->assertContexto($curso->id_contexto, $this->tipoContextoCurso, $carrera->id_contexto);
   }
 
   #[Test]
@@ -366,10 +390,7 @@ class ContextsTriggerIntegrationTest extends TestCase
     ]);
 
     $componente->refresh();
-    $this->assertNotNull($componente->id_contexto);
-    $contexto = Contexto::find($componente->id_contexto);
-    $this->assertNotNull($contexto);
-    $this->assertEquals($this->tipoContextoComponente->id, $contexto->id_TipoContexto);
+    $this->assertContexto($componente->id_contexto, $this->tipoContextoComponente, $curso->id_contexto);
   }
 
   #[Test]
@@ -429,6 +450,8 @@ class ContextsTriggerIntegrationTest extends TestCase
     $actividadId = DB::table('actividad')->insertGetId([
       'id_componente' => $componente->id_componente,
       'id_unidad' => $unidad->id_unidad,
+      'nombre' => 'Actividad de prueba',
+      'ponderacion' => 20,
       'tipo_actividad' => 'SUMATIVA',
       'tipo_entrega' => 'DIGITAL',
       'visible' => true,
@@ -437,10 +460,8 @@ class ContextsTriggerIntegrationTest extends TestCase
     ], 'id_actividad');
     $actividad = Actividad::find($actividadId);
 
-    $this->assertNotNull($actividad->id_contexto);
-    $contexto = Contexto::find($actividad->id_contexto);
-    $this->assertNotNull($contexto);
-    $this->assertEquals($this->tipoContextoActividad->id, $contexto->id_TipoContexto);
+    // La actividad pertenece al componente (ContextType: ACTIVIDAD → COMPONENTE).
+    $this->assertContexto($actividad->id_contexto, $this->tipoContextoActividad, $componente->id_contexto);
   }
 
   #[Test]
@@ -497,6 +518,8 @@ class ContextsTriggerIntegrationTest extends TestCase
     $actividadId = DB::table('actividad')->insertGetId([
       'id_componente' => $componente->id_componente,
       'id_unidad' => $unidad->id_unidad,
+      'nombre' => 'Actividad de prueba',
+      'ponderacion' => 20,
       'tipo_actividad' => 'SUMATIVA',
       'tipo_entrega' => 'DIGITAL',
       'visible' => true,
@@ -505,20 +528,12 @@ class ContextsTriggerIntegrationTest extends TestCase
     ], 'id_actividad');
     $actividad = Actividad::find($actividadId);
 
-    // Verificar que todos tienen contextos
-    $this->assertNotNull($facultad->id_contexto);
-    $this->assertNotNull($departamento->id_contexto);
-    $this->assertNotNull($carrera->id_contexto);
-    $this->assertNotNull($curso->id_contexto);
-    $this->assertNotNull($componente->id_contexto);
-    $this->assertNotNull($actividad->id_contexto);
-
-    // Verificar tipos de contexto correctos
-    $this->assertEquals($this->tipoContextoFacultad->id, Contexto::find($facultad->id_contexto)->id_TipoContexto);
-    $this->assertEquals($this->tipoContextoDepartamento->id, Contexto::find($departamento->id_contexto)->id_TipoContexto);
-    $this->assertEquals($this->tipoContextoCarrera->id, Contexto::find($carrera->id_contexto)->id_TipoContexto);
-    $this->assertEquals($this->tipoContextoCurso->id, Contexto::find($curso->id_contexto)->id_TipoContexto);
-    $this->assertEquals($this->tipoContextoComponente->id, Contexto::find($componente->id_contexto)->id_TipoContexto);
-    $this->assertEquals($this->tipoContextoActividad->id, Contexto::find($actividad->id_contexto)->id_TipoContexto);
+    // Cadena completa: cada contexto cuelga del de su contenedor directo, hasta global.
+    $this->assertContexto($facultad->id_contexto, $this->tipoContextoFacultad, $this->idContextoGlobal());
+    $this->assertContexto($departamento->id_contexto, $this->tipoContextoDepartamento, $facultad->id_contexto);
+    $this->assertContexto($carrera->id_contexto, $this->tipoContextoCarrera, $departamento->id_contexto);
+    $this->assertContexto($curso->id_contexto, $this->tipoContextoCurso, $carrera->id_contexto);
+    $this->assertContexto($componente->id_contexto, $this->tipoContextoComponente, $curso->id_contexto);
+    $this->assertContexto($actividad->id_contexto, $this->tipoContextoActividad, $componente->id_contexto);
   }
 }

@@ -15,7 +15,8 @@
   import DocenteLayout from '@/layouts/DocenteLayout.svelte';
   import type { BreadcrumbItem } from '@/types';
   import { Link } from '@inertiajs/svelte';
-  import { BookOpen, ListChecks, Archive, CalendarOff } from 'lucide-svelte';
+  import { BookOpen, ClipboardCheck, Archive, CalendarOff, ArrowRight } from 'lucide-svelte';
+  import { titleCase } from '@/lib/utils';
   import AlertasSyllabus from '@/components/docente/AlertasSyllabus.svelte';
   import CursoTitularCard from '@/components/docente/CursoTitularCard.svelte';
   import ComponenteCard from '@/components/docente/ComponenteCard.svelte';
@@ -32,6 +33,14 @@
     letra_grupo?: string | null;
     estado_syllabus: 'NO_INICIADO' | 'BORRADOR' | 'RECHAZADO' | 'EN_REVISION' | 'APROBADO';
     rechazo?: { razon: string; por: string | null; fecha: string | null } | null;
+    proxima_entrega?: string | null;
+  }
+
+  interface FechaLimite {
+    id_actividad: number;
+    nombre: string;
+    nombre_curso: string | null;
+    grupos: Array<{ id_curso: number; letra_grupo: string | null; fecha_limite: string }>;
   }
 
   interface AlertaSyllabus {
@@ -62,7 +71,7 @@
     alertasSyllabus: AlertaSyllabus[];
     mensajeria: { no_leidos: number; cursos: Array<{ id_curso: number; nombre: string; cod_curso: string; no_leidos: number }> };
     agendaPendiente: Array<{ quien: string; actividad_nombre: string; id_curso: number | null; cod_curso: string | null; fecha_envio: string | null }>;
-    proximasFechasLimite: Array<{ id_actividad: number; nombre: string; id_curso: number | null; cod_curso: string | null; fecha_limite: string | null }>;
+    proximasFechasLimite: FechaLimite[];
     jefatura: { has_access: boolean; id_contexto?: number | null; carrera?: { id_carrera: number; nombre: string } | null; pendientes_revision?: number };
     entreSemestres?: { ultimo_semestre: number | null; ultimo_agno: number | null; ultima_fecha_fin: string | null } | null;
   }
@@ -83,7 +92,8 @@
 
   const breadcrumbs: BreadcrumbItem[] = [{ title: 'Inicio', href: '/docente/dashboard' }];
 
-  const primerNombre = $derived(stats.nombre_completo.split(' ')[0] || stats.nombre_completo);
+  // El nombre llega como está en la base (a veces todo en mayúsculas).
+  const primerNombre = $derived(titleCase(stats.nombre_completo.split(' ')[0] || stats.nombre_completo));
 
   function formatFecha(fecha: string | null | undefined): string | null {
     if (!fecha) return null;
@@ -128,23 +138,23 @@
         </div>
       </section>
     {:else}
-      <header class="flex items-start justify-between gap-6">
+      <header class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <div class="flex min-w-0 flex-col gap-1">
-          <h1 class="text-2xl font-semibold tracking-tight text-[#1A1A24] md:text-[28px]">Hola, {primerNombre}</h1>
+          <h1 class="text-2xl font-semibold tracking-tight text-[#171A26] md:text-[28px]">Hola, {primerNombre}</h1>
           <span class="text-sm text-[#5A5E6E]">
             {#if periodo}
               {periodo.sem}º semestre {periodo.ano}
-              {#if periodo.fecha_inicio} · período vigente desde {formatFecha(periodo.fecha_inicio)}{/if} ·
+            {:else}
+              {stats.total_cursos} {stats.total_cursos === 1 ? 'curso' : 'cursos'}
             {/if}
-            {stats.total_cursos} {stats.total_cursos === 1 ? 'curso' : 'cursos'}
           </span>
         </div>
         <Link
           href="/docente/cursos"
-          class="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F8FAFC]"
+          class="flex min-h-11 shrink-0 items-center gap-2 rounded-[10px] border border-[#D5D9E0] bg-white px-4 text-sm font-medium text-[#171A26] no-underline transition-colors hover:bg-[#F8FAFC]"
         >
-          <BookOpen class="h-[15px] w-[15px] text-[#5A5E6E]" />
           Ver todos mis cursos
+          <ArrowRight class="h-4 w-4 text-[#5A5E6E]" />
         </Link>
       </header>
 
@@ -159,14 +169,13 @@
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:items-start">
         <div class="flex flex-col gap-4 lg:col-span-8">
           {#if cursosTitular.length > 0}
-            <section class="flex flex-col gap-3.5 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+            <section class="flex flex-col gap-4 rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-5">
               <div class="flex items-center gap-2">
-                <BookOpen class="h-4 w-4 text-[#5A5E6E]" />
-                <h3 class="text-base font-semibold text-[#1A1A24]">Cursos que dirijo</h3>
-                <span class="text-xs text-[#5A5E6E]">soy titular</span>
-                <span class="ml-auto font-mono text-xs text-[#5A5E6E]">{cursosTitular.length}</span>
+                <BookOpen class="h-5 w-5 text-[#002855]" />
+                <h3 class="text-base font-semibold text-[#171A26]">Cursos que dirijo</h3>
+                <span class="ml-auto text-[13px] text-[#5A5E6E]">Soy titular · {cursosTitular.length}</span>
               </div>
-              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {#each cursosTitular as curso (curso.id_curso)}
                   <CursoTitularCard {...curso} />
                 {/each}
@@ -175,13 +184,13 @@
           {/if}
 
           {#if componentes.length > 0}
-            <section class="flex flex-col gap-3.5 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+            <section class="flex flex-col gap-4 rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-5">
               <div class="flex items-center gap-2">
-                <BookOpen class="h-4 w-4 text-[#5A5E6E]" />
-                <h3 class="text-base font-semibold text-[#1A1A24]">Cursos donde imparto un componente</h3>
-                <span class="ml-auto font-mono text-xs text-[#5A5E6E]">{componentes.length}</span>
+                <BookOpen class="h-5 w-5 text-[#002855]" />
+                <h3 class="text-base font-semibold text-[#171A26]">Cursos donde imparto un componente</h3>
+                <span class="ml-auto text-[13px] text-[#5A5E6E]">{componentes.length}</span>
               </div>
-              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {#each componentes as comp (comp.id_componente)}
                   <ComponenteCard {...comp} />
                 {/each}
@@ -189,8 +198,10 @@
             </section>
           {/if}
 
+          <ProximasFechasCard items={proximasFechasLimite} />
+
           <PropuestaCard
-            icon={ListChecks}
+            icon={ClipboardCheck}
             title="Grupos por evaluar"
             emptyTitle="Aún no hay una lista unificada"
             emptyDescription="Reunirá los grupos sin nota de todos tus cursos, incluyendo los que evalúas por permiso delegado. Mientras tanto, evalúa desde Calificaciones."
@@ -200,7 +211,6 @@
         <div class="flex flex-col gap-4 lg:col-span-4">
           <MensajeriaCursoCard total={mensajeria.no_leidos} cursos={mensajeria.cursos} />
           <AgendaPendienteCard items={agendaPendiente} />
-          <ProximasFechasCard items={proximasFechasLimite} />
         </div>
       </div>
     {/if}

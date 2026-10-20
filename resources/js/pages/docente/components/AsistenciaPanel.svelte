@@ -367,7 +367,7 @@
                 <div class="flex flex-wrap items-center gap-2 pt-1">
                   <input type="date" bind:value={fDia} class={CAMPO} aria-label="Fecha" />
                   <input type="time" bind:value={fInicio} class={CAMPO} aria-label="Hora inicio" />
-                  <span class="text-[#8A8E9C]">–</span>
+                  <span class="text-muted-foreground">–</span>
                   <input type="time" bind:value={fFin} class={CAMPO} aria-label="Hora término" />
                 </div>
               {/if}
@@ -383,7 +383,7 @@
               {#if modo === 'editar'}
                 <button
                   onclick={eliminarSesion}
-                  class="rounded-lg p-2 text-[#8A8E9C] transition-colors hover:bg-[#FEE2E2] hover:text-[#B91C1C]"
+                  class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-[#FEE2E2] hover:text-[#B91C1C]"
                   aria-label="Eliminar sesión"
                 >
                   <Trash2 size={15} />

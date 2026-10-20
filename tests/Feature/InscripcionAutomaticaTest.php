@@ -67,6 +67,8 @@ test('inscribe automaticamente alumnos desde la intranet creando usuario con con
         ]
     );
     $docente = Docente::firstOrCreate(['id_usuario' => $usuarioDocente->id_usuario]);
+    // Sin fecha de cambio de clave, ForcePasswordChange responde 423 a todo.
+    $usuarioDocente->forceFill(['fecha_cambio_passhash' => now()])->save();
 
     // Asignar rol SuperAdmin para pasar middleware is_admin
     $rolSuperAdmin = Rol::firstOrCreate(['nombre' => 'SuperAdmin'], ['creado_por' => $usuarioDocente->id_usuario]);
@@ -159,7 +161,10 @@ test('inscribe automaticamente alumnos desde la intranet creando usuario con con
         ->assertJsonPath('success', true)
         ->assertJsonPath('data.total_procesados', 1)
         ->assertJsonPath('data.alumnos_creados', 1)
-        ->assertJsonPath('data.ya_inscritos', 1);
+        // El trigger de inscripcion_curso crea la fila de componente al inscribir
+        // al curso: eso es una inscripción nueva, no un alumno «ya inscrito».
+        ->assertJsonPath('data.inscritos_exitosamente', 1)
+        ->assertJsonPath('data.ya_inscritos', 0);
 
 
     // 5. Assertions reales en la Base de Datos PostgreSQL
@@ -251,6 +256,8 @@ test('cuando el alumno ya existe en la bd no consulta la intranet para crearlo y
         ]
     );
     $docente = Docente::firstOrCreate(['id_usuario' => $usuarioDocente->id_usuario]);
+    // Sin fecha de cambio de clave, ForcePasswordChange responde 423 a todo.
+    $usuarioDocente->forceFill(['fecha_cambio_passhash' => now()])->save();
 
     $rolSuperAdmin = Rol::firstOrCreate(['nombre' => 'SuperAdmin'], ['creado_por' => $usuarioDocente->id_usuario]);
     UsuarioRolAsignacion::firstOrCreate(
@@ -408,6 +415,8 @@ test('inscribe automaticamente 10 alumnos simultaneamente (5 preexistentes y 5 n
         ]
     );
     $docente = Docente::firstOrCreate(['id_usuario' => $usuarioDocente->id_usuario]);
+    // Sin fecha de cambio de clave, ForcePasswordChange responde 423 a todo.
+    $usuarioDocente->forceFill(['fecha_cambio_passhash' => now()])->save();
 
     $rolSuperAdmin = Rol::firstOrCreate(['nombre' => 'SuperAdmin'], ['creado_por' => $usuarioDocente->id_usuario]);
     UsuarioRolAsignacion::firstOrCreate(

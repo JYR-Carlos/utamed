@@ -320,7 +320,7 @@
                     <p class="text-xs text-gray-500 italic leading-snug mb-2">{nivel.descripcion}</p>
                   {/if}
                   <div class="flex items-center gap-2 mt-1">
-                    <span class="text-xs text-gray-400">máx. {nivel.puntaje_total} pts</span>
+                    <span class="text-xs text-muted-foreground">máx. {nivel.puntaje_total} pts</span>
                     {#if !nivelEvaluado}
                       <span
                         class="text-[11px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full"
@@ -384,7 +384,7 @@
         -->
         {#if esSumativa}
           <div class="bg-gray-50/50 rounded-3xl border border-gray-100 p-6">
-            <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Nota Final (1–7)</p>
+            <p class="text-xs font-black text-muted-foreground uppercase tracking-widest mb-4">Nota Final (1–7)</p>
             <div class="flex items-start gap-4">
               <input
                 type="number"
@@ -421,7 +421,7 @@
                   <span class="text-emerald-600 font-semibold text-xs block">
                     Calculada con 60 % de exigencia.
                   </span>
-                  <span class="text-xs text-gray-400 block mt-1">
+                  <span class="text-xs text-muted-foreground block mt-1">
                     {puntajeObtenido}/{puntajeMaximo} pts ({porcentaje}%)
                   </span>
                 {/if}
@@ -434,7 +434,7 @@
           </div>
         {:else}
           <div class="bg-gray-50/50 rounded-3xl border border-gray-100 p-6">
-            <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
+            <p class="text-xs font-black text-muted-foreground uppercase tracking-widest mb-4">
               Resultado (evaluación formativa)
             </p>
             {#if !todosEvaluados}
@@ -443,7 +443,7 @@
               </p>
             {:else if evaluacionLabel}
               <p class="text-3xl font-black text-uta-blue">{evaluacionLabel}</p>
-              <p class="text-xs text-gray-400 mt-2">
+              <p class="text-xs text-muted-foreground mt-2">
                 {puntajeObtenido}/{puntajeMaximo} pts ({porcentaje}%) según la escala de la rúbrica.
               </p>
             {:else}
@@ -457,8 +457,8 @@
 
         <!-- Retroalimentación -->
         <div class="bg-gray-50/50 rounded-3xl border border-gray-100 p-6">
-          <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
-            Retroalimentación <span class="font-normal normal-case text-gray-300">(opcional)</span>
+          <p class="text-xs font-black text-muted-foreground uppercase tracking-widest mb-4">
+            Retroalimentación <span class="font-normal normal-case text-slate-500">(opcional)</span>
           </p>
           <textarea
             bind:value={retroalimentacion}

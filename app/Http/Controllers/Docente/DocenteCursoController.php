@@ -241,6 +241,10 @@ class DocenteCursoController extends Controller
             'total_docentes'  => $c->docenteComponentes->count(),
             'total_estudiantes' => $misEstudiantes->where('id_componente', $c->id_componente)->count(),
             'total_sesiones'  => (int) ($sesionesPorComponente[$c->id_componente] ?? 0),
+            // Mínimo de asistencia (0–100): la ficha marca a quien queda bajo él.
+            'porcentaje_asistencia_obligatoria' => $c->porcentaje_asistencia_obligatoria !== null
+                ? (float) $c->porcentaje_asistencia_obligatoria
+                : null,
         ]);
 
         // --- Datos adicionales para el titular ---
@@ -359,6 +363,13 @@ class DocenteCursoController extends Controller
                 ],
                 'secciones' => [],
                 'total_estudiantes' => $totalEstudiantes,
+                // «Mensajería · N sin leer» en la cabecera: mismo criterio que el
+                // dashboard (curso.mensaje de los componentes que dicta, como staff).
+                'mensajes_sin_leer' => array_sum(app(\App\Services\MensajeriaService::class)->noLeidosPorComponente(
+                    $misComponentes->pluck('id_componente')->map(fn ($id) => (int) $id)->all(),
+                    $user->id_usuario,
+                    esStaff: true,
+                )),
             ],
             'mis_componentes' => $misComponentesData->values(),
             'mis_estudiantes' => $misEstudiantes->values(),

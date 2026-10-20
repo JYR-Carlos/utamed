@@ -9,8 +9,11 @@ use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
+use App\Services\Student\BitacoraCursoEstudiante;
+use App\Services\Student\MensajeriaCursoEstudiante;
 use App\Services\Student\RendimientoCursoEstudiante;
 use App\Services\Student\StudentSyllabusPresenter;
+use App\Traits\ParsesSyllabus;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,6 +30,8 @@ use Inertia\Response;
  */
 class CourseController extends Controller
 {
+    use ParsesSyllabus;
+
     private const DEFAULT_COURSE_IMAGE = '/img/utamed.webp';
 
 
@@ -179,6 +184,8 @@ class CourseController extends Controller
             /** @var mixed $grupo ActividadAsignadaGrupo|null */
             $grupo = $gruposDelEstudiante->get($actividad->id_actividad);
             $estado = $grupo ? $grupo->calcularEstadoGrupo($actividad) : $actividad->calcularEstadoBase();
+            $entregada = (bool) ($grupo?->tieneEntregaVigente());
+            $fechaEnvio = $entregada ? $grupo->entregas()->entregasVigentes()->max('fecha_envio') : null;
 
             return [
                 'id_actividad'    => $actividad->id_actividad,
@@ -192,19 +199,37 @@ class CourseController extends Controller
                 'fecha_limite'    => $actividad->fecha_limite?->format('Y-m-d'),
                 'visible'         => (bool) $actividad->visible,
                 'estado'          => $estado,
-                'ya_entregada'    => (bool) ($grupo?->tieneEntregaVigente()),
+                'ya_entregada'    => $entregada,
+                // Día del último envío vigente; la tarjeta dice «Entregada el …».
+                'fecha_entrega'   => $fechaEnvio ? Carbon::parse($fechaEnvio)->format('Y-m-d') : null,
                 'ya_evaluada'     => (bool) ($grupo?->yaFueEvaluado()),
             ];
         })->values();
 
         $syllabus = StudentSyllabusPresenter::build($curso, $estudiante);
 
+        // Las pestañas «Programa» y «Biblioteca» muestran el documento íntegro,
+        // igual que la página dedicada; la ficha ya no lo resume.
+        $secciones = [];
+        if ($syllabus['programa']) {
+            $data = Programa::find($syllabus['programa']['id_programa'])?->data_syllabus;
+            $data = is_array($data) ? $data : json_decode($data ?? '[]', true);
+            $secciones = $this->parseSecciones($data ?? []);
+        }
+
         return Inertia::render('student/Courses/Show', array_merge(
             [
+                'secciones' => $secciones,
                 // Panel «Rendimiento» (T30): se calcula sólo cuando el alumno
                 // lo abre (router.reload con only: ['rendimiento']).
                 'rendimiento' => Inertia::lazy(fn () => app(RendimientoCursoEstudiante::class)
                     ->calcular($curso, $estudiante, $syllabus['datos']['componentes'] ?? [])),
+                // Pestañas «Mensajería» y «Bitácora»: igual que el rendimiento,
+                // se cargan al abrirlas. Abrir la mensajería marca como leído.
+                'mensajeria' => Inertia::lazy(fn () => app(MensajeriaCursoEstudiante::class)
+                    ->bandeja($curso, (int) $user->id_usuario, request()->integer('componente_id') ?: null)),
+                'bitacora' => Inertia::lazy(fn () => app(BitacoraCursoEstudiante::class)
+                    ->compilar($curso, $estudiante)),
                 'curso' => [
                     'id_curso'          => $curso->id_curso,
                     'nombre'            => $curso->nombre,

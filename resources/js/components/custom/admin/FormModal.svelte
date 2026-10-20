@@ -111,6 +111,7 @@
 		max-width: 500px;
 		width: 100%;
 		max-height: 90vh;
+		max-height: 90dvh; /* dvh: la barra del navegador móvil no tapa el pie */
 		display: flex;
 		flex-direction: column;
 		animation: slideUp 0.2s ease-out;
@@ -195,19 +196,47 @@
 		background: #f9fafb;
 	}
 
+	/* Mismo primario que `.btn-primary` (app.css): blanco sobre #3b82f6 daba 3.68:1. */
 	.btn-submit {
-		background: #3b82f6;
-		color: white;
+		background: var(--action-primary);
+		color: var(--action-primary-fg);
 	}
 
 	.btn-submit:hover:not(:disabled) {
-		background: #2563eb;
+		background: var(--action-primary-hover);
 	}
 
 	.btn-cancel:disabled,
 	.btn-submit:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
+	}
+
+	/* Móvil: menos relleno y botones del pie a todo el ancho, más fáciles de pulsar. */
+	@media (max-width: 639px) {
+		.modal-backdrop {
+			padding: 0.5rem;
+		}
+
+		.modal-header,
+		.modal-body,
+		.modal-footer {
+			padding: 1rem;
+		}
+
+		.modal-title {
+			font-size: 1.125rem;
+		}
+
+		.modal-footer {
+			flex-direction: column-reverse;
+		}
+
+		.btn-cancel,
+		.btn-submit {
+			justify-content: center;
+			min-height: 2.75rem;
+		}
 	}
 
 	.spinner {

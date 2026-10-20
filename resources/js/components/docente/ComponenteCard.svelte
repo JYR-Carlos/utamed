@@ -2,6 +2,7 @@
   /** Tarjeta de un curso donde el docente imparte un componente (no es titular del curso). */
   import { Link } from '@inertiajs/svelte';
   import { Presentation, Wrench, FlaskConical, Layers, ChevronRight } from 'lucide-svelte';
+  import { tonoGrupo } from '@/utils/grupoColor';
 
   interface Props {
     id_curso: number;
@@ -13,6 +14,8 @@
   }
 
   let { id_curso, nombre, cod_curso, letra_grupo, tipo_componente, titular_nombre }: Props = $props();
+
+  const grupo = $derived(tonoGrupo(letra_grupo));
 
   const tono = $derived.by(() => {
     const tipo = tipo_componente.toLowerCase();
@@ -31,27 +34,21 @@
 
 <Link
   href={`/docente/cursos/${id_curso}`}
-  class="flex flex-col gap-2.5 rounded-[10px] border border-[#E5E7EB] p-3.5 no-underline transition-colors hover:border-[#C9D6E6] hover:bg-[#FAFBFC]"
+  class="group flex flex-col gap-2.5 rounded-xl border border-l-4 p-4 no-underline transition-[border-color,box-shadow] hover:shadow-md {grupo.tarjeta}"
 >
-  <div class="flex items-start gap-2.5">
-    <div class="flex min-w-0 flex-col gap-0.5">
-      <span class="font-mono text-[11.5px] text-[#5A5E6E]">{cod_curso}</span>
-      <span class="text-[15px] font-semibold leading-snug text-[#1A1A24]">{nombre}</span>
-    </div>
+  <div class="flex items-center gap-2 text-[13px]">
+    <span class="font-mono text-[#4A4E5C]">{cod_curso}</span>
     {#if letra_grupo}
-      <span
-        class="ml-auto flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-[#E8EDF5] text-[13px] font-bold text-[#002F6C]"
-      >
-        {letra_grupo}
-      </span>
+      <span class="rounded-full px-2.5 py-0.5 text-xs font-bold {grupo.chip}">Grupo {letra_grupo}</span>
     {/if}
   </div>
+  <span class="text-base font-semibold leading-snug text-[#171A26]">{nombre}</span>
   <span class="inline-flex w-fit items-center gap-1.5 rounded-full {tono.bg} border {tono.border} {tono.color} px-2 py-0.5 text-[11px] font-semibold">
     <tono.Icon class="h-3 w-3" />
     {tipo_componente}
   </span>
-  <div class="flex items-center gap-2 border-t border-[#F1F5F9] pt-2.5">
-    <span class="text-[12.5px] text-[#5A5E6E]">Titular: {titular_nombre ?? '—'}</span>
-    <ChevronRight class="ml-auto h-[15px] w-[15px] text-[#5A5E6E]" />
+  <div class="flex items-center gap-2 border-t border-black/10 pt-2.5">
+    <span class="text-[13px] text-[#5A5E6E]">Titular: {titular_nombre ?? '—'}</span>
+    <ChevronRight class="ml-auto h-5 w-5 text-[#5A5E6E] transition-transform group-hover:translate-x-0.5" />
   </div>
 </Link>

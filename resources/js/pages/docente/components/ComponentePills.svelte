@@ -11,8 +11,12 @@
    * Cuando hay exactamente uno se muestra un pill estático (a menos que
    * `mostrarSingle` sea false, p.ej. en la pestaña de Asistencia). Con un solo
    * componente el conmutador no desaparece: queda como etiqueta del alcance.
+   *
+   * Estilo del mockup «Detalle del curso · Mi Grupo» (auditoría 2026-10-19):
+   * 15 px, borde de control #7B8AA0, activo en navy claro. La corona de
+   * «titular del componente» se quitó del chip; el dato queda en `title` y
+   * para lectores de pantalla.
    */
-  import { Crown } from 'lucide-svelte';
 
   interface ComponentePill {
     id_componente: number;
@@ -39,48 +43,41 @@
     mostrarSingle = true,
   }: Props = $props();
 
-  const ACTIVO = 'bg-[#E6ECF5] border-[#002F6C] text-[#002F6C] font-semibold';
-  const INACTIVO =
-    'bg-white border-[#D6D9E0] text-[#1A1A24] font-medium hover:bg-[#F5F1EA] hover:border-[#B9BEC9]';
+  const BASE =
+    'inline-flex h-11 items-center gap-2 rounded-full border px-4 text-[15px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2 sm:h-[38px]';
+  const ACTIVO = 'bg-uta-blue-light border-uta-blue text-uta-blue font-semibold';
+  const INACTIVO = 'bg-white border-[#7B8AA0] text-[#1A1A24] font-medium hover:bg-slate-50';
+
+  function titulo(c: ComponentePill): string | undefined {
+    return c.es_titular ? 'Eres titular de este componente' : undefined;
+  }
 </script>
 
+{#snippet contenido(comp: ComponentePill)}
+  {comp.tipo_componente}
+  {#if comp.es_titular}<span class="sr-only">(eres titular)</span>{/if}
+  {#if mostrarContador}
+    <span class="font-semibold tabular-nums">{comp.total_estudiantes}</span>
+  {/if}
+{/snippet}
+
 {#if componentes.length > 1}
-  <div class="flex gap-2 flex-wrap">
+  <div class="flex flex-wrap gap-2">
     {#each componentes as comp (comp.id_componente)}
       {@const activo = componenteActivo === comp.id_componente}
       <button
+        type="button"
         onclick={() => onSelect(comp.id_componente)}
         aria-pressed={activo}
-        class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-[13px] transition-colors duration-150 {activo
-          ? ACTIVO
-          : INACTIVO}"
+        title={titulo(comp)}
+        class="{BASE} {activo ? ACTIVO : INACTIVO}"
       >
-        {comp.tipo_componente}
-        {#if comp.es_titular}
-          <Crown size={11} class={activo ? 'text-[#8A5F00]' : 'text-[#8A8E9C]'} />
-        {/if}
-        {#if mostrarContador}
-          <span
-            class="font-mono text-[11px] font-semibold tabular-nums {activo
-              ? 'text-[#002F6C]'
-              : 'text-[#5A5E6E]'}">{comp.total_estudiantes}</span
-          >
-        {/if}
+        {@render contenido(comp)}
       </button>
     {/each}
   </div>
 {:else if componentes.length === 1 && mostrarSingle}
-  <span
-    class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-[13px] {ACTIVO}"
-  >
-    {componentes[0].tipo_componente}
-    {#if componentes[0].es_titular}
-      <Crown size={11} class="text-[#8A5F00]" />
-    {/if}
-    {#if mostrarContador}
-      <span class="font-mono text-[11px] font-semibold tabular-nums text-[#002F6C]"
-        >{componentes[0].total_estudiantes}</span
-      >
-    {/if}
+  <span class="{BASE} {ACTIVO}" title={titulo(componentes[0])}>
+    {@render contenido(componentes[0])}
   </span>
 {/if}

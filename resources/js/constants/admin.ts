@@ -38,7 +38,7 @@ export const USER_TYPE_LABELS: Record<string, string> = {
  * aceptaba claves que el sistema rechazaba después.
  */
 export const PASSWORD_MIN_LENGTH = LARGO_MINIMO_PASSWORD;
-export const PASSWORD_HINT = 'Mín. 8 caracteres, con letras, números y algún signo';
+export const PASSWORD_HINT = 'Mín. 8 caracteres, con una mayúscula, números y algún signo';
 
 /** Valida en cliente lo mismo que el servidor, para avisar antes de enviar. */
 export const isPasswordValid = passwordCumplePolitica;
@@ -50,15 +50,18 @@ export const isPasswordValid = passwordCumplePolitica;
  * rechazará.
  */
 export function generatePassword(length = 12): string {
-    const letras = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ';
+    const minusculas = 'abcdefghijkmnopqrstuvwxyz';
+    const mayusculas = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const letras = minusculas + mayusculas;
     const numeros = '23456789';
     // Signos fáciles de dictar y de tipear en cualquier teclado.
     const signos = '!#$%&*?-_.';
     const todos = letras + numeros + signos;
     const random = (set: string) => set[Math.floor(Math.random() * set.length)];
 
-    // Garantiza al menos una letra, un número y un signo; el resto es libre.
-    const chars = [random(letras), random(numeros), random(signos)];
+    // Garantiza al menos una mayúscula, una letra, un número y un signo; el
+    // resto es libre.
+    const chars = [random(mayusculas), random(letras), random(numeros), random(signos)];
     for (let i = chars.length; i < length; i++) chars.push(random(todos));
 
     // Baraja para que los obligatorios no queden siempre al principio.

@@ -115,7 +115,7 @@
       — {editingAsignacion.asignatura?.nombre}
     </p>
   {/if}
-  <div class="grid grid-cols-2 gap-4 mb-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
     <div>
       <label for="edit-agno" class="block text-sm font-medium text-gray-700 mb-1.5">Año *</label>
       <select

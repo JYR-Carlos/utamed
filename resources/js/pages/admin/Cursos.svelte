@@ -4,7 +4,7 @@
    *
    * Gestión completa de cursos que se ofrecen en periodos académicos.
    * Refactorizado para usar componentes modulares:
-   * - cursoList: Tabla de cursos
+   * - cursoListAdmin: Tabla de cursos
    * - cursoForm: Modal para crear/editar
    * - componenteForm: Modal para componentes
    * - cursoDeleteConfirm: Confirmación de eliminación
@@ -310,9 +310,10 @@
       return;
     isLoading = true;
     deleteComponente(curso.id_curso, componente.id_componente, {
+      // El resultado (eliminado o el motivo por el que no se puede) llega como
+      // flash y lo muestra handleFlashMessages.
       onSuccess: () => {
         isLoading = false;
-        showToast('Componente eliminado', 'success');
       },
       onError: () => {
         isLoading = false;
@@ -429,9 +430,9 @@
 
 
   function openCopyModal(curso: Curso) {
+    closeSlideOver();
     copyingCurso = curso;
     showCopyModal = true;
-    closeSlideOver();
   }
 
   function openSyncModal(curso: Curso) {
@@ -783,7 +784,7 @@
   />
 
   <!-- TODO: FASE 2 Refactorización - Componentes de formulario a implementar -->
-  <!-- Reemplazar con: cursoForm, seccionForm, cursoDeleteConfirm -->
+  <!-- Reemplazar con: cursoForm, cursoDeleteConfirm -->
   <!-- FormModal y DeleteConfirmation removidos - Pendiente integración de componentes modulares -->
 
   <!-- CursoForm Modal - Crear/Editar cursos -->
@@ -807,21 +808,19 @@
   />
 
   <!-- Modal de pre-visualización y confirmación de copia de curso -->
-  {#if copyingCurso}
-    <CursoCopyPreviewModal
-      bind:isOpen={showCopyModal}
-      curso={copyingCurso}
-      onClose={() => {
-        showCopyModal = false;
-        copyingCurso = null;
-      }}
-      onSuccess={() => {
-        showCopyModal = false;
-        copyingCurso = null;
-        showToast('Curso copiado exitosamente', 'success');
-      }}
-    />
-  {/if}
+  <CursoCopyPreviewModal
+    bind:isOpen={showCopyModal}
+    curso={copyingCurso}
+    onClose={() => {
+      showCopyModal = false;
+      copyingCurso = null;
+    }}
+    onSuccess={() => {
+      showCopyModal = false;
+      copyingCurso = null;
+      showToast('Curso copiado exitosamente', 'success');
+    }}
+  />
 
   <!-- Sincronización con Intranet: revisar antes de confirmar (un curso) -->
   <CursoSincronizarIntranetModal

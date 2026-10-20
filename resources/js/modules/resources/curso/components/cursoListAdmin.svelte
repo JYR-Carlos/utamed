@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { stackTable } from '@/lib/actions/stackTable';
   /**
    * Componente: Lista de Cursos (Admin) — Rediseño Enterprise
    *
@@ -169,7 +170,7 @@
 
   <!-- ── Tabla ────────────────────────────────────────────────────────────── -->
   <div class="overflow-x-auto">
-    <table class="w-full text-sm">
+    <table use:stackTable class="table-stack w-full text-sm">
       <thead>
         <tr class="border-b border-gray-100 bg-gray-50/70">
           <th

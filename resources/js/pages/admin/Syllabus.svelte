@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { stackTable } from '@/lib/actions/stackTable';
   import AdminLayout from '@/layouts/AdminLayout.svelte';
   import PageHeader from '@/components/admin/PageHeader.svelte';
   import { router } from '@inertiajs/svelte';
@@ -317,11 +318,11 @@
           </div>
 
           <!-- Año -->
-          <div>
+          <div class="flex-1 min-w-[7rem] sm:flex-none">
             <Label class="text-xs text-slate-500 mb-1 block">Año</Label>
             <select
               bind:value={filtroAgno}
-              class="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value="">Todos</option>
               {#each agnos as a (a)}
@@ -331,11 +332,11 @@
           </div>
 
           <!-- Semestre -->
-          <div>
+          <div class="flex-1 min-w-[7rem] sm:flex-none">
             <Label class="text-xs text-slate-500 mb-1 block">Semestre</Label>
             <select
               bind:value={filtroSemestre}
-              class="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value="">Todos</option>
               {#each semestres as s (s)}
@@ -368,7 +369,7 @@
     <!-- Tabla -->
     <Card.Root class="shadow-sm overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+        <table use:stackTable class="table-stack w-full text-sm">
           <thead class="bg-slate-50 border-b border-slate-200">
             <tr>
               <th class="text-left py-3 px-4 font-semibold text-slate-600">Curso / Asignatura</th>

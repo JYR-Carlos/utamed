@@ -213,6 +213,28 @@ export function formatFechaCorta(val: string | null | undefined): string {
 }
 
 /**
+ * Días que faltan para una fecha-solo-día, contados desde hoy a las 00:00.
+ * @param val - Fecha ISO/string (se usan los primeros 10 caracteres).
+ * @returns Negativo si ya pasó, 0 si es hoy.
+ */
+export function diasHasta(val: string): number {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    return Math.round((parseFechaSoloDia(val).getTime() - hoy.getTime()) / 86_400_000);
+}
+
+/**
+ * Texto del plazo de una entrega a partir de {@link diasHasta}.
+ * @returns Ej. "Vence en 7 días", "Vence mañana", "Venció hace 10 días".
+ */
+export function etiquetaPlazo(dias: number): string {
+    if (dias < 0) return dias === -1 ? 'Venció ayer' : `Venció hace ${Math.abs(dias)} días`;
+    if (dias === 0) return 'Vence hoy';
+    if (dias === 1) return 'Vence mañana';
+    return `Vence en ${dias} días`;
+}
+
+/**
  * Formatea una fecha-solo-día como texto largo en es-CL, sin el día de la semana.
  * Usa {@link parseFechaSoloDia} para evitar el desfase UTC→hora local de Chile.
  * @param val - Fecha ISO/string, o null/undefined.

@@ -17,7 +17,7 @@
     Calendar,
     GraduationCap,
     ClipboardList,
-    LayoutGrid,
+    House,
     Users,
     UserCheck,
     Building2,
@@ -27,6 +27,7 @@
     BarChart2,
     ChevronsUpDown,
     Check,
+    ArrowRight,
   } from 'lucide-svelte';
   import type { SidebarCourse } from '@/types';
   import { usePermissions } from '@/lib/composables/usePermissions';
@@ -163,9 +164,9 @@
     <div class="flex items-center gap-3">
       <AppLogo />
       <div class="flex flex-col">
-        <span class="font-extrabold text-[#22213F] text-lg leading-none tracking-tight">UTAMED</span
+        <span class="font-extrabold text-uta-blue text-lg leading-none tracking-tight">UTAMED</span
         >
-        <span class="text-[10px] text-slate-500 font-bold tracking-widest uppercase mt-1"
+        <span class="text-[10px] text-muted-foreground font-semibold tracking-widest uppercase mt-1"
           >Sistema de Gestión</span
         >
       </div>
@@ -173,7 +174,7 @@
   </div>
 
   <!-- ── Content ──────────────────────────────────────────── -->
-  <div class="flex-1 overflow-y-scroll py-6">
+  <div class="flex-1 overflow-y-auto py-6">
     <!-- Selector de ambiente: desplegable tipo combobox hacia abajo sólo si el usuario tiene más de un rol. -->
     {#if availableSections.length > 1}
       <div class="px-4 mb-4">
@@ -188,7 +189,7 @@
                 <ActiveIcon size={16} />
               </div>
               <div class="flex flex-col min-w-0">
-                <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 leading-tight"
+                <span class="text-[9px] font-bold uppercase tracking-wider text-muted-foreground leading-tight"
                   >Ambiente</span
                 >
                 <span class="text-xs font-bold text-slate-800 truncate leading-tight mt-0.5"
@@ -205,7 +206,7 @@
             sideOffset={4}
           >
             <DropdownMenuLabel
-              class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400"
+              class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
             >
               Cambiar de ambiente
             </DropdownMenuLabel>
@@ -250,48 +251,55 @@
     {#snippet navLink(href: string, label: string, Icon: any, admin: boolean = false, big: boolean = false)}
       <Link
         {href}
-        class="flex items-center gap-3 rounded-xl transition-all group {big
-          ? 'px-4 py-2.5 text-[15px] font-bold'
-          : 'px-4 py-2.5 text-[14px] font-semibold'} {isActive(href)
+        class="nav-link mx-3 flex min-h-11 items-center gap-3 rounded-lg transition-all group {big
+          ? 'px-3 py-2.5 text-[15px] font-bold'
+          : admin
+            ? 'px-3 py-2.5 text-[14px] font-semibold'
+            : 'px-3 py-2.5 text-[15px] font-medium'} {isActive(href)
           ? admin
             ? 'bg-indigo-50 text-indigo-700'
-            : 'bg-[#22213F]/8 text-[#22213F]'
+            : 'bg-uta-blue-light text-uta-blue'
           : admin
             ? 'text-slate-800 hover:bg-slate-50 hover:text-indigo-600'
-            : 'text-slate-600 hover:bg-slate-50 hover:text-[#22213F]'}"
+            : 'text-[#1A1A24] hover:bg-slate-50 hover:text-uta-blue'}"
       >
         <Icon
           size={big ? 20 : 18}
           class="{isActive(href)
             ? admin
               ? 'text-indigo-500'
-              : 'text-[#22213F]'
+              : 'text-uta-blue'
             : admin
-              ? 'text-slate-400 group-hover:text-indigo-500'
-              : 'text-slate-400 group-hover:text-[#22213F]'} shrink-0 transition-colors"
+              ? 'text-muted-foreground group-hover:text-indigo-500'
+              : 'text-slate-600 group-hover:text-uta-blue'} shrink-0 transition-colors"
         />
         {label}
       </Link>
     {/snippet}
 
-    <!-- Título de sección + acceso opcional a la lista completa. -->
-    {#snippet sectionTitle(label: string, viewAllHref?: string)}
-      <div class="px-6 mb-1 flex items-center justify-between gap-2">
-        <span class="text-[14px] font-extrabold text-slate-800">{label}</span>
-        {#if viewAllHref}
-          <Link
-            href={viewAllHref}
-            class="text-[11px] font-bold text-slate-400 hover:text-[#22213F] transition-colors shrink-0"
-          >
-            Ver todos →
-          </Link>
-        {/if}
+    <!-- Título de sección. -->
+    {#snippet sectionTitle(label: string)}
+      <div class="px-4 mb-2.5">
+        <span class="text-[11px] font-bold uppercase tracking-[0.06em] text-slate-600 whitespace-nowrap"
+          >{label}</span
+        >
       </div>
+    {/snippet}
+
+    <!-- Acceso a la lista completa, al pie de la lista de cursos. -->
+    {#snippet verTodos(href: string)}
+      <Link
+        {href}
+        class="mx-4 mt-1 flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold text-slate-600 underline underline-offset-2 transition-colors hover:text-[#22213F]"
+      >
+        Ver todos los cursos
+        <ArrowRight size={16} class="shrink-0" aria-hidden="true" />
+      </Link>
     {/snippet}
 
     <!-- ══ DOCENTE ══════════════════════════════════════════ -->
     {#if isDocente && openSection === 'docente'}
-      {@render navLink('/docente/dashboard', 'Inicio', LayoutGrid)}
+      {@render navLink('/docente/dashboard', 'Inicio', House)}
       {@render navLink('/docente/calendario', 'Calendario', Calendar)}
       <!-- La mensajería no está en el menú: los dos niveles se entran por su
            contexto. La del curso, desde el curso; la de agenda, desde la
@@ -299,7 +307,7 @@
 
       <div class="h-px bg-slate-100 my-4 mx-4"></div>
 
-      {@render sectionTitle('Mis Cursos', '/docente/cursos')}
+      {@render sectionTitle('Mis Cursos')}
       <CourseListNav
         courses={filteredDocente}
         basePath="/docente/cursos"
@@ -307,11 +315,12 @@
         showActividades
         emptyLabel="Sin cursos asignados"
       />
+      {@render verTodos('/docente/cursos')}
     {/if}
 
     <!-- ══ JEFE DE CARRERA ══════════════════════════════════ -->
     {#if isJefeCarrera && openSection === 'jefe'}
-      {@render navLink('/docente/jefe-carrera/dashboard', 'Inicio Carrera', LayoutGrid)}
+      {@render navLink('/docente/jefe-carrera/dashboard', 'Inicio Carrera', House)}
       {@render navLink('/docente/jefe-carrera/seguimiento', 'Seguimiento', ClipboardList)}
       {@render navLink('/docente/jefe-carrera/metricas', 'Métricas', BarChart2)}
 
@@ -325,41 +334,43 @@
 
     <!-- ══ ESTUDIANTE ═══════════════════════════════════════ -->
     {#if isEstudiante && openSection === 'estudiante'}
-      {@render navLink('/estudiante/dashboard', 'Inicio', LayoutGrid)}
+      {@render navLink('/estudiante/dashboard', 'Inicio', House)}
 
       <!-- La mensajería se entra desde la ficha del curso, no desde el menú:
            el hilo pertenece a un curso y elegirlo dos veces sobra. -->
 
       <div class="h-px bg-slate-100 my-4 mx-4"></div>
 
-      {@render sectionTitle('Mis Cursos', '/estudiante/cursos')}
+      {@render sectionTitle('Mis Cursos')}
       <CourseListNav
         courses={filteredEstudiante}
         basePath="/estudiante/cursos"
         emptyLabel="Sin cursos inscritos"
       />
+      {@render verTodos('/estudiante/cursos')}
     {/if}
 
     <!-- ══ AYUDANTE ══════════════════════════════════════════ -->
     {#if isAyudante && openSection === 'ayudante'}
-      {@render navLink('/ayudante/dashboard', 'Inicio', LayoutGrid)}
+      {@render navLink('/ayudante/dashboard', 'Inicio', House)}
 
       <!-- Igual que el docente: la mensajería se entra desde el curso. -->
 
       <div class="h-px bg-slate-100 my-4 mx-4"></div>
 
-      {@render sectionTitle('Cursos Asignados', '/ayudante/cursos')}
+      {@render sectionTitle('Cursos Asignados')}
       <CourseListNav
         courses={filteredAyudante}
         basePath="/ayudante/cursos"
         showPrograma
         emptyLabel="Sin ayudantías asignadas"
       />
+      {@render verTodos('/ayudante/cursos')}
     {/if}
 
     <!-- ══ ADMIN ═════════════════════════════════════════════ -->
     {#if isAdmin && openSection === 'admin'}
-      {@render navLink('/admin/dashboard', 'Inicio', LayoutGrid, true, true)}
+      {@render navLink('/admin/dashboard', 'Inicio', House, true, true)}
       <div class="px-6 mb-2 mt-3">
         <p class="text-[10px] font-bold tracking-widest uppercase text-slate-300">Administración</p>
       </div>

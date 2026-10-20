@@ -108,6 +108,7 @@ class MensajeriaService
                 tc.tipo                AS tipo_componente,
                 cur.nombre             AS curso_nombre,
                 cur.cod_curso,
+                asig.cod_asignatura,
                 cur.agno_real,
                 cur.semestre_real,
                 cur.letra_grupo,
@@ -115,6 +116,8 @@ class MensajeriaService
             FROM curso.componente cmp
             JOIN curso.curso cur           ON cur.id_curso = cmp.id_curso
             JOIN curso.tipo_componente tc  ON tc.id_tipo_componente = cmp.id_tipo_componente
+            LEFT JOIN administrativo.asignacion_plan ap ON ap.id_asignacion_plan = cur.id_asignacion_plan
+            LEFT JOIN administrativo.asignatura asig    ON asig.id_asignatura = ap.id_asignatura
             {$join}
             WHERE cur.fecha_eliminacion IS NULL
               AND ({$where})

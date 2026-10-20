@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { stackTable } from '@/lib/actions/stackTable';
   /**
    * facultadList — Tabla expandible de facultades con sus departamentos
    * anidados; permite crear/eliminar departamentos desde la propia fila.
@@ -61,7 +62,7 @@
 
 <!-- Tabla expandible de Facultades -->
 <div class="overflow-x-auto bg-white rounded-lg shadow">
-  <table class="w-full text-sm">
+  <table use:stackTable class="table-stack w-full text-sm">
     <thead class="bg-gray-50 border-b border-gray-200">
       <tr>
         <!-- Sin columna ID: el identificador de la base de datos no le sirve

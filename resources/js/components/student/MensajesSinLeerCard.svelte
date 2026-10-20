@@ -15,6 +15,8 @@
     id_curso: number;
     nombre: string;
     cod_curso: string;
+    /** Código visible (DM054…); cod_curso es interno y sólo queda de respaldo. */
+    cod_asignatura?: string | null;
     no_leidos: number;
   }
 
@@ -43,11 +45,11 @@
     <div class="flex flex-col gap-2">
       {#each cursos as curso (curso.id_curso)}
         <Link
-          href={`/estudiante/cursos/${curso.id_curso}/mensajeria`}
+          href={`/estudiante/cursos/${curso.id_curso}?seccion=mensajeria`}
           class="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2.5 transition-colors hover:border-slate-300 hover:bg-slate-50"
         >
           <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="font-mono text-[10.5px] text-slate-500">{curso.cod_curso}</span>
+            <span class="font-mono text-[10.5px] text-slate-500">{curso.cod_asignatura || curso.cod_curso}</span>
             <span class="truncate text-[13px] font-semibold text-slate-900">{curso.nombre}</span>
           </div>
           <span

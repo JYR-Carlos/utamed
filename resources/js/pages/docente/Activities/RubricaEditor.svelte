@@ -884,7 +884,7 @@
                         {#if columnas.length > 1}
                           <button
                             onclick={() => removeColumna(ci)}
-                            class="p-0.5 text-gray-300 hover:text-red-400 transition rounded shrink-0"
+                            class="p-0.5 text-slate-500 hover:text-red-400 transition rounded shrink-0"
                             title="Eliminar nivel"
                           >
                             <Trash2 class="w-3 h-3" />
@@ -978,7 +978,7 @@
                             aria-label="Ponderación de {nivel.nombre || 'este criterio'} en porcentaje"
                             class="w-14 text-sm font-bold text-gray-800 bg-transparent text-right focus:outline-none disabled:text-gray-500"
                           />
-                          <span class="text-xs text-gray-400 font-medium">% de la nota</span>
+                          <span class="text-xs text-muted-foreground font-medium">% de la nota</span>
                         </div>
                       </div>
 
@@ -1062,14 +1062,14 @@
         -->
         {#if esSumativa}
           <div class="bg-gray-50/50 rounded-3xl border border-gray-100 p-6">
-            <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
+            <p class="text-xs font-black text-muted-foreground uppercase tracking-widest mb-4">
               Conversión a nota
             </p>
             <div class="flex flex-wrap items-end gap-8">
               <div>
                 <p class="text-xs text-gray-500">Puntaje para nota 4.0</p>
                 <p class="text-3xl font-black text-primary">
-                  {puntajeParaCuatro}<span class="text-base font-bold text-gray-400"
+                  {puntajeParaCuatro}<span class="text-base font-bold text-muted-foreground"
                     >/{puntajeTotal} pts</span
                   >
                 </p>
@@ -1082,7 +1082,7 @@
         {:else}
         <div class="bg-gray-50/50 rounded-3xl border border-gray-100 p-6">
           <div class="flex items-center justify-between mb-4 max-w-lg">
-            <p class="text-xs font-black text-gray-400 uppercase tracking-widest">
+            <p class="text-xs font-black text-muted-foreground uppercase tracking-widest">
               Escala de Calificación
             </p>
             <span class="text-xs text-gray-500 font-medium">
@@ -1099,7 +1099,7 @@
                       ? 'border-red-400 bg-red-50/30'
                       : 'border-gray-200'}"
                   >
-                    <span class="text-xs text-gray-400 font-medium">≥</span>
+                    <span class="text-xs text-muted-foreground font-medium">≥</span>
                     <input
                       type="number"
                       bind:value={esc.puntaje_minimo}
@@ -1110,9 +1110,9 @@
                       max={puntajeTotal}
                       class="w-full text-sm font-bold text-primary bg-transparent focus:outline-none"
                     />
-                    <span class="text-xs text-gray-400">pts</span>
+                    <span class="text-xs text-muted-foreground">pts</span>
                   </div>
-                  <span class="text-gray-400">→</span>
+                  <span class="text-muted-foreground">→</span>
                   <input
                     type="text"
                     bind:value={esc.evaluacion}
@@ -1121,7 +1121,7 @@
                   />
                   <button
                     onclick={() => removeEscalaCalif(esc._id)}
-                    class="p-1.5 text-gray-300 hover:text-red-400 transition shrink-0"
+                    class="p-1.5 text-slate-500 hover:text-red-400 transition shrink-0"
                   >
                     <Trash2 class="w-3.5 h-3.5" />
                   </button>
@@ -1171,7 +1171,7 @@
               </button>
             {:else}
               <div
-                class="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold bg-gray-100/90 backdrop-blur-md text-gray-400 border border-gray-200 shadow-md cursor-not-allowed opacity-60"
+                class="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold bg-gray-100/90 backdrop-blur-md text-muted-foreground border border-gray-200 shadow-md cursor-not-allowed opacity-60"
                 title={labelBotonRepartoDeshabilitado}
               >
                 <SlidersHorizontal class="w-4 h-4" />

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { stackTable } from '@/lib/actions/stackTable';
   /**
    * departamentoList — Tabla expandible de departamentos con sus carreras.
    *
@@ -58,7 +59,7 @@
 
 <!-- Data Grid con Row Expansion -->
 <div class="overflow-x-auto bg-white rounded-lg shadow">
-  <table class="w-full text-sm">
+  <table use:stackTable class="table-stack w-full text-sm">
     <thead class="bg-gray-50 border-b border-gray-200">
       <tr>
         <th class="w-10"></th>

@@ -79,7 +79,6 @@
   let copyError = $state('');
 
   // Form fields for the new course
-  let newCodCurso = $state('');
   let newFechaInicio = $state('');
 
   const totalActividades = $derived(
@@ -98,7 +97,6 @@
       preview = null;
       loadError = '';
       copyError = '';
-      newCodCurso = '';
       newFechaInicio = '';
       fetchPreview(curso.id_curso);
     }
@@ -130,12 +128,12 @@
 
   function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
-    if (!curso || !newCodCurso || !newFechaInicio) return;
+    if (!curso || !newFechaInicio) return;
     copying = true;
     copyError = '';
     router.post(
       `/admin/cursos/${curso.id_curso}/copiar`,
-      { cod_curso: parseInt(newCodCurso), fecha_inicio: newFechaInicio },
+      { fecha_inicio: newFechaInicio },
       {
         onSuccess: () => {
           copying = false;
@@ -400,22 +398,8 @@
             <div class="p-4 rounded-xl border border-blue-200 bg-blue-50/40 space-y-4">
               <p class="text-sm font-semibold text-gray-800">Datos del nuevo curso</p>
 
-              <div class="grid grid-cols-2 gap-4">
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-xs font-semibold text-gray-600" for="new-cod-curso">
-                    Código del Curso *
-                  </label>
-                  <input
-                    id="new-cod-curso"
-                    type="number"
-                    bind:value={newCodCurso}
-                    placeholder="Ej: 12346"
-                    min="1"
-                    required
-                    class="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
+              <!-- El código del curso es interno: lo asigna el sistema al copiar. -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div class="flex flex-col gap-1.5">
                   <label class="text-xs font-semibold text-gray-600" for="new-fecha-inicio">
                     Fecha de inicio *
@@ -454,7 +438,7 @@
           <button
             type="submit"
             form="copy-form"
-            disabled={copying || !newCodCurso || !newFechaInicio}
+            disabled={copying || !newFechaInicio}
             class="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition shadow-sm"
           >
             {#if copying}

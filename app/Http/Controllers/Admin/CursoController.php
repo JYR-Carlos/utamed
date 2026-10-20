@@ -120,9 +120,21 @@ class CursoController extends Controller
                         'id_curso' => $curso->id_curso,
                         'resultado' => $resultado->toArray()
                     ]);
-                    return redirect()
+                    $redirect = redirect()
                         ->route('admin.cursos.index')
-                        ->with('success', "Curso creado exitosamente. Se inscribieron {$resultado->inscritos_exitosamente} alumnos automáticamente desde la Intranet.");
+                        ->with('success', 'Curso creado exitosamente. ' . ($resultado->inscritos_exitosamente === 1
+                            ? 'Se inscribió 1 alumno'
+                            : "Se inscribieron {$resultado->inscritos_exitosamente} alumnos")
+                            . ' automáticamente desde la Intranet.');
+
+                    // Sin esto, «0 alumnos inscritos» no decía si la Intranet no
+                    // respondió, no tenía el grupo o falló algún alumno.
+                    $avisos = array_merge(
+                        $resultado->advertencias,
+                        array_map(fn ($e) => "RUT {$e['rut']}: {$e['motivo']}", $resultado->errores)
+                    );
+
+                    return $avisos === [] ? $redirect : $redirect->with('error', implode(' ', $avisos));
                 } catch (\Throwable $e) {
                     Log::error('[CursoController@store] Error en inscripción automática tras creación: ' . $e->getMessage());
                     return redirect()
@@ -461,6 +473,28 @@ class CursoController extends Controller
     }
 
     /**
+     * Grupos que la Intranet oferta para la asignatura en el periodo elegido,
+     * con sus componentes y CUR_CODIGO, para que el wizard se autocomplete.
+     */
+    public function ofertaIntranet(Request $request)
+    {
+        $this->authorize('viewAny', Curso::class);
+        $validated = $request->validate([
+            'id_asignatura' => 'required|integer|exists:asignatura,id_asignatura',
+            'id_plan'       => 'required|integer|exists:plan,id_plan',
+            'agno_real'     => 'required|integer|min:2000|max:2100',
+            'semestre_real' => 'required|integer|in:1,2',
+        ]);
+
+        return response()->json(app(IntranetService::class)->ofertaIntranet(
+            idAsignatura: $validated['id_asignatura'],
+            idPlan: $validated['id_plan'],
+            agno: $validated['agno_real'],
+            semestre: $validated['semestre_real'],
+        ));
+    }
+
+    /**
      * "Mirar antes de tocar" para un curso YA CREADO: arma el mismo reporte
      * que previewComponentes(), pero usando los datos ya guardados del curso.
      * No escribe nada; sincronizarIntranet() ejecuta sólo lo que se confirme.
@@ -751,13 +785,14 @@ class CursoController extends Controller
     {
         $this->authorize('create', Curso::class);
         $request->validate([
-            'cod_curso'   => 'required|integer|min:1',
+            'cod_curso'   => 'nullable|integer|min:1|max:999999999|unique:curso,cod_curso',
             'fecha_inicio'=> 'required|date',
         ]);
 
         try {
+            // Sin cod_curso, CursoService asigna el siguiente código interno.
             $this->cursoService->copiar($curso, [
-                'cod_curso'   => (int) $request->cod_curso,
+                'cod_curso'   => $request->filled('cod_curso') ? (int) $request->cod_curso : null,
                 'fecha_inicio'=> $request->fecha_inicio,
             ]);
 

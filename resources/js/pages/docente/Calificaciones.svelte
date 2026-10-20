@@ -102,7 +102,9 @@
   }
 
   function periodo(c: CursoCalif): string {
-    return `${c.semestre_real === 1 ? '1er' : '2do'} Sem. · ${c.agno_real}`;
+    // Sin año (null) se muestra sólo el semestre, no el literal «null».
+    const sem = `${c.semestre_real === 1 ? '1er' : '2do'} Sem.`;
+    return c.agno_real ? `${sem} · ${c.agno_real}` : sem;
   }
 </script>
 
@@ -123,7 +125,7 @@
       <div class="flex flex-col items-center justify-center py-20 text-center rounded-2xl border-2 border-dashed bg-[#F5F1EA] border-[#D0CBC1]">
         <GraduationCap size={36} class="text-[#8A8E9C] mb-3" />
         <p class="text-sm font-medium text-[#5A5E6E]">No tienes actividades para calificar.</p>
-        <p class="text-xs text-[#8A8E9C] mt-1 max-w-sm">
+        <p class="text-xs text-muted-foreground mt-1 max-w-sm">
           Las calificaciones se realizan sobre las actividades de los componentes que impartes; aún no hay actividades disponibles.
         </p>
       </div>
@@ -171,7 +173,7 @@
                   {/if}
                 </div>
                 <p class="text-sm font-semibold text-[#1A1A24] leading-snug line-clamp-2 m-0">{c.nombre}</p>
-                <div class="flex items-center gap-3 text-xs text-[#8A8E9C] mt-auto">
+                <div class="flex items-center gap-3 text-xs text-muted-foreground mt-auto">
                   <span>{periodo(c)}</span>
                   <span class="inline-flex items-center gap-1">
                     <Layers size={12} />
@@ -207,10 +209,10 @@
                   {:else if comp.imparte}
                     <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#E0F5EA] text-[#0E7C4A]">Imparte</span>
                   {:else}
-                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F5F1EA] text-[#8A8E9C]" title="Supervisión como titular del curso">Supervisión</span>
+                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F5F1EA] text-muted-foreground" title="Supervisión como titular del curso">Supervisión</span>
                   {/if}
                 </div>
-                <div class="flex items-center gap-1.5 text-xs text-[#8A8E9C] mt-auto">
+                <div class="flex items-center gap-1.5 text-xs text-muted-foreground mt-auto">
                   <ClipboardList size={12} />
                   {comp.actividades.length} actividad{comp.actividades.length !== 1 ? 'es' : ''}
                 </div>
@@ -238,7 +240,7 @@
                     </div>
                     <div class="min-w-0">
                       <p class="text-sm font-semibold text-[#1A1A24] truncate m-0">{act.nombre}</p>
-                      <div class="flex items-center gap-3 text-xs text-[#8A8E9C] mt-0.5 flex-wrap">
+                      <div class="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
                         <span class="inline-flex items-center gap-1 font-semibold {act.tipo_actividad === 'SUMATIVA' ? 'text-[#8A5F00]' : 'text-[#0E7C4A]'}">
                           {act.tipo_actividad === 'SUMATIVA' ? 'Sumativa' : 'Formativa'}
                         </span>
@@ -263,7 +265,7 @@
                     </div>
                     <div class="min-w-0">
                       <p class="text-sm font-semibold text-[#5A4A00] truncate m-0">{act.nombre}</p>
-                      <div class="flex items-center gap-3 text-xs text-[#8A8E9C] mt-0.5 flex-wrap">
+                      <div class="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
                         <span class="inline-flex items-center gap-1 font-semibold {act.tipo_actividad === 'SUMATIVA' ? 'text-[#8A5F00]' : 'text-[#0E7C4A]'}">
                           {act.tipo_actividad === 'SUMATIVA' ? 'Sumativa' : 'Formativa'}
                         </span>

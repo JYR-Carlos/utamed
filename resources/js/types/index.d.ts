@@ -43,7 +43,10 @@ export interface SidebarCourse {
     /** «Taller de Multimedia II Grupo A»: asignatura + grupo (Curso::etiqueta()). */
     etiqueta?: string;
     letra_grupo?: string | null;
+    /** Código interno (11000…): sólo de respaldo si falta cod_asignatura. */
     cod_curso: string;
+    /** Código visible del curso (DM054…). */
+    cod_asignatura?: string | null;
     agno_real: number;
     semestre_real: number;
     tiene_programa?: boolean;

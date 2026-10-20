@@ -71,10 +71,8 @@ $config = [
             'administrativo.plan',
             'administrativo.carrera',       // contexto padre final
         ],
-        'agenda.actividad' => [
-            'curso.seccion',
-            'curso.curso',                  // contexto padre final
-        ],
+        // agenda.actividad no va acá: su padre es curso.componente por FK directa
+        // (id_componente), que se autodetecta.
     ],
 ];
 

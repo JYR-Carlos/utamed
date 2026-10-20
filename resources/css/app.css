@@ -103,6 +103,59 @@
 }
 
 @layer base {
+    /* Portal docente: el contenido va sobre gris claro y las tarjetas en blanco,
+       como en el mockup de la auditoría UI (2026-10-19). Sólo el área de contenido;
+       menú lateral y barra superior siguen blancos. */
+    .docente-shell #contenido {
+        background-color: #F8FAFC;
+        min-height: 100%;
+    }
+}
+
+/* Barra superior del mockup: buscador y botones blancos con borde de
+   control (#7B8AA0, 3:1) en vez de gris sobre gris. Los estilos base viven
+   en AppSidebarHeader.svelte (scoped, fuera de capa): por eso estas reglas
+   también van fuera de @layer, si no pierden siempre. Sólo pisan el docente. */
+@media all {
+    .docente-shell .global-header {
+        border-bottom-color: #E2E8F0;
+    }
+    .docente-shell .global-header .search-box {
+        background: #fff;
+        border-color: #7B8AA0;
+        border-radius: 8px;
+    }
+    .docente-shell .global-header .search-box:hover {
+        background: #F8FAFC;
+    }
+    .docente-shell .global-header .icon-btn {
+        background: #fff;
+        border-color: #7B8AA0;
+        border-radius: 8px;
+        color: #1A1A24;
+    }
+    .docente-shell .global-header .icon-btn:hover {
+        background: #F8FAFC;
+    }
+    .docente-shell .global-header .mobile-search-trigger {
+        background: #fff;
+        border-color: #7B8AA0;
+        border-radius: 8px;
+        color: #1A1A24;
+        box-shadow: none;
+    }
+}
+
+@layer base {
+    /* Placeholder legible: Tailwind v4 lo deja al 50 % de currentColor (≈3.4:1);
+       con --muted-foreground llega a ≈5:1 (auditoría UI docente 2026-10-19, #10). */
+    ::placeholder {
+        color: var(--muted-foreground);
+        opacity: 1;
+    }
+}
+
+@layer base {
     :root {
         --background: hsl(210 33% 97%);
         /* Pale blue-gray background */
@@ -190,6 +243,13 @@
 @layer base {
     * {
         @apply border-border outline-ring/50;
+    }
+
+    /* Anillo de foco por teclado visible en toda la plataforma (auditoría #2):
+       2 px opacos en el azul institucional, separados 2 px del borde. */
+    :focus-visible {
+        outline: 2px solid var(--color-uta-blue);
+        outline-offset: 2px;
     }
 
     body {
@@ -338,15 +398,127 @@
        inventaba el suyo (max-w-7xl aquí, max-w-5xl allá, ninguno
        más allá) y el título saltaba de sitio al navegar. */
     .page-shell {
-        @apply mx-auto w-full max-w-[1400px] px-6 py-8;
+        @apply mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-6 sm:py-8;
     }
 
     .page-header {
-        @apply flex flex-wrap items-start justify-between gap-4 mb-6;
+        @apply flex flex-wrap items-start justify-between gap-3 mb-5 sm:gap-4 sm:mb-6;
     }
 
     .page-title {
-        @apply text-3xl font-bold text-gray-900 mb-1;
+        @apply text-2xl font-bold text-gray-900 mb-1 sm:text-3xl;
+    }
+
+    /* Pestañas / segmentos: en pantallas estrechas se desplazan en vez de
+       ensanchar la página. */
+    .tab-strip {
+        @apply flex max-w-full gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 sm:gap-2;
+        scrollbar-width: none;
+    }
+
+    .tab-strip::-webkit-scrollbar {
+        display: none;
+    }
+
+    .tab-strip > * {
+        @apply shrink-0;
+    }
+
+    /* ── Tablas como tarjetas en móvil ───────────────────────────
+       Una tabla de 6 columnas no cabe en 390 px y obliga a desplazarse
+       en horizontal dentro de la tabla. Con `use:stackTable` cada celda
+       recibe `data-label` (el texto de su columna) y, por debajo de
+       `md`, cada fila se dibuja como una tarjeta: etiqueta arriba, valor
+       debajo. Se usa un bloque y no una rejilla para que celdas con
+       varios elementos (nombre + facultad, insignias) no se partan. */
+    @media (max-width: 767px) {
+        .table-stack,
+        .table-stack tbody,
+        .table-stack tr,
+        .table-stack td {
+            display: block;
+            width: 100%;
+        }
+
+        .table-stack {
+            min-width: 0 !important;
+        }
+
+        /* `!important`: DataTable pone `sticky` en su thead y las utilidades
+           de Tailwind ganan a esta capa. */
+        .table-stack thead {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            overflow: hidden !important;
+            clip-path: inset(50%);
+            box-shadow: none !important;
+        }
+
+        .table-stack tbody {
+            padding: 0.75rem;
+            background: #f9fafb;
+        }
+
+        /* `!important`: varias tablas ponen `border-b`, `last:border-0` o
+           colores de hover en el tr, y las utilidades ganan a esta capa. */
+        .table-stack tbody tr {
+            margin: 0 0 0.75rem;
+            padding: 0.25rem 0.875rem;
+            background: #fff;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+        }
+
+        .table-stack tbody tr:last-child {
+            margin-bottom: 0;
+        }
+
+        .table-stack td {
+            width: 100% !important;
+            padding: 0.4rem 0 !important;
+            border: 0 !important;
+            border-bottom: 1px solid #f3f4f6 !important;
+            text-align: left !important;
+            white-space: normal !important;
+            overflow-wrap: anywhere;
+        }
+
+        .table-stack td:last-child {
+            border-bottom: 0 !important;
+        }
+
+        .table-stack td[data-label]:not([data-label=''])::before {
+            content: attr(data-label);
+            display: block;
+            margin-bottom: 0.125rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #9ca3af;
+        }
+
+        .table-stack td[data-actions] {
+            display: flex !important;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        /* Fila de «sin resultados»: un solo bloque centrado. */
+        .table-stack td[colspan] {
+            text-align: center !important;
+        }
+
+        /* Fuera de la tabla-tarjeta el contenedor no necesita altura propia
+           ni desplazamiento: la página ya se desplaza. */
+        .table-stack-wrap {
+            max-height: none !important;
+            overflow: visible !important;
+        }
     }
 
     .page-subtitle {
@@ -463,4 +635,78 @@
             @apply text-3xl;
         }
     }
+}
+/*
+ * Campos a 16 px en móvil. iOS Safari acerca la página al enfocar un campo
+ * de menos de 16 px y no la devuelve a su tamaño, así que en teléfono todo
+ * formulario con `text-sm` (14 px) saltaba al tocarlo. Va fuera de cualquier
+ * @layer a propósito: las utilidades `text-sm`/`text-xs` están en una capa y
+ * este bloque, sin capa, les gana sin necesitar `!important`.
+ */
+@media (max-width: 767px) {
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+    select,
+    textarea {
+        font-size: 16px;
+    }
+}
+
+/*
+ * Cajón de navegación móvil (MobileSidebar). El sidebar se diseñó para
+ * escritorio —enlaces de 14 px, etiquetas de 10 px en gris casi invisible— y
+ * en el teléfono quedaba chico y por debajo del objetivo táctil recomendado
+ * (≈44–48 px). Sólo aplica dentro de `.mobile-nav`: el de escritorio no cambia.
+ */
+.mobile-nav .nav-link {
+    min-height: 3rem;
+    font-size: 1rem;
+    padding-inline: 1rem;
+}
+
+.mobile-nav .nav-link svg {
+    width: 1.375rem;
+    height: 1.375rem;
+}
+
+/* Etiquetas de sección y subtítulos en mayúsculas: de 10 px y slate-300 a
+   12 px con contraste suficiente. */
+.mobile-nav .uppercase {
+    font-size: 0.75rem;
+    line-height: 1.25;
+}
+
+.mobile-nav p.uppercase {
+    color: #64748b;
+}
+
+/* Nombre de usuario del pie. */
+.mobile-nav .truncate.font-bold.text-slate-900 {
+    font-size: 1rem;
+}
+
+/* Cursos del docente/estudiante/ayudante dentro del menú. */
+.mobile-nav [class*='line-clamp-2'] {
+    font-size: 0.9375rem;
+}
+
+.mobile-nav .font-mono {
+    font-size: 0.75rem;
+}
+
+/* Botón de cerrar del Sheet: más grande y con área táctil propia. */
+.mobile-nav > button {
+    top: 0.75rem;
+    right: 0.75rem;
+    padding: 0.5rem;
+}
+
+.mobile-nav > button svg {
+    width: 1.375rem;
+    height: 1.375rem;
+}
+
+/* El pie (usuario) usa p-6 pensado para escritorio; en móvil le quita alto
+   a la lista de enlaces. */
+.mobile-nav .border-t.p-6 {
+    padding: 0.5rem 1rem;
 }

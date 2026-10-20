@@ -49,13 +49,13 @@ test('el enlace permite fijar una nueva contraseña', function () {
         $this->post('/reset-password', [
             'token' => $notification->token,
             'email' => $user->email,
-            'password' => 'nueva-clave-2026',
-            'password_confirmation' => 'nueva-clave-2026',
+            'password' => 'Nueva-clave-2026',
+            'password_confirmation' => 'Nueva-clave-2026',
         ])->assertSessionHasNoErrors()->assertRedirect(route('login'));
 
         return true;
     });
 
-    $this->post('/login', ['email' => $user->rut, 'password' => 'nueva-clave-2026']);
+    $this->post('/login', ['email' => $user->rut, 'password' => 'Nueva-clave-2026']);
     $this->assertAuthenticatedAs($user);
 });

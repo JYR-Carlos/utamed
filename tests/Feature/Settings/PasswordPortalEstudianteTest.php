@@ -50,8 +50,8 @@ test('el estudiante cambia su clave sin que se le cierre la sesión', function (
         ->from('/settings/password')
         ->put('/settings/password', [
             'current_password' => 'password',
-            'password' => 'nueva-clave-2026',
-            'password_confirmation' => 'nueva-clave-2026',
+            'password' => 'Nueva-clave-2026',
+            'password_confirmation' => 'Nueva-clave-2026',
         ])
         ->assertSessionHasNoErrors()
         ->assertRedirect('/settings/password');

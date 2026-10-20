@@ -158,7 +158,7 @@
                       {#if doc.es_titular}
                         <Crown class="h-3.5 w-3.5 text-amber-500" />
                       {:else}
-                        <UserCheck class="h-3.5 w-3.5 text-slate-400" />
+                        <UserCheck class="h-3.5 w-3.5 text-muted-foreground" />
                       {/if}
                       <span class="text-sm font-medium text-slate-800">{doc.nombre}</span>
                       {#if doc.es_titular}
@@ -169,7 +169,7 @@
                 {/each}
               </div>
             {:else}
-              <p class="text-xs text-slate-400">Sin docentes asignados</p>
+              <p class="text-xs text-muted-foreground">Sin docentes asignados</p>
             {/if}
           </div>
         {/each}
@@ -201,10 +201,10 @@
               class="flex items-center justify-between py-3 px-4 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
             >
               <div class="flex items-center gap-3">
-                <UserCheck class="h-4 w-4 text-slate-400" />
+                <UserCheck class="h-4 w-4 text-muted-foreground" />
                 <div>
                   <span class="text-sm font-medium text-slate-800">{col.nombre}</span>
-                  <span class="text-xs text-slate-400 ml-2">{col.username}</span>
+                  <span class="text-xs text-muted-foreground ml-2">{col.username}</span>
                 </div>
               </div>
               <Button

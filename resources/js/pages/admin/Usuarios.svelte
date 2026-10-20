@@ -525,28 +525,28 @@
       {/snippet}
     </PageHeader>
 
-    <div class="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit mb-6">
+    <div class="tab-strip w-fit mb-6">
       <button
         onclick={() => switchTipo(UserType.STUDENT)}
         class={currentTipo === UserType.STUDENT
-          ? 'px-5 py-2 border-0 rounded-md font-medium cursor-pointer transition-all bg-white text-blue-500 shadow-sm'
-          : 'px-5 py-2 border-0 rounded-md font-medium cursor-pointer transition-all bg-transparent text-gray-500 hover:text-gray-700'}
+          ? 'px-4 sm:px-5 py-2 border-0 rounded-md font-medium whitespace-nowrap cursor-pointer transition-all bg-white text-blue-500 shadow-sm'
+          : 'px-4 sm:px-5 py-2 border-0 rounded-md font-medium whitespace-nowrap cursor-pointer transition-all bg-transparent text-gray-500 hover:text-gray-700'}
       >
         Estudiantes
       </button>
       <button
         onclick={() => switchTipo(UserType.TEACHER)}
         class={currentTipo === UserType.TEACHER
-          ? 'px-5 py-2 border-0 rounded-md font-medium cursor-pointer transition-all bg-white text-blue-500 shadow-sm'
-          : 'px-5 py-2 border-0 rounded-md font-medium cursor-pointer transition-all bg-transparent text-gray-500 hover:text-gray-700'}
+          ? 'px-4 sm:px-5 py-2 border-0 rounded-md font-medium whitespace-nowrap cursor-pointer transition-all bg-white text-blue-500 shadow-sm'
+          : 'px-4 sm:px-5 py-2 border-0 rounded-md font-medium whitespace-nowrap cursor-pointer transition-all bg-transparent text-gray-500 hover:text-gray-700'}
       >
         Docentes
       </button>
       <button
         onclick={() => switchTipo(UserType.ADMIN)}
         class={currentTipo === UserType.ADMIN
-          ? 'px-5 py-2 border-0 rounded-md font-medium cursor-pointer transition-all bg-white text-blue-500 shadow-sm'
-          : 'px-5 py-2 border-0 rounded-md font-medium cursor-pointer transition-all bg-transparent text-gray-500 hover:text-gray-700'}
+          ? 'px-4 sm:px-5 py-2 border-0 rounded-md font-medium whitespace-nowrap cursor-pointer transition-all bg-white text-blue-500 shadow-sm'
+          : 'px-4 sm:px-5 py-2 border-0 rounded-md font-medium whitespace-nowrap cursor-pointer transition-all bg-transparent text-gray-500 hover:text-gray-700'}
       >
         Administradores
       </button>

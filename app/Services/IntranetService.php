@@ -34,8 +34,7 @@ class IntranetService
 
     public function __construct(
         protected EstudianteService $estudianteService,
-        protected InscripcionCursoService $inscripcionCursoService,
-        protected CursoService $cursoService
+        protected InscripcionCursoService $inscripcionCursoService
     ) {}
 
     /**
@@ -91,6 +90,11 @@ class IntranetService
         // UTAMED: la foto queda con huecos y ya no sirve para dar de baja.
         $estudiantesEnIntranet = [];
         $lecturaCompleta = true;
+
+        // Alumnos inscritos al curso en esta corrida, y alumnos ya contados como
+        // inscritos (uno que figura en Cátedra y Taller es un alumno, no dos).
+        $nuevosEnCurso = [];
+        $contados = [];
 
         foreach ($componentesIntranet as $compIntranet) {
             $compUtamed = $this->mapearComponenteIntranetAUtamed($compIntranet, $curso);
@@ -151,14 +155,29 @@ class IntranetService
                         ->exists();
 
                     if (!$yaInscritoCurso) {
+                        // El INS_ID de la Intranet es el folio de inscripción del alumno en
+                        // el periodo y se repite en todas sus asignaturas, pero
+                        // cod_inscripcion_uta es UNIQUE: guardarlo siempre hacía fallar la
+                        // inscripción del alumno en su segundo curso del semestre. Se guarda
+                        // sólo si está libre; el INS_ID queda siempre en la componente
+                        // (cod_inscripcion_curso_uta), que es donde corresponde.
+                        $codInscripcion = (string) $inscripcionData->ins_id;
+                        $codLibre = !InscripcionCurso::where('cod_inscripcion_uta', $codInscripcion)->exists();
+
                         $this->inscripcionCursoService->create([
                             'id_curso'            => $curso->id_curso,
                             'id_estudiante'       => $estudiante->id_estudiante,
-                            'cod_inscripcion_uta' => (string)$inscripcionData->ins_id,
+                            'cod_inscripcion_uta' => $codLibre ? $codInscripcion : null,
                             'fecha_inscripcion'   => now()->toDateString(),
                             'estado_inscripcion'  => 'INSCRITO',
                             'num_intento'         => 1,
                         ]);
+
+                        // tr_inscribir_componente_curso_automaticamente ya lo inscribió en
+                        // todas las componentes del curso: por eso abajo la fila de
+                        // componente «ya existe» aunque sea nueva, y el reporte decía
+                        // «0 alumnos inscritos» después de inscribirlos.
+                        $nuevosEnCurso[$estudiante->id_estudiante] = true;
                     }
 
                     // Asegurar asignación del rol Estudiante en el contexto del Curso
@@ -171,11 +190,20 @@ class IntranetService
                         ->first();
 
                     if ($inscripcionCompExistente) {
-                        $yaInscritos++;
                         if (!$inscripcionCompExistente->cod_inscripcion_curso_uta) {
                             $inscripcionCompExistente->update([
                                 'cod_inscripcion_curso_uta' => $inscripcionData->ins_id,
                             ]);
+                        }
+
+                        if (isset($nuevosEnCurso[$estudiante->id_estudiante])) {
+                            $inscritosComponenteCount++;
+                            if (!isset($contados[$estudiante->id_estudiante])) {
+                                $contados[$estudiante->id_estudiante] = true;
+                                $inscritosExitosamente++;
+                            }
+                        } else {
+                            $yaInscritos++;
                         }
                     } else {
                         InscripcionComponente::create([
@@ -184,8 +212,11 @@ class IntranetService
                             'cod_inscripcion_curso_uta' => $inscripcionData->ins_id,
                         ]);
 
-                        $inscritosExitosamente++;
                         $inscritosComponenteCount++;
+                        if (!isset($contados[$estudiante->id_estudiante])) {
+                            $contados[$estudiante->id_estudiante] = true;
+                            $inscritosExitosamente++;
+                        }
                     }
 
                     // Asignar el rol Estudiante en el contexto de la componente
@@ -537,6 +568,67 @@ class IntranetService
     }
 
     /**
+     * Grupos que la Intranet oferta para una asignatura en un periodo, cada uno
+     * con sus componentes y su CUR_CODIGO. Es lo que el wizard ofrece para
+     * autocompletar letra y componentes. No escribe nada.
+     *
+     * Si la Intranet no responde se devuelve `disponible = false` con el motivo,
+     * para que el wizard lo diga en vez de mostrar «no hay oferta».
+     *
+     * @return array{disponible: bool, grupos: list<array{letra: string, indice_grupo: int|null, componentes: list<array{id_tipo_componente: int|null, tipo: string, cur_codigo: int}>}>, advertencias: list<string>}
+     */
+    public function ofertaIntranet(int $idAsignatura, int $idPlan, int $agno, int $semestre): array
+    {
+        try {
+            $componentes = $this->resolverComponentesDesdeParametros($idAsignatura, $idPlan, $agno, $semestre, '');
+        } catch (\Throwable $e) {
+            Log::warning('[IntranetService@ofertaIntranet] Intranet no disponible: ' . $e->getMessage(), [
+                'id_asignatura' => $idAsignatura,
+                'id_plan'       => $idPlan,
+                'agno'          => $agno,
+                'semestre'      => $semestre,
+                'exception'     => get_class($e),
+            ]);
+
+            return [
+                'disponible'   => false,
+                'grupos'       => [],
+                'advertencias' => ['No fue posible consultar la Intranet: ' . $e->getMessage()],
+            ];
+        }
+
+        $grupos = $componentes
+            ->groupBy(fn (ComponenteCursoData $c) => $c->curso_grupo_asig)
+            ->map(function (Collection $comps, string $letra) {
+                return [
+                    'letra'        => $letra,
+                    'indice_grupo' => LetraGrupo::toIndice($letra),
+                    'componentes'  => $comps
+                        ->map(function (ComponenteCursoData $c) {
+                            $tipo = $this->resolverTipoComponentePorCodigoIntranet($c->curso_tipo_asig->value);
+                            return [
+                                'id_tipo_componente' => $tipo?->id_tipo_componente,
+                                'tipo'               => $tipo?->tipo ?? $c->curso_tipo_asig->value,
+                                'cur_codigo'         => $c->cur_codigo,
+                            ];
+                        })
+                        ->sortBy(fn ($c) => TipoComponente::PRIORIDAD[$this->normalizarNombreTipo($c['tipo'])] ?? 99)
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->sortBy(fn ($g) => $g['indice_grupo'] ?? PHP_INT_MAX)
+            ->values()
+            ->all();
+
+        return [
+            'disponible'   => true,
+            'grupos'       => $grupos,
+            'advertencias' => [],
+        ];
+    }
+
+    /**
      * EJECUTA (crea en BD) sólo las componentes que la persona aceptó tras
      * revisar el preview. Es idempotente: si la componente ya existe para el
      * curso, no la duplica y la reporta en `componentes_existentes`.
@@ -589,12 +681,10 @@ class IntranetService
                 continue;
             }
 
-            $contexto = $this->cursoService->createOrUpdateContext($curso->cod_curso . '-' . $tipoComponente->id_tipo_componente);
-
+            // id_contexto lo asigna el trigger tr_componente_pre_insert.
             Componente::create([
                 'id_curso'                          => $curso->id_curso,
                 'id_tipo_componente'                => $tipoComponente->id_tipo_componente,
-                'id_contexto'                        => $contexto->id_contexto,
                 'genera_acta'                        => true,
                 'aprobacion_obligatoria'             => false,
                 'porcentaje_aprobacion'              => 60.00,
@@ -604,6 +694,7 @@ class IntranetService
             $creadas[] = $tipoComponente->tipo;
         }
 
+        $resultadoInscripcion = null;
         if ($inscribirAlumnos) {
             $curso->load(['componentes.tipoComponente']);
             try {
@@ -624,7 +715,8 @@ class IntranetService
             origen: $origen,
             componentes_creadas: $creadas,
             componentes_existentes: $existentes,
-            advertencias: $advertencias
+            advertencias: $advertencias,
+            inscripcion: $resultadoInscripcion
         );
     }
 

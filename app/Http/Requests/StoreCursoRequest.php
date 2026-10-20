@@ -40,6 +40,25 @@ class StoreCursoRequest extends FormRequest
     }
 
     /**
+     * Antes cada componente llevaba un solo docente (un id suelto); se sigue
+     * aceptando así y se envuelve en lista para validar un único formato.
+     */
+    protected function prepareForValidation(): void
+    {
+        $porComponente = $this->input('docentes_por_componente');
+        if (!is_array($porComponente)) {
+            return;
+        }
+
+        $this->merge([
+            'docentes_por_componente' => array_map(
+                fn ($docentes) => is_array($docentes) ? array_values(array_filter($docentes)) : array_filter([$docentes]),
+                $porComponente
+            ),
+        ]);
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      */
     public function rules(): array
@@ -47,7 +66,9 @@ class StoreCursoRequest extends FormRequest
         return [
             'id_asignatura' => ['required', Rule::exists(Asignatura::class, 'id_asignatura')],
             'id_plan' => ['required', Rule::exists(Plan::class, 'id_plan')],
-            'cod_curso' => 'required|integer|min:1|max:999999999|unique:curso,cod_curso',
+            // Código interno de UTAMED: el wizard ya no lo pide y CursoService asigna
+            // el siguiente correlativo. Se sigue aceptando explícito (seeders, tests).
+            'cod_curso' => 'nullable|integer|min:1|max:999999999|unique:curso,cod_curso',
             'nombre' => 'nullable|string|max:255',
             'fecha_inicio'        => 'nullable|date',
             'agno_real'           => 'nullable|integer|min:2000|max:2100',
@@ -109,8 +130,10 @@ class StoreCursoRequest extends FormRequest
             'id_tipo_componente_principal'      => 'required|integer|exists:tipo_componente,id_tipo_componente',
             'tipos_componente_ids'              => 'nullable|array|min:1',
             'tipos_componente_ids.*'            => 'integer|exists:tipo_componente,id_tipo_componente',
+            // id_tipo_componente => lista de id_docente (2+ en un componente = colegiado).
             'docentes_por_componente'           => 'nullable|array',
-            'docentes_por_componente.*'         => ['nullable', 'integer', Rule::exists('docente', 'id_docente')],
+            'docentes_por_componente.*'         => 'array',
+            'docentes_por_componente.*.*'       => ['integer', Rule::exists('docente', 'id_docente')],
             'genera_acta_por_componente'         => 'nullable|array',
             'genera_acta_por_componente.*'       => 'boolean',
             'aprobacion_obligatoria'            => 'nullable|boolean',
@@ -131,7 +154,6 @@ class StoreCursoRequest extends FormRequest
             'id_asignatura.exists' => 'La asignatura seleccionada no existe',
             'id_plan.required' => 'El plan es requerido',
             'id_plan.exists' => 'El plan seleccionado no existe',
-            'cod_curso.required' => 'El código de curso es requerido',
             'cod_curso.integer' => 'El código de curso debe ser un número',
             'cod_curso.min'     => 'El código de curso debe ser mayor a 0',
             'cod_curso.max'     => 'El código de curso no puede superar 999.999.999',
