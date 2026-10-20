@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\Curso\Curso;
 use App\Models\Usuario\Usuario;
 use App\Services\MensajeriaService;
+use App\Services\Student\MensajeriaCursoEstudiante;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -191,14 +193,17 @@ it('abrir el panel marca como leído y baja el contador', function () {
     $antes = $svc->noLeidosPorComponente([$this->f['componente']], $this->f['alumno'], false);
     expect($antes[$this->f['componente']] ?? 0)->toBe(1);
 
-    // El alumno abre el componente: el panel marca como leído lo que muestra.
+    // La URL antigua lleva a la pestaña Mensajería de la ficha, con el componente.
     $this->actingAs(Usuario::find($this->f['alumno']))
         ->get("/estudiante/cursos/{$this->f['curso']}/mensajeria?componente_id={$this->f['componente']}")
-        ->assertOk();
+        ->assertRedirect("/estudiante/cursos/{$this->f['curso']}?seccion=mensajeria&componente_id={$this->f['componente']}");
 
-    $ids = $svc->difusionesDeComponente($this->f['componente'], $this->f['alumno'])
-        ->pluck('id_mensaje')->all();
-    $svc->marcarLeidos($ids, $this->f['alumno']);
+    // El alumno abre el componente: el panel marca como leído lo que muestra.
+    $bandeja = app(MensajeriaCursoEstudiante::class)
+        ->bandeja(Curso::find($this->f['curso']), $this->f['alumno'], $this->f['componente']);
+
+    expect($bandeja['componente_activo'])->toBe($this->f['componente'])
+        ->and($bandeja['panel']['difusiones']->pluck('tema'))->toContain('Aviso');
 
     $despues = $svc->noLeidosPorComponente([$this->f['componente']], $this->f['alumno'], false);
     expect($despues[$this->f['componente']] ?? 0)->toBe(0);

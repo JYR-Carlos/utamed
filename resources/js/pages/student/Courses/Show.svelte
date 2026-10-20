@@ -3,7 +3,10 @@
    * Ficha del curso para el alumno.
    *
    * Navegación por pestañas, como la UTAMED anterior a la que los alumnos
-   * están habituados: Programa · Actividades · Resumen de notas · Biblioteca.
+   * están habituados: Programa · Actividades · Resumen de notas · Biblioteca ·
+   * Calendario · Mensajería · Bitácora. Todas cargan aquí mismo; las que
+   * dependen de datos que cambian (notas, mensajes, bitácora) los piden al
+   * abrirse.
    * Antes la ficha resumía el syllabus («Sobre el curso»: descripción,
    * ponderaciones, unidades, equipo docente) y luego enlazaba al syllabus
    * completo, así que todo se veía dos veces; ahora el programa se lee una
@@ -17,7 +20,9 @@
   import type { BreadcrumbItem, Curso } from '@/types';
   import ActividadesView, { coincideConFiltro, type FiltroActividad } from '../Activities/ActividadesView.svelte';
   import CursoEncabezado, { SECCIONES_CURSO, type SeccionCurso } from './components/CursoEncabezado.svelte';
+  import CursoBitacora, { type Bitacora } from './components/CursoBitacora.svelte';
   import CursoCalendario from './components/CursoCalendario.svelte';
+  import CursoMensajeria, { type BandejaMensajeria } from './components/CursoMensajeria.svelte';
   import CursoProximasEntregas from './components/CursoProximasEntregas.svelte';
   import CursoResumenNotas, { type Rendimiento } from './components/CursoResumenNotas.svelte';
   import ProgramaAlumno, {
@@ -58,6 +63,10 @@
     secciones?: SeccionPrograma[];
     /** Prop diferida: llega al abrir «Resumen de notas». */
     rendimiento?: Rendimiento | null;
+    /** Prop diferida: llega al abrir «Mensajería». */
+    mensajeria?: BandejaMensajeria | null;
+    /** Prop diferida: llega al abrir «Bitácora». */
+    bitacora?: Bitacora | null;
   }
 
   let {
@@ -68,6 +77,8 @@
     datos = null,
     secciones = [],
     rendimiento = null,
+    mensajeria = null,
+    bitacora = null,
   }: Props = $props();
 
   const id_curso = $derived(curso?.id_curso || 0);
@@ -96,22 +107,33 @@
     });
   }
 
-  // ─── Resumen de notas (T30) ─────────────────────────────────────────────────
-  // Se recalcula cada vez que se entra a la pestaña: las notas pueden haber
-  // cambiado desde la última vez.
-  let notasCargando = $state(false);
-  let notasError = $state<string | null>(null);
+  // ─── Pestañas con datos diferidos ───────────────────────────────────────────
+  // Resumen de notas (T30), Mensajería y Bitácora se piden cada vez que se
+  // entra a la pestaña: pueden haber cambiado desde la última vez.
+  const DIFERIDAS: Partial<Record<SeccionCurso, { prop: string; error: string }>> = {
+    notas: { prop: 'rendimiento', error: 'No se pudo calcular tu rendimiento. Intenta de nuevo.' },
+    mensajeria: { prop: 'mensajeria', error: 'No se pudieron cargar los mensajes. Intenta de nuevo.' },
+    bitacora: { prop: 'bitacora', error: 'No se pudo cargar la bitácora. Intenta de nuevo.' },
+  };
+
+  let diferidaCargando = $state(false);
+  let diferidaError = $state<string | null>(null);
 
   $effect(() => {
-    if (seccion !== 'notas') return;
-    notasError = null;
-    notasCargando = true;
+    const diferida = DIFERIDAS[seccion];
+    if (!diferida) return;
+    diferidaError = null;
+    diferidaCargando = true;
     router.reload({
-      only: ['rendimiento'],
-      onError: () => (notasError = 'No se pudo calcular tu rendimiento. Intenta de nuevo.'),
-      onFinish: () => (notasCargando = false),
+      only: [diferida.prop],
+      onError: () => (diferidaError = diferida.error),
+      onFinish: () => (diferidaCargando = false),
     });
   });
+
+  const mensajesSinLeer = $derived(
+    (mensajeria?.componentes ?? []).reduce((total, c) => total + c.no_leidos, 0),
+  );
 
   // ─── Biblioteca ─────────────────────────────────────────────────────────────
   // Es la sección VIII del programa; se muestra igual que en el documento.
@@ -239,7 +261,22 @@
         </section>
       {:else if seccion === 'notas'}
         {@render titulo('Resumen de notas')}
-        <CursoResumenNotas cargando={notasCargando} error={notasError} {rendimiento} />
+        <CursoResumenNotas cargando={diferidaCargando} error={diferidaError} {rendimiento} />
+      {:else if seccion === 'mensajeria'}
+        {@render titulo(
+          'Mensajería',
+          mensajesSinLeer > 0
+            ? `${mensajesSinLeer} sin leer`
+            : 'Avisos y consultas con el equipo docente de cada componente.',
+          mensajesSinLeer > 0,
+        )}
+        <CursoMensajeria idCurso={id_curso} bandeja={mensajeria} cargando={diferidaCargando} error={diferidaError} />
+      {:else if seccion === 'bitacora'}
+        {@render titulo(
+          'Bitácora',
+          'Entregas, mensajes, retroalimentaciones y evaluaciones de todas tus actividades.',
+        )}
+        <CursoBitacora idCurso={id_curso} {bitacora} error={diferidaError} />
       {:else if seccion === 'biblioteca'}
         {@render titulo(
           'Biblioteca',

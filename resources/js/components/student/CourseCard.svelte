@@ -56,7 +56,7 @@
     {:else}
       <span class="min-w-0 flex-1 truncate text-[12.5px] text-slate-800">{formatName(profesor)}</span>
       <Link
-        href={`/estudiante/cursos/${id_curso}/mensajeria`}
+        href={`/estudiante/cursos/${id_curso}?seccion=mensajeria`}
         class="relative inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-[12px] font-medium text-slate-700 transition-colors hover:border-uta-blue/30 hover:bg-uta-blue-light hover:text-uta-blue"
         aria-label={no_leidos > 0
           ? `Mensajería del curso, ${no_leidos} sin leer`

@@ -1,8 +1,23 @@
 <script lang="ts" module>
   /** Pestañas que se resuelven dentro de la ficha, sin cambiar de página. */
-  export type SeccionCurso = 'programa' | 'actividades' | 'notas' | 'biblioteca' | 'calendario';
+  export type SeccionCurso =
+    | 'programa'
+    | 'actividades'
+    | 'notas'
+    | 'biblioteca'
+    | 'calendario'
+    | 'mensajeria'
+    | 'bitacora';
 
-  export const SECCIONES_CURSO: readonly SeccionCurso[] = ['programa', 'actividades', 'notas', 'biblioteca', 'calendario'];
+  export const SECCIONES_CURSO: readonly SeccionCurso[] = [
+    'programa',
+    'actividades',
+    'notas',
+    'biblioteca',
+    'calendario',
+    'mensajeria',
+    'bitacora',
+  ];
 </script>
 
 <script lang="ts">
@@ -15,10 +30,8 @@
    * angostas la fila se desliza hacia los lados y un degradado en el borde
    * derecho avisa de que hay más pestañas; en escritorio caben todas. Los
    * datos de la asignatura (créditos, horas) no se repiten aquí: están en la
-   * pestaña Programa. Mensajería y Bitácora son páginas propias, así que van
-   * como enlaces al final de la misma fila.
+   * pestaña Programa.
    */
-  import { Link } from '@inertiajs/svelte';
   import type { Curso } from '@/types';
 
   interface Props {
@@ -56,6 +69,9 @@
     { id: 'notas', etiqueta: 'Resumen de notas' },
     { id: 'biblioteca', etiqueta: 'Biblioteca' },
     { id: 'calendario', etiqueta: 'Calendario' },
+    { id: 'mensajeria', etiqueta: 'Mensajería' },
+    // Bitácora del curso (T41): todas las agendas del alumno juntas.
+    { id: 'bitacora', etiqueta: 'Bitácora' },
   ];
 
   const BASE =
@@ -125,13 +141,6 @@
           {/if}
         </button>
       {/each}
-      <Link href={`/estudiante/cursos/${curso?.id_curso}/mensajeria`} class="{BASE} {INACTIVA}">
-        Mensajería
-      </Link>
-      <!-- Bitácora del curso (T41): todas las agendas del alumno juntas. -->
-      <Link href={`/estudiante/cursos/${curso?.id_curso}/bitacora`} class="{BASE} {INACTIVA}">
-        Bitácora
-      </Link>
     </nav>
 
     {#if hayMas}

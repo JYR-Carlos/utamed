@@ -9,6 +9,8 @@ use App\Models\Agenda\ActividadAsignadaGrupo;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
+use App\Services\Student\BitacoraCursoEstudiante;
+use App\Services\Student\MensajeriaCursoEstudiante;
 use App\Services\Student\RendimientoCursoEstudiante;
 use App\Services\Student\StudentSyllabusPresenter;
 use App\Traits\ParsesSyllabus;
@@ -222,6 +224,12 @@ class CourseController extends Controller
                 // lo abre (router.reload con only: ['rendimiento']).
                 'rendimiento' => Inertia::lazy(fn () => app(RendimientoCursoEstudiante::class)
                     ->calcular($curso, $estudiante, $syllabus['datos']['componentes'] ?? [])),
+                // Pestañas «Mensajería» y «Bitácora»: igual que el rendimiento,
+                // se cargan al abrirlas. Abrir la mensajería marca como leído.
+                'mensajeria' => Inertia::lazy(fn () => app(MensajeriaCursoEstudiante::class)
+                    ->bandeja($curso, (int) $user->id_usuario, request()->integer('componente_id') ?: null)),
+                'bitacora' => Inertia::lazy(fn () => app(BitacoraCursoEstudiante::class)
+                    ->compilar($curso, $estudiante)),
                 'curso' => [
                     'id_curso'          => $curso->id_curso,
                     'nombre'            => $curso->nombre,
