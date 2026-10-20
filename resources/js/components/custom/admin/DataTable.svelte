@@ -24,9 +24,9 @@
     onSyllabus?: (item: any) => void;
     searchPlaceholder?: string;
     /** Optional Svelte 5 snippet for custom cell rendering.
-     *  Receives { item, column } and should return cell content.
+     *  Receives { item, column, index, rowIndex } and should return cell content.
      *  Falls back to plain text for unhandled columns. */
-    cellSnippet?: Snippet<[{ item: any; column: { key: string; label: string } }]>;
+    cellSnippet?: Snippet<[{ item: any; column: { key: string; label: string }; index?: number; rowIndex?: number }]>;
     /** Optional Svelte 5 snippet for filter controls in the toolbar. */
     filterSnippet?: Snippet;
     /** Optional click handler for table rows. */
@@ -219,7 +219,10 @@
     return key.split('.').reduce((v: any, k: string) => v?.[k], item) ?? null;
   }
 
-  function getDisplayValue(item: any, key: string): string {
+  function getDisplayValue(item: any, key: string, rowIndex?: number): string {
+    if (key === '#' || key === '_index' || key === 'numero' || key === 'correlativo' || key === 'nro') {
+      return String(fromIndex + (rowIndex ?? 0));
+    }
     const v = getValue(item, key);
     return v !== null && v !== undefined ? String(v) : '-';
   }
@@ -310,7 +313,9 @@
   const perPageOptions = [10, 15, 25, 50, 100];
 
   let currentPerPage = $derived(
-    isClientData ? clientPerPage : Number(urlParams().get('per_page') ?? '15'),
+    isClientData
+      ? clientPerPage
+      : Number(paginationMeta.per_page ?? urlParams().get('per_page') ?? 15),
   );
 
   function changePerPage(value: number) {
@@ -334,7 +339,9 @@
     isClientData ? (data as any[]).length : Number(paginationMeta.total ?? 0),
   );
   let pageCurrent = $derived(
-    isClientData ? clientCurrentPage : Number(paginationMeta.current_page ?? 1),
+    isClientData
+      ? clientCurrentPage
+      : Number(paginationMeta.current_page ?? urlParams().get('page') ?? 1),
   );
   let pageLast = $derived(
     isClientData
@@ -344,14 +351,16 @@
   let fromIndex = $derived(
     totalCount === 0
       ? 0
-      : isClientData
-        ? (pageCurrent - 1) * currentPerPage + 1
-        : (paginationMeta.from ?? (totalCount > 0 ? 1 : 0)),
+      : paginationMeta.from != null && Number(paginationMeta.from) > 0
+        ? Number(paginationMeta.from)
+        : (pageCurrent - 1) * currentPerPage + 1,
   );
   let toIndex = $derived(
-    isClientData
-      ? Math.min(totalCount, pageCurrent * currentPerPage)
-      : (paginationMeta.to ?? (totalCount > 0 ? (data?.data?.length ?? 0) : 0)),
+    totalCount === 0
+      ? 0
+      : paginationMeta.to != null && Number(paginationMeta.to) > 0
+        ? Number(paginationMeta.to)
+        : Math.min(totalCount, fromIndex + (items?.length || currentPerPage) - 1),
   );
 
   /** Lista normalizada de elementos a renderizar (soporta array directo o respuesta paginada) */
@@ -458,7 +467,7 @@
       <span class="text-sm text-gray-500 sm:shrink-0">
         {#if totalCount === 0}
           Sin resultados
-        {:else if toIndex - fromIndex + 1 === totalCount}
+        {:else if totalCount <= currentPerPage && fromIndex === 1 && toIndex === totalCount}
           Mostrando {toIndex} registro{toIndex === 1 ? '' : 's'}
         {:else}
           Mostrando los elementos {fromIndex} a {toIndex} de {totalCount} registros
@@ -695,9 +704,9 @@
                     ''}"
                 >
                   {#if cellSnippet}
-                    {@render cellSnippet({ item, column })}
+                    {@render cellSnippet({ item, column, index: fromIndex + rowIndex, rowIndex })}
                   {:else}
-                    {getDisplayValue(item, column.key)}
+                    {getDisplayValue(item, column.key, rowIndex)}
                   {/if}
                 </td>
               {/each}

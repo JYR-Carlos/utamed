@@ -608,6 +608,8 @@ class ProgramaController extends Controller
                 'last_page' => $programas->lastPage(),
                 'total' => $programas->total(),
                 'per_page' => $programas->perPage(),
+                'from' => $programas->firstItem(),
+                'to' => $programas->lastItem(),
             ],
             'stats' => $stats,
             'estado_filtro' => $estado,
@@ -697,6 +699,8 @@ class ProgramaController extends Controller
                 'last_page'    => $cursos->lastPage(),
                 'total'        => $cursos->total(),
                 'per_page'     => $cursos->perPage(),
+                'from'         => $cursos->firstItem(),
+                'to'           => $cursos->lastItem(),
             ],
             'filters'    => [
                 'q'        => $busqueda,
