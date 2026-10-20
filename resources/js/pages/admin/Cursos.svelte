@@ -4,7 +4,7 @@
    *
    * Gestión completa de cursos que se ofrecen en periodos académicos.
    * Refactorizado para usar componentes modulares:
-   * - cursoList: Tabla de cursos
+   * - cursoListAdmin: Tabla de cursos
    * - cursoForm: Modal para crear/editar
    * - componenteForm: Modal para componentes
    * - cursoDeleteConfirm: Confirmación de eliminación
@@ -784,7 +784,7 @@
   />
 
   <!-- TODO: FASE 2 Refactorización - Componentes de formulario a implementar -->
-  <!-- Reemplazar con: cursoForm, seccionForm, cursoDeleteConfirm -->
+  <!-- Reemplazar con: cursoForm, cursoDeleteConfirm -->
   <!-- FormModal y DeleteConfirmation removidos - Pendiente integración de componentes modulares -->
 
   <!-- CursoForm Modal - Crear/Editar cursos -->

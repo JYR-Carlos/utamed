@@ -7,7 +7,7 @@
  */
 
 // Componentes
-export { ActividadList, ActividadForm, ActividadDeleteConfirm, ActividadCard } from './components';
+export { ActividadForm, ActividadCard } from './components';
 
 // Services
 export {

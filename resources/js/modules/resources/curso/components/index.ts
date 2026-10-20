@@ -14,7 +14,6 @@ export { default as CursoCard } from './cursoCard.svelte';
 export { default as CursoForm } from './cursoForm.svelte';
 export { default as CursoDeleteConfirm } from './cursoDeleteConfirm.svelte';
 export { default as ComponenteForm } from './componenteForm.svelte';
-export { default as SeccionForm } from './seccionForm.svelte';
 export { default as CourseTeamModal } from './courseTeamModal.svelte';
 export { default as CursoWizardModal } from './cursoWizardModal.svelte';
 export { default as SyllabusPermisosModal } from './SyllabusPermisosModal.svelte';

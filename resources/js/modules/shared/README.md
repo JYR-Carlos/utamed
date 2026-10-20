@@ -17,7 +17,7 @@ Concerns transversales que no pertenecen a una entidad concreta.
 | Formateo de dominio (fechas, estados, nombres, bytes, iniciales) | `@/utils/formatters` | **Locale estándar del producto: es-CL.** Fechas-solo-día vía `parseFechaSoloDia` para evitar el desfase UTC→hora local de Chile. |
 | `cn` (merge de clases Tailwind) y type-utils | `@/lib/utils` | Convención shadcn-svelte. |
 | Validadores (RUT, email, teléfono, password…) | `@/lib/validators` | |
-| Permisos (constantes y helpers) | `@/lib/constants/permissions`, `@/lib/composables/usePermissions`, `@/services/permissionValidator` | |
+| Permisos (helpers) | `@/lib/composables/usePermissions`, `@/services/permissionValidator` | |
 | Listas filtrables | `@/lib/composables/useFilteredList` | |
 | Iniciales de persona (primera + última palabra) | `getInitials` en `@/hooks/useInitials` | Para las **dos primeras** palabras usar `initials` de `@/utils/formatters`. |
 | Constantes de administración | `@/constants/admin` | |
