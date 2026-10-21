@@ -96,157 +96,168 @@ class IntranetService
         $nuevosEnCurso = [];
         $contados = [];
 
-        foreach ($componentesIntranet as $compIntranet) {
-            $compUtamed = $this->mapearComponenteIntranetAUtamed($compIntranet, $curso);
-            if (!$compUtamed) {
-                // Antes: Log::info("Skip silencioso...") y se seguía sin dejar rastro
-                // visible para el usuario. Ahora queda como advertencia reportada.
-                $advertencias[] = "La componente {$compIntranet->curso_tipo_asig->value} (acta {$compIntranet->cur_codigo}) "
-                    . "no tiene equivalente configurado en UTAMED para el curso #{$curso->id_curso}; no se inscribió a sus alumnos.";
-                $lecturaCompleta = false;
-                continue;
-            }
+        try {
+            DB::statement("SET utamed.skip_componente_trigger = 'on'");
+        } catch (\Throwable) {
+        }
 
-            /** @var Collection<int, InscripcionData> $inscripcionesIntranet */
-            try {
-                $oracleService = app('OracleDataService');
-                $inscripcionesIntranet = $oracleService->traer_ins_id([$compIntranet->cur_codigo]);
-            } catch (\Throwable $e) {
-                Log::warning("[IntranetService@inscribirAutomaticamente] Error al consultar inscripciones de Intranet para acta {$compIntranet->cur_codigo}: " . $e->getMessage(), [
-                    'curso_id'   => $curso->id_curso,
-                    'cur_codigo' => $compIntranet->cur_codigo,
-                    'exception'  => get_class($e),
-                    'file'       => $e->getFile() . ':' . $e->getLine(),
-                    'trace'      => $e->getTraceAsString(),
-                ]);
-                $advertencias[] = "No fue posible consultar inscripciones de Intranet para el acta {$compIntranet->cur_codigo}: {$e->getMessage()}";
-                $lecturaCompleta = false;
-                continue;
-            }
+        try {
+            foreach ($componentesIntranet as $compIntranet) {
+                $compUtamed = $this->mapearComponenteIntranetAUtamed($compIntranet, $curso);
+                if (!$compUtamed) {
+                    // Antes: Log::info("Skip silencioso...") y se seguía sin dejar rastro
+                    // visible para el usuario. Ahora queda como advertencia reportada.
+                    $advertencias[] = "La componente {$compIntranet->curso_tipo_asig->value} (acta {$compIntranet->cur_codigo}) "
+                        . "no tiene equivalente configurado en UTAMED para el curso #{$curso->id_curso}; no se inscribió a sus alumnos.";
+                    $lecturaCompleta = false;
+                    continue;
+                }
 
-            $inscritosComponenteCount = 0;
-
-            foreach ($inscripcionesIntranet as $inscripcionData) {
-                $totalProcesados++;
-
+                /** @var Collection<int, InscripcionData> $inscripcionesIntranet */
                 try {
-                    $estudianteExistente = $this->estudianteService->buscarPorRut($inscripcionData->alum_rut);
-                    $estudiante = $this->estudianteService->obtenerOCrearDesdeIntranet($inscripcionData->alum_rut, $carrera);
+                    $oracleService = app('OracleDataService');
+                    $inscripcionesIntranet = $oracleService->traer_ins_id([$compIntranet->cur_codigo]);
+                } catch (\Throwable $e) {
+                    Log::warning("[IntranetService@inscribirAutomaticamente] Error al consultar inscripciones de Intranet para acta {$compIntranet->cur_codigo}: " . $e->getMessage(), [
+                        'curso_id'   => $curso->id_curso,
+                        'cur_codigo' => $compIntranet->cur_codigo,
+                        'exception'  => get_class($e),
+                        'file'       => $e->getFile() . ':' . $e->getLine(),
+                        'trace'      => $e->getTraceAsString(),
+                    ]);
+                    $advertencias[] = "No fue posible consultar inscripciones de Intranet para el acta {$compIntranet->cur_codigo}: {$e->getMessage()}";
+                    $lecturaCompleta = false;
+                    continue;
+                }
 
-                    if (!$estudiante) {
-                        $errores[] = [
-                            'rut'    => $inscripcionData->alum_rut,
-                            'motivo' => "No se encontraron datos del alumno en la Intranet.",
-                        ];
-                        continue;
-                    }
+                $inscritosComponenteCount = 0;
 
-                    if (!$estudianteExistente) {
-                        $alumnosCreados++;
-                    }
+                foreach ($inscripcionesIntranet as $inscripcionData) {
+                    $totalProcesados++;
 
-                    // Figura en la Intranet, esté ya inscrito o no: es lo que
-                    // distingue «sigue en el ramo» de «lo botó».
-                    $estudiantesEnIntranet[$estudiante->id_estudiante] = $estudiante->id_estudiante;
+                    try {
+                        $estudianteExistente = $this->estudianteService->buscarPorRut($inscripcionData->alum_rut);
+                        $estudiante = $this->estudianteService->obtenerOCrearDesdeIntranet($inscripcionData->alum_rut, $carrera);
 
-                    // 1. Inscripción a Nivel Curso
-                    $yaInscritoCurso = InscripcionCurso::where('id_curso', $curso->id_curso)
-                        ->where('id_estudiante', $estudiante->id_estudiante)
-                        ->exists();
-
-                    if (!$yaInscritoCurso) {
-                        // El INS_ID de la Intranet es el folio de inscripción del alumno en
-                        // el periodo y se repite en todas sus asignaturas, pero
-                        // cod_inscripcion_uta es UNIQUE: guardarlo siempre hacía fallar la
-                        // inscripción del alumno en su segundo curso del semestre. Se guarda
-                        // sólo si está libre; el INS_ID queda siempre en la componente
-                        // (cod_inscripcion_curso_uta), que es donde corresponde.
-                        $codInscripcion = (string) $inscripcionData->ins_id;
-                        $codLibre = !InscripcionCurso::where('cod_inscripcion_uta', $codInscripcion)->exists();
-
-                        $this->inscripcionCursoService->create([
-                            'id_curso'            => $curso->id_curso,
-                            'id_estudiante'       => $estudiante->id_estudiante,
-                            'cod_inscripcion_uta' => $codLibre ? $codInscripcion : null,
-                            'fecha_inscripcion'   => now()->toDateString(),
-                            'estado_inscripcion'  => 'INSCRITO',
-                            'num_intento'         => 1,
-                        ]);
-
-                        // tr_inscribir_componente_curso_automaticamente ya lo inscribió en
-                        // todas las componentes del curso: por eso abajo la fila de
-                        // componente «ya existe» aunque sea nueva, y el reporte decía
-                        // «0 alumnos inscritos» después de inscribirlos.
-                        $nuevosEnCurso[$estudiante->id_estudiante] = true;
-                    }
-
-                    // Asegurar asignación del rol Estudiante en el contexto del Curso
-                    $this->estudianteService->asignarRolEnContexto($estudiante, $curso->id_contexto);
-
-
-                    // 2. Inscripción a Nivel Componente
-                    $inscripcionCompExistente = InscripcionComponente::where('id_componente', $compUtamed->id_componente)
-                        ->where('id_estudiante', $estudiante->id_estudiante)
-                        ->first();
-
-                    if ($inscripcionCompExistente) {
-                        if (!$inscripcionCompExistente->cod_inscripcion_curso_uta) {
-                            $inscripcionCompExistente->update([
-                                'cod_inscripcion_curso_uta' => $inscripcionData->ins_id,
-                            ]);
+                        if (!$estudiante) {
+                            $errores[] = [
+                                'rut'    => $inscripcionData->alum_rut,
+                                'motivo' => "No se encontraron datos del alumno en la Intranet.",
+                            ];
+                            continue;
                         }
 
-                        if (isset($nuevosEnCurso[$estudiante->id_estudiante])) {
+                        if (!$estudianteExistente) {
+                            $alumnosCreados++;
+                        }
+
+                        // Figura en la Intranet, esté ya inscrito o no: es lo que
+                        // distingue «sigue en el ramo» de «lo botó».
+                        $estudiantesEnIntranet[$estudiante->id_estudiante] = $estudiante->id_estudiante;
+
+                        // 1. Inscripción a Nivel Curso
+                        $yaInscritoCurso = InscripcionCurso::where('id_curso', $curso->id_curso)
+                            ->where('id_estudiante', $estudiante->id_estudiante)
+                            ->exists();
+
+                        if (!$yaInscritoCurso) {
+                            // El INS_ID de la Intranet es el folio de inscripción del alumno en
+                            // el periodo y se repite en todas sus asignaturas, pero
+                            // cod_inscripcion_uta es UNIQUE: guardarlo siempre hacía fallar la
+                            // inscripción del alumno en su segundo curso del semestre. Se guarda
+                            // sólo si está libre; el INS_ID queda siempre en la componente
+                            // (cod_inscripcion_curso_uta), que es donde corresponde.
+                            $codInscripcion = (string) $inscripcionData->ins_id;
+                            $codLibre = !InscripcionCurso::where('cod_inscripcion_uta', $codInscripcion)->exists();
+
+                            $this->inscripcionCursoService->create([
+                                'id_curso'            => $curso->id_curso,
+                                'id_estudiante'       => $estudiante->id_estudiante,
+                                'cod_inscripcion_uta' => $codLibre ? $codInscripcion : null,
+                                'fecha_inscripcion'   => now()->toDateString(),
+                                'estado_inscripcion'  => 'INSCRITO',
+                                'num_intento'         => 1,
+                            ]);
+
+                            // tr_inscribir_componente_curso_automaticamente ya no autoinscribe en
+                            // componentes en inscripciones de Intranet; la inscripción a nivel de componente
+                            // se realiza explícitamente abajo según el acta oficial.
+                            $nuevosEnCurso[$estudiante->id_estudiante] = true;
+                        }
+
+                        // Asegurar asignación del rol Estudiante en el contexto del Curso
+                        $this->estudianteService->asignarRolEnContexto($estudiante, $curso->id_contexto);
+
+
+                        // 2. Inscripción a Nivel Componente
+                        $inscripcionCompExistente = InscripcionComponente::where('id_componente', $compUtamed->id_componente)
+                            ->where('id_estudiante', $estudiante->id_estudiante)
+                            ->first();
+
+                        if ($inscripcionCompExistente) {
+                            if (!$inscripcionCompExistente->cod_inscripcion_curso_uta) {
+                                $inscripcionCompExistente->update([
+                                    'cod_inscripcion_curso_uta' => $inscripcionData->ins_id,
+                                ]);
+                            }
+
+                            if (isset($nuevosEnCurso[$estudiante->id_estudiante])) {
+                                $inscritosComponenteCount++;
+                                if (!isset($contados[$estudiante->id_estudiante])) {
+                                    $contados[$estudiante->id_estudiante] = true;
+                                    $inscritosExitosamente++;
+                                }
+                            } else {
+                                $yaInscritos++;
+                            }
+                        } else {
+                            InscripcionComponente::create([
+                                'id_componente'             => $compUtamed->id_componente,
+                                'id_estudiante'             => $estudiante->id_estudiante,
+                                'cod_inscripcion_curso_uta' => $inscripcionData->ins_id,
+                            ]);
+
                             $inscritosComponenteCount++;
                             if (!isset($contados[$estudiante->id_estudiante])) {
                                 $contados[$estudiante->id_estudiante] = true;
                                 $inscritosExitosamente++;
                             }
-                        } else {
-                            $yaInscritos++;
                         }
-                    } else {
-                        InscripcionComponente::create([
-                            'id_componente'             => $compUtamed->id_componente,
-                            'id_estudiante'             => $estudiante->id_estudiante,
-                            'cod_inscripcion_curso_uta' => $inscripcionData->ins_id,
+
+                        // Asignar el rol Estudiante en el contexto de la componente
+                        $this->estudianteService->asignarRolEnContexto($estudiante, $compUtamed->id_contexto);
+
+                    } catch (\Throwable $e) {
+                        Log::error("Error al inscribir alumno RUT {$inscripcionData->alum_rut}: " . $e->getMessage(), [
+                            'curso_id'  => $curso->id_curso,
+                            'alum_rut'  => $inscripcionData->alum_rut,
+                            'ins_id'    => $inscripcionData->ins_id,
+                            'exception' => get_class($e),
+                            'file'      => $e->getFile() . ':' . $e->getLine(),
+                            'trace'     => $e->getTraceAsString(),
                         ]);
-
-                        $inscritosComponenteCount++;
-                        if (!isset($contados[$estudiante->id_estudiante])) {
-                            $contados[$estudiante->id_estudiante] = true;
-                            $inscritosExitosamente++;
-                        }
+                        $errores[] = [
+                            'rut'    => $inscripcionData->alum_rut,
+                            'motivo' => $e->getMessage(),
+                        ];
+                        // Un alumno que falló es un alumno del que no sabemos si
+                        // sigue o no: la foto ya no está completa.
+                        $lecturaCompleta = false;
                     }
-
-                    // Asignar el rol Estudiante en el contexto de la componente
-                    $this->estudianteService->asignarRolEnContexto($estudiante, $compUtamed->id_contexto);
-
-                } catch (\Throwable $e) {
-                    Log::error("Error al inscribir alumno RUT {$inscripcionData->alum_rut}: " . $e->getMessage(), [
-                        'curso_id'  => $curso->id_curso,
-                        'alum_rut'  => $inscripcionData->alum_rut,
-                        'ins_id'    => $inscripcionData->ins_id,
-                        'exception' => get_class($e),
-                        'file'      => $e->getFile() . ':' . $e->getLine(),
-                        'trace'     => $e->getTraceAsString(),
-                    ]);
-                    $errores[] = [
-                        'rut'    => $inscripcionData->alum_rut,
-                        'motivo' => $e->getMessage(),
-                    ];
-                    // Un alumno que falló es un alumno del que no sabemos si
-                    // sigue o no: la foto ya no está completa.
-                    $lecturaCompleta = false;
                 }
-            }
 
-            $componentesReporte[] = [
-                'cur_codigo' => $compIntranet->cur_codigo,
-                'tipo'       => $compIntranet->curso_tipo_asig->value,
-                'grupo'      => $compIntranet->curso_grupo_asig,
-                'inscritos'  => $inscritosComponenteCount,
-            ];
+                $componentesReporte[] = [
+                    'cur_codigo' => $compIntranet->cur_codigo,
+                    'tipo'       => $compIntranet->curso_tipo_asig->value,
+                    'grupo'      => $compIntranet->curso_grupo_asig,
+                    'inscritos'  => $inscritosComponenteCount,
+                ];
+            }
+        } finally {
+            try {
+                DB::statement("SET utamed.skip_componente_trigger = 'off'");
+            } catch (\Throwable) {
+            }
         }
 
         return new ResultadoInscripcionAutomatica(
