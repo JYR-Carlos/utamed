@@ -12,6 +12,7 @@
   import DataTable from '@/components/custom/admin/DataTable.svelte';
   import type { Curso, PaginatedResponse } from '../types/curso.types';
   import { router, page } from '@inertiajs/svelte';
+  import { tonoGrupo, limpiarNombreGrupo } from '@/utils/grupoColor';
 
   interface Props {
     cursos?: PaginatedResponse<Curso>;
@@ -117,26 +118,49 @@
 
   {#snippet cellSnippet({ item, column })}
     {#if column.key === 'nombre'}
+      {@const nombreLimpio = limpiarNombreGrupo(item.nombre || item.asignatura_nombre || '(sin nombre)', item.letra_grupo)}
       <div>
-        <p class="font-semibold text-gray-900 leading-snug">
-          {item.nombre || '(sin nombre) ' + (item.asignatura_nombre ?? '')}
-        </p>
+        <div class="flex items-center gap-2 flex-wrap">
+          <p class="font-semibold text-gray-900 leading-snug">
+            {nombreLimpio}
+          </p>
+          {#if item.letra_grupo}
+            <span
+              class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {tonoGrupo(item.letra_grupo).chip}"
+            >
+              Grupo {item.letra_grupo}
+            </span>
+          {/if}
+        </div>
         <p class="text-xs text-gray-500 font-mono mt-0.5">{item.cod_curso}</p>
       </div>
     {:else if column.key === 'carrera_nombre'}
       <span class="text-gray-600 text-sm line-clamp-2">{item.carrera_nombre || '—'}</span>
     {:else if column.key === 'periodo'}
-      {#if item.asignacionPlan?.semestre_planificado && item.asignacionPlan?.agno_planificado}
+      {@const agno = item.agno_real ?? (item.fecha_inicio ? new Date(item.fecha_inicio).getFullYear() : (item.asignacionPlan?.agno_planificado && item.asignacionPlan.agno_planificado > 1900 ? item.asignacionPlan.agno_planificado : null))}
+      {@const semestre = item.semestre_real ?? item.numero_semestre ?? item.asignacionPlan?.semestre_planificado}
+      {#if agno}
         <div class="flex flex-col gap-0.5">
           <span class="text-sm font-medium text-gray-800">
-            {item.asignacionPlan.agno_planificado}
+            {agno}
           </span>
+          {#if semestre}
+            <span class="text-xs text-gray-500">
+              Semestre {semestre}
+            </span>
+          {/if}
+        </div>
+      {:else if semestre}
+        <div class="flex flex-col gap-0.5">
+          {#if item.asignacionPlan?.agno_planificado}
+            <span class="text-sm font-medium text-gray-800">
+              Año {item.asignacionPlan.agno_planificado}
+            </span>
+          {/if}
           <span class="text-xs text-gray-500">
-            Semestre {item.asignacionPlan.semestre_planificado}
+            Semestre {semestre}
           </span>
         </div>
-      {:else if item.numero_semestre}
-        <span class="text-sm text-gray-500">Sem. {item.numero_semestre}</span>
       {:else}
         <span class="text-gray-400">—</span>
       {/if}

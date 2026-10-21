@@ -16,6 +16,7 @@
   import { router } from '@inertiajs/svelte';
   import { untrack } from 'svelte';
   import type { Curso, Componente } from '../types/curso.types';
+  import { tonoGrupo, limpiarNombreGrupo } from '@/utils/grupoColor';
 
 
 
@@ -235,11 +236,16 @@
   }
 
   function getPeriodo(c: Curso): string {
-    const ap = c.asignacionPlan;
-    if (ap?.semestre_planificado && ap?.agno_planificado) {
-      return `Año ${ap.agno_planificado} · Semestre ${ap.semestre_planificado}`;
+    const agno = c.agno_real ?? (c.fecha_inicio ? new Date(c.fecha_inicio).getFullYear() : (c.asignacionPlan?.agno_planificado && c.asignacionPlan.agno_planificado > 1900 ? c.asignacionPlan.agno_planificado : null));
+    const sem = c.semestre_real ?? c.numero_semestre ?? c.asignacionPlan?.semestre_planificado;
+    if (agno && sem) {
+      return `${agno} · Semestre ${sem}`;
     }
-    if (c.numero_semestre) return `Semestre ${c.numero_semestre}`;
+    if (agno) return `${agno}`;
+    if (c.asignacionPlan?.agno_planificado && sem) {
+      return `Año ${c.asignacionPlan.agno_planificado} · Semestre ${sem}`;
+    }
+    if (sem) return `Semestre ${sem}`;
     return '—';
   }
 
@@ -274,9 +280,18 @@
         <p class="text-[11px] font-semibold text-blue-600 uppercase tracking-widest mb-1.5">
           Gestión de Curso
         </p>
-        <h2 id="slideover-title" class="text-base font-bold text-gray-900 leading-snug">
-          {curso.asignatura_nombre || 'Curso sin nombre'}
-        </h2>
+        <div class="flex items-center gap-2 flex-wrap mb-1.5">
+          <h2 id="slideover-title" class="text-base font-bold text-gray-900 leading-snug">
+            {limpiarNombreGrupo(curso.asignatura_nombre || curso.nombre || 'Curso sin nombre', curso.letra_grupo)}
+          </h2>
+          {#if curso.letra_grupo}
+            <span
+              class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {tonoGrupo(curso.letra_grupo).chip}"
+            >
+              Grupo {curso.letra_grupo}
+            </span>
+          {/if}
+        </div>
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2">
           <span class="font-mono text-[11px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md">
             {curso.cod_curso}

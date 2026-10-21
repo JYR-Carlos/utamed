@@ -9,6 +9,7 @@
   import { cursoDisplayName } from '../types/inscripcion.types';
   import { router, page } from '@inertiajs/svelte';
   import type { PaginatedResponse } from '@/types/admin.types';
+  import { tonoGrupo, limpiarNombreGrupo } from '@/utils/grupoColor';
 
   interface Props {
     /** Cursos paginados (del servidor) o array */
@@ -78,7 +79,18 @@
     {#snippet cellSnippet({ item, column })}
       {#if column.key === 'curso'}
         <div>
-          <p class="font-medium text-gray-900 leading-snug">{cursoDisplayName(item)}</p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <p class="font-medium text-gray-900 leading-snug">
+              {limpiarNombreGrupo(cursoDisplayName(item), item.letra_grupo)}
+            </p>
+            {#if item.letra_grupo}
+              <span
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {tonoGrupo(item.letra_grupo).chip}"
+              >
+                Grupo {item.letra_grupo}
+              </span>
+            {/if}
+          </div>
           <p class="text-xs text-gray-400 font-mono mt-0.5">{item.cod_curso}</p>
         </div>
       {:else if column.key === 'carrera_nombre'}
