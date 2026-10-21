@@ -119,7 +119,7 @@ class HandleInertiaRequests extends Middleware
     {
         $response = parent::handle($request, $next);
 
-        $guestRoutes = ['login', 'home', 'register', 'password.request', 'password.reset', 'verification.notice'];
+        $guestRoutes = ['login', 'home', 'register', 'password.request', 'password.reset'];
 
         $isGuestRoute = in_array($request->route()?->getName(), $guestRoutes);
 

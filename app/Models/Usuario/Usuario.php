@@ -2,7 +2,6 @@
 
 namespace App\Models\Usuario;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Models\Base\Usuario\BaseUsuario;
 use App\Support\Permissions;
 use App\Support\Rut;
@@ -44,7 +43,7 @@ use App\Traits\AssignsPermissions;
  * @method bool hasAnyRole(array $roleNames) Verifica si tiene alguno de los roles
  * @method bool hasPermissionFor(Permissions $slug, HasContext|null $resource = null) Verifica permiso
  */
-class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContract, CanResetPasswordContract, MustVerifyEmail
+class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContract, CanResetPasswordContract
 {
     use AuthenticatableTrait, HasFactory;
     use CanResetPassword, Notifiable;
@@ -873,31 +872,5 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     private static function patronLike(string $valor): string
     {
         return '%' . str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $valor) . '%';
-    }
-
-    // -------------------------------------------------------------------------
-    // MustVerifyEmail Contract Implementation
-    // -------------------------------------------------------------------------
-
-    public function hasVerifiedEmail(): bool
-    {
-        return ! is_null($this->fecha_verificacion_email);
-    }
-
-    public function markEmailAsVerified(): bool
-    {
-        return $this->forceFill([
-            'fecha_verificacion_email' => $this->freshTimestamp(),
-        ])->save();
-    }
-
-    public function sendEmailVerificationNotification(): void
-    {
-        $this->notify(new \Illuminate\Auth\Notifications\VerifyEmail);
-    }
-
-    public function getEmailForVerification(): string
-    {
-        return $this->email;
     }
 }

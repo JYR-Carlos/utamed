@@ -49,10 +49,6 @@ class ProfileController extends Controller
 
         $request->user()->fill($request->datosUsuario());
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->fecha_verificacion_email = null;
-        }
-
         $request->user()->save();
 
         return to_route('profile.edit');

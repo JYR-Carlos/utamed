@@ -84,7 +84,7 @@ Route::get('dashboard', function () {
 
     // Usuario autenticado sin ningún rol asignado
     return redirect()->route('sin-rol');
-})->middleware(['auth', 'verified'])->name('dashboard');
+})->middleware(['auth'])->name('dashboard');
 
 Route::get('sin-rol', function () {
     return Inertia::render('SinRol');
@@ -93,11 +93,11 @@ Route::get('sin-rol', function () {
 // Entrada a SGEQ (préstamo de equipos). Firma un token de identidad y redirige;
 // quién puede pasar lo decide App\Services\Sso\SgeqSsoService.
 Route::get('sso/sgeq', [SgeqSsoController::class, 'redirigir'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->name('sso.sgeq');
 
 // Admin Routes
-Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admin.')->group(function () {
+Route::prefix('admin')->middleware(['auth', 'is_admin'])->name('admin.')->group(function () {
     Route::get('dashboard', function () {
         /** @var Usuario $user */
         $user = Auth::user();
@@ -361,11 +361,11 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'is_admin'])->name('admi
 // Fuera de is_docente a propósito: es el destino cuando esa comprobación
 // falla por falta de perfil, no por falta de rol.
 Route::get('docente/perfil-incompleto', [DashboardController::class, 'perfilIncompleto'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->name('docente.perfil-incompleto');
 
 // Docente Routes
-Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('docente.')->group(function () {
+Route::prefix('docente')->middleware(['auth', 'is_docente'])->name('docente.')->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('perfil', [DocentePerfilController::class, 'show'])->name('perfil');
     Route::prefix('jefe-carrera')->name('jefe-carrera.')->group(function () {
@@ -578,7 +578,7 @@ Route::prefix('docente')->middleware(['auth', 'verified', 'is_docente'])->name('
 
 // Student Routes
 Route::prefix('estudiante')
-    ->middleware(['auth', 'verified', 'is_estudiante'])
+    ->middleware(['auth', 'is_estudiante'])
     ->name('estudiante.')
     ->group(function () {
         // rutas generales
@@ -641,7 +641,7 @@ Route::prefix('estudiante')
     });
 
 // Ayudante Routes
-Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name('ayudante.')->group(function () {
+Route::prefix('ayudante')->middleware(['auth', 'is_ayudante'])->name('ayudante.')->group(function () {
     Route::get('dashboard', [App\Http\Controllers\Ayudante\DashboardController::class, 'index'])->name('dashboard');
     Route::get('cursos', [App\Http\Controllers\Ayudante\CourseController::class, 'index'])->name('cursos.index');
 
@@ -666,7 +666,7 @@ Route::prefix('ayudante')->middleware(['auth', 'verified', 'is_ayudante'])->name
 });
 
 // API Routes for AJAX/Fetch calls
-Route::prefix('api')->middleware(['auth', 'verified'])->group(function () {
+Route::prefix('api')->middleware(['auth'])->group(function () {
     Route::get('docentes', [CursoController::class, 'getDocentes']);
 
     // Bibliografía (Visualización y Descargas)

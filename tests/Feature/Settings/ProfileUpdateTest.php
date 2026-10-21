@@ -33,25 +33,6 @@ test('profile information can be updated', function () {
     expect($user->nombre1)->toBe('TEST');
     expect($user->apellido1)->toBe('USER');
     expect($user->email)->toBe('test@example.com');
-    expect($user->fecha_verificacion_email)->toBeNull();
-});
-
-test('email verification status is unchanged when the email address is unchanged', function () {
-    $user = Usuario::factory()->create();
-
-    $response = $this
-        ->actingAs($user)
-        ->patch('/settings/profile', [
-            'nombre1' => $user->nombre1,
-            'apellido1' => $user->apellido1,
-            'email' => $user->email,
-        ]);
-
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/settings/profile');
-
-    expect($user->refresh()->fecha_verificacion_email)->not->toBeNull();
 });
 
 test('validation errors are shown in Spanish', function () {

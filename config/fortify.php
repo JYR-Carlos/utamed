@@ -160,7 +160,9 @@ return [
     'features' => [
         Features::registration(),
         Features::resetPasswords(),
-        Features::emailVerification(),
+        // Verificación de email desactivada: las cuentas se gestionan y sincronizan
+        // institucionalmente desde Intranet/SGEQ.
+        // Features::emailVerification(),
 
         // 2FA desactivado: App\Models\Usuario\Usuario no usa el trait
         // Laravel\Fortify\TwoFactorAuthenticatable ni tiene las columnas

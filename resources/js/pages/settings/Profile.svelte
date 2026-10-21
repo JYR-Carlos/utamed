@@ -9,7 +9,6 @@
     import SettingsLayout from '@/layouts/settings/Layout.svelte';
     import { titleCase } from '@/lib/utils';
     import { edit } from '@/routes/profile';
-    import { send } from '@/routes/verification';
     import { type BreadcrumbItem, type User } from '@/types';
     import type { ProfileFormSnippetProps } from '@/types/forms';
     import { Form, Link, page } from '@inertiajs/svelte';
@@ -66,27 +65,6 @@
                         />
                         <InputError class="mt-2" message={errors.email} />
                     </div>
-                    {#if mustVerifyEmail && !user.email_verified_at}
-                        <div>
-                            <p class="-mt-4 text-sm text-muted-foreground">
-                                Tu correo electrónico no está verificado.
-                                <Link
-                                    href={send()}
-                                    method="post"
-                                    as="button"
-                                    class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current!"
-                                >
-                                    Haz clic aquí para reenviar el correo de verificación.
-                                </Link>
-                            </p>
-
-                            {#if status === 'verification-link-sent'}
-                                <div class="mt-2 text-sm font-medium text-green-600">
-                                    Te enviamos un nuevo enlace de verificación a tu correo.
-                                </div>
-                            {/if}
-                        </div>
-                    {/if}
 
                     <div class="flex items-center gap-4">
                         <Button type="submit" disabled={processing}>Guardar</Button>
