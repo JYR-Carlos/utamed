@@ -6,11 +6,10 @@
 
   interface Props {
     cursos: Curso[];
-    semestre?: number | string;
-    agno?: number | string;
+    periodoActual: { semestre: string, agno: string}
   }
 
-  let { cursos, semestre = 1, agno = 2026 }: Props = $props();
+  let { cursos, periodoActual }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Inicio', href: '/estudiante/dashboard' },
@@ -33,7 +32,9 @@
 <StudentLayout {breadcrumbs}>
   <CursoListAlumno
     cursosData={cursos}
-    tituloSemestre={`${getTituloSemestre(semestre.toString())} - ${agno.toString()}`}
+    tituloSemestre={`${getTituloSemestre(periodoActual.semestre.toString())} - ${periodoActual.agno.toString()}`}
+    semestreActual = {periodoActual.semestre.toString()}
+    agnoActual = {periodoActual.agno.toString()}
     showSyllabusButton={true}
     onCourseClick={handleCourseClick}
     onSyllabusClick={handleSyllabusClick}

@@ -28,3 +28,17 @@ export interface SeccionFormState {
  * Respuesta paginada para cursos
  */
 export type CursosPaginatedResponse = PaginatedResponse<Curso>;
+
+
+export interface CursoResumen {
+    id_curso?: number;
+    nombre: string;
+    cod_curso: string;
+    letra_grupo?: string | null;
+    imagen_url?: string | null;
+    carrera_nombre?: string | null;
+    semestre?: number;
+    agno?: number;
+    semestre_real?: number;
+    agno_real?: number;
+  }

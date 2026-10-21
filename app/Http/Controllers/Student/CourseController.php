@@ -61,16 +61,6 @@ class CourseController extends Controller
 
         // Obtener inscripciones filtradas por Semestre y Año del Curso
         $inscripciones = $estudiante->inscripcionCursos()
-            ->when($semestre, function ($query) use ($semestre) {
-                $query->whereHas('curso', function ($query) use ($semestre) {
-                    $query->where('semestre_real', $semestre);
-                });
-            })
-            ->when($agno, function ($query) use ($agno) {
-                $query->whereHas('curso', function ($query) use ($agno) {
-                    $query->whereYear('fecha_inicio', $agno);
-                });
-            })
             ->with([
                 'curso',
                 'curso.asignacionPlan.asignatura',
@@ -90,8 +80,6 @@ class CourseController extends Controller
 
         return Inertia::render('student/Courses/Index', [
             'cursos'   => $cursosEstudiante,
-            'semestre' => $semestre,
-            'agno'     => $agno,
             'periodoActual' => [
                 'semestre' => $semestreActual,
                 'agno' => $agnoActual,
@@ -117,8 +105,8 @@ class CourseController extends Controller
             'carrera_nombre'   => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
             'fecha_inicio'     => $curso->fecha_inicio,
             'fecha_fin'        => $curso->fecha_fin,
-            'semestre_real'    => $curso->semestre_real,
-            'agno_real'        => $curso->agno_real,
+            'semestre'    => $curso->semestre_real,
+            'agno'        => $curso->agno_real,
             'letra_grupo'      => $curso->letra_grupo,
             'rol'              => $rol,
             'tiene_programa'   => $tieneProg,
