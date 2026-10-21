@@ -7,6 +7,7 @@
     import { Label } from '@/components/ui/label';
     import AppLayout from '@/layouts/AppLayout.svelte';
     import SettingsLayout from '@/layouts/settings/Layout.svelte';
+    import { titleCase } from '@/lib/utils';
     import { edit } from '@/routes/profile';
     import { send } from '@/routes/verification';
     import { type BreadcrumbItem, type User } from '@/types';
@@ -29,6 +30,10 @@
     ];
 
     const user = $page.props.auth.user as User;
+
+    // El nombre completo, no sólo nombre1: el servidor reparte lo que llegue
+    // entre las cuatro columnas, y con sólo el primer nombre borraba los apellidos.
+    const nombreCompleto = titleCase([user.nombre1, user.nombre2, user.apellido1, user.apellido2].filter(Boolean).join(' '));
 </script>
 
 <svelte:head>
@@ -43,8 +48,8 @@
             <Form {...ProfileController.update.form()} options={{ preserveScroll: true }} class="space-y-6">
                 {#snippet children({ errors, processing, recentlySuccessful }: ProfileFormSnippetProps)}
                     <div class="grid gap-2">
-                        <Label for="name">Nombre</Label>
-                        <Input name="name" id="name" class="mt-1 block w-full" defaultValue={user.nombre1 ?? ''} required autocomplete="name" placeholder="Nombre" />
+                        <Label for="name">Nombre completo</Label>
+                        <Input name="name" id="name" class="mt-1 block w-full" defaultValue={nombreCompleto} required autocomplete="name" placeholder="Nombres y apellidos" />
                         <InputError class="mt-2" message={errors.name} />
                     </div>
 
