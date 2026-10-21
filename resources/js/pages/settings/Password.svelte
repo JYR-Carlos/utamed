@@ -33,7 +33,7 @@
 
     const breadcrumbItems: BreadcrumbItem[] = [
         {
-            title: 'Password Settings',
+            title: 'Cambiar contraseña',
             href: edit().url,
         },
     ];
@@ -45,13 +45,13 @@
 </script>
 
 <svelte:head>
-    <title>Password Settings</title>
+    <title>Cambiar contraseña</title>
 </svelte:head>
 
 <AppLayout breadcrumbs={breadcrumbItems}>
     <SettingsLayout>
         <div class="space-y-6">
-            <HeadingSmall title="Update Password" description="Ensure your account is using a long, random password to stay secure" />
+            <HeadingSmall title="Cambiar contraseña" description="Usa una contraseña larga y difícil de adivinar para mantener tu cuenta segura" />
 
             <Form
                 {...PasswordController.update.form()}
@@ -77,28 +77,28 @@
             >
                 {#snippet children({ errors, processing, recentlySuccessful }: ProfileFormSnippetProps)}
                     <div class="grid gap-2">
-                        <Label for="current_password">Current password</Label>
+                        <Label for="current_password">Contraseña actual</Label>
                         <Input
                             ref={currentPasswordInput}
                             name="current_password"
                             type="password"
                             class="mt-1 block w-full"
                             autocomplete="current-password"
-                            placeholder="Current password"
+                            placeholder="Contraseña actual"
                         />
 
                         <InputError message={errors.current_password} />
                     </div>
 
                     <div class="grid gap-2">
-                        <Label for="password">New password</Label>
+                        <Label for="password">Nueva contraseña</Label>
                         <Input
                             ref={passwordInput}
                             name="password"
                             type="password"
                             class="mt-1 block w-full"
                             autocomplete="new-password"
-                            placeholder="New password"
+                            placeholder="Nueva contraseña"
                             bind:value={nuevaPassword}
                         />
 
@@ -108,13 +108,13 @@
                     </div>
 
                     <div class="grid gap-2">
-                        <Label for="password_confirmation">Confirm password</Label>
+                        <Label for="password_confirmation">Confirma la nueva contraseña</Label>
                         <Input
                             name="password_confirmation"
                             type="password"
                             class="mt-1 block w-full"
                             autocomplete="new-password"
-                            placeholder="Confirm password"
+                            placeholder="Confirma la nueva contraseña"
                             bind:value={confirmacion}
                         />
 
@@ -122,10 +122,10 @@
                     </div>
 
                     <div class="flex items-center gap-4">
-                        <Button type="submit" disabled={processing}>Save Password</Button>
+                        <Button type="submit" disabled={processing}>Guardar contraseña</Button>
 
                         {#if recentlySuccessful}
-                            <p class="text-sm text-neutral-600" transition:fade={{ duration: 150 }}>Saved.</p>
+                            <p class="text-sm text-neutral-600" transition:fade={{ duration: 150 }}>Guardado.</p>
                         {/if}
                     </div>
                 {/snippet}

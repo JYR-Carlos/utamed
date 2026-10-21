@@ -12,17 +12,17 @@
 
     const sidebarNavItems: NavItem[] = [
         {
-            title: 'Profile',
+            title: 'Perfil',
             href: edit().url,
         },
         {
-            title: 'Password',
+            title: 'Contraseña',
             href: editPassword().url,
         },
         // 2FA retirado: la ruta settings/two-factor está desactivada
         // (config/fortify.php + routes/settings.php). Restaurar aquí al reimplementarlo.
         {
-            title: 'Appearance',
+            title: 'Apariencia',
             href: appearance().url,
         },
     ];
@@ -37,7 +37,7 @@
 </script>
 
 <div class="px-4 py-6">
-    <Heading title="Settings" description="Manage your profile and account settings" />
+    <Heading title="Configuración" description="Administra tu perfil y los ajustes de tu cuenta" />
 
     <div class="flex flex-col lg:flex-row lg:space-x-12">
         <aside class="w-full max-w-xl lg:w-48">

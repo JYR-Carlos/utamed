@@ -54,6 +54,23 @@ test('email verification status is unchanged when the email address is unchanged
     expect($user->refresh()->fecha_verificacion_email)->not->toBeNull();
 });
 
+test('validation errors are shown in Spanish', function () {
+    $otro = Usuario::factory()->create();
+    // Con la clave al día: si no, ForcePasswordChange desvía la petición antes de validar.
+    $user = Usuario::factory()->create(['fecha_cambio_passhash' => now()]);
+
+    $this->actingAs($user)
+        ->patch('/settings/profile', ['name' => '', 'email' => $otro->email])
+        ->assertSessionHasErrors([
+            'name' => 'Ingresa tu nombre.',
+            'email' => 'Ese correo ya está registrado en otra cuenta.',
+        ]);
+
+    $this->actingAs($user)
+        ->patch('/settings/profile', ['name' => 'Test', 'email' => 'no-es-un-correo'])
+        ->assertSessionHasErrors(['email' => 'Ingresa un correo electrónico válido, en minúsculas.']);
+});
+
 test('user cannot delete their own account', function () {
     $user = Usuario::factory()->create();
 

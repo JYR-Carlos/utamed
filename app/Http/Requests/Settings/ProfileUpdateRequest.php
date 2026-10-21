@@ -31,4 +31,23 @@ class ProfileUpdateRequest extends FormRequest
             ],
         ];
     }
+
+    /**
+     * Mensajes en español a mano: el proyecto no trae `lang/es` (mismo criterio
+     * que PasswordController::update). Las claves exactas van antes que el
+     * comodín de su campo: Laravel se queda con la primera que coincide.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'name.max' => 'El nombre no puede superar los 255 caracteres.',
+            'name.*' => 'Ingresa tu nombre.',
+            'email.required' => 'Ingresa tu correo electrónico.',
+            'email.max' => 'El correo no puede superar los 255 caracteres.',
+            'email.unique' => 'Ese correo ya está registrado en otra cuenta.',
+            'email.*' => 'Ingresa un correo electrónico válido, en minúsculas.',
+        ];
+    }
 }
