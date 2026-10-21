@@ -475,7 +475,8 @@ class IntranetService
         int $idPlan,
         int $agno,
         int $semestre,
-        string $letraGrupo
+        string $letraGrupo,
+        ?Curso $curso = null
     ): ResultadoPreviewComponentes {
         $advertencias = [];
 
@@ -566,6 +567,42 @@ class IntranetService
             $advertencias[] = 'No se detectó ninguna componente (ni en Intranet ni en el Plan de Estudios). Debe revisarse manualmente.';
         }
 
+        $componentesSobrantes = [];
+        if ($curso !== null) {
+            $curso->loadMissing(['componentes.tipoComponente']);
+
+            $tiposIntranet = [];
+            $curCodigosIntranet = [];
+            if ($componentesIntranet->isNotEmpty()) {
+                foreach ($componentesIntranet as $compIntranet) {
+                    $curCodigosIntranet[] = (int) $compIntranet->cur_codigo;
+                    $tc = $this->resolverTipoComponentePorCodigoIntranet($compIntranet->curso_tipo_asig->value);
+                    if ($tc) {
+                        $tiposIntranet[] = $tc->id_tipo_componente;
+                    }
+                }
+            }
+
+            foreach ($curso->componentes as $compLocal) {
+                $coincideCurCodigo = $compLocal->cod_uta && in_array((int) $compLocal->cod_uta, $curCodigosIntranet, true);
+                $coincideTipo = in_array($compLocal->id_tipo_componente, $tiposIntranet, true);
+
+                if (!$coincideCurCodigo && !$coincideTipo) {
+                    $componentesSobrantes[] = [
+                        'id_componente'      => $compLocal->id_componente,
+                        'id_tipo_componente' => $compLocal->id_tipo_componente,
+                        'tipo'               => $compLocal->tipoComponente?->tipo ?? 'Desconocida',
+                        'cod_uta'            => $compLocal->cod_uta,
+                    ];
+                }
+            }
+
+            if (!empty($componentesSobrantes)) {
+                $nombresSobrantes = implode(', ', array_column($componentesSobrantes, 'tipo'));
+                $advertencias[] = "El curso posee componente(s) locales ({$nombresSobrantes}) que no figuran en la oferta oficial de Intranet para este período y grupo.";
+            }
+        }
+
         $idPrincipal = collect($componentes)
             ->sortBy(fn(ComponenteDetectada $c) => TipoComponente::PRIORIDAD[$this->normalizarNombreTipo($c->tipo)] ?? 99)
             ->first()?->id_tipo_componente;
@@ -574,7 +611,8 @@ class IntranetService
             origen: $origen,
             componentes: $componentes,
             id_tipo_componente_principal: $idPrincipal,
-            advertencias: $advertencias
+            advertencias: $advertencias,
+            componentes_sobrantes: $componentesSobrantes
         );
     }
 
@@ -654,6 +692,7 @@ class IntranetService
         $curso->loadMissing(['asignacionPlan.plan.carrera', 'asignacionPlan.asignatura', 'componentes.tipoComponente']);
 
         $origen = 'PLAN';
+        $componentesSobrantes = [];
         $asignacionPlan = $curso->asignacionPlan;
         if ($asignacionPlan) {
             try {
@@ -663,9 +702,11 @@ class IntranetService
                     $asignacionPlan->id_plan,
                     $curso->agno_real ?? (int) now()->year,
                     $curso->semestre_real ?? 1,
-                    $letra
+                    $letra,
+                    $curso
                 );
                 $origen = $preview->origen;
+                $componentesSobrantes = $preview->componentes_sobrantes;
             } catch (\Throwable $e) {
                 Log::warning('[IntranetService@sincronizarComponentes] No se pudo determinar el origen: ' . $e->getMessage(), [
                     'curso_id'  => $curso->id_curso,
@@ -727,7 +768,8 @@ class IntranetService
             componentes_creadas: $creadas,
             componentes_existentes: $existentes,
             advertencias: $advertencias,
-            inscripcion: $resultadoInscripcion
+            inscripcion: $resultadoInscripcion,
+            componentes_sobrantes: $componentesSobrantes
         );
     }
 

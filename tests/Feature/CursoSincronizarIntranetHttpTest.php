@@ -70,6 +70,7 @@ beforeEach(function () {
     );
 
     $this->tipoCatedra = TipoComponente::firstOrCreate(['tipo' => 'Cátedra']);
+    $this->tipoLaboratorio = TipoComponente::firstOrCreate(['tipo' => 'Laboratorio']);
 
     $usuarioDocente = Usuario::firstOrCreate(
         ['rut' => '88888888-8'],
@@ -194,6 +195,35 @@ describe('GET /admin/cursos/{curso}/sincronizar-intranet/preview', function () {
 
         expect($curso->componentes()->count())->toBe(0);
     });
+
+    test('detecta y reporta componentes_sobrantes locales que no figuran en la oferta de Intranet', function () {
+        $curso = csihCrearCurso(950002, 'CSIH Preview Sobrantes', $this->asignacionPlan, $this->docente);
+
+        $compLab = \App\Models\Curso\Componente::create([
+            'id_curso'                          => $curso->id_curso,
+            'id_tipo_componente'                => $this->tipoLaboratorio->id_tipo_componente,
+            'genera_acta'                       => true,
+            'aprobacion_obligatoria'            => false,
+            'porcentaje_aprobacion'             => 60.0,
+            'porcentaje_asistencia_obligatoria' => 75.0,
+        ]);
+
+        csihMockOracle(collect([
+            new ComponenteCursoData(cur_codigo: 5003, curso_tipo_asig: TipoAsignatura::Catedra, curso_grupo_asig: 'A'),
+        ]));
+
+        $response = $this->getJson("/admin/cursos/{$curso->id_curso}/sincronizar-intranet/preview");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('origen', 'INTRANET')
+            ->assertJsonPath('componentes.0.tipo', 'Cátedra')
+            ->assertJsonCount(1, 'componentes_sobrantes')
+            ->assertJsonPath('componentes_sobrantes.0.id_componente', $compLab->id_componente)
+            ->assertJsonPath('componentes_sobrantes.0.tipo', 'Laboratorio');
+
+        $advertencias = $response->json('advertencias');
+        expect(implode(' ', $advertencias))->toContain('Laboratorio');
+    });
 });
 
 describe('POST /admin/cursos/{curso}/sincronizar-intranet', function () {
@@ -264,6 +294,32 @@ describe('POST /admin/cursos/{curso}/sincronizar-intranet', function () {
         expect(\App\Models\Curso\InscripcionCurso::where('id_curso', $curso->id_curso)
             ->where('id_estudiante', $estudiante->id_estudiante)
             ->exists())->toBeTrue();
+    });
+
+    test('reporta componentes_sobrantes locales en el resultado de sincronizacion', function () {
+        $curso = csihCrearCurso(950005, 'CSIH Sync Sobrantes', $this->asignacionPlan, $this->docente);
+
+        $compLab = \App\Models\Curso\Componente::create([
+            'id_curso'                          => $curso->id_curso,
+            'id_tipo_componente'                => $this->tipoLaboratorio->id_tipo_componente,
+            'genera_acta'                       => true,
+            'aprobacion_obligatoria'            => false,
+            'porcentaje_aprobacion'             => 60.0,
+            'porcentaje_asistencia_obligatoria' => 75.0,
+        ]);
+
+        csihMockOracle(collect([
+            new ComponenteCursoData(cur_codigo: 5005, curso_tipo_asig: TipoAsignatura::Catedra, curso_grupo_asig: 'A'),
+        ]));
+
+        $response = $this->postJson("/admin/cursos/{$curso->id_curso}/sincronizar-intranet", [
+            'tipos_componente_ids' => [$this->tipoCatedra->id_tipo_componente],
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('componentes_creadas.0', 'Cátedra')
+            ->assertJsonCount(1, 'componentes_sobrantes')
+            ->assertJsonPath('componentes_sobrantes.0.id_componente', $compLab->id_componente);
     });
 });
 

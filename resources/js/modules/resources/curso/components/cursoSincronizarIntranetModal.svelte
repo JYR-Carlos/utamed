@@ -11,7 +11,7 @@
    *   4. Resultado final con lo creado, lo que ya existía y las advertencias.
    */
   import type { Curso } from '../types/curso.types';
-  import type { ComponenteDetectada, ResultadoSincronizacionComponentes } from '@/types/admin.types';
+  import type { ComponenteDetectada, ComponenteSobranteLocal, ResultadoSincronizacionComponentes } from '@/types/admin.types';
   import { RefreshCw, AlertTriangle, CheckCircle2, XCircle, Layers, UserPlus } from 'lucide-svelte';
 
   interface Props {
@@ -28,6 +28,7 @@
   let paso = $state<Paso>('aviso');
   let origen = $state<'INTRANET' | 'PLAN' | null>(null);
   let componentes = $state<ComponenteDetectada[]>([]);
+  let componentesSobrantes = $state<ComponenteSobranteLocal[]>([]);
   let advertencias = $state<string[]>([]);
   let aceptados = $state<Set<number>>(new Set());
   let inscribirAlumnos = $state(false);
@@ -39,6 +40,7 @@
       paso = 'aviso';
       origen = null;
       componentes = [];
+      componentesSobrantes = [];
       advertencias = [];
       aceptados = new Set();
       inscribirAlumnos = false;
@@ -61,6 +63,7 @@
       }
       origen = json.origen;
       componentes = json.componentes ?? [];
+      componentesSobrantes = json.componentes_sobrantes ?? [];
       advertencias = json.advertencias ?? [];
       aceptados = new Set(componentes.map((c) => c.id_tipo_componente));
       // Si el origen proviene de PLAN (fallback), deshabilitar inscripción automática
@@ -189,6 +192,37 @@
             {/if}
           </p>
         </div>
+
+        {#if componentesSobrantes.length > 0}
+          <div class="sync-sobrantes-box">
+            <div class="flex items-start gap-2.5">
+              <AlertTriangle size={18} class="text-amber-600 shrink-0 mt-0.5" />
+              <div class="space-y-1.5 flex-1 min-w-0">
+                <h4 class="text-sm font-bold text-amber-950">
+                  Componentes locales sin respaldo en Intranet ({componentesSobrantes.length})
+                </h4>
+                <p class="text-xs text-amber-900 leading-relaxed">
+                  El curso posee componentes registradas en UTAMED que no figuran en la oferta oficial de Intranet para este período y grupo:
+                </p>
+                <div class="flex flex-wrap gap-1.5 pt-1">
+                  {#each componentesSobrantes as sob}
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-900 border border-amber-300">
+                      <span class="font-semibold">{sob.tipo}</span>
+                      {#if sob.cod_uta}
+                        <span class="text-amber-700 text-[11px]">(Acta anterior: #{sob.cod_uta})</span>
+                      {:else}
+                        <span class="text-amber-700 text-[11px]">(Sin acta oficial)</span>
+                      {/if}
+                    </span>
+                  {/each}
+                </div>
+                <p class="text-[11px] text-amber-800 pt-1 leading-normal border-t border-amber-200 mt-2">
+                  ℹ️ <strong>Orientación:</strong> Si estas componentes no corresponden a la oferta académica vigente, se aconseja revisarlas o eliminarlas desde la gestión del curso para evitar inconsistencias con las actas institucionales.
+                </p>
+              </div>
+            </div>
+          </div>
+        {/if}
 
         {#if componentes.length === 0}
           <div class="sync-empty-box">
@@ -426,6 +460,13 @@
     border: 1px solid var(--color-amber-200, #fde68a);
     border-radius: 12px;
     padding: 1.25rem 1.5rem;
+  }
+
+  .sync-sobrantes-box {
+    background: var(--background-color-amber-50, #fffbeb);
+    border: 1.5px solid var(--color-amber-300, #fcd34d);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
   }
 
   .sync-loading {

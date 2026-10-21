@@ -564,12 +564,21 @@ export interface ComponenteDetectada {
   cur_codigo?: number | null;
 }
 
+/** Componente registrada localmente en el curso que no figura en la oferta de Intranet. */
+export interface ComponenteSobranteLocal {
+  id_componente: number;
+  id_tipo_componente: number;
+  tipo: string;
+  cod_uta?: number | null;
+}
+
 /** Respuesta de /admin/cursos/preview-componentes y .../sincronizar-intranet/preview. */
 export interface ResultadoPreviewComponentes {
   origen: 'INTRANET' | 'PLAN';
   componentes: ComponenteDetectada[];
   id_tipo_componente_principal: number | null;
   advertencias: string[];
+  componentes_sobrantes?: ComponenteSobranteLocal[];
 }
 
 /** Respuesta de POST .../sincronizar-intranet (ejecución, ya confirmada). */
@@ -585,6 +594,7 @@ export interface ResultadoSincronizacionComponentes {
     alumnos_creados: number;
     errores: number;
   } | null;
+  componentes_sobrantes?: ComponenteSobranteLocal[];
 }
 
 export interface EstudianteFormData {

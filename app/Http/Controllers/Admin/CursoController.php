@@ -563,7 +563,8 @@ class CursoController extends Controller
                 idPlan: $asignacionPlan->id_plan,
                 agno: $curso->agno_real ?? (int) now()->year,
                 semestre: $curso->semestre_real ?? 1,
-                letraGrupo: $letraGrupo
+                letraGrupo: $letraGrupo,
+                curso: $curso
             );
 
             return response()->json($resultado->toArray());
@@ -657,7 +658,8 @@ class CursoController extends Controller
                         idPlan: $asignacionPlan->id_plan,
                         agno: $curso->agno_real ?? (int) now()->year,
                         semestre: $curso->semestre_real ?? 1,
-                        letraGrupo: $letraGrupo
+                        letraGrupo: $letraGrupo,
+                        curso: $curso
                     );
 
                     return [
@@ -719,7 +721,8 @@ class CursoController extends Controller
                     idPlan: $curso->asignacionPlan->id_plan,
                     agno: $curso->agno_real ?? (int) now()->year,
                     semestre: $curso->semestre_real ?? 1,
-                    letraGrupo: $letraGrupo
+                    letraGrupo: $letraGrupo,
+                    curso: $curso
                 );
 
                 $idsTipos = collect($preview->componentes)->pluck('id_tipo_componente')->all();
