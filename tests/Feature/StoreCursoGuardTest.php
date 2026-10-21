@@ -234,4 +234,111 @@ describe('Guardarraíl G-02: StoreCursoRequest validación de componentes', func
         expect($curso)->not->toBeNull();
         expect($curso->componentes()->count())->toBe(2);
     });
+
+    test('permite creacion de curso monocomponente con su unica componente valida del plan', function () {
+        $asignaturaMono = Asignatura::firstOrCreate(
+            ['cod_asignatura' => 'SCG-MONO1'],
+            [
+                'nombre'            => 'SCG Asignatura Solo Taller',
+                'creditos_sct'      => 4,
+                'horas_catedra'     => 0,
+                'horas_taller'      => 4,
+                'horas_laboratorio' => 0,
+                'horas_dirigidas'   => 0,
+                'horas_autonomas'   => 0,
+            ]
+        );
+        $asigPlanMono = AsignacionPlan::firstOrCreate(
+            ['id_plan' => $this->plan->id_plan, 'id_asignatura' => $asignaturaMono->id_asignatura],
+            ['agno_planificado' => 1, 'semestre_planificado' => 1, 'id_contexto' => 1]
+        );
+
+        $payload = [
+            'id_asignatura'                => $asignaturaMono->id_asignatura,
+            'id_plan'                      => $this->plan->id_plan,
+            'agno_real'                    => 2026,
+            'semestre_real'                => 1,
+            'indice_grupo'                 => 1,
+            'fecha_inicio'                 => '2026-03-01',
+            'id_docente_sugerido'          => $this->docente->id_docente,
+            'id_tipo_componente_principal' => $this->taller->id_tipo_componente,
+            'tipos_componente_ids'         => [$this->taller->id_tipo_componente],
+            'docentes_por_componente'      => [
+                $this->taller->id_tipo_componente => [$this->docente->id_docente],
+            ],
+        ];
+
+        $response = $this->post('/admin/cursos', $payload);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $curso = Curso::where('id_asignacion_plan', $asigPlanMono->id_asignacion_plan)
+            ->latest('id_curso')
+            ->first();
+        expect($curso)->not->toBeNull();
+        expect($curso->componentes()->count())->toBe(1);
+        expect($curso->componentes()->first()->id_tipo_componente)->toBe($this->taller->id_tipo_componente);
+    });
+
+    test('rechaza creacion de curso monocomponente si se envian componentes espurias de 0 horas', function () {
+        $asignaturaMono = Asignatura::firstOrCreate(
+            ['cod_asignatura' => 'SCG-MONO2'],
+            [
+                'nombre'            => 'SCG Asignatura Solo Taller Espuria',
+                'creditos_sct'      => 4,
+                'horas_catedra'     => 0,
+                'horas_taller'      => 4,
+                'horas_laboratorio' => 0,
+                'horas_dirigidas'   => 0,
+                'horas_autonomas'   => 0,
+            ]
+        );
+        AsignacionPlan::firstOrCreate(
+            ['id_plan' => $this->plan->id_plan, 'id_asignatura' => $asignaturaMono->id_asignatura],
+            ['agno_planificado' => 1, 'semestre_planificado' => 1, 'id_contexto' => 1]
+        );
+
+        $mockOracle = Mockery::mock();
+        $mockOracle->shouldReceive('traer_cur_codigos')->andReturn(collect([
+            new ComponenteCursoData(cur_codigo: 202610009, curso_tipo_asig: TipoAsignatura::Taller, curso_grupo_asig: 'A'),
+        ]));
+        app()->instance('OracleDataService', $mockOracle);
+
+        $payload = [
+            'id_asignatura'                => $asignaturaMono->id_asignatura,
+            'id_plan'                      => $this->plan->id_plan,
+            'agno_real'                    => 2026,
+            'semestre_real'                => 1,
+            'indice_grupo'                 => 1,
+            'fecha_inicio'                 => '2026-03-01',
+            'id_docente_sugerido'          => $this->docente->id_docente,
+            'id_tipo_componente_principal' => $this->taller->id_tipo_componente,
+            'tipos_componente_ids'         => [
+                $this->taller->id_tipo_componente,
+                $this->catedra->id_tipo_componente, // 0 horas en plan y no ofertado en intranet
+            ],
+            'docentes_por_componente'      => [
+                $this->taller->id_tipo_componente  => [$this->docente->id_docente],
+                $this->catedra->id_tipo_componente => [$this->docente->id_docente],
+            ],
+        ];
+
+        $response = $this->post('/admin/cursos', $payload);
+
+        $response->assertSessionHasErrors('tipos_componente_ids');
+        $errores = session('errors')->get('tipos_componente_ids');
+        expect($errores[0])->toContain("La componente 'Cátedra' no tiene horas asignadas en el plan de estudios ni cuenta con respaldo en la oferta de Intranet.");
+    });
+
+    test('seeders: CarreraDisenioMultimediaSeeder asegura plan 2016 vigente sin discrepancias con intranet', function () {
+        (new \Database\Seeders\CarreraDisenioMultimediaSeeder())->run();
+
+        $carrera = Carrera::where('nombre', 'Diseño Multimedia')->first();
+        expect($carrera)->not->toBeNull();
+
+        $plan = Plan::where('id_carrera', $carrera->id_carrera)->first();
+        expect($plan)->not->toBeNull();
+        expect((int) $plan->agno_plan)->toBe(2016);
+    });
 });
