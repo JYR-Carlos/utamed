@@ -4,20 +4,13 @@
    * cursoListAlumno): imagen, datos básicos y botones "Entrar" y "Programa".
    */
   import { ArrowRight, BookOpenCheck, BookOpen } from 'lucide-svelte';
-
-  /** Shape mínimo del payload de cursos del estudiante. */
-  interface CursoResumen {
-    nombre: string;
-    cod_curso: string;
-    letra_grupo?: string | null;
-    imagen_url?: string | null;
-    carrera_nombre?: string | null;
-  }
+  import type { CursoResumen } from '../types/curso.types';
 
   interface Props {
     curso: CursoResumen;
     /** Oculta el botón "Programa" cuando el curso no tiene syllabus. */
     showSyllabusButton?: boolean;
+    isPeriodoActual?: boolean;
     onCourseClick?: (curso: CursoResumen) => void;
     onSyllabusClick?: (curso: CursoResumen) => void;
   }
@@ -25,60 +18,69 @@
   let {
     curso,
     showSyllabusButton = true,
+    isPeriodoActual = true,
     onCourseClick = () => {},
     onSyllabusClick = () => {},
   }: Props = $props();
 </script>
 
 <div
-  class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 flex flex-col sm:flex-row gap-4 lg:items-center lg:justify-between hover:shadow-md transition-all"
+  class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full hover:shadow-md transition-all group"
 >
-  <!-- IMAGEN -->
-  <div class="shrink-0 w-full sm:w-32 h-32 rounded-xl bg-indigo-100 flex items-center justify-center overflow-hidden">
+  <!-- IMAGEN / BANNER -->
+  <div class="w-full h-40 bg-gradient-to-br from-indigo-50 to-slate-100 flex items-center justify-center overflow-hidden border-b border-slate-100 shrink-0">
     {#if curso.imagen_url}
       <img
         src={curso.imagen_url}
         alt={curso.nombre}
-        class="w-full h-full object-cover"
+        class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
       />
     {:else}
-      <BookOpen class="w-12 h-12 text-indigo-600" />
+      <BookOpen class="w-10 h-10 text-indigo-400" />
+    {/if}
+
+    {#if curso.letra_grupo}
+      <span class="absolute top-2.5 right-2.5 px-2 py-0.5 text-xs font-semibold rounded-md bg-white/90 text-slate-700 shadow-xs backdrop-blur-xs">
+        
+      </span>
     {/if}
   </div>
 
-  <!-- INFO -->
-  <div class="min-w-0 flex-1">
-    <p class="font-semibold text-slate-900 text-base sm:text-lg wrap-break-word">
-      {curso.nombre}
-    </p>
+  <!-- INFO Y ACCIONES -->
+  <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between gap-4">
+    <div class="min-w-0">
+    
+      <h2 class="text-sm  text-indigo-600 truncate mb-1 font-semibold" title={curso.nombre}>
+        {curso.nombre}
+      </h2>
+      <span class='text-sm font-medium'>
+        Grupo {curso.letra_grupo}
+      </span>
 
-    <p class="text-sm text-slate-500 mt-1">
-      {curso.cod_curso}{curso.letra_grupo ? `-${curso.letra_grupo}` : ''}
-    </p>
+      
+    </div>
 
-    <p class="text-sm text-slate-600 mt-2">
-      {curso.carrera_nombre || '—'}
-    </p>
-  </div>
-
-  <!-- BOTONES -->
-  <div class="flex flex-col sm:flex-row gap-2 sm:items-center w-full sm:w-auto shrink-0">
-    <button
-      onclick={() => onCourseClick(curso)}
-      class="cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-xl transition-colors border border-indigo-100"
-    >
-      Entrar
-      <ArrowRight class="w-4 h-4" />
-    </button>
-
-    {#if showSyllabusButton}
+    <!-- BOTONES -->
+    <div class="pt-3 border-t border-slate-100 flex items-center gap-2 mt-auto">
       <button
-        onclick={() => onSyllabusClick(curso)}
-        class="cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 text-sm text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors border border-slate-200"
+        type="button"
+        onclick={() => onCourseClick(curso)}
+        class="cursor-pointer flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-xl transition-colors border border-indigo-100"
       >
-        <BookOpenCheck class="w-4 h-4" />
-        Programa
+        Entrar
+        <ArrowRight class="w-4 h-4" />
       </button>
-    {/if}
+
+      {#if showSyllabusButton}
+        <button
+          type="button"
+          onclick={() => onSyllabusClick(curso)}
+          class="cursor-pointer flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors border border-slate-200"
+        >
+          <BookOpenCheck class="w-4 h-4" />
+          Programa
+        </button>
+      {/if}
+    </div>
   </div>
 </div>

@@ -1,7 +1,18 @@
+<script lang="ts" module>
+  /** Qué fechas muestra el calendario: las del curso o las de todo el semestre. */
+  export type AlcanceCalendario = 'curso' | 'semestre';
+</script>
+
 <script lang="ts">
   /**
    * Calendario del curso (vista del alumno): las fechas límite de las
-   * actividades del curso, en un mes o como agenda.
+   * actividades, en un mes o como agenda.
+   *
+   * Dos alcances: «Esta asignatura» (las actividades del curso, que ya trae la
+   * ficha) y «Ver todos» (las de todos los cursos inscritos del mismo
+   * período, que se piden al elegirlo). En esa vista cada marca y cada tarjeta
+   * llevan el nombre de su asignatura; en la celda del día se corta, y al pasar
+   * el cursor la marca muestra asignatura, actividad, estado y plazo completos.
    *
    * Es de solo lectura y sólo dibuja lo que el alumno puede actuar: la fecha
    * límite de cada actividad visible, con su estado (vencida sin entrega, cierra
@@ -17,7 +28,7 @@
    * Pulsar un día abre su detalle bajo la grilla, con las mismas tarjetas de la
    * pestaña Actividades; desde ahí se entra a la actividad.
    */
-  import { Link } from '@inertiajs/svelte';
+  import { Link, router } from '@inertiajs/svelte';
   import { AlertCircle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock } from 'lucide-svelte';
   import { onMount, tick } from 'svelte';
   import ActividadCard from '@/modules/resources/actividad/components/actividadCard.svelte';
@@ -44,14 +55,43 @@
     ya_entregada?: boolean;
     fecha_entrega?: string | null;
     ya_evaluada?: boolean;
+    /** Sólo en la vista del semestre: el curso al que pertenece. */
+    id_curso?: number;
+    curso?: string;
+    asignatura?: string | null;
   }
 
   interface Props {
     idCurso: number;
     actividades?: Actividad[];
+    /** Prop diferida: llega al elegir «Ver todos». */
+    semestre?: Actividad[] | null;
+    alcance?: AlcanceCalendario;
   }
 
-  let { idCurso, actividades = [] }: Props = $props();
+  let { idCurso, actividades = [], semestre = null, alcance = $bindable('curso') }: Props = $props();
+
+  // ─── Alcance ────────────────────────────────────────────────────────────────
+  let cargandoSemestre = $state(false);
+  let errorSemestre = $state(false);
+
+  function cargarSemestre() {
+    errorSemestre = false;
+    cargandoSemestre = true;
+    router.reload({
+      only: ['calendario_semestre'],
+      onError: () => (errorSemestre = true),
+      onFinish: () => (cargandoSemestre = false),
+    });
+  }
+
+  // Las fechas del semestre se piden una vez, la primera vez que se eligen.
+  $effect(() => {
+    if (alcance === 'semestre' && semestre === null && !cargandoSemestre && !errorSemestre) cargarSemestre();
+  });
+
+  const esSemestre = $derived(alcance === 'semestre');
+  const fuente = $derived(esSemestre ? (semestre ?? []) : actividades);
 
   type Estado = 'vencida' | 'urgente' | 'entregada' | 'pendiente' | 'informativa';
 
@@ -85,7 +125,7 @@
   // ─── Datos por día ──────────────────────────────────────────────────────────
   const porDia = $derived.by(() => {
     const mapa: Record<string, Actividad[]> = {};
-    for (const a of actividades) {
+    for (const a of fuente) {
       if (!a.visible || !a.fecha_limite) continue;
       (mapa[a.fecha_limite.slice(0, 10)] ??= []).push(a);
     }
@@ -154,6 +194,16 @@
     grilla?.querySelector<HTMLElement>(`[data-dia="${destino}"]`)?.focus();
   }
 
+  /** Nombre de la asignatura (vista «Ver todos»); el código sólo si falta el nombre. */
+  const asignaturaDe = (a: Actividad) => a.asignatura || a.curso || '';
+
+  /** Texto al pasar el cursor por una marca: lo que la celda no alcanza a mostrar. */
+  function descripcionMarca(a: Actividad): string {
+    return [asignaturaDe(a), a.nombre, estiloMarca(a).etiqueta, `Fecha límite: ${formatLargo(a.fecha_limite.slice(0, 10))}`]
+      .filter(Boolean)
+      .join('\n');
+  }
+
   /** Sólo la primera letra en mayúscula: «Miércoles 2 de diciembre de 2026». */
   const mayuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
 
@@ -181,7 +231,13 @@
   <ul class="m-0 flex list-none flex-col gap-3 p-0">
     {#each lista as act (act.id_actividad)}
       <li>
-        <Link href={`/estudiante/cursos/${idCurso}/actividad/${act.id_actividad}`} class="block rounded-xl no-underline">
+        {#if asignaturaDe(act)}
+          <p class="mb-1.5 text-xs font-bold text-uta-blue">{asignaturaDe(act)}</p>
+        {/if}
+        <Link
+          href={`/estudiante/cursos/${act.id_curso ?? idCurso}/actividad/${act.id_actividad}`}
+          class="block rounded-xl no-underline"
+        >
           <ActividadCard actividad={act} />
         </Link>
       </li>
@@ -189,14 +245,41 @@
   </ul>
 {/snippet}
 
-{#if totalFechas === 0}
+<!-- Alcance: este curso o todos los del semestre -->
+<div class="mb-4 flex w-fit gap-1 rounded-xl bg-gray-100 p-1" role="group" aria-label="Asignaturas del semestre que se muestran">
+  {#each [{ id: 'curso', etiqueta: 'Esta asignatura' }, { id: 'semestre', etiqueta: 'Ver todos' }] as a (a.id)}
+    <button
+      type="button"
+      aria-pressed={alcance === a.id}
+      onclick={() => (alcance = a.id as AlcanceCalendario)}
+      class="inline-flex min-h-11 items-center rounded-lg px-4 text-sm transition-colors {alcance === a.id
+        ? 'bg-uta-blue font-semibold text-white'
+        : 'font-medium text-slate-700 hover:bg-white hover:text-uta-blue'}"
+    >
+      {a.etiqueta}
+    </button>
+  {/each}
+</div>
+
+{#if esSemestre && semestre === null}
+  <div class="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600" role="status">
+    {#if errorSemestre}
+      No se pudieron cargar las fechas del semestre.
+      <button type="button" class="font-semibold text-uta-blue underline" onclick={cargarSemestre}>Intentar de nuevo</button>
+    {:else}
+      Cargando las fechas de todos tus cursos del semestre…
+    {/if}
+  </div>
+{:else if totalFechas === 0}
   <div class="flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white px-6 py-8 text-center">
     <div class="flex size-14 items-center justify-center rounded-full bg-gray-100">
       <CalendarDays class="h-6 w-6 text-slate-600" aria-hidden="true" />
     </div>
     <h3 class="text-lg font-bold text-slate-900">Todavía no hay fechas en el calendario</h3>
     <p class="text-sm text-slate-600">
-      Las fechas límite aparecen aquí cuando tu docente publica actividades con plazo.
+      {esSemestre
+        ? 'Las fechas límite aparecen aquí cuando los docentes de tus cursos del semestre publican actividades con plazo.'
+        : 'Las fechas límite aparecen aquí cuando tu docente publica actividades con plazo.'}
     </p>
   </div>
 {:else}
@@ -303,7 +386,7 @@
                       {@const estado = estadoDe(a)}
                       <span
                         class="flex min-w-0 items-start gap-1 rounded-[4px] border-l-[3px] px-1.5 py-1 text-[11px] font-semibold leading-tight {m.clases}"
-                        title="{a.nombre} · {m.etiqueta}"
+                        title={descripcionMarca(a)}
                       >
                         {#if estado === 'vencida'}
                           <AlertCircle class="mt-px h-3 w-3 shrink-0" />
@@ -312,7 +395,12 @@
                         {:else if estado === 'urgente'}
                           <Clock class="mt-px h-3 w-3 shrink-0" />
                         {/if}
-                        <span class="line-clamp-2 break-words">{a.nombre}</span>
+                        <span class="flex min-w-0 flex-col">
+                          {#if asignaturaDe(a)}
+                            <span class="truncate font-bold">{asignaturaDe(a)}</span>
+                          {/if}
+                          <span class="line-clamp-2 break-words">{a.nombre}</span>
+                        </span>
                       </span>
                     {/each}
                     {#if lista.length > 2}

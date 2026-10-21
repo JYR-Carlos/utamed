@@ -21,7 +21,7 @@
   import ActividadesView, { coincideConFiltro, type FiltroActividad } from '../Activities/ActividadesView.svelte';
   import CursoEncabezado, { SECCIONES_CURSO, type SeccionCurso } from './components/CursoEncabezado.svelte';
   import CursoBitacora, { type Bitacora } from './components/CursoBitacora.svelte';
-  import CursoCalendario from './components/CursoCalendario.svelte';
+  import CursoCalendario, { type AlcanceCalendario } from './components/CursoCalendario.svelte';
   import CursoMensajeria, { type BandejaMensajeria } from './components/CursoMensajeria.svelte';
   import CursoProximasEntregas from './components/CursoProximasEntregas.svelte';
   import CursoResumenNotas, { type Rendimiento } from './components/CursoResumenNotas.svelte';
@@ -67,6 +67,8 @@
     mensajeria?: BandejaMensajeria | null;
     /** Prop diferida: llega al abrir «Bitácora». */
     bitacora?: Bitacora | null;
+    /** Prop diferida: llega al elegir «Ver todos» en el calendario. */
+    calendario_semestre?: Actividad[] | null;
   }
 
   let {
@@ -79,6 +81,7 @@
     rendimiento = null,
     mensajeria = null,
     bitacora = null,
+    calendario_semestre = null,
   }: Props = $props();
 
   const id_curso = $derived(curso?.id_curso || 0);
@@ -154,8 +157,16 @@
     ),
   );
 
-  // Fechas límite que el calendario puede dibujar.
-  const totalFechas = $derived(actividades.filter((a) => a.visible && a.fecha_limite).length);
+  // ─── Calendario ─────────────────────────────────────────────────────────────
+  // El alcance vive aquí para que sobreviva al cambiar de pestaña.
+  let alcanceCalendario = $state<AlcanceCalendario>('curso');
+
+  // Fechas límite que el calendario puede dibujar en el alcance elegido.
+  const totalFechas = $derived(
+    (alcanceCalendario === 'semestre' ? (calendario_semestre ?? []) : actividades).filter(
+      (a) => a.visible && a.fecha_limite,
+    ).length,
+  );
 
   // ─── Próximas entregas ──────────────────────────────────────────────────────
   // Las que aún no vencen, de la más cercana a la más lejana.
@@ -254,10 +265,17 @@
         <section>
           {@render titulo(
             'Calendario',
-            `${totalFechas} ${totalFechas === 1 ? 'fecha límite' : 'fechas límite'}`,
+            alcanceCalendario === 'semestre' && calendario_semestre === null
+              ? undefined
+              : `${totalFechas} ${totalFechas === 1 ? 'fecha límite' : 'fechas límite'}${alcanceCalendario === 'semestre' ? ' en el semestre' : ''}`,
             true,
           )}
-          <CursoCalendario idCurso={id_curso} {actividades} />
+          <CursoCalendario
+            idCurso={id_curso}
+            {actividades}
+            semestre={calendario_semestre}
+            bind:alcance={alcanceCalendario}
+          />
         </section>
       {:else if seccion === 'notas'}
         {@render titulo('Resumen de notas')}

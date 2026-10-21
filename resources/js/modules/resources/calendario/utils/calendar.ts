@@ -35,15 +35,17 @@ const DIAS_LARGOS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'vier
  * continúan el pool para docentes con más de cinco cursos, corriendo el turno
  * cuando dos cursos colisionarían.
  */
+// Cada valor es light-dark(claro, oscuro): se usan en atributos style y el
+// navegador elige según el color-scheme que pone el modo oscuro.
 export const ACCENTS: CursoAccent[] = [
-  { base: '#0F5B9B', soft: '#EAF2FA', text: '#0F5B9B', border: '#C4DAF0' },
-  { base: '#8A2B4E', soft: '#FBEDF1', text: '#8A2B4E', border: '#EBC9D5' },
-  { base: '#1F6F45', soft: '#EAF5EF', text: '#1F6F45', border: '#C3E2D0' },
-  { base: '#6B4BA8', soft: '#F1ECFA', text: '#6B4BA8', border: '#D8CCEF' },
-  { base: '#A2551A', soft: '#FBF0E6', text: '#A2551A', border: '#EDD5BC' },
-  { base: '#0E6A80', soft: '#E5F1F5', text: '#0B5464', border: '#BCDDE7' },
-  { base: '#31456B', soft: '#ECEEF4', text: '#31456B', border: '#C9D0DF' },
-  { base: '#8A6D14', soft: '#F7F1DE', text: '#6F5710', border: '#E5D8A9' },
+  { base: 'light-dark(#0F5B9B, #428bd2)', soft: 'light-dark(#EAF2FA, #142944)', text: 'light-dark(#0F5B9B, #5ba4ed)', border: 'light-dark(#C4DAF0, #274971)' },
+  { base: 'light-dark(#8A2B4E, #cf6587)', soft: 'light-dark(#FBEDF1, #2f2134)', text: 'light-dark(#8A2B4E, #eb7d9f)', border: 'light-dark(#EBC9D5, #623c53)' },
+  { base: 'light-dark(#1F6F45, #469768)', soft: 'light-dark(#EAF5EF, #162d33)', text: 'light-dark(#1F6F45, #60b080)', border: 'light-dark(#C3E2D0, #284f47)' },
+  { base: 'light-dark(#6B4BA8, #9777dd)', soft: 'light-dark(#F1ECFA, #252646)', text: 'light-dark(#6B4BA8, #ad8cf5)', border: 'light-dark(#D8CCEF, #494275)' },
+  { base: 'light-dark(#A2551A, #c57137)', soft: 'light-dark(#FBF0E6, #32292e)', text: 'light-dark(#A2551A, #e08a50)', border: 'light-dark(#EDD5BC, #5d4138)' },
+  { base: 'light-dark(#0E6A80, #3c91aa)', soft: 'light-dark(#E5F1F5, #152c3e)', text: 'light-dark(#0B5464, #56aac3)', border: 'light-dark(#BCDDE7, #254c61)' },
+  { base: 'light-dark(#31456B, #6f87b4)', soft: 'light-dark(#ECEEF4, #182439)', text: 'light-dark(#31456B, #87a0cd)', border: 'light-dark(#C9D0DF, #384865)' },
+  { base: 'light-dark(#8A6D14, #a4852c)', soft: 'light-dark(#F7F1DE, #2b2e2e)', text: 'light-dark(#6F5710, #bd9d48)', border: 'light-dark(#E5D8A9, #4e4836)' },
 ];
 
 /** Devuelve el acento estable para una posición de curso. */

@@ -105,7 +105,7 @@
 	}
 
 	.modal-content {
-		background: white;
+		background: var(--background-color-white, white);
 		border-radius: 12px;
 		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 		max-width: 500px;
@@ -130,7 +130,7 @@
 
 	.modal-header {
 		padding: 1.5rem;
-		border-bottom: 1px solid #e5e7eb;
+		border-bottom: 1px solid var(--color-gray-200, #e5e7eb);
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -139,7 +139,7 @@
 	.modal-title {
 		font-size: 1.25rem;
 		font-weight: 600;
-		color: #111827;
+		color: var(--color-gray-900, #111827);
 		margin: 0;
 	}
 
@@ -147,15 +147,15 @@
 		padding: 0.5rem;
 		background: none;
 		border: none;
-		color: #6b7280;
+		color: var(--color-gray-500, #6b7280);
 		cursor: pointer;
 		border-radius: 6px;
 		transition: all 0.2s;
 	}
 
 	.close-button:hover {
-		background: #f3f4f6;
-		color: #111827;
+		background: var(--background-color-gray-100, #f3f4f6);
+		color: var(--color-gray-900, #111827);
 	}
 
 	.modal-body {
@@ -166,7 +166,7 @@
 
 	.modal-footer {
 		padding: 1.5rem;
-		border-top: 1px solid #e5e7eb;
+		border-top: 1px solid var(--color-gray-200, #e5e7eb);
 		display: flex;
 		gap: 0.75rem;
 		justify-content: flex-end;
@@ -187,13 +187,13 @@
 	}
 
 	.btn-cancel {
-		background: white;
-		color: #374151;
-		border: 1px solid #d1d5db;
+		background: var(--background-color-white, white);
+		color: var(--color-gray-700, #374151);
+		border: 1px solid var(--color-gray-300, #d1d5db);
 	}
 
 	.btn-cancel:hover:not(:disabled) {
-		background: #f9fafb;
+		background: var(--background-color-gray-50, #f9fafb);
 	}
 
 	/* Mismo primario que `.btn-primary` (app.css): blanco sobre #3b82f6 daba 3.68:1. */

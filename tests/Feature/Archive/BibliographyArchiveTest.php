@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\Archive\FileValidationException;
 use App\Http\Requests\Archive\BibliografiaFileRequest;
 use App\Models\Curso\Bibliografia;
 use App\Models\Curso\Curso;
@@ -186,7 +187,7 @@ describe('SyllabusArchiveService - preValidate Rejections & Security', function 
 
     $exe = UploadedFile::fake()->create('virus.exe', 1024, 'application/x-msdownload');
 
-    expect(fn () => $reflector->invoke($service, $exe, 'test-sec-1'))->toThrow(\TypeError::class);
+    expect(fn () => $reflector->invoke($service, $exe, 'test-sec-1'))->toThrow(FileValidationException::class);
   });
 
   test('preValidate rejects PHP server scripts (.php)', function () {
@@ -196,7 +197,7 @@ describe('SyllabusArchiveService - preValidate Rejections & Security', function 
 
     $php = UploadedFile::fake()->create('backdoor.php', 10, 'application/x-php');
 
-    expect(fn () => $reflector->invoke($service, $php, 'test-sec-2'))->toThrow(\TypeError::class);
+    expect(fn () => $reflector->invoke($service, $php, 'test-sec-2'))->toThrow(FileValidationException::class);
   });
 
   test('preValidate rejects Shell script files (.sh)', function () {
@@ -206,7 +207,7 @@ describe('SyllabusArchiveService - preValidate Rejections & Security', function 
 
     $sh = UploadedFile::fake()->create('deploy.sh', 10, 'text/x-shellscript');
 
-    expect(fn () => $reflector->invoke($service, $sh, 'test-sec-3'))->toThrow(\TypeError::class);
+    expect(fn () => $reflector->invoke($service, $sh, 'test-sec-3'))->toThrow(FileValidationException::class);
   });
 
   test('preValidate rejects completely empty files (0 bytes)', function () {
@@ -216,7 +217,7 @@ describe('SyllabusArchiveService - preValidate Rejections & Security', function 
 
     $empty = UploadedFile::fake()->create('vacio.pdf', 0, 'application/pdf');
 
-    expect(fn () => $reflector->invoke($service, $empty, 'test-sec-4'))->toThrow(\TypeError::class);
+    expect(fn () => $reflector->invoke($service, $empty, 'test-sec-4'))->toThrow(FileValidationException::class);
   });
 
   test('preValidate rejects files exceeding category max size (> 100MB)', function () {
@@ -227,7 +228,7 @@ describe('SyllabusArchiveService - preValidate Rejections & Security', function 
     // Archivo que excede el límite máximo de 100MB
     $huge = UploadedFile::fake()->create('pesado.pdf', (104857600 / 1024) + 1024, 'application/pdf');
 
-    expect(fn () => $reflector->invoke($service, $huge, 'test-sec-5'))->toThrow(\TypeError::class);
+    expect(fn () => $reflector->invoke($service, $huge, 'test-sec-5'))->toThrow(FileValidationException::class);
   });
 
   test('preValidate rejects file extension and MIME type contradictions', function () {
@@ -238,7 +239,7 @@ describe('SyllabusArchiveService - preValidate Rejections & Security', function 
     // Archivo con extensión .pdf pero MIME image/jpeg (no permitido para documentos)
     $spoofed = UploadedFile::fake()->create('falso.pdf', 100, 'image/jpeg');
 
-    expect(fn () => $reflector->invoke($service, $spoofed, 'test-sec-6'))->toThrow(\TypeError::class);
+    expect(fn () => $reflector->invoke($service, $spoofed, 'test-sec-6'))->toThrow(FileValidationException::class);
   });
 });
 

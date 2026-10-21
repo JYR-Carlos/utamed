@@ -28,38 +28,38 @@ export interface EstadoVisual {
 
 const BADGE_BORRADOR: EstadoVisual = {
   label: 'BORRADOR',
-  pill: 'border-[#E3D9C6] bg-[#F5F1EA] text-[#6B5B3E]',
-  dot: 'bg-[#A8956F]',
+  pill: 'border-sand-line bg-sand text-stone-600',
+  dot: 'bg-stone-400',
 };
 
 const BADGE_BASICO: EstadoVisual = {
   label: 'BÁSICO COMPLETO',
-  pill: 'border-[#C9D6E6] bg-[#E8EDF5] text-[#002F6C]',
-  dot: 'bg-[#002F6C]',
+  pill: 'border-slate-300 bg-uta-blue-light text-navy',
+  dot: 'bg-navy',
 };
 
 const BADGE_REVISION: EstadoVisual = {
   label: 'EN REVISIÓN',
-  pill: 'border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]',
-  dot: 'bg-[#D97706]',
+  pill: 'border-amber-200 bg-amber-50 text-amber-700',
+  dot: 'bg-amber-600',
 };
 
 const BADGE_APROBADO: EstadoVisual = {
   label: 'APROBADO',
-  pill: 'border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]',
-  dot: 'bg-[#059669]',
+  pill: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  dot: 'bg-emerald-600',
 };
 
 const BADGE_RECHAZADO: EstadoVisual = {
   label: 'RECHAZADO',
-  pill: 'border-[#F6C9C9] bg-[#FEF2F2] text-[#B91C1C]',
-  dot: 'bg-[#DC2626]',
+  pill: 'border-red-200 bg-red-50 text-red-700',
+  dot: 'bg-red-600',
 };
 
 const BADGE_SIN_SYLLABUS: EstadoVisual = {
   label: 'Sin syllabus',
-  pill: 'border-[#E1E4EA] bg-[#F1F3F6] text-[#5A5E6E]',
-  dot: 'bg-[#9AA0AE]',
+  pill: 'border-zinc-200 bg-gray-100 text-ink-2',
+  dot: 'bg-gray-400',
 };
 
 /**
@@ -83,7 +83,7 @@ export function estadoVisual(estado: EstadoPrograma | null | undefined, fueRecha
     case 'PUBLICADO':
       return BADGE_APROBADO;
     default:
-      return { label: estado, pill: 'border-[#E1E4EA] bg-[#F1F3F6] text-[#5A5E6E]', dot: 'bg-[#9AA0AE]' };
+      return { label: estado, pill: 'border-zinc-200 bg-gray-100 text-ink-2', dot: 'bg-gray-400' };
   }
 }
 
@@ -123,25 +123,25 @@ export interface EventoVisual {
  */
 export function eventoVisual(evento: EventoHistorial): EventoVisual {
   if (evento.accion === 'CREATE') {
-    return { titulo: 'Syllabus creado', dot: 'bg-[#D6D9E0]', esRechazo: false };
+    return { titulo: 'Syllabus creado', dot: 'bg-line', esRechazo: false };
   }
 
   if (evento.accion === 'RECHAZO') {
-    return { titulo: 'Rechazado', dot: 'bg-[#DC2626]', esRechazo: true };
+    return { titulo: 'Rechazado', dot: 'bg-red-600', esRechazo: true };
   }
 
   switch (evento.estado_nuevo) {
     case 'COMPLETO':
     case 'ENVIADO':
-      return { titulo: 'Enviado a revisión', dot: 'bg-[#D97706]', esRechazo: false };
+      return { titulo: 'Enviado a revisión', dot: 'bg-amber-600', esRechazo: false };
     case 'APROBADO':
     case 'PUBLICADO':
-      return { titulo: 'Aprobado', dot: 'bg-[#059669]', esRechazo: false };
+      return { titulo: 'Aprobado', dot: 'bg-emerald-600', esRechazo: false };
     case 'BASICO_COMPLETO':
-      return { titulo: 'Versión básica completada', dot: 'bg-[#002F6C]', esRechazo: false };
+      return { titulo: 'Versión básica completada', dot: 'bg-navy', esRechazo: false };
     case 'BORRADOR':
-      return { titulo: 'Devuelto a borrador', dot: 'bg-[#A8956F]', esRechazo: false };
+      return { titulo: 'Devuelto a borrador', dot: 'bg-stone-400', esRechazo: false };
     default:
-      return { titulo: 'Documento modificado', dot: 'bg-[#D6D9E0]', esRechazo: false };
+      return { titulo: 'Documento modificado', dot: 'bg-line', esRechazo: false };
   }
 }

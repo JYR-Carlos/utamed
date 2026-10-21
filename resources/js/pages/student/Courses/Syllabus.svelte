@@ -132,7 +132,7 @@
 
     .syllabus-print :global(.programa-tarjeta) {
       break-inside: avoid-page;
-      border-color: #d6d9e0;
+      border-color: var(--color-line, #d6d9e0);
       padding: 12pt 14pt;
     }
 

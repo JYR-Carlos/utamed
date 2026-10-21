@@ -151,12 +151,12 @@
 
 <div class="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
   {#if paso === 'seleccion'}
-    <div class="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
+    <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4">
       <div class="flex flex-col">
-        <span class="text-[15px] font-semibold text-[#1A1A24]">{esReemplazo ? 'Reemplazar entrega' : 'Entregar la actividad'}</span>
-        <span class="text-xs text-[#5A5E6E]">{nombre_curso} · {nombre_actividad}</span>
+        <span class="text-[15px] font-semibold text-ink">{esReemplazo ? 'Reemplazar entrega' : 'Entregar la actividad'}</span>
+        <span class="text-xs text-ink-2">{nombre_curso} · {nombre_actividad}</span>
       </div>
-      <button class="rounded-full p-1.5 text-[#5A5E6E] transition-colors hover:bg-[#F8FAFC]" onclick={onCerrar} aria-label="cerrar">
+      <button class="rounded-full p-1.5 text-ink-2 transition-colors hover:bg-slate-50" onclick={onCerrar} aria-label="cerrar">
         <X class="h-5 w-5" />
       </button>
     </div>
@@ -165,8 +165,8 @@
       {#if !archivo}
         <label
           class="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors {dragOver
-            ? 'border-[#002F6C] bg-[#E8EDF5]'
-            : 'border-[#C9D6E6] bg-[#F8FAFC] hover:bg-[#F1F5F9]'} cursor-pointer"
+            ? 'border-navy bg-uta-blue-light'
+            : 'border-slate-300 bg-slate-50 hover:bg-slate-100'} cursor-pointer"
           ondragover={(e) => {
             e.preventDefault();
             dragOver = true;
@@ -174,29 +174,29 @@
           ondragleave={() => (dragOver = false)}
           ondrop={manejarDrop}
         >
-          <UploadCloud class="h-7 w-7 text-[#002F6C]" />
-          <span class="text-sm font-semibold text-[#1A1A24]">Arrastra tu archivo aquí o haz clic para seleccionar</span>
-          <span class="text-xs text-[#5A5E6E]">Hasta 100 MB, según el tipo de archivo</span>
+          <UploadCloud class="h-7 w-7 text-navy" />
+          <span class="text-sm font-semibold text-ink">Arrastra tu archivo aquí o haz clic para seleccionar</span>
+          <span class="text-xs text-ink-2">Hasta 100 MB, según el tipo de archivo</span>
           <input type="file" class="hidden" onchange={manejarSeleccionArchivo} bind:this={inputFile} />
         </label>
       {:else}
-        <div class="flex items-center gap-3 rounded-lg border border-[#E5E7EB] p-3">
-          <span class="flex h-[34px] w-[30px] shrink-0 items-center justify-center rounded-[5px] border border-[#E5E7EB] bg-[#F5F1EA] font-mono text-[9.5px] font-bold text-[#5A5E6E]">
+        <div class="flex items-center gap-3 rounded-lg border border-gray-200 p-3">
+          <span class="flex h-[34px] w-[30px] shrink-0 items-center justify-center rounded-[5px] border border-gray-200 bg-sand font-mono text-[9.5px] font-bold text-ink-2">
             {(archivo.name.split('.').pop() ?? 'ARC').slice(0, 3).toUpperCase()}
           </span>
           <div class="flex min-w-0 flex-col">
-            <span class="truncate text-[12.5px] font-semibold text-[#1A1A24]">{archivo.name}</span>
-            <span class="font-mono text-[11px] text-[#5A5E6E]">{formatearTamano(archivo.size)}</span>
+            <span class="truncate text-[12.5px] font-semibold text-ink">{archivo.name}</span>
+            <span class="font-mono text-[11px] text-ink-2">{formatearTamano(archivo.size)}</span>
           </div>
-          <button class="ml-auto shrink-0 text-[#5A5E6E] hover:text-[#B91C1C]" onclick={() => (archivo = undefined)} aria-label="quitar archivo">
+          <button class="ml-auto shrink-0 text-ink-2 hover:text-red-700" onclick={() => (archivo = undefined)} aria-label="quitar archivo">
             <X class="h-4 w-4" />
           </button>
         </div>
       {/if}
 
       <div class="flex flex-col gap-1.5">
-        <label for="entrega-descripcion" class="text-[13px] font-semibold text-[#1A1A24]">
-          Descripción de tu entrega {#if entrega_obligatoria}<span class="text-[#DC2626]">*</span>{/if}
+        <label for="entrega-descripcion" class="text-[13px] font-semibold text-ink">
+          Descripción de tu entrega {#if entrega_obligatoria}<span class="text-red-600">*</span>{/if}
         </label>
         <textarea
           id="entrega-descripcion"
@@ -204,18 +204,18 @@
           rows="3"
           maxlength="500"
           placeholder="Qué incluye tu entrega, cambios realizados, comentarios importantes…"
-          class="resize-none rounded-lg border border-[#D6D9E0] px-3 py-2.5 text-[13.5px] text-[#1A1A24] outline-none focus:border-[#002F6C]"
+          class="resize-none rounded-lg border border-line px-3 py-2.5 text-[13.5px] text-ink outline-none focus:border-navy"
         ></textarea>
-        <span class="self-end font-mono text-[11px] text-[#5A5E6E]">{descripcion.length} / 500</span>
+        <span class="self-end font-mono text-[11px] text-ink-2">{descripcion.length} / 500</span>
       </div>
     </div>
 
-    <div class="flex items-center gap-2 border-t border-[#E5E7EB] px-5 py-3.5">
-      <button class="rounded-lg px-3 py-2 text-[13.5px] font-medium text-[#002F6C] transition-colors hover:bg-[#F8FAFC]" onclick={onCerrar}>
+    <div class="flex items-center gap-2 border-t border-gray-200 px-5 py-3.5">
+      <button class="rounded-lg px-3 py-2 text-[13.5px] font-medium text-navy transition-colors hover:bg-slate-50" onclick={onCerrar}>
         Cancelar
       </button>
       <button
-        class="ml-auto flex items-center gap-1.5 rounded-lg bg-[#002F6C] px-4 py-2 text-[13.5px] font-semibold text-white transition-colors hover:bg-[#00214d] disabled:cursor-not-allowed disabled:opacity-50"
+        class="ml-auto flex items-center gap-1.5 rounded-lg bg-navy px-4 py-2 text-[13.5px] font-semibold text-white transition-colors hover:bg-navy-hover disabled:cursor-not-allowed disabled:opacity-50"
         disabled={!archivo || (entrega_obligatoria && descripcion.trim().length === 0)}
         onclick={irAConfirmar}
       >
@@ -223,44 +223,44 @@
       </button>
     </div>
   {:else if paso === 'confirmando' && archivo}
-    <div class="flex items-center gap-2.5 border-b border-[#E5E7EB] px-5 py-4">
-      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#E8EDF5]">
-        <UploadCloud class="h-4 w-4 text-[#002F6C]" />
+    <div class="flex items-center gap-2.5 border-b border-gray-200 px-5 py-4">
+      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light">
+        <UploadCloud class="h-4 w-4 text-navy" />
       </div>
       <div class="flex flex-col">
-        <span class="text-[15px] font-semibold text-[#1A1A24]">Confirmar entrega</span>
-        <span class="text-[11.5px] text-[#5A5E6E]">Queda sellada la hora de este envío</span>
+        <span class="text-[15px] font-semibold text-ink">Confirmar entrega</span>
+        <span class="text-[11.5px] text-ink-2">Queda sellada la hora de este envío</span>
       </div>
     </div>
     <div class="flex flex-col gap-3 p-5">
-      <div class="flex items-center gap-2.5 rounded-lg border border-[#E5E7EB] p-2.5">
-        <span class="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[5px] border border-[#E5E7EB] bg-[#F5F1EA] font-mono text-[9.5px] font-bold text-[#5A5E6E]">
+      <div class="flex items-center gap-2.5 rounded-lg border border-gray-200 p-2.5">
+        <span class="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[5px] border border-gray-200 bg-sand font-mono text-[9.5px] font-bold text-ink-2">
           {(archivo.name.split('.').pop() ?? 'ARC').slice(0, 3).toUpperCase()}
         </span>
         <div class="flex min-w-0 flex-col">
-          <span class="truncate text-[12.5px] font-semibold text-[#1A1A24]">{archivo.name}</span>
-          <span class="font-mono text-[11px] text-[#5A5E6E]">{formatearTamano(archivo.size)}</span>
+          <span class="truncate text-[12.5px] font-semibold text-ink">{archivo.name}</span>
+          <span class="font-mono text-[11px] text-ink-2">{formatearTamano(archivo.size)}</span>
         </div>
       </div>
-      <div class="flex flex-col gap-1.5 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-        <span class="text-xs font-semibold text-[#1A1A24]">Al confirmar:</span>
-        <span class="flex items-start gap-1.5 text-xs text-[#5A5E6E]">
-          <Check class="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#059669]" />
+      <div class="flex flex-col gap-1.5 rounded-lg border border-gray-200 bg-slate-50 p-3">
+        <span class="text-xs font-semibold text-ink">Al confirmar:</span>
+        <span class="flex items-start gap-1.5 text-xs text-ink-2">
+          <Check class="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
           Se registra la hora de este envío como tu entrega.
         </span>
         {#if esReemplazo}
-          <span class="flex items-start gap-1.5 text-xs text-[#5A5E6E]">
-            <Check class="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#059669]" />
+          <span class="flex items-start gap-1.5 text-xs text-ink-2">
+            <Check class="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
             Reemplaza la entrega anterior; la anterior deja de contar.
           </span>
         {/if}
-        <span class="flex items-start gap-1.5 text-xs text-[#5A5E6E]">
-          <Check class="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#059669]" />
+        <span class="flex items-start gap-1.5 text-xs text-ink-2">
+          <Check class="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
           Mientras la actividad siga activa, puedes volver a reemplazarla.
         </span>
       </div>
-      <label class="flex cursor-pointer items-start gap-2 text-[12.5px] text-[#1A1A24]">
-        <input type="checkbox" bind:checked={confirmado} class="mt-0.5 h-[15px] w-[15px] accent-[#002F6C]" />
+      <label class="flex cursor-pointer items-start gap-2 text-[12.5px] text-ink">
+        <input type="checkbox" bind:checked={confirmado} class="mt-0.5 h-[15px] w-[15px] accent-navy" />
         <span>
           {esGrupal
             ? 'Confirmo que este archivo es la entrega de mi grupo en la actividad.'
@@ -268,12 +268,12 @@
         </span>
       </label>
     </div>
-    <div class="flex items-center gap-2 border-t border-[#E5E7EB] px-5 py-3.5">
-      <button class="rounded-lg px-3 py-2 text-[13.5px] font-medium text-[#002F6C] transition-colors hover:bg-[#F8FAFC]" onclick={() => (paso = 'seleccion')}>
+    <div class="flex items-center gap-2 border-t border-gray-200 px-5 py-3.5">
+      <button class="rounded-lg px-3 py-2 text-[13.5px] font-medium text-navy transition-colors hover:bg-slate-50" onclick={() => (paso = 'seleccion')}>
         Volver
       </button>
       <button
-        class="ml-auto flex items-center gap-1.5 rounded-lg bg-[#002F6C] px-4.5 py-2.5 text-[13.5px] font-semibold text-white shadow-sm transition-colors hover:bg-[#00214d] disabled:cursor-not-allowed disabled:opacity-50"
+        class="ml-auto flex items-center gap-1.5 rounded-lg bg-navy px-4.5 py-2.5 text-[13.5px] font-semibold text-white shadow-sm transition-colors hover:bg-navy-hover disabled:cursor-not-allowed disabled:opacity-50"
         disabled={!confirmado}
         onclick={confirmarEntrega}
       >
@@ -284,38 +284,38 @@
   {:else if paso === 'subiendo'}
     <div class="flex flex-col gap-3.5 p-6">
       <div class="flex items-center gap-2">
-        <Loader class="h-4 w-4 animate-spin text-[#002F6C]" />
-        <span class="text-sm font-semibold text-[#1A1A24]">Entregando la actividad</span>
-        <span class="ml-auto font-mono text-xs font-semibold text-[#002F6C]">{progreso}%</span>
+        <Loader class="h-4 w-4 animate-spin text-navy" />
+        <span class="text-sm font-semibold text-ink">Entregando la actividad</span>
+        <span class="ml-auto font-mono text-xs font-semibold text-navy">{progreso}%</span>
       </div>
-      <div class="h-2 overflow-hidden rounded-full bg-[#EEF1F5]">
-        <div class="h-2 rounded-full bg-[#002F6C] transition-all" style="width:{progreso}%"></div>
+      <div class="h-2 overflow-hidden rounded-full bg-gray-100">
+        <div class="h-2 rounded-full bg-navy transition-all" style="width:{progreso}%"></div>
       </div>
-      <span class="text-[11.5px] text-[#5A5E6E]">No cierres esta ventana mientras se sube el archivo.</span>
+      <span class="text-[11.5px] text-ink-2">No cierres esta ventana mientras se sube el archivo.</span>
     </div>
   {:else if paso === 'exito' && archivo}
     <div class="flex flex-col gap-3 p-6">
       <div class="flex items-center gap-2">
-        <CheckCircle2 class="h-4 w-4 text-[#059669]" />
-        <span class="text-sm font-semibold text-[#1A1A24]">Entrega registrada</span>
+        <CheckCircle2 class="h-4 w-4 text-emerald-600" />
+        <span class="text-sm font-semibold text-ink">Entrega registrada</span>
       </div>
-      <div class="flex flex-col gap-1.5 rounded-lg border border-[#A7F3D0] bg-[#F8FAFC] p-3">
+      <div class="flex flex-col gap-1.5 rounded-lg border border-emerald-200 bg-slate-50 p-3">
         <div class="flex items-baseline gap-2">
-          <span class="w-14 shrink-0 text-[11.5px] text-[#5A5E6E]">Archivo</span>
-          <span class="truncate text-[12.5px] font-semibold text-[#1A1A24]">{archivo.name}</span>
+          <span class="w-14 shrink-0 text-[11.5px] text-ink-2">Archivo</span>
+          <span class="truncate text-[12.5px] font-semibold text-ink">{archivo.name}</span>
         </div>
         <div class="flex items-baseline gap-2">
-          <span class="w-14 shrink-0 text-[11.5px] text-[#5A5E6E]">Peso</span>
+          <span class="w-14 shrink-0 text-[11.5px] text-ink-2">Peso</span>
           <span class="font-mono text-xs">{formatearTamano(archivo.size)}</span>
         </div>
         <div class="flex items-baseline gap-2">
-          <span class="w-14 shrink-0 text-[11.5px] text-[#5A5E6E]">Hora</span>
-          <span class="text-xs font-medium text-[#1A1A24]">{horaRegistro} hrs</span>
+          <span class="w-14 shrink-0 text-[11.5px] text-ink-2">Hora</span>
+          <span class="text-xs font-medium text-ink">{horaRegistro} hrs</span>
         </div>
       </div>
       <button
         type="button"
-        class="self-start rounded-lg bg-[#002F6C] px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#00214d]"
+        class="self-start rounded-lg bg-navy px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-navy-hover"
         onclick={cerrarTrasExito}
       >
         Listo
@@ -324,28 +324,28 @@
   {:else if paso === 'error'}
     <div class="flex flex-col gap-3 p-6">
       <div class="flex items-center gap-2">
-        <AlertCircle class="h-4 w-4 text-[#B91C1C]" />
-        <span class="text-sm font-semibold text-[#1A1A24]">La entrega no se completó</span>
+        <AlertCircle class="h-4 w-4 text-red-700" />
+        <span class="text-sm font-semibold text-ink">La entrega no se completó</span>
       </div>
-      <p class="text-[12.5px] text-[#1A1A24]">{mensajeError}</p>
-      <p class="text-[12px] text-[#5A5E6E]">No se registró ninguna entrega parcial. Tu archivo no se perdió: sigue seleccionado.</p>
+      <p class="text-[12.5px] text-ink">{mensajeError}</p>
+      <p class="text-[12px] text-ink-2">No se registró ninguna entrega parcial. Tu archivo no se perdió: sigue seleccionado.</p>
       <div class="flex gap-2 pt-1">
         <button
-          class="flex items-center gap-1.5 rounded-lg bg-[#002F6C] px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#00214d]"
+          class="flex items-center gap-1.5 rounded-lg bg-navy px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-navy-hover"
           onclick={reintentar}
         >
           <RotateCcw class="h-3.5 w-3.5" />
           Reintentar
         </button>
         <button
-          class="rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2 text-[13px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F8FAFC]"
+          class="rounded-lg border border-line bg-white px-3.5 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-slate-50"
           onclick={cambiarArchivo}
         >
           Cambiar archivo
         </button>
         {#if onAvisarDocente}
           <button
-            class="rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2 text-[13px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F8FAFC]"
+            class="rounded-lg border border-line bg-white px-3.5 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-slate-50"
             onclick={onAvisarDocente}
           >
             Avisar al docente

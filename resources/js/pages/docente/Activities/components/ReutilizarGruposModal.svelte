@@ -139,7 +139,7 @@
                 name="actividad_origen"
                 checked={seleccionada === a.id_actividad}
                 onchange={() => onSeleccionar(a.id_actividad)}
-                class="accent-[#002855] w-4 h-4 shrink-0"
+                class="accent-uta-blue w-4 h-4 shrink-0"
               />
               <span class="flex-1 text-sm text-gray-800">{a.nombre}</span>
               <span class="text-xs text-muted-foreground shrink-0">
@@ -185,7 +185,7 @@
                     checked={gruposSeleccionados.has(g.grupo)}
                     disabled={!habilitado}
                     onchange={() => toggleGrupo(g.grupo, habilitado)}
-                    class="accent-[#002855] w-4 h-4 shrink-0 mt-0.5"
+                    class="accent-uta-blue w-4 h-4 shrink-0 mt-0.5"
                   />
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">

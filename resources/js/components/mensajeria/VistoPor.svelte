@@ -40,8 +40,8 @@
 
 {#if lectores && lectores.length > 0}
   <div class="flex {clase} {alinear === 'derecha' ? 'justify-end' : 'justify-start'}">
-    <span class="flex items-center gap-1 text-[11px] text-[#5A5E6E]" title={detalle}>
-      <CheckCheck class="h-3.5 w-3.5 text-[#002F6C]" />
+    <span class="flex items-center gap-1 text-[11px] text-ink-2" title={detalle}>
+      <CheckCheck class="h-3.5 w-3.5 text-navy" />
       {texto}
     </span>
   </div>

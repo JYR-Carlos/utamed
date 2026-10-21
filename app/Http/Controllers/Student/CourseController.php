@@ -6,6 +6,8 @@ use App\Enums\DB\TipoActividad;
 use App\Http\Controllers\Controller;
 use App\Models\Agenda\Actividad;
 use App\Models\Agenda\ActividadAsignadaGrupo;
+use App\Models\Agenda\Agenda;
+use App\Models\Agenda\IntegranteGrupo;
 use App\Models\Curso\Curso;
 use App\Models\Curso\Programa;
 use App\Models\Usuario\Usuario;
@@ -59,20 +61,12 @@ class CourseController extends Controller
 
         // Obtener inscripciones filtradas por Semestre y Año del Curso
         $inscripciones = $estudiante->inscripcionCursos()
-            ->when($semestre, function ($query) use ($semestre) {
-                $query->whereHas('curso', function ($query) use ($semestre) {
-                    $query->where('semestre_real', $semestre);
-                });
-            })
-            ->when($agno, function ($query) use ($agno) {
-                $query->whereHas('curso', function ($query) use ($agno) {
-                    $query->whereYear('fecha_inicio', $agno);
-                });
-            })
             ->with([
                 'curso',
                 'curso.asignacionPlan.asignatura',
-                'curso.asignacionPlan.plan.carrera'
+                'curso.asignacionPlan.plan.carrera',
+                'curso.programas' => fn ($query) => $query->where('es_actual', true)
+                    ->whereIn('estado', ['APROBADO', 'BASICO_COMPLETO']),
             ])
             ->get();
 
@@ -86,8 +80,6 @@ class CourseController extends Controller
 
         return Inertia::render('student/Courses/Index', [
             'cursos'   => $cursosEstudiante,
-            'semestre' => $semestre,
-            'agno'     => $agno,
             'periodoActual' => [
                 'semestre' => $semestreActual,
                 'agno' => $agnoActual,
@@ -97,10 +89,12 @@ class CourseController extends Controller
 
     private function formatCurso(Curso $curso, string $rol): array
     {
-        $tieneProg = Programa::where('id_curso', $curso->id_curso)
-            ->whereIn('estado', ['APROBADO', 'BASICO_COMPLETO'])
-            ->where('es_actual', true)
-            ->exists();
+        $tieneProg = $curso->relationLoaded('programas')
+            ? $curso->programas->isNotEmpty()
+            : Programa::where('id_curso', $curso->id_curso)
+                ->whereIn('estado', ['APROBADO', 'BASICO_COMPLETO'])
+                ->where('es_actual', true)
+                ->exists();
         $default_img = self::DEFAULT_COURSE_IMAGE;
         return [
             'id_curso'         => $curso->id_curso,
@@ -111,8 +105,8 @@ class CourseController extends Controller
             'carrera_nombre'   => $curso->asignacionPlan?->plan?->carrera?->nombre ?? 'N/A',
             'fecha_inicio'     => $curso->fecha_inicio,
             'fecha_fin'        => $curso->fecha_fin,
-            'semestre_real'    => $curso->semestre_real,
-            'agno_real'        => $curso->agno_real,
+            'semestre'    => $curso->semestre_real,
+            'agno'        => $curso->agno_real,
             'letra_grupo'      => $curso->letra_grupo,
             'rol'              => $rol,
             'tiene_programa'   => $tieneProg,
@@ -180,12 +174,39 @@ class CourseController extends Controller
             ->get()
             ->keyBy('id_actividad');
 
-        $actividadesData = $actividades->map(function (Actividad $actividad) use ($gruposDelEstudiante) {
+        $idsGrupos = $gruposDelEstudiante->pluck('id_actividad_asignada_grupo');
+
+        // Consultas en lote para evitar N+1 por cada actividad del curso:
+        // 1. Última entrega vigente por grupo
+        $entregasVigentesPorGrupo = $idsGrupos->isEmpty()
+            ? collect()
+            : Agenda::entregasVigentes()
+                ->whereIn('id_actividad_asignada_grupo', $idsGrupos)
+                ->select('id_actividad_asignada_grupo', DB::raw('MAX(fecha_envio) as max_fecha_envio'))
+                ->groupBy('id_actividad_asignada_grupo')
+                ->pluck('max_fecha_envio', 'id_actividad_asignada_grupo');
+
+        // 2. Grupos evaluados (por nota individual en integrante o por evaluación en agenda)
+        $gruposConEvaluacion = $idsGrupos->isEmpty()
+            ? collect()
+            : collect(
+                IntegranteGrupo::whereIn('id_actividad_asignada_grupo', $idsGrupos)
+                    ->whereNotNull('nota_individual')
+                    ->pluck('id_actividad_asignada_grupo')
+            )->merge(
+                Agenda::whereIn('id_actividad_asignada_grupo', $idsGrupos)
+                    ->whereHas('evaluacion')
+                    ->pluck('id_actividad_asignada_grupo')
+            )->unique()->flip();
+
+        $actividadesData = $actividades->map(function (Actividad $actividad) use ($gruposDelEstudiante, $entregasVigentesPorGrupo, $gruposConEvaluacion) {
             /** @var mixed $grupo ActividadAsignadaGrupo|null */
             $grupo = $gruposDelEstudiante->get($actividad->id_actividad);
             $estado = $grupo ? $grupo->calcularEstadoGrupo($actividad) : $actividad->calcularEstadoBase();
-            $entregada = (bool) ($grupo?->tieneEntregaVigente());
-            $fechaEnvio = $entregada ? $grupo->entregas()->entregasVigentes()->max('fecha_envio') : null;
+
+            $fechaEnvio = $grupo ? $entregasVigentesPorGrupo->get($grupo->id_actividad_asignada_grupo) : null;
+            $entregada = $fechaEnvio !== null;
+            $yaEvaluada = $grupo !== null && ($grupo->nota !== null || $gruposConEvaluacion->has($grupo->id_actividad_asignada_grupo));
 
             return [
                 'id_actividad'    => $actividad->id_actividad,
@@ -202,7 +223,7 @@ class CourseController extends Controller
                 'ya_entregada'    => $entregada,
                 // Día del último envío vigente; la tarjeta dice «Entregada el …».
                 'fecha_entrega'   => $fechaEnvio ? Carbon::parse($fechaEnvio)->format('Y-m-d') : null,
-                'ya_evaluada'     => (bool) ($grupo?->yaFueEvaluado()),
+                'ya_evaluada'     => $yaEvaluada,
             ];
         })->values();
 

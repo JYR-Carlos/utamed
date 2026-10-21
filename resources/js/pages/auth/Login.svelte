@@ -330,7 +330,7 @@
           <!-- Título -->
           <h1 class="mt-10 text-center text-[28px] font-semibold leading-[1.2] text-[#F5F3FF] sm:text-[40px]">
             Bienvenido de
-            <span class="bg-gradient-to-r from-white to-[#BFD9F2] bg-clip-text text-transparent"
+            <span class="bg-gradient-to-r from-[#FFFFFF] to-[#BFD9F2] bg-clip-text text-transparent"
               >vuelta</span
             >
           </h1>
@@ -339,7 +339,7 @@
           </p>
 
           {#if status}
-            <div class="mt-6 text-center text-sm font-medium text-emerald-300">
+            <div class="mt-6 text-center text-sm font-medium text-[#5EE9B5]">
               {status}
             </div>
           {/if}
@@ -374,11 +374,11 @@
                     />
                   </div>
                   {#if $form.data.email && !rutValid}
-                    <p id="email-hint" class="text-xs text-red-300">
+                    <p id="email-hint" class="text-xs text-[#FFA2A2]">
                       RUT debe tener 8 dígitos + dígito verificador (formato: 12345678-K)
                     </p>
                   {:else if $form.data.email && rutValid}
-                    <p id="email-hint" class="text-xs text-emerald-300">Formato válido</p>
+                    <p id="email-hint" class="text-xs text-[#5EE9B5]">Formato válido</p>
                   {:else}
                     <p id="email-hint" class="text-xs text-[#C4BFE0]/70">
                       Ingresa sin puntos y con guion

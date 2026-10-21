@@ -71,6 +71,7 @@ function adminParaCopiarCurso(): Usuario
     );
     // Con fecha_cambio_passhash en NULL el middleware redirige a cambiar la clave.
     $admin->fecha_cambio_passhash = now();
+    $admin->fecha_verificacion_email = now();
     $admin->save();
 
     $rolSuperAdmin = Rol::firstOrCreate(['nombre' => 'SuperAdmin'], ['creado_por' => $admin->id_usuario]);
@@ -186,21 +187,57 @@ test('el titular recibe el rol Docente Titular en el contexto real del curso nue
     expect($existe)->toBeTrue();
 });
 
-test('el endpoint admin de copia responde sin errores y crea el curso', function () {
-    $codCurso = codCursoLibreParaCopia();
-
+test('el endpoint admin de copia responde sin errores y crea el curso con la letra en el nombre', function () {
     $response = $this->actingAs($this->admin)
         ->post("/admin/cursos/{$this->padre->id_curso}/copiar", [
-            'cod_curso'    => $codCurso,
-            'fecha_inicio' => now()->toDateString(),
+            'fecha_inicio'  => now()->toDateString(),
+            'agno_real'     => $this->padre->agno_real ?? 2026,
+            'semestre_real' => $this->padre->semestre_real ?? 1,
         ]);
 
     $response->assertSessionHasNoErrors()
         ->assertRedirect(route('admin.cursos.index'));
 
-    $nuevo = Curso::where('cod_curso', $codCurso)->first();
+    $nuevo = Curso::where('id_curso_padre', $this->padre->id_curso)->first();
+
     expect($nuevo)->not->toBeNull()
         ->and((int) $nuevo->id_curso_padre)->toBe((int) $this->padre->id_curso)
+        ->and($nuevo->nombre)->toMatch('/Grupo [A-Z]+$/')
         ->and(cantidadActividadesDeCurso($nuevo->id_curso))
         ->toBe(cantidadActividadesDeCurso($this->padre->id_curso));
+});
+
+test('al copiar un curso en el mismo periodo calcula la siguiente letra consecutiva', function () {
+    $indicePadre = $this->padre->indice_grupo ?? 1;
+    $letraEsperada = \App\Support\LetraGrupo::fromIndice($indicePadre + 1);
+
+    $response = $this->actingAs($this->admin)
+        ->post("/admin/cursos/{$this->padre->id_curso}/copiar", [
+            'fecha_inicio'  => now()->toDateString(),
+            'agno_real'     => $this->padre->agno_real ?? 2026,
+            'semestre_real' => $this->padre->semestre_real ?? 1,
+        ]);
+
+    $response->assertSessionHasNoErrors();
+    $nuevo = Curso::where('id_curso_padre', $this->padre->id_curso)->first();
+
+    expect($nuevo->indice_grupo)->toBe($indicePadre + 1)
+        ->and($nuevo->nombre)->toContain("Grupo {$letraEsperada}");
+});
+
+test('preview-copia retorna la proxima_letra y nuevo_nombre calculados', function () {
+    $response = $this->actingAs($this->admin)
+        ->getJson("/admin/cursos/{$this->padre->id_curso}/preview-copia");
+
+    $response->assertOk()
+        ->assertJsonStructure([
+            'curso' => [
+                'id_curso',
+                'nombre',
+                'proxima_letra',
+                'nuevo_nombre',
+                'asignatura_nombre',
+            ],
+            'componentes',
+        ]);
 });

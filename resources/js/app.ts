@@ -2,6 +2,9 @@ import { createInertiaApp, type ResolvedComponent } from '@inertiajs/svelte';
 import { hydrate, mount } from 'svelte';
 import '../css/app.css';
 import './bootstrap';
+import { initializeTheme } from './hooks/useAppearance.svelte';
+
+initializeTheme();
 
 createInertiaApp({
     resolve: (name: string) => {

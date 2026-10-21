@@ -618,13 +618,13 @@
 
   // ── Vocabulario visual ────────────────────────────────────────────────────
   const BTN_GHOST =
-    'rounded-lg border-none bg-transparent px-1 py-2.5 text-[13px] font-medium text-[#5A5E6E] transition-colors hover:text-[#1A1A24] disabled:opacity-50';
+    'rounded-lg border-none bg-transparent px-1 py-2.5 text-[13px] font-medium text-ink-2 transition-colors hover:text-ink disabled:opacity-50';
   const BTN_OUTLINE =
-    'inline-flex items-center gap-[7px] rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2.5 text-[13px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA] disabled:opacity-50';
+    'inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3.5 py-2.5 text-[13px] font-medium text-ink transition-colors hover:bg-sand disabled:opacity-50';
   const BTN_PRIMARY =
-    'inline-flex items-center gap-[7px] rounded-lg border border-[#002F6C] bg-[#002F6C] px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#1B4789] disabled:opacity-60';
+    'inline-flex items-center gap-[7px] rounded-lg border border-navy bg-navy px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-navy-2 disabled:opacity-60';
   const BTN_BLOQUEADO =
-    'inline-flex cursor-not-allowed items-center gap-[7px] rounded-lg border border-[#C3C8D2] bg-[#C3C8D2] px-4 py-2.5 text-[13px] font-semibold text-white';
+    'inline-flex cursor-not-allowed items-center gap-[7px] rounded-lg border border-slate-300 bg-slate-300 px-4 py-2.5 text-[13px] font-semibold text-white';
 </script>
 
 <svelte:window onkeydown={alTeclear} />
@@ -636,12 +636,12 @@
   <div class="min-h-screen bg-white py-4 sm:py-6">
     <div class="mx-auto max-w-[1440px] px-3 sm:px-6">
       <div
-        class="flex flex-col overflow-hidden rounded-[10px] border border-[#E5E7EB] bg-white"
+        class="flex flex-col overflow-hidden rounded-[10px] border border-gray-200 bg-white"
       >
         <!-- ── Aviso de auditoría ── -->
         {#if programa?.estado === 'APROBADO' || programa?.estado === 'PUBLICADO'}
           <p
-            class="m-0 flex items-center gap-2.5 border-b border-[#FDE68A] bg-[#FFFBEB] px-5 py-2.5 text-[12.5px] text-[#92400E] sm:px-7"
+            class="m-0 flex items-center gap-2.5 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-[12.5px] text-amber-800 sm:px-7"
           >
             <ShieldAlert size={15} class="shrink-0" aria-hidden="true" />
             Este syllabus está aprobado. Al guardar se crea una versión nueva que
@@ -652,7 +652,7 @@
 
         {#if editandoDeOtro && docenteTitular}
           <p
-            class="m-0 flex items-center gap-2.5 border-b border-[#E3D9C6] bg-[#F5F1EA] px-5 py-2.5 text-[12.5px] text-[#6B5B3E] sm:px-7"
+            class="m-0 flex items-center gap-2.5 border-b border-sand-line bg-sand px-5 py-2.5 text-[12.5px] text-stone-600 sm:px-7"
           >
             <ShieldAlert size={15} class="shrink-0" aria-hidden="true" />
             Editando en nombre del docente titular
@@ -664,25 +664,25 @@
         <!-- ── Cabecera ── -->
         <header class="flex flex-wrap items-start gap-5 px-5 pt-4 sm:px-7">
           <div class="flex min-w-0 flex-col gap-1">
-            <h1 class="m-0 text-[21px] font-semibold tracking-[-0.01em] text-[#1A1A24]">
+            <h1 class="m-0 text-[21px] font-semibold tracking-[-0.01em] text-ink">
               {programa ? 'Editar syllabus' : `Crear syllabus ${tipoSyllabus}`}
             </h1>
-            <p class="m-0 flex flex-wrap items-center gap-2 text-[12.5px] text-[#5A5E6E]">
+            <p class="m-0 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-2">
               {#if codigoAsignatura}
                 <span class="font-mono">{codigoAsignatura}</span>
-                <span class="text-[#D6D9E0]" aria-hidden="true">·</span>
+                <span class="text-line" aria-hidden="true">·</span>
               {/if}
               <span>{nombreAsignatura}</span>
               {#if curso.letra_grupo}
-                <span class="text-[#D6D9E0]" aria-hidden="true">·</span>
+                <span class="text-line" aria-hidden="true">·</span>
                 <span>Grupo {curso.letra_grupo}</span>
               {/if}
               {#if curso.agno_real && curso.semestre_real}
-                <span class="text-[#D6D9E0]" aria-hidden="true">·</span>
+                <span class="text-line" aria-hidden="true">·</span>
                 <span>{curso.semestre_real}.º semestre {curso.agno_real}</span>
               {/if}
               {#if programa}
-                <span class="text-[#D6D9E0]" aria-hidden="true">·</span>
+                <span class="text-line" aria-hidden="true">·</span>
                 <span>Versión {programa.version_programa} · {programa.estado}</span>
               {/if}
             </p>
@@ -691,8 +691,8 @@
           <div class="ml-auto flex flex-none items-center gap-3">
             <span
               class="inline-flex items-center gap-[7px] rounded-full px-3 py-1 text-[12px] font-semibold {esBasico
-                ? 'bg-[#F5F1EA] text-[#6B5B3E]'
-                : 'bg-[#E8EDF5] text-[#002F6C]'}"
+                ? 'bg-sand text-stone-600'
+                : 'bg-uta-blue-light text-navy'}"
             >
               <FileText size={13} aria-hidden="true" />
               {tipoSyllabus} · {secciones.length} secciones
@@ -701,7 +701,7 @@
               type="button"
               onclick={intentarSalir}
               aria-label="Cerrar el asistente"
-              class="flex size-8 items-center justify-center rounded-lg border border-[#D6D9E0] bg-white text-[#5A5E6E] transition-colors hover:bg-[#F5F1EA]"
+              class="flex size-8 items-center justify-center rounded-lg border border-line bg-white text-ink-2 transition-colors hover:bg-sand"
             >
               <X size={16} aria-hidden="true" />
             </button>
@@ -711,18 +711,18 @@
         <!-- ── Error de guardado ── -->
         {#if errorGuardado}
           <div
-            class="mx-5 mt-3.5 flex flex-wrap items-center gap-2.5 rounded-[9px] border border-[#F5DFA8] bg-[#FFFBEB] px-3.5 py-3 sm:mx-7"
+            class="mx-5 mt-3.5 flex flex-wrap items-center gap-2.5 rounded-[9px] border border-orange-200 bg-amber-50 px-3.5 py-3 sm:mx-7"
             role="alert"
           >
-            <AlertTriangle size={16} class="shrink-0 text-[#B45309]" aria-hidden="true" />
-            <span class="text-[13px] text-[#7C4A02]">
+            <AlertTriangle size={16} class="shrink-0 text-amber-700" aria-hidden="true" />
+            <span class="text-[13px] text-yellow-800">
               {errorGuardado} Lo que escribiste sigue en pantalla; puedes reintentar.
             </span>
             <button
               type="button"
               onclick={guardar}
               disabled={guardando}
-              class="ml-auto rounded-[7px] border border-[#E0C68A] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#7C4A02] transition-colors hover:bg-[#FFF7E4] disabled:opacity-50"
+              class="ml-auto rounded-[7px] border border-amber-200 bg-white px-3 py-1.5 text-[12.5px] font-semibold text-yellow-800 transition-colors hover:bg-amber-50 disabled:opacity-50"
             >
               Reintentar
             </button>
@@ -741,7 +741,7 @@
 
         <!-- ── Cuerpo ── -->
         <div
-          class="px-5 py-7 sm:px-7 {pasoActual === 'RESUMEN' ? 'bg-[#FAFAFB]' : 'bg-white'}"
+          class="px-5 py-7 sm:px-7 {pasoActual === 'RESUMEN' ? 'bg-gray-50' : 'bg-white'}"
         >
           {#if pasoActual === 'RESUMEN'}
             <SyllabusResumen
@@ -796,17 +796,17 @@
 
         <!-- ── Pie ── -->
         <div
-          class="sticky bottom-0 z-10 flex flex-wrap items-center gap-4 border-t border-[#E5E7EB] bg-white px-5 py-3.5 sm:px-7"
+          class="sticky bottom-0 z-10 flex flex-wrap items-center gap-4 border-t border-gray-200 bg-white px-5 py-3.5 sm:px-7"
         >
           <button type="button" onclick={intentarSalir} disabled={guardando} class={BTN_GHOST}>
             Cancelar
           </button>
           <button type="button" onclick={guardar} disabled={guardando} class={BTN_OUTLINE}>
-            <Save size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+            <Save size={15} class="text-ink-2" aria-hidden="true" />
             {guardando ? 'Guardando…' : 'Guardar borrador'}
           </button>
 
-          <span class="mx-auto text-[11.5px] text-[#9AA0AE]">
+          <span class="mx-auto text-[11.5px] text-gray-400">
             {#if guardadoEn}
               Guardado a las {formatFechaHora(guardadoEn)}
             {:else}
@@ -818,7 +818,7 @@
             type="button"
             onclick={anterior}
             disabled={indiceActual <= 0 || guardando}
-            class="{BTN_OUTLINE} disabled:border-[#EDEFF3] disabled:text-[#C3C8D2]"
+            class="{BTN_OUTLINE} disabled:border-gray-100 disabled:text-slate-300"
           >
             <ChevronLeft size={15} aria-hidden="true" />
             Anterior
@@ -840,7 +840,7 @@
           {:else if razonBloqueo}
             <span class="relative inline-flex flex-col items-end gap-2">
               <span
-                class="max-w-[300px] rounded-lg bg-[#1A1A24] px-3 py-2.5 text-[12px] leading-[1.5] text-white"
+                class="max-w-[300px] rounded-lg bg-ink px-3 py-2.5 text-[12px] leading-[1.5] text-white"
               >
                 {razonBloqueo}
               </span>
@@ -863,7 +863,7 @@
   <!-- ── Cambios sin guardar ── -->
   {#if dialogoSalida}
     <div
-      class="fixed inset-0 z-50 flex items-center justify-center bg-[#1A1A24]/40 p-4"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
       role="presentation"
       onclick={(e) => {
         if (e.target === e.currentTarget) dialogoSalida = false;
@@ -877,15 +877,15 @@
       >
         <div class="flex items-start gap-3">
           <span
-            class="flex size-[34px] flex-none items-center justify-center rounded-[9px] bg-[#FFFBEB]"
+            class="flex size-[34px] flex-none items-center justify-center rounded-[9px] bg-amber-50"
           >
-            <AlertTriangle size={17} class="text-[#B45309]" aria-hidden="true" />
+            <AlertTriangle size={17} class="text-amber-700" aria-hidden="true" />
           </span>
           <div class="flex flex-col gap-1.5">
-            <h2 id="salida-titulo" class="m-0 text-[16px] font-semibold text-[#1A1A24]">
+            <h2 id="salida-titulo" class="m-0 text-[16px] font-semibold text-ink">
               Hay cambios sin guardar
             </h2>
-            <p class="m-0 text-[13px] text-pretty text-[#5A5E6E]">
+            <p class="m-0 text-[13px] text-pretty text-ink-2">
               Modificaste el syllabus y no se ha guardado desde entonces. ¿Guardar antes de salir?
             </p>
           </div>
@@ -900,7 +900,7 @@
                 volverAlVisor(salidaPendiente ?? undefined);
               }
             }}
-            class="flex items-center justify-center gap-2 rounded-lg border-none bg-[#002F6C] px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#1B4789] disabled:opacity-60"
+            class="flex items-center justify-center gap-2 rounded-lg border-none bg-navy px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-navy-2 disabled:opacity-60"
           >
             <Save size={15} aria-hidden="true" />
             {guardando ? 'Guardando…' : 'Guardar y salir'}
@@ -911,7 +911,7 @@
               dialogoSalida = false;
               volverAlVisor(salidaPendiente ?? undefined);
             }}
-            class="rounded-lg border border-[#D6D9E0] bg-white px-4 py-2.5 text-[13px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA]"
+            class="rounded-lg border border-line bg-white px-4 py-2.5 text-[13px] font-medium text-ink transition-colors hover:bg-sand"
           >
             Salir sin guardar
           </button>
@@ -921,7 +921,7 @@
               dialogoSalida = false;
               salidaPendiente = null;
             }}
-            class="rounded-lg border-none bg-transparent px-4 py-2 text-[13px] font-medium text-[#5A5E6E] transition-colors hover:text-[#1A1A24]"
+            class="rounded-lg border-none bg-transparent px-4 py-2 text-[13px] font-medium text-ink-2 transition-colors hover:text-ink"
           >
             Cancelar
           </button>

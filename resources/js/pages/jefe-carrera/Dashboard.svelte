@@ -227,27 +227,27 @@
   // ─── Lenguaje visual ─────────────────────────────────────────────────────
 
   const CARD =
-    'rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,.08)]';
+    'rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,.08)]';
   const BTN_GHOST =
-    'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-[#002F6C] no-underline transition-colors hover:bg-[#F5F1EA]';
+    'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-navy no-underline transition-colors hover:bg-sand';
   const TILE =
-    'flex flex-col rounded-[10px] border border-[#E5E7EB] p-3.5 no-underline transition-colors hover:bg-[#F5F1EA]';
-  const KPI = 'text-[28px] font-semibold leading-none tracking-[-0.01em] text-[#1A1A24]';
+    'flex flex-col rounded-[10px] border border-gray-200 p-3.5 no-underline transition-colors hover:bg-sand';
+  const KPI = 'text-[28px] font-semibold leading-none tracking-[-0.01em] text-ink';
 </script>
 
 <AdminLayout {breadcrumbs}>
   <!-- ─── Cabecera: sin acción primaria, se la queda el rail de alertas ──── -->
   <div class="mb-4 flex min-w-0 flex-col gap-1">
-    <div class="flex items-center gap-1.5 text-[12px] text-[#5A5E6E]">
+    <div class="flex items-center gap-1.5 text-[12px] text-ink-2">
       <span>Jefatura de Carrera</span>
       <ChevronRight class="h-3 w-3" aria-hidden="true" />
-      <span class="font-medium text-[#1A1A24]">Inicio</span>
+      <span class="font-medium text-ink">Inicio</span>
     </div>
-    <h1 class="m-0 text-[28px] font-semibold tracking-[-0.01em] text-[#1A1A24]">
+    <h1 class="m-0 text-[28px] font-semibold tracking-[-0.01em] text-ink">
       Jefatura de Carrera — {carrera.nombre}
     </h1>
     {#if subtitulo}
-      <span class="text-[14px] text-[#5A5E6E]">{subtitulo}</span>
+      <span class="text-[14px] text-ink-2">{subtitulo}</span>
     {/if}
   </div>
 
@@ -256,9 +256,9 @@
     <!-- 1. Syllabus entregados (5×2) -->
     <section class="{CARD} flex flex-col gap-4 lg:col-span-5 lg:row-span-2">
       <div class="flex flex-wrap items-center gap-2">
-        <ClipboardList class="h-4 w-4 text-[#5A5E6E]" aria-hidden="true" />
-        <h2 class="m-0 text-base font-semibold text-[#1A1A24]">Syllabus entregados</h2>
-        <span class="ml-auto text-[12px] text-[#5A5E6E]">
+        <ClipboardList class="h-4 w-4 text-ink-2" aria-hidden="true" />
+        <h2 class="m-0 text-base font-semibold text-ink">Syllabus entregados</h2>
+        <span class="ml-auto text-[12px] text-ink-2">
           {stats.cursos_activos} curso{stats.cursos_activos === 1 ? '' : 's'} ofertado{stats.cursos_activos ===
           1
             ? ''
@@ -275,17 +275,17 @@
             aria-label="{stats.syllabus_entregados} de {stats.syllabus_total} syllabus aprobados ({pct}%)"
           >
             <div class="flex h-24 w-24 flex-col items-center justify-center rounded-full bg-white">
-              <span class="text-[26px] font-semibold leading-none text-[#1A1A24]">
+              <span class="text-[26px] font-semibold leading-none text-ink">
                 {stats.syllabus_entregados}
               </span>
-              <span class="mt-1 text-[12px] text-[#5A5E6E]">de {stats.syllabus_total}</span>
+              <span class="mt-1 text-[12px] text-ink-2">de {stats.syllabus_total}</span>
             </div>
           </div>
 
           <div class="flex min-w-[180px] flex-1 flex-col gap-3">
             <div class="flex flex-col gap-0.5">
               <span class={KPI}>{pct}%</span>
-              <span class="text-[12px] text-[#5A5E6E]">de avance del período</span>
+              <span class="text-[12px] text-ink-2">de avance del período</span>
             </div>
             <div class="flex flex-col gap-2">
               {#each leyenda as s (s.key)}
@@ -295,13 +295,13 @@
                     style="background: {s.color}"
                     aria-hidden="true"
                   ></span>
-                  <span class="flex-1 {s.n === 0 ? 'text-[#5A5E6E]' : 'text-[#1A1A24]'}">
+                  <span class="flex-1 {s.n === 0 ? 'text-ink-2' : 'text-ink'}">
                     {s.label}
                   </span>
                   <span
                     class="font-semibold tabular-nums {s.n === 0
-                      ? 'text-[#5A5E6E]'
-                      : 'text-[#1A1A24]'}"
+                      ? 'text-ink-2'
+                      : 'text-ink'}"
                   >
                     {s.n}
                   </span>
@@ -312,18 +312,18 @@
         </div>
       {:else}
         <div
-          class="flex flex-1 flex-col items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-[#D6D9E0] bg-[#F5F1EA] px-4 py-8 text-center"
+          class="flex flex-1 flex-col items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-line bg-sand px-4 py-8 text-center"
         >
-          <span class="text-[14px] font-semibold text-[#1A1A24]">Sin cursos en el período</span>
-          <span class="max-w-[320px] text-[13px] text-[#5A5E6E]">
+          <span class="text-[14px] font-semibold text-ink">Sin cursos en el período</span>
+          <span class="max-w-[320px] text-[13px] text-ink-2">
             No hay cursos vigentes en la carrera, así que todavía no hay syllabus que seguir.
           </span>
         </div>
       {/if}
 
-      <div class="mt-auto flex flex-wrap items-center gap-2 border-t border-[#E5E7EB] pt-3">
+      <div class="mt-auto flex flex-wrap items-center gap-2 border-t border-gray-200 pt-3">
         {#if pieSyllabus}
-          <span class="text-[12px] text-[#5A5E6E]">{pieSyllabus}</span>
+          <span class="text-[12px] text-ink-2">{pieSyllabus}</span>
         {/if}
         <Link href="/docente/jefe-carrera/seguimiento" class="{BTN_GHOST} ml-auto">
           Ver seguimiento
@@ -335,23 +335,23 @@
     <!-- 2. Cursos activos (3) -->
     <section class="{CARD} flex flex-col gap-2 lg:col-span-3">
       <div class="flex items-center gap-2">
-        <BookOpen class="h-4 w-4 text-[#5A5E6E]" aria-hidden="true" />
-        <span class="text-[12px] text-[#5A5E6E]">Cursos activos</span>
+        <BookOpen class="h-4 w-4 text-ink-2" aria-hidden="true" />
+        <span class="text-[12px] text-ink-2">Cursos activos</span>
       </div>
       <span class={KPI}>{stats.cursos_activos}</span>
       {#if anterior}
         <div class="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
           {#if delta > 0}
-            <ArrowUpRight class="h-3.5 w-3.5 text-[#059669]" aria-hidden="true" />
-            <span class="text-[12px] font-semibold text-[#047857]">+{delta}</span>
+            <ArrowUpRight class="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+            <span class="text-[12px] font-semibold text-emerald-700">+{delta}</span>
           {:else if delta < 0}
-            <ArrowDownRight class="h-3.5 w-3.5 text-[#DC2626]" aria-hidden="true" />
-            <span class="text-[12px] font-semibold text-[#B91C1C]">{delta}</span>
+            <ArrowDownRight class="h-3.5 w-3.5 text-red-600" aria-hidden="true" />
+            <span class="text-[12px] font-semibold text-red-700">{delta}</span>
           {:else}
-            <Minus class="h-3.5 w-3.5 text-[#5A5E6E]" aria-hidden="true" />
-            <span class="text-[12px] font-semibold text-[#5A5E6E]">=</span>
+            <Minus class="h-3.5 w-3.5 text-ink-2" aria-hidden="true" />
+            <span class="text-[12px] font-semibold text-ink-2">=</span>
           {/if}
-          <span class="text-[12px] text-[#5A5E6E]">
+          <span class="text-[12px] text-ink-2">
             vs. {anterior.label} ({anterior.cursos})
           </span>
         </div>
@@ -366,18 +366,18 @@
     <!-- 3. Estudiantes matriculados (3) -->
     <section class="{CARD} flex flex-col gap-2 lg:col-span-3">
       <div class="flex items-center gap-2">
-        <Users class="h-4 w-4 text-[#5A5E6E]" aria-hidden="true" />
-        <span class="text-[12px] text-[#5A5E6E]">Estudiantes matriculados</span>
+        <Users class="h-4 w-4 text-ink-2" aria-hidden="true" />
+        <span class="text-[12px] text-ink-2">Estudiantes matriculados</span>
       </div>
       <span class={KPI}>{stats.estudiantes_matriculados.toLocaleString('es-CL')}</span>
-      <span class="mt-auto pt-2 text-[12px] text-[#5A5E6E]">Matrícula vigente del período</span>
+      <span class="mt-auto pt-2 text-[12px] text-ink-2">Matrícula vigente del período</span>
     </section>
 
     <!-- 5. Resumen de métricas (8) -->
     <section class="{CARD} flex flex-col gap-4 lg:col-span-8">
       <div class="flex flex-wrap items-center gap-2">
-        <BarChart2 class="h-4 w-4 text-[#5A5E6E]" aria-hidden="true" />
-        <h2 class="m-0 text-base font-semibold text-[#1A1A24]">Resumen de métricas</h2>
+        <BarChart2 class="h-4 w-4 text-ink-2" aria-hidden="true" />
+        <h2 class="m-0 text-base font-semibold text-ink">Resumen de métricas</h2>
         <Link href="/docente/jefe-carrera/metricas" class="{BTN_GHOST} ml-auto">
           Abrir Métricas
           <ArrowUpRight class="h-3.5 w-3.5" aria-hidden="true" />
@@ -388,58 +388,58 @@
         <!-- Asistencia promedio -->
         <Link href="/docente/jefe-carrera/metricas" class={TILE}>
           <div class="flex items-center gap-2">
-            <CalendarCheck class="h-[15px] w-[15px] text-[#5A5E6E]" aria-hidden="true" />
-            <span class="text-[12px] text-[#5A5E6E]">Asistencia promedio</span>
-            <ArrowUpRight class="ml-auto h-[13px] w-[13px] text-[#5A5E6E]" aria-hidden="true" />
+            <CalendarCheck class="h-[15px] w-[15px] text-ink-2" aria-hidden="true" />
+            <span class="text-[12px] text-ink-2">Asistencia promedio</span>
+            <ArrowUpRight class="ml-auto h-[13px] w-[13px] text-ink-2" aria-hidden="true" />
           </div>
           {#if metricas_resumen.asistencia_promedio !== null}
             <span class="{KPI} mt-2.5">{fmtPct(metricas_resumen.asistencia_promedio)}</span>
-            <div class="mt-2.5 h-1 overflow-hidden rounded-full bg-[#F1F5F9]">
+            <div class="mt-2.5 h-1 overflow-hidden rounded-full bg-slate-100">
               <div
                 class="h-full rounded-full {metricas_resumen.asistencia_promedio >= UMBRAL_OK
-                  ? 'bg-[#059669]'
-                  : 'bg-[#D97706]'}"
+                  ? 'bg-emerald-600'
+                  : 'bg-amber-600'}"
                 style="width: {Math.min(100, Math.max(0, metricas_resumen.asistencia_promedio))}%"
               ></div>
             </div>
           {:else}
-            <span class="{KPI} mt-2.5 text-[#98A0AE]">—</span>
-            <span class="mt-2.5 text-[12px] text-[#5A5E6E]">Sin asistencia registrada</span>
+            <span class="{KPI} mt-2.5 text-gray-400">—</span>
+            <span class="mt-2.5 text-[12px] text-ink-2">Sin asistencia registrada</span>
           {/if}
         </Link>
 
         <!-- Avance de evaluación -->
         <Link href="/docente/jefe-carrera/metricas" class={TILE}>
           <div class="flex items-center gap-2">
-            <ListChecks class="h-[15px] w-[15px] text-[#5A5E6E]" aria-hidden="true" />
-            <span class="text-[12px] text-[#5A5E6E]">Avance de evaluación</span>
-            <ArrowUpRight class="ml-auto h-[13px] w-[13px] text-[#5A5E6E]" aria-hidden="true" />
+            <ListChecks class="h-[15px] w-[15px] text-ink-2" aria-hidden="true" />
+            <span class="text-[12px] text-ink-2">Avance de evaluación</span>
+            <ArrowUpRight class="ml-auto h-[13px] w-[13px] text-ink-2" aria-hidden="true" />
           </div>
           {#if metricas_resumen.avance_evaluacion !== null}
             <span class="{KPI} mt-2.5">{fmtPct(metricas_resumen.avance_evaluacion)}</span>
-            <div class="mt-2.5 h-1 overflow-hidden rounded-full bg-[#F1F5F9]">
+            <div class="mt-2.5 h-1 overflow-hidden rounded-full bg-slate-100">
               <div
                 class="h-full rounded-full {metricas_resumen.avance_evaluacion >= UMBRAL_OK
-                  ? 'bg-[#059669]'
-                  : 'bg-[#D97706]'}"
+                  ? 'bg-emerald-600'
+                  : 'bg-amber-600'}"
                 style="width: {Math.min(100, Math.max(0, metricas_resumen.avance_evaluacion))}%"
               ></div>
             </div>
           {:else}
-            <span class="{KPI} mt-2.5 text-[#98A0AE]">—</span>
-            <span class="mt-2.5 text-[12px] text-[#5A5E6E]">Sin actividades evaluables</span>
+            <span class="{KPI} mt-2.5 text-gray-400">—</span>
+            <span class="mt-2.5 text-[12px] text-ink-2">Sin actividades evaluables</span>
           {/if}
         </Link>
 
         <!-- Alumnos en riesgo -->
         <Link href="/docente/jefe-carrera/metricas" class={TILE}>
           <div class="flex items-center gap-2">
-            <UserX class="h-[15px] w-[15px] text-[#5A5E6E]" aria-hidden="true" />
-            <span class="text-[12px] text-[#5A5E6E]">Alumnos en riesgo</span>
-            <ArrowUpRight class="ml-auto h-[13px] w-[13px] text-[#5A5E6E]" aria-hidden="true" />
+            <UserX class="h-[15px] w-[15px] text-ink-2" aria-hidden="true" />
+            <span class="text-[12px] text-ink-2">Alumnos en riesgo</span>
+            <ArrowUpRight class="ml-auto h-[13px] w-[13px] text-ink-2" aria-hidden="true" />
           </div>
           <span class="{KPI} mt-2.5">{metricas_resumen.alumnos_en_riesgo}</span>
-          <span class="mt-2.5 text-[12px] text-[#5A5E6E]">
+          <span class="mt-2.5 text-[12px] text-ink-2">
             {#if pctRiesgo !== null}
               {fmtDecimal(pctRiesgo)}% de {stats.estudiantes_matriculados.toLocaleString('es-CL')}
               matriculados
@@ -452,18 +452,18 @@
         <!-- Carga docente promedio -->
         <Link href="/docente/jefe-carrera/metricas" class={TILE}>
           <div class="flex items-center gap-2">
-            <GraduationCap class="h-[15px] w-[15px] text-[#5A5E6E]" aria-hidden="true" />
-            <span class="text-[12px] text-[#5A5E6E]">Carga docente promedio</span>
-            <ArrowUpRight class="ml-auto h-[13px] w-[13px] text-[#5A5E6E]" aria-hidden="true" />
+            <GraduationCap class="h-[15px] w-[15px] text-ink-2" aria-hidden="true" />
+            <span class="text-[12px] text-ink-2">Carga docente promedio</span>
+            <ArrowUpRight class="ml-auto h-[13px] w-[13px] text-ink-2" aria-hidden="true" />
           </div>
           {#if metricas_resumen.carga_docente.docentes > 0}
             <span class="{KPI} mt-2.5">{fmtDecimal(metricas_resumen.carga_docente.promedio)}</span>
-            <span class="mt-2.5 text-[12px] text-[#5A5E6E]">
+            <span class="mt-2.5 text-[12px] text-ink-2">
               cursos por docente · {metricas_resumen.carga_docente.docentes} titulares
             </span>
           {:else}
-            <span class="{KPI} mt-2.5 text-[#98A0AE]">—</span>
-            <span class="mt-2.5 text-[12px] text-[#5A5E6E]">Sin docentes titulares</span>
+            <span class="{KPI} mt-2.5 text-gray-400">—</span>
+            <span class="mt-2.5 text-[12px] text-ink-2">Sin docentes titulares</span>
           {/if}
         </Link>
       </div>

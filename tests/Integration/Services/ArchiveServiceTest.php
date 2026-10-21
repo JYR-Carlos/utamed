@@ -406,7 +406,7 @@ test('formatPath: concatenates student names with hyphens', function () {
   expect($path)->toMatch('/[a-z]+-[a-z]+/');
 });
 
-test('generateFileName: creates agenda_{timestamp}_{hash}.{extension} format', function () {
+test('generateFileName: creates agenda_{timestamp}_{hash} base name format', function () {
   $file = UploadedFile::fake()->create('document.pdf', 100);
 
   $reflection = new \ReflectionClass(AgendaArchiveHandler::class);
@@ -415,19 +415,7 @@ test('generateFileName: creates agenda_{timestamp}_{hash}.{extension} format', f
 
   $filename = $method->invoke(null, $file);
 
-  expect($filename)->toMatch('/^agenda_\d+_[a-zA-Z0-9]{8}\.pdf$/');
-});
-
-test('generateFileName: preserves file extension', function () {
-  $file = UploadedFile::fake()->create('test.docx', 100);
-
-  $reflection = new \ReflectionClass(AgendaArchiveHandler::class);
-  $method = $reflection->getMethod('generateFileName');
-  $method->setAccessible(true);
-
-  $filename = $method->invoke(null, $file);
-
-  expect($filename)->toEndWith('.docx');
+  expect($filename)->toMatch('/^agenda_\d+_[a-zA-Z0-9]{8}$/');
 });
 
 test('generateFileName: includes current timestamp in filename', function () {

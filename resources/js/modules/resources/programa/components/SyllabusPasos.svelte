@@ -36,7 +36,7 @@
 </script>
 
 <nav
-  class="flex gap-1.5 overflow-x-auto border-b border-[#E5E7EB] px-5 py-4 sm:px-7"
+  class="flex gap-1.5 overflow-x-auto border-b border-gray-200 px-5 py-4 sm:px-7"
   aria-label="Secciones del syllabus"
 >
   {#each pasos as paso (paso.id)}
@@ -54,25 +54,25 @@
       class="relative flex min-w-[104px] flex-1 items-center gap-2 rounded-[9px] border px-2.5 py-2.5 transition-colors {compacta
         ? 'flex-col justify-start gap-1.5 text-center'
         : 'justify-center'} {esActual
-        ? 'border-[#002F6C] bg-[#002F6C]'
+        ? 'border-navy bg-navy'
         : faltan > 0
-          ? 'border-[1.5px] border-[#DC2626] bg-white'
+          ? 'border-[1.5px] border-red-600 bg-white'
           : bloqueado
-            ? 'border-dashed border-[#D6D9E0] bg-[#F7F8FA] hover:bg-[#EDEFF3]'
+            ? 'border-dashed border-line bg-slate-50 hover:bg-gray-100'
             : completo
-              ? 'border-[#D6D9E0] bg-white hover:bg-[#F5F1EA]'
-              : 'border-[#EDEFF3] bg-[#F7F8FA] hover:bg-[#EDEFF3]'}"
+              ? 'border-line bg-white hover:bg-sand'
+              : 'border-gray-100 bg-slate-50 hover:bg-gray-100'}"
     >
       {#if bloqueado && !esActual}
-        <Lock size={16} class="shrink-0 text-[#9AA0AE]" aria-hidden="true" />
+        <Lock size={16} class="shrink-0 text-gray-400" aria-hidden="true" />
       {:else}
         <Icono
           size={16}
           class="shrink-0 {esActual
             ? 'text-white'
             : faltan > 0
-              ? 'text-[#DC2626]'
-              : 'text-[#9AA0AE]'}"
+              ? 'text-red-600'
+              : 'text-gray-400'}"
           aria-hidden="true"
         />
       {/if}
@@ -81,13 +81,13 @@
         class="inline-flex items-center gap-1 text-[11.5px] leading-[1.25] {esActual
           ? 'text-white'
           : faltan > 0
-            ? 'font-semibold text-[#B91C1C]'
+            ? 'font-semibold text-red-700'
             : completo && !bloqueado
-              ? 'text-[#1A1A24]'
-              : 'text-[#9AA0AE]'}"
+              ? 'text-ink'
+              : 'text-gray-400'}"
       >
         {#if completo && !esActual && faltan === 0}
-          <Check size={12} class="shrink-0 text-[#059669]" aria-hidden="true" />
+          <Check size={12} class="shrink-0 text-emerald-600" aria-hidden="true" />
         {/if}
         {#if numeral}
           <b class={esActual ? 'font-bold' : 'font-semibold'}>{numeral}.</b>
@@ -97,7 +97,7 @@
 
       {#if faltan > 0 && !esActual}
         <span
-          class="absolute -top-[7px] -right-[7px] flex h-[19px] min-w-[19px] items-center justify-center rounded-full bg-[#DC2626] px-1.5 text-[11px] font-bold text-white"
+          class="absolute -top-[7px] -right-[7px] flex h-[19px] min-w-[19px] items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white"
           aria-label="{faltan} campos obligatorios pendientes"
         >
           {faltan}

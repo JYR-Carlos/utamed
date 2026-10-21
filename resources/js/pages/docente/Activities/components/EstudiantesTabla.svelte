@@ -114,15 +114,15 @@
   const CHIP: Record<Estado, { texto: string; clase: string }> = $derived({
     por_calificar: {
       texto: esSumativa ? 'Por calificar' : 'Por revisar',
-      clase: 'bg-[#FEF3C6] text-[#92400E] border-transparent',
+      clase: 'bg-amber-100 text-amber-800 border-transparent',
     },
-    fuera_de_plazo: { texto: 'Fuera de plazo', clase: 'bg-[#FEF3C6] text-[#92400E] border-[#F2C94C]' },
+    fuera_de_plazo: { texto: 'Fuera de plazo', clase: 'bg-amber-100 text-amber-800 border-yellow-400' },
     calificada: {
       texto: esSumativa ? 'Calificada' : 'Revisada',
-      clase: 'bg-[#ECFDF5] text-[#047857] border-transparent',
+      clase: 'bg-emerald-50 text-emerald-700 border-transparent',
     },
-    sin_entrega: { texto: 'Sin entrega', clase: 'bg-[#F1F5F9] text-slate-600 border-[#7B8AA0]' },
-    no_entrego: { texto: 'No entregó', clase: 'bg-[#FEE2E2] text-[#B91C1C] border-transparent' },
+    sin_entrega: { texto: 'Sin entrega', clase: 'bg-slate-100 text-slate-600 border-line-control' },
+    no_entrego: { texto: 'No entregó', clase: 'bg-red-100 text-red-700 border-transparent' },
   });
 
   // ─── Resumen, filtro y búsqueda ───────────────────────────────────────────
@@ -226,11 +226,11 @@
   const BTN_PRIMARIO =
     'inline-flex items-center justify-center rounded-lg bg-uta-blue px-4 text-sm font-semibold text-white transition-colors hover:bg-uta-blue-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2';
   const BTN_SECUNDARIO =
-    'inline-flex items-center justify-center rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2';
+    'inline-flex items-center justify-center rounded-lg border border-line-control bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2';
   const BTN_MAS =
-    'relative inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-[#7B8AA0] bg-white text-[#1A1A24] transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue';
+    'relative inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line-control bg-white text-ink transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue';
   const BTN_DECIMA =
-    'size-6 flex items-center justify-center rounded border border-[#7B8AA0] text-slate-600 hover:bg-slate-100 transition disabled:opacity-30';
+    'size-6 flex items-center justify-center rounded border border-line-control text-slate-600 hover:bg-slate-100 transition disabled:opacity-30';
   const TH = 'px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.06em] text-slate-600';
 </script>
 
@@ -263,7 +263,7 @@
   {:else}
     {@const final = integrante?.nota_individual ?? Number(g.nota)}
     <div class="flex flex-col gap-1">
-      <span class="text-lg font-bold leading-6 tabular-nums {final >= 4 ? 'text-[#047857]' : 'text-[#B91C1C]'}">
+      <span class="text-lg font-bold leading-6 tabular-nums {final >= 4 ? 'text-emerald-700' : 'text-red-700'}">
         {formatNota(final)}
       </span>
       {#if esTitular && integrante}
@@ -278,7 +278,7 @@
           >
             <Minus class="size-3" />
           </button>
-          <span class="w-10 text-center font-mono text-xs font-semibold {decimas === 0 ? 'text-slate-600' : decimas > 0 ? 'text-[#047857]' : 'text-[#B91C1C]'}">
+          <span class="w-10 text-center font-mono text-xs font-semibold {decimas === 0 ? 'text-slate-600' : decimas > 0 ? 'text-emerald-700' : 'text-red-700'}">
             {formatDecimas(decimas)}
           </span>
           <button
@@ -306,7 +306,7 @@
         min="0"
         bind:value={holguraTemp}
         aria-label="Días de holgura personal"
-        class="h-9 w-16 rounded-lg border border-[#7B8AA0] bg-white px-2 text-sm focus:border-uta-blue focus:outline-none focus:ring-2 focus:ring-uta-blue"
+        class="h-9 w-16 rounded-lg border border-line-control bg-white px-2 text-sm focus:border-uta-blue focus:outline-none focus:ring-2 focus:ring-uta-blue"
       />
       <span class="text-xs text-slate-600">días</span>
       <button onclick={() => guardarHolgura(g.grupo)} class="{BTN_PRIMARIO} h-9 px-3" title="Guardar holgura">
@@ -352,39 +352,39 @@
 <div class="flex flex-col gap-4">
   <!-- Resumen -->
   <div class="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-    <div class="flex flex-col gap-1 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5">
+    <div class="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5">
       <span class="text-[11px] font-bold uppercase tracking-[0.06em] text-slate-600">Entregaron</span>
-      <span class="text-[28px] font-bold leading-[34px] tabular-nums text-[#1A1A24]">{cuenta.entregaron}</span>
+      <span class="text-[28px] font-bold leading-[34px] tabular-nums text-ink">{cuenta.entregaron}</span>
       <span class="text-[13px] text-slate-600">de {grupos.length} estudiantes</span>
     </div>
     <div
       class="flex flex-col gap-1 rounded-xl border px-4 py-3.5 {cuenta.pendientes > 0
-        ? 'border-[#F2C94C] bg-[#FEF3C6]'
-        : 'border-[#E2E8F0] bg-white'}"
+        ? 'border-yellow-400 bg-amber-100'
+        : 'border-slate-200 bg-white'}"
     >
-      <span class="text-[11px] font-bold uppercase tracking-[0.06em] {cuenta.pendientes > 0 ? 'text-[#92400E]' : 'text-slate-600'}">{etiquetaPendientes}</span>
-      <span class="text-[28px] font-bold leading-[34px] tabular-nums {cuenta.pendientes > 0 ? 'text-[#92400E]' : 'text-[#1A1A24]'}">{cuenta.pendientes}</span>
-      <span class="text-[13px] {cuenta.pendientes > 0 ? 'text-[#92400E]' : 'text-slate-600'}">
+      <span class="text-[11px] font-bold uppercase tracking-[0.06em] {cuenta.pendientes > 0 ? 'text-amber-800' : 'text-slate-600'}">{etiquetaPendientes}</span>
+      <span class="text-[28px] font-bold leading-[34px] tabular-nums {cuenta.pendientes > 0 ? 'text-amber-800' : 'text-ink'}">{cuenta.pendientes}</span>
+      <span class="text-[13px] {cuenta.pendientes > 0 ? 'text-amber-800' : 'text-slate-600'}">
         {esSumativa ? 'entregas vigentes sin nota' : 'entregas sin feedback'}
       </span>
     </div>
-    <div class="flex flex-col gap-1 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5">
+    <div class="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5">
       <span class="text-[11px] font-bold uppercase tracking-[0.06em] text-slate-600">{etiquetaListas}</span>
-      <span class="text-[28px] font-bold leading-[34px] tabular-nums text-[#1A1A24]">{cuenta.calificadas}</span>
+      <span class="text-[28px] font-bold leading-[34px] tabular-nums text-ink">{cuenta.calificadas}</span>
       <span class="text-[13px] text-slate-600">
         {promedio !== null ? `promedio ${formatNota(promedio)}` : esSumativa ? 'aún sin notas' : 'con feedback'}
       </span>
     </div>
-    <div class="flex flex-col gap-1 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5">
+    <div class="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5">
       <span class="text-[11px] font-bold uppercase tracking-[0.06em] text-slate-600">Sin entrega</span>
-      <span class="text-[28px] font-bold leading-[34px] tabular-nums text-[#1A1A24]">{cuenta.sin_entrega}</span>
+      <span class="text-[28px] font-bold leading-[34px] tabular-nums text-ink">{cuenta.sin_entrega}</span>
       <span class="text-[13px] text-slate-600">{traeArchivo ? 'no han enviado archivo' : 'actividad presencial'}</span>
     </div>
   </div>
 
   <!-- Filtros -->
   <div class="flex flex-wrap items-center gap-3">
-    <div class="flex flex-wrap gap-2 rounded-[10px] md:gap-1 md:bg-[#F1F5F9] md:p-1" role="group" aria-label="Filtrar por estado">
+    <div class="flex flex-wrap gap-2 rounded-[10px] md:gap-1 md:bg-slate-100 md:p-1" role="group" aria-label="Filtrar por estado">
       {#each [['todos', 'Todos', grupos.length], ['pendientes', etiquetaPendientes, cuenta.pendientes], ['calificadas', etiquetaListas, cuenta.calificadas], ['sin_entrega', 'Sin entrega', cuenta.sin_entrega]] as [valor, texto, n] (valor)}
         {@const activo = filtro === valor}
         <button
@@ -392,8 +392,8 @@
           aria-pressed={activo}
           onclick={() => (filtro = valor as Filtro)}
           class="inline-flex h-11 items-center gap-2 rounded-full border px-3.5 text-sm transition-colors md:h-9 md:rounded-lg {activo
-            ? 'border-[#7B8AA0] bg-white font-semibold text-uta-blue md:border-[#7B8AA0]'
-            : 'border-[#7B8AA0] bg-white font-medium text-slate-600 hover:text-[#1A1A24] md:border-transparent md:bg-transparent'}"
+            ? 'border-line-control bg-white font-semibold text-uta-blue md:border-line-control'
+            : 'border-line-control bg-white font-medium text-slate-600 hover:text-ink md:border-transparent md:bg-transparent'}"
         >
           {texto}
           <span class="text-xs font-semibold">{n}</span>
@@ -402,26 +402,26 @@
     </div>
     <label class="relative w-full md:ml-auto md:w-[280px]">
       <span class="sr-only">Buscar por nombre</span>
-      <Search size={16} class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#5B6A82]" />
+      <Search size={16} class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-2" />
       <input
         type="text"
         bind:value={busqueda}
         placeholder="Buscar por nombre"
-        class="h-11 w-full rounded-lg border border-[#7B8AA0] bg-white pl-9 pr-3 text-sm focus:border-uta-blue focus:outline-none focus:ring-2 focus:ring-uta-blue md:h-10"
+        class="h-11 w-full rounded-lg border border-line-control bg-white pl-9 pr-3 text-sm focus:border-uta-blue focus:outline-none focus:ring-2 focus:ring-uta-blue md:h-10"
       />
     </label>
   </div>
 
   {#if grupos.length === 0}
-    <div class="rounded-xl border border-[#E2E8F0] bg-white px-4 py-10 text-center text-sm font-medium text-slate-600">
+    <div class="rounded-xl border border-slate-200 bg-white px-4 py-10 text-center text-sm font-medium text-slate-600">
       No hay estudiantes asignados a esta actividad
     </div>
   {:else}
     <!-- Desktop / tablet: tabla -->
-    <div class="hidden overflow-hidden rounded-xl border border-[#E2E8F0] bg-white md:block">
+    <div class="hidden overflow-hidden rounded-xl border border-slate-200 bg-white md:block">
       <table class="w-full border-collapse text-sm">
         <caption class="sr-only">Estudiantes asignados a la actividad</caption>
-        <thead class="bg-[#F8FAFC]">
+        <thead class="bg-slate-50">
           <tr>
             <th class="{TH} w-12">#</th>
             <th class={TH}>Estudiante</th>
@@ -436,10 +436,10 @@
         <tbody>
           {#each gruposVisibles as g, i (g.grupo)}
             {@const accion = accionDe(g)}
-            <tr class="border-t border-[#E2E8F0] align-middle transition-colors hover:bg-slate-50">
+            <tr class="border-t border-slate-200 align-middle transition-colors hover:bg-slate-50">
               <td class="px-4 py-3 font-mono text-xs tabular-nums text-muted-foreground">{String(i + 1).padStart(2, '0')}</td>
               <td class="px-4 py-3">
-                <span class="block font-semibold text-[#1A1A24]">{g.integrantes[0]?.nombre_completo ?? 'Estudiante'}</span>
+                <span class="block font-semibold text-ink">{g.integrantes[0]?.nombre_completo ?? 'Estudiante'}</span>
                 {#if !traeArchivo && g.nro_dias_adicionales_para_bloqueo_personal > 0}
                   <span class="block text-xs text-muted-foreground">{detalleEntrega(g)}</span>
                 {/if}
@@ -447,7 +447,7 @@
               </td>
               {#if traeArchivo}
                 <td class="px-4 py-3">
-                  <span class="block text-[13px] font-medium {g.entrega ? 'text-[#1A1A24]' : 'text-slate-600'}">
+                  <span class="block text-[13px] font-medium {g.entrega ? 'text-ink' : 'text-slate-600'}">
                     {g.entrega ? formatFechaHora(g.entrega.fecha) : 'Sin envío'}
                   </span>
                   <span class="block text-xs text-muted-foreground">{detalleEntrega(g)}</span>
@@ -465,7 +465,7 @@
               </td>
             </tr>
           {:else}
-            <tr class="border-t border-[#E2E8F0]">
+            <tr class="border-t border-slate-200">
               <td colspan={traeArchivo ? 6 : 5} class="px-4 py-8 text-center text-sm text-slate-600">
                 Ningún estudiante coincide con el filtro.
               </td>
@@ -473,7 +473,7 @@
           {/each}
         </tbody>
       </table>
-      <div class="border-t border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-[13px] text-slate-600">
+      <div class="border-t border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-slate-600">
         Mostrando {gruposVisibles.length} de {grupos.length} estudiantes · ordenados por prioridad ({etiquetaPendientes.toLowerCase()}, fuera de plazo, {etiquetaListas.toLowerCase()}, sin entrega)
       </div>
     </div>
@@ -482,9 +482,9 @@
     <ul class="flex flex-col gap-3 md:hidden" aria-label="Estudiantes asignados a la actividad">
       {#each gruposVisibles as g (g.grupo)}
         {@const accion = accionDe(g)}
-        <li class="flex flex-col gap-2.5 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5">
+        <li class="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5">
           <div class="flex items-start gap-2">
-            <span class="flex-1 text-[15px] font-semibold leading-5 text-[#1A1A24]">{g.integrantes[0]?.nombre_completo ?? 'Estudiante'}</span>
+            <span class="flex-1 text-[15px] font-semibold leading-5 text-ink">{g.integrantes[0]?.nombre_completo ?? 'Estudiante'}</span>
             {@render chip(g)}
           </div>
           <span class="text-[13px] text-slate-600">
@@ -503,7 +503,7 @@
           </div>
         </li>
       {:else}
-        <li class="rounded-xl border border-[#E2E8F0] bg-white px-4 py-8 text-center text-sm text-slate-600">
+        <li class="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-600">
           Ningún estudiante coincide con el filtro.
         </li>
       {/each}

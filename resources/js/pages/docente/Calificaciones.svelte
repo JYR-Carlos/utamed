@@ -112,19 +112,19 @@
   <div class="max-w-[1100px] mx-auto w-full p-4 md:p-6 lg:p-8 flex flex-col gap-6">
     <!-- Header -->
     <header class="flex items-center gap-3">
-      <div class="flex items-center justify-center w-11 h-11 rounded-xl bg-[#E6ECF5] shrink-0">
-        <BarChart3 size={22} class="text-[#002F6C]" />
+      <div class="flex items-center justify-center w-11 h-11 rounded-xl bg-uta-blue-light shrink-0">
+        <BarChart3 size={22} class="text-navy" />
       </div>
       <div>
-        <h1 class="text-2xl font-extrabold text-[#1A1A24] tracking-tight m-0 leading-tight">Calificaciones</h1>
-        <p class="text-sm text-[#5A5E6E] m-0">Evalúa las actividades de tus cursos con rúbrica y nota.</p>
+        <h1 class="text-2xl font-extrabold text-ink tracking-tight m-0 leading-tight">Calificaciones</h1>
+        <p class="text-sm text-ink-2 m-0">Evalúa las actividades de tus cursos con rúbrica y nota.</p>
       </div>
     </header>
 
     {#if cursos.length === 0}
-      <div class="flex flex-col items-center justify-center py-20 text-center rounded-2xl border-2 border-dashed bg-[#F5F1EA] border-[#D0CBC1]">
-        <GraduationCap size={36} class="text-[#8A8E9C] mb-3" />
-        <p class="text-sm font-medium text-[#5A5E6E]">No tienes actividades para calificar.</p>
+      <div class="flex flex-col items-center justify-center py-20 text-center rounded-2xl border-2 border-dashed bg-sand border-sand-line">
+        <GraduationCap size={36} class="text-ink-3 mb-3" />
+        <p class="text-sm font-medium text-ink-2">No tienes actividades para calificar.</p>
         <p class="text-xs text-muted-foreground mt-1 max-w-sm">
           Las calificaciones se realizan sobre las actividades de los componentes que impartes; aún no hay actividades disponibles.
         </p>
@@ -134,17 +134,17 @@
       <nav class="flex items-center gap-2 text-sm flex-wrap" aria-label="Selección de calificación">
         <button
           onclick={resetCurso}
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all {cursoSel === null ? 'bg-[#002F6C] text-white' : 'bg-[#F5F1EA] text-[#5A5E6E] hover:bg-[#E8E4DC]'}"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all {cursoSel === null ? 'bg-navy text-white' : 'bg-sand text-ink-2 hover:bg-sand-2'}"
         >
           <BookOpen size={14} />
           {cursoActual ? cursoActual.nombre : 'Curso'}
         </button>
         {#if cursoActual}
-          <ChevronRight size={14} class="text-[#8A8E9C]" />
+          <ChevronRight size={14} class="text-ink-3" />
           <button
             onclick={resetComponente}
             disabled={cursoActual.componentes.length <= 1}
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all {componenteSel === null ? 'bg-[#002F6C] text-white' : 'bg-[#F5F1EA] text-[#5A5E6E] hover:bg-[#E8E4DC]'} disabled:opacity-60 disabled:cursor-default"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all {componenteSel === null ? 'bg-navy text-white' : 'bg-sand text-ink-2 hover:bg-sand-2'} disabled:opacity-60 disabled:cursor-default"
           >
             <Layers size={14} />
             {componenteActual ? componenteActual.tipo_componente : 'Componente'}
@@ -155,24 +155,24 @@
       <!-- PASO 1: elegir curso -->
       {#if cursoSel === null}
         <section class="flex flex-col gap-4">
-          <h2 class="text-base font-bold text-[#1A1A24] m-0">
+          <h2 class="text-base font-bold text-ink m-0">
             Seleccione el curso a calificar
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {#each cursos as c (c.id_curso)}
               <button
                 onclick={() => elegirCurso(c.id_curso)}
-                class="flex flex-col gap-3 p-5 rounded-xl border bg-white border-[#E8E4DC] text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-[#002F6C]/30"
+                class="flex flex-col gap-3 p-5 rounded-xl border bg-white border-sand-2 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-navy/30"
               >
                 <div class="flex items-start justify-between gap-2">
-                  <span class="font-mono text-[12px] bg-[#E6ECF5] text-[#002F6C] px-2 py-0.5 rounded-md font-semibold">{c.cod_curso}</span>
+                  <span class="font-mono text-[12px] bg-uta-blue-light text-navy px-2 py-0.5 rounded-md font-semibold">{c.cod_curso}</span>
                   {#if c.es_titular_curso}
-                    <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#FFF3D1] text-[#8A5F00]">
+                    <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-ocre">
                       <Crown size={10} /> Titular
                     </span>
                   {/if}
                 </div>
-                <p class="text-sm font-semibold text-[#1A1A24] leading-snug line-clamp-2 m-0">{c.nombre}</p>
+                <p class="text-sm font-semibold text-ink leading-snug line-clamp-2 m-0">{c.nombre}</p>
                 <div class="flex items-center gap-3 text-xs text-muted-foreground mt-auto">
                   <span>{periodo(c)}</span>
                   <span class="inline-flex items-center gap-1">
@@ -188,28 +188,28 @@
         <!-- PASO 2: elegir componente -->
       {:else if componenteSel === null && cursoActual}
         <section class="flex flex-col gap-4">
-          <h2 class="text-base font-bold text-[#1A1A24] m-0">Seleccione la componente</h2>
+          <h2 class="text-base font-bold text-ink m-0">Seleccione la componente</h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {#each cursoActual.componentes as comp (comp.id_componente)}
               <button
                 onclick={() => (componenteSel = comp.id_componente)}
-                class="flex flex-col gap-3 p-5 rounded-xl border bg-white border-[#E8E4DC] text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-[#002F6C]/30"
+                class="flex flex-col gap-3 p-5 rounded-xl border bg-white border-sand-2 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-navy/30"
               >
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-2">
-                    <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-[#E6ECF5] shrink-0">
-                      <Layers size={16} class="text-[#002F6C]" />
+                    <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-uta-blue-light shrink-0">
+                      <Layers size={16} class="text-navy" />
                     </div>
-                    <span class="text-sm font-bold text-[#1A1A24]">{comp.tipo_componente}</span>
+                    <span class="text-sm font-bold text-ink">{comp.tipo_componente}</span>
                   </div>
                   {#if comp.es_titular_componente}
-                    <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#FFF3D1] text-[#8A5F00]" title="Titular de la componente">
+                    <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-ocre" title="Titular de la componente">
                       <Crown size={10} /> Titular
                     </span>
                   {:else if comp.imparte}
-                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#E0F5EA] text-[#0E7C4A]">Imparte</span>
+                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-emerald-700">Imparte</span>
                   {:else}
-                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#F5F1EA] text-muted-foreground" title="Supervisión como titular del curso">Supervisión</span>
+                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sand text-muted-foreground" title="Supervisión como titular del curso">Supervisión</span>
                   {/if}
                 </div>
                 <div class="flex items-center gap-1.5 text-xs text-muted-foreground mt-auto">
@@ -224,7 +224,7 @@
         <!-- PASO 3: elegir actividad → evaluar -->
       {:else if cursoActual && componenteActual}
         <section class="flex flex-col gap-4">
-          <h2 class="text-base font-bold text-[#1A1A24] m-0">
+          <h2 class="text-base font-bold text-ink m-0">
             Seleccione la actividad a evaluar
           </h2>
           <div class="flex flex-col gap-3">
@@ -232,16 +232,16 @@
               {#if act.tiene_grupos}
                 <Link
                   href={`/docente/cursos/${cursoActual.id_curso}/actividades/${act.id_actividad}/evaluacion`}
-                  class="flex items-center justify-between gap-4 p-4 rounded-xl border bg-white border-[#E8E4DC] no-underline transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-[#002F6C]/30"
+                  class="flex items-center justify-between gap-4 p-4 rounded-xl border bg-white border-sand-2 no-underline transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-navy/30"
                 >
                   <div class="flex items-center gap-3 min-w-0">
-                    <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-[#E6ECF5] shrink-0">
-                      <BarChart3 size={18} class="text-[#002F6C]" />
+                    <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-uta-blue-light shrink-0">
+                      <BarChart3 size={18} class="text-navy" />
                     </div>
                     <div class="min-w-0">
-                      <p class="text-sm font-semibold text-[#1A1A24] truncate m-0">{act.nombre}</p>
+                      <p class="text-sm font-semibold text-ink truncate m-0">{act.nombre}</p>
                       <div class="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
-                        <span class="inline-flex items-center gap-1 font-semibold {act.tipo_actividad === 'SUMATIVA' ? 'text-[#8A5F00]' : 'text-[#0E7C4A]'}">
+                        <span class="inline-flex items-center gap-1 font-semibold {act.tipo_actividad === 'SUMATIVA' ? 'text-ocre' : 'text-emerald-700'}">
                           {act.tipo_actividad === 'SUMATIVA' ? 'Sumativa' : 'Formativa'}
                         </span>
                         <span class="inline-flex items-center gap-1">
@@ -255,18 +255,18 @@
                       </div>
                     </div>
                   </div>
-                  <ChevronRight size={18} class="text-[#8A8E9C] shrink-0" />
+                  <ChevronRight size={18} class="text-ink-3 shrink-0" />
                 </Link>
               {:else}
-                <div class="flex items-center justify-between gap-4 p-4 rounded-xl border bg-[#FFFBF0] border-[#F0D080]">
+                <div class="flex items-center justify-between gap-4 p-4 rounded-xl border bg-amber-50 border-amber-200">
                   <div class="flex items-center gap-3 min-w-0">
-                    <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-[#FFF3D1] shrink-0">
-                      <BarChart3 size={18} class="text-[#8A5F00]" />
+                    <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-100 shrink-0">
+                      <BarChart3 size={18} class="text-ocre" />
                     </div>
                     <div class="min-w-0">
-                      <p class="text-sm font-semibold text-[#5A4A00] truncate m-0">{act.nombre}</p>
+                      <p class="text-sm font-semibold text-ocre truncate m-0">{act.nombre}</p>
                       <div class="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
-                        <span class="inline-flex items-center gap-1 font-semibold {act.tipo_actividad === 'SUMATIVA' ? 'text-[#8A5F00]' : 'text-[#0E7C4A]'}">
+                        <span class="inline-flex items-center gap-1 font-semibold {act.tipo_actividad === 'SUMATIVA' ? 'text-ocre' : 'text-emerald-700'}">
                           {act.tipo_actividad === 'SUMATIVA' ? 'Sumativa' : 'Formativa'}
                         </span>
                         <span class="inline-flex items-center gap-1">
@@ -280,7 +280,7 @@
                       </div>
                     </div>
                   </div>
-                  <div class="flex items-center gap-2 shrink-0 text-[#8A5F00]">
+                  <div class="flex items-center gap-2 shrink-0 text-ocre">
                     <AlertTriangle size={15} />
                     <span class="text-xs font-medium whitespace-nowrap">Sin grupos asignados</span>
                   </div>

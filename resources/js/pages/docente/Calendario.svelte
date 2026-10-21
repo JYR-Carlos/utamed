@@ -338,11 +338,11 @@
   // ── Lenguaje visual del selector de vista ───────────────────────────────────
   const SEG_BASE =
     'inline-flex items-center gap-1.5 rounded-[7px] border px-2.5 py-1.5 text-[12.5px] transition-colors';
-  const SEG_ON = 'border-[#D6D9E0] bg-white font-semibold text-[#002F6C] shadow-[0_1px_2px_rgba(0,0,0,.06)]';
-  const SEG_OFF = 'border-transparent bg-transparent font-medium text-[#4A4E5C] hover:text-[#1A1A24]';
+  const SEG_ON = 'border-line bg-white font-semibold text-navy shadow-[0_1px_2px_rgba(0,0,0,.06)]';
+  const SEG_OFF = 'border-transparent bg-transparent font-medium text-zinc-600 hover:text-ink';
 
   const NAV_BTN =
-    'flex h-8 w-8 items-center justify-center transition-colors hover:bg-[#F5F1EA]';
+    'flex h-8 w-8 items-center justify-center transition-colors hover:bg-sand';
 </script>
 
 <DocenteLayout {breadcrumbs}>
@@ -351,8 +351,8 @@
       <!-- ── Encabezado ─────────────────────────────────────────────────────── -->
       <header class="flex flex-wrap items-start gap-4">
         <div class="flex min-w-0 flex-col gap-0.5">
-          <h1 class="m-0 text-[24px] font-semibold tracking-[-0.01em] text-[#1A1A24]">Calendario</h1>
-          <span class="text-[12.5px] text-[#5A5E6E]">
+          <h1 class="m-0 text-[24px] font-semibold tracking-[-0.01em] text-ink">Calendario</h1>
+          <span class="text-[12.5px] text-ink-2">
             Fecha nominal de cada actividad, sesiones de asistencia e hitos de syllabus
           </span>
         </div>
@@ -360,7 +360,7 @@
         <div class="ml-auto flex flex-wrap items-center gap-2">
           <!-- Selector de vista -->
           <div
-            class="flex gap-0.5 rounded-[9px] border border-[#DDE2E9] bg-[#EDF0F4] p-0.5"
+            class="flex gap-0.5 rounded-[9px] border border-zinc-200 bg-gray-100 p-0.5"
             role="group"
             aria-label="Vista del calendario"
           >
@@ -370,7 +370,7 @@
               class="{SEG_BASE} {vista === 'mes' ? SEG_ON : SEG_OFF}"
               aria-pressed={vista === 'mes'}
             >
-              <CalendarDays size={14} color={vista === 'mes' ? '#002F6C' : '#5A5E6E'} />
+              <CalendarDays size={14} class={vista === 'mes' ? 'text-navy' : 'text-ink-2'} />
               Mes
             </button>
             <button
@@ -379,7 +379,7 @@
               class="{SEG_BASE} {vista === 'semana' ? SEG_ON : SEG_OFF}"
               aria-pressed={vista === 'semana'}
             >
-              <Columns3 size={14} color={vista === 'semana' ? '#002F6C' : '#5A5E6E'} />
+              <Columns3 size={14} class={vista === 'semana' ? 'text-navy' : 'text-ink-2'} />
               Semana
             </button>
             <button
@@ -388,27 +388,27 @@
               class="{SEG_BASE} {vista === 'agenda' ? SEG_ON : SEG_OFF}"
               aria-pressed={vista === 'agenda'}
             >
-              <LayoutList size={14} color={vista === 'agenda' ? '#002F6C' : '#5A5E6E'} />
+              <LayoutList size={14} class={vista === 'agenda' ? 'text-navy' : 'text-ink-2'} />
               Agenda
             </button>
           </div>
 
           <!-- Navegación temporal -->
           <div
-            class="flex items-center overflow-hidden rounded-lg border border-[#D6D9E0] bg-white"
+            class="flex items-center overflow-hidden rounded-lg border border-line bg-white"
           >
             <button
               type="button"
               onclick={() => paso(-1)}
-              class="{NAV_BTN} border-r border-[#E5E7EB]"
+              class="{NAV_BTN} border-r border-gray-200"
               aria-label={vista === 'mes' ? 'Mes anterior' : 'Semana anterior'}
             >
-              <ChevronLeft size={15} color="#4A4E5C" />
+              <ChevronLeft size={15} class="text-zinc-600" />
             </button>
             <button
               type="button"
               onclick={irHoy}
-              class="h-8 border-r border-[#E5E7EB] bg-[#E8EDF5] px-3 text-[12.5px] font-semibold text-[#002F6C] transition-colors hover:bg-[#DCE5F1]"
+              class="h-8 border-r border-gray-200 bg-uta-blue-light px-3 text-[12.5px] font-semibold text-navy transition-colors hover:bg-slate-200"
             >
               Hoy
             </button>
@@ -418,20 +418,20 @@
               class={NAV_BTN}
               aria-label={vista === 'mes' ? 'Mes siguiente' : 'Semana siguiente'}
             >
-              <ChevronRight size={15} color="#4A4E5C" />
+              <ChevronRight size={15} class="text-zinc-600" />
             </button>
           </div>
 
           <!-- Período académico -->
           {#if periodos.length > 1}
             <label
-              class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#D6D9E0] bg-white px-2.5 text-[12.5px] font-medium text-[#1A1A24]"
+              class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 text-[12.5px] font-medium text-ink"
             >
-              <CalendarRange size={14} color="#5A5E6E" />
+              <CalendarRange size={14} class="text-ink-2" />
               <span class="sr-only">Período académico</span>
               <select
                 bind:value={periodo}
-                class="cursor-pointer border-none bg-transparent text-[12.5px] font-medium text-[#1A1A24] outline-none"
+                class="cursor-pointer border-none bg-transparent text-[12.5px] font-medium text-ink outline-none"
               >
                 <option value="todos">Todos los períodos</option>
                 {#each periodos as p (p)}
@@ -448,10 +448,10 @@
             class="{BTN_OUTLINE} h-8 py-0 lg:hidden"
             aria-expanded={filtrosAbiertos}
           >
-            <SlidersHorizontal size={13} color="#5A5E6E" />
+            <SlidersHorizontal size={13} class="text-ink-2" />
             Filtros
             <span
-              class="rounded-full bg-[#E8EDF5] px-1.5 text-[10px] font-bold text-[#002F6C] tabular-nums"
+              class="rounded-full bg-uta-blue-light px-1.5 text-[10px] font-bold text-navy tabular-nums"
             >
               {activos.size}
             </span>
@@ -465,15 +465,15 @@
         <div class="flex gap-5 max-lg:flex-col">
           <!-- ── Filtros ────────────────────────────────────────────────────── -->
           <aside
-            class="w-[236px] shrink-0 self-start overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,.06)] max-lg:w-full {filtrosAbiertos
+            class="w-[236px] shrink-0 self-start overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,.06)] max-lg:w-full {filtrosAbiertos
               ? ''
               : 'max-lg:hidden'}"
           >
-            <div class="flex items-center gap-2 border-b border-[#E5E7EB] px-3.5 py-3">
-              <SlidersHorizontal size={15} color="#5A5E6E" />
-              <span class="text-[13.5px] font-semibold text-[#1A1A24]">Filtros</span>
+            <div class="flex items-center gap-2 border-b border-gray-200 px-3.5 py-3">
+              <SlidersHorizontal size={15} class="text-ink-2" />
+              <span class="text-[13.5px] font-semibold text-ink">Filtros</span>
               <span
-                class="ml-auto rounded-full border border-[#C9D6E6] bg-[#E8EDF5] px-2 py-px text-[10.5px] font-bold text-[#002F6C] tabular-nums"
+                class="ml-auto rounded-full border border-slate-300 bg-uta-blue-light px-2 py-px text-[10.5px] font-bold text-navy tabular-nums"
               >
                 {activos.size} de {cursosDelPeriodo.length}
               </span>
@@ -507,10 +507,10 @@
           <!-- ── Vista ──────────────────────────────────────────────────────── -->
           <main class="flex min-w-0 flex-1 flex-col gap-3">
             <div class="flex flex-wrap items-center gap-2.5">
-              <h2 class="m-0 text-[16px] font-semibold capitalize text-[#1A1A24]">
+              <h2 class="m-0 text-[16px] font-semibold capitalize text-ink">
                 {rango.titulo}
               </h2>
-              <span class="font-mono text-[11.5px] text-[#5A5E6E]">
+              <span class="font-mono text-[11.5px] text-ink-2">
                 {rango.desde.split('-').reverse().slice(0, 2).join('-')} → {rango.hasta
                   .split('-')
                   .reverse()
@@ -519,7 +519,7 @@
               </span>
               {#if diasConSobrecarga > 0}
                 <span class="{PILL_ROJA} ml-auto">
-                  <TriangleAlert size={12} color="#B91C1C" />
+                  <TriangleAlert size={12} class="text-red-700" />
                   {diasConSobrecarga}
                   {diasConSobrecarga === 1 ? 'día con sobrecarga' : 'días con sobrecarga'}
                 </span>
@@ -558,10 +558,10 @@
             {/if}
 
             <div class="flex items-start gap-1.5 px-0.5">
-              <Info size={13} class="mt-0.5 shrink-0" color="#8A8E9C" />
-              <p class="m-0 max-w-[880px] text-[11.5px] leading-[1.45] text-[#5A5E6E]">
+              <Info size={13} class="text-ink-3 mt-0.5 shrink-0" />
+              <p class="m-0 max-w-[880px] text-[11.5px] leading-[1.45] text-ink-2">
                 Este calendario muestra la fecha
-                <span class="font-semibold text-[#1A1A24]">nominal</span> de cada actividad. La
+                <span class="font-semibold text-ink">nominal</span> de cada actividad. La
                 fecha efectiva de cada alumno
                 <span class="font-mono">(fecha_limite + días de holgura)</span> es personal y se
                 consulta en el detalle de la actividad. Las sesiones de clase que aparecen son las

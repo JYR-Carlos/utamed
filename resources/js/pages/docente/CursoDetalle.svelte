@@ -294,14 +294,14 @@
   }
 
   // ─── Lenguaje visual compartido ───
-  const CARD = 'bg-white border border-[#E2E8F0] rounded-xl';
-  const KPI = 'flex flex-col gap-1 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5';
+  const CARD = 'bg-white border border-slate-200 rounded-xl';
+  const KPI = 'flex flex-col gap-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5';
   const KPI_LABEL = 'text-[11px] font-bold uppercase tracking-[0.06em] text-slate-600';
-  const KPI_NUM = 'text-[28px] font-bold leading-[34px] tabular-nums text-[#1A1A24]';
+  const KPI_NUM = 'text-[28px] font-bold leading-[34px] tabular-nums text-ink';
   const BTN_GHOST =
-    'inline-flex items-center gap-[7px] rounded-lg px-3 py-2 text-[13.5px] font-medium text-[#002F6C] transition-colors hover:bg-[#F5F1EA]';
+    'inline-flex items-center gap-[7px] rounded-lg px-3 py-2 text-[13.5px] font-medium text-navy transition-colors hover:bg-sand';
   const BTN_OUTLINE =
-    'inline-flex h-11 items-center gap-2 rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light sm:h-10';
+    'inline-flex h-11 items-center gap-2 rounded-lg border border-line-control bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light sm:h-10';
   const BTN_PRIMARY =
     'inline-flex h-11 items-center gap-2 rounded-lg bg-uta-blue px-4 text-sm font-semibold text-white transition-colors hover:bg-uta-blue-hover sm:h-10';
   const PILL_AZUL =
@@ -331,7 +331,7 @@
           <div class="flex min-w-0 flex-col gap-1.5">
             <span class="font-mono text-xs font-medium text-slate-600">{curso.asignatura.cod_asignatura}</span>
             <div class="flex flex-wrap items-center gap-2.5">
-              <h1 class="m-0 text-2xl font-semibold leading-[30px] text-[#1A1A24] sm:text-[28px] sm:leading-[34px]">
+              <h1 class="m-0 text-2xl font-semibold leading-[30px] text-ink sm:text-[28px] sm:leading-[34px]">
                 {curso.nombre || curso.asignatura.nombre}
               </h1>
               {#if curso.letra_grupo}
@@ -390,15 +390,15 @@
             {#if !curso.es_titular_curso && componenteActual}
               <div class="flex flex-col items-start gap-0.5">
                 <span
-                  class="inline-flex items-center gap-[7px] rounded-full border border-[#E5E7EB] bg-[#F5F1EA] px-2.5 py-1 text-[12px] font-semibold text-[#1A1A24]"
+                  class="inline-flex items-center gap-[7px] rounded-full border border-gray-200 bg-sand px-2.5 py-1 text-[12px] font-semibold text-ink"
                 >
                   <span
-                    class="rounded border border-[#D6D9E0] bg-white px-1.5 py-px font-mono text-[10.5px] font-bold tracking-[0.06em] text-[#5A5E6E]"
+                    class="rounded border border-line bg-white px-1.5 py-px font-mono text-[10.5px] font-bold tracking-[0.06em] text-ink-2"
                     >{sigla(componenteActual.tipo_componente)}</span
                   >
                   Tu componente
                 </span>
-                <span class="text-[11.5px] text-[#5A5E6E]">
+                <span class="text-[11.5px] text-ink-2">
                   {componenteActual.total_estudiantes}
                   {componenteActual.total_estudiantes === 1 ? 'estudiante' : 'estudiantes'} ·
                   {componenteActual.total_sesiones}
@@ -451,16 +451,16 @@
             {@const alerta = bajoMinimo > 0}
             <div
               class="col-span-2 flex flex-col gap-1 rounded-xl border px-4 py-3.5 lg:col-span-1 {alerta
-                ? 'border-[#F2C94C] bg-[#FEF3C6]'
-                : 'border-[#E2E8F0] bg-white'}"
+                ? 'border-yellow-400 bg-amber-100'
+                : 'border-slate-200 bg-white'}"
             >
-              <span class="{KPI_LABEL} {alerta ? '!text-[#92400E]' : ''}">Asistencia</span>
+              <span class="{KPI_LABEL} {alerta ? '!text-amber-800' : ''}">Asistencia</span>
               {#if componenteActual.total_sesiones === 0}
                 <span class={KPI_NUM}>—</span>
                 <span class="text-[13px] text-slate-600">Sin sesiones registradas en {tipoComponenteActivo}</span>
               {:else}
-                <span class="{KPI_NUM} {alerta ? '!text-[#92400E]' : ''}">{bajoMinimo}</span>
-                <span class="text-[13px] {alerta ? 'text-[#92400E]' : 'text-slate-600'}">
+                <span class="{KPI_NUM} {alerta ? '!text-amber-800' : ''}">{bajoMinimo}</span>
+                <span class="text-[13px] {alerta ? 'text-amber-800' : 'text-slate-600'}">
                   {bajoMinimo === 1 ? 'estudiante' : 'estudiantes'} bajo el mínimo{minAsistencia
                     ? ` de ${Math.round(minAsistencia)} %`
                     : ''} en {tipoComponenteActivo}
@@ -479,7 +479,7 @@
           : ''}"
       >
         <div
-          class="flex items-stretch gap-5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-6 border-b border-[#E2E8F0] {mainTab === 'grupo' ? 'md:px-6' : 'px-4 sm:px-6'}"
+          class="flex items-stretch gap-5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-6 border-b border-slate-200 {mainTab === 'grupo' ? 'md:px-6' : 'px-4 sm:px-6'}"
           role="tablist"
           aria-label="Secciones del curso"
         >
@@ -489,7 +489,7 @@
             onclick={() => (mainTab = 'grupo')}
             class="{TAB_BASE} {mainTab === 'grupo'
               ? 'border-uta-blue font-semibold text-uta-blue'
-              : 'border-transparent font-medium text-slate-600 hover:text-[#1A1A24]'}"
+              : 'border-transparent font-medium text-slate-600 hover:text-ink'}"
           >
             Mi Grupo
             <span class={mainTab === 'grupo' ? CONTADOR_ACTIVO : CONTADOR_INACTIVO}
@@ -503,7 +503,7 @@
               onclick={() => (mainTab = 'actividades')}
               class="{TAB_BASE} {mainTab === 'actividades'
                 ? 'border-uta-blue font-semibold text-uta-blue'
-                : 'border-transparent font-medium text-slate-600 hover:text-[#1A1A24]'}"
+                : 'border-transparent font-medium text-slate-600 hover:text-ink'}"
             >
               Actividades
               <span class={mainTab === 'actividades' ? CONTADOR_ACTIVO : CONTADOR_INACTIVO}
@@ -518,7 +518,7 @@
               onclick={() => (mainTab = 'asistencia')}
               class="{TAB_BASE} {mainTab === 'asistencia'
                 ? 'border-uta-blue font-semibold text-uta-blue'
-                : 'border-transparent font-medium text-slate-600 hover:text-[#1A1A24]'}"
+                : 'border-transparent font-medium text-slate-600 hover:text-ink'}"
             >
               Asistencia
               <span class={mainTab === 'asistencia' ? CONTADOR_ACTIVO : CONTADOR_INACTIVO}
@@ -535,17 +535,17 @@
           <div class="flex flex-col">
             {#if mis_componentes.length === 0}
               <div
-                class="m-5 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#D0CBC1] bg-[#F5F1EA] py-14 text-center"
+                class="m-5 flex flex-col items-center justify-center rounded-xl border border-dashed border-sand-line bg-sand py-14 text-center"
               >
-                <div class="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#E8E4DC]">
-                  <Crown size={26} class="text-[#8A5F00]" />
+                <div class="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-sand-2">
+                  <Crown size={26} class="text-ocre" />
                 </div>
-                <p class="mb-1 text-sm font-semibold text-[#1A1A24]">Titular administrativo</p>
-                <p class="max-w-[320px] text-xs leading-relaxed text-[#5A5E6E]">
+                <p class="mb-1 text-sm font-semibold text-ink">Titular administrativo</p>
+                <p class="max-w-[320px] text-xs leading-relaxed text-ink-2">
                   No tienes un componente asignado para impartir clases directamente. Los
-                  <strong class="text-[#1A1A24]">{curso.total_estudiantes}</strong>
+                  <strong class="text-ink">{curso.total_estudiantes}</strong>
                   {curso.total_estudiantes === 1 ? 'estudiante' : 'estudiantes'} del curso están
-                  organizados por componente en <strong class="text-[#1A1A24]">Todos los componentes</strong>.
+                  organizados por componente en <strong class="text-ink">Todos los componentes</strong>.
                 </p>
               </div>
             {:else}
@@ -570,18 +570,18 @@
                   <div class="relative ml-auto w-full sm:w-[280px]">
                     <Search
                       size={16}
-                      class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#5B6A82]"
+                      class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-2"
                     />
                     <input
                       type="text"
                       bind:value={estudianteQuery}
                       placeholder="Buscar estudiante…"
-                      class="h-11 w-full rounded-lg border border-[#7B8AA0] bg-white pl-9 pr-8 text-sm placeholder:text-muted-foreground focus:border-uta-blue focus:outline-none focus:ring-2 focus:ring-uta-blue sm:h-10"
+                      class="h-11 w-full rounded-lg border border-line-control bg-white pl-9 pr-8 text-sm placeholder:text-muted-foreground focus:border-uta-blue focus:outline-none focus:ring-2 focus:ring-uta-blue sm:h-10"
                     />
                     {#if estudianteQuery}
                       <button
                         onclick={() => (estudianteQuery = '')}
-                        class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-[#1A1A24]"
+                        class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-ink"
                         aria-label="Limpiar búsqueda"
                       >
                         <X size={13} />
@@ -594,14 +594,14 @@
               <!-- Tabla del componente activo -->
               {#if estudiantesActivos.length === 0}
                 <div
-                  class="mx-4 mb-5 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#7B8AA0] bg-[#F8FAFC] py-16 text-center sm:mx-6"
+                  class="mx-4 mb-5 flex flex-col items-center justify-center rounded-xl border border-dashed border-line-control bg-slate-50 py-16 text-center sm:mx-6"
                 >
                   <div
-                    class="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#E8E4DC]"
+                    class="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-sand-2"
                   >
-                    <GraduationCap size={26} class="text-[#8A8E9C]" />
+                    <GraduationCap size={26} class="text-ink-3" />
                   </div>
-                  <p class="text-sm font-medium text-[#5A5E6E]">Sin estudiantes inscritos</p>
+                  <p class="text-sm font-medium text-ink-2">Sin estudiantes inscritos</p>
                   <p class="mt-1 text-xs text-muted-foreground">
                     Los estudiantes aparecerán aquí cuando se inscriban.
                   </p>
@@ -612,7 +612,7 @@
                   <p class="text-sm">Sin resultados para «{estudianteQuery}»</p>
                   <button
                     onclick={() => (estudianteQuery = '')}
-                    class="text-xs font-medium text-[#002F6C] hover:underline">Limpiar búsqueda</button
+                    class="text-xs font-medium text-navy hover:underline">Limpiar búsqueda</button
                   >
                 </div>
               {:else}
@@ -634,7 +634,7 @@
                       {#if sinNota > 0}
                         <span class="inline-flex items-center gap-[7px]">
                           <span
-                            class="inline-block h-3.5 w-3.5 rounded-full border border-dashed border-[#D6D9E0]"
+                            class="inline-block h-3.5 w-3.5 rounded-full border border-dashed border-line"
                             aria-hidden="true"
                           ></span>
                           {sinNota} sin nota
@@ -643,7 +643,7 @@
                       {#if promedioComponente !== null}
                         <span>
                           Promedio del componente
-                          <strong class="font-mono font-semibold text-[#1A1A24]"
+                          <strong class="font-mono font-semibold text-ink"
                             >{formatNota(promedioComponente)}</strong
                           >
                           · calculado sólo sobre las {notasPuestas.length}
@@ -664,19 +664,19 @@
           <div class="flex flex-col gap-3.5 px-5 pb-5 pt-[18px]">
             <div class="flex flex-wrap items-center gap-2.5">
               {#if actividadesOcultas > 0}
-                <span class="inline-flex items-center gap-[7px] text-[12px] text-[#5A5E6E]">
-                  <EyeOff size={14} class="text-[#B45309]" />
+                <span class="inline-flex items-center gap-[7px] text-[12px] text-ink-2">
+                  <EyeOff size={14} class="text-amber-700" />
                   {actividadesOcultas} de {actividadesDelRol.length}
                   {actividadesDelRol.length === 1 ? 'actividad no es visible' : 'actividades no son visibles'}
                   para los alumnos
                 </span>
               {/if}
               <div class="ml-auto flex flex-wrap items-center gap-2">
-                <label class="inline-flex items-center gap-2 text-[12px] text-[#5A5E6E]">
+                <label class="inline-flex items-center gap-2 text-[12px] text-ink-2">
                   <span class="sr-only">Filtrar por tipo de evaluación</span>
                   <select
                     bind:value={filtroTipo}
-                    class="rounded-lg border border-[#D6D9E0] bg-white px-3 py-2 text-[13px] font-medium text-[#1A1A24] focus:border-[#002F6C] focus:outline-none"
+                    class="rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink focus:border-navy focus:outline-none"
                   >
                     <option value="todas">Evaluación: todas</option>
                     <option value="FORMATIVA">Sólo formativas</option>
@@ -684,11 +684,11 @@
                   </select>
                 </label>
                 {#if componentesDeActividades.length > 1}
-                  <label class="inline-flex items-center gap-2 text-[12px] text-[#5A5E6E]">
+                  <label class="inline-flex items-center gap-2 text-[12px] text-ink-2">
                     <span class="sr-only">Filtrar por componente</span>
                     <select
                       bind:value={filtroComponente}
-                      class="rounded-lg border border-[#D6D9E0] bg-white px-3 py-2 text-[13px] font-medium text-[#1A1A24] focus:border-[#002F6C] focus:outline-none"
+                      class="rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink focus:border-navy focus:outline-none"
                     >
                       <option value="todos">Componente: todos</option>
                       {#each componentesDeActividades as c (c.id)}
@@ -709,7 +709,7 @@
 
             {#if actividadesFiltradas.length === 0}
               <div
-                class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-[#D0CBC1] bg-[#F5F1EA] py-16 text-center text-muted-foreground"
+                class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-sand-line bg-sand py-16 text-center text-muted-foreground"
               >
                 <ClipboardList size={34} class="opacity-30" />
                 <p class="m-0 text-sm">
@@ -758,7 +758,7 @@
       {#if curso.es_titular_curso}
         <section class="{CARD} flex flex-col gap-3.5 p-5">
           <div class="flex flex-wrap items-baseline gap-3">
-            <h2 class="m-0 text-base font-semibold text-[#1A1A24]">Todos los componentes</h2>
+            <h2 class="m-0 text-base font-semibold text-ink">Todos los componentes</h2>
             <div class="ml-auto flex items-center gap-1">
               <button onclick={() => (showSyllabusPermisos = true)} class={BTN_GHOST}>
                 <Shield size={14} />
@@ -784,18 +784,18 @@
                 {@const esMio = misComponentesIds.includes(comp.id_componente)}
                 <article
                   class="flex flex-col gap-2.5 rounded-xl border px-4 py-3.5 {esMio
-                    ? 'border-[#C9D6E6] bg-[#F8FAFC]'
-                    : 'border-[#E5E7EB] bg-white'}"
+                    ? 'border-slate-300 bg-slate-50'
+                    : 'border-gray-200 bg-white'}"
                 >
                   <div class="flex items-center gap-2">
                     <span
                       class="rounded-[5px] border px-1.5 py-0.5 font-mono text-[10.5px] font-bold tracking-[0.06em] {esMio
-                        ? 'border-[#C9D6E6] bg-white text-[#002F6C]'
-                        : 'border-[#E5E7EB] bg-[#F5F1EA] text-[#5A5E6E]'}"
+                        ? 'border-slate-300 bg-white text-navy'
+                        : 'border-gray-200 bg-sand text-ink-2'}"
                       >{sigla(comp.tipo_componente)}</span
                     >
-                    <span class="text-sm font-semibold text-[#1A1A24]">{comp.tipo_componente}</span>
-                    <span class="ml-auto font-mono text-[11.5px] tabular-nums text-[#5A5E6E]"
+                    <span class="text-sm font-semibold text-ink">{comp.tipo_componente}</span>
+                    <span class="ml-auto font-mono text-[11.5px] tabular-nums text-ink-2"
                       >{comp.total_estudiantes} est.</span
                     >
                     {#if comp.docentes.length > 1}
@@ -805,7 +805,7 @@
                             cambiarTitularComponente = comp;
                             showCambiarTitular = true;
                           }}
-                          class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-[#FFF3D1] hover:text-[#8A5F00]"
+                          class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-amber-100 hover:text-ocre"
                           aria-label="Cambiar titular de {comp.tipo_componente}"
                         >
                           <Crown size={13} aria-hidden="true" />
@@ -816,7 +816,7 @@
                             componentePermisoTipo = comp.tipo_componente;
                             showComponentePermisos = true;
                           }}
-                          class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-[#E6ECF5] hover:text-[#002F6C]"
+                          class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-uta-blue-light hover:text-navy"
                           aria-label="Gestionar permisos de {comp.tipo_componente}"
                         >
                           <Shield size={13} aria-hidden="true" />
@@ -826,28 +826,28 @@
                   </div>
 
                   {#if comp.docentes.length === 0}
-                    <p class="m-0 border-t border-[#E5E7EB] pt-2.5 text-[12px] text-muted-foreground">
+                    <p class="m-0 border-t border-gray-200 pt-2.5 text-[12px] text-muted-foreground">
                       Sin docente asignado.
                     </p>
                   {:else}
-                    <div class="flex flex-col gap-[7px] border-t border-[#E5E7EB] pt-2.5">
+                    <div class="flex flex-col gap-[7px] border-t border-gray-200 pt-2.5">
                       {#each comp.docentes as doc (doc.id_docente_componente)}
                         {@const esDtCurso = doc.id_docente === curso.id_docente_titular}
                         {@const soyYo = doc.id_docente === curso.id_docente_actual}
                         <div class="flex items-center gap-2.5">
                           <div
                             class="flex h-7 w-7 flex-none items-center justify-center rounded-full text-[11px] font-semibold {esDtCurso
-                              ? 'bg-[#E8EDF5] text-[#002F6C]'
-                              : 'bg-[#F5F1EA] text-[#5A5E6E]'}"
+                              ? 'bg-uta-blue-light text-navy'
+                              : 'bg-sand text-ink-2'}"
                           >
                             {initials(doc.nombre)}
                           </div>
                           <div class="flex min-w-0 flex-col">
-                            <span class="truncate text-[12.5px] font-semibold text-[#1A1A24]"
+                            <span class="truncate text-[12.5px] font-semibold text-ink"
                               >{doc.nombre}</span
                             >
                             <span
-                              class="text-[11.5px] {soyYo ? 'text-[#002F6C]' : 'text-[#5A5E6E]'}"
+                              class="text-[11.5px] {soyYo ? 'text-navy' : 'text-ink-2'}"
                             >
                               {rolDocente(doc)}{soyYo ? ' · tú' : ''}
                             </span>

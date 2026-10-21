@@ -81,10 +81,10 @@ class ContextsTriggerIntegrationTest extends TestCase
 
     // Crear usuarios y datos previos
     $this->docenteUsuario = Usuario::firstOrCreate(
-      ['rut' => '12345678-9'],
+      ['rut' => '89123456-7'],
       [
-        'username' => 'docente_test',
-        'email' => 'docente@test.local',
+        'username' => 'docente_ctx_test',
+        'email' => 'docente_ctx@test.local',
         'passhash' => bcrypt('password'),
         'nombre1' => 'Docente',
         'apellido1' => 'Test',
@@ -454,6 +454,7 @@ class ContextsTriggerIntegrationTest extends TestCase
       'ponderacion' => 20,
       'tipo_actividad' => 'SUMATIVA',
       'tipo_entrega' => 'DIGITAL',
+      'ponderacion' => 10.00,
       'visible' => true,
       'es_grupal' => false,
       'max_integrantes' => 1,
@@ -522,6 +523,7 @@ class ContextsTriggerIntegrationTest extends TestCase
       'ponderacion' => 20,
       'tipo_actividad' => 'SUMATIVA',
       'tipo_entrega' => 'DIGITAL',
+      'ponderacion' => 10.00,
       'visible' => true,
       'es_grupal' => false,
       'max_integrantes' => 1,

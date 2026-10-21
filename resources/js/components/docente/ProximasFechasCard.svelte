@@ -35,12 +35,12 @@
   let { items = [] }: Props = $props();
 </script>
 
-<section class="flex flex-col gap-4 rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-5">
+<section class="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
   <div class="flex items-center gap-2">
-    <Clock class="h-5 w-5 text-[#002855]" />
-    <h3 class="text-base font-semibold text-[#171A26]">Próximas fechas límite</h3>
+    <Clock class="h-5 w-5 text-uta-blue" />
+    <h3 class="text-base font-semibold text-ink">Próximas fechas límite</h3>
     {#if items.length > 0}
-      <span class="ml-auto hidden text-[13px] text-[#5A5E6E] sm:inline">Ordenadas por fecha</span>
+      <span class="ml-auto hidden text-[13px] text-ink-2 sm:inline">Ordenadas por fecha</span>
     {/if}
   </div>
 
@@ -48,12 +48,12 @@
     <div class="flex flex-col gap-4">
       {#each items as item, i (item.id_actividad)}
         {#if i > 0}
-          <div class="h-px bg-[#E5E7EB]"></div>
+          <div class="h-px bg-gray-200"></div>
         {/if}
         <div class="flex flex-col gap-1">
-          <p class="line-clamp-2 text-sm leading-5 font-medium text-[#171A26]">{item.nombre}</p>
+          <p class="line-clamp-2 text-sm leading-5 font-medium text-ink">{item.nombre}</p>
           {#if item.nombre_curso}
-            <p class="text-[13px] text-[#5A5E6E]">{item.nombre_curso}</p>
+            <p class="text-[13px] text-ink-2">{item.nombre_curso}</p>
           {/if}
           <div class="flex flex-wrap gap-2 pt-2">
             {#each item.grupos as grupo (grupo.id_curso)}
@@ -64,9 +64,9 @@
                 {#if grupo.letra_grupo}
                   <span class="rounded-full px-2.5 py-0.5 text-xs font-bold {tonoGrupo(grupo.letra_grupo).chip}">Grupo {grupo.letra_grupo}</span>
                 {/if}
-                <span class="font-semibold text-[#4A4E5C]">{fechaCorta(grupo.fecha_limite)}</span>
+                <span class="font-semibold text-zinc-600">{fechaCorta(grupo.fecha_limite)}</span>
                 <PlazoBadge fecha={grupo.fecha_limite} />
-                <ChevronRight class="h-4 w-4 shrink-0 text-[#5A5E6E]" />
+                <ChevronRight class="h-4 w-4 shrink-0 text-ink-2" />
               </Link>
             {/each}
           </div>

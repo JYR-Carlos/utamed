@@ -44,7 +44,7 @@
             {#each breadcrumbs as item, index (index)}
                 {#if index === breadcrumbs.length - 1}
                     <Item class="min-w-0 flex-1">
-                        <BreadcrumbPage class="block truncate text-sm font-medium text-[#1A1A24]" title={item.title}>
+                        <BreadcrumbPage class="block truncate text-sm font-medium text-ink" title={item.title}>
                             {item.title}
                         </BreadcrumbPage>
                     </Item>

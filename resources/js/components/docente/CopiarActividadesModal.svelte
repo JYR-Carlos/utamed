@@ -159,43 +159,43 @@
 >
   <div class="flex flex-col gap-5">
     {#if cargando}
-      <p class="m-0 text-[13px] text-[#5A5E6E]">Buscando tus otros grupos de esta asignatura…</p>
+      <p class="m-0 text-[13px] text-ink-2">Buscando tus otros grupos de esta asignatura…</p>
     {:else if destinos.length === 0}
-      <p class="m-0 flex items-start gap-2 rounded-lg bg-[#F5F1EA] px-3.5 py-3 text-[13px] text-[#3B3F4C]">
-        <Info size={16} class="mt-px shrink-0 text-[#002F6C]" aria-hidden="true" />
+      <p class="m-0 flex items-start gap-2 rounded-lg bg-sand px-3.5 py-3 text-[13px] text-zinc-700">
+        <Info size={16} class="mt-px shrink-0 text-navy" aria-hidden="true" />
         No tienes otros grupos de esta asignatura en el mismo año y semestre donde seas titular.
       </p>
     {:else}
       <!-- Destinos -->
       <fieldset class="m-0 flex flex-col gap-2 border-0 p-0">
-        <legend class="mb-2 text-[13px] font-semibold text-[#3B3F4C]">Cursos de destino</legend>
+        <legend class="mb-2 text-[13px] font-semibold text-zinc-700">Cursos de destino</legend>
         {#each destinos as d (d.id_curso)}
           <label
             class="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg border px-3.5 py-2.5 {destinosSel.includes(
               d.id_curso,
             )
-              ? 'border-[#002F6C] bg-[#F6F9FC]'
-              : 'border-[#E5E7EB]'}"
+              ? 'border-navy bg-slate-50'
+              : 'border-gray-200'}"
           >
             <input
               type="checkbox"
-              class="h-[18px] w-[18px] accent-[#002F6C]"
+              class="h-[18px] w-[18px] accent-navy"
               checked={destinosSel.includes(d.id_curso)}
               onchange={() => (destinosSel = alternar(destinosSel, d.id_curso))}
             />
-            <span class="text-[14px] font-semibold text-[#1A1A24]">{d.etiqueta}</span>
-            <span class="ml-auto font-mono text-[11px] text-[#5A5E6E]">{d.cod_curso}</span>
+            <span class="text-[14px] font-semibold text-ink">{d.etiqueta}</span>
+            <span class="ml-auto font-mono text-[11px] text-ink-2">{d.cod_curso}</span>
           </label>
         {/each}
       </fieldset>
 
       <!-- Actividades -->
       <fieldset class="m-0 flex flex-col gap-2 border-0 p-0">
-        <legend class="mb-2 flex w-full items-center text-[13px] font-semibold text-[#3B3F4C]">
+        <legend class="mb-2 flex w-full items-center text-[13px] font-semibold text-zinc-700">
           Actividades
           <button
             type="button"
-            class="ml-auto text-[12px] font-medium text-[#002F6C] hover:underline"
+            class="ml-auto text-[12px] font-medium text-navy hover:underline"
             onclick={() =>
               (actividadesSel =
                 actividadesSel.length === actividades.length ? [] : actividades.map((a) => a.id_actividad))}
@@ -207,40 +207,40 @@
           {#each actividades as a (a.id_actividad)}
             {@const av = avisos(a)}
             {@const elegida = actividadesSel.includes(a.id_actividad)}
-            <li class="rounded-lg border px-3.5 py-2.5 {elegida ? 'border-[#002F6C]' : 'border-[#E5E7EB]'}">
+            <li class="rounded-lg border px-3.5 py-2.5 {elegida ? 'border-navy' : 'border-gray-200'}">
               <div class="flex flex-wrap items-center gap-3">
                 <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 {av.copiable ? '' : 'opacity-60'}">
                   <input
                     type="checkbox"
-                    class="h-[18px] w-[18px] shrink-0 accent-[#002F6C]"
+                    class="h-[18px] w-[18px] shrink-0 accent-navy"
                     checked={elegida}
                     disabled={!av.copiable}
                     onchange={() => (actividadesSel = alternar(actividadesSel, a.id_actividad))}
                   />
-                  <span class="min-w-0 text-[13.5px] font-medium text-[#1A1A24]">{a.nombre}</span>
+                  <span class="min-w-0 text-[13.5px] font-medium text-ink">{a.nombre}</span>
                 </label>
                 {#if elegida}
-                  <label class="flex items-center gap-2 text-[12px] text-[#5A5E6E]">
+                  <label class="flex items-center gap-2 text-[12px] text-ink-2">
                     Fecha límite
                     <input
                       type="date"
-                      class="h-9 rounded-md border border-[#D6D9E0] px-2 text-[13px] text-[#1A1A24]"
+                      class="h-9 rounded-md border border-line px-2 text-[13px] text-ink"
                       bind:value={fechas[a.id_actividad]}
                     />
                   </label>
                 {/if}
               </div>
               {#each av.bloqueos as b (b)}
-                <p class="m-0 mt-1.5 text-[12px] text-[#8A1538]">No se copia a {b}</p>
+                <p class="m-0 mt-1.5 text-[12px] text-uta-red">No se copia a {b}</p>
               {/each}
               {#if av.repetidos.length > 0}
-                <p class="m-0 mt-1.5 flex items-center gap-1.5 text-[12px] text-[#92400E]">
+                <p class="m-0 mt-1.5 flex items-center gap-1.5 text-[12px] text-amber-800">
                   <AlertTriangle size={13} aria-hidden="true" />
                   Ya existe una actividad con este nombre en {av.repetidos.join(', ')}: se creará otra.
                 </p>
               {/if}
               {#if elegida && av.fueraDePeriodo.length > 0}
-                <p class="m-0 mt-1.5 flex items-center gap-1.5 text-[12px] text-[#92400E]">
+                <p class="m-0 mt-1.5 flex items-center gap-1.5 text-[12px] text-amber-800">
                   <AlertTriangle size={13} aria-hidden="true" />
                   La fecha queda fuera del período de {av.fueraDePeriodo.join(', ')}. Revisa el año.
                 </p>
@@ -252,27 +252,27 @@
 
       <!-- Qué se copia -->
       <fieldset class="m-0 flex flex-col gap-1.5 border-0 p-0">
-        <legend class="mb-2 text-[13px] font-semibold text-[#3B3F4C]">Qué se copia</legend>
-        <label class="flex min-h-[32px] items-center gap-2.5 text-[13.5px] text-[#1A1A24]">
-          <input type="checkbox" class="h-[18px] w-[18px] accent-[#002F6C]" checked disabled />
+        <legend class="mb-2 text-[13px] font-semibold text-zinc-700">Qué se copia</legend>
+        <label class="flex min-h-[32px] items-center gap-2.5 text-[13.5px] text-ink">
+          <input type="checkbox" class="h-[18px] w-[18px] accent-navy" checked disabled />
           Configuración: tipo, ponderación, exigencia, entrega y si es grupal
         </label>
-        <label class="flex min-h-[32px] items-center gap-2.5 text-[13.5px] text-[#1A1A24]">
-          <input type="checkbox" class="h-[18px] w-[18px] accent-[#002F6C]" bind:checked={copiarRubrica} />
+        <label class="flex min-h-[32px] items-center gap-2.5 text-[13.5px] text-ink">
+          <input type="checkbox" class="h-[18px] w-[18px] accent-navy" bind:checked={copiarRubrica} />
           Rúbrica (copia independiente en cada curso)
         </label>
-        <label class="flex min-h-[32px] items-center gap-2.5 text-[13.5px] text-[#1A1A24]">
-          <input type="checkbox" class="h-[18px] w-[18px] accent-[#002F6C]" bind:checked={copiarEnunciado} />
+        <label class="flex min-h-[32px] items-center gap-2.5 text-[13.5px] text-ink">
+          <input type="checkbox" class="h-[18px] w-[18px] accent-navy" bind:checked={copiarEnunciado} />
           Enunciado (el mismo archivo; reemplazarlo en un curso no cambia el otro)
         </label>
-        <p class="m-0 mt-1 text-[12px] text-[#5A5E6E]">
+        <p class="m-0 mt-1 text-[12px] text-ink-2">
           Las copias llegan ocultas (Planificada). No se copian entregas, notas, grupos ni mensajes.
         </p>
       </fieldset>
     {/if}
 
     {#if error}
-      <p class="m-0 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3.5 py-2.5 text-[13px] text-[#B91C1C]" role="alert">
+      <p class="m-0 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700" role="alert">
         {error}
       </p>
     {/if}

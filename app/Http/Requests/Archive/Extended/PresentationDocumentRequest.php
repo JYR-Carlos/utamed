@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Archive\Extended;
 
 use App\Http\Requests\Archive\BaseArchiveRequest;
+use App\Services\Archive\FiletypeValidation\FileRequirementType;
 
 /**
  * PresentationDocumentRequest
@@ -26,7 +27,7 @@ use App\Http\Requests\Archive\BaseArchiveRequest;
  */
 class PresentationDocumentRequest extends BaseArchiveRequest
 {
-    protected string $fileType = 'presentation';
+    protected array $fileCategories = [FileRequirementType::PRESENTATION];
 
     /**
      * Reglas adicionales específicas para presentaciones.

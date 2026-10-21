@@ -24,11 +24,27 @@ class BibliografiaControllerTest extends TestCase
     {
         parent::setUp();
 
-        // Usar registros de prueba frescos
-        $this->user = Usuario::query()->first();
-        if (!$this->user) {
-            $this->user = Usuario::factory()->create();
-        }
+        // Usar un usuario administrador fresco y verificado
+        $this->user = Usuario::factory()->create([
+            'esta_activo' => true,
+            'fecha_cambio_passhash' => now(),
+            'fecha_verificacion_email' => now(),
+        ]);
+        $rolSuperAdmin = \App\Models\Usuario\Rol::firstOrCreate(
+            ['nombre' => 'SuperAdmin'],
+            ['creado_por' => $this->user->id_usuario]
+        );
+        \App\Models\Usuario\UsuarioRolAsignacion::firstOrCreate(
+            ['id_usuario' => $this->user->id_usuario, 'id_rol' => $rolSuperAdmin->id_rol, 'id_contexto' => 1],
+            [
+                'asignado_por' => $this->user->id_usuario,
+                'fecha_inicio_planificada' => now()->subMinute(),
+                'fecha_fin_planificada' => now()->addYears(100),
+                'esta_activo' => true,
+                'fue_eliminado' => false,
+                'creado_por' => $this->user->id_usuario,
+            ]
+        );
         $this->actingAs($this->user);
         
         $programa = Programa::query()->first();
@@ -36,42 +52,54 @@ class BibliografiaControllerTest extends TestCase
             $this->markTestSkipped('No hay programas en la base de datos para probar.');
         }
 
-        $unidad = Unidad::query()->where('id_programa', $programa->id_programa)->first();
+        $unidad = Unidad::query()->where('id_curso', $programa->id_curso)->first();
         if (!$unidad) {
             $unidad = Unidad::query()->create([
-                'id_programa' => $programa->id_programa,
-                'numero' => 99,
-                'titulo' => 'Unidad Test',
+                'id_curso' => $programa->id_curso,
+                'num_unidad' => 99,
+                'nombre' => 'Unidad Test',
             ]);
         }
 
-        $docente = App\Models\Usuario\Docente::query()->first();
+        $docente = \App\Models\Usuario\Docente::query()->first();
         if (!$docente) {
             $this->markTestSkipped('No hay docentes en la base de datos para probar.');
         }
 
         // Fake storage para probar archivos
-        Storage::fake('local');
-        Storage::put('bibliografias/test-file.pdf', 'dummy content');
+        $disk = config('files.storage.disk', 'local_archives');
+        Storage::fake($disk);
+        Storage::disk($disk)->put('bibliografias/test-file.pdf', 'dummy content');
+
+        $archivo = \App\Models\Operaciones\Archivo::create([
+            'uuid_archivo' => (string) Str::uuid(),
+            'ruta_fisica' => 'bibliografias/test-file.pdf',
+            'nombre_original' => 'libro-de-anatomia.pdf',
+            'extension' => 'pdf',
+            'mime_type' => 'application/pdf',
+            'peso_bytes' => 13,
+        ]);
 
         $this->bibliografiaLocal = Bibliografia::query()->create([
+            'uuid_bibliografia' => (string) Str::uuid(),
             'id_programa' => $programa->id_programa,
             'id_unidad' => $unidad->id_unidad,
             'titulo' => 'Libro de Anatomía',
             'autor' => 'Autor Test',
-            'anio' => 2024,
+            'agno' => 2024,
             'es_bibliografia_uta' => false,
-            'uuid_archivo' => 'test-file.pdf',
+            'uuid_archivo' => $archivo->uuid_archivo,
             'url' => null,
             'agregado_por' => $docente->id_docente,
         ]);
 
         $this->bibliografiaUta = Bibliografia::query()->create([
+            'uuid_bibliografia' => (string) Str::uuid(),
             'id_programa' => $programa->id_programa,
             'id_unidad' => $unidad->id_unidad,
             'titulo' => 'Recurso UTA Oficial',
             'autor' => 'UTA',
-            'anio' => 2024,
+            'agno' => 2024,
             'es_bibliografia_uta' => true,
             'uuid_archivo' => null,
             'url' => null,

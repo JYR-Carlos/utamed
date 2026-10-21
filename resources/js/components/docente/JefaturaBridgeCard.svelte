@@ -16,15 +16,15 @@
 </script>
 
 <section
-  class="flex items-center gap-4 rounded-xl border border-[#C9D6E6] border-l-[3px] border-l-[#002F6C] bg-white p-4 shadow-sm"
+  class="flex items-center gap-4 rounded-xl border border-slate-300 border-l-[3px] border-l-navy bg-white p-4 shadow-sm"
 >
-  <div class="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] bg-[#E8EDF5]">
-    <ClipboardList class="h-[18px] w-[18px] text-[#002F6C]" />
+  <div class="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] bg-uta-blue-light">
+    <ClipboardList class="h-[18px] w-[18px] text-navy" />
   </div>
   <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-    <span class="text-[10.5px] font-semibold uppercase tracking-wide text-[#002F6C]">Otro rol</span>
-    <span class="text-base font-semibold leading-snug text-[#1A1A24]">Jefatura de Carrera — {carreraNombre}</span>
-    <span class="text-[13px] text-[#5A5E6E]">
+    <span class="text-[10.5px] font-semibold uppercase tracking-wide text-navy">Otro rol</span>
+    <span class="text-base font-semibold leading-snug text-ink">Jefatura de Carrera — {carreraNombre}</span>
+    <span class="text-[13px] text-ink-2">
       {#if pendientesRevision > 0}
         {pendientesRevision} syllabus {pendientesRevision === 1 ? 'espera' : 'esperan'} tu revisión como jefe de carrera.
       {:else}
@@ -35,7 +35,7 @@
   </div>
   <Link
     href="/docente/jefe-carrera/dashboard"
-    class="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#002F6C] px-3.5 py-2.5 text-[13.5px] font-semibold text-white no-underline transition-colors hover:bg-[#00214d]"
+    class="flex shrink-0 items-center gap-1.5 rounded-lg bg-navy px-3.5 py-2.5 text-[13.5px] font-semibold text-white no-underline transition-colors hover:bg-navy-hover"
   >
     Ir al dashboard de jefatura
     <ArrowUpRight class="h-[15px] w-[15px]" />

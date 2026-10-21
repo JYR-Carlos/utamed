@@ -45,13 +45,13 @@
   const totalPuntos = $derived(rubricaObj?.detalles_evaluacion?.puntaje_total ?? null);
 </script>
 
-<section class="overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-sm">
+<section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
   <div class="grid grid-cols-1 md:grid-cols-10 md:items-stretch">
     <!-- Columna izquierda: Información (7 de 10 columnas) -->
     <div class="flex min-w-0 flex-col justify-between gap-3.5 p-5 md:col-span-7 md:p-6">
       <div class="flex flex-col gap-1">
-        <span class="text-[11.5px] font-medium text-[#5A5E6E]">{nombre_curso}</span>
-        <h1 class="text-xl font-semibold leading-tight text-[#1A1A24] md:text-2xl">{nombre_actividad}</h1>
+        <span class="text-[11.5px] font-medium text-ink-2">{nombre_curso}</span>
+        <h1 class="text-xl font-semibold leading-tight text-ink md:text-2xl">{nombre_actividad}</h1>
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
@@ -74,7 +74,7 @@
       </div>
 
       {#if descripcion}
-        <p class="text-sm leading-relaxed text-[#5A5E6E]">{descripcion}</p>
+        <p class="text-sm leading-relaxed text-ink-2">{descripcion}</p>
       {/if}
     </div>
 
@@ -83,13 +83,13 @@
       juntos en la cabecera. Antes el enunciado vivía en el panel lateral,
       debajo del plazo, y en el móvil quedaba al final de la página.
     -->
-    <div class="flex flex-col border-t border-[#E5E7EB] md:col-span-3 md:border-l md:border-t-0">
+    <div class="flex flex-col border-t border-gray-200 md:col-span-3 md:border-l md:border-t-0">
       {#if archivo_enunciado}
-        <div class="flex flex-1 items-stretch {es_sumativa ? 'border-b border-[#E5E7EB]' : ''}">
+        <div class="flex flex-1 items-stretch {es_sumativa ? 'border-b border-gray-200' : ''}">
           <button
             type="button"
             onclick={onVerEnunciadoClick}
-            class="group flex min-h-[64px] flex-1 items-center gap-3 bg-[#E6EDF5] px-4 py-4 text-left text-[#002855] transition-colors hover:bg-[#002855] hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#002855]"
+            class="group flex min-h-[64px] flex-1 items-center gap-3 bg-uta-blue-light px-4 py-4 text-left text-uta-blue transition-colors hover:bg-uta-blue hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-uta-blue"
           >
             <FileText class="h-5 w-5 shrink-0" />
             <span class="flex min-w-0 flex-col">
@@ -104,7 +104,7 @@
               href={urlDescargaEnunciado}
               aria-label="Descargar enunciado"
               title="Descargar enunciado"
-              class="flex w-12 shrink-0 items-center justify-center border-l border-[#C9D6E6] bg-[#E6EDF5] text-[#002855] transition-colors hover:bg-[#002855] hover:text-white"
+              class="flex w-12 shrink-0 items-center justify-center border-l border-slate-300 bg-uta-blue-light text-uta-blue transition-colors hover:bg-uta-blue hover:text-white"
             >
               <Download class="h-4 w-4" />
             </a>
@@ -124,7 +124,7 @@
           <button
             type="button"
             onclick={onVerRubricaClick}
-            class="group flex min-h-[64px] flex-1 items-center gap-3 bg-[#E0D1FF] px-4 py-4 text-left text-[#5812c2] transition-colors hover:bg-[#5812c2] hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#5812c2] md:rounded-br-xl"
+            class="group flex min-h-[64px] flex-1 items-center gap-3 bg-violet-200 px-4 py-4 text-left text-violet-800 transition-colors hover:bg-violet-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-violet-800 md:rounded-br-xl"
           >
             <ClipboardList class="h-5 w-5 shrink-0" />
             <span class="flex min-w-0 flex-col">

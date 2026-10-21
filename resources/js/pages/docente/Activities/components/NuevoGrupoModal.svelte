@@ -79,7 +79,7 @@
                 type="checkbox"
                 checked={seleccion.has(e.id_estudiante)}
                 onchange={() => onToggleSeleccion(e.id_estudiante)}
-                class="accent-[#002855] w-4 h-4 shrink-0"
+                class="accent-uta-blue w-4 h-4 shrink-0"
               />
               <span class="text-sm text-gray-800">{e.nombre_completo}</span>
             </label>

@@ -41,12 +41,12 @@
   // ── Accent palette (6 rotating colors) ────────────────────────────────────
 
   const ACCENTS: Accent[] = [
-    { base: '#4F46E5', soft: '#EEF0FF', gradientEnd: '#6366F1', hue: 245 },
-    { base: '#7C3AED', soft: '#F3EEFF', gradientEnd: '#8B5CF6', hue: 270 },
-    { base: '#2563EB', soft: '#EAF1FF', gradientEnd: '#3B82F6', hue: 220 },
-    { base: '#C026D3', soft: '#FBEEFC', gradientEnd: '#D946EF', hue: 300 },
-    { base: '#0284C7', soft: '#E6F4FB', gradientEnd: '#0EA5E9', hue: 200 },
-    { base: '#9333EA', soft: '#F5EEFC', gradientEnd: '#A855F7', hue: 280 },
+    { base: '#4F46E5', soft: 'light-dark(#EEF0FF, #1b244c)', gradientEnd: '#6366F1', hue: 245 },
+    { base: '#7C3AED', soft: 'light-dark(#F3EEFF, #24234d)', gradientEnd: '#8B5CF6', hue: 270 },
+    { base: '#2563EB', soft: 'light-dark(#EAF1FF, #16284d)', gradientEnd: '#3B82F6', hue: 220 },
+    { base: '#C026D3', soft: 'light-dark(#FBEEFC, #332249)', gradientEnd: '#D946EF', hue: 300 },
+    { base: '#0284C7', soft: 'light-dark(#E6F4FB, #162d47)', gradientEnd: '#0EA5E9', hue: 200 },
+    { base: '#9333EA', soft: 'light-dark(#F5EEFC, #29234d)', gradientEnd: '#A855F7', hue: 280 },
   ];
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -150,25 +150,25 @@
     <!-- ── Header ──────────────────────────────────────────────────────────── -->
     <header class="flex items-end justify-between gap-5 mb-8 flex-wrap max-md:flex-col max-md:items-stretch">
       <div>
-        <h1 class="text-[2rem] font-bold tracking-tight mb-1 text-[#0E1220] leading-[1.15]">Mis Cursos</h1>
-        <p class="text-sm text-[#5C6478] m-0">
+        <h1 class="text-[2rem] font-bold tracking-tight mb-1 text-ink leading-[1.15]">Mis Cursos</h1>
+        <p class="text-sm text-ink-2 m-0">
           {filtered.length}{filtered.length === 1 ? ' asignatura' : ' asignaturas'}
         </p>
       </div>
 
       <div class="flex gap-2.5 items-center flex-wrap max-md:w-full">
         <!-- Search -->
-        <div class="relative flex items-center bg-white border border-[#E8EAF0] rounded-xl px-2.5 pl-[34px] h-10 w-[260px] transition-all focus-within:border-[#4F46E5] focus-within:ring-4 focus-within:ring-[#EEF0FF] max-md:w-full">
-          <span class="absolute left-[11px] text-[#8B92A6] pointer-events-none flex items-center" aria-hidden="true"><Search size={15} /></span>
+        <div class="relative flex items-center bg-white border border-slate-200 rounded-xl px-2.5 pl-[34px] h-10 w-[260px] transition-all focus-within:border-indigo-600 focus-within:ring-4 focus-within:ring-indigo-50 max-md:w-full">
+          <span class="absolute left-[11px] text-ink-3 pointer-events-none flex items-center" aria-hidden="true"><Search size={15} /></span>
           <input
-            class="flex-1 border-none outline-none bg-transparent text-sm text-[#0E1220]"
+            class="flex-1 border-none outline-none bg-transparent text-sm text-ink"
             type="search"
             placeholder="Buscar por nombre o código…"
             aria-label="Buscar cursos"
             bind:value={query}
           />
           {#if query}
-            <button class="border-none bg-transparent text-[#5C6478] px-1.5 py-1 rounded-md flex items-center cursor-pointer hover:bg-[#F4F5F7] hover:text-[#0E1220]" onclick={() => (query = '')} aria-label="Limpiar búsqueda">
+            <button class="border-none bg-transparent text-ink-2 px-1.5 py-1 rounded-md flex items-center cursor-pointer hover:bg-neutral-100 hover:text-ink" onclick={() => (query = '')} aria-label="Limpiar búsqueda">
               <X size={13} />
             </button>
           {/if}
@@ -177,23 +177,23 @@
         <!-- Sort -->
         <div class="relative" bind:this={sortRef}>
           <button
-            class="flex items-center gap-[7px] h-10 px-[13px] bg-white border border-[#E8EAF0] rounded-xl text-sm text-[#2B3142] cursor-pointer transition-all hover:border-[#D4D7E0] whitespace-nowrap {sortOpen ? 'border-[#4F46E5] ring-4 ring-[#EEF0FF]' : ''}"
+            class="flex items-center gap-[7px] h-10 px-[13px] bg-white border border-slate-200 rounded-xl text-sm text-slate-800 cursor-pointer transition-all hover:border-line whitespace-nowrap {sortOpen ? 'border-indigo-600 ring-4 ring-indigo-50' : ''}"
             onclick={() => (sortOpen = !sortOpen)}
             aria-haspopup="listbox"
             aria-expanded={sortOpen}
           >
             <SlidersHorizontal size={15} aria-hidden="true" />
             <span class="text-muted-foreground">Ordenar:</span>
-            <span class="text-[#0E1220] font-medium">{SORT_LABELS[sortKey]}</span>
+            <span class="text-ink font-medium">{SORT_LABELS[sortKey]}</span>
             <ChevronDown size={13} aria-hidden="true" />
           </button>
           {#if sortOpen}
-            <div class="absolute top-[calc(100%+6px)] right-0 min-w-[200px] bg-white border border-[#E8EAF0] rounded-xl p-1.5 shadow-[0_10px_28px_rgba(20,25,50,0.09)] z-20" role="listbox" aria-label="Criterio de orden">
+            <div class="absolute top-[calc(100%+6px)] right-0 min-w-[200px] bg-white border border-slate-200 rounded-xl p-1.5 shadow-[0_10px_28px_rgba(20,25,50,0.09)] z-20" role="listbox" aria-label="Criterio de orden">
               {#each Object.entries(SORT_LABELS) as [key, label]}
                 <button
                   role="option"
                   aria-selected={sortKey === key}
-                  class="block w-full text-left px-[11px] py-[9px] bg-transparent border-none rounded-lg text-sm text-[#2B3142] cursor-pointer hover:bg-[#FAFBFC] {sortKey === key ? 'bg-[#EEF0FF] text-[#4F46E5] font-medium' : ''}"
+                  class="block w-full text-left px-[11px] py-[9px] bg-transparent border-none rounded-lg text-sm text-slate-800 cursor-pointer hover:bg-gray-50 {sortKey === key ? 'bg-indigo-50 text-indigo-600 font-medium' : ''}"
                   onclick={() => { sortKey = key as any; sortOpen = false; }}
                 >
                   {label}
@@ -204,11 +204,11 @@
         </div>
 
         <!-- Segmented view toggle -->
-        <div class="inline-flex bg-white border border-[#E8EAF0] rounded-xl p-1 gap-0.5" role="tablist" aria-label="Modo de vista">
+        <div class="inline-flex bg-white border border-slate-200 rounded-xl p-1 gap-0.5" role="tablist" aria-label="Modo de vista">
           <button
             role="tab"
             aria-selected={viewMode === 'grid'}
-            class="inline-flex items-center gap-1.5 px-[13px] py-[5px] h-8 border-none bg-transparent text-[0.8125rem] font-medium text-[#5C6478] rounded-lg cursor-pointer transition-colors hover:text-[#0E1220] {viewMode === 'grid' ? 'bg-[#EEF0FF] !text-[#4F46E5]' : ''}"
+            class="inline-flex items-center gap-1.5 px-[13px] py-[5px] h-8 border-none bg-transparent text-[0.8125rem] font-medium text-ink-2 rounded-lg cursor-pointer transition-colors hover:text-ink {viewMode === 'grid' ? 'bg-indigo-50 !text-indigo-600' : ''}"
             onclick={() => setViewMode('grid')}
             aria-label="Vista en grilla"
           >
@@ -218,7 +218,7 @@
           <button
             role="tab"
             aria-selected={viewMode === 'list'}
-            class="inline-flex items-center gap-1.5 px-[13px] py-[5px] h-8 border-none bg-transparent text-[0.8125rem] font-medium text-[#5C6478] rounded-lg cursor-pointer transition-colors hover:text-[#0E1220] {viewMode === 'list' ? 'bg-[#EEF0FF] !text-[#4F46E5]' : ''}"
+            class="inline-flex items-center gap-1.5 px-[13px] py-[5px] h-8 border-none bg-transparent text-[0.8125rem] font-medium text-ink-2 rounded-lg cursor-pointer transition-colors hover:text-ink {viewMode === 'list' ? 'bg-indigo-50 !text-indigo-600' : ''}"
             onclick={() => setViewMode('list')}
             aria-label="Vista en lista"
           >
@@ -231,9 +231,9 @@
 
     <!-- ── Empty state ─────────────────────────────────────────────────────── -->
     {#if grouped.length === 0}
-      <div class="text-center py-14 px-5 border border-dashed border-[#D4D7E0] rounded-2xl bg-white">
-        <p class="text-base font-semibold text-[#0E1220] m-0 mb-1">{query ? 'Sin resultados' : 'Sin cursos asignados'}</p>
-        <p class="text-sm text-[#5C6478] m-0">
+      <div class="text-center py-14 px-5 border border-dashed border-line rounded-2xl bg-white">
+        <p class="text-base font-semibold text-ink m-0 mb-1">{query ? 'Sin resultados' : 'Sin cursos asignados'}</p>
+        <p class="text-sm text-ink-2 m-0">
           {#if query}
             No encontramos cursos para "{query}".
           {:else}
@@ -247,11 +247,11 @@
     {#each grouped as { label, courses } (label)}
       <section class="mb-9">
         <div class="flex items-center gap-2.5 mb-4.5">
-          <h2 class="text-base font-semibold text-[#0E1220] m-0 tracking-[-0.01em] whitespace-nowrap">{label}</h2>
-          <span class="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-[#FAFBFC] border border-[#E8EAF0] text-xs text-[#5C6478]">
+          <h2 class="text-base font-semibold text-ink m-0 tracking-[-0.01em] whitespace-nowrap">{label}</h2>
+          <span class="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-gray-50 border border-slate-200 text-xs text-ink-2">
             {courses.length}
           </span>
-          <span class="flex-1 h-px bg-[#E8EAF0]" aria-hidden="true"></span>
+          <span class="flex-1 h-px bg-slate-200" aria-hidden="true"></span>
         </div>
 
         {#if viewMode === 'grid'}
@@ -263,7 +263,7 @@
               {@const pid = `dp-${curso.id_curso}`}
 
               <div
-                class="group relative bg-white border border-[#E8EAF0] rounded-2xl p-[18px_20px_16px] flex flex-col gap-3.5 overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-8px_rgba(0,0,0,0.10),0_2px_4px_rgba(0,0,0,0.04)] focus-visible:ring-4 focus-visible:ring-[var(--ac-soft)] focus-visible:border-[var(--ac)] text-left outline-none border-solid"
+                class="group relative bg-white border border-slate-200 rounded-2xl p-[18px_20px_16px] flex flex-col gap-3.5 overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-8px_rgba(0,0,0,0.10),0_2px_4px_rgba(0,0,0,0.04)] focus-visible:ring-4 focus-visible:ring-[var(--ac-soft)] focus-visible:border-[var(--ac)] text-left outline-none border-solid"
                 style="--ac:{a.base};--ac-soft:{a.soft}; hover:border-[var(--ac)]"
                 onclick={() => router.visit(`/docente/cursos/${curso.id_curso}`)}
                 onkeydown={(e) => {
@@ -295,38 +295,38 @@
                   </div>
                   <div class="flex flex-col items-end gap-1.5">
                     <div class="flex items-center gap-2">
-                      <span class="font-mono text-[0.75rem] font-semibold text-[#5A5E6E] tracking-[0.02em]">{codigoAsignatura(curso)}</span>
+                      <span class="font-mono text-[0.75rem] font-semibold text-ink-2 tracking-[0.02em]">{codigoAsignatura(curso)}</span>
                       {#if curso.letra_grupo}
                         <span
-                          class="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-[#E8EDF5] text-[13px] font-bold text-[#002F6C]"
+                          class="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-uta-blue-light text-[13px] font-bold text-navy"
                           title="Grupo {curso.letra_grupo}"
                         >
                           {curso.letra_grupo}
                         </span>
                       {/if}
                     </div>
-                    {#if urgent}<span class="inline-block w-2 h-2 rounded-full bg-[#EF4444] shadow-[0_0_0_3px_rgba(239,68,68,0.18)]" title="Tiene actividades pendientes"></span>{/if}
+                    {#if urgent}<span class="inline-block w-2 h-2 rounded-full bg-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.18)]" title="Tiene actividades pendientes"></span>{/if}
                   </div>
                 </div>
 
                 <div class="flex flex-col gap-1">
-                  <h3 class="text-[1.075rem] font-semibold tracking-[-0.015em] m-0 text-[#0E1220] leading-[1.2]">{curso.nombre}</h3>
-                  <p class="text-[0.8125rem] text-[#5C6478] m-0">{curso.carrera_nombre || curso.programa_nombre || 'Sin carrera'}</p>
+                  <h3 class="text-[1.075rem] font-semibold tracking-[-0.015em] m-0 text-ink leading-[1.2]">{curso.nombre}</h3>
+                  <p class="text-[0.8125rem] text-ink-2 m-0">{curso.carrera_nombre || curso.programa_nombre || 'Sin carrera'}</p>
                 </div>
 
                 <div class="flex flex-wrap gap-1.5">
-                  <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {curso.total_estudiantes > 0 ? 'bg-[#FAFBFC] text-[#2B3142] border border-transparent' : 'bg-transparent text-muted-foreground border border-[#E8EAF0]'}">
+                  <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {curso.total_estudiantes > 0 ? 'bg-gray-50 text-slate-800 border border-transparent' : 'bg-transparent text-muted-foreground border border-slate-200'}">
                     <Users size={13} aria-hidden="true" />
                     <span class="font-semibold">{curso.total_estudiantes ?? 0}</span>
                     <span>estudiantes</span>
                   </div>
-                  <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {urgent ? 'bg-[#FEF3CC] text-[#92580B] border border-transparent' : 'bg-transparent text-muted-foreground border border-[#E8EAF0]'}">
+                  <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {urgent ? 'bg-amber-100 text-ocre border border-transparent' : 'bg-transparent text-muted-foreground border border-slate-200'}">
                     <BookOpenCheck size={13} aria-hidden="true" />
                     <span class="font-semibold">{curso.pendientes_calificar ?? 0}</span>
                     <span>por revisar</span>
                   </div>
                   {#if curso.anuncios != null}
-                    <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {(curso.anuncios ?? 0) > 0 ? 'bg-[#EAF1FF] text-[#2563EB] border border-transparent' : 'bg-transparent text-muted-foreground border border-[#E8EAF0]'}">
+                    <div class="inline-flex items-center gap-1 px-2 py-1 rounded-[7px] text-xs {(curso.anuncios ?? 0) > 0 ? 'bg-indigo-50 text-blue-600 border border-transparent' : 'bg-transparent text-muted-foreground border border-slate-200'}">
                       <Bell size={13} aria-hidden="true" />
                       <span class="font-semibold">{curso.anuncios}</span>
                       <span>anuncios</span>
@@ -347,7 +347,7 @@
               {@const pid2 = `dpl-${curso.id_curso}`}
 
               <div
-                class="group relative grid grid-cols-[46px_minmax(200px,1fr)_auto_auto_auto] max-md:grid-cols-[40px_1fr_auto] gap-[14px] items-center bg-white border border-[#E8EAF0] rounded-2xl p-[12px_16px_12px_14px] max-md:p-3 overflow-hidden cursor-pointer transition-all hover:-translate-x-0.5 hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.09)] focus-visible:ring-4 focus-visible:ring-[var(--ac-soft)] focus-visible:border-[var(--ac)] text-left outline-none border-solid"
+                class="group relative grid grid-cols-[46px_minmax(200px,1fr)_auto_auto_auto] max-md:grid-cols-[40px_1fr_auto] gap-[14px] items-center bg-white border border-slate-200 rounded-2xl p-[12px_16px_12px_14px] max-md:p-3 overflow-hidden cursor-pointer transition-all hover:-translate-x-0.5 hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.09)] focus-visible:ring-4 focus-visible:ring-[var(--ac-soft)] focus-visible:border-[var(--ac)] text-left outline-none border-solid"
                 style="--ac:{a.base};--ac-soft:{a.soft}; hover:border-[var(--ac)]"
                 onclick={() => router.visit(`/docente/cursos/${curso.id_curso}`)}
                 onkeydown={(e) => {
@@ -380,14 +380,14 @@
 
                 <div class="flex flex-col gap-0.5 min-w-0 max-md:col-span-2">
                   <div class="flex items-center gap-[7px]">
-                    <h3 class="text-base font-semibold m-0 tracking-[-0.01em] whitespace-nowrap overflow-hidden text-ellipsis text-[#0E1220]">{curso.nombre}</h3>
-                    {#if urgent}<span class="inline-block w-2 h-2 rounded-full bg-[#EF4444] shadow-[0_0_0_3px_rgba(239,68,68,0.18)] shrink-0" title="Tiene actividades pendientes"></span>{/if}
+                    <h3 class="text-base font-semibold m-0 tracking-[-0.01em] whitespace-nowrap overflow-hidden text-ellipsis text-ink">{curso.nombre}</h3>
+                    {#if urgent}<span class="inline-block w-2 h-2 rounded-full bg-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.18)] shrink-0" title="Tiene actividades pendientes"></span>{/if}
                   </div>
-                  <div class="flex gap-[5px] items-center text-xs text-[#5C6478] min-w-0 overflow-hidden whitespace-nowrap">
-                    <span class="font-mono text-[0.75rem] font-semibold text-[#5A5E6E] tracking-[0.02em]">{codigoAsignatura(curso)}</span>
+                  <div class="flex gap-[5px] items-center text-xs text-ink-2 min-w-0 overflow-hidden whitespace-nowrap">
+                    <span class="font-mono text-[0.75rem] font-semibold text-ink-2 tracking-[0.02em]">{codigoAsignatura(curso)}</span>
                     {#if curso.letra_grupo}
                       <span
-                        class="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md bg-[#E8EDF5] text-[12px] font-bold text-[#002F6C]"
+                        class="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md bg-uta-blue-light text-[12px] font-bold text-navy"
                         title="Grupo {curso.letra_grupo}"
                       >
                         {curso.letra_grupo}
@@ -399,17 +399,17 @@
                 </div>
 
                 <div class="flex gap-1 items-center max-md:col-span-2">
-                  <div class="inline-flex items-center gap-1 px-[7px] py-[3px] rounded-[7px] text-xs {curso.total_estudiantes > 0 ? 'bg-[#FAFBFC] text-[#2B3142] border border-transparent' : 'bg-transparent text-muted-foreground border border-[#E8EAF0]'}">
+                  <div class="inline-flex items-center gap-1 px-[7px] py-[3px] rounded-[7px] text-xs {curso.total_estudiantes > 0 ? 'bg-gray-50 text-slate-800 border border-transparent' : 'bg-transparent text-muted-foreground border border-slate-200'}">
                     <Users size={13} aria-hidden="true" />
                     <span class="font-semibold">{curso.total_estudiantes ?? 0}</span>
                   </div>
-                  <div class="inline-flex items-center gap-1 px-[7px] py-[3px] rounded-[7px] text-xs {urgent ? 'bg-[#FEF3CC] text-[#92580B] border border-transparent' : 'bg-transparent text-muted-foreground border border-[#E8EAF0]'}">
+                  <div class="inline-flex items-center gap-1 px-[7px] py-[3px] rounded-[7px] text-xs {urgent ? 'bg-amber-100 text-ocre border border-transparent' : 'bg-transparent text-muted-foreground border border-slate-200'}">
                     <BookOpenCheck size={13} aria-hidden="true" />
                     <span class="font-semibold">{curso.pendientes_calificar ?? 0}</span>
                   </div>
                 </div>
 
-<div class="w-[30px] h-[30px] rounded-[8px] bg-[#FAFBFC] flex items-center justify-center text-[#5C6478] transition-all group-hover:bg-[var(--ac)] group-hover:text-white shrink-0 max-md:hidden" aria-hidden="true"><ArrowRight size={17} /></div>
+<div class="w-[30px] h-[30px] rounded-[8px] bg-gray-50 flex items-center justify-center text-ink-2 transition-all group-hover:bg-[var(--ac)] group-hover:text-white shrink-0 max-md:hidden" aria-hidden="true"><ArrowRight size={17} /></div>
               </div>
             {/each}
           </div>

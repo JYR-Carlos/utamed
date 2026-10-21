@@ -102,21 +102,21 @@
   // Estilos del contenedor según estado (borde izquierdo grueso de 8px y fondo ligeramente tintado)
   const estilos = {
     en_plazo: {
-      card: 'border-l-8 border-l-emerald-600 border-[#D1F2D9] bg-[#F2FAF4]',
+      card: 'border-l-8 border-l-emerald-600 border-emerald-100 bg-green-50',
       badge: 'bg-emerald-100/80 text-emerald-800 border-emerald-300',
       dot: 'bg-emerald-600',
       icon: 'text-emerald-700',
       label: 'En plazo',
     },
     fuera_de_plazo: {
-      card: 'border-l-8 border-l-amber-500 border-[#FDE8C3] bg-[#FEF9EE]',
+      card: 'border-l-8 border-l-amber-500 border-orange-100 bg-orange-50',
       badge: 'bg-amber-100 text-amber-800 border-amber-300',
       dot: 'bg-amber-600',
       icon: 'text-amber-700',
       label: 'Fuera de plazo',
     },
     cerrada: {
-      card: 'border-l-8 border-l-slate-400 border-[#E2E8F0] bg-[#F8FAFC]',
+      card: 'border-l-8 border-l-slate-400 border-slate-200 bg-slate-50',
       badge: 'bg-slate-200/80 text-slate-700 border-slate-300',
       dot: 'bg-slate-500',
       icon: 'text-slate-600',
@@ -144,12 +144,12 @@
     <div class="flex items-center gap-2.5">
       {#if yaEvaluada}
         <CheckCircle2 class="h-5 w-5 {s.icon}" />
-        <h2 class="text-lg md:text-xl font-bold tracking-tight text-[#1A1A24]">
+        <h2 class="text-lg md:text-xl font-bold tracking-tight text-ink">
           Entrega calificada
         </h2>
       {:else if estadoVisual === 'cerrada'}
         <Lock class="h-5 w-5 {s.icon}" />
-        <h2 class="text-lg md:text-xl font-bold tracking-tight text-[#1A1A24]">
+        <h2 class="text-lg md:text-xl font-bold tracking-tight text-ink">
           Actividad cerrada
         </h2>
       {:else if estadoVisual === 'fuera_de_plazo'}
@@ -159,12 +159,12 @@
         </h2>
       {:else if !tieneFecha}
         <CalendarClock class="h-5 w-5 {s.icon}" />
-        <h2 class="text-lg md:text-xl font-bold tracking-tight text-[#1A1A24]">
+        <h2 class="text-lg md:text-xl font-bold tracking-tight text-ink">
           Sin fecha límite
         </h2>
       {:else}
         <CalendarClock class="h-5 w-5 {s.icon}" />
-        <h2 class="text-lg md:text-xl font-bold tracking-tight text-[#1A1A24]">
+        <h2 class="text-lg md:text-xl font-bold tracking-tight text-ink">
           {diasRestantes === 0 ? 'Vence hoy' : `${diasRestantes} ${diasRestantes === 1 ? 'día restante' : 'días restantes'}`}
         </h2>
       {/if}
@@ -180,22 +180,22 @@
   <div class="grid grid-cols-1 md:grid-cols-12 gap-5 items-center pt-1">
     <!-- Fecha de entrega (Mucho más grande, sin año) -->
     <div class="flex flex-col justify-center md:col-span-4">
-      <span class="text-[11px] font-bold uppercase tracking-wider text-[#5A5E6E]">
+      <span class="text-[11px] font-bold uppercase tracking-wider text-ink-2">
         Fecha de entrega
       </span>
       {#if tieneFecha}
         <div class="flex items-baseline gap-2.5 mt-1">
-          <span class="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#1A1A24] leading-none">
+          <span class="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-ink leading-none">
             {fechaCortaDDMM}
           </span>
-          <span class="whitespace-nowrap text-xs font-semibold text-[#5A5E6E]">23:59 hrs</span>
+          <span class="whitespace-nowrap text-xs font-semibold text-ink-2">23:59 hrs</span>
         </div>
-        <span class="mt-1 text-[11px] text-[#5A5E6E]">Hora de Chile</span>
+        <span class="mt-1 text-[11px] text-ink-2">Hora de Chile</span>
         {#if cierre?.local}
-          <span class="mt-1 text-[11px] text-[#5A5E6E]">Tu hora: {cierre.local}</span>
+          <span class="mt-1 text-[11px] text-ink-2">Tu hora: {cierre.local}</span>
         {/if}
       {:else}
-        <span class="mt-1 text-sm font-semibold text-[#5A5E6E]">
+        <span class="mt-1 text-sm font-semibold text-ink-2">
           La actividad no tiene fecha límite.
         </span>
       {/if}
@@ -215,19 +215,19 @@
             type="button"
             onclick={puedeSubirArchivo ? onReemplazarClick : undefined}
             disabled={!puedeSubirArchivo}
-            class="group flex w-full min-h-[76px] md:min-h-[84px] items-center justify-between gap-4 rounded-xl bg-[#185FA5] p-4 text-white shadow-xs transition-all duration-150 {puedeSubirArchivo ? 'hover:bg-[#134D86] hover:shadow active:scale-[0.99] cursor-pointer' : 'opacity-95 cursor-default'}"
+            class="group flex w-full min-h-[76px] md:min-h-[84px] items-center justify-between gap-4 rounded-xl bg-brand p-4 text-white shadow-xs transition-all duration-150 {puedeSubirArchivo ? 'hover:bg-brand-hover hover:shadow active:scale-[0.99] cursor-pointer' : 'opacity-95 cursor-default'}"
             title={puedeSubirArchivo ? 'Haz clic para reemplazar la entrega' : 'Entrega no modificable'}
           >
             <!-- Izquierda: Tipo de archivo arriba, Nombre del archivo abajo -->
             <div class="flex min-w-0 flex-1 flex-col items-start text-left gap-0.5">
-              <span class="text-[11px] font-bold uppercase tracking-wider text-blue-100">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-white/80">
                 {tipoArchivoTexto}
               </span>
               <span class="text-sm md:text-[15px] font-bold tracking-tight text-white truncate max-w-full">
                 {ultima_entrega.archivo?.nombre_original ?? 'Archivo entregado'}
               </span>
               {#if ultima_entrega.archivo?.peso_bytes}
-                <span class="font-mono text-[10.5px] text-blue-100/80">
+                <span class="font-mono text-[10.5px] text-white/70">
                   {formatBytes(ultima_entrega.archivo.peso_bytes)}
                 </span>
               {/if}
@@ -302,7 +302,7 @@
                   href={esVisualizable ? `${urlDescarga}?ver=1` : urlDescarga}
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="inline-flex shrink-0 items-center gap-1 text-[11.5px] font-semibold text-[#185FA5] hover:text-[#114275] hover:underline"
+                  class="inline-flex shrink-0 items-center gap-1 text-[11.5px] font-semibold text-brand hover:text-sky-900 hover:underline"
                   title={esVisualizable ? 'Ver entrega en línea' : 'Descargar entrega'}
                 >
                   <Eye class="h-3.5 w-3.5" />

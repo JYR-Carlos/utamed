@@ -23,53 +23,53 @@ export interface TonoGrupo {
 const PALETA: TonoGrupo[] = [
     {
         // A · azul
-        tarjeta: 'border-[#BFDBFE] border-l-[#2563EB] bg-[#EFF6FF] hover:border-[#2563EB]',
-        chip: 'bg-[#DBEAFE] text-[#1E40AF]',
-        enlace: 'border-[#BFDBFE] border-l-[#2563EB] bg-[#EFF6FF] hover:border-[#2563EB]',
-        barra: 'border-l-[#2563EB]',
+        tarjeta: 'border-blue-200 border-l-blue-600 bg-blue-50 hover:border-blue-600',
+        chip: 'bg-blue-100 text-blue-800',
+        enlace: 'border-blue-200 border-l-blue-600 bg-blue-50 hover:border-blue-600',
+        barra: 'border-l-blue-600',
     },
     {
         // B · verde
-        tarjeta: 'border-[#A7F3D0] border-l-[#059669] bg-[#ECFDF5] hover:border-[#059669]',
-        chip: 'bg-[#D1FAE5] text-[#065F46]',
-        enlace: 'border-[#A7F3D0] border-l-[#059669] bg-[#ECFDF5] hover:border-[#059669]',
-        barra: 'border-l-[#059669]',
+        tarjeta: 'border-emerald-200 border-l-emerald-600 bg-emerald-50 hover:border-emerald-600',
+        chip: 'bg-emerald-100 text-emerald-800',
+        enlace: 'border-emerald-200 border-l-emerald-600 bg-emerald-50 hover:border-emerald-600',
+        barra: 'border-l-emerald-600',
     },
     {
         // C · violeta
-        tarjeta: 'border-[#DDD6FE] border-l-[#7C3AED] bg-[#F5F3FF] hover:border-[#7C3AED]',
-        chip: 'bg-[#EDE9FE] text-[#5B21B6]',
-        enlace: 'border-[#DDD6FE] border-l-[#7C3AED] bg-[#F5F3FF] hover:border-[#7C3AED]',
-        barra: 'border-l-[#7C3AED]',
+        tarjeta: 'border-violet-200 border-l-violet-600 bg-violet-50 hover:border-violet-600',
+        chip: 'bg-violet-100 text-violet-800',
+        enlace: 'border-violet-200 border-l-violet-600 bg-violet-50 hover:border-violet-600',
+        barra: 'border-l-violet-600',
     },
     {
         // D · cian
-        tarjeta: 'border-[#A5F3FC] border-l-[#0891B2] bg-[#ECFEFF] hover:border-[#0891B2]',
-        chip: 'bg-[#CFFAFE] text-[#155E75]',
-        enlace: 'border-[#A5F3FC] border-l-[#0891B2] bg-[#ECFEFF] hover:border-[#0891B2]',
-        barra: 'border-l-[#0891B2]',
+        tarjeta: 'border-cyan-200 border-l-cyan-600 bg-cyan-50 hover:border-cyan-600',
+        chip: 'bg-cyan-100 text-cyan-800',
+        enlace: 'border-cyan-200 border-l-cyan-600 bg-cyan-50 hover:border-cyan-600',
+        barra: 'border-l-cyan-600',
     },
     {
         // E · fucsia
-        tarjeta: 'border-[#F5D0FE] border-l-[#C026D3] bg-[#FDF4FF] hover:border-[#C026D3]',
-        chip: 'bg-[#FAE8FF] text-[#86198F]',
-        enlace: 'border-[#F5D0FE] border-l-[#C026D3] bg-[#FDF4FF] hover:border-[#C026D3]',
-        barra: 'border-l-[#C026D3]',
+        tarjeta: 'border-fuchsia-200 border-l-fuchsia-600 bg-fuchsia-50 hover:border-fuchsia-600',
+        chip: 'bg-fuchsia-100 text-fuchsia-800',
+        enlace: 'border-fuchsia-200 border-l-fuchsia-600 bg-fuchsia-50 hover:border-fuchsia-600',
+        barra: 'border-l-fuchsia-600',
     },
     {
         // F · naranja
-        tarjeta: 'border-[#FED7AA] border-l-[#EA580C] bg-[#FFF7ED] hover:border-[#EA580C]',
-        chip: 'bg-[#FFEDD5] text-[#9A3412]',
-        enlace: 'border-[#FED7AA] border-l-[#EA580C] bg-[#FFF7ED] hover:border-[#EA580C]',
-        barra: 'border-l-[#EA580C]',
+        tarjeta: 'border-orange-200 border-l-orange-600 bg-orange-50 hover:border-orange-600',
+        chip: 'bg-orange-100 text-orange-800',
+        enlace: 'border-orange-200 border-l-orange-600 bg-orange-50 hover:border-orange-600',
+        barra: 'border-l-orange-600',
     },
 ];
 
 /** Sin letra de grupo: tono neutro, como antes. */
 const NEUTRO: TonoGrupo = {
-    tarjeta: 'border-[#E5E7EB] border-l-[#94A3B8] bg-white hover:border-[#002F6C]',
-    chip: 'bg-[#EEF2F7] text-[#33384A]',
-    enlace: 'border-[#E5E7EB] border-l-[#94A3B8] bg-[#F8FAFC] hover:border-[#002F6C]',
+    tarjeta: 'border-gray-200 border-l-slate-400 bg-white hover:border-navy',
+    chip: 'bg-slate-100 text-gray-700',
+    enlace: 'border-gray-200 border-l-slate-400 bg-slate-50 hover:border-navy',
     barra: 'border-l-transparent',
 };
 

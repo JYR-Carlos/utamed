@@ -252,42 +252,42 @@
   }
 
   function pctColor(porc: number): string {
-    if (bajoMinimo(porc)) return 'text-[#B91C1C]';
-    return porc >= 75 ? 'text-[#047857]' : 'text-[#B45309]';
+    if (bajoMinimo(porc)) return 'text-red-700';
+    return porc >= 75 ? 'text-emerald-700' : 'text-amber-700';
   }
 
   const CAMPO =
-    'px-2.5 py-1.5 text-[13px] rounded-lg border border-[#D6D9E0] bg-white focus:outline-none focus:border-[#002F6C]';
+    'px-2.5 py-1.5 text-[13px] rounded-lg border border-line bg-white focus:outline-none focus:border-navy';
 </script>
 
 <div class="flex flex-col gap-4">
   {#if cargando}
-    <div class="flex items-center justify-center gap-2 py-16 text-[#5A5E6E] text-sm">
+    <div class="flex items-center justify-center gap-2 py-16 text-ink-2 text-sm">
       <Loader2 size={18} class="animate-spin" />
       Cargando asistencia…
     </div>
   {:else if error}
-    <div class="text-center py-12 text-[#B91C1C] text-sm">{error}</div>
+    <div class="text-center py-12 text-red-700 text-sm">{error}</div>
   {:else if estudiantes.length === 0}
     <div
-      class="flex flex-col items-center justify-center gap-2 py-14 text-center rounded-xl border border-dashed bg-[#F5F1EA] border-[#D0CBC1]"
+      class="flex flex-col items-center justify-center gap-2 py-14 text-center rounded-xl border border-dashed bg-sand border-sand-line"
     >
-      <Users size={26} class="text-[#8A8E9C]" />
-      <p class="text-sm text-[#5A5E6E] m-0">Sin estudiantes inscritos en este componente.</p>
+      <Users size={26} class="text-ink-3" />
+      <p class="text-sm text-ink-2 m-0">Sin estudiantes inscritos en este componente.</p>
     </div>
   {:else}
     <div class="flex flex-col lg:flex-row gap-[18px] items-start">
       <!-- ── Panel izquierdo: sesiones ── -->
       <div class="w-full lg:w-[360px] lg:flex-none flex flex-col gap-2.5">
         <div class="flex items-baseline gap-2.5">
-          <h3 class="text-sm font-semibold text-[#1A1A24] m-0">Sesiones</h3>
-          <span class="text-[11.5px] text-[#5A5E6E]">
+          <h3 class="text-sm font-semibold text-ink m-0">Sesiones</h3>
+          <span class="text-[11.5px] text-ink-2">
             {sesiones.length}
             {sesiones.length === 1 ? 'registrada' : 'registradas'}
           </span>
           <button
             onclick={nuevaSesion}
-            class="ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-[#002F6C] transition-colors hover:bg-[#E6ECF5]"
+            class="ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-navy transition-colors hover:bg-uta-blue-light"
           >
             <CalendarPlus size={14} />
             Nueva sesión
@@ -296,17 +296,17 @@
 
         {#if sesiones.length === 0}
           <div
-            class="flex flex-col items-center justify-center gap-2 rounded-[10px] border border-dashed border-[#D0CBC1] bg-[#F5F1EA] py-10 text-center"
+            class="flex flex-col items-center justify-center gap-2 rounded-[10px] border border-dashed border-sand-line bg-sand py-10 text-center"
           >
-            <ClipboardCheck size={24} class="text-[#8A8E9C]" />
-            <p class="text-[13px] text-[#5A5E6E] m-0 px-4">
+            <ClipboardCheck size={24} class="text-ink-3" />
+            <p class="text-[13px] text-ink-2 m-0 px-4">
               Aún no hay sesiones. Registra la primera con «Nueva sesión».
             </p>
           </div>
         {:else}
           {#each sesionesPorDia as grupo (grupo.dia)}
             <span
-              class="font-mono text-[10.5px] uppercase tracking-[0.08em] text-[#5A5E6E] pt-1.5 first:pt-0.5"
+              class="font-mono text-[10.5px] uppercase tracking-[0.08em] text-ink-2 pt-1.5 first:pt-0.5"
             >
               {formatFechaLarga(grupo.dia)}
             </span>
@@ -316,22 +316,22 @@
                 onclick={() => abrirSesion(s)}
                 aria-current={activa ? 'true' : undefined}
                 class="flex w-full items-center gap-3 rounded-[10px] border px-3 py-2.5 text-left transition-colors duration-150 {activa
-                  ? 'bg-[#F8FAFC] border-[#C9D6E6] border-l-[3px] border-l-[#002F6C]'
-                  : 'bg-white border-[#E5E7EB] hover:bg-[#FCFBF9]'}"
+                  ? 'bg-slate-50 border-slate-300 border-l-[3px] border-l-navy'
+                  : 'bg-white border-gray-200 hover:bg-stone-50'}"
               >
                 <span class="flex flex-col gap-0.5 min-w-0">
                   <span
                     class="font-mono text-[13px] font-semibold tabular-nums {activa
-                      ? 'text-[#002F6C]'
-                      : 'text-[#1A1A24]'}">{s.hora_inicio} – {s.hora_fin}</span
+                      ? 'text-navy'
+                      : 'text-ink'}">{s.hora_inicio} – {s.hora_fin}</span
                   >
-                  <span class="text-[11.5px] text-[#5A5E6E]">{tipoComponente}</span>
+                  <span class="text-[11.5px] text-ink-2">{tipoComponente}</span>
                 </span>
                 <span class="ml-auto flex flex-none flex-col items-end gap-0.5">
-                  <span class="font-mono text-sm font-semibold tabular-nums text-[#1A1A24]"
+                  <span class="font-mono text-sm font-semibold tabular-nums text-ink"
                     >{s.presentes}/{s.total}</span
                   >
-                  <span class="text-[11px] text-[#5A5E6E]">presentes</span>
+                  <span class="text-[11px] text-ink-2">presentes</span>
                 </span>
               </button>
             {/each}
@@ -340,12 +340,12 @@
       </div>
 
       <!-- ── Panel derecho: pase de lista ── -->
-      <div class="w-full lg:flex-1 min-w-0 rounded-xl border border-[#E5E7EB] flex flex-col">
+      <div class="w-full lg:flex-1 min-w-0 rounded-xl border border-gray-200 flex flex-col">
         {#if modo === 'idle'}
           <div
-            class="flex flex-col items-center justify-center gap-2 py-16 text-center text-[#5A5E6E]"
+            class="flex flex-col items-center justify-center gap-2 py-16 text-center text-ink-2"
           >
-            <ClipboardCheck size={28} class="text-[#8A8E9C]" />
+            <ClipboardCheck size={28} class="text-ink-3" />
             <p class="text-[13px] m-0">
               Elige una sesión de la izquierda o registra una nueva para pasar lista.
             </p>
@@ -353,14 +353,14 @@
         {:else}
           <!-- Cabecera -->
           <div
-            class="flex flex-wrap items-center gap-3.5 rounded-t-xl border-b border-[#E5E7EB] bg-[#F5F1EA] px-4 py-3"
+            class="flex flex-wrap items-center gap-3.5 rounded-t-xl border-b border-gray-200 bg-sand px-4 py-3"
           >
             <div class="flex flex-col gap-0.5 min-w-0">
-              <span class="text-sm font-semibold text-[#1A1A24]"
+              <span class="text-sm font-semibold text-ink"
                 >Pase de lista · {tipoComponente}</span
               >
               {#if modo === 'editar'}
-                <span class="font-mono text-[11.5px] text-[#5A5E6E]">
+                <span class="font-mono text-[11.5px] text-ink-2">
                   {formatFechaLarga(fDia)} · {fInicio} – {fFin}
                 </span>
               {:else}
@@ -375,15 +375,15 @@
 
             <div class="ml-auto flex flex-wrap items-center gap-3.5">
               <div class="flex flex-col items-end">
-                <span class="font-mono text-lg font-semibold leading-tight tabular-nums text-[#1A1A24]"
+                <span class="font-mono text-lg font-semibold leading-tight tabular-nums text-ink"
                   >{totalPresentesForm}/{estudiantes.length}</span
                 >
-                <span class="text-[11px] text-[#5A5E6E]">presentes</span>
+                <span class="text-[11px] text-ink-2">presentes</span>
               </div>
               {#if modo === 'editar'}
                 <button
                   onclick={eliminarSesion}
-                  class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-[#FEE2E2] hover:text-[#B91C1C]"
+                  class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-red-100 hover:text-red-700"
                   aria-label="Eliminar sesión"
                 >
                   <Trash2 size={15} />
@@ -391,14 +391,14 @@
               {/if}
               <button
                 onclick={() => marcarTodos(!todosPresentes)}
-                class="rounded-lg border border-[#D6D9E0] bg-white px-3 py-2 text-[13px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA]"
+                class="rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand"
               >
                 {todosPresentes ? 'Desmarcar todos' : 'Marcar todos'}
               </button>
               <button
                 onclick={guardar}
                 disabled={guardando}
-                class="inline-flex items-center gap-1.5 rounded-lg border border-[#002F6C] bg-[#002F6C] px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#1B4789] disabled:opacity-50"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-navy bg-navy px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-navy-2 disabled:opacity-50"
               >
                 {#if guardando}
                   <Loader2 size={14} class="animate-spin" />
@@ -411,7 +411,7 @@
           </div>
 
           {#if formError}
-            <p class="border-b border-[#E5E7EB] px-4 py-2 text-[12.5px] text-[#B91C1C] m-0">
+            <p class="border-b border-gray-200 px-4 py-2 text-[12.5px] text-red-700 m-0">
               {formError}
             </p>
           {/if}
@@ -421,21 +421,21 @@
             {#each estudiantes as e, i (e.id_inscripcion_componente)}
               {@const pres = !!presentes[e.id_inscripcion_componente]}
               <div
-                class="flex items-center gap-3 border-b border-[#E5E7EB] px-4 py-2.5 {i % 2 === 0
-                  ? 'md:border-r md:border-r-[#E5E7EB]'
-                  : ''} {Math.floor(i / 2) % 2 === 1 ? 'bg-[#FCFBF9]' : ''}"
+                class="flex items-center gap-3 border-b border-gray-200 px-4 py-2.5 {i % 2 === 0
+                  ? 'md:border-r md:border-r-gray-200'
+                  : ''} {Math.floor(i / 2) % 2 === 1 ? 'bg-stone-50' : ''}"
               >
-                <span class="w-[22px] shrink-0 font-mono text-[12px] tabular-nums text-[#5A5E6E]"
+                <span class="w-[22px] shrink-0 font-mono text-[12px] tabular-nums text-ink-2"
                   >{String(i + 1).padStart(2, '0')}</span
                 >
-                <span class="min-w-0 truncate text-[13.5px] font-medium text-[#1A1A24]"
+                <span class="min-w-0 truncate text-[13.5px] font-medium text-ink"
                   >{e.nombre}</span
                 >
                 <span class="ml-auto flex flex-none items-center gap-2.5">
                   <span
                     class="text-[11.5px] {pres
-                      ? 'font-semibold text-[#047857]'
-                      : 'text-[#5A5E6E]'}">{pres ? 'Presente' : 'Ausente'}</span
+                      ? 'font-semibold text-emerald-700'
+                      : 'text-ink-2'}">{pres ? 'Presente' : 'Ausente'}</span
                   >
                   <button
                     role="switch"
@@ -443,8 +443,8 @@
                     aria-label="{e.nombre}: marcar {pres ? 'ausente' : 'presente'}"
                     onclick={() => togglePresente(e.id_inscripcion_componente)}
                     class="flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-0.5 transition-colors duration-150 {pres
-                      ? 'justify-end bg-[#059669]'
-                      : 'justify-start bg-[#E0E3E9]'}"
+                      ? 'justify-end bg-emerald-600'
+                      : 'justify-start bg-zinc-200'}"
                   >
                     <span class="h-[18px] w-[18px] rounded-full bg-white shadow-sm"></span>
                   </button>
@@ -453,7 +453,7 @@
             {/each}
           </div>
 
-          <div class="flex items-center gap-3 px-4 py-2.5 text-[12px] text-[#5A5E6E]">
+          <div class="flex items-center gap-3 px-4 py-2.5 text-[12px] text-ink-2">
             <span class="mr-auto">
               {estudiantes.length}
               {estudiantes.length === 1 ? 'estudiante' : 'estudiantes'} · el orden sigue la lista de
@@ -462,7 +462,7 @@
             {#if modo === 'nueva'}
               <button
                 onclick={() => (sesiones.length > 0 ? abrirSesion(sesiones[0]) : (modo = 'idle'))}
-                class="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-medium text-[#5A5E6E] transition-colors hover:bg-[#F5F1EA]"
+                class="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-medium text-ink-2 transition-colors hover:bg-sand"
               >
                 <X size={13} />
                 Descartar
@@ -477,48 +477,48 @@
     {#if sesiones.length > 0}
       <div class="flex flex-col gap-2">
         <div class="flex items-baseline gap-2.5">
-          <h3 class="text-sm font-semibold text-[#1A1A24] m-0">Asistencia por estudiante</h3>
+          <h3 class="text-sm font-semibold text-ink m-0">Asistencia por estudiante</h3>
           {#if porcentajeObligatorio != null}
-            <span class="text-[11.5px] text-[#5A5E6E]">
+            <span class="text-[11.5px] text-ink-2">
               Mínimo obligatorio del componente:
-              <strong class="font-semibold text-[#1A1A24]">{porcentajeObligatorio}%</strong>
+              <strong class="font-semibold text-ink">{porcentajeObligatorio}%</strong>
             </span>
           {/if}
         </div>
-        <div class="overflow-hidden rounded-xl border border-[#E5E7EB]">
+        <div class="overflow-hidden rounded-xl border border-gray-200">
           <table class="w-full border-collapse text-sm">
-            <thead class="bg-[#F5F1EA]">
+            <thead class="bg-sand">
               <tr>
                 <th
-                  class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-[#5A5E6E]"
+                  class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-ink-2"
                   >Estudiante</th
                 >
                 <th
-                  class="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.05em] text-[#5A5E6E]"
+                  class="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.05em] text-ink-2"
                   >Asistió</th
                 >
                 <th
-                  class="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.05em] text-[#5A5E6E]"
+                  class="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.05em] text-ink-2"
                   >%</th
                 >
               </tr>
             </thead>
             <tbody>
               {#each resumen as r, i (r.estudiante.id_inscripcion_componente)}
-                <tr class="border-t border-[#E5E7EB] {i % 2 === 1 ? 'bg-[#FCFBF9]' : ''}">
+                <tr class="border-t border-gray-200 {i % 2 === 1 ? 'bg-stone-50' : ''}">
                   <td class="px-4 py-2.5">
                     <div class="flex items-center gap-2">
-                      <span class="text-[13.5px] text-[#1A1A24]">{r.estudiante.nombre}</span>
+                      <span class="text-[13.5px] text-ink">{r.estudiante.nombre}</span>
                       {#if bajoMinimo(r.porcentaje)}
                         <span
-                          class="inline-flex items-center gap-1 rounded-full bg-[#FFFBEB] border border-[#FDE68A] px-2 py-0.5 text-[10.5px] font-semibold text-[#B45309]"
+                          class="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10.5px] font-semibold text-amber-700"
                         >
                           <AlertTriangle size={10} /> Bajo mínimo
                         </span>
                       {/if}
                     </div>
                   </td>
-                  <td class="px-4 py-2.5 text-right font-mono tabular-nums text-[13px] text-[#5A5E6E]"
+                  <td class="px-4 py-2.5 text-right font-mono tabular-nums text-[13px] text-ink-2"
                     >{r.presentes}/{r.total}</td
                   >
                   <td

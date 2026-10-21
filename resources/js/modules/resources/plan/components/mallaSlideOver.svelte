@@ -146,7 +146,7 @@
           height="48"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#d1d5db"
+          stroke="currentColor" class="text-gray-300"
           stroke-width="1.5"
           stroke-linecap="round"
           stroke-linejoin="round"
@@ -204,7 +204,7 @@
     right: 0;
     height: 100dvh;
     width: min(600px, 100vw);
-    background: #ffffff;
+    background: var(--background-color-white, #ffffff);
     box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
     z-index: 50;
     display: flex;
@@ -225,8 +225,8 @@
     justify-content: space-between;
     gap: 1rem;
     padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid #e5e7eb;
-    background: #f8fafc;
+    border-bottom: 1px solid var(--color-gray-200, #e5e7eb);
+    background: var(--background-color-slate-50, #f8fafc);
     flex-shrink: 0;
   }
 
@@ -237,13 +237,13 @@
   .slideover-title {
     font-size: 1.125rem;
     font-weight: 700;
-    color: #111827;
+    color: var(--color-gray-900, #111827);
     margin: 0;
   }
 
   .slideover-subtitle {
     font-size: 0.8125rem;
-    color: #6b7280;
+    color: var(--color-gray-500, #6b7280);
     margin: 0.25rem 0 0 0;
     white-space: nowrap;
     overflow: hidden;
@@ -261,8 +261,8 @@
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
+    background: var(--background-color-blue-50, #eff6ff);
+    border: 1px solid var(--color-blue-200, #bfdbfe);
     border-radius: 999px;
     padding: 0.25rem 0.75rem;
   }
@@ -270,7 +270,7 @@
   .credits-chip-label {
     font-size: 0.6875rem;
     font-weight: 600;
-    color: #3b82f6;
+    color: var(--color-blue-500, #3b82f6);
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
@@ -278,7 +278,7 @@
   .credits-chip-value {
     font-size: 0.9375rem;
     font-weight: 700;
-    color: #1e40af;
+    color: var(--color-blue-800, #1e40af);
   }
 
   .close-btn {
@@ -290,7 +290,7 @@
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: #6b7280;
+    color: var(--color-gray-500, #6b7280);
     cursor: pointer;
     transition:
       background 0.15s,
@@ -298,8 +298,8 @@
   }
 
   .close-btn:hover {
-    background: #f3f4f6;
-    color: #111827;
+    background: var(--background-color-gray-100, #f3f4f6);
+    color: var(--color-gray-900, #111827);
   }
 
   /* ---------- Body ---------- */
@@ -319,15 +319,15 @@
     gap: 1rem;
     height: 100%;
     padding: 3rem 2rem;
-    color: #9ca3af;
+    color: var(--color-gray-400, #9ca3af);
     text-align: center;
   }
 
   .spinner {
     width: 2.5rem;
     height: 2.5rem;
-    border: 3px solid #e5e7eb;
-    border-top-color: #3b82f6;
+    border: 3px solid var(--color-gray-200, #e5e7eb);
+    border-top-color: var(--color-blue-500, #3b82f6);
     border-radius: 50%;
     animation: spin 0.75s linear infinite;
   }
@@ -352,7 +352,7 @@
 
   .year-badge {
     display: inline-block;
-    background: #1e40af;
+    background: var(--background-color-blue-800, #1e40af);
     color: #fff;
     font-size: 0.75rem;
     font-weight: 700;
@@ -386,9 +386,9 @@
     gap: 0.375rem;
     font-size: 0.8125rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--color-gray-700, #374151);
     padding: 0.375rem 0;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--color-gray-100, #f3f4f6);
     margin-bottom: 0.25rem;
   }
 
@@ -400,10 +400,10 @@
   }
 
   .dot-1 {
-    background: #3b82f6;
+    background: var(--background-color-blue-500, #3b82f6);
   }
   .dot-2 {
-    background: #10b981;
+    background: var(--background-color-emerald-500, #10b981);
   }
 
   .asignaturas-list {
@@ -414,7 +414,7 @@
 
   .empty-semester {
     font-size: 0.75rem;
-    color: #d1d5db;
+    color: var(--color-gray-300, #d1d5db);
     font-style: italic;
     padding: 0.5rem 0;
     margin: 0;
@@ -422,8 +422,8 @@
 
   /* ---------- Asignatura card ---------- */
   .asig-card {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    background: var(--background-color-gray-50, #f9fafb);
+    border: 1px solid var(--color-gray-200, #e5e7eb);
     border-radius: 8px;
     padding: 0.625rem 0.75rem;
     transition:
@@ -432,7 +432,7 @@
   }
 
   .asig-card:hover {
-    border-color: #93c5fd;
+    border-color: var(--color-blue-300, #93c5fd);
     box-shadow: 0 2px 6px rgba(59, 130, 246, 0.08);
   }
 
@@ -447,14 +447,14 @@
     font-family: 'Courier New', monospace;
     font-size: 0.75rem;
     font-weight: 700;
-    color: #2563eb;
+    color: var(--color-blue-600, #2563eb);
   }
 
   .asig-sct {
     font-size: 0.6875rem;
     font-weight: 600;
-    background: #dbeafe;
-    color: #1e40af;
+    background: var(--background-color-blue-100, #dbeafe);
+    color: var(--color-blue-800, #1e40af);
     padding: 0.125rem 0.5rem;
     border-radius: 999px;
   }
@@ -462,7 +462,7 @@
   .asig-name {
     font-size: 0.8125rem;
     font-weight: 500;
-    color: #111827;
+    color: var(--color-gray-900, #111827);
     margin: 0;
     line-height: 1.35;
   }
@@ -471,8 +471,8 @@
     display: inline-block;
     margin-top: 0.375rem;
     font-size: 0.6875rem;
-    background: #f3f4f6;
-    color: #6b7280;
+    background: var(--background-color-gray-100, #f3f4f6);
+    color: var(--color-gray-500, #6b7280);
     padding: 0.125rem 0.5rem;
     border-radius: 4px;
   }

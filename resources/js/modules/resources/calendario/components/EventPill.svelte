@@ -45,7 +45,7 @@
       if (!e.visible) {
         return {
           clase: BASE,
-          estilo: `background:#F4F4F5;border:1px dashed #A1A1AA;border-left:3px solid ${accent.base};color:#52525B`,
+          estilo: `background:var(--background-color-zinc-100, #F4F4F5);border:1px dashed var(--color-zinc-400, #A1A1AA);border-left:3px solid ${accent.base};color:var(--color-zinc-600, #52525B)`,
           texto: `OCULTA · ${e.titulo}`,
           titulo: `${e.titulo} — no visible para el estudiante`,
         };
@@ -62,7 +62,7 @@
 
       return {
         clase: BASE,
-        estilo: `background:#FFFFFF;border:1px dashed ${accent.base};border-left:3px solid ${accent.base};color:${accent.text}`,
+        estilo: `background:var(--background-color-white, #FFFFFF);border:1px dashed ${accent.base};border-left:3px solid ${accent.base};color:${accent.text}`,
         texto: e.titulo,
         titulo: `${e.titulo} — formativa`,
       };
@@ -73,7 +73,7 @@
       const prefijo = etiquetaCurso ? `${etiquetaCurso} · ` : '';
       return {
         clase: BASE,
-        estilo: `background:#FFFFFF;border:1px solid #E5E7EB;border-left:3px solid ${accent.base};color:#1A1A24`,
+        estilo: `background:var(--background-color-white, #FFFFFF);border:1px solid var(--color-gray-200, #E5E7EB);border-left:3px solid ${accent.base};color:var(--color-ink, #1A1A24)`,
         texto: `${prefijo}${s.presentes}/${s.total}`,
         titulo: `${s.componente} · ${s.hora_inicio}–${s.hora_fin} · ${s.presentes} de ${s.total} presentes`,
       };
@@ -84,7 +84,7 @@
     if (h.tipo === 'RECHAZO') {
       return {
         clase: BASE_HITO,
-        estilo: 'background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C',
+        estilo: 'background:var(--background-color-red-50, #FEF2F2);border:1px solid var(--color-red-200, #FECACA);color:var(--color-red-700, #B91C1C)',
         texto: h.titulo,
         titulo: h.detalle ? `Razón: ${h.detalle}` : h.titulo,
       };
@@ -93,7 +93,7 @@
     if (h.tipo === 'APROBACION') {
       return {
         clase: BASE_HITO,
-        estilo: 'background:#EAF5EF;border:1px solid #BBE0CB;color:#1F6F45',
+        estilo: 'background:var(--background-color-green-50, #EAF5EF);border:1px solid var(--color-green-200, #BBE0CB);color:var(--color-emerald-700, #1F6F45)',
         texto: h.titulo,
         titulo: h.titulo,
       };
@@ -101,7 +101,7 @@
 
     return {
       clase: BASE_HITO,
-      estilo: 'background:#F5F1EA;border:1px solid #E5E7EB;color:#5A5E6E',
+      estilo: 'background:var(--background-color-sand, #F5F1EA);border:1px solid var(--color-gray-200, #E5E7EB);color:var(--color-ink-2, #5A5E6E)',
       texto: h.titulo,
       titulo: h.titulo,
     };
@@ -120,20 +120,20 @@
 >
   {#if item.familia === 'ENTREGA'}
     {#if !item.entrega.visible}
-      <EyeOff size={11} class="shrink-0" color="#71717A" />
+      <EyeOff size={11} class="text-zinc-500 shrink-0" />
     {:else if item.entrega.tipo_actividad === 'SUMATIVA'}
-      <ClipboardCheck size={11} class="shrink-0" color={accent.base} />
+      <ClipboardCheck size={11} class="shrink-0" style="color:{accent.base}" />
     {:else}
-      <PencilLine size={11} class="shrink-0" color={accent.base} />
+      <PencilLine size={11} class="shrink-0" style="color:{accent.base}" />
     {/if}
   {:else if item.familia === 'SESION'}
-    <Clock size={11} class="shrink-0" color="#5A5E6E" />
+    <Clock size={11} class="text-ink-2 shrink-0" />
   {:else if item.hito.tipo === 'RECHAZO'}
-    <CircleX size={11} class="shrink-0" color="#B91C1C" />
+    <CircleX size={11} class="text-red-700 shrink-0" />
   {:else if item.hito.tipo === 'APROBACION'}
-    <CircleCheck size={11} class="shrink-0" color="#1F6F45" />
+    <CircleCheck size={11} class="text-emerald-700 shrink-0" />
   {:else}
-    <ClipboardList size={11} class="shrink-0" color="#5A5E6E" />
+    <ClipboardList size={11} class="text-ink-2 shrink-0" />
   {/if}
 
   <span class="min-w-0 flex-1 truncate">{marca.texto}</span>

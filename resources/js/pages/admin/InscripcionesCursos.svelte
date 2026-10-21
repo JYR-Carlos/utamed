@@ -41,11 +41,12 @@
 
   interface Props {
     inscripciones: PaginatedResponse<RosterItem>;
-    cursos: CursoItem[];
-    filters: { search?: string; id_curso?: number | string; estado_inscripcion?: string };
+    cursos: PaginatedResponse<CursoItem> | CursoItem[];
+    carreras?: string[];
+    filters: { search?: string; id_curso?: number | string; estado_inscripcion?: string; carrera?: string };
   }
 
-  let { inscripciones, cursos, filters }: Props = $props();
+  let { inscripciones, cursos, carreras = [], filters }: Props = $props();
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Inicio', href: '/dashboard' },
@@ -55,9 +56,11 @@
   // ── Mode detection ──────────────────────────────────────────────────────────
   const activeCursoId = $derived(filters.id_curso ? Number(filters.id_curso) : null);
   const isRosterMode = $derived(activeCursoId !== null);
-  const selectedCurso = $derived(
-    activeCursoId ? (cursos.find((c) => c.id_curso === activeCursoId) ?? null) : null,
-  );
+  const selectedCurso = $derived.by(() => {
+    if (!activeCursoId) return null;
+    const items = Array.isArray(cursos) ? cursos : (cursos?.data ?? []);
+    return items.find((c) => c.id_curso === activeCursoId) ?? null;
+  });
 
   // ── Roster state ────────────────────────────────────────────────────────────
   let roster = $state<RosterItem[]>([]);
@@ -218,10 +221,10 @@
 <AdminLayout {breadcrumbs}>
   {#if isRosterMode}
     <!-- ── Sincronización con la Intranet ── -->
-    <div class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-[#C9D6E6] bg-[#F5F8FC] px-4 py-3">
+    <div class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-300 bg-slate-50 px-4 py-3">
       <div class="min-w-0 flex-1">
-        <p class="text-sm font-semibold text-[#002F6C]">Sincronizar con la Intranet</p>
-        <p class="mt-0.5 text-xs text-[#5A5E6E]">
+        <p class="text-sm font-semibold text-navy">Sincronizar con la Intranet</p>
+        <p class="mt-0.5 text-xs text-ink-2">
           Inscribe a los alumnos que aparecen en el acta y deja en RETIRADO a los que ya no
           figuran. No borra inscripciones: el estado es reversible.
         </p>
@@ -229,18 +232,18 @@
 
       {#if confirmandoSync}
         <div class="flex items-center gap-2">
-          <span class="text-xs font-medium text-[#B45309]">
+          <span class="text-xs font-medium text-amber-700">
             Se dará de baja a quien ya no figure en la Intranet. ¿Continuar?
           </span>
           <button
             onclick={sincronizarConIntranet}
-            class="rounded-lg bg-[#002F6C] px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+            class="rounded-lg bg-navy px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90"
           >
             Sí, sincronizar
           </button>
           <button
             onclick={() => (confirmandoSync = false)}
-            class="rounded-lg border border-[#D6D9E0] bg-white px-3 py-2 text-xs font-semibold text-[#5A5E6E] transition hover:text-[#1A1A24]"
+            class="rounded-lg border border-line bg-white px-3 py-2 text-xs font-semibold text-ink-2 transition hover:text-ink"
           >
             Cancelar
           </button>
@@ -249,7 +252,7 @@
         <button
           onclick={() => (confirmandoSync = true)}
           disabled={sincronizando}
-          class="shrink-0 rounded-lg bg-[#002F6C] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+          class="shrink-0 rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
         >
           {sincronizando ? 'Sincronizando…' : 'Sincronizar roster'}
         </button>
@@ -262,8 +265,8 @@
       comprobar después de una acción que cambia el estado de sus alumnos.
     -->
     {#if resultadoSync}
-      <div class="mb-4 space-y-3 rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm">
-        <p class="font-semibold text-[#1A1A24]">
+      <div class="mb-4 space-y-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm">
+        <p class="font-semibold text-ink">
           {resultadoSync.inscripcion.inscritos_exitosamente} inscrito(s) ·
           {resultadoSync.reactivados.length} reactivado(s) ·
           {resultadoSync.retirados.length} retirado(s)
@@ -271,10 +274,10 @@
 
         {#if resultadoSync.retirados.length > 0}
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-[#B45309]">Retirados</p>
-            <ul class="mt-1 space-y-0.5 text-xs text-[#5A5E6E]">
+            <p class="text-xs font-semibold uppercase tracking-wider text-amber-700">Retirados</p>
+            <ul class="mt-1 space-y-0.5 text-xs text-ink-2">
               {#each resultadoSync.retirados as alumno}
-                <li>{alumno.nombre ?? '—'} <span class="text-[#98A0AE]">({alumno.rut ?? 's/rut'})</span></li>
+                <li>{alumno.nombre ?? '—'} <span class="text-gray-400">({alumno.rut ?? 's/rut'})</span></li>
               {/each}
             </ul>
           </div>
@@ -283,9 +286,9 @@
         {#if resultadoSync.reactivados.length > 0}
           <div>
             <p class="text-xs font-semibold uppercase tracking-wider text-emerald-700">Reactivados</p>
-            <ul class="mt-1 space-y-0.5 text-xs text-[#5A5E6E]">
+            <ul class="mt-1 space-y-0.5 text-xs text-ink-2">
               {#each resultadoSync.reactivados as alumno}
-                <li>{alumno.nombre ?? '—'} <span class="text-[#98A0AE]">({alumno.rut ?? 's/rut'})</span></li>
+                <li>{alumno.nombre ?? '—'} <span class="text-gray-400">({alumno.rut ?? 's/rut'})</span></li>
               {/each}
             </ul>
           </div>
@@ -318,7 +321,7 @@
       onToast={showToast}
     />
   {:else}
-    <CursoSelector {cursos} onSelect={selectCurso} />
+    <CursoSelector {cursos} {carreras} onSelect={selectCurso} />
   {/if}
 
   <InscripcionDeleteConfirm

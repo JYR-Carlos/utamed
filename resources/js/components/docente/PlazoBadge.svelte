@@ -14,9 +14,9 @@
   const plazo = $derived(plazoRelativo(fecha));
 
   const tonos: Record<TonoPlazo, string> = {
-    neutro: 'bg-[#EEF2F7] text-[#33384A]',
-    manana: 'bg-[#FEF3C7] text-[#92400E]',
-    hoy: 'bg-[#FEE2E2] text-[#B91C1C]',
+    neutro: 'bg-slate-100 text-gray-700',
+    manana: 'bg-amber-100 text-amber-800',
+    hoy: 'bg-red-100 text-red-700',
   };
 </script>
 

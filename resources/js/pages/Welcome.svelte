@@ -157,7 +157,7 @@
 
                     <h1 class="text-5xl lg:text-7xl font-bold tracking-tight leading-[1.05] text-[#F5F3FF]">
                         Entorno Virtual de <br/>
-                        <span class="bg-gradient-to-r from-white to-[#BFD9F2] bg-clip-text text-transparent"
+                        <span class="bg-gradient-to-r from-[#FFFFFF] to-[#BFD9F2] bg-clip-text text-transparent"
                             >Enseñanza <span class="font-light text-[#C4BFE0]">&</span> Aprendizaje.</span
                         >
                     </h1>

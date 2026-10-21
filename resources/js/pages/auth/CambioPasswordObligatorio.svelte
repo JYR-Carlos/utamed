@@ -99,7 +99,7 @@
         placeholder="••••••••"
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${nombre}-error` : ayuda ? `${nombre}-ayuda` : undefined}
-        class="w-full rounded-[14px] border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] px-4 py-3.5 pr-12 text-[#F5F3FF] transition-all duration-150 placeholder:text-[#C4BFE0]/60 focus:border-[#5B9BD5] focus:shadow-[0_0_0_3px_rgba(91,155,213,0.35)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-red-400/70"
+        class="w-full rounded-[14px] border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] px-4 py-3.5 pr-12 text-[#F5F3FF] transition-all duration-150 placeholder:text-[#C4BFE0]/60 focus:border-[#5B9BD5] focus:shadow-[0_0_0_3px_rgba(91,155,213,0.35)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-[#FF6467]/70"
       />
       <button
         type="button"
@@ -117,7 +117,7 @@
       </button>
     </div>
     {#if error}
-      <p id="{nombre}-error" class="text-xs text-red-300">{error}</p>
+      <p id="{nombre}-error" class="text-xs text-[#FFA2A2]">{error}</p>
     {:else if ayuda}
       <p id="{nombre}-ayuda" class="text-xs text-[#C4BFE0]/70">{ayuda}</p>
     {/if}
@@ -161,7 +161,7 @@
         class="text-center text-[28px] leading-[1.2] font-semibold text-[#F5F3FF] sm:text-[34px]"
       >
         {motivo === 'primer_ingreso' ? 'Crea tu nueva' : 'Renueva tu'}
-        <span class="bg-gradient-to-r from-white to-[#BFD9F2] bg-clip-text text-transparent"
+        <span class="bg-gradient-to-r from-[#FFFFFF] to-[#BFD9F2] bg-clip-text text-transparent"
           >contraseña</span
         >
       </h1>

@@ -35,6 +35,7 @@ class UsuarioFactory extends Factory
             'apellido2' => $nombre['apellido2'],
             'email' => $this->faker->unique()->safeEmail(),
             'fecha_verificacion_email' => now(),
+            'fecha_cambio_passhash' => now(),
             'passhash' => Hash::make('password'),
             'token_recuerdame_sesion' => Str::random(10),
             'esta_activo' => true,

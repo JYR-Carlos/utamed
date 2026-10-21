@@ -11,6 +11,7 @@ use App\Models\Usuario\Docente;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Support\LetraGrupo;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -160,20 +161,25 @@ class CursoService
 
             $codCurso = !empty($data['cod_curso']) ? (int) $data['cod_curso'] : $this->siguienteCodCurso();
             $fechaInicio = $data['fecha_inicio'];
+            $agnoReal = isset($data['agno_real']) ? (int) $data['agno_real'] : $cursoPadre->agno_real;
+            $semestreReal = isset($data['semestre_real']) ? (int) $data['semestre_real'] : $cursoPadre->semestre_real;
 
-            // No reutilizamos el indice_grupo del padre: el trigger de BD ya no
-            // lo sobrescribe automáticamente, así que copiar el mismo valor
-            // colisionaría con la letra del curso origen. Como esta copia no
-            // fija agno_real/semestre_real (quedan null, igual que el padre en
-            // este flujo), calculamos la próxima letra disponible en ese mismo
-            // scope (id_asignacion_plan, null, null).
-            $indiceGrupo = $this->nextIndiceGrupo($cursoPadre->id_asignacion_plan, null, null);
+            $indiceGrupo = $this->nextIndiceGrupo($cursoPadre->id_asignacion_plan, $agnoReal, $semestreReal);
+            $letra = LetraGrupo::fromIndice($indiceGrupo);
+
+            $nuevoNombre = preg_match('/\s*-\s*Grupo\s+[A-Za-z0-9]+$/i', $cursoPadre->nombre)
+                ? preg_replace('/\s*-\s*Grupo\s+[A-Za-z0-9]+$/i', " - Grupo {$letra}", $cursoPadre->nombre)
+                : ($cursoPadre->asignacionPlan?->asignatura?->nombre
+                    ? "{$cursoPadre->asignacionPlan->asignatura->nombre} - Grupo {$letra}"
+                    : "{$cursoPadre->nombre} - Grupo {$letra}");
 
             $nuevoCurso = Curso::create([
                 'cod_curso'           => $codCurso,
-                'nombre'              => $cursoPadre->nombre,
+                'nombre'              => $nuevoNombre,
                 'fecha_inicio'        => $fechaInicio,
                 'fecha_fin'           => $this->calculateFechaFin($fechaInicio),
+                'agno_real'           => $agnoReal,
+                'semestre_real'       => $semestreReal,
                 'id_asignacion_plan'  => $cursoPadre->id_asignacion_plan,
                 'id_docente_titular'  => $cursoPadre->id_docente_titular,
                 'es_colegiado'        => $cursoPadre->es_colegiado,
@@ -310,7 +316,10 @@ class CursoService
                 // rol RBAC "Docente Titular" en el contexto del curso (sólo se asigna al
                 // crear el curso), y por lo tanto no tiene el permiso
                 // cursos/programas:agregar para crear el syllabus.
-                $this->assignDocenteRolCurso($newDocenteTitularId, $curso->id_contexto, true);
+                $idContexto = (int) ($curso->id_contexto ?: $curso->fresh()?->id_contexto);
+                if ($idContexto > 0) {
+                    $this->assignDocenteRolCurso($newDocenteTitularId, $idContexto, true);
+                }
             }
 
             return $curso;

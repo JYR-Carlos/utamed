@@ -130,17 +130,17 @@
   const BTN_PRIMARIO =
     'inline-flex items-center justify-center rounded-lg bg-uta-blue px-4 text-sm font-semibold text-white no-underline transition-colors hover:bg-uta-blue-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2';
   const BTN_SECUNDARIO =
-    'inline-flex items-center justify-center rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-uta-blue no-underline transition-colors hover:bg-uta-blue-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2';
+    'inline-flex items-center justify-center rounded-lg border border-line-control bg-white px-4 text-sm font-semibold text-uta-blue no-underline transition-colors hover:bg-uta-blue-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2';
   const BTN_MAS =
-    'inline-flex shrink-0 items-center justify-center rounded-lg border border-[#7B8AA0] bg-white text-[#1A1A24] transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue';
+    'inline-flex shrink-0 items-center justify-center rounded-lg border border-line-control bg-white text-ink transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue';
   const TH = 'px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.06em] text-slate-600';
 
   // Pastilla de estado del mockup: sin punto, 13 px. La planificada va con borde
   // punteado para no confundirse con la cerrada (ambas grises).
   const PILL_BASE = 'inline-flex items-center rounded-full px-2.5 py-1 text-[13px] font-semibold whitespace-nowrap';
   const PILL: Record<string, string> = {
-    planificada: `${PILL_BASE} border border-dashed border-[#7B8AA0] bg-white text-slate-600`,
-    activa: `${PILL_BASE} bg-[#ECFDF5] text-[#047857]`,
+    planificada: `${PILL_BASE} border border-dashed border-line-control bg-white text-slate-600`,
+    activa: `${PILL_BASE} bg-emerald-50 text-emerald-700`,
     cerrada: `${PILL_BASE} border border-slate-200 bg-slate-100 text-slate-600`,
   };
 
@@ -155,15 +155,15 @@
 
 {#snippet fecha(a: Actividad, estado: string, urgente: boolean)}
   {#if a.fecha_limite}
-    <span class="block whitespace-nowrap text-sm font-medium text-[#1A1A24]">
+    <span class="block whitespace-nowrap text-sm font-medium text-ink">
       {fechaCorta(a.fecha_limite)} {a.fecha_limite.slice(0, 4)}
     </span>
     {#if estado !== 'cerrada'}
       {@const rel = plazoRelativo(a.fecha_limite)}
       <span
         class="mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold {urgente || rel.tono !== 'neutro'
-          ? 'bg-[#FEF3C6] text-[#92400E]'
-          : 'bg-[#F1F5F9] text-slate-600'}"
+          ? 'bg-amber-100 text-amber-800'
+          : 'bg-slate-100 text-slate-600'}"
       >
         {rel.texto}
       </span>
@@ -174,13 +174,13 @@
 {/snippet}
 
 {#snippet barra(av: Avance)}
-  <div class="h-1.5 w-full overflow-hidden rounded bg-[#F1F5F9]" aria-hidden="true">
+  <div class="h-1.5 w-full overflow-hidden rounded bg-slate-100" aria-hidden="true">
     <div class="flex h-full">
       {#if av.total > 0 && av.listas > 0}
-        <div class="h-full bg-[#047857]" style="width: {Math.max(2, (av.listas / av.total) * 100)}%"></div>
+        <div class="h-full bg-emerald-700" style="width: {Math.max(2, (av.listas / av.total) * 100)}%"></div>
       {/if}
       {#if av.total > 0 && av.pendientes > 0}
-        <div class="h-full bg-[#F2C94C]" style="width: {Math.max(2, (av.pendientes / av.total) * 100)}%"></div>
+        <div class="h-full bg-yellow-400" style="width: {Math.max(2, (av.pendientes / av.total) * 100)}%"></div>
       {/if}
     </div>
   </div>
@@ -206,32 +206,32 @@
           onclick={() => onToggleVisible(act)}
           class="flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors duration-150 disabled:cursor-progress {visible
             ? 'justify-end'
-            : 'justify-start'} {guardando ? 'bg-[#B7BCC6]' : visible ? 'bg-[#047857]' : 'bg-[#7B8AA0]'}"
+            : 'justify-start'} {guardando ? 'bg-gray-300' : visible ? 'bg-emerald-700' : 'bg-line-control'}"
         >
           <span class="h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.2)]" aria-hidden="true"></span>
         </button>
         {#if guardando}
-          <span class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#92400E]">
+          <span class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-amber-800">
             <Loader2 size={12} class="animate-spin" aria-hidden="true" />
             Guardando…
           </span>
         {:else}
           {#if largo}
-            <span class="text-[13px] font-semibold {visible ? 'text-[#1A1A24]' : 'text-[#92400E]'}"
+            <span class="text-[13px] font-semibold {visible ? 'text-ink' : 'text-amber-800'}"
               >{visible ? 'Visible para estudiantes' : 'Oculta a estudiantes'}</span
             >
           {:else}
-            <span class="text-[13px] font-semibold {visible ? 'text-[#047857]' : 'text-[#92400E]'}">{visible ? 'Sí' : 'No'}</span>
+            <span class="text-[13px] font-semibold {visible ? 'text-emerald-700' : 'text-amber-800'}">{visible ? 'Sí' : 'No'}</span>
           {/if}
         {/if}
       </span>
       {#if toggle?.fase === 'ok'}
-        <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#047857]">
+        <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
           <Check size={12} aria-hidden="true" />
           Guardado
         </span>
       {:else if toggle?.fase === 'error'}
-        <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#B91C1C]">
+        <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-red-700">
           <AlertCircle size={12} aria-hidden="true" />
           No se pudo guardar ·
           <button type="button" class="underline underline-offset-2" onclick={() => onToggleVisible(act)}>Reintentar</button>
@@ -240,7 +240,7 @@
     </div>
   {:else}
     <!-- Sin permiso de editar el interruptor se vuelve etiqueta. -->
-    <span class="inline-flex items-center gap-1.5 text-[13px] font-semibold {act.visible ? 'text-[#047857]' : 'text-[#92400E]'}">
+    <span class="inline-flex items-center gap-1.5 text-[13px] font-semibold {act.visible ? 'text-emerald-700' : 'text-amber-800'}">
       {#if act.visible}
         <Eye size={14} aria-hidden="true" />Visible
       {:else}
@@ -276,7 +276,7 @@
       {/if}
       {#if canDelete}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => onDelete(act)} class="min-h-10 cursor-pointer rounded-lg text-sm text-[#B91C1C]">Eliminar</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onDelete(act)} class="min-h-10 cursor-pointer rounded-lg text-sm text-red-700">Eliminar</DropdownMenuItem>
       {/if}
     </DropdownMenuContent>
   </DropdownMenu>
@@ -302,9 +302,9 @@
 {/snippet}
 
 <!-- Desktop / tablet: tabla -->
-<div class="hidden overflow-hidden rounded-xl border border-[#E2E8F0] bg-white md:block">
+<div class="hidden overflow-hidden rounded-xl border border-slate-200 bg-white md:block">
   <table class="w-full border-collapse text-sm">
-    <thead class="bg-[#F8FAFC]">
+    <thead class="bg-slate-50">
       <tr>
         <th class={TH}>Actividad</th>
         <th class="{TH} w-[160px]">Fecha límite</th>
@@ -324,16 +324,16 @@
         {@const av = avanceDe(act, estado)}
         {@const accion = accionDe(act, av)}
         <tr
-          class="border-t border-[#E2E8F0] align-middle {guardando
-            ? 'bg-[#FFFBEB]'
+          class="border-t border-slate-200 align-middle {guardando
+            ? 'bg-amber-50'
             : toggle?.fase === 'error'
-              ? 'bg-[#FEF2F2]'
+              ? 'bg-red-50'
               : 'bg-white hover:bg-slate-50'}"
         >
           <td class="px-4 py-3.5">
             <Link
               href="/docente/cursos/{idCurso}/actividades/{act.id_actividad}/evaluacion"
-              class="block text-[15px] font-semibold leading-5 text-[#1A1A24] no-underline hover:text-uta-blue hover:underline"
+              class="block text-[15px] font-semibold leading-5 text-ink no-underline hover:text-uta-blue hover:underline"
             >
               {act.nombre}
             </Link>
@@ -344,7 +344,7 @@
           <td class="px-4 py-3.5">
             <div class="flex flex-col gap-1.5">
               {@render barra(av)}
-              <span class="text-xs {av.urgente ? 'font-semibold text-[#92400E]' : 'font-medium text-slate-600'}">{av.texto}</span>
+              <span class="text-xs {av.urgente ? 'font-semibold text-amber-800' : 'font-medium text-slate-600'}">{av.texto}</span>
             </div>
           </td>
           <td class="px-4 py-3.5">{@render estadoPill(estado)}</td>
@@ -368,7 +368,7 @@
   </table>
   {#if pie}
     <div
-      class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-[13px] font-medium text-slate-600"
+      class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200 bg-slate-50 px-4 py-3 text-[13px] font-medium text-slate-600"
     >
       {@render pie()}
     </div>
@@ -383,11 +383,11 @@
     {@const av = avanceDe(act, estado)}
     {@const accion = accionDe(act, av)}
     <li
-      class="flex flex-col gap-2.5 rounded-xl border bg-white px-4 py-3.5 {av.urgente ? 'border-[#F2C94C]' : 'border-[#E2E8F0]'}"
+      class="flex flex-col gap-2.5 rounded-xl border bg-white px-4 py-3.5 {av.urgente ? 'border-yellow-400' : 'border-slate-200'}"
     >
       <Link
         href="/docente/cursos/{idCurso}/actividades/{act.id_actividad}/evaluacion"
-        class="text-base font-semibold leading-[21px] text-[#1A1A24] no-underline"
+        class="text-base font-semibold leading-[21px] text-ink no-underline"
       >
         {act.nombre}
       </Link>
@@ -398,7 +398,7 @@
         <span class="flex items-center gap-2 [&>span]:mt-0">{@render fecha(act, estado, av.urgente)}</span>
       </div>
       {@render barra(av)}
-      <span class="text-[13px] {av.urgente ? 'font-semibold text-[#92400E]' : 'font-medium text-slate-600'}">{av.texto}</span>
+      <span class="text-[13px] {av.urgente ? 'font-semibold text-amber-800' : 'font-medium text-slate-600'}">{av.texto}</span>
       {@render visibilidad(act, true)}
       {#if hayAcciones}
         <div class="flex items-center gap-2 {guardando ? 'pointer-events-none opacity-45' : ''}">

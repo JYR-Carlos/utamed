@@ -152,10 +152,10 @@
   <div class="mx-auto flex w-full max-w-[1200px] flex-col gap-4 bg-white p-4 md:p-6">
     <header class="flex flex-wrap items-start justify-between gap-4">
       <div class="flex flex-col gap-1.5">
-        <h1 class="text-2xl font-semibold tracking-tight text-[#1A1A24] md:text-[28px]">Delegación de permisos</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-ink md:text-[28px]">Delegación de permisos</h1>
         <div class="flex flex-wrap items-center gap-2.5">
-          <span class="text-sm text-[#5A5E6E]">{subtituloCurso}</span>
-          <span class="inline-flex items-center gap-1.5 rounded-full border border-[#C9D6E6] bg-[#E8EDF5] px-2.5 py-0.5 text-xs font-semibold text-[#002F6C]">
+          <span class="text-sm text-ink-2">{subtituloCurso}</span>
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-uta-blue-light px-2.5 py-0.5 text-xs font-semibold text-navy">
             <ShieldCheck class="h-[13px] w-[13px]" />
             Actúas como Docente Titular
           </span>
@@ -166,17 +166,17 @@
     {#if banner}
       <div
         class="flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm {banner.tipo === 'success'
-          ? 'border-[#A7F3D0] bg-[#ECFDF5] text-[#065F46]'
-          : 'border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]'}"
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+          : 'border-red-200 bg-red-50 text-red-800'}"
       >
         {#if banner.tipo === 'success'}
-          <CheckCircle2 class="h-4 w-4 shrink-0 text-[#059669]" />
+          <CheckCircle2 class="h-4 w-4 shrink-0 text-emerald-600" />
         {:else}
-          <AlertTriangle class="h-4 w-4 shrink-0 text-[#DC2626]" />
+          <AlertTriangle class="h-4 w-4 shrink-0 text-red-600" />
         {/if}
         <span class="min-w-0 flex-1">{banner.texto}</span>
         <button
-          class="shrink-0 {banner.tipo === 'success' ? 'text-[#047857]' : 'text-[#B91C1C]'} text-xs font-semibold"
+          class="shrink-0 {banner.tipo === 'success' ? 'text-emerald-700' : 'text-red-700'} text-xs font-semibold"
           onclick={() => (banner = null)}
         >
           Cerrar
@@ -185,24 +185,24 @@
     {/if}
 
     {#if miembros.length === 0}
-      <div class="flex items-start gap-3 rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] p-5">
-        <Users class="h-5 w-5 shrink-0 text-[#5A5E6E]" />
+      <div class="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-5">
+        <Users class="h-5 w-5 shrink-0 text-ink-2" />
         <div class="flex flex-col gap-1">
-          <span class="text-sm font-semibold text-[#1A1A24]">Sin miembros en el equipo</span>
-          <p class="text-sm text-[#5A5E6E]">
+          <span class="text-sm font-semibold text-ink">Sin miembros en el equipo</span>
+          <p class="text-sm text-ink-2">
             No hay otros docentes asignados a los componentes de este curso. Agrega miembros al equipo desde la
             gestión de equipo antes de delegar permisos.
           </p>
         </div>
       </div>
     {:else}
-      <div class="flex flex-wrap items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white p-3.5 shadow-sm">
-        <span class="text-[13px] text-[#5A5E6E]">El titular no aparece en la matriz: conserva todos los permisos por definición.</span>
+      <div class="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm">
+        <span class="text-[13px] text-ink-2">El titular no aparece en la matriz: conserva todos los permisos por definición.</span>
         <div class="ml-auto flex items-center gap-2.5">
-          <span class="text-xs text-[#5A5E6E]">{miembros.length} {miembros.length === 1 ? 'persona' : 'personas'} en el equipo</span>
-          <span class="h-4 w-px bg-[#E5E7EB]"></span>
+          <span class="text-xs text-ink-2">{miembros.length} {miembros.length === 1 ? 'persona' : 'personas'} en el equipo</span>
+          <span class="h-4 w-px bg-gray-200"></span>
           <button
-            class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-[#002F6C] transition-colors hover:bg-[#F8FAFC]"
+            class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-navy transition-colors hover:bg-slate-50"
             onclick={alternarTodos}
           >
             {#if todosExpandidos}

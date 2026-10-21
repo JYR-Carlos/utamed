@@ -112,14 +112,7 @@
   let loadingAsignaturas = $state(false);
   let editingDocenteId = $state<number | undefined>(undefined);
 
-  // ── Estado de CursoList ────────────────────────────────────────────────────
-  let searchTerm = $state(getInitialSearch());
-  let status = $state('active');
-  let perPage = $state(15);
 
-  function getInitialSearch() {
-    return filters?.search || '';
-  }
 
   // ── Quick-View Modal ──────────────────────────────────────────────────────
   // ── Slide-over ────────────────────────────────────────────────────────────
@@ -502,25 +495,6 @@
     <!-- Tabla de cursos usando componente modular -->
     <CursoListAdmin
       {cursos}
-      {searchTerm}
-      {status}
-      {perPage}
-      onSearchChange={(term: string) => {
-        searchTerm = term;
-        router.get('/admin/cursos', { search: term, status });
-      }}
-      onStatusChange={(newStatus: string) => {
-        status = newStatus;
-        router.get('/admin/cursos', { search: searchTerm, status: newStatus });
-      }}
-      onPerPageChange={(value: number) => {
-        perPage = value;
-        router.get('/admin/cursos', { search: searchTerm, status, per_page: value });
-      }}
-      onPageChange={(page: number) => {
-        router.get('/admin/cursos', { search: searchTerm, status, per_page: perPage, page });
-      }}
-      onCreateNew={openCreateModal}
       onManage={openSlideOver}
       onEdit={openEditModal}
       onDelete={openDeleteDialog}

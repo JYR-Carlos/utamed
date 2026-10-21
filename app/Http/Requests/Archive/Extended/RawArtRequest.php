@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Archive\Extended;
 
 use App\Http\Requests\Archive\BaseArchiveRequest;
+use App\Services\Archive\FiletypeValidation\FileRequirementType;
 
 use Illuminate\Validation\Rule;
 
@@ -32,7 +33,7 @@ use Illuminate\Validation\Rule;
  */
 class RawArtRequest extends BaseArchiveRequest
 {
-    protected string $fileType = 'raw_art';
+    protected array $fileCategories = [FileRequirementType::RAW_ART];
 
     /**
      * Reglas adicionales específicas para arte raw.

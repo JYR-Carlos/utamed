@@ -50,11 +50,11 @@
 
   const badge = $derived(
     {
-      NO_INICIADO: { bg: 'bg-[#F1F5F9]', border: 'border-[#E2E8F0]', color: 'text-[#475569]', dot: 'bg-[#64748B]', label: 'Sin programa aún' },
-      BORRADOR: { bg: 'bg-[#FFFBEB]', border: 'border-[#FDE68A]', color: 'text-[#B45309]', dot: 'bg-[#D97706]', label: 'Borrador' },
-      RECHAZADO: { bg: 'bg-[#FEF2F2]', border: 'border-[#FECACA]', color: 'text-[#B91C1C]', dot: 'bg-[#DC2626]', label: 'Rechazado' },
-      EN_REVISION: { bg: 'bg-[#E8EDF5]', border: 'border-[#C9D6E6]', color: 'text-[#002F6C]', dot: 'bg-[#002F6C]', label: 'En revisión' },
-      APROBADO: { bg: 'bg-[#ECFDF5]', border: 'border-[#A7F3D0]', color: 'text-[#047857]', dot: 'bg-[#059669]', label: 'Aprobado' },
+      NO_INICIADO: { bg: 'bg-slate-100', border: 'border-slate-200', color: 'text-slate-600', dot: 'bg-slate-500', label: 'Sin programa aún' },
+      BORRADOR: { bg: 'bg-amber-50', border: 'border-amber-200', color: 'text-amber-700', dot: 'bg-amber-600', label: 'Borrador' },
+      RECHAZADO: { bg: 'bg-red-50', border: 'border-red-200', color: 'text-red-700', dot: 'bg-red-600', label: 'Rechazado' },
+      EN_REVISION: { bg: 'bg-uta-blue-light', border: 'border-slate-300', color: 'text-navy', dot: 'bg-navy', label: 'En revisión' },
+      APROBADO: { bg: 'bg-emerald-50', border: 'border-emerald-200', color: 'text-emerald-700', dot: 'bg-emerald-600', label: 'Aprobado' },
     }[estado_syllabus],
   );
 
@@ -93,43 +93,43 @@
   );
 </script>
 
-<article class="flex flex-col gap-3.5 rounded-xl border border-[#E5E7EB] bg-white p-[18px] shadow-[0_1px_3px_rgba(0,0,0,.08)]">
+<article class="flex flex-col gap-3.5 rounded-xl border border-gray-200 bg-white p-[18px] shadow-[0_1px_3px_rgba(0,0,0,.08)]">
   <div class="flex items-start gap-2.5">
     <div class="flex min-w-0 flex-col gap-[3px]">
-      <span class="font-mono text-[11.5px] tracking-wide text-[#5A5E6E]">{cod_curso}</span>
-      <span class="text-[16px] font-semibold leading-[1.3] text-[#1A1A24]">{nombre}</span>
+      <span class="font-mono text-[11.5px] tracking-wide text-ink-2">{cod_curso}</span>
+      <span class="text-[16px] font-semibold leading-[1.3] text-ink">{nombre}</span>
       {#if periodo}
-        <span class="text-[12.5px] text-[#5A5E6E]">{periodo}</span>
+        <span class="text-[12.5px] text-ink-2">{periodo}</span>
       {/if}
     </div>
     {#if letra_grupo}
       <div class="ml-auto flex shrink-0 flex-col items-center gap-0.5">
-        <span class="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] bg-[#E8EDF5] text-[15px] font-bold text-[#002F6C]">
+        <span class="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] bg-uta-blue-light text-[15px] font-bold text-navy">
           {letra_grupo}
         </span>
-        <span class="text-[10px] uppercase tracking-wide text-[#5A5E6E]">Grupo</span>
+        <span class="text-[10px] uppercase tracking-wide text-ink-2">Grupo</span>
       </div>
     {/if}
   </div>
 
-  <div class="flex flex-col gap-1.5 border-t border-[#E5E7EB] pt-3">
+  <div class="flex flex-col gap-1.5 border-t border-gray-200 pt-3">
     <div class="flex items-center gap-2">
-      <span class="text-[11px] uppercase tracking-wide text-[#5A5E6E]">Syllabus</span>
+      <span class="text-[11px] uppercase tracking-wide text-ink-2">Syllabus</span>
       <span class="inline-flex items-center gap-[5px] rounded-full {badge.bg} border {badge.border} {badge.color} px-[9px] py-[2px] text-[11.5px] font-semibold">
         <span class="h-[6px] w-[6px] rounded-full {badge.dot}"></span>
         {badge.label}
       </span>
     </div>
-    <span class="text-[12.5px] leading-snug text-[#5A5E6E]">{descripcion}</span>
+    <span class="text-[12.5px] leading-snug text-ink-2">{descripcion}</span>
   </div>
 
   <Link
     href={accion.href}
     class="mt-auto flex w-fit items-center gap-[7px] rounded-lg px-3.5 py-2 text-[13.5px] font-semibold no-underline transition-colors {accion.style === 'filled'
-      ? 'bg-[#002F6C] text-white hover:bg-[#00214d]'
-      : 'border border-[#D6D9E0] bg-white font-medium text-[#1A1A24] hover:bg-[#F8FAFC]'}"
+      ? 'bg-navy text-white hover:bg-navy-hover'
+      : 'border border-line bg-white font-medium text-ink hover:bg-slate-50'}"
   >
-    <accion.Icon class="h-[15px] w-[15px] {accion.style === 'filled' ? 'text-white' : 'text-[#5A5E6E]'}" />
+    <accion.Icon class="h-[15px] w-[15px] {accion.style === 'filled' ? 'text-white' : 'text-ink-2'}" />
     {accion.label}
   </Link>
 </article>

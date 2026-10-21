@@ -3,15 +3,16 @@
 namespace App\Http\Requests\Archive\Extended;
 
 use App\Http\Requests\Archive\BaseArchiveRequest;
+use App\Services\Archive\FiletypeValidation\FileRequirementType;
 
 /**
  * CompressedFileRequest
- * 
+ *
  * Validación para uploads de archivos comprimidos.
- * 
+ *
  * Tipos permitidos: ZIP, RAR, 7Z, TAR, GZ, BZ2, TAR.GZ, TAR.BZ2
  * Tamaño máximo: 500MB (configurable via FILES_COMPRESSED_MAX_SIZE)
- * 
+ *
  * Uso:
  * ```php
  * class StoreActivityCompressedController {
@@ -24,7 +25,7 @@ use App\Http\Requests\Archive\BaseArchiveRequest;
  */
 class CompressedFileRequest extends BaseArchiveRequest
 {
-    protected string $fileType = 'compressed';
+    protected array $fileCategories = [FileRequirementType::COMPRESSED];
 
     /**
      * Reglas adicionales específicas para archivos comprimidos.

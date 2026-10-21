@@ -2,6 +2,7 @@
 
 namespace App\Models\Usuario;
 
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Models\Base\Usuario\BaseUsuario;
 use App\Support\Permissions;
 use App\Support\Rut;
@@ -43,7 +44,7 @@ use App\Traits\AssignsPermissions;
  * @method bool hasAnyRole(array $roleNames) Verifica si tiene alguno de los roles
  * @method bool hasPermissionFor(Permissions $slug, HasContext|null $resource = null) Verifica permiso
  */
-class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContract, CanResetPasswordContract
+class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContract, CanResetPasswordContract, MustVerifyEmail
 {
     use AuthenticatableTrait, HasFactory;
     use CanResetPassword, Notifiable;
@@ -728,6 +729,46 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     }
 
     /**
+     * Inversa de getNombreCompletoAttribute(): reparte un nombre completo escrito
+     * en un solo campo entre nombre1, nombre2, apellido1 y apellido2.
+     *
+     * Si trae tantas palabras como el nombre actual, cada columna conserva las
+     * que ya tenía: corregir una tilde no pasa un segundo nombre a los apellidos
+     * ni parte un «De la Fuente». Si cambia la cantidad, se aplica la convención
+     * chilena: la primera palabra es el nombre, las dos últimas los apellidos y
+     * lo del medio el segundo nombre (con tres palabras, un nombre y dos apellidos).
+     *
+     * @return array{nombre1: ?string, nombre2: ?string, apellido1: ?string, apellido2: ?string}
+     */
+    public function separarNombreCompleto(string $nombreCompleto): array
+    {
+        $palabras = fn (?string $texto) => preg_split('/\s+/u', trim((string) $texto), -1, PREG_SPLIT_NO_EMPTY);
+        $columnas = ['nombre1', 'nombre2', 'apellido1', 'apellido2'];
+
+        $nuevas = $palabras($nombreCompleto);
+        $total = count($nuevas);
+        $reparto = array_map(fn (string $columna) => count($palabras($this->{$columna})), $columnas);
+
+        if (array_sum($reparto) !== $total) {
+            $reparto = match (true) {
+                $total <= 2 => [1, 0, $total - 1, 0],
+                $total === 3 => [1, 0, 1, 1],
+                default => [1, $total - 3, 1, 1],
+            };
+        }
+
+        $resultado = [];
+        $desde = 0;
+        foreach ($columnas as $i => $columna) {
+            $trozo = array_slice($nuevas, $desde, $reparto[$i]);
+            $desde += $reparto[$i];
+            $resultado[$columna] = $trozo === [] ? null : implode(' ', $trozo);
+        }
+
+        return $resultado;
+    }
+
+    /**
      * Accessor para el nombre del usuario con los apellidos primero en mayúsculas.
      * Formato canónico para nóminas académicas, evaluaciones y tablas.
      *
@@ -832,5 +873,31 @@ class Usuario extends BaseUsuario implements Authenticatable, AuthorizableContra
     private static function patronLike(string $valor): string
     {
         return '%' . str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $valor) . '%';
+    }
+
+    // -------------------------------------------------------------------------
+    // MustVerifyEmail Contract Implementation
+    // -------------------------------------------------------------------------
+
+    public function hasVerifiedEmail(): bool
+    {
+        return ! is_null($this->fecha_verificacion_email);
+    }
+
+    public function markEmailAsVerified(): bool
+    {
+        return $this->forceFill([
+            'fecha_verificacion_email' => $this->freshTimestamp(),
+        ])->save();
+    }
+
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new \Illuminate\Auth\Notifications\VerifyEmail);
+    }
+
+    public function getEmailForVerification(): string
+    {
+        return $this->email;
     }
 }

@@ -1,8 +1,13 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import './tema-oscuro.css';
 
 @source "../views";
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+/* `dark:` responde a la clase que pone useAppearance en <html>, no a la
+   preferencia del sistema (Tailwind v4 usa la media query por defecto). */
+@custom-variant dark (&:where(.dark, .dark *));
 
 
 @theme inline {
@@ -55,23 +60,10 @@
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
 
-    --color-brand: #2A66AC;
-    --color-brand-hover: #1e4d8a;
-    --color-brand-light: #EEF4FB;
-
-    /* ── Paleta Institucional UTA ────────────────────────────── */
-    --color-uta-blue: #002855;
-    /* Azul UTA primario */
-    --color-uta-blue-hover: #001f42;
-    /* Azul UTA hover */
-    --color-uta-blue-light: #e6edf5;
-    /* Azul UTA fondo suave */
-    --color-uta-red: #8A1538;
-    /* Granate UTA secundario */
-    --color-uta-red-hover: #6e1029;
-    /* Granate UTA hover */
-    --color-uta-red-light: #f5e8ec;
-    /* Granate UTA fondo suave */
+    /* La paleta institucional (uta-blue #002855, uta-red #8A1538, brand
+       #2A66AC y sus variantes) y los tokens de texto/borde (ink, navy,
+       line…) viven en tema-oscuro.css, sin `inline`, para que el modo
+       oscuro pueda redefinirlos. */
 }
 
 /*
@@ -107,8 +99,12 @@
        como en el mockup de la auditoría UI (2026-10-19). Sólo el área de contenido;
        menú lateral y barra superior siguen blancos. */
     .docente-shell #contenido {
-        background-color: #F8FAFC;
+        background-color: var(--background-color-slate-50);
         min-height: 100%;
+    }
+
+    .dark .docente-shell #contenido {
+        background-color: var(--background);
     }
 }
 
@@ -118,30 +114,30 @@
    también van fuera de @layer, si no pierden siempre. Sólo pisan el docente. */
 @media all {
     .docente-shell .global-header {
-        border-bottom-color: #E2E8F0;
+        border-bottom-color: var(--color-slate-200);
     }
     .docente-shell .global-header .search-box {
-        background: #fff;
-        border-color: #7B8AA0;
+        background: var(--background-color-white);
+        border-color: var(--color-line-control);
         border-radius: 8px;
     }
     .docente-shell .global-header .search-box:hover {
-        background: #F8FAFC;
+        background: var(--background-color-slate-50);
     }
     .docente-shell .global-header .icon-btn {
-        background: #fff;
-        border-color: #7B8AA0;
+        background: var(--background-color-white);
+        border-color: var(--color-line-control);
         border-radius: 8px;
-        color: #1A1A24;
+        color: var(--color-ink);
     }
     .docente-shell .global-header .icon-btn:hover {
-        background: #F8FAFC;
+        background: var(--background-color-slate-50);
     }
     .docente-shell .global-header .mobile-search-trigger {
-        background: #fff;
-        border-color: #7B8AA0;
+        background: var(--background-color-white);
+        border-color: var(--color-line-control);
         border-radius: 8px;
-        color: #1A1A24;
+        color: var(--color-ink);
         box-shadow: none;
     }
 }
@@ -226,17 +222,79 @@
         --state-off-soft: hsl(220 14% 96%);
     }
 
-    /* Force light theme for now to avoid system dark mode black backgrounds as per user preference */
-    .dark {
-        --background: hsl(210 33% 97%);
-        --foreground: hsl(220 30% 10%);
-        --card: hsl(0 0% 100%);
-        --card-foreground: hsl(220 30% 10%);
-        --primary: hsl(221 83% 53%);
-        --primary-foreground: hsl(210 40% 98%);
-        --border: hsl(210 33% 92%);
-        --sidebar-background: hsl(0 0% 100%);
-        --sidebar-foreground: hsl(220 30% 10%);
+    :root {
+        color-scheme: light;
+    }
+
+    /* ── Modo oscuro ────────────────────────────────────────────
+       Mismos roles que arriba. Profundidad por tono, no por sombra:
+       fondo #0B1220 → tarjeta #111A2B → bandeja #172238. El azul
+       institucional se aclara para texto (#8DB8F2) y se aclara menos
+       para rellenos con texto blanco (#2F6FBF). La paleta de Tailwind
+       que usan las vistas se remapea en tema-oscuro.css. */
+    @media screen {
+        .dark {
+            color-scheme: dark;
+
+            --background: #0b1220;
+            --foreground: #e7ecf5;
+            --card: #111a2b;
+            --card-foreground: #e7ecf5;
+            --popover: #172238;
+            --popover-foreground: #e7ecf5;
+            --primary: #cdb4ff;
+            --primary-foreground: #1a1033;
+            --secondary: #172238;
+            --secondary-foreground: #e7ecf5;
+            --muted: #172238;
+            --muted-foreground: #8c99b0;
+            --accent: #1e2b45;
+            --accent-foreground: #e7ecf5;
+            --destructive: #dc2626;
+            --destructive-foreground: #ffffff;
+            --border: #24314a;
+            --input: #34435f;
+            --ring: #8db8f2;
+
+            --sidebar-background: #0e1626;
+            --sidebar-foreground: #e7ecf5;
+            --sidebar-primary: #2f6fbf;
+            --sidebar-primary-foreground: #ffffff;
+            --sidebar-accent: #2f6fbf;
+            --sidebar-accent-foreground: #ffffff;
+            --sidebar-border: #1a2538;
+            --sidebar-ring: #8db8f2;
+
+            --action-primary: #2563eb;
+            --action-primary-hover: #1d4ed8;
+            --action-primary-fg: #ffffff;
+            --action-primary-soft: #142b4a;
+
+            --action-danger: #dc2626;
+            --action-danger-hover: #b91c1c;
+            --action-danger-fg: #ffffff;
+            --action-danger-soft: #3a1515;
+
+            --action-neutral-bg: #172238;
+            --action-neutral-fg: #d3dae6;
+            --action-neutral-border: #34435f;
+            --action-neutral-hover: #1e2b45;
+
+            --state-ok: #6fd6a6;
+            --state-ok-soft: #0e2e22;
+            --state-warn: #f3c063;
+            --state-warn-soft: #33270c;
+            --state-info: #8db8f2;
+            --state-info-soft: #142b4a;
+            --state-off: #8c99b0;
+            --state-off-soft: #1a2538;
+        }
+
+        /* El hueco blanco de los anillos de foco (`ring-offset-2`) se
+           vuelve el fondo de la página. */
+        .dark * {
+            --tw-ring-offset-color: var(--background);
+        }
     }
 }
 
@@ -457,7 +515,7 @@
 
         .table-stack tbody {
             padding: 0.75rem;
-            background: #f9fafb;
+            background: var(--background-color-gray-50);
         }
 
         /* `!important`: varias tablas ponen `border-b`, `last:border-0` o
@@ -465,8 +523,8 @@
         .table-stack tbody tr {
             margin: 0 0 0.75rem;
             padding: 0.25rem 0.875rem;
-            background: #fff;
-            border: 1px solid #e5e7eb !important;
+            background: var(--background-color-white);
+            border: 1px solid var(--color-gray-200) !important;
             border-radius: 0.75rem;
             box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
         }
@@ -479,7 +537,7 @@
             width: 100% !important;
             padding: 0.4rem 0 !important;
             border: 0 !important;
-            border-bottom: 1px solid #f3f4f6 !important;
+            border-bottom: 1px solid var(--color-gray-100) !important;
             text-align: left !important;
             white-space: normal !important;
             overflow-wrap: anywhere;
@@ -497,7 +555,7 @@
             font-weight: 600;
             letter-spacing: 0.04em;
             text-transform: uppercase;
-            color: #9ca3af;
+            color: var(--color-gray-400);
         }
 
         .table-stack td[data-actions] {
@@ -676,7 +734,7 @@
 }
 
 .mobile-nav p.uppercase {
-    color: #64748b;
+    color: var(--color-slate-500);
 }
 
 /* Nombre de usuario del pie. */

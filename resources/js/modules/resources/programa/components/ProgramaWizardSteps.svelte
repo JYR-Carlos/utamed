@@ -123,19 +123,19 @@
   const esBasico = $derived(tipo === 'BASICO');
 
   // ── Vocabulario visual ────────────────────────────────────────────────────
-  const LABEL = 'text-[12px] font-medium text-[#5A5E6E]';
+  const LABEL = 'text-[12px] font-medium text-ink-2';
   const INPUT =
-    'w-full rounded-[7px] border border-[#D6D9E0] bg-white px-[11px] py-[9px] text-[13.5px] text-[#1A1A24] outline-none transition-colors focus:border-[#002F6C]';
+    'w-full rounded-[7px] border border-line bg-white px-[11px] py-[9px] text-[13.5px] text-ink outline-none transition-colors focus:border-navy';
   const TEXTAREA = `${INPUT} resize-y leading-[1.55]`;
-  const RO = 'rounded-[7px] bg-[#F7F8FA] px-[11px] py-[9px] text-[13.5px] text-[#1A1A24]';
+  const RO = 'rounded-[7px] bg-slate-50 px-[11px] py-[9px] text-[13.5px] text-ink';
   const ADD_LINK =
-    'inline-flex w-fit items-center gap-1.5 border-none bg-transparent p-0 text-[12.5px] font-semibold text-[#002F6C] transition-colors hover:text-[#1B4789]';
+    'inline-flex w-fit items-center gap-1.5 border-none bg-transparent p-0 text-[12.5px] font-semibold text-navy transition-colors hover:text-navy-2';
   const ADD_BLOQUE =
-    'flex items-center justify-center gap-2 rounded-[9px] border border-dashed border-[#C3C8D2] bg-white py-3.5 text-[13px] font-semibold text-[#002F6C] transition-colors hover:bg-[#F5F1EA]';
+    'flex items-center justify-center gap-2 rounded-[9px] border border-dashed border-slate-300 bg-white py-3.5 text-[13px] font-semibold text-navy transition-colors hover:bg-sand';
   const FILA =
-    'flex items-center gap-2 rounded-[7px] border border-[#E5E7EB] bg-white px-3 py-2';
+    'flex items-center gap-2 rounded-[7px] border border-gray-200 bg-white px-3 py-2';
   const BORRAR =
-    'shrink-0 rounded-md border-none bg-transparent p-1 text-[#C3C8D2] transition-colors hover:text-[#B91C1C]';
+    'shrink-0 rounded-md border-none bg-transparent p-1 text-slate-300 transition-colors hover:text-red-700';
 
   // ── Sección VI: acordeón de unidades ──────────────────────────────────────
   let unidadAbierta = $state(0);
@@ -193,25 +193,25 @@
 
 {#snippet encabezado(numeral: string, titulo: string, bajada: string)}
   <header class="flex flex-col gap-1">
-    <h2 class="m-0 text-[17px] font-semibold text-[#1A1A24]">
+    <h2 class="m-0 text-[17px] font-semibold text-ink">
       {#if numeral}{numeral}. {/if}{titulo}
     </h2>
     {#if bajada}
-      <p class="m-0 text-[13px] text-pretty text-[#5A5E6E]">{bajada}</p>
+      <p class="m-0 text-[13px] text-pretty text-ink-2">{bajada}</p>
     {/if}
   </header>
 {/snippet}
 
 {#snippet marca(obligatorio: boolean)}
   {#if obligatorio}
-    <span class="text-[11.5px] text-[#DC2626]">obligatorio</span>
+    <span class="text-[11.5px] text-red-600">obligatorio</span>
   {:else}
-    <span class="text-[11px] text-[#9AA0AE]">opcional</span>
+    <span class="text-[11px] text-gray-400">opcional</span>
   {/if}
 {/snippet}
 
 {#snippet aviso(texto: string)}
-  <p class="m-0 inline-flex items-center gap-1.5 text-[11.5px] text-[#B91C1C]">
+  <p class="m-0 inline-flex items-center gap-1.5 text-[11.5px] text-red-700">
     <AlertCircle size={13} class="shrink-0" aria-hidden="true" />
     {texto}
   </p>
@@ -221,7 +221,7 @@
 {#if !editable && seccion !== 'RESUMEN'}
   <div class="flex max-w-[760px] flex-col gap-3.5">
     <p
-      class="m-0 flex items-center gap-2.5 rounded-lg border border-[#E5E7EB] bg-[#F7F8FA] px-3.5 py-2.5 text-[13px] text-[#5A5E6E]"
+      class="m-0 flex items-center gap-2.5 rounded-lg border border-gray-200 bg-slate-50 px-3.5 py-2.5 text-[13px] text-ink-2"
     >
       <Lock size={15} class="shrink-0" aria-hidden="true" />
       Esta sección es responsabilidad de otro docente. Puedes leerla, no editarla.
@@ -264,7 +264,7 @@
       {#each [{ t: 'Específicas', l: competencias_especificas }, { t: 'Genéricas', l: competencias_genericas }, { t: 'Subcompetencias', l: subcompetencias }] as grupo}
         {#if grupo.l.some((c) => c.titulo.trim())}
           <div class="flex flex-col gap-1.5">
-            <span class="text-[12px] font-semibold tracking-[0.05em] text-[#5A5E6E] uppercase"
+            <span class="text-[12px] font-semibold tracking-[0.05em] text-ink-2 uppercase"
               >{grupo.t}</span
             >
             <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5 text-[15px] leading-[1.65]">
@@ -280,21 +280,21 @@
         {#each items_evaluacion.filter((i) => i.titulo.trim()) as item}
           <li><strong class="font-semibold">{item.titulo}</strong>{item.descripcion ? `: ${item.descripcion}` : ''}</li>
         {:else}
-          <li class="list-none text-[#9AA0AE]">Sin contenido.</li>
+          <li class="list-none text-gray-400">Sin contenido.</li>
         {/each}
       </ul>
     {:else if seccion === 'VI'}
       <div class="flex flex-col gap-3.5">
         {#each unidades.filter((u) => u.titulo.trim()) as u}
           <div class="flex flex-col gap-1">
-            <span class="font-mono text-[12px] text-[#5A5E6E]">Unidad {u.numero}</span>
+            <span class="font-mono text-[12px] text-ink-2">Unidad {u.numero}</span>
             <span class="text-[15px] font-semibold">{u.titulo}</span>
             {#if u.contenidos.trim()}
               <p class="m-0 text-[14px] text-pretty whitespace-pre-wrap">{u.contenidos}</p>
             {/if}
           </div>
         {:else}
-          <p class="m-0 text-[#9AA0AE]">Sin contenido.</p>
+          <p class="m-0 text-gray-400">Sin contenido.</p>
         {/each}
       </div>
     {:else if seccion === 'VII'}
@@ -303,19 +303,19 @@
           {#each actividades.filter((a) => a.nombre.trim()) as a}
             <li>{a.nombre}{a.tipo ? ` (${a.tipo})` : ''}</li>
           {:else}
-            <li class="list-none text-[#9AA0AE]">Sin contenido.</li>
+            <li class="list-none text-gray-400">Sin contenido.</li>
           {/each}
         </ul>
       {:else}
         <div class="flex flex-col gap-3.5 text-[15px] leading-[1.65]">
           <div class="flex flex-col gap-1.5">
-            <span class="text-[12px] font-semibold tracking-[0.05em] text-[#5A5E6E] uppercase"
+            <span class="text-[12px] font-semibold tracking-[0.05em] text-ink-2 uppercase"
               >Metodología</span
             >
             <p class="m-0 text-pretty whitespace-pre-wrap">{metodologia || 'Sin contenido.'}</p>
           </div>
           <div class="flex flex-col gap-1.5">
-            <span class="text-[12px] font-semibold tracking-[0.05em] text-[#5A5E6E] uppercase"
+            <span class="text-[12px] font-semibold tracking-[0.05em] text-ink-2 uppercase"
               >Evaluación</span
             >
             <p class="m-0 text-pretty whitespace-pre-wrap">{evaluacion || 'Sin contenido.'}</p>
@@ -327,7 +327,7 @@
         {#each recursos.filter((r) => r.descripcion.trim()) as r}
           <li>{r.descripcion}{r.tipo ? ` (${r.tipo})` : ''}</li>
         {:else}
-          <li class="list-none text-[#9AA0AE]">Sin contenido.</li>
+          <li class="list-none text-gray-400">Sin contenido.</li>
         {/each}
       </ul>
     {:else if seccion === 'IX'}
@@ -395,9 +395,9 @@
       caracteres. Ninguna de las dos existe: no hay tabla de prerrequisitos en el
       esquema y la sección I sólo admite los campos de SyllabusRules::seccionI().
     -->
-    <div class="flex flex-col gap-1.5 border-t border-[#EDEFF3] pt-5">
+    <div class="flex flex-col gap-1.5 border-t border-gray-100 pt-5">
       <label for="categoria" class="flex items-baseline gap-2">
-        <span class="text-[12.5px] font-semibold text-[#1A1A24]">Categoría de la asignatura</span>
+        <span class="text-[12.5px] font-semibold text-ink">Categoría de la asignatura</span>
         {@render marca(true)}
       </label>
       <select id="categoria" bind:value={categoria} class="{INPUT} max-w-[280px]">
@@ -405,7 +405,7 @@
           <option value={c}>{c}</option>
         {/each}
       </select>
-      <span class="text-[11.5px] text-[#5A5E6E]">
+      <span class="text-[11.5px] text-ink-2">
         Es el único dato de esta sección que se elige aquí: `asignacion_plan.tipo_ramo` guarda un
         número sin catálogo, así que no puede rellenarla.
       </span>
@@ -422,9 +422,9 @@
     )}
     <div class="flex flex-col gap-1.5">
       <label for="presentacion" class="flex items-baseline gap-2">
-        <span class="text-[12.5px] font-semibold text-[#1A1A24]">Descripción de la asignatura</span>
+        <span class="text-[12.5px] font-semibold text-ink">Descripción de la asignatura</span>
         {@render marca(!esBasico)}
-        <span class="ml-auto font-mono text-[11.5px] text-[#9AA0AE]">
+        <span class="ml-auto font-mono text-[11.5px] text-gray-400">
           {presentacion.trim() ? presentacion.trim().split(/\s+/).length : 0} palabras
         </span>
       </label>
@@ -434,7 +434,7 @@
         bind:value={presentacion}
         placeholder="Qué aborda la asignatura, cómo se organiza el trabajo y qué se espera del estudiante"
         class="{TEXTAREA} {!esBasico && !presentacion.trim()
-          ? 'border-[1.5px] border-[#DC2626] bg-[#FEF7F7]'
+          ? 'border-[1.5px] border-red-600 bg-stone-50'
           : ''}"
       ></textarea>
       {#if !esBasico && !presentacion.trim()}
@@ -458,7 +458,7 @@
     )}
     <div class="flex flex-col gap-1.5">
       <label for="estandares" class="flex items-baseline gap-2">
-        <span class="text-[12.5px] font-semibold text-[#1A1A24]">Estándares</span>
+        <span class="text-[12.5px] font-semibold text-ink">Estándares</span>
         {@render marca(true)}
       </label>
       <textarea
@@ -466,7 +466,7 @@
         rows="8"
         bind:value={estandares}
         placeholder={'Aplica marcos narrativos a productos digitales interactivos.\nDocumenta decisiones con criterios de usabilidad.'}
-        class="{TEXTAREA} {!estandares.trim() ? 'border-[1.5px] border-[#DC2626] bg-[#FEF7F7]' : ''}"
+        class="{TEXTAREA} {!estandares.trim() ? 'border-[1.5px] border-red-600 bg-stone-50' : ''}"
       ></textarea>
       {#if !estandares.trim()}
         {@render aviso('Este campo es obligatorio.')}
@@ -496,7 +496,7 @@
             : subcompetencias}
       <section class="flex flex-col gap-2.5">
         <div class="flex items-baseline gap-2">
-          <span class="text-[12.5px] font-semibold text-[#1A1A24]">{grupo.titulo}</span>
+          <span class="text-[12.5px] font-semibold text-ink">{grupo.titulo}</span>
           {@render marca(grupo.obligatorio)}
         </div>
         {#each lista as comp, i}
@@ -555,9 +555,9 @@
       'Qué se mide en la primera semana para situar el nivel de entrada del grupo.',
     )}
     {#each items_evaluacion as item, i}
-      <div class="flex flex-col gap-2 rounded-[9px] border border-[#E5E7EB] bg-white p-3.5">
+      <div class="flex flex-col gap-2 rounded-[9px] border border-gray-200 bg-white p-3.5">
         <div class="flex items-center gap-2">
-          <span class="w-[28px] shrink-0 font-mono text-[12px] text-[#5A5E6E]">{i + 1}</span>
+          <span class="w-[28px] shrink-0 font-mono text-[12px] text-ink-2">{i + 1}</span>
           <input
             type="text"
             bind:value={item.titulo}
@@ -608,24 +608,24 @@
       {@const abierta = unidadAbierta === i}
       <div
         class="overflow-hidden rounded-[9px] border bg-white {abierta
-          ? 'border-[#002F6C] shadow-[0_1px_3px_rgba(0,47,108,.10)]'
-          : 'border-[#E5E7EB]'}"
+          ? 'border-navy shadow-[0_1px_3px_rgba(0,47,108,.10)]'
+          : 'border-gray-200'}"
       >
         <div
           class="flex items-center gap-3 px-3.5 py-3 {abierta
-            ? 'border-b border-[#E5E7EB] bg-[#F8FAFC]'
+            ? 'border-b border-gray-200 bg-slate-50'
             : ''}"
         >
           <span
             class="shrink-0 font-mono text-[12px] {abierta
-              ? 'font-semibold text-[#002F6C]'
-              : 'text-[#5A5E6E]'}">U{unidad.numero}</span
+              ? 'font-semibold text-navy'
+              : 'text-ink-2'}">U{unidad.numero}</span
           >
           <span class="min-w-0 flex-1 truncate text-[14px] font-medium">
             {unidad.titulo.trim() || 'Unidad sin título'}
           </span>
           {#if !abierta}
-            <span class="shrink-0 text-[12px] text-[#9AA0AE]">
+            <span class="shrink-0 text-[12px] text-gray-400">
               {unidad.resultados_aprendizaje.filter((r) => r.resultado.trim()).length} objetivos
             </span>
           {/if}
@@ -648,7 +648,7 @@
           </button>
           <button
             type="button"
-            class="shrink-0 rounded-md border-none bg-transparent p-1 text-[#5A5E6E] transition-colors hover:text-[#002F6C]"
+            class="shrink-0 rounded-md border-none bg-transparent p-1 text-ink-2 transition-colors hover:text-navy"
             aria-expanded={abierta}
             aria-label={abierta ? 'Contraer unidad' : 'Editar unidad'}
             onclick={() => (unidadAbierta = abierta ? -1 : i)}
@@ -750,7 +750,7 @@
     )}
 
     {#each actividades as act, i}
-      <div class="flex flex-col gap-2.5 rounded-[9px] border border-[#E5E7EB] bg-white p-3.5">
+      <div class="flex flex-col gap-2.5 rounded-[9px] border border-gray-200 bg-white p-3.5">
         <div class="flex flex-col gap-1.5">
           <span class={LABEL}>Actividad del curso</span>
           <select
@@ -837,20 +837,20 @@
 
     <section class="flex flex-col gap-2">
       <div class="flex items-baseline gap-2">
-        <span class="text-[12.5px] font-semibold text-[#1A1A24]">Resultados de aprendizaje</span>
-        <span class="text-[11px] text-[#9AA0AE]">se toman de la sección VI</span>
+        <span class="text-[12.5px] font-semibold text-ink">Resultados de aprendizaje</span>
+        <span class="text-[11px] text-gray-400">se toman de la sección VI</span>
       </div>
       {#if resultados_aprendizaje.length > 0}
         <ul class="m-0 flex list-none flex-col gap-1.5 p-0">
           {#each resultados_aprendizaje as r}
             <li class={FILA}>
-              <span class="text-[13.5px] text-[#1A1A24]">{r.resultado}</span>
+              <span class="text-[13.5px] text-ink">{r.resultado}</span>
             </li>
           {/each}
         </ul>
       {:else}
         <p
-          class="m-0 rounded-[7px] border border-dashed border-[#D6D9E0] bg-[#FCFBF9] px-3.5 py-3 text-[12.5px] text-[#5A5E6E]"
+          class="m-0 rounded-[7px] border border-dashed border-line bg-stone-50 px-3.5 py-3 text-[12.5px] text-ink-2"
         >
           Escribe objetivos en las unidades de la sección VI y aparecerán aquí.
         </p>
@@ -862,7 +862,7 @@
 
     <div class="flex flex-col gap-1.5">
       <label for="metodologia" class="flex items-baseline gap-2">
-        <span class="text-[12.5px] font-semibold text-[#1A1A24]">Metodología</span>
+        <span class="text-[12.5px] font-semibold text-ink">Metodología</span>
         {@render marca(true)}
       </label>
       <textarea
@@ -870,7 +870,7 @@
         rows="5"
         bind:value={metodologia}
         placeholder="Estrategias de enseñanza: clases, taller, proyecto, trabajo en terreno…"
-        class="{TEXTAREA} {!metodologia.trim() ? 'border-[1.5px] border-[#DC2626] bg-[#FEF7F7]' : ''}"
+        class="{TEXTAREA} {!metodologia.trim() ? 'border-[1.5px] border-red-600 bg-stone-50' : ''}"
       ></textarea>
       {#if !metodologia.trim()}
         {@render aviso('Este campo es obligatorio.')}
@@ -879,7 +879,7 @@
 
     <div class="flex flex-col gap-1.5">
       <label for="evaluacion" class="flex items-baseline gap-2">
-        <span class="text-[12.5px] font-semibold text-[#1A1A24]">Evaluación</span>
+        <span class="text-[12.5px] font-semibold text-ink">Evaluación</span>
         {@render marca(true)}
       </label>
       <textarea
@@ -887,7 +887,7 @@
         rows="5"
         bind:value={evaluacion}
         placeholder="Tipos de evaluación y cómo se aplican a lo largo del semestre"
-        class="{TEXTAREA} {!evaluacion.trim() ? 'border-[1.5px] border-[#DC2626] bg-[#FEF7F7]' : ''}"
+        class="{TEXTAREA} {!evaluacion.trim() ? 'border-[1.5px] border-red-600 bg-stone-50' : ''}"
       ></textarea>
       {#if !evaluacion.trim()}
         {@render aviso('Este campo es obligatorio.')}
@@ -914,15 +914,15 @@
             : 'Bibliografía y recursos académicos. El syllabus completo pide al menos dos referencias.',
         )}
         {#if bibliografias && bibliografias.length > 0}
-          <div class="mt-2 flex items-center gap-4 text-[11px] font-medium text-[#5A5E6E]">
-            <span class="text-[10.5px] uppercase tracking-wider text-[#9AA0AE]">Leyenda:</span>
+          <div class="mt-2 flex items-center gap-4 text-[11px] font-medium text-ink-2">
+            <span class="text-[10.5px] uppercase tracking-wider text-gray-400">Leyenda:</span>
             <div class="flex items-center gap-1.5">
-              <span class="h-2.5 w-2.5 rounded-full border border-[#D6D9E0] bg-white shadow-xs"></span>
+              <span class="h-2.5 w-2.5 rounded-full border border-line bg-white shadow-xs"></span>
               <span>Propia (UTAMED)</span>
             </div>
             <div class="flex items-center gap-1.5">
-              <span class="h-2.5 w-2.5 rounded-full border border-[#C5D5EA] bg-[#E8EDF5] shadow-xs"></span>
-              <span class="font-semibold text-[#002F6C]">Oficial UTA</span>
+              <span class="h-2.5 w-2.5 rounded-full border border-slate-300 bg-uta-blue-light shadow-xs"></span>
+              <span class="font-semibold text-navy">Oficial UTA</span>
             </div>
           </div>
         {/if}
@@ -932,7 +932,7 @@
         <button
           type="button"
           onclick={() => (showBibliografiaModal = true)}
-          class="flex items-center gap-2 rounded-[8px] border border-[#002F6C] bg-[#002F6C] px-3.5 py-2 text-[13px] font-semibold text-white shadow-xs transition-colors hover:bg-[#1B4789]"
+          class="flex items-center gap-2 rounded-[8px] border border-navy bg-navy px-3.5 py-2 text-[13px] font-semibold text-white shadow-xs transition-colors hover:bg-navy-2"
         >
           <Plus size={15} aria-hidden="true" />
           Añadir bibliografía
@@ -954,17 +954,17 @@
 
         {#each Object.entries(agrupadas) as [grupo, bibs] (grupo)}
           <div class="flex flex-col gap-2">
-            <h4 class="ml-1 mt-2 text-[11.5px] font-bold uppercase tracking-wider text-[#9AA0AE]">{grupo}</h4>
+            <h4 class="ml-1 mt-2 text-[11.5px] font-bold uppercase tracking-wider text-gray-400">{grupo}</h4>
             <div class="flex flex-col gap-2">
               {#each bibs as bib (bib)}
                 <div
-                  class="group relative flex flex-col gap-1.5 rounded-[9px] border p-3.5 transition-colors {bib.es_bibliografia_uta ? 'border-[#C5D5EA] bg-[#F5F8FC]' : 'border-[#E5E7EB] bg-white'}"
+                  class="group relative flex flex-col gap-1.5 rounded-[9px] border p-3.5 transition-colors {bib.es_bibliografia_uta ? 'border-slate-300 bg-slate-50' : 'border-gray-200 bg-white'}"
                 >
                   {#if editable}
                     <button
                       type="button"
                       onclick={() => (bibliografias = bibliografias.filter((b) => b !== bib))}
-                      class="absolute top-3 right-3 text-[#9AA0AE] opacity-0 transition-opacity group-hover:opacity-100 hover:text-[#B91C1C]"
+                      class="absolute top-3 right-3 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-700"
                       aria-label="Eliminar bibliografía"
                     >
                       <Trash2 size={15} aria-hidden="true" />
@@ -972,21 +972,21 @@
                   {/if}
 
                   <div class="flex flex-wrap items-center gap-2 pr-7">
-                    <span class="text-[14px] font-semibold text-[#1A1A24]">{bib.titulo}</span>
+                    <span class="text-[14px] font-semibold text-ink">{bib.titulo}</span>
                     {#if bib.autor}
-                      <span class="text-[13px] text-[#5A5E6E]">· {bib.autor}</span>
+                      <span class="text-[13px] text-ink-2">· {bib.autor}</span>
                     {/if}
-                    <span class="rounded-sm bg-[#EDEFF3] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[#5A5E6E]">{bib.anio}</span>
+                    <span class="rounded-sm bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] font-medium text-ink-2">{bib.anio}</span>
                     {#if bib.editorial}
-                      <span class="text-[12px] italic text-[#9AA0AE]">({bib.editorial})</span>
+                      <span class="text-[12px] italic text-gray-400">({bib.editorial})</span>
                     {/if}
                     {#if bib.es_bibliografia_uta}
-                      <span class="rounded-full bg-[#E8EDF5] px-2 py-0.5 text-[10.5px] font-bold text-[#002F6C]">Oficial UTA</span>
+                      <span class="rounded-full bg-uta-blue-light px-2 py-0.5 text-[10.5px] font-bold text-navy">Oficial UTA</span>
                     {/if}
                   </div>
 
                   {#if bib.cita}
-                    <p class="m-0 text-[12.5px] italic text-[#5A5E6E]">«{bib.cita}»</p>
+                    <p class="m-0 text-[12.5px] italic text-ink-2">«{bib.cita}»</p>
                   {/if}
 
                   <div class="mt-1 flex items-center gap-3 text-[12px]">
@@ -995,13 +995,13 @@
                         href={bib.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="inline-flex items-center gap-1 font-medium text-[#002F6C] hover:underline"
+                        class="inline-flex items-center gap-1 font-medium text-navy hover:underline"
                       >
                         <ExternalLink size={13} aria-hidden="true" />
                         {formatDomainUrl(bib.url)}
                       </a>
                     {:else if bib.uuid_archivo}
-                      <span class="inline-flex items-center gap-1 font-medium text-[#2E7D32]">
+                      <span class="inline-flex items-center gap-1 font-medium text-green-700">
                         <Paperclip size={13} aria-hidden="true" />
                         Archivo adjunto
                       </span>
@@ -1013,10 +1013,10 @@
           </div>
         {/each}
       {:else}
-        <div class="flex flex-col items-center justify-center rounded-[10px] border border-dashed border-[#D6D9E0] bg-[#FAFAFB] px-6 py-10 text-center">
-          <BookOpen size={28} class="mb-2 text-[#9AA0AE]" aria-hidden="true" />
-          <p class="m-0 text-[14px] font-semibold text-[#1A1A24]">Sin bibliografía</p>
-          <p class="m-0 mt-1 max-w-sm text-[12.5px] text-[#5A5E6E]">
+        <div class="flex flex-col items-center justify-center rounded-[10px] border border-dashed border-line bg-gray-50 px-6 py-10 text-center">
+          <BookOpen size={28} class="mb-2 text-gray-400" aria-hidden="true" />
+          <p class="m-0 text-[14px] font-semibold text-ink">Sin bibliografía</p>
+          <p class="m-0 mt-1 max-w-sm text-[12.5px] text-ink-2">
             Aún no has agregado recursos. Haz clic en el botón superior para añadir libros, enlaces o documentos adjuntos.
           </p>
         </div>
@@ -1049,11 +1049,11 @@
 
     <section class="flex flex-col gap-2.5">
       <div class="flex items-baseline gap-2">
-        <span class="text-[12.5px] font-semibold text-[#1A1A24]">Componentes de evaluación</span>
+        <span class="text-[12.5px] font-semibold text-ink">Componentes de evaluación</span>
         {@render marca(true)}
       </div>
       {#each componentes as comp, i}
-        <div class="flex flex-col gap-2.5 rounded-[9px] border border-[#E5E7EB] bg-white p-3.5">
+        <div class="flex flex-col gap-2.5 rounded-[9px] border border-gray-200 bg-white p-3.5">
           <div class="flex items-center gap-2.5">
             <input
               type="text"
@@ -1070,7 +1070,7 @@
                 bind:value={comp.porcentaje}
                 class="{INPUT} text-right tabular-nums"
               />
-              <span class="text-[13px] text-[#9AA0AE]">%</span>
+              <span class="text-[13px] text-gray-400">%</span>
             </label>
             <button
               type="button"
@@ -1082,23 +1082,23 @@
             </button>
           </div>
           <div class="flex flex-wrap items-center gap-5">
-            <label class="inline-flex items-center gap-2 text-[12.5px] text-[#1A1A24]">
+            <label class="inline-flex items-center gap-2 text-[12.5px] text-ink">
               <input
                 type="checkbox"
                 bind:checked={comp.genera_acta}
-                class="size-4 rounded border-[#D6D9E0]"
+                class="size-4 rounded border-line"
               />
               Genera acta
             </label>
-            <label class="inline-flex items-center gap-2 text-[12.5px] text-[#1A1A24]">
+            <label class="inline-flex items-center gap-2 text-[12.5px] text-ink">
               <input
                 type="checkbox"
                 bind:checked={comp.aprobacion_obligatoria}
-                class="size-4 rounded border-[#D6D9E0]"
+                class="size-4 rounded border-line"
               />
               Aprobación obligatoria
             </label>
-            <label class="inline-flex items-center gap-2 text-[12.5px] text-[#1A1A24]">
+            <label class="inline-flex items-center gap-2 text-[12.5px] text-ink">
               Asistencia mínima
               <input
                 type="number"
@@ -1107,7 +1107,7 @@
                 bind:value={comp.asistencia_obligatoria}
                 class="{INPUT} w-[86px] text-right tabular-nums"
               />
-              <span class="text-[#9AA0AE]">%</span>
+              <span class="text-gray-400">%</span>
             </label>
           </div>
         </div>
@@ -1134,8 +1134,8 @@
         <span
           class="ml-auto inline-flex items-center gap-1.5 text-[12.5px] font-semibold {totalPonderacion ===
           100
-            ? 'text-[#047857]'
-            : 'text-[#B45309]'}"
+            ? 'text-emerald-700'
+            : 'text-amber-700'}"
         >
           Total: {totalPonderacion}%
         </span>
@@ -1145,7 +1145,7 @@
       {/if}
     </section>
 
-    <div class="flex max-w-[280px] flex-col gap-1.5 border-t border-[#EDEFF3] pt-5">
+    <div class="flex max-w-[280px] flex-col gap-1.5 border-t border-gray-100 pt-5">
       <label for="ponderacion" class={LABEL}>Ponderación de la prueba optativa</label>
       <div class="flex items-center gap-2">
         <input
@@ -1156,13 +1156,13 @@
           bind:value={ponderacion_optativa}
           class="{INPUT} text-right tabular-nums"
         />
-        <span class="text-[13px] text-[#9AA0AE]">%</span>
+        <span class="text-[13px] text-gray-400">%</span>
       </div>
     </div>
 
-    <div class="flex flex-col gap-1.5 border-t border-[#EDEFF3] pt-5">
+    <div class="flex flex-col gap-1.5 border-t border-gray-100 pt-5">
       <label for="normativa" class="flex items-baseline gap-2">
-        <span class="text-[12.5px] font-semibold text-[#1A1A24]">Normativa del curso</span>
+        <span class="text-[12.5px] font-semibold text-ink">Normativa del curso</span>
         {@render marca(true)}
       </label>
       <textarea
@@ -1171,13 +1171,13 @@
         bind:value={normativa_curso}
         placeholder="Asistencia, integridad académica, uso de asistentes de IA, horario de consultas, contacto…"
         class="{TEXTAREA} {!normativa_curso.trim()
-          ? 'border-[1.5px] border-[#DC2626] bg-[#FEF7F7]'
+          ? 'border-[1.5px] border-red-600 bg-stone-50'
           : ''}"
       ></textarea>
       {#if !normativa_curso.trim()}
         {@render aviso('Este campo es obligatorio.')}
       {/if}
-      <span class="text-[11.5px] text-[#5A5E6E]">
+      <span class="text-[11.5px] text-ink-2">
         La lámina separa nota mínima, políticas y contacto en campos propios;
         `secciones.IX.contenido` guarda un único texto, así que van todos aquí.
       </span>

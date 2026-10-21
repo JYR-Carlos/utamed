@@ -29,7 +29,6 @@ use Illuminate\Validation\Rule;
  */
 class LinkRequest extends BaseArchiveRequest
 {
-    protected string $fileType = 'link';
     protected string $fileField = 'url'; // Usamos 'url' en lugar de 'archivo'
 
     /**

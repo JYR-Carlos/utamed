@@ -41,14 +41,14 @@ class ArchiveException extends Exception
   protected ?string $archiveId;
 
   public function __construct(
-    ArchiveErrorType $type,
+    ArchiveErrorType|string $type,
     string $message = '',
     int $code = 0,
     ?\Throwable $previous = null,
     ?string $archiveId = null
   ) {
     parent::__construct($message, $code, $previous);
-    $this->type = $type->value;
+    $this->type = $type instanceof ArchiveErrorType ? $type->value : (string) $type;
     $this->archiveId = $archiveId;
   }
 

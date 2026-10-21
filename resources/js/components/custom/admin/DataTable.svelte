@@ -6,10 +6,17 @@
   import { stackTable } from '@/lib/actions/stackTable';
 
   interface Props {
-    data: PaginatedResponse<any>;
+    data: PaginatedResponse<any> | any[] | { data: any[]; meta?: any; [key: string]: any };
     columns: { key: string; label: string; sortable?: boolean; class?: string }[];
+    /** Variante de estilo: 'default' (gris estándar) | 'accent' (borde institucional azul y cabecera contrastada) */
+    variant?: 'default' | 'accent';
+    /** Clases CSS adicionales para el contenedor principal */
+    class?: string;
+    /** Si es false, oculta la barra de paginación. Por defecto true. */
+    paginate?: boolean;
     onEdit?: (item: any) => void;
     onDelete?: (item: any) => void;
+    deleteActionLabel?: string;
     onPasswordChange?: (item: any) => void;
     onToggleActive?: (item: any) => void;
     onCustomAction?: (item: any) => void;
@@ -17,16 +24,40 @@
     onSyllabus?: (item: any) => void;
     searchPlaceholder?: string;
     /** Optional Svelte 5 snippet for custom cell rendering.
-     *  Receives { item, column } and should return cell content.
+     *  Receives { item, column, index, rowIndex } and should return cell content.
      *  Falls back to plain text for unhandled columns. */
-    cellSnippet?: Snippet<[{ item: any; column: { key: string; label: string } }]>;
+    cellSnippet?: Snippet<[{ item: any; column: { key: string; label: string }; index?: number; rowIndex?: number }]>;
+    /** Optional Svelte 5 snippet for filter controls in the toolbar. */
+    filterSnippet?: Snippet;
+    /** Optional click handler for table rows. */
+    onRowClick?: (item: any) => void;
+    /** Optional Svelte 5 snippet for expanded row content (e.g. sub-tables, hierarchy). */
+    expandableSnippet?: Snippet<[{ item: any }]>;
+    /** Permite inyectar clases dinámicas por fila (ej: atenuar registros eliminados) */
+    rowClass?: (item: any) => string;
+    /** Identificador único por fila para el estado expandido */
+    getRowId?: (item: any) => string | number;
+    /** Determina si una fila específica puede expandirse. Si no se pasa, todas son expandibles. */
+    isExpandable?: (item: any) => boolean;
+    /** Determina si una fila tiene menú de acciones disponible. Si devuelve false, muestra texto neutro. */
+    hasRowActions?: (item: any) => boolean;
+    /** Condición o mensaje para deshabilitar la acción de eliminar. Si devuelve string, se muestra como tooltip. */
+    isDeleteDisabled?: (item: any) => boolean | string;
+    /** Opcional: callback para interceptar la búsqueda (útil para filtrado en memoria/cliente) */
+    onSearch?: (term: string) => void;
+    /** Opcional: claves de props en Inertia para recarga parcial ultra rápida (e.g. ['cursos']) */
+    only?: string[];
   }
 
   let {
     data,
     columns,
+    variant = 'default',
+    class: className = '',
+    paginate = true,
     onEdit,
     onDelete,
+    deleteActionLabel = 'Eliminar',
     onPasswordChange,
     onToggleActive,
     onCustomAction,
@@ -34,7 +65,39 @@
     onSyllabus,
     searchPlaceholder = 'Buscar...',
     cellSnippet,
+    filterSnippet,
+    onRowClick,
+    expandableSnippet,
+    rowClass,
+    isExpandable,
+    hasRowActions,
+    isDeleteDisabled,
+    onSearch,
+    only,
+    getRowId = (item: any) =>
+      item?.id_facultad ??
+      item?.id_departamento ??
+      item?.id_carrera ??
+      item?.id_curso ??
+      item?.id_usuario ??
+      item?.id ??
+      JSON.stringify(item),
   }: Props = $props();
+
+  const isClientData = $derived(Array.isArray(data));
+  let clientCurrentPage = $state(1);
+  let clientPerPage = $state(15);
+
+  /** Set reactivo con las filas actualmente expandidas */
+  let expandedRows = $state<Set<string | number>>(new Set());
+
+  function toggleRow(id: string | number, e?: MouseEvent) {
+    e?.stopPropagation();
+    const next = new Set(expandedRows);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    expandedRows = next;
+  }
 
   // Hay columna de "Acciones" si se pasó al menos un handler de acción de fila.
   const hasActions = $derived(
@@ -128,7 +191,11 @@
       params.sort_dir = nextDir;
     }
 
-    router.get(currentPath, params, { preserveState: true, preserveScroll: true });
+    router.get(currentPath, params, {
+      preserveState: true,
+      preserveScroll: true,
+      only: only?.length ? only : undefined,
+    });
   }
 
   /**
@@ -152,7 +219,10 @@
     return key.split('.').reduce((v: any, k: string) => v?.[k], item) ?? null;
   }
 
-  function getDisplayValue(item: any, key: string): string {
+  function getDisplayValue(item: any, key: string, rowIndex?: number): string {
+    if (key === '#' || key === '_index' || key === 'numero' || key === 'correlativo' || key === 'nro') {
+      return String(fromIndex + (rowIndex ?? 0));
+    }
     const v = getValue(item, key);
     return v !== null && v !== undefined ? String(v) : '-';
   }
@@ -174,6 +244,11 @@
     clearTimeout(searchDebounce);
 
     const term = searchTerm.trim();
+    if (onSearch) {
+      clientCurrentPage = 1;
+      onSearch(term);
+      return;
+    }
     if (term === searchAplicado) return;
 
     // Preserve tipo, sort, per_page — drop page (reset to 1)
@@ -184,6 +259,7 @@
       preserveState: true,
       preserveScroll: true,
       replace: true, // no llenar el historial con una entrada por búsqueda
+      only: only?.length ? only : undefined,
       onStart: () => (buscando = true),
       onFinish: () => (buscando = false),
     });
@@ -210,35 +286,105 @@
 
   function clearSearch() {
     searchTerm = '';
+    if (onSearch) {
+      onSearch('');
+      return;
+    }
     runSearch();
   }
 
   $effect(() => () => clearTimeout(searchDebounce));
 
   function goToPage(p: number) {
+    if (isClientData) {
+      clientCurrentPage = Math.max(1, Math.min(p, pageLast));
+      return;
+    }
     const params = currentParamsExcept('page');
     params.page = String(p);
-    router.get(currentPath, params, { preserveState: true, preserveScroll: true });
+    router.get(currentPath, params, {
+      preserveState: true,
+      preserveScroll: true,
+      only: only?.length ? only : undefined,
+    });
   }
 
   // ── Per-page selector ───────────────────────────────────────────────────
   const perPageOptions = [10, 15, 25, 50, 100];
 
-  let currentPerPage = $derived(Number(urlParams().get('per_page') ?? '15'));
+  let currentPerPage = $derived(
+    isClientData
+      ? clientPerPage
+      : Number(paginationMeta.per_page ?? urlParams().get('per_page') ?? 15),
+  );
 
   function changePerPage(value: number) {
+    if (isClientData) {
+      clientPerPage = value;
+      clientCurrentPage = 1;
+      return;
+    }
     const params = currentParamsExcept('per_page', 'page');
     params.per_page = String(value);
-    router.get(currentPath, params, { preserveState: true, preserveScroll: true });
+    router.get(currentPath, params, {
+      preserveState: true,
+      preserveScroll: true,
+      only: only?.length ? only : undefined,
+    });
   }
+
+  // Support both direct LengthAwarePaginator (data.total), ResourceCollection (data.meta.total), and plain array
+  let paginationMeta = $derived((data as any)?.meta ?? data ?? {});
+  let totalCount = $derived(
+    isClientData ? (data as any[]).length : Number(paginationMeta.total ?? 0),
+  );
+  let pageCurrent = $derived(
+    isClientData
+      ? clientCurrentPage
+      : Number(paginationMeta.current_page ?? urlParams().get('page') ?? 1),
+  );
+  let pageLast = $derived(
+    isClientData
+      ? Math.max(1, Math.ceil(totalCount / currentPerPage))
+      : Number(paginationMeta.last_page ?? 1),
+  );
+  let fromIndex = $derived(
+    totalCount === 0
+      ? 0
+      : paginationMeta.from != null && Number(paginationMeta.from) > 0
+        ? Number(paginationMeta.from)
+        : (pageCurrent - 1) * currentPerPage + 1,
+  );
+  let toIndex = $derived(
+    totalCount === 0
+      ? 0
+      : paginationMeta.to != null && Number(paginationMeta.to) > 0
+        ? Number(paginationMeta.to)
+        : Math.min(totalCount, fromIndex + (items?.length || currentPerPage) - 1),
+  );
+
+  /** Lista normalizada de elementos a renderizar (soporta array directo o respuesta paginada) */
+  let items = $derived<any[]>(
+    isClientData
+      ? paginate
+        ? (data as any[]).slice((pageCurrent - 1) * currentPerPage, pageCurrent * currentPerPage)
+        : (data as any[])
+      : ((data as any)?.data ?? []),
+  );
+
+  $effect(() => {
+    if (isClientData && clientCurrentPage > pageLast) {
+      clientCurrentPage = 1;
+    }
+  });
 
   // ── Sliding page buttons ─────────────────────────────────────────────────
   // Always shows 5 contiguous pages centered on current, plus first/last with ellipsis
   type PageButton = { type: 'page'; n: number } | { type: 'ellipsis'; id: string };
 
   let pageButtons = $derived.by((): PageButton[] => {
-    const cur = data.current_page;
-    const last = data.last_page;
+    const cur = pageCurrent;
+    const last = pageLast;
     if (last <= 1) return [];
 
     const winStart = Math.max(1, Math.min(cur - 2, last - 4));
@@ -265,10 +411,14 @@
 
 <svelte:window onclick={closeDropdown} onscrollcapture={closeDropdown} />
 
-<div class="bg-white rounded-lg shadow overflow-hidden">
-  <!-- Search Bar -->
-  <div class="p-3 sm:p-4 border-b border-gray-200 flex gap-2">
-    <div class="relative flex-1 min-w-0">
+<div
+  class="bg-white rounded-lg shadow overflow-hidden {variant === 'accent'
+    ? 'border-t-4 border-t-blue-600 shadow-md rounded-xl'
+    : ''} {className}"
+>
+  <!-- Search Bar & Filters -->
+  <div class="p-3 sm:p-4 border-b border-gray-200 flex flex-wrap items-center gap-3">
+    <div class="relative flex-1 min-w-[220px]">
       <input
         type="text"
         bind:value={searchTerm}
@@ -306,109 +456,118 @@
         {/if}
       </div>
     </div>
-    <!-- El botón «Buscar» se retiró: la búsqueda ya se lanza sola al escribir
-         (con rebote de 300 ms) y con Enter, igual que en Cursos e
-         Inscripciones. Tenerlo sugería que había que pulsarlo. -->
-  </div>
-  <!-- Pagination -->
-  <div class="px-3 sm:px-4 py-3 flex items-center justify-between border-t border-gray-200 flex-wrap gap-3">
-    <!-- Left: record count info -->
-    <span class="text-sm text-gray-500 sm:shrink-0">
-      {#if data.total === 0}
-        Sin resultados
-      {:else if data.to - data.from + 1 === data.total}
-        Mostrando {data.to} registro{data.to === 1 ? '' : 's'}
-      {:else}
-        Mostrando los elementos {data.from} a {data.to} de {data.total} registros
-      {/if}
-    </span>
-
-    <!-- Right: per-page + prev/page buttons/next -->
-    {#if data.last_page > 1 || data.total > 0}
-      <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:ml-auto">
-        <!-- Orden: sólo móvil, donde las cabeceras de la tabla no se ven -->
-        <select
-          value={activeSortKey ?? ''}
-          onchange={(e) => setSortFromSelect((e.target as HTMLSelectElement).value)}
-          aria-label="Ordenar por"
-          class="md:hidden px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white cursor-pointer focus:outline-none focus:border-blue-400 transition-colors"
-        >
-          <option value="">Orden por defecto</option>
-          {#each columns as column (column.key)}
-            <option value={column.key}>
-              {column.label}{activeSortKey === column.key ? (activeSortDir === 'desc' ? ' ↓' : ' ↑') : ''}
-            </option>
-          {/each}
-        </select>
-
-        <!-- Per-page selector -->
-        <select
-          value={currentPerPage}
-          onchange={(e) => changePerPage(Number((e.target as HTMLSelectElement).value))}
-          class="px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white cursor-pointer focus:outline-none focus:border-blue-400 transition-colors"
-        >
-          {#each perPageOptions as opt (opt)}
-            <option value={opt}>{opt} por página</option>
-          {/each}
-        </select>
-
-        {#if data.last_page > 1}
-          <!-- Prev -->
-          <button
-            onclick={() => goToPage(data.current_page - 1)}
-            disabled={data.current_page === 1}
-            class="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-md cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Anterior
-          </button>
-
-          <!-- Móvil: «Página X de Y» en lugar de la ventana de números -->
-          <span class="sm:hidden text-sm text-gray-500 tabular-nums">
-            {data.current_page} / {data.last_page}
-          </span>
-
-          <!-- Sliding page buttons -->
-          <div class="hidden sm:flex items-center gap-1">
-            {#each pageButtons as btn, rowIndex (rowIndex)}
-              {#if btn.type === 'ellipsis'}
-                <span class="px-1 text-sm text-gray-400 select-none">…</span>
-              {:else}
-                <button
-                  onclick={() => goToPage(btn.n)}
-                  class="min-w-8 h-8 px-2 text-sm rounded-md border cursor-pointer transition-all
-                    {btn.n === data.current_page
-                    ? 'page-current'
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'}"
-                  aria-current={btn.n === data.current_page ? 'page' : undefined}
-                >
-                  {btn.n}
-                </button>
-              {/if}
-            {/each}
-          </div>
-
-          <!-- Next -->
-          <button
-            onclick={() => goToPage(data.current_page + 1)}
-            disabled={data.current_page === data.last_page}
-            class="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-md cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Siguiente
-          </button>
-        {/if}
-      </div>
+    {#if filterSnippet}
+      {@render filterSnippet()}
     {/if}
   </div>
+  <!-- Pagination -->
+  {#if paginate}
+    <div class="px-3 sm:px-4 py-3 flex items-center justify-between border-t border-gray-200 flex-wrap gap-3">
+      <!-- Left: record count info -->
+      <span class="text-sm text-gray-500 sm:shrink-0">
+        {#if totalCount === 0}
+          Sin resultados
+        {:else if totalCount <= currentPerPage && fromIndex === 1 && toIndex === totalCount}
+          Mostrando {toIndex} registro{toIndex === 1 ? '' : 's'}
+        {:else}
+          Mostrando los elementos {fromIndex} a {toIndex} de {totalCount} registros
+        {/if}
+      </span>
+
+      <!-- Right: per-page + prev/page buttons/next -->
+      {#if pageLast > 1 || totalCount > 0}
+        <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:ml-auto">
+          <!-- Orden: sólo móvil, donde las cabeceras de la tabla no se ven -->
+          <select
+            value={activeSortKey ?? ''}
+            onchange={(e) => setSortFromSelect((e.target as HTMLSelectElement).value)}
+            aria-label="Ordenar por"
+            class="md:hidden px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white cursor-pointer focus:outline-none focus:border-blue-400 transition-colors"
+          >
+            <option value="">Orden por defecto</option>
+            {#each columns as column (column.key)}
+              <option value={column.key}>
+                {column.label}{activeSortKey === column.key ? (activeSortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+              </option>
+            {/each}
+          </select>
+
+          <!-- Per-page selector -->
+          <select
+            value={currentPerPage}
+            onchange={(e) => changePerPage(Number((e.target as HTMLSelectElement).value))}
+            class="px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white cursor-pointer focus:outline-none focus:border-blue-400 transition-colors"
+          >
+            {#each perPageOptions as opt (opt)}
+              <option value={opt}>{opt} por página</option>
+            {/each}
+          </select>
+
+          {#if pageLast > 1}
+            <!-- Prev -->
+            <button
+              onclick={() => goToPage(pageCurrent - 1)}
+              disabled={pageCurrent === 1}
+              class="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-md cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Anterior
+            </button>
+
+            <!-- Móvil: «Página X de Y» en lugar de la ventana de números -->
+            <span class="sm:hidden text-sm text-gray-500 tabular-nums">
+              {pageCurrent} / {pageLast}
+            </span>
+
+            <!-- Sliding page buttons -->
+            <div class="hidden sm:flex items-center gap-1">
+              {#each pageButtons as btn, rowIndex (rowIndex)}
+                {#if btn.type === 'ellipsis'}
+                  <span class="px-1 text-sm text-gray-400 select-none">…</span>
+                {:else}
+                  <button
+                    onclick={() => goToPage(btn.n)}
+                    class="min-w-8 h-8 px-2 text-sm rounded-md border cursor-pointer transition-all
+                      {btn.n === pageCurrent
+                      ? 'page-current'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'}"
+                    aria-current={btn.n === pageCurrent ? 'page' : undefined}
+                  >
+                    {btn.n}
+                  </button>
+                {/if}
+              {/each}
+            </div>
+
+            <!-- Next -->
+            <button
+              onclick={() => goToPage(pageCurrent + 1)}
+              disabled={pageCurrent === pageLast}
+              class="px-3 py-1.5 text-sm font-medium bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-md cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Siguiente
+            </button>
+          {/if}
+        </div>
+      {/if}
+    </div>
+  {/if}
 
   <!-- Table -->
   <div class="table-stack-wrap overflow-auto max-h-[72vh]" onscroll={closeDropdown}>
     <table class="table-stack w-full border-collapse relative" use:stackTable>
-      <thead class="bg-gray-50 border-b border-gray-200 sticky top-0 z-20 shadow-xs">
+      <thead
+        class="{variant === 'accent'
+          ? 'bg-slate-100/90 text-slate-700'
+          : 'bg-gray-50 text-gray-500'} border-b border-gray-200 sticky top-0 z-20 shadow-xs"
+      >
         <tr>
+          {#if expandableSnippet}
+            <th class="w-10 px-3 py-3"></th>
+          {/if}
           {#each columns as column (column.key)}
             <th
               onclick={() => cycleSort(column.key)}
-              class="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500 tracking-wide cursor-pointer select-none hover:bg-gray-100 transition-colors"
+              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide cursor-pointer select-none hover:bg-gray-100 transition-colors {variant === 'accent' ? 'text-slate-700' : 'text-gray-500'}"
             >
               <span class="inline-flex items-center gap-1">
                 {column.label}
@@ -490,63 +649,108 @@
         </tr>
       </thead>
       <tbody>
-        {#if data.data.length === 0}
+        {#if items.length === 0}
           <tr>
             <td
-              colspan={columns.length + (hasActions ? 1 : 0)}
+              colspan={columns.length + (hasActions ? 1 : 0) + (expandableSnippet ? 1 : 0)}
               class="text-center text-gray-400 py-12 px-4"
             >
               No se encontraron resultados
             </td>
           </tr>
         {:else}
-          {#each data.data as item, rowIndex (rowIndex)}
+          {#each items as item, rowIndex (rowIndex)}
+            {@const itemId = getRowId(item)}
+            {@const isExpanded = expandedRows.has(itemId)}
+            {@const customClass = rowClass ? rowClass(item) : ''}
             <tr
-              class="transition-colors {item.usuario?.esta_activo === false
+              onclick={() => onRowClick?.(item)}
+              class="transition-colors {onRowClick ? 'cursor-pointer' : ''} {item.usuario?.esta_activo === false
                 ? 'bg-red-50/60 hover:bg-red-100/60'
-                : 'hover:bg-gray-50'}"
+                : 'hover:bg-gray-50'} {customClass}"
             >
+              {#if expandableSnippet}
+                {@const canExpand = isExpandable ? isExpandable(item) : true}
+                <td class="w-10 px-3 py-3 text-center align-middle" onclick={(e) => e.stopPropagation()}>
+                  {#if canExpand}
+                    <button
+                      onclick={(e) => toggleRow(itemId, e)}
+                      class="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                      aria-label={isExpanded ? 'Colapsar' : 'Expandir'}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="transition-transform duration-200 {isExpanded ? 'rotate-90' : ''}"
+                      >
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </button>
+                  {:else}
+                    <span class="w-6 h-6 inline-block"></span>
+                  {/if}
+                </td>
+              {/if}
               {#each columns as column (rowIndex + '-' + column.key)}
                 <td
                   class="px-4 py-3 border-b border-gray-100 text-sm text-gray-900 align-middle {column.class ||
                     ''}"
                 >
                   {#if cellSnippet}
-                    {@render cellSnippet({ item, column })}
+                    {@render cellSnippet({ item, column, index: fromIndex + rowIndex, rowIndex })}
                   {:else}
-                    {getDisplayValue(item, column.key)}
+                    {getDisplayValue(item, column.key, rowIndex)}
                   {/if}
                 </td>
               {/each}
               {#if hasActions}
+                {@const canAct = hasRowActions ? hasRowActions(item) : true}
                 <td
                   class="px-4 py-3 border-b border-gray-100 align-middle text-center relative w-1 whitespace-nowrap"
                 >
-                  <button
-                    onclick={(e) => toggleDropdown(item, rowIndex, e)}
-                    class="p-2.5 md:p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
-                    title="Opciones"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      ><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle
-                        cx="12"
-                        cy="19"
-                        r="1"
-                      /></svg
+                  {#if canAct}
+                    <button
+                      onclick={(e) => toggleDropdown(item, rowIndex, e)}
+                      class="p-2.5 md:p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
+                      title="Opciones"
                     >
-                  </button>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        ><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle
+                          cx="12"
+                          cy="19"
+                          r="1"
+                        /></svg
+                      >
+                    </button>
+                  {:else}
+                    <span class="text-gray-400 text-xs select-none">Discontinuado</span>
+                  {/if}
                 </td>
               {/if}
             </tr>
+            {#if expandableSnippet && isExpanded}
+              <tr class="bg-slate-50/70 border-b border-gray-100">
+                <td colspan={columns.length + (hasActions ? 1 : 0) + 1} class="px-6 py-4">
+                  {@render expandableSnippet({ item })}
+                </td>
+              </tr>
+            {/if}
           {/each}
         {/if}
       </tbody>
@@ -733,12 +937,16 @@
         {#if onEdit || onPasswordChange || onToggleActive || onCustomAction || onSyllabus}
           <div class="h-px bg-gray-100 my-1"></div>
         {/if}
+        {@const delDisabled = isDeleteDisabled ? isDeleteDisabled(menuState?.item) : false}
         <button
           onclick={() => {
+            if (delDisabled) return;
             onDelete?.(menuState?.item);
             closeDropdown();
           }}
-          class="menu-item menu-item-danger"
+          disabled={!!delDisabled}
+          title={typeof delDisabled === 'string' ? delDisabled : undefined}
+          class="menu-item menu-item-danger {delDisabled ? 'opacity-40 cursor-not-allowed' : ''}"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -754,7 +962,7 @@
               d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
             /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg
           >
-          Eliminar
+          {deleteActionLabel}
         </button>
       {/if}
     </div>

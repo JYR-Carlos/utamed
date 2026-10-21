@@ -608,6 +608,8 @@ class ProgramaController extends Controller
                 'last_page' => $programas->lastPage(),
                 'total' => $programas->total(),
                 'per_page' => $programas->perPage(),
+                'from' => $programas->firstItem(),
+                'to' => $programas->lastItem(),
             ],
             'stats' => $stats,
             'estado_filtro' => $estado,
@@ -624,7 +626,7 @@ class ProgramaController extends Controller
     {
         $this->authorize('viewAny', Programa::class);
 
-        $busqueda  = $request->query('q', '');
+        $busqueda  = $request->query('search', $request->query('q', ''));
         $semestre  = $request->query('semestre', '');
         $agno      = $request->query('agno', '');
 
@@ -651,7 +653,8 @@ class ProgramaController extends Controller
             $query->where('agno_real', $agno);
         }
 
-        $cursos = $query->orderBy('nombre')->paginate(20, ['*'], 'page', $request->query('page', 1));
+        $perPage = (int) $request->query('per_page', 20);
+        $cursos = $query->orderBy('nombre')->paginate($perPage, ['*'], 'page', $request->query('page', 1));
 
         $cursosData = $cursos->map(function (Curso $c) {
             $programa = $c->programas->first();
@@ -696,9 +699,12 @@ class ProgramaController extends Controller
                 'last_page'    => $cursos->lastPage(),
                 'total'        => $cursos->total(),
                 'per_page'     => $cursos->perPage(),
+                'from'         => $cursos->firstItem(),
+                'to'           => $cursos->lastItem(),
             ],
             'filters'    => [
                 'q'        => $busqueda,
+                'search'   => $busqueda,
                 'semestre' => $semestre,
                 'agno'     => $agno,
             ],

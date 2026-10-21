@@ -26,18 +26,18 @@
 <section
   class="flex w-full flex-col gap-3.5 {plano
     ? ''
-    : 'rounded-[10px] border border-[#E5E7EB] bg-white p-4 lg:sticky lg:top-6 lg:w-[280px] lg:flex-none'}"
+    : 'rounded-[10px] border border-gray-200 bg-white p-4 lg:sticky lg:top-6 lg:w-[280px] lg:flex-none'}"
   aria-label="Historial del syllabus"
 >
   {#if !plano}
     <div class="flex items-center gap-2">
-      <Clock size={15} class="text-[#5A5E6E]" aria-hidden="true" />
-      <h2 class="m-0 text-[13px] font-semibold text-[#1A1A24]">Historial</h2>
+      <Clock size={15} class="text-ink-2" aria-hidden="true" />
+      <h2 class="m-0 text-[13px] font-semibold text-ink">Historial</h2>
     </div>
   {/if}
 
   {#if eventos.length === 0}
-    <p class="m-0 text-[12.5px] text-[#5A5E6E]">
+    <p class="m-0 text-[12.5px] text-ink-2">
       Todavía no hay movimientos registrados para este documento.
     </p>
   {:else}
@@ -48,18 +48,18 @@
           <div class="flex flex-none flex-col items-center">
             <span class="mt-[5px] h-2 w-2 rounded-full {visual.dot}" aria-hidden="true"></span>
             {#if i < eventos.length - 1}
-              <span class="my-1 w-px flex-1 bg-[#E5E7EB]" aria-hidden="true"></span>
+              <span class="my-1 w-px flex-1 bg-gray-200" aria-hidden="true"></span>
             {/if}
           </div>
           <div class="flex min-w-0 flex-col gap-[3px]">
-            <span class="text-[12.5px] font-semibold text-[#1A1A24]">{visual.titulo}</span>
-            <span class="text-[12px] text-[#5A5E6E]">
+            <span class="text-[12.5px] font-semibold text-ink">{visual.titulo}</span>
+            <span class="text-[12px] text-ink-2">
               {formatFechaHora(evento.fecha_accion)}
               {#if evento.usuario}· {evento.usuario}{/if}
             </span>
             {#if visual.esRechazo && evento.observaciones}
               <p
-                class="m-0 rounded-md border border-[#F3DCDC] bg-[#FDF3F3] px-2 py-1.5 text-[12px] leading-[1.45] text-[#5A5E6E]"
+                class="m-0 rounded-md border border-red-100 bg-red-50 px-2 py-1.5 text-[12px] leading-[1.45] text-ink-2"
               >
                 «{evento.observaciones}»
               </p>

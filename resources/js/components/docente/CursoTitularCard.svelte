@@ -25,10 +25,10 @@
 
   const syllabusPendiente = $derived(
     {
-      RECHAZADO: { bg: 'bg-[#FEF2F2]', border: 'border-[#FECACA]', color: 'text-[#B91C1C]', Icon: XCircle, label: 'Syllabus rechazado' },
-      BORRADOR: { bg: 'bg-[#FFFBEB]', border: 'border-[#FDE68A]', color: 'text-[#B45309]', Icon: FilePenLine, label: 'Syllabus en borrador' },
-      EN_REVISION: { bg: 'bg-[#F1F5F9]', border: 'border-[#E2E8F0]', color: 'text-[#475569]', Icon: Clock, label: 'Syllabus en revisión' },
-      NO_INICIADO: { bg: 'bg-[#F8FAFC]', border: 'border-[#E5E7EB]', color: 'text-[#5A5E6E]', Icon: FilePenLine, label: 'Sin syllabus' },
+      RECHAZADO: { bg: 'bg-red-50', border: 'border-red-200', color: 'text-red-700', Icon: XCircle, label: 'Syllabus rechazado' },
+      BORRADOR: { bg: 'bg-amber-50', border: 'border-amber-200', color: 'text-amber-700', Icon: FilePenLine, label: 'Syllabus en borrador' },
+      EN_REVISION: { bg: 'bg-slate-100', border: 'border-slate-200', color: 'text-slate-600', Icon: Clock, label: 'Syllabus en revisión' },
+      NO_INICIADO: { bg: 'bg-slate-50', border: 'border-gray-200', color: 'text-ink-2', Icon: FilePenLine, label: 'Sin syllabus' },
       APROBADO: null,
     }[estado_syllabus],
   );
@@ -40,24 +40,24 @@
 >
   <div class="flex items-center justify-between gap-2">
     <div class="flex min-w-0 items-center gap-2 text-[13px]">
-      <span class="font-mono text-[#4A4E5C]">{cod_curso}</span>
+      <span class="font-mono text-zinc-600">{cod_curso}</span>
       {#if letra_grupo}
         <span class="rounded-full px-2.5 py-0.5 text-xs font-bold {tono.chip}">Grupo {letra_grupo}</span>
       {/if}
     </div>
-    <ChevronRight class="h-5 w-5 shrink-0 text-[#5A5E6E] transition-transform group-hover:translate-x-0.5" />
+    <ChevronRight class="h-5 w-5 shrink-0 text-ink-2 transition-transform group-hover:translate-x-0.5" />
   </div>
 
-  <span class="text-base font-semibold leading-snug text-[#171A26]">{nombre}</span>
+  <span class="text-base font-semibold leading-snug text-ink">{nombre}</span>
 
   <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-t border-black/10 pt-2.5 text-[13px]">
-    <CalendarDays class="h-4 w-4 shrink-0 text-[#5A5E6E]" />
+    <CalendarDays class="h-4 w-4 shrink-0 text-ink-2" />
     {#if proxima_entrega}
-      <span class="text-[#5A5E6E]">Próxima entrega</span>
-      <span class="font-semibold text-[#4A4E5C]">{fechaCorta(proxima_entrega)}</span>
+      <span class="text-ink-2">Próxima entrega</span>
+      <span class="font-semibold text-zinc-600">{fechaCorta(proxima_entrega)}</span>
       <PlazoBadge fecha={proxima_entrega} />
     {:else}
-      <span class="text-[#5A5E6E]">Sin entregas próximas</span>
+      <span class="text-ink-2">Sin entregas próximas</span>
     {/if}
 
     {#if syllabusPendiente}

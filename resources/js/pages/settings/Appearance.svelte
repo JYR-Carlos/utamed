@@ -18,20 +18,20 @@
 
     const breadcrumbItems: BreadcrumbItem[] = [
         {
-            title: 'Appearance settings',
+            title: 'Apariencia',
             href: '/settings/appearance',
         },
     ];
 </script>
 
 <svelte:head>
-    <title>Appearance Settings</title>
+    <title>Apariencia</title>
 </svelte:head>
 
 <AppLayout breadcrumbs={breadcrumbItems}>
     <SettingsLayout>
         <div class="space-y-6">
-            <HeadingSmall title="Appearance settings" description="Update your account's appearance settings" />
+            <HeadingSmall title="Apariencia" description="Elige el tema de la interfaz. «Sistema» sigue la configuración de tu dispositivo." />
             <AppearanceTabs />
         </div>
     </SettingsLayout>

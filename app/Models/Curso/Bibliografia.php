@@ -13,6 +13,14 @@ use App\Models\Base\Curso\BaseBibliografia;
 class Bibliografia extends BaseBibliografia
 {
     /**
+     * Accessor para compatibilidad con código que usa id_bibliografia.
+     */
+    public function getIdBibliografiaAttribute(): ?string
+    {
+        return $this->uuid_bibliografia;
+    }
+
+    /**
      * Filtra los recursos que pertenecen a la biblioteca oficial de la UTA.
      */
     public function scopeBibliografiasUTA($query)

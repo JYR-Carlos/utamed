@@ -432,12 +432,15 @@ class CursoController extends Controller
 
         $indicesTomados = $query->pluck('indice_grupo')->values()->all();
 
+        $proximoIndice = $this->cursoService->nextIndiceGrupo(
+            $asignacionPlan->id_asignacion_plan,
+            $agnoReal,
+            $semestreReal
+        );
+
         return response()->json([
-            'proximo_indice'  => $this->cursoService->nextIndiceGrupo(
-                $asignacionPlan->id_asignacion_plan,
-                $agnoReal,
-                $semestreReal
-            ),
+            'proximo_indice'  => $proximoIndice,
+            'proxima_letra'   => LetraGrupo::fromIndice($proximoIndice),
             'indices_tomados' => $indicesTomados,
         ]);
     }
@@ -709,7 +712,7 @@ class CursoController extends Controller
      * Returns preview data for course copy modal (syllabus, components, teachers, activities).
      * Excludes students and activity responses.
      */
-    public function previewCopia(Curso $curso)
+    public function previewCopia(Request $request, Curso $curso)
     {
         $this->authorize('view', $curso);
         $curso->load([
@@ -729,11 +732,28 @@ class CursoController extends Controller
             $periodo = "Año {$ap->agno_planificado} · Semestre {$ap->semestre_planificado}";
         }
 
+        $agno = $request->filled('agno_real') ? (int) $request->input('agno_real') : ($curso->agno_real ?? (int) date('Y'));
+        $semestre = $request->filled('semestre_real') ? (int) $request->input('semestre_real') : ($curso->semestre_real ?? ((int) date('n') <= 7 ? 1 : 2));
+
+        $proximoIndice = $this->cursoService->nextIndiceGrupo($curso->id_asignacion_plan, $agno, $semestre);
+        $proximaLetra = LetraGrupo::fromIndice($proximoIndice);
+        $nuevoNombre = preg_match('/\s*-\s*Grupo\s+[A-Za-z0-9]+$/i', $curso->nombre)
+            ? preg_replace('/\s*-\s*Grupo\s+[A-Za-z0-9]+$/i', " - Grupo {$proximaLetra}", $curso->nombre)
+            : ($ap?->asignatura?->nombre ? "{$ap->asignatura->nombre} - Grupo {$proximaLetra}" : "{$curso->nombre} - Grupo {$proximaLetra}");
+
         return response()->json([
             'curso' => [
                 'id_curso'         => $curso->id_curso,
                 'cod_curso'        => $curso->cod_curso,
                 'nombre'           => $curso->nombre,
+                'id_asignatura'    => $ap?->id_asignatura,
+                'id_plan'          => $ap?->id_plan,
+                'agno_real'        => $curso->agno_real,
+                'semestre_real'    => $curso->semestre_real,
+                'agno_sugerido'    => $agno,
+                'semestre_sugerido'=> $semestre,
+                'proxima_letra'    => $proximaLetra,
+                'nuevo_nombre'     => $nuevoNombre,
                 'asignatura_nombre'=> $ap?->asignatura?->nombre,
                 'cod_asignatura'   => $ap?->asignatura?->cod_asignatura,
                 'carrera_nombre'   => $ap?->plan?->carrera?->nombre,
@@ -784,16 +804,17 @@ class CursoController extends Controller
     public function copiar(Request $request, Curso $curso)
     {
         $this->authorize('create', Curso::class);
-        $request->validate([
-            'cod_curso'   => 'nullable|integer|min:1|max:999999999|unique:curso,cod_curso',
-            'fecha_inicio'=> 'required|date',
+        $validated = $request->validate([
+            'fecha_inicio'  => 'required|date',
+            'agno_real'     => 'required|integer|min:2000|max:2100',
+            'semestre_real' => 'required|integer|in:1,2',
         ]);
 
         try {
-            // Sin cod_curso, CursoService asigna el siguiente código interno.
             $this->cursoService->copiar($curso, [
-                'cod_curso'   => $request->filled('cod_curso') ? (int) $request->cod_curso : null,
-                'fecha_inicio'=> $request->fecha_inicio,
+                'fecha_inicio'  => $validated['fecha_inicio'],
+                'agno_real'     => (int) $validated['agno_real'],
+                'semestre_real' => (int) $validated['semestre_real'],
             ]);
 
             return redirect()

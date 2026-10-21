@@ -7,6 +7,7 @@
     import { Label } from '@/components/ui/label';
     import AppLayout from '@/layouts/AppLayout.svelte';
     import SettingsLayout from '@/layouts/settings/Layout.svelte';
+    import { titleCase } from '@/lib/utils';
     import { edit } from '@/routes/profile';
     import { send } from '@/routes/verification';
     import { type BreadcrumbItem, type User } from '@/types';
@@ -23,33 +24,37 @@
 
     const breadcrumbItems: BreadcrumbItem[] = [
         {
-            title: 'Profile settings',
+            title: 'Perfil',
             href: edit().url,
         },
     ];
 
     const user = $page.props.auth.user as User;
+
+    // El nombre completo, no sólo nombre1: el servidor reparte lo que llegue
+    // entre las cuatro columnas, y con sólo el primer nombre borraba los apellidos.
+    const nombreCompleto = titleCase([user.nombre1, user.nombre2, user.apellido1, user.apellido2].filter(Boolean).join(' '));
 </script>
 
 <svelte:head>
-    <title>Profile Settings</title>
+    <title>Perfil</title>
 </svelte:head>
 
 <AppLayout breadcrumbs={breadcrumbItems}>
     <SettingsLayout>
         <div class="flex flex-col space-y-6">
-            <HeadingSmall title="Profile Information" description="Update your name and email address" />
+            <HeadingSmall title="Información del perfil" description="Actualiza tu nombre y tu correo electrónico" />
 
             <Form {...ProfileController.update.form()} options={{ preserveScroll: true }} class="space-y-6">
                 {#snippet children({ errors, processing, recentlySuccessful }: ProfileFormSnippetProps)}
                     <div class="grid gap-2">
-                        <Label for="name">Name</Label>
-                        <Input name="name" id="name" class="mt-1 block w-full" defaultValue={user.nombre1 ?? ''} required autocomplete="name" placeholder="Full name" />
+                        <Label for="name">Nombre completo</Label>
+                        <Input name="name" id="name" class="mt-1 block w-full" defaultValue={nombreCompleto} required autocomplete="name" placeholder="Nombres y apellidos" />
                         <InputError class="mt-2" message={errors.name} />
                     </div>
 
                     <div class="grid gap-2">
-                        <Label for="email">Email address</Label>
+                        <Label for="email">Correo electrónico</Label>
                         <Input
                             id="email"
                             name="email"
@@ -57,37 +62,37 @@
                             defaultValue={user.email ?? ''}
                             required
                             autocomplete="username"
-                            placeholder="Email address"
+                            placeholder="Correo electrónico"
                         />
                         <InputError class="mt-2" message={errors.email} />
                     </div>
                     {#if mustVerifyEmail && !user.email_verified_at}
                         <div>
                             <p class="-mt-4 text-sm text-muted-foreground">
-                                Your email address is unverified.
+                                Tu correo electrónico no está verificado.
                                 <Link
                                     href={send()}
                                     method="post"
                                     as="button"
-                                    class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                                    class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current!"
                                 >
-                                    Click here to resend the verification email.
+                                    Haz clic aquí para reenviar el correo de verificación.
                                 </Link>
                             </p>
 
                             {#if status === 'verification-link-sent'}
                                 <div class="mt-2 text-sm font-medium text-green-600">
-                                    A new verification link has been sent to your email address.
+                                    Te enviamos un nuevo enlace de verificación a tu correo.
                                 </div>
                             {/if}
                         </div>
                     {/if}
 
                     <div class="flex items-center gap-4">
-                        <Button type="submit" disabled={processing}>Save</Button>
+                        <Button type="submit" disabled={processing}>Guardar</Button>
 
                         {#if recentlySuccessful}
-                            <p class="text-sm text-neutral-600" transition:fade={{ duration: 150 }}>Saved.</p>
+                            <p class="text-sm text-neutral-600" transition:fade={{ duration: 150 }}>Guardado.</p>
                         {/if}
                     </div>
                 {/snippet}

@@ -254,6 +254,86 @@ class PermissionValidator
     }
 
     /**
+     * Expande una lista de permisos o slugs (incluyendo wildcards) a una lista plana
+     * de slugs concretos permitidos, usando las definiciones de Permissions enum y WildcardMatcher.
+     *
+     * Si la lista incluye el wildcard global ('*'), retorna ['*'].
+     *
+     * @param iterable<string|Permissions|array{slug: string|Permissions, esta_permitido?: bool}> $rawPermissions
+     * @return array<string> Slugs concretos expandidos
+     */
+    public function expandToConcreteSlugs(iterable $rawPermissions): array
+    {
+        $permissions = [];
+        $hasGlobalWildcard = false;
+
+        foreach ($rawPermissions as $perm) {
+            $slugValue = is_array($perm) ? ($perm['slug'] ?? null) : $perm;
+            $isAllowed = is_array($perm) ? (bool) ($perm['esta_permitido'] ?? true) : true;
+
+            if (!$slugValue) {
+                continue;
+            }
+
+            if ($slugValue instanceof Permissions) {
+                $enum = $slugValue;
+            } else {
+                $enum = Permissions::tryFrom((string) $slugValue);
+            }
+
+            if (!$enum) {
+                continue;
+            }
+
+            if ($enum === Permissions::GLOBAL_WILDCARD && $isAllowed) {
+                $hasGlobalWildcard = true;
+            }
+
+            $permissions[] = [
+                'enum' => $enum,
+                'esta_permitido' => $isAllowed,
+            ];
+        }
+
+        if ($hasGlobalWildcard) {
+            return [WildcardMatcher::GLOBAL_WILDCARD];
+        }
+
+        if (empty($permissions)) {
+            return [];
+        }
+
+        $allConcreteCases = array_filter(
+            Permissions::cases(),
+            static fn(Permissions $p) => !WildcardMatcher::isGlobalWildcard($p) && !WildcardMatcher::isResourceWildcard($p)
+        );
+
+        $expanded = [];
+        foreach ($allConcreteCases as $concreteCase) {
+            $bestPriority = PHP_INT_MAX;
+            $bestVerdict = null;
+
+            foreach ($permissions as $userPerm) {
+                if (WildcardMatcher::matches($concreteCase, $userPerm['enum'])) {
+                    $priority = WildcardMatcher::getPriority($concreteCase, $userPerm['enum']);
+                    $isDeny = !$userPerm['esta_permitido'];
+
+                    if ($priority < $bestPriority || ($priority === $bestPriority && $isDeny)) {
+                        $bestPriority = $priority;
+                        $bestVerdict = $userPerm['esta_permitido'];
+                    }
+                }
+            }
+
+            if ($bestVerdict === true) {
+                $expanded[] = $concreteCase->value;
+            }
+        }
+
+        return array_values(array_unique($expanded));
+    }
+
+    /**
      * 
      * Wrapper público para detectar si el usuario es superadmin.
      * No requiere que el llamador conozca el contexto global.

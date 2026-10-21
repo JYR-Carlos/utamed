@@ -132,27 +132,27 @@
   ]);
 
   const TAG =
-    'font-mono text-[10.5px] font-bold tracking-[0.06em] rounded-[5px] px-1.5 py-0.5 bg-[#F5F1EA] border border-[#E5E7EB] text-[#5A5E6E]';
+    'font-mono text-[10.5px] font-bold tracking-[0.06em] rounded-[5px] px-1.5 py-0.5 bg-sand border border-gray-200 text-ink-2';
 </script>
 
 <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-start">
   {#each COLUMNAS as col (col.id)}
     <section
-      class="flex flex-col gap-2.5 rounded-xl border border-[#E5E7EB] bg-[#F5F1EA] p-3"
+      class="flex flex-col gap-2.5 rounded-xl border border-gray-200 bg-sand p-3"
       aria-label="Actividades en estado {col.label}"
     >
       <!-- Cabecera de columna -->
       <div class="flex items-center gap-2 px-0.5">
         <span class="w-2 h-2 rounded-full {col.dot} shrink-0" aria-hidden="true"></span>
-        <h3 class="text-[13px] font-semibold text-[#1A1A24] m-0">{col.label}</h3>
-        <span class="ml-auto font-mono text-[11.5px] tabular-nums text-[#5A5E6E]"
+        <h3 class="text-[13px] font-semibold text-ink m-0">{col.label}</h3>
+        <span class="ml-auto font-mono text-[11.5px] tabular-nums text-ink-2"
           >{col.items.length}</span
         >
       </div>
 
       {#if col.items.length === 0}
         <div
-          class="flex flex-col items-center gap-2 rounded-[10px] border border-dashed border-[#D6D9E0] bg-white/60 py-8 text-center text-muted-foreground"
+          class="flex flex-col items-center gap-2 rounded-[10px] border border-dashed border-line bg-white/60 py-8 text-center text-muted-foreground"
         >
           <ClipboardList size={24} class="opacity-40" />
           <p class="text-[12px] m-0">Sin actividades en este estado</p>
@@ -164,41 +164,41 @@
             href="/docente/cursos/{idCurso}/actividades/{act.id_actividad}/evaluacion"
             class="flex flex-col gap-2 rounded-[10px] p-3 no-underline transition-colors duration-150 {col.id ===
             'cerrada'
-              ? 'bg-[#F8FAFC] border border-[#CBD5E1] hover:bg-white'
+              ? 'bg-slate-50 border border-slate-300 hover:bg-white'
               : col.id === 'activa'
-                ? 'bg-white border border-[#A7F3D0] border-l-[3px] border-l-[#059669] shadow-[0_1px_2px_rgba(0,0,0,.04)] hover:border-[#6EE7B7]'
-                : 'bg-white border border-[#E5E7EB] shadow-[0_1px_2px_rgba(0,0,0,.04)] hover:border-[#D0CBC1]'}"
+                ? 'bg-white border border-emerald-200 border-l-[3px] border-l-emerald-600 shadow-[0_1px_2px_rgba(0,0,0,.04)] hover:border-emerald-300'
+                : 'bg-white border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,.04)] hover:border-sand-line'}"
           >
             <!-- Sigla del componente + estado -->
             <div class="flex items-center gap-1.5">
               <span class={TAG} title={nombreComponente(act)}>{siglaComponente(act)}</span>
               <span
-                class="text-[10.5px] font-medium tracking-[0.02em] text-[#5A5E6E] rounded-[5px] border border-[#E5E7EB] px-1.5 py-0.5"
+                class="text-[10.5px] font-medium tracking-[0.02em] text-ink-2 rounded-[5px] border border-gray-200 px-1.5 py-0.5"
               >
                 {act.tipo_actividad === 'SUMATIVA' ? 'Sumativa' : 'Formativa'}
               </span>
 
               {#if col.id === 'planificada'}
                 <span
-                  class="ml-auto inline-flex items-center gap-1 rounded-full bg-[#FFFBEB] border border-[#FDE68A] px-2 py-0.5 text-[11px] font-semibold text-[#B45309]"
+                  class="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-700"
                 >
                   <EyeOff size={12} />
                   Oculta
                 </span>
               {:else if col.id === 'activa'}
-                <span class="ml-auto text-[11px] font-semibold text-[#047857]"
+                <span class="ml-auto text-[11px] font-semibold text-emerald-700"
                   >{cierreLabel(act)}</span
                 >
               {:else if av.pendientes > 0}
                 <span
-                  class="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-[#B45309]"
+                  class="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700"
                 >
                   <AlertTriangle size={12} />
                   {av.pendientes} {av.rotuloPendientes}
                 </span>
               {:else}
                 <span
-                  class="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-[#475569]"
+                  class="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600"
                 >
                   <Lock size={12} />
                   Cerrada
@@ -208,7 +208,7 @@
               {#if onCopiar}
                 <button
                   type="button"
-                  class="inline-flex items-center justify-center rounded-[5px] p-1 text-[#5A5E6E] transition-colors hover:bg-[#E5E7EB] hover:text-[#002F6C]"
+                  class="inline-flex items-center justify-center rounded-[5px] p-1 text-ink-2 transition-colors hover:bg-gray-200 hover:text-navy"
                   title="Copiar a otro curso"
                   aria-label="Copiar {act.nombre} a otro curso"
                   onclick={(e) => {
@@ -225,8 +225,8 @@
             <!-- Nombre -->
             <span
               class="text-[13.5px] font-semibold leading-[1.35] text-pretty {col.id === 'cerrada'
-                ? 'text-[#334155]'
-                : 'text-[#1A1A24]'}"
+                ? 'text-gray-700'
+                : 'text-ink'}"
             >
               {act.nombre}
             </span>
@@ -234,10 +234,10 @@
             <!-- Pie: fecha + ponderación -->
             <div
               class="flex flex-col gap-1.5 border-t pt-2 {col.id === 'cerrada'
-                ? 'border-[#CBD5E1]'
-                : 'border-[#E5E7EB]'}"
+                ? 'border-slate-300'
+                : 'border-gray-200'}"
             >
-              <div class="flex items-center gap-2.5 text-[11.5px] text-[#5A5E6E]">
+              <div class="flex items-center gap-2.5 text-[11.5px] text-ink-2">
                 <span class="flex items-center gap-1.5">
                   {#if col.id === 'planificada'}
                     <Calendar size={13} />
@@ -260,36 +260,36 @@
               {#if av.total > 0 && col.id !== 'planificada'}
                 <div class="grid grid-cols-3 gap-1.5">
                   {#if av.conEntrega}
-                    <div class="flex flex-col rounded-md bg-[#F8FAFC] px-2 py-1.5">
-                      <span class="m-0 text-[15px] font-bold tabular-nums text-[#1A1A24]">
-                        {av.entregaron}<span class="text-[11px] font-medium text-[#5A5E6E]">/{av.total}</span>
+                    <div class="flex flex-col rounded-md bg-slate-50 px-2 py-1.5">
+                      <span class="m-0 text-[15px] font-bold tabular-nums text-ink">
+                        {av.entregaron}<span class="text-[11px] font-medium text-ink-2">/{av.total}</span>
                       </span>
-                      <span class="text-[10.5px] text-[#5A5E6E]">entregaron</span>
+                      <span class="text-[10.5px] text-ink-2">entregaron</span>
                     </div>
                   {/if}
-                  <div class="flex flex-col rounded-md bg-[#F8FAFC] px-2 py-1.5">
-                    <span class="m-0 text-[15px] font-bold tabular-nums text-[#1A1A24]">{av.revisadas}</span>
-                    <span class="text-[10.5px] leading-tight text-[#5A5E6E]">{av.rotuloRevisadas}</span>
+                  <div class="flex flex-col rounded-md bg-slate-50 px-2 py-1.5">
+                    <span class="m-0 text-[15px] font-bold tabular-nums text-ink">{av.revisadas}</span>
+                    <span class="text-[10.5px] leading-tight text-ink-2">{av.rotuloRevisadas}</span>
                   </div>
                   <div
                     class="flex flex-col rounded-md px-2 py-1.5 {av.pendientes > 0
-                      ? 'border border-[#FDE68A] bg-[#FFFBEB]'
-                      : 'bg-[#F8FAFC]'}"
+                      ? 'border border-amber-200 bg-amber-50'
+                      : 'bg-slate-50'}"
                   >
                     <span
                       class="m-0 text-[15px] font-bold tabular-nums {av.pendientes > 0
-                        ? 'text-[#92400E]'
-                        : 'text-[#1A1A24]'}"
+                        ? 'text-amber-800'
+                        : 'text-ink'}"
                     >
                       {av.pendientes}
                     </span>
-                    <span class="text-[10.5px] {av.pendientes > 0 ? 'text-[#92400E]' : 'text-[#5A5E6E]'}">
+                    <span class="text-[10.5px] {av.pendientes > 0 ? 'text-amber-800' : 'text-ink-2'}">
                       {av.rotuloPendientes}
                     </span>
                   </div>
                 </div>
                 {#if av.promedio != null}
-                  <span class="font-mono text-[11px] tabular-nums text-[#5A5E6E]">
+                  <span class="font-mono text-[11px] tabular-nums text-ink-2">
                     Promedio {formatNota(av.promedio)}
                   </span>
                 {/if}

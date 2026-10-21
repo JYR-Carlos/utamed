@@ -1,84 +1,70 @@
-import { onMount } from 'svelte';
+import { Monitor, Moon, Sun } from 'lucide-svelte';
 
 export type Appearance = 'light' | 'dark' | 'system';
 
-// Define mediaQuery as a function to safely access window
-const getMediaQuery = () => (typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null);
+/** Opciones del selector de tema (menú del usuario y Ajustes › Apariencia). */
+export const OPCIONES_APARIENCIA = [
+    { value: 'light', label: 'Claro', Icon: Sun },
+    { value: 'dark', label: 'Oscuro', Icon: Moon },
+    { value: 'system', label: 'Sistema', Icon: Monitor },
+] as const;
 
-// Initialize theme only in browser environments
-if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-    const savedAppearance = localStorage.getItem('appearance') as Appearance | null;
-    const appearance = savedAppearance || 'system';
+/**
+ * Tema por defecto mientras la persona no elija otro. El modo oscuro es
+ * opcional: con 'system' se activaría solo en quien tenga el sistema en
+ * oscuro.
+ */
+const PREDETERMINADO: Appearance = 'light';
+const VALORES: Appearance[] = ['light', 'dark', 'system'];
 
-    if (appearance === 'system') {
-        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        document.documentElement.classList.toggle('dark', systemTheme === 'dark');
-    } else {
-        document.documentElement.classList.toggle('dark', appearance === 'dark');
+const enNavegador = typeof window !== 'undefined' && typeof document !== 'undefined';
+const consultaOscuro = () => window.matchMedia('(prefers-color-scheme: dark)');
+
+function leer(): Appearance {
+    if (!enNavegador) return PREDETERMINADO;
+    // La cookie primero: es la que usa el servidor para el primer pintado, y si
+    // aquí ganaba localStorage, una diferencia entre ambos deshacía ese tema.
+    let guardado: string | null = document.cookie.match(/(?:^|; )appearance=([^;]*)/)?.[1] ?? null;
+    if (guardado === null) {
+        try {
+            guardado = localStorage.getItem('appearance');
+        } catch {
+            // almacenamiento bloqueado: queda el predeterminado
+        }
     }
+    return VALORES.includes(guardado as Appearance) ? (guardado as Appearance) : PREDETERMINADO;
 }
+
+let appearance = $state<Appearance>(leer());
 
 export function updateTheme(value: Appearance) {
-    // Only run in browser environment
-    if (typeof window === 'undefined' || typeof document === 'undefined') return;
-
-    if (value === 'system') {
-        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        document.documentElement.classList.toggle('dark', systemTheme === 'dark');
-    } else {
-        document.documentElement.classList.toggle('dark', value === 'dark');
-    }
+    if (!enNavegador) return;
+    const oscuro = value === 'dark' || (value === 'system' && consultaOscuro().matches);
+    document.documentElement.classList.toggle('dark', oscuro);
 }
 
-const handleSystemThemeChange = () => {
-    // Only run in browser environment
-    if (typeof window === 'undefined') return;
-
-    const currentAppearance = localStorage.getItem('appearance') as Appearance | null;
-    updateTheme(currentAppearance || 'system');
-};
-
+/**
+ * Se llama una vez al arrancar la app. app.blade.php ya puso la clase antes
+ * del primer pintado (con la cookie); esto la mantiene al día si el sistema
+ * cambia de claro a oscuro con la preferencia en 'system'.
+ */
 export function initializeTheme() {
-    // Only run in browser environment
-    if (typeof window === 'undefined' || typeof document === 'undefined') return;
-
-    const savedAppearance = localStorage.getItem('appearance') as Appearance | null;
-    updateTheme(savedAppearance || 'system');
-
-    const mediaQuery = getMediaQuery();
-    mediaQuery?.addEventListener('change', handleSystemThemeChange);
+    if (!enNavegador) return;
+    updateTheme(appearance);
+    consultaOscuro().addEventListener('change', () => updateTheme(appearance));
 }
 
 export function useAppearance() {
-    // Get saved appearance from localStorage
-    const savedAppearance = typeof localStorage !== 'undefined' ? (localStorage.getItem('appearance') as Appearance | null) : null;
-
-    // Initialize with saved appearance or default to system
-    let appearance = $state(savedAppearance || 'system');
-
-    onMount(() => {
-        // Initialize theme
-        initializeTheme();
-
-        // Make sure appearance state matches localStorage
-        if (typeof localStorage !== 'undefined') {
-            const currentAppearance = localStorage.getItem('appearance') as Appearance | null;
-            if (currentAppearance) {
-                appearance = currentAppearance;
-            }
-        }
-
-        return () => {
-            const mediaQuery = getMediaQuery();
-            mediaQuery?.removeEventListener('change', handleSystemThemeChange);
-        };
-    });
-
     function updateAppearance(value: Appearance) {
         appearance = value;
-        if (typeof localStorage !== 'undefined') {
+        try {
             localStorage.setItem('appearance', value);
+        } catch {
+            // sin almacenamiento local basta la cookie
         }
+        // La cookie la lee el servidor (HandleAppearance) para pintar el tema
+        // correcto desde el primer byte y evitar el destello claro.
+        document.cookie = `appearance=${value};path=/;max-age=31536000;SameSite=Lax`;
         updateTheme(value);
     }
 

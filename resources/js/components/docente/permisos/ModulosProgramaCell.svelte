@@ -50,7 +50,7 @@
 <div class="relative inline-block" bind:this={contenedorRef}>
   <button
     type="button"
-    class="inline-flex items-center gap-1 rounded-lg border border-transparent px-1.5 py-1 text-xs font-semibold text-[#002F6C] transition-colors hover:bg-[#F8FAFC]"
+    class="inline-flex items-center gap-1 rounded-lg border border-transparent px-1.5 py-1 text-xs font-semibold text-navy transition-colors hover:bg-slate-50"
     onclick={() => (abierto = !abierto)}
   >
     {etiqueta}
@@ -59,15 +59,15 @@
 
   {#if abierto}
     <div
-      class="absolute right-0 top-full z-10 mt-1 w-56 rounded-lg border border-[#E5E7EB] bg-white p-2.5 shadow-lg"
+      class="absolute right-0 top-full z-10 mt-1 w-56 rounded-lg border border-gray-200 bg-white p-2.5 shadow-lg"
     >
-      <span class="mb-1.5 block px-1 text-[11px] font-semibold uppercase tracking-wide text-[#5A5E6E]">
+      <span class="mb-1.5 block px-1 text-[11px] font-semibold uppercase tracking-wide text-ink-2">
         Módulos de {nombrePersona}
       </span>
       <div class="flex flex-col gap-1.5">
         {#each modulos as modulo (modulo.slug)}
           <div class="flex items-center justify-between gap-2 px-1">
-            <span class="text-[12.5px] text-[#1A1A24]">Módulo {ROMANOS[modulo.numero - 1]}</span>
+            <span class="text-[12.5px] text-ink">Módulo {ROMANOS[modulo.numero - 1]}</span>
             <PermisoSwitch
               checked={modulo.activo}
               estado={modulo.estado}

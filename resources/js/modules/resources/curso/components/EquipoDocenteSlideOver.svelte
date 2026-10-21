@@ -266,9 +266,9 @@
           <!-- Icono del panel -->
           <div
             class="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 mt-0.5"
-            style="background:#EEF4FB;"
+            style="background:var(--background-color-brand-light, #EEF4FB);"
           >
-            <UsersRound size={17} style="color:#2A66AC;" />
+            <UsersRound size={17} style="color:var(--color-brand, #2A66AC);" />
           </div>
 
           <!-- Título + subtítulo -->
@@ -295,8 +295,8 @@
             <button
               onclick={() => (showAddSearch = true)}
               class="inline-flex items-center gap-2 px-3.5 py-1.5 text-sm font-medium rounded-lg border transition-colors"
-              style="border-color:#2A66AC; color:#2A66AC;"
-              onmouseenter={(e) => ((e.currentTarget as HTMLElement).style.background = '#EEF4FB')}
+              style="border-color:var(--color-brand, #2A66AC); color:var(--color-brand, #2A66AC);"
+              onmouseenter={(e) => ((e.currentTarget as HTMLElement).style.background = 'var(--background-color-brand-light, #EEF4FB)')}
               onmouseleave={(e) =>
                 ((e.currentTarget as HTMLElement).style.background = 'transparent')}
             >
@@ -308,7 +308,7 @@
               <!-- Input de búsqueda -->
               <div
                 class="flex items-center gap-2 px-3 py-2 border rounded-lg bg-white"
-                style="border-color:#2A66AC; box-shadow:0 0 0 3px rgba(42,102,172,0.08);"
+                style="border-color:var(--color-brand, #2A66AC); box-shadow:0 0 0 3px rgba(42,102,172,0.08);"
               >
                 <Search size={13} class="text-gray-400 shrink-0" />
                 <input
@@ -350,7 +350,7 @@
                     >
                       <div
                         class="flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-bold text-white shrink-0"
-                        style="background:#2A66AC;"
+                        style="background:var(--background-color-brand, #2A66AC);"
                       >
                         {initials(user.nombre ?? user.nombre_completo ?? '?')}
                       </div>
@@ -383,7 +383,7 @@
     <div class="flex-1 overflow-y-auto px-4 py-4 space-y-2">
       {#if loading}
         <div class="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
-          <Loader2 size={22} class="animate-spin" style="color:#2A66AC;" />
+          <Loader2 size={22} class="animate-spin" style="color:var(--color-brand, #2A66AC);" />
           <p class="text-sm">Cargando equipo...</p>
         </div>
       {:else if error}
@@ -392,7 +392,7 @@
           <button
             onclick={loadData}
             class="text-xs font-medium transition hover:underline"
-            style="color:#2A66AC;">Reintentar</button
+            style="color:var(--color-brand, #2A66AC);">Reintentar</button
           >
         </div>
       {:else if docentes.length === 0}
@@ -417,7 +417,7 @@
 
           <div
             class="rounded-xl border overflow-hidden transition-all duration-200"
-            style="border-color:{expanded ? '#BFDBFE' : '#E2E8F0'};"
+            style="border-color:{expanded ? 'var(--color-blue-200, #BFDBFE)' : 'var(--color-slate-200, #E2E8F0)'};"
           >
             <!-- ── Tarjeta contraída ──────────────────────────────────────── -->
             <button
@@ -428,7 +428,7 @@
               <!-- Avatar -->
               <div
                 class="flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold text-white shrink-0"
-                style="background:#2A66AC;"
+                style="background:var(--background-color-brand, #2A66AC);"
               >
                 {initials(doc.nombre)}
               </div>
@@ -440,7 +440,7 @@
                   {#if doc.es_titular}
                     <span
                       class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold leading-none"
-                      style="background:#FFF8EC; color:#F0AD4E; border:1px solid rgba(240,173,78,0.3);"
+                      style="background:var(--background-color-orange-50, #FFF8EC); color:var(--color-yellow-500, #F0AD4E); border:1px solid rgba(240,173,78,0.3);"
                     >
                       <Crown size={9} />
                       Titular
@@ -475,7 +475,7 @@
 
             <!-- ── Tarjeta expandida: gestión de permisos ────────────────── -->
             {#if expanded}
-              <div class="border-t border-gray-100 px-4 py-4 space-y-5" style="background:#F8FAFC;">
+              <div class="border-t border-gray-100 px-4 py-4 space-y-5" style="background:var(--background-color-slate-50, #F8FAFC);">
                 {#if doc.es_titular}
                   <!-- Titular: solo información, sin toggles -->
                   <p class="text-xs text-gray-400 italic">
@@ -489,7 +489,7 @@
                       <!-- Encabezado de grupo -->
                       <p
                         class="text-[10px] font-extrabold uppercase tracking-widest mb-3"
-                        style="color:#94A3B8;"
+                        style="color:var(--color-slate-400, #94A3B8);"
                       >
                         {groupName}
                       </p>
@@ -510,7 +510,7 @@
                                   title="Acción crítica: permite editar el Syllabus del curso"
                                   class="shrink-0"
                                 >
-                                  <AlertTriangle size={13} style="color:#F0AD4E;" />
+                                  <AlertTriangle size={13} style="color:var(--color-yellow-500, #F0AD4E);" />
                                 </span>
                               {/if}
                             </div>
@@ -523,8 +523,8 @@
                               disabled={isToggling}
                               class="relative shrink-0 w-11 h-6 rounded-full transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-wait"
                               style="background:{isOn
-                                ? '#2A66AC'
-                                : '#CBD5E1'}; --tw-ring-color:#2A66AC;"
+                                ? 'var(--background-color-brand, #2A66AC)'
+                                : 'var(--background-color-slate-300, #CBD5E1)'}; --tw-ring-color:var(--color-brand, #2A66AC);"
                               aria-label="{permLabel(slug.slug)}: {isOn
                                 ? 'Activado'
                                 : 'Desactivado'}"

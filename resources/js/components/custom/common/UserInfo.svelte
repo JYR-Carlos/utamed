@@ -42,7 +42,7 @@
               />
             {/if}
     {:else}
-        <AvatarFallback class="rounded-full bg-[#22213F]/10 text-[#22213F]">
+        <AvatarFallback class="rounded-full bg-ink/10 text-ink">
             {getInitials(displayName)}
         </AvatarFallback>
     {/if}
