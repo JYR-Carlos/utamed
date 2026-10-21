@@ -47,6 +47,14 @@
       id_curso: number;
       cod_curso: number;
       nombre: string | null;
+      id_asignatura?: number;
+      id_plan?: number;
+      agno_real?: number | null;
+      semestre_real?: number | null;
+      agno_sugerido?: number;
+      semestre_sugerido?: number;
+      proxima_letra?: string | null;
+      nuevo_nombre?: string | null;
       asignatura_nombre: string | null;
       cod_asignatura: string | null;
       carrera_nombre: string | null;
@@ -78,8 +86,18 @@
   let copying = $state(false);
   let copyError = $state('');
 
+  // Periodo sugerido inicial
+  const now = new Date();
+  const defaultAgno = now.getFullYear();
+  const defaultSemestre = now.getMonth() + 1 <= 7 ? 1 : 2;
+
   // Form fields for the new course
+  let newAgnoReal = $state<number>(defaultAgno);
+  let newSemestreReal = $state<number>(defaultSemestre);
   let newFechaInicio = $state('');
+  let letraCalculada = $state('');
+  let loadingLetra = $state(false);
+  let letraRequestId = 0;
 
   const totalActividades = $derived(
     preview?.componentes.reduce((sum, c) => sum + c.actividades.length, 0) ?? 0,
@@ -92,12 +110,26 @@
     ) ?? 0,
   );
 
+  const nuevoNombrePreview = $derived.by(() => {
+    const l = letraCalculada || preview?.curso?.proxima_letra || 'A';
+    const original = preview?.curso?.nombre ?? '';
+    if (/\s*-\s*Grupo\s+[A-Za-z0-9]+$/i.test(original)) {
+      return original.replace(/\s*-\s*Grupo\s+[A-Za-z0-9]+$/i, ` - Grupo ${l}`);
+    }
+    return preview?.curso?.asignatura_nombre
+      ? `${preview.curso.asignatura_nombre} - Grupo ${l}`
+      : `${original} - Grupo ${l}`;
+  });
+
   $effect(() => {
     if (isOpen && curso) {
       preview = null;
       loadError = '';
       copyError = '';
       newFechaInicio = '';
+      newAgnoReal = defaultAgno;
+      newSemestreReal = defaultSemestre;
+      letraCalculada = '';
       fetchPreview(curso.id_curso);
     }
   });
@@ -110,12 +142,48 @@
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       preview = await res.json();
+      if (preview?.curso) {
+        newAgnoReal = preview.curso.agno_sugerido ?? defaultAgno;
+        newSemestreReal = preview.curso.semestre_sugerido ?? defaultSemestre;
+        letraCalculada = preview.curso.proxima_letra ?? 'A';
+      }
     } catch (e) {
       loadError = 'No se pudo cargar la previsualización del curso.';
     } finally {
       loading = false;
     }
   }
+
+  async function fetchProximaLetra() {
+    if (!preview?.curso?.id_asignatura || !preview?.curso?.id_plan) return;
+    const reqId = ++letraRequestId;
+    loadingLetra = true;
+    try {
+      const params = new URLSearchParams({
+        id_asignatura: String(preview.curso.id_asignatura),
+        id_plan: String(preview.curso.id_plan),
+        agno_real: String(newAgnoReal),
+        semestre_real: String(newSemestreReal),
+      });
+      const res = await fetch(`/admin/cursos/proxima-letra?${params.toString()}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (reqId !== letraRequestId) return;
+      letraCalculada = data.proxima_letra || 'A';
+    } catch (e) {
+      console.error('[cursoCopyPreviewModal] Error calculando próxima letra', e);
+    } finally {
+      if (reqId === letraRequestId) loadingLetra = false;
+    }
+  }
+
+  $effect(() => {
+    if (preview?.curso?.id_asignatura && preview?.curso?.id_plan && newAgnoReal && newSemestreReal) {
+      fetchProximaLetra();
+    }
+  });
 
   function handleClose() {
     isOpen = false;
@@ -128,12 +196,16 @@
 
   function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
-    if (!curso || !newFechaInicio) return;
+    if (!curso || !newFechaInicio || !newAgnoReal || !newSemestreReal) return;
     copying = true;
     copyError = '';
     router.post(
       `/admin/cursos/${curso.id_curso}/copiar`,
-      { fecha_inicio: newFechaInicio },
+      {
+        fecha_inicio: newFechaInicio,
+        agno_real: newAgnoReal,
+        semestre_real: newSemestreReal,
+      },
       {
         onSuccess: () => {
           copying = false;
@@ -396,10 +468,62 @@
           <!-- Form: new course data -->
           <form id="copy-form" onsubmit={handleSubmit}>
             <div class="p-4 rounded-xl border border-blue-200 bg-blue-50/40 space-y-4">
-              <p class="text-sm font-semibold text-gray-800">Datos del nuevo curso</p>
+              <div class="flex items-center justify-between">
+                <p class="text-sm font-semibold text-gray-800">Datos del nuevo curso</p>
+                {#if loadingLetra}
+                  <span class="text-xs text-blue-600 animate-pulse">Calculando letra…</span>
+                {/if}
+              </div>
 
-              <!-- El código del curso es interno: lo asigna el sistema al copiar. -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <!-- Vista previa del nombre generado -->
+              <div class="p-3 bg-white border border-blue-200 rounded-lg flex items-center justify-between">
+                <div>
+                  <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                    Nombre resultante
+                  </p>
+                  <p class="text-sm font-bold text-blue-900 mt-0.5">
+                    {nuevoNombrePreview}
+                  </p>
+                </div>
+                <span class="px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-100 text-blue-800 border border-blue-200">
+                  Grupo {letraCalculada || preview.curso.proxima_letra || 'A'}
+                </span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <!-- Año académico -->
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-xs font-semibold text-gray-600" for="new-agno-real">
+                    Año académico *
+                  </label>
+                  <input
+                    id="new-agno-real"
+                    type="number"
+                    min="2000"
+                    max="2100"
+                    bind:value={newAgnoReal}
+                    required
+                    class="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <!-- Semestre -->
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-xs font-semibold text-gray-600" for="new-semestre-real">
+                    Semestre *
+                  </label>
+                  <select
+                    id="new-semestre-real"
+                    bind:value={newSemestreReal}
+                    required
+                    class="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value={1}>Semestre 1</option>
+                    <option value={2}>Semestre 2</option>
+                  </select>
+                </div>
+
+                <!-- Fecha de inicio -->
                 <div class="flex flex-col gap-1.5">
                   <label class="text-xs font-semibold text-gray-600" for="new-fecha-inicio">
                     Fecha de inicio *
@@ -438,7 +562,7 @@
           <button
             type="submit"
             form="copy-form"
-            disabled={copying || !newFechaInicio}
+            disabled={copying || !newFechaInicio || !newAgnoReal || !newSemestreReal || loadingLetra}
             class="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition shadow-sm"
           >
             {#if copying}
