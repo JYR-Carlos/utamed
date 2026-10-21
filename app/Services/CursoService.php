@@ -11,6 +11,7 @@ use App\Models\Usuario\Docente;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\Usuario;
 use App\Models\Usuario\UsuarioRolAsignacion;
+use App\Services\IntranetService;
 use App\Support\LetraGrupo;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -163,7 +164,8 @@ class CursoService
     public function copiar(Curso $cursoPadre, array $data): Curso
     {
         return DB::transaction(function () use ($cursoPadre, $data) {
-            $cursoPadre->load([
+            $cursoPadre->loadMissing([
+                'asignacionPlan.asignatura',
                 'unidades',
                 'componentes.tipoComponente',
                 'componentes.docenteComponentes',
@@ -225,7 +227,60 @@ class CursoService
                 );
             }
 
+            $asignatura = $cursoPadre->asignacionPlan?->asignatura;
+            $ofertaIntranetDestino = null;
+
             foreach ($cursoPadre->componentes as $comp) {
+                $tipo = $comp->tipoComponente;
+                if ($tipo && $asignatura) {
+                    $nombreNormalizado = str_replace(
+                        ['Á', 'É', 'Í', 'Ó', 'Ú'],
+                        ['A', 'E', 'I', 'O', 'U'],
+                        mb_strtoupper(trim($tipo->tipo ?? ''))
+                    );
+
+                    $horas = match ($nombreNormalizado) {
+                        'CATEDRA'     => (float) ($asignatura->horas_catedra ?? 0),
+                        'TALLER'      => (float) ($asignatura->horas_taller ?? 0),
+                        'LABORATORIO' => (float) ($asignatura->horas_laboratorio ?? 0),
+                        default       => 0.0,
+                    };
+
+                    if ($horas <= 0) {
+                        if ($ofertaIntranetDestino === null) {
+                            $ofertaIntranetDestino = [];
+                            try {
+                                /** @var IntranetService $intranetService */
+                                $intranetService = app(IntranetService::class);
+                                $compsIntranet = $intranetService->resolverComponentesDesdeParametros(
+                                    (int) $cursoPadre->asignacionPlan->id_asignatura,
+                                    (int) $cursoPadre->asignacionPlan->id_plan,
+                                    (int) $agnoReal,
+                                    (int) $semestreReal,
+                                    $letra
+                                );
+                                foreach ($compsIntranet as $c) {
+                                    match ($c->curso_tipo_asig->value) {
+                                        'C' => $ofertaIntranetDestino['CATEDRA'] = true,
+                                        'T' => $ofertaIntranetDestino['TALLER'] = true,
+                                        'L' => $ofertaIntranetDestino['LABORATORIO'] = true,
+                                        default => null,
+                                    };
+                                }
+                                $ofertaIntranetDestino = array_keys($ofertaIntranetDestino);
+                            } catch (\Throwable $e) {
+                                Log::warning('[CursoService@copiar] No fue posible verificar oferta de Intranet para grupo destino: ' . $e->getMessage());
+                                $ofertaIntranetDestino = [];
+                            }
+                        }
+
+                        if (!in_array($nombreNormalizado, $ofertaIntranetDestino, true)) {
+                            Log::warning("[CursoService@copiar] Omitiendo componente '{$tipo->tipo}' al copiar curso #{$cursoPadre->id_curso} al grupo {$letra}: tiene 0 horas en plan y no figura en la oferta de Intranet.");
+                            continue;
+                        }
+                    }
+                }
+
                 // id_contexto lo asigna el trigger tr_componente_pre_insert.
                 $nuevoComp = Componente::create([
                     'id_curso'                          => $nuevoCurso->id_curso,

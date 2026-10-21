@@ -40,7 +40,7 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 use Tests\TestCase;
 
-uses(TestCase::class, DatabaseTransactions::class);
+uses(DatabaseTransactions::class);
 
 function gcfUsuario(string $rut, string $username): Usuario
 {

@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
 
 use Tests\TestCase;
 
-uses(TestCase::class, DatabaseTransactions::class);
+uses(DatabaseTransactions::class);
 
 beforeEach(function () {
     $facultad = Facultad::create([
