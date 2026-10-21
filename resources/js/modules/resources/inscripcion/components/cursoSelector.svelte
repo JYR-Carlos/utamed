@@ -96,13 +96,22 @@
       {:else if column.key === 'carrera_nombre'}
         <span class="text-gray-600 text-sm">{item.carrera_nombre ?? '—'}</span>
       {:else if column.key === 'periodo'}
-        <span class="text-gray-600 text-sm whitespace-nowrap tabular-nums">
-          {#if item.agno_real}
-            {item.agno_real} · Semestre {item.semestre_real}
-          {:else}
-            <span class="text-gray-400">Sin periodo</span>
-          {/if}
-        </span>
+        {#if item.agno_real}
+          <div class="flex flex-col gap-0.5">
+            <span class="text-sm font-medium text-gray-800">
+              {item.agno_real}
+            </span>
+            {#if item.semestre_real}
+              <span class="text-xs text-gray-500">
+                Semestre {item.semestre_real}
+              </span>
+            {/if}
+          </div>
+        {:else if item.semestre_real}
+          <span class="text-sm text-gray-500">Semestre {item.semestre_real}</span>
+        {:else}
+          <span class="text-gray-400">—</span>
+        {/if}
       {:else if column.key === 'inscritos_count'}
         <span class="text-sm tabular-nums">
           {#if (item.inscritos_count ?? 0) > 0}

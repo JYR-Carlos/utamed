@@ -94,6 +94,7 @@ class InscripcionCursoController extends Controller
             ->withCount([
                 'inscripcionCursos as inscritos_count' => fn($q) => $q->where('estado_inscripcion', 'INSCRITO'),
             ])
+            ->where('es_plantilla', false)
             ->find($request->id_curso);
 
             $cursos = $selected ? [[
@@ -125,7 +126,8 @@ class InscripcionCursoController extends Controller
             ->withCount([
                 'inscripcionCursos as inscritos_count' => fn($q) => $q->where('estado_inscripcion', 'INSCRITO'),
             ])
-            ->whereNull('fecha_eliminacion');
+            ->whereNull('fecha_eliminacion')
+            ->where('es_plantilla', false);
 
             if ($request->filled('search')) {
                 $search = $request->search;

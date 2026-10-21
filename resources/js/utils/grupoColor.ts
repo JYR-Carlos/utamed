@@ -81,14 +81,28 @@ export function tonoGrupo(letra?: string | null): TonoGrupo {
 }
 
 /**
- * Limpia sufijos redundantes de grupo ("Grupo A", " - Grupo B", etc.) del nombre de un curso.
+ * Limpia sufijos redundantes de grupo ("Grupo A", " - Grupo B", etc.) y
+ * paréntesis de período o sección (" (2026-1)", " (Sección 1)") del nombre de un curso.
  */
 export function limpiarNombreGrupo(nombre?: string | null, letraGrupo?: string | null): string {
   if (!nombre) return '';
   let cleaned = nombre;
+
+  // 1. Limpiar sufijo redundante de grupo ("Grupo A", "- Grupo B", etc.)
   if (letraGrupo) {
     cleaned = cleaned.replace(new RegExp(`\\s*[-–—]?\\s*Grupo\\s+${letraGrupo}\\s*$`, 'i'), '');
   }
   cleaned = cleaned.replace(/\s*[-–—]?\s*Grupo\s+[A-Z0-9]+\s*$/i, '');
+
+  // 2. Limpiar sufijos entre paréntesis con período (" (2026-1)", " (2024-2)") o sección (" (Sección 1)")
+  cleaned = cleaned.replace(/\s*\(\d{4}[-\s/]\d+\)\s*$/i, '');
+  cleaned = cleaned.replace(/\s*\((?:secci[oó]n|sec\.?)\s*\d+\)\s*$/i, '');
+
+  // 3. Limpiar nuevamente grupo por si estaba antes del período
+  if (letraGrupo) {
+    cleaned = cleaned.replace(new RegExp(`\\s*[-–—]?\\s*Grupo\\s+${letraGrupo}\\s*$`, 'i'), '');
+  }
+  cleaned = cleaned.replace(/\s*[-–—]?\s*Grupo\s+[A-Z0-9]+\s*$/i, '');
+
   return cleaned.trim();
 }

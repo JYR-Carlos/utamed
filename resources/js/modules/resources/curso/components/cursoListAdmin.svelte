@@ -93,6 +93,7 @@
 <DataTable
   data={cursos}
   {columns}
+  rowClass={(item) => (item.es_plantilla ? 'bg-slate-100/75 hover:bg-slate-100 text-slate-800' : '')}
   onRowClick={onManage}
   onCustomAction={onManage}
   customActionLabel="Gestionar"
@@ -121,7 +122,7 @@
       {@const nombreLimpio = limpiarNombreGrupo(item.nombre || item.asignatura_nombre || '(sin nombre)', item.letra_grupo)}
       <div>
         <div class="flex items-center gap-2 flex-wrap">
-          <p class="font-semibold text-gray-900 leading-snug">
+          <p class="text-gray-900 leading-snug font-normal">
             {nombreLimpio}
           </p>
           {#if item.letra_grupo}
