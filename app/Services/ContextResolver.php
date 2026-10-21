@@ -508,7 +508,19 @@ class ContextResolver
      */
     protected function getModelKey($model): string
     {
-        $class = get_class($model);
+        $class = \get_class($model);
+
+        // Soporte para stubs de pruebas (Tests\Stubs\*Stub)
+        if (str_starts_with($class, 'Tests\\Stubs\\')) {
+            $baseName = preg_replace('/Stub$/', '', substr($class, \strlen('Tests\\Stubs\\')));
+            $mappings = $this->loadGeneratedContextMappings();
+            foreach (array_keys($mappings) as $key) {
+                if (str_ends_with($key, "\\{$baseName}")) {
+                    return $key;
+                }
+            }
+        }
+
         $parts = explode('\\', $class);
 
         // Obtener Schema y Model Name

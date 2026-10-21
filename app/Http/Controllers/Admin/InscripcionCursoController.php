@@ -59,29 +59,108 @@ class InscripcionCursoController extends Controller
         // Autorizar vista
         $this->authorize('viewAny', InscripcionCurso::class);
 
-        $filters = $request->only(['search', 'id_curso', 'estado_inscripcion', 'page']);
+        $filters = $request->only(['search', 'id_curso', 'estado_inscripcion', 'carrera', 'page']);
         $idDocente = $user->docente?->id_docente;
 
-        $inscripciones = $this->inscripcionService->getFiltered(
-            $filters,
-            $idDocente,
-            $this->perPage($request)
-        );
+        // Para admin/InscripcionesCursos, la nómina por curso se consulta vía AJAX (fetchRoster).
+        // Se evitan consultas pesadas e innecesarias a la tabla masiva de inscripciones.
+        $inscripciones = [
+            'data' => [],
+            'current_page' => 1,
+            'last_page' => 1,
+            'per_page' => 15,
+            'total' => 0,
+        ];
 
-        // Obtener cursos disponibles.
-        // El listado del admin cuenta las inscripciones vigentes: es el dato
-        // por el que se elige un curso en esta pantalla, y antes obligaba a
-        // abrir la nómina de uno en uno para saberlo.
-        $cursos = $idDocente
-            ? $this->inscripcionService->getCursosByDocente($idDocente)
-            : Curso::withCount([
+        $carreras = [];
+
+        if ($idDocente) {
+            $cursos = $this->inscripcionService->getCursosByDocente($idDocente);
+        } elseif ($request->filled('id_curso')) {
+            // Modo Roster: solo necesitamos el curso activo seleccionado
+            $selected = Curso::select([
+                'id_curso',
+                'cod_curso',
+                'nombre',
+                'agno_real',
+                'semestre_real',
+                'id_asignacion_plan',
+            ])
+            ->with([
+                'asignacionPlan.asignatura:id_asignatura,nombre',
+                'asignacionPlan.plan.carrera:id_carrera,nombre',
+            ])
+            ->withCount([
                 'inscripcionCursos as inscritos_count' => fn($q) => $q->where('estado_inscripcion', 'INSCRITO'),
-            ])->orderBy('cod_curso')->get();
+            ])
+            ->find($request->id_curso);
+
+            $cursos = $selected ? [[
+                'id_curso' => $selected->id_curso,
+                'cod_curso' => $selected->cod_curso,
+                'nombre' => $selected->nombre,
+                'asignatura_nombre' => $selected->asignacionPlan?->asignatura?->nombre,
+                'carrera_nombre' => $selected->asignacionPlan?->plan?->carrera?->nombre,
+                'agno_real' => $selected->agno_real,
+                'semestre_real' => $selected->semestre_real,
+                'inscritos_count' => $selected->inscritos_count,
+            ]] : [];
+        } else {
+            // Modo Selector: cursos paginados con búsqueda y filtro de carrera en BD
+            $query = Curso::select([
+                'id_curso',
+                'cod_curso',
+                'nombre',
+                'agno_real',
+                'semestre_real',
+                'id_asignacion_plan',
+            ])
+            ->with([
+                'asignacionPlan.asignatura:id_asignatura,nombre',
+                'asignacionPlan.plan.carrera:id_carrera,nombre',
+            ])
+            ->withCount([
+                'inscripcionCursos as inscritos_count' => fn($q) => $q->where('estado_inscripcion', 'INSCRITO'),
+            ])
+            ->whereNull('fecha_eliminacion');
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('nombre', 'ilike', "%{$search}%")
+                      ->orWhere('cod_curso', 'ilike', "%{$search}%")
+                      ->orWhereHas('asignacionPlan.asignatura', fn($sq) => $sq->where('nombre', 'ilike', "%{$search}%"))
+                      ->orWhereHas('asignacionPlan.plan.carrera', fn($sq) => $sq->where('nombre', 'ilike', "%{$search}%"));
+                });
+            }
+
+            if ($request->filled('carrera')) {
+                $carrera = $request->carrera;
+                $query->whereHas('asignacionPlan.plan.carrera', fn($q) => $q->where('nombre', $carrera));
+            }
+
+            $cursos = $query->orderBy('cod_curso')
+                ->paginate($this->perPage($request))
+                ->withQueryString();
+
+            $cursos->through(fn($c) => [
+                'id_curso' => $c->id_curso,
+                'cod_curso' => $c->cod_curso,
+                'nombre' => $c->nombre,
+                'asignatura_nombre' => $c->asignacionPlan?->asignatura?->nombre,
+                'carrera_nombre' => $c->asignacionPlan?->plan?->carrera?->nombre,
+                'agno_real' => $c->agno_real,
+                'semestre_real' => $c->semestre_real,
+                'inscritos_count' => $c->inscritos_count,
+            ]);
+
+            $carreras = \App\Models\Administrativo\Carrera::orderBy('nombre')->pluck('nombre');
+        }
 
         // Renderizar según rol
         if ($user->docente) {
             return Inertia::render('docente/Inscripciones', [
-                'inscripciones' => $inscripciones,
+                'inscripciones' => $this->inscripcionService->getFiltered($filters, $idDocente, $this->perPage($request)),
                 'cursos' => $cursos,
                 'filters' => $filters
             ]);
@@ -90,6 +169,7 @@ class InscripcionCursoController extends Controller
         return Inertia::render('admin/InscripcionesCursos', [
             'inscripciones' => $inscripciones,
             'cursos' => $cursos,
+            'carreras' => $carreras,
             'filters' => $filters
         ]);
     }

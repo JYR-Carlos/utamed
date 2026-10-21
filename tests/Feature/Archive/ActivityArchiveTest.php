@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\Archive\FileValidationException;
 use App\Http\Requests\Archive\ActivityFileRequest;
 use App\Models\Agenda\Actividad;
 use App\Models\Curso\Componente;
@@ -145,7 +146,7 @@ describe('ActivityArchiveService - preValidate Coverage', function () {
 
     expect(function () use ($method, $service, $file) {
       $method->invoke($service, $file, 'test-id');
-    })->not->toThrow(\TypeError::class);
+    })->not->toThrow(Exception::class);
   });
 
   test('preValidate accepts valid JPEG image', function () {
@@ -158,7 +159,7 @@ describe('ActivityArchiveService - preValidate Coverage', function () {
 
     expect(function () use ($method, $service, $file) {
       $method->invoke($service, $file, 'test-id');
-    })->not->toThrow(\TypeError::class);
+    })->not->toThrow(Exception::class);
   });
 
   test('preValidate accepts valid PDF', function () {
@@ -171,7 +172,7 @@ describe('ActivityArchiveService - preValidate Coverage', function () {
 
     expect(function () use ($method, $service, $file) {
       $method->invoke($service, $file, 'test-id');
-    })->not->toThrow(\TypeError::class);
+    })->not->toThrow(Exception::class);
   });
 
   test('preValidate rejects unsupported file type', function () {
@@ -184,7 +185,7 @@ describe('ActivityArchiveService - preValidate Coverage', function () {
 
     expect(function () use ($method, $service, $file) {
       $method->invoke($service, $file, 'test-id');
-    })->toThrow(\TypeError::class);
+    })->toThrow(FileValidationException::class);
   });
 
   test('preValidate rejects image exceeding size limit', function () {
@@ -198,7 +199,7 @@ describe('ActivityArchiveService - preValidate Coverage', function () {
 
     expect(function () use ($method, $service, $file) {
       $method->invoke($service, $file, 'test-id');
-    })->toThrow(\TypeError::class);
+    })->toThrow(FileValidationException::class);
   });
 
   test('preValidate rejects PDF exceeding size limit', function () {
@@ -212,7 +213,7 @@ describe('ActivityArchiveService - preValidate Coverage', function () {
 
     expect(function () use ($method, $service, $file) {
       $method->invoke($service, $file, 'test-id');
-    })->toThrow(\TypeError::class);
+    })->toThrow(FileValidationException::class);
   });
 
   test('preValidate rejects empty file', function () {
@@ -225,7 +226,7 @@ describe('ActivityArchiveService - preValidate Coverage', function () {
 
     expect(function () use ($method, $service, $file) {
       $method->invoke($service, $file, 'test-id');
-    })->toThrow(\TypeError::class);
+    })->toThrow(FileValidationException::class);
   });
 
   test('preValidate rejects MIME type mismatch', function () {
@@ -238,7 +239,7 @@ describe('ActivityArchiveService - preValidate Coverage', function () {
 
     expect(function () use ($method, $service, $file) {
       $method->invoke($service, $file, 'test-id');
-    })->toThrow(\TypeError::class);
+    })->toThrow(FileValidationException::class);
   });
 });
 

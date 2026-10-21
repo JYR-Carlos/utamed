@@ -81,7 +81,7 @@ beforeEach(function () {
   $adminSistema = Usuario::firstOrCreate(
     ['username' => 'admin_sistema'],
     [
-      'rut' => '99999999-9',
+      'rut' => '80000000-0',
       'nombre1' => 'Admin',
       'apellido1' => 'Sistema',
       'email' => 'admin@sistema.local',
@@ -93,7 +93,10 @@ beforeEach(function () {
 
   // ---- Limpiar datos de tests anteriores (con forceDelete para SoftDeletes) ----
   $testUsernames = ['cv_actor', 'cv_recipient'];
-  $testUserIds = Usuario::withTrashed()->whereIn('username', $testUsernames)->pluck('id_usuario');
+  $testUserIds = Usuario::withTrashed()
+    ->whereIn('username', $testUsernames)
+    ->orWhereIn('rut', ['86111111-1', '86222222-2'])
+    ->pluck('id_usuario');
 
   if ($testUserIds->isNotEmpty()) {
     UsuarioPermisoEspecial::whereIn('creado_por', $testUserIds)->delete();
@@ -136,7 +139,7 @@ beforeEach(function () {
   // Actor con permiso wildcard (super admin) para poder asignar permisos
   $this->actor = Usuario::create([
     'username' => 'cv_actor',
-    'rut' => '91111111-1',
+    'rut' => '86111111-1',
     'nombre1' => 'CV',
     'apellido1' => 'Actor',
     'email' => 'cv_actor@test.local',
@@ -146,7 +149,7 @@ beforeEach(function () {
 
   $this->recipient = Usuario::create([
     'username' => 'cv_recipient',
-    'rut' => '92222222-2',
+    'rut' => '86222222-2',
     'nombre1' => 'CV',
     'apellido1' => 'Recipient',
     'email' => 'cv_recipient@test.local',
@@ -852,15 +855,15 @@ describe('Edge Cases', function () {
   });
 
   test('permisos de sub-recurso profundo validan correctamente', function () {
-    // cursos/actividades/grupos:crear → GLOBAL + CURSO + cadena de ancestros
-    $types = PermissionContextConstraints::validContextTypesFor(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR);
+    // actividades/grupos:crear → GLOBAL + CURSO + cadena de ancestros
+    $types = PermissionContextConstraints::validContextTypesFor(Permissions::ACTIVIDADES_GRUPOS_CREAR);
     expect($types)->toContain(ContextType::GLOBAL);
     expect($types)->toContain(ContextType::CURSO);
     expect($types)->toContain(ContextType::CARRERA); // ancestro contextual de curso
     expect($types)->toContain(ContextType::FACULTAD); // ancestro contextual
 
-    expect(PermissionContextConstraints::isValidAssignment(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, ContextType::CURSO))->toBeTrue();
-    expect(PermissionContextConstraints::isValidAssignment(Permissions::CURSOS_ACTIVIDADES_GRUPOS_CREAR, ContextType::CARRERA))->toBeTrue();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::ACTIVIDADES_GRUPOS_CREAR, ContextType::CURSO))->toBeTrue();
+    expect(PermissionContextConstraints::isValidAssignment(Permissions::ACTIVIDADES_GRUPOS_CREAR, ContextType::CARRERA))->toBeTrue();
   });
 
   test('permisos de programas de curso validan en contexto CURSO', function () {

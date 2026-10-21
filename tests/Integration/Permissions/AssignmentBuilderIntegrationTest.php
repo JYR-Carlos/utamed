@@ -73,7 +73,7 @@ beforeEach(function () {
   $adminSistema = Usuario::firstOrCreate(
     ['username' => 'admin_sistema'],
     [
-      'rut' => '99999999-9',
+      'rut' => '80000000-0',
       'nombre1' => 'Admin',
       'apellido1' => 'Sistema',
       'email' => 'admin@sistema.local',
@@ -95,7 +95,11 @@ beforeEach(function () {
   }
 
   // Also force-delete stale soft-deleted users with the RUTs we'll use
-  Usuario::withTrashed()->whereIn('rut', ['81111111-1', '82222222-2'])->forceDelete();
+  $staleIds = Usuario::withTrashed()->whereIn('rut', ['85111111-1', '85222222-2'])->pluck('id_usuario');
+  if ($staleIds->isNotEmpty()) {
+    DB::table('usuario.docente')->whereIn('id_usuario', $staleIds)->delete();
+    Usuario::withTrashed()->whereIn('id_usuario', $staleIds)->forceDelete();
+  }
 
   $testRolNames = ['AB Test Rol'];
   $testRolIds = Rol::withTrashed()->whereIn('nombre', $testRolNames)->pluck('id_rol');
@@ -183,7 +187,7 @@ beforeEach(function () {
   // ---- Usuarios ----
   $this->actor = Usuario::create([
     'username' => 'ab_actor',
-    'rut' => '81111111-1',
+    'rut' => '85111111-1',
     'nombre1' => 'AB',
     'apellido1' => 'Actor',
     'email' => 'ab_actor@test.local',
@@ -193,7 +197,7 @@ beforeEach(function () {
 
   $this->recipient = Usuario::create([
     'username' => 'ab_recipient',
-    'rut' => '82222222-2',
+    'rut' => '85222222-2',
     'nombre1' => 'AB',
     'apellido1' => 'Recipient',
     'email' => 'ab_recipient@test.local',

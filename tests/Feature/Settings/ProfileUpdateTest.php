@@ -13,6 +13,7 @@ test('profile page is displayed', function () {
 });
 
 test('profile information can be updated', function () {
+    Usuario::where('email', 'test@example.com')->forceDelete();
     $user = Usuario::factory()->create();
 
     $response = $this
@@ -29,8 +30,8 @@ test('profile information can be updated', function () {
 
     $user->refresh();
 
-    expect($user->nombre1)->toBe('Test');
-    expect($user->apellido1)->toBe('User');
+    expect($user->nombre1)->toBe('TEST');
+    expect($user->apellido1)->toBe('USER');
     expect($user->email)->toBe('test@example.com');
     expect($user->fecha_verificacion_email)->toBeNull();
 });

@@ -95,6 +95,11 @@ beforeEach(function () {
             'esta_activo' => true,
         ]
     );
+    $this->admin->forceFill([
+        'fecha_cambio_passhash' => now(),
+        'fecha_verificacion_email' => now(),
+    ])->saveQuietly();
+
     $rolSuperAdmin = Rol::firstOrCreate(['nombre' => 'SuperAdmin'], ['creado_por' => $this->admin->id_usuario]);
     UsuarioRolAsignacion::firstOrCreate(
         ['id_usuario' => $this->admin->id_usuario, 'id_rol' => $rolSuperAdmin->id_rol, 'id_contexto' => 1],
@@ -334,7 +339,10 @@ describe('autorizacion', function () {
                 'esta_activo' => true,
             ]
         );
-        $usuarioSinRol->forceFill(['fecha_cambio_passhash' => now()])->save();
+        $usuarioSinRol->forceFill([
+            'fecha_cambio_passhash' => now(),
+            'fecha_verificacion_email' => now(),
+        ])->saveQuietly();
         $this->actingAs($usuarioSinRol);
 
         $response = $this->postJson("/admin/cursos/{$curso->id_curso}/sincronizar-intranet", [

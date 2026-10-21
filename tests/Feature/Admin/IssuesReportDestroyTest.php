@@ -47,7 +47,7 @@ function getAdminParaReportes(): Usuario
 test('destruye correctamente pdf, metadatos y evidencias de un reporte existente', function () {
     Storage::fake('local');
 
-    $reportId = '2026-10-15 15:30:00_12345678-9';
+    $reportId = '2026-10-15_15-30-00_12345678-9';
     $pdfPath = "reports/{$reportId}_report.pdf";
     $metaPath = "reports/metadata/{$reportId}_metadata.json";
     $evidencePath = "reports/evidences/{$reportId}_evidence.png";
@@ -72,7 +72,7 @@ test('destruye correctamente pdf, metadatos y evidencias de un reporte existente
 test('destruye reporte cuando el id incluye el sufijo _report.pdf', function () {
     Storage::fake('local');
 
-    $baseId = '2026-10-15 15:30:00_87654321-0';
+    $baseId = '2026-10-15_15-30-00_87654321-0';
     $reportIdWithSuffix = "{$baseId}_report.pdf";
     $pdfPath = "reports/{$baseId}_report.pdf";
     $metaPath = "reports/metadata/{$baseId}_metadata.json";
@@ -116,7 +116,7 @@ test('ruta DELETE admin/reportes/{id} funciona con usuario admin autenticado', f
 
     $admin = getAdminParaReportes();
 
-    $reportId = '2026-10-15 16:00:00_99999999-9';
+    $reportId = '2026-10-15_16-00-00_99999999-9';
     $pdfPath = "reports/{$reportId}_report.pdf";
     $metaPath = "reports/metadata/{$reportId}_metadata.json";
     $evidencePath = "reports/evidences/{$reportId}_shot.png";

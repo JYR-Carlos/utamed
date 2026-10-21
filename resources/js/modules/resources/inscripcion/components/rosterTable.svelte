@@ -1,13 +1,11 @@
 <script lang="ts">
-  import { stackTable } from '@/lib/actions/stackTable';
   /**
    * rosterTable — Paso 2 del flujo de inscripciones: nómina del curso con
    * cambio de estado por fila (menú contextual limitado a TRANSITIONS) y
    * eliminación definitiva.
-   *
-   * Presentacional: el padre carga el roster y ejecuta los cambios; las
-   * filas con _saving muestran spinner mientras se aplica el PATCH.
+   * Utiliza DataTable estandarizado.
    */
+  import DataTable from '@/components/custom/admin/DataTable.svelte';
   import type { CursoItem, RosterItem, EstadoInscripcion } from '../types/inscripcion.types';
   import {
     TRANSITIONS,
@@ -50,6 +48,7 @@
 
   let openMenuId = $state<number | null>(null);
   let menuPos = $state({ x: 0, y: 0 });
+  let rosterSearch = $state('');
 
   const inscritoCount = $derived(
     roster.filter(
@@ -62,6 +61,17 @@
     [...roster].sort((a, b) =>
       studentName(a).localeCompare(studentName(b), 'es', { sensitivity: 'base' }),
     ),
+  );
+
+  const rosterFiltrado = $derived(
+    rosterOrdenado.filter((item) => {
+      const term = rosterSearch.trim().toLowerCase();
+      if (!term) return true;
+      return (
+        studentName(item).toLowerCase().includes(term) ||
+        studentUsername(item).toLowerCase().includes(term)
+      );
+    }),
   );
 
   const AVATAR_PALETTE = [
@@ -92,6 +102,16 @@
     menuPos = { x: rect.left, y: rect.bottom + 6 };
     openMenuId = inscripcionId;
   }
+
+  const columns = [
+    { key: 'estudiante', label: 'Estudiante' },
+    { key: 'usuario', label: 'Usuario' },
+    { key: 'inscripcion', label: 'Inscripción' },
+    { key: 'intento', label: 'Intento', class: 'text-center' },
+    { key: 'promedio', label: 'Promedio', class: 'text-center' },
+    { key: 'estado', label: 'Estado' },
+    { key: 'acciones', label: '', class: 'text-right w-1 whitespace-nowrap' },
+  ];
 </script>
 
 <svelte:window
@@ -156,7 +176,7 @@
     </div>
 
     <!-- Stats + actions row -->
-    <div class="flex w-full items-center gap-2 sm:gap-3 flex-wrap sm:w-auto sm:shrink-0">
+    <div class="flex items-center gap-3 shrink-0 flex-wrap">
       <!-- Inscritos counter -->
       <div
         class="flex items-center gap-2.5 bg-white border border-gray-200 rounded-xl px-3.5 py-2 shadow-xs"
@@ -216,7 +236,8 @@
   <!-- Content states -->
   {#if loadingRoster}
     <div class="flex items-center justify-center gap-3 py-20 text-gray-400">
-      <div class="w-5 h-5 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin"
+      <div
+        class="w-5 h-5 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin"
       ></div>
       <span class="text-sm">Cargando nómina…</span>
     </div>
@@ -284,151 +305,121 @@
       </button>
     </div>
   {:else}
-    <div class="border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-      <table use:stackTable class="table-stack w-full border-collapse text-sm">
-        <thead>
-          <tr class="bg-gray-50/80 border-b border-gray-200">
-            <th
-              class="px-4 py-3 text-left text-[0.6875rem] font-semibold text-gray-400 uppercase tracking-wider"
-              >Estudiante</th
+    <DataTable
+      data={rosterFiltrado}
+      {columns}
+      searchPlaceholder="Buscar estudiante por nombre o usuario…"
+      onSearch={(term) => (rosterSearch = term)}
+      rowClass={(item) => {
+        const cfg = ESTADO_CFG[item.estado_inscripcion] ?? ESTADO_CFG['INSCRITO'];
+        const isVoided = cfg.rowCls === 'voided';
+        return `${isVoided ? 'opacity-40' : ''} ${item._saving ? 'opacity-60' : ''}`;
+      }}
+    >
+      {#snippet cellSnippet({ item, column })}
+        {@const cfg = ESTADO_CFG[item.estado_inscripcion] ?? ESTADO_CFG['INSCRITO']}
+        {@const transitions = TRANSITIONS[item.estado_inscripcion] ?? []}
+        {@const isVoided = cfg.rowCls === 'voided'}
+        {@const isDimmed = cfg.rowCls === 'dimmed'}
+
+        {#if column.key === 'estudiante'}
+          <div class="flex items-center gap-3 min-w-[170px]">
+            <div
+              class="w-8 h-8 rounded-full text-[0.6875rem] font-bold flex items-center justify-center shrink-0 {avatarCls(
+                item.id_estudiante,
+              )}"
             >
-            <th
-              class="px-4 py-3 text-left text-[0.6875rem] font-semibold text-gray-400 uppercase tracking-wider"
-              >Usuario</th
+              {initials(item)}
+            </div>
+            <span
+              class="font-medium text-gray-900 {isVoided
+                ? 'line-through text-gray-400'
+                : ''} {isDimmed ? 'text-gray-500' : ''}"
             >
-            <th
-              class="px-4 py-3 text-left text-[0.6875rem] font-semibold text-gray-400 uppercase tracking-wider"
-              >Inscripción</th
+              {studentName(item)}
+            </span>
+          </div>
+        {:else if column.key === 'usuario'}
+          <span
+            class="font-mono text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded-md ring-1 ring-gray-200"
+          >
+            {studentUsername(item)}
+          </span>
+        {:else if column.key === 'inscripcion'}
+          <span class="whitespace-nowrap text-sm text-gray-400">
+            {item.fecha_inscripcion ?? '—'}
+          </span>
+        {:else if column.key === 'intento'}
+          <span class="text-sm font-medium text-gray-600 tabular-nums">{item.num_intento}</span>
+        {:else if column.key === 'promedio'}
+          {#if item.promedio_parcial != null}
+            <span class="text-sm font-semibold text-gray-700 tabular-nums">
+              {item.promedio_parcial}
+            </span>
+          {:else}
+            <span class="text-gray-300 text-sm">—</span>
+          {/if}
+        {:else if column.key === 'estado'}
+          {#if transitions.length > 0}
+            <button
+              type="button"
+              title="Cambiar el estado de esta inscripción"
+              aria-label="Cambiar el estado de esta inscripción"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer whitespace-nowrap border border-current/25 hover:brightness-95 disabled:cursor-wait {cfg.cls}"
+              class:animate-pulse={item._saving}
+              onclick={openMenu}
+              data-inscripcion-id={item.id_inscripcion_curso}
+              disabled={item._saving}
             >
-            <th
-              class="px-4 py-3 text-center text-[0.6875rem] font-semibold text-gray-400 uppercase tracking-wider"
-              >Intento</th
+              {cfg.label}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          {:else}
+            <span
+              class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap cursor-default {cfg.cls}"
             >
-            <th
-              class="px-4 py-3 text-center text-[0.6875rem] font-semibold text-gray-400 uppercase tracking-wider"
-              >Promedio</th
+              {cfg.label}
+            </span>
+          {/if}
+        {:else if column.key === 'acciones'}
+          <button
+            type="button"
+            class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+            onclick={() => onDelete(item)}
+            title="Eliminar inscripción"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
             >
-            <th
-              class="px-4 py-3 text-left text-[0.6875rem] font-semibold text-gray-400 uppercase tracking-wider"
-              >Estado</th
-            >
-            <th class="w-12 px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100">
-          {#each rosterOrdenado as item (item.id_inscripcion_curso)}
-            {@const cfg = ESTADO_CFG[item.estado_inscripcion] ?? ESTADO_CFG['INSCRITO']}
-            {@const transitions = TRANSITIONS[item.estado_inscripcion] ?? []}
-            {@const isVoided = cfg.rowCls === 'voided'}
-            {@const isDimmed = cfg.rowCls === 'dimmed'}
-            <tr
-              class="group hover:bg-gray-50/60 transition-colors {isVoided ? 'opacity-40' : ''}"
-              class:opacity-60={item._saving}
-            >
-              <td class="px-4 py-3 align-middle">
-                <div class="flex items-center gap-3 min-w-[170px]">
-                  <div
-                    class="w-8 h-8 rounded-full text-[0.6875rem] font-bold flex items-center justify-center shrink-0 {avatarCls(item.id_estudiante)}"
-                  >
-                    {initials(item)}
-                  </div>
-                  <span
-                    class="font-medium text-gray-900 {isVoided ? 'line-through text-gray-400' : ''} {isDimmed ? 'text-gray-500' : ''}"
-                  >
-                    {studentName(item)}
-                  </span>
-                </div>
-              </td>
-              <td class="px-4 py-3 align-middle">
-                <span
-                  class="font-mono text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded-md ring-1 ring-gray-200"
-                >
-                  {studentUsername(item)}
-                </span>
-              </td>
-              <td class="px-4 py-3 align-middle whitespace-nowrap text-sm text-gray-400">
-                {item.fecha_inscripcion ?? '—'}
-              </td>
-              <td class="px-4 py-3 align-middle text-center">
-                <span class="text-sm font-medium text-gray-600 tabular-nums">{item.num_intento}</span>
-              </td>
-              <td class="px-4 py-3 align-middle text-center">
-                {#if item.promedio_parcial != null}
-                  <span class="text-sm font-semibold text-gray-700 tabular-nums"
-                    >{item.promedio_parcial}</span
-                  >
-                {:else}
-                  <span class="text-gray-300 text-sm">—</span>
-                {/if}
-              </td>
-              <td class="px-4 py-3 align-middle min-w-[140px]">
-                <!-- Píldora con borde y flecha: sin el borde parecía una
-                     insignia de estado y nada indicaba que abriera un menú
-                     para cambiarlo. -->
-                {#if transitions.length > 0}
-                  <button
-                    type="button"
-                    title="Cambiar el estado de esta inscripción"
-                    aria-label="Cambiar el estado de esta inscripción"
-                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer whitespace-nowrap border border-current/25 hover:brightness-95 disabled:cursor-wait {cfg.cls}"
-                    class:animate-pulse={item._saving}
-                    onclick={openMenu}
-                    data-inscripcion-id={item.id_inscripcion_curso}
-                    disabled={item._saving}
-                  >
-                    {cfg.label}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="10"
-                      height="10"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="3"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </button>
-                {:else}
-                  <span
-                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap cursor-default {cfg.cls}"
-                  >
-                    {cfg.label}
-                  </span>
-                {/if}
-              </td>
-              <td class="px-4 py-3 align-middle text-center">
-                <button
-                  type="button"
-                  class="p-1.5 text-gray-300 bg-transparent border-0 cursor-pointer rounded-lg inline-flex items-center opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-400 transition-all"
-                  onclick={() => onDelete(item)}
-                  title="Eliminar inscripción"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <polyline points="3 6 5 6 21 6" />
-                    <path
-                      d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-                    />
-                  </svg>
-                </button>
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+              <polyline points="3 6 5 6 21 6" />
+              <path
+                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+              />
+            </svg>
+          </button>
+        {/if}
+      {/snippet}
+    </DataTable>
   {/if}
 </div>
 

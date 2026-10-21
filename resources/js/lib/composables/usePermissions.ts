@@ -40,82 +40,32 @@ import type { Permission } from '@/types/permissions.types';
  * @returns {Permission[]} userPermissions - Array de permisos del usuario
  */
 export function usePermissions() {
-    /**
-     * Array de permisos del usuario actual.
-     * Viene de: page.props.auth.user.permissions
-     * Ej: ['cursos:read', 'cursos:create', 'cursos/equipo:view']
-     */
-    const userPermissions = ((): Permission[] => {
-        try {
-            const props = get(pageStore).props as any;
-            const auth = props?.auth;
-            // Super admin gets wildcard permission
-            if (auth?.is_super_admin) {
-                return ['*'] as Permission[];
-            }
-            if (!auth?.permissions || !Array.isArray(auth.permissions)) {
-                return [];
-            }
-            return auth.permissions as Permission[];
-        } catch (error) {
-            console.error('[usePermissions] Error reading permissions:', error);
-            return [];
+    let isSuperAdmin = false;
+    let userPermissions: Permission[] = [];
+    let permissionSet = new Set<string>();
+
+    try {
+        const props = get(pageStore).props as any;
+        const auth = props?.auth;
+        isSuperAdmin = Boolean(auth?.is_super_admin);
+
+        if (Array.isArray(auth?.permissions)) {
+            userPermissions = auth.permissions as Permission[];
+            permissionSet = new Set(userPermissions);
         }
-    })();
+    } catch (error) {
+        console.error('[usePermissions] Error reading permissions:', error);
+    }
 
     /**
-     * Valida si el usuario tiene un permiso.
-     * Soporta wildcards:
-     * - '*' = acceso total
-     * - 'cursos:*' = acceso a cualquier acción en cursos
-     * - 'cursos/equipo:*' = acceso a cualquier acción en equipo
-     *
-     * @param {Permission | string} action - La acción a validar (ej: 'cursos:create')
-     * @returns {boolean} true si el usuario tiene el permiso
-     *
-     * @example
-     * ```ts
-     * can('cursos:create')      // true si tiene ese permiso específico
-     * can('cursos:update')      // true si tiene ese permiso o 'cursos:*' o '*'
-     * ```
+     * Valida si el usuario tiene un permiso específico (O(1)).
      */
     function can(action: Permission | string): boolean {
-        if (!userPermissions || userPermissions.length === 0) {
-            return false;
-        }
-
-        // Wildcard global: '*' permite todo
-        if (userPermissions.includes('*' as Permission)) {
+        if (isSuperAdmin || permissionSet.has('*')) {
             return true;
         }
 
-        // Permiso exacto
-        if (userPermissions.includes(action as Permission)) {
-            return true;
-        }
-
-        // Wildcard nivel recurso
-        // Ej: action = 'cursos:create' , permiso = 'cursos:*' → true
-        const [resource, subresource] = action.split('/');
-        if (subresource) {
-            // Es una acción anidada: 'cursos/equipo:create'
-            // Validar 'cursos/equipo:*' o 'cursos:*'
-            if (userPermissions.includes(`${resource}/${subresource}:*` as Permission)) {
-                return true;
-            }
-            if (userPermissions.includes(`${resource}:*` as Permission)) {
-                return true;
-            }
-        } else {
-            // Es una acción de nivel superior: 'cursos:create'
-            // Validar 'cursos:*'
-            const [res] = action.split(':');
-            if (res && userPermissions.includes(`${res}:*` as Permission)) {
-                return true;
-            }
-        }
-
-        return false;
+        return permissionSet.has(action as string);
     }
 
     /**

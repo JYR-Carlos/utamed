@@ -47,10 +47,18 @@ class ProfileController extends Controller
             'Tus datos institucionales vienen de la Intranet y no se pueden editar.',
         );
 
-        $request->user()->fill($request->validated());
+        $data = $request->validated();
+        if (isset($data['name']) && !isset($data['nombre1'])) {
+            $parts = explode(' ', trim($data['name']), 2);
+            $data['nombre1'] = $parts[0] ?? '';
+            $data['apellido1'] = $parts[1] ?? '';
+            unset($data['name']);
+        }
+
+        $request->user()->fill($data);
 
         if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+            $request->user()->fecha_verificacion_email = null;
         }
 
         $request->user()->save();

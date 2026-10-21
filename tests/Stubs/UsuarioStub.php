@@ -5,12 +5,14 @@ namespace Tests\Stubs;
 use App\Contracts\HasContext;
 use App\Services\Authorization\PermissionValidator;
 
+use App\Models\Usuario\Usuario;
+
 /**
  * Stub de Usuario para testing sin BD
  * 
  * Incluye métodos de autorización para tests de can()
  */
-class UsuarioStub
+class UsuarioStub extends Usuario
 {
     public $id_usuario;
 

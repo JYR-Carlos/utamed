@@ -34,6 +34,7 @@ class BibliografiaController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
+                'id_bibliografia' => $bibliografia->uuid_bibliografia,
                 'uuid_bibliografia' => $bibliografia->uuid_bibliografia,
                 'id_programa' => $bibliografia->id_programa,
                 'id_unidad' => $bibliografia->id_unidad,

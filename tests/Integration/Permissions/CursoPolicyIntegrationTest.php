@@ -62,7 +62,7 @@ beforeEach(function () {
   $adminSistema = Usuario::firstOrCreate(
     ['username' => 'admin_sistema'],
     [
-      'rut' => '99999999-9',
+      'rut' => '80000000-0',
       'nombre1' => 'Admin',
       'apellido1' => 'Sistema',
       'email' => 'admin@sistema.local',
@@ -72,26 +72,7 @@ beforeEach(function () {
   );
   $this->adminSistemaId = $adminSistema->id_usuario;
 
-  // ---- Limpiar datos de tests anteriores ----
-  $testUsernames = ['cp_superadmin', 'cp_manager', 'cp_viewer', 'cp_nobody'];
-  $testUserIds = Usuario::withTrashed()->whereIn('username', $testUsernames)->pluck('id_usuario');
-
-  if ($testUserIds->isNotEmpty()) {
-    UsuarioRolAsignacion::whereIn('id_usuario', $testUserIds)->delete();
-    UsuarioPermisoEspecial::whereIn('id_usuario', $testUserIds)->delete();
-    Usuario::withTrashed()->whereIn('id_usuario', $testUserIds)->forceDelete();
-  }
-
-  // Also force-delete any stale soft-deleted users with the RUTs we'll use
-  Usuario::withTrashed()->whereIn('rut', ['71111111-1', '72222222-2', '73333333-3', '74444444-4'])->forceDelete();
-
-  $testRolNames = ['CP SuperAdmin', 'CP Manager', 'CP Viewer'];
-  $testRolIds = Rol::withTrashed()->whereIn('nombre', $testRolNames)->pluck('id_rol');
-  if ($testRolIds->isNotEmpty()) {
-    DB::table('asignacion_rol_permiso')->whereIn('id_rol', $testRolIds)->delete();
-    Rol::withTrashed()->whereIn('id_rol', $testRolIds)->forceDelete();
-  }
-
+  // ---- Limpiar estructura de curso y académica primero para liberar FK fk_docente ----
   DB::table('curso')->where('nombre', 'CP Test Curso')->delete();
   DB::table('asignacion_plan')
     ->whereIn('id_asignatura', fn($q) => $q->select('id_asignatura')->from('asignatura')->where('cod_asignatura', 'CP-101'))
@@ -101,6 +82,28 @@ beforeEach(function () {
   DB::table('carrera')->where('nombre', 'CP Test Carrera')->delete();
   DB::table('departamento')->where('nombre', 'CP Test Departamento')->delete();
   DB::table('facultad')->where('nombre', 'CP Test Facultad')->delete();
+
+  // ---- Limpiar datos de usuarios y roles anteriores ----
+  $testUsernames = ['cp_superadmin', 'cp_manager', 'cp_viewer', 'cp_nobody', 'cp_titular_docente'];
+  $testRuts = ['87111111-1', '87222222-2', '87333333-3', '87444444-4', '87555555-5'];
+  $testUserIds = Usuario::withTrashed()
+    ->whereIn('username', $testUsernames)
+    ->orWhereIn('rut', $testRuts)
+    ->pluck('id_usuario');
+
+  if ($testUserIds->isNotEmpty()) {
+    UsuarioRolAsignacion::whereIn('id_usuario', $testUserIds)->delete();
+    UsuarioPermisoEspecial::whereIn('id_usuario', $testUserIds)->delete();
+    DB::table('usuario.docente')->whereIn('id_usuario', $testUserIds)->delete();
+    Usuario::withTrashed()->whereIn('id_usuario', $testUserIds)->forceDelete();
+  }
+
+  $testRolNames = ['CP SuperAdmin', 'CP Manager', 'CP Viewer'];
+  $testRolIds = Rol::withTrashed()->whereIn('nombre', $testRolNames)->pluck('id_rol');
+  if ($testRolIds->isNotEmpty()) {
+    DB::table('asignacion_rol_permiso')->whereIn('id_rol', $testRolIds)->delete();
+    Rol::withTrashed()->whereIn('id_rol', $testRolIds)->forceDelete();
+  }
 
   // ---- Estructura administrativa para crear un Curso con contexto ----
   $facultadId = DB::table('facultad')->insertGetId(
@@ -151,6 +154,27 @@ beforeEach(function () {
     'fecha_creacion' => now(),
   ], 'id_asignacion_plan');
 
+  $docenteUser = Usuario::firstOrCreate(
+    ['username' => 'cp_titular_docente'],
+    [
+      'rut' => '87555555-5',
+      'nombre1' => 'Titular',
+      'apellido1' => 'Docente',
+      'email' => 'cp_titular@test.local',
+      'passhash' => Hash::make('pass'),
+      'esta_activo' => true,
+    ]
+  );
+  $docenteTitularId = DB::table('usuario.docente')->where('id_usuario', $docenteUser->id_usuario)->value('id_docente');
+  if (!$docenteTitularId) {
+    $docenteTitularId = DB::table('usuario.docente')->insertGetId([
+      'id_usuario' => $docenteUser->id_usuario,
+      'cargo' => 'Profesor',
+      'grado' => 'Licenciado',
+      'titulo' => 'Docente',
+    ], 'id_docente');
+  }
+
   // Curso con id_contexto generado por trigger
   $this->curso = Curso::create([
     'nombre' => 'CP Test Curso',
@@ -160,6 +184,7 @@ beforeEach(function () {
     'semestre_real' => 1,
     'estado_interno' => 'Activo',
     'id_asignacion_plan' => $asignacionPlanId,
+    'id_docente_titular' => $docenteTitularId,
   ]);
   $this->curso->refresh(); // trigger genera id_contexto
 
@@ -209,7 +234,7 @@ beforeEach(function () {
   // ---- Usuario 1: SUPERADMIN (permiso wildcard '*' en contexto global) ----
   $this->superadmin = Usuario::create([
     'username' => 'cp_superadmin',
-    'rut' => '71111111-1',
+    'rut' => '87111111-1',
     'nombre1' => 'CP',
     'apellido1' => 'SuperAdmin',
     'email' => 'cp_superadmin@test.local',
@@ -233,7 +258,7 @@ beforeEach(function () {
   // y en contexto del curso (cubre view, update, delete sobre ese modelo).
   $this->manager = $crearUsuarioConRol(
     'cp_manager',
-    '72222222-2',
+    '87222222-2',
     'cp_manager@test.local',
     'CP Manager',
     ['cursos:ver', 'cursos:crear', 'cursos:editar', 'cursos:eliminar'],
@@ -244,7 +269,7 @@ beforeEach(function () {
   // Asignado en contexto global (cubre viewAny) y en contexto del curso (cubre view).
   $this->viewer = $crearUsuarioConRol(
     'cp_viewer',
-    '73333333-3',
+    '87333333-3',
     'cp_viewer@test.local',
     'CP Viewer',
     ['cursos:ver'],
@@ -254,7 +279,7 @@ beforeEach(function () {
   // ---- Usuario 4: NOBODY (sin ningún permiso) ----
   $this->nobody = Usuario::create([
     'username' => 'cp_nobody',
-    'rut' => '74444444-4',
+    'rut' => '87444444-4',
     'nombre1' => 'CP',
     'apellido1' => 'Nobody',
     'email' => 'cp_nobody@test.local',

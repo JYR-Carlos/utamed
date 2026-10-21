@@ -15,7 +15,7 @@ uses(DatabaseTransactions::class);
 
 function alumnoConPerfil(): array
 {
-    $user = Usuario::factory()->create();
+    $user = Usuario::factory()->withRolEstudiante()->create();
     $user->forceFill(['fecha_cambio_passhash' => now()])->save();
     $estudiante = Estudiante::factory()->create([
         'id_usuario' => $user->id_usuario,

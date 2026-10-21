@@ -27,8 +27,11 @@ uses(TestCase::class);
 
 beforeEach(function () {
     // ========== LIMPIAR DATOS DE TESTS PREVIOS PRIMERO ==========
+    DB::table('curso')->where('nombre', 'Matemática I')->delete();
+
     // Eliminar todos los usuarios de test creados en iteraciones previas
     $testUsernames = [
+        'pir_titular_docente',
         'ayudante_test',
         'asistente_test',
         'usuario1_test',
@@ -46,7 +49,17 @@ beforeEach(function () {
     ];
 
     // Obtener todos los IDs de usuarios de test (incluye soft-deleted)
-    $testUserIds = Usuario::withTrashed()->whereIn('username', $testUsernames)->pluck('id_usuario')->toArray();
+    $testRuts = [
+        '88000001-1',
+        '88111111-1', '88222222-2', '88333333-3', '88444444-4', '88555555-5',
+        '88666666-6', '88777777-7', '88888888-8', '88999999-9',
+        'aaaaaaaa-a', 'bbbbbbbb-b', 'cccccccc-c', 'dddddddd-d',
+        'eeeeeeee-e', 'ffffffff-f', 'gggggggg-g', 'hhhhhhhh-h'
+    ];
+    $testUserIds = Usuario::withTrashed()
+        ->whereIn('username', $testUsernames)
+        ->orWhereIn('rut', $testRuts)
+        ->pluck('id_usuario')->toArray();
 
     if (!empty($testUserIds)) {
         // Eliminar permisos especiales donde el usuario es creador (creado_por)
@@ -57,6 +70,9 @@ beforeEach(function () {
 
         // Eliminar asignaciones de roles
         UsuarioRolAsignacion::whereIn('id_usuario', $testUserIds)->forceDelete();
+
+        // Eliminar perfiles docente vinculados
+        DB::table('usuario.docente')->whereIn('id_usuario', $testUserIds)->delete();
 
         // Eliminar usuarios (forceDelete para evitar UniqueConstraintViolation)
         Usuario::withTrashed()->whereIn('id_usuario', $testUserIds)->forceDelete();
@@ -118,7 +134,7 @@ beforeEach(function () {
     $adminSistema = Usuario::firstOrCreate(
         ['username' => 'admin_sistema'],
         [
-            'rut' => '99999999-9',
+            'rut' => '80000000-0',
             'nombre1' => 'Admin',
             'apellido1' => 'Sistema',
             'email' => 'admin@sistema.local',
@@ -131,7 +147,7 @@ beforeEach(function () {
     // ========== LIMPIAR DATOS DE TESTS PREVIOS ==========
     // Obtener IDs de usuarios de test (incluye soft-deleted)
     $mainUserIds = Usuario::withTrashed()
-        ->whereIn('username', ['superadmin', 'profesor', 'coordinador'])
+        ->whereIn('username', ['pir_superadmin', 'pir_profesor', 'pir_coordinador'])
         ->pluck('id_usuario')->toArray();
 
     if (!empty($mainUserIds)) {
@@ -152,7 +168,7 @@ beforeEach(function () {
         ->forceDelete();
 
     // Eliminar usuarios de test (forceDelete para evitar UniqueConstraintViolation)
-    Usuario::withTrashed()->whereIn('username', ['superadmin', 'profesor', 'coordinador'])->forceDelete();
+    Usuario::withTrashed()->whereIn('username', ['pir_superadmin', 'pir_profesor', 'pir_coordinador'])->forceDelete();
 
     // Limpiar estructura administrativa de tests previos
     DB::table('curso')->where('nombre', 'Matemática I')->delete();
@@ -225,6 +241,27 @@ beforeEach(function () {
         'fecha_creacion' => now()
     ], 'id_asignacion_plan');
 
+    $docenteUser = Usuario::firstOrCreate(
+        ['username' => 'pir_titular_docente'],
+        [
+            'rut' => '88000001-1',
+            'nombre1' => 'Titular',
+            'apellido1' => 'Docente',
+            'email' => 'pir_titular@test.local',
+            'passhash' => Hash::make('pass'),
+            'esta_activo' => true,
+        ]
+    );
+    $docenteTitularId = DB::table('usuario.docente')->where('id_usuario', $docenteUser->id_usuario)->value('id_docente');
+    if (!$docenteTitularId) {
+        $docenteTitularId = DB::table('usuario.docente')->insertGetId([
+            'id_usuario' => $docenteUser->id_usuario,
+            'cargo' => 'Profesor',
+            'grado' => 'Licenciado',
+            'titulo' => 'Docente',
+        ], 'id_docente');
+    }
+
     // Crear Curso (id_contexto se crea automáticamente por trigger)
     $this->curso = Curso::create([
         'nombre' => 'Matemática I',
@@ -234,6 +271,7 @@ beforeEach(function () {
         'semestre_real' => 1,
         'estado_interno' => 'Activo',
         'id_asignacion_plan' => $asignacionPlanId,
+        'id_docente_titular' => $docenteTitularId,
     ]);
     $this->curso->refresh(); // Trigger sets id_contexto
 
@@ -266,8 +304,8 @@ beforeEach(function () {
 
     // ========== USUARIO 1: SUPERADMIN (tiene '*') ==========
     $this->superadmin = Usuario::create([
-        'username' => 'superadmin',
-        'rut' => '11111111-1',
+        'username' => 'pir_superadmin',
+        'rut' => '88111111-1',
         'nombre1' => 'Super',
         'apellido1' => 'Admin',
         'email' => 'superadmin@test.local',
@@ -309,8 +347,8 @@ beforeEach(function () {
 
     // ========== USUARIO 2: PROFESOR (tiene 'cursos:ver') ==========
     $this->profesor = Usuario::create([
-        'username' => 'profesor',
-        'rut' => '22222222-2',
+        'username' => 'pir_profesor',
+        'rut' => '88222222-2',
         'nombre1' => 'Juan',
         'apellido1' => 'Profesor',
         'email' => 'profesor@test.local',
@@ -357,9 +395,9 @@ beforeEach(function () {
 
     // ========== USUARIO 3: COORDINADOR (tiene 'cursos:crear') ==========
     $this->coordinador = Usuario::firstOrCreate(
-        ['username' => 'coordinador'],
+        ['username' => 'pir_coordinador'],
         [
-            'rut' => '33333333-3',
+            'rut' => '88333333-3',
             'nombre1' => 'María',
             'apellido1' => 'Coordinador',
             'email' => 'coordinador@test.local',
@@ -409,22 +447,22 @@ beforeEach(function () {
     // ========== USUARIOS DE TEST PARA DELEGACIÓN ==========
     $this->ayudante = Usuario::firstOrCreate(
         ['username' => 'ayudante_test'],
-        ['rut' => '44444444-4', 'nombre1' => 'Carlos', 'apellido1' => 'Ayudante', 'email' => 'ayudante@test.local', 'passhash' => Hash::make('ayudante123'), 'esta_activo' => true]
+        ['rut' => '88444444-4', 'nombre1' => 'Carlos', 'apellido1' => 'Ayudante', 'email' => 'ayudante@test.local', 'passhash' => Hash::make('ayudante123'), 'esta_activo' => true]
     );
 
     $this->asistente = Usuario::firstOrCreate(
         ['username' => 'asistente_test'],
-        ['rut' => '55555555-5', 'nombre1' => 'Ana', 'apellido1' => 'Asistente', 'email' => 'asistente@test.local', 'passhash' => Hash::make('asistente123'), 'esta_activo' => true]
+        ['rut' => '88555555-5', 'nombre1' => 'Ana', 'apellido1' => 'Asistente', 'email' => 'asistente@test.local', 'passhash' => Hash::make('asistente123'), 'esta_activo' => true]
     );
 
     $this->usuario1 = Usuario::firstOrCreate(
         ['username' => 'usuario1_test'],
-        ['rut' => '66666666-6', 'nombre1' => 'Usuario', 'apellido1' => 'Uno', 'email' => 'usuario1@test.local', 'passhash' => Hash::make('usuario1123'), 'esta_activo' => true]
+        ['rut' => '88666666-6', 'nombre1' => 'Usuario', 'apellido1' => 'Uno', 'email' => 'usuario1@test.local', 'passhash' => Hash::make('usuario1123'), 'esta_activo' => true]
     );
 
     $this->usuario2 = Usuario::firstOrCreate(
         ['username' => 'usuario2_test'],
-        ['rut' => '77777777-7', 'nombre1' => 'Usuario', 'apellido1' => 'Dos', 'email' => 'usuario2@test.local', 'passhash' => Hash::make('usuario2123'), 'esta_activo' => true]
+        ['rut' => '88777777-7', 'nombre1' => 'Usuario', 'apellido1' => 'Dos', 'email' => 'usuario2@test.local', 'passhash' => Hash::make('usuario2123'), 'esta_activo' => true]
     );
 
     $this->usuario3 = Usuario::firstOrCreate(
@@ -434,7 +472,7 @@ beforeEach(function () {
 
     $this->usuario4 = Usuario::firstOrCreate(
         ['username' => 'usuario4_test'],
-        ['rut' => '99999999-9', 'nombre1' => 'Usuario', 'apellido1' => 'Cuatro', 'email' => 'usuario4@test.local', 'passhash' => Hash::make('usuario4123'), 'esta_activo' => true]
+        ['rut' => '88999999-9', 'nombre1' => 'Usuario', 'apellido1' => 'Cuatro', 'email' => 'usuario4@test.local', 'passhash' => Hash::make('usuario4123'), 'esta_activo' => true]
     );
 
     $this->usuario5 = Usuario::firstOrCreate(
@@ -483,9 +521,9 @@ beforeEach(function () {
 // ============================================================================
 
 test('usuarios se crearon correctamente en BD testing', function () {
-    expect(Usuario::where('username', 'superadmin')->exists())->toBeTrue();
-    expect(Usuario::where('username', 'profesor')->exists())->toBeTrue();
-    expect(Usuario::where('username', 'coordinador')->exists())->toBeTrue();
+    expect(Usuario::where('username', 'pir_superadmin')->exists())->toBeTrue();
+    expect(Usuario::where('username', 'pir_profesor')->exists())->toBeTrue();
+    expect(Usuario::where('username', 'pir_coordinador')->exists())->toBeTrue();
 });
 
 test('permisos existen en la BD', function () {

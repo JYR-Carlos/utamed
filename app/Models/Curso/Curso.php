@@ -3,6 +3,7 @@
 namespace App\Models\Curso;
 
 use App\Models\Base\Curso\BaseCurso;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
  * Modelo Curso
@@ -12,6 +13,7 @@ use App\Models\Base\Curso\BaseCurso;
  */
 class Curso extends BaseCurso
 {
+    use HasFactory;
     /**
      * Casts adicionales para fechas límite de entrega de programa
      */

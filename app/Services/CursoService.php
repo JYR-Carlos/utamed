@@ -310,7 +310,10 @@ class CursoService
                 // rol RBAC "Docente Titular" en el contexto del curso (sólo se asigna al
                 // crear el curso), y por lo tanto no tiene el permiso
                 // cursos/programas:agregar para crear el syllabus.
-                $this->assignDocenteRolCurso($newDocenteTitularId, $curso->id_contexto, true);
+                $idContexto = (int) ($curso->id_contexto ?: $curso->fresh()?->id_contexto);
+                if ($idContexto > 0) {
+                    $this->assignDocenteRolCurso($newDocenteTitularId, $idContexto, true);
+                }
             }
 
             return $curso;

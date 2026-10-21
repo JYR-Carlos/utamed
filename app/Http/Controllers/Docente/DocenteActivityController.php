@@ -708,14 +708,15 @@ class DocenteActivityController extends Controller
             abort(404, 'Esta actividad no tiene enunciado asociado.');
         }
 
-        $rutaArchivo = Storage::disk('local_archives')->path($actividad->archivo->ruta_fisica);
+        $disk = config('files.storage.disk', 'local_archives');
+        $rutaArchivo = Storage::disk($disk)->path($actividad->archivo->ruta_fisica);
 
         if (!file_exists($rutaArchivo)) {
             Log::warning('Archivo de enunciado no encontrado en disco', [
                 'id_actividad' => $actividad->id_actividad,
                 'ruta_fisica' => $actividad->archivo->ruta_fisica,
                 'ruta_completa' => $rutaArchivo,
-                'disk' => 'local_archives',
+                'disk' => $disk,
             ]);
             abort(404, 'El archivo de enunciado no existe en el servidor.');
         }
@@ -902,7 +903,7 @@ class DocenteActivityController extends Controller
 
         $grupos = $gruposActividad
             ->map(function ($g) use ($actividad, $noLeidos, $entregasPorGrupo, $limiteOriginal, $conFeedback) {
-                $g->sincronizarEstado($actividad);
+                $estadoCalculado = $g->calcularEstadoGrupo($actividad);
 
                 $integrantes = $g->integranteGrupos
                     ->sortBy(fn($m) => $m->estudiante?->usuario?->nombre_apellidos_primero ?? '')
@@ -919,7 +920,7 @@ class DocenteActivityController extends Controller
                     'grupo' => $g->id_actividad_asignada_grupo,
                     'nombre_grupo' => $g->nombre_grupo,
                     'nota' => $g->nota,
-                    'estado_actividad_asignada' => $g->estado_actividad_asignada?->value,
+                    'estado_actividad_asignada' => $estadoCalculado,
                     'nro_dias_adicionales_para_bloqueo_personal' => (int) ($g->nro_dias_adicionales_para_bloqueo_personal ?? 0),
                     'no_leidos' => (int) ($noLeidos[$g->id_actividad_asignada_grupo] ?? 0),
                     'con_feedback' => $conFeedback->has($g->id_actividad_asignada_grupo),
@@ -1268,6 +1269,11 @@ class DocenteActivityController extends Controller
 
     /**
      * Elimina un grupo (ActividadAsignadaGrupo) y todos sus integrantes.
+     *
+     * Si el grupo ya fue evaluado, se prohíbe la eliminación para no perder notas.
+     * Si no ha sido evaluado, se limpian las dependencias en agenda.agenda (mensajes
+     * y entregas no evaluadas), marcando archivos para borrado asíncrono, y luego
+     * se elimina el grupo e integrantes sin violar la FK restrictiva.
      */
     public function eliminarGrupo(Curso $curso, Actividad $actividad, int $grupo)
     {
@@ -1280,8 +1286,29 @@ class DocenteActivityController extends Controller
             ->where('id_actividad', $actividad->id_actividad)
             ->firstOrFail();
 
+        if ($grupoModel->yaFueEvaluado()) {
+            return redirect()->back()->withErrors([
+                'error' => 'No se puede eliminar un grupo que ya tiene evaluación.',
+            ]);
+        }
+
         return DB::transaction(function () use ($grupoModel) {
-            IntegranteGrupo::where('id_actividad_asignada_grupo', $grupoModel->id_actividad_asignada_grupo)->delete();
+            $idGrupo = $grupoModel->id_actividad_asignada_grupo;
+
+            $agendas = DB::table('agenda.agenda')->where('id_actividad_asignada_grupo', $idGrupo);
+            $idsAgenda = (clone $agendas)->pluck('id_agenda');
+            $uuidsArchivos = (clone $agendas)->whereNotNull('uuid_archivo_subido')->pluck('uuid_archivo_subido');
+
+            if ($idsAgenda->isNotEmpty()) {
+                DB::table('agenda.evaluacion')->whereIn('id_agenda', $idsAgenda)->delete();
+                DB::table('agenda.agenda')->whereIn('id_agenda', $idsAgenda)->delete();
+            }
+
+            if ($uuidsArchivos->isNotEmpty()) {
+                Archivo::whereIn('uuid_archivo', $uuidsArchivos)->update(['pendiente_de_borrado' => true]);
+            }
+
+            IntegranteGrupo::where('id_actividad_asignada_grupo', $idGrupo)->delete();
             $grupoModel->delete();
 
             return redirect()->back()->with('success', 'Grupo eliminado correctamente.');
@@ -1451,10 +1478,27 @@ class DocenteActivityController extends Controller
             'estudiantes.*' => 'required|integer',
         ]);
 
+        if (count($validated['estudiantes']) !== count(array_unique($validated['estudiantes']))) {
+            return redirect()->back()->withErrors([
+                'error' => 'No se pueden incluir estudiantes duplicados en el grupo.',
+            ]);
+        }
+
         // Verificar que no haya más integrantes que el máximo permitido
         if (count($validated['estudiantes']) > $actividad->max_integrantes) {
             return redirect()->back()->withErrors([
                 'error' => "No se pueden agregar más de {$actividad->max_integrantes} estudiantes.",
+            ]);
+        }
+
+        // Verificar que ningún estudiante pertenezca ya a otro grupo de esta actividad
+        $yaAsignados = IntegranteGrupo::whereHas('actividadAsignadaGrupo', function ($q) use ($actividad) {
+            $q->where('id_actividad', $actividad->id_actividad);
+        })->whereIn('id_estudiante', $validated['estudiantes'])->exists();
+
+        if ($yaAsignados) {
+            return redirect()->back()->withErrors([
+                'error' => 'Uno o más estudiantes ya pertenecen a otro grupo de esta actividad.',
             ]);
         }
 
@@ -1532,13 +1576,13 @@ class DocenteActivityController extends Controller
             return redirect()->back()->withErrors(['error' => 'El estudiante no está inscrito en este curso.']);
         }
 
-        // Verificar que el estudiante no esté ya en el grupo
-        $yaEnGrupo = IntegranteGrupo::where('id_actividad_asignada_grupo', $grupo)
-            ->where('id_estudiante', $validated['id_estudiante'])
-            ->exists();
+        // Verificar que el estudiante no esté ya en algún grupo de esta actividad
+        $yaEnActividad = IntegranteGrupo::whereHas('actividadAsignadaGrupo', function ($q) use ($actividad) {
+            $q->where('id_actividad', $actividad->id_actividad);
+        })->where('id_estudiante', $validated['id_estudiante'])->exists();
 
-        if ($yaEnGrupo) {
-            return redirect()->back()->withErrors(['error' => 'El estudiante ya está en este grupo.']);
+        if ($yaEnActividad) {
+            return redirect()->back()->withErrors(['error' => 'El estudiante ya pertenece a un grupo en esta actividad.']);
         }
 
         // Verificar que no se exceda el máximo de integrantes
@@ -1579,14 +1623,12 @@ class DocenteActivityController extends Controller
             ->get();
 
         $gruposFormateados = $grupos->map(function ($grupo) use ($actividad) {
-            $grupo->sincronizarEstado($actividad);
-
             return [
                 'grupo' => $grupo->id_actividad_asignada_grupo,
                 'nota' => $grupo->nota,
-                'estado_actividad_asignada' => $grupo->estado_actividad_asignada?->value,
+                'estado_actividad_asignada' => $grupo->calcularEstadoGrupo($actividad),
                 'integrantes' => $grupo->getMiembrosConDetalles(),
-                'cantidad_integrantes' => $grupo->miembros()->count(),
+                'cantidad_integrantes' => $grupo->miembros->count(),
             ];
         });
 
@@ -1866,10 +1908,11 @@ class DocenteActivityController extends Controller
             return response()->json(['error' => 'No hay archivo asociado a esta entrega.'], 404);
         }
 
-        $rutaArchivo = Storage::disk('local_archives')->path($agenda->archivo->ruta_fisica);
+        $disk = config('files.storage.disk', 'local_archives');
+        $rutaArchivo = Storage::disk($disk)->path($agenda->archivo->ruta_fisica);
 
         if (!file_exists($rutaArchivo)) {
-            Log::warning("Archivo no encontrado en: {$rutaArchivo}");
+            Log::warning("Archivo no encontrado en: {$rutaArchivo} (disco {$disk})");
 
             return response()->json(['error' => 'El archivo no existe en el servidor.'], 404);
         }

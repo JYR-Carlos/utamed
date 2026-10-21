@@ -307,7 +307,8 @@ class ActivityController extends Controller
             abort(404, 'Esta actividad no tiene enunciado asociado.');
         }
 
-        $rutaArchivo = Storage::disk('local_archives')->path($actividad->archivo->ruta_fisica);
+        $disk = config('files.storage.disk', 'local_archives');
+        $rutaArchivo = Storage::disk($disk)->path($actividad->archivo->ruta_fisica);
 
         if (!file_exists($rutaArchivo)) {
             abort(404, 'El archivo de enunciado no existe en el servidor.');
@@ -374,7 +375,8 @@ class ActivityController extends Controller
             abort(404, 'No hay archivo asociado a esta entrega.');
         }
 
-        $rutaArchivo = Storage::disk('local_archives')->path($agenda->archivo->ruta_fisica);
+        $disk = config('files.storage.disk', 'local_archives');
+        $rutaArchivo = Storage::disk($disk)->path($agenda->archivo->ruta_fisica);
 
         if (!file_exists($rutaArchivo)) {
             abort(404, 'El archivo no existe en el servidor.');

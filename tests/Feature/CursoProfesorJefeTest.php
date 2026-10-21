@@ -11,12 +11,12 @@ use App\Models\Curso\TipoComponente;
 use App\Models\Administrativo\AsignacionPlan;
 use App\Models\Usuario\Contexto;
 use App\Services\CursoService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
 class CursoProfesorJefeTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected Usuario $profesor1;
     protected Usuario $profesor2;
@@ -40,30 +40,48 @@ class CursoProfesorJefeTest extends TestCase
         $this->docente1 = Docente::factory()->create(['id_usuario' => $this->profesor1->id_usuario]);
         $this->docente2 = Docente::factory()->create(['id_usuario' => $this->profesor2->id_usuario]);
 
-        // Associate docente with usuarios
-        $this->profesor1->docente()->associate($this->docente1)->save();
-        $this->profesor2->docente()->associate($this->docente2)->save();
-
         // Create a course with profesor1 as titular
-        $asignacionPlan = AsignacionPlan::factory()->create();
-        $contexto = Contexto::factory()->create();
-        $tipoComponente = TipoComponente::factory()->create();
+        $asignacionPlan = AsignacionPlan::first();
+        if (!$asignacionPlan) {
+            $asignacionPlan = AsignacionPlan::firstOrCreate([
+                'id_plan' => 1,
+                'id_asignatura' => 1,
+                'agno_planificado' => 1,
+                'semestre_planificado' => 1,
+                'id_contexto' => 1,
+            ]);
+        }
+        $contexto = Contexto::firstOrCreate(['contexto_display' => 'Curso Profesor Jefe ' . uniqid()]);
+        $tipoComponente = TipoComponente::firstOrCreate(['tipo' => 'Cátedra']);
 
-        $this->curso = Curso::factory()->create([
+        $this->curso = Curso::create([
             'id_asignacion_plan' => $asignacionPlan->id_asignacion_plan,
             'id_contexto' => $contexto->id_contexto,
             'id_docente_titular' => $this->docente1->id_docente,
+            'cod_curso' => random_int(800000, 899999),
+            'nombre' => 'Curso Test Profesor Jefe',
+            'fecha_inicio' => now()->toDateString(),
+            'fecha_fin' => now()->addMonths(6)->toDateString(),
+            'semestre_real' => 1,
+            'agno_real' => 2026,
+            'indice_grupo' => 1,
+            'estado_interno' => 'ABIERTO',
         ]);
+        $this->curso->refresh();
 
         // Create a component with profesor1 as titular
-        $contextoComponente = Contexto::factory()->create();
-        $this->componente = Componente::factory()->create([
+        $contextoComponente = Contexto::firstOrCreate(['contexto_display' => 'Componente Test ' . uniqid()]);
+        $this->componente = Componente::create([
+            'genera_acta' => true,
+            'porcentaje_aprobacion' => 60,
+            'aprobacion_obligatoria' => true,
+            'porcentaje_asistencia_obligatoria' => 75,
             'id_curso' => $this->curso->id_curso,
             'id_tipo_componente' => $tipoComponente->id_tipo_componente,
             'id_contexto' => $contextoComponente->id_contexto,
         ]);
 
-        DocenteComponente::factory()->create([
+        DocenteComponente::create([
             'id_componente' => $this->componente->id_componente,
             'id_docente' => $this->docente1->id_docente,
             'es_titular' => true,
@@ -149,15 +167,20 @@ class CursoProfesorJefeTest extends TestCase
      */
     public function test_new_profesor_assigned_to_all_components(): void
     {
-        // Create additional component
-        $contextoComponente2 = Contexto::factory()->create();
-        $componente2 = Componente::factory()->create([
+        // Create additional component with distinct type (Taller)
+        $tipoComponente2 = TipoComponente::firstOrCreate(['tipo' => 'Taller']);
+        $contextoComponente2 = Contexto::firstOrCreate(['contexto_display' => 'Componente Test 2 ' . uniqid()]);
+        $componente2 = Componente::create([
+            'genera_acta' => true,
+            'porcentaje_aprobacion' => 60,
+            'aprobacion_obligatoria' => true,
+            'porcentaje_asistencia_obligatoria' => 75,
             'id_curso' => $this->curso->id_curso,
-            'id_tipo_componente' => $this->componente->id_tipo_componente,
+            'id_tipo_componente' => $tipoComponente2->id_tipo_componente,
             'id_contexto' => $contextoComponente2->id_contexto,
         ]);
 
-        DocenteComponente::factory()->create([
+        DocenteComponente::create([
             'id_componente' => $componente2->id_componente,
             'id_docente' => $this->docente1->id_docente,
             'es_titular' => true,
@@ -188,7 +211,7 @@ class CursoProfesorJefeTest extends TestCase
     public function test_new_profesor_marked_titular_if_already_in_component(): void
     {
         // Add profesor2 to component but as non-titular
-        DocenteComponente::factory()->create([
+        DocenteComponente::create([
             'id_componente' => $this->componente->id_componente,
             'id_docente' => $this->docente2->id_docente,
             'es_titular' => false,
@@ -217,8 +240,18 @@ class CursoProfesorJefeTest extends TestCase
     {
         // Create admin user
         $admin = Usuario::factory()->create(['email' => 'admin@test.com']);
-        $adminRole = \App\Models\Usuario\Rol::factory()->create(['nombre' => 'Administrador']);
-        $admin->rolesAsignados()->attach($adminRole, ['esta_activo' => true, 'fue_eliminado' => false]);
+        $adminRole = \App\Models\Usuario\Rol::firstOrCreate(['nombre' => 'Administrador'], ['creado_por' => $admin->id_usuario]);
+        \App\Models\Usuario\UsuarioRolAsignacion::firstOrCreate(
+            ['id_usuario' => $admin->id_usuario, 'id_rol' => $adminRole->id_rol, 'id_contexto' => 1],
+            [
+                'asignado_por' => $admin->id_usuario,
+                'fecha_inicio_planificada' => now()->subMinute(),
+                'fecha_fin_planificada' => now()->addYears(100),
+                'esta_activo' => true,
+                'fue_eliminado' => false,
+                'creado_por' => $admin->id_usuario,
+            ]
+        );
 
         $this->actingAs($admin);
 

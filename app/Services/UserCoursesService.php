@@ -237,13 +237,12 @@ class UserCoursesService
      */
     private function formatearPermisos($permisos): array
     {
-        return collect($permisos ?? [])
-            ->map(fn($perm) => [
-                'id_permiso'     => $perm['id_permiso'],
-                'slug'           => $perm['slug'],
-                'esta_permitido' => (bool) $perm['esta_permitido'],
-            ])
-            ->values()
-            ->all();
+        $expanded = app(\App\Services\Authorization\PermissionValidator::class)
+            ->expandToConcreteSlugs($permisos ?? []);
+
+        return array_map(fn($slug) => [
+            'slug'           => $slug,
+            'esta_permitido' => true,
+        ], $expanded);
     }
 }

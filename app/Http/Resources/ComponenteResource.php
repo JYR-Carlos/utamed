@@ -27,8 +27,6 @@ class ComponenteResource extends JsonResource
                     'id_docente'            => $dc->id_docente,
                     'es_titular'            => (bool) $dc->es_titular,
                     'nombre_completo'       => trim(($dc->docente?->usuario?->nombre1 ?? '') . ' ' . ($dc->docente?->usuario?->apellido1 ?? '')),
-                    'nombre1'               => $dc->docente?->usuario?->nombre1,
-                    'apellido1'             => $dc->docente?->usuario?->apellido1,
                     'cargo'                 => $dc->docente?->cargo,
                 ])
             ),

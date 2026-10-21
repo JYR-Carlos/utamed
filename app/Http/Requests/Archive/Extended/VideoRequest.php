@@ -3,15 +3,16 @@
 namespace App\Http\Requests\Archive\Extended;
 
 use App\Http\Requests\Archive\BaseArchiveRequest;
+use App\Services\Archive\FiletypeValidation\FileRequirementType;
 
 /**
  * VideoRequest
- * 
+ *
  * Validación para uploads de videos.
- * 
+ *
  * Tipos permitidos: MP4, WebM, AVI, MOV, MKV, FLV, WMV, M4V
  * Tamaño máximo: 500MB (configurable via FILES_VIDEO_MAX_SIZE)
- * 
+ *
  * Uso:
  * ```php
  * class StoreActivityVideoController {
@@ -24,7 +25,7 @@ use App\Http\Requests\Archive\BaseArchiveRequest;
  */
 class VideoRequest extends BaseArchiveRequest
 {
-    protected string $fileType = 'video';
+    protected array $fileCategories = [FileRequirementType::VIDEO];
 
     /**
      * Reglas adicionales específicas para videos.

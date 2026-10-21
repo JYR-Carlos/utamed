@@ -246,16 +246,18 @@ it('extrae correctamente la contraseña según diferentes formatos de RUT', func
     $superadmin = getSuperAdminAutenticado('admin-pass-123');
 
     // RUT con guion y dígito verificador K
-    $targetK = crearUsuarioParaReset(['rut' => '9876543-K']);
+    $cuerpoK = (string) random_int(81000000, 84999999);
+    $targetK = crearUsuarioParaReset(['rut' => "{$cuerpoK}-K"]);
     $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $targetK), [
         'current_password' => 'admin-pass-123',
     ]);
-    expect(Hash::check('9876543', $targetK->fresh()->passhash))->toBeTrue();
+    expect(Hash::check($cuerpoK, $targetK->fresh()->passhash))->toBeTrue();
 
-    // RUT con formato plano 123456789
-    $targetPlano = crearUsuarioParaReset(['rut' => '12345678-9']);
-    $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $targetPlano), [
+    // RUT con formato estándar
+    $cuerpoStd = (string) random_int(85000000, 89999999);
+    $targetStd = crearUsuarioParaReset(['rut' => "{$cuerpoStd}-9"]);
+    $this->actingAs($superadmin)->post(route('admin.usuarios.set-default-password', $targetStd), [
         'current_password' => 'admin-pass-123',
     ]);
-    expect(Hash::check('12345678', $targetPlano->fresh()->passhash))->toBeTrue();
+    expect(Hash::check($cuerpoStd, $targetStd->fresh()->passhash))->toBeTrue();
 });
