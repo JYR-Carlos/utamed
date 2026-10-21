@@ -26,14 +26,14 @@
   tabindex="0"
   onclick={onAgendaClick}
   onkeydown={handleKeydown}
-  class="group flex cursor-pointer flex-col gap-3.5 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm transition-all duration-150 hover:border-[#C3CAD4] hover:shadow-md active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#22213F] focus:ring-offset-2"
+  class="group flex cursor-pointer flex-col gap-3.5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all duration-150 hover:border-slate-300 hover:shadow-md active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2"
 >
   <div class="flex items-center gap-2.5">
-    <MessageSquare class="h-4 w-4 text-[#5A5E6E] transition-colors group-hover:text-[#22213F]" />
-    <h3 class="text-[15px] font-semibold text-[#1A1A24]">Agenda de la actividad</h3>
+    <MessageSquare class="h-4 w-4 text-ink-2 transition-colors group-hover:text-ink" />
+    <h3 class="text-[15px] font-semibold text-ink">Agenda de la actividad</h3>
     <button
       type="button"
-      class="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-[#D6D9E0] bg-white px-2.5 py-1 text-xs font-semibold text-[#1A1A24] transition-colors group-hover:border-[#22213F] group-hover:text-[#22213F]"
+      class="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink transition-colors group-hover:border-ink group-hover:text-ink"
       onclick={(e) => {
         e.stopPropagation();
         onAgendaClick();
@@ -45,23 +45,23 @@
   </div>
 
   {#if ultimo}
-    <div class="flex gap-3 rounded-lg border border-[#E5E7EB] bg-[#FCFBF9] p-3 transition-colors group-hover:bg-[#F9F7F4]">
+    <div class="flex gap-3 rounded-lg border border-gray-200 bg-stone-50 p-3 transition-colors group-hover:bg-stone-100">
       <div
         class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold
-        {ultimo.es_de_docente ? 'bg-[#22213F]/10 text-[#22213F]' : 'bg-emerald-50 text-emerald-700'}"
+        {ultimo.es_de_docente ? 'bg-ink/10 text-ink' : 'bg-emerald-50 text-emerald-700'}"
       >
         {ultimo.es_de_docente ? 'D' : 'T'}
       </div>
       <div class="flex min-w-0 flex-col gap-0.5">
         <span class="text-[12.5px]">
-          <span class="font-semibold text-[#1A1A24]">{ultimo.emisor}</span>
-          <span class="text-[#5A5E6E]"> · {ultimo.tipo_interaccion}</span>
+          <span class="font-semibold text-ink">{ultimo.emisor}</span>
+          <span class="text-ink-2"> · {ultimo.tipo_interaccion}</span>
         </span>
-        <p class="line-clamp-2 text-[13px] text-[#1A1A24]">{ultimo.mensaje}</p>
+        <p class="line-clamp-2 text-[13px] text-ink">{ultimo.mensaje}</p>
       </div>
     </div>
   {:else}
-    <p class="py-3 text-center text-xs text-[#5A5E6E]">
+    <p class="py-3 text-center text-xs text-ink-2">
       No hay mensajes aún. Haz clic para abrir la agenda y enviar una consulta.
     </p>
   {/if}

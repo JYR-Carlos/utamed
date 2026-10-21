@@ -655,7 +655,7 @@
 
   /** Botón secundario del mockup: 40 px (44 en móvil), borde de control y texto navy. */
   const BTN_SEC =
-    'inline-flex h-11 items-center gap-2 rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue sm:h-10';
+    'inline-flex h-11 items-center gap-2 rounded-lg border border-line-control bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue sm:h-10';
 
   // ─── Enunciado ────────────────────────────────────────────────────────────
   // Vive junto a la rúbrica en «Sobre esta actividad». Sólo el titular puede
@@ -681,11 +681,11 @@
     <!-- ── Encabezado (mockup «Hoja de evaluación»): el título es el <h1> de la página ── -->
     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
       <div class="flex min-w-0 flex-1 flex-col gap-2">
-        <h1 class="m-0 break-words text-xl font-semibold leading-[26px] text-[#1A1A24] sm:text-2xl sm:leading-[30px]">
+        <h1 class="m-0 break-words text-xl font-semibold leading-[26px] text-ink sm:text-2xl sm:leading-[30px]">
           {actividad.nombre}
         </h1>
         <p class="m-0 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm font-medium text-slate-600">
-          <span class="font-semibold text-[#1A1A24]">{actividad.es_sumativa ? 'Sumativa' : 'Formativa'}</span>
+          <span class="font-semibold text-ink">{actividad.es_sumativa ? 'Sumativa' : 'Formativa'}</span>
           <span aria-hidden="true">·</span>
           <!-- Fecha sin hora: cierra a las 23:59 de Chile, no a la medianoche UTC. -->
           <span>{cierre ? `Cierra el ${cierre.chile} (hora de Chile)` : 'Sin fecha límite'}</span>
@@ -761,7 +761,7 @@
     </div>
 
     {#if actividad.es_sumativa && tiene_evaluaciones && rubrica}
-      <p class="-mt-2 m-0 inline-flex items-center gap-1.5 text-xs font-medium text-[#92400E]">
+      <p class="-mt-2 m-0 inline-flex items-center gap-1.5 text-xs font-medium text-amber-800">
         <Lock class="size-3.5 shrink-0" />
         Evaluaciones iniciadas: la rúbrica quedó bloqueada.
       </p>

@@ -29,31 +29,20 @@
     @vite(['resources/js/app.ts'])
     @inertiaHead
 
-    {{-- Inline script to detect system dark mode preference and apply it immediately --}}
-    {{-- DISABLED: Forcing light mode for now --}}
-    {{--
+    {{-- Tema antes del primer pintado, con la cookie que guarda useAppearance:
+         sin esto la página destella en claro antes de pasar a oscuro. --}}
     <script>
         (function () {
-            const appearance = '{{ $appearance ?? "system" }}';
+            const appearance = '{{ $appearance ?? "light" }}';
+            const oscuro = appearance === 'dark'
+                || (appearance === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
-            if (appearance === 'system') {
-                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-                if (prefersDark) {
-                    document.documentElement.classList.add('dark');
-                }
-            }
+            document.documentElement.classList.toggle('dark', oscuro);
         })();
     </script>
-    --}}
-
-    {{-- Inline style to set the HTML background color based on our theme in app.css --}}
-    <style>
-
-    </style>
 </head>
 
-<body class="font-sans antialiased" style="background-color: white;">
+<body class="font-sans antialiased">
     @inertia
 </body>
 

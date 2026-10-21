@@ -227,7 +227,7 @@
 <div bind:this={listaRef} class="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-2 bg-slate-50/50">
   {#if isLoading && interaccionesProcesadas.length === 0}
     <div class="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
-      <div class="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[#002F6C]"></div>
+      <div class="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-navy"></div>
       <span class="text-xs">Cargando interacciones…</span>
     </div>
   {:else if errorMensaje && interaccionesProcesadas.length === 0}
@@ -265,8 +265,8 @@
         <!-- CASO B: Entrega Cancelada o Reemplazada (Beige / Histórico) -->
         {:else if item.tipo_interaccion === ENTREGA && (item.fue_cancelada || item.fue_reemplazada)}
           <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
-            <div class="w-fit max-w-[66.6%] rounded-2xl border-2 border-[#D2CCC0] bg-[#F4F1EA] shadow-xs overflow-hidden opacity-90">
-              <div class="flex items-center justify-between border-b border-[#D2CCC0] bg-[#E4DFD5]/80 px-3.5 py-1.5 text-xs gap-2.5">
+            <div class="w-fit max-w-[66.6%] rounded-2xl border-2 border-sand-line bg-sand shadow-xs overflow-hidden opacity-90">
+              <div class="flex items-center justify-between border-b border-sand-line bg-sand-2/80 px-3.5 py-1.5 text-xs gap-2.5">
                 <div class="flex items-center gap-1.5 min-w-0">
                   {#if item.fue_cancelada}
                     <FileX2 class="h-3.5 w-3.5 text-slate-600 shrink-0" />
@@ -276,7 +276,7 @@
                   <span class="truncate font-bold text-slate-800 text-[11.5px]" title="Entrega · {item.emisor}">
                     Entrega · {item.emisor}
                   </span>
-                  <span class="rounded-full border border-[#CBC4B7] bg-[#DCD6CA] px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider text-slate-700 shrink-0">
+                  <span class="rounded-full border border-sand-line bg-sand-line px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider text-slate-700 shrink-0">
                     {item.fue_cancelada ? 'Cancelada' : 'Reemplazada'}
                   </span>
                 </div>
@@ -290,7 +290,7 @@
                 {/if}
 
                 <!-- Ficha de archivo cancelado o reemplazado histórico -->
-                <div class="flex items-center justify-between gap-2.5 rounded-xl border border-[#D6CFC3] bg-white/75 p-2">
+                <div class="flex items-center justify-between gap-2.5 rounded-xl border border-sand-line bg-white/75 p-2">
                   <div class="flex min-w-0 items-center gap-2">
                     <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-slate-100 font-mono text-[9px] font-bold text-slate-400 line-through">
                       {(item.archivo?.nombre_original?.split('.').pop() ?? 'ARC').slice(0, 3).toUpperCase()}
@@ -319,7 +319,7 @@
                         href={urlDescargaEntrega(item.id_interaccion, true)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold text-slate-700 bg-white/90 border border-[#D2CCC0] transition-colors hover:bg-white no-underline shadow-2xs"
+                        class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold text-slate-700 bg-white/90 border border-sand-line transition-colors hover:bg-white no-underline shadow-2xs"
                         title={item.fue_cancelada ? 'Ver archivo cancelado' : 'Ver archivo reemplazado'}
                       >
                         <Eye class="h-3 w-3 text-slate-600" />
@@ -328,7 +328,7 @@
                     {:else}
                       <a
                         href={urlDescargaEntrega(item.id_interaccion)}
-                        class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold text-slate-700 bg-white/90 border border-[#D2CCC0] transition-colors hover:bg-white no-underline shadow-2xs"
+                        class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold text-slate-700 bg-white/90 border border-sand-line transition-colors hover:bg-white no-underline shadow-2xs"
                         title={item.fue_cancelada ? 'Descargar archivo cancelado' : 'Descargar archivo reemplazado'}
                       >
                         <Download class="h-3 w-3 text-slate-600" />
@@ -350,7 +350,7 @@
         <!-- CASO C: Entrega Activa (Amarillo cálido) -->
         {:else if item.tipo_interaccion === ENTREGA}
           <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
-            <div class="w-fit max-w-[66.6%] rounded-2xl border-2 border-amber-300 bg-[#FEFCE8] shadow-xs overflow-hidden">
+            <div class="w-fit max-w-[66.6%] rounded-2xl border-2 border-amber-300 bg-yellow-50 shadow-xs overflow-hidden">
               <div class="flex items-center justify-between border-b border-amber-200 bg-amber-100/80 px-3.5 py-1.5 text-xs gap-2.5">
                 <div class="flex items-center gap-1.5 min-w-0">
                   <PackageCheck class="h-3.5 w-3.5 text-amber-800 shrink-0" />
@@ -441,10 +441,10 @@
               class="w-fit max-w-[66.6%] rounded-2xl border-2 shadow-xs overflow-hidden {item.fue_reevaluada
                 ? 'border-slate-300 bg-slate-100/90 opacity-80'
                 : colorClase === 'emerald'
-                  ? 'border-emerald-400/70 bg-[#F0FDF4]'
+                  ? 'border-emerald-400/70 bg-green-50'
                   : colorClase === 'amber'
-                    ? 'border-amber-300 bg-[#FEFCE8]'
-                    : 'border-rose-300/80 bg-[#FFF1F2]'}"
+                    ? 'border-amber-300 bg-yellow-50'
+                    : 'border-rose-300/80 bg-rose-50'}"
             >
               <div
                 class="flex items-center justify-between border-b px-3.5 py-1.5 text-xs gap-2.5 {item.fue_reevaluada
@@ -585,13 +585,13 @@
         <!-- CASO E: Docente / Feedback (Blanco con acento azul, sin icono, corta header al ser consecutivo) -->
         {:else if item.tipo_interaccion === 'Feedback' || item.es_de_docente}
           <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
-            <div class="w-fit max-w-[66.6%] rounded-2xl border border-[#C9D6E6] border-l-4 border-l-[#002F6C] bg-white shadow-xs overflow-hidden">
+            <div class="w-fit max-w-[66.6%] rounded-2xl border border-slate-300 border-l-4 border-l-navy bg-white shadow-xs overflow-hidden">
               {#if !item.esConsecutivo}
-                <div class="flex items-center gap-1.5 border-b border-[#C9D6E6] bg-[#E8EDF5]/70 px-3.5 py-1 text-xs">
-                  <span class="truncate font-semibold text-[#002F6C] text-[11.5px]" title={item.emisor}>
+                <div class="flex items-center gap-1.5 border-b border-slate-300 bg-uta-blue-light/70 px-3.5 py-1 text-xs">
+                  <span class="truncate font-semibold text-navy text-[11.5px]" title={item.emisor}>
                     {item.es_propio && esDocente ? 'Tú' : item.emisor}
                   </span>
-                  <span class="rounded border border-[#C9D6E6] bg-white/90 px-1 py-0.1 text-[9.5px] font-medium text-[#002F6C] shrink-0">
+                  <span class="rounded border border-slate-300 bg-white/90 px-1 py-0.1 text-[9.5px] font-medium text-navy shrink-0">
                     Docente
                   </span>
                 </div>
@@ -615,7 +615,7 @@
                           fecha: item.fecha_emision,
                         });
                       }}
-                      class="inline-flex items-center gap-1 rounded-lg border border-[#C9D6E6] bg-white px-2 py-0.5 text-xs font-semibold text-[#002F6C] transition-colors hover:bg-slate-50 cursor-pointer"
+                      class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-navy transition-colors hover:bg-slate-50 cursor-pointer"
                     >
                       <span>Ver rúbrica</span>
                       <ChevronRight class="h-3 w-3" />
@@ -633,9 +633,9 @@
         <!-- CASO F: Mensaje Propio Estudiante (LAVANDA - SIN ÍCONO) -->
         {:else if item.es_propio}
           <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
-            <div class="w-fit max-w-[66.6%] rounded-2xl border border-[#DDD6FE] bg-[#F5EEFD] shadow-xs overflow-hidden">
+            <div class="w-fit max-w-[66.6%] rounded-2xl border border-violet-200 bg-violet-50 shadow-xs overflow-hidden">
               {#if !item.esConsecutivo}
-                <div class="border-b border-[#DDD6FE] bg-[#E9DDFB]/70 px-3.5 py-1 text-xs">
+                <div class="border-b border-violet-200 bg-purple-200/70 px-3.5 py-1 text-xs">
                   <span class="font-bold text-purple-950 text-[11.5px]">{esDocente ? item.emisor : 'Tú'}</span>
                 </div>
               {/if}
@@ -654,13 +654,13 @@
         <!-- CASO G: Mensaje de Compañero / Estudiante (LAVANDA GRISÁCEO - SIN ÍCONO) -->
         {:else}
           <div class="flex {esLadoDerecho(item) ? 'justify-end' : 'justify-start'}">
-            <div class="w-fit max-w-[66.6%] rounded-2xl border border-[#D5D3DE] bg-[#F2F1F6] shadow-xs overflow-hidden">
+            <div class="w-fit max-w-[66.6%] rounded-2xl border border-line bg-gray-100 shadow-xs overflow-hidden">
               {#if !item.esConsecutivo}
-                <div class="flex items-center gap-1.5 border-b border-[#D5D3DE] bg-[#E4E2ED]/70 px-3.5 py-1 text-xs">
+                <div class="flex items-center gap-1.5 border-b border-line bg-zinc-200/70 px-3.5 py-1 text-xs">
                   <span class="truncate font-semibold text-slate-800 text-[11.5px]" title={item.emisor}>
                     {item.emisor}
                   </span>
-                  <span class="rounded border border-[#D5D3DE] bg-white/90 px-1 py-0.1 text-[9.5px] font-medium text-slate-600 shrink-0">
+                  <span class="rounded border border-line bg-white/90 px-1 py-0.1 text-[9.5px] font-medium text-slate-600 shrink-0">
                     {esDocente ? 'Estudiante' : 'Compañero (G3)'}
                   </span>
                 </div>

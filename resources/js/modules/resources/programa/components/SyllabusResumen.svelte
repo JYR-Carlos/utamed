@@ -122,20 +122,20 @@
       .join(' · ') || '—',
   );
 
-  const NUM = 'w-[30px] shrink-0 font-mono text-[12.5px] text-[#9AA0AE]';
-  const TIT = 'm-0 text-[18px] font-semibold text-[#1A1A24]';
+  const NUM = 'w-[30px] shrink-0 font-mono text-[12.5px] text-gray-400';
+  const TIT = 'm-0 text-[18px] font-semibold text-ink';
 </script>
 
 <div class="flex w-full flex-col items-center gap-4">
-  <p class="m-0 w-full max-w-[760px] text-[12.5px] text-[#5A5E6E]">
+  <p class="m-0 w-full max-w-[760px] text-[12.5px] text-ink-2">
     Así se verá el documento en el visor. Revisa antes de guardar.
   </p>
 
   <article
-    class="flex w-full max-w-[760px] flex-col gap-[26px] rounded-[10px] border border-[#E5E7EB] bg-white px-6 py-8 text-[15px] leading-[1.65] text-[#1A1A24] sm:px-11"
+    class="flex w-full max-w-[760px] flex-col gap-[26px] rounded-[10px] border border-gray-200 bg-white px-6 py-8 text-[15px] leading-[1.65] text-ink sm:px-11"
   >
-    <header class="flex flex-col gap-1.5 border-b border-[#EDEFF3] pb-[18px]">
-      <span class="font-mono text-[12.5px] text-[#5A5E6E]">
+    <header class="flex flex-col gap-1.5 border-b border-gray-100 pb-[18px]">
+      <span class="font-mono text-[12.5px] text-ink-2">
         {[codigo, tipo, version ? `versión ${version}` : 'versión nueva']
           .filter(Boolean)
           .join(' · ')}
@@ -151,22 +151,22 @@
         <h3 class={TIT}>Identificación</h3>
       </div>
       <dl
-        class="m-0 grid grid-cols-1 gap-x-7 gap-y-3 border-y border-[#EDEFF3] py-4 sm:grid-cols-2"
+        class="m-0 grid grid-cols-1 gap-x-7 gap-y-3 border-y border-gray-100 py-4 sm:grid-cols-2"
       >
         <div class="flex flex-col">
-          <dt class="text-[12px] text-[#5A5E6E]">Créditos SCT</dt>
+          <dt class="text-[12px] text-ink-2">Créditos SCT</dt>
           <dd class="m-0 text-[14.5px] font-medium">{creditos_sct || '—'}</dd>
         </div>
         <div class="flex flex-col">
-          <dt class="text-[12px] text-[#5A5E6E]">Horas semanales</dt>
+          <dt class="text-[12px] text-ink-2">Horas semanales</dt>
           <dd class="m-0 text-[14.5px] font-medium">{horas}</dd>
         </div>
         <div class="flex flex-col">
-          <dt class="text-[12px] text-[#5A5E6E]">Categoría</dt>
+          <dt class="text-[12px] text-ink-2">Categoría</dt>
           <dd class="m-0 text-[14.5px] font-medium">{categoria || '—'}</dd>
         </div>
         <div class="flex flex-col">
-          <dt class="text-[12px] text-[#5A5E6E]">Docente titular</dt>
+          <dt class="text-[12px] text-ink-2">Docente titular</dt>
           <dd class="m-0 text-[14.5px] font-medium">{docenteTitular ?? '—'}</dd>
         </div>
       </dl>
@@ -177,7 +177,7 @@
         <span class={NUM}>II.</span>
         <h3 class={TIT}>Presentación</h3>
       </div>
-      <p class="m-0 text-pretty whitespace-pre-wrap {presentacion.trim() ? '' : 'text-[#9AA0AE]'}">
+      <p class="m-0 text-pretty whitespace-pre-wrap {presentacion.trim() ? '' : 'text-gray-400'}">
         {presentacion.trim() || 'Sin contenido todavía.'}
       </p>
     </section>
@@ -191,7 +191,7 @@
         <div class="flex flex-col gap-3.5">
           {#each unidadesConTitulo as u (u.numero)}
             <div class="flex flex-col gap-1">
-              <span class="font-mono text-[12px] text-[#5A5E6E]">Unidad {u.numero}</span>
+              <span class="font-mono text-[12px] text-ink-2">Unidad {u.numero}</span>
               <span class="text-[15px] font-semibold">{u.titulo}</span>
               {#if u.contenidos.trim()}
                 <p class="m-0 text-pretty whitespace-pre-wrap">{u.contenidos}</p>
@@ -200,7 +200,7 @@
           {/each}
         </div>
       {:else}
-        <p class="m-0 text-[#9AA0AE]">Sin contenido todavía.</p>
+        <p class="m-0 text-gray-400">Sin contenido todavía.</p>
       {/if}
     </section>
 
@@ -220,7 +220,7 @@
           {/each}
         </ul>
       {:else}
-        <p class="m-0 text-[#9AA0AE]">Sin contenido todavía.</p>
+        <p class="m-0 text-gray-400">Sin contenido todavía.</p>
       {/if}
     </section>
 
@@ -233,29 +233,29 @@
         <div class="flex flex-col gap-4">
           {#each bibliografiasPorGrupo as grupo (grupo.encabezado)}
             <div class="flex flex-col gap-1.5">
-              <div class="border-b border-[#D6D9E0] pb-0.5">
+              <div class="border-b border-line pb-0.5">
                 <span
-                  class="font-mono text-[12px] font-bold tracking-[0.03em] text-[#002F6C] uppercase"
+                  class="font-mono text-[12px] font-bold tracking-[0.03em] text-navy uppercase"
                 >
                   {grupo.encabezado}
                 </span>
               </div>
-              <ul class="m-0 flex list-disc flex-col gap-1.5 text-[14px] marker:text-[#9AA0AE]">
+              <ul class="m-0 flex list-disc flex-col gap-1.5 text-[14px] marker:text-gray-400">
                 {#each grupo.bibs as b (b.uuid_bibliografia ?? b.titulo)}
                   <li
                     class="text-pretty transition-colors list-inside px-2 py-0.5 border border-transparent {b.es_bibliografia_uta
-                      ? 'bg-[#EBF3FA]'
+                      ? 'bg-brand-light'
                       : ''}"
                   >
-                    <span class="font-semibold text-[#1A1A24]">{b.titulo}</span>
+                    <span class="font-semibold text-ink">{b.titulo}</span>
                     {#if b.autor}
-                      · <span class="text-[#5A5E6E]">{b.autor}</span>{/if}
-                    <span class="font-mono text-[12px] text-[#5A5E6E]">({b.anio})</span>
+                      · <span class="text-ink-2">{b.autor}</span>{/if}
+                    <span class="font-mono text-[12px] text-ink-2">({b.anio})</span>
                     {#if b.editorial}
-                      <span class="italic text-[#9AA0AE]">· {b.editorial}</span>{/if}
+                      <span class="italic text-gray-400">· {b.editorial}</span>{/if}
                     {#if b.es_bibliografia_uta}
                       <span
-                        class="ml-1 rounded bg-[#002F6C] px-1.5 py-0.5 text-[10.5px] font-bold text-white"
+                        class="ml-1 rounded bg-navy px-1.5 py-0.5 text-[10.5px] font-bold text-white"
                         >Oficial UTA</span
                       >
                     {/if}
@@ -264,7 +264,7 @@
                         href={b.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="text-[#002F6C] underline hover:text-[#1B4789]"
+                        class="text-navy underline hover:text-navy-2"
                         >{formatDomainUrl(b.url)}</a
                       >
                     {/if}
@@ -273,12 +273,12 @@
                         href={`/api/bibliografias/${b.uuid_archivo}/archivo`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="font-medium text-[#002F6C] underline hover:text-[#1B4789]"
+                        class="font-medium text-navy underline hover:text-navy-2"
                         >Ver archivo</a
                       >
                     {/if}
                     {#if b.cita}
-                      <span class="block text-[12.5px] italic text-[#5A5E6E] mt-0.5 leading-snug"
+                      <span class="block text-[12.5px] italic text-ink-2 mt-0.5 leading-snug"
                         >«{b.cita}»</span
                       >
                     {/if}
@@ -295,13 +295,13 @@
           {/each}
         </ul>
       {:else}
-        <p class="m-0 text-[#9AA0AE]">Sin contenido todavía.</p>
+        <p class="m-0 text-gray-400">Sin contenido todavía.</p>
       {/if}
     </section>
   </article>
 
   <p
-    class="m-0 flex w-full max-w-[760px] items-start gap-2.5 rounded-[9px] border border-[#E3D9C6] bg-[#F5F1EA] px-3.5 py-3 text-[12.5px] leading-[1.5] text-[#6B5B3E]"
+    class="m-0 flex w-full max-w-[760px] items-start gap-2.5 rounded-[9px] border border-sand-line bg-sand px-3.5 py-3 text-[12.5px] leading-[1.5] text-stone-600"
   >
     <Info size={15} class="mt-0.5 shrink-0" aria-hidden="true" />
     Al guardar, el syllabus básico queda <strong class="font-semibold">entregado</strong> y visible para

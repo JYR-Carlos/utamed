@@ -172,13 +172,13 @@
         <label
           class="flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer
                  {selectedDcId === doc.id_docente_componente
-                   ? 'border-[#2A66AC] bg-blue-50/50'
+                   ? 'border-brand bg-blue-50/50'
                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}"
         >
           <input
             type="radio"
             name="titular"
-            class="accent-[#2A66AC] w-4 h-4 shrink-0"
+            class="accent-brand w-4 h-4 shrink-0"
             value={doc.id_docente_componente}
             bind:group={selectedDcId}
             disabled={esDtCurso}
@@ -187,7 +187,7 @@
           <!-- Avatar -->
           <div
             class="flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold text-white shrink-0"
-            style="background:#2A66AC;"
+            style="background:var(--background-color-brand, #2A66AC);"
           >
             {initials(doc.nombre)}
           </div>
@@ -229,7 +229,7 @@
         onclick={confirm}
         disabled={saving || !selectedDcId}
         class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
-               bg-[#2A66AC] text-white hover:bg-[#1e4d8a] disabled:opacity-50
+               bg-brand text-white hover:bg-brand-hover disabled:opacity-50
                disabled:cursor-not-allowed transition-colors"
       >
         {#if saving}

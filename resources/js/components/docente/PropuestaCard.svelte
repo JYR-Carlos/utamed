@@ -17,10 +17,10 @@
   let { icon: Icon, title, emptyTitle, emptyDescription }: Props = $props();
 </script>
 
-<section class="flex flex-col gap-4 rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-5">
+<section class="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
   <div class="flex items-center gap-2">
-    <Icon class="h-5 w-5 text-[#002855]" />
-    <h3 class="text-base font-semibold text-[#171A26]">{title}</h3>
+    <Icon class="h-5 w-5 text-uta-blue" />
+    <h3 class="text-base font-semibold text-ink">{title}</h3>
   </div>
 
   <BloqueVacio title={emptyTitle} description={emptyDescription} />

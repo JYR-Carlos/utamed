@@ -20,7 +20,8 @@
 
   const COLORES = {
     claro: { ok: 'text-emerald-700', falta: 'text-red-600', neutro: 'text-slate-500' },
-    oscuro: { ok: 'text-emerald-300', falta: 'text-red-300', neutro: 'text-[#C4BFE0]/70' },
+    // Fondo oscuro fijo (no cambia con el tema): hex en vez de la paleta, que el modo oscuro remapea.
+    oscuro: { ok: 'text-[#5EE9B5]', falta: 'text-[#FFA2A2]', neutro: 'text-[#C4BFE0]/70' },
   };
   const c = $derived(COLORES[tono]);
 

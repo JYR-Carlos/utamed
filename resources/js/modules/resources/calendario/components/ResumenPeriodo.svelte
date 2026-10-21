@@ -18,9 +18,9 @@
   let { titulo, entregas, sesiones, hitos, diasConSobrecarga }: Props = $props();
 </script>
 
-<div class="flex flex-col gap-2 border-t border-[#E5E7EB] px-3.5 py-3.5">
+<div class="flex flex-col gap-2 border-t border-gray-200 px-3.5 py-3.5">
   <span class={ETIQUETA}>{titulo}</span>
-  <dl class="m-0 flex flex-col gap-1.5 text-[12px] text-[#4A4E5C]">
+  <dl class="m-0 flex flex-col gap-1.5 text-[12px] text-zinc-600">
     <div class="flex">
       <dt>Fechas límite</dt>
       <dd class="m-0 ml-auto font-semibold tabular-nums">{entregas}</dd>
@@ -33,7 +33,7 @@
       <dt>Hitos de syllabus</dt>
       <dd class="m-0 ml-auto font-semibold tabular-nums">{hitos}</dd>
     </div>
-    <div class="flex" style="color:{diasConSobrecarga > 0 ? '#B91C1C' : '#4A4E5C'}">
+    <div class="flex" style="color:{diasConSobrecarga > 0 ? 'var(--color-red-700, #B91C1C)' : 'var(--color-zinc-600, #4A4E5C)'}">
       <dt>Días con sobrecarga</dt>
       <dd class="m-0 ml-auto font-semibold tabular-nums">{diasConSobrecarga}</dd>
     </div>

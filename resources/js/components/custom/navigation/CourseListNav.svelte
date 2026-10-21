@@ -180,7 +180,7 @@
       <!-- El nombre puede ocupar dos líneas: con truncate se cortaba justo lo
            que distingue a dos cursos hermanos; el grupo va debajo, con el código. -->
       <span
-        class="line-clamp-2 text-sm leading-snug font-semibold {current ? 'text-[#1A1A24]' : 'text-slate-600'}"
+        class="line-clamp-2 text-sm leading-snug font-semibold {current ? 'text-ink' : 'text-slate-600'}"
         title={curso.etiqueta ?? curso.nombre}>{nombreSinGrupo(curso)}</span
       >
       <span class="flex items-center gap-2 text-xs text-slate-600">
@@ -225,9 +225,9 @@
 <!-- Buscador -->
 <div class="px-4 mb-3">
   <div
-    class="flex h-10 items-center gap-2 px-3 bg-white border border-[#7B8AA0] rounded-lg transition-all focus-within:border-uta-blue focus-within:ring-2 focus-within:ring-uta-blue"
+    class="flex h-10 items-center gap-2 px-3 bg-white border border-line-control rounded-lg transition-all focus-within:border-uta-blue focus-within:ring-2 focus-within:ring-uta-blue"
   >
-    <Search size={16} class="text-[#5B6A82] shrink-0" />
+    <Search size={16} class="text-ink-2 shrink-0" />
     <input
       type="text"
       bind:value={search}

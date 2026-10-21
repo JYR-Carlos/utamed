@@ -18,7 +18,7 @@ class HandleAppearance
     /**
      * Procesa request y comparte configuración de apariencia con vistas.
      * 
-     * Obtiene valor de cookie 'appearance' (default: 'system') y lo disponibiliza
+     * Obtiene valor de cookie 'appearance' (default: 'light') y lo disponibiliza
      * en todas las vistas a través de View::share().
      * 
      * @param  Request  $request  Solicitud HTTP
@@ -29,7 +29,7 @@ class HandleAppearance
     {
         $allowed = ['system', 'light', 'dark'];
         $appearance = $request->cookie('appearance');
-        View::share('appearance', in_array($appearance, $allowed, true) ? $appearance : 'system');
+        View::share('appearance', in_array($appearance, $allowed, true) ? $appearance : 'light');
 
         return $next($request);
     }

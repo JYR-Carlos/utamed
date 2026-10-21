@@ -24,7 +24,7 @@
   ];
 </script>
 
-<div class="flex flex-col gap-2.5 border-t border-[#E5E7EB] px-3.5 py-3.5">
+<div class="flex flex-col gap-2.5 border-t border-gray-200 px-3.5 py-3.5">
   <span class={ETIQUETA}>Tipo de evento</span>
 
   {#each OPCIONES as opcion (opcion.familia)}
@@ -38,24 +38,24 @@
       <span
         class="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] border transition-colors"
         style={activo
-          ? 'background:#002F6C;border-color:#002F6C'
-          : 'background:#FFFFFF;border-color:#C9CDD6;border-width:1.5px'}
+          ? 'background:var(--background-color-navy, #002F6C);border-color:var(--color-navy, #002F6C)'
+          : 'background:var(--background-color-white, #FFFFFF);border-color:var(--color-slate-300, #C9CDD6);border-width:1.5px'}
       >
-        {#if activo}<Check size={11} color="#FFFFFF" />{/if}
+        {#if activo}<Check size={11} class="text-white" />{/if}
       </span>
 
       {#if opcion.familia === 'ENTREGA'}
-        <ClipboardCheck size={14} class="shrink-0" color="#5A5E6E" />
+        <ClipboardCheck size={14} class="text-ink-2 shrink-0" />
       {:else if opcion.familia === 'SESION'}
-        <Clock size={14} class="shrink-0" color="#5A5E6E" />
+        <Clock size={14} class="text-ink-2 shrink-0" />
       {:else}
-        <ClipboardList size={14} class="shrink-0" color="#5A5E6E" />
+        <ClipboardList size={14} class="text-ink-2 shrink-0" />
       {/if}
 
-      <span class="text-[12.5px] font-medium {activo ? 'text-[#1A1A24]' : 'text-[#8A8E9C]'}">
+      <span class="text-[12.5px] font-medium {activo ? 'text-ink' : 'text-ink-3'}">
         {opcion.etiqueta}
       </span>
-      <span class="ml-auto font-mono text-[11px] tabular-nums text-[#5A5E6E]">
+      <span class="ml-auto font-mono text-[11px] tabular-nums text-ink-2">
         {conteos[opcion.familia]}
       </span>
     </button>

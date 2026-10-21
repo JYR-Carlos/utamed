@@ -60,11 +60,11 @@
 
 <aside class="flex w-full flex-col gap-3 lg:sticky lg:top-6 lg:w-[240px] lg:flex-none">
   <nav
-    class="flex flex-col gap-px rounded-[10px] border border-[#E5E7EB] bg-white px-2 py-2.5"
+    class="flex flex-col gap-px rounded-[10px] border border-gray-200 bg-white px-2 py-2.5"
     aria-label="Contenido del syllabus"
   >
     <span
-      class="px-2.5 pt-1 pb-2 text-[11px] font-semibold tracking-[0.08em] text-[#5A5E6E] uppercase"
+      class="px-2.5 pt-1 pb-2 text-[11px] font-semibold tracking-[0.08em] text-ink-2 uppercase"
     >
       Contenido
     </span>
@@ -75,19 +75,19 @@
         onclick={() => onNavegar?.(entrada.numeral)}
         aria-current={esActiva ? 'true' : undefined}
         class="flex items-center gap-2.5 rounded-[7px] px-2.5 py-[7px] text-[13px] no-underline transition-colors {esActiva
-          ? 'bg-[#E8EDF5] font-semibold text-[#002F6C] shadow-[inset_2px_0_0_#002F6C]'
+          ? 'bg-uta-blue-light font-semibold text-navy shadow-[inset_2px_0_0_var(--color-navy)]'
           : entrada.completa || !mostrarProgreso
-            ? 'text-[#1A1A24] hover:bg-[#F5F1EA]'
-            : 'text-[#5A5E6E] hover:bg-[#F5F1EA]'}"
+            ? 'text-ink hover:bg-sand'
+            : 'text-ink-2 hover:bg-sand'}"
       >
         <span
           class="w-[22px] shrink-0 font-mono text-[11.5px] {esActiva
-            ? 'text-[#002F6C]'
-            : 'text-[#9AA0AE]'}">{entrada.numeral}.</span
+            ? 'text-navy'
+            : 'text-gray-400'}">{entrada.numeral}.</span
         >
         <span class="min-w-0 flex-1 truncate">{entrada.nombre}</span>
         {#if mostrarProgreso && entrada.completa}
-          <Check size={14} class="shrink-0 text-[#059669]" aria-label="Con contenido" />
+          <Check size={14} class="shrink-0 text-emerald-600" aria-label="Con contenido" />
         {/if}
       </a>
     {/each}
@@ -99,19 +99,19 @@
         type="button"
         onclick={() => (ayudaVisible = !ayudaVisible)}
         aria-expanded={ayudaVisible}
-        class="inline-flex w-fit items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#1A1A24] transition-colors hover:bg-[#F5F1EA]"
+        class="inline-flex w-fit items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-ink transition-colors hover:bg-sand"
       >
         {#if tipo === 'BASICO'}
-          <File size={13} class="text-[#5A5E6E]" aria-hidden="true" />
+          <File size={13} class="text-ink-2" aria-hidden="true" />
         {:else}
-          <FileText size={13} class="text-[#5A5E6E]" aria-hidden="true" />
+          <FileText size={13} class="text-ink-2" aria-hidden="true" />
         {/if}
         Tipo {tipo}
-        <HelpCircle size={13} class="text-[#9AA0AE]" aria-hidden="true" />
+        <HelpCircle size={13} class="text-gray-400" aria-hidden="true" />
       </button>
       {#if ayudaVisible}
         <p
-          class="m-0 rounded-lg bg-[#1A1A24] px-2.5 py-2 text-[12px] leading-[1.5] text-white shadow-[0_6px_16px_rgba(0,0,0,.2)]"
+          class="m-0 rounded-lg bg-ink px-2.5 py-2 text-[12px] leading-[1.5] text-white shadow-[0_6px_16px_rgba(0,0,0,.2)]"
           role="status"
         >
           El tipo {tipo} exige {exigidas.length}
@@ -126,19 +126,19 @@
 
   {#if mostrarProgreso}
     <div class="flex flex-col gap-1.5 px-1">
-      <p class="m-0 text-[11.5px] text-[#5A5E6E]">
-        <strong class="font-semibold text-[#1A1A24]">{completas} de {exigidas.length}</strong>
+      <p class="m-0 text-[11.5px] text-ink-2">
+        <strong class="font-semibold text-ink">{completas} de {exigidas.length}</strong>
         {exigidas.length === 1 ? 'sección completa' : 'secciones completas'}
       </p>
       <div
-        class="h-[5px] overflow-hidden rounded-full bg-[#E5E7EB]"
+        class="h-[5px] overflow-hidden rounded-full bg-gray-200"
         role="progressbar"
         aria-valuenow={porcentaje}
         aria-valuemin="0"
         aria-valuemax="100"
         aria-label="Progreso del syllabus"
       >
-        <div class="h-full bg-[#002F6C] transition-all" style="width: {porcentaje}%"></div>
+        <div class="h-full bg-navy transition-all" style="width: {porcentaje}%"></div>
       </div>
     </div>
   {/if}

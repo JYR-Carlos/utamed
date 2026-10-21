@@ -290,20 +290,20 @@
 </svelte:head>
 
 <StudentLayout {breadcrumbs}>
-  <div class="min-h-screen bg-[#FAFBFC]">
+  <div class="min-h-screen bg-gray-50">
     <div class="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8 md:px-6 lg:px-8">
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px] lg:items-start">
         <main class="flex flex-col gap-5">
           {#if avisoError}
             <div
               role="alert"
-              class="flex items-start gap-2.5 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-[13px] text-[#7F1D1D]"
+              class="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-900"
             >
-              <AlertCircle class="mt-0.5 h-4 w-4 shrink-0 text-[#B91C1C]" aria-hidden="true" />
+              <AlertCircle class="mt-0.5 h-4 w-4 shrink-0 text-red-700" aria-hidden="true" />
               <p class="flex-1">{avisoError}</p>
               <button
                 type="button"
-                class="shrink-0 text-[#B91C1C] hover:text-[#7F1D1D]"
+                class="shrink-0 text-red-700 hover:text-red-900"
                 aria-label="Cerrar aviso"
                 onclick={() => (avisoError = null)}
               >
@@ -331,10 +331,10 @@
             <section class="flex items-start gap-3 rounded-xl border border-slate-300 bg-slate-100/70 p-5 md:p-6">
               <Users class="mt-0.5 h-5 w-5 shrink-0 text-slate-600" aria-hidden="true" />
               <div class="flex flex-col gap-1">
-                <h2 class="text-base font-bold text-[#1A1A24]">
+                <h2 class="text-base font-bold text-ink">
                   {es_grupal ? 'Aún no tienes grupo en esta actividad' : 'Tu registro en esta actividad aún no está listo'}
                 </h2>
-                <p class="text-[13px] text-[#5A5E6E]">
+                <p class="text-[13px] text-ink-2">
                   {es_grupal
                     ? 'Cuando tu docente te asigne a un grupo podrás entregar y escribir en la agenda. Si crees que es un error, avísale.'
                     : 'Avisa a tu docente para que lo revise: sin él no puedes entregar ni escribir en la agenda.'}
@@ -431,14 +431,14 @@
       propia tabla (RubricaView envuelve en overflow-x-auto), no este contenedor:
       así la cabecera del modal y el botón de cerrar quedan siempre a la vista.
     -->
-    <div class="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
-      <div class="flex items-center justify-between border-b border-[#E5E7EB] p-5 md:px-6">
+    <div class="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+      <div class="flex items-center justify-between border-b border-gray-200 p-5 md:px-6">
         <div>
-          <div class="text-xs font-semibold uppercase tracking-wider text-[#5A5E6E]">Rúbrica de evaluación</div>
-          <div class="mt-0.5 text-base font-semibold text-[#1A1A24]">{nombre_actividad}</div>
+          <div class="text-xs font-semibold uppercase tracking-wider text-ink-2">Rúbrica de evaluación</div>
+          <div class="mt-0.5 text-base font-semibold text-ink">{nombre_actividad}</div>
         </div>
         <button
-          class="rounded-lg p-1 text-[#5A5E6E] transition-colors hover:bg-[#F8FAFC] hover:text-[#1A1A24]"
+          class="rounded-lg p-1 text-ink-2 transition-colors hover:bg-slate-50 hover:text-ink"
           onclick={toggleRubricaModal}
           aria-label="Cerrar"
         >
@@ -455,7 +455,7 @@
             retroalimentacion={ultima_evaluacion?.retroalimentacion ?? ultimaEvaluacion?.mensaje}
           />
         {:else}
-          <p class="py-8 text-center text-sm font-medium text-[#5A5E6E]">No hay rúbrica disponible para esta actividad.</p>
+          <p class="py-8 text-center text-sm font-medium text-ink-2">No hay rúbrica disponible para esta actividad.</p>
         {/if}
       </div>
     </div>

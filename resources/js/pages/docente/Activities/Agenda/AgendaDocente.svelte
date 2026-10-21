@@ -255,16 +255,16 @@
 <div class="w-[96%] sm:w-[94%] lg:w-[92%] 2xl:w-[90%] max-w-[1440px] h-[90vh] flex rounded-2xl bg-white shadow-2xl overflow-hidden relative">
 
   <!-- ── Panel principal: historial + formulario ───────────────────────────── -->
-  <div class="flex min-w-0 flex-1 flex-col h-full relative overflow-hidden border-r border-[#E5E7EB]">
+  <div class="flex min-w-0 flex-1 flex-col h-full relative overflow-hidden border-r border-gray-200">
 
     <!-- Cabecera idéntica a estudiante -->
-    <div class="flex shrink-0 items-center justify-between border-b border-[#E5E7EB] px-5 py-3.5 bg-white z-10">
+    <div class="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-3.5 bg-white z-10">
       <div class="flex min-w-0 flex-col">
-        <span class="text-[15px] font-semibold text-[#1A1A24]">{esGrupal ? 'Agenda del grupo' : 'Agenda del estudiante'}</span>
-        <span class="truncate text-xs text-[#5A5E6E]">{cod_curso} · {nombre_actividad} · {nombre_grupo}</span>
+        <span class="text-[15px] font-semibold text-ink">{esGrupal ? 'Agenda del grupo' : 'Agenda del estudiante'}</span>
+        <span class="truncate text-xs text-ink-2">{cod_curso} · {nombre_actividad} · {nombre_grupo}</span>
       </div>
       <button
-        class="rounded-full p-1.5 text-[#5A5E6E] transition-colors hover:bg-[#F8FAFC] cursor-pointer"
+        class="rounded-full p-1.5 text-ink-2 transition-colors hover:bg-slate-50 cursor-pointer"
         onclick={onCerrar}
         aria-label="Cerrar agenda"
       >
@@ -291,7 +291,7 @@
     />
 
     <!-- Compositor inferior integrado y pegado al borde -->
-    <div class="shrink-0 border-t border-[#E5E7EB] bg-white px-5 py-3.5 z-10">
+    <div class="shrink-0 border-t border-gray-200 bg-white px-5 py-3.5 z-10">
 
       <!-- Selector de tipo -->
       <div class="flex items-center gap-1.5 mb-2.5">
@@ -427,7 +427,7 @@
             : esGrupal ? 'Escribe tu retroalimentación al grupo…' : `Escribe tu retroalimentación a ${nombre_grupo}…`}
           rows={esEvaluacion && !esSumativa ? 4 : 2}
           maxlength="4000"
-          class="flex-1 resize-y rounded-lg border border-[#D6D9E0] px-3.5 py-2.5 text-[13px] text-[#1A1A24] outline-none transition-colors focus:border-[#002F6C]"
+          class="flex-1 resize-y rounded-lg border border-line px-3.5 py-2.5 text-[13px] text-ink outline-none transition-colors focus:border-navy"
         ></textarea>
         <button
           onclick={manejarEnvio}
@@ -436,13 +436,13 @@
                 ? (!resultadoListo || (!!rubricaActividad && !todosEvaluados) || !rubricaActividad)
                 : (!opinionFormativa || !nuevoMensaje.trim()))
             : !nuevoMensaje.trim()}
-          class="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#002F6C] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#002F6C] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+          class="flex shrink-0 items-center gap-1.5 rounded-lg border border-navy bg-white px-4 py-2.5 text-[13px] font-semibold text-navy transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
           <Send class="h-3.5 w-3.5" />
           Enviar
         </button>
       </div>
-      <span class="mt-1 block text-right font-mono text-[10.5px] text-[#5A5E6E]">
+      <span class="mt-1 block text-right font-mono text-[10.5px] text-ink-2">
         {nuevoMensaje.length} / 4.000
       </span>
     </div>
@@ -554,6 +554,6 @@
 
 <style>
   .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
-  .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--background-color-gray-300, #d1d5db); border-radius: 10px; }
   .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 </style>

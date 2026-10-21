@@ -46,7 +46,7 @@
   const BASE =
     'inline-flex h-11 items-center gap-2 rounded-full border px-4 text-[15px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2 sm:h-[38px]';
   const ACTIVO = 'bg-uta-blue-light border-uta-blue text-uta-blue font-semibold';
-  const INACTIVO = 'bg-white border-[#7B8AA0] text-[#1A1A24] font-medium hover:bg-slate-50';
+  const INACTIVO = 'bg-white border-line-control text-ink font-medium hover:bg-slate-50';
 
   function titulo(c: ComponentePill): string | undefined {
     return c.es_titular ? 'Eres titular de este componente' : undefined;

@@ -2051,7 +2051,7 @@
   <!-- Floating tooltip anchored to mouse cursor (bottom-left corner) -->
   {#if showTooltip && currentDuplicateAssignment}
     <div
-      class="fixed bg-orange-900 text-orange-50 text-xs rounded-lg px-3 py-2 shadow-lg z-9999 pointer-events-none max-w-xs"
+      class="fixed bg-orange-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg z-9999 pointer-events-none max-w-xs"
       style="left: {tooltipX}px; top: {tooltipY}px; transform: translateY(-100%); font-size: 12px;"
       role="tooltip"
     >
@@ -2059,7 +2059,7 @@
       <p class="mb-2">
         Existe una asignación vigente de <strong>{selectedRole?.nombre}</strong> en este contexto.
       </p>
-      <div class="text-orange-100 space-y-1 mb-2">
+      <div class="text-white/85 space-y-1 mb-2">
         <p>
           <strong>Vigencia:</strong>
           {currentDuplicateAssignment.fecha_inicio_planificada} a {currentDuplicateAssignment.fecha_fin_planificada}
@@ -2069,7 +2069,7 @@
           {currentDuplicateAssignment.creado_por_nombre}
         </p>
       </div>
-      <p class="text-orange-100">
+      <p class="text-white/85">
         Revoca o espera a que expire la asignación actual antes de crear una nueva.
       </p>
     </div>

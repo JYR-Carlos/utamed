@@ -85,8 +85,8 @@
   }
 
   const FILA =
-    'flex items-center gap-2.5 px-3 py-2.5 text-[13px] text-[#1A1A24] border-t border-[#E5E7EB] first:border-t-0';
-  const TAG_FILA = 'ml-auto font-mono text-[12px] text-[#5A5E6E]';
+    'flex items-center gap-2.5 px-3 py-2.5 text-[13px] text-ink border-t border-gray-200 first:border-t-0';
+  const TAG_FILA = 'ml-auto font-mono text-[12px] text-ink-2';
 </script>
 
 <svelte:window onkeydown={isOpen ? onKeydown : undefined} />
@@ -98,22 +98,22 @@
     onclick={onBackdrop}
   >
     <div
-      class="flex max-h-[90vh] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-[0_20px_40px_rgba(0,0,0,.15)]"
+      class="flex max-h-[90vh] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_20px_40px_rgba(0,0,0,.15)]"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="eliminar-actividad-titulo"
     >
       <!-- Cabecera -->
-      <div class="flex items-start gap-3 border-b border-[#FECACA] bg-[#FEF2F2] px-5 py-3.5">
-        <AlertTriangle size={18} class="mt-px shrink-0 text-[#B91C1C]" aria-hidden="true" />
+      <div class="flex items-start gap-3 border-b border-red-200 bg-red-50 px-5 py-3.5">
+        <AlertTriangle size={18} class="mt-px shrink-0 text-red-700" aria-hidden="true" />
         <div class="flex min-w-0 flex-col gap-0.5">
           <h2
             id="eliminar-actividad-titulo"
-            class="m-0 text-[15.5px] font-semibold break-words text-[#7F1D1D]"
+            class="m-0 text-[15.5px] font-semibold break-words text-red-900"
           >
             Eliminar «{actividad.nombre}»
           </h2>
-          <p class="m-0 text-[12.5px] text-[#B91C1C]">
+          <p class="m-0 text-[12.5px] text-red-700">
             Esta acción no se puede deshacer{grupos > 0
               ? ` y afecta a ${grupos === 1 ? 'el grupo' : `los ${grupos} grupos`} de la actividad`
               : ''}.
@@ -124,13 +124,13 @@
       <!-- Cuerpo -->
       <div class="flex flex-col gap-3.5 overflow-y-auto px-5 py-4">
         {#if grupos > 0 || entregas > 0 || notas > 0 || actividad.fecha_limite}
-          <p class="m-0 text-[13px] text-[#1A1A24]">
+          <p class="m-0 text-[13px] text-ink">
             Al eliminar la actividad se borra también, de forma permanente:
           </p>
-          <div class="flex flex-col overflow-hidden rounded-[10px] border border-[#E5E7EB]">
+          <div class="flex flex-col overflow-hidden rounded-[10px] border border-gray-200">
             {#if grupos > 0}
               <div class={FILA}>
-                <Users size={15} class="shrink-0 text-[#B91C1C]" aria-hidden="true" />
+                <Users size={15} class="shrink-0 text-red-700" aria-hidden="true" />
                 <span
                   >{grupos}
                   {grupos === 1 ? 'grupo de trabajo' : 'grupos de trabajo'} con su composición</span
@@ -139,8 +139,8 @@
               </div>
             {/if}
             {#if entregas > 0}
-              <div class="{FILA} bg-[#FCFBF9]">
-                <FileUp size={15} class="shrink-0 text-[#B91C1C]" aria-hidden="true" />
+              <div class="{FILA} bg-stone-50">
+                <FileUp size={15} class="shrink-0 text-red-700" aria-hidden="true" />
                 <span
                   >{entregas}
                   {entregas === 1 ? 'entrega recibida' : 'entregas recibidas'} y sus archivos</span
@@ -150,21 +150,21 @@
             {/if}
             {#if notas > 0}
               <div class={FILA}>
-                <ClipboardCheck size={15} class="shrink-0 text-[#B91C1C]" aria-hidden="true" />
+                <ClipboardCheck size={15} class="shrink-0 text-red-700" aria-hidden="true" />
                 <span>{notas} {notas === 1 ? 'nota ya puesta' : 'notas ya puestas'}</span>
                 <span class={TAG_FILA}>notas</span>
               </div>
             {/if}
             {#if actividad.fecha_limite}
-              <div class="{FILA} bg-[#FCFBF9]">
-                <CalendarX size={15} class="shrink-0 text-[#B91C1C]" aria-hidden="true" />
+              <div class="{FILA} bg-stone-50">
+                <CalendarX size={15} class="shrink-0 text-red-700" aria-hidden="true" />
                 <span>El hito del {formatDate(actividad.fecha_limite)} en la agenda del curso</span>
                 <span class={TAG_FILA}>agenda</span>
               </div>
             {/if}
           </div>
         {:else}
-          <p class="m-0 text-[13px] text-[#5A5E6E]">
+          <p class="m-0 text-[13px] text-ink-2">
             La actividad no tiene todavía grupos, entregas ni notas: al eliminarla no se pierde
             trabajo de los alumnos.
           </p>
@@ -172,14 +172,14 @@
 
         {#if ofreceOcultar}
           <div
-            class="flex items-start gap-2.5 rounded-[10px] border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2.5"
+            class="flex items-start gap-2.5 rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2.5"
           >
-            <EyeOff size={15} class="mt-px shrink-0 text-[#B45309]" aria-hidden="true" />
-            <p class="m-0 text-[12.5px] text-pretty text-[#78350F]">
+            <EyeOff size={15} class="mt-px shrink-0 text-amber-700" aria-hidden="true" />
+            <p class="m-0 text-[12.5px] text-pretty text-amber-900">
               Si sólo quieres que el alumno deje de verla,
               <button
                 type="button"
-                class="font-semibold text-[#78350F] underline underline-offset-2"
+                class="font-semibold text-amber-900 underline underline-offset-2"
                 disabled={isLoading}
                 onclick={onOcultar}>ocúltala</button
               >: conserva grupos, entregas y notas.
@@ -189,7 +189,7 @@
 
         {#if exigeFrase}
           <div class="flex flex-col gap-1.5">
-            <label for="frase-eliminar" class="text-[12.5px] font-semibold text-[#1A1A24]">
+            <label for="frase-eliminar" class="text-[12.5px] font-semibold text-ink">
               Escribe <span class="font-mono">ELIMINAR</span> para habilitar el botón
             </label>
             <input
@@ -198,7 +198,7 @@
               bind:value={escrito}
               autocomplete="off"
               disabled={isLoading}
-              class="h-[38px] rounded-lg border border-[#D6D9E0] bg-white px-3 font-mono text-[13px] text-[#1A1A24] outline-none focus:border-[#002F6C]"
+              class="h-[38px] rounded-lg border border-line bg-white px-3 font-mono text-[13px] text-ink outline-none focus:border-navy"
             />
           </div>
         {/if}
@@ -206,14 +206,14 @@
 
       <!-- Pie -->
       <div
-        class="flex items-center gap-2.5 border-t border-[#E5E7EB] bg-[#FCFBF9] px-5 py-3.5"
+        class="flex items-center gap-2.5 border-t border-gray-200 bg-stone-50 px-5 py-3.5"
       >
-        <span class="mr-auto text-[12px] text-[#5A5E6E]">
+        <span class="mr-auto text-[12px] text-ink-2">
           {exigeFrase ? 'Hay trabajo de alumnos en juego.' : ''}
         </span>
         <button
           type="button"
-          class="rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2 text-[13.5px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA] disabled:opacity-50"
+          class="rounded-lg border border-line bg-white px-3.5 py-2 text-[13.5px] font-medium text-ink transition-colors hover:bg-sand disabled:opacity-50"
           disabled={isLoading}
           onclick={onCancel}
         >
@@ -221,7 +221,7 @@
         </button>
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-lg border border-[#B91C1C] bg-[#B91C1C] px-3.5 py-2 text-[13.5px] font-semibold text-white transition-colors hover:bg-[#991B1B] disabled:cursor-not-allowed disabled:opacity-45"
+          class="inline-flex items-center gap-2 rounded-lg border border-red-700 bg-red-700 px-3.5 py-2 text-[13.5px] font-semibold text-white transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-45"
           disabled={!puedeConfirmar}
           onclick={onConfirm}
         >

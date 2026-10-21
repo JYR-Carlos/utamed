@@ -261,7 +261,7 @@
             : 'bg-uta-blue-light text-uta-blue'
           : admin
             ? 'text-slate-800 hover:bg-slate-50 hover:text-indigo-600'
-            : 'text-[#1A1A24] hover:bg-slate-50 hover:text-uta-blue'}"
+            : 'text-ink hover:bg-slate-50 hover:text-uta-blue'}"
       >
         <Icon
           size={big ? 20 : 18}
@@ -290,7 +290,7 @@
     {#snippet verTodos(href: string)}
       <Link
         {href}
-        class="mx-4 mt-1 flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold text-slate-600 underline underline-offset-2 transition-colors hover:text-[#22213F]"
+        class="mx-4 mt-1 flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold text-slate-600 underline underline-offset-2 transition-colors hover:text-ink"
       >
         Ver todos los cursos
         <ArrowRight size={16} class="shrink-0" aria-hidden="true" />

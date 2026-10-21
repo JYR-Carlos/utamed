@@ -65,30 +65,30 @@
 
   const TONOS = {
     critica: {
-      accent: 'border-l-[#DC2626]',
-      iconBg: 'bg-[#FEF2F2]',
-      iconColor: 'text-[#DC2626]',
+      accent: 'border-l-red-600',
+      iconBg: 'bg-red-50',
+      iconColor: 'text-red-600',
       kicker: 'Crítica',
-      kickerColor: 'text-[#B91C1C]',
-      pill: 'border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]',
+      kickerColor: 'text-red-700',
+      pill: 'border-red-200 bg-red-50 text-red-700',
       Icon: AlertTriangle,
     },
     advertencia: {
-      accent: 'border-l-[#D97706]',
-      iconBg: 'bg-[#FFFBEB]',
-      iconColor: 'text-[#B45309]',
+      accent: 'border-l-amber-600',
+      iconBg: 'bg-amber-50',
+      iconColor: 'text-amber-700',
       kicker: 'Advertencia',
-      kickerColor: 'text-[#B45309]',
-      pill: 'border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]',
+      kickerColor: 'text-amber-700',
+      pill: 'border-amber-200 bg-amber-50 text-amber-700',
       Icon: BookOpen,
     },
     info: {
-      accent: 'border-l-[#002F6C]',
-      iconBg: 'bg-[#E8EDF5]',
-      iconColor: 'text-[#002F6C]',
+      accent: 'border-l-navy',
+      iconBg: 'bg-uta-blue-light',
+      iconColor: 'text-navy',
       kicker: 'Información',
-      kickerColor: 'text-[#002F6C]',
-      pill: 'border-[#C9D6E6] bg-[#E8EDF5] text-[#002F6C]',
+      kickerColor: 'text-navy',
+      pill: 'border-slate-300 bg-uta-blue-light text-navy',
       Icon: UserX,
     },
   } as const;
@@ -102,26 +102,26 @@
   const actualizado = $derived(generado_en ? formatFechaHora(generado_en) : '');
 
   const BTN_PRIMARY =
-    'inline-flex items-center gap-1.5 self-start rounded-lg bg-[#002F6C] px-3 py-1.5 text-[13px] font-semibold text-white no-underline transition-colors hover:bg-[#1B4789]';
+    'inline-flex items-center gap-1.5 self-start rounded-lg bg-navy px-3 py-1.5 text-[13px] font-semibold text-white no-underline transition-colors hover:bg-navy-2';
   const BTN_OUTLINE =
-    'inline-flex items-center gap-1.5 self-start rounded-lg border border-[#D6D9E0] bg-white px-3 py-1.5 text-[13px] font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F5F1EA]';
+    'inline-flex items-center gap-1.5 self-start rounded-lg border border-line bg-white px-3 py-1.5 text-[13px] font-medium text-ink no-underline transition-colors hover:bg-sand';
 </script>
 
 <section
-  class="flex h-full flex-col gap-3.5 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,.08)]"
+  class="flex h-full flex-col gap-3.5 rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,.08)]"
 >
   <div class="flex items-center gap-2">
-    <Bell class="h-4 w-4 text-[#5A5E6E]" aria-hidden="true" />
-    <h3 class="m-0 text-base font-semibold text-[#1A1A24]">Alertas</h3>
+    <Bell class="h-4 w-4 text-ink-2" aria-hidden="true" />
+    <h3 class="m-0 text-base font-semibold text-ink">Alertas</h3>
     {#if alertas.length > 0}
       <span
-        class="ml-auto inline-flex items-center rounded-full border border-[#FECACA] bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C]"
+        class="ml-auto inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700"
       >
         {alertas.length} activa{alertas.length === 1 ? '' : 's'}
       </span>
     {:else}
       <span
-        class="ml-auto inline-flex items-center rounded-full border border-[#A7F3D0] bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-semibold text-[#047857]"
+        class="ml-auto inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700"
       >
         Sin alertas
       </span>
@@ -134,7 +134,7 @@
         {@const t = tono(alerta)}
         {@const Icono = iconoDe(alerta)}
         <article
-          class="flex flex-col gap-2.5 rounded-[10px] border border-[#E5E7EB] border-l-[3px] p-3 {t.accent}"
+          class="flex flex-col gap-2.5 rounded-[10px] border border-gray-200 border-l-[3px] p-3 {t.accent}"
         >
           <div class="flex items-start gap-2.5">
             <div
@@ -149,7 +149,7 @@
               >
                 {t.kicker}
               </span>
-              <span class="text-[13.5px] font-semibold leading-[1.35] text-[#1A1A24]">
+              <span class="text-[13.5px] font-semibold leading-[1.35] text-ink">
                 {alerta.titulo}
               </span>
             </div>
@@ -173,23 +173,23 @@
   {:else}
     <!-- Sin alertas: confirmación con su razón, no un hueco. -->
     <div
-      class="flex flex-col items-center gap-2 rounded-[10px] border border-[#A7F3D0] bg-[#F6FEFB] p-[18px] text-center"
+      class="flex flex-col items-center gap-2 rounded-[10px] border border-emerald-200 bg-teal-50 p-[18px] text-center"
     >
       <div
-        class="flex h-10 w-10 items-center justify-center rounded-full bg-[#ECFDF5]"
+        class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50"
         aria-hidden="true"
       >
-        <CheckCircle2 class="h-5 w-5 text-[#059669]" />
+        <CheckCircle2 class="h-5 w-5 text-emerald-600" />
       </div>
-      <span class="text-base font-semibold text-[#1A1A24]">Todo al día</span>
+      <span class="text-base font-semibold text-ink">Todo al día</span>
       {#if confirmacion}
-        <p class="m-0 max-w-[280px] text-[13px] leading-snug text-[#5A5E6E]">{confirmacion}</p>
+        <p class="m-0 max-w-[280px] text-[13px] leading-snug text-ink-2">{confirmacion}</p>
       {/if}
     </div>
 
     {#if comprobaciones.length > 0}
       <div class="flex flex-col gap-1.5">
-        <span class="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#5A5E6E]">
+        <span class="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-2">
           Comprobaciones del período
         </span>
         <ul class="m-0 list-none p-0">
@@ -197,16 +197,16 @@
             {@const completa = c.hecho >= c.total}
             <li
               class="flex items-center gap-2 py-2 {i < comprobaciones.length - 1
-                ? 'border-b border-[#E5E7EB]'
+                ? 'border-b border-gray-200'
                 : ''}"
             >
               {#if completa}
-                <CheckCircle2 class="h-[15px] w-[15px] shrink-0 text-[#059669]" aria-hidden="true" />
+                <CheckCircle2 class="h-[15px] w-[15px] shrink-0 text-emerald-600" aria-hidden="true" />
               {:else}
-                <Circle class="h-[15px] w-[15px] shrink-0 text-[#98A0AE]" aria-hidden="true" />
+                <Circle class="h-[15px] w-[15px] shrink-0 text-gray-400" aria-hidden="true" />
               {/if}
-              <span class="flex-1 text-[13px] text-[#1A1A24]">{c.label}</span>
-              <span class="font-mono text-[12px] tabular-nums text-[#5A5E6E]">
+              <span class="flex-1 text-[13px] text-ink">{c.label}</span>
+              <span class="font-mono text-[12px] tabular-nums text-ink-2">
                 {c.hecho}/{c.total}
               </span>
             </li>
@@ -217,7 +217,7 @@
   {/if}
 
   {#if actualizado}
-    <div class="mt-auto border-t border-[#E5E7EB] pt-3 text-[12px] text-[#5A5E6E]">
+    <div class="mt-auto border-t border-gray-200 pt-3 text-[12px] text-ink-2">
       Actualizado {actualizado}
     </div>
   {/if}

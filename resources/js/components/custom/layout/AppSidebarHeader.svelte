@@ -29,8 +29,17 @@
   import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
   import { getInitials } from '@/hooks/useInitials';
   import IssueReport from '../IssueReport.svelte';
+  import { OPCIONES_APARIENCIA, useAppearance } from '@/hooks/useAppearance.svelte';
 
   const sidebar = useSidebar();
+
+  // Un solo botón de tema: cada clic pasa a la siguiente opción
+  // (Claro → Oscuro → Sistema → Claro) y el ícono muestra la actual.
+  const apariencia = useAppearance();
+  const temaIndice = $derived(Math.max(0, OPCIONES_APARIENCIA.findIndex((o) => o.value === apariencia.appearance)));
+  const temaActual = $derived(OPCIONES_APARIENCIA[temaIndice]);
+  const temaSiguiente = $derived(OPCIONES_APARIENCIA[(temaIndice + 1) % OPCIONES_APARIENCIA.length]);
+  const temaEtiqueta = $derived(`Tema: ${temaActual.label}. Cambiar a ${temaSiguiente.label.toLowerCase()}`);
 
   interface Props {
     breadcrumbs?: BreadcrumbItem[];
@@ -176,9 +185,9 @@
   <div class="header-center hidden lg:flex lg:justify-center">
     <button class="search-box cursor-text text-left" onclick={() => (openSearch = true)}>
       <Search size={18} class="search-icon" />
-      <span class="search-input text-[#5A5E6E]">Buscar en el sistema...</span>
+      <span class="search-input text-ink-2">Buscar en el sistema...</span>
       <span
-        class="ml-auto hidden xl:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-[#E5E7EB] bg-[#F1F3F6] text-xs font-semibold text-[#5A5E6E]"
+        class="ml-auto hidden xl:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-gray-200 bg-gray-100 text-xs font-semibold text-ink-2"
       >
       <span class="leading-none">⌘</span> K
       </span>
@@ -256,6 +265,16 @@
       />
     </div>
     -->
+    <button
+      type="button"
+      class="icon-btn flex items-center justify-center group relative"
+      onclick={() => apariencia.updateAppearance(temaSiguiente.value)}
+      aria-label={temaEtiqueta}
+      title={temaEtiqueta}
+    >
+      <temaActual.Icon size={20} class="group-hover:text-slate-900" />
+    </button>
+
     <IssueReport />
 
     <DropdownMenu>
@@ -314,8 +333,8 @@
     justify-content: space-between;
     gap: 0.5rem;
     padding: 0 0.75rem;
-    background: #ffffff;
-    border-bottom: 1px solid #f1f5f9;
+    background: var(--background-color-white, #ffffff);
+    border-bottom: 1px solid var(--color-slate-100, #f1f5f9);
     position: sticky;
     top: 0;
     z-index: 30;
@@ -364,9 +383,12 @@
     }
   }
 
+  /* Sólo el ancho de sus botones: con `flex: 1` se comprimía y el buscador
+     quedaba encima de las flechas. El resto del espacio es para la ruta de
+     la izquierda, que si aun así no cabe se abrevia con puntos suspensivos. */
   @media (min-width: 1024px) {
     .header-right {
-      flex: 1;
+      flex: 0 0 auto;
     }
   }
 
@@ -376,8 +398,14 @@
     }
 
     .header-right {
-      gap: 1.25rem;
+      gap: 0.75rem;
       min-width: 200px;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .header-right {
+      gap: 1.25rem;
     }
   }
 
@@ -388,16 +416,16 @@
     display: flex;
     align-items: center;
     padding: 0.5rem 1rem;
-    background: #f8fafc;
-    border: 1px solid #f1f5f9;
+    background: var(--background-color-slate-50, #f8fafc);
+    border: 1px solid var(--color-slate-100, #f1f5f9);
     border-radius: 12px;
-    color: #94a3b8;
+    color: var(--color-slate-400, #94a3b8);
     transition: all 0.2s;
   }
 
   .search-box:hover {
-    background: #f1f5f9;
-    border-color: #e2e8f0;
+    background: var(--background-color-slate-100, #f1f5f9);
+    border-color: var(--color-slate-200, #e2e8f0);
   }
 
   .search-input {
@@ -415,18 +443,19 @@
   .icon-btn {
     width: 44px;
     height: 44px;
+    flex-shrink: 0;
     border-radius: 10px;
-    color: #64748b;
-    background: #f8fafc;
-    border: 1px solid #f1f5f9;
+    color: var(--color-slate-500, #64748b);
+    background: var(--background-color-slate-50, #f8fafc);
+    border: 1px solid var(--color-slate-100, #f1f5f9);
     position: relative;
     cursor: pointer;
     transition: all 0.2s;
   }
 
   .icon-btn:hover {
-    background: #f1f5f9;
-    color: #1e293b;
+    background: var(--background-color-slate-100, #f1f5f9);
+    color: var(--color-gray-800, #1e293b);
   }
 
   @media (min-width: 1024px) {

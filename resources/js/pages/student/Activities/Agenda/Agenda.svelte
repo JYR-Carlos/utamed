@@ -115,18 +115,18 @@
 >
   <div class="flex min-w-0 flex-1 flex-col h-full relative">
     <!-- 1. CABECERA: TÍTULO PRESERVADO SIN FILTROS REDUNDANTES -->
-    <div class="flex shrink-0 items-center justify-between border-b border-[#E5E7EB] px-5 py-3.5 bg-white z-10">
+    <div class="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-3.5 bg-white z-10">
       <div class="flex min-w-0 flex-col">
-        <span class="text-[15px] font-semibold text-[#1A1A24]">
+        <span class="text-[15px] font-semibold text-ink">
           {esDocente ? 'Agenda del Grupo' : 'Agenda de la actividad'}
         </span>
-        <span class="truncate text-xs text-[#5A5E6E]">
+        <span class="truncate text-xs text-ink-2">
           {nombre_curso || cod_curso} · {nombre_actividad}{nombre_grupo ? ` · ${nombre_grupo}` : ''}
         </span>
       </div>
       {#if !inline}
         <button
-          class="rounded-full p-1.5 text-[#5A5E6E] transition-colors hover:bg-[#F8FAFC] cursor-pointer"
+          class="rounded-full p-1.5 text-ink-2 transition-colors hover:bg-slate-50 cursor-pointer"
           onclick={onCerrar}
           aria-label="Cerrar agenda"
         >
@@ -146,9 +146,9 @@
     />
 
     <!-- 3. COMPOSITOR INFERIOR: ESTRUCTURA PRESERVADA SIN PÍLDORAS REDUNDANTES -->
-    <div class="shrink-0 border-t border-[#E5E7EB] bg-white px-5 py-3.5 z-10">
+    <div class="shrink-0 border-t border-gray-200 bg-white px-5 py-3.5 z-10">
       {#if entrega_obligatoria}
-        <div class="mb-2.5 flex items-start gap-2 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] px-2.5 py-1.5 text-[11.5px] text-[#B45309]">
+        <div class="mb-2.5 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11.5px] text-amber-700">
           Un mensaje no entrega la actividad. Debes realizar la entrega en la página de la actividad usando el botón <strong class="font-semibold">Entregar</strong>.
         </div>
       {/if}
@@ -160,18 +160,18 @@
           rows="2"
           maxlength="2000"
           onkeydown={handleKeydown}
-          class="flex-1 resize-none rounded-lg border border-[#D6D9E0] px-3.5 py-2.5 text-[13px] text-[#1A1A24] outline-none transition-colors focus:border-[#002F6C]"
+          class="flex-1 resize-none rounded-lg border border-line px-3.5 py-2.5 text-[13px] text-ink outline-none transition-colors focus:border-navy"
         ></textarea>
         <button
           onclick={manejarEnvio}
           disabled={!nuevoMensaje.trim()}
-          class="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#002F6C] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#002F6C] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+          class="flex shrink-0 items-center gap-1.5 rounded-lg border border-navy bg-white px-4 py-2.5 text-[13px] font-semibold text-navy transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
           <Send class="h-3.5 w-3.5" />
           Enviar
         </button>
       </div>
-      <span class="mt-1 block text-right font-mono text-[10.5px] text-[#5A5E6E]">
+      <span class="mt-1 block text-right font-mono text-[10.5px] text-ink-2">
         {nuevoMensaje.length} / 2.000
       </span>
     </div>

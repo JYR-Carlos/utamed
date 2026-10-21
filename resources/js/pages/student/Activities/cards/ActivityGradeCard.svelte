@@ -96,11 +96,11 @@
   - Sumativa: nota numérica, estado Aprobada/Reprobada y acceso a rúbrica evaluada.
   - Formativa: apreciación cualitativa (Bueno/Regular/Malo) en badge de cabecera y mensaje extenso de evaluación del docente.
 -->
-<div class="flex w-full flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+<div class="flex w-full flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
   <div class="flex items-center gap-2">
     {#if es_sumativa}
-      <Award class="h-[15px] w-[15px] text-[#5A5E6E]" />
-      <span class="text-[13px] font-semibold text-[#1A1A24]">Nota</span>
+      <Award class="h-[15px] w-[15px] text-ink-2" />
+      <span class="text-[13px] font-semibold text-ink">Nota</span>
       {#if ultima_nota !== null && ultima_nota !== undefined}
         <span
           class="ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold {badgeClass}"
@@ -110,8 +110,8 @@
         </span>
       {/if}
     {:else}
-      <MessageSquareText class="h-[15px] w-[15px] text-[#5A5E6E]" />
-      <span class="text-[13px] font-semibold text-[#1A1A24]">Evaluación Formativa</span>
+      <MessageSquareText class="h-[15px] w-[15px] text-ink-2" />
+      <span class="text-[13px] font-semibold text-ink">Evaluación Formativa</span>
       {#if opinionFormativa}
         <span
           class="ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold {opinionBadge.badge}"
@@ -125,11 +125,11 @@
 
   {#if es_sumativa}
     <div class="flex flex-col items-center gap-2.5 text-center">
-      <span class="text-[80px] font-semibold leading-none tracking-tight text-[#1A1A24]">{gradeLabel}</span>
+      <span class="text-[80px] font-semibold leading-none tracking-tight text-ink">{gradeLabel}</span>
       <div class="flex flex-col pb-1">
-        <span class="text-xs text-[#5A5E6E]">Nota sumativa</span>
+        <span class="text-xs text-ink-2">Nota sumativa</span>
         {#if detalleAjuste}
-          <span class="mt-1 text-[11.5px] font-medium text-[#3F4352]">{detalleAjuste}</span>
+          <span class="mt-1 text-[11.5px] font-medium text-gray-700">{detalleAjuste}</span>
         {/if}
       </div>
     </div>
@@ -151,15 +151,15 @@
   {/if}
 
   {#if fechaEfectiva || (es_sumativa && onVerRubricaClick)}
-    <div class="flex items-center gap-2 border-t border-[#E5E7EB] pt-3">
+    <div class="flex items-center gap-2 border-t border-gray-200 pt-3">
       {#if fechaEfectiva}
-        <span class="text-[11.5px] text-[#5A5E6E]">
+        <span class="text-[11.5px] text-ink-2">
           Publicada {formatFechaCorta(fechaEfectiva)}{evaluadorEfectivo ? ` · ${evaluadorEfectivo}` : ''}
         </span>
       {/if}
       {#if es_sumativa && onVerRubricaClick}
         <button
-          class="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-[#22213F] transition-colors hover:bg-[#F8FAFC]"
+          class="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-ink transition-colors hover:bg-slate-50"
           onclick={onVerRubricaClick}
         >
           Ver rúbrica evaluada

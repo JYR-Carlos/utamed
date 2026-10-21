@@ -38,25 +38,25 @@
   const contorno = $derived.by(() => {
     if (item.familia === 'ENTREGA') {
       if (!item.entrega.visible) {
-        return `background:#F4F4F5;border:1px dashed #A1A1AA;border-left:3px solid ${accent.base}`;
+        return `background:var(--background-color-zinc-100, #F4F4F5);border:1px dashed var(--color-zinc-400, #A1A1AA);border-left:3px solid ${accent.base}`;
       }
       if (item.entrega.tipo_actividad === 'FORMATIVA') {
-        return `background:#FFFFFF;border:1px dashed ${accent.base};border-left:3px solid ${accent.base}`;
+        return `background:var(--background-color-white, #FFFFFF);border:1px dashed ${accent.base};border-left:3px solid ${accent.base}`;
       }
-      return `background:#FFFFFF;border:1px solid #E5E7EB;border-left:3px solid ${accent.base}`;
+      return `background:var(--background-color-white, #FFFFFF);border:1px solid var(--color-gray-200, #E5E7EB);border-left:3px solid ${accent.base}`;
     }
 
     if (item.familia === 'SESION') {
-      return `background:#FFFFFF;border:1px solid #E5E7EB;border-left:3px solid ${accent.base}`;
+      return `background:var(--background-color-white, #FFFFFF);border:1px solid var(--color-gray-200, #E5E7EB);border-left:3px solid ${accent.base}`;
     }
 
     if (item.hito.tipo === 'RECHAZO') {
-      return 'background:#FFFFFF;border:1px solid #FECACA';
+      return 'background:var(--background-color-white, #FFFFFF);border:1px solid var(--color-red-200, #FECACA)';
     }
     if (item.hito.tipo === 'APROBACION') {
-      return 'background:#FFFFFF;border:1px solid #BBE0CB';
+      return 'background:var(--background-color-white, #FFFFFF);border:1px solid var(--color-green-200, #BBE0CB)';
     }
-    return 'background:#FFFFFF;border:1px solid #E5E7EB';
+    return 'background:var(--background-color-white, #FFFFFF);border:1px solid var(--color-gray-200, #E5E7EB)';
   });
 
   /** Segunda línea: de qué curso es y qué es exactamente. */
@@ -107,20 +107,20 @@
   <span class="flex shrink-0 items-center">
     {#if item.familia === 'ENTREGA'}
       {#if !item.entrega.visible}
-        <EyeOff size={15} color="#71717A" />
+        <EyeOff size={15} class="text-zinc-500" />
       {:else if item.entrega.tipo_actividad === 'SUMATIVA'}
-        <ClipboardCheck size={15} color={accent.base} />
+        <ClipboardCheck size={15} style="color:{accent.base}" />
       {:else}
-        <PencilLine size={15} color={accent.base} />
+        <PencilLine size={15} style="color:{accent.base}" />
       {/if}
     {:else if item.familia === 'SESION'}
-      <Clock size={15} color="#5A5E6E" />
+      <Clock size={15} class="text-ink-2" />
     {:else if item.hito.tipo === 'RECHAZO'}
-      <CircleX size={15} color="#B91C1C" />
+      <CircleX size={15} class="text-red-700" />
     {:else if item.hito.tipo === 'APROBACION'}
-      <CircleCheck size={15} color="#1F6F45" />
+      <CircleCheck size={15} class="text-emerald-700" />
     {:else}
-      <ClipboardList size={15} color="#5A5E6E" />
+      <ClipboardList size={15} class="text-ink-2" />
     {/if}
   </span>
 
@@ -128,47 +128,47 @@
     <span class="flex items-center gap-1.5">
       <span
         class="truncate text-[13.5px] font-semibold leading-[1.25]"
-        style="color:{item.familia === 'ENTREGA' && !item.entrega.visible ? '#3F3F46' : '#1A1A24'}"
+        style="color:{item.familia === 'ENTREGA' && !item.entrega.visible ? 'var(--color-zinc-700, #3F3F46)' : 'var(--color-ink, #1A1A24)'}"
       >
         {titulo}
       </span>
       {#if item.familia === 'ENTREGA' && !item.entrega.visible}
         <span
-          class="shrink-0 rounded-full bg-[#E4E4E7] px-1.5 text-[9.5px] font-bold tracking-[0.06em] text-[#52525B]"
+          class="shrink-0 rounded-full bg-zinc-200 px-1.5 text-[9.5px] font-bold tracking-[0.06em] text-zinc-600"
         >
           OCULTA
         </span>
       {/if}
       {#if item.familia === 'ENTREGA' && item.entrega.es_grupal}
-        <Users size={12} class="shrink-0" color="#5A5E6E" />
+        <Users size={12} class="text-ink-2 shrink-0" />
       {/if}
     </span>
 
-    <span class="truncate text-[11.5px] text-[#5A5E6E]">{meta}</span>
+    <span class="truncate text-[11.5px] text-ink-2">{meta}</span>
 
     {#if item.familia === 'SESION'}
-      <span class="text-[11.5px] font-semibold text-[#1F6F45]">
+      <span class="text-[11.5px] font-semibold text-emerald-700">
         {item.sesion.presentes} de {item.sesion.total} presentes
       </span>
     {/if}
 
     {#if item.familia === 'ENTREGA' && item.entrega.grupos_total > 0}
-      <span class="text-[11.5px] text-[#5A5E6E]">
+      <span class="text-[11.5px] text-ink-2">
         {item.entrega.grupos_sin_nota} de {item.entrega.grupos_total}
         {item.entrega.grupos_total === 1 ? 'grupo' : 'grupos'} sin nota
       </span>
     {/if}
 
     {#if item.familia === 'HITO' && item.hito.detalle}
-      <span class="text-[11.5px] leading-[1.4] text-[#7F1D1D]">{item.hito.detalle}</span>
+      <span class="text-[11.5px] leading-[1.4] text-red-900">{item.hito.detalle}</span>
     {/if}
   </div>
 
   <Link
     href={salida.href}
-    class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#D6D9E0] bg-white px-2.5 py-2 text-[11.5px] font-semibold text-[#1A1A24] no-underline transition-colors hover:bg-[#F5F1EA]"
+    class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 py-2 text-[11.5px] font-semibold text-ink no-underline transition-colors hover:bg-sand"
   >
     {salida.texto}
-    <ArrowUpRight size={12} color="#5A5E6E" />
+    <ArrowUpRight size={12} class="text-ink-2" />
   </Link>
 </div>

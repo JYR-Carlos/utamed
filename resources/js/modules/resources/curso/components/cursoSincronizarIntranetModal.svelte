@@ -379,7 +379,7 @@
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 61;
-    background: #fff;
+    background: var(--background-color-white, #fff);
     border-radius: 20px;
     box-shadow: 0 25px 70px rgba(0, 0, 0, 0.22);
     width: min(620px, calc(100vw - 2rem));
@@ -392,22 +392,22 @@
 
   .sync-header {
     padding: 1.5rem 1.75rem 1.25rem;
-    border-bottom: 1px solid #f1f5f9;
-    background: #ffffff;
+    border-bottom: 1px solid var(--color-slate-100, #f1f5f9);
+    background: var(--background-color-white, #ffffff);
     flex-shrink: 0;
   }
 
   .sync-title {
     font-size: 1.15rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--color-slate-900, #0f172a);
     margin: 0;
     line-height: 1.3;
   }
 
   .sync-subtitle {
     font-size: 0.85rem;
-    color: #64748b;
+    color: var(--color-slate-500, #64748b);
     margin: 0.25rem 0 0;
   }
 
@@ -422,8 +422,8 @@
   }
 
   .sync-warning {
-    background: #fffbeb;
-    border: 1px solid #fde68a;
+    background: var(--background-color-amber-50, #fffbeb);
+    border: 1px solid var(--color-amber-200, #fde68a);
     border-radius: 12px;
     padding: 1.25rem 1.5rem;
   }
@@ -441,8 +441,8 @@
   .spinner-large {
     width: 38px;
     height: 38px;
-    border: 3px solid #e2e8f0;
-    border-top-color: #2563eb;
+    border: 3px solid var(--color-slate-200, #e2e8f0);
+    border-top-color: var(--color-blue-600, #2563eb);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
@@ -454,13 +454,13 @@
   }
 
   .origen-intranet {
-    background: #ecfdf5;
-    border-color: #a7f3d0;
+    background: var(--background-color-emerald-50, #ecfdf5);
+    border-color: var(--color-emerald-200, #a7f3d0);
   }
 
   .origen-plan {
-    background: #eff6ff;
-    border-color: #bfdbfe;
+    background: var(--background-color-blue-50, #eff6ff);
+    border-color: var(--color-blue-200, #bfdbfe);
   }
 
   .sync-empty-box {
@@ -470,8 +470,8 @@
     justify-content: center;
     padding: 3rem 1.5rem;
     text-align: center;
-    background: #f8fafc;
-    border: 1.5px dashed #cbd5e1;
+    background: var(--background-color-slate-50, #f8fafc);
+    border: 1.5px dashed var(--color-slate-300, #cbd5e1);
     border-radius: 12px;
   }
 
@@ -486,27 +486,27 @@
     align-items: center;
     gap: 0.85rem;
     padding: 0.85rem 1.15rem;
-    border: 1.5px solid #e2e8f0;
+    border: 1.5px solid var(--color-slate-200, #e2e8f0);
     border-radius: 12px;
-    background: #ffffff;
+    background: var(--background-color-white, #ffffff);
     cursor: pointer;
     transition: all 0.15s ease;
   }
 
   .sync-comp-row:hover {
-    border-color: #93c5fd;
-    background: #f8fafc;
+    border-color: var(--color-blue-300, #93c5fd);
+    background: var(--background-color-slate-50, #f8fafc);
   }
 
   .row-selected {
-    border-color: #3b82f6;
-    background: #f0f7ff;
+    border-color: var(--color-blue-500, #3b82f6);
+    background: var(--background-color-blue-50, #f0f7ff);
   }
 
   .sync-comp-tipo {
     font-size: 0.925rem;
     font-weight: 600;
-    color: #0f172a;
+    color: var(--color-slate-900, #0f172a);
   }
 
   .sync-comp-origen {
@@ -517,40 +517,40 @@
   }
 
   .badge-intranet {
-    background: #dcfce7;
-    color: #166534;
+    background: var(--background-color-green-100, #dcfce7);
+    color: var(--color-green-800, #166534);
   }
 
   .badge-plan {
-    background: #dbeafe;
-    color: #1e40af;
+    background: var(--background-color-blue-100, #dbeafe);
+    color: var(--color-blue-800, #1e40af);
   }
 
   .sync-inscribir-card {
     padding: 1rem 1.25rem;
     border-radius: 12px;
-    background: #f8fafc;
-    border: 1.5px solid #e2e8f0;
+    background: var(--background-color-slate-50, #f8fafc);
+    border: 1.5px solid var(--color-slate-200, #e2e8f0);
     cursor: pointer;
     transition: all 0.15s ease;
   }
 
   .sync-inscribir-card:hover:not(.opacity-60) {
-    border-color: #cbd5e1;
-    background: #f1f5f9;
+    border-color: var(--color-slate-300, #cbd5e1);
+    background: var(--background-color-slate-100, #f1f5f9);
   }
 
   .sync-advertencias {
     padding: 1rem 1.25rem;
-    background: #fffbeb;
-    border: 1px solid #fde68a;
+    background: var(--background-color-amber-50, #fffbeb);
+    border: 1px solid var(--color-amber-200, #fde68a);
     border-radius: 12px;
   }
 
   .sync-advertencias-title {
     font-size: 0.8rem;
     font-weight: 700;
-    color: #92400e;
+    color: var(--color-amber-800, #92400e);
     margin: 0;
   }
 
@@ -561,22 +561,22 @@
 
   .sync-advertencias li {
     font-size: 0.775rem;
-    color: #92400e;
+    color: var(--color-amber-800, #92400e);
     line-height: 1.5;
   }
 
   .sync-resultado-box {
     padding: 1.25rem 1.5rem;
     border-radius: 12px;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
+    background: var(--background-color-green-50, #f0fdf4);
+    border: 1px solid var(--color-green-200, #bbf7d0);
   }
 
   .sync-error-box {
     padding: 1.25rem 1.5rem;
     border-radius: 12px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
+    background: var(--background-color-red-50, #fef2f2);
+    border: 1px solid var(--color-red-200, #fecaca);
   }
 
   .sync-footer {
@@ -585,8 +585,8 @@
     align-items: center;
     gap: 0.75rem;
     padding: 1.25rem 1.75rem;
-    border-top: 1px solid #f1f5f9;
-    background: #ffffff;
+    border-top: 1px solid var(--color-slate-100, #f1f5f9);
+    background: var(--background-color-white, #ffffff);
     flex-shrink: 0;
   }
 
@@ -602,28 +602,28 @@
   }
 
   .btn-cancel {
-    background: #ffffff;
-    color: #475569;
-    border-color: #cbd5e1;
+    background: var(--background-color-white, #ffffff);
+    color: var(--color-slate-600, #475569);
+    border-color: var(--color-slate-300, #cbd5e1);
   }
 
   .btn-cancel:hover {
-    background: #f8fafc;
-    color: #1e293b;
-    border-color: #94a3b8;
+    background: var(--background-color-slate-50, #f8fafc);
+    color: var(--color-gray-800, #1e293b);
+    border-color: var(--color-slate-400, #94a3b8);
   }
 
   .btn-submit {
-    background: #2563eb;
+    background: var(--background-color-blue-600, #2563eb);
     color: #ffffff;
   }
 
   .btn-submit:hover:not(:disabled) {
-    background: #1d4ed8;
+    background: var(--background-color-blue-700, #1d4ed8);
   }
 
   .btn-submit:disabled {
-    background: #93c5fd;
+    background: var(--background-color-blue-300, #93c5fd);
     cursor: not-allowed;
     opacity: 0.7;
   }

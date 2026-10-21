@@ -17,12 +17,12 @@
   let { carrera = null, primary = false }: Props = $props();
 </script>
 
-<section class="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,.08)]">
+<section class="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,.08)]">
   <div class="flex items-center gap-2">
-    <GraduationCap class="h-4 w-4 text-[#5A5E6E]" />
-    <h3 class="text-base font-semibold text-[#1A1A24]">También eres estudiante</h3>
+    <GraduationCap class="h-4 w-4 text-ink-2" />
+    <h3 class="text-base font-semibold text-ink">También eres estudiante</h3>
   </div>
-  <p class="text-[13px] text-[#5A5E6E]">
+  <p class="text-[13px] text-ink-2">
     {#if primary}
       Mientras tanto, tus cursos, entregas y calificaciones{carrera ? ` de ${carrera}` : ''} siguen en tu área de estudiante.
     {:else}
@@ -33,10 +33,10 @@
   <Link
     href="/estudiante/dashboard"
     class="flex w-fit items-center gap-[7px] rounded-lg px-3.5 py-2 text-[13.5px] font-semibold no-underline transition-colors {primary
-      ? 'bg-[#002F6C] text-white hover:bg-[#00214d]'
-      : 'border border-[#D6D9E0] bg-white font-medium text-[#1A1A24] hover:bg-[#F8FAFC]'}"
+      ? 'bg-navy text-white hover:bg-navy-hover'
+      : 'border border-line bg-white font-medium text-ink hover:bg-slate-50'}"
   >
     Ir a mi área de estudiante
-    <ArrowUpRight class="h-[15px] w-[15px] {primary ? 'text-white' : 'text-[#5A5E6E]'}" />
+    <ArrowUpRight class="h-[15px] w-[15px] {primary ? 'text-white' : 'text-ink-2'}" />
   </Link>
 </section>

@@ -288,7 +288,7 @@
     padding: 1rem;
   }
   .modal-content {
-    background: white;
+    background: var(--background-color-white, white);
     border-radius: 12px;
     max-width: 500px;
     width: 100%;
@@ -302,7 +302,7 @@
   }
   .modal-header {
     padding: 1.25rem;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--color-gray-100, #f3f4f6);
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -310,12 +310,12 @@
   .modal-title {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #111827;
+    color: var(--color-gray-900, #111827);
     margin: 0;
   }
   .modal-subtitle {
     font-size: 0.875rem;
-    color: #6b7280;
+    color: var(--color-gray-500, #6b7280);
     margin: 0.25rem 0 0 0;
   }
   .close-button {
@@ -323,12 +323,12 @@
     border: none;
     font-size: 1.5rem;
     line-height: 1;
-    color: #9ca3af;
+    color: var(--color-gray-400, #9ca3af);
     cursor: pointer;
     padding: 0.25rem;
   }
   .close-button:hover {
-    color: #111827;
+    color: var(--color-gray-900, #111827);
   }
 
   .modal-body {
@@ -337,14 +337,14 @@
   }
   .divider {
     height: 1px;
-    background: #e5e7eb;
+    background: var(--background-color-gray-200, #e5e7eb);
     margin: 1.5rem 0;
   }
 
   h3 {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--color-gray-700, #374151);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin: 0 0 1rem 0;
@@ -359,22 +359,22 @@
   .search-input {
     flex: 1;
     padding: 0.5rem 0.75rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-gray-300, #d1d5db);
     border-radius: 6px;
     font-size: 0.875rem;
-    color: #1f2937 !important;
+    color: var(--color-gray-800, #1f2937) !important;
   }
   .btn-search {
     padding: 0.5rem 1rem;
-    background: #f3f4f6;
-    border: 1px solid #d1d5db;
+    background: var(--background-color-gray-100, #f3f4f6);
+    border: 1px solid var(--color-gray-300, #d1d5db);
     border-radius: 6px;
     font-weight: 500;
     cursor: pointer;
-    color: #374151;
+    color: var(--color-gray-700, #374151);
   }
   .btn-search:hover:not(:disabled) {
-    background: #e5e7eb;
+    background: var(--background-color-gray-200, #e5e7eb);
   }
 
   .search-results {
@@ -383,7 +383,7 @@
     gap: 0.5rem;
     max-height: 200px;
     overflow-y: auto;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-gray-200, #e5e7eb);
     border-radius: 6px;
     padding: 0.5rem;
   }
@@ -392,7 +392,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.5rem;
-    background: #f9fafb;
+    background: var(--background-color-gray-50, #f9fafb);
     border-radius: 4px;
   }
   .user-info {
@@ -402,24 +402,24 @@
   .user-name {
     font-weight: 500;
     font-size: 0.875rem;
-    color: #111827;
+    color: var(--color-gray-900, #111827);
   }
   .user-rut {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--color-gray-500, #6b7280);
   }
   .btn-add {
     padding: 0.25rem 0.75rem;
-    background: #ecfdf5;
-    color: #059669;
-    border: 1px solid #a7f3d0;
+    background: var(--background-color-emerald-50, #ecfdf5);
+    color: var(--color-emerald-600, #059669);
+    border: 1px solid var(--color-emerald-200, #a7f3d0);
     border-radius: 9999px;
     font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
   }
   .btn-add:hover {
-    background: #d1fae5;
+    background: var(--background-color-emerald-100, #d1fae5);
   }
 
   /* Team List */
@@ -433,8 +433,8 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.75rem;
-    background: white;
-    border: 1px solid #e5e7eb;
+    background: var(--background-color-white, white);
+    border: 1px solid var(--color-gray-200, #e5e7eb);
     border-radius: 8px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   }
@@ -445,13 +445,13 @@
   }
   .member-name {
     font-weight: 500;
-    color: #111827;
+    color: var(--color-gray-900, #111827);
   }
   .badge {
     display: inline-block;
     padding: 0.125rem 0.5rem;
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: var(--background-color-blue-50, #eff6ff);
+    color: var(--color-blue-700, #1d4ed8);
     font-size: 0.75rem;
     font-weight: 500;
     border-radius: 9999px;
@@ -469,15 +469,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #f3f4f6;
-    border: 1px solid #e5e7eb;
-    color: #4b5563;
+    background: var(--background-color-gray-100, #f3f4f6);
+    border: 1px solid var(--color-gray-200, #e5e7eb);
+    color: var(--color-gray-600, #4b5563);
     cursor: pointer;
     border-radius: 6px;
   }
   .btn-permissions:hover {
-    background: #e5e7eb;
-    color: #111827;
+    background: var(--background-color-gray-200, #e5e7eb);
+    color: var(--color-gray-900, #111827);
   }
 
   .btn-remove {
@@ -488,47 +488,47 @@
     justify-content: center;
     background: none;
     border: none;
-    color: #9ca3af;
+    color: var(--color-gray-400, #9ca3af);
     cursor: pointer;
     border-radius: 6px;
     font-size: 1rem;
   }
   .btn-remove:hover {
-    background: #fee2e2;
-    color: #dc2626;
+    background: var(--background-color-red-100, #fee2e2);
+    color: var(--color-red-600, #dc2626);
   }
 
   .empty-state {
     text-align: center;
-    color: #6b7280;
+    color: var(--color-gray-500, #6b7280);
     font-size: 0.875rem;
     padding: 1rem;
-    border: 1px dashed #d1d5db;
+    border: 1px dashed var(--color-gray-300, #d1d5db);
     border-radius: 6px;
   }
   .loading-state {
     text-align: center;
-    color: #6b7280;
+    color: var(--color-gray-500, #6b7280);
     padding: 1rem;
   }
 
   .modal-footer {
     padding: 1rem;
-    border-top: 1px solid #f3f4f6;
+    border-top: 1px solid var(--color-gray-100, #f3f4f6);
     display: flex;
     justify-content: flex-end;
   }
   .btn-close {
     padding: 0.5rem 1rem;
-    background: white;
-    border: 1px solid #d1d5db;
+    background: var(--background-color-white, white);
+    border: 1px solid var(--color-gray-300, #d1d5db);
     border-radius: 6px;
     font-weight: 500;
-    color: #374151;
+    color: var(--color-gray-700, #374151);
     cursor: pointer;
   }
   .btn-close:hover {
-    background: #f9fafb;
-    border-color: #9ca3af;
+    background: var(--background-color-gray-50, #f9fafb);
+    border-color: var(--color-gray-400, #9ca3af);
   }
 </style>

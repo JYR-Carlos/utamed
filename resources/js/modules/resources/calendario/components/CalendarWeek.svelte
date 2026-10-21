@@ -136,10 +136,10 @@
   }
 
   function fondoColumna(dia: CalendarDay, hayCarga: boolean): string {
-    if (dia.isToday) return '#F7FAFF';
-    if (hayCarga) return '#FFFCFC';
-    if (dia.isWeekend) return '#FBFAF8';
-    return '#FFFFFF';
+    if (dia.isToday) return 'var(--background-color-blue-50, #F7FAFF)';
+    if (hayCarga) return 'var(--background-color-red-50, #FFFCFC)';
+    if (dia.isWeekend) return 'var(--background-color-stone-50, #FBFAF8)';
+    return 'var(--background-color-white, #FFFFFF)';
   }
 
   /** Avisos de sobrecarga de toda la semana, para la banda superior. */
@@ -153,39 +153,39 @@
 </script>
 
 <div
-  class="overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,.06)]"
+  class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,.06)]"
 >
   <div class="overflow-x-auto">
     <div class="min-w-[860px]">
       <!-- Cabecera de días -->
-      <div class="flex border-b border-[#E5E7EB] bg-[#F8F7F4]">
-        <div class="w-[52px] shrink-0 border-r border-[#E5E7EB]"></div>
+      <div class="flex border-b border-gray-200 bg-stone-100">
+        <div class="w-[52px] shrink-0 border-r border-gray-200"></div>
         {#each dias as dia, i (dia.iso)}
           {@const cargas = sobrecargas[dia.iso] ?? []}
           <div
-            class="flex flex-1 flex-col gap-px border-r border-[#E5E7EB] px-2 pb-2.5 pt-2 last:border-r-0"
+            class="flex flex-1 flex-col gap-px border-r border-gray-200 px-2 pb-2.5 pt-2 last:border-r-0"
             style="background:{fondoColumna(dia, cargas.length > 0)};{dia.isToday
-              ? 'box-shadow:inset 0 4px 0 #002F6C'
+              ? 'box-shadow:inset 0 4px 0 var(--color-navy, var(--color-navy, #002F6C))'
               : ''}"
           >
             <span class="flex flex-wrap items-center gap-1.5">
               <span
                 class="text-[10.5px] font-semibold uppercase tracking-[0.06em] {dia.isToday
-                  ? 'font-bold text-[#002F6C]'
+                  ? 'font-bold text-navy'
                   : dia.isWeekend
-                    ? 'text-[#A1A1AA]'
-                    : 'text-[#5A5E6E]'}"
+                    ? 'text-zinc-400'
+                    : 'text-ink-2'}"
               >
                 {DIAS_SEMANA[i]}{dia.isToday ? ' · hoy' : ''}
               </span>
               {#each cargas as carga (carga.clave)}
                 <span
-                  class="inline-flex items-center gap-1 rounded-full border border-[#FECACA] bg-[#FEF2F2] px-1.5 text-[9.5px] font-bold text-[#B91C1C]"
+                  class="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-1.5 text-[9.5px] font-bold text-red-700"
                   title="Grupo {carga.letra} tiene {carga.total} entregas este día: {carga.titulos.join(
                     ', ',
                   )}"
                 >
-                  <TriangleAlert size={9} color="#B91C1C" />
+                  <TriangleAlert size={9} class="text-red-700" />
                   {carga.letra} ×{carga.total}
                 </span>
               {/each}
@@ -193,11 +193,11 @@
             <button
               type="button"
               onclick={() => onSelectDay?.(dia.iso)}
-              class="w-fit text-[15px] font-semibold transition-colors hover:text-[#002F6C] {dia.isToday
-                ? 'text-[#002F6C]'
+              class="w-fit text-[15px] font-semibold transition-colors hover:text-navy {dia.isToday
+                ? 'text-navy'
                 : dia.isWeekend
-                  ? 'text-[#A1A1AA]'
-                  : 'text-[#1A1A24]'}"
+                  ? 'text-zinc-400'
+                  : 'text-ink'}"
             >
               {dia.dayOfMonth}
             </button>
@@ -206,9 +206,9 @@
       </div>
 
       <!-- Franja "sin hora": fechas límite e hitos -->
-      <div class="flex border-b border-[#D6D9E0] bg-[#FCFCFB]">
+      <div class="flex border-b border-line bg-zinc-50">
         <div
-          class="w-[52px] shrink-0 border-r border-[#E5E7EB] px-1.5 py-2 text-[9.5px] font-bold uppercase leading-[1.3] tracking-[0.06em] text-[#5A5E6E]"
+          class="w-[52px] shrink-0 border-r border-gray-200 px-1.5 py-2 text-[9.5px] font-bold uppercase leading-[1.3] tracking-[0.06em] text-ink-2"
         >
           sin<br />hora
         </div>
@@ -216,7 +216,7 @@
           {@const marcas = sinHora(dia.iso)}
           {@const cargas = sobrecargas[dia.iso] ?? []}
           <div
-            class="flex min-h-[44px] min-w-0 flex-1 flex-col gap-1 border-r border-[#E5E7EB] p-1.5 last:border-r-0"
+            class="flex min-h-[44px] min-w-0 flex-1 flex-col gap-1 border-r border-gray-200 p-1.5 last:border-r-0"
             style="background:{fondoColumna(dia, cargas.length > 0)}"
           >
             {#each marcas as item (item.key)}
@@ -234,9 +234,9 @@
       <!-- Avisos de sobrecarga de la semana -->
       {#each avisosSemana as aviso (aviso.iso + aviso.carga.clave)}
         <div
-          class="flex items-start gap-2 border-b border-[#FBD5D5] bg-[#FFF8F8] px-3 py-2 text-[11.5px] leading-[1.45] text-[#7F1D1D]"
+          class="flex items-start gap-2 border-b border-rose-200 bg-zinc-50 px-3 py-2 text-[11.5px] leading-[1.45] text-red-900"
         >
-          <TriangleAlert size={13} class="mt-0.5 shrink-0" color="#B91C1C" />
+          <TriangleAlert size={13} class="text-red-700 mt-0.5 shrink-0" />
           <span>
             <span class="font-bold">
               Grupo {aviso.carga.letra}: {aviso.carga.total} entregas el día {aviso.iso
@@ -257,10 +257,10 @@
 
       <!-- Rejilla horaria con las sesiones de asistencia -->
       <div class="flex">
-        <div class="w-[52px] shrink-0 border-r border-[#E5E7EB]">
+        <div class="w-[52px] shrink-0 border-r border-gray-200">
           {#each horas as minutos (minutos)}
             <div
-              class="px-1.5 pt-0.5 text-right font-mono text-[10.5px] text-[#8A8E9C]"
+              class="px-1.5 pt-0.5 text-right font-mono text-[10.5px] text-ink-3"
               style="height:{ALTO_HORA}px"
             >
               {etiquetaHora(minutos)}
@@ -272,11 +272,11 @@
           {@const cargas = sobrecargas[dia.iso] ?? []}
           {@const bloques = disponer(dia.iso)}
           <div
-            class="relative min-w-0 flex-1 border-r border-[#E5E7EB] last:border-r-0"
+            class="relative min-w-0 flex-1 border-r border-gray-200 last:border-r-0"
             style="height:{altoRejilla}px;background:{fondoColumna(
               dia,
               cargas.length > 0,
-            )};background-image:repeating-linear-gradient(to bottom,#EFF1F4 0 1px,transparent 1px {ALTO_HORA}px)"
+            )};background-image:repeating-linear-gradient(to bottom,var(--background-color-gray-100, #EFF1F4) 0 1px,transparent 1px {ALTO_HORA}px)"
           >
             {#each bloques as bloque (bloque.item.key)}
               {@const accent = accentPorCurso[bloque.item.id_curso]}
@@ -291,10 +291,10 @@
                 <span class="font-mono text-[10px] leading-none" style="color:{accent.text}">
                   {sesion.hora_inicio} – {sesion.hora_fin}
                 </span>
-                <span class="truncate text-[11.5px] font-semibold leading-[1.2] text-[#1A1A24]">
+                <span class="truncate text-[11.5px] font-semibold leading-[1.2] text-ink">
                   {etiquetaCurso(bloque.item.id_curso)}
                 </span>
-                <span class="truncate text-[10.5px] font-semibold text-[#1F6F45]">
+                <span class="truncate text-[10.5px] font-semibold text-emerald-700">
                   {sesion.presentes}/{sesion.total} presentes
                 </span>
               </button>
@@ -302,11 +302,11 @@
 
             {#if dia.iso === hoy && topAhora !== null}
               <div
-                class="pointer-events-none absolute inset-x-0 z-[5] border-t-2 border-[#002F6C]"
+                class="pointer-events-none absolute inset-x-0 z-[5] border-t-2 border-navy"
                 style="top:{topAhora}px"
               >
                 <span
-                  class="absolute -top-[5px] left-0 h-2 w-2 rounded-full bg-[#002F6C]"
+                  class="absolute -top-[5px] left-0 h-2 w-2 rounded-full bg-navy"
                   aria-hidden="true"
                 ></span>
               </div>

@@ -180,28 +180,28 @@
   const estadoConfig: Record<EstadoSyllabus, { label: string; cls: string; dot: string }> = {
     NO_INICIADO: {
       label: 'No iniciado',
-      cls: 'border-[#CBD5E1] bg-[#F1F5F9] text-[#475569]',
-      dot: 'bg-[#64748B]',
+      cls: 'border-slate-300 bg-slate-100 text-slate-600',
+      dot: 'bg-slate-500',
     },
     BORRADOR: {
       label: 'Borrador',
-      cls: 'border-[#E5E7EB] bg-[#F5F1EA] text-[#5A5E6E]',
-      dot: 'bg-[#A8A29E]',
+      cls: 'border-gray-200 bg-sand text-ink-2',
+      dot: 'bg-stone-400',
     },
     EN_REVISION: {
       label: 'En revisión',
-      cls: 'border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]',
-      dot: 'bg-[#D97706]',
+      cls: 'border-amber-200 bg-amber-50 text-amber-700',
+      dot: 'bg-amber-600',
     },
     APROBADO: {
       label: 'Aprobado',
-      cls: 'border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]',
-      dot: 'bg-[#059669]',
+      cls: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      dot: 'bg-emerald-600',
     },
     RECHAZADO: {
       label: 'Rechazado',
-      cls: 'border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]',
-      dot: 'bg-[#DC2626]',
+      cls: 'border-red-200 bg-red-50 text-red-700',
+      dot: 'bg-red-600',
     },
   };
 
@@ -381,17 +381,17 @@
 
   // ─── Lenguaje visual ─────────────────────────────────────────────────────
 
-  const CARD = 'rounded-xl border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,.08)]';
+  const CARD = 'rounded-xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,.08)]';
   const TH =
-    'px-4 py-2.5 text-left text-[12px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]';
+    'px-4 py-2.5 text-left text-[12px] font-semibold uppercase tracking-[0.04em] text-ink-2';
   const CAMPO =
-    'h-[38px] rounded-lg border border-[#D6D9E0] bg-white text-[14px] text-[#1A1A24] focus:border-[#002F6C] focus:outline-none';
+    'h-[38px] rounded-lg border border-line bg-white text-[14px] text-ink focus:border-navy focus:outline-none';
   const ICON_BTN =
     'inline-flex h-[30px] w-[30px] items-center justify-center rounded-lg border transition-colors';
   const BTN_OUTLINE =
-    'inline-flex items-center gap-[7px] rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2.5 text-[14px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA]';
+    'inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3.5 py-2.5 text-[14px] font-medium text-ink transition-colors hover:bg-sand';
   const BTN_PRIMARY =
-    'inline-flex items-center gap-[7px] rounded-lg border border-[#002F6C] bg-[#002F6C] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#1B4789] disabled:opacity-60';
+    'inline-flex items-center gap-[7px] rounded-lg border border-navy bg-navy px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-navy-2 disabled:opacity-60';
 </script>
 
 <svelte:window onkeydown={handleWindowKeydown} />
@@ -400,15 +400,15 @@
   <!-- ─── Cabecera ───────────────────────────────────────────────────────── -->
   <div class="mb-4 flex flex-wrap items-start gap-6">
     <div class="flex min-w-0 flex-col gap-1">
-      <div class="flex items-center gap-1.5 text-[12px] text-[#5A5E6E]">
+      <div class="flex items-center gap-1.5 text-[12px] text-ink-2">
         <span>Jefatura de Carrera</span>
         <ChevronRight class="h-3 w-3" aria-hidden="true" />
-        <span class="font-medium text-[#1A1A24]">Seguimiento</span>
+        <span class="font-medium text-ink">Seguimiento</span>
       </div>
-      <h1 class="m-0 text-[28px] font-semibold tracking-[-0.01em] text-[#1A1A24]">
+      <h1 class="m-0 text-[28px] font-semibold tracking-[-0.01em] text-ink">
         Seguimiento de syllabus — {carrera.nombre}
       </h1>
-      <span class="text-[14px] text-[#5A5E6E]">
+      <span class="text-[14px] text-ink-2">
         {periodoLabel || 'Todos los períodos'}{plazo_syllabus
           ? ` · plazo de entrega ${formatFechaCorta(plazo_syllabus)}`
           : ''}
@@ -420,7 +420,7 @@
   <div class="{CARD} mb-4 flex flex-wrap items-center gap-2.5 px-4 py-3.5">
     <!-- Búsqueda -->
     <div class="relative flex min-w-[260px] flex-1 items-center">
-      <Search class="pointer-events-none absolute left-[11px] h-[15px] w-[15px] text-[#5A5E6E]" />
+      <Search class="pointer-events-none absolute left-[11px] h-[15px] w-[15px] text-ink-2" />
       <input
         bind:value={searchQ}
         placeholder="Buscar asignatura o docente…"
@@ -434,7 +434,7 @@
             searchQ = '';
             aplicarFiltros();
           }}
-          class="absolute right-[11px] text-[#5A5E6E] hover:text-[#1A1A24]"
+          class="absolute right-[11px] text-ink-2 hover:text-ink"
           aria-label="Limpiar búsqueda"
         >
           <X class="h-[15px] w-[15px]" />
@@ -443,7 +443,7 @@
     </div>
 
     <!-- Semestre: conmutador segmentado -->
-    <div class="flex flex-none gap-[3px] rounded-lg bg-[#F1F5F9] p-[3px]">
+    <div class="flex flex-none gap-[3px] rounded-lg bg-slate-100 p-[3px]">
       {#each semestres_disponibles as s (s)}
         {@const activo = filtroSemestre === s}
         <button
@@ -453,8 +453,8 @@
           }}
           aria-pressed={activo}
           class="flex h-8 items-center rounded-md px-3 text-[13px] transition-colors {activo
-            ? 'bg-white font-semibold text-[#002F6C] shadow-[0_1px_2px_rgba(0,0,0,.06)]'
-            : 'font-medium text-[#5A5E6E] hover:text-[#1A1A24]'}"
+            ? 'bg-white font-semibold text-navy shadow-[0_1px_2px_rgba(0,0,0,.06)]'
+            : 'font-medium text-ink-2 hover:text-ink'}"
         >
           {s}
         </button>
@@ -475,7 +475,7 @@
         {/each}
       </select>
       <ChevronDown
-        class="pointer-events-none absolute right-[11px] top-3 h-3.5 w-3.5 text-[#5A5E6E]"
+        class="pointer-events-none absolute right-[11px] top-3 h-3.5 w-3.5 text-ink-2"
       />
     </div>
 
@@ -486,8 +486,8 @@
         onchange={() => aplicarFiltros()}
         aria-label="Filtrar por estado del syllabus"
         class="h-[38px] appearance-none rounded-lg border bg-white py-0 pl-3 pr-8 text-[14px] focus:outline-none {filtroEstado
-          ? 'border-[#002F6C] font-medium text-[#002F6C]'
-          : 'border-[#D6D9E0] text-[#1A1A24] focus:border-[#002F6C]'}"
+          ? 'border-navy font-medium text-navy'
+          : 'border-line text-ink focus:border-navy'}"
       >
         <option value="">Estado: todos</option>
         <option value="NO_INICIADO">No iniciado</option>
@@ -498,15 +498,15 @@
       </select>
       <ChevronDown
         class="pointer-events-none absolute right-[11px] top-3 h-3.5 w-3.5 {filtroEstado
-          ? 'text-[#002F6C]'
-          : 'text-[#5A5E6E]'}"
+          ? 'text-navy'
+          : 'text-ink-2'}"
       />
     </div>
 
     {#if hasFilters}
       <button
         onclick={limpiarFiltros}
-        class="inline-flex flex-none items-center gap-1.5 rounded-lg px-2.5 py-2 text-[13px] font-semibold text-[#002F6C] transition-colors hover:bg-[#F5F1EA]"
+        class="inline-flex flex-none items-center gap-1.5 rounded-lg px-2.5 py-2 text-[13px] font-semibold text-navy transition-colors hover:bg-sand"
       >
         <X class="h-3.5 w-3.5" />
         Limpiar
@@ -516,12 +516,12 @@
 
   <!-- ─── Tabla ──────────────────────────────────────────────────────────── -->
   <div class="{CARD} overflow-hidden">
-    <div class="flex flex-wrap items-center gap-2.5 border-b border-[#E5E7EB] px-4 py-3">
-      <span class="text-[14px] font-semibold text-[#1A1A24]">
+    <div class="flex flex-wrap items-center gap-2.5 border-b border-gray-200 px-4 py-3">
+      <span class="text-[14px] font-semibold text-ink">
         {pagination.total} de {totalCarrera}
         {totalCarrera === 1 ? 'curso' : 'cursos'}
       </span>
-      <span class="text-[12px] text-[#5A5E6E]">
+      <span class="text-[12px] text-ink-2">
         coinciden con los filtros · el estado es un campo derivado, el total varía al filtrar
       </span>
     </div>
@@ -531,12 +531,12 @@
       <div class="flex flex-col items-center gap-3 px-8 py-11 text-center">
         {#if hasFilters}
           <div
-            class="h-20 w-[120px] rounded-lg border border-[#E5E7EB]"
-            style="background:repeating-linear-gradient(135deg,#F5F1EA 0 8px,#EFE9DF 8px 16px)"
+            class="h-20 w-[120px] rounded-lg border border-gray-200"
+            style="background:repeating-linear-gradient(135deg,var(--background-color-sand, #F5F1EA) 0 8px,var(--background-color-stone-200, #EFE9DF) 8px 16px)"
             aria-hidden="true"
           ></div>
-          <span class="text-[16px] font-semibold text-[#1A1A24]">{filtroCulpable}</span>
-          <p class="m-0 max-w-[420px] text-[14px] text-[#5A5E6E]">
+          <span class="text-[16px] font-semibold text-ink">{filtroCulpable}</span>
+          <p class="m-0 max-w-[420px] text-[14px] text-ink-2">
             {#if totalCarrera > 0}
               Los {totalCarrera}
               {totalCarrera === 1 ? 'curso' : 'cursos'} de la carrera siguen ahí; sólo la combinación
@@ -548,7 +548,7 @@
           {#if totalCarrera > 0}
             <div class="flex gap-2">
               <button onclick={limpiarFiltros} class={BTN_OUTLINE}>
-                <X class="h-[15px] w-[15px] text-[#5A5E6E]" />
+                <X class="h-[15px] w-[15px] text-ink-2" />
                 Limpiar filtros
               </button>
               <button onclick={limpiarFiltros} class={BTN_PRIMARY}>
@@ -557,11 +557,11 @@
             </div>
           {/if}
         {:else}
-          <FileText class="h-9 w-9 text-[#C9D6E6]" />
-          <span class="text-[16px] font-semibold text-[#1A1A24]"
+          <FileText class="h-9 w-9 text-slate-300" />
+          <span class="text-[16px] font-semibold text-ink"
             >La carrera todavía no tiene cursos registrados</span
           >
-          <p class="m-0 max-w-[420px] text-[14px] text-[#5A5E6E]">
+          <p class="m-0 max-w-[420px] text-[14px] text-ink-2">
             En cuanto se creen cursos para esta carrera, aparecerán aquí con el estado de su
             syllabus.
           </p>
@@ -570,7 +570,7 @@
     {:else}
       <div class="overflow-x-auto">
         <table class="w-full border-collapse text-[14px]">
-          <thead class="bg-[#F5F1EA]">
+          <thead class="bg-sand">
             <tr>
               <th class="{TH} w-[104px]">Código</th>
               <th class={TH}>Asignatura</th>
@@ -586,23 +586,23 @@
               {@const badge = estadoConfig[curso.estado_syllabus] ?? estadoConfig.NO_INICIADO}
               {@const conDoc = tieneDocumento(curso)}
               {@const conDecision = admiteDecision(curso)}
-              <tr class="border-t border-[#E5E7EB] {i % 2 === 1 ? 'bg-[#FCFBF9]' : ''}">
-                <td class="px-4 py-2.5 font-mono text-[13px] text-[#5A5E6E]"
+              <tr class="border-t border-gray-200 {i % 2 === 1 ? 'bg-stone-50' : ''}">
+                <td class="px-4 py-2.5 font-mono text-[13px] text-ink-2"
                   >{curso.cod_asignatura}</td
                 >
-                <td class="px-4 py-2.5 font-medium text-[#1A1A24]">{curso.nombre_asignatura}</td>
+                <td class="px-4 py-2.5 font-medium text-ink">{curso.nombre_asignatura}</td>
                 <td class="px-2 py-2.5">
                   {#if curso.letra_grupo}
                     <span
-                      class="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md bg-[#F5F1EA] text-[12px] font-semibold text-[#5A5E6E]"
+                      class="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md bg-sand text-[12px] font-semibold text-ink-2"
                       >{curso.letra_grupo}</span
                     >
                   {:else}
-                    <span class="text-[#98A0AE]">—</span>
+                    <span class="text-gray-400">—</span>
                   {/if}
                 </td>
-                <td class="px-4 py-2.5 text-[#1A1A24]">{curso.docente.nombre}</td>
-                <td class="px-4 py-2.5 text-[#5A5E6E]">
+                <td class="px-4 py-2.5 text-ink">{curso.docente.nombre}</td>
+                <td class="px-4 py-2.5 text-ink-2">
                   {curso.fecha_actualizacion ? formatFechaCorta(curso.fecha_actualizacion) : '—'}
                 </td>
                 <td class="px-4 py-2.5">
@@ -620,39 +620,39 @@
                     {#if conDoc}
                       <button
                         onclick={() => abrirSlideOver(curso)}
-                        class="{ICON_BTN} border-[#D6D9E0] hover:bg-[#F5F1EA]"
+                        class="{ICON_BTN} border-line hover:bg-sand"
                         aria-label="Previsualizar syllabus de {curso.nombre_asignatura}"
                         title="Previsualizar"
                       >
-                        <Eye class="h-[15px] w-[15px] text-[#002F6C]" />
+                        <Eye class="h-[15px] w-[15px] text-navy" />
                       </button>
                     {/if}
                     {#if conDecision}
                       <button
                         onclick={() => abrirSlideOver(curso)}
-                        class="{ICON_BTN} border-[#A7F3D0] bg-[#ECFDF5] hover:bg-[#D1FAE5]"
+                        class="{ICON_BTN} border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
                         aria-label="Revisar para aprobar {curso.nombre_asignatura}"
                         title="Aprobar"
                       >
-                        <Check class="h-[15px] w-[15px] text-[#047857]" />
+                        <Check class="h-[15px] w-[15px] text-emerald-700" />
                       </button>
                       <button
                         onclick={() => abrirSlideOver(curso)}
-                        class="{ICON_BTN} border-[#FECACA] bg-[#FEF2F2] hover:bg-[#FEE2E2]"
+                        class="{ICON_BTN} border-red-200 bg-red-50 hover:bg-red-100"
                         aria-label="Revisar para solicitar cambios en {curso.nombre_asignatura}"
                         title="Solicitar cambios"
                       >
-                        <XCircle class="h-[15px] w-[15px] text-[#B91C1C]" />
+                        <XCircle class="h-[15px] w-[15px] text-red-700" />
                       </button>
                     {/if}
                     <button
                       onclick={() =>
                         router.visit(`/docente/cursos/${curso.id_curso}/mensajeria`)}
-                      class="{ICON_BTN} border-[#D6D9E0] hover:bg-[#F5F1EA]"
+                      class="{ICON_BTN} border-line hover:bg-sand"
                       aria-label="Mensajería de {curso.nombre_asignatura}"
                       title="Mensajería del curso"
                     >
-                      <MessageSquare class="h-[15px] w-[15px] text-[#5A5E6E]" />
+                      <MessageSquare class="h-[15px] w-[15px] text-ink-2" />
                     </button>
 
                     <div class="relative">
@@ -660,10 +660,10 @@
                         onclick={() => {
                           openKebab = openKebab === curso.id_curso ? null : curso.id_curso;
                         }}
-                        class="{ICON_BTN} border-transparent hover:bg-[#F5F1EA]"
+                        class="{ICON_BTN} border-transparent hover:bg-sand"
                         aria-label="Más opciones de {curso.nombre_asignatura}"
                       >
-                        <MoreHorizontal class="h-[15px] w-[15px] text-[#5A5E6E]" />
+                        <MoreHorizontal class="h-[15px] w-[15px] text-ink-2" />
                       </button>
 
                       {#if openKebab === curso.id_curso}
@@ -674,21 +674,21 @@
                           role="presentation"
                         ></div>
                         <div
-                          class="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white py-1 shadow-lg"
+                          class="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
                         >
                           <button
                             onclick={() => router.visit(`/docente/cursos/${curso.id_curso}`)}
-                            class="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-[#1A1A24] hover:bg-[#F5F1EA]"
+                            class="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-ink hover:bg-sand"
                           >
-                            <FileText class="h-3.5 w-3.5 text-[#5A5E6E]" />
+                            <FileText class="h-3.5 w-3.5 text-ink-2" />
                             Ver el curso
                           </button>
                           {#if conDoc}
                             <button
                               onclick={() => abrirSlideOver(curso)}
-                              class="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-[#1A1A24] hover:bg-[#F5F1EA]"
+                              class="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-ink hover:bg-sand"
                             >
-                              <Eye class="h-3.5 w-3.5 text-[#5A5E6E]" />
+                              <Eye class="h-3.5 w-3.5 text-ink-2" />
                               Previsualizar syllabus
                             </button>
                           {/if}
@@ -704,8 +704,8 @@
       </div>
 
       <!-- Pie: recuento + paginación -->
-      <div class="flex items-center gap-2 border-t border-[#E5E7EB] px-4 py-2.5">
-        <span class="mr-auto text-[12px] text-[#5A5E6E]">
+      <div class="flex items-center gap-2 border-t border-gray-200 px-4 py-2.5">
+        <span class="mr-auto text-[12px] text-ink-2">
           Mostrando {rangoDesde}–{rangoHasta} de {pagination.total}
           {pagination.total === 1 ? 'curso filtrado' : 'cursos filtrados'}
         </span>
@@ -713,10 +713,10 @@
           <button
             onclick={() => aplicarFiltros(pagination.current_page - 1)}
             disabled={pagination.current_page <= 1}
-            class="{ICON_BTN} border-[#D6D9E0] hover:bg-[#F5F1EA] disabled:opacity-40"
+            class="{ICON_BTN} border-line hover:bg-sand disabled:opacity-40"
             aria-label="Página anterior"
           >
-            <ChevronLeft class="h-3.5 w-3.5 text-[#5A5E6E]" />
+            <ChevronLeft class="h-3.5 w-3.5 text-ink-2" />
           </button>
           {#each Array.from({ length: pagination.last_page }, (_, i) => i + 1) as page (page)}
             <button
@@ -724,8 +724,8 @@
               aria-current={page === pagination.current_page ? 'page' : undefined}
               class="inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-lg border px-2 text-[13px] transition-colors {page ===
               pagination.current_page
-                ? 'border-[#002F6C] bg-[#002F6C] font-semibold text-white'
-                : 'border-[#D6D9E0] font-medium text-[#1A1A24] hover:bg-[#F5F1EA]'}"
+                ? 'border-navy bg-navy font-semibold text-white'
+                : 'border-line font-medium text-ink hover:bg-sand'}"
             >
               {page}
             </button>
@@ -733,10 +733,10 @@
           <button
             onclick={() => aplicarFiltros(pagination.current_page + 1)}
             disabled={pagination.current_page >= pagination.last_page}
-            class="{ICON_BTN} border-[#D6D9E0] hover:bg-[#F5F1EA] disabled:opacity-40"
+            class="{ICON_BTN} border-line hover:bg-sand disabled:opacity-40"
             aria-label="Página siguiente"
           >
-            <ChevronRight class="h-3.5 w-3.5 text-[#5A5E6E]" />
+            <ChevronRight class="h-3.5 w-3.5 text-ink-2" />
           </button>
         {/if}
       </div>
@@ -772,21 +772,21 @@
     {@const badge = estadoConfig[curso.estado_syllabus] ?? estadoConfig.NO_INICIADO}
 
     <!-- ── Cabecera ── -->
-    <div class="flex flex-none items-center gap-3 border-b border-[#E5E7EB] px-5 py-4">
+    <div class="flex flex-none items-center gap-3 border-b border-gray-200 px-5 py-4">
       <button
         onclick={cerrarSlideOver}
-        class="{ICON_BTN} h-8 w-8 border-[#D6D9E0] hover:bg-[#F5F1EA]"
+        class="{ICON_BTN} h-8 w-8 border-line hover:bg-sand"
         aria-label="Volver a la lista"
       >
-        <ArrowLeft class="h-4 w-4 text-[#1A1A24]" />
+        <ArrowLeft class="h-4 w-4 text-ink" />
       </button>
       <div class="flex min-w-0 flex-col">
-        <span class="truncate font-mono text-[11.5px] text-[#5A5E6E]">
+        <span class="truncate font-mono text-[11.5px] text-ink-2">
           {curso.cod_asignatura}{curso.letra_grupo ? ` · Grupo ${curso.letra_grupo}` : ''}{periodoLabel
             ? ` · ${periodoLabel}`
             : ''}
         </span>
-        <span class="truncate text-[16px] font-semibold leading-[1.3] text-[#1A1A24]"
+        <span class="truncate text-[16px] font-semibold leading-[1.3] text-ink"
           >{curso.nombre_asignatura}</span
         >
       </div>
@@ -798,7 +798,7 @@
       </span>
       <button
         onclick={cerrarSlideOver}
-        class="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[#5A5E6E] transition-colors hover:bg-[#F5F1EA] hover:text-[#1A1A24]"
+        class="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg text-ink-2 transition-colors hover:bg-sand hover:text-ink"
         aria-label="Cerrar panel"
       >
         <X class="h-4 w-4" />
@@ -809,11 +809,11 @@
     <div class="flex min-h-0 flex-1">
       {#if secciones.length > 0}
         <nav
-          class="hidden w-[212px] flex-none flex-col gap-0.5 overflow-y-auto border-r border-[#E5E7EB] bg-[#FCFBF9] px-3 py-3.5 sm:flex"
+          class="hidden w-[212px] flex-none flex-col gap-0.5 overflow-y-auto border-r border-gray-200 bg-stone-50 px-3 py-3.5 sm:flex"
           aria-label="Contenido del syllabus"
         >
           <span
-            class="px-2 pb-2 pt-0.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#5A5E6E]"
+            class="px-2 pb-2 pt-0.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-2"
             >Contenido</span
           >
           {#each secciones as sec (sec.id)}
@@ -821,11 +821,11 @@
             <button
               onclick={() => irASeccion(sec.id)}
               class="flex gap-2 rounded-lg px-2 py-[7px] text-left text-[12.5px] transition-colors {activa
-                ? 'bg-[#E8EDF5] font-semibold text-[#002F6C]'
-                : 'text-[#1A1A24] hover:bg-[#F5F1EA]'}"
+                ? 'bg-uta-blue-light font-semibold text-navy'
+                : 'text-ink hover:bg-sand'}"
             >
               <span
-                class="w-[22px] flex-none font-mono {activa ? 'text-[#002F6C]' : 'text-[#5A5E6E]'}"
+                class="w-[22px] flex-none font-mono {activa ? 'text-navy' : 'text-ink-2'}"
                 >{sec.romano}</span
               >
               {sec.titulo}
@@ -834,7 +834,7 @@
 
           {#if slideOver.syllabus?.ultima_accion || slideOver.syllabus?.version != null}
             <div
-              class="mt-auto flex flex-col gap-1 border-t border-[#E5E7EB] pt-2.5 text-[11.5px] text-[#5A5E6E]"
+              class="mt-auto flex flex-col gap-1 border-t border-gray-200 pt-2.5 text-[11.5px] text-ink-2"
             >
               {#if slideOver.syllabus?.ultima_accion}
                 <span>Movido {formatFechaCorta(slideOver.syllabus.ultima_accion)}</span>
@@ -860,20 +860,20 @@
           <div class="animate-pulse space-y-6">
             {#each [1, 2, 3] as bloque (bloque)}
               <div>
-                <div class="mb-3 h-2.5 w-1/4 rounded-full bg-[#E5E7EB]"></div>
-                <div class="h-3 w-full rounded bg-[#F5F1EA]"></div>
-                <div class="mt-1.5 h-3 w-5/6 rounded bg-[#F5F1EA]"></div>
-                <div class="mt-1.5 h-3 w-4/6 rounded bg-[#F5F1EA]"></div>
+                <div class="mb-3 h-2.5 w-1/4 rounded-full bg-gray-200"></div>
+                <div class="h-3 w-full rounded bg-sand"></div>
+                <div class="mt-1.5 h-3 w-5/6 rounded bg-sand"></div>
+                <div class="mt-1.5 h-3 w-4/6 rounded bg-sand"></div>
               </div>
             {/each}
           </div>
         {:else if !slideOver.syllabus}
           <div class="py-20 text-center">
-            <FileText class="mx-auto mb-3 h-10 w-10 text-[#C9D6E6]" />
-            <p class="m-0 text-[14px] font-medium text-[#5A5E6E]">
+            <FileText class="mx-auto mb-3 h-10 w-10 text-slate-300" />
+            <p class="m-0 text-[14px] font-medium text-ink-2">
               Este curso no tiene un syllabus creado
             </p>
-            <p class="mt-1 text-[12.5px] text-[#98A0AE]">
+            <p class="mt-1 text-[12.5px] text-gray-400">
               El docente aún no ha iniciado el documento
             </p>
           </div>
@@ -884,41 +884,41 @@
           <!-- Identificación -->
           <section id="sec-identificacion" class="flex flex-col gap-2.5">
             <div class="flex items-baseline gap-2">
-              <span class="font-mono text-[12px] text-[#5A5E6E]">{romano('identificacion')}</span>
-              <h2 class="m-0 text-[16px] font-semibold text-[#1A1A24]">Identificación</h2>
+              <span class="font-mono text-[12px] text-ink-2">{romano('identificacion')}</span>
+              <h2 class="m-0 text-[16px] font-semibold text-ink">Identificación</h2>
             </div>
             <div
-              class="grid grid-cols-1 gap-x-5 gap-y-2.5 rounded-[10px] border border-[#E5E7EB] bg-[#FCFBF9] p-3.5 sm:grid-cols-2"
+              class="grid grid-cols-1 gap-x-5 gap-y-2.5 rounded-[10px] border border-gray-200 bg-stone-50 p-3.5 sm:grid-cols-2"
             >
               <div class="flex flex-col">
-                <span class="text-[11.5px] text-[#5A5E6E]">Asignatura</span>
-                <span class="text-[13px] font-medium text-[#1A1A24]">{s.titulo}</span>
+                <span class="text-[11.5px] text-ink-2">Asignatura</span>
+                <span class="text-[13px] font-medium text-ink">{s.titulo}</span>
               </div>
               <div class="flex flex-col">
-                <span class="text-[11.5px] text-[#5A5E6E]">Código</span>
-                <span class="font-mono text-[13px] text-[#1A1A24]">{s.codigo}</span>
+                <span class="text-[11.5px] text-ink-2">Código</span>
+                <span class="font-mono text-[13px] text-ink">{s.codigo}</span>
               </div>
               {#if s.letra_grupo}
                 <div class="flex flex-col">
-                  <span class="text-[11.5px] text-[#5A5E6E]">Grupo</span>
-                  <span class="text-[13px] font-medium text-[#1A1A24]">{s.letra_grupo}</span>
+                  <span class="text-[11.5px] text-ink-2">Grupo</span>
+                  <span class="text-[13px] font-medium text-ink">{s.letra_grupo}</span>
                 </div>
               {/if}
               {#if s.agno_real}
                 <div class="flex flex-col">
-                  <span class="text-[11.5px] text-[#5A5E6E]">Período</span>
-                  <span class="text-[13px] font-medium text-[#1A1A24]"
+                  <span class="text-[11.5px] text-ink-2">Período</span>
+                  <span class="text-[13px] font-medium text-ink"
                     >{s.semestre_real ?? '—'}º semestre {s.agno_real}</span
                   >
                 </div>
               {/if}
               <div class="flex flex-col">
-                <span class="text-[11.5px] text-[#5A5E6E]">Docente titular</span>
-                <span class="text-[13px] font-medium text-[#1A1A24]">{s.docente}</span>
+                <span class="text-[11.5px] text-ink-2">Docente titular</span>
+                <span class="text-[13px] font-medium text-ink">{s.docente}</span>
               </div>
               <div class="flex flex-col">
-                <span class="text-[11.5px] text-[#5A5E6E]">Completud</span>
-                <span class="text-[13px] font-medium text-[#1A1A24]">{s.completud}%</span>
+                <span class="text-[11.5px] text-ink-2">Completud</span>
+                <span class="text-[13px] font-medium text-ink">{s.completud}%</span>
               </div>
             </div>
           </section>
@@ -927,10 +927,10 @@
           {#if s.descripcion}
             <section id="sec-presentacion" class="flex flex-col gap-2">
               <div class="flex items-baseline gap-2">
-                <span class="font-mono text-[12px] text-[#5A5E6E]">{romano('presentacion')}</span>
-                <h2 class="m-0 text-[16px] font-semibold text-[#1A1A24]">Presentación</h2>
+                <span class="font-mono text-[12px] text-ink-2">{romano('presentacion')}</span>
+                <h2 class="m-0 text-[16px] font-semibold text-ink">Presentación</h2>
               </div>
-              <p class="m-0 text-pretty text-[13.5px] leading-relaxed text-[#1A1A24]">
+              <p class="m-0 text-pretty text-[13.5px] leading-relaxed text-ink">
                 {s.descripcion}
               </p>
             </section>
@@ -940,10 +940,10 @@
           {#if s.objetivos.length > 0}
             <section id="sec-objetivos" class="flex flex-col gap-2">
               <div class="flex items-baseline gap-2">
-                <span class="font-mono text-[12px] text-[#5A5E6E]">{romano('objetivos')}</span>
-                <h2 class="m-0 text-[16px] font-semibold text-[#1A1A24]">Objetivos</h2>
+                <span class="font-mono text-[12px] text-ink-2">{romano('objetivos')}</span>
+                <h2 class="m-0 text-[16px] font-semibold text-ink">Objetivos</h2>
               </div>
-              <ul class="m-0 flex list-disc flex-col gap-1.5 pl-[18px] text-[13.5px] text-[#1A1A24]">
+              <ul class="m-0 flex list-disc flex-col gap-1.5 pl-[18px] text-[13.5px] text-ink">
                 {#each s.objetivos as obj, i (i)}
                   <li>{obj}</li>
                 {/each}
@@ -955,34 +955,34 @@
           {#if s.unidades.length > 0}
             <section id="sec-unidades" class="flex flex-col gap-2">
               <div class="flex items-baseline gap-2">
-                <span class="font-mono text-[12px] text-[#5A5E6E]">{romano('unidades')}</span>
-                <h2 class="m-0 text-[16px] font-semibold text-[#1A1A24]">Unidades</h2>
+                <span class="font-mono text-[12px] text-ink-2">{romano('unidades')}</span>
+                <h2 class="m-0 text-[16px] font-semibold text-ink">Unidades</h2>
               </div>
-              <div class="overflow-hidden rounded-[10px] border border-[#E5E7EB]">
+              <div class="overflow-hidden rounded-[10px] border border-gray-200">
                 <table class="w-full border-collapse text-[13px]">
-                  <thead class="bg-[#F5F1EA]">
+                  <thead class="bg-sand">
                     <tr>
                       <th
-                        class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]"
+                        class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-2"
                         >Unidad</th
                       >
                       <th
-                        class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]"
+                        class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-2"
                         >Resultado de aprendizaje</th
                       >
                       <th
-                        class="w-[70px] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]"
+                        class="w-[70px] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-2"
                         >Horas</th
                       >
                     </tr>
                   </thead>
                   <tbody>
                     {#each s.unidades as unidad, ui (ui)}
-                      <tr class="border-t border-[#E5E7EB] align-top">
-                        <td class="px-3 py-2.5 font-medium text-[#1A1A24]"
+                      <tr class="border-t border-gray-200 align-top">
+                        <td class="px-3 py-2.5 font-medium text-ink"
                           >{unidad.numero}. {unidad.titulo}</td
                         >
-                        <td class="px-3 py-2.5 text-[#1A1A24]">
+                        <td class="px-3 py-2.5 text-ink">
                           {#if unidad.contenidos.length > 0}
                             <ul class="m-0 flex list-disc flex-col gap-1 pl-4">
                               {#each unidad.contenidos as contenido, ci (ci)}
@@ -990,10 +990,10 @@
                               {/each}
                             </ul>
                           {:else}
-                            <span class="text-[#98A0AE]">Sin resultados declarados</span>
+                            <span class="text-gray-400">Sin resultados declarados</span>
                           {/if}
                         </td>
-                        <td class="px-3 py-2.5 text-[#5A5E6E]">
+                        <td class="px-3 py-2.5 text-ink-2">
                           {unidad.horas > 0 ? unidad.horas : '—'}
                         </td>
                       </tr>
@@ -1008,33 +1008,33 @@
           {#if s.evaluaciones.length > 0}
             <section id="sec-evaluacion" class="flex flex-col gap-2">
               <div class="flex items-baseline gap-2">
-                <span class="font-mono text-[12px] text-[#5A5E6E]">{romano('evaluacion')}</span>
-                <h2 class="m-0 text-[16px] font-semibold text-[#1A1A24]">Evaluación</h2>
+                <span class="font-mono text-[12px] text-ink-2">{romano('evaluacion')}</span>
+                <h2 class="m-0 text-[16px] font-semibold text-ink">Evaluación</h2>
               </div>
-              <div class="overflow-hidden rounded-[10px] border border-[#E5E7EB]">
+              <div class="overflow-hidden rounded-[10px] border border-gray-200">
                 <table class="w-full border-collapse text-[13px]">
-                  <thead class="bg-[#F5F1EA]">
+                  <thead class="bg-sand">
                     <tr>
                       <th
-                        class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]"
+                        class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-2"
                         >Evaluación</th
                       >
                       <th
-                        class="w-[110px] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]"
+                        class="w-[110px] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-2"
                         >Ponderación</th
                       >
                       <th
-                        class="w-[90px] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-[#5A5E6E]"
+                        class="w-[90px] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-2"
                         >Semana</th
                       >
                     </tr>
                   </thead>
                   <tbody>
                     {#each s.evaluaciones as ev, i (i)}
-                      <tr class="border-t border-[#E5E7EB]">
-                        <td class="px-3 py-2.5 text-[#1A1A24]">{ev.descripcion}</td>
-                        <td class="px-3 py-2.5 font-mono text-[#1A1A24]">{ev.ponderacion}</td>
-                        <td class="px-3 py-2.5 text-[#5A5E6E]">
+                      <tr class="border-t border-gray-200">
+                        <td class="px-3 py-2.5 text-ink">{ev.descripcion}</td>
+                        <td class="px-3 py-2.5 font-mono text-ink">{ev.ponderacion}</td>
+                        <td class="px-3 py-2.5 text-ink-2">
                           {ev.semana === '' || ev.semana === null ? '—' : `Sem. ${ev.semana}`}
                         </td>
                       </tr>
@@ -1051,15 +1051,15 @@
     <!-- ── Footer de decisión: fijo, sólo cuando el estado la admite ── -->
     {#if admiteDecision(curso) && slideOver.syllabus}
       <div
-        class="flex flex-none items-center gap-3 border-t border-[#E5E7EB] bg-white px-5 py-3.5 shadow-[0_-1px_3px_rgba(0,0,0,.06)]"
+        class="flex flex-none items-center gap-3 border-t border-gray-200 bg-white px-5 py-3.5 shadow-[0_-1px_3px_rgba(0,0,0,.06)]"
       >
         <div class="flex min-w-0 flex-col">
-          <span class="text-[12.5px] font-semibold text-[#1A1A24]">Decisión de jefatura</span>
-          <span class="text-[12px] text-[#5A5E6E]">Queda registrada con tu nombre y fecha</span>
+          <span class="text-[12.5px] font-semibold text-ink">Decisión de jefatura</span>
+          <span class="text-[12px] text-ink-2">Queda registrada con tu nombre y fecha</span>
         </div>
         <div class="ml-auto flex flex-none gap-2">
           <button onclick={abrirSolicitud} class={BTN_OUTLINE}>
-            <MessageSquare class="h-[15px] w-[15px] text-[#5A5E6E]" />
+            <MessageSquare class="h-[15px] w-[15px] text-ink-2" />
             Solicitar cambios
           </button>
           <button onclick={aprobarSyllabus} disabled={slideOver.approving} class={BTN_PRIMARY}>
@@ -1087,7 +1087,7 @@
   >
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
     <div
-      class="w-full max-w-[720px] overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-[0_20px_40px_rgba(0,0,0,.15)]"
+      class="w-full max-w-[720px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_20px_40px_rgba(0,0,0,.15)]"
       onclick={(e) => e.stopPropagation()}
       role="dialog"
       tabindex="-1"
@@ -1095,19 +1095,19 @@
       aria-label="Solicitar cambios"
     >
       <div
-        class="flex flex-wrap items-center gap-2.5 border-b border-[#E5E7EB] bg-[#FCFBF9] px-5 py-3"
+        class="flex flex-wrap items-center gap-2.5 border-b border-gray-200 bg-stone-50 px-5 py-3"
       >
-        <MessageSquare class="h-[15px] w-[15px] text-[#5A5E6E]" />
-        <span class="text-[12.5px] font-semibold text-[#1A1A24]">
+        <MessageSquare class="h-[15px] w-[15px] text-ink-2" />
+        <span class="text-[12.5px] font-semibold text-ink">
           Solicitar cambios — {slideOver.curso.cod_asignatura}
           {slideOver.curso.nombre_asignatura}
         </span>
-        <span class="ml-auto text-[12px] text-[#5A5E6E]">volverá a estado Rechazado</span>
+        <span class="ml-auto text-[12px] text-ink-2">volverá a estado Rechazado</span>
       </div>
 
       <div class="flex flex-col gap-2 px-5 py-4">
-        <label for="razon-solicitud" class="text-[13px] font-semibold text-[#1A1A24]">
-          Razón de la solicitud <span class="text-[#DC2626]">*</span>
+        <label for="razon-solicitud" class="text-[13px] font-semibold text-ink">
+          Razón de la solicitud <span class="text-red-600">*</span>
         </label>
         <textarea
           id="razon-solicitud"
@@ -1117,34 +1117,34 @@
           maxlength={RAZON_MAX}
           placeholder="Indica qué debe corregir el docente antes de reenviar"
           aria-invalid={razonVacia}
-          class="w-full resize-y rounded-lg border px-3 py-2.5 text-[14px] text-[#1A1A24] placeholder-[#98A0AE] focus:outline-none {razonVacia
-            ? 'border-[#DC2626]'
-            : 'border-[#002F6C] outline outline-2 outline-offset-1 outline-[rgba(0,47,108,.25)]'}"
+          class="w-full resize-y rounded-lg border px-3 py-2.5 text-[14px] text-ink placeholder-gray-400 focus:outline-none {razonVacia
+            ? 'border-red-600'
+            : 'border-navy outline outline-2 outline-offset-1 outline-[rgba(0,47,108,.25)]'}"
         ></textarea>
         <div class="flex items-center gap-2.5">
-          <span class="text-[12px] {razonVacia ? 'text-[#DC2626]' : 'text-[#5A5E6E]'}">
+          <span class="text-[12px] {razonVacia ? 'text-red-600' : 'text-ink-2'}">
             {razonError ??
               (razonVacia
                 ? 'La razón es obligatoria: se envía al docente y queda en el historial.'
                 : 'Se envía al docente y queda en el historial del syllabus.')}
           </span>
-          <span class="ml-auto font-mono text-[11.5px] tabular-nums text-[#5A5E6E]">
+          <span class="ml-auto font-mono text-[11.5px] tabular-nums text-ink-2">
             {razon.length} / {RAZON_MAX}
           </span>
         </div>
       </div>
 
-      <div class="flex items-center gap-3 border-t border-[#E5E7EB] px-5 py-3.5">
+      <div class="flex items-center gap-3 border-t border-gray-200 px-5 py-3.5">
         <button
           onclick={cerrarSolicitud}
-          class="rounded-lg px-3 py-2.5 text-[14px] font-medium text-[#002F6C] transition-colors hover:bg-[#F5F1EA]"
+          class="rounded-lg px-3 py-2.5 text-[14px] font-medium text-navy transition-colors hover:bg-sand"
         >
           Volver al documento
         </button>
         <button
           onclick={enviarSolicitud}
           disabled={enviandoSolicitud}
-          class="ml-auto inline-flex items-center gap-[7px] rounded-lg border border-[#DC2626] bg-[#DC2626] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#B91C1C] disabled:opacity-60"
+          class="ml-auto inline-flex items-center gap-[7px] rounded-lg border border-red-600 bg-red-600 px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
         >
           <Send class="h-[15px] w-[15px]" />
           {enviandoSolicitud ? 'Enviando…' : 'Enviar solicitud'}

@@ -445,24 +445,24 @@
   // ── Vocabulario visual compartido ─────────────────────────────────────────
 
   const BTN_OUTLINE =
-    'inline-flex items-center gap-[7px] rounded-lg border border-[#D6D9E0] bg-white px-3.5 py-2.5 text-[14px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA] disabled:opacity-50';
+    'inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3.5 py-2.5 text-[14px] font-medium text-ink transition-colors hover:bg-sand disabled:opacity-50';
   const BTN_PRIMARY =
-    'inline-flex items-center gap-[7px] rounded-lg border border-[#002F6C] bg-[#002F6C] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#1B4789] disabled:opacity-60';
+    'inline-flex items-center gap-[7px] rounded-lg border border-navy bg-navy px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-navy-2 disabled:opacity-60';
   const BTN_PELIGRO =
-    'inline-flex items-center gap-[7px] rounded-lg border border-[#F0D2D2] bg-white px-3.5 py-2.5 text-[14px] font-medium text-[#B91C1C] transition-colors hover:bg-[#FEF2F2] disabled:opacity-50';
+    'inline-flex items-center gap-[7px] rounded-lg border border-rose-200 bg-white px-3.5 py-2.5 text-[14px] font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50';
   const BTN_BLOQUEADO =
-    'inline-flex cursor-not-allowed items-center gap-[7px] rounded-lg border border-[#E0E3E9] bg-[#E9EBEF] px-4 py-2.5 text-[14px] font-semibold text-[#9AA0AE]';
+    'inline-flex cursor-not-allowed items-center gap-[7px] rounded-lg border border-zinc-200 bg-gray-200 px-4 py-2.5 text-[14px] font-semibold text-gray-400';
   const META = 'inline-flex items-center gap-1.5';
 </script>
 
 {#snippet metaFila()}
   <div
-    class="flex flex-wrap items-center gap-x-[18px] gap-y-2 border-t border-dashed border-[#E5E7EB] pt-2.5 text-[12px] text-[#5A5E6E]"
+    class="flex flex-wrap items-center gap-x-[18px] gap-y-2 border-t border-dashed border-gray-200 pt-2.5 text-[12px] text-ink-2"
   >
     {#if tipoSyllabus}
       <span class={META}>
-        <FileText size={14} class="text-[#9AA0AE]" aria-hidden="true" />
-        Tipo <strong class="font-semibold text-[#1A1A24]">{tipoSyllabus}</strong>
+        <FileText size={14} class="text-gray-400" aria-hidden="true" />
+        Tipo <strong class="font-semibold text-ink">{tipoSyllabus}</strong>
         {#if requeridas.length > 0}
           · {requeridas.length}
           {requeridas.length === 1 ? 'sección exigida' : 'secciones exigidas'}
@@ -471,31 +471,31 @@
     {/if}
     {#if programa?.version_programa}
       <span class={META}>
-        <GitBranch size={14} class="text-[#9AA0AE]" aria-hidden="true" />
-        Versión <strong class="font-semibold text-[#1A1A24]">{programa.version_programa}</strong>
+        <GitBranch size={14} class="text-gray-400" aria-hidden="true" />
+        Versión <strong class="font-semibold text-ink">{programa.version_programa}</strong>
       </span>
     {/if}
     {#if programa?.fecha_modificacion}
       <span class={META}>
-        <CalendarDays size={14} class="text-[#9AA0AE]" aria-hidden="true" />
+        <CalendarDays size={14} class="text-gray-400" aria-hidden="true" />
         Última modificación {formatFechaHora(programa.fecha_modificacion)}
       </span>
     {/if}
     {#if programa?.autor}
       <span class={META}>
-        <User size={14} class="text-[#9AA0AE]" aria-hidden="true" />
+        <User size={14} class="text-gray-400" aria-hidden="true" />
         Autor {programa.autor}
       </span>
     {/if}
     {#if programa?.fecha_aprobacion}
       <span class={META}>
-        <CheckCircle2 size={14} class="text-[#059669]" aria-hidden="true" />
+        <CheckCircle2 size={14} class="text-emerald-600" aria-hidden="true" />
         Aprobado {formatDate(programa.fecha_aprobacion)}
       </span>
     {/if}
     {#if sellado && programa?.revisor}
       <span class={META}>
-        <PenTool size={14} class="text-[#9AA0AE]" aria-hidden="true" />
+        <PenTool size={14} class="text-gray-400" aria-hidden="true" />
         Revisado por {programa.revisor}
       </span>
     {/if}
@@ -507,35 +507,35 @@
     <div class="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-6 sm:px-8">
       <!-- ── Migas ── -->
       <nav
-        class="flex flex-wrap items-center gap-1.5 text-[12px] text-[#5A5E6E] print:hidden"
+        class="flex flex-wrap items-center gap-1.5 text-[12px] text-ink-2 print:hidden"
         aria-label="Ruta de navegación"
       >
         {#if esAdmin}
-          <span class="font-semibold text-[#4F46E5]">Admin</span>
-          <ChevronRight size={12} class="text-[#9AA0AE]" aria-hidden="true" />
+          <span class="font-semibold text-indigo-600">Admin</span>
+          <ChevronRight size={12} class="text-gray-400" aria-hidden="true" />
           <Link
             href="/admin/syllabus"
-            class="rounded-lg px-1.5 py-1 font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F5F1EA] hover:text-[#002F6C]"
+            class="rounded-lg px-1.5 py-1 font-medium text-ink no-underline transition-colors hover:bg-sand hover:text-navy"
           >
             Syllabus
           </Link>
         {:else}
           <Link
             href={resolvedBackUrl}
-            class="rounded-lg px-1.5 py-1 font-medium text-[#1A1A24] no-underline transition-colors hover:bg-[#F5F1EA] hover:text-[#002F6C]"
+            class="rounded-lg px-1.5 py-1 font-medium text-ink no-underline transition-colors hover:bg-sand hover:text-navy"
           >
             Mis cursos
           </Link>
         {/if}
-        <ChevronRight size={12} class="text-[#9AA0AE]" aria-hidden="true" />
+        <ChevronRight size={12} class="text-gray-400" aria-hidden="true" />
         <span class="px-1">{rotuloCurso}</span>
-        <ChevronRight size={12} class="text-[#9AA0AE]" aria-hidden="true" />
-        <span class="px-1 font-medium text-[#1A1A24]" aria-current="page">Programa</span>
+        <ChevronRight size={12} class="text-gray-400" aria-hidden="true" />
+        <span class="px-1 font-medium text-ink" aria-current="page">Programa</span>
       </nav>
 
       {#if flashError}
         <p
-          class="m-0 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-[13px] font-medium text-[#B91C1C] print:hidden"
+          class="m-0 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700 print:hidden"
           role="alert"
         >
           {flashError}
@@ -543,7 +543,7 @@
       {/if}
       {#if flashOk}
         <p
-          class="m-0 rounded-lg border border-[#A7F3D0] bg-[#ECFDF5] px-4 py-3 text-[13px] font-medium text-[#047857] print:hidden"
+          class="m-0 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] font-medium text-emerald-700 print:hidden"
           role="status"
         >
           {flashOk}
@@ -551,38 +551,38 @@
       {/if}
 
       <div
-        class="overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(0,0,0,.08)]"
+        class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,.08)]"
       >
         <!-- ── Cabecera del documento ── -->
         <header
-          class="flex flex-col gap-2.5 border-b border-[#E5E7EB] bg-white px-5 pt-3.5 pb-4 sm:px-7 {esAdmin
-            ? 'shadow-[inset_3px_0_0_#4F46E5]'
+          class="flex flex-col gap-2.5 border-b border-gray-200 bg-white px-5 pt-3.5 pb-4 sm:px-7 {esAdmin
+            ? 'shadow-[inset_3px_0_0_var(--color-indigo-600)]'
             : ''}"
         >
           <div class="flex flex-wrap items-start gap-5">
             <div class="flex min-w-0 flex-col gap-1.5">
               <div class="flex flex-wrap items-baseline gap-2.5">
                 {#if codigo}
-                  <span class="font-mono text-[14px] text-[#5A5E6E]">{codigo}</span>
+                  <span class="font-mono text-[14px] text-ink-2">{codigo}</span>
                 {/if}
-                <h1 class="m-0 text-[24px] font-semibold tracking-[-0.01em] text-[#1A1A24]">
+                <h1 class="m-0 text-[24px] font-semibold tracking-[-0.01em] text-ink">
                   {titulo}
                 </h1>
               </div>
-              <div class="flex flex-wrap items-center gap-2.5 text-[12.5px] text-[#5A5E6E]">
+              <div class="flex flex-wrap items-center gap-2.5 text-[12.5px] text-ink-2">
                 {#if curso.letra_grupo}
                   <span
-                    class="inline-flex h-5 w-5 items-center justify-center rounded-[5px] bg-[#F5F1EA] text-[11.5px] font-semibold text-[#5A5E6E]"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded-[5px] bg-sand text-[11.5px] font-semibold text-ink-2"
                     aria-hidden="true">{curso.letra_grupo}</span
                   >
                   <span>Grupo {curso.letra_grupo}</span>
                 {/if}
                 {#if curso.agno_real && curso.semestre_real}
-                  <span class="text-[#D6D9E0]" aria-hidden="true">·</span>
+                  <span class="text-line" aria-hidden="true">·</span>
                   <span>{curso.semestre_real}.º semestre {curso.agno_real}</span>
                 {/if}
                 {#if curso.carrera_nombre}
-                  <span class="text-[#D6D9E0]" aria-hidden="true">·</span>
+                  <span class="text-line" aria-hidden="true">·</span>
                   <span>{curso.carrera_nombre}</span>
                 {/if}
               </div>
@@ -592,18 +592,18 @@
               <button
                 type="button"
                 onclick={() => window.print()}
-                class="inline-flex items-center gap-[7px] rounded-lg border border-[#D6D9E0] bg-white px-3 py-2 text-[13px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA] print:hidden"
+                class="inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand print:hidden"
               >
-                <Printer size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+                <Printer size={15} class="text-ink-2" aria-hidden="true" />
                 Imprimir
               </button>
               {#if programa && historial.length > 0}
                 <button
                   type="button"
                   onclick={() => (historialAbierto = true)}
-                  class="inline-flex items-center gap-[7px] rounded-lg border border-[#D6D9E0] bg-white px-3 py-2 text-[13px] font-medium text-[#1A1A24] transition-colors hover:bg-[#F5F1EA] print:hidden xl:hidden"
+                  class="inline-flex items-center gap-[7px] rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-sand print:hidden xl:hidden"
                 >
-                  <Clock size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+                  <Clock size={15} class="text-ink-2" aria-hidden="true" />
                   Historial
                 </button>
               {/if}
@@ -624,25 +624,25 @@
         {#if programa}
           <!-- ── Banner de rechazo: primer contenido de la pantalla ── -->
           {#if fueRechazado && !esAdmin}
-            <div class="bg-[#F5F1EA] px-5 pt-5 sm:px-7 print:hidden">
+            <div class="bg-sand px-5 pt-5 sm:px-7 print:hidden">
               <div
-                class="flex gap-3.5 rounded-[10px] border border-[#E5B4B4] border-l-4 border-l-[#8A1538] bg-[#FDF3F3] px-5 py-4"
+                class="flex gap-3.5 rounded-[10px] border border-red-200 border-l-4 border-l-uta-red bg-red-50 px-5 py-4"
                 role="alert"
               >
-                <AlertOctagon size={20} class="mt-0.5 flex-none text-[#8A1538]" aria-hidden="true" />
+                <AlertOctagon size={20} class="mt-0.5 flex-none text-uta-red" aria-hidden="true" />
                 <div class="flex min-w-0 flex-col gap-2">
                   <div class="flex flex-wrap items-baseline gap-2.5">
-                    <span class="text-[15.5px] font-semibold text-[#7A1230]">
+                    <span class="text-[15.5px] font-semibold text-uta-red-hover">
                       Syllabus rechazado{programa.rechazado_por ? ` por ${programa.rechazado_por}` : ''}
                     </span>
                     {#if programa.fecha_rechazo}
-                      <span class="text-[12.5px] text-[#8A6A6A]"
+                      <span class="text-[12.5px] text-stone-500"
                         >{formatDate(programa.fecha_rechazo)}</span
                       >
                     {/if}
                   </div>
                   <p
-                    class="m-0 max-w-[800px] text-[14.5px] leading-[1.6] text-pretty whitespace-pre-wrap text-[#4A2028]"
+                    class="m-0 max-w-[800px] text-[14.5px] leading-[1.6] text-pretty whitespace-pre-wrap text-rose-950"
                   >
                     {programa.razon_rechazo}
                   </p>
@@ -651,7 +651,7 @@
                       <button
                         type="button"
                         onclick={abrirEdicion}
-                        class="inline-flex items-center gap-[7px] rounded-lg border border-[#8A1538] bg-[#8A1538] px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#7A1230]"
+                        class="inline-flex items-center gap-[7px] rounded-lg border border-uta-red bg-uta-red px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-uta-red-hover"
                       >
                         <Pencil size={14} aria-hidden="true" />
                         Editar syllabus
@@ -668,13 +668,13 @@
             {@const dias = diasRestantes(plazoVigente.value)}
             {@const vencido = dias !== null && dias < 0}
             {@const urgente = dias !== null && dias >= 0 && dias <= 3}
-            <div class="bg-[#F5F1EA] px-5 pt-5 sm:px-7 print:hidden">
+            <div class="bg-sand px-5 pt-5 sm:px-7 print:hidden">
               <p
                 class="m-0 flex flex-wrap items-center gap-2 rounded-[10px] border px-4 py-3 text-[13px] {vencido
-                  ? 'border-[#F6C9C9] bg-[#FEF2F2] text-[#B91C1C]'
+                  ? 'border-red-200 bg-red-50 text-red-700'
                   : urgente
-                    ? 'border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]'
-                    : 'border-[#C9D6E6] bg-[#E8EDF5] text-[#002F6C]'}"
+                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                    : 'border-slate-300 bg-uta-blue-light text-navy'}"
               >
                 <CalendarDays size={15} class="flex-none" aria-hidden="true" />
                 <span class="font-semibold">{plazoVigente.label}</span>
@@ -699,7 +699,7 @@
 
           <!-- ── Índice · lectura · contexto ── -->
           <div
-            class="flex flex-col items-start gap-6 bg-[#F5F1EA] px-5 py-6 sm:px-7 lg:flex-row print:bg-white print:p-0"
+            class="flex flex-col items-start gap-6 bg-sand px-5 py-6 sm:px-7 lg:flex-row print:bg-white print:p-0"
           >
             <div class="w-full lg:w-[240px] lg:flex-none print:hidden">
               <SyllabusIndice
@@ -715,13 +715,13 @@
               {#if sellado}
                 <div class="flex justify-end print:justify-start">
                   <span
-                    class="inline-flex flex-wrap items-center gap-2.5 rounded-[10px] border border-[#A7F3D0] bg-[#ECFDF5] px-3.5 py-2"
+                    class="inline-flex flex-wrap items-center gap-2.5 rounded-[10px] border border-emerald-200 bg-emerald-50 px-3.5 py-2"
                   >
-                    <BadgeCheck size={17} class="text-[#047857]" aria-hidden="true" />
-                    <span class="text-[13px] font-semibold text-[#047857]">APROBADO</span>
+                    <BadgeCheck size={17} class="text-emerald-700" aria-hidden="true" />
+                    <span class="text-[13px] font-semibold text-emerald-700">APROBADO</span>
                     {#if programa.fecha_aprobacion || programa.revisor}
-                      <span class="h-3.5 w-px bg-[#A7F3D0]" aria-hidden="true"></span>
-                      <span class="text-[12.5px] text-[#0F6B4F]">
+                      <span class="h-3.5 w-px bg-emerald-200" aria-hidden="true"></span>
+                      <span class="text-[12.5px] text-emerald-800">
                         {[
                           programa.fecha_aprobacion ? formatDate(programa.fecha_aprobacion) : null,
                           programa.revisor,
@@ -749,11 +749,11 @@
 
           <!-- ── Pie de acciones ── -->
           <div
-            class="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-[#E5E7EB] bg-white px-5 py-3.5 shadow-[0_-1px_3px_rgba(0,0,0,.06)] sm:px-7 print:hidden"
+            class="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-gray-200 bg-white px-5 py-3.5 shadow-[0_-1px_3px_rgba(0,0,0,.06)] sm:px-7 print:hidden"
           >
             {#if sellado && !esAdmin}
-              <p class="m-0 flex items-center gap-2 text-[13px] text-[#5A5E6E]">
-                <Lock size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+              <p class="m-0 flex items-center gap-2 text-[13px] text-ink-2">
+                <Lock size={15} class="text-ink-2" aria-hidden="true" />
                 Aprobado{programa.fecha_aprobacion
                   ? ` el ${formatDate(programa.fecha_aprobacion)}`
                   : ''}.{puedeEditar
@@ -761,17 +761,17 @@
                   : ' Para modificarlo, solicita reapertura a tu jefatura.'}
               </p>
             {:else if enRevision && !esAdmin}
-              <p class="m-0 flex items-center gap-2 text-[13px] text-[#5A5E6E]">
-                <Send size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+              <p class="m-0 flex items-center gap-2 text-[13px] text-ink-2">
+                <Send size={15} class="text-ink-2" aria-hidden="true" />
                 En revisión desde {formatFechaCorta(programa.fecha_modificacion)}. Mientras dure la
                 revisión el documento sólo se lee.
               </p>
             {:else if esAdmin}
-              <p class="m-0 text-[12.5px] text-[#5A5E6E]">
+              <p class="m-0 text-[12.5px] text-ink-2">
                 Tu decisión queda registrada con tu nombre y fecha en el historial del syllabus.
               </p>
             {:else}
-              <p class="m-0 text-[12.5px] text-[#5A5E6E]">
+              <p class="m-0 text-[12.5px] text-ink-2">
                 Editar abre el asistente del syllabus. Aquí solo se lee.
               </p>
             {/if}
@@ -780,7 +780,7 @@
               {#if esAdmin}
                 {#if puedeEditar}
                   <button type="button" onclick={abrirEdicion} class={BTN_OUTLINE}>
-                    <Pencil size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+                    <Pencil size={15} class="text-ink-2" aria-hidden="true" />
                     Editar
                   </button>
                 {/if}
@@ -789,7 +789,7 @@
                     type="button"
                     onclick={() => (rechazoAbierto = true)}
                     disabled={accionEnCurso !== null}
-                    class="inline-flex items-center gap-[7px] rounded-lg border border-[#DC2626] bg-white px-3.5 py-2.5 text-[14px] font-semibold text-[#B91C1C] transition-colors hover:bg-[#FEF2F2] disabled:opacity-50"
+                    class="inline-flex items-center gap-[7px] rounded-lg border border-red-600 bg-white px-3.5 py-2.5 text-[14px] font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50"
                   >
                     <XCircle size={15} aria-hidden="true" />
                     {sellado ? 'Revocar aprobación' : 'Rechazar'}
@@ -799,7 +799,7 @@
                       type="button"
                       onclick={aprobar}
                       disabled={accionEnCurso !== null}
-                      class="inline-flex items-center gap-[7px] rounded-lg border border-[#059669] bg-[#059669] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#047857] disabled:opacity-60"
+                      class="inline-flex items-center gap-[7px] rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
                     >
                       <Check size={15} aria-hidden="true" />
                       {accionEnCurso === 'aprobar' ? 'Aprobando…' : 'Aprobar'}
@@ -808,13 +808,13 @@
                 {/if}
               {:else if sellado && puedeEditar}
                 <button type="button" onclick={abrirEdicion} class={BTN_OUTLINE}>
-                  <Pencil size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+                  <Pencil size={15} class="text-ink-2" aria-hidden="true" />
                   Editar (vuelve a revisión)
                 </button>
               {:else if !sellado && !enRevision}
                 {#if canDelete}
                   {#if confirmandoEliminar}
-                    <span class="text-[12.5px] font-medium text-[#B91C1C]"
+                    <span class="text-[12.5px] font-medium text-red-700"
                       >¿Eliminar este syllabus?</span
                     >
                     <button
@@ -828,7 +828,7 @@
                       type="button"
                       onclick={eliminarPrograma}
                       disabled={accionEnCurso !== null}
-                      class="inline-flex items-center gap-[7px] rounded-lg border border-[#DC2626] bg-[#DC2626] px-3.5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#B91C1C] disabled:opacity-60"
+                      class="inline-flex items-center gap-[7px] rounded-lg border border-red-600 bg-red-600 px-3.5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
                     >
                       <Trash2 size={15} aria-hidden="true" />
                       {accionEnCurso === 'eliminar' ? 'Eliminando…' : 'Sí, eliminar'}
@@ -846,7 +846,7 @@
                 {/if}
                 {#if puedeEditar && !confirmandoEliminar}
                   <button type="button" onclick={abrirEdicion} class={BTN_OUTLINE}>
-                    <Pencil size={15} class="text-[#5A5E6E]" aria-hidden="true" />
+                    <Pencil size={15} class="text-ink-2" aria-hidden="true" />
                     {tipoSyllabus === 'BASICO' && programa.estado === 'BASICO_COMPLETO'
                       ? 'Editar sección básica'
                       : 'Editar'}
@@ -884,7 +884,7 @@
                     {:else}
                       <span class="relative inline-flex flex-col items-end gap-1.5">
                         <span
-                          class="rounded-md bg-[#1A1A24] px-2.5 py-1.5 text-[12px] text-white shadow-[0_6px_16px_rgba(0,0,0,.2)]"
+                          class="rounded-md bg-ink px-2.5 py-1.5 text-[12px] text-white shadow-[0_6px_16px_rgba(0,0,0,.2)]"
                         >
                           {razonBloqueoEnvio}
                         </span>
@@ -907,7 +907,7 @@
                   {:else}
                     <span class="relative inline-flex flex-col items-end gap-1.5">
                       <span
-                        class="rounded-md bg-[#1A1A24] px-2.5 py-1.5 text-[12px] text-white shadow-[0_6px_16px_rgba(0,0,0,.2)]"
+                        class="rounded-md bg-ink px-2.5 py-1.5 text-[12px] text-white shadow-[0_6px_16px_rgba(0,0,0,.2)]"
                       >
                         {razonBloqueoEnvio}
                       </span>
@@ -924,26 +924,26 @@
         {:else}
           <!-- ── Curso sin syllabus ── -->
           <div
-            class="flex flex-col items-center gap-[18px] bg-[#F5F1EA] px-6 py-14 text-center sm:px-10"
+            class="flex flex-col items-center gap-[18px] bg-sand px-6 py-14 text-center sm:px-10"
           >
             <span
-              class="flex h-[52px] w-[52px] items-center justify-center rounded-xl border border-[#E5E7EB] bg-white"
+              class="flex h-[52px] w-[52px] items-center justify-center rounded-xl border border-gray-200 bg-white"
             >
               {#if esAdmin}
-                <Clock size={22} class="text-[#5A5E6E]" aria-hidden="true" />
+                <Clock size={22} class="text-ink-2" aria-hidden="true" />
               {:else}
-                <FilePlus size={22} class="text-[#002F6C]" aria-hidden="true" />
+                <FilePlus size={22} class="text-navy" aria-hidden="true" />
               {/if}
             </span>
 
             {#if esAdmin}
               <div class="flex max-w-[460px] flex-col gap-2">
-                <h2 class="m-0 text-[20px] font-semibold text-[#1A1A24]">
+                <h2 class="m-0 text-[20px] font-semibold text-ink">
                   El docente titular aún no ha creado el syllabus
                 </h2>
-                <p class="m-0 text-[14px] text-pretty text-[#5A5E6E]">
+                <p class="m-0 text-[14px] text-pretty text-ink-2">
                   {#if curso.docente_titular}
-                    Titular: <strong class="font-semibold text-[#1A1A24]"
+                    Titular: <strong class="font-semibold text-ink"
                       >{curso.docente_titular}</strong
                     >.
                   {/if}
@@ -957,16 +957,16 @@
                   onclick={() => irAlAsistente('COMPLETO')}
                   class={BTN_OUTLINE}
                 >
-                  <FilePlus size={16} class="text-[#5A5E6E]" aria-hidden="true" />
+                  <FilePlus size={16} class="text-ink-2" aria-hidden="true" />
                   Crear en nombre del titular
                 </button>
               {/if}
             {:else}
               <div class="flex max-w-[440px] flex-col gap-1.5">
-                <h2 class="m-0 text-[20px] font-semibold text-[#1A1A24]">
+                <h2 class="m-0 text-[20px] font-semibold text-ink">
                   Este curso aún no tiene syllabus
                 </h2>
-                <p class="m-0 text-[14px] text-pretty text-[#5A5E6E]">
+                <p class="m-0 text-[14px] text-pretty text-ink-2">
                   Elige el tipo de programa. Podrás cambiarlo mientras esté en borrador.
                 </p>
               </div>
@@ -976,12 +976,12 @@
                     <button
                       type="button"
                       onclick={() => irAlAsistente('BASICO')}
-                      class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#002F6C] bg-white px-4 py-2.5 text-[14px] font-semibold text-[#002F6C] transition-colors hover:bg-[#E8EDF5]"
+                      class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-navy bg-white px-4 py-2.5 text-[14px] font-semibold text-navy transition-colors hover:bg-uta-blue-light"
                     >
                       <FileIcon size={16} aria-hidden="true" />
                       Crear syllabus BÁSICO
                     </button>
-                    <span class="text-[12px] leading-[1.45] text-[#5A5E6E]">
+                    <span class="text-[12px] leading-[1.45] text-ink-2">
                       5 secciones — para cursos electivos y talleres
                     </span>
                   </div>
@@ -989,18 +989,18 @@
                     <button
                       type="button"
                       onclick={() => irAlAsistente('COMPLETO')}
-                      class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#002F6C] bg-[#002F6C] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#1B4789]"
+                      class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-navy bg-navy px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-navy-2"
                     >
                       <FileText size={16} aria-hidden="true" />
                       Crear syllabus COMPLETO
                     </button>
-                    <span class="text-[12px] leading-[1.45] text-[#5A5E6E]">
+                    <span class="text-[12px] leading-[1.45] text-ink-2">
                       9 secciones — para asignaturas del plan de estudios
                     </span>
                   </div>
                 </div>
               {:else}
-                <p class="m-0 text-[13px] text-[#5A5E6E]">
+                <p class="m-0 text-[13px] text-ink-2">
                   No tienes permiso para crear el syllabus de este curso.
                 </p>
               {/if}
@@ -1012,16 +1012,16 @@
       <!-- ── Admin: plazos de entrega del curso ── -->
       {#if esAdmin}
         <section
-          class="flex flex-col gap-3.5 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,.08)] print:hidden"
+          class="flex flex-col gap-3.5 rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,.08)] print:hidden"
         >
           <div class="flex flex-wrap items-center gap-3">
-            <CalendarDays size={16} class="text-[#5A5E6E]" aria-hidden="true" />
-            <h2 class="m-0 text-[14px] font-semibold text-[#1A1A24]">Fechas límite de entrega</h2>
+            <CalendarDays size={16} class="text-ink-2" aria-hidden="true" />
+            <h2 class="m-0 text-[14px] font-semibold text-ink">Fechas límite de entrega</h2>
             {#if !editandoFechas}
               <button
                 type="button"
                 onclick={() => (editandoFechas = true)}
-                class="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-[13px] font-medium text-[#002F6C] transition-colors hover:bg-[#F5F1EA]"
+                class="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-1.5 text-[13px] font-medium text-navy transition-colors hover:bg-sand"
               >
                 <Pencil size={14} aria-hidden="true" />
                 Editar
@@ -1032,9 +1032,9 @@
           {#if editandoFechas}
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div class="flex flex-col gap-1.5">
-                <label for="fecha-basico" class="text-[13px] font-medium text-[#1A1A24]">
+                <label for="fecha-basico" class="text-[13px] font-medium text-ink">
                   Básico
-                  <span class="font-normal text-[#5A5E6E]">— plazo del programa básico</span>
+                  <span class="font-normal text-ink-2">— plazo del programa básico</span>
                 </label>
                 <DatePickerCL
                   id="fecha-basico"
@@ -1044,9 +1044,9 @@
                 />
               </div>
               <div class="flex flex-col gap-1.5">
-                <label for="fecha-syllabus" class="text-[13px] font-medium text-[#1A1A24]">
+                <label for="fecha-syllabus" class="text-[13px] font-medium text-ink">
                   Syllabus completo
-                  <span class="font-normal text-[#5A5E6E]">— posterior al básico</span>
+                  <span class="font-normal text-ink-2">— posterior al básico</span>
                 </label>
                 <DatePickerCL
                   id="fecha-syllabus"
@@ -1079,30 +1079,30 @@
             </div>
           {:else}
             <dl class="m-0 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div class="rounded-lg border border-[#EDEFF3] bg-[#FCFBF9] px-3.5 py-2.5">
-                <dt class="text-[11px] font-medium tracking-[0.04em] text-[#5A5E6E] uppercase">
+              <div class="rounded-lg border border-gray-100 bg-stone-50 px-3.5 py-2.5">
+                <dt class="text-[11px] font-medium tracking-[0.04em] text-ink-2 uppercase">
                   Básico
                 </dt>
                 <dd
                   class="m-0 text-[13.5px] font-semibold {estaVencida(
                     curso.fecha_limite_entrega_basico,
                   ) && programa?.estado === 'BORRADOR'
-                    ? 'text-[#B91C1C]'
-                    : 'text-[#1A1A24]'}"
+                    ? 'text-red-700'
+                    : 'text-ink'}"
                 >
                   {formatDate(curso.fecha_limite_entrega_basico)}
                 </dd>
               </div>
-              <div class="rounded-lg border border-[#EDEFF3] bg-[#FCFBF9] px-3.5 py-2.5">
-                <dt class="text-[11px] font-medium tracking-[0.04em] text-[#5A5E6E] uppercase">
+              <div class="rounded-lg border border-gray-100 bg-stone-50 px-3.5 py-2.5">
+                <dt class="text-[11px] font-medium tracking-[0.04em] text-ink-2 uppercase">
                   Syllabus completo
                 </dt>
                 <dd
                   class="m-0 text-[13.5px] font-semibold {estaVencida(
                     curso.fecha_limite_entrega_syllabus,
                   ) && programa?.estado === 'BASICO_COMPLETO'
-                    ? 'text-[#B91C1C]'
-                    : 'text-[#1A1A24]'}"
+                    ? 'text-red-700'
+                    : 'text-ink'}"
                 >
                   {formatDate(curso.fecha_limite_entrega_syllabus)}
                 </dd>
@@ -1117,7 +1117,7 @@
   <!-- ── Historial como slide-over bajo 1440px ── -->
   {#if historialAbierto}
     <div
-      class="fixed inset-0 z-50 flex justify-end bg-[#1A1A24]/40 print:hidden"
+      class="fixed inset-0 z-50 flex justify-end bg-ink/40 print:hidden"
       role="presentation"
       onclick={(e) => {
         if (e.target === e.currentTarget) historialAbierto = false;
@@ -1130,14 +1130,14 @@
         aria-labelledby="historial-titulo"
       >
         <div class="flex items-center gap-2">
-          <Clock size={16} class="text-[#5A5E6E]" aria-hidden="true" />
-          <h2 id="historial-titulo" class="m-0 text-[14px] font-semibold text-[#1A1A24]">
+          <Clock size={16} class="text-ink-2" aria-hidden="true" />
+          <h2 id="historial-titulo" class="m-0 text-[14px] font-semibold text-ink">
             Historial
           </h2>
           <button
             type="button"
             onclick={() => (historialAbierto = false)}
-            class="ml-auto rounded-lg border border-transparent p-1.5 text-[#5A5E6E] transition-colors hover:bg-[#F5F1EA]"
+            class="ml-auto rounded-lg border border-transparent p-1.5 text-ink-2 transition-colors hover:bg-sand"
             aria-label="Cerrar historial"
           >
             <X size={16} aria-hidden="true" />
@@ -1212,8 +1212,8 @@
       inset: 0 auto auto 0;
       width: 100%;
       min-height: 0 !important;
-      background: #fff !important;
-      color: #000;
+      background: var(--background-color-white, #fff) !important;
+      color: var(--color-gray-950, #000);
       font-size: 11pt;
       line-height: 1.5;
     }
@@ -1252,7 +1252,7 @@
 
     .programa-print :global(th),
     .programa-print :global(td) {
-      border: 1px solid #bbb !important;
+      border: 1px solid var(--color-stone-300, #bbb) !important;
       padding: 4pt 6pt !important;
     }
 

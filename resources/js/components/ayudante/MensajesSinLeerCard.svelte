@@ -47,14 +47,14 @@
   }
 </script>
 
-<section class="flex flex-col gap-3.5 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,.08)]">
+<section class="flex flex-col gap-3.5 rounded-xl border border-gray-200 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,.08)]">
   <div class="flex items-center gap-2">
-    <Mail class="h-4 w-4 text-[#5A5E6E]" />
-    <h3 class="text-base font-semibold text-[#1A1A24]">Mensajes sin leer</h3>
+    <Mail class="h-4 w-4 text-ink-2" />
+    <h3 class="text-base font-semibold text-ink">Mensajes sin leer</h3>
     <span
       class="ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold {total > 0
-        ? 'border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]'
-        : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#475569]'}"
+        ? 'border-red-200 bg-red-50 text-red-700'
+        : 'border-slate-200 bg-slate-100 text-slate-600'}"
     >
       {total}
     </span>
@@ -66,39 +66,39 @@
         {#if curso.no_leidos > 0}
           <Link
             href={`/ayudante/cursos/${curso.id_curso}/mensajeria`}
-            class="flex items-center gap-2.5 rounded-[10px] border border-[#E5E7EB] p-3 no-underline transition-colors hover:border-[#C9D6E6] hover:bg-[#FAFBFC]"
+            class="flex items-center gap-2.5 rounded-[10px] border border-gray-200 p-3 no-underline transition-colors hover:border-slate-300 hover:bg-gray-50"
           >
             <div class="flex min-w-0 flex-col gap-0.5">
-              <span class="font-mono text-[11px] tracking-wide text-[#5A5E6E]"
+              <span class="font-mono text-[11px] tracking-wide text-ink-2"
                 >{curso.cod_curso}{#if curso.letra_grupo} · Grupo {curso.letra_grupo}{/if}</span
               >
-              <span class="truncate text-[13.5px] font-semibold leading-snug text-[#1A1A24]">{curso.nombre}</span>
+              <span class="truncate text-[13.5px] font-semibold leading-snug text-ink">{curso.nombre}</span>
               {#if recencia(curso.ultimo_no_leido)}
-                <span class="text-[12px] text-[#5A5E6E]">Más reciente {recencia(curso.ultimo_no_leido)}</span>
+                <span class="text-[12px] text-ink-2">Más reciente {recencia(curso.ultimo_no_leido)}</span>
               {/if}
             </div>
-            <span class="ml-auto flex-none rounded-full border border-[#FECACA] bg-[#FEF2F2] px-2.5 py-0.5 text-[11.5px] font-semibold text-[#B91C1C]">
+            <span class="ml-auto flex-none rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-red-700">
               {curso.no_leidos}
             </span>
-            <ChevronRight class="h-4 w-4 flex-none text-[#5A5E6E]" />
+            <ChevronRight class="h-4 w-4 flex-none text-ink-2" />
           </Link>
         {:else}
-          <div class="flex items-center gap-2.5 rounded-[10px] border border-dashed border-[#E5E7EB] p-3">
+          <div class="flex items-center gap-2.5 rounded-[10px] border border-dashed border-gray-200 p-3">
             <div class="flex min-w-0 flex-col gap-0.5">
-              <span class="font-mono text-[11px] tracking-wide text-[#5A5E6E]"
+              <span class="font-mono text-[11px] tracking-wide text-ink-2"
                 >{curso.cod_curso}{#if curso.letra_grupo} · Grupo {curso.letra_grupo}{/if}</span
               >
-              <span class="truncate text-[13.5px] font-medium leading-snug text-[#5A5E6E]">{curso.nombre}</span>
+              <span class="truncate text-[13.5px] font-medium leading-snug text-ink-2">{curso.nombre}</span>
             </div>
-            <span class="ml-auto flex-none text-[12px] text-[#5A5E6E]">Sin mensajes nuevos</span>
+            <span class="ml-auto flex-none text-[12px] text-ink-2">Sin mensajes nuevos</span>
           </div>
         {/if}
       {/each}
     </div>
   {:else}
-    <div class="flex flex-col items-center gap-1 rounded-[10px] border border-dashed border-[#E5E7EB] p-[18px] text-center">
-      <span class="text-[13.5px] font-semibold text-[#1A1A24]">Sin bandejas todavía</span>
-      <p class="text-[12.5px] text-[#5A5E6E]">La mensajería se abre con el primer curso asignado.</p>
+    <div class="flex flex-col items-center gap-1 rounded-[10px] border border-dashed border-gray-200 p-[18px] text-center">
+      <span class="text-[13.5px] font-semibold text-ink">Sin bandejas todavía</span>
+      <p class="text-[12.5px] text-ink-2">La mensajería se abre con el primer curso asignado.</p>
     </div>
   {/if}
 </section>

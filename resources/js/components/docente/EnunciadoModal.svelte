@@ -120,14 +120,14 @@
     onSubmit={enviar}
   >
     <div class="flex flex-col gap-4">
-      <p class="m-0 text-[13px] text-[#5A5E6E]">
-        Archivo descriptivo de <strong class="font-semibold text-[#1A1A24]">{actividad.nombre}</strong
+      <p class="m-0 text-[13px] text-ink-2">
+        Archivo descriptivo de <strong class="font-semibold text-ink">{actividad.nombre}</strong
         >. Los alumnos lo descargan desde la actividad.
       </p>
 
       {#if actividad.archivo_enunciado}
         <div
-          class="flex items-center gap-2.5 rounded-[10px] border border-[#E5E7EB] bg-[#F5F1EA] px-3 py-2.5 text-[12.5px] text-[#5A5E6E]"
+          class="flex items-center gap-2.5 rounded-[10px] border border-gray-200 bg-sand px-3 py-2.5 text-[12.5px] text-ink-2"
         >
           <FileText size={15} class="shrink-0" aria-hidden="true" />
           <span class="min-w-0 truncate">
@@ -143,14 +143,14 @@
 
       {#if !archivo}
         <label
-          class="flex cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-[#C9D6E6] bg-[#E8EDF5] px-4 py-8 transition-colors hover:bg-[#DCE6F1]"
+          class="flex cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-uta-blue-light px-4 py-8 transition-colors hover:bg-slate-200"
         >
           <div class="flex flex-col items-center gap-2 text-center">
-            <Upload size={28} class="text-[#002F6C]" aria-hidden="true" />
-            <span class="text-[13.5px] font-semibold text-[#1A1A24]">
+            <Upload size={28} class="text-navy" aria-hidden="true" />
+            <span class="text-[13.5px] font-semibold text-ink">
               Arrastra el archivo o haz clic para seleccionarlo
             </span>
-            <span class="text-[12px] text-[#5A5E6E]">
+            <span class="text-[12px] text-ink-2">
               PDF hasta {reglas.max_mb_pdf} MB · imágenes hasta {reglas.max_mb_imagen} MB
             </span>
           </div>
@@ -165,18 +165,18 @@
         </label>
       {:else}
         <div
-          class="flex items-center justify-between gap-3 rounded-xl border border-[#A7F3D0] bg-[#ECFDF5] p-3.5"
+          class="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5"
         >
           <div class="flex min-w-0 items-center gap-2.5">
-            <FileText size={18} class="shrink-0 text-[#047857]" aria-hidden="true" />
+            <FileText size={18} class="shrink-0 text-emerald-700" aria-hidden="true" />
             <div class="min-w-0">
-              <p class="m-0 truncate text-[13px] font-semibold text-[#1A1A24]">{archivo.name}</p>
-              <p class="m-0 font-mono text-[12px] text-[#5A5E6E]">{formatBytes(archivo.size)}</p>
+              <p class="m-0 truncate text-[13px] font-semibold text-ink">{archivo.name}</p>
+              <p class="m-0 font-mono text-[12px] text-ink-2">{formatBytes(archivo.size)}</p>
             </div>
           </div>
           <button
             type="button"
-            class="shrink-0 rounded-lg p-2 text-[#B91C1C] transition-colors hover:bg-[#FEF2F2]"
+            class="shrink-0 rounded-lg p-2 text-red-700 transition-colors hover:bg-red-50"
             onclick={quitar}
             disabled={subiendo}
             aria-label="Quitar el archivo seleccionado"
@@ -188,7 +188,7 @@
 
       {#if error}
         <p
-          class="m-0 rounded-[10px] border border-[#FECACA] bg-[#FEF2F2] px-3 py-2.5 text-[13px] text-[#B91C1C]"
+          class="m-0 rounded-[10px] border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-700"
         >
           {error}
         </p>

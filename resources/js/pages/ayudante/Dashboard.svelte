@@ -87,13 +87,13 @@
   <div class="mx-auto flex w-full max-w-[1400px] flex-col gap-5 p-4 md:p-6 2xl:p-8">
     <header class="flex items-start justify-between gap-6">
       <div class="flex min-w-0 flex-col gap-1">
-        <h1 class="text-2xl font-semibold tracking-tight text-[#1A1A24] md:text-[28px]">Hola, {primerNombre}</h1>
-        <span class="text-sm text-[#5A5E6E]">{subtitulo}</span>
+        <h1 class="text-2xl font-semibold tracking-tight text-ink md:text-[28px]">Hola, {primerNombre}</h1>
+        <span class="text-sm text-ink-2">{subtitulo}</span>
       </div>
       {#if periodo}
-        <div class="flex shrink-0 items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-3 py-[6px]">
-          <Calendar class="h-3.5 w-3.5 text-[#5A5E6E]" />
-          <span class="text-[12.5px] text-[#5A5E6E]">{periodo.sem}º semestre {periodo.ano}</span>
+        <div class="flex shrink-0 items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-[6px]">
+          <Calendar class="h-3.5 w-3.5 text-ink-2" />
+          <span class="text-[12.5px] text-ink-2">{periodo.sem}º semestre {periodo.ano}</span>
         </div>
       {/if}
     </header>
@@ -101,9 +101,9 @@
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:items-start">
       <div class="flex flex-col gap-3.5 lg:col-span-8">
         <div class="flex items-center gap-2">
-          <BookOpen class="h-4 w-4 text-[#5A5E6E]" />
-          <h3 class="text-base font-semibold text-[#1A1A24]">Mis ayudantías</h3>
-          <span class="ml-auto text-xs text-[#5A5E6E]">{cursos.length} {cursos.length === 1 ? 'curso' : 'cursos'}</span>
+          <BookOpen class="h-4 w-4 text-ink-2" />
+          <h3 class="text-base font-semibold text-ink">Mis ayudantías</h3>
+          <span class="ml-auto text-xs text-ink-2">{cursos.length} {cursos.length === 1 ? 'curso' : 'cursos'}</span>
         </div>
 
         {#if cursos.length > 0}
@@ -113,17 +113,17 @@
             {/each}
           </div>
         {:else}
-          <div class="flex flex-col items-center gap-2.5 rounded-xl border border-[#E5E7EB] bg-white p-10 text-center shadow-[0_1px_3px_rgba(0,0,0,.08)]">
-            <div class="flex h-11 w-11 items-center justify-center rounded-full bg-[#E8EDF5]">
-              <BookOpen class="h-[21px] w-[21px] text-[#002F6C]" />
+          <div class="flex flex-col items-center gap-2.5 rounded-xl border border-gray-200 bg-white p-10 text-center shadow-[0_1px_3px_rgba(0,0,0,.08)]">
+            <div class="flex h-11 w-11 items-center justify-center rounded-full bg-uta-blue-light">
+              <BookOpen class="h-[21px] w-[21px] text-navy" />
             </div>
-            <span class="text-[17px] font-semibold text-[#1A1A24]">Todavía no tienes cursos de ayudantía</span>
-            <p class="max-w-[420px] text-[13.5px] text-[#5A5E6E]">
+            <span class="text-[17px] font-semibold text-ink">Todavía no tienes cursos de ayudantía</span>
+            <p class="max-w-[420px] text-[13.5px] text-ink-2">
               Tu nombramiento está registrado, pero ningún curso te ha asignado aún. Cuando el docente titular te incorpore a un
               componente, el curso aparecerá aquí con su programa y su bandeja de mensajes.
             </p>
             {#if fechaNombramiento}
-              <span class="mt-1 border-t border-[#E5E7EB] pt-3 text-[12.5px] text-[#5A5E6E]">
+              <span class="mt-1 border-t border-gray-200 pt-3 text-[12.5px] text-ink-2">
                 Nombramiento registrado el {fechaNombramiento}
               </span>
             {/if}

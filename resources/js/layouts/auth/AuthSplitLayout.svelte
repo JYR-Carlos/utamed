@@ -47,7 +47,7 @@
       <!-- Logo -->
       <div class="mb-10 flex items-center gap-3">
         <Link href={home()} class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <AppLogoIcon class="size-8 fill-current text-[#2A66AC]" />
+          <AppLogoIcon class="size-8 fill-current text-brand" />
           <span class="text-2xl font-bold tracking-tight text-gray-900">UTAmed</span>
         </Link>
       </div>
@@ -67,8 +67,8 @@
       <div class="mt-10 flex items-center justify-between text-xs text-gray-400">
         <p>&copy; 2026 Universidad de Tarapacá</p>
         <div class="flex gap-4">
-          <a href="#privacy" class="hover:text-[#2A66AC] transition-colors">Privacidad</a>
-          <a href="#support" class="hover:text-[#2A66AC] transition-colors">Soporte</a>
+          <a href="#privacy" class="hover:text-brand transition-colors">Privacidad</a>
+          <a href="#support" class="hover:text-brand transition-colors">Soporte</a>
         </div>
       </div>
     </div>
@@ -77,7 +77,7 @@
   <!-- Right Column: Generative Art Panel (60% desktop, hidden mobile) -->
   <div
     bind:this={vantaContainer}
-    class="hidden md:relative md:flex md:w-[60%] md:items-center md:justify-center bg-gradient-to-br from-[#1E4E8C] to-[#2A66AC] overflow-hidden"
+    class="hidden md:relative md:flex md:w-[60%] md:items-center md:justify-center bg-gradient-to-br from-brand-hover to-brand overflow-hidden"
   >
     <!-- Vanta canvas renders here as direct child (z-index auto / below z-10 wrapper) -->
     <div class="absolute inset-0 z-10 flex items-center justify-center">
@@ -107,11 +107,11 @@
 
       <!-- Bottom vignette -->
       <div
-        class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#1E4E8C]/40 to-transparent pointer-events-none z-[6]"
+        class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-brand-hover/40 to-transparent pointer-events-none z-[6]"
       ></div>
       <!-- Top vignette -->
       <div
-        class="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#1E4E8C]/25 to-transparent pointer-events-none z-[6]"
+        class="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-brand-hover/25 to-transparent pointer-events-none z-[6]"
       ></div>
     </div>
   </div>
@@ -119,21 +119,21 @@
 
 <style>
   :global(body) {
-    background-color: #ffffff;
+    background-color: var(--background-color-white, #ffffff);
   }
 
   :global(::-webkit-scrollbar) {
     width: 8px;
   }
   :global(::-webkit-scrollbar-track) {
-    background: #ffffff;
+    background: var(--background-color-white, #ffffff);
   }
   :global(::-webkit-scrollbar-thumb) {
-    background: #d1d5db;
+    background: var(--background-color-gray-300, #d1d5db);
     border-radius: 4px;
   }
   :global(::-webkit-scrollbar-thumb:hover) {
-    background: #9ca3af;
+    background: var(--background-color-gray-400, #9ca3af);
   }
 
   /* Floating keyframes for micro-dot drift */

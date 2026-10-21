@@ -53,11 +53,11 @@ export const ETIQUETA_ESTADO: Record<EstadoActividad, string> = {
 /** Clases de la pastilla de estado, en la paleta institucional. */
 export const PILL_ESTADO: Record<EstadoActividad, string> = {
     planificada:
-        'inline-flex items-center gap-1.5 rounded-full border border-[#E5E7EB] bg-[#F5F1EA] px-2.5 py-[3px] text-[11.5px] font-medium text-[#5A5E6E]',
+        'inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-sand px-2.5 py-[3px] text-[11.5px] font-medium text-ink-2',
     activa:
-        'inline-flex items-center gap-1.5 rounded-full border border-[#A7F3D0] bg-[#ECFDF5] px-2.5 py-[3px] text-[11.5px] font-semibold text-[#047857]',
+        'inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-[3px] text-[11.5px] font-semibold text-emerald-700',
     cerrada:
-        'inline-flex items-center gap-1.5 rounded-full border border-[#CBD5E1] bg-[#F1F5F9] px-2.5 py-[3px] text-[11.5px] font-medium text-[#475569]',
+        'inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-[3px] text-[11.5px] font-medium text-slate-600',
 };
 
 /**
@@ -66,9 +66,9 @@ export const PILL_ESTADO: Record<EstadoActividad, string> = {
  * para lo abierto y pizarra para lo cerrado, en todas las pantallas.
  */
 export const COLOR_ESTADO: Record<EstadoActividad, string> = {
-    planificada: 'border-[#E5E7EB] bg-[#F5F1EA] text-[#5A5E6E]',
-    activa: 'border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]',
-    cerrada: 'border-[#CBD5E1] bg-[#F1F5F9] text-[#475569]',
+    planificada: 'border-gray-200 bg-sand text-ink-2',
+    activa: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    cerrada: 'border-slate-300 bg-slate-100 text-slate-600',
 };
 
 /**
@@ -81,14 +81,14 @@ export const COLOR_ESTADO: Record<EstadoActividad, string> = {
  */
 export function colorEstadoGrupo(estado: string | null | undefined): string {
     const clave = (estado ?? '').toLowerCase() as EstadoActividad;
-    return COLOR_ESTADO[clave] ?? 'border-[#E5E7EB] bg-white text-[#5A5E6E]';
+    return COLOR_ESTADO[clave] ?? 'border-gray-200 bg-white text-ink-2';
 }
 
 /** Color del punto que precede al rótulo dentro de la pastilla. */
 export const PUNTO_ESTADO: Record<EstadoActividad, string> = {
-    planificada: 'bg-[#A8A093]',
-    activa: 'bg-[#059669]',
-    cerrada: 'bg-[#64748B]',
+    planificada: 'bg-stone-400',
+    activa: 'bg-emerald-600',
+    cerrada: 'bg-slate-500',
 };
 
 /** Sigla de 3 letras del componente de la actividad ("Cátedra" → "CÁT"). */

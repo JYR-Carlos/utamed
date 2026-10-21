@@ -21,7 +21,7 @@
   let { checked, estado = 'reposo', disabled = false, onToggle, label }: Props = $props();
 
   const trackBg = $derived(
-    estado === 'guardando' ? '#C9D6E6' : estado === 'error' ? '#FEE2E2' : checked ? '#002F6C' : '#E5E7EB',
+    estado === 'guardando' ? 'var(--background-color-slate-300, #C9D6E6)' : estado === 'error' ? 'var(--background-color-red-100, #FEE2E2)' : checked ? 'var(--background-color-navy, #002F6C)' : 'var(--background-color-gray-200, #E5E7EB)',
   );
 </script>
 
@@ -38,17 +38,17 @@
   >
     {#if estado === 'guardando'}
       <span
-        class="h-4 w-4 rounded-full border-2 border-[#C9D6E6] bg-white"
-        style="border-top-color:#002F6C; animation: permiso-switch-spin 0.6s linear infinite"
+        class="h-4 w-4 rounded-full border-2 border-slate-300 bg-white"
+        style="border-top-color:var(--color-navy, #002F6C); animation: permiso-switch-spin 0.6s linear infinite"
       ></span>
     {:else}
       <span class="h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.2)]"></span>
     {/if}
   </button>
   {#if estado === 'confirmado'}
-    <Check class="h-3.5 w-3.5 shrink-0 text-[#059669]" />
+    <Check class="h-3.5 w-3.5 shrink-0 text-emerald-600" />
   {:else if estado === 'error'}
-    <AlertTriangle class="h-3.5 w-3.5 shrink-0 text-[#DC2626]" />
+    <AlertTriangle class="h-3.5 w-3.5 shrink-0 text-red-600" />
   {/if}
 </span>
 

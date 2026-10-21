@@ -30,48 +30,48 @@
   function tono(estado: Alerta['estado_syllabus']) {
     if (estado === 'RECHAZADO') {
       return {
-        border: 'border-[#FECACA]',
-        bg: 'bg-[#FFF8F8]',
-        accent: 'border-l-[#DC2626]',
-        iconBg: 'bg-[#FEF2F2]',
-        iconColor: 'text-[#DC2626]',
+        border: 'border-red-200',
+        bg: 'bg-zinc-50',
+        accent: 'border-l-red-600',
+        iconBg: 'bg-red-50',
+        iconColor: 'text-red-600',
         label: 'Crítica · rechazado',
-        labelColor: 'text-[#B91C1C]',
+        labelColor: 'text-red-700',
         Icon: XCircle,
       };
     }
     if (estado === 'BORRADOR') {
       return {
-        border: 'border-[#FDE68A]',
-        bg: 'bg-[#FFFDF6]',
-        accent: 'border-l-[#D97706]',
-        iconBg: 'bg-[#FFFBEB]',
-        iconColor: 'text-[#B45309]',
+        border: 'border-amber-200',
+        bg: 'bg-white',
+        accent: 'border-l-amber-600',
+        iconBg: 'bg-amber-50',
+        iconColor: 'text-amber-700',
         label: 'Advertencia · borrador',
-        labelColor: 'text-[#B45309]',
+        labelColor: 'text-amber-700',
         Icon: FilePenLine,
       };
     }
     return {
-      border: 'border-[#E5E7EB]',
+      border: 'border-gray-200',
       bg: 'bg-white',
-      accent: 'border-l-[#64748B]',
-      iconBg: 'bg-[#F1F5F9]',
-      iconColor: 'text-[#64748B]',
+      accent: 'border-l-slate-500',
+      iconBg: 'bg-slate-100',
+      iconColor: 'text-slate-500',
       label: 'Informativo · en revisión',
-      labelColor: 'text-[#5A5E6E]',
+      labelColor: 'text-ink-2',
       Icon: Clock,
     };
   }
 </script>
 
-<section class="flex flex-col gap-3.5 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
+<section class="flex flex-col gap-3.5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
   <div class="flex items-center gap-2">
-    <AlertTriangle class="h-4 w-4 text-[#5A5E6E]" />
-    <h3 class="text-base font-semibold text-[#1A1A24]">Alertas de syllabus</h3>
+    <AlertTriangle class="h-4 w-4 text-ink-2" />
+    <h3 class="text-base font-semibold text-ink">Alertas de syllabus</h3>
     {#if criticas > 0}
       <span
-        class="ml-auto inline-flex items-center rounded-full border border-[#FECACA] bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C]"
+        class="ml-auto inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700"
       >
         {criticas} requiere{criticas === 1 ? '' : 'n'} acción
       </span>
@@ -87,27 +87,27 @@
       <div class="flex min-w-0 flex-1 flex-col gap-1.5">
         <div class="flex flex-wrap items-center gap-2">
           <span class="text-[10.5px] font-semibold uppercase tracking-wide {t.labelColor}">{t.label}</span>
-          <span class="font-mono text-[11.5px] text-[#5A5E6E]">
+          <span class="font-mono text-[11.5px] text-ink-2">
             {principal.cod_curso}{#if principal.letra_grupo} · Grupo {principal.letra_grupo}{/if}
           </span>
         </div>
-        <span class="text-[14.5px] font-semibold leading-snug text-[#1A1A24]">{principal.nombre}</span>
+        <span class="text-[14.5px] font-semibold leading-snug text-ink">{principal.nombre}</span>
         {#if principal.estado_syllabus === 'RECHAZADO' && principal.rechazo}
-          <p class="max-w-[760px] text-[13px] leading-snug text-[#4A4E5C]">
-            <span class="font-semibold text-[#1A1A24]">Razón:</span> "{principal.rechazo.razon}"
+          <p class="max-w-[760px] text-[13px] leading-snug text-zinc-600">
+            <span class="font-semibold text-ink">Razón:</span> "{principal.rechazo.razon}"
             {#if principal.rechazo.por}— {principal.rechazo.por}{#if principal.rechazo.fecha}, {principal.rechazo.fecha}{/if}{/if}
           </p>
         {:else if principal.estado_syllabus === 'BORRADOR'}
-          <span class="text-[12.5px] text-[#5A5E6E]">Aún no se ha enviado a revisión.</span>
+          <span class="text-[12.5px] text-ink-2">Aún no se ha enviado a revisión.</span>
         {:else}
-          <span class="text-[12.5px] text-[#5A5E6E]">En manos de la jefatura de carrera · no requiere acción tuya.</span>
+          <span class="text-[12.5px] text-ink-2">En manos de la jefatura de carrera · no requiere acción tuya.</span>
         {/if}
       </div>
       {#if principal.estado_syllabus !== 'EN_REVISION'}
         <!-- Directo al asistente: BORRADOR y RECHAZADO (borrador + razón) se editan ahí -->
         <Link
           href={`/docente/cursos/${principal.id_curso}/programa/editar`}
-          class="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#002F6C] px-3.5 py-2 text-[13px] font-semibold text-white no-underline transition-colors hover:bg-[#00214d]"
+          class="flex shrink-0 items-center gap-1.5 rounded-lg bg-navy px-3.5 py-2 text-[13px] font-semibold text-white no-underline transition-colors hover:bg-navy-hover"
         >
           {principal.estado_syllabus === 'RECHAZADO' ? 'Corregir syllabus' : 'Continuar redacción'}
           <ArrowUpRight class="h-3.5 w-3.5" />
@@ -128,9 +128,9 @@
             <div class="flex min-w-0 flex-col gap-0.5">
               <div class="flex items-center gap-2">
                 <span class="text-[10.5px] font-semibold uppercase tracking-wide {t.labelColor}">{t.label}</span>
-                <span class="font-mono text-[11.5px] text-[#5A5E6E]">{alerta.cod_curso}</span>
+                <span class="font-mono text-[11.5px] text-ink-2">{alerta.cod_curso}</span>
               </div>
-              <span class="text-[13.5px] font-semibold leading-snug text-[#1A1A24]">{alerta.nombre}</span>
+              <span class="text-[13.5px] font-semibold leading-snug text-ink">{alerta.nombre}</span>
             </div>
           </div>
         </article>

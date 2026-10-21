@@ -469,7 +469,7 @@
   const BTN_PRIMARY =
     'inline-flex h-11 items-center gap-2 rounded-lg bg-uta-blue px-4 text-sm font-semibold text-white transition-colors hover:bg-uta-blue-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue focus-visible:ring-offset-2 sm:h-10';
   const BTN_OUTLINE =
-    'inline-flex h-11 items-center gap-2 rounded-lg border border-[#7B8AA0] bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue sm:h-10';
+    'inline-flex h-11 items-center gap-2 rounded-lg border border-line-control bg-white px-4 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uta-blue sm:h-10';
   const BTN_GHOST =
     'inline-flex h-11 items-center gap-2 rounded-lg border border-transparent px-3 text-sm font-semibold text-uta-blue transition-colors hover:bg-uta-blue-light sm:h-10';
   const PILL_AZUL =
@@ -479,15 +479,15 @@
   // Filtro «Rótulo: valor» del mockup: el rótulo gris va fuera del <select> y el
   // valor en negrita; la flecha nativa se reemplaza por un chevron propio.
   const FILTRO_CAJA =
-    'relative inline-flex h-11 min-w-0 shrink-0 items-center rounded-lg border border-[#7B8AA0] bg-white pl-3 text-sm transition-colors hover:bg-slate-50 focus-within:border-uta-blue focus-within:ring-2 focus-within:ring-uta-blue/30 md:h-10';
+    'relative inline-flex h-11 min-w-0 shrink-0 items-center rounded-lg border border-line-control bg-white pl-3 text-sm transition-colors hover:bg-slate-50 focus-within:border-uta-blue focus-within:ring-2 focus-within:ring-uta-blue/30 md:h-10';
   const FILTRO_ROTULO = 'shrink-0 font-medium text-slate-600';
   const FILTRO_SELECT =
-    'h-full min-w-0 flex-1 cursor-pointer appearance-none truncate border-0 md:flex-none md:[field-sizing:content] bg-transparent bg-none py-0 pl-1.5 pr-8 text-sm font-semibold text-[#1A1A24] outline-none focus:ring-0';
-  const FILTRO_FLECHA = 'pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#1A1A24]';
+    'h-full min-w-0 flex-1 cursor-pointer appearance-none truncate border-0 md:flex-none md:[field-sizing:content] bg-transparent bg-none py-0 pl-1.5 pr-8 text-sm font-semibold text-ink outline-none focus:ring-0';
+  const FILTRO_FLECHA = 'pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink';
   const SEG_ACTIVO =
-    'inline-flex h-11 items-center gap-2 rounded-md border border-[#7B8AA0] bg-white px-4 text-[15px] font-semibold text-uta-blue md:h-9';
+    'inline-flex h-11 items-center gap-2 rounded-md border border-line-control bg-white px-4 text-[15px] font-semibold text-uta-blue md:h-9';
   const SEG_INACTIVO =
-    'inline-flex h-11 items-center gap-2 rounded-md border border-transparent px-4 text-[15px] font-medium text-slate-600 transition-colors hover:text-[#1A1A24] md:h-9';
+    'inline-flex h-11 items-center gap-2 rounded-md border border-transparent px-4 text-[15px] font-medium text-slate-600 transition-colors hover:text-ink md:h-9';
 </script>
 
 <svelte:head>
@@ -506,7 +506,7 @@
 
       {#if flashError}
         <p
-          class="m-0 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-[13px] font-medium text-[#B91C1C]"
+          class="m-0 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700"
           role="alert"
         >
           {flashError}
@@ -514,7 +514,7 @@
       {/if}
       {#if copiaOmitidas.length > 0}
         <div
-          class="m-0 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-[13px] text-[#92400E]"
+          class="m-0 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800"
           role="status"
         >
           <p class="m-0 font-semibold">No se copiaron:</p>
@@ -527,7 +527,7 @@
       {/if}
       {#if flashSuccess}
         <p
-          class="m-0 rounded-lg border border-[#A7F3D0] bg-[#ECFDF5] px-4 py-3 text-[13px] font-medium text-[#047857]"
+          class="m-0 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] font-medium text-emerald-700"
           role="status"
         >
           {flashSuccess}
@@ -541,7 +541,7 @@
           <!-- Móvil (lámina 390): el curso ya está en «‹ volver»; el título es la
                sección y la línea de datos resume la lista. -->
           <div class="flex flex-col gap-1 md:hidden">
-            <h1 class="m-0 text-2xl font-semibold leading-[30px] text-[#1A1A24]">Actividades</h1>
+            <h1 class="m-0 text-2xl font-semibold leading-[30px] text-ink">Actividades</h1>
             <p class="m-0 text-sm font-medium text-slate-600">
               {curso.total_estudiantes ?? 0}
               {curso.total_estudiantes === 1 ? 'estudiante' : 'estudiantes'} ·
@@ -555,7 +555,7 @@
               <span class="font-mono text-xs font-medium text-slate-600">{curso.cod_asignatura}</span>
             {/if}
             <div class="flex flex-wrap items-center gap-2.5">
-              <h1 class="m-0 text-2xl font-semibold leading-[30px] text-[#1A1A24] sm:text-[28px] sm:leading-[34px]">
+              <h1 class="m-0 text-2xl font-semibold leading-[30px] text-ink sm:text-[28px] sm:leading-[34px]">
                 {curso.asignatura_nombre ?? curso.cod_curso ?? 'Actividades del curso'}
               </h1>
               {#if curso.letra_grupo}
@@ -620,7 +620,7 @@
         {#if actividadesDelRol.length > 0}
           <div class="grid grid-cols-2 items-center gap-2 md:flex md:flex-nowrap md:gap-2">
             <label
-              class="col-span-2 inline-flex h-11 min-w-0 items-center gap-2 rounded-lg border border-[#7B8AA0] bg-white px-3 focus-within:border-uta-blue focus-within:ring-2 focus-within:ring-uta-blue/30 md:h-10 md:min-w-[170px] md:flex-1"
+              class="col-span-2 inline-flex h-11 min-w-0 items-center gap-2 rounded-lg border border-line-control bg-white px-3 focus-within:border-uta-blue focus-within:ring-2 focus-within:ring-uta-blue/30 md:h-10 md:min-w-[170px] md:flex-1"
             >
               <Search size={16} class="shrink-0 text-slate-600" aria-hidden="true" />
               <span class="sr-only">Buscar actividades por nombre</span>
@@ -628,7 +628,7 @@
                 type="search"
                 bind:value={busqueda}
                 placeholder="Buscar actividad"
-                class="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm text-[#1A1A24] outline-none focus:ring-0 placeholder:text-muted-foreground"
+                class="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm text-ink outline-none focus:ring-0 placeholder:text-muted-foreground"
               />
             </label>
 
@@ -649,7 +649,7 @@
                 title="En el tablero el estado es la columna, así que su filtro queda sin uso"
               >
                 <span class="font-medium text-slate-600">Estado:</span>
-                <strong class="font-semibold text-[#1A1A24]">Todos</strong>
+                <strong class="font-semibold text-ink">Todos</strong>
                 <Lock size={13} class="text-slate-600" aria-hidden="true" />
               </span>
             {/if}
@@ -717,7 +717,7 @@
 
           {#if ocultasAlAlumno > 0}
             <span
-              class="-mt-1 inline-flex items-center gap-[7px] self-start rounded-full bg-[#FEF3C6] px-3 py-1.5 text-xs font-semibold text-[#92400E]"
+              class="-mt-1 inline-flex items-center gap-[7px] self-start rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800"
             >
               <EyeOff size={14} aria-hidden="true" />
               {ocultasAlAlumno}
@@ -730,11 +730,11 @@
         {#if actividadesDelRol.length === 0}
           <!-- Vacío «curso por construir»: ofrece la acción. -->
           <div
-            class="flex flex-col items-center gap-3.5 rounded-xl border border-dashed border-[#7B8AA0] bg-white px-6 py-9 text-center"
+            class="flex flex-col items-center gap-3.5 rounded-xl border border-dashed border-line-control bg-white px-6 py-9 text-center"
           >
             <ClipboardList size={30} class="text-slate-500" aria-hidden="true" />
             <div class="flex max-w-[440px] flex-col gap-1.5">
-              <p class="m-0 text-[15px] font-semibold text-[#1A1A24]">
+              <p class="m-0 text-[15px] font-semibold text-ink">
                 {esTitular
                   ? 'El curso todavía no tiene actividades'
                   : 'No hay actividades en los componentes que dictas'}
@@ -774,18 +774,18 @@
               </div>
             {/if}
             <div
-              class="flex flex-col items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-6 py-9 text-center"
+              class="flex flex-col items-center gap-3 rounded-xl border border-gray-200 bg-white px-6 py-9 text-center"
             >
               <FilterX size={26} class="text-slate-500" aria-hidden="true" />
               <div class="flex max-w-[420px] flex-col gap-1.5">
-                <p class="m-0 text-[14.5px] font-semibold text-[#1A1A24]">
+                <p class="m-0 text-[14.5px] font-semibold text-ink">
                   Ninguna de las {actividadesDelRol.length}
                   {actividadesDelRol.length === 1 ? 'actividad cumple' : 'actividades cumple'}
                   {chipsActivos.length === 1 ? 'el filtro' : `los ${chipsActivos.length} filtros`}
                 </p>
                 {#if sugerencia}
                   <p class="m-0 text-sm text-pretty text-slate-600">
-                    Quita <strong class="font-semibold text-[#1A1A24]">{sugerencia.etiqueta}</strong>
+                    Quita <strong class="font-semibold text-ink">{sugerencia.etiqueta}</strong>
                     para ver {sugerencia.total}
                     {sugerencia.total === 1 ? 'resultado' : 'resultados'}.
                   </p>

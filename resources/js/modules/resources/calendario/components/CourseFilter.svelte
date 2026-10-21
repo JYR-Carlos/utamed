@@ -45,36 +45,36 @@
 <div class="flex flex-col">
   <!-- Filtro activo: qué cursos quedan y cómo volver atrás -->
   {#if !todosActivos}
-    <div class="flex flex-col gap-2 border-b border-[#E5E7EB] px-3.5 py-3">
+    <div class="flex flex-col gap-2 border-b border-gray-200 px-3.5 py-3">
       <div class="flex flex-wrap gap-1.5">
         {#each seleccionados as curso (curso.id_curso)}
           {@const accent = accentPorCurso[curso.id_curso]}
           <span
-            class="inline-flex items-center gap-1.5 rounded-full border border-[#C9D6E6] bg-[#E8EDF5] py-1 pl-2.5 pr-1.5"
+            class="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-uta-blue-light py-1 pl-2.5 pr-1.5"
           >
             <span
               class="h-[9px] w-[9px] shrink-0 rounded-[3px]"
               style="background:{accent.base}"
             ></span>
-            <span class="text-[12px] font-semibold text-[#002F6C]">{nombreCorto(curso)}</span>
+            <span class="text-[12px] font-semibold text-navy">{nombreCorto(curso)}</span>
             <button
               type="button"
               onclick={() => onToggle?.(curso.id_curso)}
               class="flex h-4 w-4 items-center justify-center rounded-full transition-colors hover:bg-white"
               aria-label="Quitar {nombreCorto(curso)} del filtro"
             >
-              <X size={12} color="#002F6C" />
+              <X size={12} class="text-navy" />
             </button>
           </span>
         {/each}
         {#if seleccionados.length === 0}
-          <span class="text-[11.5px] text-[#5A5E6E]">Ningún curso visible</span>
+          <span class="text-[11.5px] text-ink-2">Ningún curso visible</span>
         {/if}
       </div>
       <button
         type="button"
         onclick={() => onTodos?.()}
-        class="self-start text-[11.5px] font-semibold text-[#002F6C] transition-colors hover:text-[#1B4789]"
+        class="self-start text-[11.5px] font-semibold text-navy transition-colors hover:text-navy-2"
       >
         Restablecer los {cursos.length}
         {cursos.length === 1 ? 'curso' : 'cursos'}
@@ -86,7 +86,7 @@
     <span class={ETIQUETA}>Por curso</span>
 
     {#if cursos.length === 0}
-      <p class="m-0 py-2 text-[12.5px] text-[#5A5E6E]">Sin cursos asignados</p>
+      <p class="m-0 py-2 text-[12.5px] text-ink-2">Sin cursos asignados</p>
     {:else}
       <ul class="flex flex-col gap-2.5">
         {#each cursos as curso (curso.id_curso)}
@@ -103,9 +103,9 @@
                 class="mt-px flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] border transition-colors"
                 style={activo
                   ? `background:${accent.base};border-color:${accent.base}`
-                  : 'background:#FFFFFF;border-color:#C9CDD6;border-width:1.5px'}
+                  : 'background:var(--background-color-white, #FFFFFF);border-color:var(--color-slate-300, #C9CDD6);border-width:1.5px'}
               >
-                {#if activo}<Check size={11} color="#FFFFFF" />{/if}
+                {#if activo}<Check size={11} class="text-white" />{/if}
               </span>
               {#if !activo}
                 <span
@@ -116,12 +116,12 @@
               <span class="flex min-w-0 flex-col">
                 <span
                   class="truncate text-[12.5px] font-semibold leading-[1.3] {activo
-                    ? 'text-[#1A1A24]'
-                    : 'text-[#8A8E9C]'}"
+                    ? 'text-ink'
+                    : 'text-ink-3'}"
                 >
                   {nombreCorto(curso)} · {curso.asignatura}
                 </span>
-                <span class="truncate text-[11px] text-[#5A5E6E]">
+                <span class="truncate text-[11px] text-ink-2">
                   {curso.letra_grupo ? `Grupo ${curso.letra_grupo} · ` : ''}{conteoPorCurso[
                     curso.id_curso
                   ] ?? 0}
@@ -132,7 +132,7 @@
             <button
               type="button"
               onclick={() => onSoloEste?.(curso.id_curso)}
-              class="shrink-0 rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold text-[#8A8E9C] opacity-0 transition-opacity hover:bg-[#F5F1EA] hover:text-[#002F6C] focus-visible:opacity-100 group-hover:opacity-100"
+              class="shrink-0 rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold text-ink-3 opacity-0 transition-opacity hover:bg-sand hover:text-navy focus-visible:opacity-100 group-hover:opacity-100"
               title="Ver sólo este curso"
             >
               Solo uno
@@ -141,7 +141,7 @@
         {/each}
       </ul>
       <p
-        class="m-0 border-t border-dashed border-[#E5E7EB] pt-2 text-[11px] leading-[1.4] text-[#5A5E6E]"
+        class="m-0 border-t border-dashed border-gray-200 pt-2 text-[11px] leading-[1.4] text-ink-2"
       >
         Color asignado desde un pool estable por
         <span class="font-mono">id_curso</span>: el mismo curso conserva su tono siempre.
