@@ -34,7 +34,7 @@ class PlanController extends Controller
         $query = Plan::with('carrera');
 
         // Search functionality
-        if ($request->has('search')) {
+        if ($request->filled('search')) {
             $search = $request->input('search');
             $query->whereHas('carrera', function ($q) use ($search) {
                 $q->where('nombre', 'ilike', "%{$search}%");
@@ -42,16 +42,32 @@ class PlanController extends Controller
         }
 
         // Filter by carrera
-        if ($request->has('id_carrera')) {
+        if ($request->filled('id_carrera')) {
             $query->where('id_carrera', $request->input('id_carrera'));
         }
 
-        // Pagination
         // Calculate total SCT credits summing Asignatura.creditos_sct via AsignacionPlan
-        $planes = $query->orderBy('agno_plan', 'desc')
-            ->orderBy('version_plan', 'desc')
-            ->withSum('asignaturas as creditos_sct_totales', 'creditos_sct')
-            ->paginate($this->perPage($request))
+        $query->withSum('asignaturas as creditos_sct_totales', 'creditos_sct');
+
+        // Ordenamiento
+        $sortKey = $request->input('sort_key');
+        $sortDir = strtolower((string) $request->input('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        if ($sortKey === 'carrera.nombre') {
+            $sub = Carrera::select('nombre')->whereColumn('carrera.id_carrera', 'plan.id_carrera')->limit(1);
+            $query->orderBy($sub, $sortDir);
+        } elseif ($sortKey === 'agno_plan') {
+            $query->orderBy('agno_plan', $sortDir)->orderBy('version_plan', $sortDir);
+        } elseif ($sortKey === 'version_plan') {
+            $query->orderBy('version_plan', $sortDir);
+        } elseif ($sortKey === 'creditos_sct_totales') {
+            $query->orderBy('creditos_sct_totales', $sortDir);
+        } else {
+            $query->orderBy('agno_plan', 'desc')->orderBy('version_plan', 'desc');
+        }
+
+        // Pagination
+        $planes = $query->paginate($this->perPage($request))
             ->withQueryString();
 
         // Get all carreras for the filter
@@ -60,7 +76,7 @@ class PlanController extends Controller
         return Inertia::render('admin/Planes', [
             'planes' => $planes,
             'carreras' => $carreras,
-            'filters' => $request->only(['search', 'id_carrera'])
+            'filters' => $request->only(['search', 'id_carrera', 'sort_key', 'sort_dir'])
         ]);
     }
 

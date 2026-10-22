@@ -67,7 +67,7 @@
     { key: 'estado', label: 'Estado syllabus' },
     { key: 'fecha_basico', label: 'Fecha básico' },
     { key: 'fecha_completo', label: 'Fecha completo' },
-    { key: 'acciones', label: 'Acciones', class: 'text-right' },
+    { key: 'acciones', label: 'Acciones', class: 'text-right', sortable: false },
   ];
 
   let activeAgno = $derived(

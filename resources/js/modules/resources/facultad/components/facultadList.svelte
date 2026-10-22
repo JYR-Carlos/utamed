@@ -41,6 +41,7 @@
   {columns}
   variant="accent"
   paginate={false}
+  only={['facultades']}
   onEdit={canEdit ? (f) => (!f.fecha_eliminacion ? onEdit(f) : null) : undefined}
   onDelete={canDelete ? (f) => (!f.fecha_eliminacion ? onDelete(f) : null) : undefined}
   rowClass={(f) => (f.fecha_eliminacion ? 'opacity-60 bg-gray-50/40' : '')}

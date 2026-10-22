@@ -251,6 +251,7 @@
 
     <PlanList
       data={planes}
+      {carreras}
       onEdit={openEditModal}
       onDelete={openDeleteDialog}
       onViewMalla={verMalla}

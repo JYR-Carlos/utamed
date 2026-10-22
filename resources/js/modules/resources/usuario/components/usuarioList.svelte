@@ -58,6 +58,7 @@
 <DataTable
   {data}
   {columns}
+  only={['usuarios']}
   {onEdit}
   {onDelete}
   {onPasswordChange}

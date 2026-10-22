@@ -110,7 +110,7 @@
     { key: 'intento', label: 'Intento', class: 'text-center' },
     { key: 'promedio', label: 'Promedio', class: 'text-center' },
     { key: 'estado', label: 'Estado' },
-    { key: 'acciones', label: '', class: 'text-right w-1 whitespace-nowrap' },
+    { key: 'acciones', label: '', sortable: false, class: 'text-right w-1 whitespace-nowrap' },
   ];
 </script>
 
