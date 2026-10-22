@@ -55,10 +55,16 @@ class CursoService
                 ? (int) $data['indice_grupo']
                 : $this->nextIndiceGrupo($asignacionPlan->id_asignacion_plan, $agnoReal, $semestreReal);
 
+            $letra = LetraGrupo::fromIndice($indiceGrupo);
+            $nombreSugerido = $asignacionPlan->asignatura?->nombre
+                ? "{$asignacionPlan->asignatura->nombre} - Grupo {$letra}"
+                : '';
+            $nombreFinal = !empty($data['nombre']) ? trim($data['nombre']) : $nombreSugerido;
+
             // Prepare curso data
             $cursoData = [
                 'cod_curso'            => $codCurso,
-                'nombre'               => $data['nombre'] ?? '',
+                'nombre'               => $nombreFinal,
                 'fecha_inicio'         => $data['fecha_inicio'] ?? now()->format('Y-m-d'),
                 'agno_real'            => $agnoReal,
                 'semestre_real'        => $semestreReal,
@@ -86,16 +92,20 @@ class CursoService
             $tipoComponente = TipoComponente::find($data['id_tipo_componente_principal']);
 
             $generaActaPorComponente = $data['genera_acta_por_componente'] ?? [];
+            $pctAprobPorComponente = $data['porcentaje_aprobacion_por_componente'] ?? [];
+            $pctAsistPorComponente = $data['porcentaje_asistencia_por_componente'] ?? [];
+            $aprobObligPorComponente = $data['aprobacion_obligatoria_por_componente'] ?? [];
 
             if ($tipoComponente) {
+                $idPrinc = $tipoComponente->id_tipo_componente;
                 // id_contexto lo asigna el trigger tr_componente_pre_insert.
                 $componente = Componente::create([
                     'id_curso'                          => $curso->id_curso,
-                    'id_tipo_componente'                => $tipoComponente->id_tipo_componente,
-                    'genera_acta'                       => $generaActaPorComponente[$tipoComponente->id_tipo_componente] ?? true,
-                    'aprobacion_obligatoria'            => $data['aprobacion_obligatoria'] ?? false,
-                    'porcentaje_aprobacion'             => $data['porcentaje_aprobacion'] ?? 60.00,
-                    'porcentaje_asistencia_obligatoria' => $data['porcentaje_asistencia_obligatoria'] ?? 75.00,
+                    'id_tipo_componente'                => $idPrinc,
+                    'genera_acta'                       => $generaActaPorComponente[$idPrinc] ?? true,
+                    'aprobacion_obligatoria'            => $aprobObligPorComponente[$idPrinc] ?? ($data['aprobacion_obligatoria'] ?? false),
+                    'porcentaje_aprobacion'             => $pctAprobPorComponente[$idPrinc] ?? ($data['porcentaje_aprobacion'] ?? 60.00),
+                    'porcentaje_asistencia_obligatoria' => $pctAsistPorComponente[$idPrinc] ?? ($data['porcentaje_asistencia_obligatoria'] ?? 75.00),
                 ])->refresh();
 
                 // El jefe SIEMPRE tiene acceso administrativo (via id_docente_titular),
@@ -118,13 +128,14 @@ class CursoService
                         continue;
                     }
 
+                    $idAdic = $tipoAdicional->id_tipo_componente;
                     $componenteAdicional = Componente::create([
                         'id_curso'                          => $curso->id_curso,
-                        'id_tipo_componente'                => $tipoAdicional->id_tipo_componente,
-                        'genera_acta'                       => $generaActaPorComponente[$tipoAdicional->id_tipo_componente] ?? true,
-                        'aprobacion_obligatoria'            => $data['aprobacion_obligatoria'] ?? false,
-                        'porcentaje_aprobacion'             => $data['porcentaje_aprobacion'] ?? 60.00,
-                        'porcentaje_asistencia_obligatoria' => $data['porcentaje_asistencia_obligatoria'] ?? 75.00,
+                        'id_tipo_componente'                => $idAdic,
+                        'genera_acta'                       => $generaActaPorComponente[$idAdic] ?? false,
+                        'aprobacion_obligatoria'            => $aprobObligPorComponente[$idAdic] ?? ($data['aprobacion_obligatoria'] ?? false),
+                        'porcentaje_aprobacion'             => $pctAprobPorComponente[$idAdic] ?? ($data['porcentaje_aprobacion'] ?? 60.00),
+                        'porcentaje_asistencia_obligatoria' => $pctAsistPorComponente[$idAdic] ?? ($data['porcentaje_asistencia_obligatoria'] ?? 75.00),
                     ])->refresh();
 
                     $this->asignarDocentesComponente(
@@ -167,11 +178,13 @@ class CursoService
             $indiceGrupo = $this->nextIndiceGrupo($cursoPadre->id_asignacion_plan, $agnoReal, $semestreReal);
             $letra = LetraGrupo::fromIndice($indiceGrupo);
 
-            $nuevoNombre = preg_match('/\s*-\s*Grupo\s+[A-Za-z0-9]+$/i', $cursoPadre->nombre)
+            $nombreSugerido = preg_match('/\s*-\s*Grupo\s+[A-Za-z0-9]+$/i', $cursoPadre->nombre)
                 ? preg_replace('/\s*-\s*Grupo\s+[A-Za-z0-9]+$/i', " - Grupo {$letra}", $cursoPadre->nombre)
                 : ($cursoPadre->asignacionPlan?->asignatura?->nombre
                     ? "{$cursoPadre->asignacionPlan->asignatura->nombre} - Grupo {$letra}"
                     : "{$cursoPadre->nombre} - Grupo {$letra}");
+
+            $nuevoNombre = !empty($data['nombre']) ? trim($data['nombre']) : $nombreSugerido;
 
             $nuevoCurso = Curso::create([
                 'cod_curso'           => $codCurso,

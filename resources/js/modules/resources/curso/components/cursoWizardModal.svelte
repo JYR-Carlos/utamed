@@ -95,11 +95,11 @@
   let asigSearch = $state('');
   let docenteSearch = $state('');
   let perteneceFilter = $state<'all' | 'in' | 'out'>('all');
-  // Componente (Cátedra) settings
+  // Componente settings por componente
   let generaActaPorComponente = $state<Record<number, boolean>>({});
-  let aprobacionObligatoria = $state(false);
-  let porcentajeAprobacion = $state<number>(60);
-  let porcentajeAsistencia = $state<number>(75);
+  let aprobacionObligatoriaPorComponente = $state<Record<number, boolean>>({});
+  let porcentajeAprobacionPorComponente = $state<Record<number, number>>({});
+  let porcentajeAsistenciaPorComponente = $state<Record<number, number>>({});
   let inscribirAutomaticamente = $state(false);
   
 
@@ -137,10 +137,19 @@
   // Nombre del curso, derivado de la asignatura y la letra del grupo.
   // Mientras la letra se está calculando (o si la petición falla) se muestra
   // sólo el nombre de la asignatura, en lugar de un «Grupo » sin letra.
-  let nombre = $derived.by(() => {
+  let nombreSugerido = $derived.by(() => {
     if (!selectedAsig) return '';
     const grupoLetra = intToLetters(indiceGrupo ?? 0);
     return grupoLetra ? `${selectedAsig.nombre} - Grupo ${grupoLetra}` : selectedAsig.nombre;
+  });
+
+  let nombreManual = $state(false);
+  let nombre = $state('');
+
+  $effect(() => {
+    if (!nombreManual) {
+      nombre = nombreSugerido;
+    }
   });
 
 
@@ -507,9 +516,9 @@
       docenteSearch = '';
       perteneceFilter = 'all';
       generaActaPorComponente = {};
-      aprobacionObligatoria = false;
-      porcentajeAprobacion = 60;
-      porcentajeAsistencia = 75;
+      aprobacionObligatoriaPorComponente = {};
+      porcentajeAprobacionPorComponente = {};
+      porcentajeAsistenciaPorComponente = {};
       indiceGrupo = null;
       indiceGrupoSugerido = null;
       indicesGrupoTomados = [];
@@ -520,6 +529,8 @@
       loadingPreview = false;
       ofertaIntranet = null;
       loadingOferta = false;
+      nombreManual = false;
+      nombre = '';
     }
   });
 
@@ -554,15 +565,23 @@
 
     const docentesPorComponenteFinal: Record<number, number[]> = {};
     const generaActaFinal: Record<number, boolean> = {};
-    for (const tc of selectedTiposOrdered) {
+    const porcentajeAprobacionFinal: Record<number, number> = {};
+    const porcentajeAsistenciaFinal: Record<number, number> = {};
+    const aprobacionObligatoriaFinal: Record<number, boolean> = {};
+
+    for (let i = 0; i < selectedTiposOrdered.length; i++) {
+      const tc = selectedTiposOrdered[i];
       docentesPorComponenteFinal[tc.id_tipo_componente] = docentesPorComponente[tc.id_tipo_componente] ?? [];
-      generaActaFinal[tc.id_tipo_componente] = generaActaPorComponente[tc.id_tipo_componente] ?? true;
+      generaActaFinal[tc.id_tipo_componente] = generaActaPorComponente[tc.id_tipo_componente] ?? (i === 0);
+      porcentajeAprobacionFinal[tc.id_tipo_componente] = porcentajeAprobacionPorComponente[tc.id_tipo_componente] ?? 60;
+      porcentajeAsistenciaFinal[tc.id_tipo_componente] = porcentajeAsistenciaPorComponente[tc.id_tipo_componente] ?? 75;
+      aprobacionObligatoriaFinal[tc.id_tipo_componente] = aprobacionObligatoriaPorComponente[tc.id_tipo_componente] ?? false;
     }
 
     onSubmit({
       id_asignatura: selectedAsig.id_asignatura,
       id_plan: selectedPlan.id_plan,
-      nombre: nombre || undefined,
+      nombre: (nombre?.trim() || nombreSugerido) || undefined,
       fecha_inicio: fechaInicio || undefined,
       numero_semestre: selectedAsig.agno_planificado,
       agno_real: agnoReal,
@@ -573,9 +592,13 @@
       tipos_componente_ids: [...selectedTipos],
       docentes_por_componente: docentesPorComponenteFinal,
       genera_acta_por_componente: generaActaFinal,
-      aprobacion_obligatoria: aprobacionObligatoria,
-      porcentaje_aprobacion: porcentajeAprobacion,
-      porcentaje_asistencia_obligatoria: porcentajeAsistencia,
+      porcentaje_aprobacion_por_componente: porcentajeAprobacionFinal,
+      porcentaje_asistencia_por_componente: porcentajeAsistenciaFinal,
+      aprobacion_obligatoria_por_componente: aprobacionObligatoriaFinal,
+      // Fallbacks retrocompatibles basados en el componente principal
+      aprobacion_obligatoria: aprobacionObligatoriaFinal[principalTipo.id_tipo_componente] ?? false,
+      porcentaje_aprobacion: porcentajeAprobacionFinal[principalTipo.id_tipo_componente] ?? 60,
+      porcentaje_asistencia_obligatoria: porcentajeAsistenciaFinal[principalTipo.id_tipo_componente] ?? 75,
       inscribir_automaticamente: inscribirAutomaticamente,
     } as any);
 
@@ -591,17 +614,17 @@
 {#if isOpen}
   <!-- Backdrop -->
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="wizard-backdrop" onclick={onClose} role="presentation"></div>
+  <div class="fixed inset-0 z-50 bg-gray-900/40 backdrop-blur-[2px] transition-opacity" onclick={onClose} role="presentation"></div>
 
   <!-- Dialog -->
-  <div class="wizard-dialog" role="dialog" aria-modal="true" aria-label="Nuevo Curso">
+  <div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] bg-white rounded-2xl shadow-2xl w-[min(740px,calc(100vw-2rem))] h-[85dvh] max-h-[90dvh] min-h-[400px] flex flex-col overflow-hidden" role="dialog" aria-modal="true" aria-label="Nuevo Curso">
     <!-- ── Header ── -->
-    <div class="wiz-header">
+    <div class="flex items-start justify-between px-6 pt-5 pb-4 border-b border-gray-100 shrink-0">
       <div>
-        <h2 class="wiz-title">Nuevo Curso Ofertado</h2>
-        <p class="wiz-subtitle">Sigue los pasos para configurar el curso correctamente</p>
+        <h2 class="text-lg font-bold text-gray-900 m-0">Nuevo Curso Ofertado</h2>
+        <p class="text-xs text-gray-500 mt-1 mb-0">Flujo lineal de configuración paso a paso para el nuevo curso</p>
       </div>
-      <button class="wiz-close" onclick={onClose} aria-label="Cerrar">
+      <button class="p-1.5 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition shrink-0 cursor-pointer" onclick={onClose} aria-label="Cerrar">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="18"
@@ -618,11 +641,11 @@
       </button>
     </div>
 
-    <!-- ── Step progress ── -->
-    <div class="step-bar">
+    <!-- ── Step progress (flujo lineal entre etapas) ── -->
+    <nav class="flex items-center px-6 py-3 bg-slate-50 border-b border-gray-200 shrink-0" aria-label="Progreso del flujo">
       {#each [{ n: 1, label: 'Carrera' }, { n: 2, label: 'Plan' }, { n: 3, label: 'Asignatura' }, { n: 4, label: 'Docente & Datos' }] as s}
-        <div class="step-item" class:done={currentStep > s.n} class:active={currentStep === s.n}>
-          <div class="step-circle">
+        <div class="flex items-center gap-1.5 shrink-0 {currentStep === s.n ? 'text-blue-700 font-semibold' : currentStep > s.n ? 'text-emerald-600 font-medium' : 'text-gray-400 font-medium'}">
+          <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors {currentStep > s.n ? 'bg-emerald-500 text-white' : currentStep === s.n ? 'border-2 border-blue-600 bg-blue-600 text-white shadow-xs' : 'border-2 border-gray-300 bg-white text-gray-400'}">
             {#if currentStep > s.n}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -641,27 +664,29 @@
               {s.n}
             {/if}
           </div>
-          <span class="step-label">{s.label}</span>
+          <span class="text-xs max-sm:hidden {currentStep === s.n ? 'max-sm:inline' : ''}">{s.label}</span>
         </div>
         {#if s.n < 4}
-          <div class="step-connector" class:done={currentStep > s.n}></div>
+          <div class="flex-1 h-0.5 mx-2 min-w-2 rounded transition-colors {currentStep > s.n ? 'bg-emerald-500' : 'bg-gray-200'}"></div>
         {/if}
       {/each}
-    </div>
+    </nav>
 
     <!-- ── Scrollable body + footer ── -->
-    <form class="wiz-form-layout" onsubmit={handleSubmit}>
-      <div class="wiz-body">
+    <form class="flex-1 min-h-0 flex flex-col overflow-hidden" onsubmit={handleSubmit}>
+      <div class="flex-1 min-h-0 overflow-y-auto px-6 py-4 flex flex-col gap-3">
         <!-- ══ Step 1: Carrera ══ -->
-        <section class="wiz-step" class:collapsed={currentStep > 1}>
-          <div class="step-head">
-            <span class="step-num" class:filled={currentStep > 1}>1</span>
-            <span class="step-head-label">Carrera</span>
+        <section class="border border-gray-200 rounded-xl overflow-hidden transition shrink-0 {currentStep > 1 ? 'bg-gray-50/50' : 'bg-white shadow-2xs'}">
+          <div class="flex items-center gap-2.5 px-4 py-3 bg-gray-50 border-b {currentStep === 1 ? 'border-gray-200' : 'border-transparent'} flex-wrap">
+            <span class="w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 {currentStep > 1 ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white'}">
+              {#if currentStep > 1}✓{:else}1{/if}
+            </span>
+            <span class="text-sm font-semibold text-gray-800">1. Carrera</span>
             {#if selectedCarrera}
-              <span class="step-chip">{selectedCarrera.nombre}</span>
+              <span class="bg-blue-50 text-blue-700 text-xs font-medium px-2.5 py-0.5 rounded-full border border-blue-200 max-w-[280px] truncate">{selectedCarrera.nombre}</span>
               <button
                 type="button"
-                class="step-change"
+                class="ml-auto text-xs text-gray-500 hover:text-gray-900 bg-white hover:bg-gray-100 border border-gray-300 rounded-md px-2 py-0.5 transition cursor-pointer"
                 onclick={() => {
                   selectedCarrera = null;
                   selectedPlan = null;
@@ -678,21 +703,26 @@
           </div>
 
           {#if currentStep === 1}
-            <div class="step-body">
+            <div class="p-4">
               {#if carreras.length === 0}
-                <div class="step-empty bg-yellow-50 border border-yellow-200 p-4 rounded">
+                <div class="text-sm bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg">
                   ⚠️ No hay carreras disponibles en el sistema.
                 </div>
               {:else}
-                <div class="option-grid">
+                <div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2.5">
                   {#each carreras as c (c.id_carrera)}
-                    <button type="button" class="option-card" onclick={() => onSelectCarrera(c)}>
-                      <span class="option-card-name">{c.nombre}</span>
+                    <button
+                      type="button"
+                      class="p-3 text-left border border-gray-200 hover:border-blue-500 hover:bg-blue-50/50 rounded-xl bg-white transition cursor-pointer relative group shadow-2xs"
+                      onclick={() => onSelectCarrera(c)}
+                    >
+                      <span class="text-xs font-semibold text-gray-900 block group-hover:text-blue-700">{c.nombre}</span>
                       {#if c.sede || c.jornada}
-                        <span class="option-card-meta"
+                        <span class="text-[11px] text-gray-500 mt-1 block"
                           >{[c.sede, c.jornada].filter(Boolean).join(' · ')}</span
                         >
                       {/if}
+                      <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 group-hover:text-blue-500 transition text-sm">→</span>
                     </button>
                   {/each}
                 </div>
@@ -702,18 +732,20 @@
         </section>
 
         <!-- ══ Step 2: Plan ══ -->
-        <section class="wiz-step" class:collapsed={currentStep > 2} class:locked={currentStep < 2}>
-          <div class="step-head">
-            <span class="step-num" class:filled={currentStep > 2}>2</span>
-            <span class="step-head-label">Plan de Estudio</span>
+        <section class="border border-gray-200 rounded-xl overflow-hidden transition shrink-0 {currentStep < 2 ? 'opacity-50 pointer-events-none' : currentStep > 2 ? 'bg-gray-50/50' : 'bg-white shadow-2xs'}">
+          <div class="flex items-center gap-2.5 px-4 py-3 bg-gray-50 border-b {currentStep === 2 ? 'border-gray-200' : 'border-transparent'} flex-wrap">
+            <span class="w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 {currentStep > 2 ? 'bg-emerald-500 text-white' : currentStep === 2 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}">
+              {#if currentStep > 2}✓{:else}2{/if}
+            </span>
+            <span class="text-sm font-semibold text-gray-800">2. Plan de Estudio</span>
             {#if selectedPlan}
-              <span class="step-chip"
+              <span class="bg-blue-50 text-blue-700 text-xs font-medium px-2.5 py-0.5 rounded-full border border-blue-200 max-w-[280px] truncate"
                 >{selectedPlan.carrera?.nombre ?? ''}
                 {selectedPlan.agno_plan} v{selectedPlan.version_plan}</span
               >
               <button
                 type="button"
-                class="step-change"
+                class="ml-auto text-xs text-gray-500 hover:text-gray-900 bg-white hover:bg-gray-100 border border-gray-300 rounded-md px-2 py-0.5 transition cursor-pointer"
                 onclick={() => {
                   selectedPlan = null;
                   selectedAsig = null;
@@ -728,26 +760,30 @@
           </div>
 
           {#if currentStep === 2}
-            <div class="step-body">
+            <div class="p-4">
               {#if loadingPlanes}
-                <div class="inline-spinner"></div>
+                <div class="w-6 h-6 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin my-4 mx-auto"></div>
               {:else if planes.length === 0}
-                <p class="step-empty">Esta carrera no tiene planes de estudio activos.</p>
+                <p class="text-sm text-gray-500 m-0">Esta carrera no tiene planes de estudio activos.</p>
               {:else}
-                <div class="option-list">
+                <div class="flex flex-col gap-2">
                   {#each planes as p}
-                    <button type="button" class="option-row" onclick={() => onSelectPlan(p)}>
-                      <span class="option-row-icon">📋</span>
+                    <button
+                      type="button"
+                      class="flex items-center gap-3 p-3 border border-gray-200 hover:border-blue-500 hover:bg-blue-50/50 rounded-xl bg-white text-left transition cursor-pointer w-full group shadow-2xs"
+                      onclick={() => onSelectPlan(p)}
+                    >
+                      <span class="text-lg">📋</span>
                       <div>
-                        <div class="option-row-name">
+                        <div class="text-sm font-semibold text-gray-900 group-hover:text-blue-700">
                           Plan {p.agno_plan} — versión {p.version_plan}
                         </div>
                         {#if p.carrera}
-                          <div class="option-row-sub">{p.carrera.nombre}</div>
+                          <div class="text-xs text-gray-500 mt-0.5">{p.carrera.nombre}</div>
                         {/if}
                       </div>
                       <svg
-                        class="option-row-arrow"
+                        class="ml-auto text-gray-400 group-hover:text-blue-500 shrink-0 transition"
                         xmlns="http://www.w3.org/2000/svg"
                         width="16"
                         height="16"
@@ -769,15 +805,17 @@
         </section>
 
         <!-- ══ Step 3: Asignatura ══ -->
-        <section class="wiz-step" class:collapsed={currentStep > 3} class:locked={currentStep < 3}>
-          <div class="step-head">
-            <span class="step-num" class:filled={currentStep > 3}>3</span>
-            <span class="step-head-label">Asignatura</span>
+        <section class="border border-gray-200 rounded-xl overflow-hidden transition shrink-0 {currentStep < 3 ? 'opacity-50 pointer-events-none' : currentStep > 3 ? 'bg-gray-50/50' : 'bg-white shadow-2xs'}">
+          <div class="flex items-center gap-2.5 px-4 py-3 bg-gray-50 border-b {currentStep === 3 ? 'border-gray-200' : 'border-transparent'} flex-wrap">
+            <span class="w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 {currentStep > 3 ? 'bg-emerald-500 text-white' : currentStep === 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}">
+              {#if currentStep > 3}✓{:else}3{/if}
+            </span>
+            <span class="text-sm font-semibold text-gray-800">3. Asignatura</span>
             {#if selectedAsig}
-              <span class="step-chip">{selectedAsig.cod_asignatura} – {selectedAsig.nombre}</span>
+              <span class="bg-blue-50 text-blue-700 text-xs font-medium px-2.5 py-0.5 rounded-full border border-blue-200 max-w-[280px] truncate">{selectedAsig.cod_asignatura} – {selectedAsig.nombre}</span>
               <button
                 type="button"
-                class="step-change"
+                class="ml-auto text-xs text-gray-500 hover:text-gray-900 bg-white hover:bg-gray-100 border border-gray-300 rounded-md px-2 py-0.5 transition cursor-pointer"
                 onclick={() => {
                   selectedAsig = null;
                   selectedDocente = null;
@@ -792,49 +830,49 @@
           </div>
 
           {#if currentStep === 3}
-            <div class="step-body">
+            <div class="p-4">
               {#if loadingAsig}
-                <div class="inline-spinner"></div>
+                <div class="w-6 h-6 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin my-4 mx-auto"></div>
               {:else if asignaturas.length === 0}
-                <p class="step-empty">Este plan no tiene asignaturas asignadas.</p>
+                <p class="text-sm text-gray-500 m-0">Este plan no tiene asignaturas asignadas.</p>
               {:else}
-                <div class="asig-search-bar">
+                <div class="mb-3">
                   <input
                     type="search"
                     bind:value={asigSearch}
                     placeholder="Buscar por código o nombre…"
-                    class="asig-search-input"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 outline-hidden focus:border-blue-500 focus:ring-3 focus:ring-blue-500/15 transition"
                   />
                 </div>
-                <div class="asig-scroll-area">
+                <div class="max-h-80 overflow-y-auto pr-1">
                   {#if filteredCount === 0}
-                    <p class="step-empty">
+                    <p class="text-sm text-gray-500 m-0">
                       No se encontraron resultados para &ldquo;{asigSearch}&rdquo;.
                     </p>
                   {:else}
-                    <div class="asig-groups">
+                    <div class="flex flex-col gap-4">
                       {#each Object.entries(filteredAsigByYear).sort(([a], [b]) => Number(a) - Number(b)) as [yr, sems]}
-                        <div class="asig-year-group">
-                          <div class="asig-year-badge">Año {yr}</div>
+                        <div>
+                          <span class="inline-block bg-blue-900 text-white text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-2">Año {yr}</span>
                           {#each [{ label: 'Semestre 1', list: sems.s1 }, { label: 'Semestre 2', list: sems.s2 }] as sem}
                             {#if sem.list.length > 0}
-                              <div class="asig-sem-label">{sem.label}</div>
-                              <div class="asig-cards">
+                              <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider my-1.5 pl-0.5">{sem.label}</div>
+                              <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2 mb-2">
                                 {#each sem.list as a}
                                   <button
                                     type="button"
-                                    class="asig-card"
+                                    class="p-2.5 border border-gray-200 hover:border-blue-500 hover:bg-blue-50/50 rounded-lg bg-white text-left transition cursor-pointer w-full group shadow-2xs"
                                     onclick={() => onSelectAsig(a)}
                                   >
-                                    <div class="asig-card-top">
-                                      <span class="asig-card-code">{a.cod_asignatura}</span>
+                                    <div class="flex justify-between items-center mb-1">
+                                      <span class="font-mono text-xs font-bold text-blue-600 group-hover:text-blue-700">{a.cod_asignatura}</span>
                                       {#if a.creditos_sct}
-                                        <span class="asig-card-sct">{a.creditos_sct} SCT</span>
+                                        <span class="text-[11px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full font-semibold">{a.creditos_sct} SCT</span>
                                       {/if}
                                     </div>
-                                    <div class="asig-card-name">{a.nombre}</div>
+                                    <div class="text-xs font-medium text-gray-900 leading-snug">{a.nombre}</div>
                                     {#if a.tipo_ramo}
-                                      <div class="asig-card-tipo">{a.tipo_ramo}</div>
+                                      <div class="text-[11px] text-gray-500 mt-1">{a.tipo_ramo}</div>
                                     {/if}
                                   </button>
                                 {/each}
@@ -852,334 +890,379 @@
         </section>
 
         <!-- ══ Step 4: Docente + Datos ══ -->
-        <section class="wiz-step" class:locked={currentStep < 4}>
-          <div class="step-head">
-            <span class="step-num" class:filled={false}>4</span>
-            <span class="step-head-label">Docente y Datos del Curso</span>
+        <section class="border border-gray-200 rounded-xl overflow-hidden transition shrink-0 {currentStep < 4 ? 'opacity-50 pointer-events-none' : 'bg-white shadow-2xs'}">
+          <div class="flex items-center gap-2.5 px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <span class="w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 {currentStep === 4 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}">4</span>
+            <span class="text-sm font-semibold text-gray-800">4. Docente y Datos del Curso</span>
           </div>
 
           {#if currentStep === 4}
-            <div class="step-body">
-              <div class="step4-scroll">
-                <!-- ══ Cursos anteriores de esta asignatura ══ -->
-                {#if loadingCursosAnteriores}
-                  <div class="anteriores-loading">
-                    <div class="inline-spinner"></div>
-                    <span class="text-xs text-gray-400">Buscando cursos anteriores…</span>
-                  </div>
-                {:else if cursosAnteriores.length > 0}
-                  <div class="anteriores-section">
-                    <div class="anteriores-header">
-                      <div class="anteriores-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                      </div>
-                      <div>
-                        <p class="anteriores-title">Cursos anteriores disponibles</p>
-                        <p class="anteriores-subtitle">
-                          Puedes copiar uno de estos cursos en lugar de crear desde cero.
-                          Las fechas de actividades se eliminarán.
-                        </p>
-                      </div>
+            <div class="p-4 space-y-4">
+              <!-- ══ Cursos anteriores de esta asignatura ══ -->
+              {#if loadingCursosAnteriores}
+                <div class="flex items-center gap-2.5 mb-3">
+                  <div class="w-5 h-5 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+                  <span class="text-xs text-gray-400">Buscando cursos anteriores…</span>
+                </div>
+              {:else if cursosAnteriores.length > 0}
+                <div class="border border-indigo-200 rounded-xl bg-violet-50/40 p-3.5 mb-2">
+                  <div class="flex items-start gap-2.5 mb-3">
+                    <div class="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 mt-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                     </div>
-                    <div class="anteriores-list">
-                      {#each cursosAnteriores as ca (ca.id_curso)}
+                    <div>
+                      <p class="text-xs font-bold text-indigo-900 mb-0.5">Cursos anteriores disponibles</p>
+                      <p class="text-xs text-gray-500 m-0 leading-normal">
+                        Puedes copiar uno de estos cursos en lugar de crear desde cero.
+                        Las fechas de actividades se eliminarán.
+                      </p>
+                    </div>
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    {#each cursosAnteriores as ca (ca.id_curso)}
+                      <button
+                        type="button"
+                        class="flex items-center gap-3 p-2.5 border border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50/50 rounded-lg bg-white cursor-pointer transition text-left w-full group shadow-2xs"
+                        onclick={() => {
+                          onCopyFromAnterior(ca.id_curso, selectedAsig?.nombre ?? '');
+                          onClose();
+                        }}
+                      >
+                        <div class="flex-1 flex items-center gap-2 min-w-0">
+                          <span class="font-mono text-xs font-bold text-indigo-700 whitespace-nowrap">#{ca.cod_curso}</span>
+                          {#if ca.agno_planificado && ca.semestre_planificado}
+                            <span class="text-xs text-gray-500 whitespace-nowrap">
+                              Año {ca.agno_planificado} · Sem. {ca.semestre_planificado}
+                            </span>
+                          {/if}
+                        </div>
+                        <div class="flex gap-1.5 shrink-0">
+                          <span class="text-[11px] text-gray-500 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5">{ca.total_componentes} secc.</span>
+                          <span class="text-[11px] text-gray-500 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5">{ca.total_actividades} activ.</span>
+                        </div>
+                        <span class="text-xs font-semibold text-indigo-600 group-hover:text-indigo-800 whitespace-nowrap shrink-0">Usar como base →</span>
+                      </button>
+                    {/each}
+                  </div>
+                </div>
+                <div class="border-t border-gray-200 my-4"></div>
+              {/if}
+
+              <!-- Periodo del curso -->
+              <div>
+                <p class="text-sm font-semibold text-gray-700 mb-2">¿Cuándo se dicta este curso?</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-semibold text-gray-700" for="wiz-agno">Año *</label>
+                    <input
+                      id="wiz-agno"
+                      type="number"
+                      bind:value={agnoReal}
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-hidden focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10 transition"
+                      min="2000"
+                      max="2100"
+                      required
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-semibold text-gray-700" for="wiz-semestre">Semestre *</label>
+                    <select
+                      id="wiz-semestre"
+                      bind:value={semestreReal}
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-hidden focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10 transition"
+                      required
+                    >
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                    </select>
+                  </div>
+
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-semibold text-gray-700" for="wiz-letra">Letra del grupo</label>
+                    <select
+                      id="wiz-letra"
+                      bind:value={indiceGrupo}
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-hidden focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                      disabled={loadingLetra}
+                    >
+                      {#each letraOptions as opt (opt.indice)}
+                        <option value={opt.indice} disabled={opt.tomada}>
+                          {opt.letra}{opt.tomada ? ' (ocupada)' : ''}
+                        </option>
+                      {/each}
+                    </select>
+                    <p class="text-xs text-gray-400 m-0">
+                      {#if loadingLetra}
+                        Calculando letra disponible…
+                      {:else if ofertaIntranet?.grupos.some((g) => g.indice_grupo === indiceGrupo)}
+                        Completada con un grupo de la Intranet; puedes elegir otra.
+                      {:else}
+                        Sugerida automáticamente; puedes elegir otra disponible.
+                      {/if}
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Grupos ofertados en la Intranet -->
+                <div class="mt-3">
+                  {#if loadingOferta}
+                    <p class="text-xs text-gray-500 mb-1.5">Consultando la Intranet…</p>
+                  {:else if ofertaIntranet && !ofertaIntranet.disponible}
+                    <p class="text-xs text-gray-500 mb-1.5">
+                      No se pudo consultar la Intranet: completa los datos a mano.
+                    </p>
+                  {:else if ofertaIntranet && ofertaIntranet.grupos.length === 0}
+                    <p class="text-xs text-gray-500 mb-1.5">
+                      La Intranet no tiene oferta de {selectedAsig?.cod_asignatura} en {agnoReal}-{semestreReal}.
+                    </p>
+                  {:else if ofertaIntranet}
+                    <p class="text-xs text-gray-500 mb-1.5">En la Intranet ({agnoReal}-{semestreReal}):</p>
+                    <div class="flex flex-wrap gap-2">
+                      {#each ofertaIntranet.grupos as g (g.letra)}
+                        {@const yaCreado = g.indice_grupo !== null && indicesGrupoTomados.includes(g.indice_grupo)}
                         <button
                           type="button"
-                          class="anterior-row"
-                          onclick={() => {
-                            onCopyFromAnterior(ca.id_curso, selectedAsig?.nombre ?? '');
-                            onClose();
-                          }}
+                          class="flex flex-col items-start gap-0.5 px-3 py-2 border rounded-lg text-left transition {g.indice_grupo === indiceGrupo ? 'border-blue-600 bg-blue-50 text-blue-900' : 'border-gray-200 bg-white hover:border-blue-300'} disabled:opacity-60 disabled:cursor-not-allowed"
+                          disabled={yaCreado || g.indice_grupo === null}
+                          title={yaCreado ? 'Ya existe un curso con este grupo en UTAMED' : 'Usar este grupo'}
+                          onclick={() => (indiceGrupo = g.indice_grupo)}
                         >
-                          <div class="anterior-info">
-                            <span class="anterior-cod">#{ca.cod_curso}</span>
-                            {#if ca.agno_planificado && ca.semestre_planificado}
-                              <span class="anterior-periodo">
-                                Año {ca.agno_planificado} · Sem. {ca.semestre_planificado}
-                              </span>
-                            {/if}
-                          </div>
-                          <div class="anterior-stats">
-                            <span class="anterior-stat">{ca.total_componentes} secc.</span>
-                            <span class="anterior-stat">{ca.total_actividades} activ.</span>
-                          </div>
-                          <span class="anterior-btn">Usar como base →</span>
+                          <span class="text-xs font-semibold text-gray-900">Grupo {g.letra}</span>
+                          <span class="text-xs text-gray-500 tabular-nums">
+                            {g.componentes.map((c) => `${c.tipo} ${c.cur_codigo}`).join(' · ')}
+                          </span>
+                          {#if yaCreado}<span class="text-[11px] text-amber-700 font-medium">ya creado</span>{/if}
                         </button>
                       {/each}
                     </div>
+                  {/if}
+                </div>
+              </div>
+
+              <!-- Divider -->
+              <div class="border-t border-gray-200 my-4"></div>
+
+              <!-- Componentes del curso -->
+              <div>
+                <p class="text-sm font-semibold text-gray-700 mb-1">Componentes del curso</p>
+                <p class="text-xs text-gray-500 mb-3">
+                  {#if loadingPreview}
+                    Detectando componentes…
+                  {:else if previewOrigen === 'INTRANET'}
+                    Detectadas en la Intranet. El componente principal se determina
+                    automáticamente (Cátedra &rsaquo; Taller &rsaquo; Laboratorio).
+                  {:else if previewOrigen === 'PLAN'}
+                    Derivadas de las horas del Plan de Estudios: la Intranet no informó este
+                    grupo (el motivo está en las advertencias).
+                  {:else}
+                    Se detectarán automáticamente al completar año, semestre y letra de grupo.
+                  {/if}
+                </p>
+
+                {#if loadingPreview}
+                  <div class="w-5 h-5 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin my-2"></div>
+                {:else if previewComponentes.length === 0}
+                  <p class="text-sm text-gray-400 m-0">
+                    No se detectó ninguna componente. Revisa el Plan de Estudios de esta
+                    asignatura antes de continuar.
+                  </p>
+                {:else}
+                  <div class="flex flex-wrap gap-2">
+                    {#each previewComponentes as pc (pc.id_tipo_componente)}
+                      {@const isPrincipal = principalTipo?.id_tipo_componente === pc.id_tipo_componente}
+                      <div class="flex items-center gap-2 px-3.5 py-2 border-2 border-indigo-200 rounded-lg bg-indigo-50/50 text-indigo-900 text-sm font-medium">
+                        <span class="leading-none font-semibold">{pc.tipo}</span>
+                        <span
+                          class="text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap {pc.origen === 'INTRANET' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}"
+                        >
+                          {pc.origen === 'INTRANET' ? '🟢 Intranet' : '🔵 Plan de Estudios'}
+                        </span>
+                        {#if pc.cur_codigo}
+                          <span class="text-xs text-gray-500 tabular-nums" title="CUR_CODIGO de la Intranet">
+                            Acta {pc.cur_codigo}
+                          </span>
+                        {/if}
+                        {#if isPrincipal}
+                          <span class="text-[10px] font-bold uppercase tracking-wider bg-indigo-600 text-white px-1.5 py-0.5 rounded-full">Principal</span>
+                        {/if}
+                      </div>
+                    {/each}
                   </div>
-                  <div class="fields-divider"></div>
                 {/if}
 
-                <!-- Periodo del curso.
-                     «Año Real» y «Semestre Real» distinguían este dato del
-                     año/semestre planificado en la malla, pero desde la
-                     pantalla no había forma de saber frente a qué eran
-                     «reales»: se nombra por lo que son. -->
-                <div class="periodo-section">
-                  <p class="periodo-label">¿Cuándo se dicta este curso?</p>
-                  <div class="fields-grid">
-                    <div class="field">
-                      <label class="field-label req" for="wiz-agno">Año</label>
+                {#if previewAdvertencias.length > 0}
+                  <div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p class="text-xs font-bold text-amber-800 mb-1">⚠️ Advertencias</p>
+                    <ul class="m-0 pl-4 list-disc text-xs text-amber-800 leading-relaxed">
+                      {#each previewAdvertencias as adv}
+                        <li>{adv}</li>
+                      {/each}
+                    </ul>
+                  </div>
+                {/if}
+              </div>
+
+              <!-- Divider -->
+              <div class="border-t border-gray-200 my-4"></div>
+
+              <!-- Docentes sugeridos -->
+              <div>
+                <p class="text-sm font-semibold text-gray-700 mb-1">Selección de docente</p>
+                <p class="text-xs text-gray-700 bg-green-50 border border-green-200 rounded-md p-2.5 mb-3">
+                  {#if loadingDocentes}
+                    Buscando docentes sugeridos...
+                  {:else if historicDocentes.length > 0}
+                    <strong>{historicDocentes.length}</strong> docente{historicDocentes.length > 1
+                      ? 's han'
+                      : ' ha'} impartido esta asignatura anteriormente.
+                  {:else}
+                    No hay historial previo. Selecciona cualquier docente.
+                  {/if}
+                </p>
+
+                {#if loadingDocentes}
+                  <div class="w-5 h-5 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin my-2"></div>
+                {:else}
+                  <!-- Buscador de docentes -->
+                  {#if historicDocentes.length > 0 || otrosDocentes.length > 0}
+                    <div class="relative mb-3">
+                      <svg
+                        class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                      </svg>
                       <input
-                        id="wiz-agno"
-                        type="number"
-                        bind:value={agnoReal}
-                        class="field-input"
-                        min="2000"
-                        max="2100"
-                        required
+                        type="search"
+                        bind:value={docenteSearch}
+                        placeholder="Buscar por nombre o cargo…"
+                        class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 outline-hidden focus:border-blue-500 focus:ring-3 focus:ring-blue-500/15 transition"
                       />
                     </div>
 
-                    <div class="field">
-                      <label class="field-label req" for="wiz-semestre">Semestre</label>
-                      <select
-                        id="wiz-semestre"
-                        bind:value={semestreReal}
-                        class="field-input"
-                        required
+                    <div class="flex gap-1.5 mb-3">
+                      <button
+                        type="button"
+                        class="px-2.5 py-1 border rounded-full text-xs font-semibold cursor-pointer transition {perteneceFilter === 'all' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-gray-300 text-gray-600 hover:border-blue-300'}"
+                        onclick={() => (perteneceFilter = 'all')}
                       >
-                        <option value={1}>1</option>
-                        <option value={2}>2</option>
-                      </select>
-                    </div>
-
-                    <div class="field">
-                      <label class="field-label" for="wiz-letra">Letra del grupo</label>
-                      <select
-                        id="wiz-letra"
-                        bind:value={indiceGrupo}
-                        class="field-input"
-                        disabled={loadingLetra}
+                        Todos
+                      </button>
+                      <button
+                        type="button"
+                        class="px-2.5 py-1 border rounded-full text-xs font-semibold cursor-pointer transition {perteneceFilter === 'in' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-gray-300 text-gray-600 hover:border-blue-300'}"
+                        onclick={() => (perteneceFilter = 'in')}
                       >
-                        {#each letraOptions as opt (opt.indice)}
-                          <option value={opt.indice} disabled={opt.tomada}>
-                            {opt.letra}{opt.tomada ? ' (ocupada)' : ''}
-                          </option>
-                        {/each}
-                      </select>
-                      <p class="field-hint">
-                        {#if loadingLetra}
-                          Calculando letra disponible…
-                        {:else if ofertaIntranet?.grupos.some((g) => g.indice_grupo === indiceGrupo)}
-                          Completada con un grupo de la Intranet; puedes elegir otra.
-                        {:else}
-                          Sugerida automáticamente; puedes elegir otra disponible.
-                        {/if}
-                      </p>
+                        De la carrera
+                      </button>
+                      <button
+                        type="button"
+                        class="px-2.5 py-1 border rounded-full text-xs font-semibold cursor-pointer transition {perteneceFilter === 'out' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-gray-300 text-gray-600 hover:border-blue-300'}"
+                        onclick={() => (perteneceFilter = 'out')}
+                      >
+                        Externos
+                      </button>
                     </div>
-                  </div>
+                  {/if}
 
-                  <!-- Grupos ofertados en la Intranet para este periodo: elegir
-                       uno completa la letra y, con ella, las componentes. -->
-                  <div class="oferta-intranet">
-                    {#if loadingOferta}
-                      <p class="oferta-intranet-titulo">Consultando la Intranet…</p>
-                    {:else if ofertaIntranet && !ofertaIntranet.disponible}
-                      <p class="oferta-intranet-titulo">
-                        No se pudo consultar la Intranet: completa los datos a mano.
-                      </p>
-                    {:else if ofertaIntranet && ofertaIntranet.grupos.length === 0}
-                      <p class="oferta-intranet-titulo">
-                        La Intranet no tiene oferta de {selectedAsig?.cod_asignatura} en {agnoReal}-{semestreReal}.
-                      </p>
-                    {:else if ofertaIntranet}
-                      <p class="oferta-intranet-titulo">En la Intranet ({agnoReal}-{semestreReal}):</p>
-                      <div class="oferta-intranet-grupos">
-                        {#each ofertaIntranet.grupos as g (g.letra)}
-                          {@const yaCreado = g.indice_grupo !== null && indicesGrupoTomados.includes(g.indice_grupo)}
-                          <button
-                            type="button"
-                            class="oferta-grupo"
-                            class:activo={g.indice_grupo === indiceGrupo}
-                            disabled={yaCreado || g.indice_grupo === null}
-                            title={yaCreado ? 'Ya existe un curso con este grupo en UTAMED' : 'Usar este grupo'}
-                            onclick={() => (indiceGrupo = g.indice_grupo)}
-                          >
-                            <span class="oferta-grupo-letra">Grupo {g.letra}</span>
-                            <span class="oferta-grupo-comps">
-                              {g.componentes.map((c) => `${c.tipo} ${c.cur_codigo}`).join(' · ')}
-                            </span>
-                            {#if yaCreado}<span class="oferta-grupo-creado">ya creado</span>{/if}
-                          </button>
-                        {/each}
-                      </div>
-                    {/if}
-                  </div>
-                </div>
-
-                <!-- Divider -->
-                <div class="fields-divider"></div>
-
-                <!-- Componentes del curso: detectadas automáticamente, cero
-                     selección manual — sólo se muestran con su procedencia. -->
-                <div class="tipo-comp-section">
-                  <p class="tipo-comp-label">Componentes del curso</p>
-                  <p class="tipo-comp-sublabel">
-                    {#if loadingPreview}
-                      Detectando componentes…
-                    {:else if previewOrigen === 'INTRANET'}
-                      Detectadas en la Intranet. El componente principal se determina
-                      automáticamente (Cátedra &rsaquo; Taller &rsaquo; Laboratorio).
-                    {:else if previewOrigen === 'PLAN'}
-                      Derivadas de las horas del Plan de Estudios: la Intranet no informó este
-                      grupo (el motivo está en las advertencias).
-                    {:else}
-                      Se detectarán automáticamente al completar año, semestre y letra de grupo.
-                    {/if}
-                  </p>
-
-                  {#if loadingPreview}
-                    <div class="inline-spinner"></div>
-                  {:else if previewComponentes.length === 0}
-                    <p class="step-empty">
-                      No se detectó ninguna componente. Revisa el Plan de Estudios de esta
-                      asignatura antes de continuar.
-                    </p>
-                  {:else}
-                    <div class="tipo-comp-list">
-                      {#each previewComponentes as pc (pc.id_tipo_componente)}
-                        {@const isPrincipal = principalTipo?.id_tipo_componente === pc.id_tipo_componente}
-                        <div class="tipo-comp-btn selected">
-                          <span class="tipo-comp-btn-name">{pc.tipo}</span>
-                          <span
-                            class="origen-badge"
-                            class:origen-intranet={pc.origen === 'INTRANET'}
-                            class:origen-plan={pc.origen === 'PLAN'}
-                          >
-                            {pc.origen === 'INTRANET' ? '🟢 Intranet' : '🔵 Plan de Estudios'}
-                          </span>
-                          {#if pc.cur_codigo}
-                            <span class="tipo-comp-acta" title="CUR_CODIGO de la Intranet">
-                              Acta {pc.cur_codigo}
-                            </span>
+                  <!-- Docentes históricos first -->
+                  {#if filteredHistoricDocentes.length > 0}
+                    <div class="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-2">
+                      <span class="bg-amber-100 text-amber-800 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-amber-200">Historial</span>
+                      Docentes que ya han impartido esta asignatura
+                    </div>
+                    <div class="flex flex-col gap-1.5 mb-3">
+                      {#each filteredHistoricDocentes as d}
+                        <button
+                          type="button"
+                          class="flex items-center gap-3 p-2.5 border rounded-lg bg-white cursor-pointer transition text-left w-full shadow-2xs {selectedDocente?.id_docente === d.id_docente ? 'border-blue-500 bg-blue-50/50 ring-2 ring-blue-500/20' : 'border-gray-200 hover:border-blue-400 hover:bg-sky-50/40'}"
+                          onclick={() =>
+                            (selectedDocente =
+                              selectedDocente?.id_docente === d.id_docente ? null : d)}
+                        >
+                          <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 text-sm font-bold flex items-center justify-center shrink-0">
+                            {(d.nombre_completo?.[0] ?? '?').toUpperCase()}
+                          </div>
+                          <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-gray-900 flex items-center flex-wrap gap-1.5">
+                              {d.nombre_completo}
+                              {#if d.pertenece_carrera}
+                                <span class="bg-green-100 text-green-800 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-green-200">De la carrera</span>
+                              {/if}
+                            </div>
+                            {#if d.cargo}<div class="text-xs text-gray-500 mt-0.5">{d.cargo}</div>{/if}
+                          </div>
+                          {#if selectedDocente?.id_docente === d.id_docente}
+                            <svg
+                              class="text-blue-600 shrink-0"
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2.5"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
                           {/if}
-                          {#if isPrincipal}
-                            <span class="tipo-comp-principal-badge">Principal</span>
-                          {/if}
-                        </div>
+                        </button>
                       {/each}
                     </div>
                   {/if}
 
-                  {#if previewAdvertencias.length > 0}
-                    <div class="preview-advertencias">
-                      <p class="preview-advertencias-title">⚠️ Advertencias</p>
-                      <ul>
-                        {#each previewAdvertencias as adv}
-                          <li>{adv}</li>
-                        {/each}
-                      </ul>
-                    </div>
+                  <!-- Sin resultados de búsqueda -->
+                  {#if (docenteSearch.trim() || perteneceFilter !== 'all') && filteredHistoricDocentes.length === 0 && filteredOtrosDocentes.length === 0}
+                    <p class="text-sm text-gray-400 my-2">
+                      {#if docenteSearch.trim()}
+                        No se encontraron docentes para &ldquo;{docenteSearch}&rdquo;.
+                      {:else}
+                        No hay docentes {perteneceFilter === 'in' ? 'de la carrera' : 'externos'} disponibles.
+                      {/if}
+                    </p>
                   {/if}
-                </div>
 
-                <!-- Divider -->
-                <div class="fields-divider"></div>
-
-                <!-- Docentes sugeridos -->
-                <div class="docentes-section">
-                  <p class="tipo-comp-label">Selección de docente</p>
-                  <p class="docentes-hint">
-                    {#if loadingDocentes}
-                      Buscando docentes sugeridos...
-                    {:else if historicDocentes.length > 0}
-                      <strong>{historicDocentes.length}</strong> docente{historicDocentes.length > 1
-                        ? 's han'
-                        : ' ha'} impartido esta asignatura anteriormente.
-                    {:else}
-                      No hay historial previo. Selecciona cualquier docente.
-                    {/if}
-                  </p>
-
-                  {#if loadingDocentes}
-                    <div class="inline-spinner"></div>
-                  {:else}
-                    <!-- Buscador de docentes -->
-                    {#if historicDocentes.length > 0 || otrosDocentes.length > 0}
-                      <div class="docente-search-bar">
-                        <svg
-                          class="docente-search-icon"
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        >
-                          <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-                        </svg>
-                        <input
-                          type="search"
-                          bind:value={docenteSearch}
-                          placeholder="Buscar por nombre o cargo…"
-                          class="docente-search-input"
-                        />
-                      </div>
-
-                      <div class="pertenece-filter-bar">
-                        <button
-                          type="button"
-                          class="pertenece-chip"
-                          class:active={perteneceFilter === 'all'}
-                          onclick={() => (perteneceFilter = 'all')}
-                        >
-                          Todos
-                        </button>
-                        <button
-                          type="button"
-                          class="pertenece-chip"
-                          class:active={perteneceFilter === 'in'}
-                          onclick={() => (perteneceFilter = 'in')}
-                        >
-                          De la carrera
-                        </button>
-                        <button
-                          type="button"
-                          class="pertenece-chip"
-                          class:active={perteneceFilter === 'out'}
-                          onclick={() => (perteneceFilter = 'out')}
-                        >
-                          Externos
-                        </button>
-                      </div>
-                    {/if}
-
-                    <!-- Docentes históricos first -->
-                    {#if filteredHistoricDocentes.length > 0}
-                      <div class="docentes-group-label">
-                        <span class="badge-historico">Historial</span>
-                        Docentes que ya han impartido esta asignatura
-                      </div>
-                      <div class="docentes-list">
-                        {#each filteredHistoricDocentes as d}
+                  <!-- Other docentes in collapsible -->
+                  {#if filteredOtrosDocentes.length > 0}
+                    <details class="mt-3" open={!!docenteSearch.trim()}>
+                      <summary class="text-xs font-semibold text-gray-600 cursor-pointer list-none flex items-center gap-1 hover:text-gray-900 select-none">
+                        <span class="text-gray-400">▶</span> Otros docentes <span class="text-gray-400 font-normal">({filteredOtrosDocentes.length})</span>
+                      </summary>
+                      <div class="flex flex-col gap-1.5 mt-2">
+                        {#each filteredOtrosDocentes as d}
                           <button
                             type="button"
-                            class="docente-row"
-                            class:selected={selectedDocente?.id_docente === d.id_docente}
+                            class="flex items-center gap-3 p-2.5 border rounded-lg bg-white cursor-pointer transition text-left w-full shadow-2xs {selectedDocente?.id_docente === d.id_docente ? 'border-blue-500 bg-blue-50/50 ring-2 ring-blue-500/20' : 'border-gray-200 hover:border-blue-400 hover:bg-sky-50/40'}"
                             onclick={() =>
                               (selectedDocente =
                                 selectedDocente?.id_docente === d.id_docente ? null : d)}
                           >
-                            <div class="docente-avatar">
+                            <div class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 text-sm font-bold flex items-center justify-center shrink-0">
                               {(d.nombre_completo?.[0] ?? '?').toUpperCase()}
                             </div>
-                            <div class="docente-info">
-                              <div class="docente-name">
+                            <div class="flex-1 min-w-0">
+                              <div class="text-sm font-semibold text-gray-900 flex items-center flex-wrap gap-1.5">
                                 {d.nombre_completo}
                                 {#if d.pertenece_carrera}
-                                  <span class="badge-pertenece">De la carrera</span>
+                                  <span class="bg-green-100 text-green-800 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-green-200">De la carrera</span>
                                 {/if}
                               </div>
-                              {#if d.cargo}<div class="docente-meta">{d.cargo}</div>{/if}
+                              {#if d.cargo}<div class="text-xs text-gray-500 mt-0.5">{d.cargo}</div>{/if}
                             </div>
                             {#if selectedDocente?.id_docente === d.id_docente}
                               <svg
-                                class="docente-check"
+                                class="text-blue-600 shrink-0"
                                 xmlns="http://www.w3.org/2000/svg"
                                 width="18"
                                 height="18"
@@ -1196,299 +1279,273 @@
                           </button>
                         {/each}
                       </div>
-                    {/if}
-
-                    <!-- Sin resultados de búsqueda -->
-                    {#if (docenteSearch.trim() || perteneceFilter !== 'all') && filteredHistoricDocentes.length === 0 && filteredOtrosDocentes.length === 0}
-                      <p class="step-empty">
-                        {#if docenteSearch.trim()}
-                          No se encontraron docentes para &ldquo;{docenteSearch}&rdquo;.
-                        {:else}
-                          No hay docentes {perteneceFilter === 'in' ? 'de la carrera' : 'externos'} disponibles.
-                        {/if}
-                      </p>
-                    {/if}
-
-                    <!-- Other docentes in collapsible or always shown -->
-                    {#if filteredOtrosDocentes.length > 0}
-                      <details class="otros-docentes" open={!!docenteSearch.trim()}>
-                        <summary class="otros-label">
-                          Otros docentes <span class="otros-count">({filteredOtrosDocentes.length})</span>
-                        </summary>
-                        <div class="docentes-list mt-2">
-                          {#each filteredOtrosDocentes as d}
-                            <button
-                              type="button"
-                              class="docente-row"
-                              class:selected={selectedDocente?.id_docente === d.id_docente}
-                              onclick={() =>
-                                (selectedDocente =
-                                  selectedDocente?.id_docente === d.id_docente ? null : d)}
-                            >
-                              <div class="docente-avatar alt">
-                                {(d.nombre_completo?.[0] ?? '?').toUpperCase()}
-                              </div>
-                              <div class="docente-info">
-                                <div class="docente-name">
-                                  {d.nombre_completo}
-                                  {#if d.pertenece_carrera}
-                                    <span class="badge-pertenece">De la carrera</span>
-                                  {/if}
-                                </div>
-                                {#if d.cargo}<div class="docente-meta">{d.cargo}</div>{/if}
-                              </div>
-                              {#if selectedDocente?.id_docente === d.id_docente}
-                                <svg
-                                  class="docente-check"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="18"
-                                  height="18"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  stroke-width="2.5"
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                >
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                              {/if}
-                            </button>
-                          {/each}
-                        </div>
-                      </details>
-                    {/if}
+                    </details>
                   {/if}
-                </div>
-
-                <!-- Divider -->
-                <div class="fields-divider"></div>
-
-                <!-- Docentes por componente. El titular elegido arriba entra en
-                     todos; se pueden quitar o sumar otros. Dos o más docentes en
-                     un mismo componente = curso colegiado. -->
-                {#if selectedDocente}
-                  <div class="asignacion-docentes-section">
-                    <p class="jefe-imparte-label">¿Quién dicta cada componente?</p>
-                    <p class="jefe-imparte-hint">
-                      {selectedDocente.nombre_completo} queda como jefe del curso, con acceso
-                      administrativo aunque no dicte clases. Si un componente lo dictan dos o más
-                      docentes, el curso es colegiado.
-                    </p>
-
-                    <div class="por-componente-list">
-                      {#each selectedTiposOrdered as tc (tc.id_tipo_componente)}
-                        {@const asignados = docentesPorComponente[tc.id_tipo_componente] ?? []}
-                        <div class="por-componente-row por-componente-row--multi">
-                          <span class="por-componente-tipo">{tc.tipo}</span>
-                          <div class="por-componente-docentes">
-                            {#if asignados.length === 0}
-                              <span class="docente-chip docente-chip--vacio">Sin docente</span>
-                            {/if}
-                            {#each asignados as idDocente, i (idDocente)}
-                              <span class="docente-chip" class:docente-chip--titular={i === 0}>
-                                {nombreDocente(idDocente)}
-                                {#if i === 0 && asignados.length > 1}
-                                  <small>titular</small>
-                                {/if}
-                                <button
-                                  type="button"
-                                  class="docente-chip-quitar"
-                                  aria-label="Quitar a {nombreDocente(idDocente)} de {tc.tipo}"
-                                  onclick={() => quitarDocenteComponente(tc.id_tipo_componente, idDocente)}
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            {/each}
-                            <select
-                              class="field-input docente-agregar"
-                              aria-label="Agregar docente a {tc.tipo}"
-                              value=""
-                              onchange={(e) => {
-                                const sel = e.currentTarget as HTMLSelectElement;
-                                if (sel.value) agregarDocenteComponente(tc.id_tipo_componente, Number(sel.value));
-                                sel.value = '';
-                              }}
-                            >
-                              <option value="">+ Agregar docente…</option>
-                              {#if historicDocentes.some((d) => !asignados.includes(d.id_docente))}
-                                <optgroup label="Historial">
-                                  {#each historicDocentes.filter((d) => !asignados.includes(d.id_docente)) as d (d.id_docente)}
-                                    <option value={d.id_docente}>{d.nombre_completo}</option>
-                                  {/each}
-                                </optgroup>
-                              {/if}
-                              {#if otrosDocentes.some((d) => !asignados.includes(d.id_docente))}
-                                <optgroup label="Otros docentes">
-                                  {#each otrosDocentes.filter((d) => !asignados.includes(d.id_docente)) as d (d.id_docente)}
-                                    <option value={d.id_docente}>{d.nombre_completo}</option>
-                                  {/each}
-                                </optgroup>
-                              {/if}
-                            </select>
-                          </div>
-                        </div>
-                      {/each}
-                    </div>
-                  </div>
-
-                  <!-- Divider -->
-                  <div class="fields-divider"></div>
                 {/if}
+              </div>
 
-                <!-- Remaining fields -->
-                <div class="fields-stack">
-                  <div class="field">
-                    <span class="field-label">Nombre del Curso</span>
-                    <p class="field-readonly" class:empty={!nombre}>
-                      {nombre || 'Se completará con la asignatura y la letra del grupo.'}
-                    </p>
-                    <p class="field-hint">
-                      Se genera automáticamente; cambia si eliges otra letra de grupo.
-                    </p>
-                  </div>
+              <!-- Divider -->
+              <div class="border-t border-gray-200 my-4"></div>
 
-                  <!-- Sin «Código del Curso»: es el código interno de UTAMED y lo
-                       asigna el sistema al crear. El de la Intranet (CUR_CODIGO)
-                       es por componente y se muestra junto a cada una arriba. -->
-                  <div class="field">
-                    <label class="field-label" for="wiz-fecha">Fecha de Inicio</label>
-                    <input
-                      id="wiz-fecha"
-                      type="date"
-                      bind:value={fechaInicio}
-                      class="field-input"
-                    />
-                  </div>
-                </div>
+              <!-- Docentes por componente -->
+              {#if selectedDocente}
+                <div>
+                  <p class="text-sm font-semibold text-gray-700 mb-1">¿Quién dicta cada componente?</p>
+                  <p class="text-xs text-gray-500 mb-3">
+                    {selectedDocente.nombre_completo} queda como jefe del curso, con acceso
+                    administrativo aunque no dicte clases. Si un componente lo dictan dos o más
+                    docentes, el curso es colegiado.
+                  </p>
 
-                <!-- Componente (Cátedra) settings -->
-                <div class="fields-section-title">Configuración del Componente</div>
-
-                <!-- Genera acta, por componente -->
-                <div class="genera-acta-section">
-                  <p class="field-label">¿Qué componentes generan acta?</p>
-                  <div class="por-componente-list">
+                  <div class="flex flex-col gap-2 mt-3">
                     {#each selectedTiposOrdered as tc (tc.id_tipo_componente)}
-                      <div class="por-componente-row">
-                        <span class="por-componente-tipo">{tc.tipo}</span>
-                        <label class="field-check-label">
-                          <input
-                            type="checkbox"
-                            checked={generaActaPorComponente[tc.id_tipo_componente] ?? true}
+                      {@const asignados = docentesPorComponente[tc.id_tipo_componente] ?? []}
+                      <div class="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3 py-2.5 border-t border-gray-100 first:border-t-0">
+                        <span class="sm:w-32 shrink-0 text-xs font-semibold text-gray-700 sm:pt-1.5">{tc.tipo}</span>
+                        <div class="flex-1 min-w-0 flex flex-wrap items-center gap-1.5">
+                          {#if asignados.length === 0}
+                            <span class="inline-flex items-center px-2.5 py-1 border border-dashed border-amber-300 rounded-full text-xs text-amber-700 bg-amber-50">Sin docente</span>
+                          {/if}
+                          {#each asignados as idDocente, i (idDocente)}
+                            <span class="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full text-xs {i === 0 ? 'bg-blue-50 border border-blue-200 text-blue-900' : 'bg-gray-50 border border-gray-200 text-gray-700'}">
+                              {nombreDocente(idDocente)}
+                              {#if i === 0 && asignados.length > 1}
+                                <small class="text-[10px] text-blue-600 font-semibold">titular</small>
+                              {/if}
+                              <button
+                                type="button"
+                                class="w-5 h-5 rounded-full inline-flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-200 cursor-pointer transition text-sm leading-none"
+                                aria-label="Quitar a {nombreDocente(idDocente)} de {tc.tipo}"
+                                onclick={() => quitarDocenteComponente(tc.id_tipo_componente, idDocente)}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          {/each}
+                          <select
+                            class="flex-1 min-w-40 px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-900 bg-white outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition"
+                            aria-label="Agregar docente a {tc.tipo}"
+                            value=""
                             onchange={(e) => {
-                              generaActaPorComponente = {
-                                ...generaActaPorComponente,
-                                [tc.id_tipo_componente]: (e.currentTarget as HTMLInputElement)
-                                  .checked,
-                              };
+                              const sel = e.currentTarget as HTMLSelectElement;
+                              if (sel.value) agregarDocenteComponente(tc.id_tipo_componente, Number(sel.value));
+                              sel.value = '';
                             }}
-                            class="field-check"
-                          />
-                          Genera acta
-                        </label>
+                          >
+                            <option value="">+ Agregar docente…</option>
+                            {#if historicDocentes.some((d) => !asignados.includes(d.id_docente))}
+                              <optgroup label="Historial">
+                                {#each historicDocentes.filter((d) => !asignados.includes(d.id_docente)) as d (d.id_docente)}
+                                  <option value={d.id_docente}>{d.nombre_completo}</option>
+                                {/each}
+                              </optgroup>
+                            {/if}
+                            {#if otrosDocentes.some((d) => !asignados.includes(d.id_docente))}
+                              <optgroup label="Otros docentes">
+                                {#each otrosDocentes.filter((d) => !asignados.includes(d.id_docente)) as d (d.id_docente)}
+                                  <option value={d.id_docente}>{d.nombre_completo}</option>
+                                {/each}
+                              </optgroup>
+                            {/if}
+                          </select>
+                        </div>
                       </div>
                     {/each}
                   </div>
                 </div>
 
-                <div class="fields-grid">
-                  <div class="field">
-                    <label class="field-label" for="wiz-pct-aprobacion">% Aprobación *</label>
-                    <input
-                      id="wiz-pct-aprobacion"
-                      type="number"
-                      bind:value={porcentajeAprobacion}
-                      class="field-input"
-                      min="0"
-                      max="100"
-                      step="0.5"
-                      required
-                    />
+                <!-- Divider -->
+                <div class="border-t border-gray-200 my-4"></div>
+              {/if}
+
+              <!-- Remaining fields -->
+              <div class="flex flex-col gap-3">
+                <div class="flex flex-col gap-1.5">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs font-semibold text-gray-700" for="wiz-nombre-curso">Nombre del Curso *</label>
+                    {#if nombreManual && nombre !== nombreSugerido}
+                      <button
+                        type="button"
+                        class="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                        onclick={() => {
+                          nombreManual = false;
+                          nombre = nombreSugerido;
+                        }}
+                      >
+                        Restablecer sugerido
+                      </button>
+                    {/if}
                   </div>
-
-                  <div class="field">
-                    <label class="field-label" for="wiz-pct-asistencia"
-                      >% Asistencia Obligatoria *</label
-                    >
-                    <input
-                      id="wiz-pct-asistencia"
-                      type="number"
-                      bind:value={porcentajeAsistencia}
-                      class="field-input"
-                      min="0"
-                      max="100"
-                      step="0.5"
-                      required
-                    />
-                  </div>
-
-                  <div class="field field-checkbox">
-                    <label class="field-check-label">
-                      <input
-                        type="checkbox"
-                        bind:checked={aprobacionObligatoria}
-                        class="field-check"
-                      />
-                      Aprobación Obligatoria
-                    </label>
-                  </div>
-
-                  <div class="field">
-                    <span class="field-label">Curso Colegiado</span>
-                    <p class="colegiado-auto-badge" class:active={esColegiadoAuto}>
-                      {esColegiadoAuto
-                        ? `Sí — ${componentesColegiados.map((tc) => tc.tipo).join(', ')} con dos o más docentes`
-                        : 'No — cada componente con un solo docente'}
-                    </p>
-                  </div>
-                </div>
-
-                <!-- Operaciones Administrativas -->
-                <div class="fields-section-title" style="margin-top: 1.5rem; text-align: left;">Operaciones Administrativas</div>
-
-                <div class="admin-ops-section" style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; margin-top: 0.75rem; width: 100%;">
-                  <label class="field-check-label" style="display: flex; items-center; gap: 0.5rem; text-align: left; cursor: pointer;">
-                    <input
-                      type="checkbox"
-                      bind:checked={inscribirAutomaticamente}
-                      class="field-check"
-                    />
-                    <span>Inscribir automáticamente a los alumnos desde la Intranet</span>
-                  </label>
-                  <p class="field-hint" style="margin-left: 1.5rem; margin-top: 0.25rem; font-size: 0.75rem; color: var(--color-gray-500, #6b7280); text-align: left;">
-                    Busca las componentes correspondientes en la Intranet y matricula automáticamente a los alumnos inscritos al crear el curso.
+                  <input
+                    id="wiz-nombre-curso"
+                    type="text"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-hidden focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10 transition"
+                    placeholder={nombreSugerido || 'Se completará con la asignatura y la letra del grupo.'}
+                    bind:value={nombre}
+                    oninput={() => {
+                      nombreManual = true;
+                    }}
+                  />
+                  <p class="text-xs text-gray-400 m-0">
+                    Sugerido automáticamente a partir de la asignatura y el grupo. Puedes modificarlo si lo requieres.
                   </p>
                 </div>
+
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-xs font-semibold text-gray-700" for="wiz-fecha">Fecha de Inicio</label>
+                  <input
+                    id="wiz-fecha"
+                    type="date"
+                    bind:value={fechaInicio}
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-hidden focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10 transition"
+                  />
+                </div>
+              </div>
+
+              <!-- Componente settings por componente -->
+              <div class="text-xs font-bold text-gray-700 uppercase tracking-wider pt-3 border-t border-gray-200">Configuración por Componente</div>
+
+              <div class="flex flex-col gap-3 mt-2">
+                {#each selectedTiposOrdered as tc, i (tc.id_tipo_componente)}
+                  <div class="p-3 border border-gray-200 rounded-xl bg-gray-50/80">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                      <span class="text-sm font-bold text-gray-800">{tc.tipo}</span>
+                      <div class="flex items-center gap-4 flex-wrap">
+                        <label class="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={generaActaPorComponente[tc.id_tipo_componente] ?? (i === 0)}
+                            onchange={(e) => {
+                              generaActaPorComponente = {
+                                ...generaActaPorComponente,
+                                [tc.id_tipo_componente]: (e.currentTarget as HTMLInputElement).checked,
+                              };
+                            }}
+                            class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                          Genera acta
+                        </label>
+                        <label class="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={aprobacionObligatoriaPorComponente[tc.id_tipo_componente] ?? false}
+                            onchange={(e) => {
+                              aprobacionObligatoriaPorComponente = {
+                                ...aprobacionObligatoriaPorComponente,
+                                [tc.id_tipo_componente]: (e.currentTarget as HTMLInputElement).checked,
+                              };
+                            }}
+                            class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                          Aprobación obligatoria
+                        </label>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-xs font-semibold text-gray-700" for="wiz-pct-aprobacion-{tc.id_tipo_componente}">
+                          % Aprobación *
+                        </label>
+                        <input
+                          id="wiz-pct-aprobacion-{tc.id_tipo_componente}"
+                          type="number"
+                          value={porcentajeAprobacionPorComponente[tc.id_tipo_componente] ?? 60}
+                          oninput={(e) => {
+                            porcentajeAprobacionPorComponente = {
+                              ...porcentajeAprobacionPorComponente,
+                              [tc.id_tipo_componente]: Number((e.currentTarget as HTMLInputElement).value),
+                            };
+                          }}
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-hidden focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10 transition"
+                          min="0"
+                          max="100"
+                          step="0.5"
+                          required
+                        />
+                      </div>
+
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-xs font-semibold text-gray-700" for="wiz-pct-asistencia-{tc.id_tipo_componente}">
+                          % Asistencia Obligatoria *
+                        </label>
+                        <input
+                          id="wiz-pct-asistencia-{tc.id_tipo_componente}"
+                          type="number"
+                          value={porcentajeAsistenciaPorComponente[tc.id_tipo_componente] ?? 75}
+                          oninput={(e) => {
+                            porcentajeAsistenciaPorComponente = {
+                              ...porcentajeAsistenciaPorComponente,
+                              [tc.id_tipo_componente]: Number((e.currentTarget as HTMLInputElement).value),
+                            };
+                          }}
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-hidden focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10 transition"
+                          min="0"
+                          max="100"
+                          step="0.5"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                {/each}
+              </div>
+
+              <div class="flex flex-col gap-1.5 mt-3">
+                <span class="text-xs font-semibold text-gray-700">Curso Colegiado</span>
+                <p class="text-xs font-semibold p-2.5 border rounded-lg m-0 {esColegiadoAuto ? 'text-indigo-700 bg-indigo-50 border-indigo-200' : 'text-gray-600 bg-gray-100 border-gray-200'}">
+                  {esColegiadoAuto
+                    ? `Sí — ${componentesColegiados.map((tc) => tc.tipo).join(', ')} con dos o más docentes`
+                    : 'No — cada componente con un solo docente'}
+                </p>
+              </div>
+
+              <!-- Operaciones Administrativas -->
+              <div class="text-xs font-bold text-gray-700 uppercase tracking-wider pt-4 mt-2 border-t border-gray-200 text-left">Operaciones Administrativas</div>
+
+              <div class="flex flex-col items-start text-left mt-2 w-full">
+                <label class="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    bind:checked={inscribirAutomaticamente}
+                    class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span>Inscribir automáticamente a los alumnos desde la Intranet</span>
+                </label>
+                <p class="ml-6 mt-1 text-xs text-gray-400 text-left">
+                  Busca las componentes correspondientes en la Intranet y matricula automáticamente a los alumnos inscritos al crear el curso.
+                </p>
               </div>
             </div>
           {/if}
-
-
         </section>
       </div>
 
       <!-- ── Footer (inside form so submit works) ── -->
       {#if currentStep === 4}
-        <div class="wiz-footer">
+        <div class="flex flex-col gap-2 px-6 py-3.5 border-t border-gray-200 bg-white shrink-0">
           {#if selectedTipos.size === 0}
-            <p class="docente-required-hint">
+            <p class="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-md p-2 m-0">
               No se detectó ninguna componente para este curso; revisa el Plan de Estudios de la
               asignatura antes de continuar.
             </p>
           {:else if !selectedDocente}
-            <p class="docente-required-hint">Falta elegir el docente del curso.</p>
+            <p class="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-md p-2 m-0">Falta elegir el docente del curso.</p>
           {:else if docentesPorComponenteIncompleto}
-            <p class="docente-required-hint">Falta asignar un docente a cada componente.</p>
+            <p class="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-md p-2 m-0">Falta asignar un docente a cada componente.</p>
           {/if}
-          <div class="wiz-footer-actions">
-            <button type="button" class="btn-cancel" onclick={onClose} disabled={isLoading}>
+          <div class="flex justify-end gap-3">
+            <button
+              type="button"
+              class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+              onclick={onClose}
+              disabled={isLoading}
+            >
               Cancelar
             </button>
             <button
               type="submit"
-              class="btn-submit"
+              class="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-sm font-semibold shadow-xs hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
               disabled={isLoading ||
                 !selectedAsig ||
                 !selectedPlan ||
@@ -1497,7 +1554,7 @@
                 docentesPorComponenteIncompleto}
             >
               {#if isLoading}
-                <span class="btn-spinner"></span>
+                <span class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
                 Creando...
               {:else}
                 Crear Curso
@@ -1509,1425 +1566,3 @@
     </form>
   </div>
 {/if}
-
-<style>
-  /* ── Backdrop ── */
-  .wizard-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(4px);
-    z-index: 50;
-    animation: fadeIn 0.15s ease;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  /* ── Dialog ── */
-  .wizard-dialog {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 60;
-    background: var(--background-color-white, #fff);
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
-    width: min(740px, calc(100vw - 2rem));
-    height: 85dvh;
-    max-height: 90dvh;
-    min-height: 400px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    animation: slideUp 0.18s ease;
-    padding-bottom: 0;
-  }
-
-  @keyframes slideUp {
-    from {
-      transform: translate(-50%, calc(-50% + 20px));
-      opacity: 0;
-    }
-    to {
-      transform: translate(-50%, -50%);
-      opacity: 1;
-    }
-  }
-
-  /* ── Header ── */
-  .wiz-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 1.25rem 1.5rem 1rem;
-    border-bottom: 1px solid var(--color-slate-100, #f1f5f9);
-    flex-shrink: 0;
-  }
-
-  .wiz-title {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: var(--color-gray-900, #111827);
-    margin: 0;
-  }
-  .wiz-subtitle {
-    font-size: 0.8125rem;
-    color: var(--color-gray-500, #6b7280);
-    margin: 0.2rem 0 0;
-  }
-
-  .wiz-close {
-    padding: 0.375rem;
-    border: none;
-    background: transparent;
-    border-radius: 6px;
-    color: var(--color-gray-400, #9ca3af);
-    cursor: pointer;
-    transition:
-      background 0.15s,
-      color 0.15s;
-    flex-shrink: 0;
-  }
-  .wiz-close:hover {
-    background: var(--background-color-gray-100, #f3f4f6);
-    color: var(--color-gray-900, #111827);
-  }
-
-  /* ── Step bar ── */
-  .step-bar {
-    display: flex;
-    align-items: center;
-    padding: 0.75rem 1.5rem;
-    background: var(--background-color-slate-50, #f8fafc);
-    border-bottom: 1px solid var(--color-gray-200, #e5e7eb);
-    flex-shrink: 0;
-    gap: 0;
-  }
-
-  .step-item {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    flex-shrink: 0;
-  }
-
-  .step-circle {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    border: 2px solid var(--color-gray-300, #d1d5db);
-    color: var(--color-gray-400, #9ca3af);
-    background: var(--background-color-white, white);
-    transition: all 0.2s;
-  }
-
-  .step-item.done .step-circle,
-  .step-item.active .step-circle {
-    border-color: var(--color-blue-500, #3b82f6);
-    background: var(--background-color-blue-500, #3b82f6);
-    color: white;
-  }
-
-  .step-label {
-    font-size: 0.75rem;
-    color: var(--color-gray-500, #6b7280);
-    font-weight: 500;
-  }
-  .step-item.active .step-label {
-    color: var(--color-blue-700, #1d4ed8);
-    font-weight: 600;
-  }
-  .step-item.done .step-label {
-    color: var(--color-emerald-600, #059669);
-  }
-
-  .step-connector {
-    flex: 1;
-    height: 2px;
-    background: var(--background-color-gray-200, #e5e7eb);
-    margin: 0 0.5rem;
-    border-radius: 1px;
-    transition: background 0.2s;
-  }
-  .step-connector.done {
-    background: var(--background-color-blue-500, #3b82f6);
-  }
-
-  /* Cuatro etiquetas no caben en 390 px: sólo el paso activo la muestra y
-     los círculos numerados indican el resto. */
-  @media (max-width: 560px) {
-    .step-bar {
-      padding: 0.625rem 1rem;
-    }
-
-    .step-label {
-      display: none;
-    }
-
-    .step-item.active .step-label {
-      display: inline;
-    }
-
-    .step-connector {
-      min-width: 0.5rem;
-      margin: 0 0.375rem;
-    }
-
-    .wiz-header {
-      padding: 1rem 1rem 0.75rem;
-    }
-  }
-
-  /* ── Form layout wrapper ── */
-  .wiz-form-layout {
-    flex: 1 1 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  /* ── Body (scrollable) ── */
-  .wiz-body {
-    flex: 1 1 0;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 1rem 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-gray-300, #d1d5db) transparent;
-  }
-
-  /* ── Steps ── */
-  .wiz-step {
-    border: 1px solid var(--color-gray-200, #e5e7eb);
-    border-radius: 10px;
-    overflow: hidden;
-    transition: all 0.2s;
-    flex-shrink: 0;
-  }
-
-  .wiz-step.locked {
-    opacity: 0.45;
-    pointer-events: none;
-  }
-
-  .wiz-step.collapsed .step-body {
-    display: none;
-  }
-
-  .step-head {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    padding: 0.75rem 1rem;
-    background: var(--background-color-gray-50, #f9fafb);
-    border-bottom: 1px solid transparent;
-    flex-wrap: wrap;
-  }
-
-  .wiz-step:not(.collapsed) .step-head {
-    border-bottom-color: var(--color-gray-200, #e5e7eb);
-  }
-
-  .step-num {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: var(--background-color-gray-200, #e5e7eb);
-    color: var(--color-gray-500, #6b7280);
-    font-size: 0.6875rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .step-num.filled {
-    background: var(--background-color-emerald-500, #10b981);
-    color: white;
-  }
-
-  .step-head-label {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--color-gray-700, #374151);
-  }
-
-  .step-chip {
-    background: var(--background-color-blue-50, #eff6ff);
-    color: var(--color-blue-700, #1d4ed8);
-    font-size: 0.75rem;
-    font-weight: 500;
-    padding: 0.125rem 0.625rem;
-    border-radius: 999px;
-    border: 1px solid var(--color-blue-200, #bfdbfe);
-    max-width: 280px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .step-change {
-    font-size: 0.75rem;
-    color: var(--color-gray-500, #6b7280);
-    background: none;
-    border: 1px solid var(--color-gray-300, #d1d5db);
-    border-radius: 5px;
-    padding: 0.125rem 0.5rem;
-    cursor: pointer;
-    transition: all 0.15s;
-    margin-left: auto;
-  }
-
-  .step-change:hover {
-    background: var(--background-color-gray-100, #f3f4f6);
-    color: var(--color-gray-900, #111827);
-  }
-
-  .step-body {
-    padding: 1rem;
-  }
-
-  /* Step 4: sin scroll anidado — el outer .wiz-body maneja todo el scroll */
-  .step4-scroll {
-    padding-right: 4px;
-  }
-
-  .step-empty {
-    color: var(--color-gray-400, #9ca3af);
-    font-size: 0.875rem;
-    margin: 0;
-  }
-
-  /* ── Carrera cards ── */
-  .option-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 0.625rem;
-  }
-
-  /*
-   * Tarjeta de opción del asistente.
-   *
-   * Con sólo un borde gris y el texto a la izquierda se leían como campos de
-   * texto deshabilitados, no como algo que se pueda pulsar. La flecha y el
-   * cambio de fondo al pasar el ratón las devuelven a parecer opciones.
-   */
-  .option-card {
-    padding: 0.75rem 2rem 0.75rem 0.75rem;
-    border: 1.5px solid var(--color-gray-200, #e5e7eb);
-    border-radius: 8px;
-    background: var(--background-color-white, white);
-    text-align: left;
-    cursor: pointer;
-    transition: all 0.15s;
-    position: relative;
-  }
-  .option-card::after {
-    content: '';
-    position: absolute;
-    right: 0.85rem;
-    top: 50%;
-    width: 0.45rem;
-    height: 0.45rem;
-    border-top: 2px solid var(--color-gray-400, #9ca3af);
-    border-right: 2px solid var(--color-gray-400, #9ca3af);
-    transform: translateY(-50%) rotate(45deg);
-    transition: border-color 0.15s;
-  }
-  .option-card:hover {
-    border-color: var(--color-blue-500, #3b82f6);
-    background: var(--background-color-blue-50, #eff6ff);
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
-  }
-  .option-card:hover::after {
-    border-color: var(--color-blue-500, #3b82f6);
-  }
-  .option-card:focus-visible {
-    outline: 2px solid var(--action-primary);
-    outline-offset: 2px;
-  }
-
-  .option-card-name {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--color-gray-900, #111827);
-    display: block;
-  }
-  .option-card-meta {
-    font-size: 0.6875rem;
-    color: var(--color-gray-400, #9ca3af);
-    margin-top: 0.25rem;
-    display: block;
-  }
-
-  /* ── Plan list ── */
-  .option-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .option-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 0.875rem;
-    border: 1.5px solid var(--color-gray-200, #e5e7eb);
-    border-radius: 8px;
-    background: var(--background-color-white, white);
-    text-align: left;
-    cursor: pointer;
-    transition: all 0.15s;
-    width: 100%;
-  }
-  .option-row:hover {
-    border-color: var(--color-blue-500, #3b82f6);
-    background: var(--background-color-blue-50, #eff6ff);
-  }
-
-  .option-row-icon {
-    font-size: 1.125rem;
-  }
-  .option-row-name {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--color-gray-900, #111827);
-  }
-  .option-row-sub {
-    font-size: 0.75rem;
-    color: var(--color-gray-500, #6b7280);
-    margin-top: 0.1rem;
-  }
-  .option-row-arrow {
-    margin-left: auto;
-    color: var(--color-gray-400, #9ca3af);
-    flex-shrink: 0;
-  }
-
-  /* ── Asignatura search + scroll ── */
-  .asig-search-bar {
-    margin-bottom: 0.625rem;
-  }
-
-  .asig-search-input {
-    width: 100%;
-    padding: 0.5rem 0.75rem;
-    border: 1.5px solid var(--color-gray-300, #d1d5db);
-    border-radius: 8px;
-    font-size: 0.875rem;
-    color: var(--color-gray-900, #111827);
-    outline: none;
-    transition: border-color 0.15s;
-    box-sizing: border-box;
-  }
-  .asig-search-input:focus {
-    border-color: var(--color-blue-500, #3b82f6);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-  }
-  .asig-search-input::-webkit-search-cancel-button {
-    cursor: pointer;
-  }
-
-  .asig-scroll-area {
-    max-height: 320px;
-    overflow-y: auto;
-    padding-right: 4px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-gray-300, #d1d5db) transparent;
-  }
-
-  /* ── Asignaturas ── */
-  .asig-groups {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .asig-year-badge {
-    display: inline-block;
-    background: var(--background-color-blue-900, #1e3a8a);
-    color: white;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 0.2rem 0.625rem;
-    border-radius: 999px;
-    margin-bottom: 0.625rem;
-  }
-
-  .asig-sem-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--color-gray-500, #6b7280);
-    margin: 0.5rem 0 0.375rem;
-    padding-left: 0.125rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .asig-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 0.5rem;
-    margin-bottom: 0.25rem;
-  }
-
-  .asig-card {
-    padding: 0.625rem 0.75rem;
-    border: 1.5px solid var(--color-gray-200, #e5e7eb);
-    border-radius: 8px;
-    background: var(--background-color-white, white);
-    text-align: left;
-    cursor: pointer;
-    transition: all 0.15s;
-    width: 100%;
-  }
-  .asig-card:hover {
-    border-color: var(--color-blue-500, #3b82f6);
-    background: var(--background-color-blue-50, #eff6ff);
-  }
-
-  .asig-card-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.25rem;
-  }
-  .asig-card-code {
-    font-family: 'Courier New', monospace;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--color-blue-600, #2563eb);
-  }
-  .asig-card-sct {
-    font-size: 0.6875rem;
-    background: var(--background-color-blue-100, #dbeafe);
-    color: var(--color-blue-800, #1e40af);
-    padding: 0.1rem 0.4rem;
-    border-radius: 999px;
-    font-weight: 600;
-  }
-  .asig-card-name {
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: var(--color-gray-900, #111827);
-    line-height: 1.3;
-  }
-  .asig-card-tipo {
-    font-size: 0.6875rem;
-    color: var(--color-gray-500, #6b7280);
-    margin-top: 0.25rem;
-  }
-
-  /* ── Docentes ── */
-
-  .docente-search-bar {
-    position: relative;
-    margin-bottom: 0.75rem;
-  }
-
-  .docente-search-icon {
-    position: absolute;
-    left: 0.625rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--color-gray-400, #9ca3af);
-    pointer-events: none;
-  }
-
-  .docente-search-input {
-    width: 100%;
-    padding: 0.5rem 0.75rem 0.5rem 2rem;
-    border: 1.5px solid var(--color-gray-300, #d1d5db);
-    border-radius: 8px;
-    font-size: 0.875rem;
-    color: var(--color-gray-900, #111827);
-    outline: none;
-    transition: border-color 0.15s;
-    box-sizing: border-box;
-  }
-  .docente-search-input:focus {
-    border-color: var(--color-blue-500, #3b82f6);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-  }
-  .docente-search-input::-webkit-search-cancel-button {
-    cursor: pointer;
-  }
-
-  .pertenece-filter-bar {
-    display: flex;
-    gap: 0.375rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .pertenece-chip {
-    padding: 0.3rem 0.7rem;
-    border: 1.5px solid var(--color-gray-300, #d1d5db);
-    border-radius: 999px;
-    background: var(--background-color-white, white);
-    color: var(--color-gray-600, #4b5563);
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .pertenece-chip:hover {
-    border-color: var(--color-blue-300, #93c5fd);
-  }
-  .pertenece-chip.active {
-    background: var(--background-color-blue-50, #eff6ff);
-    border-color: var(--color-blue-500, #3b82f6);
-    color: var(--color-blue-700, #1d4ed8);
-  }
-
-  .badge-pertenece {
-    background: var(--background-color-green-100, #dcfce7);
-    color: var(--color-green-800, #166534);
-    font-size: 0.625rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 0.15rem 0.5rem;
-    border-radius: 999px;
-    border: 1px solid var(--color-green-200, #bbf7d0);
-    margin-left: 0.375rem;
-    vertical-align: middle;
-  }
-
-  .docentes-section {
-    margin-bottom: 0.75rem;
-  }
-
-  .docentes-hint {
-    font-size: 0.8125rem;
-    color: var(--color-gray-700, #374151);
-    margin: 0 0 0.75rem;
-    background: var(--background-color-green-50, #f0fdf4);
-    border: 1px solid var(--color-green-200, #bbf7d0);
-    border-radius: 6px;
-    padding: 0.5rem 0.75rem;
-  }
-
-  .docentes-group-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--color-gray-700, #374151);
-    margin-bottom: 0.5rem;
-  }
-
-  .badge-historico {
-    background: var(--background-color-amber-100, #fef3c7);
-    color: var(--color-amber-800, #92400e);
-    font-size: 0.625rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 0.15rem 0.5rem;
-    border-radius: 999px;
-    border: 1px solid var(--color-amber-200, #fde68a);
-  }
-
-  .docentes-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-  }
-
-  .docente-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.625rem 0.875rem;
-    border: 1.5px solid var(--color-gray-200, #e5e7eb);
-    border-radius: 8px;
-    background: var(--background-color-white, white);
-    cursor: pointer;
-    transition: all 0.15s;
-    width: 100%;
-    text-align: left;
-  }
-  .docente-row:hover {
-    border-color: var(--color-blue-500, #3b82f6);
-    background: var(--background-color-sky-50, #f0f9ff);
-  }
-  .docente-row.selected {
-    border-color: var(--color-blue-500, #3b82f6);
-    background: var(--background-color-blue-50, #eff6ff);
-  }
-
-  .docente-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--background-color-blue-100, #dbeafe);
-    color: var(--color-blue-700, #1d4ed8);
-    font-size: 0.875rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .docente-avatar.alt {
-    background: var(--background-color-gray-100, #f3f4f6);
-    color: var(--color-gray-500, #6b7280);
-  }
-
-  .docente-info {
-    flex: 1;
-    min-width: 0;
-  }
-  .docente-name {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--color-gray-900, #111827);
-  }
-  .docente-meta {
-    font-size: 0.75rem;
-    color: var(--color-gray-500, #6b7280);
-    margin-top: 0.1rem;
-  }
-
-  .docente-check {
-    color: var(--color-blue-500, #3b82f6);
-    flex-shrink: 0;
-  }
-
-  .otros-docentes {
-    margin-top: 0.75rem;
-  }
-  .otros-label {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--color-gray-500, #6b7280);
-    cursor: pointer;
-    list-style: none;
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-  .otros-label::-webkit-details-marker {
-    display: none;
-  }
-  .otros-count {
-    color: var(--color-gray-400, #9ca3af);
-    font-weight: 400;
-  }
-  .mt-2 {
-    margin-top: 0.5rem;
-  }
-
-  /* ── Fields ── */
-  /* ── Periodo del curso (Año / Semestre real) ── */
-  .periodo-section {
-    margin-bottom: 0.25rem;
-  }
-
-  .periodo-label {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--color-gray-700, #374151);
-    margin: 0 0 0.5rem;
-  }
-
-  /* ── Asignación de docentes por componente ── */
-  .asignacion-docentes-section {
-    margin-bottom: 0.75rem;
-  }
-
-  .por-componente-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: 0.875rem;
-  }
-
-  .por-componente-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .por-componente-tipo {
-    flex: 0 0 130px;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--color-gray-700, #374151);
-  }
-
-  .por-componente-row .field-input {
-    flex: 1;
-  }
-
-  .por-componente-row--multi {
-    align-items: flex-start;
-    padding: 0.625rem 0;
-    border-top: 1px solid var(--color-gray-100, #f3f4f6);
-  }
-  .por-componente-row--multi .por-componente-tipo {
-    padding-top: 0.375rem;
-  }
-
-  .por-componente-docentes {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.375rem;
-  }
-
-  .docente-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.25rem 0.25rem 0.25rem 0.625rem;
-    border: 1px solid var(--color-gray-200, #e5e7eb);
-    border-radius: 999px;
-    background: var(--background-color-gray-50, #f9fafb);
-    font-size: 0.8125rem;
-    color: var(--color-gray-700, #374151);
-  }
-  .docente-chip small {
-    font-size: 0.6875rem;
-    color: var(--color-blue-600, #2563eb);
-  }
-  .docente-chip--titular {
-    border-color: var(--color-blue-200, #bfdbfe);
-    background: var(--background-color-blue-50, #eff6ff);
-  }
-  .docente-chip--vacio {
-    padding-right: 0.625rem;
-    border-style: dashed;
-    color: var(--color-amber-700, #b45309);
-    background: var(--background-color-amber-50, #fffbeb);
-  }
-
-  .docente-chip-quitar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    border: none;
-    border-radius: 999px;
-    background: transparent;
-    font-size: 1rem;
-    line-height: 1;
-    color: var(--color-gray-500, #6b7280);
-    cursor: pointer;
-  }
-  .docente-chip-quitar:hover {
-    background: var(--background-color-gray-200, #e5e7eb);
-    color: var(--color-gray-900, #111827);
-  }
-
-  .docente-agregar {
-    flex: 1 1 12rem !important;
-    min-width: 10rem;
-  }
-
-  @media (max-width: 500px) {
-    .por-componente-row--multi {
-      flex-direction: column;
-      gap: 0.375rem;
-    }
-    .por-componente-row--multi .por-componente-tipo {
-      flex-basis: auto;
-      padding-top: 0;
-    }
-  }
-
-  .jefe-imparte-label {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--color-gray-700, #374151);
-    margin-bottom: 0.375rem;
-  }
-
-  .jefe-imparte-hint {
-    font-size: 0.8125rem;
-    color: var(--color-gray-500, #6b7280);
-    margin-bottom: 0.75rem;
-    margin-top: 0;
-  }
-
-  /* ── Tipo Componente selector ── */
-  .tipo-comp-section {
-    margin-bottom: 0.5rem;
-  }
-
-  .tipo-comp-label {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--color-gray-700, #374151);
-    margin: 0 0 0.25rem;
-  }
-
-  .tipo-comp-sublabel {
-    font-size: 0.8rem;
-    color: var(--color-gray-500, #6b7280);
-    margin: 0 0 0.75rem;
-  }
-
-  .tipo-comp-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .tipo-comp-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.875rem;
-    border: 2px solid var(--color-gray-300, #d1d5db);
-    border-radius: 8px;
-    background: var(--background-color-white, #ffffff);
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-gray-700, #374151);
-    cursor: pointer;
-    transition:
-      border-color 0.15s,
-      background 0.15s,
-      color 0.15s;
-  }
-
-  .tipo-comp-btn:hover {
-    border-color: var(--color-indigo-500, #6366f1);
-    background: var(--background-color-violet-50, #f5f3ff);
-    color: var(--color-indigo-600, #4f46e5);
-  }
-
-  .tipo-comp-btn.selected {
-    border-color: var(--color-indigo-500, #6366f1);
-    background: var(--background-color-indigo-50, #eef2ff);
-    color: var(--color-indigo-700, #4338ca);
-    font-weight: 600;
-  }
-
-  .tipo-comp-btn-name {
-    line-height: 1;
-  }
-
-  /* Ya no son botones clicables (cero selección manual): son chips que sólo
-     muestran lo que se detectó. */
-  .tipo-comp-btn {
-    cursor: default;
-  }
-  .tipo-comp-btn:hover {
-    border-color: var(--color-gray-300, #d1d5db);
-    background: var(--background-color-white, #ffffff);
-  }
-
-  .tipo-comp-principal-badge {
-    font-size: 0.625rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    background: var(--background-color-indigo-500, #6366f1);
-    color: #fff;
-    padding: 0.1rem 0.4rem;
-    border-radius: 999px;
-  }
-
-  /* ── Origen de componente (Intranet vs Plan de Estudios) ── */
-  .tipo-comp-acta {
-    font-size: 0.75rem;
-    color: var(--color-gray-500, #6b7280);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .origen-badge {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    padding: 0.1rem 0.5rem;
-    border-radius: 999px;
-    white-space: nowrap;
-  }
-  .origen-badge.origen-intranet {
-    background: var(--background-color-green-100, #dcfce7);
-    color: var(--color-green-700, #15803d);
-  }
-  .origen-badge.origen-plan {
-    background: var(--background-color-blue-100, #dbeafe);
-    color: var(--color-blue-700, #1d4ed8);
-  }
-
-  /* ── Advertencias del preview: cero skip silencioso ── */
-  .preview-advertencias {
-    margin-top: 0.75rem;
-    padding: 0.625rem 0.75rem;
-    background: var(--background-color-amber-50, #fffbeb);
-    border: 1px solid var(--color-amber-200, #fde68a);
-    border-radius: 8px;
-  }
-  .preview-advertencias-title {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--color-amber-800, #92400e);
-    margin: 0 0 0.25rem;
-  }
-  .preview-advertencias ul {
-    margin: 0;
-    padding-left: 1.1rem;
-  }
-  .preview-advertencias li {
-    font-size: 0.75rem;
-    color: var(--color-amber-800, #92400e);
-    line-height: 1.4;
-  }
-
-  .fields-section-title {
-    font-size: 0.8125rem;
-    font-weight: 700;
-    color: var(--color-gray-700, #374151);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin: 1rem 0 0.5rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--color-gray-200, #e5e7eb);
-  }
-
-  .fields-divider {
-    border-top: 1px solid var(--color-gray-200, #e5e7eb);
-    margin: 1rem 0;
-  }
-
-  .fields-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
-  }
-
-  @media (max-width: 500px) {
-    .fields-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-  }
-
-  .field-label {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--color-gray-700, #374151);
-  }
-
-  .field-input {
-    width: 100%;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--color-gray-300, #d1d5db);
-    border-radius: 6px;
-    font-size: 0.875rem;
-    color: var(--color-gray-900, #111827);
-    background: var(--background-color-white, white);
-    transition:
-      border-color 0.15s,
-      box-shadow 0.15s;
-    box-sizing: border-box;
-  }
-  .field-input:focus {
-    outline: none;
-    border-color: var(--color-blue-500, #3b82f6);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  }
-
-  .field-input:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .field-hint {
-    font-size: 0.75rem;
-    color: var(--color-gray-400, #9ca3af);
-    margin: 0;
-  }
-
-  .fields-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  /*
-   * Valor que rellena el sistema (nombre del curso).
-   *
-   * Iba en una píldora gris muy redondeada que no se parecía a ningún otro
-   * campo del asistente y se leía como un botón. Se dibuja con la misma caja
-   * que el input que le sigue, pero apagada y con borde discontinuo, para que
-   * quede claro que es un campo que se rellena solo y no se puede escribir.
-   */
-  .field-readonly {
-    display: flex;
-    align-items: center;
-    min-height: 2.25rem;
-    padding: 0.5rem 0.75rem;
-    border: 1px dashed var(--color-gray-300, #d1d5db);
-    border-radius: 6px;
-    background: var(--background-color-gray-50, #f9fafb);
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-gray-900, #111827);
-    margin: 0;
-  }
-
-  .field-readonly.empty {
-    font-weight: 400;
-    color: var(--color-gray-400, #9ca3af);
-  }
-
-
-  .oferta-intranet {
-    margin-top: 0.75rem;
-  }
-  .oferta-intranet-titulo {
-    font-size: 0.8125rem;
-    color: var(--color-gray-500, #6b7280);
-    margin: 0 0 0.375rem;
-  }
-  .oferta-intranet-grupos {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-  .oferta-grupo {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.125rem;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--color-gray-200, #e5e7eb);
-    border-radius: 8px;
-    background: var(--background-color-white, #fff);
-    text-align: left;
-    cursor: pointer;
-  }
-  .oferta-grupo:hover:not(:disabled) {
-    border-color: var(--color-blue-300, #93c5fd);
-  }
-  .oferta-grupo.activo {
-    border-color: var(--color-blue-600, #2563eb);
-    background: var(--background-color-blue-50, #eff6ff);
-  }
-  .oferta-grupo:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-  .oferta-grupo-letra {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--color-gray-900, #111827);
-  }
-  .oferta-grupo-comps {
-    font-size: 0.75rem;
-    color: var(--color-gray-500, #6b7280);
-    font-variant-numeric: tabular-nums;
-  }
-  .oferta-grupo-creado {
-    font-size: 0.6875rem;
-    color: var(--color-amber-700, #b45309);
-  }
-
-  .genera-acta-section {
-    margin-bottom: 1rem;
-  }
-
-  .colegiado-auto-badge {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--color-gray-500, #6b7280);
-    background: var(--background-color-gray-100, #f3f4f6);
-    border: 1px solid var(--color-gray-200, #e5e7eb);
-    border-radius: 6px;
-    padding: 0.5rem 0.75rem;
-    margin: 0;
-  }
-
-  .colegiado-auto-badge.active {
-    color: var(--color-indigo-700, #4338ca);
-    background: var(--background-color-indigo-50, #eef2ff);
-    border-color: var(--color-indigo-200, #c7d2fe);
-  }
-
-  .field-checkbox {
-    display: flex;
-    align-items: center;
-    padding-top: 1.5rem;
-  }
-
-  .field-check-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-gray-700, #374151);
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .field-check {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-    accent-color: var(--color-blue-500, #3b82f6);
-  }
-
-  /* ── Footer ── */
-  .wiz-footer {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem 1rem;
-    border-top: 1px solid var(--color-gray-200, #e5e7eb);
-    background: var(--background-color-white, #fff);
-    flex-shrink: 0;
-  }
-
-  .wiz-footer-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
-  }
-
-  /*
-   * Qué falta para poder crear el curso.
-   *
-   * Iba en rojo de error, así que el paso 4 se abría en estado de fallo
-   * antes de que el usuario tocara nada. Es una indicación de progreso, no
-   * un error: se muestra en tono neutro y sólo explica qué queda por hacer.
-   */
-  .docente-required-hint {
-    font-size: 0.8rem;
-    color: var(--state-info);
-    margin: 0;
-    padding: 0.4rem 0.75rem;
-    background: var(--state-info-soft);
-    border-radius: 6px;
-  }
-
-  .btn-cancel {
-    padding: 0.5rem 1.25rem;
-    background: var(--background-color-white, white);
-    border: 1px solid var(--color-gray-300, #d1d5db);
-    border-radius: 7px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-gray-700, #374151);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .btn-cancel:hover:not(:disabled) {
-    background: var(--background-color-gray-50, #f9fafb);
-  }
-  .btn-cancel:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .btn-submit {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1.5rem;
-    background: linear-gradient(135deg, var(--background-color-blue-500, #3b82f6), var(--background-color-blue-600, #2563eb));
-    color: white;
-    border: none;
-    border-radius: 7px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-    box-shadow: 0 1px 3px rgba(59, 130, 246, 0.35);
-  }
-  .btn-submit:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
-  }
-  .btn-submit:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-  }
-
-  .btn-spinner {
-    width: 14px;
-    height: 14px;
-    border: 2px solid rgba(255, 255, 255, 0.4);
-    border-top-color: white;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  /* ── Inline spinner ── */
-  .inline-spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid var(--color-gray-200, #e5e7eb);
-    border-top-color: var(--color-blue-500, #3b82f6);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    margin: 0.5rem 0;
-  }
-
-  /* ── Cursos anteriores ── */
-  .anteriores-loading {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .anteriores-section {
-    border: 1.5px solid var(--color-indigo-200, #c7d2fe);
-    border-radius: 10px;
-    background: var(--background-color-violet-50, #f5f3ff);
-    padding: 0.875rem 1rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .anteriores-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.625rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .anteriores-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
-    background: var(--background-color-indigo-100, #e0e7ff);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-indigo-600, #4f46e5);
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-
-  .anteriores-title {
-    font-size: 0.8125rem;
-    font-weight: 700;
-    color: var(--color-indigo-800, #3730a3);
-    margin: 0 0 0.2rem;
-  }
-
-  .anteriores-subtitle {
-    font-size: 0.75rem;
-    color: var(--color-gray-500, #6b7280);
-    margin: 0;
-    line-height: 1.4;
-  }
-
-  .anteriores-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-  }
-
-  .anterior-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.625rem 0.75rem;
-    border: 1.5px solid var(--color-indigo-200, #c7d2fe);
-    border-radius: 8px;
-    background: var(--background-color-white, white);
-    cursor: pointer;
-    transition: all 0.15s;
-    text-align: left;
-    width: 100%;
-  }
-
-  .anterior-row:hover {
-    border-color: var(--color-indigo-500, #6366f1);
-    background: var(--background-color-indigo-50, #eef2ff);
-  }
-
-  .anterior-info {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 0;
-  }
-
-  .anterior-cod {
-    font-family: 'Courier New', monospace;
-    font-size: 0.8125rem;
-    font-weight: 700;
-    color: var(--color-indigo-700, #4338ca);
-    white-space: nowrap;
-  }
-
-  .anterior-periodo {
-    font-size: 0.75rem;
-    color: var(--color-gray-500, #6b7280);
-    white-space: nowrap;
-  }
-
-  .anterior-stats {
-    display: flex;
-    gap: 0.5rem;
-    flex-shrink: 0;
-  }
-
-  .anterior-stat {
-    font-size: 0.6875rem;
-    color: var(--color-gray-500, #6b7280);
-    background: var(--background-color-gray-100, #f3f4f6);
-    border: 1px solid var(--color-gray-200, #e5e7eb);
-    border-radius: 999px;
-    padding: 0.1rem 0.5rem;
-  }
-
-  .anterior-btn {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--color-indigo-600, #4f46e5);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .anterior-row:hover .anterior-btn {
-    color: var(--color-indigo-800, #3730a3);
-  }
-</style>
