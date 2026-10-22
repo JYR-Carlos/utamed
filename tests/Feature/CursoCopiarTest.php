@@ -241,3 +241,23 @@ test('preview-copia retorna la proxima_letra y nuevo_nombre calculados', functio
             'componentes',
         ]);
 });
+
+test('al copiar un curso con nombre personalizado respeta el nombre enviado', function () {
+    $nombreCustom = 'Curso Especial de Verano 2026';
+
+    $response = $this->actingAs($this->admin)
+        ->post("/admin/cursos/{$this->padre->id_curso}/copiar", [
+            'nombre'        => $nombreCustom,
+            'fecha_inicio'  => now()->toDateString(),
+            'agno_real'     => $this->padre->agno_real ?? 2026,
+            'semestre_real' => $this->padre->semestre_real ?? 1,
+        ]);
+
+    $response->assertSessionHasNoErrors()
+        ->assertRedirect(route('admin.cursos.index'));
+
+    $nuevo = Curso::where('id_curso_padre', $this->padre->id_curso)->first();
+
+    expect($nuevo)->not->toBeNull()
+        ->and($nuevo->nombre)->toBe($nombreCustom);
+});

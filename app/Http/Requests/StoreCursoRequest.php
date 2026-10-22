@@ -96,6 +96,7 @@ class StoreCursoRequest extends FormRequest
 
                     $query = Curso::where('id_asignacion_plan', $asignacionPlan->id_asignacion_plan)
                         ->where('indice_grupo', (int) $value)
+                        ->where('es_plantilla', false)
                         ->whereNull('fecha_eliminacion');
 
                     $agnoReal === null ? $query->whereNull('agno_real') : $query->where('agno_real', $agnoReal);
@@ -136,6 +137,12 @@ class StoreCursoRequest extends FormRequest
             'docentes_por_componente.*.*'       => ['integer', Rule::exists('docente', 'id_docente')],
             'genera_acta_por_componente'         => 'nullable|array',
             'genera_acta_por_componente.*'       => 'boolean',
+            'porcentaje_aprobacion_por_componente'   => 'nullable|array',
+            'porcentaje_aprobacion_por_componente.*' => 'numeric|min:0|max:100',
+            'porcentaje_asistencia_por_componente'   => 'nullable|array',
+            'porcentaje_asistencia_por_componente.*' => 'numeric|min:0|max:100',
+            'aprobacion_obligatoria_por_componente'  => 'nullable|array',
+            'aprobacion_obligatoria_por_componente.*'=> 'boolean',
             'aprobacion_obligatoria'            => 'nullable|boolean',
             'porcentaje_aprobacion'             => 'nullable|numeric|min:0|max:100',
             'porcentaje_asistencia_obligatoria' => 'nullable|numeric|min:0|max:100',

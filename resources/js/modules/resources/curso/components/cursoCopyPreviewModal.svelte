@@ -95,6 +95,8 @@
   let newAgnoReal = $state<number>(defaultAgno);
   let newSemestreReal = $state<number>(defaultSemestre);
   let newFechaInicio = $state('');
+  let customNombre = $state('');
+  let nombreManual = $state(false);
   let letraCalculada = $state('');
   let loadingLetra = $state(false);
   let letraRequestId = 0;
@@ -110,7 +112,7 @@
     ) ?? 0,
   );
 
-  const nuevoNombrePreview = $derived.by(() => {
+  const nuevoNombreSugerido = $derived.by(() => {
     const l = letraCalculada || preview?.curso?.proxima_letra || 'A';
     const original = preview?.curso?.nombre ?? '';
     if (/\s*-\s*Grupo\s+[A-Za-z0-9]+$/i.test(original)) {
@@ -122,11 +124,19 @@
   });
 
   $effect(() => {
+    if (!nombreManual && nuevoNombreSugerido) {
+      customNombre = nuevoNombreSugerido;
+    }
+  });
+
+  $effect(() => {
     if (isOpen && curso) {
       preview = null;
       loadError = '';
       copyError = '';
       newFechaInicio = '';
+      customNombre = '';
+      nombreManual = false;
       newAgnoReal = defaultAgno;
       newSemestreReal = defaultSemestre;
       letraCalculada = '';
@@ -202,6 +212,7 @@
     router.post(
       `/admin/cursos/${curso.id_curso}/copiar`,
       {
+        nombre: customNombre.trim() || nuevoNombreSugerido,
         fecha_inicio: newFechaInicio,
         agno_real: newAgnoReal,
         semestre_real: newSemestreReal,
@@ -475,19 +486,44 @@
                 {/if}
               </div>
 
-              <!-- Vista previa del nombre generado -->
-              <div class="p-3 bg-white border border-blue-200 rounded-lg flex items-center justify-between">
-                <div>
-                  <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    Nombre resultante
-                  </p>
-                  <p class="text-sm font-bold text-blue-900 mt-0.5">
-                    {nuevoNombrePreview}
-                  </p>
+              <!-- Nombre resultante editable -->
+              <div class="flex flex-col gap-1.5 p-3 bg-white border border-blue-200 rounded-lg">
+                <div class="flex items-center justify-between">
+                  <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider" for="new-curso-nombre">
+                    Nombre del nuevo curso *
+                  </label>
+                  <div class="flex items-center gap-2">
+                    {#if nombreManual && customNombre !== nuevoNombreSugerido}
+                      <button
+                        type="button"
+                        class="text-xs text-blue-600 hover:text-blue-800 underline"
+                        onclick={() => {
+                          nombreManual = false;
+                          customNombre = nuevoNombreSugerido;
+                        }}
+                      >
+                        Restablecer sugerido
+                      </button>
+                    {/if}
+                    <span class="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-blue-100 text-blue-800 border border-blue-200">
+                      Grupo {letraCalculada || preview.curso.proxima_letra || 'A'}
+                    </span>
+                  </div>
                 </div>
-                <span class="px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-100 text-blue-800 border border-blue-200">
-                  Grupo {letraCalculada || preview.curso.proxima_letra || 'A'}
-                </span>
+                <input
+                  id="new-curso-nombre"
+                  type="text"
+                  required
+                  bind:value={customNombre}
+                  oninput={() => {
+                    nombreManual = true;
+                  }}
+                  class="px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                  placeholder={nuevoNombreSugerido}
+                />
+                <p class="text-[11px] text-gray-500">
+                  Sugerido automáticamente a partir de la asignatura y la letra correspondiente. Puedes modificarlo si lo requieres.
+                </p>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">

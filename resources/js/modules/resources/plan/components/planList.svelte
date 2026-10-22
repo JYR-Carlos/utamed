@@ -31,8 +31,7 @@
   ];
 
   /**
-   * Resuelve claves anidadas ('carrera.nombre'). agno_plan llega como fecha
-   * completa desde el backend; la tabla solo muestra el año.
+   * Resuelve claves anidadas ('carrera.nombre').
    */
   function getRawValue(item: Plan, key: string) {
     const value = key.split('.').reduce((v: any, k: string) => v?.[k], item);

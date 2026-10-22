@@ -425,6 +425,7 @@ class CursoController extends Controller
         }
 
         $query = Curso::where('id_asignacion_plan', $asignacionPlan->id_asignacion_plan)
+            ->where('es_plantilla', false)
             ->whereNull('fecha_eliminacion');
 
         $agnoReal === null ? $query->whereNull('agno_real') : $query->where('agno_real', $agnoReal);
@@ -805,6 +806,7 @@ class CursoController extends Controller
     {
         $this->authorize('create', Curso::class);
         $validated = $request->validate([
+            'nombre'        => 'nullable|string|max:255',
             'fecha_inicio'  => 'required|date',
             'agno_real'     => 'required|integer|min:2000|max:2100',
             'semestre_real' => 'required|integer|in:1,2',
@@ -812,6 +814,7 @@ class CursoController extends Controller
 
         try {
             $this->cursoService->copiar($curso, [
+                'nombre'        => $validated['nombre'] ?? null,
                 'fecha_inicio'  => $validated['fecha_inicio'],
                 'agno_real'     => (int) $validated['agno_real'],
                 'semestre_real' => (int) $validated['semestre_real'],
