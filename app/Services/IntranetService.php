@@ -7,6 +7,7 @@ use App\DTOs\External\ComponenteDetectada;
 use App\DTOs\External\InscripcionData;
 use App\DTOs\External\ResultadoInscripcionAutomatica;
 use App\DTOs\External\ResultadoPreviewComponentes;
+use App\DTOs\External\ResultadoReversionSincronizacion;
 use App\DTOs\External\ResultadoSincronizacionComponentes;
 use App\DTOs\External\ResultadoSincronizacionInscripciones;
 use App\Models\Administrativo\AsignacionPlan;
@@ -14,9 +15,11 @@ use App\Models\Curso\Componente;
 use App\Models\Curso\Curso;
 use App\Models\Curso\InscripcionComponente;
 use App\Models\Curso\InscripcionCurso;
+use App\Models\Curso\IntranetSincronizacionLog;
 use App\Models\Curso\TipoComponente;
 use App\Support\LetraGrupo;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class IntranetService
@@ -99,6 +102,8 @@ class IntranetService
         // inscritos (uno que figura en Cátedra y Taller es un alumno, no dos).
         $nuevosEnCurso = [];
         $contados = [];
+        $inscripcionesCreadasIds = [];
+        $inscripcionesCompCreadasIds = [];
 
         try {
             DB::statement("SET utamed.skip_componente_trigger = 'on'");
@@ -174,7 +179,7 @@ class IntranetService
                             $codInscripcion = (string) $inscripcionData->ins_id;
                             $codLibre = !InscripcionCurso::where('cod_inscripcion_uta', $codInscripcion)->exists();
 
-                            $this->inscripcionCursoService->create([
+                            $nuevaInsc = $this->inscripcionCursoService->create([
                                 'id_curso'            => $curso->id_curso,
                                 'id_estudiante'       => $estudiante->id_estudiante,
                                 'cod_inscripcion_uta' => $codLibre ? $codInscripcion : null,
@@ -182,6 +187,7 @@ class IntranetService
                                 'estado_inscripcion'  => 'INSCRITO',
                                 'num_intento'         => 1,
                             ]);
+                            $inscripcionesCreadasIds[] = $nuevaInsc->id_inscripcion_curso;
 
                             // tr_inscribir_componente_curso_automaticamente ya no autoinscribe en
                             // componentes en inscripciones de Intranet; la inscripción a nivel de componente
@@ -217,11 +223,12 @@ class IntranetService
                                 $yaInscritos++;
                             }
                         } else {
-                            InscripcionComponente::create([
+                            $nuevaInscComp = InscripcionComponente::create([
                                 'id_componente'             => $compUtamed->id_componente,
                                 'id_estudiante'             => $estudiante->id_estudiante,
                                 'cod_inscripcion_curso_uta' => $inscripcionData->ins_id,
                             ]);
+                            $inscripcionesCompCreadasIds[] = $nuevaInscComp->id_inscripcion_componente;
 
                             $inscritosComponenteCount++;
                             if (!isset($contados[$estudiante->id_estudiante])) {
@@ -275,7 +282,9 @@ class IntranetService
             componentes_procesadas: $componentesReporte,
             advertencias: $advertencias,
             estudiantes_en_intranet: array_values($estudiantesEnIntranet),
-            lectura_completa: $lecturaCompleta
+            lectura_completa: $lecturaCompleta,
+            inscripciones_creadas: $inscripcionesCreadasIds,
+            inscripciones_componentes_creadas: $inscripcionesCompCreadasIds
         );
     }
 
@@ -323,6 +332,7 @@ class IntranetService
         // una corrida anterior tiene que volver a INSCRITO antes de que el paso
         // siguiente mire quién está activo.
         $reactivados = [];
+        $reactivadosIds = [];
         if ($enIntranet !== []) {
             $porReactivar = InscripcionCurso::with('estudiante.usuario')
                 ->where('id_curso', $curso->id_curso)
@@ -333,6 +343,7 @@ class IntranetService
             foreach ($porReactivar as $inscripcion) {
                 $this->inscripcionCursoService->reEnroll($inscripcion);
                 $reactivados[] = $this->identificarAlumno($inscripcion);
+                $reactivadosIds[] = $inscripcion->id_inscripcion_curso;
             }
         }
 
@@ -347,9 +358,11 @@ class IntranetService
             ->get();
 
         $retirados = [];
+        $retiradosIds = [];
         foreach ($porRetirar as $inscripcion) {
             $this->inscripcionCursoService->marcarRetirada($inscripcion);
             $retirados[] = $this->identificarAlumno($inscripcion);
+            $retiradosIds[] = $inscripcion->id_inscripcion_curso;
         }
 
         // Nivel componente: se informa, no se toca. `inscripcion_componente` no
@@ -368,13 +381,36 @@ class IntranetService
                 . 'borrarlas perdería el historial de evaluación de la componente.';
         }
 
+        // Registrar auditoría y snapshot de sincronización de roster
+        $snapshot = [
+            'tipo'                              => 'ROSTER',
+            'inscripciones_creadas'             => $resultadoInscripcion->inscripciones_creadas,
+            'inscripciones_componentes_creadas' => $resultadoInscripcion->inscripciones_componentes_creadas,
+            'inscripciones_reactivadas'         => $reactivadosIds,
+            'inscripciones_retiradas'           => $retiradosIds,
+            'componentes_creadas'               => [],
+            'componentes_actualizadas'          => [],
+        ];
+
+        $log = IntranetSincronizacionLog::create([
+            'id_curso'             => $curso->id_curso,
+            'id_usuario'           => auth()->id(),
+            'fecha_sincronizacion' => now(),
+            'tipo_sincronizacion'  => 'ROSTER',
+            'estado'               => 'APLICADA',
+            'snapshot_cambios'     => $snapshot,
+        ]);
+
+        $curso->update(['fecha_ultima_sincronizacion' => now()]);
+
         return new ResultadoSincronizacionInscripciones(
             inscripcion: $resultadoInscripcion,
             retirados: $retirados,
             reactivados: $reactivados,
             componentes_sin_respaldo: $componentesSinRespaldo,
             retiro_aplicado: true,
-            advertencias: $advertencias
+            advertencias: $advertencias,
+            id_log: $log->id_log
         );
     }
 
@@ -726,6 +762,8 @@ class IntranetService
         $creadas = [];
         $existentes = [];
         $advertencias = [];
+        $componentesCreadasIds = [];
+        $componentesActualizadas = [];
 
         foreach ($idsTipoComponenteAceptados as $idTipoComponente) {
             $tipoComponente = TipoComponente::find((int) $idTipoComponente);
@@ -745,13 +783,19 @@ class IntranetService
             if ($yaExiste) {
                 if ($yaExiste->intranet_cur_codigo === null && $curCodigo !== null) {
                     $yaExiste->update(['intranet_cur_codigo' => $curCodigo]);
+                    $componentesActualizadas[] = [
+                        'id_componente'       => $yaExiste->id_componente,
+                        'tipo'                => $tipoComponente->tipo,
+                        'cur_codigo_anterior' => null,
+                        'cur_codigo_nuevo'    => $curCodigo,
+                    ];
                 }
                 $existentes[] = $tipoComponente->tipo;
                 continue;
             }
 
             // id_contexto lo asigna el trigger tr_componente_pre_insert.
-            Componente::create([
+            $compNueva = Componente::create([
                 'id_curso'                          => $curso->id_curso,
                 'id_tipo_componente'                => $tipoComponente->id_tipo_componente,
                 'genera_acta'                       => true,
@@ -760,6 +804,13 @@ class IntranetService
                 'porcentaje_asistencia_obligatoria' => 75.00,
                 'intranet_cur_codigo'               => $curCodigo,
             ]);
+
+            $componentesCreadasIds[] = [
+                'id_componente'       => $compNueva->id_componente,
+                'id_tipo_componente'  => $tipoComponente->id_tipo_componente,
+                'tipo'                => $tipoComponente->tipo,
+                'intranet_cur_codigo' => $curCodigo,
+            ];
 
             $creadas[] = $tipoComponente->tipo;
         }
@@ -781,13 +832,188 @@ class IntranetService
             }
         }
 
+        // Registrar auditoría y snapshot de sincronización de componentes
+        $snapshot = [
+            'tipo'                              => $inscribirAlumnos ? 'COMPLETA' : 'COMPONENTES',
+            'componentes_creadas'               => $componentesCreadasIds,
+            'componentes_actualizadas'          => $componentesActualizadas,
+            'inscripciones_creadas'             => $resultadoInscripcion?->inscripciones_creadas ?? [],
+            'inscripciones_componentes_creadas' => $resultadoInscripcion?->inscripciones_componentes_creadas ?? [],
+            'inscripciones_reactivadas'         => [],
+            'inscripciones_retiradas'           => [],
+        ];
+
+        $log = IntranetSincronizacionLog::create([
+            'id_curso'             => $curso->id_curso,
+            'id_usuario'           => auth()->id(),
+            'fecha_sincronizacion' => now(),
+            'tipo_sincronizacion'  => $inscribirAlumnos ? 'COMPLETA' : 'COMPONENTES',
+            'estado'               => 'APLICADA',
+            'snapshot_cambios'     => $snapshot,
+        ]);
+
+        $curso->update(['fecha_ultima_sincronizacion' => now()]);
+
         return new ResultadoSincronizacionComponentes(
             origen: $origen,
             componentes_creadas: $creadas,
             componentes_existentes: $existentes,
             advertencias: $advertencias,
             inscripcion: $resultadoInscripcion,
-            componentes_sobrantes: $componentesSobrantes
+            componentes_sobrantes: $componentesSobrantes,
+            id_log: $log->id_log
+        );
+    }
+
+    /**
+     * Revierte de forma atómica y segura los efectos de una sincronización previa
+     * registrada en IntranetSincronizacionLog.
+     *
+     * Valida que no existan dependencias posteriores (actividades asociadas a
+     * componentes dadas de alta en esa sincronización) y restaura el estado previo
+     * tanto de componentes como de alumnos inscritos/retirados.
+     */
+    public function revertirSincronizacion(Curso $curso, int $idLog, ?string $motivo = null): ResultadoReversionSincronizacion
+    {
+        $log = IntranetSincronizacionLog::where('id_curso', $curso->id_curso)
+            ->where('id_log', $idLog)
+            ->first();
+
+        if (!$log) {
+            throw new \InvalidArgumentException("No se encontró el registro de sincronización #{$idLog} para el curso #{$curso->id_curso}.");
+        }
+
+        if (!$log->esReversible()) {
+            throw new \DomainException("La sincronización #{$idLog} ya fue revertida previamente el " . ($log->fecha_reversion?->format('d/m/Y H:i') ?? 'N/A') . '.');
+        }
+
+        // Regla LIFO: sólo se puede revertir la última sincronización activa
+        $haySincronizacionesPosteriores = IntranetSincronizacionLog::where('id_curso', $curso->id_curso)
+            ->where('estado', 'APLICADA')
+            ->where('id_log', '>', $idLog)
+            ->exists();
+
+        if ($haySincronizacionesPosteriores) {
+            throw new \DomainException('Solo es posible revertir la sincronización activa más reciente para evitar conflictos de integridad.');
+        }
+
+        $snapshot = $log->snapshot_cambios ?? [];
+        $componentesCreadasRaw = $snapshot['componentes_creadas'] ?? [];
+        $componentesCreadasIds = [];
+        foreach ($componentesCreadasRaw as $item) {
+            $componentesCreadasIds[] = is_array($item) ? ($item['id_componente'] ?? 0) : (int) $item;
+        }
+        $componentesCreadasIds = array_filter($componentesCreadasIds);
+
+        $componentesActualizadas = $snapshot['componentes_actualizadas'] ?? [];
+        $inscripcionesCreadasIds = $snapshot['inscripciones_creadas'] ?? [];
+        $inscripcionesCompCreadasIds = $snapshot['inscripciones_componentes_creadas'] ?? [];
+        $reactivadosIds = $snapshot['inscripciones_reactivadas'] ?? [];
+        $retiradosIds = $snapshot['inscripciones_retiradas'] ?? [];
+
+        // Guardarraíl: Verificar que las componentes a eliminar no tengan actividades o entregas
+        if (!empty($componentesCreadasIds)) {
+            $actividadesAsociadas = DB::table('agenda.actividad')
+                ->whereIn('id_componente', $componentesCreadasIds)
+                ->count();
+
+            if ($actividadesAsociadas > 0) {
+                throw new \DomainException("No se puede revertir la sincronización: Existen {$actividadesAsociadas} actividad(es) o evaluaciones asociadas a las componentes creadas en esta sincronización.");
+            }
+        }
+
+        $componentesEliminadasNombres = [];
+        $componentesRestauradasNombres = [];
+        $inscripcionesEliminadasCount = 0;
+        $inscripcionesRestauradasCount = 0;
+
+        DB::transaction(function () use (
+            $curso,
+            $log,
+            $motivo,
+            $componentesCreadasIds,
+            $componentesActualizadas,
+            $inscripcionesCreadasIds,
+            $inscripcionesCompCreadasIds,
+            $reactivadosIds,
+            $retiradosIds,
+            &$componentesEliminadasNombres,
+            &$componentesRestauradasNombres,
+            &$inscripcionesEliminadasCount,
+            &$inscripcionesRestauradasCount
+        ) {
+            // 1. Revertir inscripciones en componentes
+            if (!empty($inscripcionesCompCreadasIds)) {
+                InscripcionComponente::whereIn('id_inscripcion_componente', $inscripcionesCompCreadasIds)->delete();
+            }
+
+            // 2. Revertir alumnos inscritos nuevos
+            if (!empty($inscripcionesCreadasIds)) {
+                $inscripcionesEliminadasCount = InscripcionCurso::whereIn('id_inscripcion_curso', $inscripcionesCreadasIds)->delete();
+            }
+
+            // 3. Revertir alumnos reactivados (devolver a RETIRADO)
+            if (!empty($reactivadosIds)) {
+                $inscripcionesRestauradasCount += InscripcionCurso::whereIn('id_inscripcion_curso', $reactivadosIds)
+                    ->update(['estado_inscripcion' => 'RETIRADO']);
+            }
+
+            // 4. Revertir alumnos retirados (devolver a INSCRITO)
+            if (!empty($retiradosIds)) {
+                $inscripcionesRestauradasCount += InscripcionCurso::whereIn('id_inscripcion_curso', $retiradosIds)
+                    ->update(['estado_inscripcion' => 'INSCRITO']);
+            }
+
+            // 5. Revertir cur_codigo en componentes actualizadas
+            if (!empty($componentesActualizadas)) {
+                foreach ($componentesActualizadas as $compAct) {
+                    $c = Componente::with('tipoComponente')->find($compAct['id_componente']);
+                    if ($c) {
+                        $c->update(['intranet_cur_codigo' => $compAct['cur_codigo_anterior']]);
+                        $componentesRestauradasNombres[] = $c->tipoComponente?->tipo ?? "Componente #{$c->id_componente}";
+                    }
+                }
+            }
+
+            // 6. Eliminar componentes creadas
+            if (!empty($componentesCreadasIds)) {
+                $comps = Componente::with('tipoComponente')->whereIn('id_componente', $componentesCreadasIds)->get();
+                foreach ($comps as $c) {
+                    $componentesEliminadasNombres[] = $c->tipoComponente?->tipo ?? "Componente #{$c->id_componente}";
+                    // Si tuviera inscripcion_componente huérfanas, eliminarlas
+                    InscripcionComponente::where('id_componente', $c->id_componente)->delete();
+                    $c->delete();
+                }
+            }
+
+            // 7. Marcar log como REVERTIDA
+            $log->update([
+                'estado'               => 'REVERTIDA',
+                'fecha_reversion'      => now(),
+                'id_usuario_reversion' => auth()->id(),
+                'motivo_reversion'     => $motivo,
+            ]);
+
+            // 8. Actualizar fecha_ultima_sincronizacion en el curso con la anterior activa (o null)
+            $ultimoLogActivo = IntranetSincronizacionLog::where('id_curso', $curso->id_curso)
+                ->where('estado', 'APLICADA')
+                ->latest('fecha_sincronizacion')
+                ->first();
+
+            $curso->update([
+                'fecha_ultima_sincronizacion' => $ultimoLogActivo?->fecha_sincronizacion,
+            ]);
+        });
+
+        return new ResultadoReversionSincronizacion(
+            id_log: $log->id_log,
+            exitosa: true,
+            componentes_eliminadas: $componentesEliminadasNombres,
+            componentes_restauradas: $componentesRestauradasNombres,
+            inscripciones_eliminadas: $inscripcionesEliminadasCount,
+            inscripciones_restauradas: $inscripcionesRestauradasCount,
+            advertencias: [],
+            mensaje: 'Sincronización revertida exitosamente. Se restauró el estado previo del curso.'
         );
     }
 

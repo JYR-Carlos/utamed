@@ -14,6 +14,7 @@ use App\Models\Administrativo\Asignatura;
 use App\Models\Administrativo\Carrera;
 use App\Models\Administrativo\Plan;
 use App\Models\Curso\TipoComponente;
+use App\Models\Curso\IntranetSincronizacionLog;
 use App\Models\Usuario\Docente;
 use App\Models\Usuario\Rol;
 use App\Models\Usuario\UsuarioRolAsignacion;
@@ -21,6 +22,7 @@ use App\Services\CursoService;
 use App\Services\IntranetService;
 use App\Support\LetraGrupo;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -593,7 +595,19 @@ class CursoController extends Controller
                 curso: $curso
             );
 
-            return response()->json($resultado->toArray());
+            $ultimoLog = $curso->sincronizacionesLog()->with('usuario')->first();
+
+            return response()->json(array_merge($resultado->toArray(), [
+                'fecha_ultima_sincronizacion' => $curso->fecha_ultima_sincronizacion?->toIso8601String(),
+                'ultimo_log'                  => $ultimoLog ? [
+                    'id_log'               => $ultimoLog->id_log,
+                    'fecha_sincronizacion' => $ultimoLog->fecha_sincronizacion?->toIso8601String(),
+                    'tipo_sincronizacion'  => $ultimoLog->tipo_sincronizacion,
+                    'estado'               => $ultimoLog->estado,
+                    'usuario_nombre'       => $ultimoLog->usuario ? trim("{$ultimoLog->usuario->nombre1} {$ultimoLog->usuario->apellido1}") : 'Sistema',
+                    'es_reversible'        => $ultimoLog->esReversible(),
+                ] : null,
+            ]));
         } catch (\Throwable $e) {
             Log::error("[CursoController@previewSincronizarIntranet] Error al previsualizar curso #{$curso->id_curso}: " . $e->getMessage(), [
                 'curso_id'         => $curso->id_curso,
@@ -646,6 +660,48 @@ class CursoController extends Controller
 
             return response()->json([
                 'error' => 'No se pudo sincronizar con la Intranet: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Revierte la última sincronización de Intranet aplicada al curso.
+     */
+    public function revertirSincronizacion(Request $request, Curso $curso)
+    {
+        $this->authorize('update', $curso);
+
+        $validated = $request->validate([
+            'id_log' => ['required', 'integer', Rule::exists(IntranetSincronizacionLog::class, 'id_log')],
+            'motivo' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $resultado = app(IntranetService::class)->revertirSincronizacion(
+                $curso,
+                (int) $validated['id_log'],
+                $validated['motivo'] ?? null
+            );
+
+            return response()->json($resultado->toArray());
+        } catch (\DomainException $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 422);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 404);
+        } catch (\Throwable $e) {
+            Log::error("[CursoController@revertirSincronizacion] Error al revertir curso #{$curso->id_curso}: " . $e->getMessage(), [
+                'curso_id'   => $curso->id_curso,
+                'id_log'     => $validated['id_log'] ?? null,
+                'usuario_id' => auth()->id(),
+                'trace'      => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => 'No se pudo revertir la sincronización: ' . $e->getMessage(),
             ], 500);
         }
     }

@@ -83,6 +83,7 @@ export interface Plan {
   fecha_creacion?: string;
   fecha_modificacion?: string;
   fecha_eliminacion?: string;
+  fecha_ultima_sincronizacion?: string | null;
 }
 
 /**
@@ -132,6 +133,7 @@ export interface AsignacionPlan {
   fecha_creacion?: string;
   fecha_modificacion?: string;
   fecha_eliminacion?: string;
+  fecha_ultima_sincronizacion?: string | null;
 }
 
 export interface AsignacionPlanFormData {
@@ -227,6 +229,7 @@ export interface Curso {
   fecha_creacion?: string;
   fecha_modificacion?: string;
   fecha_eliminacion?: string;
+  fecha_ultima_sincronizacion?: string | null;
   // Programa information
   has_programa?: boolean;
   programa_estado?: string;
@@ -583,8 +586,31 @@ export interface ResultadoPreviewComponentes {
   componentes_sobrantes?: ComponenteSobranteLocal[];
 }
 
+/** Resumen de log de sincronización para observabilidad y rollback */
+export interface LogSincronizacionResumen {
+  id_log: number;
+  fecha_sincronizacion: string;
+  tipo_sincronizacion: string;
+  estado: 'APLICADA' | 'REVERTIDA';
+  usuario_nombre: string;
+  es_reversible: boolean;
+}
+
+/** Respuesta de POST .../sincronizar-intranet/revertir */
+export interface ResultadoReversionSincronizacion {
+  id_log: number;
+  exitosa: boolean;
+  componentes_eliminadas: string[];
+  componentes_restauradas: string[];
+  inscripciones_eliminadas: number;
+  inscripciones_restauradas: number;
+  advertencias: string[];
+  mensaje?: string;
+}
+
 /** Respuesta de POST .../sincronizar-intranet (ejecución, ya confirmada). */
 export interface ResultadoSincronizacionComponentes {
+  id_log?: number;
   origen: 'INTRANET' | 'PLAN';
   componentes_creadas: string[];
   componentes_existentes: string[];

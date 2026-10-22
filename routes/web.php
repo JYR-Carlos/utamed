@@ -293,6 +293,8 @@ Route::prefix('admin')->middleware(['auth', 'is_admin'])->name('admin.')->group(
         ->name('cursos.sincronizar-intranet.preview');
     Route::post('cursos/{curso}/sincronizar-intranet', [CursoController::class, 'sincronizarIntranet'])
         ->name('cursos.sincronizar-intranet');
+    Route::post('cursos/{curso}/sincronizar-intranet/revertir', [CursoController::class, 'revertirSincronizacion'])
+        ->name('cursos.sincronizar-intranet.revertir');
 
     // Course Team Management
     Route::get('cursos/{curso}/team', [CourseTeamController::class, 'index'])->name('cursos.team.index');

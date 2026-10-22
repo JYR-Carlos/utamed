@@ -408,4 +408,162 @@ describe('autorizacion', function () {
         $response->assertStatus(302);
         expect($curso->componentes()->count())->toBe(0);
     });
+
+    test('un usuario sin rol administrativo no puede revertir una sincronizacion', function () {
+        $curso = csihCrearCurso(950011, 'CSIH Revertir Sin Permiso', $this->asignacionPlan, $this->docente);
+
+        $usuarioSinRol = Usuario::firstOrCreate(
+            ['rut' => '66666666-6'],
+            [
+                'username' => 'sin_permiso_csih_test',
+                'passhash' => bcrypt('password'),
+                'nombre1' => 'Sin',
+                'apellido1' => 'Permiso',
+                'esta_activo' => true,
+            ]
+        );
+        $usuarioSinRol->forceFill([
+            'fecha_cambio_passhash' => now(),
+            'fecha_verificacion_email' => now(),
+        ])->saveQuietly();
+        $this->actingAs($usuarioSinRol);
+
+        $response = $this->postJson("/admin/cursos/{$curso->id_curso}/sincronizar-intranet/revertir", [
+            'id_log' => 1,
+        ]);
+
+        $response->assertStatus(302);
+    });
+});
+
+describe('POST /admin/cursos/{curso}/sincronizar-intranet/revertir y trazabilidad', function () {
+
+    test('sincronizarIntranet registra fecha_ultima_sincronizacion y crea intranet_sincronizacion_log', function () {
+        $curso = csihCrearCurso(950012, 'CSIH Log Auditoria Test', $this->asignacionPlan, $this->docente);
+
+        csihMockOracle(collect([
+            new ComponenteCursoData(cur_codigo: 7701, curso_tipo_asig: TipoAsignatura::Catedra, curso_grupo_asig: 'A'),
+        ]));
+
+        $response = $this->postJson("/admin/cursos/{$curso->id_curso}/sincronizar-intranet", [
+            'tipos_componente_ids' => [$this->tipoCatedra->id_tipo_componente],
+        ]);
+
+        $response->assertStatus(200);
+        $json = $response->json();
+        expect($json['id_log'])->not->toBeNull();
+
+        $curso->refresh();
+        expect($curso->fecha_ultima_sincronizacion)->not->toBeNull();
+
+        $log = \App\Models\Curso\IntranetSincronizacionLog::find($json['id_log']);
+        expect($log)->not->toBeNull()
+            ->and($log->id_curso)->toBe($curso->id_curso)
+            ->and($log->estado)->toBe('APLICADA')
+            ->and($log->esReversible())->toBeTrue();
+    });
+
+    test('preview expone fecha_ultima_sincronizacion y ultimo_log', function () {
+        $curso = csihCrearCurso(950013, 'CSIH Preview Con Log', $this->asignacionPlan, $this->docente);
+
+        csihMockOracle(collect([
+            new ComponenteCursoData(cur_codigo: 7702, curso_tipo_asig: TipoAsignatura::Catedra, curso_grupo_asig: 'A'),
+        ]));
+
+        // Sincronizar primero
+        $this->postJson("/admin/cursos/{$curso->id_curso}/sincronizar-intranet", [
+            'tipos_componente_ids' => [$this->tipoCatedra->id_tipo_componente],
+        ]);
+
+        // Luego pedir preview
+        $previewRes = $this->getJson("/admin/cursos/{$curso->id_curso}/sincronizar-intranet/preview");
+        $previewRes->assertStatus(200);
+
+        expect($previewRes->json('fecha_ultima_sincronizacion'))->not->toBeNull()
+            ->and($previewRes->json('ultimo_log'))->not->toBeNull()
+            ->and($previewRes->json('ultimo_log.es_reversible'))->toBeTrue();
+    });
+
+    test('revertir sincronizacion elimina componentes creadas y restaura fecha_ultima_sincronizacion', function () {
+        $curso = csihCrearCurso(950014, 'CSIH Rollback Exitoso', $this->asignacionPlan, $this->docente);
+
+        csihMockOracle(collect([
+            new ComponenteCursoData(cur_codigo: 7703, curso_tipo_asig: TipoAsignatura::Catedra, curso_grupo_asig: 'A'),
+        ]));
+
+        $syncRes = $this->postJson("/admin/cursos/{$curso->id_curso}/sincronizar-intranet", [
+            'tipos_componente_ids' => [$this->tipoCatedra->id_tipo_componente],
+        ]);
+        $idLog = $syncRes->json('id_log');
+
+        expect($curso->componentes()->count())->toBe(1);
+
+        // Ejecutar reversión
+        $revertRes = $this->postJson("/admin/cursos/{$curso->id_curso}/sincronizar-intranet/revertir", [
+            'id_log' => $idLog,
+            'motivo' => 'Test de reversión automática',
+        ]);
+
+        $revertRes->assertStatus(200)
+            ->assertJsonPath('exitosa', true);
+
+        $curso->refresh();
+        expect($curso->componentes()->count())->toBe(0)
+            ->and($curso->fecha_ultima_sincronizacion)->toBeNull();
+
+        $log = \App\Models\Curso\IntranetSincronizacionLog::find($idLog);
+        expect($log->estado)->toBe('REVERTIDA')
+            ->and($log->esReversible())->toBeFalse()
+            ->and($log->fecha_reversion)->not->toBeNull();
+    });
+
+    test('guardarrail: bloquea reversion si una componente creada ya tiene actividades registradas', function () {
+        $curso = csihCrearCurso(950015, 'CSIH Guardarrail Actividades', $this->asignacionPlan, $this->docente);
+
+        csihMockOracle(collect([
+            new ComponenteCursoData(cur_codigo: 7704, curso_tipo_asig: TipoAsignatura::Catedra, curso_grupo_asig: 'A'),
+        ]));
+
+        $syncRes = $this->postJson("/admin/cursos/{$curso->id_curso}/sincronizar-intranet", [
+            'tipos_componente_ids' => [$this->tipoCatedra->id_tipo_componente],
+        ]);
+        $idLog = $syncRes->json('id_log');
+
+        $componente = $curso->componentes()->first();
+
+        // Simular que el docente creó una actividad en esa componente
+        $unidad = \App\Models\Curso\Unidad::create([
+            'id_curso'   => $curso->id_curso,
+            'num_unidad' => 1,
+            'nombre'     => 'U1 Guardarrail',
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('agenda.actividad')->insert([
+            'nombre'              => 'Actividad con Nota Bloqueante',
+            'id_componente'       => $componente->id_componente,
+            'id_unidad'           => $unidad->id_unidad,
+            'id_contexto'         => 1,
+            'tipo_actividad'      => 'SUMATIVA',
+            'tipo_entrega'        => 'Digital',
+            'ponderacion'         => 20.00,
+            'exigencia'           => 60.00,
+            'visible'             => true,
+            'es_grupal'           => false,
+            'es_plantilla'        => false,
+            'fecha_limite'        => now()->addDays(7)->toDateString(),
+        ]);
+
+        // Intentar revertir: debe ser rechazado con 422
+        $revertRes = $this->postJson("/admin/cursos/{$curso->id_curso}/sincronizar-intranet/revertir", [
+            'id_log' => $idLog,
+        ]);
+
+        $revertRes->assertStatus(422)
+            ->assertJsonPath('error', fn ($err) => str_contains($err, 'actividad(es)'));
+
+        // Verificar que la componente sigue intacta y el log sigue en APLICADA
+        expect($curso->componentes()->count())->toBe(1);
+        $log = \App\Models\Curso\IntranetSincronizacionLog::find($idLog);
+        expect($log->estado)->toBe('APLICADA');
+    });
 });
