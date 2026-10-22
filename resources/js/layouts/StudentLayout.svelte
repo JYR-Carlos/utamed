@@ -76,8 +76,11 @@
     <div class="flex min-w-0 flex-1 flex-col">
         <BarraAlumno {breadcrumbs} onAbrirMenu={() => (menuAbierto = true)} />
         <!-- `scroll-region`: Inertia guarda y restaura el desplazamiento de este
-             contenedor al volver atrás; sin él la vista saltaba al inicio. -->
-        <main id="contenido" tabindex="-1" class="min-w-0 flex-1 overflow-y-auto outline-none" scroll-region>
+             contenedor al volver atrás; sin él la vista saltaba al inicio.
+             `relative`: lo absoluto de adentro (los `sr-only`) se mide contra
+             este contenedor; si no, escapa de su overflow, alarga el documento
+             y aparece un segundo scroll con espacio en blanco abajo. -->
+        <main id="contenido" tabindex="-1" class="relative min-w-0 flex-1 overflow-y-auto outline-none" scroll-region>
             {@render children?.()}
         </main>
     </div>
