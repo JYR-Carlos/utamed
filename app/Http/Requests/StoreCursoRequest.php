@@ -96,6 +96,7 @@ class StoreCursoRequest extends FormRequest
 
                     $query = Curso::where('id_asignacion_plan', $asignacionPlan->id_asignacion_plan)
                         ->where('indice_grupo', (int) $value)
+                        ->where('es_plantilla', false)
                         ->whereNull('fecha_eliminacion');
 
                     $agnoReal === null ? $query->whereNull('agno_real') : $query->where('agno_real', $agnoReal);

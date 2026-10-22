@@ -542,14 +542,21 @@ class CursoService
     public function nextIndiceGrupo(int $idAsignacionPlan, ?int $agnoReal, ?int $semestreReal): int
     {
         $query = Curso::where('id_asignacion_plan', $idAsignacionPlan)
+            ->where('es_plantilla', false)
             ->whereNull('fecha_eliminacion');
 
         $agnoReal === null ? $query->whereNull('agno_real') : $query->where('agno_real', $agnoReal);
         $semestreReal === null ? $query->whereNull('semestre_real') : $query->where('semestre_real', $semestreReal);
 
-        $ultimoIndice = (int) ($query->max('indice_grupo') ?? 0);
+        $tomados = $query->pluck('indice_grupo')->all();
+        $tomadosSet = array_flip($tomados);
 
-        return $ultimoIndice + 1;
+        $candidato = 1;
+        while (isset($tomadosSet[$candidato])) {
+            $candidato++;
+        }
+
+        return $candidato;
     }
 
     /**

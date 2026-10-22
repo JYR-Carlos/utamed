@@ -425,6 +425,7 @@ class CursoController extends Controller
         }
 
         $query = Curso::where('id_asignacion_plan', $asignacionPlan->id_asignacion_plan)
+            ->where('es_plantilla', false)
             ->whereNull('fecha_eliminacion');
 
         $agnoReal === null ? $query->whereNull('agno_real') : $query->where('agno_real', $agnoReal);
