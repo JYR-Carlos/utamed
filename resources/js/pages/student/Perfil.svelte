@@ -1,23 +1,18 @@
 <script lang="ts">
+  /**
+   * «Mi perfil» del alumno (guía dm). Los datos institucionales (nombre, RUT,
+   * correo, carrera…) vienen de la Intranet y son de sólo lectura; lo único
+   * que se edita aquí es el contacto personal (T10). La foto también viene de
+   * la Intranet y se cambia allá.
+   */
   import StudentLayout from '@/layouts/StudentLayout.svelte';
+  import Reticula from '@/components/student/dm/Reticula.svelte';
   import type { BreadcrumbItem } from '@/types';
-  import { useInitials } from '@/hooks';
-  import {
-    IdCard,
-    Mail,
-    AtSign,
-    GraduationCap,
-    CalendarDays,
-    BookOpen,
-    KeyRound,
-    Lock,
-    SquarePen,
-    CheckCircle2,
-  } from 'lucide-svelte';
+  import { ChevronRight, CircleAlert, CircleCheck, ExternalLink, Info, KeyRound, Lock, UserRound } from 'lucide-svelte';
   import { Link, useForm } from '@inertiajs/svelte';
-  import InputError from '@/components/custom/common/InputError.svelte';
-  import { Input } from '@/components/ui/input';
-  import { Label } from '@/components/ui/label';
+  import { btnPrimario, campo, enlace, etiqueta, tarjeta, tituloCond } from '@/lib/dm';
+  import { titleCase } from '@/lib/utils';
+  import { initials } from '@/utils/formatters';
 
   type Red = 'youtube' | 'x' | 'instagram' | 'linkedin';
 
@@ -31,17 +26,16 @@
       agno_ingreso: number;
       total_cursos: number;
     };
-    /** Contacto personal que el alumno mantiene (T10). */
     urlImagenPerfil: string;
+    /** Contacto personal que el alumno mantiene (T10). */
     contacto: {
       correo_personal: string | null;
       celular: string | null;
       redes_sociales: Record<Red, string | null>;
     };
-    semestreActual: number;
   }
 
-  let { perfil, urlImagenPerfil, contacto, semestreActual }: Props = $props();
+  let { perfil, urlImagenPerfil, contacto }: Props = $props();
 
   const REDES: { id: Red; label: string; placeholder: string }[] = [
     { id: 'youtube', label: 'YouTube', placeholder: 'https://www.youtube.com/@tu-canal' },
@@ -74,300 +68,194 @@
   }
 
   const errores = $derived($form.errors as Record<string, string | undefined>);
-
-  const { getInitials } = useInitials();
-  const anoAcademico = new Date().getFullYear();
+  const conErrores = $derived(Object.values(errores).some(Boolean));
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Inicio', href: '/estudiante/dashboard' },
-    { title: 'Mi Perfil', href: '/estudiante/perfil' },
+    { title: 'Mi perfil', href: '/estudiante/perfil' },
   ];
 
+  const nombre = $derived(titleCase(perfil.nombre_completo));
   let imagenError = $state(false);
-  let cambiarFotoPerfilModal = $state(false);
+
+  const intranet = $derived([
+    ['RUT', perfil.rut],
+    ['Correo institucional', perfil.email],
+    ['Usuario', perfil.username],
+    ['Carrera', perfil.carrera_nombre],
+    ['Año de ingreso', perfil.agno_ingreso],
+    ['Cursos inscritos', perfil.total_cursos],
+  ] as const);
+
+  const ETIQUETA_CAMPO = 'text-sm leading-5 font-semibold';
 </script>
 
+<svelte:head>
+  <title>Mi perfil | UTAMED</title>
+</svelte:head>
+
+{#snippet error(id: string, mensaje: string | undefined)}
+  {#if mensaje}
+    <span {id} class="flex items-start gap-1.5 text-sm leading-5 text-dm-error">
+      <CircleAlert size={16} aria-hidden="true" class="mt-0.5 shrink-0" />{mensaje}
+    </span>
+  {/if}
+{/snippet}
+
 <StudentLayout {breadcrumbs}>
-  <div class="h-full px-5 md:px-10 lg:px-20 bg-white relative">
-    <div class="relative mx-auto max-w-4xl px-4 py-6">
-      <header class="flex flex-col gap-1 mb-8">
-        <!--
+  <div class="mx-auto flex w-full max-w-280 flex-col gap-4 pb-10 lg:gap-6 lg:px-10 lg:pt-8 lg:pb-12">
+    <section aria-labelledby="t-perfil" class="sobre-noche relative overflow-hidden bg-dm-noche lg:rounded-xl lg:border lg:border-dm-noche-borde">
+      <Reticula class="left-[45%] lg:left-1/2" />
+      <div class="relative flex items-center gap-4 px-4 py-6 lg:gap-7 lg:px-10 lg:py-8">
         <span
-          class="inline-flex items-center gap-1.5 text-xs font-bold text-uta-blue bg-uta-blue-light border border-uta-blue/20 rounded-full px-3 py-0.5 w-fit"
+          class="flex size-18 shrink-0 items-center justify-center overflow-hidden rounded-full border-3 border-white/25 bg-[#2c3170] font-dm-cond text-[30px] leading-none font-black text-white lg:size-26 lg:text-[44px]"
         >
-          Semestre {semestreActual} · {anoAcademico}
+          {#if urlImagenPerfil && !imagenError}
+            <img src={urlImagenPerfil} alt="Tu foto de perfil" class="size-full object-cover" onerror={() => (imagenError = true)} />
+          {:else}
+            <span role="img" aria-label="Sin foto de perfil">{initials(nombre)}</span>
+          {/if}
         </span>
-      -->
-        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
-          Mi Perfil
-        </h1>
-        <p class="text-sm text-slate-500">Tus datos como estudiante en UTAmed.</p>
-      </header>
-
-      <section
-        class="flex flex-wrap justify-center sm:justify-between items-center gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm mb-6"
-      >
-        <div class="flex flex-col sm:flex-row gap-5 justify-center items-center text-center">
-          <div
-            class="flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-full bg-uta-blue-light text-lg font-bold text-uta-blue border-uta-blue"
-          >
-            {#if urlImagenPerfil && !imagenError}
-              <img
-                src={urlImagenPerfil}
-                alt="Foto de perfil"
-                class="h-full w-full object-cover"
-                onerror={() => (imagenError = true)}
-              />
-            {:else}
-              <img
-                src="/img/usuarioutamed.png"
-                alt="Foto de perfil genérica"
-                class="object-cover"
-              />
-            {/if}
-          </div>
-          <div class="flex flex-col gap-0.5 px-7">
-            <span class="text-lg font-semibold tracking-tight text-slate-900"
-              >{perfil.nombre_completo}</span
-            >
-            <span class="text-sm text-slate-500">{perfil.carrera_nombre}</span>
-          </div>
+        <div class="flex min-w-0 flex-col gap-1.5 lg:gap-2">
+          <span class="{etiqueta} text-dm-amarillo">Mi perfil</span>
+          <h1 id="t-perfil" class="{tituloCond} text-[32px] leading-8 break-words text-dm-noche-texto lg:text-5xl lg:leading-12">{nombre}</h1>
+          <span class="text-sm leading-5 text-dm-noche-texto-2 lg:text-[15px] lg:leading-[22px]">
+            {perfil.carrera_nombre} · ingreso {perfil.agno_ingreso} · {perfil.total_cursos}
+            {perfil.total_cursos === 1 ? 'curso inscrito' : 'cursos inscritos'}
+          </span>
         </div>
+      </div>
+    </section>
 
-        <div class="flex flex-col gap-5 justify-center items-center text-center">
-          <Link
-            href="/settings/password"
-            class="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-uta-blue/30 hover:bg-uta-blue-light hover:text-uta-blue"
-          >
-            <KeyRound class="h-4 w-4" />
-            Cambiar contraseña
-          </Link>
-          <button
-            class="ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-uta-blue/30 hover:bg-uta-blue-light hover:text-uta-blue"
-            onclick={() => {
-              cambiarFotoPerfilModal = !cambiarFotoPerfilModal;
-            }}
-          >
-            <SquarePen class="h-4 w-4" />
-            Cambiar Foto de Perfil
-          </button>
+    <div class="flex flex-col gap-4 px-4 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6 lg:px-0">
+      <section aria-labelledby="t-cuenta" class="{tarjeta} overflow-hidden lg:col-start-2 lg:row-start-1">
+        <h2 id="t-cuenta" class="border-b border-dm-linea px-4 py-3.5 text-base leading-[22px] font-bold lg:px-5 lg:py-4">Cuenta</h2>
+        <Link
+          href="/settings/password"
+          class="flex min-h-15 items-center gap-3 border-b border-dm-linea px-4 py-2.5 text-dm-ink no-underline hover:bg-dm-sutil hover:text-dm-ink lg:min-h-16 lg:px-5 lg:py-3"
+        >
+          <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dm-accion-suave text-dm-accion-texto">
+            <KeyRound size={18} aria-hidden="true" />
+          </span>
+          <span class="flex min-w-0 flex-1 flex-col">
+            <span class="text-[15px] leading-5 font-semibold text-dm-enlace">Cambiar contraseña</span>
+            <span class="text-[13px] leading-[18px] text-dm-ink-2">La que usas para entrar a UTAMED</span>
+          </span>
+          <ChevronRight size={18} aria-hidden="true" class="shrink-0 text-dm-ink-3" />
+        </Link>
+        <div class="flex items-start gap-3 px-4 py-3.5 lg:px-5">
+          <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dm-sutil text-dm-ink-2">
+            <UserRound size={18} aria-hidden="true" />
+          </span>
+          <span class="flex min-w-0 flex-col gap-0.5">
+            <span class="text-[15px] leading-5 font-semibold">Foto de perfil</span>
+            <span class="text-[13px] leading-[18px] text-dm-ink-2">Viene de la Intranet y se cambia allá.</span>
+            <a
+              href="https://portal.uta.cl/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="{enlace} self-start"
+            >
+              Ir a la Intranet<ExternalLink size={14} aria-hidden="true" /><span class="sr-only">{' '}(se abre en otra pestaña)</span>
+            </a>
+          </span>
         </div>
       </section>
 
-      <section class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div
-          class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-        >
-          <div
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light"
-          >
-            <IdCard class="h-4.5 w-4.5 text-uta-blue" />
-          </div>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[12.5px] text-slate-500">RUT</span>
-            <span class="truncate text-sm font-semibold text-slate-900">{perfil.rut}</span>
-          </div>
+      <section aria-labelledby="t-contacto" class="{tarjeta} flex min-w-0 flex-col lg:col-start-1 lg:row-span-2 lg:row-start-1">
+        <div class="flex flex-col gap-1 border-b border-dm-linea px-4 py-4 lg:px-6 lg:py-5">
+          <h2 id="t-contacto" class="text-lg leading-6 font-bold">Datos de contacto</h2>
+          <span class="text-sm leading-5 text-dm-ink-2">Es lo único del perfil que editas aquí. Todos los campos son opcionales.</span>
         </div>
-
-        <div
-          class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-        >
-          <div
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light"
-          >
-            <Mail class="h-[18px] w-[18px] text-uta-blue" />
-          </div>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[12.5px] text-slate-500">Correo institucional</span>
-            <span class="truncate text-sm font-semibold text-slate-900">{perfil.email}</span>
-          </div>
-        </div>
-
-        <div
-          class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-        >
-          <div
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light"
-          >
-            <AtSign class="h-[18px] w-[18px] text-uta-blue" />
-          </div>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[12.5px] text-slate-500">Usuario</span>
-            <span class="truncate text-sm font-semibold text-slate-900">{perfil.username}</span>
-          </div>
-        </div>
-
-        <div
-          class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-        >
-          <div
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light"
-          >
-            <GraduationCap class="h-[18px] w-[18px] text-uta-blue" />
-          </div>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[12.5px] text-slate-500">Carrera</span>
-            <span class="truncate text-sm font-semibold text-slate-900"
-              >{perfil.carrera_nombre}</span
-            >
-          </div>
-        </div>
-
-        <div
-          class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-        >
-          <div
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light"
-          >
-            <CalendarDays class="h-[18px] w-[18px] text-uta-blue" />
-          </div>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[12.5px] text-slate-500">Año de ingreso</span>
-            <span class="truncate text-sm font-semibold text-slate-900">{perfil.agno_ingreso}</span>
-          </div>
-        </div>
-
-        <div
-          class="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-        >
-          <div
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-uta-blue-light"
-          >
-            <BookOpen class="h-[18px] w-[18px] text-uta-blue" />
-          </div>
-          <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-[12.5px] text-slate-500">Cursos este período</span>
-            <span class="truncate text-sm font-semibold text-slate-900">{perfil.total_cursos}</span>
-          </div>
-        </div>
-      </section>
-
-      <p class="mt-3 inline-flex items-center gap-1.5 text-[12.5px] text-slate-500">
-        <Lock class="h-3.5 w-3.5" />
-        Estos datos vienen de la Intranet y no se pueden editar aquí.
-      </p>
-
-      <!-- Contacto personal (T10): lo único que el alumno edita. -->
-      <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="mb-5 flex flex-col gap-1">
-          <h2 class="text-base font-semibold text-slate-900">Datos de contacto</h2>
-          <p class="text-[13px] text-slate-500">
-            Sólo tus docentes pueden ver estos datos; tus compañeros no. Todos son opcionales.
+        <form aria-labelledby="t-contacto" class="flex flex-col gap-6 p-4 lg:p-6" onsubmit={guardarContacto} novalidate>
+          <p class="flex items-start gap-2.5 rounded-lg bg-dm-info-s px-3.5 py-3 text-sm leading-5">
+            <Info size={18} aria-hidden="true" class="mt-px shrink-0 text-dm-info" />
+            <span>Sólo tus docentes ven estos datos; tus compañeros no.</span>
           </p>
-        </div>
 
-        <form class="flex flex-col gap-5" onsubmit={guardarContacto}>
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div class="grid gap-2">
-              <Label for="correo_personal">Correo personal</Label>
-              <Input
+          <div class="grid gap-5 sm:grid-cols-2">
+            <div class="flex flex-col gap-1.5">
+              <label for="correo_personal" class={ETIQUETA_CAMPO}>Correo personal</label>
+              <input
                 id="correo_personal"
                 type="email"
                 autocomplete="email"
                 placeholder="tu.correo@ejemplo.com"
                 bind:value={$form.correo_personal}
+                aria-invalid={errores.correo_personal ? 'true' : undefined}
+                aria-describedby={errores.correo_personal ? 'correo_personal-error' : undefined}
+                class={campo}
               />
-              <InputError message={errores.correo_personal} />
+              {@render error('correo_personal-error', errores.correo_personal)}
             </div>
-
-            <div class="grid gap-2">
-              <Label for="celular">Celular</Label>
-              <Input
+            <div class="flex flex-col gap-1.5">
+              <label for="celular" class={ETIQUETA_CAMPO}>Celular</label>
+              <input
                 id="celular"
                 type="tel"
                 autocomplete="tel"
                 placeholder="+56 9 1234 5678"
                 bind:value={$form.celular}
+                aria-invalid={errores.celular ? 'true' : undefined}
+                aria-describedby={errores.celular ? 'celular-error' : undefined}
+                class={campo}
               />
-              <InputError message={errores.celular} />
+              {@render error('celular-error', errores.celular)}
             </div>
           </div>
 
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {#each REDES as red (red.id)}
-              <div class="grid gap-2">
-                <Label for="red_{red.id}">{red.label}</Label>
-                <Input
-                  id="red_{red.id}"
-                  type="url"
-                  placeholder={red.placeholder}
-                  bind:value={$form.redes_sociales[red.id]}
-                />
-                <InputError message={errores[`redes_sociales.${red.id}`]} />
-              </div>
-            {/each}
-          </div>
-          <InputError message={errores.redes_sociales} />
+          <fieldset class="min-w-0">
+            <legend class="{etiqueta} mb-3 text-dm-ink-3">Redes sociales</legend>
+            <div class="grid gap-5 sm:grid-cols-2">
+              {#each REDES as red (red.id)}
+                {@const mensaje = errores[`redes_sociales.${red.id}`]}
+                <div class="flex flex-col gap-1.5">
+                  <label for="red_{red.id}" class={ETIQUETA_CAMPO}>{red.label}</label>
+                  <input
+                    id="red_{red.id}"
+                    type="url"
+                    placeholder={red.placeholder}
+                    bind:value={$form.redes_sociales[red.id]}
+                    aria-invalid={mensaje ? 'true' : undefined}
+                    aria-describedby={mensaje ? `red_${red.id}-error` : undefined}
+                    class={campo}
+                  />
+                  {@render error(`red_${red.id}-error`, mensaje)}
+                </div>
+              {/each}
+            </div>
+            {#if errores.redes_sociales}<div class="mt-3">{@render error('redes-error', errores.redes_sociales)}</div>{/if}
+          </fieldset>
 
-          <div class="flex flex-wrap items-center gap-4">
-            <button type="submit" class="btn btn-primary" disabled={$form.processing}>
-              Guardar contacto
-            </button>
-            {#if guardado}
-              <p
-                class="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700"
-                role="status"
-              >
-                <CheckCircle2 class="h-4 w-4" />
-                Tus datos de contacto se guardaron.
+          <div class="flex flex-wrap items-center gap-4 border-t border-dm-linea pt-5">
+            <button type="submit" class="{btnPrimario} max-sm:w-full" disabled={$form.processing}>Guardar contacto</button>
+            {#if conErrores}
+              <p role="alert" class="inline-flex items-center gap-1.5 text-sm leading-5 font-semibold text-dm-error">
+                <CircleAlert size={16} aria-hidden="true" />No se guardó: revisa el campo marcado.
+              </p>
+            {:else if guardado}
+              <p role="status" class="inline-flex items-center gap-1.5 text-sm leading-5 font-semibold text-dm-ok">
+                <CircleCheck size={16} aria-hidden="true" />Tus datos de contacto se guardaron.
               </p>
             {/if}
           </div>
         </form>
       </section>
+
+      <section aria-labelledby="t-intranet" class="{tarjeta} overflow-hidden lg:col-start-2 lg:row-start-2">
+        <h2 id="t-intranet" class="border-b border-dm-linea px-4 py-3.5 text-base leading-[22px] font-bold lg:px-5 lg:py-4">Datos de la Intranet</h2>
+        <dl class="flex flex-col gap-3 px-4 py-4 lg:px-5">
+          {#each intranet as [dato, valor] (dato)}
+            <div class="flex flex-col gap-0.5">
+              <dt class="text-[13px] leading-[18px] text-dm-ink-3">{dato}</dt>
+              <dd class="text-[15px] leading-5 font-semibold [overflow-wrap:anywhere]">{valor}</dd>
+            </div>
+          {/each}
+        </dl>
+        <p class="flex items-start gap-2 border-t border-dm-linea bg-dm-sutil px-4 py-3 text-[13px] leading-[18px] text-dm-ink-2 lg:px-5">
+          <Lock size={16} aria-hidden="true" class="mt-px shrink-0" />No se editan aquí. Si algo está mal, avisa a tu jefatura de carrera.
+        </p>
+      </section>
     </div>
   </div>
 </StudentLayout>
-
-{#if cambiarFotoPerfilModal}
-  <div class="fixed inset-0 z-50 flex items-center justify-center">
-    <!-- Overlay -->
-    <button
-      type="button"
-      aria-label="Cerrar modal"
-      class="absolute inset-0 cursor-default bg-black/50"
-      onclick={() => {
-        cambiarFotoPerfilModal = false
-      }}
-    ></button>
-
-    <!-- Modal -->
-    <div class="relative z-10 mx-4 w-full max-w-md overflow-hidden rounded-xl bg-white shadow-xl">
-      <!-- Header -->
-      <div class="flex items-center justify-between border-b border-gray-200 px-6 py-5">
-        <h2 class="text-lg font-semibold text-gray-900">
-          Cambio de Foto de Perfil
-        </h2>
-      </div>
-
-      <!-- Content -->
-      <div class="px-6 py-8 text-center">
-        <p class="text-sm font-medium leading-6 text-gray-700">
-          Para poder cambiar tu foto de perfil, debes hacerlo desde la Intranet.
-        </p>
-      </div>
-
-      <!-- Footer -->
-      <div class="flex flex-col-reverse gap-3 border-t border-gray-100 px-6 py-5 sm:flex-row sm:justify-end">
-        <button
-          type="button"
-          class="inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-uta-blue/30 hover:bg-uta-blue-light hover:text-uta-blue"
-          onclick={() => {
-            cambiarFotoPerfilModal = false
-          }}
-        >
-          Aceptar
-        </button>
-
-        <a
-          href="https://portal.uta.cl/"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-flex items-center justify-center gap-2 rounded-lg bg-yellow-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-yellow-600"
-        >
-          Ir a Intranet
-        </a>
-      </div>
-    </div>
-  </div>
-{/if}
