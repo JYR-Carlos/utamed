@@ -10,11 +10,11 @@
   import StudentLayout from '@/layouts/StudentLayout.svelte';
   import type { BreadcrumbItem, SidebarCourse } from '@/types';
   import type { Rubrica, RubricaResponse } from '@/types/rubrica';
-  import type { InteraccionItem } from '@/types/agenda';
+  import type { InteraccionItem, RubricaDetalleEvent } from '@/types/agenda';
   import { ChevronRight, CircleAlert, Download, FileText, X } from 'lucide-svelte';
   import { ConfirmDialog } from '@/components/custom/common';
   import Agenda from './Agenda/Agenda.svelte';
-  import RubricaView from './Agenda/Rubrica.svelte';
+  import RubricaAlumno from './Agenda/RubricaAlumno.svelte';
   import Entrega from './Agenda/Entrega.svelte';
   import Enunciado from './Agenda/Enunciado.svelte';
   import ActividadEncabezado from './components/ActividadEncabezado.svelte';
@@ -22,13 +22,14 @@
   import ActividadNota from './components/ActividadNota.svelte';
   import ActividadRubricaEvaluada from './components/ActividadRubricaEvaluada.svelte';
   import ActividadAgendaResumen from './components/ActividadAgendaResumen.svelte';
+  import ModalAlumno from '@/components/student/dm/ModalAlumno.svelte';
   import { Link, router, page } from '@inertiajs/svelte';
   import { onMount } from 'svelte';
   import { etiqueta, pildora, tarjeta, tono } from '@/lib/dm';
   import { estiloCurso, numeroColorCurso } from '@/lib/colorCurso';
   import { fechaLimiteTexto, porEntregar, type ActividadAlumno } from '@/lib/actividadAlumno';
   import { criteriosDe, puntajeTotal } from '@/lib/rubricaAlumno';
-  import { claveDia, formatBytes, initials } from '@/utils/formatters';
+  import { claveDia, formatBytes, formatDiaCorto, initials } from '@/utils/formatters';
   import { titleCase } from '@/lib/utils';
 
   interface Props {
@@ -42,6 +43,8 @@
     nombre_actividad: string;
     fecha_limite: string;
     es_sumativa: boolean;
+    /** % del puntaje que da el 4,0. */
+    exigencia?: number;
     es_grupal: boolean;
     entrega_obligatoria: boolean;
     ultima_nota?: number | null;
@@ -98,6 +101,7 @@
     nombre_actividad,
     fecha_limite,
     es_sumativa,
+    exigencia = 60,
     es_grupal,
     entrega_obligatoria,
     ultima_nota,
@@ -224,11 +228,7 @@
   );
   const rubricaDeLaEvaluacion = $derived(ultima_evaluacion?.rubrica ?? ultimaEvaluacion?.rubrica ?? null);
 
-  // Enunciado.svelte sólo distingue 'pdf' (previsualizable en iframe) del
-  // resto (prompt de descarga); no tiene una rama específica para imágenes.
-  const tipoEnunciado = $derived.by((): 'pdf' | 'otro' => {
-    return archivo_enunciado?.mime_type === 'application/pdf' ? 'pdf' : 'otro';
-  });
+  const enunciadoEsPdf = $derived(archivo_enunciado?.mime_type === 'application/pdf');
   const urlEnunciado = $derived(`/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/enunciado/descargar`);
   const detalleEnunciado = $derived.by(() => {
     if (!archivo_enunciado) return '';
@@ -273,8 +273,8 @@
       : (actividades_curso.find((a) => porEntregar(a) && String(a.id_actividad) !== String(cod_actividad)) ?? null),
   );
 
-  function plazoSiguiente(a: ActividadAlumno): { texto: string; tono: 'warn' | 'off' } {
-    const dia = a.fecha_limite?.slice(0, 10) ?? '';
+  function plazoDe(fecha: string | null | undefined): { texto: string; tono: 'warn' | 'off' } {
+    const dia = fecha?.slice(0, 10) ?? '';
     if (!dia) return { texto: 'Sin fecha límite', tono: 'off' };
     if (dia < hoy) return { texto: 'Atrasada · aún se recibe', tono: 'warn' };
     const t = fechaLimiteTexto(dia, hoy);
@@ -292,23 +292,46 @@
       : { entrega: 'max-lg:order-1', agenda: 'max-lg:order-2', nota: 'max-lg:order-3', integrantes: 'max-lg:order-4', enunciado: 'max-lg:order-5', rubrica: 'max-lg:order-6', detalles: 'max-lg:order-7', siguiente: 'max-lg:order-8', evaluada: 'max-lg:order-9' },
   );
 
-  function toggleRubricaModal() {
-    showRubricaModal = !showRubricaModal;
+  // Las ventanas se abren desde la página. La rúbrica, además, desde una
+  // evaluación de la agenda: entonces se abre encima, con esa evaluación.
+  let rubricaDeAgenda = $state<RubricaDetalleEvent | null>(null);
+  function abrirRubrica(detalle: RubricaDetalleEvent | null = null) {
+    rubricaDeAgenda = detalle;
+    showRubricaModal = true;
   }
-  function toggleAgendaModal() {
-    showAgendaModal = !showAgendaModal;
-  }
-  function toggleEntregaModal() {
-    showAgendaModal = false;
-    showRubricaModal = false;
-    showEntregaModal = !showEntregaModal;
-  }
-  function toggleEnunciadoModal() {
-    showAgendaModal = false;
-    showRubricaModal = false;
-    showEntregaModal = false;
-    showEnunciadoModal = !showEnunciadoModal;
-  }
+  const abrirAgenda = () => (showAgendaModal = true);
+  const abrirEntrega = () => (showEntregaModal = true);
+  const abrirEnunciado = () => (showEnunciadoModal = true);
+
+  const rubricaPanel = $derived<RubricaDetalleEvent>(
+    rubricaDeAgenda ?? {
+      rubrica: rubricaVista,
+      resultado,
+      puntaje_obtenido: ultima_evaluacion?.puntaje_obtenido ?? ultimaEvaluacion?.puntaje_obtenido ?? null,
+      retroalimentacion: ultima_evaluacion?.retroalimentacion ?? ultimaEvaluacion?.mensaje ?? undefined,
+      evaluador: ultima_evaluacion?.emisor ?? ultimaEvaluacion?.emisor ?? undefined,
+      fecha: ultima_evaluacion?.fecha_emision ?? ultimaEvaluacion?.fecha_emision ?? undefined,
+    },
+  );
+  const rubricaPanelEvaluada = $derived(Object.keys(rubricaPanel.resultado ?? {}).length > 0);
+  const subtituloRubrica = $derived.by(() => {
+    if (!rubricaPanelEvaluada) return 'Así se evaluará tu entrega';
+    const quien = rubricaPanel.evaluador ? `Evaluada por ${titleCase(rubricaPanel.evaluador)}` : 'Evaluada';
+    const fecha = rubricaPanel.fecha ? new Date(rubricaPanel.fecha) : null;
+    return fecha && !isNaN(fecha.getTime()) ? `${quien} · ${formatDiaCorto(fecha)}` : quien;
+  });
+
+  const subtituloAgenda = $derived(
+    `${[nombre_curso, componente_tipo].filter(Boolean).join(' · ')} · ${es_grupal ? 'tu grupo' : 'tú'} y tu equipo docente`,
+  );
+  const subtituloEntrega = $derived.by(() => {
+    const plazo = plazoDe(fecha_limite).texto;
+    return `${es_grupal ? 'Entrega del grupo' : 'Tu entrega'} · ${plazo.charAt(0).toLowerCase()}${plazo.slice(1)}`;
+  });
+  // «Benjamín y Josefa la ven en la agenda»: el resto del grupo, por su nombre de pila.
+  const companeros = $derived(resto_integrantes.map((u) => titleCase(u.nombre1 ?? '')).filter(Boolean));
+
+  let entregaSubiendo = $state(false);
 
   function handleGuardarEntrada(data: { tipo: string; mensaje: string }) {
     if (!id_actividad_asignada_grupo) {
@@ -391,8 +414,8 @@
       nombreCurso={nombre_curso}
       nombre={nombre_actividad}
       {chips}
-      onVerEnunciado={archivo_enunciado ? toggleEnunciadoModal : undefined}
-      onVerRubrica={conRubrica && !rubricaEvaluada ? toggleRubricaModal : undefined}
+      onVerEnunciado={archivo_enunciado ? abrirEnunciado : undefined}
+      onVerRubrica={conRubrica && !rubricaEvaluada ? () => abrirRubrica() : undefined}
     />
 
     <div class="flex flex-col gap-4 px-4 lg:px-0">
@@ -434,7 +457,7 @@
 
           {#if rubricaEvaluada}
             <div class={orden.evaluada}>
-              <ActividadRubricaEvaluada {criterios} onVerCompleta={toggleRubricaModal} />
+              <ActividadRubricaEvaluada {criterios} onVerCompleta={() => abrirRubrica()} />
             </div>
           {/if}
 
@@ -451,7 +474,7 @@
                 urlDescarga={ultima_entrega
                   ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/entregas/${ultima_entrega.id_interaccion}/descargar`
                   : null}
-                onSubir={toggleEntregaModal}
+                onSubir={abrirEntrega}
                 onBorrar={handleBorrarEntrega}
               />
             </div>
@@ -464,7 +487,7 @@
                 esGrupal={es_grupal}
                 {calificada}
                 vista={agendaVista}
-                onAbrir={toggleAgendaModal}
+                onAbrir={abrirAgenda}
               />
             </div>
           {/if}
@@ -555,7 +578,7 @@
               <button
                 type="button"
                 class="flex min-h-12 w-full cursor-pointer items-center gap-1 px-4 text-[15px] font-semibold text-dm-enlace hover:text-dm-enlace-hover hover:underline lg:min-h-11 lg:px-5 lg:text-sm"
-                onclick={toggleRubricaModal}
+                onclick={() => abrirRubrica()}
               >
                 Ver rúbrica completa<ChevronRight size={16} aria-hidden="true" />
               </button>
@@ -563,7 +586,7 @@
           {/if}
 
           {#if siguiente}
-            {@const plazo = plazoSiguiente(siguiente)}
+            {@const plazo = plazoDe(siguiente.fecha_limite)}
             <section aria-labelledby="t-siguiente" class="{tarjeta} flex flex-col gap-2.5 p-4 lg:p-5 {orden.siguiente}">
               <h2 id="t-siguiente" class="{etiqueta} text-dm-ink-3">Lo que sigue en el curso</h2>
               <Link
@@ -587,91 +610,63 @@
   </div>
 </StudentLayout>
 
-{#if showAgendaModal}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-    onclick={(e) => e.target === e.currentTarget && toggleAgendaModal()}
-    onkeydown={(e) => e.key === 'Escape' && toggleAgendaModal()}
-  >
-    <Agenda
-      onCerrar={toggleAgendaModal}
-      onInteraccionEnviada={handleGuardarEntrada}
-      {id_curso}
-      {cod_curso}
-      {nombre_curso}
-      {cod_actividad}
-      {nombre_actividad}
-      {entrega_obligatoria}
-      listado_interacciones={interaccionesCombinadas}
-      {id_actividad_asignada_grupo}
-      equipoDocente={equipo_docente}
-      esSumativa={es_sumativa}
-    />
-  </div>
-{/if}
+<ModalAlumno
+  bind:open={showAgendaModal}
+  etiqueta="Agenda de la actividad"
+  titulo={nombre_actividad}
+  subtitulo={subtituloAgenda}
+  estilo={colorCurso}
+  rotuloCerrar="Cerrar agenda"
+>
+  <Agenda
+    idCurso={id_curso}
+    codActividad={cod_actividad}
+    listado_interacciones={interaccionesCombinadas}
+    esGrupal={es_grupal}
+    entregaPendiente={estaPorEntregar}
+    onEnviar={(mensaje) => handleGuardarEntrada({ tipo: 'Consulta', mensaje })}
+    onVerRubrica={abrirRubrica}
+  />
+</ModalAlumno>
 
-{#if showRubricaModal}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-    onclick={(e) => e.target === e.currentTarget && toggleRubricaModal()}
-    onkeydown={(e) => e.key === 'Escape' && toggleRubricaModal()}
-  >
-    <!--
-      max-w-6xl y no 3xl: la rúbrica es una tabla de un criterio por fila y un
-      nivel por columna, así que su ancho natural crece con la cantidad de
-      niveles. A 3xl las celdas quedaban tan angostas que la descripción de cada
-      nivel se partía en una palabra por línea. El scroll horizontal lo pone la
-      propia tabla (RubricaView envuelve en overflow-x-auto), no este contenedor:
-      así la cabecera del modal y el botón de cerrar quedan siempre a la vista.
-    -->
-    <div class="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
-      <div class="flex items-center justify-between border-b border-gray-200 p-5 md:px-6">
-        <div>
-          <div class="text-xs font-semibold uppercase tracking-wider text-ink-2">Rúbrica de evaluación</div>
-          <div class="mt-0.5 text-base font-semibold text-ink">{nombre_actividad}</div>
-        </div>
-        <button
-          class="rounded-lg p-1 text-ink-2 transition-colors hover:bg-slate-50 hover:text-ink"
-          onclick={toggleRubricaModal}
-          aria-label="Cerrar"
-        >
-          <X class="h-[18px] w-[18px]" />
-        </button>
-      </div>
-      <div class="flex-1 overflow-y-auto p-5 md:p-6">
-        {#if rubrica || ultima_evaluacion?.rubrica || ultimaEvaluacion?.rubrica}
-          <RubricaView
-            rubrica={ultima_evaluacion?.rubrica ?? ultimaEvaluacion?.rubrica ?? rubrica?.rubrica}
-            esSumativa={es_sumativa}
-            resultado={ultima_evaluacion?.resultado ?? ultimaEvaluacion?.resultado}
-            puntaje_obtenido={ultima_evaluacion?.puntaje_obtenido ?? ultimaEvaluacion?.puntaje_obtenido}
-            retroalimentacion={ultima_evaluacion?.retroalimentacion ?? ultimaEvaluacion?.mensaje}
-          />
-        {:else}
-          <p class="py-8 text-center text-sm font-medium text-ink-2">No hay rúbrica disponible para esta actividad.</p>
-        {/if}
-      </div>
-    </div>
-  </div>
-{/if}
+<ModalAlumno
+  bind:open={showRubricaModal}
+  variante="lateral"
+  etiqueta={rubricaPanelEvaluada ? 'Rúbrica evaluada' : 'Rúbrica de la actividad'}
+  titulo={nombre_actividad}
+  subtitulo={subtituloRubrica}
+  estilo={colorCurso}
+  rotuloCerrar="Cerrar rúbrica"
+>
+  <RubricaAlumno
+    rubrica={rubricaPanel.rubrica}
+    resultado={rubricaPanel.resultado}
+    puntajeObtenido={rubricaPanel.puntaje_obtenido}
+    retroalimentacion={rubricaPanel.retroalimentacion}
+    evaluador={rubricaPanel.evaluador ? titleCase(rubricaPanel.evaluador) : null}
+    {exigencia}
+  />
+</ModalAlumno>
 
-{#if showEntregaModal && id_actividad_asignada_grupo}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-    onclick={(e) => e.target === e.currentTarget && toggleEntregaModal()}
-    onkeydown={(e) => e.key === 'Escape' && toggleEntregaModal()}
+{#if id_actividad_asignada_grupo}
+  <ModalAlumno
+    bind:open={showEntregaModal}
+    variante="centro"
+    etiqueta={tieneEntregaRegistrada ? 'Reemplazar la entrega' : 'Entregar la actividad'}
+    titulo={nombre_actividad}
+    subtitulo={subtituloEntrega}
+    estilo={colorCurso}
+    rotuloCerrar="Cerrar entrega"
+    bloqueada={entregaSubiendo}
   >
     <Entrega
-      onCerrar={toggleEntregaModal}
+      {id_actividad_asignada_grupo}
+      {entrega_obligatoria}
+      esReemplazo={tieneEntregaRegistrada}
+      esGrupal={es_grupal}
+      {companeros}
+      bind:subiendo={entregaSubiendo}
+      onCerrar={() => (showEntregaModal = false)}
       onEntregaCompletada={() => {
         showEntregaModal = false;
         router.reload();
@@ -680,32 +675,26 @@
         showEntregaModal = false;
         showAgendaModal = true;
       }}
-      {id_actividad_asignada_grupo}
-      {nombre_curso}
-      {nombre_actividad}
-      {entrega_obligatoria}
-      esReemplazo={tieneEntregaRegistrada}
-      esGrupal={es_grupal}
     />
-  </div>
+  </ModalAlumno>
 {/if}
 
-{#if showEnunciadoModal}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 transition-opacity"
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-    onclick={(e) => e.target === e.currentTarget && toggleEnunciadoModal()}
-    onkeydown={(e) => e.key === 'Escape' && toggleEnunciadoModal()}
+{#if archivo_enunciado}
+  <ModalAlumno
+    bind:open={showEnunciadoModal}
+    etiqueta="Enunciado"
+    titulo={nombre_actividad}
+    subtitulo={nombre_curso}
+    estilo={colorCurso}
+    rotuloCerrar="Cerrar enunciado"
   >
     <Enunciado
-      onCerrar={toggleEnunciadoModal}
-      url_archivo={archivo_enunciado ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/enunciado/descargar` : ''}
-      nombre_archivo={archivo_enunciado?.nombre_original ?? 'Enunciado de la Actividad'}
-      tipo_archivo={tipoEnunciado}
+      url_archivo={urlEnunciado}
+      nombre_archivo={archivo_enunciado.nombre_original}
+      detalle={detalleEnunciado}
+      esPdf={enunciadoEsPdf}
     />
-  </div>
+  </ModalAlumno>
 {/if}
 
 <ConfirmDialog
@@ -715,14 +704,4 @@
   confirmLabel="Eliminar"
   onConfirm={borrarEntregaConfirmado}
   onCancel={() => (confirmandoBorrado = false)}
-/>
-
-<svelte:window
-  onkeydown={(e) => {
-    if (e.key === 'Escape') {
-      showRubricaModal = false;
-      showAgendaModal = false;
-      showEntregaModal = false;
-    }
-  }}
 />
