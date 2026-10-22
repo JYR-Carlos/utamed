@@ -474,6 +474,7 @@
                 urlDescarga={ultima_entrega
                   ? `/estudiante/cursos/${id_curso}/actividades/${cod_actividad}/entregas/${ultima_entrega.id_interaccion}/descargar`
                   : null}
+                hrefMensajeria={`/estudiante/cursos/${id_curso}?seccion=mensajeria`}
                 onSubir={abrirEntrega}
                 onBorrar={handleBorrarEntrega}
               />

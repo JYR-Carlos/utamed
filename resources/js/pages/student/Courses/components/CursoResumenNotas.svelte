@@ -32,7 +32,7 @@
    */
   import { CircleAlert, CircleCheck, Info, LineChart } from 'lucide-svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
-  import { btnSecundario, etiqueta, pildora, tarjeta, tono } from '@/lib/dm';
+  import { btnPrimario, etiqueta, pildora, tarjeta, tono } from '@/lib/dm';
 
   interface Props {
     cargando?: boolean;
@@ -63,7 +63,7 @@
 {:else if error}
   <EstadoVacio tipo="error" titulo="No se pudo cargar el resumen" texto={error}>
     {#snippet accion()}
-      {#if onReintentar}<button type="button" class={btnSecundario} onclick={onReintentar}>Intentar de nuevo</button>{/if}
+      {#if onReintentar}<button type="button" class={btnPrimario} onclick={onReintentar}>Reintentar</button>{/if}
     {/snippet}
   </EstadoVacio>
 {:else if rendimiento}

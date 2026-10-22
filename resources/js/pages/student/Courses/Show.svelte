@@ -123,23 +123,25 @@
   // ─── Pestañas con datos diferidos ───────────────────────────────────────────
   // Resumen de notas (T30), Mensajería y Bitácora se piden cada vez que se
   // entra a la pestaña: pueden haber cambiado desde la última vez.
-  const DIFERIDAS: Partial<Record<SeccionCurso, { prop: string; error: string }>> = {
-    notas: { prop: 'rendimiento', error: 'No se pudo calcular tu rendimiento. Intenta de nuevo.' },
-    mensajeria: { prop: 'mensajeria', error: 'No se pudieron cargar los mensajes. Intenta de nuevo.' },
-    bitacora: { prop: 'bitacora', error: 'No se pudo cargar la bitácora. Intenta de nuevo.' },
+  // Cada pestaña pone su propio título al error; el texto es común.
+  const DIFERIDAS: Partial<Record<SeccionCurso, string>> = {
+    notas: 'rendimiento',
+    mensajeria: 'mensajeria',
+    bitacora: 'bitacora',
   };
+  const ERROR_DIFERIDA = 'Intenta de nuevo. Si vuelve a fallar, revisa tu conexión.';
 
   let diferidaCargando = $state(false);
   let diferidaError = $state<string | null>(null);
 
   function cargarDiferida(s: SeccionCurso) {
-    const diferida = DIFERIDAS[s];
-    if (!diferida) return;
+    const prop = DIFERIDAS[s];
+    if (!prop) return;
     diferidaError = null;
     diferidaCargando = true;
     router.reload({
-      only: [diferida.prop],
-      onError: () => (diferidaError = diferida.error),
+      only: [prop],
+      onError: () => (diferidaError = ERROR_DIFERIDA),
       onFinish: () => (diferidaCargando = false),
     });
   }

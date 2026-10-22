@@ -68,7 +68,7 @@
   import { router } from '@inertiajs/svelte';
   import { Check, LoaderCircle, MessageSquare, Megaphone, Send } from 'lucide-svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
-  import { btnPrimario, btnSecundario, campo, tarjeta } from '@/lib/dm';
+  import { btnPrimario, campo, tarjeta } from '@/lib/dm';
   import { titleCase } from '@/lib/utils';
   import { formatDiaCorto, initials } from '@/utils/formatters';
 
@@ -200,13 +200,13 @@
 
   {#if !bandeja}
     {#if error}
-      <EstadoVacio tipo="error" titulo="No se pudieron cargar los mensajes" texto={error}>
+      <EstadoVacio tipo="error" titulo="No se pudo cargar la mensajería" texto={error}>
         {#snippet accion()}
-          {#if onReintentar}<button type="button" class={btnSecundario} onclick={onReintentar}>Intentar de nuevo</button>{/if}
+          {#if onReintentar}<button type="button" class={btnPrimario} onclick={onReintentar}>Reintentar</button>{/if}
         {/snippet}
       </EstadoVacio>
     {:else}
-      <EstadoVacio tipo="cargando" titulo="Cargando los mensajes…" />
+      <EstadoVacio tipo="cargando" titulo="Cargando la mensajería…" />
     {/if}
   {:else if !panel}
     <EstadoVacio

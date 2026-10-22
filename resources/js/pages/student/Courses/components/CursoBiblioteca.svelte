@@ -27,7 +27,7 @@
 {#if grupos.length === 0}
   <EstadoVacio
     icono={BookMarked}
-    titulo="Sin recursos por ahora"
+    titulo={hayPrograma ? 'Sin recursos por ahora' : 'Todavía no hay bibliografía'}
     texto={hayPrograma
       ? 'El programa de este curso no registra bibliografía.'
       : 'La bibliografía se publica con el programa del curso, que aún no ha sido aprobado.'}

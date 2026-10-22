@@ -6,6 +6,7 @@
    * 07-10). Con holgura vigente el backend sigue diciendo ACTIVA y la píldora
    * dice «Atrasada · aún se recibe».
    */
+  import { Link } from '@inertiajs/svelte';
   import { CircleAlert, CircleCheck, Clock, Download, Eye, FileText, Lock, RefreshCw, Trash2, Upload, Users } from 'lucide-svelte';
   import { btnPrimario, btnSecundario, pildora, tarjeta, tono } from '@/lib/dm';
   import { claveDia, formatBytes, formatDiaCorto } from '@/utils/formatters';
@@ -28,6 +29,8 @@
       } | null;
     } | null;
     urlDescarga?: string | null;
+    /** Mensajería del curso, para el «avísale» de quien no tiene grupo. */
+    hrefMensajeria?: string | null;
     onSubir: () => void;
     onBorrar: () => void;
   }
@@ -41,6 +44,7 @@
     puedeSubir,
     entrega = null,
     urlDescarga = null,
+    hrefMensajeria = null,
     onSubir,
     onBorrar,
   }: Props = $props();
@@ -112,6 +116,9 @@
               ? 'Cuando tu docente te asigne a un grupo podrás entregar y escribir en la agenda. Si crees que es un error, avísale.'
               : 'Avisa a tu docente para que lo revise: sin él no puedes entregar ni escribir en la agenda.'}
           </span>
+          {#if hrefMensajeria}
+            <Link href={hrefMensajeria} class="{btnSecundario} mt-2 self-start">Escribir al equipo docente</Link>
+          {/if}
         </div>
       </div>
     {:else if entrega}

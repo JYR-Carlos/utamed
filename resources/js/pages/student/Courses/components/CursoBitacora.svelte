@@ -32,7 +32,7 @@
   import { Link } from '@inertiajs/svelte';
   import { Check, ChevronRight, FileText, History } from 'lucide-svelte';
   import EstadoVacio from '@/components/student/dm/EstadoVacio.svelte';
-  import { btnSecundario, campo, etiqueta, tarjeta } from '@/lib/dm';
+  import { btnPrimario, btnSecundario, campo, etiqueta, tarjeta } from '@/lib/dm';
   import { titleCase } from '@/lib/utils';
   import { claveDia, formatDiaLargo } from '@/utils/formatters';
 
@@ -105,7 +105,7 @@
   {#if error}
     <EstadoVacio tipo="error" titulo="No se pudo cargar la bitácora" texto={error}>
       {#snippet accion()}
-        {#if onReintentar}<button type="button" class={btnSecundario} onclick={onReintentar}>Intentar de nuevo</button>{/if}
+        {#if onReintentar}<button type="button" class={btnPrimario} onclick={onReintentar}>Reintentar</button>{/if}
       {/snippet}
     </EstadoVacio>
   {:else}
